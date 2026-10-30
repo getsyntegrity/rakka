@@ -3,7 +3,7 @@
 // Only the names that reach ActorPath.validatePathElement (:171-197). The
 // `null` and `""` cases (:169-170) belong to AC-CELL (dungeon/Children.scala).
 
-use pekko_actor::actor::validate_path_element;
+use rakka_actor::actor::validate_path_element;
 
 fn message_of(name: &str) -> String {
     let err = validate_path_element(name, None).unwrap_err();

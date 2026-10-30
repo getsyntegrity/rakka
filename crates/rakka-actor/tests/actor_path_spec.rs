@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 1.7.1 actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala (Apache-2.0).
 
-use pekko_actor::actor::{ActorPath, Address, validate_path_element};
+use rakka_actor::actor::{ActorPath, Address, validate_path_element};
 
 fn root(a: &Address) -> ActorPath {
     ActorPath::root(a.clone())

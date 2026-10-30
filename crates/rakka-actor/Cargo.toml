@@ -1,5 +1,5 @@
 [package]
-name = "pekko-actor"
+name = "rakka-actor"
 description = "Rust port of Apache Pekko 1.7.1 classic actors (pekko-actor)"
 version.workspace = true
 edition.workspace = true

@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{BuildHasher, RandomState};
 
-use pekko_actor::actor::{
+use rakka_actor::actor::{
     ActorPath, Address, ChildError, FromStringError, IllegalArgumentError, IllegalStateError,
     InvalidActorNameError, MalformedUrlError, is_valid_path_element, relative_actor_path_elements,
     validate_path_element,

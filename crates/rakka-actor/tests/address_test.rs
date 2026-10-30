@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 1.7.1 actor-tests/src/test/java/org/apache/pekko/actor/AddressTest.java (Apache-2.0).
 
-use pekko_actor::actor::Address;
+use rakka_actor::actor::Address;
 
 // AddressTest.java:26-30
 #[test]

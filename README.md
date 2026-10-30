@@ -1,4 +1,4 @@
-# pekko-rs
+# rakka
 
 Port a Rust de los actores de [Apache Pekko](https://pekko.apache.org/) 1.7.1: Classic (`pekko-actor`) y Typed (`pekko-actor-typed`), preservando sus contratos observables.
 

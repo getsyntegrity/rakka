@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 1.7.1 actor-tests/src/test/scala/org/apache/pekko/actor/AddressSpec.scala (Apache-2.0).
 
-use pekko_actor::actor::Address;
+use rakka_actor::actor::Address;
 
 #[test]
 fn work_correctly_with_multiple_mixed_protocols() {

@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 1.7.1 actor-tests/src/test/scala/org/apache/pekko/actor/RelativeActorPathSpec.scala (Apache-2.0).
 
-use pekko_actor::actor::relative_actor_path_elements;
+use rakka_actor::actor::relative_actor_path_elements;
 
 fn elements(path: &str) -> Vec<String> {
     relative_actor_path_elements(path).unwrap_or_default()

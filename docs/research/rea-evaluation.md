@@ -9,7 +9,7 @@ referencia: `upstream/pekko`, v1.7.1, commit `9a54d1294c3ac7821bbed3c940769c3d50
 
 **No adoptarlo para el port.** Como mucho sirve para algo puntual y opcional:
 comparar la salida de terminal de un escenario corrido en Pekko (JVM) contra el
-mismo escenario corrido en pekko-rs (`capture_process_scenario` +
+mismo escenario corrido en rakka (`capture_process_scenario` +
 `compare_process_captures`). Ese uso no depende de nada específico de Java/Scala,
 y un test de integración propio hace lo mismo con menos instalación. REA no lee
 bytecode de la JVM, no se conecta a una JVM en ejecución y no entiende Scala. Para
@@ -103,7 +103,7 @@ Si en algún momento queremos pruebas diferenciales de punta a punta, el uso
 razonable sería este:
 
 1. Escribir el mismo escenario dos veces: un `main` Scala/Java con Pekko y un
-   binario Rust con pekko-rs, los dos imprimiendo eventos (por ejemplo
+   binario Rust con rakka, los dos imprimiendo eventos (por ejemplo
    `started`, `received X`, `stopped`).
 2. Correr cada uno con `rea capture-process` y comparar los resultados con
    `rea compare-process-captures a.json b.json trace-spec.json`.
@@ -169,4 +169,4 @@ Desde la CLI, el equivalente aproximado es
 
 ## Nota posterior: qué usamos en su lugar
 
-La comparación "mismo escenario en Pekko y en pekko-rs" se resolvió sin REA ni sbt: `tools/oracle/run.sh` corre un script `jshell` (Java 21, ya instalado) contra los jars oficiales de Pekko 1.7.1, `scala-library` 2.13.18 y `config` 1.4.9, con SHA-1 verificados (ver `docs/upstream.md`). La primera corrida (`tools/oracle/path-address.jsh`, ~3 s) produjo `crates/pekko-actor/tests/oracle/path-address.golden` y mostró casos borde que dependen de `java.net.URI` y no se leen fácilmente en el código Scala (por ejemplo, `pekko://@host:1` se acepta con `system` vacío y `pekko://s@h:70000` se acepta). Ese golden lo compara un test Rust, sin capturas de terminal ni dependencia de REA. Para escenarios concurrentes, el plan es el mismo: el script `jshell` imprime eventos y el test Rust compara contra un conjunto de órdenes permitidos, no contra una única secuencia.
+La comparación "mismo escenario en Pekko y en rakka" se resolvió sin REA ni sbt: `tools/oracle/run.sh` corre un script `jshell` (Java 21, ya instalado) contra los jars oficiales de Pekko 1.7.1, `scala-library` 2.13.18 y `config` 1.4.9, con SHA-1 verificados (ver `docs/upstream.md`). La primera corrida (`tools/oracle/path-address.jsh`, ~3 s) produjo `crates/rakka-actor/tests/oracle/path-address.golden` y mostró casos borde que dependen de `java.net.URI` y no se leen fácilmente en el código Scala (por ejemplo, `pekko://@host:1` se acepta con `system` vacío y `pekko://s@h:70000` se acepta). Ese golden lo compara un test Rust, sin capturas de terminal ni dependencia de REA. Para escenarios concurrentes, el plan es el mismo: el script `jshell` imprime eventos y el test Rust compara contra un conjunto de órdenes permitidos, no contra una única secuencia.

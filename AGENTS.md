@@ -1,11 +1,11 @@
-# AGENTS.md — pekko-rs
+# AGENTS.md — rakka
 
 Port a Rust de los módulos de actores de Apache Pekko 1.7.1: `pekko-actor` (Classic) y `pekko-actor-typed` (Typed). Apache Pekko es la fuente de verdad; goPekko (`/home/pablog/workspace/getsyntegrity/gopekko`) sólo aporta aprendizajes.
 
 ## Estructura
 
 - `upstream/pekko/` — submódulo fijado en v1.7.1 (`9a54d129…`). **Sólo lectura.** Ver `docs/upstream.md`.
-- `crates/pekko-actor/`, `crates/pekko-actor-typed/` — código propio.
+- `crates/rakka-actor/`, `crates/rakka-actor-typed/` — código propio.
 - `crates/*/tests/oracle/*.golden` — salidas del jar oficial de Pekko usadas por tests diferenciales.
 - `tools/oracle/` — `fetch-jars.sh` (baja y verifica jars), `run.sh <script.jsh>` (corre un escenario con `jshell`).
 - `docs/inventory/` — inventario de alcance (`actor-classic.tsv`, `actor-typed.tsv` + resúmenes `.md`). Es la definición de "100%".

@@ -1,8 +1,8 @@
 # Unidad AC-PATH: `Address` y `ActorPath` — plan de implementación
 
-**Goal:** Que `pekko-actor` tenga los tipos `Address` y `ActorPath` con el mismo comportamiento observable que Pekko 1.7.1, comprobado contra Pekko compilado desde `upstream/pekko`.
+**Goal:** Que `rakka-actor` tenga los tipos `Address` y `ActorPath` con el mismo comportamiento observable que Pekko 1.7.1, comprobado contra Pekko compilado desde `upstream/pekko`.
 
-**Architecture:** Dos tipos de valor inmutables en `crates/pekko-actor/src/actor/`. `ActorPath` es una lista enlazada hacia la raíz compartida con `Arc`, igual que en Pekko (cada hijo apunta a su padre). El parseo de cadenas reproduce la parte de `java.net.URI` que se ve a través de Pekko, en un módulo interno `uri.rs`, porque varios resultados observables (qué se acepta y qué no) salen de esa clase del JDK (Java Development Kit) y no de código de Pekko.
+**Architecture:** Dos tipos de valor inmutables en `crates/rakka-actor/src/actor/`. `ActorPath` es una lista enlazada hacia la raíz compartida con `Arc`, igual que en Pekko (cada hijo apunta a su padre). El parseo de cadenas reproduce la parte de `java.net.URI` que se ve a través de Pekko, en un módulo interno `uri.rs`, porque varios resultados observables (qué se acepta y qué no) salen de esa clase del JDK (Java Development Kit) y no de código de Pekko.
 
 **Tech Stack:** Rust 1.96, edition 2024, sin dependencias externas. Oráculo: `jshell` (Java 21) con `tools/oracle/run.sh tools/oracle/path-address.jsh`.
 
@@ -22,7 +22,7 @@ Quedan fuera dos specs que tocan estos tipos pero prueban otra cosa: `ActorSelec
 
 ## Referencia: Pekko compilado desde la fuente
 
-El golden se genera con `tools/oracle/run.sh tools/oracle/path-address.jsh`, que corre contra Pekko 1.7.1 compilado desde `upstream/pekko` (el cambio de `run.sh` lo hace otra tarea). Los jars publicados (`ORACLE=jars`) sólo sirven para comprobar que el script compila; **ningún golden se escribe desde los jars**. El golden actual `crates/pekko-actor/tests/oracle/path-address.golden` salió de los jars y de una versión vieja del script: no es referencia y se regenera en la Task 5.
+El golden se genera con `tools/oracle/run.sh tools/oracle/path-address.jsh`, que corre contra Pekko 1.7.1 compilado desde `upstream/pekko` (el cambio de `run.sh` lo hace otra tarea). Los jars publicados (`ORACLE=jars`) sólo sirven para comprobar que el script compila; **ningún golden se escribe desde los jars**. El golden actual `crates/rakka-actor/tests/oracle/path-address.golden` salió de los jars y de una versión vieja del script: no es referencia y se regenera en la Task 5.
 
 El JDK también es parte de la referencia: `java.net.URI` y `Integer.valueOf` vienen de Java 21. Si se cambia de JDK, se regenera el golden y se revisan las diferencias.
 
@@ -91,19 +91,19 @@ Cada una cambiaría comportamiento público; todas están anotadas con `Q:` en l
 - **Q-PATH-3 (AC-PATH-001, 014): valor de `hashCode`.** Pekko lo expone como `int`; Rust sólo da `Hash`. Alternativas: (a) no reproducir el valor (recomendada); (b) exponer `pekko_hash_code() -> i32` idéntico, sólo si alguna unidad posterior lo necesita.
 - **Q-PATH-4 (AC-PATH-001, 007, 008): `null` de Java.** `fromString(null)` y `validatePathElement(null)` lanzan `NullPointerException`; `new Address(null, "s")` imprime `null://s`. Con `&str` no se puede expresar. Alternativa: aceptarlo como diferencia de lenguaje (recomendada). El caso `host = null` del constructor Java sí se representa: `Address::new(.., None, Some(port))`.
 - **Q-PATH-5 (AC-PATH-009): fachada Java `ActorPaths`.** Es la pregunta 7 de `docs/inventory/actor-classic.md`. En Rust las funciones libres cubren el contrato; falta decidir si la fila se excluye, se fusiona con 007/008 o se porta.
-- **Q-PATH-6 (AC-PATH-002, 004..007, 011, 014): licencia de `uri.rs` y `jstring.rs`.** `crates/pekko-actor/src/actor/uri.rs` porta el comportamiento del parser y de `decode` de OpenJDK 21 `java/net/URI.java` y las longitudes de entrada malformada de `sun/nio/cs/UTF_8.java`; `jstring.rs` reproduce `String.compareTo`, `Integer.valueOf` y la tabla de `Character.digit` de Java 21. OpenJDK es GPL-2.0 WITH Classpath-exception-2.0, no Apache-2.0. Alternativas: (a) aceptar el código como reimplementación del comportamiento observable y declarar la referencia en el encabezado (estado actual, sin decidir); (b) reescribirlo en sala limpia desde RFC 2396/3629 y los oráculos; (c) depender de un crate externo con licencia compatible y adaptar las desviaciones del JDK. Es una pregunta de licencia, no de semántica: no cambia el comportamiento ni bloquea `impl=done` de esas filas.
+- **Q-PATH-6 (AC-PATH-002, 004..007, 011, 014): licencia de `uri.rs` y `jstring.rs`.** `crates/rakka-actor/src/actor/uri.rs` porta el comportamiento del parser y de `decode` de OpenJDK 21 `java/net/URI.java` y las longitudes de entrada malformada de `sun/nio/cs/UTF_8.java`; `jstring.rs` reproduce `String.compareTo`, `Integer.valueOf` y la tabla de `Character.digit` de Java 21. OpenJDK es GPL-2.0 WITH Classpath-exception-2.0, no Apache-2.0. Alternativas: (a) aceptar el código como reimplementación del comportamiento observable y declarar la referencia en el encabezado (estado actual, sin decidir); (b) reescribirlo en sala limpia desde RFC 2396/3629 y los oráculos; (c) depender de un crate externo con licencia compatible y adaptar las desviaciones del JDK. Es una pregunta de licencia, no de semántica: no cambia el comportamiento ni bloquea `impl=done` de esas filas.
 
 ## Global Constraints
 
-- Sin dependencias en `crates/pekko-actor/Cargo.toml` para esta unidad.
+- Sin dependencias en `crates/rakka-actor/Cargo.toml` para esta unidad.
 - Los tests portados de specs comparan como el spec (`include` → `contains`); el oráculo compara la línea completa.
-- `cargo test -p pekko-actor` sin `-race` ni equivalentes; `cargo clippy --workspace --all-targets -- -D warnings` limpio.
+- `cargo test -p rakka-actor` sin `-race` ni equivalentes; `cargo clippy --workspace --all-targets -- -D warnings` limpio.
 - Cada archivo Rust lleva el encabezado de atribución de `docs/upstream.md`.
 
 ## Contracts
 
 ```rust
-// crates/pekko-actor/src/actor/address.rs
+// crates/rakka-actor/src/actor/address.rs
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]   // sin PartialOrd/Ord (decisión 2)
 pub struct Address { /* protocol: String, system: String, host: Option<String>, port: Option<i32> */ }
 
@@ -125,7 +125,7 @@ impl Address {
 }
 impl std::fmt::Display for Address {} // "p://s", "p://s@h", "p://s:1", "p://s@h:1"
 
-// crates/pekko-actor/src/actor/path.rs
+// crates/rakka-actor/src/actor/path.rs
 #[derive(Clone)]
 pub struct ActorPath(/* Arc<Node> */);   // PartialEq, Eq, Hash (sin uid), Debug, Display; sin Ord
 
@@ -150,13 +150,13 @@ pub fn validate_path_element(element: &str, full_path: Option<&str>) -> Result<(
 pub fn is_valid_path_element(element: &str) -> bool;
 pub fn relative_actor_path_elements(s: &str) -> Option<Vec<String>>;   // RelativeActorPath.unapply
 
-// crates/pekko-actor/src/actor/errors.rs — todos con java_class() y message(); Display = message
+// crates/rakka-actor/src/actor/errors.rs — todos con java_class() y message(); Display = message
 pub struct MalformedUrlError;  pub struct NumberFormatError;  pub struct IllegalArgumentError;
 pub struct IllegalStateError;  pub struct InvalidActorNameError;
 pub enum FromStringError { MalformedUrl(MalformedUrlError), NumberFormat(NumberFormatError) }
 pub enum ChildError { NumberFormat(NumberFormatError), IllegalArgument(IllegalArgumentError) }
 
-// crates/pekko-actor/src/actor/uri.rs (pub(crate)) — lo observable de java.net.URI (tabla de arriba)
+// crates/rakka-actor/src/actor/uri.rs (pub(crate)) — lo observable de java.net.URI (tabla de arriba)
 pub(crate) struct Uri { /* scheme, user_info (decodificado), host, port: i32 (-1 = ausente), raw_path: Option, raw_fragment */ }
 pub(crate) fn parse(s: &str) -> Result<Uri, UriSyntaxError>;
 ```
@@ -165,7 +165,7 @@ pub(crate) fn parse(s: &str) -> Result<Uri, UriSyntaxError>;
 
 **Specs → tests Rust.** Una fila por aserción (o por grupo de aserciones iguales en forma). Rutas relativas a `upstream/pekko/actor-tests/src/test/`. Las columnas son: línea del spec, qué afirma, test Rust a escribir y caso del oráculo.
 
-`scala/org/apache/pekko/actor/ActorPathSpec.scala` (15 tests) → `crates/pekko-actor/tests/actor_path_spec.rs`:
+`scala/org/apache/pekko/actor/ActorPathSpec.scala` (15 tests) → `crates/rakka-actor/tests/actor_path_spec.rs`:
 
 | Línea | Aserción | Test Rust | Oráculo |
 |---|---|---|---|
@@ -192,13 +192,13 @@ pub(crate) fn parse(s: &str) -> Result<Uri, UriSyntaxError>;
 
 `scala/org/apache/pekko/actor/AddressSpec.scala:34` (orden `[akka h1, akka h2, pekko h1, pekko h2]`) → `address_spec::work_correctly_with_multiple_mixed_protocols`, oráculo `SPEC-ADS-34`. El test ordena con `sort_by(Address::pekko_compare)`; esas cuatro direcciones no tocan el caso de Q-PATH-1.
 
-`scala/org/apache/pekko/actor/RelativeActorPathSpec.scala` → `crates/pekko-actor/tests/relative_actor_path_spec.rs`: `:29` → `match_single_name` (`SPEC-RAP-29`); `:32` → `match_path_separated_names` (`SPEC-RAP-32`); `:35-36` → `match_url_encoded_name` (`SPEC-RAP-35`); `:39` → `match_path_with_uid_fragment` (`SPEC-RAP-39`).
+`scala/org/apache/pekko/actor/RelativeActorPathSpec.scala` → `crates/rakka-actor/tests/relative_actor_path_spec.rs`: `:29` → `match_single_name` (`SPEC-RAP-29`); `:32` → `match_path_separated_names` (`SPEC-RAP-32`); `:35-36` → `match_url_encoded_name` (`SPEC-RAP-35`); `:39` → `match_path_with_uid_fragment` (`SPEC-RAP-39`).
 
-`scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:171-197` (sólo los nombres que llegan a `validatePathElement`) → `crates/pekko-actor/tests/local_actor_ref_provider_spec.rs::throw_suitable_exceptions_for_malformed_actor_names`, llamando a `validate_path_element` en lugar de `actorOf`: `$hallo` contiene ``not start with `$` `` (:171, `SPEC-LARP-01`); `a%`, `%3`, `%xx`, `%0G`, `%gg`, `%`, `%1t`, `a?` contienen `Invalid actor path element` (:173-188, `SPEC-LARP-02..09`); `üß` contiene `include only ASCII` (:189, `SPEC-LARP-10`); `he"llo` contiene `["] at position: 2` (:192, `SPEC-LARP-11`); `$hello` contiene `[$] at position: 0` (:194, `SPEC-LARP-12`); `hell>o` contiene `[>] at position: 4` (:196, `SPEC-LARP-13`). Las líneas :169-170 son de AC-CELL.
+`scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:171-197` (sólo los nombres que llegan a `validatePathElement`) → `crates/rakka-actor/tests/local_actor_ref_provider_spec.rs::throw_suitable_exceptions_for_malformed_actor_names`, llamando a `validate_path_element` en lugar de `actorOf`: `$hallo` contiene ``not start with `$` `` (:171, `SPEC-LARP-01`); `a%`, `%3`, `%xx`, `%0G`, `%gg`, `%`, `%1t`, `a?` contienen `Invalid actor path element` (:173-188, `SPEC-LARP-02..09`); `üß` contiene `include only ASCII` (:189, `SPEC-LARP-10`); `he"llo` contiene `["] at position: 2` (:192, `SPEC-LARP-11`); `$hello` contiene `[$] at position: 0` (:194, `SPEC-LARP-12`); `hell>o` contiene `[>] at position: 4` (:196, `SPEC-LARP-13`). Las líneas :169-170 son de AC-CELL.
 
 `java/org/apache/pekko/actor/JavaAPI.java:62` (`ActorPaths.fromString` dentro de `mustCompile`, que Pekko compila pero no ejecuta) → sin test Rust; oráculo `SPEC-JAPI-62`.
 
-**Casos del oráculo → contrato.** `tools/oracle/path-address.jsh` imprime una línea por caso: `<ID> -> ok <campos>` o `<ID> -> ERR <Clase> [<mensaje>]`, con todo lo que no sea ASCII imprimible escrito como `\uXXXX` (unidad UTF-16) para que los espacios finales y los surrogates queden visibles. El test `crates/pekko-actor/tests/oracle_path_address.rs` reconstruye cada caso con la API Rust y compara la línea.
+**Casos del oráculo → contrato.** `tools/oracle/path-address.jsh` imprime una línea por caso: `<ID> -> ok <campos>` o `<ID> -> ERR <Clase> [<mensaje>]`, con todo lo que no sea ASCII imprimible escrito como `\uXXXX` (unidad UTF-16) para que los espacios finales y los surrogates queden visibles. El test `crates/rakka-actor/tests/oracle_path_address.rs` reconstruye cada caso con la API Rust y compara la línea.
 
 | Prefijo | Cantidad | Contrato | Filas |
 |---|---|---|---|
@@ -221,27 +221,27 @@ pub(crate) fn parse(s: &str) -> Result<Uri, UriSyntaxError>;
 
 ### Task 1: `Address` y errores
 
-**Files:** Create `crates/pekko-actor/src/actor/{mod.rs,address.rs,errors.rs}`; Modify `crates/pekko-actor/src/lib.rs`; Test `crates/pekko-actor/tests/address_spec.rs`, `crates/pekko-actor/tests/actor_path_spec.rs` (sólo los tres tests de host).
+**Files:** Create `crates/rakka-actor/src/actor/{mod.rs,address.rs,errors.rs}`; Modify `crates/rakka-actor/src/lib.rs`; Test `crates/rakka-actor/tests/address_spec.rs`, `crates/rakka-actor/tests/actor_path_spec.rs` (sólo los tres tests de host).
 
 - [ ] **Step 1: tests que fallan** — `address_spec::work_correctly_with_multiple_mixed_protocols`; los tres tests de host de `actor_path_spec` (:117-144); unitarios con los valores de `CT-01..19`, `HC-*` y `CMPA-01..16` (incluidos los mensajes exactos y `pekko_compare` por UTF-16).
-- [ ] **Step 2:** `cargo test -p pekko-actor` → no compila.
+- [ ] **Step 2:** `cargo test -p rakka-actor` → no compila.
 - [ ] **Step 3:** implementar `Address`, `pekko_compare` y los tipos de error (decisiones 1, 2, 3, 4).
 - [ ] **Step 4:** el mismo comando pasa.
 - [ ] **Step 5:** commit `feat(actor): Address value type (AC-PATH)`.
 
 ### Task 2: lo observable de `java.net.URI`, `Address::parse` y rutas relativas
 
-**Files:** Create `crates/pekko-actor/src/actor/uri.rs` (con `#[cfg(test)] mod tests`); Modify `address.rs`, `path.rs` (sólo `relative_actor_path_elements`); Test `crates/pekko-actor/tests/relative_actor_path_spec.rs`, `actor_path_spec.rs` (:40-48).
+**Files:** Create `crates/rakka-actor/src/actor/uri.rs` (con `#[cfg(test)] mod tests`); Modify `address.rs`, `path.rs` (sólo `relative_actor_path_elements`); Test `crates/rakka-actor/tests/relative_actor_path_spec.rs`, `actor_path_spec.rs` (:40-48).
 
 - [ ] **Step 1: tests que fallan** — los 4 de `relative_actor_path_spec`; `support_parsing_address_from_uri_string` y la versión akka; unitarios de `Address::parse` con los resultados de `AD-*` y de `relative_actor_path_elements` con `RP-*`.
-- [ ] **Step 2:** `cargo test -p pekko-actor` → falla.
+- [ ] **Step 2:** `cargo test -p rakka-actor` → falla.
 - [ ] **Step 3:** parser según la tabla "Qué parte de `java.net.URI` se ve desde la API": autoridad "server" con caída a "registry", puerto `i32`, userinfo decodificado, path y fragmento crudos.
 - [ ] **Step 4:** pasa.
 - [ ] **Step 5:** commit `feat(actor): JDK-compatible URI subset and Address parsing (AC-PATH)`.
 
 ### Task 3: validación de elementos de path
 
-**Files:** Modify `crates/pekko-actor/src/actor/path.rs` (funciones libres); Test `crates/pekko-actor/tests/actor_path_spec.rs` (`validate_path_elements`), `crates/pekko-actor/tests/local_actor_ref_provider_spec.rs`.
+**Files:** Modify `crates/rakka-actor/src/actor/path.rs` (funciones libres); Test `crates/rakka-actor/tests/actor_path_spec.rs` (`validate_path_elements`), `crates/rakka-actor/tests/local_actor_ref_provider_spec.rs`.
 
 - [ ] **Step 1: tests que fallan** — `actor_path_spec::validate_path_elements`, `local_actor_ref_provider_spec::throw_suitable_exceptions_for_malformed_actor_names` (13 nombres), y unitarios con el mensaje exacto de `VAL-*` (espacio final, doble espacio con `fullPath`, posición UTF-16). `VAL-22/23` según lo que decida Q-PATH-2; mientras tanto se marcan `#[ignore = "Q-PATH-2"]`.
 - [ ] **Step 2:** falla. **Step 3:** implementar (`ValidSymbols = "-_.*$+:@&=,!~';"`, `%` seguido de dos hex, `$` sólo prohibido en la posición 0). **Step 4:** pasa.
@@ -249,7 +249,7 @@ pub(crate) fn parse(s: &str) -> Result<Uri, UriSyntaxError>;
 
 ### Task 4: `ActorPath`
 
-**Files:** Modify `crates/pekko-actor/src/actor/path.rs`; Test `crates/pekko-actor/tests/actor_path_spec.rs`.
+**Files:** Modify `crates/rakka-actor/src/actor/path.rs`; Test `crates/rakka-actor/tests/actor_path_spec.rs`.
 
 - [ ] **Step 1: tests que fallan** — los tests restantes de `actor_path_spec` (tabla de trazabilidad) más unitarios con los valores de `FS-*`, `CH-*`, `DS-*`, `RT-*`, `UID-*`, `NAV-*`, `STR-*` y `CMPP-*`. Puntos a no olvidar: `NumberFormatException` sale de `from_string` sin convertirse (decisión 5); `#٥` da uid 5; `pekko://sys/user/#5` crea un hijo de nombre vacío; la raíz con nombre `/x` concatena sin separador (`STR-09`); `IgnoreActorRef` se detecta por igualdad e ignora el uid incluso en `to_serialization_format_with_address` (`STR-15`).
 - [ ] **Step 2:** falla. **Step 3:** implementar; `from_string` = `ActorPathExtractor` (`split` de `Address.scala:149-160`, descarta el primer elemento, `descendant` ignora vacíos). **Step 4:** pasa.
@@ -257,10 +257,10 @@ pub(crate) fn parse(s: &str) -> Result<Uri, UriSyntaxError>;
 
 ### Task 5: validación diferencial contra Pekko compilado desde la fuente
 
-**Files:** Regenerate `crates/pekko-actor/tests/oracle/path-address.golden`; Create `crates/pekko-actor/tests/oracle_path_address.rs`; Modify `docs/inventory/actor-classic.tsv` (filas `AC-PATH-*`).
+**Files:** Regenerate `crates/rakka-actor/tests/oracle/path-address.golden`; Create `crates/rakka-actor/tests/oracle_path_address.rs`; Modify `docs/inventory/actor-classic.tsv` (filas `AC-PATH-*`).
 
-- [ ] **Step 1:** `tools/oracle/run.sh tools/oracle/path-address.jsh > crates/pekko-actor/tests/oracle/path-address.golden` con el runner que compila desde `upstream/pekko` (no con `ORACLE=jars`). Revisar que tenga 368 líneas y ninguna fuera del formato.
-- [ ] **Step 2:** `oracle_path_address.rs` reconstruye cada caso con la API Rust, imprime la misma línea (mismo escape `\uXXXX`, `java_class()` y `message()` del error) y compara con el golden. `cargo test -p pekko-actor --test oracle_path_address`.
+- [ ] **Step 1:** `tools/oracle/run.sh tools/oracle/path-address.jsh > crates/rakka-actor/tests/oracle/path-address.golden` con el runner que compila desde `upstream/pekko` (no con `ORACLE=jars`). Revisar que tenga 368 líneas y ninguna fuera del formato.
+- [ ] **Step 2:** `oracle_path_address.rs` reconstruye cada caso con la API Rust, imprime la misma línea (mismo escape `\uXXXX`, `java_class()` y `message()` del error) y compara con el golden. `cargo test -p rakka-actor --test oracle_path_address`.
 - [ ] **Step 3:** corregir en Tasks 1-4 lo que difiera. Una diferencia que no se corrige va a `notes` del inventario con `Q:`; el test la marca explícitamente con el id de la pregunta, nunca la silencia.
 - [ ] **Step 4:** `cargo test --workspace` y `cargo clippy --workspace --all-targets -- -D warnings` limpios.
 - [ ] **Step 5:** inventario: `validation=oracle+spec` en las filas cubiertas; `impl=done` sólo en filas sin `Q:` abierta y sin dependencia de unidades futuras. `AC-PATH-009`, `011` y `015` quedan `partial` siempre (ver arriba), igual que cualquier fila con Q-PATH-1..5 sin resolver. Commit `test(actor): differential oracle for AC-PATH`.

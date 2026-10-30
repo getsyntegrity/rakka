@@ -1,7 +1,7 @@
-pekko-rs
-Copyright 2026 The pekko-rs contributors
+rakka
+Copyright 2026 The rakka contributors
 
-pekko-rs is a Rust port of the actor modules (pekko-actor, pekko-actor-typed)
+rakka is a Rust port of the actor modules (pekko-actor, pekko-actor-typed)
 of Apache Pekko 1.7.1 (https://pekko.apache.org/), licensed under the Apache
 License, Version 2.0. Its behavior, structure and documentation are derived
 from Apache Pekko. The NOTICE of the corresponding Apache Pekko artifacts is

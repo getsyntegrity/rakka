@@ -3,16 +3,16 @@
 version = 4
 
 [[package]]
-name = "pekko-actor"
+name = "rakka"
 version = "0.1.0"
 
 [[package]]
-name = "pekko-actor-typed"
+name = "rakka-actor"
+version = "0.1.0"
+
+[[package]]
+name = "rakka-actor-typed"
 version = "0.1.0"
 dependencies = [
- "pekko-actor",
+ "rakka-actor",
 ]
-
-[[package]]
-name = "pekko-rs"
-version = "0.1.0"

@@ -5,7 +5,7 @@
 use std::cmp::Ordering;
 use std::hash::{BuildHasher, RandomState};
 
-use pekko_actor::actor::{ActorPath, Address};
+use rakka_actor::actor::{ActorPath, Address};
 
 const DEPTH: usize = 1_000_000;
 

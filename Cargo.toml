@@ -1,12 +1,12 @@
 [package]
-name = "pekko-rs"
+name = "rakka"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 
 [workspace]
-members = [".", "crates/pekko-actor", "crates/pekko-actor-typed"]
+members = [".", "crates/rakka-actor", "crates/rakka-actor-typed"]
 resolver = "3"
 
 [workspace.package]

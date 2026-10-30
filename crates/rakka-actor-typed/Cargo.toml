@@ -1,5 +1,5 @@
 [package]
-name = "pekko-actor-typed"
+name = "rakka-actor-typed"
 description = "Rust port of Apache Pekko 1.7.1 typed actors (pekko-actor-typed)"
 version.workspace = true
 edition.workspace = true
@@ -7,4 +7,4 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-pekko-actor = { path = "../pekko-actor" }
+rakka-actor = { path = "../rakka-actor" }
