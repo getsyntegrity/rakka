@@ -1,0 +1,91 @@
+# source: official Apache Pekko 1.7.1 jars (pekko-actor_2.13-1.7.1.jar, scala-library-2.13.18.jar; SHA-1 verified by tools/oracle/fetch-jars.sh), NOT compiled from upstream/pekko; Temurin 11.0.32 jshell
+# generated: ORACLE=jars tools/oracle/run.sh tools/oracle/util-core.jsh (jsh md5 8f5a8c088a4e) on 2026-10-30
+TO-01 Timeout.zero -> ok nanos=0
+TO-02 Timeout(3, NANOSECONDS) -> ok nanos=3
+TO-MAX NANOSECONDS -> ok length=9223372036854775807 nanos=9223372036854775807
+TO-OVER NANOSECONDS -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
+TO-02 Timeout(3, MICROSECONDS) -> ok nanos=3000
+TO-MAX MICROSECONDS -> ok length=9223372036854775 nanos=9223372036854775000
+TO-OVER MICROSECONDS -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
+TO-02 Timeout(3, MILLISECONDS) -> ok nanos=3000000
+TO-MAX MILLISECONDS -> ok length=9223372036854 nanos=9223372036854000000
+TO-OVER MILLISECONDS -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
+TO-02 Timeout(3, SECONDS) -> ok nanos=3000000000
+TO-MAX SECONDS -> ok length=9223372036 nanos=9223372036000000000
+TO-OVER SECONDS -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
+TO-02 Timeout(3, MINUTES) -> ok nanos=180000000000
+TO-MAX MINUTES -> ok length=153722867 nanos=9223372020000000000
+TO-OVER MINUTES -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
+TO-02 Timeout(3, HOURS) -> ok nanos=10800000000000
+TO-MAX HOURS -> ok length=2562047 nanos=9223369200000000000
+TO-OVER HOURS -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
+TO-02 Timeout(3, DAYS) -> ok nanos=259200000000000
+TO-MAX DAYS -> ok length=106751 nanos=9223286400000000000
+TO-OVER DAYS -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
+TO-03 Timeout(0, DAYS) -> ok nanos=0
+TO-04 Timeout(1500, MILLISECONDS) -> ok nanos=1500000000
+TO-05 Timeout(Long.MaxValue, DAYS) -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
+TO-06 eq Timeout(1000 ms) Timeout(1 s) -> ok eq=true hashEq=true
+TO-07 ne Timeout(1 s) Timeout(2 s) -> ok eq=false
+TO-08 create(ofMillis(250)) -> ok nanos=250000000
+TO-09 create(ofSeconds(9223372036, 854775807)) -> ok nanos=9223372036854775807
+TO-NEG-01 Timeout(-5, MILLISECONDS) -> ok nanos=-5000000
+TO-NEG-02 Timeout(Long.MinValue, NANOSECONDS) -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
+TO-NEG-03 create(ofMillis(-250)) -> ok nanos=-250000000
+TO-NEG-04 create(ofSeconds(9223372036, 854775808)) -> ERR ArithmeticException [long overflow]
+TO-NEG-05 create(ofSeconds(Long.MAX_VALUE)) -> ERR ArithmeticException [long overflow]
+TO-STR-01 Timeout(100, MILLISECONDS) -> ok str=[Timeout(100 milliseconds)]
+TO-STR-02 Timeout.zero -> ok str=[Timeout(0 days)]
+TO-STR-03 Timeout(1000, MILLISECONDS) -> ok str=[Timeout(1000 milliseconds)]
+B64 0 -> ok [$a]
+B64 1 -> ok [$b]
+B64 25 -> ok [$z]
+B64 26 -> ok [$A]
+B64 51 -> ok [$Z]
+B64 52 -> ok [$0]
+B64 61 -> ok [$9]
+B64 62 -> ok [$+]
+B64 63 -> ok [$~]
+B64 64 -> ok [$ab]
+B64 65 -> ok [$bb]
+B64 4095 -> ok [$~~]
+B64 4096 -> ok [$aab]
+B64 4294967296 -> ok [$aaaaae]
+B64 -1 -> ok [$~~~~~~~~~~p]
+B64 -64 -> ok [$a~~~~~~~~~p]
+B64 -9223372036854775808 -> ok [$aaaaaaaaaai]
+B64 9223372036854775807 -> ok [$~~~~~~~~~~h]
+B64-SB prefix x, 5 -> ok [xf]
+B64-SB prefix temp/$, 64 -> ok [temp/$ab]
+B64-SB empty prefix, 0 -> ok [a]
+LC Hello WORLD 123 -> ok [hello world 123]
+LC TITLE -> ok [title]
+LC  -> ok []
+LC \u041F\u0420\u0418\u0412\u0415\u0422 -> ok [\u043F\u0440\u0438\u0432\u0435\u0442]
+LC \uFF21\uFF22 -> ok [\uFF41\uFF42]
+LC \uD801\uDC00 -> ok [\uD801\uDC28]
+LC \u00DF -> ok [\u00DF]
+LC \u0130 -> ok [i\u0307]
+LC \u0391\u03A3 -> ok [\u03B1\u03C2]
+LC \u0391\u03A3\u0391 -> ok [\u03B1\u03C3\u03B1]
+LC \u03A3 -> ok [\u03C3]
+RQ-01 5.requiring(true) -> ok value=5
+RQ-02 5.requiring(false, msg) -> ERR IllegalArgumentException [requirement failed: idle-cpu-level must be between 1 and 10]
+RQ-03 1.requiring(false, 42) -> ERR IllegalArgumentException [requirement failed: 42]
+RQ-04 1.requiring(false, empty) -> ERR IllegalArgumentException [requirement failed: ]
+RQ-05 3.requiring(_ > 0) -> ok value=3
+RQ-06 0.requiring(_ > 0) -> ERR IllegalArgumentException [requirement failed: nr-of-selectors must be > 0]
+RQ-07 abc.requiring(len == 3) -> ok value=abc
+RQ-NULL 1.requiring(false, null) -> ERR IllegalArgumentException [requirement failed: null]
+RQ-LAZY msg not evaluated when cond holds -> ok calls=0
+DN-01 Done -> ok str=[Done] eqSelf=true
+DN-02 NotUsed -> ok str=[NotUsed] eqSelf=true
+DN-03 Done.done() is Done.getInstance() -> ok same=true
+EX-01 PekkoException(boom) -> ok class=[PekkoException] msg=[boom] cause=none
+EX-02 PekkoException(empty) -> ok class=[PekkoException] msg=[] cause=none
+EX-03 PekkoException(boom, cause) -> ok class=[PekkoException] msg=[boom] cause=[inner]
+EX-04 ConfigurationException(bad) -> ok class=[ConfigurationException] msg=[bad] cause=none
+EX-05 ConfigurationException(bad, cause) -> ok class=[ConfigurationException] msg=[bad] cause=[why]
+EX-06 PekkoException(msg, null) -> ok class=[PekkoException] msg=[m] cause=none
+EX-SUB ConfigurationException isA PekkoException -> ok isA=true
+EX-NULL PekkoException(null) -> ok class=[PekkoException] msg=[null] cause=none
