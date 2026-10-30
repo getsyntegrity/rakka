@@ -28,7 +28,7 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ### Tarea 1: Estado del mailbox: Open/Closed/Scheduled + contador de suspensión (+5 filas)
 
-Filas: AC-MBX-001, AC-MBX-002, AC-MBX-003, AC-MBX-004, AC-MBX-005, AC-MBX-006. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-MBX-001, AC-MBX-002, AC-MBX-003, AC-MBX-004, AC-MBX-005, AC-MBX-006. Contratos y aserciones: `docs/inventory/contracts/classic-dispatch.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -37,7 +37,7 @@ Filas: AC-MBX-001, AC-MBX-002, AC-MBX-003, AC-MBX-004, AC-MBX-005, AC-MBX-006. C
 
 ### Tarea 2: BoundedMailbox (capacidad + mailbox-push-timeout-time) (+5 filas)
 
-Filas: AC-MBX-007, AC-MBX-008, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-MBX-007, AC-MBX-008, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012. Contratos y aserciones: `docs/inventory/contracts/classic-dispatch.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.

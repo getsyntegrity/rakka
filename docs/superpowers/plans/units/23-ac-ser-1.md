@@ -55,7 +55,7 @@ Filas: AC-SER-006, AC-SER-007.1, AC-SER-007.2, AC-SER-008.1, AC-SER-008.2, AC-SE
 
 ### Tarea 4: Límite de descompresión gzip (pekko.serialization.max-decompressed-size) y… (+4 filas)
 
-Filas: AC-SER-010, AC-SER-011, AC-SER-012, AC-SER-013, AC-SER-014. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-SER-010, AC-SER-011, AC-SER-012, AC-SER-013, AC-SER-014. Contratos y aserciones: `docs/inventory/contracts/classic-io-ser.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.

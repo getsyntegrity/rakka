@@ -59,7 +59,7 @@ Filas: AC-REF-009.2, AC-REF-009.3, AC-REF-010, AC-REF-011, AC-REF-012, AC-REF-01
 
 ### Tarea 4: Entrega de selección con comodines (ActorSelectionMessage,… (+5 filas)
 
-Filas: AC-REF-014, AC-REF-015, AC-REF-016, AC-REF-017, AC-REF-018, AC-REF-019. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-REF-014, AC-REF-015, AC-REF-016, AC-REF-017, AC-REF-018, AC-REF-019. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -68,7 +68,7 @@ Filas: AC-REF-014, AC-REF-015, AC-REF-016, AC-REF-017, AC-REF-018, AC-REF-019. C
 
 ### Tarea 5: RepointableActorRef / UnstartedCell (creación asíncrona) (+5 filas)
 
-Filas: AC-REF-020, AC-REF-021, AC-REF-022, AC-REF-023, AC-REF-024, AC-REF-025. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-REF-020, AC-REF-021, AC-REF-022, AC-REF-023, AC-REF-024, AC-REF-025. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.

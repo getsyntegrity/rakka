@@ -16,7 +16,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: `Q-UTIL-12`, `Q-UTIL-6`.
-- Propuestas aún sin decisión del Owner: `Q-CFG-4`, `Q-CFG-5`, `Q-UTIL-10`, `Q-UTIL-11`, `Q-UTIL-7`, `Q-UTIL-8`, `Q-X-1`, `Q-X-6`, `Q-X-9`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-4`, `Q-CFG-5`, `Q-UTIL-1`, `Q-UTIL-10`, `Q-UTIL-11`, `Q-UTIL-2`, `Q-UTIL-3`, `Q-UTIL-4`, `Q-UTIL-5`, `Q-UTIL-7`, `Q-UTIL-8`, `Q-X-1`, `Q-X-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -74,17 +74,17 @@ Filas: AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.1, AC
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-UTIL-001 | Timeout (duración para ask/resolveOne) | `pub struct Timeout(std::time::Duration)` Copy; sin implícitos: parámetro explícito o… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorTimeoutSpec.scala:34-45… | Q-X-9 |
+| AC-UTIL-001 | Timeout (duración para ask/resolveOne) | `pub struct Timeout(std::time::Duration)` Copy; sin implícitos: parámetro explícito o… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorTimeoutSpec.scala:34-45… | Q-UTIL-1, Q-UTIL-2, Q-X-9 |
 | AC-UTIL-002.1 | Helpers.base64 / base64chars (nombres generados `$a`, temp paths) | `util::helpers::base64(i64) -> String`, `base64_append(i64, &mut String)` | derivada del código (ver bloque de contrato) | - |
 | AC-UTIL-002.2 | Helpers.toRootLowerCase | `to_root_lower_case(&str) -> String` (= `str::to_lowercase`) | derivada del código (ver bloque de contrato) | Q-UTIL-7, Q-X-9 |
-| AC-UTIL-002.3 | Helpers.Requiring (requiring con IllegalArgumentException) | trait `util::helpers::Requiring` con `requiring` y `requiring_with` -> `Result<A,… | derivada del código (ver bloque de contrato) | Q-X-9 |
+| AC-UTIL-002.3 | Helpers.Requiring (requiring con IllegalArgumentException) | trait `util::helpers::Requiring` con `requiring` y `requiring_with` -> `Result<A,… | derivada del código (ver bloque de contrato) | Q-UTIL-3, Q-X-9 |
 | AC-UTIL-002.4 | ConfigOps.getMillisDuration / getNanosDuration | `Config::get_millis_duration(path) -> Result<Duration, ConfigError>` y… | derivada del código (ver bloque de contrato) | Q-CFG-4, Q-X-1 |
 | AC-UTIL-002.5 | ConfigOps.renderWithRedactions (toString de Settings con datos sensibles… | `Config::render_with_redactions(&self) -> String` | derivada del código (ver bloque de contrato) | Q-CFG-4 |
-| AC-UTIL-003.1 | Done (singleton de finalización sin valor) | `pub struct Done;` (Q-X-9: o `()`) | derivada del código (ver bloque de contrato) | Q-X-9 |
-| AC-UTIL-003.2 | NotUsed (marcador de valor sin importancia) | `pub struct NotUsed;` (Q-X-9: o `()`) | derivada del código (ver bloque de contrato) | Q-X-9 |
-| AC-UTIL-004.1 | PekkoException (excepción base) | `struct PekkoException { message, cause: Option<Arc<dyn Error+Send+Sync>> }` | actor-tests/src/test/scala/org/apache/pekko/PekkoExceptionSpec.scala:29-41 | Q-X-9 |
-| AC-UTIL-004.2 | ConfigurationException | `struct ConfigurationException` (tipo separado) con `From` a PekkoException si hace falta | derivada del código (ver bloque de contrato) | Q-X-9 |
-| AC-UTIL-004.3 | OnlyCauseStackTrace (trait que suprime el stack trace propio y conserva el de… | n/a: los errores de Rust no llevan stack trace (propuesta de exclusión en Q-X-9) | derivada del código (ver bloque de contrato) | Q-X-9 |
+| AC-UTIL-003.1 | Done (singleton de finalización sin valor) | `pub struct Done;` (Q-X-9: o `()`) | derivada del código (ver bloque de contrato) | Q-UTIL-5, Q-X-9 |
+| AC-UTIL-003.2 | NotUsed (marcador de valor sin importancia) | `pub struct NotUsed;` (Q-X-9: o `()`) | derivada del código (ver bloque de contrato) | Q-UTIL-5, Q-X-9 |
+| AC-UTIL-004.1 | PekkoException (excepción base) | `struct PekkoException { message, cause: Option<Arc<dyn Error+Send+Sync>> }` | actor-tests/src/test/scala/org/apache/pekko/PekkoExceptionSpec.scala:29-41 | Q-UTIL-3, Q-X-9 |
+| AC-UTIL-004.2 | ConfigurationException | `struct ConfigurationException` (tipo separado) con `From` a PekkoException si hace falta | derivada del código (ver bloque de contrato) | Q-UTIL-3, Q-UTIL-4, Q-X-9 |
+| AC-UTIL-004.3 | OnlyCauseStackTrace (trait que suprime el stack trace propio y conserva el de… | n/a: los errores de Rust no llevan stack trace (propuesta de exclusión en Q-X-9) | derivada del código (ver bloque de contrato) | Q-UTIL-4, Q-X-9 |
 | AC-UTIL-005.1 | PekkoVersion.require y UnsupportedPekkoVersion | `fn require(library: &str, required: &str, current: &str) -> Result<(),… | actor-tests/src/test/scala/org/apache/pekko/PekkoVersionSpec.scala:23-106 | Q-CFG-5 |
 | AC-UTIL-005.2 | util.Version (versión comparable con M/RC/dynver) | `struct Version` con `pekko_compare`/`PartialEq`, `Version::parse -> Result<_,… | actor-tests/src/test/scala/org/apache/pekko/util/VersionSpec.scala:19-104 | Q-UTIL-6 |
 | AC-UTIL-006.1 | ByteString inmutable (ByteString1C, ByteString1, ByteStrings; factories,… | `ByteString` sobre `bytes::Bytes` o rope propio; Q-UTIL-12 | actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:360 ;… | Q-UTIL-12 |

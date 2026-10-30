@@ -14,7 +14,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-ASK-1`, `Q-T-ASK-2`, `Q-X-9`.
+- Propuestas aún sin decisión del Owner: `Q-T-ASK-1`, `Q-T-ASK-2`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -25,7 +25,7 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ### Tarea 1: AskPattern.ask / ? desde fuera de un actor (+3 filas)
 
-Filas: AT-ASK-001, AT-ASK-002, AT-ASK-003, AT-ASK-004. Contratos y aserciones: `docs/inventory/contracts/typed-core.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AT-ASK-001, AT-ASK-002, AT-ASK-003, AT-ASK-004. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.

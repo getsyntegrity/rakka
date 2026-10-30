@@ -21,18 +21,18 @@ def expand(token):
     if token in by_id: return [token]
     return children.get(token, [])
 
-# contract file per row
-contract_file = {}
+# Contract document per row: the one whose heading defines the contract (a mention as a dependency does not count).
+DEFINING_HEADING = re.compile(r'(?m)^#+ (A[CT]-[A-Z]+-\d+(?:\.\d+)?)\b')
+contract_blocks = collections.defaultdict(list)
 for p in sorted(glob.glob("docs/inventory/contracts/*.md")):
-    g = os.path.basename(p)[:-3]
-    for x in R(f"/dev/null") if False else []: pass
-group_of_unit = {}
-for g in ["classic-foundation", "classic-cell", "classic-dispatch", "classic-system", "classic-patterns", "classic-io-ser", "typed-core", "typed-extended"]:
-    txt = open(f"docs/inventory/contracts/{g}.md", encoding="utf-8").read()
-    for m in re.finditer(r'(A[CT]-[A-Z]+-\d+(?:\.\d+)?)', txt):
-        contract_file.setdefault(m.group(1), g)
+    for m in DEFINING_HEADING.finditer(open(p, encoding="utf-8").read()):
+        contract_blocks[m.group(1)].append(p)
+contract_errors = [f"{i}: no contract block (no heading defines it)" for i in by_id if not contract_blocks[i]]
+contract_errors += [f"{i}: {len(contract_blocks[i])} contract blocks ({', '.join(contract_blocks[i])})" for i in by_id if len(contract_blocks[i]) > 1]
+if contract_errors:
+    sys.exit("contract location errors:\n" + "\n".join(contract_errors))
 for i, d in by_id.items():
-    d["contract_doc"] = f"docs/inventory/contracts/{contract_file.get(i, '?')}.md"
+    d["contract_doc"] = contract_blocks[i][0]
 
 # ------------------------------------------------------------------ decisions
 DEC = []
@@ -41,6 +41,7 @@ for p in sorted(glob.glob("docs/inventory/contracts/*.decisions.tsv")):
     for x in R(p)[1:]:
         DEC.append(dict(zip(["id", "title", "evidence", "alternatives", "recommendation", "affected_rows", "units", "status"], x), group=g))
 
+GROUPS = {"Q-X-9": ["Q-UTIL-1", "Q-UTIL-2", "Q-UTIL-3", "Q-UTIL-4", "Q-UTIL-5"]}   # presentation only: members are decided one by one
 TRANSVERSAL = [
  ("Q-X-1", "Implementación de HOCON (parser y carga)", "Plan docs/superpowers/plans/2026-10-30-ac-cfg-parser-loading.md: golden de 161 casos contra Typesafe Config 1.4.9; `hocon-parser` 1.14.2 diverge en `+=` entre capas, duraciones negativas, `\"ON\"` e `include classpath()`; `hocon-rs` 0.2.0 no tiene `withFallback`; `hocon` 0.9.0 sin mantenimiento desde 2022.", "(A) subconjunto propio sin dependencias; (B) `hocon-parser` tras fachada con una `Q:` por divergencia; (C) (B) más parche upstream.", "(A), con el golden como suite de aceptación y ampliado antes de implementar. Alias: Q-CFG-1.", "AC-CFG-001; AC-CFG-017.*; todo lo que lee Config", "AC-CFG, AC-SER (WireConfig), todas las que leen reference.conf"),
  ("Q-X-2", "Registro nombre → fábrica en lugar de reflexión por FQCN", "AC-CFG-016, AC-EXT-003, DynamicAccessSpec.scala:40,50,59,72; el inventario ya propone el registro; `inventory`/`linkme` descartado como mecanismo principal (dependen del linker).", "(A) `FactoryRegistry<Producto>` por punto de extensión; (B) un registro único con `Any`; (C) macros de registro global.", "(A); un nombre no registrado devuelve un error de configuración que lleva el nombre. Abierto dentro de la decisión: tipo del error (`ConfigurationException` o propio). Alias: Q-CFG-2.", "AC-CFG-016; AC-EXT-003; AC-MBX-004; AC-DSP-010; AC-EVT-011; AC-SCH-010; AC-SER-*", "AC-CFG, AC-EXT, AC-MBX, AC-DSP, AC-EVT, AC-SCH, AC-SER"),
@@ -50,12 +51,12 @@ TRANSVERSAL = [
  ("Q-X-6", "Suscripción por jerarquía de tipos en EventStream", "actor-classic.md pregunta 5; Rust no tiene herencia; AC-UTIL-008, AC-EVT-003.", "(A) `TypeId` exacto más canales padre declarados por el tipo de evento; (B) enum cerrado de eventos.", "(A).", "AC-UTIL-008; AC-EVT-003", "AC-EVT, AC-UTIL, AT-EVT"),
  ("Q-X-7", "Loggers como actores o backend directo", "actor-classic.md pregunta 8; `LoggerSpec` y `EventFilter` dependen del handshake InitializeLogger/LoggerInitialized (AC-EVT-011).", "(A) loggers como actores con el handshake; (B) backend directo a `tracing`.", "(A): permite portar `LoggerSpec` y `EventFilter` sin cambios; `tracing` puede ser un logger más.", "AC-EVT-011; AC-TK-*", "AC-EVT, AC-TK, AT-LOG"),
  ("Q-X-8", "Typed sobre Classic o runtime tipado nativo", "docs/implementation-order.md (sección Decisión previa); `ActorAdapter`, `ActorContextAdapter`, `ActorSystemAdapter` en actor-typed/.../internal/adapter/.", "(a) replicar las capas de Pekko; (b) runtime tipado nativo con interop aparte.", "(a): cada contrato heredado se implementa y valida una sola vez y la interop sale casi gratis.", "AT-SYS-011; AT-ADP-*; todas las AT-*", "todas las AT-*"),
- ("Q-X-9", "Done, Timeout, null y unidades de duración (Q-UTIL-1..5)", "docs/superpowers/plans/2026-10-30-ac-util-core.md, sección Preguntas abiertas; filas AC-UTIL-001..004 `partial`.", "Ver las cinco preguntas del plan (negativos y rango de `Timeout`, `toString` con unidad, `null` y mensajes diferidos, jerarquía de excepciones, `Done` propio o `()`).", "Mantener lo implementado (struct `Done`, `Timeout` sobre `std::time::Duration`) como estado `partial` hasta que el Owner responda cada una; no se cierra ninguna de las cinco por defecto.", "AC-UTIL-001..004", "AC-UTIL"),
+ ("Q-X-9", "Agrupación de presentación: Done, Timeout, null y unidades de duración (Q-UTIL-1..5)", "docs/superpowers/plans/2026-10-30-ac-util-core.md, sección Preguntas abiertas. Es sólo un encabezado: no tiene estado ni respuesta propios.", "No aplica: cada miembro tiene sus propias alternativas.", "Sin recomendación propia. Responder cada miembro por separado (Q-UTIL-1, Q-UTIL-2, Q-UTIL-3, Q-UTIL-4, Q-UTIL-5); una respuesta a Q-X-9 se rechaza y ninguna respuesta de un miembro aprueba ni rechaza a los demás.", "(las filas de cada miembro)", "AC-UTIL"),
  ("Q-X-10", "Límites del módulo: remote, cluster, streams, persistence, http", "actor-classic.md sección Límites del módulo; ninguno vive en `pekko-actor`/`pekko-actor-typed`; hay ganchos (AC-SYS-018, AC-DW-010/012, AC-SER-007).", "(A) fuera del alcance; el trait `ActorRefProvider` se deja abierto; (B) incluir alguno.", "(A). Es el límite con que se armó el inventario; no fue autorizado explícitamente.", "AC-SYS-018; AC-CFG-008", "AC-SYS, AC-CFG, AC-DW, AC-SER"),
 ]
 for t in TRANSVERSAL:
-    DEC.append(dict(id=t[0], title=t[1], evidence=t[2], alternatives=t[3], recommendation=t[4], affected_rows=t[5], units=t[6], status="proposed", group="transversal"))
-ALIASES = {"Q-CFG-1": "Q-X-1", "Q-CFG-2": "Q-X-2", "Q-UTIL-1": "Q-X-9", "Q-UTIL-2": "Q-X-9", "Q-UTIL-3": "Q-X-9", "Q-UTIL-4": "Q-X-9", "Q-UTIL-5": "Q-X-9"}
+    DEC.append(dict(id=t[0], title=t[1], evidence=t[2], alternatives=t[3], recommendation=t[4], affected_rows=t[5], units=t[6], status="group" if t[0] in GROUPS else "proposed", group="transversal"))
+ALIASES = {"Q-CFG-1": "Q-X-1", "Q-CFG-2": "Q-X-2"}
 dec_ids = {d["id"] for d in DEC}
 assert len(dec_ids) == len(DEC), "duplicate decision ids"
 for d in DEC:
@@ -81,7 +82,8 @@ OWNER_FILE = "docs/decisions/owner-decisions.tsv"
 OWNER_HEADER = ["id", "status", "decided_on", "decided_by", "decision"]
 RESOLVED = ("accepted", "accepted_with_changes", "rejected")
 STATUS_LABEL = {"blocking": "bloqueante", "proposed": "propuesta (sin decisión del Owner)", "accepted": "aceptada",
-                "accepted_with_changes": "aceptada con cambios", "rejected": "rechazada"}
+                "accepted_with_changes": "aceptada con cambios", "rejected": "rechazada",
+                "group": "agrupación de presentación (se responde por miembro, nunca en bloque)"}
 def status_label(s): return STATUS_LABEL[s]
 for d in DEC: d.update(decided_on="", decided_by="", decision="")
 owner_rows = R(OWNER_FILE)
@@ -92,14 +94,15 @@ for n, x in enumerate(owner_rows[1:], 2):
     oid, st, on, by, text = x
     oid = ALIASES.get(oid, oid)
     assert oid in dec_by_id, f"{OWNER_FILE}:{n}: unknown decision {oid}"
+    assert oid not in GROUPS, f"{OWNER_FILE}:{n}: {oid} only groups {', '.join(GROUPS[oid])}; answer each member separately"
     assert not dec_by_id[oid]["decided_on"], f"{OWNER_FILE}:{n}: duplicate response for {oid}"
     assert st in RESOLVED, f"{OWNER_FILE}:{n}: status must be one of {RESOLVED}"
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", on), f"{OWNER_FILE}:{n}: decided_on must be YYYY-MM-DD"
     assert by.strip() and text.strip(), f"{OWNER_FILE}:{n}: decided_by and decision are required"
     dec_by_id[oid].update(status=st, decided_on=on, decided_by=by, decision=text)
-counts = collections.Counter(d["status"] for d in DEC)
+counts = collections.Counter(d["status"] for d in DEC if d["status"] != "group")
 def counts_text():
-    return (f"{len(DEC)} decisiones: {counts['blocking']} bloqueantes, {counts['proposed']} propuestas, {counts['accepted']} aceptadas, "
+    return (f"{sum(counts.values())} decisiones: {counts['blocking']} bloqueantes, {counts['proposed']} propuestas, {counts['accepted']} aceptadas, "
             f"{counts['accepted_with_changes']} aceptadas con cambios, {counts['rejected']} rechazadas")
 COUNTS_RE = r"\d+ decisiones: \d+ bloqueantes, \d+ propuestas, \d+ aceptadas(?:, \d+ aceptadas con cambios, \d+ rechazadas)?"
 for doc in ("README.md", "docs/implementation-order.md"):
@@ -127,7 +130,8 @@ with open("docs/decisions.md", "w", encoding="utf-8") as o:
     o.write("## 2. Cómo responder\n\nResponder con una de estas formas por decisión (o por bloque): `aceptar` (se adopta la recomendación tal cual), `aceptar con cambios: <texto>`, `rechazar: <alternativa>`. Una respuesta global válida es `aceptar todas las recomendaciones excepto: <lista>`. Cada respuesta se registra en una fila de `docs/decisions/owner-decisions.tsv` (`id`, `status` = `accepted` | `accepted_with_changes` | `rejected`, `decided_on` AAAA-MM-DD, `decided_by`, `decision`); es la única fuente editable y este documento, `register.tsv` y los conteos se regeneran desde ella sin perder respuestas. Hasta entonces no hay aprobación.\n\n")
     o.write("## 3. Bloqueos reales\n\nImpiden cerrar el comportamiento afectado aunque el resto de la unidad avance.\n\n")
     def block(d):
-        o.write(f"### {d['id']} — {d['title']}\n\n- **Estado:** {status_label(d['status'])}\n- **Evidencia:** {d['evidence']}\n- **Alternativas:** {d['alternatives']}\n- **Recomendación:** {d['recommendation']}\n- **Filas afectadas:** {d['affected_rows']}\n- **Unidades afectadas:** {d['units']}\n- **Origen:** {d['group']}\n" + (f"- **Respuesta del Owner:** {d['decision']} ({d['decided_by']}, {d['decided_on']})\n" if d['decided_on'] else "") + "\n")
+        members = f"- **Miembros (decisiones independientes):** {', '.join(GROUPS[d['id']])}\n" if d["id"] in GROUPS else ""
+        o.write(f"### {d['id']} — {d['title']}\n\n- **Estado:** {status_label(d['status'])}\n{members}- **Evidencia:** {d['evidence']}\n- **Alternativas:** {d['alternatives']}\n- **Recomendación:** {d['recommendation']}\n- **Filas afectadas:** {d['affected_rows']}\n- **Unidades afectadas:** {d['units']}\n- **Origen:** {d['group']}\n" + (f"- **Respuesta del Owner:** {d['decision']} ({d['decided_by']}, {d['decided_on']})\n" if d['decided_on'] else "") + "\n")
     for d in sorted([d for d in DEC if d["status"] == "blocking"], key=lambda d: d["id"]): block(d)
     o.write("## 4. Decisiones transversales (afectan a varias unidades)\n\nDecidirlas primero: desbloquean la mayor parte de las propuestas por unidad.\n\n")
     for d in [d for d in DEC if d["group"] == "transversal"]: block(d)
@@ -265,8 +269,9 @@ for s in order:
     L.append("## Tareas\n")
     for n, t in enumerate(s["tasks"], 1):
         ids = ", ".join(r["id"] for r in t)
+        contract_docs = ", ".join(f"`{p}`" for p in sorted({r["contract_doc"] for r in t}))
         L.append(f"### Tarea {n}: {first(t[0]['feature'], 90)}" + (f" (+{len(t)-1} filas)" if len(t) > 1 else "") + "\n")
-        L.append(f"Filas: {ids}. Contratos y aserciones: `{t[0]['contract_doc']}` (bloque de cada fila; sección **Aserciones**).\n")
+        L.append(f"Filas: {ids}. Contratos y aserciones: {contract_docs} (bloque de cada fila; sección **Aserciones**).\n")
         L.append("1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.")
         L.append("2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.")
         L.append("3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.")

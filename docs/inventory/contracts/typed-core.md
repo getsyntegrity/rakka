@@ -18,13 +18,13 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Dependencias.** AT-BEH-011; AC-CELL (lo ejecuta ActorAdapter)
 
-**Equivalente Rust propuesto.** enum Behavior<M> { Same, Unhandled, Stopped(Option<PostStopFn>), Empty, Ignore, Deferred(Box<dyn FnOnce(&mut Ctx<M>)->Behavior<M>>), Extensible(Box<dyn ExtensibleBehavior<M>>), Intercept(..), Failed(Error) } con constructores en un modulo behaviors; el tag numerico de Scala pasa a ser la variante del enum. **Diferencias observables:** Enum cerrado en vez de clase sellada; ExtensibleBehavior pasa a trait publico con receive/receive_signal. Sin subtipado, Behavior<T> no es covariante/contravariante (ver AT-BEH-022).
+**Equivalente Rust propuesto.** enum Behavior<M> { Same, Unhandled, Stopped(Option<PostStopFn>), Empty, Ignore, Deferred(Arc<dyn Fn(&mut Ctx<M>)->Behavior<M> + Send + Sync>), Extensible(Box<dyn ExtensibleBehavior<M>>), Intercept(..), Failed(Error) } con constructores en un modulo behaviors; el tag numerico de Scala pasa a ser la variante del enum. **Reutilizacion (propuesta, no aceptada: Q-T-BEH-1):** `Behavior<M>: Clone` (las variantes que llevan cierres los comparten por `Arc`), porque el mismo valor se arranca en actores independientes y se vuelve a arrancar en cada restart; un `FnOnce` no puede cumplirlo (ver AT-BEH-007). **Diferencias observables:** Enum cerrado en vez de clase sellada; ExtensibleBehavior pasa a trait publico con receive/receive_signal. Sin subtipado, Behavior<T> no es covariante/contravariante (ver AT-BEH-022).
 
 **Aserciones.**
 
 - A1: Un Behavior funcional cambia de estado devolviendo otro Behavior (StateA a StateB y de vuelta) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:285-291
 
-- A2: El mismo valor Behavior sirve para dos actores/arranques independientes (cada BehaviorTestKit parte de StateA) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:333-337
+- A2: El mismo valor Behavior sirve para dos actores/arranques independientes (cada BehaviorTestKit parte de StateA); el spec lo prueba sobre Behaviors funcionales y sus envoltorios (transformMessages, intercept, supervise), no sobre un `Deferred` directo (BehaviorSpec.scala:505, 528, 554) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:333-337
 
 - A3: ExtensibleBehavior es la base de AbstractBehavior, ReceiveBehavior e InterceptorImpl (los DSL se implementan sobre el), derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/AbstractBehavior.scala:46; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:135-139; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:51-54
 
@@ -110,7 +110,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Dependencias.** AT-SIG-003; AC-CELL (context.stop)
 
-**Equivalente Rust propuesto.** Behavior::Stopped(Option<Box<dyn FnOnce(&mut Ctx<M>)>>). **Diferencias observables:** Ninguna observable.
+**Equivalente Rust propuesto.** Behavior::Stopped(Option<Arc<dyn Fn(&mut Ctx<M>) + Send + Sync>>) (propuesta, no aceptada: Q-T-BEH-1). **Diferencias observables:** Ninguna observable. **Nota de coherencia (derivada del codigo, no afirmada por un spec):** `StoppedBehavior` es un valor inmutable con un callback (BehaviorImpl.scala:64-65); si el valor se reutiliza, el callback se invoca una vez por actor que se detiene, igual que el cierre de `Deferred`.
 
 **Aserciones.**
 
@@ -206,7 +206,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Dependencias.** AT-BEH-011; AT-SUP-001
 
-**Equivalente Rust propuesto.** Behavior::Deferred(Box<dyn FnOnce(&mut ActorContext<M>) -> Behavior<M> + Send>); para restart la fabrica debe ser Fn (re-ejecutable): usar Arc<dyn Fn> o exigir Clone. **Diferencias observables:** La fabrica debe poder invocarse varias veces (restart, reutilizacion): FnOnce no alcanza.
+**Equivalente Rust propuesto.** **Requisitos observables (contrato):** (R1) la misma fabrica se invoca una vez por cada arranque del mismo valor `Behavior`, tambien en actores independientes: `DeferredBehavior` es un objeto inmutable cuyo `apply(ctx)` se invoca en cada `Behavior.start`/`canonicalize` (BehaviorImpl.scala:123-133; Behavior.scala:183-202), y `start` no lo consume; (R2) en cada restart la fabrica se vuelve a ejecutar: `RestartSupervisor.restartCompleted` llama `Behavior.start(initial, ctx)` sobre el mismo `initial` (Supervision.scala:404; SupervisionSpec.scala:1145-1153 y 1673-1691); (R3) un `Deferred` sin arrancar no se arranca al parar (ActorAdapter.scala:329-331, 355-356). **Representacion Rust propuesta (NO aceptada; pendiente de la decision Q-T-BEH-1 del Owner):** `Behavior::Deferred(Arc<dyn Fn(&mut ActorContext<M>) -> Behavior<M> + Send + Sync>)` con `Behavior<M>: Clone`; el estado que la fabrica comparte entre invocaciones (p. ej. el `AtomicBoolean` de SupervisionSpec.scala:1674-1684) pasa a mutabilidad interior (`Arc<AtomicBool>`), no a `FnMut`. **Alternativas aun abiertas:** (b) `Box<dyn FnOnce>` prohibiendo restart y reutilizacion de esos Behaviors, que contradice R1 y R2 y por eso no puede cerrar AT-BEH-007; (c) trait object con `clone_box`. Ninguna esta aceptada. **Diferencias observables:** ninguna si se adopta (a) o (c); con (b) se pierden R1 y R2, lo que exigiria autorizacion explicita del Owner (A-4, A-5).
 
 **Aserciones.**
 
@@ -223,6 +223,12 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 - A6: setup(setup(same)) termina el actor con ActorInitializationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/DeferredSpec.scala:147-158
 
 - A7: En BehaviorTestKit la fabrica corre inmediatamente y la excepcion se propaga al llamador — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/DeferredSpec.scala:166-188
+
+- A8: En un restart la fabrica de `setup` se ejecuta de nuevo: con `restart.withLimit` y una fabrica que falla una vez se observa StartFailed y luego Started — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:353-375; actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1145-1153
+
+- A9: La segunda ejecucion de la fabrica tras un restart ve el estado externo dejado por la primera y puede devolver `stopped` (el actor termina) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1673-1691
+
+- A10: Un `Deferred` sin arrancar no se arranca al parar el actor (sin efectos de creacion), derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:329-331; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:355-356
 
 - A8: Intercept con setup anidado y recursivo reinicia el estado de la fabrica solo cuando se vuelve a crear el setup — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/InterceptSpec.scala:236-291
 

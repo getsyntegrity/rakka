@@ -27,7 +27,7 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ### Tarea 1: MessageDispatcher: attach/detach, inhabitants y apagado diferido (shutdown-timeout) (+5 filas)
 
-Filas: AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-004, AC-DSP-005, AC-DSP-006. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-004, AC-DSP-005, AC-DSP-006. Contratos y aserciones: `docs/inventory/contracts/classic-dispatch.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -45,7 +45,7 @@ Filas: AC-DSP-007, AC-DSP-008, AC-DSP-009, AC-DSP-010, AC-DSP-011, AC-DSP-012. C
 
 ### Tarea 3: AffinityPool executor (affinity-pool-executor) (+5 filas)
 
-Filas: AC-DSP-013, AC-DSP-014, AC-DSP-015, AC-DSP-016, AC-DSP-017, AC-DSP-018. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-DSP-013, AC-DSP-014, AC-DSP-015, AC-DSP-016, AC-DSP-017, AC-DSP-018. Contratos y aserciones: `docs/inventory/contracts/classic-dispatch.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.

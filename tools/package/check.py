@@ -27,11 +27,11 @@ for i, r in rows.items():
     if r["analysis"] == "listed": check(r["notes"].strip() not in ("", "-"), f"{i}: listed without reason in notes")
 # decisions
 reg = {x[0]: x for x in R("docs/decisions/register.tsv")[1:]}
-ALIAS = {"Q-CFG-1", "Q-CFG-2", "Q-UTIL-1", "Q-UTIL-2", "Q-UTIL-3", "Q-UTIL-4", "Q-UTIL-5"}
+ALIAS = {"Q-CFG-1", "Q-CFG-2"}
 for p in glob.glob("docs/inventory/contracts/*.md") + ["docs/inventory/actor-classic.tsv", "docs/inventory/actor-typed.tsv"]:
     for q in set(re.findall(r'Q-(?:T-)?[A-Z]+-\d+', open(p, encoding="utf-8").read())):
         check(q in reg or q in ALIAS, f"{p}: undefined decision {q}")
-check(all(x[2] in ("proposed", "blocking", "accepted", "accepted_with_changes", "rejected") for x in reg.values()), "register: bad status")
+check(all(x[2] in ("proposed", "blocking", "accepted", "accepted_with_changes", "rejected", "group") for x in reg.values()), "register: bad status")
 # rows assigned to a spec; specs <= 5 tasks
 mapped = {x[0]: x for x in R("docs/contract-map.tsv")[1:]}
 check(set(mapped) == set(rows), "contract-map.tsv does not cover exactly the inventory rows")
@@ -71,12 +71,12 @@ for p, need in (("docs/inventory/actor-classic.md", f"**{len(cl)} filas**"), ("d
     check(need in open(p, encoding="utf-8").read(), f"{p}: stale count (expected '{need}')")
 ext = sum(r["analysis"] == "extracted" for r in rows.values())
 check(f"{ext} `extracted` y {len(rows)-ext} `listed`" in open("README.md", encoding="utf-8").read(), "README.md: stale extracted/listed")
-c = collections.Counter(x[2] for x in reg.values())
-counts_text = (f"{len(reg)} decisiones: {c['blocking']} bloqueantes, {c['proposed']} propuestas, {c['accepted']} aceptadas, "
+c = collections.Counter(x[2] for x in reg.values() if x[2] != "group")
+counts_text = (f"{sum(c.values())} decisiones: {c['blocking']} bloqueantes, {c['proposed']} propuestas, {c['accepted']} aceptadas, "
                f"{c['accepted_with_changes']} aceptadas con cambios, {c['rejected']} rechazadas")
 for doc in ("docs/implementation-order.md", "README.md", "docs/decisions.md"):
     check(counts_text in open(doc, encoding="utf-8").read(), f"{doc}: stale decision counts (expected '{counts_text}')")
 print(f"abbreviated_citations_skipped={abbreviated}")
-print(f"rows={len(rows)} decisions={len(reg)} citation_problems={bad} failures={len(fail)}")
+print(f"rows={len(rows)} decisions={sum(c.values())} groups={len(reg) - sum(c.values())} citation_problems={bad} failures={len(fail)}")
 for f in fail: print("FAIL", f)
 sys.exit(1 if fail else 0)

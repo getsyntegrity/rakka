@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 186 decisiones: 8 bloqueantes, 178 propuestas, 0 aceptadas, 0 aceptadas con cambios, 0 rechazadas.** Ninguna recomendación fue aceptada por el Owner: todas las filas afectadas siguen en alcance con `impl=pending` y no se cierran hasta que la decisión se registre en `docs/decisions/owner-decisions.tsv` con fecha y autor.
+**Estado: 190 decisiones: 8 bloqueantes, 182 propuestas, 0 aceptadas, 0 aceptadas con cambios, 0 rechazadas.** Ninguna recomendación fue aceptada por el Owner: todas las filas afectadas siguen en alcance con `impl=pending` y no se cierran hasta que la decisión se registre en `docs/decisions/owner-decisions.tsv` con fecha y autor.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -56,9 +56,9 @@ Impiden cerrar el comportamiento afectado aunque el resto de la unidad avance.
 ### Q-T-BEH-1 — Forma del tipo Behavior en Rust, setup re-ejecutable y reutilizacion del valor
 
 - **Estado:** bloqueante
-- **Evidencia:** Pekko reutiliza el mismo valor Behavior en varios spawns y re-ejecuta setup en cada restart (actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:331-339; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:404; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:198-211); sin eso supervise/restart no puede recrear el Behavior.
+- **Evidencia:** Pekko reutiliza el mismo valor Behavior en varios spawns y re-ejecuta setup en cada restart (actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:331-339; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:404; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:198-211); sin eso supervise/restart no puede recrear el Behavior. Requisitos observables que cualquier representacion debe cumplir (contrato en AT-BEH-007, R1-R3): reutilizar el mismo Behavior en actores independientes y volver a ejecutar la fabrica de setup en cada restart (actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:404; actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1145-1153, 1673-1691). El FnOnce propuesto antes en AT-BEH-001/AT-BEH-007 contradice R1 y R2.
 - **Alternativas:** (a) enum Behavior<M> cerrado con Deferred(Arc<dyn Fn(&mut Ctx)->Behavior>) y Behavior: Clone via Arc; (b) Box<dyn FnOnce> y prohibir restart de esos Behaviors (rompe AT-BEH-023 y AT-SUP-005); (c) trait object Behavior con metodo clone_box.
-- **Recomendación:** (a). Es el unico que conserva restart y reutilizacion.
+- **Recomendación:** (a). Es el unico que conserva restart y reutilizacion. Es una recomendacion: el Owner no la acepto; hasta que responda AT-BEH-001, AT-BEH-004 y AT-BEH-007 no se cierran y ninguna alternativa se considera adoptada.
 - **Filas afectadas:** AT-BEH-001; AT-BEH-007; AT-BEH-011; AT-BEH-023; AT-SUP-005; AT-SUP-013
 - **Unidades afectadas:** BEH; SUP
 - **Origen:** typed-core
@@ -187,13 +187,14 @@ Decidirlas primero: desbloquean la mayor parte de las propuestas por unidad.
 - **Unidades afectadas:** todas las AT-*
 - **Origen:** transversal
 
-### Q-X-9 — Done, Timeout, null y unidades de duración (Q-UTIL-1..5)
+### Q-X-9 — Agrupación de presentación: Done, Timeout, null y unidades de duración (Q-UTIL-1..5)
 
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md, sección Preguntas abiertas; filas AC-UTIL-001..004 `partial`.
-- **Alternativas:** Ver las cinco preguntas del plan (negativos y rango de `Timeout`, `toString` con unidad, `null` y mensajes diferidos, jerarquía de excepciones, `Done` propio o `()`).
-- **Recomendación:** Mantener lo implementado (struct `Done`, `Timeout` sobre `std::time::Duration`) como estado `partial` hasta que el Owner responda cada una; no se cierra ninguna de las cinco por defecto.
-- **Filas afectadas:** AC-UTIL-001..004
+- **Estado:** agrupación de presentación (se responde por miembro, nunca en bloque)
+- **Miembros (decisiones independientes):** Q-UTIL-1, Q-UTIL-2, Q-UTIL-3, Q-UTIL-4, Q-UTIL-5
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md, sección Preguntas abiertas. Es sólo un encabezado: no tiene estado ni respuesta propios.
+- **Alternativas:** No aplica: cada miembro tiene sus propias alternativas.
+- **Recomendación:** Sin recomendación propia. Responder cada miembro por separado (Q-UTIL-1, Q-UTIL-2, Q-UTIL-3, Q-UTIL-4, Q-UTIL-5); una respuesta a Q-X-9 se rechaza y ninguna respuesta de un miembro aprueba ni rechaza a los demás.
+- **Filas afectadas:** (las filas de cada miembro)
 - **Unidades afectadas:** AC-UTIL
 - **Origen:** transversal
 
@@ -207,7 +208,7 @@ Decidirlas primero: desbloquean la mayor parte de las propuestas por unidad.
 - **Unidades afectadas:** AC-SYS, AC-CFG, AC-DW, AC-SER
 - **Origen:** transversal
 
-Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`, `Q-UTIL-1` = `Q-X-9`, `Q-UTIL-2` = `Q-X-9`, `Q-UTIL-3` = `Q-X-9`, `Q-UTIL-4` = `Q-X-9`, `Q-UTIL-5` = `Q-X-9`.
+Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 
 ## 5. Propuestas por unidad
 
@@ -1830,6 +1831,56 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`, `Q-UTIL-1` = `Q-X-9`, `Q-UTIL-2
 - **Filas afectadas:** AC-TK-012.1 ; AC-TK-012.2 ; AC-TK-014
 - **Unidades afectadas:** TK
 - **Origen:** classic-system
+
+### Q-UTIL-1 — Negativos y rango de Timeout
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Preguntas abiertas, Q-UTIL-1): `FiniteDuration` es un `Long` de nanosegundos con signo entre -(2^63-1) y 2^63-1; `Timeout(-5.millis)` es válido y `ask` lo rechaza después (AC-ASK-001, ≤0). `std::time::Duration` no tiene negativos y llega a ~584 mil años. `Timeout.create(ofSeconds(Long.MAX_VALUE))` lanza `ArithmeticException: long overflow` en Pekko y tampoco se reproduce.
+- **Alternativas:** (a) quedarse con `std::time::Duration` y que `ask` reciba un `Timeout` siempre positivo, documentando que `Timeout(-5.millis)` no se puede construir (lo implementado); (b) tipo `FiniteDuration` propio con `i64` nanosegundos, exacto pero hay que reimplementar la aritmética; (c) `Timeout::new` falible que rechace lo que Pekko no puede construir.
+- **Recomendación:** (a) hasta que AC-ASK necesite el caso. Sin respuesta del Owner la fila AC-UTIL-001 queda `partial`.
+- **Filas afectadas:** AC-UTIL-001
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-2 — toString de Timeout conserva la unidad
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-2): Pekko imprime `Timeout(100 milliseconds)` o `Timeout(0 days)`: el `FiniteDuration` recuerda la unidad con que se construyó, aunque `Timeout(1000.millis) == Timeout(1.second)`. `std::time::Duration` no la recuerda.
+- **Alternativas:** (a) `Debug` derivado (`Timeout(100ms)`) sin prometer el formato de Pekko (lo implementado); (b) guardar la unidad junto con el valor (rompe la igualdad por valor o exige un `PartialEq` manual).
+- **Recomendación:** (a): sólo aparece en logs. Sin respuesta del Owner la fila AC-UTIL-001 queda `partial`.
+- **Filas afectadas:** AC-UTIL-001
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-3 — null y mensajes diferidos en PekkoException y requiring
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-3): `new PekkoException(null)` tiene `getMessage == null` y se imprime sin `: `; `requiring(cond, null)` da `requirement failed: null`. Con `&str`/`impl Display` no se puede expresar `null`. Igual que Q-PATH-4.
+- **Alternativas:** (a) aceptarlo como diferencia de lenguaje (única alternativa registrada en el plan).
+- **Recomendación:** (a), igual que Q-PATH-4. Sin respuesta del Owner las filas afectadas quedan `partial`.
+- **Filas afectadas:** AC-UTIL-002.3; AC-UTIL-004.1; AC-UTIL-004.2
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-4 — Jerarquía de excepciones y OnlyCauseStackTrace
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-4): (i) `ConfigurationException` es subclase de `PekkoException`: un `catch PekkoException` la atrapa; con tipos separados no. (ii) `OnlyCauseStackTrace` sólo cambia qué stack trace imprime la JVM; los errores de Rust no llevan stack trace.
+- **Alternativas:** (a) tipos separados y un `From<ConfigurationException> for PekkoException` (pierde `java_class`) cuando algún consumidor lo pida; (b) un único `enum PekkoError`; (c) un trait común. Para (ii) el plan propone excluir `OnlyCauseStackTrace` y documentarlo.
+- **Recomendación:** (i) (a); (ii) excluirlo y documentarlo. La exclusión de `OnlyCauseStackTrace` requiere autorización explícita del Owner (A-5). Sin respuesta las filas quedan `partial`.
+- **Filas afectadas:** AC-UTIL-004.2; AC-UTIL-004.3
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-5 — Done propio o ()
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-5), inventario AC-UTIL-003.1: se implementó `pub struct Done;`; la fila queda `partial` hasta decidir. Java expone `getInstance()` y `done()`.
+- **Alternativas:** (a) `pub struct Done;` (lo implementado); (b) `()`.
+- **Recomendación:** Sin recomendación registrada en el plan: lo implementado (a) es un estado, no una decisión aceptada. La fila AC-UTIL-003.1 queda `partial`.
+- **Filas afectadas:** AC-UTIL-003.1
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
 
 ### Q-UTIL-7 — toRootLowerCase: tabla de minúsculas de Unicode distinta entre JDK y Rust
 

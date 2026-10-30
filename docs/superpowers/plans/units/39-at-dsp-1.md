@@ -24,7 +24,7 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ### Tarea 1: Props tipado (empty, encadenado, firstOrElse, allOf) (+4 filas)
 
-Filas: AT-DSP-001, AT-DSP-002, AT-DSP-003, AT-DSP-004, AT-DSP-005. Contratos y aserciones: `docs/inventory/contracts/typed-core.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AT-DSP-001, AT-DSP-002, AT-DSP-003, AT-DSP-004, AT-DSP-005. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.

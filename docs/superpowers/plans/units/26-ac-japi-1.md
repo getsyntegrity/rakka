@@ -31,7 +31,7 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ### Tarea 1: AbstractActor + createReceive/ReceiveBuilder y AbstractActor.ActorContext (getters Java,… (+5 filas)
 
-Filas: AC-JAPI-001, AC-JAPI-002, AC-JAPI-003, AC-JAPI-004.1, AC-JAPI-004.2, AC-JAPI-004.3. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-JAPI-001, AC-JAPI-002, AC-JAPI-003, AC-JAPI-004.1, AC-JAPI-004.2, AC-JAPI-004.3. Contratos y aserciones: `docs/inventory/contracts/classic-io-ser.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.

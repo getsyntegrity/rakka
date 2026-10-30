@@ -32,7 +32,7 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ### Tarea 1: Contrato EventBus: subscribe/unsubscribe/publish con resultado booleano (+5 filas)
 
-Filas: AC-EVT-001, AC-EVT-002, AC-EVT-003, AC-EVT-004, AC-EVT-005, AC-EVT-006. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-EVT-001, AC-EVT-002, AC-EVT-003, AC-EVT-004, AC-EVT-005, AC-EVT-006. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
