@@ -265,4 +265,4 @@ pub(crate) fn parse(s: &str) -> Result<Uri, UriSyntaxError>;
 - [ ] **Step 4:** `cargo test --workspace` y `cargo clippy --workspace --all-targets -- -D warnings` limpios.
 - [ ] **Step 5:** inventario: `validation=oracle+spec` en las filas cubiertas; `impl=done` sólo en filas sin `Q:` abierta y sin dependencia de unidades futuras. `AC-PATH-009`, `011` y `015` quedan `partial` siempre (ver arriba), igual que cualquier fila con Q-PATH-1..5 sin resolver. Commit `test(actor): differential oracle for AC-PATH`.
 
-**Siguiente spec en la cadena:** `AC-CFG` (configuración HOCON y `reference.conf`), ver `docs/implementation-order.md`.
+**Siguiente spec en la cadena:** `AC-UTIL` (parte que usa el núcleo: `Timeout`, `Done`, excepciones base, `Helpers`), plan `docs/superpowers/plans/2026-10-30-ac-util-core.md`; después `AC-CFG` (configuración HOCON y `reference.conf`). Ver `docs/implementation-order.md`. AC-PATH no queda cerrada: `AC-PATH-001`, `002`, `007`, `008`, `009`, `011`, `014` y `015` siguen `partial` mientras Q-PATH-1 a Q-PATH-6 y las dependencias de unidades futuras estén abiertas.
