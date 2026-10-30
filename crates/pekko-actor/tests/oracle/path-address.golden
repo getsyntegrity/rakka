@@ -1,0 +1,405 @@
+# source: Apache Pekko 1.7.1 compiled from upstream/pekko @ 9a54d1294c3ac7821bbed3c940769c3d5027d1ff (sbt 1.12.14, Temurin 8u504-b01, release:8)
+# generated: tools/oracle/run.sh tools/oracle/path-address.jsh (jsh md5 9c031059b875) on 2026-10-30
+SPEC-APS-27 -> ok eq=true ChildActorPath str=[pekko://mysys/user] ser=[pekko://mysys/user] noAddr=[/user] addr=[pekko://mysys] name=[user] uid=0 elems=([user])
+SPEC-APS-32 -> ok ChildActorPath str=[pekko://my_sys@host:1234/some/ref] ser=[pekko://my_sys@host:1234/some/ref] noAddr=[/some/ref] addr=[pekko://my_sys@host:1234] name=[ref] uid=0 elems=([some],[ref])
+SPEC-APS-37 -> ok ChildActorPath str=[akka://my_sys@host:1234/some/ref] ser=[akka://my_sys@host:1234/some/ref] noAddr=[/some/ref] addr=[akka://my_sys@host:1234] name=[ref] uid=0 elems=([some],[ref])
+SPEC-APS-42 -> ok str=[pekko://my_sys@host:1234] protocol=[pekko] system=[my_sys] host=[host] port=[1234] local=false global=true hostPort=[my_sys@host:1234] eqExpected=true
+SPEC-APS-47 -> ok str=[akka://my_sys@host:1234] protocol=[akka] system=[my_sys] host=[host] port=[1234] local=false global=true hostPort=[my_sys@host:1234] eqExpected=true
+SPEC-APS-51 -> ERR MalformedURLException [cannot parse as ActorPath: ]
+SPEC-APS-52 -> ERR MalformedURLException [cannot parse as ActorPath: ://hallo]
+SPEC-APS-53 -> ERR MalformedURLException [cannot parse as ActorPath: s://dd@:12]
+SPEC-APS-54 -> ERR MalformedURLException [cannot parse as ActorPath: s://dd@h:hd]
+SPEC-APS-55 -> ERR MalformedURLException [cannot parse as ActorPath: a://l:1/b]
+SPEC-APS-60 -> ok pekko://mysys/
+SPEC-APS-61 -> ok pekko://mysys/user
+SPEC-APS-62 -> ok pekko://mysys/user/foo
+SPEC-APS-63 -> ok pekko://mysys/user/foo/bar
+SPEC-APS-67 -> ok ([user],[foo],[bar])
+SPEC-APS-73 -> ok /
+SPEC-APS-74 -> ok /user
+SPEC-APS-75 -> ok /user/foo
+SPEC-APS-76 -> ok /user/foo/bar
+SPEC-APS-80 -> ok valid=false validate=ERR InvalidActorNameException [Actor path element must not be empty ]
+SPEC-APS-86 -> ok str=[pekko://mysys@aaa:7355] protocol=[pekko] system=[mysys] host=[aaa] port=[7355] local=false global=true hostPort=[mysys@aaa:7355] | str=[pekko://mysys@bb:7355] protocol=[pekko] system=[mysys] host=[bb] port=[7355] local=false global=true hostPort=[mysys@bb:7355] | str=[pekko://mysys@cccc:7355] protocol=[pekko] system=[mysys] host=[cccc] port=[7355] local=false global=true hostPort=[mysys@cccc:7355]
+SPEC-APS-90 -> ok pekko://mysys@aaa:7355/
+SPEC-APS-91 -> ok pekko://mysys@aaa:7355/user
+SPEC-APS-92 -> ok pekko://mysys@aaa:7355/user/foo
+SPEC-APS-94 -> ok pekko://mysys@bb:7355/
+SPEC-APS-95 -> ok pekko://mysys@bb:7355/user
+SPEC-APS-96 -> ok pekko://mysys@bb:7355/user/foo
+SPEC-APS-98 -> ok pekko://mysys@cccc:7355/
+SPEC-APS-99 -> ok pekko://mysys@cccc:7355/user
+SPEC-APS-100 -> ok pekko://mysys@cccc:7355/user/foo
+SPEC-APS-103 -> ok pekko://mysys@aaa:7355/
+SPEC-APS-104 -> ok pekko://mysys@aaa:7355/user
+SPEC-APS-105 -> ok pekko://mysys@aaa:7355/user/foo
+SPEC-APS-110 -> ERR IllegalArgumentException [requirement failed: / may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: [/user/boom/*]]
+SPEC-APS-114 -> ok ChildActorPath str=[pekko://mysys/user/boom/*] ser=[pekko://mysys/user/boom/*] noAddr=[/user/boom/*] addr=[pekko://mysys] name=[*] uid=0 elems=([user],[boom],[*])
+SPEC-APS-119-124[valid] -> ok invalid=false
+SPEC-APS-119-124[is_valid.org] -> ok invalid=false
+SPEC-APS-119-124[fu.is_valid.org] -> ok invalid=false
+SPEC-APS-119-124[in_valid] -> ok invalid=true
+SPEC-APS-119-124[invalid._org] -> ok invalid=true
+SPEC-APS-126 -> ERR MalformedURLException [pekko://sys@in_valid:5001]
+SPEC-APS-133-143[localhost] -> ok checked
+SPEC-APS-133-143[is_valid.org] -> ok checked
+SPEC-APS-133-143[fu.is_valid.org] -> ok checked
+SPEC-APS-133-143[in_valid] -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(in_valid)' in the Address is not allowed.]
+SPEC-APS-133-143[invalid._org] -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(invalid._org)' in the Address is not allowed.]
+SPEC-ADS-34 -> ok [akka://system@host1:1000, akka://system@host2:1000, pekko://system@host1:1000, pekko://system@host2:1000]
+SPEC-RAP-29 -> ok some ([foo])
+SPEC-RAP-32 -> ok some ([foo],[bar],[baz])
+SPEC-RAP-35 -> ok some ([pekko%3A%2F%2FClusterSystem%40127.0.0.1%3A7355])
+SPEC-RAP-39 -> ok some ([foo],[bar],[baz#1234])
+SPEC-LARP-01 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [$hallo], illegal character [$] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-02 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a%], illegal character [%] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-03 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [%3], illegal character [%] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-04 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [%xx], illegal character [%] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-05 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [%0G], illegal character [%] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-06 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [%gg], illegal character [%] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-07 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [%], illegal character [%] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-08 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [%1t], illegal character [%] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-09 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a?], illegal character [?] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-10 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [\u00FC\u00DF], illegal character [\u00FC] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-11 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [he"llo], illegal character ["] at position: 2. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-12 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [$hello], illegal character [$] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-LARP-13 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [hell>o], illegal character [>] at position: 4. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+SPEC-JAPI-62 -> ok ChildActorPath str=[pekko://Sys@localhost:1234/user/abc] ser=[pekko://Sys@localhost:1234/user/abc] noAddr=[/user/abc] addr=[pekko://Sys@localhost:1234] name=[abc] uid=0 elems=([user],[abc])
+FS-01 [pekko://mysys/user] -> ok ChildActorPath str=[pekko://mysys/user] ser=[pekko://mysys/user] noAddr=[/user] addr=[pekko://mysys] name=[user] uid=0 elems=([user])
+FS-02 [pekko://sys] -> ok RootActorPath str=[pekko://sys/] ser=[pekko://sys/] noAddr=[/] addr=[pekko://sys] name=[/] uid=0 elems=([])
+FS-03 [pekko://sys/] -> ok RootActorPath str=[pekko://sys/] ser=[pekko://sys/] noAddr=[/] addr=[pekko://sys] name=[/] uid=0 elems=([])
+FS-04 [pekko://sys/user/] -> ok ChildActorPath str=[pekko://sys/user] ser=[pekko://sys/user] noAddr=[/user] addr=[pekko://sys] name=[user] uid=0 elems=([user])
+FS-05 [pekko://sys/user//x] -> ok ChildActorPath str=[pekko://sys/user/x] ser=[pekko://sys/user/x] noAddr=[/user/x] addr=[pekko://sys] name=[x] uid=0 elems=([user],[x])
+FS-06 [pekko://sys//a] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a] noAddr=[/a] addr=[pekko://sys] name=[a] uid=0 elems=([a])
+FS-07 [pekko://sys/./a/../b] -> ok ChildActorPath str=[pekko://sys/./a/../b] ser=[pekko://sys/./a/../b] noAddr=[/./a/../b] addr=[pekko://sys] name=[b] uid=0 elems=([.],[a],[..],[b])
+FS-08 [pekko://sys/$a] -> ok ChildActorPath str=[pekko://sys/$a] ser=[pekko://sys/$a] noAddr=[/$a] addr=[pekko://sys] name=[$a] uid=0 elems=([$a])
+FS-09 [pekko://sys/user/a%20b] -> ok ChildActorPath str=[pekko://sys/user/a%20b] ser=[pekko://sys/user/a%20b] noAddr=[/user/a%20b] addr=[pekko://sys] name=[a%20b] uid=0 elems=([user],[a%20b])
+FS-10 [pekko://sys/a%2Fb] -> ok ChildActorPath str=[pekko://sys/a%2Fb] ser=[pekko://sys/a%2Fb] noAddr=[/a%2Fb] addr=[pekko://sys] name=[a%2Fb] uid=0 elems=([a%2Fb])
+FS-11 [pekko://sys/a%2] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://sys/a%2]
+FS-12 [pekko://sys/a%zz] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://sys/a%zz]
+FS-13 [pekko://sys/a b] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://sys/a b]
+FS-14 [pekko://sys/\u00FCser] -> ok ChildActorPath str=[pekko://sys/\u00FCser] ser=[pekko://sys/\u00FCser] noAddr=[/\u00FCser] addr=[pekko://sys] name=[\u00FCser] uid=0 elems=([\u00FCser])
+FS-15 [pekko://sys/user?x=1] -> ok ChildActorPath str=[pekko://sys/user] ser=[pekko://sys/user] noAddr=[/user] addr=[pekko://sys] name=[user] uid=0 elems=([user])
+FS-16 [pekko://sys/user?x#5] -> ok ChildActorPath str=[pekko://sys/user] ser=[pekko://sys/user#5] noAddr=[/user] addr=[pekko://sys] name=[user] uid=5 elems=([user])
+FS-17 [pekko://sys/user#5?x] -> ERR NumberFormatException [For input string: "5?x"]
+FS-18 [pekko://sys@in_valid:5001/user] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://sys@in_valid:5001/user]
+FS-19 [pekko://my_sys/user] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://my_sys/user]
+FS-20 [pekko://my_sys@host:1/user] -> ok ChildActorPath str=[pekko://my_sys@host:1/user] ser=[pekko://my_sys@host:1/user] noAddr=[/user] addr=[pekko://my_sys@host:1] name=[user] uid=0 elems=([user])
+FS-21 [pekko:sys] -> ERR MalformedURLException [cannot parse as ActorPath: pekko:sys]
+FS-22 [pekko:sys/user] -> ERR MalformedURLException [cannot parse as ActorPath: pekko:sys/user]
+FS-23 [pekko:///user] -> ERR MalformedURLException [cannot parse as ActorPath: pekko:///user]
+FS-24 [pekko://@host:1/user] -> ok ChildActorPath str=[pekko://@host:1/user] ser=[pekko://@host:1/user] noAddr=[/user] addr=[pekko://@host:1] name=[user] uid=0 elems=([user])
+FS-25 [pekko://sys:1234/user] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://sys:1234/user]
+FS-26 [pekko://sys@host/user] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://sys@host/user]
+FS-27 [pekko://sys@[::1]:2552/user] -> ok ChildActorPath str=[pekko://sys@[::1]:2552/user] ser=[pekko://sys@[::1]:2552/user] noAddr=[/user] addr=[pekko://sys@[::1]:2552] name=[user] uid=0 elems=([user])
+FS-28 [pekko://sys@127.0.0.1:2552/user] -> ok ChildActorPath str=[pekko://sys@127.0.0.1:2552/user] ser=[pekko://sys@127.0.0.1:2552/user] noAddr=[/user] addr=[pekko://sys@127.0.0.1:2552] name=[user] uid=0 elems=([user])
+FS-29 [pekko://a%20b@h:1/u] -> ok ChildActorPath str=[pekko://a b@h:1/u] ser=[pekko://a b@h:1/u] noAddr=[/u] addr=[pekko://a b@h:1] name=[u] uid=0 elems=([u])
+FS-30 [pekko://a:b@h:1/u] -> ok ChildActorPath str=[pekko://a:b@h:1/u] ser=[pekko://a:b@h:1/u] noAddr=[/u] addr=[pekko://a:b@h:1] name=[u] uid=0 elems=([u])
+FS-31 [PEKKO://Sys@HOST:1/User] -> ok ChildActorPath str=[PEKKO://Sys@HOST:1/User] ser=[PEKKO://Sys@HOST:1/User] noAddr=[/User] addr=[PEKKO://Sys@HOST:1] name=[User] uid=0 elems=([User])
+FS-32 [/user/a] -> ERR MalformedURLException [cannot parse as ActorPath: /user/a]
+FS-33 [user/a] -> ERR MalformedURLException [cannot parse as ActorPath: user/a]
+FS-34 [pekko://sys@h:70000/u] -> ok ChildActorPath str=[pekko://sys@h:70000/u] ser=[pekko://sys@h:70000/u] noAddr=[/u] addr=[pekko://sys@h:70000] name=[u] uid=0 elems=([u])
+FS-35 [pekko://sys@h:99999999999/u] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://sys@h:99999999999/u]
+FS-36 [pekko://sys/a#5] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a#5] noAddr=[/a] addr=[pekko://sys] name=[a] uid=5 elems=([a])
+FS-37 [pekko://sys/a#+5] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a#5] noAddr=[/a] addr=[pekko://sys] name=[a] uid=5 elems=([a])
+FS-38 [pekko://sys/a#-5] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a#-5] noAddr=[/a] addr=[pekko://sys] name=[a] uid=-5 elems=([a])
+FS-39 [pekko://sys/a#0] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a] noAddr=[/a] addr=[pekko://sys] name=[a] uid=0 elems=([a])
+FS-40 [pekko://sys/a#abc] -> ERR NumberFormatException [For input string: "abc"]
+FS-41 [pekko://sys/a#99999999999] -> ERR NumberFormatException [For input string: "99999999999"]
+FS-42 [pekko://sys/a#2147483647] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a#2147483647] noAddr=[/a] addr=[pekko://sys] name=[a] uid=2147483647 elems=([a])
+FS-43 [pekko://sys/a#2147483648] -> ERR NumberFormatException [For input string: "2147483648"]
+FS-44 [pekko://sys/a#-2147483648] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a#-2147483648] noAddr=[/a] addr=[pekko://sys] name=[a] uid=-2147483648 elems=([a])
+FS-45 [pekko://sys/a#] -> ERR NumberFormatException [For input string: ""]
+FS-46 [pekko://sys/a#5#6] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://sys/a#5#6]
+FS-47 [pekko://sys/a# 5] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://sys/a# 5]
+FS-48 [pekko://sys#5] -> ok RootActorPath str=[pekko://sys/] ser=[pekko://sys/] noAddr=[/] addr=[pekko://sys] name=[/] uid=0 elems=([])
+FS-49 [pekko://sys/#5] -> ok ChildActorPath str=[pekko://sys/] ser=[pekko://sys/#5] noAddr=[/] addr=[pekko://sys] name=[] uid=5 elems=([])
+FS-50 [pekko://sys/user/#5] -> ok ChildActorPath str=[pekko://sys/user/] ser=[pekko://sys/user/#5] noAddr=[/user/] addr=[pekko://sys] name=[] uid=5 elems=([user],[])
+FS-51 [pekko://sys/a/b#7] -> ok ChildActorPath str=[pekko://sys/a/b] ser=[pekko://sys/a/b#7] noAddr=[/a/b] addr=[pekko://sys] name=[b] uid=7 elems=([a],[b])
+FS-52 [pekko://sys/a#\u0665] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a#5] noAddr=[/a] addr=[pekko://sys] name=[a] uid=5 elems=([a])
+FS-53 [pekko://sys/a#\uFF15] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a#5] noAddr=[/a] addr=[pekko://sys] name=[a] uid=5 elems=([a])
+FS-54 [pekko://sys/a#+] -> ERR NumberFormatException [For input string: "+"]
+FS-55 [pekko://sys/a#-] -> ERR NumberFormatException [For input string: "-"]
+FS-56 [pekko://sys/a#+-5] -> ERR NumberFormatException [For input string: "+-5"]
+AD-01 [pekko://my_sys@host:1234] -> ok str=[pekko://my_sys@host:1234] protocol=[pekko] system=[my_sys] host=[host] port=[1234] local=false global=true hostPort=[my_sys@host:1234]
+AD-02 [pekko://sys] -> ok str=[pekko://sys] protocol=[pekko] system=[sys] host=none port=none local=true global=false hostPort=[sys]
+AD-03 [pekko://sys/] -> ok str=[pekko://sys] protocol=[pekko] system=[sys] host=none port=none local=true global=false hostPort=[sys]
+AD-04 [pekko://sys/user/a] -> ok str=[pekko://sys] protocol=[pekko] system=[sys] host=none port=none local=true global=false hostPort=[sys]
+AD-05 [pekko://sys?x] -> ok str=[pekko://sys] protocol=[pekko] system=[sys] host=none port=none local=true global=false hostPort=[sys]
+AD-06 [pekko://sys#5] -> ok str=[pekko://sys] protocol=[pekko] system=[sys] host=none port=none local=true global=false hostPort=[sys]
+AD-07 [pekko://sys@h:1/user#5] -> ok str=[pekko://sys@h:1] protocol=[pekko] system=[sys] host=[h] port=[1] local=false global=true hostPort=[sys@h:1]
+AD-08 [pekko://sys@in_valid:5001] -> ERR MalformedURLException [pekko://sys@in_valid:5001]
+AD-09 [pekko://sys:1234] -> ERR MalformedURLException [pekko://sys:1234]
+AD-10 [pekko://@host:1] -> ok str=[pekko://@host:1] protocol=[pekko] system=[] host=[host] port=[1] local=false global=true hostPort=[@host:1]
+AD-11 [pekko://sys@host] -> ERR MalformedURLException [pekko://sys@host]
+AD-12 [pekko://sys@host:] -> ERR MalformedURLException [pekko://sys@host:]
+AD-13 [pekko://sys@host:0] -> ok str=[pekko://sys@host:0] protocol=[pekko] system=[sys] host=[host] port=[0] local=false global=true hostPort=[sys@host:0]
+AD-14 [pekko://sys@host:00012] -> ok str=[pekko://sys@host:12] protocol=[pekko] system=[sys] host=[host] port=[12] local=false global=true hostPort=[sys@host:12]
+AD-15 [pekko://sys@host:-1] -> ERR MalformedURLException [pekko://sys@host:-1]
+AD-16 [pekko://sys@host:70000] -> ok str=[pekko://sys@host:70000] protocol=[pekko] system=[sys] host=[host] port=[70000] local=false global=true hostPort=[sys@host:70000]
+AD-17 [pekko://sys@host:2147483647] -> ok str=[pekko://sys@host:2147483647] protocol=[pekko] system=[sys] host=[host] port=[2147483647] local=false global=true hostPort=[sys@host:2147483647]
+AD-18 [pekko://sys@host:2147483648] -> ERR MalformedURLException [pekko://sys@host:2147483648]
+AD-19 [pekko://sys@host:99999999999] -> ERR MalformedURLException [pekko://sys@host:99999999999]
+AD-20 [pekko://sys@[::1]:2552] -> ok str=[pekko://sys@[::1]:2552] protocol=[pekko] system=[sys] host=[[::1]] port=[2552] local=false global=true hostPort=[sys@[::1]:2552]
+AD-21 [pekko://sys@[::1]] -> ERR MalformedURLException [pekko://sys@[::1]]
+AD-22 [pekko://sys@[::1] -> ERR MalformedURLException [pekko://sys@[::1]
+AD-23 [pekko://sys@127.0.0.1:2552] -> ok str=[pekko://sys@127.0.0.1:2552] protocol=[pekko] system=[sys] host=[127.0.0.1] port=[2552] local=false global=true hostPort=[sys@127.0.0.1:2552]
+AD-24 [pekko://sys@256.1.1.1:1] -> ERR MalformedURLException [pekko://sys@256.1.1.1:1]
+AD-25 [pekko://my_sys] -> ERR MalformedURLException [pekko://my_sys]
+AD-26 [pekko://my_sys@host:1] -> ok str=[pekko://my_sys@host:1] protocol=[pekko] system=[my_sys] host=[host] port=[1] local=false global=true hostPort=[my_sys@host:1]
+AD-27 [pekko://a:b@h:1] -> ok str=[pekko://a:b@h:1] protocol=[pekko] system=[a:b] host=[h] port=[1] local=false global=true hostPort=[a:b@h:1]
+AD-28 [pekko://a%20b@h:1] -> ok str=[pekko://a b@h:1] protocol=[pekko] system=[a b] host=[h] port=[1] local=false global=true hostPort=[a b@h:1]
+AD-29 [pekko://a%2@h:1] -> ERR MalformedURLException [pekko://a%2@h:1]
+AD-30 [pekko://sys@h\u00F6:1] -> ERR MalformedURLException [pekko://sys@h\u00F6:1]
+AD-31 [pekko://s\u00FFs@h:1] -> ok str=[pekko://s\u00FFs@h:1] protocol=[pekko] system=[s\u00FFs] host=[h] port=[1] local=false global=true hostPort=[s\u00FFs@h:1]
+AD-32 [pekko://s\u00FFs] -> ERR MalformedURLException [pekko://s\u00FFs]
+AD-33 [pekko:sys] -> ERR MalformedURLException [pekko:sys]
+AD-34 [pekko:///] -> ERR MalformedURLException [pekko:///]
+AD-35 [pekko://] -> ERR MalformedURLException [pekko://]
+AD-36 [PEKKO://Sys@HOST:1] -> ok str=[PEKKO://Sys@HOST:1] protocol=[PEKKO] system=[Sys] host=[HOST] port=[1] local=false global=true hostPort=[Sys@HOST:1]
+AD-37 [pekko://s y] -> ERR MalformedURLException [pekko://s y]
+AD-38 [/user] -> ERR MalformedURLException [/user]
+AD-39 [sys@h:1] -> ERR MalformedURLException [sys@h:1]
+AD-40 [1pekko://sys] -> ERR MalformedURLException [1pekko://sys]
+AD-41 [pekko://sys@h-1.example.com:1] -> ok str=[pekko://sys@h-1.example.com:1] protocol=[pekko] system=[sys] host=[h-1.example.com] port=[1] local=false global=true hostPort=[sys@h-1.example.com:1]
+AD-42 [pekko://sys@-h:1] -> ERR MalformedURLException [pekko://sys@-h:1]
+AD-43 [pekko://sys@h.:1] -> ok str=[pekko://sys@h.:1] protocol=[pekko] system=[sys] host=[h.] port=[1] local=false global=true hostPort=[sys@h.:1]
+AD-44 [pekko://sys@h_1.example.com:1] -> ERR MalformedURLException [pekko://sys@h_1.example.com:1]
+AD-45 [pekko://sys@host:1234 ] -> ERR MalformedURLException [pekko://sys@host:1234 ]
+AD-46 [] -> ERR MalformedURLException []
+AD-47 [://hallo] -> ERR MalformedURLException [://hallo]
+AD-48 [pekko://a%C3%BC@h:1] -> ok str=[pekko://a\u00FC@h:1] protocol=[pekko] system=[a\u00FC] host=[h] port=[1] local=false global=true hostPort=[a\u00FC@h:1]
+AD-49 [pekko://a%FF@h:1] -> ok str=[pekko://a\uFFFD@h:1] protocol=[pekko] system=[a\uFFFD] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD@h:1]
+AD-50 [pekko://sys@[::FFFF:1.2.3.4]:1] -> ok str=[pekko://sys@[::FFFF:1.2.3.4]:1] protocol=[pekko] system=[sys] host=[[::FFFF:1.2.3.4]] port=[1] local=false global=true hostPort=[sys@[::FFFF:1.2.3.4]:1]
+AD-51 [pekko://sys@[fe80::1%25eth0]:1] -> ok str=[pekko://sys@[fe80::1%25eth0]:1] protocol=[pekko] system=[sys] host=[[fe80::1%25eth0]] port=[1] local=false global=true hostPort=[sys@[fe80::1%25eth0]:1]
+AD-52 [pekko://sys@[1::2::3]:1] -> ERR MalformedURLException [pekko://sys@[1::2::3]:1]
+AD-53 [pekko://sys@::1:1] -> ERR MalformedURLException [pekko://sys@::1:1]
+AD-PARSE [pekko://sys@h:1] -> ok str=[pekko://sys@h:1] protocol=[pekko] system=[sys] host=[h] port=[1] local=false global=true hostPort=[sys@h:1]
+AD-PARSE [pekko://sys:1] -> ERR MalformedURLException [pekko://sys:1]
+UTF-AD-01 [pekko://a%ED%A0%80b@h:1] -> ok str=[pekko://a\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDb@h:1]
+UTF-AD-02 [pekko://a%ED%B0%80b@h:1] -> ok str=[pekko://a\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDb@h:1]
+UTF-AD-03 [pekko://a%ED%A0%80%ED%B0%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFDb@h:1]
+UTF-AD-04 [pekko://a%ED%A0%41b@h:1] -> ok str=[pekko://a\uFFFDAb@h:1] protocol=[pekko] system=[a\uFFFDAb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDAb@h:1]
+UTF-AD-05 [pekko://a%ED%A0b@h:1] -> ok str=[pekko://a\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDb@h:1]
+UTF-AD-06 [pekko://a%C0%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFDb@h:1]
+UTF-AD-07 [pekko://a%C1%BFb@h:1] -> ok str=[pekko://a\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFDb@h:1]
+UTF-AD-08 [pekko://a%E0%80%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFD\uFFFDb@h:1]
+UTF-AD-09 [pekko://a%E0%9F%BFb@h:1] -> ok str=[pekko://a\uFFFD\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFD\uFFFDb@h:1]
+UTF-AD-10 [pekko://a%E0%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFDb@h:1]
+UTF-AD-11 [pekko://a%F0%80%80%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFD\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFD\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFD\uFFFD\uFFFDb@h:1]
+UTF-AD-12 [pekko://a%F0%8F%BF%BFb@h:1] -> ok str=[pekko://a\uFFFD\uFFFD\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFD\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFD\uFFFD\uFFFDb@h:1]
+UTF-AD-13 [pekko://a%F4%90%80%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFD\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFD\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFD\uFFFD\uFFFDb@h:1]
+UTF-AD-14 [pekko://a%F5%80%80%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFD\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFD\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFD\uFFFD\uFFFDb@h:1]
+UTF-AD-15 [pekko://a%E2%82b@h:1] -> ok str=[pekko://a\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDb@h:1]
+UTF-AD-16 [pekko://a%E2%82%41b@h:1] -> ok str=[pekko://a\uFFFDAb@h:1] protocol=[pekko] system=[a\uFFFDAb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDAb@h:1]
+UTF-AD-17 [pekko://a%F0%9F%98b@h:1] -> ok str=[pekko://a\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDb@h:1]
+UTF-AD-18 [pekko://a%F0%9F%41b@h:1] -> ok str=[pekko://a\uFFFDAb@h:1] protocol=[pekko] system=[a\uFFFDAb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDAb@h:1]
+UTF-AD-19 [pekko://a%F0%90%80%41b@h:1] -> ok str=[pekko://a\uFFFDAb@h:1] protocol=[pekko] system=[a\uFFFDAb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDAb@h:1]
+UTF-AD-20 [pekko://a%80b@h:1] -> ok str=[pekko://a\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDb@h:1]
+UTF-AD-21 [pekko://a%BF%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFDb@h:1]
+UTF-AD-22 [pekko://a%C3b@h:1] -> ok str=[pekko://a\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDb@h:1]
+UTF-AD-23 [pekko://a%C3%BCx%FF%E2%82%ACb@h:1] -> ok str=[pekko://a\u00FCx\uFFFD\u20ACb@h:1] protocol=[pekko] system=[a\u00FCx\uFFFD\u20ACb] host=[h] port=[1] local=false global=true hostPort=[a\u00FCx\uFFFD\u20ACb@h:1]
+UTF-AD-24 [pekko://a%E2%82%AC%ED%A0%E2%82%ACb@h:1] -> ok str=[pekko://a\u20AC\uFFFD\u20ACb@h:1] protocol=[pekko] system=[a\u20AC\uFFFD\u20ACb] host=[h] port=[1] local=false global=true hostPort=[a\u20AC\uFFFD\u20ACb@h:1]
+UTF-AD-25 [pekko://a%F8%88%80%80%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDb@h:1]
+UTF-AD-26 [pekko://a%FC%84%80%80%80%80b@h:1] -> ok str=[pekko://a\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDb@h:1]
+UTF-AD-27 [pekko://a%FEb@h:1] -> ok str=[pekko://a\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDb@h:1]
+UTF-AD-28 [pekko://a%FFb@h:1] -> ok str=[pekko://a\uFFFDb@h:1] protocol=[pekko] system=[a\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDb@h:1]
+UTF-AD-29 [pekko://a%C2%41b@h:1] -> ok str=[pekko://a\uFFFDAb@h:1] protocol=[pekko] system=[a\uFFFDAb] host=[h] port=[1] local=false global=true hostPort=[a\uFFFDAb@h:1]
+UTF-AD-30 [pekko://a%F0%9F%98%80%80b@h:1] -> ok str=[pekko://a\uD83D\uDE00\uFFFDb@h:1] protocol=[pekko] system=[a\uD83D\uDE00\uFFFDb] host=[h] port=[1] local=false global=true hostPort=[a\uD83D\uDE00\uFFFDb@h:1]
+UTF-FS-01 [pekko://a%ED%A0%80@h:1/u%ED%A0%80/v%C0%80#5] -> ok ChildActorPath str=[pekko://a\uFFFD@h:1/u%ED%A0%80/v%C0%80] ser=[pekko://a\uFFFD@h:1/u%ED%A0%80/v%C0%80#5] noAddr=[/u%ED%A0%80/v%C0%80] addr=[pekko://a\uFFFD@h:1] name=[v%C0%80] uid=5 elems=([u%ED%A0%80],[v%C0%80])
+UTF-FS-02 [pekko://a%ED%A0%80/u] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://a%ED%A0%80/u]
+UTF-FS-03 [pekko://a%E2%82@h%E2:1/u] -> ERR MalformedURLException [cannot parse as ActorPath: pekko://a%E2%82@h%E2:1/u]
+UTF-FS-04 [pekko://a%FF@h:1/u#%FF] -> ERR NumberFormatException [For input string: "%FF"]
+DEEP-01 fromString 1e6 levels vs built -> ok elems=1000000 strLen=2000009 eq=true hashEq=true cmp=0 vsParent=-1 eqParent=false
+RP-01 [] -> ok some ([])
+RP-02 [/user/a] -> ok some ([],[user],[a])
+RP-03 [pekko://sys/a] -> ok none
+RP-04 [foo:bar] -> ok none
+RP-05 [a%2] -> ok none
+RP-06 [a b] -> ok none
+RP-07 [foo?x] -> ok some ([foo])
+RP-08 [foo#abc] -> ok some ([foo#abc])
+RP-09 [#5] -> ok some ([#5])
+RP-10 [../a] -> ok some ([..],[a])
+RP-11 [foo//bar] -> ok some ([foo],[],[bar])
+RP-12 [foo/] -> ok some ([foo],[])
+RP-13 [\u00FC] -> ok some ([\u00FC])
+RP-14 [a%20b] -> ok some ([a%20b])
+RP-15 [foo#1#2] -> ok none
+CT-01 new(pekko,sys) -> ok str=[pekko://sys] protocol=[pekko] system=[sys] host=none port=none local=true global=false hostPort=[sys]
+CT-02 new(pekko,sys,h,1234) -> ok str=[pekko://sys@h:1234] protocol=[pekko] system=[sys] host=[h] port=[1234] local=false global=true hostPort=[sys@h:1234]
+CT-03 new(pekko,sys,h,0) -> ok str=[pekko://sys@h:0] protocol=[pekko] system=[sys] host=[h] port=[0] local=false global=true hostPort=[sys@h:0]
+CT-04 new(pekko,sys,h,-5) -> ok str=[pekko://sys@h:-5] protocol=[pekko] system=[sys] host=[h] port=[-5] local=false global=true hostPort=[sys@h:-5]
+CT-05 new(pekko,sys,h,-1) -> ok str=[pekko://sys@h:-1] protocol=[pekko] system=[sys] host=[h] port=[-1] local=false global=true hostPort=[sys@h:-1]
+CT-06 new(pekko,sys,h,70000) -> ok str=[pekko://sys@h:70000] protocol=[pekko] system=[sys] host=[h] port=[70000] local=false global=true hostPort=[sys@h:70000]
+CT-07 new(pekko,sys,h,MAX) -> ok str=[pekko://sys@h:2147483647] protocol=[pekko] system=[sys] host=[h] port=[2147483647] local=false global=true hostPort=[sys@h:2147483647]
+CT-08 new(pekko,sys,h,MIN) -> ok str=[pekko://sys@h:-2147483648] protocol=[pekko] system=[sys] host=[h] port=[-2147483648] local=false global=true hostPort=[sys@h:-2147483648]
+CT-09 new(pekko,sys,null,1) -> ok str=[pekko://sys:1] protocol=[pekko] system=[sys] host=none port=[1] local=true global=false hostPort=[sys:1]
+CT-10 new(pekko,sys,'',1) -> ok str=[pekko://sys@:1] protocol=[pekko] system=[sys] host=[] port=[1] local=false global=true hostPort=[sys@:1]
+CT-11 copy(host=Some(h),port=None) -> ok str=[pekko://mysys@h] protocol=[pekko] system=[mysys] host=[h] port=none local=false global=true hostPort=[mysys@h]
+CT-12 copy(host=Some(''),port=None) -> ok str=[pekko://mysys@] protocol=[pekko] system=[mysys] host=[] port=none local=false global=true hostPort=[mysys@]
+CT-13 copy(host=None,port=Some(7)) -> ok str=[pekko://mysys:7] protocol=[pekko] system=[mysys] host=none port=[7] local=true global=false hostPort=[mysys:7]
+CT-14 new('',s) -> ok str=[://s] protocol=[] system=[s] host=none port=none local=true global=false hostPort=[s]
+CT-15 new(p,'') -> ok str=[p://] protocol=[p] system=[] host=none port=none local=true global=false hostPort=[]
+CT-16 new(p,'s@h:1') -> ok str=[p://s@h:1] protocol=[p] system=[s@h:1] host=none port=none local=true global=false hostPort=[s@h:1]
+CT-17 new(p,s,'h:1',2) -> ok str=[p://s@h:1:2] protocol=[p] system=[s] host=[h:1] port=[2] local=false global=true hostPort=[s@h:1:2]
+CT-18 apply(pekko,sys,h,1) eq new -> ok cmp=0 cmpRev=0 eq=true hashEq=true
+CT-19 parsed eq constructed -> ok cmp=0 cmpRev=0 eq=true hashEq=true
+CT-20 roundtrip parse(new(p,s,h,-5).toString) -> ERR MalformedURLException [pekko://sys@h:-5]
+CT-21 roundtrip parse(new(p,s,in_valid,1).toString) -> ERR MalformedURLException [pekko://sys@in_valid:1]
+HC [_] -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(_)' in the Address is not allowed.]
+HC [a_] -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(a_)' in the Address is not allowed.]
+HC [_a] -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(_a)' in the Address is not allowed.]
+HC [a_b.c] -> ok invalid=false checked
+HC [a.b_c] -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(a.b_c)' in the Address is not allowed.]
+HC [a_b.c_d] -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(a_b.c_d)' in the Address is not allowed.]
+HC [a_.b] -> ok invalid=false checked
+HC [a._] -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(a._)' in the Address is not allowed.]
+HC [\u00FC_x] -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(\u00FC_x)' in the Address is not allowed.]
+HC host=None -> ok invalid=false checked
+HC host=Some(a_b) port=None -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(a_b)' in the Address is not allowed.]
+RT [/] -> ok RootActorPath str=[pekko://mysys/] ser=[pekko://mysys/] noAddr=[/] addr=[pekko://mysys] name=[/] uid=0 elems=([])
+RT [] -> ok RootActorPath str=[pekko://mysys] ser=[pekko://mysys] noAddr=[/] addr=[pekko://mysys] name=[] uid=0 elems=([])
+RT [user] -> ok RootActorPath str=[pekko://mysysuser] ser=[pekko://mysysuser] noAddr=[/] addr=[pekko://mysys] name=[user] uid=0 elems=([])
+RT [/a] -> ok RootActorPath str=[pekko://mysys/a] ser=[pekko://mysys/a] noAddr=[/] addr=[pekko://mysys] name=[/a] uid=0 elems=([])
+RT [/a/] -> ERR IllegalArgumentException [requirement failed: / may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: [/a/]]
+RT [//] -> ERR IllegalArgumentException [requirement failed: / may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: [//]]
+RT [a/b] -> ERR IllegalArgumentException [requirement failed: / may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: [a/b]]
+RT [#] -> ERR IllegalArgumentException [requirement failed: # is a fragment separator and is not legal in ActorPath names: [#]]
+RT [/a#1] -> ERR IllegalArgumentException [requirement failed: # is a fragment separator and is not legal in ActorPath names: [/a#1]]
+RT [a#b] -> ERR IllegalArgumentException [requirement failed: # is a fragment separator and is not legal in ActorPath names: [a#b]]
+RT new RootActorPath(addr) default name -> ok RootActorPath str=[pekko://mysys/] ser=[pekko://mysys/] noAddr=[/] addr=[pekko://mysys] name=[/] uid=0 elems=([])
+CH [foo] -> ok ChildActorPath str=[pekko://mysys/user/foo] ser=[pekko://mysys/user/foo] noAddr=[/user/foo] addr=[pekko://mysys] name=[foo] uid=0 elems=([user],[foo])
+CH [foo#7] -> ok ChildActorPath str=[pekko://mysys/user/foo] ser=[pekko://mysys/user/foo#7] noAddr=[/user/foo] addr=[pekko://mysys] name=[foo] uid=7 elems=([user],[foo])
+CH [foo#+7] -> ok ChildActorPath str=[pekko://mysys/user/foo] ser=[pekko://mysys/user/foo#7] noAddr=[/user/foo] addr=[pekko://mysys] name=[foo] uid=7 elems=([user],[foo])
+CH [foo#-7] -> ok ChildActorPath str=[pekko://mysys/user/foo] ser=[pekko://mysys/user/foo#-7] noAddr=[/user/foo] addr=[pekko://mysys] name=[foo] uid=-7 elems=([user],[foo])
+CH [foo#0] -> ok ChildActorPath str=[pekko://mysys/user/foo] ser=[pekko://mysys/user/foo] noAddr=[/user/foo] addr=[pekko://mysys] name=[foo] uid=0 elems=([user],[foo])
+CH [foo#abc] -> ERR NumberFormatException [For input string: "abc"]
+CH [foo#] -> ERR NumberFormatException [For input string: ""]
+CH [foo#99999999999] -> ERR NumberFormatException [For input string: "99999999999"]
+CH [foo#1#2] -> ERR NumberFormatException [For input string: "1#2"]
+CH [#5] -> ok ChildActorPath str=[pekko://mysys/user/] ser=[pekko://mysys/user/#5] noAddr=[/user/] addr=[pekko://mysys] name=[] uid=5 elems=([user],[])
+CH [] -> ok ChildActorPath str=[pekko://mysys/user/] ser=[pekko://mysys/user/] noAddr=[/user/] addr=[pekko://mysys] name=[] uid=0 elems=([user],[])
+CH [foo#\u0665] -> ok ChildActorPath str=[pekko://mysys/user/foo] ser=[pekko://mysys/user/foo#5] noAddr=[/user/foo] addr=[pekko://mysys] name=[foo] uid=5 elems=([user],[foo])
+CH [foo#+] -> ERR NumberFormatException [For input string: "+"]
+CH [a/b] -> ERR IllegalArgumentException [/ is a path separator and is not legal in ActorPath names: [a/b]]
+CH [/] -> ERR IllegalArgumentException [/ is a path separator and is not legal in ActorPath names: [/]]
+CH [a b] -> ok ChildActorPath str=[pekko://mysys/user/a b] ser=[pekko://mysys/user/a b] noAddr=[/user/a b] addr=[pekko://mysys] name=[a b] uid=0 elems=([user],[a b])
+CH [\u00FC] -> ok ChildActorPath str=[pekko://mysys/user/\u00FC] ser=[pekko://mysys/user/\u00FC] noAddr=[/user/\u00FC] addr=[pekko://mysys] name=[\u00FC] uid=0 elems=([user],[\u00FC])
+CH [$a] -> ok ChildActorPath str=[pekko://mysys/user/$a] ser=[pekko://mysys/user/$a] noAddr=[/user/$a] addr=[pekko://mysys] name=[$a] uid=0 elems=([user],[$a])
+CH [.] -> ok ChildActorPath str=[pekko://mysys/user/.] ser=[pekko://mysys/user/.] noAddr=[/user/.] addr=[pekko://mysys] name=[.] uid=0 elems=([user],[.])
+CH [..] -> ok ChildActorPath str=[pekko://mysys/user/..] ser=[pekko://mysys/user/..] noAddr=[/user/..] addr=[pekko://mysys] name=[..] uid=0 elems=([user],[..])
+CH [a?b] -> ok ChildActorPath str=[pekko://mysys/user/a?b] ser=[pekko://mysys/user/a?b] noAddr=[/user/a?b] addr=[pekko://mysys] name=[a?b] uid=0 elems=([user],[a?b])
+CH [a%2] -> ok ChildActorPath str=[pekko://mysys/user/a%2] ser=[pekko://mysys/user/a%2] noAddr=[/user/a%2] addr=[pekko://mysys] name=[a%2] uid=0 elems=([user],[a%2])
+CH root/'foo#7' -> ok ChildActorPath str=[pekko://mysys/foo] ser=[pekko://mysys/foo#7] noAddr=[/foo] addr=[pekko://mysys] name=[foo] uid=7 elems=([foo])
+CH root/'a/b' -> ERR IllegalArgumentException [/ is a path separator and is not legal in ActorPath names: [a/b]]
+CH java child('x#3') -> ok ChildActorPath str=[pekko://mysys/x] ser=[pekko://mysys/x#3] noAddr=[/x] addr=[pekko://mysys] name=[x] uid=3 elems=([x])
+DS-01 [a,,b] -> ok ChildActorPath str=[pekko://mysys/a/b] ser=[pekko://mysys/a/b] noAddr=[/a/b] addr=[pekko://mysys] name=[b] uid=0 elems=([a],[b])
+DS-02 [] -> ok RootActorPath str=[pekko://mysys/] ser=[pekko://mysys/] noAddr=[/] addr=[pekko://mysys] name=[/] uid=0 elems=([])
+DS-03 [,] -> ok RootActorPath str=[pekko://mysys/] ser=[pekko://mysys/] noAddr=[/] addr=[pekko://mysys] name=[/] uid=0 elems=([])
+DS-04 [a,b#5] -> ok ChildActorPath str=[pekko://mysys/a/b] ser=[pekko://mysys/a/b#5] noAddr=[/a/b] addr=[pekko://mysys] name=[b] uid=5 elems=([a],[b])
+DS-05 [a#5,b] -> ok ChildActorPath str=[pekko://mysys/a/b] ser=[pekko://mysys/a/b] noAddr=[/a/b] addr=[pekko://mysys] name=[b] uid=0 elems=([a],[b])
+DS-06 [a/b] -> ERR IllegalArgumentException [/ is a path separator and is not legal in ActorPath names: [a/b]]
+DS-07 [a#x] -> ERR NumberFormatException [For input string: "x"]
+DS-08 child.descendant[c,d] -> ok ChildActorPath str=[pekko://mysys/a/c/d] ser=[pekko://mysys/a/c/d] noAddr=[/a/c/d] addr=[pekko://mysys] name=[d] uid=0 elems=([a],[c],[d])
+UID-01 root.withUid(0) -> ok same=true RootActorPath str=[pekko://mysys/] ser=[pekko://mysys/] noAddr=[/] addr=[pekko://mysys] name=[/] uid=0 elems=([])
+UID-02 root.withUid(5) -> ERR IllegalStateException [RootActorPath must have undefinedUid, [5 != 0]
+UID-03 root.withUid(-1) -> ERR IllegalStateException [RootActorPath must have undefinedUid, [-1 != 0]
+UID-04 child.withUid(9) -> ok ChildActorPath str=[pekko://mysys/a] ser=[pekko://mysys/a#9] noAddr=[/a] addr=[pekko://mysys] name=[a] uid=9 elems=([a])
+UID-05 child#3.withUid(0) -> ok ChildActorPath str=[pekko://mysys/a] ser=[pekko://mysys/a] noAddr=[/a] addr=[pekko://mysys] name=[a] uid=0 elems=([a])
+UID-06 child#3.withUid(3) same -> ok same=true
+UID-07 child.withUid(MIN) -> ok ChildActorPath str=[pekko://mysys/a] ser=[pekko://mysys/a#-2147483648] noAddr=[/a] addr=[pekko://mysys] name=[a] uid=-2147483648 elems=([a])
+NAV-01 root -> ok RootActorPath str=[pekko://mysys/] ser=[pekko://mysys/] noAddr=[/] addr=[pekko://mysys] name=[/] uid=0 elems=([]) parentIsSelf=true rootIsSelf=true
+NAV-02 child -> ok ChildActorPath str=[pekko://mysys/a/b] ser=[pekko://mysys/a/b#4] noAddr=[/a/b] addr=[pekko://mysys] name=[b] uid=4 elems=([a],[b]) parent=[pekko://mysys/a] parentUid=0 rootIsSame=true root=[pekko://mysys/]
+NAV-03 remote child address -> ok ChildActorPath str=[pekko://mysys@aaa:7355/x] ser=[pekko://mysys@aaa:7355/x] noAddr=[/x] addr=[pekko://mysys@aaa:7355] name=[x] uid=0 elems=([x])
+NAV-04 root named elements -> ok RootActorPath str=[pekko://mysys/x] ser=[pekko://mysys/x] noAddr=[/] addr=[pekko://mysys] name=[/x] uid=0 elems=([])
+STR-01 child#7 -> ok ChildActorPath str=[pekko://mysys/user/foo] ser=[pekko://mysys/user/foo#7] noAddr=[/user/foo] addr=[pekko://mysys] name=[foo] uid=7 elems=([user],[foo])
+STR-02 child#7 strWithAddr(remote) -> ok pekko://mysys@aaa:7355/user/foo
+STR-03 child#7 serWithAddr(remote) -> ok pekko://mysys@aaa:7355/user/foo#7
+STR-04 child#7 strWithAddr(local other) -> ok pekko://other/user/foo
+STR-05 child#7 serWithAddr(local other) -> ok pekko://other/user/foo#7
+STR-06 remote child#7 serWithAddr(other remote) -> ok pekko://mysys@aaa:7355/foo#7
+STR-07 root serWithAddr(remote) -> ok pekko://mysys@aaa:7355/
+STR-08 root named '/x' strWithAddr(remote) -> ok pekko://mysys@aaa:7355/x
+STR-09 root named '/x' child strWithAddr(remote) -> ok pekko://mysys@aaa:7355/xy
+STR-10 child#-3 ser -> ok pekko://mysys/a#-3
+STR-11 ignore -> ok ChildActorPath str=[pekko://local/ignore] ser=[pekko://local/ignore] noAddr=[/ignore] addr=[pekko://local] name=[ignore] uid=0 elems=([ignore])
+STR-12 ignore strWithAddr(remote) -> ok pekko://local/ignore
+STR-13 ignore serWithAddr(remote) -> ok pekko://local/ignore
+STR-14 user-built pekko://local/ignore#5 strWithAddr -> ok pekko://local/ignore
+STR-15 user-built pekko://local/ignore#5 serWithAddr -> ok pekko://local/ignore
+STR-16 pekko://local/ignore/x strWithAddr -> ok pekko://mysys@aaa:7355/ignore/x
+STR-17 root pekko://local/ strWithAddr -> ok pekko://mysys@aaa:7355/
+STR-18 akka://local/ignore strWithAddr -> ok pekko://mysys@aaa:7355/ignore
+CMPA-01 same fields -> ok cmp=0 cmpRev=0 eq=true hashEq=true
+CMPA-02 protocol akka<pekko -> ok cmp=-1 cmpRev=1 eq=false
+CMPA-03 system -> ok cmp=-1 cmpRev=1 eq=false
+CMPA-04 host -> ok cmp=-1 cmpRev=1 eq=false
+CMPA-05 port -> ok cmp=-1 cmpRev=1 eq=false
+CMPA-06 negative port -> ok cmp=-1 cmpRev=1 eq=false
+CMPA-07 local vs remote -> ok cmp=-1 cmpRev=1 eq=false
+CMPA-08 host None vs Some('') (same port None) -> ok cmp=0 cmpRev=0 eq=false
+CMPA-09 port None vs Some(0) (same host) -> ok cmp=0 cmpRev=0 eq=false
+CMPA-10 a=(None,1) b=(Some(''),2) -> ok cmp=0 cmpRev=0 eq=false
+CMPA-11 b=(Some(''),2) c=(None,2) -> ok cmp=0 cmpRev=0 eq=false
+CMPA-12 a=(None,1) c=(None,2) -> ok cmp=-1 cmpRev=1 eq=false
+CMPA-13 local(None,None) vs (Some(''),Some(5)) -> ok cmp=0 cmpRev=0 eq=false
+CMPA-14 UTF-16 order system U+FF61 vs U+10000 -> ok cmp=1 cmpRev=-1 eq=false
+CMPA-15 uppercase vs lowercase -> ok cmp=-1 cmpRev=1 eq=false
+CMPA-16 same toString different fields -> ok cmp=1 cmpRev=-1 eq=false
+CMPA-17 sort [pekko://a, akka://a@h:2, akka://a@h:1, pekko://a@:0, pekko://a:3] -> ok [akka://a@h:1, akka://a@h:2, pekko://a, pekko://a@:0, pekko://a:3]
+CMPP-01 root vs equal root -> ok cmp=0 cmpRev=0 eq=true eqRev=true hashEq=true
+CMPP-02 root vs child -> ok cmp=1 cmpRev=-1 eq=false eqRev=false
+CMPP-03 /a vs /b -> ok cmp=-1 cmpRev=1 eq=false eqRev=false
+CMPP-04 /a/b vs /b -> ok cmp=-1 cmpRev=1 eq=false eqRev=false
+CMPP-05 /b/a vs /a/b -> ok cmp=-1 cmpRev=1 eq=false eqRev=false
+CMPP-06 /a#1 vs /a#2 (uid ignored) -> ok cmp=0 cmpRev=0 eq=true eqRev=true hashEq=true
+CMPP-07 /a vs /a on other system -> ok cmp=-1 cmpRev=1 eq=false eqRev=false
+CMPP-08 /a local vs /a remote -> ok cmp=-1 cmpRev=1 eq=false eqRev=false
+CMPP-09 roots same toString, different Address -> ok cmp=0 cmpRev=0 eq=false eqRev=false
+CMPP-10 children of roots with same toString -> ok cmp=0 cmpRev=0 eq=false eqRev=false
+CMPP-11 root(s,'/a') vs root('s/','a') -> ok cmp=0 cmpRev=0 eq=false eqRev=false
+CMPP-12 root(s,'/a') vs child s/a -> ok cmp=1 cmpRev=-1 eq=false eqRev=false
+CMPP-13 UTF-16 child names U+FF61 vs U+10000 -> ok cmp=1 cmpRev=-1 eq=false eqRev=false
+CMPP-14 fromString vs built -> ok cmp=0 cmpRev=0 eq=true eqRev=true hashEq=true
+CMPP-15 ignore vs user-built -> ok cmp=0 cmpRev=0 eq=true eqRev=true hashEq=true
+CMPP-16 empty-name child vs root -> ok cmp=-1 cmpRev=1 eq=false eqRev=false
+VAL-01 [] -> ok valid=false validate=ERR InvalidActorNameException [Actor path element must not be empty ]
+VAL-02 [abc] -> ok valid=true validate=ok
+VAL-03 [ABCxyz019] -> ok valid=true validate=ok
+VAL-04 [$abc] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [$abc], illegal character [$] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-05 [$] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [$], illegal character [$] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-06 [a$b] -> ok valid=true validate=ok
+VAL-07 [a$] -> ok valid=true validate=ok
+VAL-08 [a/b] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a/b], illegal character [/] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-09 [a#b] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a#b], illegal character [#] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-10 [a%2Fb] -> ok valid=true validate=ok
+VAL-11 [%41] -> ok valid=true validate=ok
+VAL-12 [A%aF] -> ok valid=true validate=ok
+VAL-13 [a%2] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a%2], illegal character [%] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-14 [a%] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a%], illegal character [%] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-15 [%] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [%], illegal character [%] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-16 [%g1] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [%g1], illegal character [%] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-17 [a%%41] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a%%41], illegal character [%] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-18 [a b] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a b], illegal character [ ] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-19 [ ] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [ ], illegal character [ ] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-20 [\u0009] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [\u0009], illegal character [\u0009] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-21 [\u00FC] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [\u00FC], illegal character [\u00FC] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-22 [\uD83D\uDE42] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [\uD83D\uDE42], illegal character [\uD83D] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-23 [x\uD83D\uDE42] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [x\uD83D\uDE42], illegal character [\uD83D] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-24 [-_.*$+:@&=,!~';] -> ok valid=true validate=ok
+VAL-25 [-] -> ok valid=true validate=ok
+VAL-26 [.] -> ok valid=true validate=ok
+VAL-27 [..] -> ok valid=true validate=ok
+VAL-28 [a"b] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a"b], illegal character ["] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-29 [a?b] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a?b], illegal character [?] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-30 [a\b] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a\b], illegal character [\] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-31 [a(b] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a(b], illegal character [(] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-32 [a[b] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a[b], illegal character [[] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-FP-01 ['' in /a/b] -> ok valid=false validate=ERR InvalidActorNameException [Actor path element must not be empty  (in path [/a/b])]
+VAL-FP-02 [$a in /user/$a] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [$a] (in path [/user/$a]), illegal character [$] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-FP-03 [ok in /x] -> ok valid=true validate=ok
+VAL-FP-04 [a b in ''] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a b] (in path []), illegal character [ ] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-JAPI-01 ActorPaths.validatePathElement($x) -> ERR InvalidActorNameException [Invalid actor path element [$x], illegal character [$] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-JAPI-02 ActorPaths.validatePathElement(x, /p) -> ERR InvalidActorNameException [Invalid actor path element [x y] (in path [/p]), illegal character [ ] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]
+VAL-JAPI-03 ActorPaths.isValidPathElement(a) -> ok valid=true

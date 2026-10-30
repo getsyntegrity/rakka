@@ -1,0 +1,4 @@
+[submodule "upstream/pekko"]
+	path = upstream/pekko
+	url = https://github.com/apache/pekko
+	branch = v1.7.1
