@@ -4,4 +4,9 @@
 //! `docs/inventory/actor-classic.tsv` and validated by its scenarios.
 
 pub mod actor;
+mod done;
+mod not_used;
 pub mod util;
+
+pub use done::Done;
+pub use not_used::NotUsed;

@@ -79,8 +79,8 @@ impl From<Duration> for Timeout {}                                              
 pub enum TimeUnit { Nanoseconds, Microseconds, Milliseconds, Seconds, Minutes, Hours, Days }
 
 // crates/rakka-actor/src/done.rs, not_used.rs
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)] pub struct Done;     // Debug imprime "Done"
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)] pub struct NotUsed;  // Debug imprime "NotUsed"
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)] pub struct Done;     // Debug imprime "Done"
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)] pub struct NotUsed;  // Debug imprime "NotUsed"
 
 // crates/rakka-actor/src/pekko_exception.rs
 pub struct PekkoException { /* message, cause: Option<Arc<dyn Error + Send + Sync>> */ }
@@ -120,7 +120,7 @@ Comportamientos, uno por ciclo RED→GREEN: `Timeout::ZERO` y `new`/`duration`; 
 
 **Files:** `crates/rakka-actor/src/{done,not_used}.rs`, `crates/rakka-actor/src/lib.rs`, `crates/rakka-actor/tests/done_spec.rs`.
 
-Comportamientos: `Done` es un valor único (`Default == Done`, `Debug` = `"Done"`); `NotUsed` ídem; son tipos distintos.
+Comportamientos: `Done` es un valor único (copias iguales, un solo elemento en un `HashSet`, `Debug` y `Display` = `"Done"`); `NotUsed` ídem; son tipos distintos.
 
 - [ ] Commit `feat: Done and NotUsed (AC-UTIL-003)`.
 
