@@ -60,7 +60,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 - `Children.scala:126,130 (nombres anónimos `$a`)`
 
 **Condiciones.**
-- Normal: `base64(0) == "$a"`, `base64(63) == "$~"`, `base64(64) == "$ba"` (oráculo B64-*).
+- Normal: `base64(0) == "$a"`, `base64(63) == "$~"`, `base64(64) == "$ab"` (oráculo B64-*).
 - Negativos: `l.toInt & 63` y `l >>> 6` sin signo, por lo que `base64(-1)` produce 11 dígitos tras el `$` (oráculo B64-*).
 - Con `sb` dado, agrega sin escribir el prefijo `$` (el prefijo lo pone el valor por defecto del parámetro).
 - Errores: ninguno posible.

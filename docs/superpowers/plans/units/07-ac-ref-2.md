@@ -1,6 +1,6 @@
 # Spec 07 — AC-REF (2/2)
 
-**Estado:** lista para ejecutar. **Filas:** 2. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias. **Filas:** 2. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -9,8 +9,8 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-011.
-- Spec 19 `AC-ASK-1` (`19-ac-ask-1.md`), por las filas AC-ASK-001.1, AC-ASK-001.2, AC-ASK-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-018. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 19 `AC-ASK-1` (`19-ac-ask-1.md`), por las filas AC-ASK-001.1, AC-ASK-001.2, AC-ASK-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 

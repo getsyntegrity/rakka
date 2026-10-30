@@ -325,7 +325,7 @@ AC-SCH-009	SCH	classic	AC-SCH-1	10	extracted	pending	actor-tests/src/test/scala/
 AC-SCH-010	SCH	classic	AC-SCH-1	10	listed	pending	testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:24	valores puros: jars oficiales 1.7.1 vía 	Q-SCH-2,Q-X-2	docs/inventory/contracts/classic-foundation.md
 AC-SCH-011	SCH	classic	AC-SCH-1	10	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:200-306	valores puros: jars oficiales 1.7.1 vía 	Q-SCH-3	docs/inventory/contracts/classic-dispatch.md
 AC-SCH-012	SCH	classic	AC-SCH-1	10	listed	pending	actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:308 ;…	valores puros: jars oficiales 1.7.1 vía 	Q-SCH-3	docs/inventory/contracts/classic-dispatch.md
-AC-SCH-013	SCH	classic	AC-SCH-1	10	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:344-358	valores puros: jars oficiales 1.7.1 vía 	Q-SCH-3	docs/inventory/contracts/classic-dispatch.md
+AC-SCH-013	SCH	classic	AC-SCH-1	10	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:344-355	valores puros: jars oficiales 1.7.1 vía 	Q-SCH-3	docs/inventory/contracts/classic-dispatch.md
 AC-SCH-014	SCH	classic	AC-SCH-1	10	listed	pending	derivada del código	valores puros: jars oficiales 1.7.1 vía 		docs/inventory/contracts/classic-dispatch.md
 AC-SCH-015	SCH	classic	AC-SCH-1	10	listed	pending	derivada del código	valores puros: jars oficiales 1.7.1 vía 		docs/inventory/contracts/classic-dispatch.md
 AC-ASK-001.1	ASK	classic	AC-ASK-1	19	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:34-39	valores puros: jars oficiales 1.7.1 vía 	Q-ASK-1,Q-X-3	docs/inventory/contracts/classic-patterns.md

@@ -2,7 +2,7 @@
 """Generates the decision register, execution plans and the contract map from the inventory TSVs."""
 import csv, glob, re, os, collections, json, sys
 csv.field_size_limit(10**9)
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+ROOT = os.environ.get("RAKKA_PACKAGE_ROOT") or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 os.chdir(ROOT)
 R = lambda p: list(csv.reader(open(p, encoding="utf-8", newline=""), delimiter="\t", quoting=csv.QUOTE_NONE))
 
@@ -74,20 +74,49 @@ for i, r in by_id.items():           # also decisions cited in notes
         elif q not in dec_ids: print("UNDEFINED", i, q, file=sys.stderr)
 dec_by_id = {d["id"]: d for d in DEC}
 
-def status_label(s): return {"blocking": "bloqueante", "proposed": "propuesta (sin decisión del Owner)"}[s]
+# ------------------------------------------------------- Owner responses (the single editable source)
+# docs/decisions/owner-decisions.tsv is the only file edited to record an Owner response; everything else
+# (register.tsv, decisions.md, unit specs, counts in README.md / implementation-order.md) is derived from it.
+OWNER_FILE = "docs/decisions/owner-decisions.tsv"
+OWNER_HEADER = ["id", "status", "decided_on", "decided_by", "decision"]
+RESOLVED = ("accepted", "accepted_with_changes", "rejected")
+STATUS_LABEL = {"blocking": "bloqueante", "proposed": "propuesta (sin decisión del Owner)", "accepted": "aceptada",
+                "accepted_with_changes": "aceptada con cambios", "rejected": "rechazada"}
+def status_label(s): return STATUS_LABEL[s]
+for d in DEC: d.update(decided_on="", decided_by="", decision="")
+owner_rows = R(OWNER_FILE)
+assert owner_rows and owner_rows[0] == OWNER_HEADER, f"{OWNER_FILE}: header must be {OWNER_HEADER}"
+for n, x in enumerate(owner_rows[1:], 2):
+    if not x or not any(x): continue
+    assert len(x) == len(OWNER_HEADER), f"{OWNER_FILE}:{n}: expected {len(OWNER_HEADER)} fields"
+    oid, st, on, by, text = x
+    oid = ALIASES.get(oid, oid)
+    assert oid in dec_by_id, f"{OWNER_FILE}:{n}: unknown decision {oid}"
+    assert not dec_by_id[oid]["decided_on"], f"{OWNER_FILE}:{n}: duplicate response for {oid}"
+    assert st in RESOLVED, f"{OWNER_FILE}:{n}: status must be one of {RESOLVED}"
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", on), f"{OWNER_FILE}:{n}: decided_on must be YYYY-MM-DD"
+    assert by.strip() and text.strip(), f"{OWNER_FILE}:{n}: decided_by and decision are required"
+    dec_by_id[oid].update(status=st, decided_on=on, decided_by=by, decision=text)
+counts = collections.Counter(d["status"] for d in DEC)
+def counts_text():
+    return (f"{len(DEC)} decisiones: {counts['blocking']} bloqueantes, {counts['proposed']} propuestas, {counts['accepted']} aceptadas, "
+            f"{counts['accepted_with_changes']} aceptadas con cambios, {counts['rejected']} rechazadas")
+COUNTS_RE = r"\d+ decisiones: \d+ bloqueantes, \d+ propuestas, \d+ aceptadas(?:, \d+ aceptadas con cambios, \d+ rechazadas)?"
+for doc in ("README.md", "docs/implementation-order.md"):
+    s = open(doc, encoding="utf-8").read()
+    s2 = re.sub(COUNTS_RE, counts_text(), s)
+    if s2 != s: open(doc, "w", encoding="utf-8").write(s2)
 
 os.makedirs("docs/decisions", exist_ok=True)
 with open("docs/decisions/register.tsv", "w", encoding="utf-8", newline="") as o:
-    o.write("\t".join(["id", "title", "status", "recommendation", "affected_rows", "units", "source"]) + "\n")
+    o.write("\t".join(["id", "title", "status", "recommendation", "affected_rows", "units", "source", "decided_on", "decided_by", "decision"]) + "\n")
     for d in sorted(DEC, key=lambda d: d["id"]):
-        o.write("\t".join([d["id"], d["title"], d["status"], d["recommendation"], d["affected_rows"], d["units"], d["group"]]).replace("\n", " ") + "\n")
-        pass
+        o.write("\t".join([d["id"], d["title"], d["status"], d["recommendation"], d["affected_rows"], d["units"], d["group"], d["decided_on"], d["decided_by"], d["decision"]]).replace("\n", " ") + "\n")
 
 with open("docs/decisions.md", "w", encoding="utf-8") as o:
-    cnt = collections.Counter(d["status"] for d in DEC)
     o.write("# Registro único de decisiones del Owner\n\n")
     o.write("Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.\n\n")
-    o.write(f"**Estado: {len(DEC)} decisiones, {cnt['blocking']} bloqueantes, {cnt['proposed']} propuestas, 0 aceptadas.** Ninguna recomendación fue aceptada por el Owner: todas las filas afectadas siguen en alcance con `impl=pending` y no se cierran hasta que la decisión se registre acá con fecha y autor.\n\n")
+    o.write(f"**Estado: {counts_text()}.** " + ("Ninguna recomendación fue aceptada por el Owner: todas las filas afectadas siguen en alcance con `impl=pending` y no se cierran hasta que la decisión se registre en `docs/decisions/owner-decisions.tsv` con fecha y autor.\n\n" if not any(counts[s] for s in RESOLVED) else "Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.\n\n"))
     o.write("## 1. Ya autorizado (instrucciones explícitas del Owner)\n\n| ID | Autorización | Alcance |\n|---|---|---|\n")
     o.write("| A-1 | Apache Pekko 1.7.1 es la fuente de verdad, fijada en `upstream/pekko` @ `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (= `v1.7.1^{}`, verificado con `git ls-remote` el 2026-10-30). | todo |\n")
     o.write("| A-2 | `develop` es la rama de integración; `main` sólo recibe PR de release; sin push directo ni force push; las ramas salen de `origin/develop`. | proceso |\n")
@@ -95,10 +124,10 @@ with open("docs/decisions.md", "w", encoding="utf-8") as o:
     o.write("| A-4 | Ninguna diferencia semántica se acepta sin decisión explícita del Owner; una pregunta abierta impide cerrar el comportamiento afectado. | todas las filas con `Q-` |\n")
     o.write("| A-5 | Ningún comportamiento se elimina por ser difícil de expresar en Rust; las exclusiones requieren autorización explícita. | todo el inventario |\n")
     o.write("| A-6 | Classic y Typed completos, con interoperabilidad y testkits necesarios, están en alcance. | inventario |\n\n")
-    o.write("## 2. Cómo responder\n\nResponder con una de estas formas por decisión (o por bloque): `aceptar` (se adopta la recomendación tal cual), `aceptar con cambios: <texto>`, `rechazar: <alternativa>`. Una respuesta global válida es `aceptar todas las recomendaciones excepto: <lista>`. Cada decisión aceptada se registra en la columna `status` como `accepted` con la fecha; hasta entonces no hay aprobación.\n\n")
+    o.write("## 2. Cómo responder\n\nResponder con una de estas formas por decisión (o por bloque): `aceptar` (se adopta la recomendación tal cual), `aceptar con cambios: <texto>`, `rechazar: <alternativa>`. Una respuesta global válida es `aceptar todas las recomendaciones excepto: <lista>`. Cada respuesta se registra en una fila de `docs/decisions/owner-decisions.tsv` (`id`, `status` = `accepted` | `accepted_with_changes` | `rejected`, `decided_on` AAAA-MM-DD, `decided_by`, `decision`); es la única fuente editable y este documento, `register.tsv` y los conteos se regeneran desde ella sin perder respuestas. Hasta entonces no hay aprobación.\n\n")
     o.write("## 3. Bloqueos reales\n\nImpiden cerrar el comportamiento afectado aunque el resto de la unidad avance.\n\n")
     def block(d):
-        o.write(f"### {d['id']} — {d['title']}\n\n- **Estado:** {status_label(d['status'])}\n- **Evidencia:** {d['evidence']}\n- **Alternativas:** {d['alternatives']}\n- **Recomendación:** {d['recommendation']}\n- **Filas afectadas:** {d['affected_rows']}\n- **Unidades afectadas:** {d['units']}\n- **Origen:** {d['group']}\n\n")
+        o.write(f"### {d['id']} — {d['title']}\n\n- **Estado:** {status_label(d['status'])}\n- **Evidencia:** {d['evidence']}\n- **Alternativas:** {d['alternatives']}\n- **Recomendación:** {d['recommendation']}\n- **Filas afectadas:** {d['affected_rows']}\n- **Unidades afectadas:** {d['units']}\n- **Origen:** {d['group']}\n" + (f"- **Respuesta del Owner:** {d['decision']} ({d['decided_by']}, {d['decided_on']})\n" if d['decided_on'] else "") + "\n")
     for d in sorted([d for d in DEC if d["status"] == "blocking"], key=lambda d: d["id"]): block(d)
     o.write("## 4. Decisiones transversales (afectan a varias unidades)\n\nDecidirlas primero: desbloquean la mayor parte de las propuestas por unidad.\n\n")
     for d in [d for d in DEC if d["group"] == "transversal"]: block(d)
@@ -107,6 +136,10 @@ with open("docs/decisions.md", "w", encoding="utf-8") as o:
     def unitkey(d):
         m = re.match(r'Q-(T-)?([A-Z]+)-(\d+)', d["id"]); return ((m.group(1) or "") + m.group(2), int(m.group(3))) if m else (d["id"], 0)
     for d in sorted([d for d in DEC if d["group"] != "transversal" and d["status"] == "proposed"], key=unitkey): block(d)
+    o.write("## 6. Respuestas del Owner por unidad\n\nDecisiones por unidad que el Owner ya resolvió (las transversales figuran en la sección 4).\n\n")
+    resolved_units = sorted([d for d in DEC if d["group"] != "transversal" and d["status"] in RESOLVED], key=unitkey)
+    for d in resolved_units: block(d)
+    if not resolved_units: o.write("Ninguna.\n\n")
 
 # ------------------------------------------------------------------ units / specs
 CLASSIC_ORDER = ["PATH", "UTIL", "CFG", "REF", "MBX", "DSP", "SCH", "EVT", "TK", "CELL", "SYS", "SUP", "DW", "EXT", "ASK", "FSM", "RT", "CS", "SER", "IO", "JAPI"]
@@ -168,7 +201,7 @@ for s in specs:
     deps = collections.OrderedDict()
     for t in s["tasks"]:
         for r in t:
-            for c in row_deps.get(r["id"], ()):
+            for c in sorted(row_deps.get(r["id"], ()), key=natural.get):   # sets iterate in hash order: keep output deterministic
                 sid = row_spec.get(c)
                 if sid and sid != s["id"]: deps.setdefault(sid, set()).add(c)
     s["deps"] = deps
@@ -207,7 +240,7 @@ for s in order:
     nrows = sum(len(t) for t in s["tasks"])
     L = []
     L.append(f"# Spec {s['seq']:02d} — {u[0]}-{u[1]} ({s['index']}/{s['total']})\n")
-    L.append(f"**Estado:** {'bloqueada' if blocking else ('pendiente de decisiones propuestas' if proposed else 'lista para ejecutar')}. "
+    L.append(f"**Estado:** {'bloqueada' if blocking else ('pendiente de decisiones propuestas' if proposed else 'sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias')}. "
              f"**Filas:** {nrows}. **Tareas:** {len(s['tasks'])} (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.\n")
     L.append("## Alcance y exclusiones\n")
     if s["tasks"]:
@@ -254,12 +287,12 @@ for s in order:
 
 # ------------------------------------------------------------------ order doc + map
 with open("docs/superpowers/plans/units/README.md", "w", encoding="utf-8") as o:
-    o.write("# Specs ejecutables (generadas desde el inventario)\n\nOrden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I tools/package/generate.py` (ver `docs/inventory/README.md`).\n\n| # | Spec | Filas | Tareas | Estado | Depende de |\n|---|---|---|---|---|---|\n")
+    o.write("# Specs preliminares (generadas desde el inventario)\n\n**Estado de las specs:** las 49 specs actuales son agrupaciones preliminares de filas del inventario. Aún requieren revisión de atomicidad y de dependencias antes de considerarse ejecutables; no empezar la implementación de una unidad hasta que esa revisión la apruebe.\n\nOrden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I tools/package/generate.py` (ver `docs/inventory/README.md`).\n\n| # | Spec | Filas | Tareas | Estado | Depende de |\n|---|---|---|---|---|---|\n")
     for s in order:
         nrows = sum(len(t) for t in s["tasks"])
         blocking = {q for t in s["tasks"] for r in t for q in row_decisions[r["id"]] if dec_by_id[q]["status"] == "blocking"}
         proposed = {q for t in s["tasks"] for r in t for q in row_decisions[r["id"]] if dec_by_id[q]["status"] == "proposed"}
-        st = "bloqueada" if blocking else ("pendiente de decisiones" if proposed else "lista")
+        st = "bloqueada" if blocking else ("pendiente de decisiones" if proposed else "sin decisiones abiertas (preliminar)")
         o.write(f"| {s['seq']:02d} | [{s['id']}]({os.path.basename(specfile(s))}) | {nrows} | {len(s['tasks'])} | {st} | {', '.join(f'{spec_by_id[d]['seq']:02d}' for d in s['deps']) or '-'} |\n")
     o.write("\n## Ciclos y dependencias hacia adelante\n\n")
     fwd = [(s["id"], d) for s in order for d in s["deps"] if spec_by_id[d]["seq"] > s["seq"]]

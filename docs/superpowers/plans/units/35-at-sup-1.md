@@ -12,8 +12,8 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 27 `AT-BEH-1` (`27-at-beh-1.md`), por las filas AT-BEH-004, AT-BEH-007, AT-BEH-010, AT-BEH-011, AT-BEH-013, AT-BEH-015, AT-BEH-024.
 - Spec 33 `AT-TMR-1` (`33-at-tmr-1.md`), por las filas AT-TMR-001, AT-TMR-006.
 - Spec 31 `AT-CTX-1` (`31-at-ctx-1.md`), por las filas AT-CTX-005, AT-CTX-006.
-- Spec 34 `AT-STASH-1` (`34-at-stash-1.md`), por las filas AT-STASH-001, AT-STASH-006.
 - Spec 32 `AT-SYS-1` (`32-at-sys-1.md`), por las filas AT-SYS-006, AT-SYS-008.
+- Spec 34 `AT-STASH-1` (`34-at-stash-1.md`), por las filas AT-STASH-001, AT-STASH-006.
 - Spec 37 `AT-EVT-1` (`37-at-evt-1.md`), por las filas AT-EVT-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 38 `AT-LOG-1` (`38-at-log-1.md`), por las filas AT-LOG-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 36 `AT-ADP-1` (`36-at-adp-1.md`), por las filas AT-ADP-002, AT-ADP-005. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**

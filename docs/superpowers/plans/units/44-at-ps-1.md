@@ -8,9 +8,9 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
+- Spec 31 `AT-CTX-1` (`31-at-ctx-1.md`), por las filas AT-CTX-006.
 - Spec 42 `AT-RCP-1` (`42-at-rcp-1.md`), por las filas AT-RCP-005.2.
 - Spec 37 `AT-EVT-1` (`37-at-evt-1.md`), por las filas AT-EVT-004.
-- Spec 31 `AT-CTX-1` (`31-at-ctx-1.md`), por las filas AT-CTX-006.
 
 Decisiones:
 

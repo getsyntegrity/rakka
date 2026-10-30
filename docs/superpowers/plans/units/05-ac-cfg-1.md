@@ -10,10 +10,10 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 - Spec 11 `AC-EVT-1` (`11-ac-evt-1.md`), por las filas AC-EVT-009, AC-EVT-011, AC-EVT-019. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 18 `AC-EXT-1` (`18-ac-ext-1.md`), por las filas AC-EXT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 22 `AC-CS-1` (`22-ac-cs-1.md`), por las filas AC-CS-006.1, AC-CS-006.2, AC-CS-007.1, AC-CS-007.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-015, AC-SYS-018. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 22 `AC-CS-1` (`22-ac-cs-1.md`), por las filas AC-CS-006.1, AC-CS-006.2, AC-CS-007.1, AC-CS-007.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-020. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 23 `AC-SER-1` (`23-ac-ser-1.md`), por las filas AC-SER-001.1, AC-SER-001.2, AC-SER-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-004.2, AC-UTIL-009.
 - Spec 21 `AC-RT-1` (`21-ac-rt-1.md`), por las filas AC-RT-004, AC-RT-013.1, AC-RT-013.2, AC-RT-013.3, AC-RT-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**

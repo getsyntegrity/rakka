@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 186 decisiones, 8 bloqueantes, 178 propuestas, 0 aceptadas.** Ninguna recomendación fue aceptada por el Owner: todas las filas afectadas siguen en alcance con `impl=pending` y no se cierran hasta que la decisión se registre acá con fecha y autor.
+**Estado: 186 decisiones: 8 bloqueantes, 178 propuestas, 0 aceptadas, 0 aceptadas con cambios, 0 rechazadas.** Ninguna recomendación fue aceptada por el Owner: todas las filas afectadas siguen en alcance con `impl=pending` y no se cierran hasta que la decisión se registre en `docs/decisions/owner-decisions.tsv` con fecha y autor.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -17,7 +17,7 @@ Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones trans
 
 ## 2. Cómo responder
 
-Responder con una de estas formas por decisión (o por bloque): `aceptar` (se adopta la recomendación tal cual), `aceptar con cambios: <texto>`, `rechazar: <alternativa>`. Una respuesta global válida es `aceptar todas las recomendaciones excepto: <lista>`. Cada decisión aceptada se registra en la columna `status` como `accepted` con la fecha; hasta entonces no hay aprobación.
+Responder con una de estas formas por decisión (o por bloque): `aceptar` (se adopta la recomendación tal cual), `aceptar con cambios: <texto>`, `rechazar: <alternativa>`. Una respuesta global válida es `aceptar todas las recomendaciones excepto: <lista>`. Cada respuesta se registra en una fila de `docs/decisions/owner-decisions.tsv` (`id`, `status` = `accepted` | `accepted_with_changes` | `rejected`, `decided_on` AAAA-MM-DD, `decided_by`, `decision`); es la única fuente editable y este documento, `register.tsv` y los conteos se regeneran desde ella sin perder respuestas. Hasta entonces no hay aprobación.
 
 ## 3. Bloqueos reales
 
@@ -1890,4 +1890,10 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`, `Q-UTIL-1` = `Q-X-9`, `Q-UTIL-2
 - **Filas afectadas:** AC-UTIL-026
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
+
+## 6. Respuestas del Owner por unidad
+
+Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la sección 4).
+
+Ninguna.
 

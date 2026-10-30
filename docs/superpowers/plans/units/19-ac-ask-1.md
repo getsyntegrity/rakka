@@ -8,14 +8,14 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-017.
 - Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-001.
+- Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-017.
 - Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-002, AC-REF-011.
 - Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`), por las filas AC-SCH-001.
-- Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-001.
 - Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-001.
-- Spec 18 `AC-EXT-1` (`18-ac-ext-1.md`), por las filas AC-EXT-001.1, AC-EXT-001.2.
+- Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-001.
 - Spec 05 `AC-CFG-1` (`05-ac-cfg-1.md`), por las filas AC-CFG-001.
+- Spec 18 `AC-EXT-1` (`18-ac-ext-1.md`), por las filas AC-EXT-001.1, AC-EXT-001.2.
 - Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-001.
 
 Decisiones:

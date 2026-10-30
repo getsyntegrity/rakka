@@ -9,16 +9,16 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 05 `AC-CFG-1` (`05-ac-cfg-1.md`), por las filas AC-CFG-001, AC-CFG-005, AC-CFG-007, AC-CFG-008, AC-CFG-015.
-- Spec 11 `AC-EVT-1` (`11-ac-evt-1.md`), por las filas AC-EVT-007, AC-EVT-009, AC-EVT-010, AC-EVT-011, AC-EVT-015.
 - Spec 18 `AC-EXT-1` (`18-ac-ext-1.md`), por las filas AC-EXT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 11 `AC-EVT-1` (`11-ac-evt-1.md`), por las filas AC-EVT-007, AC-EVT-009, AC-EVT-010, AC-EVT-011, AC-EVT-015.
 - Spec 13 `AC-CELL-1` (`13-ac-cell-1.md`), por las filas AC-CELL-004, AC-CELL-015.1, AC-CELL-015.2.
+- Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 22 `AC-CS-1` (`22-ac-cs-1.md`), por las filas AC-CS-004.1, AC-CS-004.2, AC-CS-004.3, AC-CS-006.1, AC-CS-006.2, AC-CS-009. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-009.
 - Spec 09 `AC-DSP-1` (`09-ac-dsp-1.md`), por las filas AC-DSP-006, AC-DSP-007.
-- Spec 21 `AC-RT-1` (`21-ac-rt-1.md`), por las filas AC-RT-003.1, AC-RT-003.2, AC-RT-003.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 08 `AC-MBX-1` (`08-ac-mbx-1.md`), por las filas AC-MBX-013.
+- Spec 21 `AC-RT-1` (`21-ac-rt-1.md`), por las filas AC-RT-003.1, AC-RT-003.2, AC-RT-003.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 19 `AC-ASK-1` (`19-ac-ask-1.md`), por las filas AC-ASK-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-007.
 - Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-010, AC-REF-012.

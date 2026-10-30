@@ -31,7 +31,7 @@ ALIAS = {"Q-CFG-1", "Q-CFG-2", "Q-UTIL-1", "Q-UTIL-2", "Q-UTIL-3", "Q-UTIL-4", "
 for p in glob.glob("docs/inventory/contracts/*.md") + ["docs/inventory/actor-classic.tsv", "docs/inventory/actor-typed.tsv"]:
     for q in set(re.findall(r'Q-(?:T-)?[A-Z]+-\d+', open(p, encoding="utf-8").read())):
         check(q in reg or q in ALIAS, f"{p}: undefined decision {q}")
-check(all(x[2] in ("proposed", "blocking", "accepted") for x in reg.values()), "register: bad status")
+check(all(x[2] in ("proposed", "blocking", "accepted", "accepted_with_changes", "rejected") for x in reg.values()), "register: bad status")
 # rows assigned to a spec; specs <= 5 tasks
 mapped = {x[0]: x for x in R("docs/contract-map.tsv")[1:]}
 check(set(mapped) == set(rows), "contract-map.tsv does not cover exactly the inventory rows")
@@ -72,8 +72,10 @@ for p, need in (("docs/inventory/actor-classic.md", f"**{len(cl)} filas**"), ("d
 ext = sum(r["analysis"] == "extracted" for r in rows.values())
 check(f"{ext} `extracted` y {len(rows)-ext} `listed`" in open("README.md", encoding="utf-8").read(), "README.md: stale extracted/listed")
 c = collections.Counter(x[2] for x in reg.values())
-check(f"{len(reg)} decisiones: {c['blocking']} bloqueantes, {c['proposed']} propuestas" in open("docs/implementation-order.md", encoding="utf-8").read(), "implementation-order.md: stale decision counts")
-check(f"{len(reg)} decisiones: {c['blocking']} bloqueantes, {c['proposed']} propuestas" in open("README.md", encoding="utf-8").read(), "README.md: stale decision counts")
+counts_text = (f"{len(reg)} decisiones: {c['blocking']} bloqueantes, {c['proposed']} propuestas, {c['accepted']} aceptadas, "
+               f"{c['accepted_with_changes']} aceptadas con cambios, {c['rejected']} rechazadas")
+for doc in ("docs/implementation-order.md", "README.md", "docs/decisions.md"):
+    check(counts_text in open(doc, encoding="utf-8").read(), f"{doc}: stale decision counts (expected '{counts_text}')")
 print(f"abbreviated_citations_skipped={abbreviated}")
 print(f"rows={len(rows)} decisions={len(reg)} citation_problems={bad} failures={len(fail)}")
 for f in fail: print("FAIL", f)

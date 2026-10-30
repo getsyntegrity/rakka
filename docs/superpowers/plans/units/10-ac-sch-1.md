@@ -68,7 +68,7 @@ Filas: AC-SCH-013, AC-SCH-014, AC-SCH-015. Contratos y aserciones: `docs/invento
 | AC-SCH-010 | scheduler.implementation pluggable (constructor Config, LoggingAdapter,… | trait `Scheduler` inyectable en el builder | testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:24 | Q-SCH-2, Q-X-2 |
 | AC-SCH-011 | Timers / TimerScheduler: startSingleTimer, startTimerWithFixedDelay,… | `ctx.timers()` con `HashMap<Key, (gen, Cancellable)>` | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:200-306 | Q-SCH-3 |
 | AC-SCH-012 | Mensajes de timer: AutoReceivedMessage y NotInfluenceReceiveTimeout | - | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:308 ;… | Q-SCH-3 |
-| AC-SCH-013 | Timers combinados con Stash | - | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:344-358 | Q-SCH-3 |
+| AC-SCH-013 | Timers combinados con Stash | - | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:344-355 | Q-SCH-3 |
 | AC-SCH-014 | scheduler.shutdown-timeout (espera de parada del hilo del scheduler) | parámetro de cierre del scheduler | derivada del código (ver bloque de contrato) | - |
 | AC-SCH-015 | Recuperación del hilo del timer ante excepción (LARS) | supervisión del hilo/tarea del reloj | derivada del código (ver bloque de contrato) | - |
 

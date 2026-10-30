@@ -8,8 +8,8 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 41 `AT-ASK-1` (`41-at-ask-1.md`), por las filas AT-ASK-001.
 - Spec 31 `AT-CTX-1` (`31-at-ctx-1.md`), por las filas AT-CTX-002.
+- Spec 41 `AT-ASK-1` (`41-at-ask-1.md`), por las filas AT-ASK-001.
 
 Decisiones:
 

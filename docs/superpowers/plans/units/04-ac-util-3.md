@@ -9,9 +9,9 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 03 `AC-UTIL-2` (`03-ac-util-2.md`), por las filas AC-UTIL-016.6.
-- Spec 24 `AC-IO-1` (`24-ac-io-1.md`), por las filas AC-IO-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`), por las filas AC-SCH-008. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-002.2.
+- Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`), por las filas AC-SCH-008. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 24 `AC-IO-1` (`24-ac-io-1.md`), por las filas AC-IO-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 

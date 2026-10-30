@@ -15,10 +15,10 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 41 `AT-ASK-1` (`41-at-ask-1.md`), por las filas AT-ASK-001, AT-ASK-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 27 `AT-BEH-1` (`27-at-beh-1.md`), por las filas AT-BEH-011.
 - Spec 37 `AT-EVT-1` (`37-at-evt-1.md`), por las filas AT-EVT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 49 `AT-JAPI-1` (`49-at-japi-1.md`), por las filas AT-JAPI-005. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 36 `AT-ADP-1` (`36-at-adp-1.md`), por las filas AT-ADP-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 34 `AT-STASH-1` (`34-at-stash-1.md`), por las filas AT-STASH-005. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 49 `AT-JAPI-1` (`49-at-japi-1.md`), por las filas AT-JAPI-005. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 35 `AT-SUP-1` (`35-at-sup-1.md`), por las filas AT-SUP-016. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 34 `AT-STASH-1` (`34-at-stash-1.md`), por las filas AT-STASH-005. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 

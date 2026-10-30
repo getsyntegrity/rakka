@@ -6,7 +6,7 @@
 - **`analysis`:** `extracted` = se leyó la implementación y los cuerpos de los specs de la fila y su contrato cita aserciones; `listed` = contrato por extraer, no ejecutable. El motivo de cada `listed` está en `notes`.
 - **`impl` / `validation`:** `pending`, `partial` o `done`. Sólo se avanza con evidencia (tests RED→GREEN, oráculo). `partial` es lo que queda con una decisión o una diferencia abierta.
 - **Decisiones:** `Q-<UNIDAD>-<n>` (Classic), `Q-T-<UNIDAD>-<n>` (Typed), `Q-X-<n>` (transversales). Alias: `Q-CFG-1`=`Q-X-1`, `Q-CFG-2`=`Q-X-2`, `Q-UTIL-1..5`=`Q-X-9`. Registro único: `../decisions.md`.
-- **Regenerar y verificar:** `python3 -I tools/package/generate.py` regenera `docs/decisions*`, `docs/contract-map.tsv` y `docs/superpowers/plans/units/`; `python3 -I tools/package/check.py` verifica la coherencia del paquete.
+- **Respuestas del Owner:** se registran sólo en `docs/decisions/owner-decisions.tsv` (`id`, `status` = `accepted`/`accepted_with_changes`/`rejected`, `decided_on`, `decided_by`, `decision`); `register.tsv`, `decisions.md` y los conteos se derivan de ahí. Prueba: `python3 -I tools/package/tests/test_decision_persistence.py`. **Regenerar y verificar:** `python3 -I tools/package/generate.py` regenera `docs/decisions*`, `docs/contract-map.tsv` y `docs/superpowers/plans/units/`; `python3 -I tools/package/check.py` verifica la coherencia del paquete.
 
 ## Cobertura del árbol de Pekko (2026-10-30)
 

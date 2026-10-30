@@ -1,6 +1,6 @@
 # Orden de implementación
 
-Este documento ordena las 716 filas del inventario (507 de Classic en `docs/inventory/actor-classic.tsv`, 209 de Typed en `docs/inventory/actor-typed.tsv`) en 49 specs ejecutables. Cada spec tiene como máximo 5 tareas y vive en `docs/superpowers/plans/units/` (índice con estado y dependencias: `docs/superpowers/plans/units/README.md`, generado por `tools/package/generate.py`). Las 492 filas del inventario inicial se revisaron contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 (`9a54d129…`); 69 se descompusieron en hijos y se agregaron las omisiones detectadas. **La documentación completa no es implementación ni paridad**: las columnas `impl` y `validation` del inventario son la única medida de avance.
+Este documento ordena las 716 filas del inventario (507 de Classic en `docs/inventory/actor-classic.tsv`, 209 de Typed en `docs/inventory/actor-typed.tsv`) en 49 specs **preliminares**: son agrupaciones de filas que aún requieren revisión de atomicidad y de dependencias antes de considerarse ejecutables. Cada spec tiene como máximo 5 tareas y vive en `docs/superpowers/plans/units/` (índice con estado y dependencias: `docs/superpowers/plans/units/README.md`, generado por `tools/package/generate.py`). Las 492 filas del inventario inicial se revisaron contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 (`9a54d129…`); 69 se descompusieron en hijos y se agregaron las omisiones detectadas. **La documentación completa no es implementación ni paridad**: las columnas `impl` y `validation` del inventario son la única medida de avance.
 
 ## Cómo se ejecuta
 
@@ -16,7 +16,7 @@ En Pekko, un actor tipado corre dentro de una celda clásica (`ActorAdapter`, `A
 
 ## Decisiones bloqueantes
 
-El registro único está en `docs/decisions.md` (186 decisiones: 8 bloqueantes, 178 propuestas, 0 aceptadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
+El registro único está en `docs/decisions.md` (186 decisiones: 8 bloqueantes, 178 propuestas, 0 aceptadas, 0 aceptadas con cambios, 0 rechazadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
 
 ## Orden de las specs
 
