@@ -4,3 +4,4 @@
 //! `docs/inventory/actor-classic.tsv` and validated by its scenarios.
 
 pub mod actor;
+pub mod util;
