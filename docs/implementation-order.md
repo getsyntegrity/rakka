@@ -37,7 +37,7 @@ Las cifras de specs son estimaciones a partir de la cantidad de filas y se ajust
 Se valida con tests comunes y el oráculo; no hace falta un sistema de actores.
 
 1. **AC-PATH** — `Address`, `ActorPath`, validación de nombres (15 filas). **1 spec, ya escrita:** `docs/superpowers/plans/2026-10-30-ac-path-address.md`. Primera unidad verificable.
-2. **AC-UTIL (parte que usa el núcleo)** — `Timeout`, `Done`, excepciones base, helpers de duración. 1 spec. `ByteString` y lo periférico quedan para la fase 4.
+2. **AC-UTIL (parte que usa el núcleo)** — `Timeout`, `Done`/`NotUsed`, excepciones base, `Helpers` (`base64`, `toRootLowerCase`, `Requiring`). 1 spec, escrita y ejecutada: `docs/superpowers/plans/2026-10-30-ac-util-core.md`. `ConfigOps` (de `Helpers`) espera a `Config`, es decir a AC-CFG; `PrettyDuration` tiene que estar antes de `AC-REF-014`. `ByteString` y lo periférico quedan para la fase 4.
 3. **AC-CFG** — HOCON, `reference.conf` embebido sin cambios, `Settings`, `Deploy` (17 filas). 2 specs: parser y carga; settings y validación de defaults (`ConfigSpec`).
 
 ### Fase 2 — Runtime Classic

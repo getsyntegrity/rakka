@@ -162,4 +162,49 @@ Comportamientos: `base64` (alfabeto, orden, un dígito vs. varios, negativos, pr
 
 ## Evidencia TDD
 
-(Se completa durante la ejecución, con el comando y el resultado observados en cada etapa.)
+Comando de cada ciclo: `cargo test -p rakka-actor --test <spec>` (`timeout_spec`, `done_spec`, `pekko_exception_spec`, `helpers_spec`, `oracle_util_core`). "RED por símbolo" significa que el tipo o la función que el test usa todavía no existe (`E0432`, `E0599`, `E0277`, `E0369`); "RED por aserción" significa que el test compila con un esqueleto `unimplemented!()` y falla en tiempo de ejecución. Los resultados son los observados al ejecutarlos, en ese orden.
+
+| Task | Comportamiento | RED observado | GREEN observado |
+|---|---|---|---|
+| 1 | `Timeout::new` / `duration` | por aserción: `not implemented`, 0 passed / 1 failed. (Un primer intento con la igualdad en el mismo archivo no compilaba; se separó y no cuenta como RED.) | 1 passed |
+| 1 | igualdad y hash por valor | por símbolo: `E0369` (`==`), `E0277` (`Debug`/`Eq`/`Hash`) | derive; 2 passed |
+| 1 | `Timeout::ZERO` y `From<Duration>` | por símbolo: `E0599` (sin `ZERO`), `E0277` (sin `From<Duration>`) | 4 passed |
+| 1 | `of(length, unit)` | por aserción: `not implemented`, 4 passed / 1 failed | 5 passed |
+| 1 | rango de `FiniteDuration` | por aserción: `of_rejects_lengths_beyond_the_range…` falla (`unwrap_err` sobre `Ok`), 6 passed / 1 failed. `of_accepts_the_largest_length…` ya pasaba con la conversión anterior: caracteriza, no es RED | 7 passed |
+| 1 | REFACTOR | documentación de las diferencias (Q-UTIL-1/2); `cargo fmt`, `cargo clippy -p rakka-actor --all-targets -- -D warnings` sin avisos | 7 passed |
+| 2 | `Done` | por símbolo: `E0432 unresolved import rakka_actor::Done` | 2 passed |
+| 2 | `NotUsed` | por símbolo: `E0432 unresolved import rakka_actor::NotUsed` | 4 passed |
+| 2 | REFACTOR | `clippy` marcó `default_constructed_unit_structs` en los tests; `Default` no es parte del contrato de Pekko, se quitó de ambos tipos y de los tests (commit local corregido con `--amend`) | 4 passed |
+| 3 | `PekkoException::new` | por símbolo: `E0432` | 1 passed (`cause()` devolvía `None` fijo: "fake it") |
+| 3 | causa y `Clone` compartido | por aserción: 2 failed, `not implemented` (`with_cause` esqueleto) | 3 passed |
+| 3 | `ConfigurationException` y `Send + Sync` | por símbolo: `E0432` | 5 passed (primero duplicando el tipo) |
+| 3 | REFACTOR | los dos tipos pasan a una macro `pekko_exception!`; `fmt` y `clippy` sin avisos | 5 passed |
+| 4 | `base64` un dígito | por aserción: `not implemented` | 1 passed (implementación mínima de un dígito) |
+| 4 | `base64` varios dígitos | por aserción: 1 passed / 1 failed | 2 passed (bucle) |
+| 4 | `base64_append` | por aserción: `not implemented`, 2 passed / 1 failed | 3 passed; REFACTOR: `base64` = `"$"` + `base64_append` |
+| 4 | `base64` negativos | sin RED propio: pasó apenas existió el bucle (caracterización, comentada en el test) | 4 passed |
+| 4 | `to_root_lower_case` | por aserción: 2 failed, `not implemented` | 6 passed |
+| 4 | `requiring` y `requiring_with` | por aserción: 3 failed, `not implemented` | 9 passed; `clippy` sin avisos |
+| 5 | arnés diferencial | `76 golden cases neither produced nor PENDING` (89 casos menos 13 `PENDING`), 1 failed | 1 passed (76 casos iguales byte a byte) |
+| 5 | comprobación de mutación | con el alfabeto de `base64` permutado y el límite de rango quitado: `13 mismatches` | fuentes restauradas: 1 passed |
+
+Tests que nunca se observaron fallar por su propia aserción, dicho sin rodeos: `of_accepts_the_largest_length_each_unit_allows` y `base64_treats_negative_numbers_as_unsigned_bit_patterns` (los cubría una implementación anterior), y `exceptions_can_cross_threads` y los `*_is_a_single_value` de `Done`/`NotUsed`, cuyo único RED fue el símbolo ausente (comprueban propiedades que da un `derive` o la estructura del tipo).
+
+## Resultados (2026-10-30)
+
+- **Base:** `d8a6af6` (rama `feat/ac-util-core`; árbol limpio salvo `.serena/` sin seguimiento, que no es de esta unidad).
+- **Gates:** `cargo fmt --all --check`: ok. `cargo build --workspace`: ok. `cargo clippy --workspace --all-targets -- -D warnings`: ok, sin avisos. `cargo test --workspace`: 88 passed, 0 failed, 1 ignored (el que ya estaba en la base), 17 suites.
+- **Cobertura de líneas** (`cargo llvm-cov` 0.9.1, `llvm-tools-preview`), alcance: archivos de producción nuevos de la unidad, con **sólo los tests de la unidad** (`cargo llvm-cov -p rakka-actor --test timeout_spec --test done_spec --test pekko_exception_spec --test helpers_spec --test oracle_util_core --json`; así los tests de AC-PATH no pueden inflar el número):
+
+| Archivo | Cubiertas / medibles | % |
+|---|---|---|
+| `src/util/timeout.rs` | 17 / 17 | 100 |
+| `src/util/time_unit.rs` | 10 / 10 | 100 |
+| `src/util/helpers.rs` | 31 / 31 | 100 |
+| `src/pekko_exception.rs` | 24 / 24 | 100 |
+| `src/done.rs` | 3 / 3 | 100 |
+| `src/not_used.rs` | 3 / 3 | 100 |
+| **Total de la unidad** | **88 / 88** | **100** |
+
+  `src/lib.rs` y `src/util/mod.rs` sólo cambiaron declaraciones `mod`/`pub use` (sin líneas instrumentadas). No se excluyó nada. Con `cargo llvm-cov --workspace --json` el total del workspace es 1904 / 1993 (95,53 %), y los mismos seis archivos dan 88 / 88. Líneas de producción sin cubrir en la unidad: ninguna.
+- **Oráculo:** 89 casos en `tools/oracle/util-core.jsh`; Rust reproduce 76 y 13 están `PENDING` por Q abiertas (Q-UTIL-1: 5, Q-UTIL-2: 3, Q-UTIL-3: 3, Q-UTIL-4: 1, y 1 fachada Java de `Done`). Procedencia: **jars oficiales** 1.7.1 con JDK 11, no fuentes compiladas.
