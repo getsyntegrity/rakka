@@ -1,75 +1,78 @@
 # Orden de implementación
 
-Este documento ordena las 492 filas del inventario (322 de Classic en `docs/inventory/actor-classic.tsv`, 170 de Typed en `docs/inventory/actor-typed.tsv`) en una cadena de specs chicas. Cada spec tiene como máximo 5 tareas. Cuando una unidad no entra en 5 tareas se parte en varias specs consecutivas, y cada spec nombra a la siguiente.
+Este documento ordena las 716 filas del inventario (507 de Classic en `docs/inventory/actor-classic.tsv`, 209 de Typed en `docs/inventory/actor-typed.tsv`) en 49 specs ejecutables. Cada spec tiene como máximo 5 tareas y vive en `docs/superpowers/plans/units/` (índice con estado y dependencias: `docs/superpowers/plans/units/README.md`, generado por `tools/package/generate.py`). Las 492 filas del inventario inicial se revisaron contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 (`9a54d129…`); 69 se descompusieron en hijos y se agregaron las omisiones detectadas. **La documentación completa no es implementación ni paridad**: las columnas `impl` y `validation` del inventario son la única medida de avance.
 
-## La idea en una frase
+## Cómo se ejecuta
 
-Se va de las hojas del grafo (valores sin concurrencia, que se validan contra el jar oficial) hacia el sistema de actores funcionando, y recién sobre eso se monta Typed, igual que en Pekko.
+1. El Owner responde las decisiones de `docs/decisions.md` (bloque 3 y 4 primero).
+2. El agente toma la spec con menor número cuyo estado sea "lista" o "pendiente de decisiones" con todas sus decisiones registradas como aceptadas. Una spec "bloqueada" no se ejecuta.
+3. Por cada tarea: RED → GREEN → REFACTOR con evidencia (`superpowers:test-driven-development`), los gates de formato, build, tests, clippy y cobertura >= 90 % de las líneas nuevas o modificadas (`superpowers:verification-before-completion`), y actualización de `impl`/`validation` del inventario.
+4. Una fila con decisión abierta queda `partial`; nunca se cierra sobre una recomendación no aceptada. Ninguna fila se excluye sin autorización explícita.
+5. Una rama y un PR hacia `develop` por spec (o por unidad de trabajo de ~400 líneas, según `AGENTS.md`); el merge lo decide el Owner.
 
 ## Decisión previa que cambia todo el orden: Typed sobre Classic
 
-En Pekko, un actor tipado corre dentro de una celda clásica (`ActorAdapter`, `ActorContextAdapter`, `ActorSystemAdapter` en `actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/`). Hay dos caminos:
+En Pekko, un actor tipado corre dentro de una celda clásica (`ActorAdapter`, `ActorContextAdapter`, `ActorSystemAdapter`). Las dos opciones, (a) replicar las capas y (b) runtime tipado nativo, y la recomendación (a) están en la decisión `Q-X-8` de `docs/decisions.md`. **Es decisión del Owner y todavía no está aceptada**; el orden de abajo asume (a), por lo que las specs `AT-*` quedan "pendientes de decisiones" hasta que se acepte.
 
-- **(a) Replicar las capas de Pekko.** Typed se monta sobre la celda clásica portada. DeathWatch, el orden de `PostStop`, el receive timeout y la supervisión subyacente se implementan y validan una sola vez. La interop Classic↔Typed (unidad `AT-ADP`, en alcance) sale casi gratis.
-- **(b) Runtime tipado nativo** con interop como capa aparte. Es más idiomático en Rust, pero cada contrato heredado se implementa y valida dos veces, y la interop queda como un puente entre dos runtimes.
+## Decisiones bloqueantes
 
-**Recomendación: (a).** El objetivo es completar los dos módulos y la interop está dentro del alcance, así que (b) duplica trabajo sin sacar nada del alcance. Lo que se pierde con (a) es que la API interna de la celda Classic usa mensajes dinámicos (`Box<dyn Any + Send>`); la API pública Typed igual queda fuertemente tipada. El resumen de Typed (`docs/inventory/actor-typed.md`, pregunta 1) plantea la misma disyuntiva. **Es decisión del Owner** y el orden de abajo asume (a).
+El registro único está en `docs/decisions.md` (186 decisiones: 8 bloqueantes, 178 propuestas, 0 aceptadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
 
-## Decisiones bloqueantes por fase
+## Orden de las specs
 
-No conviene empezar una fase sin cerrar las preguntas que la bloquean. Están detalladas en los resúmenes de inventario; acá sólo se indica cuándo hacen falta.
+Orden por unidad, de las hojas hacia el sistema funcionando y recién después Typed. El grafo `depends_on` del inventario es cíclico a nivel de fila (la celda necesita EventStream y scheduler; el sistema crea ambos; el testkit necesita un sistema), así que ninguna ordenación puede evitar dependencias hacia adelante. Cada una está listada en `units/README.md` con la regla de costura: la spec que consume define un trait con el contrato mínimo que necesita, lo prueba con un doble de prueba que cumple las aserciones del bloque de contrato de la fila, y lo reemplaza cuando llega la spec que lo implementa, sin reducir el contrato de esa fila.
 
-| Antes de... | Decidir | Filas |
+Fases: 1 valores sin concurrencia (PATH, UTIL, CFG); 2 runtime Classic (REF, MBX, DSP, SCH, EVT, TK, CELL, SYS, SUP, DW, EXT); 3 patrones y periferia Classic (ASK, FSM, RT, CS, SER, IO, JAPI); 4 Typed (BEH, SIG, REF, TK, CTX, SYS, TMR, STASH, SUP, ADP, EVT, LOG, DSP, EXT, ASK, RCP, RT, PS, SPV, CS, SER, DLV, JAPI). "Oráculo" significa comparar contra los jars oficiales o contra Pekko compilado de `upstream/pekko` con `tools/oracle/`; "specs portadas" significa traducir los tests de Pekko 1:1.
+
+<!-- BEGIN GENERATED UNIT TABLE -->
+| Unidad | Filas pendientes | Specs (orden de ejecución) |
 |---|---|---|
-| Fase 1 (CFG) | Parser HOCON propio del subconjunto o crate existente; registro nombre → fábrica en lugar de reflexión | AC-CFG-016, AC-CFG-006 |
-| Fase 2 (REF, MBX, DSP) | Mensajes classic como `Box<dyn Any + Send>`; runtime (tokio vs. pools propios); `BoundedMailbox` que bloquea al emisor | AC-REF-002, AC-DSP-008, AC-MBX-007 |
-| Fase 2 (CELL, SUP) | Qué es un fallo: `Err`, `panic` o ambos, y cuál escala | AC-SUP-001, AC-SUP-004, AT-SUP-002 |
-| Fase 2 (EVT) | Suscripción por jerarquía de tipos sin herencia; loggers como actores o backend directo | AC-EVT-003, AC-EVT-011 |
-| Fase 3 (Typed) | Arquitectura (a)/(b); forma de `setup`/reuso de `Behavior` (`Arc<dyn Fn>` o `Clone`); `narrow` e igualdad de refs | AT-SYS-011, AT-BEH-007, AT-BEH-022 |
-| Fase 4 | Qué piezas JVM/Java/deprecadas se excluyen (propuestas, todavía **dentro** del alcance) | ver pregunta 7 de `actor-classic.md` |
+| AC-PATH | 9 | 01 |
+| AC-UTIL | 64 | 02, 03, 04 |
+| AC-CFG | 29 | 05 |
+| AC-REF | 32 | 06, 07 |
+| AC-MBX | 23 | 08 |
+| AC-DSP | 22 | 09 |
+| AC-SCH | 15 | 10 |
+| AC-EVT | 24 | 11 |
+| AC-TK | 25 | 12 |
+| AC-CELL | 38 | 13, 14 |
+| AC-SYS | 27 | 15 |
+| AC-SUP | 21 | 16 |
+| AC-DW | 13 | 17 |
+| AC-EXT | 5 | 18 |
+| AC-ASK | 28 | 19 |
+| AC-FSM | 11 | 20 |
+| AC-RT | 22 | 21 |
+| AC-CS | 15 | 22 |
+| AC-SER | 23 | 23 |
+| AC-IO | 35 | 24, 25 |
+| AC-JAPI | 19 | 26 |
+| AT-BEH | 26 | 27 |
+| AT-SIG | 8 | 28 |
+| AT-REF | 7 | 29 |
+| AT-TK | 19 | 30 |
+| AT-CTX | 18 | 31 |
+| AT-SYS | 15 | 32 |
+| AT-TMR | 9 | 33 |
+| AT-STASH | 6 | 34 |
+| AT-SUP | 24 | 35 |
+| AT-ADP | 13 | 36 |
+| AT-EVT | 4 | 37 |
+| AT-LOG | 5 | 38 |
+| AT-DSP | 5 | 39 |
+| AT-EXT | 7 | 40 |
+| AT-ASK | 4 | 41 |
+| AT-RCP | 10 | 42 |
+| AT-RT | 8 | 43 |
+| AT-PS | 3 | 44 |
+| AT-SPV | 1 | 45 |
+| AT-CS | 1 | 46 |
+| AT-SER | 3 | 47 |
+| AT-DLV | 7 | 48 |
+| AT-JAPI | 6 | 49 |
+<!-- END GENERATED UNIT TABLE -->
 
-## Fases y cadena de specs
+## Ya implementado (no se repite)
 
-Las cifras de specs son estimaciones a partir de la cantidad de filas y se ajustan al escribir cada spec. "Oráculo" significa comparar contra el jar oficial con `tools/oracle/run.sh`; "specs portadas" significa traducir los tests de Pekko 1:1.
-
-### Fase 1 — Valores sin concurrencia (Classic)
-
-Se valida con tests comunes y el oráculo; no hace falta un sistema de actores.
-
-1. **AC-PATH** — `Address`, `ActorPath`, validación de nombres (15 filas). **1 spec, ya escrita:** `docs/superpowers/plans/2026-10-30-ac-path-address.md`. Primera unidad verificable.
-2. **AC-UTIL (parte que usa el núcleo)** — `Timeout`, `Done`/`NotUsed`, excepciones base, `Helpers` (`base64`, `toRootLowerCase`, `Requiring`). 1 spec, escrita y ejecutada: `docs/superpowers/plans/2026-10-30-ac-util-core.md`. `ConfigOps` (de `Helpers`) espera a `Config`, es decir a AC-CFG; `PrettyDuration` tiene que estar antes de `AC-REF-014`. `ByteString` y lo periférico quedan para la fase 4.
-3. **AC-CFG** — HOCON, `reference.conf` embebido sin cambios, `Settings`, `Deploy` (17 filas). 2 specs: parser y carga; settings y validación de defaults (`ConfigSpec`).
-
-### Fase 2 — Runtime Classic
-
-Acá aparece el ciclo que detectó el inventario: la celda (CELL) necesita EventStream (EVT) y scheduler (SCH), el sistema (SYS) los crea, y las specs de CELL/SUP/DW necesitan un TestKit que a su vez necesita un sistema. Se corta así: SCH y EVT en forma mínima antes de CELL, y un TestKit mínimo (probe con `expectMsg`, `expectTerminated`, captura de logs) junto con el primer SYS. Las specs de CELL/SUP/DW se portan completas después de eso.
-
-4. **AC-REF** — `ActorRef`, `tell`/`forward`/`sender`, `Props`, deadLetters (25 filas). 2 specs.
-5. **AC-MBX** — estados del mailbox, colas, acotadas, prioridad, Stash (19 filas). 2 specs.
-6. **AC-DSP** — dispatchers, executors, throughput (19 filas). 2 specs.
-7. **AC-SCH mínimo + AC-EVT mínimo** — programar una tarea, publicar un evento. 1 spec.
-8. **AC-CELL + AC-SYS mínimo + AC-TK mínimo** — crear, recibir, `become`, hooks, stop, con un `ActorSystem` y un `TestProbe` básicos. 2 specs.
-9. **AC-SUP** (17), **AC-DW** (13). 2 + 1 specs.
-10. **AC-SYS completo**, **AC-EXT**, **AC-SCH completo**, **AC-EVT completo** (logging, dead letters), **AC-TK completo**. 4-5 specs.
-
-### Fase 3 — Typed núcleo
-
-Asumiendo (a). Los tests usan `actor-testkit-typed`, así que su parte mínima (`ActorTestKit`, `TestProbe`) va con la primera spec, como recomienda `actor-typed.md`.
-
-11. **AT-BEH + AT-SIG + AT-REF + AT-TK mínimo** (38 filas). 3 specs.
-12. **AT-CTX** (18), **AT-SYS** (11). 2 + 1 specs.
-13. **AT-TMR**, **AT-STASH**, **AT-SUP** (21, incluye la discrepancia doc/código de backoff, AT-SUP-007). 1 + 1 + 2 specs.
-14. **AT-ADP** (interop), **AT-EVT**, **AT-LOG**, **AT-DSP**, **AT-EXT**, **AT-ASK**. 3 specs.
-
-### Fase 4 — Periferia de ambos módulos
-
-Todo esto está en alcance; va al final porque el núcleo no depende de ello. Las unidades marcadas `listed` necesitan primero extraer sus contratos (leer los cuerpos de los tests).
-
-15. Classic: **AC-ASK** (ask, pipe, CircuitBreaker, Backoff), **AC-FSM**, **AC-RT**, **AC-CS**, **AC-SER**, **AC-IO**, resto de **AC-UTIL**, **AC-JAPI**.
-16. Typed: **AT-RCP**, **AT-RT**, **AT-PS**, **AT-SPV**, **AT-CS**, **AT-SER**, **AT-DLV**, **AT-JAPI**, **AT-TK completo**.
-
-En total, unas 40-50 specs. La cifra exacta sale de escribir cada una.
-
-## Cómo se marca el avance
-
-Al cerrar cada spec se actualizan las columnas del TSV de sus filas: `analysis=extracted`, `impl=done`, `validation=spec` (specs de Pekko portadas), `validation=oracle+spec` (además, golden del jar), o `validation=diff:<nota>` si queda una diferencia aceptada por el Owner. "100%" es que todas las filas de los dos TSV tengan `impl=done` y una validación que no sea `pending`, o una exclusión decidida por el Owner y anotada.
+AC-PATH (spec previa `docs/superpowers/plans/2026-10-30-ac-path-address.md`) y la parte del núcleo de AC-UTIL (`2026-10-30-ac-util-core.md`) están implementadas con filas `partial` por decisiones abiertas. El plan `2026-10-30-ac-cfg-parser-loading.md` es el detalle de HOCON de la decisión `Q-X-1` y es la referencia de la spec de AC-CFG; no se implementó nada.

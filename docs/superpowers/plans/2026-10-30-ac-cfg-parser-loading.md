@@ -1,5 +1,7 @@
 # Unidad AC-CFG, spec 1: parser y carga de configuración — plan
 
+> **Nota (revisión de contratos del 2026-10-30):** este plan es el detalle de HOCON de la decisión `Q-X-1` (alias `Q-CFG-1`) y de `Q-X-2` (`Q-CFG-2`) en `docs/decisions.md`. La spec ejecutable que cubre las filas de AC-CFG es `docs/superpowers/plans/units/05-ac-cfg-1.md`. Donde difieran, manda el inventario regenerado.
+
 **Estado: preparada, implementación bloqueada por dos decisiones del Owner (Q-CFG-1, Q-CFG-2).** Este plan no elige parser ni mecanismo de registro: presenta la evidencia y una recomendación. Lo que no depende de ellas (oráculo, golden, trazabilidad) ya está hecho y es lo único que entra en este PR.
 
 **Goal:** que `rakka-actor` pueda leer HOCON, combinar capas (`withFallback`), resolver sustituciones y leer valores tipados con el mismo comportamiento observable que Typesafe Config 1.4.9 en lo que Pekko 1.7.1 usa, y cargar el `reference.conf` oficial sin modificarlo.

@@ -8,9 +8,11 @@ Port a Rust de los módulos de actores de Apache Pekko 1.7.1: `pekko-actor` (Cla
 - `crates/rakka-actor/`, `crates/rakka-actor-typed/` — código propio.
 - `crates/*/tests/oracle/*.golden` — salidas del jar oficial de Pekko usadas por tests diferenciales.
 - `tools/oracle/` — `fetch-jars.sh` (baja y verifica jars), `run.sh <script.jsh>` (corre un escenario con `jshell`).
-- `docs/inventory/` — inventario de alcance (`actor-classic.tsv`, `actor-typed.tsv` + resúmenes `.md`). Es la definición de "100%".
-- `docs/implementation-order.md` — orden de unidades por dependencias.
-- `docs/superpowers/plans/` — un plan por unidad, máximo 5 tareas.
+- `docs/inventory/` — inventario de alcance (`actor-classic.tsv`, `actor-typed.tsv` + resúmenes `.md`) y `contracts/` (contrato, fuente `path:line`, aserciones y oráculo de cada fila). Es la definición de "100%". Convenciones en `docs/inventory/README.md`.
+- `docs/decisions.md` (+ `docs/decisions/register.tsv`) — registro único de decisiones del Owner: autorizadas, propuestas y bloqueantes.
+- `docs/implementation-order.md` — orden de ejecución; `docs/superpowers/plans/units/` — 49 specs ejecutables generadas, máximo 5 tareas cada una; `docs/contract-map.tsv` — fila → spec → validación.
+- `tools/package/generate.py` y `check.py` — regeneran y verifican el paquete documental desde los TSV (no editar a mano los archivos generados).
+- `docs/superpowers/plans/*.md` — planes detallados previos (PATH, UTIL, detalle HOCON de CFG).
 - `docs/research/` — evaluaciones de herramientas (REA).
 
 ## Comandos

@@ -1,0 +1,3908 @@
+# Contratos verificables: classic-foundation (UTIL, CFG, PATH, EXT)
+
+Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, commit `9a54d129…`). Cada bloque sigue el orden de `docs/inventory/rows/classic-foundation.tsv`. Todas las rutas `path:line` son relativas a `upstream/pekko/` salvo las que empiezan por `crates/`, `tools/` o `docs/superpowers/`. Las decisiones `Q-X-*` son transversales del orquestador (HOCON Q-X-1, registro de fábricas Q-X-2, mensajes dinámicos Q-X-3, runtime Q-X-4, fallo Q-X-5, jerarquía EventStream Q-X-6, loggers Q-X-7, Done/Timeout/null Q-X-9); las específicas del grupo están en `classic-foundation.decisions.tsv`.
+
+**Procedencia de los oráculos.** `util-core.golden` y `path-address.golden` se generaron con los *jars oficiales* de Pekko 1.7.1 (pekko-actor, scala-library 2.13.18) y JDK 11 vía `tools/oracle/run.sh`; `config-hocon.golden` con el jar `config-1.4.9`. Ninguno es Pekko compilado desde `upstream/pekko`. Cuando discrepen de la fuente, gana la fuente (docs/upstream.md). `scala-library`, `java.net.URI` y Typesafe Config no están en `upstream/pekko`: su comportamiento sólo se conoce por esos oráculos.
+
+**Convención de aserciones.** `A<n>` con `path:line` = el cuerpo del test de Pekko lo afirma (leído). *no afirmada por spec* = derivada del código o del oráculo. Las filas `listed` no tienen aserciones extraídas.
+
+
+---
+
+## AC-UTIL-001 — Timeout (duración para ask/resolveOne)
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** `Timeout` envuelve un `FiniteDuration` (case class, igualdad por valor). `Timeout.zero` = `Timeout(Duration.Zero)`; `Timeout(length, unit)` = `Timeout(Duration(length, unit))`; `Timeout.create(java.time.Duration)` convierte con `JavaDurationConverters.asScala`; la conversión implícita `FiniteDuration => Timeout` permite pasar una duración donde se pide un `Timeout` (ask, resolveOne). Un `Timeout` demasiado corto hace fallar `ask` con `AskTimeoutException`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Timeout.scala:22-29 (case class + constructor (Long, TimeUnit))`
+- `actor/src/main/scala/org/apache/pekko/util/Timeout.scala:34-55 (zero, apply, create, durationToTimeout)`
+- actor/src/main/scala-2/org/apache/pekko/util/JavaDurationConverters.scala (asScala; no leído a fondo)
+- `reference.conf: n/a (Timeout no lee claves; los consumidores `creation-timeout`, `unstarted-push-timeout`, `logger-startup-timeout` lo construyen en ActorSystem.scala:423-424,439)`
+
+**Condiciones.**
+- Normal: `Timeout(100.millis).duration == 100.millis`; `Timeout(1000.millis) == Timeout(1.second)` (igualdad numérica del FiniteDuration).
+- Límites: `Duration(length, unit)` lanza `IllegalArgumentException("requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)")` si excede el rango; 106751 DAYS ok, 106752 DAYS falla (oráculo TO-*). FiniteDuration admite negativos: `Timeout(-5.millis)` es válido (TO-NEG-01..05); `ask` lo rechaza después (AC-ASK-001).
+- Errores: `Timeout.create(ofSeconds(Long.MAX_VALUE))` lanza `ArithmeticException: long overflow` (según plan; no reproducido en Rust).
+- toString conserva la unidad: `Timeout(100 milliseconds)`, `Timeout(0 days)` (TO-STR-01..03).
+- Nota de procedencia: scala-library (scala.concurrent.duration) no está en upstream/pekko: su comportamiento sólo se conoce por el oráculo de jars.
+
+**Orden / concurrencia / ciclo de vida.** n/a: valor inmutable, sin hilos ni hooks.
+
+**Dependencias.** Ninguna fila. Externas: `scala.concurrent.duration.{Duration, FiniteDuration}`, `java.util.concurrent.TimeUnit`. Consumidores: AC-ASK-001, AC-CFG-002 (CreationTimeout, UnstartedPushTimeout, LoggerStartTimeout).
+
+**Equivalente Rust propuesto y diferencias observables.** `pub struct Timeout(Duration)` (`Copy`, `PartialEq`, `Eq`, `Hash`) con `Timeout::ZERO`, `Timeout::new(Duration)`, `Timeout::of(length: u64, TimeUnit) -> Result<Timeout, IllegalArgumentError>`, `impl From<Duration> for Timeout`. Ya implementado en crates/rakka-actor/src/util/timeout.rs. Diferencias observables: sin negativos, `new` no impone el límite de 2^63-1 ns, `Debug` no conserva la unidad, `Timeout.create` desborda distinto (Q-X-9).
+
+**Aserciones.**
+- A1 `Timeout(testTimeout)` implícito en `echo ? "hallo"` a un actor que no responde falla con `AskTimeoutException` dentro de testTimeout+leeway: ActorTimeoutSpec.scala:34-39 (la aserción es de ask, AC-ASK-001).
+- A2 el mismo resultado con timeout explícito `echo.?("hallo")(testTimeout)`: ActorTimeoutSpec.scala:41-45.
+- A3 `Timeout.zero.duration == Duration.Zero`: derivada del código Timeout.scala:39; oráculo TO-* (*no afirmada por spec*).
+- A4 `Timeout(length, unit)` fuera de rango lanza IllegalArgumentException con el mensaje exacto de arriba: oráculo TO-* (*no afirmada por spec*).
+- A5 `Timeout(1000.millis) == Timeout(1.second)`, `Timeout(-5.millis)` válido, `toString` con unidad: oráculo TO-*, TO-NEG-*, TO-STR-* (*no afirmadas por spec*).
+
+**Oráculo.** Sí, con jars oficiales: jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/util-core.jsh, golden crates/rakka-actor/tests/oracle/util-core.golden); NO es Pekko compilado de upstream/pekko. Los jars son el artefacto publicado de 1.7.1, no el commit fijado compilado; si discrepan gana la fuente (docs/upstream.md).
+
+**Decisiones.** Q-X-9 (Q-UTIL-1 negativos/rango, Q-UTIL-2 toString con unidad).
+
+
+---
+
+## AC-UTIL-002.1 — Helpers.base64 / base64chars (nombres generados `$a`, temp paths)
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** `Helpers.base64(l, sb)` agrega al builder (por defecto `"$"`) un carácter por cada 6 bits de `l`, empezando por los menos significativos, hasta que el resto sea 0; con `l = 0` agrega un solo carácter.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:115-123`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:434-442 (tempPath usa base64 con prefijo)`
+- `Children.scala:126,130 (nombres anónimos `$a`)`
+
+**Condiciones.**
+- Normal: `base64(0) == "$a"`, `base64(63) == "$~"`, `base64(64) == "$ba"` (oráculo B64-*).
+- Negativos: `l.toInt & 63` y `l >>> 6` sin signo, por lo que `base64(-1)` produce 11 dígitos tras el `$` (oráculo B64-*).
+- Con `sb` dado, agrega sin escribir el prefijo `$` (el prefijo lo pone el valor por defecto del parámetro).
+- Errores: ninguno posible.
+
+**Orden / concurrencia / ciclo de vida.** Pura; el contador de temp paths (`AtomicLong`) vive en LocalActorRefProvider (AC-PATH-015).
+
+**Dependencias.** Ninguna. Consumidores: AC-PATH-015, AC-CELL (nombres anónimos).
+
+**Equivalente Rust propuesto y diferencias observables.** `base64(l: i64)` y `base64_append(l, &mut String)` (implementado). Sin diferencias observables.
+
+**Aserciones.**
+- A1 alfabeto y orden de dígitos: oráculo B64-* (*no afirmada por spec*; ningún test de upstream llama a `base64` directamente).
+- A2 negativos con `>>>`: derivada del código Helpers.scala:119-122 y oráculo B64-*.
+- A3 prefijo propio con `sb` dado: derivada del código Helpers.scala:118; oráculo B64-* (*no afirmada por spec*).
+
+**Oráculo.** Sí: jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/util-core.jsh, golden crates/rakka-actor/tests/oracle/util-core.golden); NO es Pekko compilado de upstream/pekko.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-UTIL-002.2 — Helpers.toRootLowerCase
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** Convierte a minúsculas con el locale raíz (sin reglas del locale del sistema, p. ej. turco).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:40`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:441,449 (log-dead-letters y suspend-duration)`
+
+**Condiciones.**
+- Normal: ASCII y Unicode usan el mapeo completo de minúsculas (`İ` -> `i` + U+0307, sigma final contextual).
+- Errores: ninguno.
+
+**Orden / concurrencia / ciclo de vida.** n/a: pura.
+
+**Dependencias.** Consumidores: AC-CFG-005, AC-EVT (Logging).
+
+**Equivalente Rust propuesto y diferencias observables.** `str::to_lowercase`; diferencia posible por versión de Unicode (Q-UTIL-7).
+
+**Aserciones.**
+- A1 mapeo completo y sigma final: oráculo LC-* (*no afirmada por spec*).
+
+**Oráculo.** Sí: jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/util-core.jsh, golden crates/rakka-actor/tests/oracle/util-core.golden); NO es Pekko compilado de upstream/pekko (limitado a Unicode ≤ 10).
+
+**Decisiones.** Q-UTIL-7.
+
+
+---
+
+## AC-UTIL-002.3 — Helpers.Requiring (requiring con IllegalArgumentException)
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** Extensión de cualquier valor para validar argumentos con `IllegalArgumentException` en lugar de `AssertionError`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:143-168 (usa `require` de Predef)`
+- `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:60 y dispatch/affinity/AffinityPool.scala:321 (consumidores)`
+
+**Condiciones.**
+- Normal: cond verdadera -> devuelve `value` sin copiar.
+- Error: `IllegalArgumentException` con mensaje `requirement failed: <msg>` (Predef.require); `msg` null -> `requirement failed: null`.
+- Efectos: `msg` se evalúa sólo si falla.
+
+**Orden / concurrencia / ciclo de vida.** n/a: síncrona y pura.
+
+**Dependencias.** Consumidores: AC-SCH-008 (tick-duration), AC-DSP-013.
+
+**Equivalente Rust propuesto y diferencias observables.** Trait con impl genérico (implementado); mensaje `impl Display` formateado sólo al fallar.
+
+**Aserciones.**
+- A1 devuelve el valor / lanza con el prefijo exacto: oráculo RQ-* (*no afirmada por spec*).
+- A2 forma con predicado `A => Boolean`: derivada del código Helpers.scala:164-167.
+
+**Oráculo.** Sí: jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/util-core.jsh, golden crates/rakka-actor/tests/oracle/util-core.golden); NO es Pekko compilado de upstream/pekko.
+
+**Decisiones.** Q-X-9 (Q-UTIL-3).
+
+
+---
+
+## AC-UTIL-002.4 — ConfigOps.getMillisDuration / getNanosDuration
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Lectores de duración usados por Settings y por los configuradores (`creation-timeout`, `unstarted-push-timeout`, `logger-startup-timeout`, `log-dead-letters-suspend-duration`, Dispatchers.scala:304-306).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:173-176,194-195`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:423-424,439,451`
+- `Dispatchers.scala:304-306 (consumidor; fuera de mi grupo)`
+
+**Condiciones.**
+- Normal: unidades `ns us ms s m h d` y nombres largos; sin unidad = ms.
+- Error: clave ausente -> ConfigException.Missing; tipo erróneo -> WrongType; valor mal formado -> BadValue (mensajes en golden DUR-ERR-*).
+- Negativos válidos en Typesafe Config (REF-05/DUR-*).
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-CFG-017 (formato de duraciones), AC-CFG-001.
+
+**Equivalente Rust propuesto y diferencias observables.** Métodos del tipo `Config` propio (Q-X-1). Diferencia: `std::time::Duration` sin negativos (Q-X-9).
+
+**Aserciones.**
+- A1 `getDuration` en ms para `5s` = 5000, `5 minutes` = 300000: ConfigSpec.scala:52,69,76,87.
+- A2 tabla de unidades, truncado y desborde: golden DUR-MS-*/DUR-NS-*/DUR-ROUND-*/DUR-LARGE-* (jar Typesafe Config 1.4.9).
+
+**Oráculo.** Sí: golden de HOCON (jar config-1.4.9, tools/oracle/config-hocon.jsh), no Pekko compilado.
+
+**Decisiones.** Q-X-1, Q-X-9.
+
+
+---
+
+## AC-UTIL-002.5 — ConfigOps.renderWithRedactions (toString de Settings con datos sensibles ocultos)
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `Settings.toString` = config renderizada con redacciones (PR apache/pekko#771, 1.0.2).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:178-192`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:492`
+
+**Condiciones.**
+- Normal: render con `ConfigRenderOptions.defaults()` (comentarios, JSON-like, formateado) pero sin valores de entorno.
+- Edge: `username` vacío o null -> `String.replace(null,...)` lanzaría NPE (no hay test); derivada del código.
+- Efecto: sólo lectura.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-CFG-001, AC-CFG-002.
+
+**Equivalente Rust propuesto y diferencias observables.** Función de render del `Config` propio; no se exige igualdad textual con Typesafe (Q-CFG-4).
+
+**Aserciones.**
+- A1 el texto no contiene valores de entorno: derivada del código Helpers.scala:190 (*no afirmada por spec*; no hay test en upstream, grep sobre actor-tests sin resultados para `renderWithRedactions`).
+
+**Oráculo.** Parcial: se puede comparar con el jar config-1.4.9 el efecto de `setShowEnvVariableValues(false)`; no existe escenario aún.
+
+**Decisiones.** Q-CFG-4.
+
+
+---
+
+## AC-UTIL-003.1 — Done (singleton de finalización sin valor)
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** Valor único `Done` que se usa como resultado de futuros que completan sin valor.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/Done.scala:20-40`
+
+**Condiciones.**
+- Normal: una sola instancia; `toString` = "Done" (case object).
+- Serializable (marcador JVM).
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Consumidores: AC-SYS (whenTerminated?), AC-CS, AC-ASK (gracefulStop).
+
+**Equivalente Rust propuesto y diferencias observables.** `struct Done;` implementado; `getInstance`/`done` son fachada Java sin equivalente (DN-03).
+
+**Aserciones.**
+- A1 `Done.toString == "Done"`: oráculo DN-01 (*no afirmada por spec*).
+- A2 singleton: derivada del código Done.scala:27.
+
+**Oráculo.** Sí: jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/util-core.jsh, golden crates/rakka-actor/tests/oracle/util-core.golden); NO es Pekko compilado de upstream/pekko.
+
+**Decisiones.** Q-X-9 (Q-UTIL-5).
+
+
+---
+
+## AC-UTIL-003.2 — NotUsed (marcador de valor sin importancia)
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** Valor `NotUsed` para tipos genéricos donde el valor materializado no importa (streams, fuera de alcance, pero el tipo está en pekko-actor).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/NotUsed.scala:17-37`
+
+**Condiciones.**
+- Normal: singleton, `toString` = "NotUsed".
+- Diferencia con Done: no extiende Serializable.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** `struct NotUsed;` implementado.
+
+**Aserciones.**
+- A1 `toString == "NotUsed"`: oráculo DN-02 (*no afirmada por spec*).
+
+**Oráculo.** Sí: jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/util-core.jsh, golden crates/rakka-actor/tests/oracle/util-core.golden); NO es Pekko compilado de upstream/pekko.
+
+**Decisiones.** Q-X-9 (Q-UTIL-5).
+
+
+---
+
+## AC-UTIL-004.1 — PekkoException (excepción base)
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=partial · validation=oracle+spec*
+
+**Contrato observable.** Excepción base de Pekko: `PekkoException(message, cause)` y `PekkoException(msg)` (causa null).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/PekkoException.scala:17-22`
+
+**Condiciones.**
+- Normal: `getMessage`, `getCause`; `toString` = `org.apache.pekko.PekkoException: <msg>` (JVM).
+- Edge: `new PekkoException(null)` tiene `getMessage == null` y se imprime sin `: ` (EX-NULL).
+- Constructor (String) obligatorio: lo exige PekkoExceptionSpec.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Base de ActorKilledException (verify en el spec) y de ConfigurationException.
+
+**Equivalente Rust propuesto y diferencias observables.** Tipo con `message()`, `cause()`, `java_class()`, `Display`, `Error::source` (implementado). Sin jerarquía de subtipos (Q-X-9).
+
+**Aserciones.**
+- A1 existe un constructor que acepta un único String en PekkoException: PekkoExceptionSpec.scala:29-33,39-41 (comprobación por reflexión JVM; en Rust se traduce a "se construye con un único mensaje").
+- A2 lo mismo para ActorKilledException: PekkoExceptionSpec.scala:35 (fila de AC-SUP/AC-CELL; aquí sólo se registra).
+- A3 mensaje/causa/`Display`: oráculo EX-01..06 (*no afirmada por spec*).
+
+**Oráculo.** Sí: jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/util-core.jsh, golden crates/rakka-actor/tests/oracle/util-core.golden); NO es Pekko compilado de upstream/pekko.
+
+**Decisiones.** Q-X-9 (Q-UTIL-3).
+
+
+---
+
+## AC-UTIL-004.2 — ConfigurationException
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** Excepción para configuración inválida; un `catch PekkoException` también la atrapa.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/PekkoException.scala:38-43`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:479-487 (usos)`
+
+**Condiciones.**
+- Mensajes fijados por el código: `pekko.coordinated-shutdown.run-by-actor-system-terminate=on and pekko.coordinated-shutdown.terminate-actor-system=off is not a supported configuration combination.` (ActorSystem.scala:479-481) y `Pekko JAR version [<v>] does not match the provided config version [<c>]` (ActorSystem.scala:486-487).
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-UTIL-004.1.
+
+**Equivalente Rust propuesto y diferencias observables.** Tipo separado (implementado); subtipado perdido (Q-X-9).
+
+**Aserciones.**
+- A1 mensaje de versión: derivada del código ActorSystem.scala:485-487 (*no afirmada por spec*).
+- A2 pertenencia a la jerarquía PekkoException: oráculo EX-SUB.
+
+**Oráculo.** Sí: jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/util-core.jsh, golden crates/rakka-actor/tests/oracle/util-core.golden); NO es Pekko compilado de upstream/pekko.
+
+**Decisiones.** Q-X-9 (Q-UTIL-4).
+
+
+---
+
+## AC-UTIL-004.3 — OnlyCauseStackTrace (trait que suprime el stack trace propio y conserva el de la causa)
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Marca que ciertos errores muestren sólo la traza de la causa (p. ej. `ActorInitializationException`).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/PekkoException.scala:24-36`
+
+**Condiciones.**
+- Con causa: stack trace = el de la causa. Sin causa: arreglo vacío.
+- Errores: ninguno.
+
+**Orden / concurrencia / ciclo de vida.** `fillInStackTrace` corre al construir la excepción (JVM).
+
+**Dependencias.** Consumidores: excepciones de CELL/SUP (filas ajenas).
+
+**Equivalente Rust propuesto y diferencias observables.** No hay equivalente directo; se propone `Error::source()` encadenado y backtrace opcional; diferencia observable: no hay traza (Q-X-9).
+
+**Aserciones.**
+- A1 traza vacía sin causa / igual a la causa con causa: derivada del código PekkoException.scala:29-35 (*no afirmada por spec*).
+
+**Oráculo.** No aplica: depende del runtime JVM (stack traces).
+
+**Decisiones.** Q-X-9 (Q-UTIL-4).
+
+
+---
+
+## AC-UTIL-005.1 — PekkoVersion.require y UnsupportedPekkoVersion
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Los módulos externos llaman `PekkoVersion.require("mi-lib", "1.0.4")` para abortar si el Pekko cargado es más viejo/incompatible.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/PekkoVersion.scala:18-82`
+- `actor/src/main/scala/org/apache/pekko/util/Version.scala:18-45 (Version.current vía Version.scala generado)`
+
+**Condiciones.**
+- Normal: igual -> ok (línea 41). Misma mayor y menor: parche actual >= requerido; menor actual > requerido -> ok; mayor distinta -> falla (línea 73).
+- Pre-release (patrón `(\d+)\.(\d+)\.(\d+)(?:-(M|RC)(\d+))?`): requerido final y actual M/RC -> falla; M(req) vs RC(act) ok; RC(req) vs M(act) falla; mismo tipo compara el número; requerido M/RC con actual final -> ok.
+- Error: `UnsupportedPekkoVersion("Current version of Pekko is [<cur>], but <lib> requires version [<req>]")` (líneas 52-54), clase `final`, extiende RuntimeException, constructor `private[pekko]`.
+- Versiones que no calzan con el patrón (SNAPSHOT, timestamped, 'nonsense') -> no falla (líneas 74,77).
+
+**Orden / concurrencia / ciclo de vida.** n/a: pura.
+
+**Dependencias.** Ninguna fila; dato externo: `Version.current` generado en build (project/VersionGenerator.scala:18-25).
+
+**Equivalente Rust propuesto y diferencias observables.** Función `require` + tipo de error; `Version.current` = constante de rakka (Q-CFG-5).
+
+**Aserciones.**
+- A1 ok: (2.5.6,2.5.6), (2.5.6,2.5.7), (2.5.6,2.6.0): PekkoVersionSpec.scala:23-27.
+- A2 RC ok: (2.5.6, 2.5.7-RC10), (2.6.0-RC1, 2.6.0-RC1/RC2/2.7.0): PekkoVersionSpec.scala:29-34.
+- A3 RC falla: (2.5.6, 2.5.6-RC1) y (2.5.6-RC2, 2.5.6-RC1): PekkoVersionSpec.scala:36-43.
+- A4 milestone ok: PekkoVersionSpec.scala:45-51; falla: (2.5.6,2.5.6-M1), (2.5.7-M10,2.5.7-M9), (2.5.7-RC1,2.5.7-M9): PekkoVersionSpec.scala:53-63.
+- A5 mayor distinta falla (3.0.0, 1.0.0): :65-73; menor baja (2.4.19): :75-79; parche bajo (2.5.5): :81-85.
+- A6 SNAPSHOT actual/requerido y timestamped pasan: :87-101; versión incomprensible pasa: :103-106.
+- A7 el texto exacto del mensaje no lo afirma ningún test: derivada del código PekkoVersion.scala:52-54.
+
+**Oráculo.** Posible: jar pekko-actor 1.7.1 (`PekkoVersion.require` es público); no hay escenario aún.
+
+**Decisiones.** Q-CFG-5.
+
+
+---
+
+## AC-UTIL-005.2 — util.Version (versión comparable con M/RC/dynver)
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `Version(String)` convierte una versión en 4 números + resto y es `Comparable`; se usa para chequear versiones de módulos (ManifestInfo) y por Typed/Cluster.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Version.scala:18-201`
+
+**Condiciones.**
+- Parseo: 1 segmento -> número simple (o alfanumérico si no es numérico) con los otros 3 números = Undefined(0); 2 segmentos -> `a.b[-rest|+dynver]`; 3 segmentos `a.b.c[...]`; más de 3 -> IllegalArgumentException("Only 3 digits separated with '.' are supported. [<v>]") (línea 146); vacío -> IllegalArgumentException("Empty version not supported.") (línea 114).
+- Segmento no numérico donde se espera número -> NumberFormatException (via toInt; VersionSpec.scala:67-74).
+- Comparación: si `version` string es igual -> 0 sin parsear (línea 156); si no compara numbers(0..3) restando; luego `rest` (líneas 170-175, ver hallazgo); `equals` = compareTo==0 (1.2 == 1.2.0); hashCode con HashCode.SEED sobre números y rest.
+- dynver: `+N-hash` o `-N-hash`: N se interpreta como número de commits (3 < 10); `HEAD+20140707-1030` compara por rest (VersionSpec.scala:77-92).
+
+**Orden / concurrencia / ciclo de vida.** `parse()` es perezoso (campo `numbers` volatile) y se invoca desde compareTo/hashCode/apply.
+
+**Dependencias.** AC-UTIL-016.15 (HashCode).
+
+**Equivalente Rust propuesto y diferencias observables.** Struct inmutable con parseo en la construcción; `pekko_compare` explícito (no `Ord` si no es orden total, como AC-PATH-002).
+
+**Aserciones.**
+- A1 3 dígitos: `1.2.3 == 1.2.3`, `!= 1.2.4`, `1.2.4 > 1.2.3`, `3.2.1 > 1.2.3`, `3.2.1 < 3.3.1`, `3.2.0 < 3.2.1`: VersionSpec.scala:23-30.
+- A2 más de 3 dígitos -> IllegalArgumentException: :32-34.
+- A3 2 dígitos: `1.2 == 1.2.0`, `1.2 != 1.3`, `1.2.1 > 1.2`, `2.4 > 2.3`, `3.2 < 3.2.7`: :36-43.
+- A4 1 dígito: `1 == 1.0 == 1.0.0`, `3 > 2`, `2b > 2a`, `2020-09-07 > 2020-08-30`: :45-54.
+- A5 extra: `1.2.3-M1 == 1.2.3-M1`, `1.2.0-M1 == 1.2-M1`, `1.2-M1 < 1.2.0`, `1.2.3-M2 > 1.2.3-M1`: :56-64.
+- A6 no dígitos -> NumberFormatException para `1.x.3`, `1.2x.3`, `1.2.x`, `1.2.3x`, `x.3`, `1.x`, `1.2x`: :66-75.
+- A7 dynver: :77-92. Sin dígitos: `foo == foo`, `foo != bar`, `foo < 1.2.3`, `foo > bar`, `1-foo != 01-foo`, `1-foo > 02-foo`: :94-102.
+- A8 antisimetría de compareTo con rest vacío en el lado izquierdo: NO afirmada por spec; hallazgo del código Version.scala:170-175.
+
+**Oráculo.** Posible con jar pekko-actor (clase pública en org.apache.pekko.util); sin escenario aún.
+
+**Decisiones.** Q-UTIL-6, Q-X-9.
+
+
+---
+
+## AC-UTIL-006.1 — ByteString inmutable (ByteString1C, ByteString1, ByteStrings; factories, slicing, concatenación, conversión)
+
+*unidad UTIL · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ByteString inmutable (ByteString1C, ByteString1, ByteStrings; factories, slicing, concatenación, conversión): parte de la estructura de bytes inmutable de Pekko usada por IO, serialización y DNS. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:31,867`
+- scala-3 espeja la versión 2.13 (ByteString.scala/ByteIterator.scala bajo scala-3)
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó la implementación ni los cuerpos de los specs citados).
+
+**Orden / concurrencia / ciclo de vida.** n/a: valores inmutables (ByteIterator/Builder son mutables, sin sincronización).
+
+**Dependencias.** Consumidores: AC-IO-*, AC-SER-*.
+
+**Equivalente Rust propuesto y diferencias observables.** `ByteString` sobre `bytes::Bytes` o rope propio; Q-UTIL-12. Diferencia a decidir: Rust ya ofrece `bytes::Bytes` (copia perezosa); se debe mapear cada operación de Pekko a su equivalente.
+
+**Aserciones.**
+- A1 ninguna aserción extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:360 ; actor-tests/src/test/scala/org/apache/pekko/util/ByteStringInitializationSpec.scala ; actor-tests/src/test/scala/org/apache/pekko/util/AsciiStringCopySpec.scala ; actor-tests/src/test/java/org/apache/pekko/util/ByteStringTest.java.
+
+**Oráculo.** Posible con jar pekko-actor (ByteString es público); sin escenario aún.
+
+**Decisiones.** Q-UTIL-12.
+
+
+---
+
+## AC-UTIL-006.2 — CompactByteString (compactación a ByteString1C)
+
+*unidad UTIL · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** CompactByteString (compactación a ByteString1C): parte de la estructura de bytes inmutable de Pekko usada por IO, serialización y DNS. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:867`
+- scala-3 espeja la versión 2.13 (ByteString.scala/ByteIterator.scala bajo scala-3)
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó la implementación ni los cuerpos de los specs citados).
+
+**Orden / concurrencia / ciclo de vida.** n/a: valores inmutables (ByteIterator/Builder son mutables, sin sincronización).
+
+**Dependencias.** Consumidores: AC-IO-*, AC-SER-*.
+
+**Equivalente Rust propuesto y diferencias observables.** variante compacta del mismo tipo. Diferencia a decidir: Rust ya ofrece `bytes::Bytes` (copia perezosa); se debe mapear cada operación de Pekko a su equivalente.
+
+**Aserciones.**
+- A1 ninguna aserción extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:360.
+
+**Oráculo.** Posible con jar pekko-actor (ByteString es público); sin escenario aún.
+
+**Decisiones.** Q-UTIL-12.
+
+
+---
+
+## AC-UTIL-006.3 — ByteStringBuilder (append de primitivos con byte order, putBytes, result)
+
+*unidad UTIL · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ByteStringBuilder (append de primitivos con byte order, putBytes, result): parte de la estructura de bytes inmutable de Pekko usada por IO, serialización y DNS. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:1164`
+- scala-3 espeja la versión 2.13 (ByteString.scala/ByteIterator.scala bajo scala-3)
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó la implementación ni los cuerpos de los specs citados).
+
+**Orden / concurrencia / ciclo de vida.** n/a: valores inmutables (ByteIterator/Builder son mutables, sin sincronización).
+
+**Dependencias.** Consumidores: AC-IO-*, AC-SER-*.
+
+**Equivalente Rust propuesto y diferencias observables.** builder con `ByteOrder` explícito. Diferencia a decidir: Rust ya ofrece `bytes::Bytes` (copia perezosa); se debe mapear cada operación de Pekko a su equivalente.
+
+**Aserciones.**
+- A1 ninguna aserción extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/ByteStringBuilderSpec.scala:24 ; actor-tests/src/test/scala-2.13+/org/apache/pekko/util/ByteStringBuilderScala213PlusSpec.scala.
+
+**Oráculo.** Posible con jar pekko-actor (ByteString es público); sin escenario aún.
+
+**Decisiones.** Q-UTIL-12.
+
+
+---
+
+## AC-UTIL-006.4 — ByteIterator (lectura de primitivos con byte order, getBytes, take/drop)
+
+*unidad UTIL · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ByteIterator (lectura de primitivos con byte order, getBytes, take/drop): parte de la estructura de bytes inmutable de Pekko usada por IO, serialización y DNS. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteIterator.scala:26-430`
+- scala-3 espeja la versión 2.13 (ByteString.scala/ByteIterator.scala bajo scala-3)
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó la implementación ni los cuerpos de los specs citados).
+
+**Orden / concurrencia / ciclo de vida.** n/a: valores inmutables (ByteIterator/Builder son mutables, sin sincronización).
+
+**Dependencias.** Consumidores: AC-IO-*, AC-SER-*.
+
+**Equivalente Rust propuesto y diferencias observables.** iterador con cursor y `ByteOrder`. Diferencia a decidir: Rust ya ofrece `bytes::Bytes` (copia perezosa); se debe mapear cada operación de Pekko a su equivalente.
+
+**Aserciones.**
+- A1 ninguna aserción extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/ByteIteratorSpec.scala:22.
+
+**Oráculo.** Posible con jar pekko-actor (ByteString es público); sin escenario aún.
+
+**Decisiones.** Q-UTIL-12.
+
+
+---
+
+## AC-UTIL-006.5 — ByteStringInputStream / ByteStringOutputStream (adaptadores java.io)
+
+*unidad UTIL · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ByteStringInputStream / ByteStringOutputStream (adaptadores java.io): parte de la estructura de bytes inmutable de Pekko usada por IO, serialización y DNS. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:1254`
+- scala-3 espeja la versión 2.13 (ByteString.scala/ByteIterator.scala bajo scala-3)
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó la implementación ni los cuerpos de los specs citados).
+
+**Orden / concurrencia / ciclo de vida.** n/a: valores inmutables (ByteIterator/Builder son mutables, sin sincronización).
+
+**Dependencias.** Consumidores: AC-IO-*, AC-SER-*.
+
+**Equivalente Rust propuesto y diferencias observables.** `impl Read` / `impl Write` sobre ByteString. Diferencia a decidir: Rust ya ofrece `bytes::Bytes` (copia perezosa); se debe mapear cada operación de Pekko a su equivalente.
+
+**Aserciones.**
+- A1 ninguna aserción extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/ByteStringInputStreamSpec.scala:30.
+
+**Oráculo.** Posible con jar pekko-actor (ByteString es público); sin escenario aún.
+
+**Decisiones.** Q-UTIL-12.
+
+
+---
+
+## AC-UTIL-007 — Index / ConcurrentMultiMap
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Multimapa concurrente clave -> conjunto ordenado de valores (ordenado por `valueComparator`, sin duplicados). Altas/bajas se serializan por clave; las lecturas no bloquean.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Index.scala:23-199`
+- `actor/src/main/scala/org/apache/pekko/util/Index.scala:201-207 (ConcurrentMultiMap)`
+
+**Condiciones.**
+- `put(k, v)` -> true si el valor no estaba asociado a la clave, false si ya estaba (IndexSpec.scala:56-60).
+- `remove(k, v)` -> true si lo desasoció (y elimina la clave si queda vacío); false si no estaba (IndexSpec.scala:66-76). `remove(k)` -> Some(copia de los valores) o None si la clave no existía (IndexSpec.scala:77-82).
+- `removeValue(v)` lo quita de todas las claves y elimina las claves que quedan vacías (IndexSpec.scala:84-97).
+- `valueIterator(k)` iterador vacío si la clave no existe; `findValue(k)(f)` primer valor (en orden del comparador) que cumple `f`; `foreach(fun)` aplica a cada par; `values` = unión de conjuntos; `keys`; `isEmpty` (puede dar falsos negativos mientras corre el último remove: Index.scala:181-184); `clear()`.
+- Concurrencia: `put` reintenta (spin) si encuentra un conjunto vacío (marcado como removido por `remove(k)`).
+
+**Orden / concurrencia / ciclo de vida.** Escrituras sincronizadas sobre el `ConcurrentSkipListSet` de la clave (`set.synchronized`); lecturas sin lock (iteradores débilmente consistentes). `remove(k)` vacía el set original para avisar a los `put` en curso.
+
+**Dependencias.** Dependencias: AC-EVT (EventStream/ managed channels?) no usa Index directamente según lo leído; consumidores no verificados.
+
+**Equivalente Rust propuesto y diferencias observables.** `Index<K, V>` con `Mutex<HashMap<K, BTreeSet<V>>>` o mapa concurrente sharded; comparador de valores explícito. Diferencias observables: iteración sobre instantánea (copia) en lugar de débilmente consistente; `isEmpty` sin falsos negativos (Q-UTIL-10).
+
+**Aserciones.**
+- A1 `put` + `valueIterator` devuelve el valor: IndexSpec.scala:51-54.
+- A2 `put` repetido devuelve true y luego false; varios valores/claves: IndexSpec.scala:56-64.
+- A3 `remove(k,v)` true/false y `remove(k)` Some(set)/None, luego iterador vacío: IndexSpec.scala:66-82.
+- A4 `removeValue(1)` deja {2,3}, {2}, {2}: IndexSpec.scala:84-97.
+- A5 `foreach` visita 6 pares y `findValue` encuentra cada valor: IndexSpec.scala:98-106.
+- A6 `clear` -> `isEmpty` true: IndexSpec.scala:108-112.
+- A7 10 000 tareas paralelas de put/remove/lectura sin excepciones y las claves ≥ 5 siempre con valores: IndexSpec.scala:114-155.
+
+**Oráculo.** No aplica: sin oráculo de jar necesario (estructura pura); se prueba portando IndexSpec 1:1.
+
+**Decisiones.** Q-UTIL-10.
+
+
+---
+
+## AC-UTIL-008 — SubclassifiedIndex / Subclassification
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Índice mutable que respeta relaciones de subclase entre claves: al agregar una clave hereda los valores de su superclase más específica; agregar/quitar un valor aplica a todas las subclases. Devuelve los cambios (clave -> conjunto de valores) para actualizar una caché externa.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala:21-34 (Subclassification)`
+- `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala:36-77 (Nonroot)`
+- `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala:80-236 (addKey, addValue, removeValue, findValues, integrate, mergeChangesByKey)`
+
+**Condiciones.**
+- `addKey(k)`: si ninguna clave conocida es igual ni superclase, crea un nodo con los valores de la raíz; si hay una superclase, delega en ella; devuelve el diff para la caché (líneas 111-127).
+- `addValue(k, v)`: aplica `v` a todas las claves que son subclase de `k` (incluida `k`); si `k` es desconocida la inserta primero (líneas 135-150). `removeValue(k, v)` análogo y devuelve para cada clave afectada el conjunto completo restante (`findValues`) porque pueden haberse creado nodos nuevos (líneas 157-163).
+- `removeValue(v)` lo quita de todas las claves (línea 185). `integrate` reubica nodos existentes que son subclase del nuevo y compensa herencia múltiple con `findSubKeysExcept` (líneas 222-228).
+- Contrato de `Subclassification`: `isSubclass` debe considerar iguales las clases iguales; la clase no valida el contrato (línea 31).
+- Errores: ninguno explícito; el resultado de `mergeChangesByKey` no tiene orden definido (Map -> Seq).
+
+**Orden / concurrencia / ciclo de vida.** No es thread-safe: el llamador (EventStream) sincroniza; la raíz y los nodos usan `var` sin sincronización.
+
+**Dependencias.** AC-EVT-003 (EventStream/SubchannelClassification), AC-EVT-001..; Q-X-6.
+
+**Equivalente Rust propuesto y diferencias observables.** `SubclassifiedIndex<K, V>` genérico sobre un trait `Subclassification<K>`; en Rust la relación de subclase no existe: el trait lo implementa quien declare la jerarquía de canales (Q-X-6).
+
+**Aserciones.**
+- A1 suscribir a B3 y luego a A (superclase) entrega a B3 sólo b3 y luego a A todo incluido c y b2; tras `unsubscribe(B2)` ya no llegan b2/c pero sí b3 y a: EventStreamSpec.scala:150-174 (a través de EventStream, no del índice).
+- A2 `subscribe/unsubscribe` con clases y traits actualiza la caché en subscribe, unsubscribe, unsubscribe-all y publish: EventStreamSpec.scala:176-279.
+- A3 los diffs exactos devueltos por addKey/addValue/removeValue no están afirmados por ningún spec: derivada del código SubclassifiedIndex.scala:111-236.
+
+**Oráculo.** No aplica: estructura interna sin API pública observable; la procedencia es el código y EventStreamSpec.
+
+**Decisiones.** Q-X-6, Q-UTIL-10.
+
+
+---
+
+## AC-UTIL-009 — WildcardIndex (matching de paths de deployment con * y **)
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Índice inmutable de patrones de path con comodines: `*` (un elemento), `elemento*` (prefijo) y `**` terminal (todos los elementos restantes). Lo usa el Deployer para encontrar el Deploy de un path.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/WildcardIndex.scala:19-47 (WildcardIndex)`
+- `actor/src/main/scala/org/apache/pekko/util/WildcardIndex.scala:49-114 (WildcardTree)`
+
+**Condiciones.**
+- `insert(elems, d)`: si el último elemento es `**` va al árbol de dobles comodines; si no, al de simples; `elems` vacío no inserta nada, pero `Array.empty` devuelve un índice (WildcardIndexSpec.scala:22-26).
+- Error: elemento que termina en `**` sin ser `**` -> IllegalArgumentException("double wildcard can't be used as a suffix (e.g. /user/actor**), only as a full subPath element (e.g. /user/actor/**)") (WildcardIndex.scala:66-68; WildcardIndexSpec.scala:72-74).
+- `find(elems)`: busca primero con el árbol de simples (`findWithSingleWildcard`: coincidencia exacta del elemento, luego `*`, luego sufijo-comodín `prefix*` por `startsWith`, la primera que aparezca en el HashMap), si no hay resultado usa el de dobles (`findWithTerminalDoubleWildcard`, que recuerda el último `**` visto como alternativa).
+- `**` no terminal se ignora: `a/**/c` no encuentra nada (WildcardIndexSpec.scala:94-98). `**` terminal también cubre el path más corto sólo si hay al menos un elemento tras el prefijo: `/double` no coincide con `/double/**` (DeployerSpec.scala:228).
+- Sin elementos -> `find` devuelve None; índice vacío nunca encuentra nada (WildcardIndexSpec.scala:76-80).
+
+**Orden / concurrencia / ciclo de vida.** Inmutable: cada insert devuelve una copia (el Deployer usa `AtomicReference` + CAS, Deployer.scala:256-265). El orden de resolución entre varios `prefix*` aplicables depende del orden de iteración del `HashMap` (derivada del código: WildcardIndex.scala:87-89).
+
+**Dependencias.** Consumidor: AC-CFG-012 (Deployer). Q-UTIL-8.
+
+**Equivalente Rust propuesto y diferencias observables.** `WildcardIndex<T>` inmutable (persistent map o clon por insert) con trie de `String`. Diferencia: la elección entre varios sufijos-comodín solapados depende del orden de iteración del mapa de Scala (no determinista entre implementaciones): se propone orden de inserción documentado (Q-UTIL-8).
+
+**Aserciones.**
+- A1 insertar con arrays de strings y encontrar `a/b`, `a`; `x` y `[]` -> None: WildcardIndexSpec.scala:22-34.
+- A2 comodín simple `a/*` y `a/*/c`: WildcardIndexSpec.scala:36-49.
+- A3 sufijo `a*`, `b/c*`, `a/b*`, `b/c*/d`: WildcardIndexSpec.scala:51-70.
+- A4 `a**` falla con IllegalArgumentException: WildcardIndexSpec.scala:72-74.
+- A5 `**` terminal: `a/**` cubre `a/b`, `a/x/y`; `**` solo cubre todo: WildcardIndexSpec.scala:82-92.
+- A6 `a/**/c` no se comporta como comodín: WildcardIndexSpec.scala:94-98.
+- A7 elegir entre `prefix*` solapados: NO afirmada por spec; hallazgo del código WildcardIndex.scala:87-89.
+
+**Oráculo.** No aplica: estructura interna; se porta WildcardIndexSpec 1:1.
+
+**Decisiones.** Q-UTIL-8.
+
+
+---
+
+## AC-UTIL-010 — MessageBuffer / MessageBufferMap
+
+*unidad UTIL · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Buffer de mensajes (cola FIFO de (mensaje, ref)) y mapa de buffers por id (`MessageBufferMap`) con operaciones append, drop, foreach, filterNot, forEach y límites. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/MessageBuffer.scala:24-316 (no leído a fondo)`
+
+**Condiciones.**
+- n/a: pendiente de extracción. Tests candidatos: MessageBufferSpec.scala:25-191 (answer empty, append and drop, orden, filterNot de primero/último/único/varios, contains/add/append/remove en el Map).
+
+**Orden / concurrencia / ciclo de vida.** No thread-safe (documentado en la clase; no verificado).
+
+**Dependencias.** Consumidores: cluster/sharding (fuera), akka-typed StashBuffer no.
+
+**Equivalente Rust propuesto y diferencias observables.** `MessageBuffer<T>` sobre `VecDeque<(M, ActorRef)>`.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; candidatos: MessageBufferSpec.scala:27-191.
+
+**Oráculo.** No aplica (estructura pura).
+
+**Decisiones.** Q-UTIL-10.
+
+
+---
+
+## AC-UTIL-011 — TokenBucket / NanoTimeTokenBucket
+
+*unidad UTIL · visibilidad internal-accidental · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Token bucket de capacidad `capacity` y un token cada `nanosBetweenTokens`; `offer(cost)` devuelve cuántos ns hay que demorar el elemento (0 si sale ya). No protege contra llamadas antes de tiempo.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/TokenBucket.scala:19-91 (TokenBucket)`
+- `actor/src/main/scala/org/apache/pekko/util/TokenBucket.scala:93-98 (NanoTimeTokenBucket)`
+
+**Condiciones.**
+- Precondiciones: `capacity >= 0` ("Capacity must be non-negative.") y `nanosBetweenTokens > 0` ("Time between tokens must be larger than zero nanoseconds.") vía `require` (TokenBucket.scala:20-21); `offer(cost < 0)` -> IllegalArgumentException("Cost must be non-negative") (línea 55).
+- `init()` debe llamarse antes de usar: `availableTokens = capacity`, `lastUpdate = currentTime`.
+- `offer`: tokens llegados = floor((now-lastUpdate)/period) (rama rápida para 1 tick), `lastUpdate` avanza en múltiplos exactos de `period`; disponible = min(disponible + llegados, capacity); si alcanza resta y devuelve 0; si no, `delay = (cost - disponible) * period - (now - lastUpdate)`, deja 0 tokens y `lastUpdate = now + delay` (líneas 54-88).
+- Overflow: si el delay no cabe en un Long positivo el resultado es indefinido (Scaladoc líneas 44-46).
+- `NanoTimeTokenBucket` usa `System.nanoTime()` (monótono, puede dar la vuelta).
+
+**Orden / concurrencia / ciclo de vida.** No thread-safe; `currentTime` es abstracto (los tests lo fijan a mano).
+
+**Dependencias.** Ninguna fila. Consumidores en Pekko Streams (fuera).
+
+**Equivalente Rust propuesto y diferencias observables.** `TokenBucket` con trait `Clock` (nanos i64) y aritmética `wrapping_*`; `NanoTimeTokenBucket` sobre `Instant`. Sin diferencias previstas.
+
+**Aserciones.**
+- A1 empieza lleno: offer(1) x3, offer(7) = 0, offer(3) = 3 (cap 10, período 1): TokenBucketSpec.scala:28-38.
+- A2 distintas tasas: (10,2): 0,0,10; (8,3): 0,6 y tras t=6 offer(3)=9: :40-55.
+- A3 mayor que capacidad: (10,2) offer(5)=0, offer(20)=30, t=30 offer(1)=2, t=34: 0 y 2: :57-70.
+- A4 capacidad 0: offer(10)=20 y t=40 offer(10)=20: :72-80.
+- A5 tasa de llegada menor que producción: sin demora: :82-91.
+- A6 capacidad máxima mantenida: t=100000 offer(20)=10: :93-100.
+- A7 tiempo negativo y wrap-around de Long: :102-126.
+- A8 mantener intervalos regulares (15, 2, 5; 0, 2): :128-168.
+- A9 costo 0, tasas muy lentas (T = Long.MaxValue >> 10): :170-201.
+- A10 equivalencia con el bucket ideal para 4 capacidades x 3 períodos x 3 llegadas x 4 tiempos iniciales (incl. Long.MinValue/MaxValue) x 3 costos: :203-259 (usa Random: fijar semilla al portar).
+- A11 mensajes de `require`: derivada del código TokenBucket.scala:20-21,55 (*no afirmada por spec*).
+
+**Oráculo.** No aplica: se porta TokenBucketSpec 1:1 con reloj inyectado.
+
+**Decisiones.** Q-UTIL-10.
+
+
+---
+
+## AC-UTIL-012 — BoundedBlockingQueue
+
+*unidad UTIL · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** `BoundedBlockingQueue`: envoltorio que acota cualquier `Queue` y la expone como `BlockingQueue` con put/offer con timeout/take/poll y capacidad fija (usada por BoundedMailbox, AC-MBX-007/009). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/BoundedBlockingQueue.scala:27-299 (no leído a fondo)`
+
+**Condiciones.**
+- n/a: pendiente. Tests candidatos: BoundedBlockingQueueSpec.scala:47-914.
+
+**Orden / concurrencia / ciclo de vida.** Bloqueo con ReentrantLock + conditions (no verificado en detalle).
+
+**Dependencias.** AC-MBX-009.
+
+**Equivalente Rust propuesto y diferencias observables.** `Mutex<VecDeque>` + `Condvar`, o canal acotado; en async el bloqueo pasa a await (AC-MBX-007).
+
+**Aserciones.**
+- A1 ninguna extraída todavía.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-10, Q-X-4.
+
+
+---
+
+## AC-UTIL-013 — StablePriorityQueue / PriorityQueueStabilizer
+
+*unidad UTIL · visibilidad internal-required · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** `StablePriorityQueue`/`PriorityQueueStabilizer`: cola de prioridad estable (desempata por orden de inserción) para StablePriorityMailbox. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/StablePriorityQueue.scala:23-87 (no leído a fondo)`
+
+**Condiciones.**
+- n/a: pendiente. Tests candidatos: actor-tests/src/test/scala/org/apache/pekko/dispatch/StablePriorityDispatcherSpec.scala:60,66.
+
+**Orden / concurrencia / ciclo de vida.** Estabilidad FIFO entre iguales; seq atómico.
+
+**Dependencias.** AC-MBX-010.
+
+**Equivalente Rust propuesto y diferencias observables.** `BinaryHeap<(prio, seq, T)>`.
+
+**Aserciones.**
+- A1 ninguna extraída todavía.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-10.
+
+
+---
+
+## AC-UTIL-014 — TypedMultiMap
+
+*unidad UTIL · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** `TypedMultiMap[T <: AnyRef, K[_ <: T]]`: multimapa donde el tipo del valor depende de la clave (usado por el Receptionist de Typed). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/TypedMultiMap.scala:41-125 (no leído a fondo)`
+
+**Condiciones.**
+- n/a: pendiente. Test candidato: actor-tests/src/test/scala-2/org/apache/pekko/util/TypedMultiMapSpec.scala:31 (sólo Scala 2).
+
+**Orden / concurrencia / ciclo de vida.** Inmutable.
+
+**Dependencias.** Consumidores: pekko-actor-typed (Receptionist).
+
+**Equivalente Rust propuesto y diferencias observables.** `HashMap<TypeId, Vec<Box<dyn Any>>>` con claves tipadas; diferencia: pierde la relación de tipos estática.
+
+**Aserciones.**
+- A1 ninguna extraída todavía.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11.
+
+
+---
+
+## AC-UTIL-015.1 — Switch (interruptor atómico con acciones bajo lock)
+
+*unidad UTIL · visibilidad deprecated · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `Switch(startAsOn=false)`; `switchOn`/`switchOff` devuelven true si cambió de estado; las variantes con acción la ejecutan bajo lock sólo si cambia y revierten el estado si la acción lanza.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/LockUtil.scala:29-155`
+
+**Condiciones.**
+- `switchOn(action)`: si estaba off -> on, ejecuta la acción, true; si ya estaba on -> false sin ejecutar. Si la acción lanza (Throwable) revierte el estado y relanza (líneas 35-45).
+- `ifOnYield/ifOffYield/ifOn/ifOff` leen el estado sin lock; `whileOn/whileOff/whileOnYield/whileOffYield/fold/locked` esperan cambios pendientes (synchronized).
+- `isOn`/`isOff` sin lock.
+
+**Orden / concurrencia / ciclo de vida.** `transcend` y las variantes `while*` usan `synchronized` sobre el Switch; `switch` es AtomicBoolean (FIXME en el código: pasar a AQS).
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** Struct con `AtomicBool` y `Mutex`; las acciones como `FnOnce`; el revertir ante panic requiere `catch_unwind` (Q-X-5).
+
+**Aserciones.**
+- A1 on/off: switchOn true, switchOn false, switchOff true, false; isOn/isOff coherentes: SwitchSpec.scala:26-44.
+- A2 excepción en la acción revierte: SwitchSpec.scala:46-52.
+- A3 `ifOffYield("yes") == Some`, `ifOnYield == None`, `ifOff/ifOn` boolean: SwitchSpec.scala:54-66.
+- A4 mismas con `while*`: :68-80.
+- A5 `fold("on")("off")` según estado: :82-87.
+- A6 `locked` retiene el lock: otro hilo que hace `switchOff` espera a que termine (500 ms): :89-108.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-10, Q-UTIL-11, Q-X-5.
+
+
+---
+
+## AC-UTIL-015.2 — ReentrantGuard (deprecado desde 1.2.1)
+
+*unidad UTIL · visibilidad deprecated · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `ReentrantGuard.withGuard(body)` ejecuta `body` bajo el lock reentrante y lo libera siempre.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/LockUtil.scala:19-27`
+
+**Condiciones.**
+- Libera el lock aunque `body` lance. Sin tests propios (SwitchSpec no la usa).
+
+**Orden / concurrencia / ciclo de vida.** Lock reentrante del JDK.
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** Sin equivalente (Mutex no reentrante); diferencia observable: reentrada en el mismo hilo bloquearía (Q-UTIL-11).
+
+**Aserciones.**
+- A1 `withGuard` libera en finally: derivada del código LockUtil.scala:23-26 (*no afirmada por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11.
+
+
+---
+
+## AC-UTIL-016.1 — OptionVal (Option sin allocación)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** OptionVal (Option sin allocación). n/a: tipo de optimización; `Option` cubre el contrato. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/OptionVal.scala:22-93`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** `Option<T>` de Rust (ya sin allocación).
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: -.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.2 — ConstantFun (funciones constantes/identidad Scala y Java)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ConstantFun (funciones constantes/identidad Scala y Java). Pure; sin comportamiento observable salvo identidad. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/ConstantFun.scala:26-91`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** closures `const`/`identity` donde se necesiten.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/java/org/apache/pekko/util/ConstantFunJavaTest.java (no leído).
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.3 — Collections (EmptyImmutableSeq, PartialImmutableValuesIterable)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Collections (EmptyImmutableSeq, PartialImmutableValuesIterable). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Collections.scala:17-69`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** `Vec`/iteradores nativos.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: -.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.4 — ImmutableIntMap (mapa Int->Int inmutable)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ImmutableIntMap (mapa Int->Int inmutable). Candidato: ImmutableIntMapSpec (add/get/replace/updateIfAbsent/toString/equals/remove/contains/random). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/ImmutableIntMap.scala:1-165`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** `BTreeMap<i32,i32>` persistente.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/ImmutableIntMapSpec.scala:23-130.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.5 — PrettyDuration (formateo legible de duraciones)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `PrettyDuration`: elige la unidad más grande con valor entero >= 1 (días, horas, minutos, segundos, ms, μs, ns) y formatea `%.{precision}g <unidad>[ (<n> ns)]` con Locale.ROOT; infinitos: `-∞ (minus infinity)`, `∞ (infinity)`, indefinido: `undefined`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/PrettyDuration.scala:21-86`
+
+**Condiciones.**
+- Normal: `9.nanos` -> `9.000 ns`; `95.nanos` -> `95.00 ns`; `999.nanos` -> `999.0 ns`; `1000.nanos` -> `1.000 μs`; `95.seconds` -> `1.583 min`; `95.hours` -> `3.958 d` (4 cifras significativas).
+- `precision <= 0` -> IllegalArgumentException("requirement failed: precision must be > 0") (PrettyDuration.scala:43).
+- `includeNanos` agrega ` (<nanos> ns)` tras la abreviatura. Abreviaturas: ns, μs (U+03BC), ms, s, min, h, d (líneas 75-83).
+- Derivada del código (no afirmada): `%g` de Java usa notación científica si el valor redondeado >= 10^precision (p. ej. `10000 d` -> `1.000e+04 d`) y no es igual al `%g` de C.
+
+**Orden / concurrencia / ciclo de vida.** n/a: pura.
+
+**Dependencias.** Consumidores: AC-REF-014 (DeadLetterListener), mensajes de log.
+
+**Equivalente Rust propuesto y diferencias observables.** Función con formateo propio de `%g` de Java (Q-UTIL-9); `Duration` Rust necesita enum para infinitos.
+
+**Aserciones.**
+- A1 los 10 casos de la tabla: PrettyDurationSpec.scala:25-45.
+- A2 `Duration.Inf.pretty` contiene `infinity`: PrettyDurationSpec.scala:47-49.
+- A3 `MinusInf` contiene `minus infinity`: :51-53.
+- A4 `Undefined` contiene `undefined`: :55-57.
+- A5 notación científica y redondeo de %g: NO afirmada por spec; derivada de la semántica de java.util.Formatter (no está en upstream/pekko).
+
+**Oráculo.** Posible con jar pekko-actor, pero la clase es private[pekko] (accesible vía su API Java `format`); sin escenario aún.
+
+**Decisiones.** Q-UTIL-9
+
+
+---
+
+## AC-UTIL-016.6 — Glob (matching `?`/`*` sin regex)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `Glob.matches(pattern, input)`: `?` = exactamente un carácter, `*` = cualquier secuencia (incluida vacía), el resto literal; algoritmo lineal con retroceso al último `*` (no regex).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Glob.scala:38-73`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:44-45 (makePattern, comportamiento que reemplaza)`
+
+**Condiciones.**
+- Normal: ver aserciones; `**` equivale a `*`.
+- Rendimiento: patrón `(*a)x12*b` contra 36 `a` debe responder en < 3 s (regex tardaba ~47 s); 2000 caracteres en < 5 s.
+- Semántica sobre `Char` de UTF-16: `?` consume una unidad de código, no un punto de código (derivada del código Glob.scala:51-52).
+
+**Orden / concurrencia / ciclo de vida.** n/a: pura.
+
+**Dependencias.** Consumidor: SelectChildPattern (actor selection; AC-REF-014/AC-REF-0xx).
+
+**Equivalente Rust propuesto y diferencias observables.** `glob_matches` sobre `&[u16]` o `&str` con decisión explícita (Q-UTIL-8).
+
+**Aserciones.**
+- A1 literales: GlobSpec.scala:35-41.
+- A2 `?`: :43-48.
+- A3 `*`: :50-58.
+- A4 coincide con `Helpers.makePattern` para todos los patrones de 0-4 caracteres sobre {a,b,*,?} y entradas de 0-4 sobre {a,b}: :60-73.
+- A5 no hay retroceso explosivo: :75-83; escala con la entrada: :85-90.
+
+**Oráculo.** No aplica: pura; la equivalencia con la regex se prueba exhaustivamente como en el spec.
+
+**Decisiones.** Q-UTIL-8
+
+
+---
+
+## AC-UTIL-016.7 — Reflect (findConstructor, findClassLoader, getCallerClass, instantiate)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Reflect (findConstructor, findClassLoader, getCallerClass, instantiate). Candidato: ReflectSpec (findConstructor con 1/2 parámetros, null, múltiples constructores, ambigüedad). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Reflect.scala:1-177`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** n/a: sin reflexión; las fábricas las cubre AC-CFG-016 (Q-X-2).
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/ReflectSpec.scala:38-66.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.8 — LineNumbers (extracción de nombre de archivo/línea desde bytecode de lambdas)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** LineNumbers (extracción de nombre de archivo/línea desde bytecode de lambdas). Sólo sirve para el texto de `toString` de lambdas (PartialFunction). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/LineNumbers.scala:1-373`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** n/a: depende de bytecode JVM; propuesta: `std::panic::Location` donde se use.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/scala-2/org/apache/pekko/util/LineNumberSpec.scala ; actor-tests/src/test/scala-3/org/apache/pekko/util/LineNumberSpec.scala ; actor-tests/src/test/java/org/apache/pekko/util/LineNumberSpecCodeForJava.java.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.9 — ManifestInfo (versiones de módulos Pekko en el classpath)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ManifestInfo (versiones de módulos Pekko en el classpath). Cruza con AC-SYS-020 (chequeo de versiones mezcladas) y AC-CFG-003. Candidato: ManifestInfoSpec (mensaje claro, dynver). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/ManifestInfo.scala:1-194`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** constante de versión del crate; chequeo mixto n/a.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:19-45.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.10 — JavaVersion (major de java.specification.version)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `JavaVersion.majorVersion`: versión mayor del JDK ('1.8' -> 8, '11' -> 11); sin hilos.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/JavaVersion.scala:21-35`
+
+**Condiciones.**
+- Lee la propiedad de sistema `java.specification.version`; si falta -> NullPointerException; si no es numérica -> NumberFormatException (derivada del código).
+
+**Orden / concurrencia / ciclo de vida.** Se evalúa al cargar el objeto.
+
+**Dependencias.** AC-DSP-014 (virtualize).
+
+**Equivalente Rust propuesto y diferencias observables.** n/a: no hay JVM; si se necesita una constante de capacidad (hilos virtuales), la define AC-DSP-014.
+
+**Aserciones.**
+- A1 derivada del código JavaVersion.scala:23-34 (*no afirmada por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.11 — FlightRecorderLoader (carga de JFR vía reflexión)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** FlightRecorderLoader (carga de JFR vía reflexión). Clave `pekko.java-flight-recorder.enabled`. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/FlightRecorderLoader.scala:1-42`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** n/a: `tracing` (Q-CFG-7).
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: -.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.12 — ClassLoaderObjectInputStream
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ClassLoaderObjectInputStream. Depende de serialización Java (AC-SER-004). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/ClassLoaderObjectInputStream.scala:1-31`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** n/a: sin serialización Java.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: -.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.13 — BoxedType (primitivo -> clase envoltorio)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** BoxedType (primitivo -> clase envoltorio). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/BoxedType.scala:1-31`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** n/a: sin boxing.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: -.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.14 — UUIDComparator (orden de UUID de 128 bits)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** UUIDComparator (orden de UUID de 128 bits). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/UUIDComparator.scala:1-75`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** `Ord` sobre `u128` con la regla de signo de Pekko.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: -.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.15 — HashCode (hash compuesto SEED=23, 37*)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** HashCode (hash compuesto SEED=23, 37*). Usado por Version.hashCode (Version.scala:189-198). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/HashCode.scala:17-65`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** n/a salvo que Version/Address exijan el mismo hash (Q-PATH-3).
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: -.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-016.16 — WallClock / AlwaysIncreasingClock (reloj de pared estrictamente creciente)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `WallClock.AlwaysIncreasingClock.currentTimeMillis()`: devuelve `System.currentTimeMillis()` pero nunca repite ni retrocede (si el reloj no avanzó devuelve `anterior + 1`).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/WallClock.scala:27-57`
+
+**Condiciones.**
+- Atómico: `updateAndGet` con función `if (now <= last) last + 1 else now`.
+- Sin errores.
+
+**Orden / concurrencia / ciclo de vida.** Thread-safe por AtomicLong.
+
+**Dependencias.** Consumidores no identificados (public @ApiMayChange).
+
+**Equivalente Rust propuesto y diferencias observables.** `AtomicI64` con `fetch_update`.
+
+**Aserciones.**
+- A1 monotonicidad estricta: derivada del código WallClock.scala:46-55 (*no afirmada por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-UTIL-016.17 — ErrorMessages.RemoteDeploymentConfigErrorPrefix
+
+*unidad UTIL · visibilidad internal-accidental · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Constante `RemoteDeploymentConfigErrorPrefix = "configuration requested remote deployment"` usada al rechazar despliegue remoto en LocalActorRefProvider.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/ErrorMessages.scala:19-21`
+
+**Condiciones.**
+- Valor fijo; el mensaje completo lo arma el consumidor (AC-SYS-016).
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-SYS-016.
+
+**Equivalente Rust propuesto y diferencias observables.** `const &str`.
+
+**Aserciones.**
+- A1 valor literal: ErrorMessages.scala:20.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-UTIL-016.18 — Unused (marcador para silenciar warnings)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Unused (marcador para silenciar warnings). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Unused.scala:1-37`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyó el cuerpo).
+
+**Orden / concurrencia / ciclo de vida.** n/a: sin hilos propios (no verificado).
+
+**Dependencias.** Ninguna fila ajena identificada.
+
+**Equivalente Rust propuesto y diferencias observables.** n/a: Rust avisa por `_`.
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: -.
+
+**Oráculo.** No aplica o no evaluado.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-017.1 — FrequencySketch (Count-Min Sketch de 4 bits)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** FrequencySketch (Count-Min Sketch de 4 bits): estructura de caché interna (admisión/expulsión tipo Window-TinyLFU). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/FrequencySketch.scala:1-426`
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** No thread-safe (no verificado).
+
+**Dependencias.** Consumidores en pekko-actor no identificados (los usan cluster-sharding y Jackson/caches).
+
+**Equivalente Rust propuesto y diferencias observables.** Se evaluaría `moka`/propio si algún consumidor entra en alcance; propuesta actual: no portar (Q-UTIL-11).
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/FrequencySketchSpec.scala:23 ; actor-tests/src/test/scala/org/apache/pekko/util/ZipfianGenerator.scala.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-017.2 — FrequencyList (lista de frecuencias LFU)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** FrequencyList (lista de frecuencias LFU): estructura de caché interna (admisión/expulsión tipo Window-TinyLFU). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/FrequencyList.scala:1-270`
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** No thread-safe (no verificado).
+
+**Dependencias.** Consumidores en pekko-actor no identificados (los usan cluster-sharding y Jackson/caches).
+
+**Equivalente Rust propuesto y diferencias observables.** Se evaluaría `moka`/propio si algún consumidor entra en alcance; propuesta actual: no portar (Q-UTIL-11).
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/FrequencyListSpec.scala.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-017.3 — RecencyList (LRU por reloj)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** RecencyList (LRU por reloj): estructura de caché interna (admisión/expulsión tipo Window-TinyLFU). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/RecencyList.scala:1-142`
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** No thread-safe (no verificado).
+
+**Dependencias.** Consumidores en pekko-actor no identificados (los usan cluster-sharding y Jackson/caches).
+
+**Equivalente Rust propuesto y diferencias observables.** Se evaluaría `moka`/propio si algún consumidor entra en alcance; propuesta actual: no portar (Q-UTIL-11).
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/RecencyListSpec.scala:41.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-017.4 — SegmentedRecencyList (LRU segmentado)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** SegmentedRecencyList (LRU segmentado): estructura de caché interna (admisión/expulsión tipo Window-TinyLFU). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/SegmentedRecencyList.scala:1-189`
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** No thread-safe (no verificado).
+
+**Dependencias.** Consumidores en pekko-actor no identificados (los usan cluster-sharding y Jackson/caches).
+
+**Equivalente Rust propuesto y diferencias observables.** Se evaluaría `moka`/propio si algún consumidor entra en alcance; propuesta actual: no portar (Q-UTIL-11).
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/SegmentedRecencyListSpec.scala.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-017.5 — DoubleLinkedList
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** DoubleLinkedList: estructura de caché interna (admisión/expulsión tipo Window-TinyLFU). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/DoubleLinkedList.scala:1-149`
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** No thread-safe (no verificado).
+
+**Dependencias.** Consumidores en pekko-actor no identificados (los usan cluster-sharding y Jackson/caches).
+
+**Equivalente Rust propuesto y diferencias observables.** Se evaluaría `moka`/propio si algún consumidor entra en alcance; propuesta actual: no portar (Q-UTIL-11).
+
+**Aserciones.**
+- A1 ninguna extraída todavía; tests candidatos: actor-tests/src/test/scala/org/apache/pekko/util/DoubleLinkedListSpec.scala.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-018.1 — FutureConverters / CompletionStage <-> Future
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** FutureConverters / CompletionStage <-> Future: shim de versión de Scala o conversor Java. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- actor/src/main/scala-2.13/org/apache/pekko/util/FutureConverters.scala
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** Sin equivalente; `Future`/`Option`/`Duration` nativos. 
+
+**Aserciones.**
+- A1 ninguna extraída; test candidato: actor-tests/src/test/java/org/apache/pekko/util/JavaConverterScala3InlineTest.java.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-018.2 — OptionConverters / FunctionConverters / JavaDurationConverters
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** OptionConverters / FunctionConverters / JavaDurationConverters: shim de versión de Scala o conversor Java. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- actor/src/main/scala-2.13/org/apache/pekko/util/OptionConverters.scala
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** Sin equivalente; `Future`/`Option`/`Duration` nativos. 
+
+**Aserciones.**
+- A1 ninguna extraída; test candidato: actor-tests/src/test/java/org/apache/pekko/util/JavaDuration.java.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-018.3 — ccompat (JavaConverters, compat.Future/PartialFunction) y shims de Scala 2.12
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ccompat (JavaConverters, compat.Future/PartialFunction) y shims de Scala 2.12: shim de versión de Scala o conversor Java. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- actor/src/main/scala-2.13+/org/apache/pekko/util/ccompat/ccompatUsedUntil213.scala
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** Sin equivalente; `Future`/`Option`/`Duration` nativos. 
+
+**Aserciones.**
+- A1 ninguna extraída; test candidato: actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-018.4 — SameThreadExecutionContext (ejecuta el callback inline, 'parasitic')
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** SameThreadExecutionContext (ejecuta el callback inline, 'parasitic'): shim de versión de Scala o conversor Java. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- actor/src/main/scala-2.13/org/apache/pekko/dispatch/internal/SameThreadExecutionContext.scala
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** SameThreadExecutionContext: ejecuta en el hilo que completa el future (no verificado).
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** Sin equivalente; `Future`/`Option`/`Duration` nativos. Mantener ejecución inline requiere decisión de runtime (Q-X-4).
+
+**Aserciones.**
+- A1 ninguna extraída; test candidato: actor-tests/src/test/scala/org/apache/pekko/dispatch/SameThreadExecutionContextSpec.scala.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11, Q-X-4
+
+
+---
+
+## AC-UTIL-018.5 — ScalaBatchable (marca de ejecución por lotes en 2.12/2.13/3)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** ScalaBatchable (marca de ejecución por lotes en 2.12/2.13/3): shim de versión de Scala o conversor Java. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- actor/src/main/scala-2.13/org/apache/pekko/dispatch/internal/ScalaBatchable.scala
+
+**Condiciones.**
+- n/a: pendiente de extracción.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** Sin equivalente; `Future`/`Option`/`Duration` nativos. 
+
+**Aserciones.**
+- A1 ninguna extraída; test candidato: -.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-019 — Anotaciones ApiMayChange, DoNotInherit, InternalApi, InternalStableApi
+
+*unidad UTIL · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Anotaciones de API: `ApiMayChange`, `DoNotInherit`, `InternalApi`, `InternalStableApi` (documentan estabilidad; sin efecto en runtime). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- actor/src/main/java/org/apache/pekko/annotation/ApiMayChange.java
+- actor/src/main/java/org/apache/pekko/annotation/DoNotInherit.java
+- actor/src/main/java/org/apache/pekko/annotation/InternalApi.java
+- actor/src/main/java/org/apache/pekko/annotation/InternalStableApi.java
+
+**Condiciones.**
+- n/a: sin comportamiento de runtime.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Consumidores: toda la API.
+
+**Equivalente Rust propuesto y diferencias observables.** `pub(crate)`, traits sellados (`mod private { pub trait Sealed {} }`), `#[doc(hidden)]`; diferencia observable: estabilidad se documenta, no se verifica.
+
+**Aserciones.**
+- A1 n/a: sin aserciones; la guía de visibilidad es de diseño.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-020 — Acceso Unsafe y offsets de campos (Unsafe.java, AbstractActorRef, AbstractActorCell, AbstractMailbox, AbstractMessageDispatcher, AbstractScheduler, AbstractPromiseActorRef, AbstractCircuitBreaker)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Acceso a `sun.misc.Unsafe` y offsets de campos para CAS en ActorRef/ActorCell/Mailbox/Dispatcher/Scheduler/PromiseActorRef/CircuitBreaker. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- actor/src/main/java/org/apache/pekko/util/Unsafe.java
+- actor/src/main/java/org/apache/pekko/actor/dungeon/AbstractActorCell.java
+- actor/src/main/java/org/apache/pekko/dispatch/AbstractMailbox.java
+- actor/src/main/java/org/apache/pekko/actor/AbstractScheduler.java
+- actor/src/main/java/org/apache/pekko/actor/AbstractActorRef.java
+- actor/src/main/java/org/apache/pekko/dispatch/AbstractMessageDispatcher.java
+
+**Condiciones.**
+- n/a: detalle de implementación JVM.
+
+**Orden / concurrencia / ciclo de vida.** Define los puntos de CAS usados por mailbox/cell (se documenta en AC-MBX/AC-CELL).
+
+**Dependencias.** AC-MBX, AC-CELL.
+
+**Equivalente Rust propuesto y diferencias observables.** `std::sync::atomic` / `arc-swap`.
+
+**Aserciones.**
+- A1 n/a.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-021 — Filtros MiMa (compatibilidad binaria)
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Filtros MiMa: excepciones de compatibilidad binaria por versión; no son comportamiento de runtime. Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- actor/src/main/mima-filters/ (no listado)
+
+**Condiciones.**
+- n/a: sin comportamiento.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** Semver + `cargo-semver-checks`.
+
+**Aserciones.**
+- A1 n/a.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-022 — UnsynchronizedByteArrayInputStream, ByteStringInputStream, ByteBufferCleaner
+
+*unidad UTIL · visibilidad internal-accidental · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** `UnsynchronizedByteArrayInputStream`, `ByteStringInputStream`, `ByteBufferCleaner` (liberar buffers directos). Fila no revisada a fondo: sólo se leyó el listado de archivos y la cabecera; el contrato exacto queda por extraer antes de implementar.
+
+**Fuente.**
+- actor/src/main/java/org/apache/pekko/io/UnsynchronizedByteArrayInputStream.java
+- actor/src/main/java/org/apache/pekko/io/ByteBufferCleaner.java
+
+**Condiciones.**
+- n/a: pendiente. Tests candidatos: UnsynchronizedByteArrayInputStreamSpec.scala:29, ByteBufferCleanerSpec.scala:27, ByteStringInputStreamSpec.scala:30.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-UTIL-006.
+
+**Equivalente Rust propuesto y diferencias observables.** `std::io::Cursor<&[u8]>`; el cleaner no aplica (Drop).
+
+**Aserciones.**
+- A1 ninguna extraída.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-11
+
+
+---
+
+## AC-UTIL-023 — Helpers.makePattern (patrón glob `?`/`*` a java.util.regex.Pattern)
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Convierte un patrón glob en regex anclada; es la definición histórica de `?`/`*` en actor selection (hoy reemplazada por Glob).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:44-45`
+- `actor/src/main/scala/org/apache/pekko/util/Glob.scala:25-37 (documenta la equivalencia)`
+
+**Condiciones.**
+- `?` -> `.` (un carácter excepto terminadores de línea), `*` -> `.*` (cualquier secuencia sin terminadores de línea), el resto entre \Q y \E.
+- Hallazgo: `.` en Java no coincide con `\n`, `\r`, U+0085, U+2028, U+2029; Glob.matches sí: con entrada que contiene saltos de línea ambos difieren (GlobSpec sólo compara con {a,b}).
+
+**Orden / concurrencia / ciclo de vida.** n/a: pura.
+
+**Dependencias.** AC-UTIL-016.6.
+
+**Equivalente Rust propuesto y diferencias observables.** No se porta `Pattern`; si se exige la misma semántica de saltos de línea, `glob_matches` debe replicar o documentar (Q-UTIL-8).
+
+**Aserciones.**
+- A1 equivalencia con Glob para patrones/entradas cortos sobre {a,b,*,?}: GlobSpec.scala:60-73.
+- A2 comportamiento con saltos de línea: NO afirmada por spec; derivada de la semántica de java.util.regex.
+
+**Oráculo.** Posible con jar pekko-actor (Helpers.makePattern es público).
+
+**Decisiones.** Q-UTIL-8
+
+
+---
+
+## AC-UTIL-024 — Helpers.compareIdentityHash / identityHashComparator (orden por identityHashCode sin overflow)
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Ordena objetos por identidad de forma consistente (sin overflow) para usar en estructuras ordenadas (BalancingDispatcher).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:47-69`
+- actor/src/main/scala/org/apache/pekko/dispatch/BalancingDispatcher.scala (uso; no leído a fondo)
+
+**Condiciones.**
+- `diff = (hash(a) & 0xFFFFFFFFL) - (hash(b) & 0xFFFFFFFFL)`; resultado 1, -1 o 0.
+- `identityHashComparator(comp)`: si compareIdentityHash == 0 y `a != b` -> `comp.compare(a,b)`; si no el resultado de identidad.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-DSP (BalancingDispatcher).
+
+**Equivalente Rust propuesto y diferencias observables.** Función que compara por id/dirección; el orden concreto no es observable salvo consistencia (Q-UTIL-10).
+
+**Aserciones.**
+- A1 orden consistente sin ciclos: derivada del comentario y código Helpers.scala:48-54 (*no afirmada por spec*).
+
+**Oráculo.** No aplica (identityHashCode no es reproducible).
+
+**Decisiones.** Q-UTIL-10
+
+
+---
+
+## AC-UTIL-025 — Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para logs)
+
+*unidad UTIL · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Dos formateadores de marcas de tiempo públicos de Helpers.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:71-113`
+
+**Condiciones.**
+- `currentTimeMillisToUTCString`: `timeOfDay = ts % 86400000`; horas, minutos y segundos con cero a la izquierda (`if (x < 10) append(0)`), ms con 3 dígitos; sufijo `UTC` (líneas 80-105).
+- Timestamp negativo: el módulo es negativo y el formato incluiría `-` (derivada del código; no hay test).
+- `timestamp`: patrón `MM/dd/yyyy HH:mm:ss.SSS` con `ZoneId.systemDefault()` capturado al cargar el objeto (líneas 108-113).
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** Ninguna.
+
+**Equivalente Rust propuesto y diferencias observables.** Funciones libres; `timestamp` usa zona local del proceso. Diferencia: la zona de Rust sin dependencias requiere API del SO (Q-UTIL-10).
+
+**Aserciones.**
+- A1 formato `HH:mm:ss.SSSUTC`: derivada del código Helpers.scala:80-105 (*no afirmada por spec*).
+- A2 `timestamp` patrón y zona: derivada del código Helpers.scala:108-113.
+
+**Oráculo.** Posible con jar pekko-actor (comparar salida con zona UTC fijada).
+
+**Decisiones.** Q-UTIL-10
+
+
+---
+
+## AC-UTIL-026 — Helpers.isWindows (detección de SO por os.name)
+
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Booleano de plataforma usado para ajustar el scheduler y IO.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:42`
+- `LightArrayRevolverScheduler.scala:67,120`
+- `Tcp.scala:640`
+- `DnsSettings.scala:113`
+
+**Condiciones.**
+- `os.name` en minúsculas con 'win' como subcadena: 'Windows 10' sí; 'Mac OS X' no; 'Darwin' (valor de os.name en algunos JVM de macOS) sí.
+- Efectos: `tick-duration` mínimo 10 ms (Windows) frente a 1 ms; sleep redondeado a 10 ms (LightArrayRevolverScheduler.scala:120).
+
+**Orden / concurrencia / ciclo de vida.** Se evalúa una vez al cargar Helpers.
+
+**Dependencias.** AC-SCH-008, AC-IO-003, AC-IO-008, AC-UTIL-002.2.
+
+**Equivalente Rust propuesto y diferencias observables.** `const IS_WINDOWS: bool = cfg!(windows)`; diferencia sólo en JVM que informen un os.name con 'win' no Windows (Q-UTIL-13).
+
+**Aserciones.**
+- A1 derivada del código Helpers.scala:42 (*no afirmada por spec*); el valor de os.name de macOS en HotSpot es 'Mac OS X' (no contiene 'win'): confirmar con el oráculo antes de afirmar.
+
+**Oráculo.** Posible con jar pekko-actor (leer Helpers.isWindows en jshell).
+
+**Decisiones.** Q-UTIL-13
+
+
+---
+
+## AC-CFG-001 — Carga de configuración: ConfigFactory.load + reference.conf como fallback; config explícita por ActorSystem(name, config)
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Un `ActorSystem` sin config explícita usa `ConfigFactory.load(classLoader)` (application.conf/json/properties + system properties + reference.conf); con `config` explícita usa ésa tal cual. En ambos casos las Settings leen `appConfig.withFallback(ConfigFactory.defaultReference(classLoader))` (reference.conf de todos los jars). Los defaults nunca viven en código: sólo en reference.conf.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:278-285 (apply(name, setup): config explícita o ConfigFactory.load(cl))`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:323-328`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:850-855 (ActorSystemImpl.settings: applicationConfig.withFallback(defaultReference))`
+- `docs/src/main/paradox/general/configuration.md:18-53`
+- `actor/src/main/resources/reference.conf:1-1443 (el archivo completo, ver Cobertura)`
+
+**Condiciones.**
+- Sin config: `ConfigFactory.load(cl)`; precedencia: system properties > application.conf > reference.conf (configuration.md:39-43; `config.resource` redefine el nombre).
+- Con config: la config dada es la capa de aplicación; reference.conf actúa como fallback.
+- Config incompleta (sin `pekko.*` requerido) no falla en la mezcla, falla en `checkValid` (AC-CFG-019) o al leer una clave ausente (ConfigException.Missing).
+- Classloader: `ActorSystem.findClassLoader()` = `Reflect.findClassLoader()` (AC-UTIL-016.7).
+
+**Orden / concurrencia / ciclo de vida.** Resolución de sustituciones después de combinar capas: un override de la aplicación se ve en los valores derivados (golden FB-05); la carga ocurre una vez, en el constructor de `ActorSystemImpl`, antes de crear Settings.
+
+**Dependencias.** AC-UTIL-002.4 (lectores de duración), AC-CFG-017 (formato HOCON), AC-CFG-019 (checkValid). Externas: Typesafe Config 1.4.9 (project/Dependencies.scala:66).
+
+**Equivalente Rust propuesto y diferencias observables.** `Config` inmutable con `with_fallback`/`resolve`; `ConfigLoader::load()` (fuentes: Q-CFG-6) + `reference.conf` embebido con `include_str!` + `version.conf` generado en build. Diferencia: sin system properties de JVM ni classpath scanning (Q-CFG-6).
+
+**Aserciones.**
+- A1 `ConfigSpec` usa `ConfigFactory.defaultReference(classLoader)` como config del sistema y todas las claves de abajo tienen su default: ConfigSpec.scala:30-110.
+- A2 `parseString(...).withFallback(testConf)` da prioridad al string: ActorSystemSpec.scala:336-345.
+- A3 la config derivada se resuelve tras combinar capas: golden FB-05 y contraejemplo FB-06; fallback de reference FB-08.
+- A4 `pekko.library-extensions += "X"` en la app conserva el default y agrega: ExtensionSpec.scala:157-160 (REF-02 del golden).
+- A5 la regla 'sin config explícita -> load' no la afirma un test aislado: derivada del código ActorSystem.scala:281.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-X-1, Q-CFG-6.
+
+
+---
+
+## AC-CFG-002 — ActorSystem.Settings: lectura fail-fast de todas las claves pekko.* al crear el sistema
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `ActorSystem.Settings` lee de una vez, al construirse, todas las claves `pekko.*` que usa el núcleo y las expone como campos (`final val`). Cualquier clave ausente/ilegible lanza `ConfigException` y aborta la creación del sistema.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:386-494 (clase Settings)`
+- `actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:33-183`
+- `actor/src/main/resources/reference.conf:13-150`
+
+**Condiciones.**
+- Campos y defaults verificados: ver aserciones. Campos extra sin test: ProviderSelectionType/ProviderClass/HasCluster (AC-CFG-008), SupervisorStrategyClass, CreationTimeout (20s), LoggersDispatcher, LogConfigOnStart, Home, SchedulerClass.
+- `setup` (ActorSystemSetup) es accesible: `settings.setup`.
+- Errores: `ConfigException.Missing`/`WrongType`/`BadValue` de Typesafe según la clave (golden TYPE-*).
+- Efecto lateral: ninguno salvo las excepciones de AC-CFG-003 y AC-CFG-020.
+
+**Orden / concurrencia / ciclo de vida.** Los `final val` se evalúan en orden textual dentro del constructor: primero `config` (checkValid), luego `ConfigVersion`, provider, timeouts, serialización, logging, debug, scheduler, JVM, coordinated shutdown, `DefaultVirtualNodesFactor`, y al final el chequeo de versión (líneas 395-487).
+
+**Dependencias.** AC-CFG-001, AC-UTIL-002.4, AC-UTIL-002.2 (toRootLowerCase), AC-UTIL-001 (Timeout).
+
+**Equivalente Rust propuesto y diferencias observables.** `struct Settings` con `Settings::from_config(&Config) -> Result<Settings, ConfigError>`; campos con tipos de dominio (`LogDeadLetters`, `Timeout`, `Duration` o `Infinite`).
+
+**Aserciones.**
+- A1 `pekko.version` == `ActorSystem.Version` y `ConfigVersion`: ConfigSpec.scala:41-42.
+- A2 `daemonic=false`; `serialize-messages=false`; `NoSerializationVerificationNeededClassPrefix == Set("org.apache.pekko.")`: ConfigSpec.scala:44-49,56-57.
+- A3 scheduler: `ticks-per-wheel=512`, `tick-duration=10 ms`, `error-on-tick-duration-verification-failed=true`, `implementation=org.apache.pekko.actor.LightArrayRevolverScheduler`: :51-54.
+- A4 `jvm-exit-on-fatal-error=true`, `jvm-shutdown-hooks=true`, `fail-mixed-versions=true`: :59-64.
+- A5 `virtual-nodes-factor=10`, `unstarted-push-timeout=10s`: :66-70.
+- A6 loggers: un elemento `org.apache.pekko.event.Logging$DefaultLogger`; `logger-startup-timeout=5s`; `logging-filter=org.apache.pekko.event.DefaultLoggingFilter`: :72-79.
+- A7 `log-dead-letters=10`, `log-dead-letters-during-shutdown=false`, `log-dead-letters-suspend-duration=5 min`: :81-88.
+- A8 `coordinated-shutdown.terminate-actor-system=true`, `run-by-actor-system-terminate=true`; `allow-java-serialization=false`: :90-97.
+- A9 default-dispatcher (type, executor, shutdown-timeout=1s, throughput=5, throughput-deadline-time=0ms, attempt-teamwork=true), default-executor.fallback, fork-join-executor, thread-pool-executor y default-mailbox: :100-182 (pertenecen a AC-DSP/AC-MBX; se verifican con el mismo test).
+- A10 sección debug: las 7 claves `false` y los campos AddLoggingReceive, DebugAutoReceive, DebugLifecycle, FsmDebugEvent, DebugEventStream, DebugUnhandledMessage, DebugRouterMisconfiguration: :144-168.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-CFG-3, Q-CFG-4.
+
+
+---
+
+## AC-CFG-003 — Chequeo pekko.version vs versión del binario
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Si `pekko.version` de la config difiere de la versión del binario (`ActorSystem.Version`, generada en build), el sistema no arranca.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:408,485-487`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:184 (Version = pekko.Version.current, archivo generado)`
+- `actor/src/main/resources/reference.conf:10-11 (include "version")`
+- `project/VersionGenerator.scala:18-25 (genera version.conf y Version.scala)`
+
+**Condiciones.**
+- Error: `ConfigurationException("Pekko JAR version [<Version>] does not match the provided config version [<ConfigVersion>]")` (ActorSystem.scala:485-487).
+- Una config de aplicación con otro `pekko.version` provoca el error (no hay test; derivada del código).
+- Es la última verificación del constructor de Settings.
+
+**Orden / concurrencia / ciclo de vida.** Se evalúa tras leer todas las claves (líneas 485-487).
+
+**Dependencias.** AC-CFG-002, AC-UTIL-004.2; AC-SYS-020 (chequeo de módulos mezclados con ManifestInfo).
+
+**Equivalente Rust propuesto y diferencias observables.** Constante `VERSION` del crate y `pekko.version` en el `reference.conf` embebido (Q-CFG-5).
+
+**Aserciones.**
+- A1 `getString("pekko.version") == ActorSystem.Version` en la config por defecto: ConfigSpec.scala:41-42.
+- A2 el mensaje de error y la condición de fallo: derivadas del código ActorSystem.scala:485-487 (*no afirmadas por spec*).
+
+**Oráculo.** No aplica: la versión es del build.
+
+**Decisiones.** Q-CFG-5.
+
+
+---
+
+## AC-CFG-004 — Claves de logging: loggers, logging-filter, loggers-dispatcher, logger-startup-timeout, loglevel, stdout-loglevel, log-config-on-start
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Claves de logging que el ActorSystem lee al arrancar: `loggers`, `logging-filter`, `loggers-dispatcher`, `logger-startup-timeout`, `loglevel`, `stdout-loglevel`, `log-config-on-start`.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:17-50`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:434-440`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:343-376 (amendSlf4jConfig; AC-CFG-018)`
+
+**Condiciones.**
+- Defaults: loggers=["org.apache.pekko.event.Logging$DefaultLogger"], logging-filter="org.apache.pekko.event.DefaultLoggingFilter", loggers-dispatcher="pekko.actor.default-dispatcher", logger-startup-timeout=5s, loglevel="INFO", stdout-loglevel="WARNING", log-config-on-start=off.
+- Niveles válidos: OFF, ERROR, WARNING, INFO, DEBUG (reference.conf:40,45); el parseo del nombre lo hace Logging (AC-EVT).
+- Con loglevel=OFF/`loggers=[]` no se escribe nada a stdout (LoggerSpec.scala:209-215).
+- Los loggers se crean sincrónicamente en el arranque; `logger-startup-timeout` acota la espera (reference.conf:33-36).
+
+**Orden / concurrencia / ciclo de vida.** Durante el arranque se usa `stdout-loglevel` hasta que los loggers configurados arrancan (reference.conf:38-46); al terminar el sistema la cola de logs se drena (LoggerSpec.scala:189-205).
+
+**Dependencias.** AC-EVT-011 (loggers), AC-EVT-016 (LoggingFilter), AC-CFG-018, AC-UTIL-001.
+
+**Equivalente Rust propuesto y diferencias observables.** Campos de Settings; los FQCN de logger/filter se resuelven por registro (Q-X-2, Q-X-7).
+
+**Aserciones.**
+- A1 defaults de loggers, timeout y filtro: ConfigSpec.scala:72-79.
+- A2 sistema con configuración normal escribe a stdout: LoggerSpec.scala:184-187.
+- A3 `system.terminate` drena la cola de logs en orden (msg1..msg3): LoggerSpec.scala:189-205.
+- A4 sistema con logging apagado no escribe: LoggerSpec.scala:211-214.
+- A5 varios loggers reciben el mismo evento: LoggerSpec.scala:219-235 (el spec continúa hasta ~240; leído hasta 235).
+- A6 `stdout-loglevel` y `log-config-on-start` sin test directo: derivadas del código ActorSystem.scala:435,440.
+
+**Oráculo.** No aplica: salida de logs; se porta LoggerSpec.
+
+**Decisiones.** Q-X-2, Q-X-7, Q-CFG-10.
+
+
+---
+
+## AC-CFG-005 — Claves de dead letters: log-dead-letters (on/off/N), log-dead-letters-during-shutdown, log-dead-letters-suspend-duration
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `log-dead-letters` (on|off|true|false|N), `log-dead-letters-during-shutdown` y `log-dead-letters-suspend-duration` (infinite o duración) controlan cuántos dead letters se loguean y cuándo se reanuda el log.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:52-68`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:441-453`
+
+**Condiciones.**
+- `LogDeadLetters`: `toRootLowerCase(getString)`: `off`/`false` -> 0; `on`/`true` -> Int.MaxValue; otro -> `getInt` (un valor no numérico lanza ConfigException; ActorSystem.scala:441-445). Default 10.
+- `LogDeadLettersSuspendDuration`: `infinite` (minúsculas) -> `Duration.Inf`; otro -> `getMillisDuration`. Default 5 minutes (ActorSystem.scala:447-453).
+- Mensajes observables (consumidor AC-EVT-009): `Message [<tipo>] from <remitente> to <destino> was not delivered. [<n>] dead letters encountered` (DeadLetterSuspensionSpec.scala:61-62), `... was dropped. <razón>. [<n>] dead letters encountered` (:64-65), `... was unhandled. [<n>] dead letters encountered` (:67-68); al llegar al tope: sufijo `, no more dead letters will be logged in next` (:81); al reanudar: `, of which 2 were not logged` y el conteo se reinicia (:93,99).
+
+**Orden / concurrencia / ciclo de vida.** La suspensión dura `suspend-duration`; tras reanudar, el siguiente log lleva el conteo de no registrados y luego el contador vuelve a 1 (DeadLetterSuspensionSpec.scala:88-101).
+
+**Dependencias.** AC-EVT-009, AC-UTIL-002.2, AC-UTIL-002.4.
+
+**Equivalente Rust propuesto y diferencias observables.** `enum LogDeadLetters { Off, Count(u32), Always }` y `enum SuspendDuration { Infinite, After(Duration) }`.
+
+**Aserciones.**
+- A1 default `log-dead-letters=10`, durante shutdown `false`, suspend `5 min`: ConfigSpec.scala:81-88.
+- A2 con `log-dead-letters=4` y suspend 2s: el 1.º, 2.º (Dropped) y 3.º (unhandled) se loguean con conteo; el 4.º lleva `, no more dead letters will be logged in next`; 5.º y 6.º no se loguean; tras 2s el 7.º se loguea con `, of which 2 were not logged`; el siguiente reinicia en 1: DeadLetterSuspensionSpec.scala:70-103.
+- A3 `on/off/true/false` e `infinite` (insensible a mayúsculas): derivadas del código ActorSystem.scala:441-451 (*no afirmadas por spec*).
+
+**Oráculo.** No aplica (logs); se porta DeadLetterSuspensionSpec.
+
+**Decisiones.** Q-CFG-4.
+
+
+---
+
+## AC-CFG-006 — Claves de extensiones: library-extensions y extensions
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `library-extensions` (extensiones de librería, acumulables con `+=`) y `extensions` (de usuario) listan FQCN de extensiones que se cargan al arrancar.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:70-83`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1230-1260`
+
+**Condiciones.**
+- Defaults: library-extensions = `${?pekko.library-extensions} ["org.apache.pekko.serialization.SerializationExtension$"]`; extensions = [].
+- Las de `library-extensions` fallan el arranque si no cargan (throwOnLoadFail=true); las de `extensions` sólo se loguean (AC-EXT-003).
+
+**Orden / concurrencia / ciclo de vida.** Primero library-extensions, luego extensions, en orden de lista (ActorSystem.scala:1258-1259).
+
+**Dependencias.** AC-EXT-003, AC-CFG-016, AC-CFG-017 (sustitución `${?x}`).
+
+**Equivalente Rust propuesto y diferencias observables.** Listas de nombres resueltas por el registro de extensiones.
+
+**Aserciones.**
+- A1 `extensions` carga TestExtension al arrancar (`hasExtension`): ExtensionSpec.scala:70-77.
+- A2 la lista de library-extensions contiene `InstanceCountingExtension` una vez y se crea una vez: ExtensionSpec.scala:122-133.
+- A3 duplicados en la lista (3 entradas) -> 1 sola instancia: ExtensionSpec.scala:135-151.
+- A4 una extensión que falla en `extensions` no tumba el sistema si no se encuentra (loguea): ExtensionSpec.scala:111-120; si falla al iniciar, el sistema falla: :99-109.
+- A5 falla de library-extension (al iniciar o inexistente) aborta el sistema: ExtensionSpec.scala:153-172.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-X-2, Q-CFG-8.
+
+
+---
+
+## AC-CFG-007 — Claves JVM: daemonic, jvm-exit-on-fatal-error, jvm-shutdown-hooks, fail-mixed-versions, java-flight-recorder.enabled, home
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Claves ligadas a la JVM: `home`, `daemonic`, `jvm-exit-on-fatal-error`, `jvm-shutdown-hooks`, `fail-mixed-versions`, `java-flight-recorder.enabled`.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:14-15,85-110`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:463-472`
+
+**Condiciones.**
+- Defaults: home="" (-> `Home = None`), daemonic=off, jvm-exit-on-fatal-error=on, jvm-shutdown-hooks=on, fail-mixed-versions=on, java-flight-recorder.enabled=true.
+- `jvm-shutdown-hooks=off` desactiva los hooks de JVM que instala Pekko (CoordinatedShutdown), no los de usuario (`addCancellableJvmShutdownHook`) (reference.conf:92-98).
+- Test: con `jvm-shutdown-hooks=off` y `run-by-jvm-shutdown-hook=on` sólo queda 1 hook (el del usuario); con ambos on quedan 2: CoordinatedShutdownSpec.scala:620-645.
+
+**Orden / concurrencia / ciclo de vida.** Los hooks se registran al crear la extensión CoordinatedShutdown (AC-CS-007).
+
+**Dependencias.** AC-SYS-015, AC-CS-007, AC-UTIL-016.11 (FlightRecorderLoader), AC-UTIL-016.9 (ManifestInfo para fail-mixed-versions).
+
+**Equivalente Rust propuesto y diferencias observables.** Settings: `daemonic` (hilos del runtime), `jvm_exit_on_fatal_error` (-> `process::abort`/exit en panic), `jvm_shutdown_hooks` (-> manejadores de SIGTERM/Ctrl-C), `fail_mixed_versions`/`java_flight_recorder` aceptadas e ignoradas con warning (Q-CFG-7).
+
+**Aserciones.**
+- A1 `daemonic=false`, `jvm-exit-on-fatal-error=true`, `jvm-shutdown-hooks=true`, `fail-mixed-versions=true`: ConfigSpec.scala:44,56-64.
+- A2 hooks de JVM con `jvm-shutdown-hooks=off`: CoordinatedShutdownSpec.scala:632-645 (el conteo 1 vs 2).
+- A3 `home` y `java-flight-recorder`: derivadas del código ActorSystem.scala:463-466 (*no afirmadas por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-CFG-7.
+
+
+---
+
+## AC-CFG-008 — pekko.actor.provider y ProviderSelection (local | remote | cluster | FQCN)
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `pekko.actor.provider` (local | remote | cluster | FQCN) o `BootstrapSetup.withActorRefProvider` selecciona el proveedor de referencias; `ProviderSelection` lo representa.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:112-118`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:103-145 (ProviderSelection)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:410-420 (Settings.ProviderSelectionType, ProviderClass, HasCluster)`
+
+**Condiciones.**
+- `ProviderSelection("local")` = Local (fqcn = LocalActorRefProvider, hasCluster=false); `"remote"`/`org.apache.pekko.remote.RemoteActorRefProvider` = Remote (hasCluster=false); `"cluster"`/`org.apache.pekko.cluster.ClusterActorRefProvider` = Cluster (hasCluster=true); otra cadena = Custom(fqcn) (hasCluster=false) (ActorSystem.scala:137-144).
+- Un `BootstrapSetup.actorRefProvider` tiene prioridad sobre la config (ActorSystem.scala:410-414).
+- Remote/Cluster requieren clases que no están en pekko-actor: si faltan, falla la carga por reflexión (ClassNotFoundException); los Custom se validan con dynamicAccess.
+
+**Orden / concurrencia / ciclo de vida.** La selección se resuelve en Settings, antes de crear el proveedor.
+
+**Dependencias.** AC-SYS-018, AC-CFG-016, AC-CFG-015.
+
+**Equivalente Rust propuesto y diferencias observables.** `enum ProviderSelection { Local, Remote, Cluster, Custom(String) }` (sólo Local ejecutable); Remote/Cluster/Custom no resueltos -> error de configuración explícito (Q-CFG-9).
+
+**Aserciones.**
+- A1 Local: fqcn == `LocalActorRefProvider`, hasCluster false, Settings.ProviderClass igual: ProviderSelectionSpec.scala:38-43.
+- A2 Remote: fqcn == RemoteActorRefProvider; `ProviderSelection("remote") == ProviderSelection(RemoteActorRefProvider)`: :45-51.
+- A3 Cluster: hasCluster true; equivalencia nombre corto/FQCN: :53-59.
+- A4 Custom("other.ActorRefProvider"): fqcn sin cambios y hasCluster false: :61-67.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-CFG-9, Q-X-2.
+
+
+---
+
+## AC-CFG-009 — guardian-supervisor-strategy, creation-timeout, unstarted-push-timeout, typed.timeout
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `guardian-supervisor-strategy` (FQCN de un SupervisorStrategyConfigurator), `creation-timeout`, `unstarted-push-timeout` y `typed.timeout`.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:120-151`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:422-424`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:512 (instancia el configurador)`
+- `actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:223 (UnstartedPushTimeout)`
+- `actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:715 (typed.timeout)`
+
+**Condiciones.**
+- Defaults: guardian-supervisor-strategy="org.apache.pekko.actor.DefaultSupervisorStrategy", creation-timeout=20s, unstarted-push-timeout=10s, typed.timeout=5s.
+- Con `StoppingSupervisorStrategy` el guardián de usuario para al hijo que falla (ActorSystemSpec.scala:336-357); el configurador se crea con `createInstanceFor[SupervisorStrategyConfigurator](SupervisorStrategyClass, EmptyImmutableSeq)`.
+- `creation-timeout` acota la espera de extensiones en construcción (mensaje de AC-EXT-001).
+
+**Orden / concurrencia / ciclo de vida.** El configurador se instancia al crear el guardián de usuario.
+
+**Dependencias.** AC-SUP-014, AC-REF-020, AC-EXT-001, AC-CFG-016.
+
+**Equivalente Rust propuesto y diferencias observables.** Nombre del configurador -> fábrica en el registro (Q-X-2).
+
+**Aserciones.**
+- A1 `unstarted-push-timeout=10s`: ConfigSpec.scala:69-70.
+- A2 con `guardian-supervisor-strategy=...StoppingSupervisorStrategy`, `a ! "die"` termina al hijo `a` (watch recibe `Terminated(a)(existenceConfirmed=true, addressTerminated=false)`): ActorSystemSpec.scala:336-357.
+- A3 `creation-timeout=20s` y `typed.timeout=5s`: sin test; derivadas del reference.conf:127,151.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-X-2.
+
+
+---
+
+## AC-CFG-010 — serialize-messages, serialize-creators, no-serialization-verification-needed-class-prefix
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Modos de prueba: `serialize-messages` (serializar y deserializar cada mensaje no primitivo al enviarlo), `serialize-creators` (comprobar que los argumentos de `Props` son serializables) y el prefijo `no-serialization-verification-needed-class-prefix`.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:129-140`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:429-432`
+- `actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:171-223`
+- `actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:283-307`
+
+**Condiciones.**
+- Defaults: ambas `off`; prefijo ["org.apache.pekko."].
+- Mensajes: se saltan los `NoSerializationVerificationNeeded` y las clases con el prefijo; un `DeadLetter` se verifica su mensaje interior; fallo -> `SerializationCheckFailedException(msg, e)`; si el serializador es DisabledJavaSerializer y no hay que avisar, se omite (Dispatch.scala:180-222).
+- Creators: sólo si `serialize-creators` y el Props no es de sistema ni `scope == LocalScope`; cada argumento no null/no marcado se serializa y deserializa; fallo -> `IllegalArgumentException("pre-creation serialization check failed at [<path>/<name>]", cause)` (Children.scala:286-306).
+- Mensaje observado: `Failed to serialize and deserialize message of type java.lang.Object` (SerializeSpec.scala:343-344).
+
+**Orden / concurrencia / ciclo de vida.** Mensajes: se verifica en `sendMessage` antes de despachar; creators: antes de crear el hijo.
+
+**Dependencias.** AC-SER-001, AC-SER-003, AC-REF-0xx (Props.args).
+
+**Equivalente Rust propuesto y diferencias observables.** Chequeo opcional en `tell` si hay serializador registrado para el tipo; en Rust la mayoría de mensajes `Box<dyn Any + Send>` no tendrán serializador (Q-X-3, Q-CFG-11).
+
+**Aserciones.**
+- A1 con `serialize-messages=on` y prefijo vacío, un mensaje no serializable provoca una excepción con `NoSerializationVerificationNeeded` en el texto: DispatchSpec.scala:29-41.
+- A2 `SerializeAllCreators` y `SerializeAllMessages` activos en el sistema de prueba: SerializeSpec.scala:311-314.
+- A3 creators: actores con args serializables se crean; `Props(classOf[NonSerializableActor], new AnyRef)` -> IllegalArgumentException: SerializeSpec.scala:316-327.
+- A4 args con prefijo `org.apache.pekko.` no se verifican: SerializeSpec.scala:329-337.
+- A5 mensajes: `pigdog` pasa; `new AnyRef` -> SerializationCheckFailedException con texto `Failed to serialize and deserialize message of type java.lang.Object`: SerializeSpec.scala:339-349.
+- A6 mensajes con el prefijo del sistema no se verifican: SerializeSpec.scala:351-360.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-CFG-11, Q-X-3.
+
+
+---
+
+## AC-CFG-011 — pekko.actor.debug: receive, autoreceive, lifecycle, fsm, event-stream, unhandled, router-misconfiguration
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `pekko.actor.debug.*` (siete banderas, todas off) activan eventos Debug: `receive` (LoggingReceive), `autoreceive`, `lifecycle`, `fsm`, `event-stream`, `unhandled`, `router-misconfiguration`.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:736-759`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:455-461`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:569,655,699`
+- `actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:66`
+- `actor/src/main/scala/org/apache/pekko/event/Logging.scala:154`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:670`
+- `actor/src/main/scala/org/apache/pekko/actor/FSM.scala:964`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:953 (EventStream(this, DebugEventStream))`
+
+**Condiciones.**
+- `receive=on`: `LoggingReceive` envuelve `receive` y emite `Logging.Debug(path, clase, "received handled message <m> from <sender>")` o `received unhandled message ...` (LoggingReceiveSpec.scala:96-119, :90-92).
+- `autoreceive=on`: `received AutoReceiveMessage Envelope(PoisonPill...` (LoggingReceiveSpec.scala:186-202).
+- `lifecycle=on`: `started (<clase>...)`, `now supervising <ref>`, `now watched by`, `no longer watched by`, `restarting`, `stopping`, `restarted` (LoggingReceiveSpec.scala:206-277; FaultHandling.scala:99,206,270,290; DeathWatch.scala:189,206).
+- `fsm`, `event-stream`, `unhandled` (UnhandledMessage a Debug en Logging.scala:154), `router-misconfiguration` (ActorRefProvider.scala:670): sin test leído.
+
+**Orden / concurrencia / ciclo de vida.** Cada bandera se lee una vez en Settings; los eventos se publican en el EventStream.
+
+**Dependencias.** AC-EVT-019, AC-CELL-*, AC-DW-*, AC-FSM-*, AC-RT-*.
+
+**Equivalente Rust propuesto y diferencias observables.** Campos booleanos de Settings; los chequeos viven en cada componente (`tracing::debug!` o eventos del EventStream según Q-X-6).
+
+**Aserciones.**
+- A1 siete banderas `false`: ConfigSpec.scala:144-168.
+- A2 `LoggingReceive` agrega el log de recepción cuando se pide: LoggingReceiveSpec.scala:96-128.
+- A3 `AutoReceiveMessage`: LoggingReceiveSpec.scala:186-204.
+- A4 lifecycle: `now supervising`, `started`: LoggingReceiveSpec.scala:206-228,254-277.
+- A5 DeathWatch: `now watched by`/`no longer watched by`: LoggingReceiveSpec.scala:230-252.
+- A6 `fsm`, `event-stream`, `router-misconfiguration`: no leídas (marcar al portar sus filas).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-X-6, Q-X-7.
+
+
+---
+
+## AC-CFG-012.1 — Parseo de pekko.actor.deployment: Config por entrada con fallback a `default`, dispatcher y mailbox
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Cada subsección de `pekko.actor.deployment` (menos `default`) se convierte en un `Deploy` con `config = entrada.withFallback(default)`, `dispatcher`/`mailbox` leídos de la config con default "" y `scope = NoScopeGiven`.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:173-233`
+- `actor/src/main/scala/org/apache/pekko/actor/Deployer.scala:229-250,270-276`
+
+**Condiciones.**
+- Claves y defaults de `default`: dispatcher="", mailbox="", router="from-code", nr-of-instances=1, within=5 seconds, virtual-nodes-factor=10, tail-chopping-router.interval=10 milliseconds, routees.paths=[].
+- Entradas por defecto del archivo: `/IO-DNS/inet-address` (mailbox=unbounded, router=consistent-hashing-pool, nr-of-instances=4), `/IO-DNS/inet-address/*` (dispatcher=default-blocking-io-dispatcher), `/IO-DNS/async-dns` (mailbox=unbounded, router=round-robin-pool, nr-of-instances=1) (reference.conf:349-363).
+- Error: `nr-of-instances = boom` -> `ConfigException.WrongType` al crear el sistema (DeployerSpec.scala:144-161).
+
+**Orden / concurrencia / ciclo de vida.** Se parsea una vez al construir el Deployer; en el arranque los Deploy se insertan por `deploy(d)`.
+
+**Dependencias.** AC-CFG-013, AC-CFG-014.
+
+**Equivalente Rust propuesto y diferencias observables.** `Deployer` con tabla `WildcardIndex<Deploy>`; `Deploy.config` es un `Config`.
+
+**Aserciones.**
+- A1 `/service1` vacío -> Deploy("/service1", config, NoRouter, NoScopeGiven, NoDispatcherGiven, NoMailboxGiven): DeployerSpec.scala:93-106.
+- A2 `/undefined` -> None: :108-112.
+- A3 dispatcher `my-dispatcher`: :114-127. A4 mailbox `my-mailbox`: :129-142.
+- A5 `nr-of-instances=boom` -> WrongType: :144-161.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-CFG-4.
+
+
+---
+
+## AC-CFG-012.2 — Deployer.lookup/deploy: búsqueda por path con comodines (`*`, `prefix*`, `**` terminal)
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `lookup(path)` descarta el primer elemento (el guardián), busca en el `WildcardIndex` y devuelve el Deploy cuyo `path` es el patrón insertado; `deploy(d)` inserta con CAS.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Deployer.scala:252-268`
+- `actor/src/main/scala/org/apache/pekko/util/WildcardIndex.scala:19-114`
+
+**Condiciones.**
+- `deploy(d)` separa `d.path.split("/").drop(1)`; cada elemento no vacío se valida con `ActorPath.validatePathElement(el, fullPath = d.path)`; elemento vacío -> `InvalidActorNameException("Actor name in deployment [<path>] must not be empty")` (Deployer.scala:260).
+- Error de caracteres: `/gul/ubåt` -> InvalidActorNameException cuyo mensaje incluye `[ubåt]` y `[/gul/ubåt]` (DeployerSpec.scala:163-182).
+- Comodines `*` (un elemento) y `**` terminal (DeployerSpec.scala:216-229); `/double` no coincide con `/double/**`.
+
+**Orden / concurrencia / ciclo de vida.** `deployments` es un `AtomicReference[WildcardIndex]`; las altas reintentan ante carrera (compareAndSet).
+
+**Dependencias.** AC-UTIL-009, AC-PATH-008.
+
+**Equivalente Rust propuesto y diferencias observables.** Mismo diseño con `ArcSwap`/`Mutex`; errores `InvalidActorName`.
+
+**Aserciones.**
+- A1 `/some/*` y `/*/some`: DeployerSpec.scala:216-222.
+- A2 `/double/**` y el más específico `/double/more/**`; `/double` sin match: :224-229.
+- A3 path inválido (`ubåt`) lanza InvalidActorNameException con ambos fragmentos: :163-182.
+- A4 mensaje de elemento vacío: derivada del código Deployer.scala:260 (*no afirmada por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-UTIL-8.
+
+
+---
+
+## AC-CFG-012.3 — Creación del RouterConfig: type-mapping, FQCN, resizer legado, reintento con DynamicAccess
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `router = from-code` -> `NoRouter`; otro valor se traduce con `router.type-mapping` o se toma como FQCN y se instancia con `(Config)` y, si no hay constructor, con `(Config, DynamicAccess)`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Deployer.scala:285-321`
+- `actor/src/main/resources/reference.conf:155-171`
+
+**Condiciones.**
+- Si la entrada define `resizer` y `resizer.enabled` no es true, se antepone `resizer.enabled=on` (compatibilidad hacia atrás; Deployer.scala:289-292).
+- Errores: `IllegalArgumentException`/`ConfigException` del constructor se relanzan; `NoSuchMethodException` con 1 arg reintenta con 2; cualquier otro fallo -> `IllegalArgumentException("Cannot instantiate router [<fqn>], defined in [<key>], make sure it extends [class org.apache.pekko.routing.RouterConfig] and has constructor with [com.typesafe.config.Config] and optional [org.apache.pekko.actor.DynamicAccess] parameter", cause)` (Deployer.scala:296-301).
+- `nr-of-instances` del default es 1; con resizer el pool queda con `nrOfInstances = 0` (DeployerSpec.scala:211-214).
+
+**Orden / concurrencia / ciclo de vida.** Se resuelve al construir el Deployer (todas las entradas).
+
+**Dependencias.** AC-CFG-014, AC-CFG-016, AC-RT-004, AC-RT-013.
+
+**Equivalente Rust propuesto y diferencias observables.** Registro de fábricas con las claves de router.type-mapping preinstaladas; custom por nombre registrado.
+
+**Aserciones.**
+- A1 `from-code`, `service-direct` y `service-direct2` (nr-of-instances ignorado) -> NoRouter: DeployerSpec.scala:184-190.
+- A2 round-robin, random, scatter-gather (within 2 s), consistent-hashing -> pools del tipo esperado, con el mismo resizer: :192-209.
+- A3 resizer → `RoundRobinPool(nrOfInstances = 0, resizer = Some(DefaultResizer()))`: :211-214.
+- A4 el mensaje de error de instanciación: derivada del código Deployer.scala:296-301 (*no afirmada por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-X-2.
+
+
+---
+
+## AC-CFG-012.4 — Secciones resizer y optimal-size-exploring-resizer: claves y defaults de deployment
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Claves de `deployment.default.resizer` y `deployment.default.optimal-size-exploring-resizer` con sus defaults.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:244-346`
+
+**Condiciones.**
+- resizer: enabled=off, lower-bound=1, upper-bound=10, pressure-threshold=1, rampup-rate=0.2, backoff-threshold=0.3, backoff-rate=0.1, messages-per-resize=10.
+- optimal-size-exploring-resizer: enabled=off, lower-bound=1, upper-bound=10, chance-of-ramping-down-when-full=0.2, action-interval=5s, downsize-after-underutilized-for=72h, explore-step-size=0.1, chance-of-exploration=0.4, downsize-ratio=0.8, optimization-range=16, weight-of-latest-metric=0.5.
+- `pool-dispatcher` inline: sólo documentado en comentario (reference.conf:235-242); lo consume AC-RT.
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-RT-013, AC-RT-014.
+
+**Equivalente Rust propuesto y diferencias observables.** Structs con `Default` coherente con el archivo.
+
+**Aserciones.**
+- A1 `DefaultResizer()` por defecto coincide con los valores de reference.conf: DeployerSpec.scala:211-214 compara `resizer` con `DefaultResizer()` construido sin argumentos.
+- A2 defaults del optimal-size-exploring-resizer: derivados del archivo; sin test en mi grupo (los cubre AC-RT-014).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-CFG-013 — Deploy, Scope, LocalScope, NoScopeGiven (valores y withFallback)
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `Deploy(path, config, routerConfig, scope, dispatcher, mailbox, tags)` es la descripción final y combinable de un despliegue; `Scope` (LocalScope, NoScopeGiven, extensible) decide dónde se crea.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Deployer.scala:28-220`
+
+**Condiciones.**
+- Defaults: path="", config vacía, routerConfig=NoRouter, scope=NoScopeGiven, dispatcher="", mailbox="", tags vacío; `Deploy.local = Deploy(scope = LocalScope)`; `DispatcherSameAsParent = ".."` (interno).
+- `withFallback(other)`: `this` manda; `config`, `routerConfig` y `scope` se combinan con `X.withFallback(other.X)`; dispatcher/mailbox: los de `this` salvo que sean "" (entonces los de `other`); el `path` de `other` y los `tags` no se tienen en cuenta (el nuevo Deploy se crea sin tags: Deployer.scala:110-116).
+- `LocalScope.withFallback(_) = LocalScope`; `NoScopeGiven.withFallback(other) = other`.
+- Igualdad estructural sobre los 7 campos; `toString = Deploy(path, config, routerConfig, scope, dispatcher, mailbox, tags)`.
+
+**Orden / concurrencia / ciclo de vida.** Inmutable.
+
+**Dependencias.** AC-CFG-012, AC-REF-0xx (Props.deploy), AC-SYS-016 (merge de Deploy).
+
+**Equivalente Rust propuesto y diferencias observables.** `struct Deploy` + `trait Scope { fn with_fallback(&self, other: &dyn Scope) -> Box<dyn Scope> }` o `enum Scope { Local, NoScopeGiven, Other(Arc<dyn ScopeImpl>) }`.
+
+**Aserciones.**
+- A1 el Deploy leído de config tiene `NoScopeGiven`, `NoRouter` y strings vacíos por defecto: DeployerSpec.scala:93-106.
+- A2 dispatcher/mailbox sólo se rellenan cuando la config los define: DeployerSpec.scala:114-142.
+- A3 `withFallback` pierde los tags: NO afirmada por spec; hallazgo del código Deployer.scala:109-117 (los tags de `this` no se copian al resultado).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-CFG-12
+
+
+---
+
+## AC-CFG-014 — pekko.actor.router.type-mapping (alias de routers)
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `pekko.actor.router.type-mapping` traduce nombres cortos de router a clases.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:154-171`
+- `actor/src/main/scala/org/apache/pekko/actor/Deployer.scala:233-242`
+
+**Condiciones.**
+- 15 entradas: from-code=NoRouter, round-robin-pool/group, random-pool/group, balancing-pool, smallest-mailbox-pool, broadcast-pool/group, scatter-gather-pool/group (ScatterGatherFirstCompleted*), tail-chopping-pool/group, consistent-hashing-pool/group (todas `org.apache.pekko.routing.*`).
+- Sólo valores String se incluyen en `routerTypeMapping` (collect de `String`).
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-CFG-012.3, AC-RT-004.
+
+**Equivalente Rust propuesto y diferencias observables.** Tabla estática nombre -> constructor (Q-X-2).
+
+**Aserciones.**
+- A1 mapeos de from-code, round-robin, random, balancing, smallest-mailbox, broadcast, scatter-gather, consistent-hashing (pool y group): DeployerSpec.scala:231-246 (el spec lista 13; tail-chopping no se afirma: derivado del reference.conf:167-168).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-X-2.
+
+
+---
+
+## AC-CFG-015 — BootstrapSetup / ActorSystemSetup / Setup (config programática: classLoader, config, defaultExecutionContext, provider)
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Configuración programática: `Setup` (marcador), `ActorSystemSetup` (mapa clase concreta -> Setup) y `BootstrapSetup` (classLoader, config, defaultExecutionContext, actorRefProvider).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/setup/ActorSystemSetup.scala:25-97`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:49-180`
+
+**Condiciones.**
+- `ActorSystemSetup(setups*)` indexa por `s.getClass` (clase concreta); un segundo Setup de la misma clase reemplaza al primero; `withSetup`/`and` equivalentes; `get[T]` devuelve Option; `get(Class)` Optional (ActorSystemSetup.scala:48-96).
+- `BootstrapSetup()`/`apply(config)`/`create(...)`; `withClassloader`, `withConfig`, `withDefaultExecutionContext`, `withActorRefProvider` devuelven copias.
+- Pasar un `BootstrapSetup` por defecto equivale a no pasar ninguno (ActorSystem.scala:93-96).
+- `toString` = `ActorSystemSettings(<clases separadas por coma>)`.
+
+**Orden / concurrencia / ciclo de vida.** Inmutable.
+
+**Dependencias.** AC-CFG-001, AC-CFG-008, AC-SYS-001.
+
+**Equivalente Rust propuesto y diferencias observables.** `ActorSystemSetup` con `HashMap<TypeId, Arc<dyn Any + Send + Sync>>`; `BootstrapSetup` builder (Q-CFG-13).
+
+**Aserciones.**
+- A1 guardar y recuperar un Setup: ActorSystemSetupSpec.scala:31-37.
+- A2 el segundo Setup del mismo tipo reemplaza: :39-45.
+- A3 `a and b and c`: :47-55.
+- A4 crear con varios: :57-65.
+- A5 el setup está en `system.settings.setup`: :67-78.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-CFG-13.
+
+
+---
+
+## AC-CFG-016 — DynamicAccess / ReflectiveDynamicAccess (instanciar clases por FQCN desde config)
+
+*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `DynamicAccess` carga y crea instancias por FQCN (mailboxes, dispatchers, loggers, serializadores, extensiones, scheduler, routers, estrategia de guardianes); `ReflectiveDynamicAccess` lo implementa con reflexión JVM.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/DynamicAccess.scala:33-72`
+- `actor/src/main/scala/org/apache/pekko/actor/ReflectiveDynamicAccess.scala:35-88`
+
+**Condiciones.**
+- `createInstanceFor(fqcn, args)`: clase inexistente -> Failure(ClassNotFoundException); constructor no encontrado -> Failure(NoSuchMethodException); tipo incompatible -> `ClassCastException("<T> is not assignable from <c>")`/`"<clase> is not a subtype of <T>"` (ReflectiveDynamicAccess.scala:41,53); excepciones del constructor se relanzan sin envoltorio InvocationTargetException (línea 54).
+- `getObjectFor(fqcn)`: busca `fqcn$` (módulo Scala) y si no `fqcn`; lee el campo `MODULE$`; null -> NPE; tipo incorrecto -> ClassCastException (líneas 69-87).
+- `classIsOnClasspath(fqcn)`: false sólo ante ClassNotFoundException/NoClassDefFoundError (líneas 61-67).
+- `classLoader` expuesto para casos especiales.
+
+**Orden / concurrencia / ciclo de vida.** Síncrono; `Class.forName(fqcn, false, classLoader)` no inicializa la clase.
+
+**Dependencias.** Consumido por AC-CFG-006/008/009/012, AC-EXT-003, AC-MBX-014, AC-DSP-010, AC-SCH-010, AC-EVT, AC-SER.
+
+**Equivalente Rust propuesto y diferencias observables.** `FactoryRegistry<T>`: `register(name, fn(&Config, &Settings) -> Result<Box<T>, E>)`, `create(name, args) -> Result<Box<T>, FactoryError>`, `contains(name)`; los FQCN de reference.conf se preinstalan como claves (Q-X-2). Diferencia: no hay constructores alternativos por firma: el registro recibe una firma única.
+
+**Aserciones.**
+- A1 instanciar con constructor por defecto -> Success(no null): DynamicAccessSpec.scala:40-48.
+- A2 clase inexistente -> Failure(ClassNotFoundException): :50-57.
+- A3 probar constructor sin args y si no existe (NoSuchMethodException) el de (String): TestClassWithStringConstructor da "string ctor argument", TestClassWithDefaultConstructor "default", inexistente -> ClassNotFoundException: :59-70,77-86.
+- A4 `classIsOnClasspath` falso/verdadero: :72-75.
+- A5 `getObjectFor` y el cast: derivadas del código ReflectiveDynamicAccess.scala:69-87 (*no afirmadas por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-X-2.
+
+
+---
+
+## AC-CFG-017.1 — Combinación y sustitución: withFallback, resolve tardío, `${?x}` opcional, `+=`, autorreferencia, ciclos
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Combinación y sustitución: withFallback, resolve tardío, `${?x}` opcional, `+=`, autorreferencia, ciclos. Config.withFallback: gana el receptor; objetos se fusionan clave por clave; las sustituciones se resuelven tras combinar capas; `${?x}` ausente omite la clave; `${?x} [d]` concatena listas; `+=` agrega al valor anterior; ciclo o sustitución requerida ausente fallan.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:11,78,878`
+- tools/oracle/config-hocon.jsh
+- crates/rakka-actor/tests/oracle/config-hocon.golden
+
+**Condiciones.**
+- Config.withFallback: gana el receptor; objetos se fusionan clave por clave; las sustituciones se resuelven tras combinar capas; `${?x}` ausente omite la clave; `${?x} [d]` concatena listas; `+=` agrega al valor anterior; ciclo o sustitución requerida ausente fallan.
+- Los mensajes de error de Typesafe (TYPE-*, SUB-*, DUR-ERR, SIZE-ERR) forman parte del golden; reproducirlos textualmente es parte de Q-X-1/Q-CFG-4.
+
+**Orden / concurrencia / ciclo de vida.** La resolución es una pasada posterior a la combinación (FB-05).
+
+**Dependencias.** AC-CFG-001, AC-UTIL-002.4.
+
+**Equivalente Rust propuesto y diferencias observables.** Parser/resolver HOCON propio del subconjunto (recomendación del plan: opción A) con el golden como suite de aceptación; helpers `get_duration`, `get_bytes`, `get_boolean`.
+
+**Aserciones.**
+- A1 los casos del golden FB-*, SUB-*, REF-01, REF-02 se reproducen con el parser Rust (cada id del golden es una aserción; *no afirmadas por spec de Pekko*, afirmadas por el jar config-1.4.9).
+- A2 `reference.conf` oficial se carga sin cambios: derivado del plan; ConfigSpec.scala:30.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-X-1, Q-CFG-4
+
+
+---
+
+## AC-CFG-017.2 — Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos, notación científica, truncado, desborde
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos, notación científica, truncado, desborde. Unidades ns/us/ms/s/m/h/d y nombres largos; número sin unidad = ms; trunca hacia cero; admite negativos; errores BadValue con mensajes del jar.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:36,68,145,218,225,311,315`
+- tools/oracle/config-hocon.jsh
+- crates/rakka-actor/tests/oracle/config-hocon.golden
+
+**Condiciones.**
+- Unidades ns/us/ms/s/m/h/d y nombres largos; número sin unidad = ms; trunca hacia cero; admite negativos; errores BadValue con mensajes del jar.
+- Los mensajes de error de Typesafe (TYPE-*, SUB-*, DUR-ERR, SIZE-ERR) forman parte del golden; reproducirlos textualmente es parte de Q-X-1/Q-CFG-4.
+
+**Orden / concurrencia / ciclo de vida.** La resolución es una pasada posterior a la combinación (FB-05).
+
+**Dependencias.** AC-CFG-001, AC-UTIL-002.4.
+
+**Equivalente Rust propuesto y diferencias observables.** Parser/resolver HOCON propio del subconjunto (recomendación del plan: opción A) con el golden como suite de aceptación; helpers `get_duration`, `get_bytes`, `get_boolean`.
+
+**Aserciones.**
+- A1 los casos del golden DUR-* se reproducen con el parser Rust (cada id del golden es una aserción; *no afirmadas por spec de Pekko*, afirmadas por el jar config-1.4.9).
+- A2 `reference.conf` oficial se carga sin cambios: derivado del plan; ConfigSpec.scala:30.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-X-1, Q-CFG-4
+
+
+---
+
+## AC-CFG-017.3 — Tamaños en memoria: `128 KiB`, `K`, `kB`, `MB`, número sin unidad = bytes; `KB` falla
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Tamaños en memoria: `128 KiB`, `K`, `kB`, `MB`, número sin unidad = bytes; `KB` falla. getBytes/getMemorySize con prefijos binarios y decimales; negativos/fuera de rango fallan.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:966,1011,1060,1116`
+- tools/oracle/config-hocon.jsh
+- crates/rakka-actor/tests/oracle/config-hocon.golden
+
+**Condiciones.**
+- getBytes/getMemorySize con prefijos binarios y decimales; negativos/fuera de rango fallan.
+- Los mensajes de error de Typesafe (TYPE-*, SUB-*, DUR-ERR, SIZE-ERR) forman parte del golden; reproducirlos textualmente es parte de Q-X-1/Q-CFG-4.
+
+**Orden / concurrencia / ciclo de vida.** La resolución es una pasada posterior a la combinación (FB-05).
+
+**Dependencias.** AC-CFG-001, AC-UTIL-002.4.
+
+**Equivalente Rust propuesto y diferencias observables.** Parser/resolver HOCON propio del subconjunto (recomendación del plan: opción A) con el golden como suite de aceptación; helpers `get_duration`, `get_bytes`, `get_boolean`.
+
+**Aserciones.**
+- A1 los casos del golden SIZE-* se reproducen con el parser Rust (cada id del golden es una aserción; *no afirmadas por spec de Pekko*, afirmadas por el jar config-1.4.9).
+- A2 `reference.conf` oficial se carga sin cambios: derivado del plan; ConfigSpec.scala:30.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-X-1, Q-CFG-4
+
+
+---
+
+## AC-CFG-017.4 — Booleanos `on/off/yes/no/true/false` con y sin comillas; `ON`, `1`, `maybe` fallan
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Booleanos `on/off/yes/no/true/false` con y sin comillas; `ON`, `1`, `maybe` fallan. getBoolean acepta los seis literales (también entre comillas); distingue mayúsculas.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:50,63,86,90,98,103,248`
+- tools/oracle/config-hocon.jsh
+- crates/rakka-actor/tests/oracle/config-hocon.golden
+
+**Condiciones.**
+- getBoolean acepta los seis literales (también entre comillas); distingue mayúsculas.
+- Los mensajes de error de Typesafe (TYPE-*, SUB-*, DUR-ERR, SIZE-ERR) forman parte del golden; reproducirlos textualmente es parte de Q-X-1/Q-CFG-4.
+
+**Orden / concurrencia / ciclo de vida.** La resolución es una pasada posterior a la combinación (FB-05).
+
+**Dependencias.** AC-CFG-001, AC-UTIL-002.4.
+
+**Equivalente Rust propuesto y diferencias observables.** Parser/resolver HOCON propio del subconjunto (recomendación del plan: opción A) con el golden como suite de aceptación; helpers `get_duration`, `get_bytes`, `get_boolean`.
+
+**Aserciones.**
+- A1 los casos del golden BOOL-* se reproducen con el parser Rust (cada id del golden es una aserción; *no afirmadas por spec de Pekko*, afirmadas por el jar config-1.4.9).
+- A2 `reference.conf` oficial se carga sin cambios: derivado del plan; ConfigSpec.scala:30.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-X-1, Q-CFG-4
+
+
+---
+
+## AC-CFG-017.5 — Literales que Pekko interpreta por su cuenta: `infinite`, `unlimited`, `forever`, `never`, `default`, `on/off` en log-dead-letters
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Literales que Pekko interpreta por su cuenta: `infinite`, `unlimited`, `forever`, `never`, `default`, `on/off` en log-dead-letters. El parser entrega texto; getDuration/getBytes rechazan `infinite`/`unlimited`; Pekko los interpreta antes (ActorSystem.scala:441-453) o con helpers (DnsSettings, Tcp).
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:64-68,863,1046,1164,1182,1192,1198`
+- tools/oracle/config-hocon.jsh
+- crates/rakka-actor/tests/oracle/config-hocon.golden
+
+**Condiciones.**
+- El parser entrega texto; getDuration/getBytes rechazan `infinite`/`unlimited`; Pekko los interpreta antes (ActorSystem.scala:441-453) o con helpers (DnsSettings, Tcp).
+- Los mensajes de error de Typesafe (TYPE-*, SUB-*, DUR-ERR, SIZE-ERR) forman parte del golden; reproducirlos textualmente es parte de Q-X-1/Q-CFG-4.
+
+**Orden / concurrencia / ciclo de vida.** La resolución es una pasada posterior a la combinación (FB-05).
+
+**Dependencias.** AC-CFG-001, AC-UTIL-002.4.
+
+**Equivalente Rust propuesto y diferencias observables.** Parser/resolver HOCON propio del subconjunto (recomendación del plan: opción A) con el golden como suite de aceptación; helpers `get_duration`, `get_bytes`, `get_boolean`.
+
+**Aserciones.**
+- A1 los casos del golden SPECIAL-*, REF-03 se reproducen con el parser Rust (cada id del golden es una aserción; *no afirmadas por spec de Pekko*, afirmadas por el jar config-1.4.9).
+- A2 `reference.conf` oficial se carga sin cambios: derivado del plan; ConfigSpec.scala:30.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-X-1, Q-CFG-4
+
+
+---
+
+## AC-CFG-017.6 — Includes: `include "version"` inexistente se ignora; `required(...)` inexistente falla
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Includes: `include "version"` inexistente se ignora; `required(...)` inexistente falla. Un include no encontrado se ignora salvo `required(...)`; reference.conf incluye el generado `version`.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:11`
+- tools/oracle/config-hocon.jsh
+- crates/rakka-actor/tests/oracle/config-hocon.golden
+
+**Condiciones.**
+- Un include no encontrado se ignora salvo `required(...)`; reference.conf incluye el generado `version`.
+- Los mensajes de error de Typesafe (TYPE-*, SUB-*, DUR-ERR, SIZE-ERR) forman parte del golden; reproducirlos textualmente es parte de Q-X-1/Q-CFG-4.
+
+**Orden / concurrencia / ciclo de vida.** La resolución es una pasada posterior a la combinación (FB-05).
+
+**Dependencias.** AC-CFG-001, AC-UTIL-002.4.
+
+**Equivalente Rust propuesto y diferencias observables.** Parser/resolver HOCON propio del subconjunto (recomendación del plan: opción A) con el golden como suite de aceptación; helpers `get_duration`, `get_bytes`, `get_boolean`.
+
+**Aserciones.**
+- A1 los casos del golden INC-* se reproducen con el parser Rust (cada id del golden es una aserción; *no afirmadas por spec de Pekko*, afirmadas por el jar config-1.4.9).
+- A2 `reference.conf` oficial se carga sin cambios: derivado del plan; ConfigSpec.scala:30.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-X-1, Q-CFG-4
+
+
+---
+
+## AC-CFG-017.7 — Sintaxis del archivo: comentarios `#` y `//`, claves con guiones y puntos, comillas triples, claves duplicadas, listas con coma final, errores de getters tipados
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Sintaxis del archivo: comentarios `#` y `//`, claves con guiones y puntos, comillas triples, claves duplicadas, listas con coma final, errores de getters tipados. El parser debe aceptar reference.conf completo sin cambios; getters tipados: clave ausente (Missing), tipo erróneo (WrongType), null.
+
+**Fuente.**
+- `actor/src/main/resources/reference.conf:1-1443`
+- tools/oracle/config-hocon.jsh
+- crates/rakka-actor/tests/oracle/config-hocon.golden
+
+**Condiciones.**
+- El parser debe aceptar reference.conf completo sin cambios; getters tipados: clave ausente (Missing), tipo erróneo (WrongType), null.
+- Los mensajes de error de Typesafe (TYPE-*, SUB-*, DUR-ERR, SIZE-ERR) forman parte del golden; reproducirlos textualmente es parte de Q-X-1/Q-CFG-4.
+
+**Orden / concurrencia / ciclo de vida.** La resolución es una pasada posterior a la combinación (FB-05).
+
+**Dependencias.** AC-CFG-001, AC-UTIL-002.4.
+
+**Equivalente Rust propuesto y diferencias observables.** Parser/resolver HOCON propio del subconjunto (recomendación del plan: opción A) con el golden como suite de aceptación; helpers `get_duration`, `get_bytes`, `get_boolean`.
+
+**Aserciones.**
+- A1 los casos del golden REF-*, LIST-*, TYPE-* se reproducen con el parser Rust (cada id del golden es una aserción; *no afirmadas por spec de Pekko*, afirmadas por el jar config-1.4.9).
+- A2 `reference.conf` oficial se carga sin cambios: derivado del plan; ConfigSpec.scala:30.
+
+**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+
+**Decisiones.** Q-X-1, Q-CFG-4
+
+
+---
+
+## AC-CFG-018 — Settings.amendSlf4jConfig: `pekko.use-slf4j` agrega Slf4jLogger/Slf4jLoggingFilter a loggers
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Adaptación de la config para que Typed use SLF4J por defecto: sólo si `pekko.use-slf4j` es true y la clase del logger existe.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:333-377`
+- `actor-typed/src/main/resources/reference.conf:68 (pekko.use-slf4j = on)`
+- `actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:186-203`
+
+**Condiciones.**
+- Si `pekko.loggers` ya contiene Slf4jLogger: config sin cambios, salvo que el filtro sea el default -> se fuerza `Slf4jLoggingFilter` (líneas 357-362).
+- Si `use-slf4j` existe y es true y la clase está en el classpath: `loggers = [Slf4jLogger] + loggers sin DefaultLogger`; el filtro se cambia sólo si todavía es DefaultLoggingFilter (líneas 364-372).
+- En otro caso la config no cambia (línea 374).
+
+**Orden / concurrencia / ciclo de vida.** Se aplica antes de construir Settings (ActorSystem.scala:850-855).
+
+**Dependencias.** AC-CFG-004, AC-CFG-016, AC-EVT-011, Q-X-7.
+
+**Equivalente Rust propuesto y diferencias observables.** Si Q-X-7 elige backend `tracing`/`log`, esta función desaparece; si elige actores-logger, se registra Slf4jLogger como fábrica opcional.
+
+**Aserciones.**
+- A1 con la config de referencia no se amenda: 1 logger = DefaultLogger y filtro = DefaultLoggingFilter: ConfigSpec.scala:187-193.
+- A2 `use-slf4j=on` sin pekko-slf4j en el classpath no amenda: ConfigSpec.scala:195-203.
+- A3 el caso con pekko-slf4j disponible no está afirmado en mi grupo; derivado del código ActorSystem.scala:364-372.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-X-7, Q-CFG-10
+
+
+---
+
+## AC-CFG-019 — Validación de la config contra reference.conf (`checkValid` con `internal-dispatcher` excluido)
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Validación temprana de toda la config de `pekko.*` contra los defaults.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:395-402`
+- Dispatchers.scala (InternalDispatcherId; no leído)
+
+**Condiciones.**
+- Se valida el path `pekko` completo; la excepción es `ConfigException.ValidationFailed` agregada (comportamiento de Typesafe, no está en upstream/pekko).
+- `pekko.actor.internal-dispatcher` se excluye porque en configs antiguas es un String (nombre de dispatcher) y en la referencia un objeto.
+
+**Orden / concurrencia / ciclo de vida.** Primer paso del constructor de Settings.
+
+**Dependencias.** AC-CFG-001, AC-CFG-017.
+
+**Equivalente Rust propuesto y diferencias observables.** `check_valid` implementado en el parser propio con reglas de compatibilidad documentadas (Q-CFG-3).
+
+**Aserciones.**
+- A1 la config por defecto pasa la validación: ConfigSpec.scala:30-110 (se crea el sistema con `defaultReference`).
+- A2 comportamiento ante claves ausentes/de tipo erróneo: NO afirmada por spec; derivada de la semántica de Typesafe (jar config-1.4.9), sin escenario en el golden.
+
+**Oráculo.** Posible con el jar config-1.4.9 (checkValid sobre configs de ejemplo); no hay escenario en config-hocon.golden.
+
+**Decisiones.** Q-CFG-3
+
+
+---
+
+## AC-CFG-020 — Combinación no soportada coordinated-shutdown: run-by-actor-system-terminate=on con terminate-actor-system=off
+
+*unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Rechazo de una combinación de banderas de CoordinatedShutdown incoherente al crear el sistema.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:474-481`
+- `actor/src/main/resources/reference.conf:1245-1276`
+
+**Condiciones.**
+- Error: `ConfigurationException("pekko.coordinated-shutdown.run-by-actor-system-terminate=on and pekko.coordinated-shutdown.terminate-actor-system=off is not a supported configuration combination.")` (ActorSystem.scala:479-481).
+
+**Orden / concurrencia / ciclo de vida.** Se evalúa tras leer las dos banderas, antes del chequeo de versión.
+
+**Dependencias.** AC-CS-006, AC-UTIL-004.2.
+
+**Equivalente Rust propuesto y diferencias observables.** Validación en el constructor de Settings.
+
+**Aserciones.**
+- A1 mensaje y condición: derivadas del código ActorSystem.scala:478-481 (*no afirmada por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-PATH-001 — Address: protocol, system, host?, port?; alcance local vs global; toString y hostPort
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=partial · validation=oracle+spec*
+
+**Contrato observable.** `Address(protocol, system, host?, port?)`: dirección de un sistema de actores; con host+puerto tiene alcance global, sin ellos alcance local. `toString` = `protocol://system[@host][:port]`; `hostPort` = `system[@host][:port]`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:37-101`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:119-133 (companion, InvalidHostRegex, apply)`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:101 (hostPort)`
+
+**Condiciones.**
+- Constructores: `Address(protocol, system)` (host y puerto None) y `Address(protocol, system, host, port)` (Some/Some; constructor Java con `Option(host)`: host null -> None). `copy` re-crea con los campos dados.
+- `hasLocalScope = host.isEmpty`; `hasGlobalScope = host.isDefined`.
+- `toString` agrega `@host` si hay host y `:port` si hay puerto (puede haber puerto sin host: `pekko://s:5`), `hostPort = toString.substring(protocol.length + 3)`.
+- Java API: `getHost(): Optional<String>`, `getPort(): Optional<Integer>`.
+- `hashCode` = MurmurHash3.productHash (Q-PATH-3). El puerto es `Option[Int]`: acepta cualquier Int, incluso negativo (oráculo CT-04..08).
+
+**Orden / concurrencia / ciclo de vida.** Valor inmutable (case class); `hashCode` y `toString` son `lazy val` transitorios.
+
+**Dependencias.** Ninguna fila (base de AC-PATH-*).
+
+**Equivalente Rust propuesto y diferencias observables.** `struct Address { protocol, system, host: Option<String>, port: Option<i32> }` con `Display`/`Eq`/`Hash` y sin `Ord` (ya implementado en crates/rakka-actor/src/actor/address.rs). Diferencias: hash distinto (Q-PATH-3), sin `null` (Q-PATH-4).
+
+**Aserciones.**
+- A1 `new Address("pekko", "MySystem", "localhost", 2525)`: `getPort == Optional.of(2525)` y `getHost == Optional.of("localhost")`: AddressTest.java:26-30.
+- A2 `Address("pekko","my_sys",Some(host),Some(1234))` es igual al parseado de `pekko://my_sys@host:1234`: ActorPathSpec.scala:40-48 (y SPEC-APS-42/47 del oráculo: local=false global=true hostPort=my_sys@host:1234).
+- A3 `toString`/`hostPort`/alcance para las combinaciones con y sin host/puerto: oráculo CT-*, AD-* (*no afirmada por spec* salvo A2).
+- A4 puerto negativo aceptado por el constructor, rechazado por el parser (AD-13..19): oráculo (*no afirmada por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-3, Q-PATH-4
+
+
+---
+
+## AC-PATH-002 — Orden de Address (addressOrdering)
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=partial · validation=oracle+spec*
+
+**Contrato observable.** `Address.addressOrdering` ordena por protocolo, luego sistema, luego host (`None` = "") y luego puerto (`None` = 0), con comparación de Strings por unidades UTF-16.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:135-145`
+
+**Condiciones.**
+- `a eq b` -> no menor; si protocolos distintos -> `compareTo` < 0; igual con sistema; luego `a.host != b.host` compara `getOrElse("")`; luego puertos (`getOrElse(0)`) (Address.scala:139-144).
+- No es un orden total: host None vs Some("") y port None vs Some(0) dan 'no menor' en ambos sentidos sin ser iguales, y la incomparabilidad no es transitiva (oráculo CMPA-08..13).
+- El comparador es `Ordering.fromLessThan`: el resultado de `sorted` depende del algoritmo (TimSort de Java) en entradas inconsistentes (CMPA-17).
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-001.
+
+**Equivalente Rust propuesto y diferencias observables.** `Address::pekko_compare(&self, &Address) -> Ordering` sin `impl Ord` (decisión del Owner 2026-10-30, ya aplicada); ordenar listas: Q-PATH-1.
+
+**Aserciones.**
+- A1 `[pekko h1, pekko h2, akka h1, akka h2].sorted == [akka h1, akka h2, pekko h1, pekko h2]`: AddressSpec.scala:25-36 (oráculo SPEC-ADS-34).
+- A2 casos de orden parcial y UTF-16: oráculo CMPA-01..17 (*no afirmados por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-1, Q-PATH-6
+
+
+---
+
+## AC-PATH-003 — Validación de caracteres de host (InvalidHostRegex "_[^.]*$")
+
+*unidad PATH · visibilidad internal-required · analysis=extracted · impl=done · validation=oracle+spec*
+
+**Contrato observable.** `hasInvalidHostCharacters` detecta hosts con `_` sin punto posterior; `checkHostCharacters()` lanza `IllegalArgumentException` si los hay. `AddressFromURIString` rechaza esos hosts porque `java.net.URI` no los reconoce como host.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:103-115`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:121-122 (InvalidHostRegex = "_[^.]*$")`
+
+**Condiciones.**
+- Regex `_[^.]*$` buscada en el host: `valid`, `is_valid.org`, `fu.is_valid.org` son válidos; `in_valid`, `invalid._org` son inválidos (el `_` no va seguido de punto hasta el final).
+- `checkHostCharacters()`: `require(!hasInvalidHostCharacters, s"Using invalid host characters '$host' in the Address is not allowed.")` -> IllegalArgumentException con prefijo `requirement failed: ` y el Option impreso `Some(in_valid)` (oráculo HC-*).
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-001, AC-UTIL-002.3 (prefijo `requirement failed:`).
+
+**Equivalente Rust propuesto y diferencias observables.** `has_invalid_host_characters(&self) -> bool` y `check_host_characters(&self) -> Result<(), IllegalArgumentError>` (implementado).
+
+**Aserciones.**
+- A1 hosts válidos `valid`, `is_valid.org`, `fu.is_valid.org` -> false; `in_valid`, `invalid._org` -> true: ActorPathSpec.scala:117-124.
+- A2 `AddressFromURIString("pekko://sys@in_valid:5001")` lanza MalformedURLException: ActorPathSpec.scala:126.
+- A3 `checkHostCharacters` no falla con `localhost`, `is_valid.org`, `fu.is_valid.org`: ActorPathSpec.scala:129-134.
+- A4 falla con IllegalArgumentException para `in_valid` y `invalid._org`: ActorPathSpec.scala:136-144 (el mensaje exacto: oráculo HC-*, *no afirmado por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-PATH-004 — AddressFromURIString / parse (semántica de java.net.URI)
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=done · validation=oracle+spec*
+
+**Contrato observable.** `AddressFromURIString(s)` / `.parse` / `.unapply` construye un Address a partir de `protocol://system[@host:port]` usando `java.net.URI`; falla con `MalformedURLException(s)` si no es una dirección válida.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:185-216`
+
+**Condiciones.**
+- Rechaza (None / MalformedURLException(addr)) si: URI mal formada (URISyntaxException), sin esquema, sin userInfo ni host, `pekko://system:5` (con puerto pero sin userInfo), userInfo sin host o sin puerto (Address.scala:190-202).
+- Con `pekko://system` (userInfo null, host=system) crea `Address(scheme, host)`; con `pekko://sys@host:1234` crea `Address(scheme, userInfo, host, port)`.
+- Dependencia de java.net.URI: hosts con `_` o no ASCII caen en autoridad 'registry' y se rechazan; sólo el userInfo (nombre del sistema) se decodifica (%XX como UTF-8 con U+FFFD por secuencia malformada); host, path y fragmento quedan crudos; IPv6 conserva corchetes; puerto > Int.MaxValue se rechaza (oráculo AD-*, UTF-AD-*, UTF-FS-*).
+- Nota: java.net.URI del JDK no está en upstream/pekko: su comportamiento se conoce sólo por el oráculo (JDK 11 en el golden; el port mira OpenJDK 21: ver Q-PATH-6).
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-001, java.net.URI.
+
+**Equivalente Rust propuesto y diferencias observables.** Parser propio del subconjunto RFC 2396 (`uri.rs`, implementado) + `address_from_uri_string(&str) -> Result<Address, MalformedUrl>`. Diferencia a decidir: licencia del código portado de OpenJDK (Q-PATH-6).
+
+**Aserciones.**
+- A1 `AddressFromURIString("pekko://my_sys@host:1234") == Address("pekko","my_sys",Some("host"),Some(1234))`: ActorPathSpec.scala:40-43.
+- A2 lo mismo con protocolo `akka`: ActorPathSpec.scala:45-48.
+- A3 host con `_` inválido -> MalformedURLException: ActorPathSpec.scala:126.
+- A4 forma sin `@` y casos límite (puerto, IPv6, UTF-8 del userInfo): oráculo AD-*, UTF-AD-01..30 (*no afirmados por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-6, Q-PATH-4
+
+
+---
+
+## AC-PATH-005 — RelativeActorPath (extractor de paths relativos)
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=done · validation=oracle+spec*
+
+**Contrato observable.** `RelativeActorPath.unapply(addr)` devuelve los elementos de un path relativo (`grand/child`, `/user/hello/world`) y None si la cadena es una URI absoluta o inválida.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:148-180 (PathUtils.split + RelativeActorPath)`
+
+**Condiciones.**
+- `new URI(addr)`: si `isAbsolute` -> None; si URISyntaxException -> None; si no `split(uri.getRawPath, uri.getRawFragment)`.
+- `split`: parte por `/` desde la derecha; si hay fragmento se concatena `#fragmento` al último elemento (`foo/bar/baz#1234` -> `baz#1234`); un path que empieza con `/` produce un primer elemento vacío.
+- No decodifica (usa las versiones 'raw'); la query se descarta (oráculo RP-*).
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-004 (java.net.URI).
+
+**Equivalente Rust propuesto y diferencias observables.** `relative_actor_path(&str) -> Option<Vec<String>>` (implementado).
+
+**Aserciones.**
+- A1 `foo` -> [foo]: RelativeActorPathSpec.scala:28-30.
+- A2 `foo/bar/baz` -> [foo, bar, baz]: :31-33.
+- A3 un nombre URL-encodeado (`pekko%3A%2F%2FClusterSystem%40127.0.0.1%3A7355`) queda como un solo elemento: :34-37.
+- A4 `foo/bar/baz#1234` -> [foo, bar, baz#1234]: :38-40.
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-6
+
+
+---
+
+## AC-PATH-006 — ActorPathExtractor (Address + elementos desde URI absoluta)
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=done · validation=oracle+spec*
+
+**Contrato observable.** `ActorPathExtractor.unapply(addr)` extrae `(Address, elementos)` de una URI absoluta de actor.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:218-232`
+
+**Condiciones.**
+- `new URI(addr)`; si `getRawPath` es null o hay URISyntaxException -> None; si no, `AddressFromURIString.unapply(uri)` y `split(path, rawFragment).drop(1)` (se descarta el primer elemento vacío).
+- Con fragmento, el último elemento lleva `#uid`.
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-004, AC-PATH-005 (PathUtils).
+
+**Equivalente Rust propuesto y diferencias observables.** Función de parseo usada por `ActorPath::from_string` (implementada).
+
+**Aserciones.**
+- A1 `pekko://my_sys@host:1234/some/ref` -> Address + [some, ref]: observado vía `fromString(...).toString`: ActorPathSpec.scala:30-33 (oráculo SPEC-APS-32).
+- A2 lo mismo con `akka://`: ActorPathSpec.scala:35-38 (SPEC-APS-37).
+- A3 casos límite: oráculo FS-* (*no afirmados por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-6
+
+
+---
+
+## AC-PATH-007 — ActorPath.fromString
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=partial · validation=oracle+spec*
+
+**Contrato observable.** `ActorPath.fromString(s)` parsea una cadena de path absoluto; `MalformedURLException("cannot parse as ActorPath: " + s)` si no es parseable.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:67-75`
+
+**Condiciones.**
+- `RootActorPath(address) / elems`: cada elemento pasa por `/` (que interpreta `nombre#uid`, AC-PATH-011).
+- Errores: `""`, `"://hallo"`, `"s://dd@:12"`, `"s://dd@h:hd"`, `"a://l:1/b"` -> MalformedURLException con mensaje `cannot parse as ActorPath: <entrada>` (oráculo SPEC-APS-51..55).
+- Un uid no numérico (`a#x`) lanza `NumberFormatException` desde `Integer.valueOf`, que NO se captura (ActorCell.scala:400-404; oráculo FS-36..56).
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-006, AC-PATH-010, AC-PATH-011.
+
+**Equivalente Rust propuesto y diferencias observables.** `ActorPath::from_string(&str) -> Result<ActorPath, ParseActorPathError>` con dos variantes: `MalformedUrl` y `NumberFormat` (hoy `MalformedUrl` según el inventario; ver Q-PATH-4).
+
+**Aserciones.**
+- A1 `fromString(path.toString) == path` para `pekko://mysys/user`: ActorPathSpec.scala:25-28.
+- A2 `pekko://my_sys@host:1234/some/ref` y la variante `akka://` conservan su toString: :30-38.
+- A3 las cinco entradas malformadas lanzan MalformedURLException: :50-56.
+- A4 NumberFormatException por uid inválido: oráculo FS-* (*no afirmada por spec*; derivada del código ActorCell.scala:400-404).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-4, Q-PATH-6
+
+
+---
+
+## AC-PATH-008 — Validación de elementos de path (nombres de actor)
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=partial · validation=oracle+spec*
+
+**Contrato observable.** Un elemento de path (nombre de actor) debe ser no vacío, no empezar con `$` e incluir sólo letras ASCII, dígitos, los símbolos `-_.*$+:@&=,!~';` y secuencias `%XX` (dos dígitos hex).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:77-148`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:33-64 (ActorPaths: fachada)`
+
+**Condiciones.**
+- Vacío -> `InvalidActorNameException("Actor path element must not be empty " + fullPathMsg)` (nótese el espacio antes de fullPathMsg, que es " (in path [<fullPath>])" o "") (ActorPath.scala:105-106).
+- Otro carácter inválido en la posición `n` (índice UTF-16; `$` en la posición 0 cuenta) -> `InvalidActorNameException("Invalid actor path element [<e>]<fullPathMsg>, illegal character [<c>] at position: <n>. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.")` (líneas 107-113).
+- `%` válido sólo si lo siguen dos dígitos hex (`pos + 2 < len`): `a%`, `%3`, `%xx`, `%0G`, `%gg`, `%`, `%1t` son inválidos (LocalActorRefProviderSpec.scala:173-186).
+- `isValidPathElement(s)` es la versión booleana.
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-UTIL-002 (no), AC-PATH-009 (fachada).
+
+**Equivalente Rust propuesto y diferencias observables.** `validate_path_element(&str) -> Result<(), InvalidActorName>` y `is_valid_path_element(&str) -> bool` (implementado). Surrogate suelto en el mensaje: Q-PATH-2; `null` no representable: Q-PATH-4.
+
+**Aserciones.**
+- A1 elemento vacío -> InvalidActorNameException cuyo mensaje incluye `must not be empty`: ActorPathSpec.scala:79-82.
+- A2 `system.actorOf(Props.empty, null)` -> mensaje contiene `null`; `""` -> `empty`; `"$hallo"` -> `not start with `$``: LocalActorRefProviderSpec.scala:169-172.
+- A3 `a%`, `%3`, `%xx`, `%0G`, `%gg`, `%`, `%1t`, `a?` -> `Invalid actor path element`; `üß` -> `include only ASCII`: :173-190.
+- A4 posición y carácter: `he"llo` -> `["] at position: 2`; `$hello` -> `[$] at position: 0`; `hell>o` -> `[>] at position: 4`: :192-197.
+- A5 mensaje completo con `fullPath` y doble espacio: oráculo VAL-* (*no afirmada por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-2, Q-PATH-4
+
+
+---
+
+## AC-PATH-009 — ActorPaths (fachada Java: fromString, validatePathElement, isValidPathElement)
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** `ActorPaths` es una fachada estática Java sobre `object ActorPath`: `fromString`, `validatePathElement` (con y sin `fullPath`) e `isValidPathElement`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:29-65`
+
+**Condiciones.**
+- Sin lógica propia: delega 1:1 en ActorPath.
+- Existe porque `trait ActorPath` no podía pasar a clase abstracta con compatibilidad binaria (comentario en ActorPath.scala:30-31).
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-PATH-007, AC-PATH-008.
+
+**Equivalente Rust propuesto y diferencias observables.** Las mismas funciones libres (sin fachada); la fila queda `partial` hasta decidir Q-PATH-5.
+
+**Aserciones.**
+- A1 equivalencia con ActorPath.*: oráculo VAL-JAPI-*, SPEC-JAPI (*no afirmada por spec de Pekko*; ActorSelectionTest.java no ejercita estas funciones según su cuerpo no leído).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-5
+
+
+---
+
+## AC-PATH-010 — Estructura de ActorPath: RootActorPath / ChildActorPath, address, name, parent, root, `/`, child, descendant, elements
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=done · validation=oracle+spec*
+
+**Contrato observable.** Jerarquía `RootActorPath` / `ChildActorPath` con `address`, `name`, `parent`, `root`, `/`, `child`, `descendant`, `elements`, `toStringWithoutAddress`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:172-214`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:279-300`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:328-360`
+
+**Condiciones.**
+- `root / "user"` crea un ChildActorPath; `/` con `Iterable` ignora elementos vacíos (`if (elem.isEmpty) path else path / elem`) (ActorPath.scala:203-204).
+- `elements` de la raíz es `List("")` (`emptyActorPath`) pero `ChildActorPath.elements` excluye la raíz (rec hasta RootActorPath); `RootActorPath.parent = this`; `root` camina hacia arriba.
+- ChildActorPath: `name` con `/` -> IllegalArgumentException (AC-PATH-016).
+- Profundidad: la implementación es iterativa (@tailrec); un path muy profundo no desborda la pila.
+
+**Orden / concurrencia / ciclo de vida.** Inmutable; el padre se comparte.
+
+**Dependencias.** AC-PATH-001, AC-PATH-016.
+
+**Equivalente Rust propuesto y diferencias observables.** `ActorPath(Arc<Node>)` con nodo padre compartido; render/igualdad/hash/compare iterativos (un path de 1 000 000 niveles se construye, compara y libera: oráculo DEEP-01).
+
+**Aserciones.**
+- A1 `(root / user / foo / bar).elements.toSeq == [user, foo, bar]`: ActorPathSpec.scala:66-69.
+- A2 toString de cada nivel: ActorPathSpec.scala:58-64.
+- A3 `child`, `descendant` y NAV-*: oráculo (*no afirmados por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-PATH-011 — uid en paths: "#uid" en `/`, undefinedUid=0, newUid aleatorio ≠0, withUid; RootActorPath siempre uid 0
+
+*unidad PATH · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle+spec*
+
+**Contrato observable.** Un path puede llevar el uid de la incarnación del actor como fragmento `#uid`; `/` acepta `nombre#uid`; `withUid`; `undefinedUid = 0`; `newUid` aleatorio distinto de 0; el uid se ve en `toSerializationFormat*`, no en `toString`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:264-270,316-323,336-342,365-367`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:390-404 (undefinedUid, newUid, splitNameAndUid)`
+
+**Condiciones.**
+- `splitNameAndUid(name)`: si hay `#`, parte el nombre y hace `Integer.valueOf(resto)` (acepta `+`/`-` y dígitos Unicode; vacío o desborde -> NumberFormatException) (ActorCell.scala:400-404).
+- `RootActorPath.uid = 0` y `withUid(uid != 0)` lanza `IllegalStateException("RootActorPath must have undefinedUid, [<uid> != 0")` (nótese el corchete sin cierre) (ActorPath.scala:321-323).
+- `ChildActorPath.withUid(uid)` devuelve `this` si es el mismo uid, si no un hijo nuevo.
+- `newUid()`: `ThreadLocalRandom.nextInt` reintentando si da 0; el mismo uid se usa como hashCode de ActorRef (ActorCell.scala:392-398).
+
+**Orden / concurrencia / ciclo de vida.** `newUid` se llama al crear la celda (AC-CELL); aquí sólo el contrato del path.
+
+**Dependencias.** AC-PATH-010, AC-CELL (newUid).
+
+**Equivalente Rust propuesto y diferencias observables.** `uid: i32` en el nodo hijo; `new_uid()` con RNG local (se implementa en AC-CELL, la fila queda `partial`).
+
+**Aserciones.**
+- A1 `fromString(path.toString) == path` (el toString no lleva uid): ActorPathSpec.scala:25-28.
+- A2 `nombre#uid`, signos, desborde y vacío en el uid: oráculo FS-36..56, CH-*, UID-* (*no afirmados por spec*).
+- A3 el mensaje de IllegalStateException de RootActorPath: derivada del código ActorPath.scala:322-323 (*no afirmada por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-6
+
+
+---
+
+## AC-PATH-012 — RootActorPath: nombre sin separadores
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=done · validation=oracle+spec*
+
+**Contrato observable.** `RootActorPath(address, name = "/")` no admite separadores de path ni fragmentos en el nombre (salvo el `/` inicial).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:279-285`
+
+**Condiciones.**
+- `require(name.length == 1 || name.indexOf('/', 1) == -1, "/ may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: [%s]")` -> IllegalArgumentException con prefijo `requirement failed: `.
+- `require(name.indexOf('#') == -1, "# is a fragment separator and is not legal in ActorPath names: [%s]")`.
+- Pero `ActorPath.fromString("pekko://mysys/user/boom/*")` sigue funcionando (el `*` es válido).
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-010.
+
+**Equivalente Rust propuesto y diferencias observables.** `ActorPath::root_named(address, name) -> Result<_, IllegalArgumentError>` (implementado; RT-* del oráculo).
+
+**Aserciones.**
+- A1 `RootActorPath(Address("pekko","mysys"), "/user/boom/*")` lanza IllegalArgumentException con `is a path separator`: ActorPathSpec.scala:108-111.
+- A2 crear el path equivalente por `fromString` funciona: ActorPathSpec.scala:113-114.
+- A3 mensaje de `#`: oráculo RT-* (*no afirmada por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-PATH-013 — Representaciones de texto: toString, toStringWithoutAddress, toStringWithAddress, toSerializationFormat(WithAddress)
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=done · validation=oracle+spec*
+
+**Contrato observable.** Representaciones de texto: `toString`, `toStringWithoutAddress`, `toStringWithAddress(addr)`, `toSerializationFormat` y `toSerializationFormatWithAddress(addr)`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:233-257,297-305,369-414,449-452`
+
+**Condiciones.**
+- `toString`: `address.toString + name` para la raíz; `/`-unión para hijos. `toStringWithoutAddress = elements.mkString("/", "/", "")` (la raíz da `/`).
+- `toStringWithAddress(addr)` reemplaza la dirección de la raíz por `addr` salvo que la dirección propia tenga host (alcance global): entonces conserva la suya. El path `IgnoreActorRef.path` (`pekko://local/ignore`) NUNCA cambia de dirección (ChildActorPath.toStringWithAddress, ActorPath.scala:388-390).
+- `toSerializationFormat*` = igual más `#uid` si `uid != 0` (ActorPath.scala:449-452).
+- Raíz con nombre distinto de `/` concatena el nombre sin separador (oráculo STR-09).
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-011, AC-PATH-015.
+
+**Equivalente Rust propuesto y diferencias observables.** `Display` + métodos explícitos (implementado).
+
+**Aserciones.**
+- A1 toString: `pekko://mysys/`, `pekko://mysys/user`, `.../user/foo`, `.../user/foo/bar`: ActorPathSpec.scala:58-64.
+- A2 toStringWithoutAddress: `/`, `/user`, `/user/foo`, `/user/foo/bar`: ActorPathSpec.scala:71-77.
+- A3 toStringWithAddress con direcciones locales y globales (la propia con host se conserva): ActorPathSpec.scala:84-106 (la línea 94 está comentada en el spec; el oráculo SPEC-APS-94 muestra `pekko://mysys@bb:7355/`).
+- A4 IgnoreActorRef y uid en serialización: oráculo STR-11..18 (*no afirmados por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-PATH-014 — Igualdad, hash y orden de ActorPath (ignoran uid)
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** Dos `ActorPath` son iguales si tienen mismos nombres y mismas raíces (address + name); el uid no cuenta. `compareTo` ordena por elementos de derecha a izquierda; `RootActorPath > ChildActorPath`.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:153-170 (Scaladoc)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:307-312`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:454-494`
+
+**Condiciones.**
+- `ChildActorPath.equals` compara nombres hacia arriba hasta la raíz (iterativo) y después `RootActorPath.equals` (case class: address + name).
+- `hashCode`: MurmurHash sobre los nombres de CADA nivel (usa `name` del hijo en cada paso; ActorPath.scala:473-476), no se reproduce el valor (Q-PATH-3).
+- `compareTo`: compara nombre por nombre de derecha a izquierda; raíz vs hijo: raíz es mayor (1); raíces: `toString.compareTo` (FIXME en el código), por lo que dos raíces con el mismo toString y distinta Address comparan igual sin ser iguales (oráculo CMPP-09..11).
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-010.
+
+**Equivalente Rust propuesto y diferencias observables.** `impl PartialEq/Eq/Hash` sin uid; sin `Ord`; `ActorPath::pekko_compare` (decisión del Owner 2026-10-30, ya aplicada).
+
+**Aserciones.**
+- A1 igualdad ignorando el uid: oráculo CMPP-*, EQ (*no afirmada por spec*; hallazgo del código ActorPath.scala:454-466).
+- A2 orden por elementos de derecha a izquierda y raíz mayor: derivada del Scaladoc ActorPath.scala:157-161 y oráculo CMPP-*.
+- A3 inconsistencia compareTo/equals con raíces: oráculo CMPP-09..11 (*no afirmada por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Q-PATH-3, Q-PATH-6
+
+
+---
+
+## AC-PATH-015 — Paths especiales del proveedor local: "/", "/user", "/system", "/deadLetters", "/temp/$x", "/bubble-walker", ignore ("pekko://local/ignore")
+
+*unidad PATH · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle*
+
+**Contrato observable.** Paths especiales del proveedor local: `/` (raíz), `/user`, `/system`, `/deadLetters`, `/temp/$x`, `/bubble-walker` e `ignore` (`pekko://local/ignore`).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:402 (rootPath = RootActorPath(Address("pekko", systemName)))`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:414-417 (deadLetters = rootPath / "deadLetters")`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:428-442 (tempNode = rootPath / "temp"; tempPath(prefix) = prefix + "$" + base64(contador))`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:451 (bubble-walker)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:541-562 (IgnoreActorRef.path = RootActorPath(Address("pekko", "local")) / "ignore"; isIgnoreRefPath)`
+
+**Condiciones.**
+- `tempPath(prefix)` = `/temp/<prefix>$<base64(n)>` con n incremental (AtomicLong) (AC-UTIL-002.1).
+- El nombre del actor del destino se codifica en el nombre temporal de `ask`: `promiseActorRef.path.name` empieza con `myName` (AskSpec.scala:248-262).
+- Mensajes a `/` o `/user` o `/system` que los guardianes no manejan se convierten en `UnhandledMessage` con el aviso `unhandled message from Actor[<deadLetters path>]: <mensaje>` (LocalActorRefProviderSpec.scala:70-100).
+
+**Orden / concurrencia / ciclo de vida.** El contador de temp paths es atómico; /ignore es único.
+
+**Dependencias.** AC-UTIL-002.1, AC-REF-*, AC-SYS-*.
+
+**Equivalente Rust propuesto y diferencias observables.** Constantes/funciones en `provider::local`; AC-PATH sólo cubre `pekko://local/ignore`: los demás nacen en AC-REF/AC-SYS (fila `partial`).
+
+**Aserciones.**
+- A1 `ask` a `myName` crea un path temporal cuyo nombre empieza con `myName`: AskSpec.scala:248-262.
+- A2 el guardián raíz/usuario/sistema avisa mensajes no manejados con el texto indicado: LocalActorRefProviderSpec.scala:70-100 (se leyó hasta la línea 99).
+- A3 `isIgnoreRefPath`: oráculo STR-11..18 (*no afirmada por spec*).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-PATH-016 — ChildActorPath: validación del nombre en el constructor (`/` y `#` prohibidos)
+
+*unidad PATH · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Invariantes del nombre de un ChildActorPath.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:328-335`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:290-293,339-342 (`/` ya separó nombre y uid)`
+
+**Condiciones.**
+- Errores con mensajes exactos sin prefijo `requirement failed: ` (usa `throw new IllegalArgumentException`).
+- Vía `/`, un nombre con `#` se divide en nombre y uid antes de construir; con `/` en el nombre, sólo es posible construyendo directamente (interno).
+
+**Orden / concurrencia / ciclo de vida.** Pura.
+
+**Dependencias.** AC-PATH-010, AC-PATH-011.
+
+**Equivalente Rust propuesto y diferencias observables.** Validación en el constructor interno; no se expone.
+
+**Aserciones.**
+- A1 mensajes y condiciones: derivadas del código ActorPath.scala:331-335 (*no afirmadas por spec*; ActorPathSpec sólo prueba el RootActorPath, :108-115).
+
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec. Escenario CH-* del golden cubre construcciones de hijos.
+
+**Decisiones.** Ninguna.
+
+
+---
+
+## AC-EXT-001.1 — Extension / ExtensionId / AbstractExtensionId / ExtensionIdProvider: identidad por objeto y acceso `apply`/`get`
+
+*unidad EXT · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `ExtensionId[T].apply(system)` devuelve la instancia de la extensión de ese sistema (la crea la primera vez); `get` es la versión Java; `ExtensionIdProvider.lookup` da el `ExtensionId` canónico para cargas por config. La búsqueda es por IDENTIDAD del ExtensionId.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/Extension.scala:74-143`
+- docs/src/main/paradox/extending-pekko.md
+
+**Condiciones.**
+- `apply(null)` -> NullPointerException (`requireNonNull(system, "system must not be null!")`, Extension.scala:86-88).
+- `hashCode = System.identityHashCode(this)`, `equals = (this eq other)`, ambos `final` (líneas 123-124): dos instancias del mismo ExtensionId son extensiones distintas.
+- `apply(ClassicActorSystemProvider)` delega en `apply(system.classicSystem)`.
+- Java: `AbstractExtensionId` es la base; `get(system)` puede sobreescribirse para el tipo de retorno.
+
+**Orden / concurrencia / ciclo de vida.** La creación ocurre en `registerExtension` (AC-EXT-001.2).
+
+**Dependencias.** AC-SYS-012, AC-EXT-001.2.
+
+**Equivalente Rust propuesto y diferencias observables.** `trait ExtensionId` con `fn apply(&self, system) -> Arc<Self::Ext>`; identidad por `TypeId` del ExtensionId singleton o por dirección de un `static` (Q-EXT-1).
+
+**Aserciones.**
+- A1 `system.hasExtension(TestExtension)`, `TestExtension(system).system == system`, `system.extension(TestExtension).system == system` cuando está en `pekko.extensions`: ExtensionSpec.scala:70-77.
+- A2 desde Java: `hasExtension`, `extension(...).system` y `apply(system).system` son el mismo sistema: JavaExtension.java:83-88.
+- A3 una extensión ad-hoc (no listada en config) se crea al pedirla: JavaExtension.java:90-93.
+- A4 identidad por objeto: derivada del código Extension.scala:123-124 (*no afirmada por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-EXT-1
+
+
+---
+
+## AC-EXT-001.2 — ActorSystemImpl.registerExtension: una instancia por sistema, registro en curso, excepción cacheada, timeout de creación
+
+*unidad EXT · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `registerExtension(ext)` devuelve la instancia existente o la crea una sola vez por sistema aun con llamadas concurrentes; si la creación falla, la excepción queda registrada y se relanza igual en cada intento posterior.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1165-1221`
+
+**Condiciones.**
+- Estado por ExtensionId: `CountDownLatch` (registro en curso), `Throwable` (falló) o la extensión (líneas 1167-1171).
+- `findExtension` con latch: espera `creation-timeout`; si no termina: `IllegalStateException("Initialization of [<ext>] took more than [<ms> ms]. " + (if SerializationExtension "A serializer must not access the SerializationExtension from its constructor. Use lazy init." else "Could be deadlock due to cyclic initialization of extensions."))` (líneas 1177-1189).
+- `createExtension` devuelve null -> `IllegalStateException("Extension instance created as 'null' for extension [<ext>]")` (líneas 1202-1205).
+- Si la creación lanza: `extensions.replace(ext, latch, t)` y se relanza `t`; los demás intentos relanzan `t` (línea 1186: `case t: Throwable => throw t`).
+- Los efectos laterales de la creación fallida NO se revierten (el actor `uniqueName` queda creado: comentario en ExtensionSpec.scala:57-59).
+
+**Orden / concurrencia / ciclo de vida.** El latch se decrementa siempre en `finally`; los reintentos de quien llega durante el registro esperan y releen.
+
+**Dependencias.** AC-CFG-009 (creation-timeout), AC-EXT-001.1, AC-SYS-012.
+
+**Equivalente Rust propuesto y diferencias observables.** Estado `Pending | Failed(Arc<Error>) | Ready(Arc<dyn Any>)` con condvar o `OnceLock`; el fallo debe cachearse (Q-EXT-2).
+
+**Aserciones.**
+- A1 primer intento de `FailingTestExtension(system)` lanza TestException; el segundo lanza la misma excepción: ExtensionSpec.scala:82-97.
+- A2 una instancia por sistema con múltiples nombres en config (duplicados): ExtensionSpec.scala:135-151 (cuenta == 1).
+- A3 mensajes de timeout/null: derivados del código ActorSystem.scala:1182-1187,1203-1205 (*no afirmados por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-EXT-2, Q-X-4
+
+
+---
+
+## AC-EXT-002 — extension() y hasExtension()
+
+*unidad EXT · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** `extension(ext)` devuelve la extensión ya registrada o lanza; `hasExtension(ext)` indica si está registrada (esperando si está en curso).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1223-1228`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:728-742 (firmas en ExtendedActorSystem/ActorSystem)`
+
+**Condiciones.**
+- `extension(ext)` no registrada -> `IllegalArgumentException("Trying to get non-registered extension [<ext>]")` (línea 1224).
+- `hasExtension(ext)` = `findExtension(ext) != null` (puede bloquear hasta `creation-timeout` si hay registro en curso y lanza la excepción cacheada si falló).
+- No crea la extensión.
+
+**Orden / concurrencia / ciclo de vida.** Como `findExtension` (AC-EXT-001.2).
+
+**Dependencias.** AC-EXT-001.2.
+
+**Equivalente Rust propuesto y diferencias observables.** `fn extension<E>() -> Option<Arc<E>>` o `Result`; `has_extension`.
+
+**Aserciones.**
+- A1 `hasExtension` true y `extension(...)` devuelve la instancia con `.system == system`: ExtensionSpec.scala:75-77; JavaExtension.java:85-86.
+- A2 `extension` de una no registrada lanza IllegalArgumentException con el texto indicado: derivada del código ActorSystem.scala:1223-1226 (*no afirmada por spec*).
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-EXT-1
+
+
+---
+
+## AC-EXT-003 — Carga automática desde config (library-extensions / extensions)
+
+*unidad EXT · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+
+**Contrato observable.** Al arrancar el sistema se cargan las extensiones listadas en `pekko.library-extensions` (todas, y un fallo aborta el arranque) y `pekko.extensions` (un fallo se loguea y se sigue).
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1230-1260`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1073 (loadExtensions en el arranque)`
+- `actor/src/main/resources/reference.conf:70-83`
+
+**Condiciones.**
+- Cada FQCN se resuelve con `getObjectFor` (objeto Scala `Name$` o clase) y, si falla, con `createInstanceFor(fqcn, Nil)` (constructor sin args), y si falla ambas se informa el primer problema (líneas 1238-1242).
+- Si el resultado es `ExtensionIdProvider` -> `registerExtension(p.lookup)`; si es `ExtensionId` -> `registerExtension(p)`; otra cosa -> en library-extensions `RuntimeException("[<fqcn>] is not an 'ExtensionIdProvider' or 'ExtensionId'")`, en extensions `log.error("[{}] is not an 'ExtensionIdProvider' or 'ExtensionId', skipping...")` (líneas 1243-1250).
+- Si no se pudo cargar: library -> `RuntimeException("While trying to load extension [<fqcn>]", problem)`; extensions -> `log.error(problem, "While trying to load extension [{}], skipping...", fqcn)` (líneas 1251-1253); texto probado: `While trying to load extension [org.apache.pekko.actor.MissingExtension], skipping.` (ExtensionSpec.scala:117-118).
+- Una extensión de `pekko.extensions` que SÍ se encuentra pero falla al inicializarse hace fallar el arranque (la excepción de `registerExtension` no se captura; ExtensionSpec.scala:99-109); en cambio una que no se encuentra sólo se loguea. El comentario del código ('when the extension cannot be found at all we throw regardless of this setting', ActorSystem.scala:1232-1235) contradice el código y el test ExtensionSpec.scala:111-120: gana el código.
+
+**Orden / concurrencia / ciclo de vida.** library-extensions primero, luego extensions; en orden de lista; antes de `start()` devuelva el sistema.
+
+**Dependencias.** AC-CFG-006, AC-CFG-016, AC-EXT-001.2.
+
+**Equivalente Rust propuesto y diferencias observables.** Registro nombre -> `ExtensionId` (fábrica); las claves de reference.conf (`...SerializationExtension$`) preinstaladas (Q-X-2, Q-CFG-8).
+
+**Aserciones.**
+- A1 extensión listada en `pekko.extensions` queda registrada: ExtensionSpec.scala:70-77.
+- A2 si falla al iniciar -> el sistema no arranca (RuntimeException): ExtensionSpec.scala:99-109.
+- A3 inexistente en `extensions` -> log de error `While trying to load extension [...MissingExtension], skipping.` y sigue: ExtensionSpec.scala:111-120.
+- A4 library-extensions de reference.conf se cargan una sola vez (InstanceCountingExtension) y duplicados no crean instancias extra: ExtensionSpec.scala:122-151.
+- A5 library-extension que falla (`TestException`) o no existe aborta: ExtensionSpec.scala:153-172.
+- A6 Java: `pekko.extensions = ["...JavaExtension$TestExtensionId"]` carga una clase con constructor sin args: JavaExtension.java:73-88.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-X-2, Q-CFG-8
+
+
+---
+
+## AC-EXT-004 — Extensiones provistas por pekko-actor (CoordinatedShutdown, SerializationExtension, IO Tcp/Udp/UdpConnected/Dns, AddressTerminatedTopic, CircuitBreakersRegistry, TypedActor)
+
+*unidad EXT · visibilidad public · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Extensiones que provee pekko-actor y que se cargan como ExtensionId: CoordinatedShutdown, SerializationExtension (library-extensions por defecto), IO (Tcp, Udp, UdpConnected, Dns), AddressTerminatedTopic, CircuitBreakersRegistry, TypedActor. Esta fila es un índice: el comportamiento de cada una pertenece a su unidad.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/actor/CoordinatedShutdown.scala:42`
+- `actor/src/main/scala/org/apache/pekko/serialization/SerializationExtension.scala:24`
+- `actor/src/main/scala/org/apache/pekko/io/Tcp.scala:50`
+- `actor/src/main/scala/org/apache/pekko/pattern/CircuitBreakersRegistry.scala:33`
+- `actor/src/main/scala/org/apache/pekko/event/AddressTerminatedTopic.scala:38`
+
+**Condiciones.**
+- n/a: pendiente de extracción (no se leyeron las extensiones).
+
+**Orden / concurrencia / ciclo de vida.** n/a.
+
+**Dependencias.** AC-EXT-001, AC-CS-*, AC-SER-*, AC-IO-*, AC-ASK-013.
+
+**Equivalente Rust propuesto y diferencias observables.** Cada una como `ExtensionId` propio en su módulo.
+
+**Aserciones.**
+- A1 ninguna extraída aquí; ExtensionSpec sólo cubre extensiones de prueba.
+
+**Oráculo.** No aplica.
+
+**Decisiones.** Q-EXT-3
+
+
+---
+
+## Descomposiciones
+
+El padre desaparece del TSV; los hijos heredan `impl`/`validation` sólo cuando los tests existentes lo demuestran (UTIL-002/003/004 con helpers_spec, done_spec, pekko_exception_spec y el oráculo `util-core`); el resto queda `pending`.
+
+- `AC-UTIL-002` (Helpers: base64 para nombres generados, ConfigOps (getMillisDuration/getNanosDuration), Re) -> `AC-UTIL-002.1`, `AC-UTIL-002.2`, `AC-UTIL-002.3`, `AC-UTIL-002.4`, `AC-UTIL-002.5`
+- `AC-UTIL-003` (Done y NotUsed) -> `AC-UTIL-003.1`, `AC-UTIL-003.2`
+- `AC-UTIL-004` (PekkoException, ConfigurationException, OnlyCauseStackTrace) -> `AC-UTIL-004.1`, `AC-UTIL-004.2`, `AC-UTIL-004.3`
+- `AC-UTIL-005` (PekkoVersion.require, UnsupportedPekkoVersion, util.Version) -> `AC-UTIL-005.1`, `AC-UTIL-005.2`
+- `AC-UTIL-006` (ByteString / CompactByteString / ByteStringBuilder / ByteIterator) -> `AC-UTIL-006.1`, `AC-UTIL-006.2`, `AC-UTIL-006.3`, `AC-UTIL-006.4`, `AC-UTIL-006.5`
+- `AC-UTIL-015` (Switch / ReentrantGuard (LockUtil)) -> `AC-UTIL-015.1`, `AC-UTIL-015.2`
+- `AC-UTIL-016` (Helpers internos: OptionVal, ConstantFun, Collections, ImmutableIntMap, PrettyDuration, Gl) -> `AC-UTIL-016.1`, `AC-UTIL-016.2`, `AC-UTIL-016.3`, `AC-UTIL-016.4`, `AC-UTIL-016.5`, `AC-UTIL-016.6`, `AC-UTIL-016.7`, `AC-UTIL-016.8`, `AC-UTIL-016.9`, `AC-UTIL-016.10`, `AC-UTIL-016.11`, `AC-UTIL-016.12`, `AC-UTIL-016.13`, `AC-UTIL-016.14`, `AC-UTIL-016.15`, `AC-UTIL-016.16`, `AC-UTIL-016.17`, `AC-UTIL-016.18`
+- `AC-UTIL-017` (Estructuras de cache internas: FrequencySketch, FrequencyList, RecencyList, SegmentedRecen) -> `AC-UTIL-017.1`, `AC-UTIL-017.2`, `AC-UTIL-017.3`, `AC-UTIL-017.4`, `AC-UTIL-017.5`
+- `AC-UTIL-018` (Shims de versión de Scala y conversores Java: FutureConverters, OptionConverters, Function) -> `AC-UTIL-018.1`, `AC-UTIL-018.2`, `AC-UTIL-018.3`, `AC-UTIL-018.4`, `AC-UTIL-018.5`
+- `AC-CFG-012` (pekko.actor.deployment: config por path con comodines (dispatcher, mailbox, router, nr-of-) -> `AC-CFG-012.1`, `AC-CFG-012.2`, `AC-CFG-012.3`, `AC-CFG-012.4`
+- `AC-CFG-017` (Formato HOCON usado por reference.conf: sustituciones opcionales, duraciones, tamaños, val) -> `AC-CFG-017.1`, `AC-CFG-017.2`, `AC-CFG-017.3`, `AC-CFG-017.4`, `AC-CFG-017.5`, `AC-CFG-017.6`, `AC-CFG-017.7`
+- `AC-EXT-001` (Extension / ExtensionId / AbstractExtensionId / ExtensionIdProvider: una instancia por sis) -> `AC-EXT-001.1`, `AC-EXT-001.2`
+
+## Omisiones agregadas
+
+- `AC-UTIL-023` — Helpers.makePattern (patrón glob `?`/`*` a java.util.regex.Pattern). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:44-45`.
+- `AC-UTIL-024` — Helpers.compareIdentityHash / identityHashComparator (orden por identityHashCode sin overflow). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:47-69`.
+- `AC-UTIL-025` — Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para logs). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:71-113`.
+- `AC-UTIL-026` — Helpers.isWindows (detección de SO por os.name). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:42`.
+- `AC-CFG-018` — Settings.amendSlf4jConfig: `pekko.use-slf4j` agrega Slf4jLogger/Slf4jLoggingFilter a loggers. Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:333-377`.
+- `AC-CFG-019` — Validación de la config contra reference.conf (`checkValid` con `internal-dispatcher` excluido). Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:395-402`.
+- `AC-CFG-020` — Combinación no soportada coordinated-shutdown: run-by-actor-system-terminate=on con terminate-actor-system=off. Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:474-481`.
+- `AC-PATH-016` — ChildActorPath: validación del nombre en el constructor (`/` y `#` prohibidos). Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:328-335`.
+- Hijos nuevos por archivos de `util/` que ninguna fila citaba por ruta (ya listados dentro de AC-UTIL-016 sólo por nombre de clase): `AC-UTIL-016.2` (ConstantFun), `.3` (Collections), `.4` (ImmutableIntMap), `.10` (JavaVersion), `.12` (ClassLoaderObjectInputStream), `.13` (BoxedType), `.14` (UUIDComparator), `.15` (HashCode), `.17` (ErrorMessages), `.18` (Unused) y `AC-UTIL-017.2/.4` (FrequencyList, SegmentedRecencyList): estos archivos aparecían en `uncited-classic-main.txt`.
+- Tests sin cita previa asignados: ByteStringInitializationSpec, AsciiStringCopySpec, ByteStringTest.java, ByteStringBuilderScala213PlusSpec -> AC-UTIL-006.*; ConstantFunJavaTest.java -> AC-UTIL-016.2; LineNumberSpec* -> AC-UTIL-016.8; ImmutableIntMapSpec -> AC-UTIL-016.4; DoubleLinkedListSpec, FrequencyListSpec, SegmentedRecencyListSpec, ZipfianGenerator -> AC-UTIL-017.*; AddressTest.java -> AC-PATH-001; JavaExtension.java -> AC-EXT-001.1/AC-EXT-003; ActorSystemSetupTest.java y Scala212CompatTest -> AC-CFG-015 / AC-UTIL-018.3 (no leídos).
+
+## Contradicciones halladas y corregidas
+
+- AC-UTIL-015 proponía excluir `Switch` por deprecado: `LockUtil.scala:19-32` marca como `@deprecated` sólo `ReentrantGuard`; `Switch` (líneas 29-155) no lo está. Dividido en `.1` (Switch) y `.2` (ReentrantGuard).
+- AC-UTIL-002 enumeraba base64/ConfigOps/Requiring/toRootLowerCase pero `Helpers.scala` también define `makePattern`, `compareIdentityHash`, `identityHashComparator`, `currentTimeMillisToUTCString`, `timestamp` e `isWindows` (omisiones AC-UTIL-023..026).
+- AC-UTIL-005 `Version` tiene un defecto de comparación (`Version.scala:170-175`) que el inventario no registraba; VersionSpec no lo cubre (Q-UTIL-6).
+- AC-PATH-014 citaba `ActorSelectionSpec.scala:124` como test de igualdad de paths: ese test prueba igualdad de `ActorRef` (incarnation/uid), no de `ActorPath`; ningún spec afirma 'igualdad de paths ignora el uid'. AC-PATH-011 igual (comparte la cita).
+- AC-EXT-003 / ActorSystem.scala:1232-1235: el comentario dice que una extensión no encontrada lanza siempre; el código y ExtensionSpec.scala:111-120 muestran que en `pekko.extensions` sólo se loguea. Gana el código.
+- AC-CFG-012 agrupaba cuatro comportamientos (parseo, búsqueda con comodines, creación de router, claves de resizers): dividido en `.1`..`.4`.
+- AC-CFG-017 agrupaba siete familias de comportamiento del golden de HOCON: dividido en `.1`..`.7` con su familia de ids del golden.
+- AC-CFG-013 no registraba que `Deploy.withFallback` descarta los `tags` (Deployer.scala:109-117): Q-CFG-12.
+- AC-CFG-001 omitía la regla de carga por defecto `ConfigFactory.load(cl)` (ActorSystem.scala:281) y la mezcla `app.withFallback(defaultReference)` (ActorSystem.scala:853): incorporadas al contrato.
+- AC-UTIL-008 citaba EventStreamSpec.scala:150-281 como spec del índice: es un spec de EventStream; no existe spec directo de SubclassifiedIndex, por lo que los diffs devueltos no están afirmados.
+
+## Filas que siguen listed
+
+- `AC-UTIL-006.1` — ByteString inmutable (ByteString1C, ByteString1, ByteStrings; factories, slicing, concatenación, con: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-006.2` — CompactByteString (compactación a ByteString1C): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-006.3` — ByteStringBuilder (append de primitivos con byte order, putBytes, result): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-006.4` — ByteIterator (lectura de primitivos con byte order, getBytes, take/drop): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-006.5` — ByteStringInputStream / ByteStringOutputStream (adaptadores java.io): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-010` — MessageBuffer / MessageBufferMap: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-012` — BoundedBlockingQueue: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-013` — StablePriorityQueue / PriorityQueueStabilizer: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-014` — TypedMultiMap: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.1` — OptionVal (Option sin allocación): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.2` — ConstantFun (funciones constantes/identidad Scala y Java): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.3` — Collections (EmptyImmutableSeq, PartialImmutableValuesIterable): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.4` — ImmutableIntMap (mapa Int->Int inmutable): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.7` — Reflect (findConstructor, findClassLoader, getCallerClass, instantiate): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.8` — LineNumbers (extracción de nombre de archivo/línea desde bytecode de lambdas): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.9` — ManifestInfo (versiones de módulos Pekko en el classpath): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.11` — FlightRecorderLoader (carga de JFR vía reflexión): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.12` — ClassLoaderObjectInputStream: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.13` — BoxedType (primitivo -> clase envoltorio): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.14` — UUIDComparator (orden de UUID de 128 bits): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.15` — HashCode (hash compuesto SEED=23, 37*): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-016.18` — Unused (marcador para silenciar warnings): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-017.1` — FrequencySketch (Count-Min Sketch de 4 bits): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-017.2` — FrequencyList (lista de frecuencias LFU): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-017.3` — RecencyList (LRU por reloj): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-017.4` — SegmentedRecencyList (LRU segmentado): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-017.5` — DoubleLinkedList: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-018.1` — FutureConverters / CompletionStage <-> Future: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-018.2` — OptionConverters / FunctionConverters / JavaDurationConverters: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-018.3` — ccompat (JavaConverters, compat.Future/PartialFunction) y shims de Scala 2.12: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-018.4` — SameThreadExecutionContext (ejecuta el callback inline, 'parasitic'): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-018.5` — ScalaBatchable (marca de ejecución por lotes en 2.12/2.13/3): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-019` — Anotaciones ApiMayChange, DoNotInherit, InternalApi, InternalStableApi: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-020` — Acceso Unsafe y offsets de campos (Unsafe.java, AbstractActorRef, AbstractActorCell, AbstractMailbox: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-021` — Filtros MiMa (compatibilidad binaria): no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-UTIL-022` — UnsynchronizedByteArrayInputStream, ByteStringInputStream, ByteBufferCleaner: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+- `AC-EXT-004` — Extensiones provistas por pekko-actor (CoordinatedShutdown, SerializationExtension, IO Tcp/Udp/UdpCo: no se leyeron la implementación completa ni los cuerpos de los specs citados; ver `notes` para qué falta.
+
+## Cobertura
+
+### A. Archivos de `actor/src/main` de mi área y filas que los cubren
+
+| Archivo | Filas |
+|---|---|
+| `actor/src/main/scala/org/apache/pekko/util/BoundedBlockingQueue.scala` | AC-UTIL-012 |
+| `actor/src/main/scala/org/apache/pekko/util/BoxedType.scala` | AC-UTIL-016.13 |
+| `actor/src/main/scala/org/apache/pekko/util/ClassLoaderObjectInputStream.scala` | AC-UTIL-016.12 |
+| `actor/src/main/scala/org/apache/pekko/util/Collections.scala` | AC-UTIL-016.3 |
+| `actor/src/main/scala/org/apache/pekko/util/ConstantFun.scala` | AC-UTIL-016.2 |
+| `actor/src/main/scala/org/apache/pekko/util/DoubleLinkedList.scala` | AC-UTIL-017.5 |
+| `actor/src/main/scala/org/apache/pekko/util/ErrorMessages.scala` | AC-UTIL-016.17 |
+| `actor/src/main/scala/org/apache/pekko/util/FlightRecorderLoader.scala` | AC-UTIL-016.11 |
+| `actor/src/main/scala/org/apache/pekko/util/FrequencyList.scala` | AC-UTIL-017.2 |
+| `actor/src/main/scala/org/apache/pekko/util/FrequencySketch.scala` | AC-UTIL-017.1 |
+| `actor/src/main/scala/org/apache/pekko/util/Glob.scala` | AC-UTIL-016.6 |
+| `actor/src/main/scala/org/apache/pekko/util/HashCode.scala` | AC-UTIL-016.15, AC-UTIL-024 |
+| `actor/src/main/scala/org/apache/pekko/util/Helpers.scala` | AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-002.4, AC-UTIL-002.5, AC-UTIL-023 … |
+| `actor/src/main/scala/org/apache/pekko/util/ImmutableIntMap.scala` | AC-UTIL-016.4 |
+| `actor/src/main/scala/org/apache/pekko/util/Index.scala` | AC-UTIL-007, AC-UTIL-008, AC-UTIL-009, AC-CFG-012.2 |
+| `actor/src/main/scala/org/apache/pekko/util/JavaVersion.scala` | AC-UTIL-016.10 |
+| `actor/src/main/scala/org/apache/pekko/util/LineNumbers.scala` | AC-UTIL-016.8 |
+| `actor/src/main/scala/org/apache/pekko/util/LockUtil.scala` | AC-UTIL-015.1, AC-UTIL-015.2 |
+| `actor/src/main/scala/org/apache/pekko/util/ManifestInfo.scala` | AC-UTIL-016.9 |
+| `actor/src/main/scala/org/apache/pekko/util/MessageBuffer.scala` | AC-UTIL-010 |
+| `actor/src/main/scala/org/apache/pekko/util/OptionVal.scala` | AC-UTIL-016.1 |
+| `actor/src/main/scala/org/apache/pekko/util/PrettyDuration.scala` | AC-UTIL-016.5 |
+| `actor/src/main/scala/org/apache/pekko/util/RecencyList.scala` | AC-UTIL-017.3, AC-UTIL-017.4 |
+| `actor/src/main/scala/org/apache/pekko/util/Reflect.scala` | AC-UTIL-016.7, AC-CFG-016 |
+| `actor/src/main/scala/org/apache/pekko/util/SegmentedRecencyList.scala` | AC-UTIL-017.4 |
+| `actor/src/main/scala/org/apache/pekko/util/SerializedSuspendableExecutionContext.scala` | AC-DSP-018 (otra unidad; fuera de mi grupo) |
+| `actor/src/main/scala/org/apache/pekko/util/StablePriorityQueue.scala` | AC-UTIL-013 |
+| `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala` | AC-UTIL-008 |
+| `actor/src/main/scala/org/apache/pekko/util/Timeout.scala` | AC-UTIL-001 |
+| `actor/src/main/scala/org/apache/pekko/util/TokenBucket.scala` | AC-UTIL-011 |
+| `actor/src/main/scala/org/apache/pekko/util/TypedMultiMap.scala` | AC-UTIL-014 |
+| `actor/src/main/scala/org/apache/pekko/util/UUIDComparator.scala` | AC-UTIL-016.14 |
+| `actor/src/main/scala/org/apache/pekko/util/Unused.scala` | AC-UTIL-016.18 |
+| `actor/src/main/scala/org/apache/pekko/util/Version.scala` | AC-UTIL-005.1, AC-UTIL-005.2, AC-UTIL-016.10 |
+| `actor/src/main/scala/org/apache/pekko/util/WallClock.scala` | AC-UTIL-016.16 |
+| `actor/src/main/scala/org/apache/pekko/util/WildcardIndex.scala` | AC-UTIL-009, AC-CFG-012.2 |
+| `actor/src/main/scala-2.13/org/apache/pekko/util/ByteIterator.scala` | AC-UTIL-006.4 |
+| `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala` | AC-UTIL-006.1, AC-UTIL-006.2, AC-UTIL-006.3, AC-UTIL-006.5, AC-UTIL-022 |
+| `actor/src/main/scala-2.13/org/apache/pekko/util/FutureConverters.scala` | AC-UTIL-018.1 |
+| `actor/src/main/scala-2.13/org/apache/pekko/util/OptionConverters.scala` | AC-UTIL-018.2 |
+| `actor/src/main/scala-2/org/apache/pekko/util/JavaDurationConverters.scala` | AC-UTIL-001, AC-UTIL-018.2 |
+| `actor/src/main/scala-3/org/apache/pekko/util/ByteIterator.scala` | AC-UTIL-006.4 |
+| `actor/src/main/scala-3/org/apache/pekko/util/ByteString.scala` | AC-UTIL-006.1, AC-UTIL-006.2, AC-UTIL-006.3, AC-UTIL-006.5, AC-UTIL-022 |
+| `actor/src/main/scala-3/org/apache/pekko/util/FutureConverters.scala` | AC-UTIL-018.1 |
+| `actor/src/main/scala-3/org/apache/pekko/util/JavaDurationConverters.scala` | AC-UTIL-001, AC-UTIL-018.2 |
+| `actor/src/main/scala-3/org/apache/pekko/util/OptionConverters.scala` | AC-UTIL-018.2 |
+| `actor/src/main/java/org/apache/pekko/util/Unsafe.java` | AC-UTIL-020 |
+| `actor/src/main/java/org/apache/pekko/annotation/ApiMayChange.java` | AC-UTIL-019 |
+| `actor/src/main/java/org/apache/pekko/annotation/DoNotInherit.java` | AC-UTIL-019 |
+| `actor/src/main/java/org/apache/pekko/annotation/InternalApi.java` | AC-UTIL-019 |
+| `actor/src/main/java/org/apache/pekko/annotation/InternalStableApi.java` | AC-UTIL-019 |
+| `actor/src/main/java/org/apache/pekko/io/ByteBufferCleaner.java` | AC-UTIL-022 |
+| `actor/src/main/java/org/apache/pekko/io/UnsynchronizedByteArrayInputStream.java` | AC-UTIL-022 |
+| `actor/src/main/scala/org/apache/pekko/Done.scala` | AC-UTIL-003.1 |
+| `actor/src/main/scala/org/apache/pekko/Main.scala` | AC-SYS-021 (otra unidad; fuera de mi grupo) |
+| `actor/src/main/scala/org/apache/pekko/NotUsed.scala` | AC-UTIL-003.2 |
+| `actor/src/main/scala/org/apache/pekko/PekkoException.scala` | AC-UTIL-004.1, AC-UTIL-004.2, AC-UTIL-004.3 |
+| `actor/src/main/scala/org/apache/pekko/PekkoVersion.scala` | AC-UTIL-005.1 |
+| `actor/src/main/scala/org/apache/pekko/actor/Address.scala` | AC-PATH-001, AC-PATH-002, AC-PATH-003, AC-PATH-004, AC-PATH-005, AC-PATH-006 … |
+| `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala` | AC-PATH-005, AC-PATH-006, AC-PATH-007, AC-PATH-008, AC-PATH-009, AC-PATH-010 … |
+| `actor/src/main/scala/org/apache/pekko/actor/Extension.scala` | AC-EXT-001.1, AC-EXT-001.2, AC-EXT-002, AC-EXT-004 |
+| `actor/src/main/scala/org/apache/pekko/actor/Deployer.scala` | AC-CFG-012.1, AC-CFG-012.2, AC-CFG-012.3, AC-CFG-013 |
+| `actor/src/main/scala/org/apache/pekko/actor/DynamicAccess.scala` | AC-CFG-012.3, AC-CFG-016 |
+| `actor/src/main/scala/org/apache/pekko/actor/ReflectiveDynamicAccess.scala` | AC-CFG-016 |
+| `actor/src/main/scala/org/apache/pekko/actor/setup/ActorSystemSetup.scala` | AC-CFG-015 |
+| `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala (BootstrapSetup, ProviderSelection, Settings, extensiones)` | AC-CFG-001..011, AC-CFG-015, AC-CFG-018..020, AC-EXT-001.2, AC-EXT-002, AC-EXT-003 |
+| `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:390-404 (undefinedUid, newUid, splitNameAndUid)` | AC-PATH-011 |
+| `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:396-455 (paths especiales)` | AC-PATH-015 |
+| `actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:541-562 (IgnoreActorRef)` | AC-PATH-015 |
+| `actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:171-223, Children.scala:283-307` | AC-CFG-010 |
+| `actor/src/main/boilerplate/org/apache/pekko/{function,tuple}/** (plantillas de interfaces funcionales y tuplas Java)` | AC-JAPI-* (otra unidad; fuera de mi grupo, no leído) |
+| `actor/src/main/scala-2.12/**, actor/src/main/scala-2.13+/**` | AC-UTIL-018.* (shims de versión de Scala; sin comportamiento observable para Rust) |
+| `actor/src/main/mima-filters/**` | AC-UTIL-021 (compatibilidad binaria; sin comportamiento de runtime) |
+| `actor/src/main/resources/reference.conf (1443 líneas)` | ver sección B |
+
+### B. `reference.conf`: cada sección/clave y su unidad dueña
+
+Leído completo (1443 líneas). Las claves marcadas con unidad ajena no tienen fila en mi grupo; el dueño es la fila indicada, que debe cubrirlas.
+
+| Líneas | Sección / clave | Unidad dueña | Fila(s) |
+|---|---|---|---|
+| 10-11 | `include "version"` (pekko.version generado) | CFG | AC-CFG-003, AC-CFG-017.6 |
+| 13-15 | `pekko.home` | CFG | AC-CFG-007 |
+| 17-19 | `pekko.loggers` | CFG | AC-CFG-004, AC-CFG-018 |
+| 21-28 | `pekko.logging-filter` | CFG | AC-CFG-004 (comportamiento del filtro: AC-EVT-016) |
+| 30-31 | `pekko.loggers-dispatcher` | CFG | AC-CFG-004 (dispatcher: AC-DSP-006) |
+| 33-36 | `pekko.logger-startup-timeout` | CFG | AC-CFG-004 |
+| 38-46 | `pekko.loglevel`, `pekko.stdout-loglevel` | CFG | AC-CFG-004 |
+| 48-50 | `pekko.log-config-on-start` | CFG | AC-CFG-004 |
+| 52-68 | `pekko.log-dead-letters`, `-during-shutdown`, `-suspend-duration` | CFG | AC-CFG-005 (EVT-009) |
+| 70-83 | `pekko.library-extensions`, `pekko.extensions` | CFG | AC-CFG-006, AC-EXT-003 |
+| 85-110 | `daemonic`, `jvm-exit-on-fatal-error`, `jvm-shutdown-hooks`, `fail-mixed-versions`, `java-flight-recorder.enabled` | CFG | AC-CFG-007 (SYS-015, CS-007) |
+| 112-118 | `pekko.actor.provider` | CFG | AC-CFG-008 |
+| 120-123 | `guardian-supervisor-strategy` | CFG | AC-CFG-009 (SUP-014) |
+| 125-127 | `creation-timeout` | CFG | AC-CFG-009, AC-EXT-001.2 |
+| 129-140 | `serialize-messages`, `serialize-creators`, `no-serialization-verification-needed-class-prefix` | CFG | AC-CFG-010 |
+| 142-145 | `unstarted-push-timeout` | CFG | AC-CFG-009 (REF-020) |
+| 147-152 | `pekko.actor.typed.timeout` | CFG | AC-CFG-009 |
+| 154-171 | `pekko.actor.router.type-mapping` | CFG | AC-CFG-014 |
+| 173-233 | `deployment.default` (dispatcher, mailbox, router, nr-of-instances, within, virtual-nodes-factor, tail-chopping-router.interval, routees.paths) | CFG | AC-CFG-012.1, AC-CFG-012.3 |
+| 235-242 | `pool-dispatcher` (sólo comentario) | CFG/RT | AC-CFG-012.4 (consumidor: AC-RT) |
+| 244-290 | `deployment.default.resizer` | CFG/RT | AC-CFG-012.4, AC-RT-013 |
+| 291-346 | `deployment.default.optimal-size-exploring-resizer` | CFG/RT | AC-CFG-012.4, AC-RT-014 |
+| 349-363 | `deployment` `/IO-DNS/*` | IO | AC-IO-011 (AC-CFG-012.1 para el parseo) |
+| 366-608 | `pekko.actor.default-dispatcher` y sub-secciones (executors, throughput, shutdown-timeout, attempt-teamwork, mailbox-requirement) | DSP | AC-DSP-001, 003, 005, 008, 009, 010, 013, 014 |
+| 610-630 | `internal-dispatcher`, `default-blocking-io-dispatcher` | DSP | AC-DSP-006 |
+| 631-654 | `default-mailbox` (mailbox-type, capacity, push-timeout, stash-capacity) | MBX | AC-MBX-005, 007, 016 |
+| 656-735 | `pekko.actor.mailbox` (requirements, unbounded/bounded/deque/control-aware, logger-queue) | MBX/EVT | AC-MBX-014, AC-EVT-020 |
+| 736-759 | `pekko.actor.debug.*` | CFG | AC-CFG-011 |
+| 760-797 | `allow-java-serialization`, `serialization-max-nesting-depth`, `warn-about-java-serializer-usage`, `warn-on-no-serialization-verification` | SER | AC-SER-004, AC-SER-009 |
+| 800-850 | `serializers`, `serialization-bindings`, `serialization-identifiers` | SER | AC-SER-003 |
+| 851-863 | `pekko.serialization.max-decompressed-size` | SER | AC-SER-010 (formato `unlimited`: AC-CFG-017.5) |
+| 865-880 | `pekko.serialization.protobuf` (whitelist-class, allowed-classes) | SER | AC-SER-012 (sustitución `${...}`: AC-CFG-017.1) |
+| 886-927 | `pekko.scheduler` | SCH | AC-SCH-008, AC-SCH-010 |
+| 930-938 | `pekko.io.pinned-dispatcher` | IO | AC-IO-011 |
+| 940-1026 | `pekko.io.tcp` | IO | AC-IO-003 (tamaños y `unlimited`: AC-CFG-017.3/.5) |
+| 1028-1082 | `pekko.io.udp` | IO | AC-IO-006 (`select-timeout = infinite`: AC-CFG-017.5) |
+| 1084-1138 | `pekko.io.udp-connected` | IO | AC-IO-007 |
+| 1140-1243 | `pekko.io.dns` (inet-address, async-dns) | IO | AC-IO-008, AC-IO-009 (`forever`, `never`, `default`: AC-CFG-017.5) |
+| 1245-1400 | `pekko.coordinated-shutdown` (flags, reason-overrides, phases) | CS | AC-CS-001, 002, 005, 006, 009; AC-CFG-020 |
+| 1408-1440 | `pekko.circuit-breaker.default` | ASK | AC-ASK-011, 012, 013 |
+
+No existen claves de `reference.conf` sin dueño; `pekko.use-slf4j` no está en este archivo (la define `actor-typed/src/main/resources/reference.conf:68`) y se cubre en AC-CFG-018.
+
+### C. Tests de mi área y filas que los usan
+
+| Test | Filas |
+|---|---|
+| `actor-tests/.../actor/ActorTimeoutSpec.scala` | AC-UTIL-001 (pertenece a AC-ASK-001) |
+| `actor-tests/.../PekkoExceptionSpec.scala` | AC-UTIL-004.1 |
+| `actor-tests/.../PekkoVersionSpec.scala` | AC-UTIL-005.1 |
+| `actor-tests/.../util/VersionSpec.scala` | AC-UTIL-005.2 |
+| `actor-tests/.../util/IndexSpec.scala` | AC-UTIL-007 |
+| `actor-tests/.../event/EventStreamSpec.scala:150-281` | AC-UTIL-008 (indirecto) |
+| `actor-tests/.../util/WildcardIndexSpec.scala` | AC-UTIL-009, AC-CFG-012.2 |
+| `actor-tests/.../util/MessageBufferSpec.scala` | AC-UTIL-010 (listed) |
+| `actor-tests/.../util/TokenBucketSpec.scala` | AC-UTIL-011 |
+| `actor-tests/.../util/BoundedBlockingQueueSpec.scala` | AC-UTIL-012 (listed) |
+| `actor-tests/.../util/SwitchSpec.scala` | AC-UTIL-015.1 |
+| `actor-tests/.../util/GlobSpec.scala` | AC-UTIL-016.6, AC-UTIL-023 |
+| `actor-tests/.../util/PrettyDurationSpec.scala` | AC-UTIL-016.5 |
+| `actor-tests/.../util/DurationSpec.scala` | n/a: prueba `scala.concurrent.duration.Duration` (biblioteca estándar de Scala), no un contrato de Pekko; no se porta (plan AC-UTIL) |
+| `actor-tests/.../config/ConfigSpec.scala` | AC-CFG-001..005, 007, 011, 018 |
+| `actor-tests/.../actor/DeployerSpec.scala` | AC-CFG-012.*, 013, 014 |
+| `actor-tests/.../actor/ProviderSelectionSpec.scala` | AC-CFG-008 |
+| `actor-tests/.../actor/setup/ActorSystemSetupSpec.scala` | AC-CFG-015 |
+| `actor-tests/.../actor/DynamicAccessSpec.scala` | AC-CFG-016 |
+| `actor-tests/.../actor/ExtensionSpec.scala, java/.../JavaExtension.java` | AC-EXT-001.*, 002, 003, AC-CFG-006 |
+| `actor-tests/.../actor/ActorPathSpec.scala` | AC-PATH-001, 003..008, 010..013 |
+| `actor-tests/.../actor/AddressSpec.scala, java/.../AddressTest.java` | AC-PATH-001, 002 |
+| `actor-tests/.../actor/RelativeActorPathSpec.scala` | AC-PATH-005 |
+| `actor-tests/.../actor/LocalActorRefProviderSpec.scala:70-100,160-200` | AC-PATH-008, 015 |
+| `actor-tests/.../pattern/AskSpec.scala:248-262` | AC-PATH-015 |
+| `actor-tests/.../serialization/SerializeSpec.scala:310-361, actor/dungeon/DispatchSpec.scala` | AC-CFG-010 |
+| `actor-tests/.../event/LoggerSpec.scala, LoggingReceiveSpec.scala, actor/DeadLetterSuspensionSpec.scala, actor/CoordinatedShutdownSpec.scala:620-659, actor/ActorSystemSpec.scala:325-364` | AC-CFG-004, 005, 007, 009, 011 |
+| `Specs de ByteString, ImmutableIntMap, cachés, Reflect, ManifestInfo, LineNumber, ConstantFunJavaTest, SameThreadExecutionContextSpec, ByteBufferCleanerSpec, UnsynchronizedByteArrayInputStreamSpec` | AC-UTIL-006.*, 016.*, 017.*, 018.*, 022 (listed; sin aserciones extraídas) |
+
+### D. Archivos que no definen comportamiento observable
+
+- `actor/src/main/java/org/apache/pekko/annotation/*.java` (AC-UTIL-019): anotaciones de estabilidad de API, sin efecto en runtime.
+- `actor/src/main/mima-filters/**` (AC-UTIL-021): filtros de compatibilidad binaria del build.
+- `util/Unused.scala`, `util/BoxedType.scala`, `util/OptionVal.scala` (AC-UTIL-016.18/.13/.1): optimizaciones o supresión de avisos del compilador de Scala; en Rust no hay equivalente porque el lenguaje no los necesita (no leídos a fondo).
+- `actor/src/main/scala-2.12/**` y `scala-2.13+/ccompat`: shims para versiones de Scala que Rust no tiene (AC-UTIL-018.3).
+
+*Totales del grupo:* 114 filas (extracted 77, listed 37); 28 decisiones.
+
