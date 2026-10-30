@@ -6,7 +6,9 @@
 pub mod actor;
 mod done;
 mod not_used;
+mod pekko_exception;
 pub mod util;
 
 pub use done::Done;
 pub use not_used::NotUsed;
+pub use pekko_exception::{ConfigurationException, PekkoException};
