@@ -223,6 +223,10 @@ def oracle_for(s):
     if s["unit"][0] == "AT" and u == "TK": return "jars pekko-actor-typed; el jar `pekko-actor-testkit-typed` NO está en tools/oracle/fetch-jars.sh: agregarlo con su SHA-1 es parte de la primera tarea"
     return "valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comportamiento con actores: Pekko compilado desde upstream/pekko vía `tools/oracle/sbt.sh` (procedencia: commit 9a54d12); donde ningún oráculo es ejecutable, la aserción es el cuerpo del spec de Pekko portado 1:1"
 
+def cell(txt):
+    """A value inside a Markdown table cell: a literal `|` would split the column."""
+    return txt.replace("|", "\\|")
+
 def first(txt, n=110):
     txt = re.sub(r'\s+', ' ', txt).strip()
     return txt if len(txt) <= n else txt[:n - 1].rsplit(' ', 1)[0] + "…"
@@ -281,7 +285,7 @@ for s in order:
     for t in s["tasks"]:
         for r in t:
             val = first(r["tests"], 90) if r["tests"].strip() not in ("", "-") else "derivada del código (ver bloque de contrato)"
-            L.append(f"| {r['id']} | {first(r['feature'], 80)} | {first(r['rust_equivalent'], 90)} | {val} | {', '.join(sorted(row_decisions[r['id']])) or '-'} |".replace("\n", " "))
+            L.append(f"| {r['id']} | {cell(first(r['feature'], 80))} | {cell(first(r['rust_equivalent'], 90))} | {cell(val)} | {', '.join(sorted(row_decisions[r['id']])) or '-'} |".replace("\n", " "))
     L.append("")
     L.append("## Gates y criterio de cierre\n")
     L.append(GATES + "\n")

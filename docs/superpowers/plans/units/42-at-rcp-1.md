@@ -55,7 +55,7 @@ Filas: AT-RCP-005.3, AT-RCP-006, AT-RCP-007, AT-RCP-008. Contratos y aserciones:
 | AT-RCP-005.2 | Subscribe / Listing y Find: Subscribe y Listing inicial/incremental | enum ReceptionistCommand::{Find,Subscribe}; struct… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-3 |
 | AT-RCP-005.3 | Subscribe / Listing y Find: Listing: accesores y chequeo de clave | enum ReceptionistCommand::{Find,Subscribe}; struct… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-1 |
 | AT-RCP-006 | Desregistro automatico al terminar | Observacion de terminacion via watch_with(RegisteredActorTerminated) sobre el estado del… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | - |
-| AT-RCP-007 | ReceptionistSetup (reemplazo para tests) | ReceptionistSetup::new(|system| Receptionist) pasado al builder del sistema. | Sin test dedicado (el mecanismo comun lo cubre ExtensionsSpec) | - |
+| AT-RCP-007 | ReceptionistSetup (reemplazo para tests) | ReceptionistSetup::new(\|system\| Receptionist) pasado al builder del sistema. | Sin test dedicado (el mecanismo comun lo cubre ExtensionsSpec) | - |
 | AT-RCP-008 | Extractores ServiceKey.Listing / ServiceKey.Registered | ServiceKey::match_listing(&Listing)->Option<Set<ActorRef<M>>> y match_registered. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/RoutersSpec.scala:… | - |
 
 ## Gates y criterio de cierre

@@ -74,7 +74,7 @@ Filas: AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.1, AC
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-UTIL-001 | Timeout (duración para ask/resolveOne) | `pub struct Timeout(i64)` Copy: nanosegundos con signo, invariante único |nanos| <=… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorTimeoutSpec.scala:34-45… | Q-UTIL-1, Q-UTIL-2 |
+| AC-UTIL-001 | Timeout (duración para ask/resolveOne) | `pub struct Timeout(i64)` Copy: nanosegundos con signo, invariante único \|nanos\| <=… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorTimeoutSpec.scala:34-45… | Q-UTIL-1, Q-UTIL-2 |
 | AC-UTIL-002.1 | Helpers.base64 / base64chars (nombres generados `$a`, temp paths) | `util::helpers::base64(i64) -> String`, `base64_append(i64, &mut String)` | derivada del código (ver bloque de contrato) | - |
 | AC-UTIL-002.2 | Helpers.toRootLowerCase | `to_root_lower_case(&str) -> String` (= `str::to_lowercase`) | derivada del código (ver bloque de contrato) | Q-UTIL-7, Q-X-9 |
 | AC-UTIL-002.3 | Helpers.Requiring (requiring con IllegalArgumentException) | trait `util::helpers::Requiring` con `requiring` y `requiring_with` -> `Result<A,… | derivada del código (ver bloque de contrato) | Q-UTIL-3, Q-X-9 |
