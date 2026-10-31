@@ -880,7 +880,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** PostStop: se emite cuando el actor y todos sus hijos (transitivamente) terminaron; Terminated llega a los watchers solo despues; no se emite en restart; un Deferred sin arrancar no recibe PostStop.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:47-61; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:325-336; docs/src/main/paradox/typed/actor-lifecycle.md:159-189 (no leido en detalle) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:47-61; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:325-336; docs/src/main/paradox/typed/actor-lifecycle.md:159-189 (leido: confirma que PostStop se emite al parar y que NO se emite en un restart; los ejemplos GracefulStopDocSpec/Test son de documentacion y no afirman mas) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: postStop del adaptador cancela timers, interpreta PostStop sobre el Behavior vigente (no arranca Deferred) y lo reemplaza por Stopped. Efectos: ctx.clearMdc.
 
@@ -1208,7 +1208,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** watchWith(other, msg): en vez de Terminated entrega msg propio como mensaje; idempotente con el mismo msg; con otro msg o tras watch lanza IllegalStateException; para cambiarlo hay que hacer unwatch primero. La estrategia de restart revoca el watchWith previo sobre los hijos para esperar su terminacion.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:178-191; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:110-113; docs/src/main/paradox/typed/actor-lifecycle.md:202-215 (no leido en detalle); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:421-428 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:178-191; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:110-113; docs/src/main/paradox/typed/actor-lifecycle.md:202-215 (leido: describe watchWith como alternativa a Terminated; sin reglas adicionales); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:421-428 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores: ver AT-CTX-005 (mismo mensaje clasico). Limites: msg es del tipo T del actor. Efectos: al terminar el sujeto se encola msg (no una senal).
 
@@ -1283,6 +1283,8 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 - A1: setReceiveTimeout(1.nano, msg) entrega el mensaje de timeout — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:578-595
 
 - A2: setReceiveTimeout(1 minute) no interfiere con scheduleOnce ni con mensajes normales — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:597-623
+
+- A3: La regla de reinicio del plazo (cada mensaje lo reinicia salvo los `NotInfluenceReceiveTimeout`; cambiar el timeout dentro del handler de un mensaje marcado surte efecto) la fija el `ActorCell` clasico y la afirma `ReceiveTimeoutSpec` clasico, no un spec typed — actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:151-297 (detalle por prueba en AT-TMR-007.2, A1-A4). Los dos tests typed de A1/A2 no ejercitan el reinicio por trafico: A1 solo verifica entrega con 1 ns y A2 solo verifica que un plazo de 1 minuto no dispara. Caracterizacion propuesta (oraculo, tiempos con reloj inyectable): timeout de 50 ms con un mensaje normal cada 20 ms => no dispara; sin trafico => dispara y se vuelve a disparar periodicamente cada 50 ms (la propia entrega de `ReceiveTimeout` no es del marker, asi que el `ActorCell` reprograma: `ReceiveTimeout.scala:40-42`), hasta `cancelReceiveTimeout`.
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): timeout de 50 ms con trafico periodico de 20 ms y sin trafico
 
@@ -1528,31 +1530,39 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 ## AT-CTX-017 — TypedActorContext / asScala / asJava y ClassicActorContextProvider
 
-*Visibilidad:* public · *analysis:* listed · *impl/validation:* pending/pending
+*Visibilidad:* public · *analysis:* extracted · *impl/validation:* pending/pending
 
-**Contrato observable.** TypedActorContext / asScala / asJava y ClassicActorContextProvider: el contexto comun a ambos DSL; permite obtener el contexto clasico (toClassic) solo si es un ActorContextAdapter.
+**Contrato observable.** `TypedActorContext[T]` es el contexto comun a ambos DSL (`asScala`, `asJava` devuelven la misma instancia: `ActorContextImpl` implementa los dos, `ActorContextImpl.scala:133-135`), y el puente al contexto clasico: `ctx.toClassic` / `ctx.actorOf(props[, name])` (extensiones `TypedActorContextOps`, `scaladsl/adapter/package.scala:142-152`) y `Adapter.toClassic(ctx)` / `Adapter.actorOf(ctx, ...)` (javadsl). El contexto clasico se obtiene solo si el contexto typed es un `ActorContextAdapter`; en caso contrario se lanza `UnsupportedOperationException`. `actorOf` crea un hijo CLASICO del actor typed (hijo directo del `ActorCell` subyacente, no de una capa typed). Las demas extensiones del mismo `package object` (spawn/watch/unwatch/stop sobre contexto clasico, toTyped/toClassic de refs, sistemas y schedulers) se contratan en AT-ADP-*; aqui solo se fija la frontera del contexto.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/TypedActorContext.scala:17-37; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:50-58; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:28-41 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/TypedActorContext.scala:25-37; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/package.scala:142-152; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:26-42, 47-58; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:133-135; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:50-58 | reference.conf: n/a (sin clave asociada a esta fila)
 
-**Condiciones.** Errores (texto exacto): UnsupportedOperationException("Only adapted classic ActorContext permissible (<ctx> of class <clase>)") si el contexto no es adaptado (CTXA 32-34). Efectos: ninguno.
+**Precondiciones.** Cualquier `TypedActorContext` (el trait es `@DoNotInherit`, `TypedActorContext.scala:24`). Para `toClassic`/`actorOf` el contexto debe ser un `ActorContextAdapter` (el que el runtime entrega a los Behaviors de actores reales).
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** `toClassic(ctx)` devuelve `adapter.classicContext` (`ActorContextAdapter.scala:30`). `ctx.actorOf(props)` y `ctx.actorOf(props, name)` delegan sin transformar en `classicContext.actorOf`, de modo que nombre, supervision y destino son los de un hijo clasico normal; la supervision del hijo la decide el `supervisorStrategy` del `ActorAdapter` padre (AT-SUP-021). `asScala`/`asJava` no copian: devuelven `this`.
 
-**Dependencias.** AT-ADP-004; AT-JAPI-005
+**Errores.** `UnsupportedOperationException("Only adapted classic ActorContext permissible (<ctx> of class <clase>)")` si el contexto no es `ActorContextAdapter` (p. ej. los contextos de `BehaviorTestKit`, grupo TK), en el momento de la llamada (`ActorContextAdapter.scala:31-34`). Los errores de `actorOf` son los del clasico (AC-CELL / AC-PATH: nombre invalido o duplicado), no se transforman.
 
-**Equivalente Rust propuesto.** Un unico ActorContext<M> en Rust (no hay dos DSL). **Diferencias observables:** Una sola forma de contexto; la dualidad scaladsl/javadsl desaparece.
+**Orden / concurrencia.** `toClassic`/`actorOf` no llaman a `checkCurrentActorThread` (a diferencia de `spawn`, `children`, `stop`): la comprobacion de hilo solo cubre los metodos del `ActorContextAdapter` (`ActorContextAdapter.scala:59-104`), no las extensiones del package object. Usar el `classic.ActorContext` obtenido fuera del hilo del actor es tan inseguro como en clasico (sin proteccion).
+
+**Dependencias.** AT-ADP-004; AT-JAPI-005; AT-CTX-002; AT-SUP-021; Q-X-8
+
+**Equivalente Rust propuesto.** Un unico `ActorContext<M>` (no hay dos DSL; `asScala`/`asJava` desaparecen: no hay diferencia observable, eran la identidad). La parte de puente (`to_classic()`, `actor_of`) existe solo si Q-X-8 mantiene una capa Classic; en ese caso `to_classic()` devuelve `Result<&ClassicContext, NotAdaptedContext>` (o `Option`) en lugar de lanzar. **Diferencias observables:** en un diseño nativo (Q-X-8 opcion b) `actorOf` clasico y `toClassic` quedan fuera de la superficie; la unica forma de contexto es la tipada. Sin Q-X-8 resuelta no se cierra el comportamiento del puente.
 
 **Aserciones.**
 
-- A1: Un actor typed puede crear hijos clasicos via el contexto (actorOf) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpec.scala:291-297
+- A1: Un actor typed crea un hijo clasico con `context.actorOf(props)` y le habla (ping/ok) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpec.scala:291-297 (el actor typed1 ejecuta `context.actorOf(classic1)` en AdapterSpec.scala:78-79; el test afirma `probe.expectMsg("ok")`).
 
-- A2: El texto de UnsupportedOperationException para contextos no adaptados; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:32-34
+- A2: `ctx.actorOf(props, name)` (sobrecarga con nombre) y `Adapter.actorOf(ctx, props, name)` (javadsl, actor-typed/src/main/scala/org/apache/pekko/actor/typed/javadsl/Adapter.scala:138-141) no estan afirmadas por spec (los specs solo usan la sobrecarga sin nombre: AdapterSpec.scala:79, 87, 93, 97, 153). Caracterizacion propuesta: el hijo se llama `name` y `context.child(name)` lo devuelve como `ActorRef[Nothing]`.
 
-**Oraculo.** no aplica: estructural.
+- A3: El texto de UnsupportedOperationException para contextos no adaptados; no afirmada por spec (ningun spec de actor-typed-tests invoca `toClassic` sobre un contexto no adaptado: busqueda de `Only adapted classic` solo encuentra la fuente) — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:32-34. Caracterizacion propuesta: oraculo que invoque `Adapter.toClassic` con un contexto de `StubbedActorContext`.
 
-**Decisiones.** Q-X-8
+- A4: `asScala` y `asJava` devuelven el mismo objeto; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:133-135.
 
-**Estado.** `listed`: Falta leer scaladsl/adapter/package.scala (implicits toClassic de contexto; grupo ADP). La dualidad scaladsl/javadsl desaparece en Rust.
+**Validacion prevista.** A1: test portado (requiere capa clasica, Q-X-8); A2/A3: caracterizacion con oraculo (`tools/oracle/run.sh`, escenario nuevo que invoca `toClassic` con un contexto adaptado y con uno de testkit); A4 se vuelve estructural en Rust (no aplica).
+
+**Oraculo.** Escenario .jsh nuevo (no existe aun): `Adapter.toClassic(ctx)` dentro de un actor real, y con `StubbedActorContext` para capturar el texto de la excepcion.
+
+**Decisiones.** Q-X-8 y Q-T-CTX-4 (nueva: el puente solo existe con capa clasica; sin la respuesta del Owner el comportamiento A1-A3 queda no ejecutable pero el contrato esta cerrado). Q-T-CTX-2 no aplica (no hay chequeo de hilo en estas extensiones).
 
 ## AT-CTX-018 — spawnMessageAdapter (interno) y hooks internos onUnhandled/currentBehavior/cancelAllTimers/clearMdc
 
@@ -1788,7 +1798,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** ActorSystem.apply/create(guardianBehavior, name[, config|setup|bootstrapSetup][, guardianProps]): crea un ActorSystem clasico (ActorSystemImpl) cuyo guardian de usuario ejecuta el Behavior typed; valida el Behavior inicial y exige que este vivo; carga la config con ConfigFactory.load(classLoader) salvo que se pase; los Props del guardian (mailbox, dispatcher) se aplican al guardian; envia GuardianStartupBehavior.Start al terminar de arrancar.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:221-331; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:143-156; docs/src/main/paradox/typed/actor-lifecycle.md:71-90 (no leido en detalle) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:221-331; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:143-156; docs/src/main/paradox/typed/actor-lifecycle.md:71-90 (leido: el actor guardian es el Behavior pasado al ActorSystem; al parar el guardian se para el sistema; terminate() usa Coordinated Shutdown) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: createInternal => ActorSystemImpl con guardian PropsAdapter(rethrowTypedFailure=false) + system.start() + guardian ! Start + AdapterExtension(system).adapter. Errores: Behavior same/unhandled => IllegalArgumentException("cannot use Same as initial behavior"); Behavior no vivo (stopped) => IllegalArgumentException("requirement failed") por require sin mensaje (ActorSystem.scala:303-304). Efectos: arranca scheduler, dispatchers, logging (SLF4J), CoordinatedShutdown, extensiones (AT-EXT) y cargadores definidos por reference.conf.
 
@@ -2016,31 +2026,39 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 ## AT-SYS-007.3 — ActorSystem.log, logConfiguration y printTree
 
-*Visibilidad:* public · *analysis:* listed · *impl/validation:* pending/pending
+*Visibilidad:* public · *analysis:* extracted · *impl/validation:* pending/pending
 
-**Contrato observable.** log es un Logger SLF4J con el nombre de la clase ActorSystem (sin origen de actor); logConfiguration() escribe la configuracion en el log del sistema; printTree devuelve una representacion textual de la jerarquia de actores (formato no estable).
+**Contrato observable.** (1) `system.log: org.slf4j.Logger` es un logger SLF4J con nombre de clase `org.apache.pekko.actor.typed.ActorSystem`, sin origen de actor ni MDC de actor; es un `val` (misma instancia siempre). (2) `system.logConfiguration()` emite UNA entrada de log a nivel INFO con el texto de la configuracion del sistema, redactado (variables de entorno ocultas y `user.name` sustituido por `<username>`, ver AT-SYS-012); la entrada la escribe el `LoggingAdapter` CLASICO del sistema (fuente de log = el sistema clasico), no el `Logger` de (1). Se invoca automaticamente al arrancar el sistema si `pekko.log-config-on-start = on` (por defecto `off`). (3) `system.printTree: String` devuelve una cadena multilinea con la jerarquia de actores desde la raiz (`rootGuardian`, no desde `/user`), pensada solo para depuracion; el formato no es API estable (Scaladoc). Lo usan el testkit para diagnosticar un shutdown que excede el plazo.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:56-68, 179-185; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:107-108, 115 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:56-68, 179-185; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:107-108, 115; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:545-547 (logConfiguration), 920 (`log.info(settings.toString)`), 492 (Settings.toString = `config.renderWithRedactions()`), 440 (`LogConfigOnStart`), 1074 (`if (LogConfigOnStart) logConfiguration()`), 800-806 (printTree: `private[pekko]`, "may OOM on large actor systems"), 1264-1301 (printNode); actor/src/main/scala/org/apache/pekko/util/Helpers.scala:183-192 (redaccion); actor/src/main/resources/reference.conf:48-50 | reference.conf: `pekko.log-config-on-start = off` (actor/src/main/resources/reference.conf:50)
 
-**Condiciones.** Normales: delegan en el sistema clasico. Errores: ninguno. Efectos: logConfiguration emite el texto redactado de Settings (ver AT-SYS-012).
+**Precondiciones.** Sistema en marcha. `printTree` recorre el arbol sin sincronizacion: es una foto aproximada si hay actores creandose o muriendo.
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** `logConfiguration()` => `log.info(settings.toString)` del sistema clasico (ActorSystem.scala:920); `Settings.toString` renderiza `config.root` con `ConfigRenderOptions.defaults().setShowEnvVariableValues(false)` y reemplaza el valor de `user.name` (AT-SYS-012). `printTree` (clasico) imprime recursivamente: por nodo con celda `ActorRefWithCell`, la linea `"-> " + nombre + " " + simpleName(ref) + " " + claseDelActor + " status=" + estadoDelMailbox + " " + resumenDeHijos` (donde el resumen es `EmptyChildrenContainer`/`TerminatedChildrenContainer`, `<n> children` o `Terminating(<motivo>) ...`), indentando a los hijos ordenados por path con `|` y `⌊->`; para nodos sin celda (refs que no son `ActorRefWithCell`) solo `nombre simpleName`. Efectos: ninguno sobre el sistema (solo lectura).
 
-**Dependencias.** AC-SYS; AT-LOG-001
+**Errores.** Ninguno contractual. `printTree` puede lanzar o ser inexacto si el arbol cambia durante el recorrido (sin garantia). `logConfiguration()` con `user.name` nulo/vacio hereda el caso de AT-SYS-012.
 
-**Equivalente Rust propuesto.** system.log() (target de tracing), system.log_configuration(), system.print_tree() -> String. **Diferencias observables:** log via tracing; printTree formato propio.
+**Orden / concurrencia.** Ambos metodos son invocables desde cualquier hilo. `logConfiguration()` es sincrona respecto a la llamada; la escritura del log pasa por el event stream de logging (asincrona respecto al appender).
+
+**Dependencias.** AC-SYS; AT-LOG-001; AT-SYS-012; AT-SYS-006 (Settings); Q-T-SYS-1; Q-T-SYS-2
+
+**Equivalente Rust propuesto.** `system.log()` => `tracing` con `target = "rakka::ActorSystem"` (sin span de actor); `system.log_configuration()` emite un evento INFO con la configuracion redactada; `system.print_tree() -> String` produce un arbol textual propio. **Diferencias observables:** el formato de `printTree` no es contractual (Scaladoc: "no stable API"), por lo que cualquier formato estable en Rust es una mejora, no una desviacion; la clase del actor de la columna 3 (`getClass` de la JVM) y el `status=` del mailbox (entero interno del `Mailbox`) no tienen equivalente directo: se reemplazan por el tipo de Behavior/estado de ejecucion. Q-T-SYS-1 (propuesta (a), no aceptada) mantiene la fila en alcance.
 
 **Aserciones.**
 
-- A1: log = LoggerFactory.getLogger(classOf[ActorSystem[_]]); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:107
+- A1: `log` es `LoggerFactory.getLogger(classOf[ActorSystem[_]])`; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:107. Caracterizacion propuesta: `system.log.getName == "org.apache.pekko.actor.typed.ActorSystem"` y `eq` entre dos llamadas.
 
-- A2: printTree/logConfiguration delegan en el sistema clasico; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:108, 115
+- A2: `logConfiguration()` delega en el sistema clasico y escribe `settings.toString` a INFO; no afirmada por spec (el unico uso en tests, `docs/src/test/scala/docs/config/ConfigDocSpec.scala:39-44`, es `compileOnly`: solo invoca el metodo y no afirma salida) — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:108; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:920. Caracterizacion propuesta: captura de logs (LogCapturing/testkit) afirma una entrada INFO que contiene `pekko {` y no contiene el valor de `user.name`.
 
-**Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): llamar printTree y logConfiguration y comparar contra un golden
+- A3: `printTree` delega en el clasico; no afirmada por spec como contenido. Solo se usa como diagnostico: actor-testkit-typed/src/main/scala/org/apache/pekko/actor/testkit/typed/internal/TestKitUtils.scala:93-102 (mensaje "Failed to stop [<name>] within [<timeout>]" seguido de `printTree`), actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316-319 (se imprime antes de `fail(...)`; no se afirma el contenido) — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:115. Caracterizacion propuesta: sistema con `/user/a` y `/user/a/b`: la cadena contiene los nombres `user`, `a`, `b` en ese orden de anidamiento y empieza por `-> ` seguido del nombre de la raiz.
 
-**Decisiones.** Q-T-SYS-1
+- A4: `pekko.log-config-on-start = on` dispara `logConfiguration()` una vez tras arrancar; no afirmada por spec — actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1074. Caracterizacion propuesta: sistema creado con la clave `on` y captura de logs.
 
-**Estado.** `listed`: Hijo de AT-SYS-007. No se leyo la implementacion clasica de logConfiguration/printTree (AC-SYS) ni hay spec; queda listed. Q-T-SYS-1.
+**Validacion prevista.** Diferencial con el oraculo para A1, A2 y A4 (las entradas de log son observables con un appender de captura en `jshell`); A3 solo verifica contenido estructural (nombres y orden), nunca igualdad de cadena. Para A2 revisar tambien AT-SYS-012 (redaccion).
+
+**Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh) con tools/oracle/run.sh y escenario .jsh nuevo (no existe aun): crear sistema, llamar `logConfiguration()` con un appender de captura, y `printTree` con una jerarquia de dos niveles.
+
+**Decisiones.** Q-T-SYS-1 (equivalente Rust; propuesta, no aceptada: el contrato observable de log/logConfiguration esta cerrado, solo el formato del arbol depende de la respuesta); Q-T-SYS-2 (redaccion).
 
 ## AT-SYS-007.4 — ActorSystem.threadFactory, dynamicAccess y executionContext
 
@@ -2206,7 +2224,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Supervision por defecto: Stop. Sin Behaviors.supervise, una excepcion detiene el actor (en clasico seria restart). Bajo un padre typed, el ActorAdapter del padre decide Stop para hijos typed, registra la causa si el padre observa al hijo (para ChildFailed) y no vuelve a loguearla cuando ya la logueo la supervision typed (TypedActorFailedException).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:41-49, 164-172, 232-273; docs/src/main/paradox/typed/fault-tolerance.md:29-35; docs/src/main/paradox/typed/coexisting.md:150 (no leido) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:41-49, 164-172, 232-273; docs/src/main/paradox/typed/fault-tolerance.md:29-35; docs/src/main/paradox/typed/coexisting.md:143-150 (leido: con guardian typed el sistema clasico ya no permite crear actores de usuario; un hijo typed de padre clasico para por defecto y un hijo clasico de padre typed reinicia) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: excepcion no supervisada => el actor para; se loguea ERROR una vez; PostStop se entrega al Behavior; el padre observador recibe ChildFailed. Limites: errores fatales (p.ej. StackOverflowError) no se capturan nunca (NonFatal). Errores: BehaviorTestKit propaga la excepcion tal cual. Efectos: hijos paran con el padre.
 
@@ -2503,6 +2521,10 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 - A4: withStopChildren(false): el hijo sigue vivo y no recibe senales — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:662-689
 
 - A5: Dos fallas seguidas durante unstash: se paran los hijos en cada reinicio — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:691-734
+
+- A6: Una excepcion en el PRIMER `setup` tras haber creado hijos: los hijos creados antes de lanzar (`child1`, `child2`) se detienen (reciben `PostStop`), el supervisor reintenta y, cuando el `setup` deja de fallar, queda solo `child1` (creado por el setup exitoso); vale con `restart.withLimit(10, 1.second)` y con `restartWithBackoff(10.millis, 10.millis, 0)`. Se loguea ERROR del `TestException` — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:736-777 (cuerpo en :744-777: `child2Probe.expectMessage(ReceivedSignal(PostStop))`, luego `GetState` => `children.keySet == Set("child1")`). El segundo hijo con parada lenta (`slowStop2`) evita un bucle de reinicios que agotaria el limite antes de que `throwFromSetup` vuelva a `false` (comentario :755-756): la espera de `Terminated` de los hijos es parte de la semantica.
+
+- A7: Una excepcion en un `setup` POSTERIOR (durante un reinicio provocado por `Exc1`): `PreRestart` al padre; el nuevo `setup` crea `child1` y `child2` y lanza; se paran ambos y se reintenta; al dejar de fallar queda `child1`. Con restart limitado y con backoff — SupervisionSpec.scala:779-832 (cuerpo :787-832: `parentProbe.expectMessage(ReceivedSignal(PreRestart))`, dos `child1Probe.expectMessage(ReceivedSignal(PostStop))` — el original y el de la encarnacion fallida —, `child2Probe.expectMessage(ReceivedSignal(PostStop))`, `children.keySet == Set("child1")`). Esta afirmacion cubre el caso de AT-SUP-005/Q-T-SUP-4 (setup que falla durante un restart): el supervisor reintenta hasta que el setup tiene exito, dentro del limite configurado.
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): padre con 2 hijos de parada lenta; restart con y sin stopChildren
 
@@ -2828,35 +2850,47 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 ## AT-SUP-020 — Padre clasico supervisando hijo typed: default Stop
 
-*Visibilidad:* public · *analysis:* listed · *impl/validation:* pending/pending
+*Visibilidad:* public · *analysis:* extracted · *impl/validation:* pending/pending
 
-**Contrato observable.** Padre clasico supervisando hijo typed: default Stop. spawn/spawnAnonymous desde un sistema o contexto clasico envuelve el Behavior con supervise(stop) (PropsAdapter con Behaviors.supervise(onFailure(stop))); se puede sobrescribir con Behaviors.supervise propio.
+**Contrato observable.** Un actor typed creado desde el mundo clasico (`classicSystem.spawn/spawnAnonymous`, `classicContext.spawn/spawnAnonymous`, `classicSystem.toTyped.systemActorOf`, o `PropsAdapter(behavior)` para pasarlo como `classic.Props`) se envuelve con `Behaviors.supervise(behavior).onFailure(SupervisorStrategy.stop)`: si el Behavior lanza, el actor se detiene (recibe `PostStop`, no `PreRestart`) y su padre clasico lo ve terminar; no se reinicia aunque el padre clasico tenga la estrategia clasica por defecto (que reiniciaria). El usuario puede sobrescribirlo envolviendo su propio `Behaviors.supervise(...).onFailure(restart)` (la supervision mas interna gana, AT-SUP-011). Ademas `rethrowTypedFailure = false` en estas rutas: la falla NO se relanza al padre clasico como `TypedActorFailedException`; el actor hace `context.stop(self)` (AT-SUP-022, AT-BEH-024).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/package.scala:50-77 (no leido); actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/PropsAdapter.scala:28-37 (no leido) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/package.scala:49-81 (ClassicActorSystemOps.spawn/spawnAnonymous, `Behaviors.supervise(..).onFailure(stop)`, `rethrowTypedFailure = false`), 103-130 (ClassicActorContextOps.spawn/spawnAnonymous), 86-98 (internalSystemActorOf); actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/PropsAdapter.scala:31-37 (PropsAdapter publico, mismo envoltorio); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:127-133 (systemActorOf); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:28-56 (spawnAnonymous no valida el Behavior inicial; spawn si, vía `validateAsInitial` dentro del productor del Props); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:164-180 (next: FailedBehavior con rethrowTypedFailure=false => context.stop(self)); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:159-167 (StopSupervisor: log + BehaviorImpl.failed); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/PropsAdapter.scala:30-56 (Props clasico con Deploy.local) | reference.conf: n/a (sin clave asociada a esta fila)
 
-**Condiciones.** Normales: hijo typed bajo padre clasico: excepcion => PostStop y terminado (no reinicia); con supervise(restart) propio => PreRestart.
+**Precondiciones.** Un padre clasico (actor o sistema clasico, o systemActorOf). `classicSystem.spawn/spawnAnonymous` delega en el `actorOf` del sistema: solo funciona en un sistema clasico con guardian por defecto; en un sistema creado con `typed.ActorSystem(...)` (guardian typed personalizado) lanza `UnsupportedOperationException("cannot create top-level actor [<name>] from the outside on ActorSystem with custom user guardian")` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:927-938; docs/src/main/paradox/typed/coexisting.md:143-150), caso no cubierto por ClassicSupervisingTypedSpec y relativo a AC-SYS/AT-SYS-011. Behavior inicial valido para `spawn` con nombre (no `same`/`unhandled`; AT-BEH-012); `spawnAnonymous` clasico NO llama a `validateAsInitial` (`ActorRefFactoryAdapter.scala:34`, contraste con :50), asimetria sin spec.
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** (1) Excepcion no fatal del Behavior: StopSupervisor la loguea (ERROR por defecto, AT-SUP-010) y devuelve `FailedBehavior`; `ActorAdapter.next` con `rethrowTypedFailure=false` ejecuta `context.stop(self)`: se publica `PostStop` al Behavior y el actor termina; un watcher clasico recibe `Terminated`. La estrategia del padre clasico NO interviene (no hay excepcion que llegue a su `supervisorStrategy`). (2) Con `supervise(restart)` propio la excepcion la resuelve el RestartSupervisor interno: `PreRestart` y el actor sigue vivo (AT-SUP-005). (3) Props: siempre `Deploy.local`; remoto prohibido (`ConfigurationException("Remote deployment not allowed for typed actors")` si el clasico lo rechaza por config remota, `ActorRefFactoryAdapter.scala:27, 36-37, 53-54`).
 
-**Dependencias.** AT-ADP-002; AC-SUP
+**Errores.** Falla del Behavior: sin error al llamador; terminacion del actor (arriba). Behavior inicial invalido en `spawn`: `ActorInitializationException` al crear la instancia (AT-BEH-012). Desplegar remoto: `ConfigurationException` con el texto citado.
 
-**Equivalente Rust propuesto.** Solo aplica si hay capa clasica (ver Q de arquitectura en AT-SYS-011). **Diferencias observables:** Solo aplica si hay capa clasica (Q-X-8).
+**Orden / concurrencia.** `PostStop` ocurre antes de `Terminated` al watcher (AT-SIG-003). Los tests usan `probe.expectNoMessage()` tras el `PostStop` para afirmar que no hay `PreRestart` posterior.
+
+**Dependencias.** AT-ADP-002; AT-SUP-001; AT-SUP-003; AT-SUP-005; AT-SUP-022; AT-BEH-024; AT-SIG-003; AC-SUP (supervision clasica); Q-X-8
+
+**Equivalente Rust propuesto.** Solo con capa clasica (Q-X-8 opcion a). En ese caso: `ClassicSystem::spawn(behavior, name, props)` y `ClassicContext::spawn(...)` que envuelven con `supervise(behavior).on_failure(stop)` y `rethrow_typed_failure=false`; `PropsAdapter::new(factory)` para integraciones que exigen Props clasico. Con Q-X-8 nativo (b) la fila se reduce a "el guardian y `system_actor_of` usan Stop" (ya cubierto por AT-SUP-022). **Diferencias observables:** los textos de error de despliegue remoto dependen de la decision de remoting (fuera de estos modulos); `PropsAdapter` solo existe si hay `Props` clasico.
 
 **Aserciones.**
 
-- A1: Spawn desde un sistema clasico: default Stop (PostStop y Terminated) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:74-92
+- A1: Spawn desde un sistema clasico: la excepcion del Behavior produce `PostStop`, ningun otro mensaje a la sonda y `Terminated` al watcher clasico — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:74-82 (`probe.expectMsg(PostStop)`, `probe.expectNoMessage()`, `expectTerminated`); `spawnAnonymous` identico: :84-92.
 
-- A2: Override con supervise(restart): PreRestart y sigue — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:94-103
+- A2: Override con `Behaviors.supervise(...).onFailure(SupervisorStrategy.restart)`: `PreRestart`, ninguna terminacion (`expectNoMessage()` del testkit clasico) — ClassicSupervisingTypedSpec.scala:94-103.
 
-- A3: Idem desde un contexto clasico (spawn, anonimo, override) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:105-140
+- A3: Mismas tres propiedades desde un contexto clasico (`context.spawn`, override, `spawnAnonymous`) — ClassicSupervisingTypedSpec.scala:105-140 (el actor `ClassicToTyped` hace `context.spawn(behav, name)` y `context.spawnAnonymous(behav)`, :49-57).
 
-- A4: systemActorOf: default Stop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:142-150
+- A4: `systemActorOf` desde `classicSystem.toTyped`: default Stop — ClassicSupervisingTypedSpec.scala:142-150.
 
-**Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): spawn de typed desde clasico que lanza
+- A5: `PropsAdapter(behavior)` pasado a `classicSystem.actorOf`: default Stop (PostStop y Terminated clasico) — ClassicSupervisingTypedSpec.scala:152-160.
 
-**Decisiones.** Q-X-8
+- A6: El padre NO recibe la excepcion ni aplica su estrategia clasica; no afirmada por spec como tal (los tests solo observan `Terminated`). Caracterizacion propuesta: padre clasico con `supervisorStrategy` que cuenta `Decider` invocaciones y afirma 0 con `rethrowTypedFailure=false` (frente a 1 con `ctx.spawn` typed, AT-SUP-001).
 
-**Estado.** `listed`: Q-X-8. No se leyeron scaladsl/adapter/package.scala ni PropsAdapter (grupo ADP); el spec si (lineas 74-150). Queda listed hasta leer la implementacion.
+- A7: `spawn` con Behavior inicial invalido vs `spawnAnonymous` sin validar; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:34, 50.
+
+**Validacion prevista.** A1-A5: tests portados 1:1 (requieren la capa clasica; dependientes de Q-X-8). A6-A7: caracterizacion con oraculo (`tools/oracle/run.sh`, escenario nuevo con un padre clasico que cuenta invocaciones del decider y que spawnea un Behavior `same` anonimo y con nombre). Los `expectNoMessage` son de tiempo real (50 ms configurado en el spec, :67): usar reloj inyectable (Q-T-TMR-4).
+
+**Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) con tools/oracle/run.sh y escenario .jsh nuevo (no existe aun): spawn de typed desde clasico que lanza, con y sin override; conteo de invocaciones del decider del padre.
+
+**Decisiones.** Q-X-8 (existencia de la capa clasica; sin ella la fila es no ejecutable pero su contrato esta cerrado); Q-T-SUP-7 (decider clasico, relacionada).
+
+**Frontera Classic/Typed (a cruzar con typed-extended / ADP).** Las extensiones `spawn/spawnAnonymous/toTyped/toClassic/watch/unwatch/stop` del `package object adapter` y `PropsAdapter` publico son del grupo ADP (AT-ADP-002 y vecinos); este bloque solo fija el default Stop y `rethrowTypedFailure=false` que ellas aplican. ADP debe citar `package.scala:49-81, 103-137` y `PropsAdapter.scala:31-37`; no duplicar aqui la semantica de watch/stop. Tambien debe cruzarse: el rechazo de `actorOf`/`spawn` de nivel superior en un sistema con guardian typed (`ActorSystem.scala:927-938`, ya en contracts/classic-system.md) y coexisting.md:143-150 (supervision por defecto segun el tipo del hijo).
 
 ## AT-SUP-021 — Padre typed supervisando hijo clasico: decider clasico
 
@@ -3112,29 +3146,45 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 ## AT-TMR-007.2 — NotInfluenceReceiveTimeout en mensajes de timer
 
-*Visibilidad:* public · *analysis:* listed · *impl/validation:* pending/pending
+*Visibilidad:* public · *analysis:* extracted · *impl/validation:* pending/pending
 
-**Contrato observable.** NotInfluenceReceiveTimeout: si msg del timer implementa el marker NotInfluenceReceiveTimeout, el TimerMsg lo conserva (new TimerMsg with NotInfluenceReceiveTimeout) y por lo tanto su tick no reinicia el receive timeout del actor.
+**Contrato observable.** Si el mensaje `msg` con el que se inicia un timer (`startSingleTimer`, `startTimerWithFixedDelay`, `startTimerAtFixedRate`, `startPeriodicTimer`) es instancia del marker clasico `org.apache.pekko.actor.NotInfluenceReceiveTimeout`, el sobre interno `TimerMsg` que se envia al buzon del actor tambien lo es; por lo tanto, cuando ese tick llega, el `ActorCell` clasico NO cancela ni reprograma el receive timeout del actor (`ctx.setReceiveTimeout`, AT-CTX-008), igual que para cualquier mensaje con ese marker. Si `msg` no es del marker, el tick se comporta como un mensaje normal y reinicia el plazo. El marker se evalua sobre el `msg` ORIGINAL del usuario en el momento de `startTimer` (no en cada entrega), y el `Behavior` recibe `msg`, no el `TimerMsg`.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:126-130; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:125-131 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:119-145 (en particular 126-130); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:125-142 (handleMessage entrega `t.msg` tras `interceptTimerMsg`); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:118-129 (setReceiveTimeout/cancelReceiveTimeout); actor/src/main/scala/org/apache/pekko/actor/Actor.scala:161-164 (marker `trait NotInfluenceReceiveTimeout`) y :81 (`Identify` lo lleva); actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:549-566 (`invoke`: `cancelReceiveTimeoutIfNeeded(msg)` antes y `checkReceiveTimeoutIfNeeded(msg, timeoutBeforeReceive)` en `finally`); actor/src/main/scala/org/apache/pekko/actor/dungeon/ReceiveTimeout.scala:40-82; actor/src/main/scala/org/apache/pekko/actor/dungeon/TimerSchedulerImpl.scala:34-40, 93-99 (la version clasica de `Timers` aplica la misma regla con `NotInfluenceReceiveTimeoutTimerMsg`) | reference.conf: n/a (sin clave asociada a esta fila)
 
-**Condiciones.** Normales: el marker es un trait JVM (instanceof). Efectos: el timer no reprograma el receive timeout.
+**Precondiciones.** Un timer iniciado con `msg` cuyo tipo mezcla `NotInfluenceReceiveTimeout` (en Scala/Java se declara en la clase del mensaje). Un receive timeout configurado en el actor para que el efecto sea observable.
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** (1) Regla del ActorCell clasico sobre cada mensaje recibido: antes de procesar, si hay datos de timeout y el mensaje NO es `NotInfluenceReceiveTimeout`, se cancela la tarea pendiente (`cancelReceiveTimeoutIfNeeded`, `ReceiveTimeout.scala:71-76`); despues de procesar (`finally`), se reprograma el timeout salvo que el mensaje sea del marker y el handler no haya cambiado el timeout (`ReceiveTimeout.scala:40-42`: `reschedule = !marker || receiveTimeoutChanged`). (2) Consecuencia: ticks marcados no impiden que el timeout dispare aunque lleguen mas rapido que el plazo; ticks no marcados lo posponen indefinidamente. (3) Si el handler de un tick marcado llama `setReceiveTimeout`/`cancelReceiveTimeout`, el cambio SI surte efecto y fuerza reprogramacion (`receiveTimeoutChanged`). (4) La decision se toma por la identidad del `TimerMsg` (instancia anonima `new TimerMsg(...) with NotInfluenceReceiveTimeout`), que se crea una vez por `startTimer` y se reutiliza en todos los ticks de un timer periodico.
 
-**Dependencias.** AT-CTX-008
+**Errores.** Ninguno. Un tick que luego se descarta (clave cancelada, generacion antigua o instancia reiniciada: AT-TMR-006) tambien pasa por la regla (1) en el `ActorCell` aunque el Behavior nunca lo vea.
 
-**Equivalente Rust propuesto.** Flag no_influence_receive_timeout al iniciar el timer, o trait NotInfluenceReceiveTimeout en M. **Diferencias observables:** Marker como flag explicito al iniciar el timer (Q-T-TMR-2).
+**Orden / concurrencia.** La regla se aplica en el hilo del actor al procesar el sobre, antes de que `interceptTimerMsg` decida descartarlo; el reloj del receive timeout es el scheduler clasico (AC-SCH).
 
-**Aserciones.**
+**Dependencias.** AT-CTX-008; AT-TMR-002; AT-TMR-003; AT-TMR-006; AC-CELL (ReceiveTimeout clasico); AC-SCH
 
-- A1: TimerMsg hereda NotInfluenceReceiveTimeout si msg lo implementa; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:126-130
+**Equivalente Rust propuesto.** Parametro explicito al iniciar el timer (opcion `no_influence_receive_timeout: bool`) o un metodo del mensaje `fn influences_receive_timeout(&self) -> bool` (Q-T-TMR-2, propuesta (a), no aceptada); el sobre interno hereda la marca. **Diferencias observables:** el marker de clase JVM (`isInstanceOf`) se reemplaza por una marca explicita; los mensajes que Pekko marca por clase (p. ej. `Identify`) deben marcarse a mano; la regla (1) del ActorCell debe reimplementarse en el runtime para TODOS los mensajes, no solo timers.
 
-**Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): receive timeout con ticks de timer marcados y no marcados
+**Aserciones.** (La semantica se afirma en specs CLASICOS, que fijan la regla del `ActorCell` que typed reutiliza; ningun spec de actor-typed-tests ejercita timers con mensajes del marker.)
 
-**Decisiones.** Q-T-TMR-2
+- A1: Mensajes `NotInfluenceReceiveTimeout` (propios y `Identify`) enviados cada 100 ms NO impiden que el receive timeout de 1 s dispare — actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:151-171 (el `timeoutLatch` se abre en `ReceiveTimeout`).
 
-**Estado.** `listed`: Q-T-TMR-2. Hijo de AT-TMR-007. Falta leer BehaviorTestKitSpec:444-495 y la logica clasica de ReceiveTimeout para NotInfluenceReceiveTimeout (AC-CELL).
+- A2: Con `Timers` clasico, ticks `TransparentTick` (marker) e `Identify` cada 100 ms no impiden el timeout y el actor recibio al menos un tick (`count.get() should be > 0`) — ReceiveTimeoutSpec.scala:191-213. Es el equivalente clasico exacto de esta fila.
+
+- A3: Un handler de mensaje del marker que llama `setReceiveTimeout(500 ms)` activa el timeout — ReceiveTimeoutSpec.scala:215-229; que llama `setReceiveTimeout(Duration.Inf)` lo apaga — :231-247; que llama `Duration.Undefined` quita el timeout existente — :249-266; cambios multiples (`2*t`, luego `t`) dentro del mismo handler dejan el ultimo valor y el timeout dispara a los `t` desde el ultimo tick — :268-297 (`probe.expectNoMessage(initialTimeout / 2 + 50.millis)`, luego `expectMsgType[ReceiveTimeout]`).
+
+- A4: Un actor que solo recibe ticks del marker recibe el timeout (dos veces: el handler reenvia un tick al recibir `ReceiveTimeout`) — ReceiveTimeoutSpec.scala:173-189.
+
+- A5: En typed, `TimerMsg` hereda el marker cuando el `msg` del timer lo implementa; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:126-130. Caracterizacion propuesta (oraculo): `Behaviors.withTimers` con `startTimerWithFixedDelay(key, Tick, 100.ms)` donde `Tick extends NotInfluenceReceiveTimeout` y `setReceiveTimeout(1.s, Timeout)`: `Timeout` llega a ~1 s; repetir con `Tick` sin marker: no llega mientras haya ticks.
+
+- A6: Un tick marcado descartado por clave cancelada igual cae bajo la regla (1); no afirmada por spec — mismo codigo + actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:130-136.
+
+**Validacion prevista.** A1-A4: tests portados contra la regla del ActorCell del runtime Rust (ReceiveTimeoutSpec es de AC-CELL; se porta alli y typed la reutiliza). A5-A6: diferencial con oraculo (escenario nuevo) y test de integracion Rust; tiempos con reloj inyectable (Q-T-TMR-4), no en tiempo real.
+
+**Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) con tools/oracle/run.sh y escenario .jsh nuevo (no existe aun): receive timeout con ticks de timer marcados y no marcados.
+
+**Decisiones.** Q-T-TMR-2 (marker de clase vs flag; propuesta (a), no aceptada: no bloquea el contrato, solo la forma de la API); Q-T-TMR-4 (reloj inyectable para validar sin tiempo real).
+
+**Nota de correccion.** El estado anterior (`listed`) pedia leer `BehaviorTestKitSpec.scala:444-495`; esas lineas son "timer support" del testkit (`TimerScheduled`/`TimerCancelled`) y NO afirman nada sobre NotInfluenceReceiveTimeout; el testkit no modela el receive timeout (grupo TK). La evidencia relevante es `ReceiveTimeoutSpec` clasico y `ReceiveTimeout.scala`.
 
 ## AT-TMR-008 — Timers combinados con transformMessages y anidados
 
@@ -3389,12 +3439,14 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 ## Filas que siguen listed
 
-- **AT-CTX-017** (TypedActorContext / asScala / asJava / toClassic): falta leer `scaladsl/adapter/package.scala` (implicits toClassic del contexto; grupo ADP). Solo se leyo `ActorContextAdapter.scala:28-41` y `TypedActorContext.scala`.
-- **AT-SUP-020** (padre clasico supervisando hijo typed): falta leer `scaladsl/adapter/package.scala:50-77` y `scaladsl/adapter/PropsAdapter.scala:28-37` (grupo ADP); el spec `ClassicSupervisingTypedSpec.scala:73-152` si se leyo hasta la linea 150.
-- **AT-SYS-007.3** (log, logConfiguration, printTree): no hay spec en el area y no se leyo la implementacion clasica (AC-SYS) de logConfiguration/printTree.
-- **AT-TMR-007.2** (NotInfluenceReceiveTimeout): falta leer `actor-testkit-typed/.../BehaviorTestKitSpec.scala:444-495` (grupo TK) y la logica de ReceiveTimeout clasica (AC-CELL).
+Cierre documental 2026-10-31: las cuatro filas que seguian `listed` (AT-CTX-017, AT-SUP-020, AT-SYS-007.3, AT-TMR-007.2) se leyeron contra la implementacion (`scaladsl/adapter/package.scala`, `scaladsl/adapter/PropsAdapter.scala`, `ActorSystem.scala` clasico `logConfiguration`/`printTree`, `dungeon/ReceiveTimeout.scala`, `ActorCell.invoke`) y contra el cuerpo de sus specs (`ClassicSupervisingTypedSpec.scala:74-160`, `ReceiveTimeoutSpec.scala:151-297`) y pasan a `extracted`. Ninguna fila de typed-core queda `listed`. Hallazgos:
 
-Notas de profundidad: en AT-SUP-008 los casos `SupervisionSpec.scala:736-832` (excepcion en el primer setup o en uno posterior) se leyeron solo hasta su preparacion. Los tests Java (`actor-typed-tests/src/test/java`, p.ej. `javadsl/AdaptationFailureSpec.scala`, `InterceptTest.java`, `WatchTest.java`) no se leyeron; se citan solo cuando el inventario viejo los citaba y se marca como no leidos.
+- AT-CTX-017: el trait `TypedActorContext` no tiene logica; el puente (`toClassic`, `actorOf`) esta en `scaladsl/adapter/package.scala:142-152` y `javadsl/Adapter.scala:116-141`. Ningun spec afirma el texto de `UnsupportedOperationException`: queda como caracterizacion con oraculo.
+- AT-SUP-020: se agrega `PropsAdapter` publico (spec :152-160, antes sin citar), la asimetria `spawn` (valida) vs `spawnAnonymous` (no valida) del adaptador (`ActorRefFactoryAdapter.scala:34, 50`) y la restriccion de crear actores de nivel superior en un sistema con guardian typed (`ActorSystem.scala:927-938`, `coexisting.md:143-150`).
+- AT-SYS-007.3: no hay spec que afirme `log`, `logConfiguration` ni `printTree`; las aserciones son caracterizaciones propuestas para el oraculo; el unico uso en tests es de diagnostico o `compileOnly`.
+- AT-TMR-007.2: la referencia `BehaviorTestKitSpec.scala:444-495` del estado anterior no trata NotInfluenceReceiveTimeout (son los tests de "timer support" del testkit); la evidencia es `ReceiveTimeoutSpec` clasico (:151-297) y la regla de `ReceiveTimeout.scala:40-82`.
+
+Notas de profundidad (revisadas en el cierre documental 2026-10-31): los casos `SupervisionSpec.scala:736-832` de AT-SUP-008 (excepcion en el primer setup o en uno posterior) se leyeron completos y pasan a A6/A7 de AT-SUP-008. Los tests Java (`actor-typed-tests/src/test/java`, p.ej. `javadsl/AdaptationFailureSpec.scala`, `InterceptTest.java`, `WatchTest.java`) no se leyeron; se citan solo cuando el inventario viejo los citaba y se marca como no leidos.
 
 ## Cobertura
 
@@ -3461,3 +3513,59 @@ Tests relevantes (relativos a `actor-typed-tests/src/test/scala/org/apache/pekko
 | scaladsl/StashBufferSpec, scaladsl/StashSpec | AT-STASH-001..006; AT-SUP-018 |
 | OrElseSpec | Sin fila: prueba una composicion por funciones escrita en el propio test (el `OrElseBehavior` de Akka se elimino; su Scaladoc lo dice en `OrElseSpec.scala:25-29`); no define API de Behaviors |
 | docs/org/apache/pekko/typed/** y jdocs/** (IntroSpec, FaultToleranceDocSpec, supervision/SupervisionCompileOnly, StashDocSpec, etc.) y los tests Java de `javadsl` | Ejemplos de documentacion y fachada Java; no se leyeron salvo el encabezado de SupervisionCompileOnly (solo compilacion); las reglas que ilustran estan cubiertas por las filas anteriores; las fachadas son del grupo JAPI |
+
+## Revisión de exhaustividad (cierre documental 2026-10-31)
+
+Criterio: se contrastaron las APIs publicas y el comportamiento interno de `actor-typed/src/main` del area (Behavior, Behaviors, BehaviorInterceptor, MessageAndSignals, ActorContext, ActorRef, ActorSystem, SupervisorStrategy, TimerScheduler, StashBuffer, Scheduler, `internal/*` y `internal/adapter/*`) con las filas del grupo, el `reference.conf` de typed y los specs. "Pendiente de analisis" nunca se convierte en "fuera de alcance".
+
+| Elemento revisado | Clasificacion | Fila / frontera / motivo |
+|---|---|---|
+| `Behavior`, `ExtensibleBehavior`, tags, `Behaviors.same/unhandled/stopped/empty/ignore/setup/receive*/receiveSignal/intercept/monitor/logMessages/withMdc/transformMessages/withTimers/withStash/supervise` | Cubierto por contratos concretos | AT-BEH-001..024, AT-SUP-002, AT-TMR-001, AT-STASH-001 |
+| `Behavior.start/canonicalize/interpretMessage/interpretSignal/existsInStack/validateAsInitial/isAlive/isUnhandled/isDeferred` | Cubierto por contratos concretos | AT-BEH-011, AT-BEH-012 |
+| `Behavior.narrow`, `ActorRef.narrow/unsafeUpcast` | Cubierto por contratos concretos | AT-BEH-022, AT-REF-003 (Q-T-BEH-4) |
+| `FailedBehavior`, `StoppedBehavior` (con callback), `ComposedStoppingBehavior` | Cubierto por contratos concretos | AT-BEH-024, AT-BEH-004 (secuencia PostStop previo -> callback: `ActorAdapter.scala:342-361`) |
+| `javadsl.Behaviors`, `BehaviorBuilder`, `ReceiveBuilder`, `AbstractBehavior` (Java), `AbstractMatchingBehavior` | Duplicado o fachada equivalente | Fachada Java del mismo comportamiento; contratos AT-JAPI-* (grupo typed-extended). En Rust no hay dos DSL |
+| `Signal`: `PreRestart`, `PostStop`, `Terminated`, `ChildFailed`, `MessageAdaptionFailure`, `DeathPactException` | Cubierto por contratos concretos | AT-SIG-001..007 |
+| `PoisonPill` y `PoisonPillInterceptor`, `ScheduledRestart`, `ResetRestartCount` | Detalle interno sin contrato independiente (justificado) | `PoisonPill` tiene AT-SIG-008 (solo requerido si se porta sharding-typed); las dos senales de supervision viven en AT-SUP-017 porque solo son observables dentro del supervisor |
+| `ActorContext`: self, system, log, setLoggerName, children, child, spawn, spawnAnonymous, stop, watch, watchWith, unwatch, setReceiveTimeout, scheduleOnce, executionContext, messageAdapter, ask, askWithStatus, pipeToSelf, delegate | Cubierto por contratos concretos | AT-CTX-001..016; `log` y `setLoggerName` en AT-LOG-001 (grupo LOG) |
+| `ActorContext` internos: spawnMessageAdapter, onUnhandled, currentBehavior, hasTimer, cancelAllTimers, clearMdc, `setCurrentActorThread/clearCurrentActorThread/checkCurrentActorThread` | Cubierto por contratos concretos | AT-CTX-018, AT-CTX-016 |
+| `TypedActorContext.asScala/asJava`, `toClassic`, `actorOf` clasico desde contexto | Cubierto por contratos concretos | AT-CTX-017 (ahora `extracted`); el resto del `package object adapter` es AT-ADP-* |
+| `ActorRef`, `RecipientRef`, `ignoreRef`, `ActorRefResolver`, `ActorRefImpl`, `InternalRecipientRef` | Cubierto por contratos concretos | AT-REF-001..007; `SerializedActorRef`/serializacion: AT-SER-* (otro grupo) |
+| `ActorSystem` (apply/create, wrap, guardian, name, address, log, logConfiguration, printTree, startTime, uptime, threadFactory, dynamicAccess, executionContext, systemActorOf, scheduler, deadLetters, terminate, whenTerminated, close, Settings) | Cubierto por contratos concretos | AT-SYS-001..012 |
+| `ActorSystem.wrap(classicSystem)` (`ActorSystem.scala:329-330`), `ActorSystemAdapter`/`AdapterExtension` | Duplicado o fachada equivalente | Frontera Classic/Typed: contrato en AT-SYS-011 (existencia del adaptador) y AT-ADP-* (grupo typed-extended, no editado aqui) |
+| `GuardianStartupBehavior` y `GuardianStopInterceptor` | Cubierto por contratos concretos | AT-SYS-003, AT-SYS-004 |
+| `Scheduler` tipado y `SchedulerAdapter` | Cubierto por contratos concretos | AT-SYS-009 (la semantica de ejecucion es AC-SCH) |
+| `Dispatchers` tipado (lookup por selector) | Fuera de estos modulos con frontera explicita | AT-DSP-*; `ActorSystemAdapter.dispatchers` (`ActorSystemAdapter.scala:94-103`) cae en el grupo DSP |
+| `SupervisorStrategy` (stop, resume, restart, withLimit, restartWithBackoff, withResetBackoffAfter, withMaxRestarts, withStopChildren, withStashCapacity, withLoggingEnabled, withLogLevel, withCriticalLogLevel) | Cubierto por contratos concretos | AT-SUP-003..010 |
+| Supervision: anidada, re-wrap, DeathPact supervisable, funciones adaptadoras, timers en restart, UnstashException, setup que para | Cubierto por contratos concretos | AT-SUP-011..019 |
+| Coexistencia Classic/Typed: padre clasico/hijo typed, padre typed/hijo clasico, `rethrowTypedFailure`, `TypedActorFailedException` | Cubierto por contratos concretos | AT-SUP-020, 021, 022 |
+| `ActorAdapter` hooks `preStart/preRestart/postRestart/postStop` y `aroundReceive` | Duplicado o fachada equivalente | Contrato en AT-ADP-006.3 (typed-extended); aqui solo se cita desde AT-BEH-007/AT-SIG-002/003 |
+| `ActorAdapter.supervisorStrategy` y `recordChildFailure` | Cubierto por contratos concretos | AT-SUP-021 y AT-SIG-005 |
+| `TimerScheduler` (startSingleTimer, startTimerWithFixedDelay, startTimerAtFixedRate, startPeriodicTimer, cancel, cancelAll, isTimerActive) y generaciones de `TimerMsg` | Cubierto por contratos concretos | AT-TMR-001..008 |
+| `NotInfluenceReceiveTimeout` en ticks de timer | Cubierto por contratos concretos | AT-TMR-007.2 (regla del ActorCell: AC-CELL) |
+| `StashBuffer` (stash, unstash, unstashAll, clear, foreach, contains, exists, head, size, capacity, isFull, isEmpty, nonEmpty) | Cubierto por contratos concretos | AT-STASH-001..006 |
+| `StashOverflowException` en stash de supervision y en arranque del guardian | Cubierto por contratos concretos | AT-SUP-009, AT-SYS-003 |
+| `reference.conf`: `pekko.actor.typed.restart-stash-capacity` | Cubierto por contratos concretos | AT-SYS-006 |
+| `reference.conf`: `pekko.actor.typed.default-mailbox`, `library-extensions`, `extensions`, `use-slf4j`, `reliable-delivery` | Fuera de estos modulos con frontera explicita | DSP, EXT, LOG, DLV (cada clave tiene fila en su grupo; no son de typed-core) |
+| `reference.conf` clasico: `pekko.log-config-on-start` | Cubierto por contratos concretos | AT-SYS-007.3 (A4) y AC-SYS |
+| `scaladsl/package.scala` (`LoggerOps`) | Fuera de estos modulos con frontera explicita | AT-LOG-004 |
+| `internal/ActorMdc`, `LoggerClass`, `WithMdcBehaviorInterceptor` | Cubierto por contratos concretos | AT-BEH-019 (claves MDC) y AT-LOG-*; Q-T-BEH-6 |
+| `internal/InternalMessage` (AdaptMessage, AdaptWithRegisteredMessageAdapter) | Detalle interno sin contrato independiente (justificado) | Su unico efecto observable (adaptacion en el hilo del actor y descarte de `null`) esta en AT-CTX-011 y AT-CTX-014 |
+| `internal/SystemMessage`, `internal/ActorFlightRecorder`, `internal/PropsImpl` | Detalle interno sin contrato independiente (justificado) | Plumbing de la arquitectura en capas (Q-X-8) o instrumentacion JFR (DLV); sin comportamiento propio observable |
+| `ActorSystem` classic rechaza `actorOf` de nivel superior con guardian typed (`ActorSystem.scala:927-938`) | Fuera de estos modulos con frontera explicita | contracts/classic-system.md (AC-SYS); AT-SUP-020 y AT-SYS-011 lo citan |
+| Tests Java de `actor-typed-tests/src/test/java` (InterceptTest, WatchTest, StashBufferTest, AdapterTest...) | Duplicado o fachada equivalente | Repiten escenarios Scala por la fachada javadsl (AT-JAPI-*); no definen reglas distintas |
+| Ejemplos `docs/` y `jdocs/` de `actor-typed-tests` | Detalle interno sin contrato independiente (justificado) | Documentacion ejecutable; las reglas que ilustran estan en las filas anteriores |
+| `OrElseSpec` | Detalle interno sin contrato independiente (justificado) | Composicion escrita en el propio test; sin API en 1.7.1 (`OrElseSpec.scala:25-29`) |
+| Capacidades de testkit para estas filas (`BehaviorTestKit`, `ManualTime`, `LoggingTestKit`, `TestProbe`, `ActorTestKit`) | Fuera de estos modulos con frontera explicita | AT-TK-* (grupo testkit); aqui solo se cita su uso como evidencia |
+| Casos no afirmados por spec (textos de excepcion, igualdades, `Dropped` en capacidad 0, `toString`) | Cubierto por contratos concretos | Se marcan "no afirmada por spec" y llevan caracterizacion con oraculo en cada fila |
+| Diferencias Java/Scala: `startPeriodicTimer` (Java=FixedDelay, Scala=FixedRate), `withResetBackoffAfter` (doc Java), `withMaxRestarts` | Cubierto por contratos concretos | AT-TMR-005, AT-SUP-007.2, AT-SUP-007.3 (Q-T-TMR-3, Q-T-SUP-3) |
+| Filas nuevas agregadas en este cierre | Cubierto por contratos concretos | Ninguna: no se hallaron comportamientos de typed-core sin fila; las omisiones detectadas (hooks del ActorAdapter, adaptadores del package object, `actorOf` de nivel superior) pertenecen a ADP o a AC-SYS y se anotan como frontera |
+
+**Contradicciones nuevas halladas en este cierre.**
+
+18. AT-TMR-007.2: la nota de `listed` decia que `BehaviorTestKitSpec.scala:444-495` ayudaba a fijar NotInfluenceReceiveTimeout; esas lineas son tests de timers del testkit y no tratan el marker. Corregido arriba.
+19. AT-CTX-008: la descripcion afirma que los mensajes NotInfluenceReceiveTimeout no reinician el plazo, pero ningun spec typed lo afirma; se agrego A3 que remite a `ReceiveTimeoutSpec` clasico y marca la caracterizacion con oraculo.
+20. AT-SUP-008: los casos de excepcion en el setup (:736-832) estaban "leidos hasta la preparacion"; ahora se afirman en A6/A7. Son ademas la unica evidencia de spec del comportamiento de AT-SUP-005 (setup que falla durante un restart con limite) y alimentan Q-T-SUP-4.
+21. AT-SUP-020: se agrego `PropsAdapter` (spec :152-160) a la fila; el inventario citaba solo hasta :150.
+
+**Notas de frontera Classic/Typed para coordinar con typed-extended (ADP), sin editar ese archivo.** (1) `package object adapter` completo (`scaladsl/adapter/package.scala:49-195`) y `javadsl/Adapter.scala` son de ADP: typed-core solo contrata el default Stop de `spawn/spawnAnonymous/systemActorOf/PropsAdapter` (AT-SUP-020) y el puente de contexto (AT-CTX-017). (2) El hook `ActorAdapter.preRestart/postRestart` y `ComposedStoppingBehavior` estan contratados en AT-ADP-006.3 y AT-BEH-004; ADP debe citar `ActorAdapter.scala:309-323, 342-361`. (3) `ActorSystemAdapter.settings/startTime/uptime/threadFactory/dynamicAccess/printTree/logConfiguration` delegan en el sistema clasico: typed-core los contrata como accesores (AT-SYS-007.x); ADP solo debe describir la delegacion, no la semantica. (4) `AdapterExtension` (una instancia por sistema): AT-SYS-011.

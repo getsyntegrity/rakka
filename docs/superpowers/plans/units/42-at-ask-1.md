@@ -1,4 +1,4 @@
-# Spec 41 — AT-ASK (1/1)
+# Spec 42 — AT-ASK (1/1)
 
 **Estado:** pendiente de decisiones propuestas. **Filas:** 4. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
@@ -9,7 +9,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 29 `AT-REF-1` (`29-at-ref-1.md`), por las filas AT-REF-004.
-- Spec 37 `AT-EVT-1` (`37-at-evt-1.md`), por las filas AT-EVT-002.
+- Spec 38 `AT-EVT-1` (`38-at-evt-1.md`), por las filas AT-EVT-002.
 
 Decisiones:
 
@@ -37,7 +37,7 @@ Filas: AT-ASK-001, AT-ASK-002, AT-ASK-003, AT-ASK-004. Contratos y aserciones: `
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
 | AT-ASK-001 | AskPattern.ask / ? desde fuera de un actor | async fn ask<Req,Res>(target:&dyn RecipientRef<Req>, make:impl… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:71-130,132-189 | Q-T-ASK-1, Q-X-9 |
-| AT-ASK-002 | askWithStatus y StatusReply | enum StatusReply<T>{Success(T),Error(StatusError)};… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:266-287 | Q-T-ASK-1, Q-X-9 |
+| AT-ASK-002 | askWithStatus y StatusReply | `enum StatusReply<T> { Success(T), Error(StatusError) }`; `StatusError::Message(String)… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:267-272 ;… | Q-T-ASK-1 |
 | AT-ASK-003 | Status.Failure clasico como respuesta falla el Future | Si se adopta Q-X-8(a): el ref temporal acepta el mensaje de fallo clasico; en (b) no… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:191-216 | - |
 | AT-ASK-004 | ask solo sobre InternalRecipientRef | trait RecipientRef<T> con ask() como metodo provisto: no hay restriccion; Q-T-ASK-2… | Sin test dedicado (todos los tests de AskSpec usan refs internos) | Q-T-ASK-2 |
 
@@ -55,4 +55,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 42 `AT-RCP-1` (`42-at-rcp-1.md`).
+Spec 43 `AT-RCP-1` (`43-at-rcp-1.md`).

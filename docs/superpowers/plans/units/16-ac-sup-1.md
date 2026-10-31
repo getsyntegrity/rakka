@@ -1,6 +1,6 @@
 # Spec 16 — AC-SUP (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 21. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 22. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -55,9 +55,9 @@ Filas: AC-SUP-012, AC-SUP-013, AC-SUP-014, AC-SUP-015, AC-SUP-016, AC-SUP-017. C
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 4: logFailure: texto y destino del log de fallos de hijos (+2 filas)
+### Tarea 4: logFailure: texto y destino del log de fallos de hijos (+3 filas)
 
-Filas: AC-SUP-018, AC-SUP-019, AC-SUP-020. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-SUP-018, AC-SUP-019, AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -89,6 +89,7 @@ Filas: AC-SUP-018, AC-SUP-019, AC-SUP-020. Contratos y aserciones: `docs/invento
 | AC-SUP-018 | logFailure: texto y destino del log de fallos de hijos | `fn log_failure(&self, ctx, child, cause, directive)` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:815-830 | - |
 | AC-SUP-019 | Fallo fatal en restart: Resume con causa se convierte en Restart y no se… | bandera `failed_fatally` en la celda | derivada del código (ver bloque de contrato) | - |
 | AC-SUP-020 | Fallo en handleChildTerminated de la estrategia | - | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:144-163 | - |
+| AC-SUP-021 | Constructores y valores por defecto de OneForOneStrategy/AllForOneStrategy;… | builders OneForOne/AllForOne (max_retries, within, logging) con defaults -1/Inf/true,… | actor-tests/src/test/scala/org/apache/pekko/actor/RestartStrategySpec.scala:91-113 ;… | Q-SUP-1, Q-SUP-2 |
 
 ## Gates y criterio de cierre
 

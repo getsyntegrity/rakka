@@ -2,13 +2,14 @@
 
 Port a Rust de los actores de [Apache Pekko](https://pekko.apache.org/) 1.7.1: Classic (`pekko-actor`) y Typed (`pekko-actor-typed`), preservando sus contratos observables.
 
-Estado: la **documentación de migración** (inventario, contratos, decisiones y 49 specs preliminares, aún pendientes de revisión de atomicidad y dependencias) está completa hasta donde permiten las decisiones abiertas del Owner; el código implementado es poco. Documentación completa no es implementación ni paridad.
+Estado: la **documentación de migración** (inventario, contratos, decisiones y 50 specs preliminares, aún pendientes de revisión de atomicidad y dependencias) está completa hasta donde permiten las decisiones abiertas del Owner; el código implementado es poco. Documentación completa no es implementación ni paridad.
 
-- **Inventario:** 716 filas (507 Classic, 209 Typed) revisadas contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1; 570 `extracted` y 146 `listed` (las `listed` no se pueden ejecutar hasta extraer su contrato).
+- **Inventario:** 783 filas (523 Classic, 260 Typed) revisadas contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1; 783 `extracted` y 0 `listed` (cierre documental 2026-10-31; `extracted` significa contrato leído y aserciones citadas, no implementación).
 - **Implementado:** AC-PATH y la parte del núcleo de AC-UTIL (`Timeout`, `Done`/`NotUsed`, excepciones base, `Helpers`), con filas `partial` por decisiones abiertas. Nada más: no hay HOCON, actores, mailboxes ni sistema.
-- **Decisiones:** `docs/decisions.md` (190 decisiones: 8 bloqueantes, 181 propuestas, 0 aceptadas, 0 aceptadas con cambios, 1 rechazadas).
+- **Decisiones:** `docs/decisions.md` (211 decisiones: 8 bloqueantes, 202 propuestas, 0 aceptadas, 0 aceptadas con cambios, 1 rechazadas).
 
 - Alcance y estado por funcionalidad: `docs/inventory/`
+- Cierre documental 2026-10-31: plan final de 64 unidades `docs/unit-plan.md` (asignación fila→unidad en `docs/unit-rows.tsv`), ciclos y costuras `docs/cycles.md`, paquete de decisiones para el Owner `docs/owner-decision-package.md`.
 - Orden de trabajo y specs preliminares (no ejecutables hasta su revisión de atomicidad y dependencias): `docs/implementation-order.md`, `docs/superpowers/plans/units/`
 - Decisiones pendientes del Owner: `docs/decisions.md`
 - Referencia upstream y licencia: `docs/upstream.md`, `LICENSE`, `NOTICE`

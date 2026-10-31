@@ -11,17 +11,19 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-008, AC-UTIL-009.
 - Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-001, AC-DW-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-010. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-016.
+- Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-001.3, AC-REF-016.
 - Spec 05 `AC-CFG-1` (`05-ac-cfg-1.md`), por las filas AC-CFG-004, AC-CFG-005, AC-CFG-011.
 - Spec 12 `AC-TK-1` (`12-ac-tk-1.md`), por las filas AC-TK-005.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 13 `AC-CELL-1` (`13-ac-cell-1.md`), por las filas AC-CELL-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 13 `AC-CELL-1` (`13-ac-cell-1.md`), por las filas AC-CELL-001, AC-CELL-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-015.
+- Spec 20 `AC-FSM-1` (`20-ac-fsm-1.md`), por las filas AC-FSM-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 08 `AC-MBX-1` (`08-ac-mbx-1.md`), por las filas AC-MBX-004.
 - Spec 26 `AC-JAPI-1` (`26-ac-japi-1.md`), por las filas AC-JAPI-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-EVT-1`, `Q-EVT-2`, `Q-EVT-3`, `Q-EVT-4`, `Q-EVT-5`, `Q-X-2`, `Q-X-6`, `Q-X-7`.
+- Propuestas aún sin decisión del Owner: `Q-EVT-1`, `Q-EVT-2`, `Q-EVT-3`, `Q-EVT-4`, `Q-EVT-5`, `Q-EVT-6`, `Q-EVT-7`, `Q-X-2`, `Q-X-3`, `Q-X-6`, `Q-X-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -84,16 +86,16 @@ Filas: AC-EVT-017, AC-EVT-018, AC-EVT-019, AC-EVT-020, AC-EVT-021, AC-EVT-022. C
 | AC-EVT-012 | Familia LogEvent (Error/Warning/Info/Debug y variantes con MDC/marker:… | `enum LogEvent { Error(..), Warning(..), Info(..), Debug(..) }` con `LogLevel` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:240-280,347-356 | - |
 | AC-EVT-013.1 | LoggingAdapter: formato de plantillas "{}" (hasta 4 args o Array), "WARNING… | `LoggingAdapter::{error,warning,info,debug}(template, &[&dyn Display])` + macros | actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:55-90 | Q-EVT-3 |
 | AC-EVT-013.2 | BusLogging y NoLogging (publicación al bus y adaptador nulo) | `BusLogging` y `NoLogging` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:184-187 | - |
-| AC-EVT-013.3 | LogSource y fábricas Logging.apply/getLogger/withMarker (obtención de… | trait `LogSource` + `Logging::new(system, &source)` | derivada del código (ver bloque de contrato) | - |
+| AC-EVT-013.3 | LogSource y fábricas Logging.apply/getLogger/withMarker (obtención de… | trait `LogSource` + `Logging::new(system, &source)` | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:74-94 ;… | Q-EVT-1, Q-EVT-6 |
 | AC-EVT-014 | DiagnosticLoggingAdapter (MDC) y DiagnosticActorLogging | campos estructurados de `tracing` o `HashMap` en el adaptador | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:240-280 ;… | - |
 | AC-EVT-015 | MarkerLoggingAdapter, LogMarker, ActorLogMarker | `struct LogMarker { name, properties }` y métodos con marker | actor-tests/src/test/scala/org/apache/pekko/event/MarkerLoggingSpec.scala:28-46 | - |
 | AC-EVT-016 | LoggingFilter / DefaultLoggingFilter / LoggingFilterWithMarker | trait `LoggingFilter` + `DefaultLoggingFilter` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:209-215 ;… | Q-X-2 |
 | AC-EVT-017 | DefaultLogger / StdOutLogger / StandardOutLogger: formato de salida,… | `StdOutFormatter` + `StandardOutLogger` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:282-345 | Q-EVT-2 |
-| AC-EVT-018 | ActorLogging (log perezoso con logSource = path del actor) | `ctx.log()` | derivada del código (ver bloque de contrato) | - |
-| AC-EVT-019 | LoggingReceive (decora receive con log Debug; activable por debug.receive) | wrapper de behavior | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:74,96,130,147,… | - |
+| AC-EVT-018 | ActorLogging (log perezoso con logSource = path del actor) | `ctx.log()` | actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:36-43 ;… | Q-EVT-1 |
+| AC-EVT-019 | LoggingReceive (decora receive con log Debug; activable por debug.receive) | `logging_receive(ctx, receive)` / `with_label`; exige un Receive con `is_defined_at`… | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:74-94 ;… | Q-EVT-1, Q-EVT-7, Q-X-3 |
 | AC-EVT-020 | LoggerMailbox (vacía la cola de logs al cerrar) | mailbox del logger con drenaje final | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:189-205 | Q-X-7 |
-| AC-EVT-021 | JavaLogger / JavaLoggingFilter (java.util.logging) | bridge a la fachada `log`/`tracing` (feature opcional) | actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66,81 | Q-EVT-4 |
-| AC-EVT-022 | API Java del EventBus (event/japi/EventBusJavaAPI.scala): clases abstractas… | mismas implementaciones; sin distinción Java/Scala | derivada del código (ver bloque de contrato) | Q-EVT-5 |
+| AC-EVT-021 | JavaLogger / JavaLoggingFilter (java.util.logging) | bridge a la fachada `log`/`tracing` (feature opcional) | actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-79 ;… | Q-EVT-4 |
+| AC-EVT-022 | API Java del EventBus (event/japi/EventBusJavaAPI.scala): clases abstractas… | mismas implementaciones; sin distinción Java/Scala (verificar paridad de puntos de… | docs/src/test/java/jdocs/event/EventBusDocTest.java:277-349 | Q-EVT-5 |
 
 ## Gates y criterio de cierre
 

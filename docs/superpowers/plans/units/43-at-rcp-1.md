@@ -1,4 +1,4 @@
-# Spec 42 — AT-RCP (1/1)
+# Spec 43 — AT-RCP (1/1)
 
 **Estado:** pendiente de decisiones propuestas. **Filas:** 10. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
@@ -8,10 +8,10 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 40 `AT-EXT-1` (`40-at-ext-1.md`), por las filas AT-EXT-002.1, AT-EXT-002.2, AT-EXT-002.3, AT-EXT-003.
-- Spec 47 `AT-SER-1` (`47-at-ser-1.md`), por las filas AT-SER-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 31 `AT-CTX-1` (`31-at-ctx-1.md`), por las filas AT-CTX-006.
-- Spec 43 `AT-RT-1` (`43-at-rt-1.md`), por las filas AT-RT-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 41 `AT-EXT-1` (`41-at-ext-1.md`), por las filas AT-EXT-002.1, AT-EXT-002.2, AT-EXT-002.3, AT-EXT-003.
+- Spec 48 `AT-SER-1` (`48-at-ser-1.md`), por las filas AT-SER-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 32 `AT-CTX-1` (`32-at-ctx-1.md`), por las filas AT-CTX-006.
+- Spec 44 `AT-RT-1` (`44-at-rt-1.md`), por las filas AT-RT-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
@@ -72,4 +72,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 43 `AT-RT-1` (`43-at-rt-1.md`).
+Spec 44 `AT-RT-1` (`44-at-rt-1.md`).

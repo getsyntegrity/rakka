@@ -1,6 +1,6 @@
-# Spec 45 — AT-SPV (1/1)
+# Spec 35 — AT-STASH (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 1. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 6. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -8,13 +8,14 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 31 `AT-CTX-1` (`31-at-ctx-1.md`), por las filas AT-CTX-002.
-- Spec 41 `AT-ASK-1` (`41-at-ask-1.md`), por las filas AT-ASK-001.
+- Spec 27 `AT-BEH-1` (`27-at-beh-1.md`), por las filas AT-BEH-021.
+- Spec 38 `AT-EVT-1` (`38-at-evt-1.md`), por las filas AT-EVT-002, AT-EVT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 36 `AT-SUP-1` (`36-at-sup-1.md`), por las filas AT-SUP-018. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-SPV-1`.
+- Propuestas aún sin decisión del Owner: `Q-T-STASH-1`, `Q-X-5`, `Q-X-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -23,9 +24,9 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ## Tareas
 
-### Tarea 1: SpawnProtocol (Spawn -> ActorRef) con nombres unicos
+### Tarea 1: StashBuffer: creacion con capacidad (withStash) y StashOverflowException (+5 filas)
 
-Filas: AT-SPV-001. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AT-STASH-001, AT-STASH-002, AT-STASH-003, AT-STASH-004, AT-STASH-005, AT-STASH-006. Contratos y aserciones: `docs/inventory/contracts/typed-core.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -36,7 +37,12 @@ Filas: AT-SPV-001. Contratos y aserciones: `docs/inventory/contracts/typed-exten
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-SPV-001 | SpawnProtocol (Spawn -> ActorRef) con nombres unicos | struct Spawn<M>{behavior,name,props,reply_to:ActorRef<ActorRef<M>>} y enum SpawnCommand… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SpawnProtocolSpec.scala:46-… | Q-T-SPV-1 |
+| AT-STASH-001 | StashBuffer: creacion con capacidad (withStash) y StashOverflowException | struct StashBuffer<M> { buf: VecDeque<M>, capacity } con stash() -> Result<(),… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.sc… | Q-X-5 |
+| AT-STASH-002 | unstashAll (orden, stash durante unstash) | stash.unstash_all(behavior) -> Behavior<M>. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.sc… | - |
+| AT-STASH-003 | unstash(behavior, n, wrap) | stash.unstash(behavior, n, \|m\| wrap(m)). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.sc… | - |
+| AT-STASH-004 | Inspeccion: isEmpty, nonEmpty, size, capacity, isFull, head, foreach,… | Metodos sobre StashBuffer; head -> Option<&M>. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.sc… | - |
+| AT-STASH-005 | Semantica del unstash: same, unhandled, stopped, Behavior inicial | Logica en unstash_all. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:32… | Q-X-6 |
+| AT-STASH-006 | UnstashException (falla durante unstash) | ActorError::Unstash. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:47… | Q-T-STASH-1 |
 
 ## Gates y criterio de cierre
 
@@ -52,4 +58,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 46 `AT-CS-1` (`46-at-cs-1.md`).
+Spec 36 `AT-SUP-1` (`36-at-sup-1.md`).

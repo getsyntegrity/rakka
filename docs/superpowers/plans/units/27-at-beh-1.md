@@ -9,11 +9,11 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 28 `AT-SIG-1` (`28-at-sig-1.md`), por las filas AT-SIG-001, AT-SIG-003, AT-SIG-005, AT-SIG-006, AT-SIG-007. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 37 `AT-EVT-1` (`37-at-evt-1.md`), por las filas AT-EVT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 35 `AT-SUP-1` (`35-at-sup-1.md`), por las filas AT-SUP-001, AT-SUP-003, AT-SUP-013, AT-SUP-022. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 38 `AT-LOG-1` (`38-at-log-1.md`), por las filas AT-LOG-001, AT-LOG-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 33 `AT-TMR-1` (`33-at-tmr-1.md`), por las filas AT-TMR-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 34 `AT-STASH-1` (`34-at-stash-1.md`), por las filas AT-STASH-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 38 `AT-EVT-1` (`38-at-evt-1.md`), por las filas AT-EVT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 36 `AT-SUP-1` (`36-at-sup-1.md`), por las filas AT-SUP-001, AT-SUP-003, AT-SUP-013, AT-SUP-022. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 39 `AT-LOG-1` (`39-at-log-1.md`), por las filas AT-LOG-001, AT-LOG-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 34 `AT-TMR-1` (`34-at-tmr-1.md`), por las filas AT-TMR-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 35 `AT-STASH-1` (`35-at-stash-1.md`), por las filas AT-STASH-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 29 `AT-REF-1` (`29-at-ref-1.md`), por las filas AT-REF-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:

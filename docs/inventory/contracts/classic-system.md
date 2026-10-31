@@ -40,69 +40,110 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-SYS-001.2 — Constructores de ActorSystem: apply/create y sus sobrecargas, nombre por defecto "default"
 
-*Unidad SYS · visibilidad public · analysis `listed`*
+*Unidad SYS · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] `ActorSystem()` usa el nombre "default"; las sobrecargas componen (name, config, classLoader, defaultExecutionContext, setup/BootstrapSetup). Un único punto de creación con varias formas; `ActorSystem()` produce un sistema llamado "default" (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:263).
+**Contrato observable.** [contractual] Todas las sobrecargas de `ActorSystem.apply`/`create` convergen en un único punto, `apply(name, setup: ActorSystemSetup)`, que resuelve classLoader, config y executor por defecto desde el `BootstrapSetup` contenido en el setup y construye `new ActorSystemImpl(name, appConfig, cl, defaultEC, None, setup).start()`. `ActorSystem()`/`create()` usan el nombre `"default"`. Un argumento `null` (Java) o `None` (Scala) de config, classLoader o executor significa "usar el valor por defecto": config = `ConfigFactory.load(cl)`, classLoader = `findClassLoader()`, executor = `pekko.actor.default-dispatcher.default-executor.fallback`. El sistema devuelto ya está arrancado (secuencia de AC-SYS-002).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:193-330 (create/apply)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:263 (`apply("default")`)
-- reference.conf: n/a
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:193-328 (todas las sobrecargas `create`/`apply`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:263 (`apply()` = `apply("default")`), 272 (`apply(name)`), 278-285 (cuerpo común), 291-292 (`apply(name, BootstrapSetup)` = `create(name, ActorSystemSetup.create(..))`), 323-328 (`apply(name, Option..)` empaqueta en `BootstrapSetup`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:49-180 (`BootstrapSetup`, `ProviderSelection`: ver AC-SYS-018 y AC-CFG-015)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:849-856 (fusión de config dentro de `ActorSystemImpl`: `applicationConfig.withFallback(ConfigFactory.defaultReference(classLoader))` más `amendSlf4jConfig`)
+- reference.conf: `pekko.actor.default-dispatcher.default-executor.fallback` (documentado en ActorSystem.scala:241-245)
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:250-261; actor-tests/src/test/scala-2.13+/org/apache/pekko/actor/ActorSystemScala213PlusSpec.scala:29-35; actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53-98,121-150
 
-**Condiciones.**
-- Normal: `ActorSystem()` -> nombre "default" (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:251 lo usa sin nombre).
-- Error: nombre inválido -> ver AC-SYS-001.1.
-- Pendiente de leer: orden de precedencia config/BootstrapSetup/ActorSystemSetup.
+**Precondiciones.** `name` cumple AC-SYS-001.1 (se valida en el constructor de `ActorSystemImpl`, no en `apply`). La config proporcionada debe superar `checkValid` contra la referencia (ActorSystem.scala:395-400, ver AC-CFG).
 
-**Orden / concurrencia / ciclo de vida.** n/a: la construcción es síncrona; start() corre dentro de apply (ver AC-SYS-002).
+**Comportamiento.**
+- `apply(name, setup)`: `bootstrapSettings = setup.get[BootstrapSetup]`; `cl = bootstrap.classLoader.getOrElse(findClassLoader())`; `appConfig = bootstrap.config.getOrElse(ConfigFactory.load(cl))`; `defaultEC = bootstrap.defaultExecutionContext` (ActorSystem.scala:278-285).
+- La config del usuario tiene precedencia; lo que falta cae a `defaultReference(classLoader)` (ActorSystem.scala:852-854). El proveedor se elige primero por `BootstrapSetup.actorRefProvider` y, si falta, por `pekko.actor.provider` (ActorSystem.scala:410-416).
+- El executor pasado se usa como default executor de todos los dispatchers con `executor = "default-executor"`, salvo que `pekko.actor.default-dispatcher.executor` esté configurado explícitamente (entonces se ignora): ActorSystem.scala:241-245 y ActorSystemDispatcherSpec.scala:77-98.
+- Los constructores públicos nunca pasan `guardianProps` (siempre `None`); sólo el constructor interno de `ActorSystemImpl` acepta `Some(props)` (AC-SYS-009).
 
-**Dependencias.** Filas: AC-SYS-001.1 ; AC-CFG-001 ; AC-CFG-015. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.**
+- Nombre inválido: `IllegalArgumentException` antes de arrancar nada (AC-SYS-001.1).
+- Config inválida respecto a la referencia: `ConfigException` de `checkValid` al construir `Settings` (ActorSystem.scala:395-400). Versión de config distinta de `pekko.version`: `ConfigurationException("Pekko JAR version [..] does not match the provided config version [..]")` (ActorSystem.scala:485-487; pertenece a AC-CFG).
+- Fallo durante `start()`: se llama `terminate()` y se relanza el error (AC-SYS-002).
 
-**Equivalente Rust propuesto.** `ActorSystem::builder(name).config(..).execution_context(..).build()` y `ActorSystem::default()`
+**Orden / concurrencia / ciclo de vida.** La construcción es síncrona: cuando la sobrecarga retorna, el sistema está arrancado. Cada llamada crea un sistema independiente (no hay registro global; dos sistemas con el mismo nombre pueden coexistir: ActorSystemSpec.scala:301 crea otro `ActorSystem()` mientras el del spec vive).
 
-**Diferencias observables.** Rust: builder; sin ClassLoader. Diferencia observable: no hay sobrecarga por ClassLoader (Q-X-1/Q-X-2 para config y fábricas).
+**Dependencias.** Filas: AC-SYS-001.1 ; AC-SYS-002 ; AC-SYS-018 ; AC-CFG-001 ; AC-CFG-015. Externas: Typesafe Config.
+
+**Equivalente Rust propuesto.** `ActorSystem::builder(name).config(cfg).execution_context(handle).provider(sel).build() -> Result<ActorSystem, SystemError>` y `ActorSystem::default()` (nombre `"default"`); atajos `ActorSystem::new(name)` y `ActorSystem::with_config(name, cfg)`. Viabilidad alta: el builder reproduce la composición de `BootstrapSetup`; `Option` sustituye a `null`.
+
+**Diferencias observables.**
+- No hay sobrecargas con `ClassLoader` ni `DynamicAccess` (Q-SYS-6): la resolución de clases por nombre se sustituye por el registro de fábricas (Q-X-2).
+- `defaultExecutionContext` se mapea al runtime/handle elegido en Q-X-4; hasta esa decisión la sobrecarga con executor queda `partial`.
+- Todas las formas Java/Scala colapsan en un único builder (no existe la distinción `create`/`apply`).
+- `build()` devuelve `Err` en vez de lanzar (Q-X-5).
 
 **Aserciones.**
-- A1: `ActorSystem()` crea un sistema utilizable cuyo `whenTerminated` no está completo hasta terminar — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:250-261.
-- A2: `Using(ActorSystem()) {..}` termina el sistema al salir (AutoCloseable) — actor-tests/src/test/scala-2.13+/org/apache/pekko/actor/ActorSystemScala213PlusSpec.scala:29-35.
+- A1: `ActorSystem()` crea un sistema cuyo `whenTerminated` no está completo hasta `terminate()`, y tras terminar entrega `Terminated(rootGuardian)` con ambos flags `true` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:250-261 (usa el nombre por defecto sin afirmarlo).
+- A2: `Using(ActorSystem()) { .. }` deja el sistema terminado al salir (AutoCloseable.close) — actor-tests/src/test/scala-2.13+/org/apache/pekko/actor/ActorSystemScala213PlusSpec.scala:29-35.
+- A3: con `defaultExecutionContext = Some(ec)` el executor recibe las ejecuciones del dispatcher por defecto (el probe observa `"called"` y el actor responde `"pong"`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53-75.
+- A4: si el default-dispatcher tiene `executor` configurado explícitamente (`fork-join-executor`) el executor pasado no se usa (`ecProbe.expectNoMessage()`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:77-98.
+- A5: el executor pasado también se usa para el `internal-dispatcher` cuando éste se redirige al default-dispatcher — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:121-150.
+- A6: `ActorSystem()` produce un sistema llamado `"default"` — derivada de ActorSystem.scala:263 y 272, *no afirmada por spec*. Caracterización propuesta: `assert_eq!(ActorSystem::default().name(), "default")`.
+- A7: `apply(name, bootstrapSetup)` ≡ `create(name, ActorSystemSetup.create(bootstrapSetup))` ≡ `apply(name, setup)` — derivada de ActorSystem.scala:291-292,208, *no afirmada por spec*. Caracterización propuesta: el builder con `provider(..)` y `config(..)` produce el mismo `settings` que la ruta por setup.
 
-**Oráculo.** No aplica hasta leer el cuerpo de las sobrecargas; después, jar oficial.
+**Validación prevista.** A1-A5: tests portados 1:1 (A3-A5 dependen de Q-X-4). A6-A7: tests de caracterización propios. Diferencial con el jar oficial (escenario propuesto `tools/oracle/sys-constructors.jsh`) para A6 y la precedencia de config (un `Config` parcial más defaults): justificado porque la fusión es observable por `settings.config`.
 
-**Decisiones.** Q-X-1, Q-X-4
+**Decisiones.** Q-X-1 (HOCON), Q-X-4 (runtime/executor), Q-X-5 (Err vs excepción), Q-SYS-6 (ClassLoader/DynamicAccess; efecto: se omiten las sobrecargas con ClassLoader).
 
 ## AC-SYS-002 — Secuencia de arranque (start): provider.init (guardián raíz, cadena de Watch /user→/system→/, loggers por defecto), deadLetterListener, unsubscriber, chequeo de módulos, extensiones, log-config-on-start
 
-*Unidad SYS · visibilidad internal-required · analysis `listed`*
+*Unidad SYS · visibilidad internal-required · analysis `extracted`*
 
-**Contrato observable.** [contractual interno] Orden fijo: registrar stopScheduler en terminación; provider.init; marcar inicializado; deadLetterListener si log-dead-letters>0; startUnsubscriber; ManifestInfo; loadExtensions si no está terminando; logConfiguration si log-config-on-start. Si algo falla con NonFatal: terminate() y se relanza el error. Al volver de la construcción el sistema ya tiene guardianes, loggers por defecto, listener de dead letters (si procede), unsubscriber del EventStream y extensiones cargadas.
+**Contrato observable.** [contractual interno] Orden fijo dentro de `_start` (lazy, ejecutada una sola vez): `registerOnTermination(stopScheduler())` → `provider.init(this)` → `_initialized = true` → si `log-dead-letters > 0`, `systemActorOf(DeadLetterListener, "deadLetterListener")` → `eventStream.startUnsubscriber()` → `ManifestInfo.checkSameVersion("Apache Pekko", allModules, logWarning = true)` → `loadExtensions()` si no `terminating` → `logConfiguration()` si `log-config-on-start`. Ante `NonFatal(e)`: `terminate()` (o `stopScheduler` si `terminate` falla) y se relanza `e`. Al volver, el sistema tiene guardianes, loggers por defecto, listener de dead letters (si procede), unsubscriber del EventStream y extensiones cargadas.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1059-1083
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:613-620
-- reference.conf: pekko.log-config-on-start (reference.conf:50), pekko.log-dead-letters (reference.conf:58), pekko.library-extensions/extensions (reference.conf:78,83)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1047-1083 (`_initialized`, `assertInitialized`, `_start`, `start()`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1167-1260 (registro de extensiones y `loadExtensions`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:613-620 (`LocalActorRefProvider.init`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:950-955 (stdout logger previo a `start`)
+- reference.conf: `pekko.log-config-on-start`, `pekko.log-dead-letters`, `pekko.library-extensions`, `pekko.extensions`
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:99-120,153-172
 
-**Condiciones.**
-- Normal: init -> deadLetterListener (nombre `deadLetterListener` bajo /system) -> startUnsubscriber -> checkSameVersion -> loadExtensions -> logConfiguration (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1065-1074).
-- Error: `NonFatal(e)` -> `terminate()` (o `stopScheduler` si terminate falla) y `throw e` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1075-1081).
-- Si `terminating` ya es true no se cargan extensiones (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1072-1073).
+**Precondiciones.** Objeto `ActorSystemImpl` completamente construido (eventStream, scheduler, provider, dispatchers y mailboxes ya creados: ActorSystem.scala:952-1000). Hasta `provider.init` el único logger activo es el stdout de arranque (ActorSystem.scala:953-954).
 
-**Orden / concurrencia / ciclo de vida.** provider.init: rootGuardian.start; systemGuardian.sendSystemMessage(Watch(guardian, systemGuardian)); rootGuardian.sendSystemMessage(Watch(systemGuardian, rootGuardian)); luego startDefaultLoggers (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:613-620). `_initialized=true` antes del deadLetterListener (habilita assertInitialized).
+**Comportamiento.**
+- `provider.init`: guarda `system`, `rootGuardian.start()`, `systemGuardian ! Watch(guardian, systemGuardian)`, `rootGuardian ! Watch(systemGuardian, rootGuardian)` (cadena de vigilancia: la muerte de /user detiene /system y ésta /), luego `eventStream.startDefaultLoggers(system)` (ActorRefProvider.scala:613-620).
+- `deadLetterListener` es hijo de `/system` creado con `systemActorOf` sólo si `settings.LogDeadLetters > 0` (ActorSystem.scala:1068-1069).
+- `loadExtensions`: primero `pekko.library-extensions` con `throwOnLoadFail = true`, luego `pekko.extensions` con `throwOnLoadFail = false`; para cada FQCN se intenta `getObjectFor` y, si falla, `createInstanceFor` (ActorSystem.scala:1230-1260). Duplicados no crean dos instancias (`registerExtension` es idempotente: ActorSystem.scala:1195-1221).
+- Si `terminating` ya es `true` antes de cargar extensiones, éstas no se cargan (ActorSystem.scala:1072-1073).
 
-**Dependencias.** Filas: AC-SYS-003.1 ; AC-EXT-003 ; AC-EVT-007 ; AC-EVT-009 ; AC-EVT-011. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.**
+- Extensión de `pekko.library-extensions` que no se puede cargar o no es `ExtensionId`: `RuntimeException("While trying to load extension [fqcn]", cause)` / `"[fqcn] is not an 'ExtensionIdProvider' or 'ExtensionId'"` y el sistema falla (ActorSystem.scala:1250-1253).
+- Extensión de `pekko.extensions` no cargable: se loguea `error("While trying to load extension [{}], skipping...")` y el arranque continúa (ActorSystem.scala:1249,1252).
+- Extensión (de cualquier lista) cuyo `createExtension` lanza: la excepción se propaga y `registerExtension` la cachea (ActorSystem.scala:1209-1212); el arranque falla → `terminate()` + relanzar (ActorSystem.scala:1075-1081).
+- `assertInitialized()` antes de `_initialized`: `IllegalStateException` (AC-SYS-023).
 
-**Equivalente Rust propuesto.** `ActorSystemBuilder::build` ejecuta la secuencia y devuelve `Err` tras terminar el sistema
+**Orden / concurrencia / ciclo de vida.** `_start` es `lazy val` ⇒ ejecución única y thread-safe. `_initialized=true` ocurre antes del `deadLetterListener` (habilita `assertInitialized` para extensiones). Todo el arranque es síncrono en el hilo que llama a `apply`.
 
-**Diferencias observables.** Rust: `build()` síncrono; los loggers como actores dependen de Q-X-7. Diferencia observable: nombre de los actores de sistema (`log1-DefaultLogger`, `deadLetterListener`, `eventStreamUnsubscriber-1`) se conserva si se mantiene la jerarquía /system.
+**Dependencias.** Filas: AC-SYS-003.1 ; AC-SYS-010 ; AC-SYS-020 ; AC-SYS-023 ; AC-EXT-003 ; AC-EVT-007 ; AC-EVT-009 ; AC-EVT-011. Externas: ninguna.
+
+**Equivalente Rust propuesto.** `ActorSystemBuilder::build()` ejecuta la secuencia en el mismo orden y, ante error, termina el sistema y devuelve `Err`. Las extensiones se cargan desde un registro de fábricas por nombre (Q-X-2): `library-extensions` → `Err(SystemError::ExtensionLoad)` ante fallo; `extensions` → log de error y continuar. Viabilidad alta; el orden es puramente secuencial.
+
+**Diferencias observables.**
+- Carga reflexiva por FQCN (objeto Scala o clase con constructor sin argumentos) → registro explícito de fábricas (Q-X-2); el texto `While trying to load extension [..]` se conserva.
+- `build()` es síncrono pero los loggers como actores dependen de Q-X-7.
+- Los nombres de actores de sistema (`log1-DefaultLogger`, `deadLetterListener`, `eventStreamUnsubscriber-N`) se conservan si se mantiene la jerarquía `/system`.
 
 **Aserciones.**
-- A1: el listener se crea como `deadLetterListener` hijo de /system sólo si `log-dead-letters`>0 — derivada del código actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1068-1069, *no afirmada por spec*.
-- A2: si loadExtensions falla, el sistema queda terminado y el error se propaga — derivada del código actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1075-1081 (ExtensionSpec:99,153 sin leer).
-- A3: la cadena de Watch /user -> /system -> / está establecida antes de cualquier actor de usuario — derivada del código actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:617-618.
-- A4: `assertInitialized()` lanza IllegalStateException mientras `_initialized` sea false — ver AC-SYS-023.
+- A1: una extensión listada en `pekko.extensions` que falla al crearse hace fallar `ActorSystem(..)` con `RuntimeException` — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:99-109.
+- A2: una extensión listada en `pekko.extensions` que no existe NO impide el arranque y se loguea `error("While trying to load extension [org.apache.pekko.actor.MissingExtension], skipping.")` — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:111-120.
+- A3: una `library-extension` que falla al crearse hace fallar el arranque propagando la excepción original (`FailingTestExtension.TestException`) — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:153-162.
+- A4: una `library-extension` inexistente hace fallar el arranque con `RuntimeException` — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:164-172.
+- A5: el `deadLetterListener` se crea bajo `/system` sólo si `log-dead-letters > 0` — derivada de ActorSystem.scala:1068-1069, *no afirmada por spec*. Caracterización propuesta: con `log-dead-letters = off` el hijo `deadLetterListener` no existe en `/system`; con `on` existe.
+- A6: la cadena de Watch /user → /system → / está establecida antes de cualquier actor de usuario — derivada de ActorRefProvider.scala:617-618, *no afirmada por spec* (comportamiento observable indirecto: ActorSystemSpec.scala:328-334 afirma que fallar `/user` termina el sistema, ver AC-SYS-008).
+- A7: tras un fallo de arranque el sistema queda terminado y el error se propaga — derivada de ActorSystem.scala:1075-1081; indirectamente observada por A1/A3 (la excepción llega al llamador), *el estado terminado no está afirmado por spec*.
+- A8: `log-config-on-start = on` emite `info(settings.toString)` una vez — derivada de ActorSystem.scala:920,1074, *no afirmada por spec*.
+- A9: `loadExtensions` no se ejecuta si el sistema ya está terminando — derivada de ActorSystem.scala:1072-1073, *no afirmada por spec*.
+- A10: `assertInitialized()` lanza `IllegalStateException` mientras `_initialized` sea `false` — ver AC-SYS-023.
 
-**Oráculo.** Parcial: jar oficial permite comparar el árbol de /system tras arrancar (`printTree`), escenario propuesto `sys-start-tree.jsh`; procedencia jars oficiales.
+**Validación prevista.** A1-A4: tests portados 1:1 (con `FailingTestExtension`/`MissingExtension` reescritos como fábricas registradas). A5-A9: tests de caracterización con aserciones sobre el árbol `/system` y el EventStream. Diferencial con el jar oficial (escenario `tools/oracle/sys-start-tree.jsh`: `printTree` tras arrancar) sólo para el conjunto de hijos de `/system`; el texto de `printTree` no se compara (AC-SYS-013).
 
-**Decisiones.** Q-X-7, Q-SYS-4
+**Decisiones.** Q-X-2 (efecto: extensiones por registro), Q-X-5, Q-X-7 (loggers como actores o backend), Q-SYS-4 (efecto: el protocolo de hooks del guardián de sistema forma parte de /system; ver AC-SYS-003.2).
 
 ## AC-SYS-003.1 — Jerarquía de guardianes "/", "/user", "/system" y su comportamiento ante mensajes ajenos
 
@@ -210,6 +251,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A3: el valor de `whenTerminated` es la misma instancia que devuelve `terminate()` (theSameInstanceAs) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:260.
 - A4: llamar `terminate()` y luego `registerOnTermination` sólo ejecuta el callback una vez o lanza Rejected (exactamente 1 de las dos) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:272-286.
 - A5: terminate() es idempotente (múltiples llamadas no fallan) — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1112-1117, *no afirmada por spec*.
+- A6: `sys.terminate()` ejecuta `CoordinatedShutdown` con la razón `ActorSystemTerminateReason` (`shutdownReason() == Some(ActorSystemTerminateReason)`) y `whenTerminated` queda completo — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:546-555 (auditoría 2026-10-31: este spec sí afirma el comportamiento de esta fila).
+- A7: con `run-by-actor-system-terminate = off`, `terminate()` NO ejecuta `CoordinatedShutdown` (`shutdownReason() == None`) pero el sistema termina — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:557-570.
+- A8: `terminate-actor-system = off` con `run-by-actor-system-terminate = on` falla con `ConfigurationException` al crear el sistema — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:572-582.
+- A9: `CoordinatedShutdown(sys).run(CustomReason)` termina el `ActorSystem` y fija `shutdownReason()` — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:535-544 (integración AC-CS-006.2).
 
 **Oráculo.** Jar oficial: escenario propuesto `sys-terminate.jsh` (terminate dos veces y volcado de Terminated). Procedencia: jars oficiales.
 
@@ -366,7 +411,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Aserciones.**
 - A1: `sys.actorOf(Props.empty)` y `sys.actorOf(Props.empty, "empty")` lanzan UnsupportedOperationException — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:386-392.
-- A2: el /user con guardianProps usa el dispatcher indicado — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:562-577 (ActorSystemDispatcherSpec:156 sin leer).
+- A2: con `guardianProps = Some(Props.empty)` (sin dispatcher en los props) el guardián `/user` usa `pekko.actor.default-dispatcher`, mientras que sin `guardianProps` usa `pekko.actor.internal-dispatcher` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:152-168 (auditoría 2026-10-31: el spec está en la clase `ActorSystemDispatchersSpec`; antes figuraba como `ActorSystemDispatcherSpec:156` sin leer).
+- A3: `pekko.actor.internal-dispatcher = pekko.actor.default-dispatcher` redirige el guardián al default-dispatcher — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:105-119.
 
 **Oráculo.** Jar oficial: se puede reproducir con `new ActorSystemImpl(..., Some(Props.empty), ...)` desde jshell en el paquete pekko.actor. Escenario propuesto `sys-custom-guardian.jsh`.
 
@@ -374,116 +420,162 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-SYS-010 — systemActorOf (actores bajo /system)
 
-*Unidad SYS · visibilidad public · analysis `listed`*
+*Unidad SYS · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] Crea hijos del guardián de sistema con systemService=true; lo usan extensiones, loggers, deadLetterListener, unsubscribers y el testActor del TestKit. Los actores de sistema cuelgan de /system y se detienen después de /user.
+**Contrato observable.** [contractual] `ExtendedActorSystem.systemActorOf(props, name)` crea un hijo del guardián de sistema con `systemService = true` (se omite el `Deployer`: no se aplica configuración `pekko.actor.deployment` externa) y devuelve su `ActorRef`. Es la forma de crear actores internos de librerías (loggers, `deadLetterListener`, extensiones, `testActor-N`/`testProbe-N` del testkit). Los actores de sistema cuelgan de `/system`, que se detiene sólo después de que `/user` haya terminado.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:779,924-925
-- reference.conf: n/a
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:772-779 (declaración y Scaladoc), 924-925 (implementación)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:659-667 (`systemService` se pasa a `provider.actorOf`), 586-599 (`systemGuardian`)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:189-199 (`testActor` vía `systemActorOf`)
+- specs: actor-tests/src/test/scala/org/apache/pekko/routing/ConfiguredLocalRoutingSpec.scala:196-207; actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-186
 
-**Condiciones.**
-- Usa `systemGuardian.underlying.attachChild(props, name, systemService = true)` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:924-925).
-- El TestKit crea `testActor-N`/`testProbe-N` con este método (TestKit.scala:189-199).
+**Precondiciones.** El sistema ha pasado `provider.init` (el guardián de sistema existe). Se puede invocar durante `start` (lo hace el arranque para el `deadLetterListener`).
 
-**Orden / concurrencia / ciclo de vida.** Se puede llamar durante start (loggers, deadLetterListener).
+**Comportamiento.** `systemGuardian.underlying.attachChild(props, name, systemService = true)` (ActorSystem.scala:924-925): reserva el nombre bajo `/system`, crea el actor con la ruta `/system/<name>` y lo arranca. Nombre inválido o duplicado ⇒ las mismas reglas que `actorOf` (AC-REF-009.1 ; AC-PATH-008). A diferencia de `system.actorOf`, no está bloqueado por `guardianProps` custom (ActorSystem.scala:927-937 sólo afecta a `actorOf`).
 
-**Dependencias.** Filas: AC-SYS-003.1. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** `InvalidActorNameException` por nombre inválido/duplicado; `ConfigurationException` por dispatcher/mailbox inexistente (AC-SYS-016). El tipo de retorno es `ActorRef` (no `Option`).
 
-**Equivalente Rust propuesto.** `system.system_actor_of(props, name) -> Result<ActorRef>`
+**Orden / concurrencia / ciclo de vida.** Un actor bajo `/system` recibe `Terminate` al detenerse `/system`, que sólo ocurre tras `Terminated(guardian)` y tras completar los `TerminationHook` registrados (AC-SYS-003.2). Por eso los loggers siguen vivos mientras `/user` termina.
 
-**Diferencias observables.** Rust: método público (en Pekko es ExtendedActorSystem) marcado `#[doc(hidden)]` o trait de extensión.
+**Dependencias.** Filas: AC-SYS-003.1 ; AC-SYS-016 ; AC-REF-009.1 ; AC-PATH-008 ; AC-TK-001.1. Externas: ninguna.
+
+**Equivalente Rust propuesto.** `system.system_actor_of(props, name) -> Result<ActorRef, SpawnError>`, expuesto en un trait de extensión `ExtendedActorSystem` (modo `#[doc(hidden)]` o feature `unstable`), porque en Pekko sólo es accesible tras un cast a `ExtendedActorSystem` y su uso previsto es de librerías. Viabilidad alta.
+
+**Diferencias observables.** Rust: método de trait de extensión en vez de downcast; devuelve `Result`. El efecto observable (ruta `/system/<name>`, orden de parada) se conserva.
 
 **Aserciones.**
-- A1: el path de un actor creado con systemActorOf es /system/<name> — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:924-925, *no afirmada por spec leída*.
+- A1: un actor creado con `systemActorOf` bajo un padre de sistema puede alojar un router cuyos parámetros salen de la config (`/sys-parent/round` → 6 rutees, `round-robin-pool`), es decir, el hijo de un actor de sistema SÍ aplica deployment por config aunque el actor de sistema no — actor-tests/src/test/scala/org/apache/pekko/routing/ConfiguredLocalRoutingSpec.scala:196-207 (el test está marcado como excepción: "we don't really support deployment configuration of system actors").
+- A2: los actores creados por el testkit con `systemActorOf` aparecen en la ruta `pekko://<sistema>/system/testProbe…` (el filtro de log espera `Actor[pekko://LogDeadLetters/system/testProbe.*`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:173-179.
+- A3: el path de un actor creado con `systemActorOf(props, "x")` es `/system/x` y `parent == systemGuardian` — derivada de ActorSystem.scala:924-925, *no afirmada por spec directa*. Caracterización propuesta: `system_actor_of(p, "x").path() == "/system/x"`.
+- A4: `systemActorOf` con nombre duplicado falla con `InvalidActorNameException` — derivada de AC-SYS-016 A1-A2 (misma ruta `attachChild`), *no afirmada por spec para /system*.
+- A5: tras `terminate()`, los actores de `/system` se detienen después de los de `/user` — derivada de ActorRefProvider.scala:339-345 (`Terminated(guardian)` dispara `context.become(terminating)`), *no afirmada por spec*; observable en CoordinatedShutdown (AC-CS).
 
-**Oráculo.** Jar oficial: escenario propuesto `sys-system-actor-of.jsh`.
+**Validación prevista.** A1-A2: test portado (A2 como aserción del path de un `TestProbe` creado por el harness). A3-A5: caracterización con el árbol de actores del sistema. Diferencial con el jar oficial para A3-A5 (escenario `tools/oracle/sys-system-actor-of.jsh`: crear, imprimir `path`, terminar y registrar el orden de `postStop`): justificado porque el orden de parada es observable en el jar.
 
-**Decisiones.** ninguna específica
+**Decisiones.** ninguna específica. Nota de corrección: el inventario citaba ActorSelectionSpec:162,245 para esta fila; esos tests (ActorSelectionSpec.scala:162-177,245-256) seleccionan `/`, `/user` y `/system` y no usan `systemActorOf`; se reasignan a AC-SYS-003.1 / AC-SEL.
 
 ## AC-SYS-011 — abort(): apagado forzado sin CoordinatedShutdown
 
-*Unidad SYS · visibilidad internal-required · analysis `listed`*
+*Unidad SYS · visibilidad internal-required · analysis `extracted`*
 
-**Contrato observable.** [contractual Scaladoc] Marca aborting y llama terminate(), que entonces salta CoordinatedShutdown; no espera hijos remotos. aborting=true y terminate(): como CoordinatedShutdown se omite (`!aborting`), se ejecuta finalTerminate directo.
+**Contrato observable.** [contractual Scaladoc, interno] `ActorSystemImpl.abort()` pone `aborting = true` y llama `terminate()`. Con `aborting`, `terminate()` salta `CoordinatedShutdown` y ejecuta directamente `finalTerminate()`; además, cada actor que se detiene envía a sí mismo `DeathWatchNotification(ref, existenceConfirmed = true, addressTerminated = false)` por cada hijo no local, de modo que no espera la confirmación de hijos desplegados en remoto. Sólo la ruta local es observable en rakka (sin remote).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1123-1134
-- Scaladoc: actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1124-1130
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1123-1134 (`aborting`, `abort`), 1089-1104 (`terminate`), 1119-1121 (`isTerminating` incluye `aborting`)
+- actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:186-196 (`terminate()` de la celda: rama `systemImpl.aborting`)
+- specs: ninguno en pekko-actor (grep de `abort()`/`aborting` sobre actor-tests, testkit y actor/src/test no devuelve usos sobre ActorSystem)
 
-**Condiciones.**
-- abort -> `aborting=true; terminate()` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1131-1134).
+**Precondiciones.** Sistema arrancado. `abort` no es parte de la API pública de `ActorSystem` (sólo `ActorSystemImpl`); lo usa código interno de remote/cluster.
 
-**Orden / concurrencia / ciclo de vida.** Ver AC-SYS-004.
+**Comportamiento.**
+- Con `aborting == true`: `terminate()` hace `terminating = true` y, como `!aborting` es falso, llama `finalTerminate()` (detener el `deadLetterListener` si `!LogDeadLettersDuringShutdown` y `guardian.stop()`), sin ejecutar ninguna tarea de `CoordinatedShutdown` (ActorSystem.scala:1089-1104,1112-1117).
+- `isTerminating()` es `true` desde `abort()` (ActorSystem.scala:1119-1121).
+- En `FaultHandling.terminate()`, al detenerse un actor con hijos remotos y `aborting`, se auto-envía `DeathWatchNotification(ref, true, false)` por cada hijo cuyo `ActorRefScope.isLocal` sea falso (FaultHandling.scala:190-196). En un sistema 100 % local no hay tales hijos.
 
-**Dependencias.** Filas: AC-SYS-004. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Ninguno propio. `abort()` no lanza; igual que `terminate()` es idempotente.
 
-**Equivalente Rust propuesto.** `fn abort(&self)`
+**Orden / concurrencia / ciclo de vida.** Ver AC-SYS-004. `aborting` es `@volatile`. No hay ventana en la que `CoordinatedShutdown` corra parcialmente: la decisión se toma en la entrada de `terminate()`.
 
-**Diferencias observables.** Rust: igual.
+**Dependencias.** Filas: AC-SYS-004 ; AC-CS-006.2 ; AC-DW-012. Externas: ninguna.
+
+**Equivalente Rust propuesto.** `fn abort(&self)` en el trait de extensión interno (no público): marca el sistema y llama a la ruta de terminación sin ejecutar las fases de `CoordinatedShutdown`. La rama de hijos remotos queda sin equivalente por ausencia de remote (frontera explícita: AC-DW-012 cubre `AddressTerminated`).
+
+**Diferencias observables.** Rust: igual para el sistema local. Diferencia: la rama `ActorRefScope.isLocal == false` no es alcanzable sin remote; se documenta, no se implementa.
 
 **Aserciones.**
-- A1: tras abort(), CoordinatedShutdown no corre y el sistema termina — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1091,1132-1135, *no afirmada por spec*.
+- A1: tras `abort()`, ninguna tarea registrada en `CoordinatedShutdown` se ejecuta y `whenTerminated` termina — derivada de ActorSystem.scala:1091,1131-1134, *no afirmada por spec*. Caracterización propuesta: registrar una tarea en una fase, llamar `abort()`, esperar `when_terminated` y comprobar que la tarea no corrió.
+- A2: `abort()` es idempotente y compatible con una llamada posterior a `terminate()` — derivada de `terminating`/`aborting` volátiles (ActorSystem.scala:1087-1123), *no afirmada por spec*.
+- A3: durante `abort()` `isTerminating()` devuelve `true` — derivada de ActorSystem.scala:1119-1121, *no afirmada por spec*.
 
-**Oráculo.** Jar oficial: escenario propuesto `sys-abort.jsh` (registrar tarea de CoordinatedShutdown y comprobar que no corre).
+**Validación prevista.** Caracterización propia para A1-A3 y diferencial con el jar oficial (escenario `tools/oracle/sys-abort.jsh`: `system.asInstanceOf[ActorSystemImpl].abort()` con una tarea registrada en `CoordinatedShutdown`). Justificación: no hay spec upstream; el oráculo fija el comportamiento real.
 
-**Decisiones.** ninguna específica
+**Decisiones.** ninguna específica. Nota de corrección: FaultHandling.scala:189-195 del inventario se leyó; el rango real de la rama es 190-196.
 
 ## AC-SYS-012 — Accesores: name, settings, startTime, uptime (s), eventStream, log, deadLetters, scheduler, dispatchers, mailboxes, dispatcher; toString = address raíz
 
-*Unidad SYS · visibilidad public · analysis `listed`*
+*Unidad SYS · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] uptime en segundos desde startTime (ms epoch); toString = `lookupRoot.path.root.address.toString`. Handle clonable con acceso a servicios del sistema.
+**Contrato observable.** [contractual] Superficie de consulta de `ActorSystem`: `name` (el nombre validado), `settings` (`Settings` + `toString` redactado: AC-SYS-022), `startTime` (ms desde epoch, fijado una vez al construir: `val`), `uptime` (segundos enteros = `(now - startTime) / 1000`, truncado), `eventStream`, `log` (adaptador al eventStream cuyo `logSource` es `"<clase de ActorSystemImpl>(<nombre>)"`), `deadLetters`, `scheduler`, `dispatchers`, `dispatcher` (executor implícito por defecto = `dispatchers.defaultGlobalDispatcher`), `mailboxes`; constructores de rutas `system / name`, `system / iterable`, `child`, `descendant` (ruta bajo `/user`); `logConfiguration()`; `toString` = dirección raíz (`pekko://<nombre>`). El sistema es un handle compartible entre hilos.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:530-650 (sin leer en detalle)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1262 (toString)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:530-641 (declaraciones y Scaladoc de los accesores), 572-577 (`startTime`, `uptime`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:920 (`logConfiguration`), 953-998 (eventStream, logFilter, log, scheduler, provider, mailboxes, dispatchers, dispatcher), 1002-1009 (`whenTerminated`, guardianes, `/`), 1262 (`toString`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:553-567 (`child`, `descendant`)
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316,395-411; actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:536-575 (usa `system.name` y `system.settings.config`)
 
-**Condiciones.**
-- toString del sistema = dirección raíz (p. ej. `pekko://name`).
+**Precondiciones.** Ninguna tras el arranque; durante la construcción los accesores de proveedor pueden fallar (AC-SYS-023).
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.**
+- `startTime = System.currentTimeMillis` al instanciar `ActorSystem` (ActorSystem.scala:572); `uptime` crece monótonamente por segundos truncados (ActorSystem.scala:577).
+- `log` se construye como `MarkerLoggingAdapter(eventStream, getClass.getName + "(" + name + ")", this.getClass, logFilter)` (ActorSystem.scala:961-963).
+- `/(actorName)` = `guardian.path / actorName`; `/(Iterable)` análogo; los nombres no se validan al construir la ruta (ActorSystem.scala:1008-1009).
+- `toString = lookupRoot.path.root.address.toString` (ActorSystem.scala:1262), p. ej. `pekko://name`.
 
-**Dependencias.** Filas: AC-SYS-022. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Ninguno propio (los accesores son totales tras el arranque).
 
-**Equivalente Rust propuesto.** métodos del handle `ActorSystem` (Clone, Arc interno)
+**Orden / concurrencia / ciclo de vida.** Los accesores son lecturas de campos inmutables (`val`) o de `@volatile`; seguros desde cualquier hilo. `uptime` depende del reloj de pared (no monótono).
 
-**Diferencias observables.** Rust: handle `Arc`. toString -> `Display` de la dirección raíz.
+**Dependencias.** Filas: AC-SYS-022 ; AC-SYS-018 ; AC-EVT-006 ; AC-DSP-001 ; AC-SCH-001. Externas: reloj de sistema.
+
+**Equivalente Rust propuesto.** Métodos del handle `ActorSystem` (`Clone` sobre `Arc`): `name() -> &str`, `settings() -> &Settings`, `start_time() -> SystemTime`, `uptime() -> Duration` (con `as_secs()` para paridad), `event_stream()`, `log()`, `dead_letters()`, `scheduler()`, `dispatchers()`, `mailboxes()`, `dispatcher()`, `child(&str) -> ActorPath`, `descendant(..)`, `log_configuration()`, `Display` = dirección raíz. Viabilidad alta.
+
+**Diferencias observables.**
+- `startTime: Long` (ms) → `SystemTime`; `uptime` en segundos enteros se conserva como `Duration`/`as_secs`.
+- `implicit def dispatcher` (ExecutionContext) → `dispatcher()` devuelve un handle de ejecución; la integración con el runtime depende de Q-X-4.
+- El `logSource` de `system.log` incluye el nombre de clase JVM de `ActorSystemImpl` (Q-EVT-1): se propone `"rakka::ActorSystemImpl(<nombre>)"` o un nombre de tipo documentado.
 
 **Aserciones.**
 - A1: `system.settings.toString` no contiene el nombre de usuario ni el home y contiene `<username>` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:395-411 (ver AC-SYS-022).
+- A2: `uptime` se expresa en segundos (el test espera que un sistema recién creado esté por debajo de 10 s: `system.uptime >= 10` implica fallo) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316.
+- A3: el nombre y la config de un sistema existente se pueden reutilizar para crear otro (`ActorSystem(system.name, system.settings.config)`) — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:536 (uso, no aserción de los accesores).
+- A4: `toString` del sistema es `pekko://<nombre>` — derivada de ActorSystem.scala:1262 y de `RootActorPath(Address("pekko", name))` (ActorRefProvider.scala:402), *no afirmada por spec*. Caracterización: `assert_eq!(system.to_string(), "pekko://nombre")` (o el esquema que se decida en AC-PATH).
+- A5: `uptime()` es `(now - startTime) / 1000` truncado — derivada de ActorSystem.scala:577, *no afirmada por spec*. Caracterización con reloj inyectable.
+- A6: `system / "a"` = `/user/a` y `system.child("a")` equivale — derivada de ActorSystem.scala:557,1008, *no afirmada por spec*.
+- A7: `startTime` no cambia durante la vida del sistema — derivada de `val startTime` (ActorSystem.scala:572), *no afirmada por spec*.
 
-**Oráculo.** Jar oficial para toString y uptime; escenario propuesto `sys-accessors.jsh`.
+**Validación prevista.** A1 portado; A2 como parte del test portado de AC-SYS-007; A4-A7 caracterización propia (con reloj de prueba para `uptime`). Diferencial con el jar oficial para A4 y A6 (escenario `tools/oracle/sys-accessors.jsh`), justificado porque el formato de `toString` y de rutas es observable por logs y por `ActorSelection`.
 
-**Decisiones.** ninguna específica
+**Decisiones.** Q-EVT-1 (nombre de clase JVM en `log`), Q-X-4 (`dispatcher`), Q-SYS-5 (efecto sobre `settings.toString`).
 
 ## AC-SYS-013 — ExtendedActorSystem: provider, guardian, systemGuardian, systemActorOf, threadFactory, dynamicAccess, printTree
 
-*Unidad SYS · visibilidad public · analysis `listed`*
+*Unidad SYS · visibilidad internal-required · analysis `extracted`*
 
-**Contrato observable.** [contractual] API para extensiones e integraciones. printTree imprime el árbol con formato `-> name SimpleName ActorClass status=.. N children` (depuración). Superficie para extensiones; printTree se imprime cuando falla un apagado.
+**Contrato observable.** [contractual para extensiones, `@DoNotInherit`] `ExtendedActorSystem` añade a `ActorSystem` la superficie para integradores: `provider`, `guardian`, `systemGuardian`, `systemActorOf` (AC-SYS-010), `threadFactory`, `dynamicAccess`, `logFilter`, y los internos `printTree`, `uid`, `finalTerminate`, `isTerminating`. `printTree` recorre la jerarquía desde la raíz y devuelve un texto indentado; sólo se usa para diagnóstico (`ActorSystemSpec` lo imprime si el apagado falla y `TestKit.shutdownActorSystem` lo loguea en caso de timeout).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:755-806
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1264-1300 (printTree)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:754-823 (declaración de `ExtendedActorSystem`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:838 (`uid`), 909-918 (`threadFactory`, `dynamicAccess`), 956-959 (`logFilter`), 1264-1301 (`printTree`)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1045 (uso de `printTree`)
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316-320; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:563,637 (sólo imprimen)
 
-**Condiciones.**
-- printTree formato: `-> <name> <simpleName(ref)> <actor class|null> status=<mailbox status> <Terminating(..)|Terminated|EmptyChildren|N children>` con hijos ordenados e indentados.
+**Precondiciones.** Obtención por downcast `system.asInstanceOf[ExtendedActorSystem]` (en Pekko Classic) o por `ExtensionId.createExtension(system: ExtendedActorSystem)`.
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.**
+- `printTree`: por nodo imprime `"-> " | indent+"⌊-> "`, `path.name`, `simpleName(ref)`, clase del actor (`real.actor.getClass` o `"null"`), `" status=" + mailbox.currentStatus`, el estado del contenedor de hijos (`Terminating(reason) + toDie`, `Terminated`/`EmptyChildren`, `N children`) y recursa por los hijos ordenados con prefijo `|` / espacios (ActorSystem.scala:1264-1301). Para refs sin celda imprime `indent + name + simpleName`.
+- `threadFactory` es `MonitorableThreadFactory(name, Daemonicity, classLoader, uncaughtExceptionHandler)` (ActorSystem.scala:909-910): los hilos llevan el nombre del sistema (observable en DispatchersSpec.scala:230-260, fila AC-DSP).
+- `uid` es un `Long` aleatorio fijado al construir (ActorSystem.scala:838).
 
-**Dependencias.** Filas: AC-SYS-018. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Ninguno propio. `printTree` puede lanzar si la jerarquía cambia mientras se recorre (no es contractual: el Scaladoc advierte de OOM/inestabilidad, ActorSystem.scala:801-806).
 
-**Equivalente Rust propuesto.** trait o métodos `pub` marcados unstable
+**Orden / concurrencia / ciclo de vida.** `printTree` no es atómico (instantánea no consistente). `threadFactory` se usa durante la construcción de dispatchers y scheduler (antes de `start`).
 
-**Diferencias observables.** Rust: `print_tree()` con formato propio; la comparación textual con Pekko no es necesaria salvo que un test la afirme (ninguno lo hace).
+**Dependencias.** Filas: AC-SYS-010 ; AC-SYS-018 ; AC-SYS-023 ; AC-DSP-001 ; AC-DSP-015 ; AC-EXT-001.2. Externas: ninguna.
+
+**Equivalente Rust propuesto.** Trait de extensión `ExtendedActorSystem` (feature `unstable`) con `provider()`, `guardian()`, `system_guardian()`, `system_actor_of(..)`, `log_filter()`, `uid()`, `print_tree() -> String`. `thread_factory`/`dynamic_access` no tienen equivalente directo (Q-SYS-6): la creación de hilos pasa por el runtime elegido (Q-X-4) y la reflexión por el registro de fábricas (Q-X-2). Viabilidad: alta para todo salvo los dos últimos.
+
+**Diferencias observables.** `print_tree()` tiene formato propio (no se compara textualmente con Pekko: ningún test lo afirma). Sin `threadFactory`/`dynamicAccess`.
 
 **Aserciones.**
-- A1: `printTree` no falla sobre un sistema vivo — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:318 (sólo usado en mensaje de diagnóstico).
+- A1: `printTree` no falla sobre un sistema vivo y su salida se usa sólo como diagnóstico del fallo `"System didn't terminate within 5 seconds"` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316-320 (se ejecuta únicamente en la rama de fallo; no hay aserción sobre el texto).
+- A2: `printTree` se invoca en SupervisorHierarchySpec en los diagnósticos de fallo — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:563,637 (sin aserción sobre el texto).
+- A3: el texto de `printTree` empieza con `-> ` para la raíz y marca cada hijo con `⌊-> ` — derivada de ActorSystem.scala:1269, *no afirmada por spec*. Caracterización: el propio formato de rakka (nombre, tipo, nº de hijos), no la cadena de Pekko.
+- A4: `uid` es distinto entre sistemas — derivada de `ThreadLocalRandom` (ActorSystem.scala:838), *no afirmada por spec*.
 
-**Oráculo.** No aplica: el texto de printTree depende de clases JVM (getClass).
+**Validación prevista.** A1-A2: no portables como aserción (sólo diagnósticos); el equivalente es un test de humo `print_tree()` no entra en pánico con un árbol de 3 niveles. A3-A4: caracterización propia. Sin oráculo: el texto de `printTree` depende de clases JVM (`getClass`, `currentStatus`), justificado.
 
-**Decisiones.** ninguna específica
+**Decisiones.** Q-SYS-6 (efecto: `threadFactory` y `dynamicAccess` se excluyen de la superficie pública).
 
 ## AC-SYS-014 — close() (AutoCloseable): terminate + espera hasta close-actor-system-timeout
 
@@ -548,95 +640,137 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-SYS-016 — LocalActorRefProvider.actorOf: merge de Deploy, ruta router vs no-router, lookup de dispatcher y mailbox, LocalActorRef vs RepointableActorRef vs RoutedActorRef
 
-*Unidad SYS · visibilidad internal-required · analysis `listed`*
+*Unidad SYS · visibilidad internal-required · analysis `extracted`*
 
-**Contrato observable.** [contractual por spec] Errores de config de dispatcher/mailbox se convierten en ConfigurationException en la creación; dos creadores concurrentes del mismo nombre: exactamente uno gana (el otro InvalidActorNameException). Resuelve Props+Deploy (config `pekko.actor.deployment`) a un ref concreto.
+**Contrato observable.** [contractual por spec] `provider.actorOf(system, props, supervisor, path, systemService, deploy, lookupDeploy, async)` (create-only) resuelve `Props` + `Deploy` (código vs config `pekko.actor.deployment`) a un `InternalActorRef`: sin router, el `Deploy` de config (si `lookupDeploy`) o el pasado (si no) pisa dispatcher y mailbox de los `Props` y `DispatcherSameAsParent` hereda el dispatcher del padre; con router se fusionan los `routerConfig` (`router :: deploy :: lookup` reducidos con `withFallback`) y se crea un `RoutedActorRef`. Los errores de configuración de dispatcher o mailbox se convierten en `ConfigurationException`. Con `async` se crea un `RepointableActorRef` (inicialización asíncrona, `UnstartedCell`); si no, un `LocalActorRef`. Dos creadores concurrentes del mismo nombre: exactamente uno gana y el otro recibe `InvalidActorNameException`.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:659-757
-- reference.conf: pekko.actor.deployment (reference.conf sección deployment)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:659-757 (`actorOf`), 123-139 (contrato de `systemService`/`deploy`/`lookupDeploy`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:924-925 (llamada con `systemService`)
+- reference.conf: `pekko.actor.deployment`, `pekko.actor.debug.router-misconfiguration`, `pekko.actor.default-dispatcher`, `pekko.actor.default-mailbox`
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:132-198; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:108-125,508-544
 
-**Condiciones.**
-- Dispatcher inexistente: ConfigurationException(`Dispatcher [<id>] not configured for path <path>`) (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:704-705).
-- Cualquier NonFatal al crear dispatcher/mailbox: ConfigurationException(`configuration problem while creating [<path>] with dispatcher [<d>] and mailbox [<m>]`, cause) (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:714-718).
-- Router: `Dispatcher [..] not configured for routees of <path>` / `for router of <path>` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:727-730).
+**Precondiciones.** `props.deploy.routerConfig` define la rama (`NoRouter` ↔ no router). `systemService = true` omite el `Deployer` (documentado en ActorRefProvider.scala:123-129; ver AC-SYS-010).
 
-**Orden / concurrencia / ciclo de vida.** Deploy de código vs config: dispatcher/mailbox definidos en el deploy pisan los de Props (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:684-702). DispatcherSameAsParent usa el dispatcher del padre.
+**Comportamiento.**
+- Rama `NoRouter`: si `debug.router-misconfiguration`, avisa cuando la config declara un router y el código no (`log.warning("Configuration says that [{}] should be a router, but code disagrees. …")`: ActorRefProvider.scala:670-677). `props2` se calcula con la tabla `(d.dispatcher, d.mailbox)` de ActorRefProvider.scala:684-702: `NoDispatcherGiven`/`NoMailboxGiven` mantienen `props`; `DispatcherSameAsParent` usa el dispatcher del padre (`parentDispatcher`: ActorRefProvider.scala:679-682); sin deploy y con `DispatcherSameAsParent` en los props también hereda.
+- Se verifica `dispatchers.hasDispatcher(props2.dispatcher)` (ActorRefProvider.scala:704-705); se obtiene dispatcher y `MailboxType` (ActorRefProvider.scala:707-709); `async` ⇒ `RepointableActorRef(..).initialize(async)`, si no ⇒ `LocalActorRef` (ActorRefProvider.scala:711-713).
+- Rama router: el `routerConfig` final es `(router :: deploy.routerConfig :: lookup.routerConfig).reduce((a, b) => b.withFallback(a))` (ActorRefProvider.scala:721-725); se validan dispatcher de rutees y del router (727-730); `routerProps` usa `RoutedActorCell.RouterActorCreator` y se verifican de antemano los mailboxes de router y rutees (732-745); se construye `RoutedActorRef(..).initialize(async)` (747-748).
 
-**Dependencias.** Filas: AC-DSP-007 ; AC-MBX-013 ; AC-RT-003 ; AC-PATH-005. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.**
+- Dispatcher inexistente (no router): `ConfigurationException("Dispatcher [<id>] not configured for path <path>")` (ActorRefProvider.scala:704-705).
+- Dispatcher de rutees/router inexistente: `ConfigurationException("Dispatcher [..] not configured for routees of <path>")` / `"… for router of <path>"` (ActorRefProvider.scala:727-730).
+- Cualquier `NonFatal` al crear dispatcher, mailbox o la ref: `ConfigurationException("configuration problem while creating [<path>] with dispatcher [<d>] and mailbox [<m>]", cause)`; en el caso router el texto incluye "router dispatcher/mailbox and routee dispatcher/mailbox" (ActorRefProvider.scala:714-718,750-754). Nota: la causa puede ser un `AssertionError` (es `NonFatal` en Scala).
+- Nombre mal formado o duplicado: `InvalidActorNameException` (mensajes fijados por AC-PATH).
 
-**Equivalente Rust propuesto.** fábrica en `provider::local::spawn`
+**Orden / concurrencia / ciclo de vida.** La reserva atómica del nombre (`reserveChild`) hace que, entre N creadores concurrentes del mismo nombre, uno tenga éxito y los demás `InvalidActorNameException` (LocalActorRefProviderSpec.scala:134-154). Dentro de un mismo mensaje, el segundo `actorOf` con el mismo nombre falla (LocalActorRefProviderSpec.scala:156-166).
 
-**Diferencias observables.** Rust: misma lógica en `spawn`. Diferencia: errores como `Err(ConfigError)`.
+**Dependencias.** Filas: AC-DSP-007 ; AC-MBX-013 ; AC-RT-003.1 ; AC-REF-009.1 ; AC-PATH-008 ; AC-SUP-014. Externas: Typesafe Config.
+
+**Equivalente Rust propuesto.** `provider::local::spawn(system, props, supervisor, path, SpawnFlags{system_service, async_init, lookup_deploy}, deploy_override) -> Result<ActorRef, SpawnError>`; errores `SpawnError::{InvalidName, Configuration{path, dispatcher, mailbox, source}}`. Los routers se crean por la misma función con la fusión de `RouterConfig` (contrato de routers: AC-RT). Viabilidad alta; la reserva atómica de nombre se implementa con un `DashMap`/`Mutex<HashMap>` en el contenedor de hijos.
+
+**Diferencias observables.** `Err(SpawnError)` en lugar de excepciones (Q-X-5); `Dispatcher`/`Mailbox` por registro de fábricas, no por FQCN (Q-X-2); la causa `AssertionError` del test se sustituye por un error cualquiera devuelto por la fábrica o un pánico capturado en la creación.
 
 **Aserciones.**
-- A1: 4 creaciones concurrentes de `new-actorN` con el mismo nombre -> conjunto de resultados {éxito, InvalidActorNameException} (1 y 2) — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:134-154.
-- A2: dos `actorOf(.., "duplicate")` en el mismo mensaje -> 1 InvalidActorNameException — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:156-166.
-- A3: nombres mal formados: null->'null', ''->'empty', '$hallo'->'not start with `$`', 'a%'/'%3'/'%xx'/.. ->'Invalid actor path element', 'üß'->'include only ASCII', `he"llo` -> `["] at position: 2` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:168-198.
-- A4: ConfigurationException ante dispatcher/mailbox inválido — SupervisorSpec:510-540 (sin leer), derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:704-718.
-- A5: `debug.router-misconfiguration` avisa de config router vs código — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:670-676, *no afirmada por spec*.
+- A1: 4 creaciones concurrentes de `new-actorN` con el mismo nombre producen exactamente {éxito, `InvalidActorNameException`} (conjunto de resultados `Set(1, 2)`), repetido 100 veces — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:134-154.
+- A2: dos `actorOf(.., "duplicate")` en el mismo mensaje producen exactamente 1 `InvalidActorNameException` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:156-166.
+- A3: nombres mal formados: `null`→mensaje con "null", `""`→"empty", `"$hallo"`→"not start with `$`", `"a%"`/`"%3"`/`"%xx"`/`"%0G"`/`"%gg"`/`"%"`/`"%1t"`/`"a?"`→"Invalid actor path element", `"üß"`→"include only ASCII", `he"llo`→`["] at position: 2`, `$hello`→`[$] at position: 0`, `hell>o`→`[>] at position: 4` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:168-198.
+- A4: un `MailboxType` cuyo `create` lanza hace que un actor hijo (no top-level) falle en `context.actorOf` con `ConfigurationException` cuya `getCause` es la excepción original — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:516-525 (el mailbox `error-mailbox` se define en SupervisorSpec.scala:115-125 y `creator(.., fail = true)` lo aplica en :108-111).
+- A5: lo mismo con un router hijo (`creator(..).withRouter(RoundRobinPool(1))`): `ConfigurationException` con `getCause == failure` — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:533-542.
+- A6: para un actor top-level con la misma falla, el error se manifiesta como `ActorInitializationException` logueado una vez y el actor termina (`expectTerminated`) tanto sin router como con `RoundRobinPool(1)` — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:510-514 y 527-531 (casos "creating a top-level actor" / "creating a top-level router").
+- A7: dispatcher inexistente en los `Props` falla con `ConfigurationException("Dispatcher [x] not configured for path <path>")` — derivada de ActorRefProvider.scala:704-705, *no afirmada por spec* (ActorModelSpec/DispatchersSpec cubren la parte de dispatchers: AC-DSP). Caracterización propuesta.
+- A8: `debug.router-misconfiguration = on` avisa cuando la config declara un router y el código no — derivada de ActorRefProvider.scala:670-677, *no afirmada por spec*. Caracterización propuesta con `EventFilter.warning`.
+- A9: la tabla de fusión `(dispatcher, mailbox)` del `Deploy` produce, p. ej., `(SameAsParent, NoMailboxGiven)` ⇒ `props.withDispatcher(parentDispatcher)` — derivada de ActorRefProvider.scala:689-694, *no afirmada por spec* (los casos de `SameAsParent` se prueban indirectamente en DispatchersSpec).
 
-**Oráculo.** Jar oficial para A3 (mensajes de nombres) y A4: escenario propuesto `sys-actorof-errors.jsh`.
+**Validación prevista.** A1-A6: tests portados 1:1 (A4-A6 con un `MailboxType` de prueba que falla en `create`). A7-A9: caracterización propia con las seis filas de la tabla de fusión; diferencial con el jar oficial para los mensajes de A3 y A7 (escenario `tools/oracle/sys-actorof-errors.jsh`): los textos son observables y en parte contractuales (`include(..)` en los specs).
 
-**Decisiones.** Q-X-2, Q-X-5
+**Decisiones.** Q-X-2 (fábricas de dispatcher/mailbox por nombre), Q-X-5 (Err vs excepción).
 
 ## AC-SYS-017 — Actores temporales: tempPath, tempContainer, registerTempActor/unregisterTempActor
 
-*Unidad SYS · visibilidad internal-required · analysis `listed`*
+*Unidad SYS · visibilidad internal-required · analysis `extracted`*
 
-**Contrato observable.** [contractual interno] Refs bajo /temp registrados en un VirtualPathContainer, resolubles por path mientras viven; nombres `$` + base64 del contador. Cada ask crea un ref temporal bajo /temp.
+**Contrato observable.** [contractual interno] El proveedor local genera rutas únicas bajo `/temp` para refs de corta vida (cada `ask` crea una `PromiseActorRef` registrada ahí): `tempPath(prefix) = rootPath/temp/<prefix>$<base64(contador)>` con un `AtomicLong` creciente (primer nombre `$a`, luego `$b`…). `tempContainer` es un `VirtualPathContainer` (hijo virtual de la raíz) que mantiene un mapa concurrente nombre→ref y es resoluble por path mientras viva el ref. `registerTempActor` y `unregisterTempActor` exigen (assert) que el padre del path sea `/temp`.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:428-446 (tempPath)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:601-611 (register/unregister)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:96-120 (contrato en el trait), 425-442 (`tempNumber`, `tempNode`, `tempPath`), 601-611 (`tempContainer`, register/unregister)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:763-856 (`VirtualPathContainer`)
+- specs: actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:248-266,268-289
 
-**Condiciones.**
-- `tempPath(prefix)` = rootPath/temp/<prefix>$<base64(contador)> (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:434-442).
-- registerTempActor exige que el padre sea tempNode (assert) (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:604).
+**Precondiciones.** Los paths pasados a `register/unregisterTempActor` DEBEN venir de `tempPath()` (documentado; se comprueba con `assert(path.parent eq tempNode, ..)`: ActorRefProvider.scala:604,609).
 
-**Orden / concurrencia / ciclo de vida.** Contador atómico creciente.
+**Comportamiento.**
+- `tempPath(prefix)`: `builder = prefix?; "$" + Helpers.base64(tempNumber.getAndIncrement())` (ActorRefProvider.scala:434-442). El alfabeto base64 es el de AC-UTIL-002.1.
+- `VirtualPathContainer`: mapa `ConcurrentHashMap[String, InternalActorRef]` (ActorRef.scala:770). `addChild(name, ref)`: si reemplaza un valor previo, loguea `debug("{} replacing child {} ({} -> {})")` y detiene el antiguo (ActorRef.scala:807-816). `removeChild(name)`: si no existía, `warning("{} trying to remove non-child {}")` (ActorRef.scala:818-819). `getChild(Iterator)`: iterador vacío o nombre vacío ⇒ el propio contenedor; nombre ausente ⇒ `Nobody`; si quedan más elementos delega en `child.getChild` (ActorRef.scala:835-848). `hasChildren`/`foreachChild` leen una vista débilmente consistente (ActorRef.scala:850-855).
+- Mensajes `ActorSelectionMessage` enviados al contenedor: sólo se admite `SelectChildName` en el primer elemento; si el hijo existe y es el último elemento, se le envía el mensaje; si no existe o quedan elementos o no es `SelectChildName`, se reenvía a un `EmptyLocalActorRef` salvo `wildcardFanOut` (entonces se descarta) (ActorRef.scala:776-805). Otros mensajes: `super.!` (ruta a dead letters).
+- Derivación de nombre en ask: el nombre del ref temporal incluye el nombre del destino (`myName…`) o, para un `ActorSelection`, `_user_myName…` (AskSpec.scala:248-266); ver AC-ASK-002.
 
-**Dependencias.** Filas: AC-ASK-002 ; AC-UTIL-009. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** `assert` fallido (`AssertionError`, "cannot registerTempActor() with anything not obtained from tempPath()") si el path no es de `/temp`. `require(elements.nonEmpty)` en el manejo de `ActorSelectionMessage`.
 
-**Equivalente Rust propuesto.** mapa concurrente nombre→ref con contador atómico
+**Orden / concurrencia / ciclo de vida.** El contador es atómico: nombres únicos entre hilos. `addChild`/`removeChild` son atómicos por clave. Un ref desregistrado sigue siendo válido pero deja de resolverse por path (cae a `EmptyLocalActorRef`/dead letters).
 
-**Diferencias observables.** Rust: igual.
+**Dependencias.** Filas: AC-ASK-002 ; AC-UTIL-002.1 ; AC-PATH-015 ; AC-REF-011. Externas: ninguna.
+
+**Equivalente Rust propuesto.** `TempContainer { children: DashMap<Arc<str>, ActorRef>, counter: AtomicU64 }` con `temp_path(prefix) -> ActorPath`, `register_temp(ref, path)`, `unregister_temp(path)`; `debug_assert!` en lugar de `assert`. Viabilidad alta.
+
+**Diferencias observables.** `AssertionError` → `debug_assert!`/`Err` (Q-X-5); el resto igual.
 
 **Aserciones.**
-- A1: `tempPath()` genera nombres únicos `$..` bajo /temp — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:432-442, *no afirmada por spec leída*.
-- A2: un ref temporal registrado es resoluble por path — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:601-611.
+- A1: el nombre del ref temporal de un `ask` a un actor de nombre `myName` empieza por `myName` y, para un `ask` a `actorSelection("/user/myName")`, por `_user_myName` — actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:248-266.
+- A2: cuando el actor responde al ref temporal, el `ask` completa con `"complete"` y el path del ref temporal (ya terminado) sigue conteniendo el nombre del destino (`pathPrefix`) — actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:268-289 (test "proper path when promise actor terminated"; aserciones en :286 y :288).
+- A3: `tempPath()` genera nombres únicos `$..` bajo `/temp`, empezando en `$a` — derivada de ActorRefProvider.scala:428-442 y de AC-UTIL-002.1, *no afirmada por spec directa*. Caracterización: tres llamadas consecutivas producen `/temp/$a`, `/temp/$b`, `/temp/$c` en un sistema nuevo.
+- A4: un ref temporal registrado es resoluble por path (`resolveActorRef(path)` / `ActorSelection`) y deja de serlo tras `unregisterTempActor` — derivada de ActorRefProvider.scala:603-611 y ActorRef.scala:807-848, *no afirmada por spec*.
+- A5: `registerTempActor` con un path que no es de `/temp` falla el assert — derivada de ActorRefProvider.scala:604, *no afirmada por spec*.
+- A6: `addChild` sobre un nombre existente detiene el ref anterior — derivada de ActorRef.scala:807-816, *no afirmada por spec*.
 
-**Oráculo.** Jar oficial: escenario propuesto `sys-temp-paths.jsh` (secuencia de tempPath).
+**Validación prevista.** A1-A2: tests portados dentro de la unidad ASK. A3-A6: caracterización propia; diferencial con el jar oficial para A3 (secuencia de `tempPath`) en `tools/oracle/sys-temp-paths.jsh`, justificado porque los nombres temporales aparecen en logs y dead letters.
 
-**Decisiones.** ninguna específica
+**Decisiones.** ninguna específica.
 
 ## AC-SYS-018 — SPI ActorRefProvider (@DoNotInherit): rootGuardian, guardian, systemGuardian, deadLetters, ignoreRef, rootPath, deployer, resolveActorRef, terminationFuture, getExternalAddressFor, getDefaultAddress, serializationInformation, addressString
 
-*Unidad SYS · visibilidad internal-required · analysis `listed`*
+*Unidad SYS · visibilidad internal-required · analysis `extracted`*
 
-**Contrato observable.** [contractual para remote/cluster] Punto de enganche de RemoteActorRefProvider/ClusterActorRefProvider; en local getExternalAddressFor(addr) = Some(addr) sólo si coincide con rootPath.address. Interfaz del proveedor.
+**Contrato observable.** [contractual para remote/cluster; `@DoNotInherit`] Interfaz del proveedor de refs: `rootGuardian`, `rootGuardianAt(address)`, `guardian` (/user), `systemGuardian` (/system), `deadLetters`, `ignoreRef`, `rootPath`, `settings`, `init(system)`, `deployer`, `tempPath*`/`tempContainer`/`register/unregisterTempActor` (AC-SYS-017), `actorOf` (AC-SYS-016), `resolveActorRef` (AC-SYS-024), `terminationFuture` (AC-SYS-019), `getExternalAddressFor`, `getDefaultAddress`, `serializationInformation`, `addressString`. En el proveedor local: `getExternalAddressFor(addr) = Some(addr)` sólo si `addr == rootPath.address`, si no `None`; `getDefaultAddress = rootPath.address`; `rootGuardianAt(address)` = `rootGuardian` si coincide con la dirección raíz, si no `deadLetters`; `addressString` es `getDefaultAddress.toString` cacheado. `ProviderSelection` (local/remote/cluster/custom) decide qué proveedor se instancia.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:40-187
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:759 (getExternalAddressFor local)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:40-181 (trait), 554-556 (`rootGuardianAt`), 759-761 (`getExternalAddressFor`, `getDefaultAddress`), 763-778 (`serializationInformation`), 780-791 (`addressString`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:103-145 (`ProviderSelection`), 408-420 (selección en `Settings`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:541-562 (`IgnoreActorRef.path` = `pekko://local/ignore`)
+- reference.conf: `pekko.actor.provider`
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ProviderSelectionSpec.scala:38-67
 
-**Condiciones.**
-- rootGuardianAt(address) = rootGuardian si address==rootPath.address, si no deadLetters (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:554-556).
+**Precondiciones.** El proveedor se instancia por FQCN con `(systemName, settings, eventStream, dynamicAccess)` (ActorSystem.scala:967-975) y se inicializa con `init(system)` (AC-SYS-002). Antes de `init`, `serializationInformation` lanza `IllegalStateException("Too early access of serializationInformation")` si aún no hay `system` (ActorRefProvider.scala:770-771).
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.**
+- `ProviderSelection.apply(String)`: `"local"` → `Local`; `"remote"` o FQCN de `RemoteActorRefProvider` → `Remote`; `"cluster"` o FQCN de `ClusterActorRefProvider` → `Cluster`; cualquier otro → `Custom(fqcn)` (ActorSystem.scala:137-144). `hasCluster` sólo es `true` para `Cluster`. `Settings.ProviderClass` es el `fqcn` seleccionado (ActorSystem.scala:416-418).
+- `rootGuardianAt`, `getExternalAddressFor` y `getDefaultAddress` locales según arriba.
+- `ignoreRef`: ref con path `pekko://local/ignore` (nombre de sistema ficticio `local`), que descarta todo (ActorRef.scala:541-548; comportamiento en AC-REF).
+- `serializationInformation` se cachea una vez con `Serialization.Information(rootPath.address, system)` (ActorRefProvider.scala:764-777).
 
-**Dependencias.** Filas: AC-CFG-008. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** `IllegalStateException` en `serializationInformation` demasiado pronto. Un FQCN que no se pueda instanciar hace fallar la construcción del sistema (`Try(stopScheduler())` y relanza: ActorSystem.scala:976-979).
 
-**Equivalente Rust propuesto.** trait sellado `ActorRefProvider` con impl local
+**Orden / concurrencia / ciclo de vida.** `init` ocurre una vez desde `start`. Los campos `system` y `extraNames` son `@volatile`; los guardianes son `lazy val`.
 
-**Diferencias observables.** Rust: trait sellado.
+**Dependencias.** Filas: AC-CFG-008 ; AC-CFG-015 ; AC-SYS-016 ; AC-SYS-017 ; AC-SYS-019 ; AC-SYS-024 ; AC-SYS-025 ; AC-SER-001.3. Externas: ninguna.
+
+**Equivalente Rust propuesto.** Trait sellado `ActorRefProvider` con una implementación `LocalActorRefProvider` y un punto de extensión interno (`pub(crate)` o feature `provider-spi`) para futuros proveedores remotos; `enum ProviderSelection { Local, Remote, Cluster, Custom(String) }` con el mismo mapeo de strings. `Custom(name)` se resuelve contra un registro de proveedores (Q-X-2). Viabilidad alta para el proveedor local; remote/cluster fuera de alcance con frontera explícita (el trait debe poder alojarlos).
+
+**Diferencias observables.** El FQCN de clase JVM de `Local/Remote/Cluster` se reemplaza por identificadores propios; `ProviderSelection("remote")` y el FQCN siguen siendo equivalentes mediante una tabla de alias. `@DoNotInherit` se sustituye por un trait sellado.
 
 **Aserciones.**
-- A1: `getExternalAddressFor(addr)` local devuelve Some(addr) sólo para la dirección raíz — actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:759, *no afirmada por spec leída*.
+- A1: `ProviderSelection.Local.fqcn` es el nombre de clase de `LocalActorRefProvider`, `hasCluster` es `false` y `Settings` con `provider = "local"` expone el mismo `ProviderClass` — actor-tests/src/test/scala/org/apache/pekko/actor/ProviderSelectionSpec.scala:38-43.
+- A2: `ProviderSelection.Remote.fqcn` es `org.apache.pekko.remote.RemoteActorRefProvider`, `hasCluster` es `false`, `ProviderSelection("remote") == ProviderSelection(RemoteActorRefProvider)` y `Settings` lo refleja — actor-tests/src/test/scala/org/apache/pekko/actor/ProviderSelectionSpec.scala:45-51.
+- A3: `ProviderSelection.Cluster` análogo con `hasCluster == true` — actor-tests/src/test/scala/org/apache/pekko/actor/ProviderSelectionSpec.scala:53-59.
+- A4: `ProviderSelection.Custom(other)` conserva el FQCN, `hasCluster == false` y `Settings.ProviderClass` lo devuelve — actor-tests/src/test/scala/org/apache/pekko/actor/ProviderSelectionSpec.scala:61-67.
+- A5: `getExternalAddressFor(addr)` local devuelve `Some(addr)` sólo para la dirección raíz — derivada de ActorRefProvider.scala:759, *no afirmada por spec*. Caracterización propuesta.
+- A6: `rootGuardianAt(address)` devuelve el guardián raíz sólo para la dirección propia y `deadLetters` en otro caso — derivada de ActorRefProvider.scala:554-556, *no afirmada por spec*.
+- A7: `getDefaultAddress == rootPath.address` y `addressString == getDefaultAddress.toString` — derivada de ActorRefProvider.scala:761,783-790, *no afirmada por spec*.
+- A8: `ignoreRef.path == "pekko://local/ignore"` — derivada de ActorRef.scala:543-546, *no afirmada por spec aquí* (AC-PATH-015 y AC-REF).
 
-**Oráculo.** Jar oficial para A1.
+**Validación prevista.** A1-A4: tests portados 1:1 (sin FQCN reales; con los identificadores de rakka). A5-A8: caracterización propia; diferencial con el jar oficial para A5-A7 en `tools/oracle/sys-provider-addresses.jsh` (justificado: sin spec y observable por remote/cluster y `serializationInformation`).
 
-**Decisiones.** ninguna específica
+**Decisiones.** Q-X-2 (proveedores por registro), Q-SYS-6 (efecto: `DynamicAccess` no forma parte de la firma del constructor del proveedor).
 
 ## AC-SYS-019 — terminationFuture del proveedor y 'bubble-walker' (theOneWhoWalksTheBubblesOfSpaceTime)
 
@@ -671,57 +805,80 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-SYS-020 — ManifestInfo: chequeo de versiones mezcladas de módulos Pekko
 
-*Unidad SYS · visibilidad internal-accidental · analysis `listed`*
+*Unidad SYS · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual JVM] Lee MANIFEST de los jars y advierte/falla con fail-mixed-versions. Avisa si hay versiones distintas de módulos Pekko en el classpath.
+**Contrato observable.** [contractual por spec para `checkSameVersion`; JVM-específico para la lectura de MANIFEST] `ManifestInfo` es una extensión que lee `META-INF/MANIFEST.MF` de todos los jars del classpath y registra la versión (`Implementation-Version`, o `Bundle-Version`) de los artefactos con vendor `org.apache.pekko` (`Implementation-Vendor-Id`/`Bundle-Vendor`), indexada por título (`Implementation-Title`/`Bundle-Name`). `checkSameVersion(productName, dependencies, versions)` devuelve `Some(mensaje)` si las versiones de los módulos listados no son idénticas y `None` si coinciden; el arranque del sistema lo invoca con `logWarning = true` y, si `pekko.fail-mixed-versions = on`, lanza `IllegalStateException(message)`.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1013-1045,1069
+- actor/src/main/scala/org/apache/pekko/util/ManifestInfo.scala:37-103 (objeto: constantes, `Version`, `checkSameVersion` puro), 110-194 (extensión: lectura de manifests y `checkSameVersion` con log/throw)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1013-1045 (lista `allModules`), 1071 (invocación en `start`), 472 (`FailMixedVersions`)
+- reference.conf: `pekko.fail-mixed-versions`
+- specs: actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:18-46
 
-**Condiciones.**
-- fail-mixed-versions=on (reference.conf:103) hace fallar el arranque.
+**Precondiciones.** Sólo se consideran versiones cuyo vendor está en `knownVendors = Set("org.apache.pekko")` y que tengan título, versión y vendor no nulos (ManifestInfo.scala:140-144).
 
-**Orden / concurrencia / ciclo de vida.** Se llama en start tras startUnsubscriber (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1069).
+**Comportamiento.**
+- `Version(version: String)` envuelve `pekko.util.Version` (comparable, `equals`, `hashCode`, `toString`: ManifestInfo.scala:58-74; su orden se especifica en AC-UTIL).
+- `checkSameVersion` puro: filtra `versions` a las claves en `dependencies`; si el conjunto de valores distintos tiene más de uno, calcula `highestVersion = values.max`, `toBeUpdated` = módulos con versión distinta de la mayor (en orden del mapa) y `groupedByVersion` = pares `(versión, [módulos ordenados])` ordenados por versión, y devuelve el mensaje fijo `"You are using version <max> of <product>, but it appears you (perhaps indirectly) also depend on older versions of related artifacts. You can solve this by adding an explicit dependency on version <max> of the [<toBeUpdated>] artifacts to your project. Here's a complete collection of detected artifacts: <grouped>. See also: https://pekko.apache.org/docs/pekko/current/common/binary-compatibility-rules.html#mixed-versioning-is-not-allowed"` (ManifestInfo.scala:77-102).
+- Versión "dynver": `1.0.2+10-abababef` > `1.0.2` (ManifestInfoSpec.scala:34-44).
+- Extensión: `checkSameVersion(product, deps, logWarning)` usa `throwException = settings.FailMixedVersions`; con `logWarning` loguea `warning(message)`; con `throwException` lanza `IllegalStateException(message)`; devuelve `true` sólo si no hay discrepancia (ManifestInfo.scala:165-193).
+- La lectura de manifests tolera `IOException` con `warning("Could not read manifest information. {}", ioe)` (ManifestInfo.scala:150-153).
 
-**Dependencias.** Filas: AC-CFG-007. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** `IllegalStateException(message)` si `throwException` y hay discrepancia. Sin discrepancia no hay error ni log.
 
-**Equivalente Rust propuesto.** verificación en tiempo de compilación (cargo resuelve una versión por crate) + `Version` en runtime
+**Orden / concurrencia / ciclo de vida.** Se ejecuta una vez en `start` (después del `startUnsubscriber`, antes de `loadExtensions`). Es una extensión: se instancia por sistema. La lectura de `versions` es un `val` calculado al crear la extensión.
 
-**Diferencias observables.** Rust: comprobación de que `rakka-actor` y `rakka-actor-typed` comparten versión (const en compilación); diferencia observable: no hay warning de runtime.
+**Dependencias.** Filas: AC-CFG-007 ; AC-UTIL-005.2 ; AC-UTIL-016.9 ; AC-EXT-001.2 ; AC-SYS-002. Externas: classpath JVM.
+
+**Equivalente Rust propuesto.** Función pura `check_same_version(product, dependencies, versions: &BTreeMap<String, Version>) -> Option<String>` con el mismo texto, más un registro de versiones de crates conocidos (`ManifestInfo::versions()` poblado en compilación a partir de `env!("CARGO_PKG_VERSION")` de cada crate rakka; Q-SYS-3(a)). El arranque llama `check_same_version` y respeta `fail-mixed-versions`. Viabilidad alta para la parte pura; la lectura de manifests no existe en Rust.
+
+**Diferencias observables.** No hay MANIFEST ni classpath: las versiones vienen de constantes de compilación (en un workspace de crates con versión única el chequeo es trivial y casi siempre `None`; el caso de versiones mezcladas sólo es observable inyectando el mapa). Los nombres de módulo de `allModules` se reducen a los crates rakka equivalentes.
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: con `pekko-actor 1.0.2`, `pekko-persistence 1.0.1`, `pekko-cluster 1.0.1` y `unrelated 1.0.1`, y `allModules = [pekko-actor, pekko-persistence, pekko-cluster]`, el resultado es exactamente el mensaje con "version 1.0.2 of Pekko", "[pekko-persistence, pekko-cluster]" y "(1.0.1, [pekko-cluster, pekko-persistence]), (1.0.2, [pekko-actor])" — actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:20-32.
+- A2: con versiones `1.0.2` y `1.0.2+10-abababef` (dynver) la versión mayor es la dynver, el módulo a actualizar es `pekko-actor` y el agrupado es `(1.0.2, [pekko-actor]), (1.0.2+10-abababef, [pekko-persistence])` — actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:34-44.
+- A3: módulos no listados en `dependencies` (`unrelated`) se ignoran — actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:21-27 (el caso de A1 incluye `unrelated 1.0.1` y no aparece en el mensaje).
+- A4: si todas las versiones coinciden, `checkSameVersion` devuelve `None` — derivada de ManifestInfo.scala:84,101, *no afirmada por spec*. Caracterización propuesta.
+- A5: con `fail-mixed-versions = on` y discrepancia, el arranque lanza `IllegalStateException` con el mismo mensaje; con `off`, sólo un `warning` — derivada de ManifestInfo.scala:165-193 y ActorSystem.scala:1071, *no afirmada por spec*. Caracterización propuesta inyectando el mapa de versiones.
+- A6: sólo cuentan artefactos con vendor `org.apache.pekko` — derivada de ManifestInfo.scala:46,140-144, *no afirmada por spec*; sin equivalente en Rust (no hay manifests).
 
-**Oráculo.** No aplica: depende de manifests JAR.
+**Validación prevista.** A1-A3: tests portados 1:1 (función pura). A4-A5: caracterización propia con mapa inyectado. A6: no aplicable en Rust (se documenta). Sin oráculo: A1-A2 son strings fijos ya capturados por el spec; justificado.
 
-**Decisiones.** Q-SYS-3
+**Decisiones.** Q-SYS-3 (efecto: se implementa la parte pura y un registro de versiones de compilación; la lectura de MANIFEST queda sin equivalente, que es una exclusión menor sujeta a la decisión del Owner).
 
 ## AC-SYS-021 — Main (arranca un sistema con un actor y termina al morir)
 
-*Unidad SYS · visibilidad deprecated · analysis `listed`*
+*Unidad SYS · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] Utilidad deprecada. Pendiente de lectura.
+**Contrato observable.** [contractual, deprecado desde Akka 2.6.0] `org.apache.pekko.Main.main(args)` exige exactamente un argumento (FQCN de la clase del actor "supervisor de aplicación"); con otro número imprime por stdout `you need to provide exactly one argument: the class of the application supervisor actor` y no hace nada más. Con un argumento: crea `ActorSystem("Main")`, carga la clase vía `dynamicAccess.getClassFor[Actor]`, crea el actor `app` y un `Terminator` (`app-terminator`) que vigila (`watch`) al actor; cuando `app` termina, el `Terminator` loguea `info("application supervisor has terminated, shutting down")` y llama `context.system.terminate()`. Si algo falla (`NonFatal`) al cargar/crear, termina el sistema y relanza la excepción.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/Main.scala:32-60
+- actor/src/main/scala/org/apache/pekko/Main.scala:27-62
+- specs: ninguno (búsqueda de `pekko.Main`/`Main.main` en actor-tests, testkit y actor/src/test sin resultados)
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** El argumento debe ser el FQCN de una clase `Actor` instanciable sin argumentos.
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.** Ver contrato. Orden: `ActorSystem("Main")` → `getClassFor` → `actorOf(Props(appClass), "app")` → `actorOf(Props(classOf[Terminator], app), "app-terminator")` (Main.scala:42-46). `Terminator.preStart`-equivalente: `context.watch(app)` en el constructor (Main.scala:54); `receive { case Terminated(_) => log.info(..); context.system.terminate() }` (Main.scala:55-59).
 
-**Dependencias.** Filas: AC-SYS-001.2. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Aridad incorrecta: mensaje por stdout (sin excepción ni código de salida). Clase inexistente o no-actor: `getClassFor(..).get` lanza (`ClassNotFoundException`/`ClassCastException` envueltos), el `catch NonFatal` hace `system.terminate()` y relanza (Main.scala:47-49).
 
-**Equivalente Rust propuesto.** `rakka::Main::run::<A>()` (feature `deprecated`)
+**Orden / concurrencia / ciclo de vida.** `main` retorna tras crear los actores; el proceso sigue vivo mientras el sistema no termine (hilos no daemon según `pekko.daemonic`).
 
-**Diferencias observables.** Rust: función utilitaria detrás de feature; sin diferencias conocidas.
+**Dependencias.** Filas: AC-SYS-001.2 ; AC-SYS-004 ; AC-DW-001 ; AC-EVT-013.2. Externas: ninguna.
 
-**Aserciones.**
-- Pendiente de lectura.
+**Equivalente Rust propuesto.** Función utilitaria `rakka::run_main(app_factory_name: &str) -> Result<(), SystemError>` tras `#[cfg(feature = "deprecated")]` (Q-SYS-3), con el nombre de la clase sustituido por un nombre registrado en el registro de fábricas (Q-X-2): crea el sistema `"Main"`, el actor `app`, el actor `app-terminator` que lo observa y termina el sistema cuando `app` muere; aridad incorrecta ⇒ mensaje por stdout. Viabilidad alta.
 
-**Oráculo.** Jar oficial: `java org.apache.pekko.Main <clase>`.
+**Diferencias observables.** El argumento es un nombre registrado, no un FQCN; el binario `Main` de la JVM no tiene equivalente (`fn main` del usuario); el mensaje de uso se conserva.
 
-**Decisiones.** Q-SYS-3
+**Aserciones.** Ninguna está afirmada por spec en el repositorio de Pekko; todas las siguientes son *no afirmada por spec* y se proponen como caracterización:
+- A1: `main(&[])` y `main(&["a","b"])` imprimen el mensaje de uso y no crean sistema — derivada de Main.scala:39-41.
+- A2: con un actor `app` que se detiene a sí mismo, el sistema `Main` termina (`when_terminated` se completa) — derivada de Main.scala:53-60.
+- A3: con una clase inexistente, el sistema termina y el error se propaga — derivada de Main.scala:47-49.
+- A4: los actores se llaman `/user/app` y `/user/app-terminator` — derivada de Main.scala:45-46.
+
+**Validación prevista.** Caracterización propia (A1-A4) con captura de stdout y `when_terminated`; sin oráculo (deprecado, sin spec, comportamiento trivial) — justificado.
+
+**Decisiones.** Q-SYS-3 (efecto: la fila existe pero queda detrás de la feature `deprecated`), Q-X-2 (nombre registrado en vez de FQCN).
 
 ## AC-SYS-022 — Settings.toString con redacción de datos sensibles (renderWithRedactions)
 
@@ -845,7 +1002,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Fuente.**
 - actor/src/main/scala/org/apache/pekko/event/EventBus.scala:33-90
-- docs: sección event-bus (docs/src/main/paradox/event-bus.md; no se leyó)
+- documentación de usuario `docs/src/main/paradox/event-bus.md` queda fuera de los módulos del alcance (no se usa como fuente de contrato)
 
 **Condiciones.**
 - subscribe(sub, c) -> true la primera vez, false si ya estaba (actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:76-80).
@@ -1155,6 +1312,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Fuente.**
 - actor/src/main/scala/org/apache/pekko/event/Logging.scala:154-166
+- actor/src/main/scala/org/apache/pekko/actor/Actor.scala:293-303 (`UnhandledMessage extends WrappedMessage with AllDeadLetters`), 545-550 y 656-661 (`aroundReceive` -> `unhandled(msg)`: `Terminated(dead)` => `DeathPactException(dead)`, otro => `eventStream.publish(UnhandledMessage(message, sender(), self))`; leído en la auditoría 2026-10-31)
 - reference.conf:755 (debug.unhandled)
 
 **Condiciones.**
@@ -1231,7 +1389,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - actor/src/main/scala/org/apache/pekko/event/Logging.scala:711-960
 
 **Condiciones.**
-- LogEvent.apply(level, ..) para Off o niveles desconocidos: no se leyó la rama de error (actor/src/main/scala/org/apache/pekko/event/Logging.scala:772-800).
+- `LogEvent.apply(level, logSource, logClass, message[, mdc[, marker]])` con un nivel que no es Error/Warning/Info/Debug (p. ej. `OffLevel`) lanza `IllegalArgumentException("Unsupported log level [<level>]")` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:771-800; auditoría 2026-10-31, sin spec que lo afirme).
+- Variantes (Logging.scala:804-960): `Error(cause, src, cls, msg)` (case class; `Error.NoCause` por defecto, objeto `NoStackTrace`), `Error2` (+mdc), `Error3` (+mdc, marker); `Warning`, `Warning2` (+mdc), `Warning3` (+mdc, marker), `Warning4` (+mdc, marker, cause; `Warning.apply(cause, .., mdc)` pasa `marker = null`); `Info`/`Info2`/`Info3` y `Debug`/`Debug2`/`Debug3` análogos. Las subclases heredan de la anterior (`Error3 <: Error2 <: Error`) y los `apply` de los objetos compañeros eligen la variante según los argumentos (auditoría 2026-10-31).
 - Serialización: LogEvent está ligado a `bytes` en el test 3165 y no debe causar StackOverflowError al serializar (actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:347-356).
 
 **Orden / concurrencia / ciclo de vida.** n/a
@@ -1318,31 +1477,54 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-EVT-013.3 — LogSource y fábricas Logging.apply/getLogger/withMarker (obtención de adaptadores; logSource derivado de path/clase)
 
-*Unidad EVT · visibilidad public · analysis `listed`*
+*Unidad EVT · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] Logging(system, obj) y Logging(bus, obj) crean un adaptador con (logSource, logClass) derivados del LogSource implícito del objeto (ActorRef -> path, String, Class, Actor, ActorSystem). Pendiente de lectura.
+**Contrato observable.** [contractual] `LogSource[T]` define cómo un objeto origen se convierte en el par `(logSource: String, logClass: Class)` de los `LogEvent`: `genString(t)` (variante sin sistema), `genString(t, system)` (variante que incluye la dirección del sistema) y `getClazz(t)` (por defecto `t.getClass`). Reglas predefinidas (objeto `LogSource`): `String` → la propia cadena (con sistema: `s + "(" + system + ")"`) y clase `DummyClassForStringSources`; `Actor` y `ActorRef` → `path.toString` (con sistema: `path.toStringWithAddress(provider.getDefaultAddress)`, con respaldo a `path.toString` si falla); `Class` → `Logging.simpleName(c)` (con sistema: `simpleName + "(" + system + ")"`) y la propia clase como `logClass`. Las fábricas `Logging(system|bus, src)`, `Logging.withMarker(system|bus, src)`, `Logging(actor)`, `Logging.withMarker(actor)` y `Logging.getLogger(system|bus|actor, ..)` aplican esas reglas y devuelven un `BusLogging`/`MarkerLoggingAdapter`/adaptador diagnóstico sobre el EventStream (o bus) dado.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:233-480
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:573-705
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:236-284 (`trait LogSource`), 289-296 (`ActorWithLogClass`, `DummyClassForStringSources`), 317-403 (`object LogSource`: reglas, `apply`, `fromAnyRef`)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:438-465 (`simpleName`, `messageClassName`)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:573-705 (fábricas `apply`, `withMarker`, `getLogger`)
+- actor/src/main/scala/org/apache/pekko/actor/Actor.scala:340-350 (uso desde `ActorLogging`)
+- specs: actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:74-94,96-128,164-180; actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-94; actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:54-90
 
-**Condiciones.**
-- Pendiente. Se vio que `Logging.apply(logSource: Actor)` crea un DiagnosticLoggingAdapter con el logFilter del sistema (actor/src/main/scala/org/apache/pekko/event/Logging.scala:645-649).
+**Precondiciones.** Para `apply(system, src)`/`withMarker(system, src)`/`getLogger(system, ..)` el sistema debe ser `ExtendedActorSystem` (usa `system.logFilter`, Logging.scala:575). Para el bus no hay filtro de sistema: se usa `DefaultLoggingFilter` (Logging.scala:613-615). `apply(T)` exige un `LogSource[T]` implícito (error de compilación si no existe).
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.**
+- `Logging(system, src)`: `(str, clazz) = LogSource(src, system)`; `new BusLogging(system.eventStream, str, clazz, system.logFilter)` (Logging.scala:573-576). `withMarker(system, src)` igual con `MarkerLoggingAdapter` (598-601).
+- `Logging(bus, src)`: `(str, clazz) = LogSource(src)` (sin dirección); `new BusLogging(bus, str, clazz)` (617-620); `withMarker(bus, src)` (636-639).
+- `Logging(actor)` / `getLogger(actor)`: adaptador con MDC (`BusLogging with DiagnosticLoggingAdapter`) sobre `actor.context.system.eventStream` y su `logFilter` (645-649,705); `withMarker(actor)`: `DiagnosticMarkerBusLoggingAdapter` (655-659).
+- `getLogger(system, AnyRef)`/`getLogger(bus, AnyRef)`: usan `LogSource.fromAnyRef`, que despacha por tipo en tiempo de ejecución: `Class` → `apply(c)`, `Actor` → `apply(a)`, `ActorRef` → `apply(a)`, `String` → `apply(s)`; cualquier otro objeto → `(simpleName(x) [+ "(" + system + ")"], x.getClass)` (Logging.scala:381-402). **Detalle no obvio:** la variante con sistema de `fromAnyRef` llama a `apply(c|a|s)` SIN sistema para `Class`/`Actor`/`ActorRef`/`String` (Logging.scala:397-400), de modo que `getLogger(system, "x")` produce `logSource = "x"` mientras `Logging(system, "x")` produce `"x(pekko://sys)"`.
+- `Logging.simpleName(clazz)`: subcadena tras el último `.` del nombre de clase (sin tratar `$`) (Logging.scala:450-454). `messageClassName(msg)`: `"null"` para null, `ActorSelectionMessage(<clase del mensaje envuelto>)` para selecciones y `m.getClass.getName` en otro caso (461-465).
 
-**Dependencias.** Filas: AC-EVT-013.2. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** No hay excepciones propias; un objeto sin `LogSource` es error de compilación. `genString(actorRef, system)` captura `NonFatal` y devuelve `path.toString` si el sistema/remoting no terminó de arrancar (Logging.scala:332-337).
 
-**Equivalente Rust propuesto.** trait `LogSource` + `Logging::new(system, &source)`
+**Orden / concurrencia / ciclo de vida.** Los adaptadores son baratos y sin estado compartido salvo el MDC del adaptador diagnóstico (no thread-safe: sólo dentro del actor). El `logSource` se calcula una vez al crear el adaptador.
 
-**Diferencias observables.** Pendiente.
+**Dependencias.** Filas: AC-EVT-013.2 ; AC-EVT-014 ; AC-EVT-015 ; AC-EVT-018 ; AC-PATH-015 ; AC-REF-001.3. Externas: reflexión JVM (`getClass`).
+
+**Equivalente Rust propuesto.** `trait LogSource { fn gen_string(&self) -> String; fn gen_string_with_system(&self, system: &ActorSystem) -> String; fn log_class(&self) -> LogClass; }` con implementaciones para `&str`/`String` (clase marcadora `LogClass::StringSource`), `ActorRef` y el contexto/actor (path con dirección; clase = tipo del actor) y para tipos (`LogClass::of::<T>()` con `simple_name`). Fábricas `Logging::new(&system, &src)`, `Logging::on_bus(&bus, &src)`, `Logging::with_marker(..)`, `Logging::diagnostic(&ctx)`; `get_logger` se puede unificar con `new` mediante `&dyn LogSource`, preservando la discrepancia sobre la dirección del sistema sólo si el Owner decide mantenerla (ver Decisiones). `LogClass` es un token (`TypeId` + nombre) para filtrar y para el campo `logClass` (Q-EVT-1). Viabilidad alta.
+
+**Diferencias observables.**
+- `Class[_]` JVM → `LogClass` por `TypeId`/`type_name`; `simpleName` pasa a ser el último segmento de `type_name` (Q-EVT-1).
+- `LogSource[T]` implícito → trait implementado explícitamente; el despacho por tipo de `fromAnyRef` se hace con `&dyn LogSource`/`dyn Any`.
+- La asimetría `apply` vs `getLogger` (sistema incluido o no en el string) es un accidente del código Pekko: se propone conservarla en `getLogger`-equivalente sólo si algún spec la exige (ninguno lo hace); si se unifica, es una divergencia a registrar (Q-EVT-6).
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: un `LoggingReceive` con origen `Some("funky")` publica un `Logging.Debug` cuyo `logSource` es `"funky"` y cuyo `logClass` es `classOf[DummyClassForStringSources]` (regla `String` de `fromAnyRef`) — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:80-91.
+- A2: el origen por defecto de `LoggingReceive` (el actor) produce `logSource == actor.path.toString` (sin dirección del sistema) y `logClass == actor.underlyingActor.getClass` (regla `Actor` de `fromAnyRef`) — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:116-118 (y 140-142; con nivel Info: 174-176).
+- A3: un actor con `ActorLogging` emite eventos cuyo `logClass` es la clase del actor — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:77,92 (`record.getSourceClassName == classOf[LogProducer].getName`, derivado de `logClass.getName` en JavaLogger.scala:53).
+- A4: `Logging.getLogger(system, this)` devuelve un adaptador utilizable con formato `{}` (los eventos llegan al EventStream) — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:54-90 (no afirma el `logSource`).
+- A5: `LogSource(String)` con sistema es `s + "(" + system + ")"` y sin sistema `s` — derivada de Logging.scala:318-322, *no afirmada por spec*. Caracterización propuesta.
+- A6: `LogSource(Actor|ActorRef)` con sistema es `path.toStringWithAddress(defaultAddress)` (ej. `pekko://sys/user/a`) — derivada de Logging.scala:329-337, *no afirmada por spec* (A2 sólo cubre la variante sin sistema). Caracterización propuesta.
+- A7: `LogSource(Class)` es `simpleName` (+ `"(" + system + ")"`) y `logClass` la propia clase — derivada de Logging.scala:351-356, *no afirmada por spec*.
+- A8: `fromAnyRef` para un objeto arbitrario devuelve `(simpleName(x) [+ "(system)"], x.getClass)` — derivada de Logging.scala:387,401, *no afirmada por spec*.
+- A9: `Logging.simpleName` no elimina el prefijo de clase externa (`Outer$Inner` se conserva) — derivada de Logging.scala:450-454, *no afirmada por spec*.
+- A10: `messageClassName(ActorSelectionMessage(m, ..))` = `ActorSelectionMessage(<clase de m>)` y `null` → `"null"` — derivada de Logging.scala:461-465; el texto lo consume DeadLetterListener (AC-EVT-009), *no afirmada por spec aquí*.
 
-**Oráculo.** Jar oficial para logSource de cada tipo (propuesto `evt-logsource.jsh`).
+**Validación prevista.** A1-A3: tests portados (se obtienen como aserciones secundarias de los specs de LoggingReceive y JavaLogger). A4: portado (propiedad del formato). A5-A10: caracterización propia (tabla de `LogSource` por tipo) y diferencial con el jar oficial (`tools/oracle/evt-logsource.jsh`: `LogSource.fromAnyRef` y `Logging.simpleName` sobre una tabla de objetos) justificado porque son cadenas visibles en los logs.
 
-**Decisiones.** ninguna específica
+**Decisiones.** Q-EVT-1 (nombre de clase/`simpleName` en Rust), Q-EVT-6 (asimetría `getLogger` vs `apply`).
 
 ## AC-EVT-014 — DiagnosticLoggingAdapter (MDC) y DiagnosticActorLogging
 
@@ -1367,7 +1549,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Aserciones.**
 - A1: reqId crece 1,2,3,4 y MDC por mensaje — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:240-273.
 - A2: ErrorLevel MDC `{messageLength=8}`, Warning `{messageLength=9}`, Info `{messageLength=9}`, 4ª llamada Debug sin MDC y 5ª con `{messageLength=29}` — LoggingAdapterTest.java:92-112.
-- A3: mdc null soportado — LoggingAdapterTest.java:114- (no se leyó el cuerpo completo).
+- A3: un actor cuyo `mdc` devuelve `null` publica el evento con MDC vacío (`{}`) — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:114-125 (auditoría 2026-10-31: el test `mustSupportMdcNull` envía `Log(InfoLevel, "Null MDC")` y espera `expectLog(InfoLevel(), "Null MDC", "{}")`).
+- A4: `DiagnosticActorLogging.aroundReceive` llama `log.mdc(mdc(msg))` antes de procesar cada mensaje y `log.clearMDC()` en `finally`; `mdc` por defecto es `emptyMDC` — actor/src/main/scala/org/apache/pekko/actor/Actor.scala:370-382 (leído en la auditoría; el comportamiento por mensaje lo afirman A1-A2), *no afirmada por spec* de forma directa para el `finally`.
 
 **Oráculo.** Jar oficial: `evt-logging-format.jsh` con actor DiagnosticActorLogging.
 
@@ -1381,10 +1564,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Fuente.**
 - actor/src/main/scala/org/apache/pekko/event/Logging.scala:1687-1740
-- actor/src/main/scala/org/apache/pekko/actor/ActorLogMarker.scala:26
+- actor/src/main/scala/org/apache/pekko/actor/ActorLogMarker.scala:26-36 (`ActorLogMarker.deadLetter`)
+- actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:147 (único uso)
 
 **Condiciones.**
-- LogMarker.toString = `LogMarker(<name>,<properties>)` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1699-1700).
+- LogMarker.toString = `LogMarker(<name>,<properties>)` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1698; corregido en la auditoría 2026-10-31, antes 1699-1700).
+- `ActorLogMarker.deadLetter(messageClass)` = `LogMarker("pekkoDeadLetter", Map("pekkoMessageClass" -> messageClass))` (ActorLogMarker.scala:33-34; la clave es `LogMarker.Properties.MessageClass`, Logging.scala:1731-1735). Los nombres de marcador y propiedades son API pública según el Scaladoc (ActorLogMarker.scala:20-24). `LogMarker.Security` es `LogMarker("SECURITY")` (Logging.scala:1726).
 
 **Orden / concurrencia / ciclo de vida.** n/a
 
@@ -1397,6 +1582,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Aserciones.**
 - A1: markerLogging.info(LogMarker.Security, msg) publica Info3 con marker.name == "SECURITY" y message intacto — actor-tests/src/test/scala/org/apache/pekko/event/MarkerLoggingSpec.scala:28-36.
 - A2: markerLogging.error(Security, cause, msg) publica Error con cause.getMessage == "Security Exception" — actor-tests/src/test/scala/org/apache/pekko/event/MarkerLoggingSpec.scala:38-46.
+- A3: el DeadLetterListener publica el log de dead letters con el marcador `pekkoDeadLetter` y la propiedad `pekkoMessageClass` con la clase del mensaje — derivada de ActorLogMarker.scala:33-34 y DeadLetterListener.scala:147, *no afirmada por spec leída* (ver AC-EVT-009).
 
 **Oráculo.** Jar oficial: `evt-logging-format.jsh` con marcadores.
 
@@ -1474,61 +1660,86 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-EVT-018 — ActorLogging (log perezoso con logSource = path del actor)
 
-*Unidad EVT · visibilidad public · analysis `listed`*
+*Unidad EVT · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] `log` se crea al primer uso con el actor como fuente (Logging(context.system, this)). Pendiente de lectura.
+**Contrato observable.** [contractual] El trait `ActorLogging` aporta `log: LoggingAdapter` creado al primer acceso con `pekko.event.Logging(context.system, this)` (origen = el actor, sistema = el de su contexto) y cacheado en un campo no volátil (sólo seguro dentro del actor). `DiagnosticActorLogging` (AC-EVT-014) es el equivalente con MDC y creación eager.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/Actor.scala:330-368
+- actor/src/main/scala/org/apache/pekko/actor/Actor.scala:328-350 (`ActorLogging`)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:324-338,573-576 (regla `Actor` de `LogSource` y fábrica)
+- specs: actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:36-43,62-94; (usos sin aserción propia: actor-tests/src/test/scala/org/apache/pekko/routing/BalancingSpec.scala:34, actor-tests/src/test/scala/org/apache/pekko/pattern/CircuitBreakerStressSpec.scala:35)
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** El trait sólo se mezcla en un `Actor` (autotipo `this: Actor =>`). El primer acceso a `log` debe ocurrir con `context` disponible (no en el constructor antes de que exista el contexto... en la práctica `context` se inicializa antes del constructor del actor: Actor.scala, ver AC-CELL).
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.** `log`: `if (_log eq null) _log = Logging(context.system, this); _log` (Actor.scala:343-348). El adaptador resultante es un `BusLogging` sobre `system.eventStream` con `logSource = path.toStringWithAddress(defaultAddress)` y `logClass = this.getClass` (AC-EVT-013.3). Los métodos del adaptador (`error/warning/info/debug` con `{}`) se especifican en AC-EVT-013.1. El nivel efectivo lo decide el `LoggingFilter` del sistema (AC-EVT-016).
 
-**Dependencias.** Filas: AC-EVT-013.3. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Ninguno propio.
 
-**Equivalente Rust propuesto.** `ctx.log()`
+**Orden / concurrencia / ciclo de vida.** Creación perezosa única por instancia de actor; tras un reinicio se crea un `_log` nuevo (nueva instancia de actor). No es thread-safe fuera del actor (comentario del código: "only used in Actor, i.e. thread safe").
 
-**Diferencias observables.** Rust: ídem.
+**Dependencias.** Filas: AC-EVT-013.1 ; AC-EVT-013.3 ; AC-EVT-016 ; AC-CELL-001. Externas: ninguna.
+
+**Equivalente Rust propuesto.** `ctx.log()` (o `self.log(ctx)`) en el contexto del actor, con `OnceCell<LoggingAdapter>` en el estado interno del contexto; origen = el actor. Viabilidad alta: el adaptador se obtiene del `ActorContext` y no necesita campo en el actor.
+
+**Diferencias observables.** Rust: `ctx.log()` en lugar de un mixin; la fuente incluye el nombre de tipo del actor (Q-EVT-1) en lugar del nombre de clase JVM.
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: el mensaje con `{}` se formatea con el argumento: `log.info(s, x)` con `("{} is the magic number", 3)` produce el mensaje `"3 is the magic number"` en el evento y `log.error(e, e.getMessage)` produce `"Simulated error"` con la causa `e` — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-94 (aserciones sobre el `LogRecord` del `JavaLogger`: nivel, mensaje, `thrown`).
+- A2: los eventos de un actor con `ActorLogging` llevan `logClass` igual a la clase del actor — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:77,92.
+- A3: `log` crea el adaptador en el primer acceso y devuelve la misma instancia después — derivada de Actor.scala:343-348, *no afirmada por spec*. Caracterización propuesta: dos llamadas a `ctx.log()` devuelven adaptadores con el mismo `logSource`.
+- A4: el `logSource` es el path del actor con la dirección del sistema (`pekko://sys/user/x`) — derivada de Actor.scala:346 + Logging.scala:329-337, *no afirmada por spec*. Caracterización propuesta con un `EventStream` suscrito.
+- A5: tras un reinicio el actor nuevo obtiene un `log` nuevo con el mismo `logSource` — derivada de Actor.scala:341, *no afirmada por spec*.
 
-**Oráculo.** Jar oficial: `evt-logsource.jsh`.
+**Validación prevista.** A1-A2: portados desde JavaLoggerSpec (reescritos contra un backend de prueba o el EventStream directamente). A3-A5: caracterización propia. Diferencial con el jar oficial para A4 (`tools/oracle/evt-actorlogging-source.jsh`: imprimir `logSource` y `logClass` de un evento) por tratarse de texto visible.
 
-**Decisiones.** ninguna específica
+**Decisiones.** Q-EVT-1 (nombre del tipo en `logClass`).
 
 ## AC-EVT-019 — LoggingReceive (decora receive con log Debug; activable por debug.receive)
 
-*Unidad EVT · visibilidad public · analysis `listed`*
+*Unidad EVT · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] Si pekko.actor.debug.receive=on, LoggingReceive envuelve el Receive y antes de cada match publica en el EventStream `received handled|unhandled message <msg> from <sender>[ in state <label>]` al nivel configurado (Debug por defecto) si eventStream.logLevel >= nivel. withLabel(label)(r): si r ya es LoggingReceive se devuelve igual; si no y AddLoggingReceive, new LoggingReceive; si no, r intacto.
+**Contrato observable.** [contractual por spec] `LoggingReceive(r)` (y `withLabel`, `apply(level)`, `create` Java) envuelve un `Receive` en un `LoggingReceive` SÓLO si `pekko.actor.debug.receive = on` (`Settings.AddLoggingReceive`); si no, devuelve `r` sin cambios. Si `r` ya es un `LoggingReceive`, no lo envuelve otra vez. El decorador registra en `isDefinedAt(o)` (es decir, ANTES de ejecutar el cuerpo) un evento al nivel configurado (Debug por defecto) con el texto `received <handled|unhandled> message <o> from <context.sender()>` (+ `" in state <label>"` si hay etiqueta) cuando `eventStream.logLevel >= nivel`. El origen del evento es el actor del contexto o la fuente explícita; si ese origen es un `DiagnosticActorLogging`, el evento incluye su MDC (`LogEvent` con MDC → `Debug2`/`Info2`…). `apply(o)` delega en `r(o)` sin registrar.
 
 **Fuente.**
 - actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:28-107
-- reference.conf:740 (debug.receive)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:455 (`AddLoggingReceive`)
+- reference.conf: `pekko.actor.debug.receive`
+- specs: actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:36-70,72-182
 
-**Condiciones.**
-- El evento incluye MDC si la fuente es DiagnosticActorLogging (actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:98-101).
+**Precondiciones.** Se necesita un `ActorContext` implícito (el contexto del actor que lo construye). Los specs usan el sistema `appLogging` con `pekko.actor.debug.receive = true` y `pekko.loglevel = DEBUG` (LoggingReceiveSpec.scala:39-43) y silencian Debug/Info ajenos con `TestEvent.Mute` (51-58).
 
-**Orden / concurrencia / ciclo de vida.** Se evalúa en isDefinedAt (no en apply), antes de aplicar.
+**Comportamiento.**
+- `withLabel(label, level)(r)`: `r match { case _: LoggingReceive => r; case _ => if (AddLoggingReceive) new LoggingReceive(None, r, Option(label), level) else r }` (LoggingReceive.scala:64-67). `apply(r)` ≡ `withLabel(null)(r)` con nivel `DebugLevel`; `apply(level)(r)` fija el nivel.
+- `isDefinedAt(o)`: `handled = r.isDefinedAt(o)`; si `eventStream.logLevel >= logLevel`: `src = source.getOrElse(context.actor)`; `(str, clazz) = LogSource.fromAnyRef(src)`; mensaje según arriba; evento `LogEvent(logLevel, str, clazz, message[, mdc])`; `eventStream.publish(event)`; devuelve `handled` (LoggingReceive.scala:87-105).
+- Efecto sobre composición: al ser `isDefinedAt` el punto de registro, un `orElse` que atiende antes el mensaje NO registra (el `LoggingReceive` no llega a consultarse) — ver A2.
 
-**Dependencias.** Filas: AC-CFG-011 ; AC-EVT-012. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Ninguno propio. Un nivel no soportado por `LogEvent.apply` (p. ej. `OffLevel`) lanza `IllegalArgumentException("Unsupported log level [..]")` al construir el evento (Logging.scala:772-777).
 
-**Equivalente Rust propuesto.** wrapper de behavior
+**Orden / concurrencia / ciclo de vida.** El evento se publica ANTES de ejecutar el cuerpo del handler (el orden `Debug` → respuesta `"x"` es observable y lo afirma el spec). Se ejecuta en el hilo del actor; `context.sender()` es el del mensaje actual.
 
-**Diferencias observables.** Rust: dependiente de Q-X-3 (comportamiento dinámico).
+**Dependencias.** Filas: AC-CFG-011 ; AC-EVT-012 ; AC-EVT-013.3 ; AC-EVT-014 ; AC-CELL-004 ; AC-FSM-002. Externas: ninguna.
+
+**Equivalente Rust propuesto.** `logging_receive(ctx, receive)` / `logging_receive_at(ctx, level, receive)` / `with_label(ctx, label, level, receive)` que devuelven el mismo `Receive` si `debug.receive` está apagado y un envoltorio si está encendido. **Restricción de diseño:** para conservar "registrar antes de ejecutar" y el texto `handled/unhandled`, el `Receive` de rakka debe exponer `is_defined_at(&msg) -> bool` separado de `apply` (tabla de casos tipados con guardas) o una operación equivalente `try_handle` que informe de "no definido" sin efectos; un handler que sólo se conoce al ejecutarlo obligaría a registrar DESPUÉS del handler, rompiendo el orden observable (Q-EVT-7). Viabilidad: alta con `Receive` basado en tabla; limitada con closures opacas.
+
+**Diferencias observables.**
+- `from <context.sender()>` y `deadLetters` usan el `toString` de `ActorRef` (`Actor[pekko://sys/..]`, Q-EVT-1).
+- El `message` impreso usa `o.toString` del mensaje (Debug/Display del tipo Rust; un mensaje sin `Display` necesita `Debug`).
+- Mensajes unhandled posteriores (`UnhandledMessage`) los publica la celda, no el decorador (AC-EVT-010).
 
 **Aserciones.**
-- A1: sin debug.receive el Receive no se modifica — derivada de actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:64-67, *no afirmada por spec leída*.
-- A2: con debug.receive=on se publica un evento por mensaje con `received handled|unhandled message <m> from <sender>` — derivada de actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:87-103.
-- A3: etiqueta `in state <l>` — actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:94-97.
-- A4: MDC adjunto con DiagnosticActorLogging — actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:98-101.
+- A1: un `LoggingReceive(Some("funky"), { case null => })` que recibe `"hallo"` publica exactamente `Logging.Debug("funky", classOf[DummyClassForStringSources], "received unhandled message hallo from " + system.deadLetters)` y después un `UnhandledMessage` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:74-94.
+- A2: con `debug.receive = on`, `switch.orElse(LoggingReceive { case _ => sender() ! "x" })` registra `Debug(actor.path.toString, actor.underlyingActor.getClass, "received handled message buh from " + self)` y luego entrega `"x"`; tras `context.become(r, false)` con un `Receive` sin decorador, un mensaje `"bah"` produce un `UnhandledMessage("bah", _, actor)` y ningún Debug de LoggingReceive; el mensaje `"becomenull"` (atendido por `switch`, antes del decorador en el `orElse`) no produce Debug — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:96-128 (la ausencia de Debug para `"becomenull"` se deduce de que `expectMsgPF` en la línea 124 recibe `UnhandledMessage` como primer mensaje).
+- A3: `LoggingReceive(LoggingReceive { .. })` no duplica el registro: tras `"buh"` llega un único `Debug` y después `"x"` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:130-145.
+- A4: con un actor `DiagnosticActorLogging` cuyo `mdc` devuelve `Map("hello" -> "mdc")`, el evento es un `Logging.Debug2` con `m.mdc == myMDC` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:147-162.
+- A5: `LoggingReceive(Logging.InfoLevel) { .. }` publica un `Logging.Info` con `src == actor.path.toString` y mensaje `"received handled message buh from " + self` (suscripción a `Logging.Info`), seguido de `"x"` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:164-180.
+- A6: con `debug.receive = off`, `LoggingReceive(r)` devuelve `r` y no se publica nada — derivada de LoggingReceive.scala:66, *no afirmada por spec*. Caracterización propuesta.
+- A7: sólo se registra si `eventStream.logLevel >= logLevel` (con `loglevel = INFO` y nivel Debug no hay evento) — derivada de LoggingReceive.scala:89, *no afirmada por spec*. Caracterización propuesta.
+- A8: `withLabel("L")` añade `" in state L"` al final del mensaje — derivada de LoggingReceive.scala:94-97, *no afirmada por spec aquí* (lo ejerce FSM con debug.fsm: AC-FSM).
+- A9: `LoggingReceive.apply(o)` delega en el `Receive` sin registrar — derivada de LoggingReceive.scala:106, *no afirmada por spec*.
 
-**Oráculo.** Jar oficial: escenario propuesto `evt-loggingreceive.jsh`.
+**Validación prevista.** A1-A5: tests portados 1:1 (usando el harness de TestActorRef de AC-TK-006.1 o un actor normal con probe; el orden Debug-antes-de-respuesta exige el `Receive` con `is_defined_at`, ver Equivalente). A6-A9: caracterización propia. Diferencial con el jar oficial para el texto exacto (`tools/oracle/evt-loggingreceive.jsh`: capturar el `Debug` de un actor con `debug.receive=on`), justificado porque el formato del mensaje y del `logSource` es contractual por spec.
 
-**Decisiones.** Q-X-3
+**Decisiones.** Q-EVT-1 (representación textual de refs y tipos), Q-EVT-7 (el `Receive` debe exponer `is_defined_at`; arquitectura), Q-X-3 (mensajes dinámicos).
 
 ## AC-EVT-020 — LoggerMailbox (vacía la cola de logs al cerrar)
 
@@ -1561,57 +1772,80 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-EVT-021 — JavaLogger / JavaLoggingFilter (java.util.logging)
 
-*Unidad EVT · visibilidad deprecated · analysis `listed`*
+*Unidad EVT · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] Logger hacia JUL, deprecado. Pendiente de lectura.
+**Contrato observable.** [contractual, deprecado desde Akka 2.6.0] `JavaLogger` es un actor logger que traduce cada `LogEvent` del EventStream a un `java.util.logging.LogRecord` y lo entrega al `logging.Logger` correspondiente; `JavaLoggingFilter` filtra en origen según el nivel del backend JUL. Fábrica `jul.Logger`: nombre del logger = `logSource` si `logClass == DummyClassForStringSources`, si no `logClass.getName`. Mapa de niveles: Info→INFO, Debug→CONFIG, Warning→WARNING, Error→SEVERE, cualquier otro→FINE. El trait `JavaLogging` aporta un `lazy val log` JUL con el nombre de la clase.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/jul/JavaLogger.scala:32-120
+- actor/src/main/scala/org/apache/pekko/event/jul/JavaLogger.scala:29-121
+- reference.conf: `pekko.loggers`, `pekko.logging-filter` (se activan por FQCN)
+- specs: actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:26-97
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** Se activa con `pekko.loggers = ["org.apache.pekko.event.jul.JavaLogger"]` y `pekko.logging-filter = "org.apache.pekko.event.jul.JavaLoggingFilter"` (JavaLoggerSpec.scala:29-34).
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.**
+- `receive`: `Error(cause, ..)` → `log(SEVERE, cause, event)`; `Warning`/`Info`/`Debug` → `log(level, null, event)`; `InitializeLogger(_)` → loguea en `Logger(getClass.getName)` el aviso `"<clase> has been deprecated since Akka 2.6.0. Use SLF4J instead."` y responde `LoggerInitialized` (JavaLogger.scala:36-45).
+- `log(level, cause, event)`: `logger = Logger(event.logClass, event.logSource)`; `LogRecord(level, String.valueOf(event.message))`; `setLoggerName(logger.getName)`; `setThrown(cause)`; `setThreadID(event.thread.getId.toInt)`; `setSourceClassName(event.logClass.getName)`; `setSourceMethodName(null)`; `logger.log(record)` (JavaLogger.scala:47-56).
+- `JavaLoggingFilter.isXEnabled(logClass, logSource)` = `eventStream.logLevel >= X && Logger(logClass, logSource).isLoggable(mapLevel(X))` (JavaLogger.scala:113-120).
+- El mensaje que recibe el logger ya está formateado (`{}` resuelto por el adaptador, AC-EVT-013.1).
 
-**Dependencias.** Filas: AC-EVT-011. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Ninguno propio; un fallo del handler JUL se propaga al actor logger (supervisado por /system).
 
-**Equivalente Rust propuesto.** bridge a la fachada `log`/`tracing` (feature opcional)
+**Orden / concurrencia / ciclo de vida.** Corre como actor de `/system` con `RequiresMessageQueue[LoggerMessageQueueSemantics]` (AC-EVT-020); el orden de registros respeta el orden de publicación por emisor.
 
-**Diferencias observables.** Rust: bridge opcional.
+**Dependencias.** Filas: AC-EVT-011 ; AC-EVT-012 ; AC-EVT-013.3 ; AC-EVT-016 ; AC-EVT-020. Externas: `java.util.logging` (JVM).
+
+**Equivalente Rust propuesto.** Puente opcional (feature `log-bridge`) a la fachada `log`: `LogBridgeActor` que convierte cada `LogEvent` en un `log::Record` con `target` = `logSource` (para orígenes string) o el nombre del tipo, nivel Error→`Error`, Warning→`Warn`, Info→`Info`, Debug→`Debug` (JUL CONFIG no tiene equivalente), otros→`Trace`; la causa del `Error` y el hilo viajan como pares clave-valor (`cause`, `thread_id`); `LogBridgeFilter` implementa `isXEnabled` con `log::log_enabled!`. Viabilidad media: el contenido (nivel, mensaje, causa, hilo, clase origen) se conserva pero `LogRecord.getMillis/getSourceMethodName` no existen en `log`; para los tests se define un `RecordingLogger: log::Log` que captura una estructura `JulLikeRecord { level, message, thrown, thread_id, source_class, source_method: None, millis }`.
+
+**Diferencias observables.** Niveles JUL → niveles `log` (CONFIG pasa a Debug, FINE a Trace); `thrown` es un valor en claves; `LogRecord.sourceMethodName` siempre ausente (igual que Pekko: "lost forever").
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: un `Error` con causa produce un registro con `millis != 0`, `threadID != 0`, nivel `SEVERE`, mensaje `"Simulated error"`, `thrown` de la clase de la causa, `sourceClassName` = clase del productor y `sourceMethodName == null` — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-79.
+- A2: un `Info` con plantilla `"{} is the magic number"` y argumento `3` produce un registro con `millis != 0`, `threadID != 0`, nivel `INFO`, mensaje `"3 is the magic number"`, `thrown == null`, `sourceClassName` = clase del productor y `sourceMethodName == null` — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:81-94.
+- A3: `mapLevel`: Info→INFO, Debug→CONFIG, Warning→WARNING, Error→SEVERE, otros→FINE — derivada de JavaLogger.scala:95-101, *no afirmada por spec*. Caracterización propuesta (tabla).
+- A4: `Logger(classOf[DummyClassForStringSources], "name")` resuelve el logger `"name"`; con otra clase, el logger se llama como la clase — derivada de JavaLogger.scala:85-88, *no afirmada por spec*.
+- A5: `InitializeLogger` responde `LoggerInitialized` y emite el aviso de deprecación — derivada de JavaLogger.scala:41-44, *no afirmada por spec*.
+- A6: `JavaLoggingFilter.isDebugEnabled` es `true` sólo si el nivel del EventStream permite Debug y el backend permite `CONFIG` — derivada de JavaLogger.scala:119-120, *no afirmada por spec*.
 
-**Oráculo.** No aplica: depende de java.util.logging.
+**Validación prevista.** A1-A2: tests portados con el `RecordingLogger` (los campos `millis`/`thread id` se comprueban no nulos). A3-A6: caracterización propia. Sin oráculo para A3-A6 (mapa trivial y dependiente del backend JUL), justificado.
 
-**Decisiones.** Q-EVT-4
+**Decisiones.** Q-EVT-4 (puente opcional a la fachada `log`; efecto: la fila se implementa detrás de una feature y los campos exclusivos de JUL se representan como pares clave-valor).
 
 ## AC-EVT-022 — API Java del EventBus (event/japi/EventBusJavaAPI.scala): clases abstractas LookupEventBus, SubchannelEventBus, ScanningEventBus, ManagedActorEventBus
 
-*Unidad EVT · visibilidad public · analysis `listed`*
+*Unidad EVT · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] Adaptadores para implementar los buses desde Java sin tipos abstractos. Pendiente de lectura.
+**Contrato observable.** [contractual, API Java] Fachada de composición sobre los traits Scala de AC-EVT-002..005: el trait `japi.EventBus[E, S, C]` (`subscribe`, `unsubscribe(sub, from)`, `unsubscribe(sub)`, `publish`) y cuatro clases abstractas que internamente construyen un bus Scala anónimo y delegan 1:1: `LookupEventBus` (usuario implementa `mapSize`, `compareSubscribers`, `classify`, `publish(event, subscriber)`), `SubchannelEventBus` (`subclassification`, `classify`, `publish(event, subscriber)`), `ScanningEventBus` (`compareClassifiers`, `compareSubscribers`, `matches`, `publish(event, subscriber)`) y `ManagedActorEventBus[E](system)` (`mapSize`, `classify`; suscriptores y clasificadores son `ActorRef`). La semántica de resultado booleano, desuscripción y publicación es la de AC-EVT-001 y de cada clasificación; las fachadas no añaden comportamiento.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/japi/EventBusJavaAPI.scala
+- actor/src/main/scala/org/apache/pekko/event/japi/EventBusJavaAPI.scala:20-230
+- actor/src/main/scala/org/apache/pekko/event/EventBus.scala (traits subyacentes: AC-EVT-001..005)
+- specs: no hay en pekko-actor; el uso está en el módulo de documentación (fuera de los cuatro módulos del alcance de archivos): docs/src/test/java/jdocs/event/EventBusDocTest.java:277-350 (se cita sólo como evidencia de uso)
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** El usuario hereda de la clase abstracta e implementa los métodos protegidos/públicos listados. `ManagedActorEventBus` exige el `ActorSystem` en el constructor (EventBusJavaAPI.scala:203).
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.** Cada clase mantiene un `private val bus = new pekko.event.EventBus with <Classification> { type Event = E; type Subscriber = S; type Classifier = C; … }` cuyos métodos abstractos reenvían a los de la clase abstracta (EventBusJavaAPI.scala:58-73,109-122,153-169,204-214) y sus `subscribe/unsubscribe/publish` reenvían a `bus` (EventBusJavaAPI.scala:95-98,139-142,191-194,226-229). Nota: `ManagedActorEventBus` usa `ActorEventBus with ManagedActorClassification with ActorClassifier`, por lo que hereda la desuscripción automática al morir un suscriptor/clasificador (AC-EVT-005).
 
-**Dependencias.** Filas: AC-EVT-002 ; AC-EVT-003 ; AC-EVT-004 ; AC-EVT-005 ; AC-JAPI-001. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Los de las clasificaciones subyacentes (p. ej. `compareSubscribers` inconsistente → comportamiento indefinido del conjunto ordenado). Las fachadas no capturan nada.
 
-**Equivalente Rust propuesto.** mismas implementaciones; sin distinción Java/Scala
+**Orden / concurrencia / ciclo de vida.** Igual que cada clasificación: la publicación entrega en el hilo del publicador; Lookup/Scanning usan estructuras concurrentes (ver AC-EVT-002/004).
 
-**Diferencias observables.** Q-EVT-5.
+**Dependencias.** Filas: AC-EVT-001 ; AC-EVT-002 ; AC-EVT-003 ; AC-EVT-004 ; AC-EVT-005 ; AC-JAPI-001. Externas: ninguna.
 
-**Aserciones.**
-- Pendiente de lectura.
+**Equivalente Rust propuesto.** No existe la distinción Java/Scala: las clasificaciones de AC-EVT-002..005 se exponen una sola vez como tipos genéricos parametrizados por un trait de personalización (`LookupBus<B: LookupBusSpec>`, `SubchannelBus<..>`, `ScanningBus<..>`, `ManagedActorBus<..>`) con los mismos puntos de personalización (`classify`, `compare_subscribers`, `map_size`, `publish_to`, `subclassification`, `compare_classifiers`, `matches`). Esta fila queda cubierta por AC-EVT-002..005 y no genera código adicional; lo que sí se exige es que el conjunto de puntos de personalización sea el mismo (paridad de API). Viabilidad alta.
 
-**Oráculo.** No aplica.
+**Diferencias observables.** Ninguna de comportamiento. Diferencia de API: una sola superficie en lugar de dos (Q-EVT-5).
 
-**Decisiones.** Q-EVT-5
+**Aserciones.** Los specs del repositorio de Pekko para estas clases viven en el módulo de documentación; aquí se citan como evidencia y se reasignan a los tests de las clasificaciones:
+- A1: `LookupEventBus` con clasificador de `MsgEnvelope.topic`: tras `subscribe(testActor, "greetings")`, publicar `("time", ..)` y `("greetings", "hello")` entrega sólo `"hello"` — docs/src/test/java/jdocs/event/EventBusDocTest.java:277-290.
+- A2: `SubchannelEventBus` con subclasificación "empieza por": con suscripción `"abc"`, `("xyzabc")` y `("bcdef")` no se entregan y `("abc")` y `("abcdef")` sí — docs/src/test/java/jdocs/event/EventBusDocTest.java:292-309.
+- A3: `ScanningEventBus` con `matches = event.length <= classifier`: con suscripción `3`, `"xyzabc"` no se entrega y `"ab"` y `"abc"` sí — docs/src/test/java/jdocs/event/EventBusDocTest.java:310-326.
+- A4: `ManagedActorEventBus`: el suscriptor 1 recibe la notificación del observador 1; el suscriptor 2, suscrito a los observadores 1 y 2, recibe ambas; el suscriptor 1 no recibe la del observador 2 (`expectNoMessage(500 ms)`) — docs/src/test/java/jdocs/event/EventBusDocTest.java:327-348.
+- A5: delegación 1:1: el resultado booleano de `subscribe/unsubscribe` de la fachada coincide con el del bus subyacente — derivada de EventBusJavaAPI.scala:95-97, *no afirmada por spec*. En Rust se cubre por AC-EVT-001 A1-A3.
+
+**Validación prevista.** A1-A4 se cubren portando EventBusSpec (AC-EVT-001..005) con las cuatro clasificaciones y, adicionalmente, un test de paridad de API que instancia cada bus con los puntos de personalización del doc test (sin crates adicionales). No hay oráculo: la fila no tiene lógica propia (fachada), justificado.
+
+**Decisiones.** Q-EVT-5 (efecto: una sola API en Rust; la fila no genera módulo propio y queda verificada por AC-EVT-002..005).
 
 ## AC-TK-001.1 — TestKitBase/TestKit: testActor (cola interna, actor de sistema sobre CallingThreadDispatcher), lastSender, msgAvailable, ignoreMsg/ignoreNoMsg, watch/unwatch, setAutoPilot
 
@@ -2061,85 +2295,187 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-TK-006.1 — TestActorRef (underlyingActor, receive síncrono)
 
-*Unidad TK · visibilidad public · analysis `listed`*
+*Unidad TK · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual por spec] Ref a un actor que procesa mensajes en el hilo del emisor y expone el actor subyacente. Pendiente de lectura.
+**Contrato observable.** [contractual por spec] `TestActorRef[T <: Actor]` es un `LocalActorRef` que (1) se crea y arranca de forma síncrona (el actor existe y su constructor y `preStart` ya corrieron al volver de `TestActorRef(..)`), (2) usa por defecto el `CallingThreadDispatcher` (AC-TK-006.2) salvo que los `Props` indiquen otro dispatcher, de modo que cada `!`/`?` ejecuta el `receive` del actor en el hilo del emisor antes de volver, (3) deja el `receiveTimeout` sin definir (`Duration.Undefined`), (4) expone el actor subyacente (`underlyingActor`), (5) permite inyectar mensajes directamente (`receive(o[, sender])`) sin pasar por el buzón, propagando al llamador las excepciones del `receive`, (6) ofrece `watch`/`unwatch` en nombre del actor, (7) se puede crear bajo cualquier supervisor (guardián por defecto, otro `TestActorRef`, una probe, o `TestProbe.childActorOf`) y con nombre aleatorio `$<base64>` si no se da.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestActorRef.scala:34-263
+- testkit/src/main/scala/org/apache/pekko/testkit/TestActorRef.scala:28-156 (clase), 158-263 (companion: `apply`/`create`, `randomName`, `InternalGetActor`)
+- testkit/src/main/scala/org/apache/pekko/testkit/CallingThreadDispatcher.scala:136-138 (`Id`)
+- testkit/src/main/resources/reference.conf:31-33
+- specs: testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:30-118 (fixtures), 120-359 (casos); usos en otros specs: actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:107-127, actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:168-185, actor-tests/src/test/scala/org/apache/pekko/io/TcpListenerSpec.scala:157-177, actor-tests/src/test/scala/org/apache/pekko/io/TcpConnectionSpec.scala:104,113,919-957, actor-tests/src/test/scala/org/apache/pekko/io/InetAddressDnsResolverSpec.scala:103-108,152-157, actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:171-182,271-288,315
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** Un `ActorSystem` implícito (en realidad un `ActorSystemImpl`, por el cast). El supervisor debe ser una ref local (`LocalActorRef`) o una `RepointableActorRef` ya iniciada; con un top-level aún no iniciado lanza `IllegalStateException("cannot attach a TestActor to an unstarted top-level actor, ensure that it is started by sending a message and observing the reply")` (TestActorRef.scala:38-43). Con supervisor de otro tipo sólo se loguea un error (50-54).
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.**
+- Construcción: reserva el nombre en el supervisor (`reserveChild(name)`), arma dispatcher/mailbox con `props.withDispatcher(CallingThreadDispatcher.Id)` cuando `props.deploy.dispatcher == NoDispatcherGiven`, y llama a `underlying.start()` (TestActorRef.scala:57-82). Como el dispatcher es síncrono, `Create` se procesa dentro de `start()`.
+- `receive(o, sender)`: fija `underlying.currentMessage = Envelope(o, sender|deadLetters)`, llama `underlying.receiveMessage(o)` y limpia `currentMessage` en `finally` (TestActorRef.scala:113-118): ejecuta el `Receive` del actor con soporte de `become`/`unbecome`, sin mailbox; cualquier excepción llega al llamador.
+- `underlyingActor`: si `isTerminated` lanza `IllegalActorStateException("underlying actor is terminated")`; si `underlying.actor` es `null` (creación asíncrona) envía `InternalGetActor` y espera (`Await`) hasta `DefaultTimeout` (TestActorRef.scala:125-134). Tras un reinicio devuelve la instancia nueva (el Scaladoc advierte que la antigua se descarta).
+- `newActorCell` intercepta `InternalGetActor` (autorecibido) y responde `actor` (TestActorRef.scala:86-99).
+- `toString = "TestActor[" + path + "]"` (154).
+- Fábricas: `apply[T](factory)`, `(factory, name)`, `(props)`, `(props, name)`, `(props, supervisor)`, `(props, supervisor, name)`, `apply[T: ClassTag]`, `(name)`, `(supervisor)`, `(supervisor, name)` y las `create` Java (TestActorRef.scala:168-262). Las variantes por `ClassTag` crean la instancia por reflexión y, si falla, `ActorInitializationException("Could not instantiate Actor …")` (192-201).
 
-**Dependencias.** Filas: AC-TK-006.2 ; AC-REF-002. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** `IllegalStateException` (supervisor top-level sin iniciar); `IllegalActorStateException` (`underlyingActor` sobre actor terminado); `ActorInitializationException` (instanciación reflexiva fallida); `TimeoutException`/`AskTimeout` si la obtención asíncrona del actor tarda más que `DefaultTimeout`; las excepciones del `receive` inyectado se propagan tal cual.
 
-**Equivalente Rust propuesto.** `TestActorRef<A>` con `underlying_actor()` (Q-TK-2)
+**Orden / concurrencia / ciclo de vida.** Con el dispatcher por defecto todo es síncrono y determinista dentro de un hilo (ver AC-TK-006.2): `ref ! m` retorna después de que `receive(m)` y de las reentradas encoladas hayan terminado; `ref ? m` devuelve un futuro ya completo si el actor respondió dentro del `receive` (TestActorRefSpec.scala:224-230). Con un dispatcher explícito (p. ej. `disp1` de tipo `Dispatcher`) el comportamiento pasa a ser el normal asíncrono (TestActorRefSpec.scala:264-267).
 
-**Diferencias observables.** Q-TK-2.
+**Dependencias.** Filas: AC-TK-006.2 ; AC-TK-001.1 ; AC-REF-002 ; AC-REF-009.2 ; AC-CELL-001 ; AC-CELL-010 ; AC-SUP-014. Externas: ninguna.
+
+**Equivalente Rust propuesto.** **Choque con la propiedad de Rust.** En la JVM `underlyingActor` devuelve una referencia compartida y mutable al objeto del actor, que el mismo test lee mientras el actor lo muta en sus `receive` (no hay sincronización). En Rust el estado del actor (`A`) lo posee la celda y se accede con `&mut A` sólo dentro de la invocación del `receive`. La representación propuesta conserva el comportamiento observable así:
+1. `TestActorRef<A>` guarda el estado en `Arc<ActorSlot<A>>` donde `ActorSlot<A> { lock: ReentrantLock, state: UnsafeCell/Mutex<Option<A>> }`; el mismo candado reentrante que usa el `CallingThreadDispatcher` (AC-TK-006.2) protege la ejecución de cada invocación. `A: Send + 'static` es suficiente (el acceso está serializado por el candado, no hace falta `Sync`).
+2. Acceso al subyacente: `with_actor(|a: &mut A| …) -> R` toma el candado, ejecuta el cierre y lo libera (préstamo con alcance: compila sólo si el cierre no retiene la referencia); `underlying_actor() -> ActorGuard<'_, A>` devuelve una guarda (`Deref/DerefMut`, `!Send`) para el patrón `ref.underlyingActor.field` de los specs (TcpListenerSpec.scala:177, TcpConnectionSpec.scala:104). Ambas devuelven `Err(TestActorRefError::Terminated)` si el actor terminó (equivalente a `IllegalActorStateException`) y reevalúan la instancia en cada llamada (tras un reinicio devuelven la nueva).
+3. Diferencia deliberada y beneficiosa: si otro hilo está ejecutando el actor, `with_actor` espera a que termine esa invocación (Pekko lo lee sin sincronizar, con carrera). En un único hilo (el caso de todos los specs) el resultado es idéntico. Una guarda mantenida mientras se envía un mensaje al mismo actor desde el mismo hilo NO provoca interbloqueo (el candado es reentrante) y el mensaje se ejecuta de inmediato, igual que en Pekko (donde el hilo de test no es el que sostiene el candado de la CTD): por eso la guarda debe soltarse antes de enviar si se quiere que el `receive` vea el estado ya modificado.
+4. `receive(msg, sender)`: toma el candado, fija el mensaje/emisor actuales del contexto y llama al manejador del actor sin pasar por el buzón (conserva `become`/`unbecome`); devuelve `Result<(), ActorFailure>` con el fallo del manejador (o relanza el pánico original con `resume_unwind`, según Q-X-5) en lugar de lanzar una excepción.
+5. La creación es síncrona: `TestActorRef::new(&system, props)` devuelve cuando `pre_start` ya corrió; los nombres aleatorios `$<base64>` reutilizan `Helpers.base64` (AC-UTIL-002.1); `with_supervisor`, `named` y `with_dispatcher` sustituyen las sobrecargas por un builder.
+6. Las variantes por `ClassTag` se sustituyen por `TestActorRef::of::<A: Default>()`/fábrica explícita (sin reflexión).
+Viabilidad: alta para todo lo observable por los specs listados; límite: el actor debe poder ejecutarse en el hilo del emisor (requisito sync del manejador, ver AC-TK-006.2 y Q-TK-8).
+
+**Diferencias observables.**
+- `underlyingActor` devuelve guarda/cierre en vez de la referencia compartida (Q-TK-2); es más estricto que Pekko cuando hay concurrencia real.
+- Excepciones → `Result` (Q-X-5); `IllegalActorStateException` → `TestActorRefError::Terminated`.
+- No hay reflexión por `ClassTag` (Q-X-2).
+- `receiveTimeout` sin definir: el contexto expone `receive_timeout() -> Option<Duration> == None` (equivalente a `Duration.Undefined`).
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: creación anidada: un `TestActorRef` creado dentro del `Actor` de otro `TestActorRef`, y un hijo creado con `context.actorOf`, devuelven refs no nulas y distintas al ser consultadas con `?` — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:130-154.
+- A2: respuesta vía `sender()`: tras `clientRef ! "complex"` y tres `"simple"` el contador baja de 4 a 0 de forma síncrona (antes de que el `!` vuelva), repetido con `"complex2"`, y todo corre en el hilo del test (`assertThread`) — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:156-179.
+- A3: `PoisonPill` detiene el `TestActorRef`, un vigilante recibe `Terminated(a)` y `a.isTerminated == true`, sin salir del hilo del test — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:181-198.
+- A4: `Kill` reinicia al hijo bajo una estrategia `OneForOne(5, 1s)(ActorKilledException)`: `preRestart` y `postRestart` corren (contador 2 → 0) de forma síncrona — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:200-222.
+- A5: `a ? "work"` devuelve un futuro ya completo (`f.isCompleted == true`) con `"workDone"` — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:224-230.
+- A6: el `receiveTimeout` de un actor con `TestActorRef` funciona (el actor recibe `ReceiveTimeout` tras 1 s y envía `"timeout"`) — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:232-235.
+- A7: `underlyingActor` da acceso al estado interno: tras `ref ! "hallo"`, `actor.s == "hallo"` — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:241-252.
+- A8: `underlyingActor.context.receiveTimeout` es exactamente `Duration.Undefined` — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:254-257.
+- A9: el dispatcher por defecto es `CallingThreadDispatcher` — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:259-262.
+- A10: un dispatcher explícito (`withDispatcher("disp1")`) se respeta (clase `Dispatcher`) — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:264-267.
+- A11: `ref.receive("work")` ejecuta el manejador y el actor se detiene (`isTerminated`) — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:269-273; con `sender` explícito (`testActor`) además llega `"workDone"` a ese emisor — :275-280.
+- A12: un `TestActorRef` creado con un supervisor `TestProbe.ref` o con `parent.childActorOf(..)` no lanza al crearse y registra la excepción del hijo (`EventFilter[RuntimeException](message = "expected")`) — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:282-307.
+- A13: el companion crea con supervisor por defecto (el guardián `/user`), con nombre dado, con supervisor dado y con ambos, y con `Props` en las mismas combinaciones; los atributos `supervisor` y `name` del actor reflejan lo pedido — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:311-358.
+- A14: con un `TestActorRef` anidado y `p.send(b, "hello")` hacia un actor que reenvía a otro con `blocking`, `p.expectMsg(0.seconds, "hello")` pasa (entrega totalmente síncrona) — actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:168-185.
+- A15: `underlyingActor` se usa para leer campos internos de actores de I/O (`channel`, `listener`) — actor-tests/src/test/scala/org/apache/pekko/io/TcpListenerSpec.scala:177 y TcpConnectionSpec.scala:104,113,957 (aserciones propias de AC-IO; aquí fijan el patrón de acceso de sólo lectura).
+- A16: un supervisor top-level aún no iniciado provoca `IllegalStateException` con el mensaje citado — derivada de TestActorRef.scala:38-43, *no afirmada por spec*. Caracterización propuesta.
+- A17: `underlyingActor` sobre un actor terminado lanza `IllegalActorStateException("underlying actor is terminated")` — derivada de TestActorRef.scala:127, *no afirmada por spec*. Caracterización propuesta: `Err(Terminated)`.
+- A18: los nombres generados son `$` + base64 del contador y `toString` es `TestActor[<path>]` — derivada de TestActorRef.scala:154,163-166, *no afirmada por spec*.
 
-**Oráculo.** Jar oficial pekko-testkit tras leer.
+**Validación prevista.** A1-A13: tests portados 1:1 (TestActorRefSpec completo) sobre la CTD de Rust; el test A2/A4 exige además la verificación de que `Thread::current().id()` no cambia (`assertThread`). A14 se porta con ExecutionContextSpec. A15 se valida en la unidad IO. A16-A18: caracterización propia. Sin oráculo diferencial: el contrato es de comportamiento síncrono local y los specs lo fijan; sólo A18 podría compararse (formato de `toString`), por lo que se añade a `tools/oracle/tk-testactorref-tostring.jsh`, justificado por ser texto visible en logs.
 
-**Decisiones.** Q-TK-2
+**Decisiones.** Q-TK-2 (representación de `underlyingActor`: guarda/cierre sobre el candado reentrante; propuesta basada en la lectura completa de la clase y su spec), Q-TK-1 (entrega síncrona), Q-TK-8 (manejador ejecutable en el hilo del emisor), Q-X-5.
 
 ## AC-TK-006.2 — CallingThreadDispatcher (ejecución síncrona en el hilo del emisor; configurador en reference.conf del testkit)
 
-*Unidad TK · visibilidad public · analysis `listed`*
+*Unidad TK · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual por spec] Dispatcher `pekko.test.calling-thread-dispatcher` (type CallingThreadDispatcherConfigurator) que procesa cada mensaje en el hilo que lo envía; lo usan testActor/TestProbe (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:192). Pendiente de lectura; sólo se verificó el uso por TestKit y su declaración de config.
+**Contrato observable.** [contractual por spec] Dispatcher de prueba (`pekko.test.calling-thread-dispatcher`, `type = …CallingThreadDispatcherConfigurator`, singleton por configurador) que no crea hilos: ejecuta cada invocación de un actor en el hilo que envía el mensaje. Estrategia: se ejecuta en el hilo actual salvo que el actor esté suspendido (`suspendSwitch`) o ya esté ejecutándose en el hilo actual (reentrada), en cuyo caso el mensaje se encola en una cola local al hilo para ser ejecutado cuando la invocación activa más arriba en la pila termine; si el actor se está ejecutando en otro hilo, el hilo actual espera a que acabe (candado con `tryLock(50 ms)` en bucle). Con un único hilo, el orden de ejecución es completamente determinista. Los mensajes de sistema (`Create`, `Terminate`, `Supervise`, `Watch`, `Failed`…) no pasan por colas por-hilo: se encolan en la cola de sistema del actor y se procesan de inmediato en el mismo hilo. `suspend`/`resume` son globales por actor: al reanudar, los mensajes encolados por TODOS los hilos se recogen en la cola del hilo que reanuda y se ejecutan allí.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/CallingThreadDispatcher.scala:68-395
-- testkit/src/main/resources/reference.conf:31-33
+- testkit/src/main/scala/org/apache/pekko/testkit/CallingThreadDispatcher.scala:51-66 (reglas de bloqueo), 68-134 (`CallingThreadDispatcherQueues`), 136-138 (`Id`), 140-339 (`CallingThreadDispatcher`), 341-347 (configurador), 349-395 (`CallingThreadMailbox`)
+- testkit/src/main/resources/reference.conf:31-33 (`pekko.test.calling-thread-dispatcher`)
+- actor/src/main/resources/reference.conf:142-145 (`unstarted-push-timeout` "relevante con el CallingThreadDispatcher para un actor top-level")
+- actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:352 (comentario: "needed for CallingThreadDispatcher, which never calls Mailbox.run()")
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:189-199 (el `testActor` usa la CTD)
+- specs: actor-tests/src/test/scala/org/apache/pekko/testkit/CallingThreadDispatcherModelSpec.scala:26-71; actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:278-508; testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:30-57; actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:168-208; testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:156-230
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** Seleccionable por id `pekko.test.calling-thread-dispatcher` en `Props`, o implícito en `TestActorRef`/`testActor`. El `LocalActorRef` debe usar `CallingThreadMailbox` (si no: `ActorInitializationException("expected CallingThreadMailbox, got …")`, CallingThreadDispatcher.scala:189).
 
-**Orden / concurrencia / ciclo de vida.** Pendiente (reentrancia, orden entre hilos, suspensión).
+**Comportamiento.**
+- Parámetros: `throughput = 0`, `throughputDeadlineTime = 0`, `registerForExecution = false` (nunca usa un executor), `shutdownTimeout = 1 s`, `shutdown()` vacío, `id = "pekko.test.calling-thread-dispatcher"` (CallingThreadDispatcher.scala:167-181). `executeTask(invocation)` ejecuta `invocation.run()` en el hilo actual (248): por eso es válido como `ExecutionContext` síncrono (ExecutionContextSpec.scala:187-208).
+- `register(actor)`: tras `super.register`, ejecuta `runQueue` de inmediato → `Create` se procesa durante `actorOf` (183-191).
+- `dispatch(receiver, handle)`: encola el sobre en la cola del hilo actual dentro de `suspendSwitch.fold(<suspendido: encola, no ejecuta>)(<no suspendido: encola y ejecuta>)` y, si no está suspendido, llama `runQueue` (232-246).
+- `systemDispatch`: `systemEnqueue` + `runQueue` (223-230).
+- `runQueue(mbox, queue)`: si el candado reentrante `ctdLock` ya es del hilo actual no hace nada (la invocación exterior drenará la cola); si no, `tryLock(50 ms)`; con el candado ejecuta `process`: bucle `processAllSystemMessages()` → `dequeue()` (si no suspendido ni cerrado) → `actor.invoke(handle)` hasta que no queden sobres; las `NonFatal` se loguean (`"Error during message processing"`) y se sigue; sin candado y con mensajes pendientes, reintenta (250-338).
+- `suspend`: `suspendSwitch.switchOn; mbox.suspend()`. `resume`: bajo `suspendSwitch.switchOff { gatherFromAllOtherQueues(mbox, queue); mbox.resume() }` y, si cambió el estado, `runQueue` en el hilo actual (202-221).
+- `unregister`: `super.unregister` y `unregisterQueues(mbox)` (193-200). `cleanUp` del buzón: recoge todas las colas de hilos y `qq.cleanUp(self, deadLetterMailbox.messageQueue)` (los mensajes sin leer pasan a dead letters) y `q.remove()` (381-394).
+- Colas: una `MessageQueue` por (buzón, hilo) en un `ThreadLocal`, registradas con `WeakReference` en `CallingThreadDispatcherQueues` (GC cada 1 s) (68-134, 356-368). `gatherFromAllOtherQueues` vacía las colas ajenas dentro de la cola propia (117-133).
+- Interrupciones: `InterruptedException` durante el procesamiento se captura, se loguea y se relanza al final de `runQueue` (`throwInterruptionIfExistsOrSet`) (258-338).
 
-**Dependencias.** Filas: AC-DSP-001. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Interrupción de hilo ⇒ `InterruptedException` al llamador tras procesar el resto; `NonFatal` del `invoke` ⇒ log y continuar; si un mensaje se encola cuando el candado lo tiene otro hilo y se pierde la carrera tras el `cleanUp`, no hay garantía de entrega a dead letters (comentario del código en 382-386).
 
-**Equivalente Rust propuesto.** dispatcher de test síncrono (inline)
+**Orden / concurrencia / ciclo de vida.** Reglas de bloqueo (51-66): los mensajes normales siempre se encolan localmente al hilo; procesar una cola comprueba `suspendSwitch` antes de cada invocación; reanudar mueve atómicamente los mensajes de todos los hilos a la cola del hilo que reanuda; todo acceso a la cola ocurre bajo el candado del switch; los mensajes de sistema van directo a la cola de sistema (no por hilo). Orden: FIFO por (hilo, buzón); reentradas procesadas en FIFO tras la invocación activa. Un actor que se envía un mensaje a sí mismo desde su `receive` NO se ejecuta recursivamente: se encola y corre al terminar la invocación actual (observable en TestActorRefSpec.scala:156-179).
 
-**Diferencias observables.** Q-TK-1.
+**Dependencias.** Filas: AC-DSP-001 ; AC-DSP-002 ; AC-MBX-013 ; AC-TK-006.1 ; AC-TK-001.1 ; AC-CELL-004. Externas: hilos y candados de la JVM (`ReentrantLock`, `ThreadLocal`, `Thread.interrupt`).
+
+**Equivalente Rust propuesto.** Módulo `rakka_testkit::calling_thread` con `CallingThreadDispatcher` (implementa el trait `MessageDispatcher` de AC-DSP) y `CallingThreadMailbox`. **Choque con la propiedad de Rust y representación:**
+1. *Exclusión mutua reentrante.* `ctdLock` → `parking_lot::ReentrantMutex<()>` (o `std::sync::Mutex` + `owner: AtomicU64` con el `ThreadId` y un contador de reentrada). Es necesario que "el hilo actual ya posee el candado" sea consultable sin bloquear: `lock.is_owned_by_current_thread()`. El estado del actor (`&mut A`) vive en una celda que sólo se toca con el candado tomado, por lo que la reentrada nunca crea dos `&mut A` simultáneos: la llamada reentrante sólo encola y retorna, y es la invocación exterior la que, al volver su `receive`, extrae el siguiente sobre.
+2. *Colas por hilo.* `ThreadLocal[MessageQueue]` con `WeakReference` → `Mutex<HashMap<ThreadId, VecDeque<Envelope>>>` por buzón (misma semántica FIFO por hilo; la recogida en `resume`/`cleanUp` es un `drain` de todas las entradas hacia la cola propia; sin `WeakReference`, las entradas de hilos muertos se purgan en `resume`/`cleanUp` y cada 1 s como el original, o al desregistrar).
+3. *Interruptor de suspensión.* `Switch` → `Mutex<bool>` con operaciones `fold(on, off)` y `switch_on/off(|| …)` ejecutadas bajo el mismo `Mutex` que protege la cola (replica "todo acceso a la cola ocurre bajo el candado del switch").
+4. *Mensajes de sistema.* Cola de sistema por actor (no por hilo) procesada con `process_all_system_messages` antes de cada sobre normal.
+5. *Ejecución del manejador en el hilo del emisor.* La invocación (`actor.invoke(handle)`) se hace en el hilo que llama a `tell`. Si el manejador del actor es `async fn`, se conduce con un `block_on` mínimo sin reactor (p. ej. `futures::executor::block_on` o `pollster`) en ese hilo; los manejadores que requieran el reactor de Tokio dentro de un contexto de CTD deben fallar con un error explícito en lugar de bloquear el runtime (Q-TK-8). Con manejadores `fn` síncronos (los de los specs de testkit) no hay restricción.
+6. *Interrupciones.* `Thread.interrupt` no tiene equivalente en Rust; los dos tests de `ActorModelSpec` que lo ejercen no son portables y se excluyen con justificación (Q-TK-7). El resto de la semántica (registro y continuación tras `NonFatal` ⇒ captura de pánico con `catch_unwind` y log `Error during message processing`) sí.
+7. *Dead letters al limpiar.* `cleanUp` mueve los sobres pendientes de todas las colas al buzón de dead letters del sistema.
+Viabilidad: alta para el modelo de un hilo (todos los specs de testkit) y media-alta para concurrencia multi-hilo; límite: sin interrupciones.
+
+**Diferencias observables.**
+- Sin `Thread.interrupt` (Q-TK-7). Sin `WeakReference`: la recolección de colas de hilos terminados es explícita.
+- Manejadores `async` requieren `block_on` sin reactor (Q-TK-8).
+- `PanicPolicy`: un pánico en el manejador se trata como `NonFatal`: se loguea y se continúa (consistente con Q-X-5).
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: `ActorModelSpec` aplicado a la CTD ("A Calling Thread Dispatcher") — actor-tests/src/test/scala/org/apache/pekko/testkit/CallingThreadDispatcherModelSpec.scala:58-71 (hereda los casos de ActorModelSpec con un dispatcher interceptado; ver A2-A9).
+- A2: "dynamically handle its own life cycle": registra/desregistra y el dispatcher cuenta `stops` (0→1→2→3) al detener actores y completar futuros — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:283-309.
+- A3: "process messages one at a time": el segundo mensaje (Wait 1000) no se solapa con el siguiente; `msgsReceived == msgsProcessed == 3` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:311-329.
+- A4: "handle queueing from multiple threads": 10 hilos × 20 mensajes ⇒ 200 recibidos y procesados — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:331-347.
+- A5: "not process messages for a suspended actor": suspendido no procesa (`assertNoCountDown` 1000 ms); al reanudar, procesa el mensaje encolado; contadores `suspensions = resumes = 1` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:359-381.
+- A6: "handle waves of actors": 3 olas de 10 000 actores con un `Terminated` por actor y `stops = run` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:383-420 (el comentario de las líneas 399-401 documenta que con la CTD el hilo "keep-alive" debe estar en otro hilo para no interbloquearse).
+- A7: "continue to process messages when exception is thrown": tras `IndexOutOfBoundsException` y `RemoteException` en el manejador siguen procesándose los mensajes posteriores (`Reply("foo2")`, `Reply("bar2")`), mientras los futuros de los mensajes fallidos quedan sin completar (`f3.value.isEmpty`) — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:479-497.
+- A8: "not double-deregister": `DoubleStop` deja `registers == 1` y `unregisters == 1` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:499-506.
+- A9: dos casos con interrupciones (`ActorInterruptedException` con causa `"Ping!"` y la variante sin excepción) — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:422-477: **no portables** (Q-TK-7).
+- A10: entrega síncrona del `testActor`: `tk.ref ? "hello"; tk.expectMsg(0.millis, "hello")`, `lastMessage.sender ! "world"` ⇒ `future.isCompleted == true` — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:32-39; análogos en :41-57.
+- A11: como `ExecutionContext` síncrono, `ec.execute(batch)` ejecuta la tarea y las encoladas dentro de ella antes de volver (`x == 1`) — actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:187-208.
+- A12: orden determinista y reentrada: mensajes enviados desde dentro de un `receive` a otro actor (que a su vez responde al primero) no se anidan en la pila y el contador final es exacto; todo en el hilo del test — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:156-179.
+- A13: los mensajes sin leer de un buzón CTD terminado pasan a dead letters — derivada de CallingThreadDispatcher.scala:381-394, observable en testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpecSpec.scala:75-113 ("enqueue unread messages from testActor to deadLetters": `locker should contain(DeadLetter(42, davyJones, probe.ref))`).
+- A14: los mensajes de sistema se procesan inmediatamente en el hilo del emisor, aunque haya mensajes normales encolados — derivada de CallingThreadDispatcher.scala:223-230 y 282, *no afirmada por spec*. Caracterización propuesta: `watch` sobre un actor ocupado entrega `Terminated` sin esperar.
+- A15: en reanudación, los mensajes encolados por otros hilos se ejecutan en el hilo que reanuda — derivada de CallingThreadDispatcher.scala:209-221 y 117-133, *no afirmada por spec*. Caracterización propuesta con dos hilos.
+- A16: si el actor se ejecuta en otro hilo, el emisor espera al candado (reintentos de 50 ms) y no pierde el mensaje — derivada de CallingThreadDispatcher.scala:310-337, *no afirmada por spec*. Caracterización propuesta con un `receive` bloqueado por un latch.
+- A17: `register` procesa `Create` dentro de `actorOf` (el `preStart` ya corrió al volver) — derivada de CallingThreadDispatcher.scala:183-191, observable en TestActorRefSpec.scala:132-141.
 
-**Oráculo.** Jar oficial tras leer.
+**Validación prevista.** A1-A8 y A10-A12: portados 1:1 (ActorModelSpec parametrizado por el dispatcher bajo prueba; los contadores del interceptor se reproducen con un `DispatcherInterceptor` de prueba). A9: excluido (Q-TK-7). A13: portado con PekkoSpecSpec. A14-A17: caracterización propia (tests con dos hilos y latches). No se usa oráculo diferencial porque el comportamiento es de ordenación en hilos y los specs ya lo fijan; si el Owner exige confirmación, un escenario jshell (`tools/oracle/tk-ctd-order.jsh`) puede registrar el orden de ejecución de una secuencia reentrante.
 
-**Decisiones.** Q-TK-1
+**Decisiones.** Q-TK-1 (entrega síncrona del testActor: la lectura completa confirma que depende de este dispatcher), Q-TK-7 (interrupciones), Q-TK-8 (manejadores async), Q-X-4, Q-X-5.
 
 ## AC-TK-007 — TestFSMRef
 
-*Unidad TK · visibilidad public · analysis `listed`*
+*Unidad TK · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual por spec] Acceso a estado, datos y timers de un FSM. Pendiente.
+**Contrato observable.** [contractual por spec] `TestFSMRef[S, D, T <: Actor](system, props, supervisor, name)(implicit ev: T <:< FSM[S, D])` es un `TestActorRef[T]` con acceso a estado y timers del FSM subyacente: `stateName`, `stateData`, `setState(stateName, stateData, timeout, stopReason)` (cada argumento omitido conserva el valor actual; `timeout` por defecto `null` ≡ sin timeout), y los proxies de timers `startTimerWithFixedDelay`, `startTimerAtFixedRate`, `startSingleTimer`, `setTimer` (deprecado), `cancelTimer`, `isTimerActive(name)`, `isStateTimerActive`. `setState` equivale a una transición iniciada desde dentro del FSM, incluidos el timeout y la parada.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestFSMRef.scala:44-147
+- testkit/src/main/scala/org/apache/pekko/testkit/TestFSMRef.scala:22-147 (clase y companion)
+- specs: testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:20-105; actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:223-262 (uso con timers y terminación)
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** Hereda las de `TestActorRef`. El actor debe ser un FSM (`T <:< FSM[S, D]`, comprobado en compilación). Los companions crean con supervisor por defecto = guardián y nombre aleatorio si no se dan (TestFSMRef.scala:119-146).
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.**
+- `fsm` = `underlyingActor` (TestFSMRef.scala:48): cada consulta reevalúa la instancia (tras reinicio, la nueva).
+- `setState(..)`: `fsm.applyState(FSM.State(stateName, stateData, Option(timeout), stopReason))` (66-72): ejecuta la transición (callbacks `onTransition`, timers de estado, `onTermination` si `stopReason`) en el hilo del llamador, fuera de cualquier invocación del `receive`.
+- Los proxies de timers delegan en el FSM (`startTimerWithFixedDelay`… `cancelTimer`, `isTimerActive`, `isStateTimerActive`: 75-116).
+- Los timers que disparan lo hacen desde el scheduler y envían el mensaje al actor; con la CTD (AC-TK-006.2) el `receive` corre en el hilo del scheduler, por lo que el test que consulta `stateName` desde otro hilo ve la transición cuando termina.
 
-**Dependencias.** Filas: AC-TK-006.1 ; AC-FSM-001. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** Los de `underlyingActor` (actor terminado ⇒ `IllegalActorStateException`). `setState` con un estado inexistente: el FSM lo trata como transición a un estado sin handler (log `Next state … does not exist`, AC-FSM).
 
-**Equivalente Rust propuesto.** -
+**Orden / concurrencia / ciclo de vida.** `setState` y los accesos no están sincronizados con los timers en Pekko; en el spec de `timeout`, el test sondea con `awaitCond` dentro de `within(80 ms, 500 ms)` (TestFSMRefSpec.scala:46-49).
 
-**Diferencias observables.** Depende de AC-FSM.
+**Dependencias.** Filas: AC-TK-006.1 ; AC-TK-006.2 ; AC-FSM-001.1 ; AC-FSM-002 ; AC-FSM-004. Externas: ninguna.
+
+**Equivalente Rust propuesto.** `TestFsmRef<S, D, A>` (con `A: Fsm<S, D>`) construido sobre `TestActorRef<A>`:
+- `state_name() -> S` y `state_data() -> D` (requieren `Clone`, devuelven copias para no retener la guarda); `with_fsm(|fsm: &mut A| …)` para acceso completo.
+- `set_state(StateUpdate::new().name(s).data(d).timeout(t).stop_reason(r))` (el builder sustituye a los argumentos por defecto de Scala: lo no indicado conserva el valor actual) que toma el candado de `TestActorRef` y llama a `fsm.apply_state(State{..})`.
+- `start_timer_with_fixed_delay/at_fixed_rate/single_timer/cancel_timer/is_timer_active/is_state_timer_active` como delegaciones dentro de `with_fsm`.
+Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por el timer toma el candado del actor, de modo que `state_name()` desde otro hilo espera a que acabe una transición en curso (más estricto que Pekko, ver AC-TK-006.1). Viabilidad: alta, condicionada a que el trait `Fsm` de rakka exponga `apply_state` y los timers (unidad FSM).
+
+**Diferencias observables.** `S`/`D` clonables en vez de referencias; el argumento `timeout: FiniteDuration = null` se modela con `Option<Duration>`; `setTimer` deprecado puede omitirse si AC-FSM-004 decide no portarlo (queda sujeto a esa decisión).
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: acceso a estado: tras `startWith(1, "")`, `stateName == 1` y `stateData == ""`; tras `fsm ! "go"` pasan a `2` y `"go"` (transición síncrona vía CTD) — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:24-39.
+- A2: `setState(stateName = 1)` cambia sólo el nombre (los datos siguen `"go"`); `setState(stateData = "buh")` cambia sólo los datos — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:40-45.
+- A3: `setState(timeout = 100.millis)` arma el timeout de estado: dentro de `within(80.millis, 500.millis)` el FSM pasa a estado `2` con datos `"timeout"` — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:46-49.
+- A4: timers: `isTimerActive("test")` es `false`; tras `startTimerWithFixedDelay("test", 12, 10.millis)` es `true`; tras `cancelTimer("test")` es `false` — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:52-64.
+- A5: companion: supervisor por defecto = guardián (`fsm.underlyingActor.supervisor == guardian`); nombre dado; supervisor dado; supervisor y nombre — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:67-103.
+- A6: `TestFSMRef` se usa para comprobar que todos los timers se cancelan al terminar el FSM (`startSingleTimer` por transición, `onTermination`) — actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:223-262 (aserciones de AC-FSM; aquí fijan el uso de `isTimerActive` desde el test).
+- A7: `setState(stopReason = Some(Normal))` ejecuta `onTermination` y detiene el actor — derivada de TestFSMRef.scala:66-72 y del FSM, *no afirmada por spec*. Caracterización propuesta.
+- A8: `isStateTimerActive` refleja el timeout de estado armado por `setState(timeout = …)` — derivada de TestFSMRef.scala:116, *no afirmada por spec*. Caracterización propuesta.
 
-**Oráculo.** Jar oficial tras leer.
+**Validación prevista.** A1-A5: tests portados 1:1 sobre `TestFsmRef` (A3 con reloj real porque usa el scheduler del sistema; la ventana 80-500 ms se escala con `timefactor`). A6: se valida en AC-FSM. A7-A8: caracterización propia. Sin oráculo: los specs fijan los valores.
 
-**Decisiones.** Q-TK-2
+**Decisiones.** Q-TK-2 (acceso al FSM subyacente por clones/cierre), Q-TK-1, Q-TK-8; depende de AC-FSM-001/002/004 para la API `Fsm` de rakka.
 
 ## AC-TK-008 — ExplicitlyTriggeredScheduler (tiempo manual)
 
@@ -2178,33 +2514,49 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Decisiones.** Q-TK-4
 
-## AC-TK-009 — Utilidades: TestLatch, TestBarrier, TestActors (Echo, Blackhole, Forward), TestException, SocketUtil
+## AC-TK-009 — Utilidades de sincronización de test: TestLatch, TestBarrier y TestException
 
-*Unidad TK · visibilidad public · analysis `listed`*
+*Unidad TK · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] Helpers usados por las specs (p. ej. TestLatch en ActorSystemSpec; TestActors.echoActorProps en DeadLetterSupressionSpec). Pendiente.
+**Contrato observable.** [contractual] Primitivas para tests: `TestLatch(count = 1)(implicit system)` (envoltorio de `CountDownLatch` que es `Awaitable[Unit]`; `countDown`, `isOpen`, `open`, `reset`, `ready/result(atMost)` con espera dilatada por `timefactor` y `TimeoutException("Timeout of <atMost> with time factor of <factor>")` al agotarse; `Duration.Inf`/no finito ⇒ `IllegalArgumentException("TestLatch does not support waiting for <d>")`; `DefaultTimeout = 5 s`); `TestBarrier(count)` (envoltorio de `CyclicBarrier`; `await()` y `await(timeout)` dilatados; al agotarse lanza `TestBarrierTimeoutException("Timeout of <t> and time factor of <factor>")`; `reset()`; `DefaultTimeout = 5 s`); `TestException(message)` (excepción `RuntimeException` sin traza, case class con igualdad por mensaje).
 
 **Fuente.**
 - testkit/src/main/scala/org/apache/pekko/testkit/TestLatch.scala:31-61
-- testkit/src/main/scala/org/apache/pekko/testkit/TestActors.scala:21-56
+- testkit/src/main/scala/org/apache/pekko/testkit/TestBarrier.scala:23-53
+- testkit/src/main/scala/org/apache/pekko/testkit/TestException.scala:21
+- testkit/src/main/scala/org/apache/pekko/testkit/package.scala (`dilated`: AC-TK-013) y TestKitExtension (`TestTimeFactor`: AC-TK-004)
+- usos como evidencia: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:216-227; testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpecSpec.scala:67-72,101-104; actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:103,117,125; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:469
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** Un `ActorSystem` implícito (para leer el `timefactor`). `TestBarrier.await()` sin timeout usa `DefaultTimeout`.
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.**
+- `TestLatch.ready(atMost)`: `atMost` debe ser `FiniteDuration`; espera `atMost.dilated.toNanos`; si no se abrió, `TimeoutException`; devuelve `this` (TestLatch.scala:45-56). `result(atMost)` = `ready` (57-60). `open()` hace `countDown` hasta `isOpen`. `reset()` crea un `CountDownLatch` nuevo con el `count` original.
+- `TestBarrier.await(timeout)`: `barrier.await(timeout.dilated.toNanos, NANOSECONDS)`; en `TimeoutException` lanza `TestBarrierTimeoutException` (TestBarrier.scala:42-50); `reset()` delega.
+- `TestException`: `final case class TestException(message: String) extends RuntimeException(message) with NoStackTrace` (TestException.scala:21).
 
-**Dependencias.** Filas: AC-TK-001.1. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** `TimeoutException` (latch); `TestBarrierTimeoutException` (barrier; otras excepciones de `CyclicBarrier` como `BrokenBarrierException` se propagan); `IllegalArgumentException` (latch con duración infinita).
 
-**Equivalente Rust propuesto.** módulo `testkit::util`
+**Orden / concurrencia / ciclo de vida.** Seguras entre hilos (`CountDownLatch`/`CyclicBarrier`). `TestLatch.reset()` no es atómico respecto de esperas en curso (reemplaza el campo `latch` no volátil).
 
-**Diferencias observables.** Rust: equivalentes con `Barrier`/`Notify`.
+**Dependencias.** Filas: AC-TK-004 ; AC-TK-013 ; AC-TK-001.1. Externas: `java.util.concurrent`.
+
+**Equivalente Rust propuesto.** `testkit::util::{TestLatch, TestBarrier, TestException}`: `TestLatch::new(count, &system)` (con `std::sync::{Mutex, Condvar}`), `count_down()`, `is_open()`, `open()`, `reset()`, `ready(at_most: Duration) -> Result<(), TimeoutError>` con `at_most.dilated(&system)`; versión `async` opcional (`ready_async`) para tests sobre Tokio (Q-TK-4). `TestBarrier::new(n)` con `std::sync::Barrier` no admite timeout ni `reset`: se implementa sobre `Mutex<Condvar>` con generación para soportar `await_timeout` y `reset`. `TestException` como `struct TestException(String)` con `thiserror`, sin traza, `PartialEq`. Viabilidad alta.
+
+**Diferencias observables.** `Awaitable[Unit]` → método propio (`ready`/`result`); mensajes de error idénticos; `Duration.Inf` se modela con `Option<Duration>` o con un tipo `FiniteDuration` que impide el caso (diferencia: error en compilación en lugar de `IllegalArgumentException`).
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: `TestLatch(count)`: `countDown` `count` veces abre el latch y `Await.ready(latch, 5.seconds)` retorna; el orden de ejecución de los callbacks de terminación se observa a través del latch — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:212-232.
+- A2: un `TestLatch` abierto desde `registerOnTermination` se completa al terminar el sistema (`Await.ready(latch, 2.seconds)`) — testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpecSpec.scala:64-73.
+- A3: `TestBarrier(2)` sincroniza el hilo del test con el actor: `state.finished.await()` (timeout por defecto) vuelve cuando el actor llama a `await`, y `beforeEach` hace `reset()` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:103,117,125.
+- A4: `ready` con duración infinita lanza `IllegalArgumentException("TestLatch does not support waiting for Duration.Inf")` — derivada de TestLatch.scala:48-50, *no afirmada por spec*. Caracterización propuesta.
+- A5: al agotarse el timeout, `TestLatch.ready` lanza `TimeoutException` con el mensaje `Timeout of <atMost> with time factor of <factor>` y `TestBarrier.await` lanza `TestBarrierTimeoutException` con `Timeout of <t> and time factor of <factor>` — derivada de TestLatch.scala:51-54 y TestBarrier.scala:44-48, *no afirmada por spec*.
+- A6: la espera real es `atMost × timefactor` — derivada de `dilated`, *no afirmada por spec aquí* (ver AC-TK-004/013).
+- A7: `reset()` deja el latch/barrera reutilizable con el contador original — derivada de TestLatch.scala:43 y TestBarrier.scala:52, *no afirmada por spec directa* (A3 usa `reset` en `beforeEach`).
+- A8: `TestException("x")` tiene `getMessage == "x"`, sin traza (`getStackTrace.isEmpty`) e igualdad por mensaje — derivada de TestException.scala:21, *no afirmada por spec*.
 
-**Oráculo.** No aplica.
+**Validación prevista.** A1-A3: se validan junto a los specs de las unidades que los usan (ActorSystemSpec, PekkoSpecSpec, ActorWithStashSpec). A4-A8: tests de caracterización propios (con `timefactor` inyectado). Sin oráculo: lógica trivial sobre primitivas estándar.
 
-**Decisiones.** ninguna específica
+**Decisiones.** Q-TK-4 (API bloqueante vs. asíncrona), Q-TK-5 (origen del `timefactor`).
 
 ## AC-TK-010 — TestKit.shutdownActorSystem / shutdown (verifySystemShutdown)
 
@@ -2238,31 +2590,45 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-TK-011 — javadsl TestKit / EventFilter
 
-*Unidad TK · visibilidad public · analysis `listed`*
+*Unidad TK · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] Variante Java de TestKit y EventFilter. Pendiente.
+**Contrato observable.** [contractual, API Java] `javadsl.TestKit(system)` es una fachada que delega TODA su API en un `TestProbe` interno (`tp = new TestProbe(system)`): `getTestActor`/`getRef` (el actor es el de la probe, nombre `testProbe-N`, no `testActor-N`), `getSystem`, `msgAvailable`, `getLastSender`, `send`, `forward`, `reply`, `watch`/`unwatch`, `ignoreMsg`/`ignoreNoMsg`, `setAutoPilot`, `remaining*`, `within`, `awaitCond`, `awaitAssert`, `expectMsg*`/`expectMsgPF`/`expectMsgClass`/`expectMsgAnyOf`/`expectMsgAllOf*`/`expectMsgAnyClassOf`, `expectNoMessage`/`expectNoMsg`, `expectTerminated`, `fishForMessage`/`fishForSpecificMessage`, `receiveN`/`receiveOne`/`receiveWhile`, `childActorOf`, `dilated`, y el companion `shutdownActorSystem(..)` (10 s, sin verificar por defecto). Las funciones de emparejamiento Java (`JFunction`) son TOTALES: se envuelven en `CachingPartialFunction` que usa `JavaPartialFunction.NoMatch` como "no definido". `javadsl.EventFilter(clazz, system)` acepta una clase `Throwable` (filtro de `Error` con esa causa) o una clase de `LogEvent`; configuración encadenada `message` (exacto: `complete = true`), `startsWith` (`complete = false`), `matches` (patrón regex), `from` (fuente), `occurrences`; `intercept(Supplier)` ejecuta el bloque con el filtro equivalente (`ErrorFilter`/`WarningFilter`/`InfoFilter`/`DebugFilter`); `unknown LogLevel` ⇒ `IllegalArgumentException`.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/javadsl/TestKit.scala
-- testkit/src/main/scala/org/apache/pekko/testkit/javadsl/EventFilter.scala
+- testkit/src/main/scala/org/apache/pekko/testkit/javadsl/TestKit.scala:31-861 (clase), 863-937 (companion), 953-966 (`CachingPartialFunction`)
+- testkit/src/main/scala/org/apache/pekko/testkit/javadsl/EventFilter.scala:23-92
+- specs: testkit/src/test/java/org/apache/pekko/testkit/javadsl/TestKitApiTest.java:25-183 (compila toda la API; "actual impl is tested elsewhere"); actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:54-126,140-178 (uso real de `expectMsgPF` Java con `Duration` y `getRef`); docs/src/test/java/jdocs/event/EventBusDocTest.java:277-349 (fuera de los módulos del alcance, sólo evidencia)
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** Un `ActorSystem` ya creado; el sistema debe apagarse por el usuario. La clase no es thread-safe (una cola, una pila de `within`).
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.**
+- Delegación: `expectMsg(max, obj, hint)` ⇒ `tp.expectMsg(max, hint, obj)` (nótese el orden de argumentos distinto: TestKit.scala:484); `expectMsgEquals` ≡ `expectMsg`; `expectNoMsg()` ≡ `expectNoMessage()`; `within(min, max, f)`/`within(max, f)` con `Supplier`; `awaitCond(max, interval, message, p)`; `awaitAssert(max, interval, a)`.
+- Sobrecargas `java.time.Duration` convierten con `asScala`; `dilated` aplica `timefactor`.
+- `expectMsgPF/fishForMessage/fishForSpecificMessage/receiveWhile/ignoreMsg` envuelven `JFunction` en `CachingPartialFunction`: `isDefinedAt(x)` evalúa `match(x)` y cachea el resultado; `NoMatch` ⇒ no definido (TestKit.scala:953-966).
+- `javadsl.EventFilter`: `message(msg)` fija `pattern = false, complete = true`; `startsWith(msg)` ⇒ `complete = false`; `matches(regex)` ⇒ `pattern = true` (sin tocar `complete`); `from(source)`; `occurrences(n)` (por defecto `Integer.MAX_VALUE`); en `intercept`, si es filtro de error y no hay `exceptionType`, usa `Logging.noCause.getClass` (equivale a "cualquier `Error`") (EventFilter.scala:47-61).
 
-**Dependencias.** Filas: AC-TK-001.1 ; AC-TK-005.1. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** `require` del constructor de `EventFilter`: `IllegalArgumentException("supplied class must either be LogEvent or Throwable")`; `intercept` con clase de `LogEvent` desconocida ⇒ `IllegalArgumentException("unknown LogLevel <clazz>")`. Los `expect*` fallan con `AssertionError` como en la probe (AC-TK-001.2).
 
-**Equivalente Rust propuesto.** N/A (misma API; sin distinción Java)
+**Orden / concurrencia / ciclo de vida.** Igual que `TestProbe` (AC-TK-001.x/002.x).
 
-**Diferencias observables.** Q-EVT-5.
+**Dependencias.** Filas: AC-TK-001.1 ; AC-TK-001.2 ; AC-TK-001.3 ; AC-TK-001.4 ; AC-TK-001.5 ; AC-TK-002.2 ; AC-TK-002.3 ; AC-TK-005.1 ; AC-TK-005.2 ; AC-TK-010 ; AC-JAPI-001. Externas: `java.util.function`.
+
+**Equivalente Rust propuesto.** Ninguna distinción Java/Scala (Q-EVT-5): la API única `TestProbe`/`TestKit` de AC-TK-001/002 y `EventFilter` de AC-TK-005 cubre esta fila. Los puntos de paridad que exigen cuidado: (1) conservar los nombres alternativos (`expect_msg_equals`, `expect_no_msg`, `get_ref` ⇒ alias o simplemente `ref_()`), (2) el orden de argumentos de `expect_msg(max, obj, hint)` debe quedar documentado, (3) `EventFilter` con `message`/`starts_with`/`matches`/`from`/`occurrences` ya existe en la API fluida de AC-TK-005.1 y debe aceptar tipos de error (`TypeId`) o niveles (Q-TK-3). Viabilidad alta; la fila queda verificada por la suite de AC-TK-001/002/005.
+
+**Diferencias observables.** Una sola API en lugar de dos; las funciones Java totales con `NoMatch` se sustituyen por `Option` o por `FnMut(&Msg) -> Option<R>` (la semántica "no definido" se conserva como `None`).
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: `TestKitApiTest` compila todas las firmas Java de `TestKit` (awaitAssert/awaitCond, childActorOf, expectMsg*, fishFor*, receive*, ignoreMsg, expectMsgAllOf/AnyOf/AnyClassOf, getters, forward/send/watch/unwatch, setAutoPilot, `shutdownActorSystem(system, Duration)`) — testkit/src/test/java/org/apache/pekko/testkit/javadsl/TestKitApiTest.java:27-182 (sin ejecutar: el método se declara `compileOnlyTestCase`, con `testKit` nulo).
+- A2: los eventos de log llegan a `getRef()` y `expectMsgPF(Duration, hint, f)` con una función total aplicada a un `LogEvent` verifica mensaje, nivel y MDC en 3 s — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:140-178.
+- A3: `javadsl.TestKit.getRef()` entrega mensajes a una cola que `expectMsg*` examina (uso de la API en un test real) — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:54-90.
+- A4: `javadsl.EventFilter` no tiene tests en el repositorio de Pekko (ni en testkit ni en actor-tests): su comportamiento es *no afirmado por spec*. Caracterización propuesta a partir de EventFilter.scala:47-91: `new EventFilter(classOf[RuntimeException], sys).message("expected").occurrences(1).intercept(..)` falla si no hay exactamente 1 `Error` con causa `RuntimeException` y mensaje exacto.
+- A5: la construcción con una clase que no es `Throwable` ni `LogEvent` lanza `IllegalArgumentException("supplied class must either be LogEvent or Throwable")` — derivada de EventFilter.scala:25-27, *no afirmada por spec*.
+- A6: `expectMsg(max, obj, hint)` pasa `hint` y `obj` a la probe en el orden `(max, hint, obj)` — derivada de TestKit.scala:484, *no afirmada por spec*.
+- A7: `getRef`/`getTestActor` es el actor de una `TestProbe` (`testProbe-N`), no un `testActor-N` — derivada de TestKit.scala:56,62, *no afirmada por spec*.
 
-**Oráculo.** No aplica.
+**Validación prevista.** A1: test de compilación (que la API Rust expone las mismas operaciones; se genera una lista de operaciones esperadas y se comprueba por reflexión de macros o doc-test). A2-A3: portados dentro de LoggingAdapterTest (unidad EVT). A4-A7: caracterización propia. Sin oráculo.
 
-**Decisiones.** Q-EVT-5
+**Decisiones.** Q-EVT-5 (API única; efecto: sin módulo `javadsl`), Q-TK-3 (tipos de causa en `EventFilter`).
 
 ## AC-TK-012.1 — PekkoSpec: configuración base de specs (testConf), nombre del sistema por la pila de llamadas, muteDeadLetters, ciclo before/after
 
@@ -2297,31 +2663,55 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-TK-012.2 — Infra restante de specs: Coroner, TestTags, WithLogCapturing, AbstractSpec, PekkoJUnitActorSystemResource, TestActorRefJavaCompile, metrics/*
 
-*Unidad TK · visibilidad internal-required · analysis `listed`*
+*Unidad TK · visibilidad internal-required · analysis `extracted`*
 
-**Contrato observable.** [contractual para portar specs] Detección de deadlocks (Coroner), tags de tests (TimingTest), captura de logs, y MetricsKit para benchmarks internos. Pendiente.
+**Contrato observable.** [contractual para portar specs] Infraestructura de la suite de Pekko: (1) `Coroner`: `watch(duration, title, out, startAndStopDuration = 1 s, displayThreadCounts = false)` arranca un hilo "Coroner" que espera `duration`; si no se cancela, imprime `Coroner not cancelled after <ms>ms. Looking for signs of foul play...` y un informe (`Coroner's Report`, con volcado de hilos y secciones de bloqueos mutuos "Deadlocks found for monitors and ownable synchronizers" o "…for monitors, but NOT ownable synchronizers"); `WatchHandle.cancel()` evita el informe y espera hasta `startAndStopDuration` a que termine; `printReport(title, out)` imprime el informe en el acto; `WatchedByCoroner` lo conecta al ciclo `startCoroner`/`stopCoroner` de `PekkoSpec` con `expectedTestDuration.dilated`. (2) `TestTags`: etiquetas `timing`, `long-running`, `performance`, `gh-exclude`, `gh-exclude-aeron`. (3) `WithLogCapturing`: mezcla que, en cada test, recoge todos los `LogEvent` del sistema y los imprime con prefijo `| ` entre `--> [test] Start of log messages of test that [<resultado>]` y `<-- … End …` SÓLO si el test falla; `DebugLogSilencingTestEventListener` (no imprime Debug) y `SilenceAllTestEventListener` (no imprime nada). (4) `AbstractSpec` = `AnyWordSpecLike with Matchers with BeforeAndAfterEach`. (5) `PekkoJUnitActorSystemResource(name[, config])`: regla JUnit que crea el sistema en `before()` (config por defecto `PekkoSpec.testConf`; si falla imprime la traza y deja `null`) y lo apaga con `TestKit.shutdownActorSystem` en `after()`. (6) `TestActorRefJavaCompile`: comprobación de compilación de `TestActorRef.create` desde Java. (7) `metrics/*`: kit de benchmarking (Codahale metrics + HdrHistogram) usado por pruebas de rendimiento.
 
 **Fuente.**
-- testkit/src/test/scala/org/apache/pekko/testkit/Coroner.scala
-- testkit/src/test/scala/org/apache/pekko/testkit/WithLogCapturing.scala
+- testkit/src/test/scala/org/apache/pekko/testkit/Coroner.scala:37-254 (objeto `Coroner`: `watch` 92-134, `printReport` 139-254), 267-292 (`WatchedByCoroner`)
+- testkit/src/test/scala/org/apache/pekko/testkit/TestTags.scala:18-23; testkit/src/test/scala/org/apache/pekko/testkit/WithLogCapturing.scala:25-97; testkit/src/test/scala/org/apache/pekko/testkit/AbstractSpec.scala:20-21
+- testkit/src/test/java/org/apache/pekko/testkit/PekkoJUnitActorSystemResource.java:46-85; testkit/src/test/java/org/apache/pekko/testkit/TestActorRefJavaCompile.java:21-33
+- testkit/src/test/scala/org/apache/pekko/testkit/metrics/ (MetricsKit.scala, MetricsKitOps.scala, HdrHistogram.scala, AveragingGauge.scala, KnownOpsInTimespanTimer.scala, FileDescriptorMetricSet.scala, MemoryUsageSnapshotting.scala, MetricKeyDSL.scala, reporter/PekkoConsoleReporter.scala)
+- specs: testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:28-154; testkit/src/test/scala/org/apache/pekko/testkit/metrics/MetricsKitSpec.scala:37-86
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** `Coroner` usa `ManagementFactory.getThreadMXBean` (JVM). `WithLogCapturing` exige un `implicit def system` y el listener adecuado en `pekko.loggers` (p. ej. `SilenceAllTestEventListener`).
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.**
+- `Coroner.watch`: crea un `WatchHandleImpl`; el hilo "Coroner" cuenta hilos si `displayThreadCounts` (`Coroner Thread Count starts at <n> in <title>`), marca `started()`, espera `Await.result(handle, duration)`; si el resultado es `false` (expiró) llama `expired()`, imprime el aviso y `printReport`; `finished()` al acabar; `cancel()` completa la promesa con `true` y espera `finishedLatch` hasta `startAndStopDuration`. Al terminar (`finally`), con `displayThreadCounts` imprime `Coroner Thread Count started at <n>, ended at <m>, peaked at <p> in <title>` (Coroner.scala:121-126), y siempre hace `out.flush()` y `finished()`.
+- `printReport(title, out)`: cabecera `#Coroner's Report: <title>` con arquitectura de SO, procesadores, carga, hora de arranque y uptime de la VM y uso de heap/non-heap (Coroner.scala:139-154); espera 300 ms para evitar una lectura de hilos incoherente (156-159); imprime `All threads:` con el volcado (`dumpAllThreads`) y `Deadlocks found <descripción>:` con los hilos bloqueados (`findDeadlockedThreads`, que usa sincronizadores de propiedad cuando la JVM lo soporta) (249-254).
+- `WithLogCapturing.withFixture`: un `EventFilter(Int.MaxValue)` que acumula todos los eventos (`matches` siempre `true`), envuelve `test()` y lo registra con mensajes Debug `Logging started/finished for test [name]`; si el resultado no es éxito ni pendiente, imprime el log capturado con el `StdOutLogger`.
+- `PekkoJUnitActorSystemResource`: ver arriba.
+- `metrics/*`: `MetricsKit` es `private[pekko]` (su Scaladoc advierte que NO es una utilidad de micro-benchmarking, MetricsKit.scala:25-32); registra métricas Codahale (`counter`, `averageGauge`, `timedWithKnownOps`, `hdrHistogram`, `measureMemory/Gc/FileDescriptors`, MetricsKitOps.scala:28-107) y las reporta por consola (`PekkoConsoleReporter`). Sólo lo consume `ActorCreationPerfSpec` (actor-tests/src/test/scala/org/apache/pekko/actor/ActorCreationPerfSpec.scala:131), un spec de rendimiento sin contrato funcional. `HdrHistogram.update` lanza `IllegalArgumentException` con texto "can not be stored in this histogram" cuando el valor excede el máximo (HdrHistogram.scala:36-56).
 
-**Dependencias.** Filas: AC-TK-012.1. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** `Coroner.printReport` captura `NonFatal` al imprimir el informe y escribe `Error displaying Coroner's Report` con la traza. Los demás componentes no definen errores propios.
 
-**Equivalente Rust propuesto.** helpers de `tests/common` (sólo los que un spec portado use)
+**Orden / concurrencia / ciclo de vida.** El Coroner corre en su propio hilo; `cancel()` es síncrono con timeout `startAndStopDuration`. `WithLogCapturing` asume que el filtro se usa desde un único actor.
 
-**Diferencias observables.** Pendiente.
+**Dependencias.** Filas: AC-TK-012.1 ; AC-TK-005.2 ; AC-TK-010 ; AC-EVT-017. Externas: JMX (`ThreadMXBean`), Codahale Metrics, HdrHistogram, JUnit, ScalaTest.
+
+**Equivalente Rust propuesto.** Sólo lo que un spec portado necesite, en `tests/common` o en `rakka-testkit`:
+- `Coroner`: `Coroner::watch(duration, title, out) -> WatchHandle` con hilo propio que, al expirar, imprime un informe de `std::thread` del proceso (nombres de hilos vivos; sin volcado de pilas porque `std` no lo permite: se puede usar `backtrace`/`tokio-console` opcionalmente) y la detección de deadlock con `parking_lot::deadlock` (feature `deadlock_detection`). Viabilidad media: el volcado de pilas de otros hilos y la detección de deadlocks de sincronizadores de la JVM no tienen equivalente directo.
+- `TestTags`: atributos `#[ignore]`/features (`timing`, `long-running`, `performance`) o variables de entorno de `cargo-nextest`; sin equivalente semántico exacto.
+- `WithLogCapturing`: guarda RAII `LogCapture` que registra los `LogEvent` del `EventStream` durante el test e imprime los eventos con prefijo `| ` sólo si el test falla (`std::thread::panicking()` en `Drop`); más los listeners `SilenceAllTestEventListener`/`DebugLogSilencingTestEventListener`. Viabilidad alta.
+- `AbstractSpec`: innecesaria (Rust no tiene mixins de ScalaTest).
+- `PekkoJUnitActorSystemResource`: guarda RAII `TestSystem` (AC-TK-012.1) que crea el sistema con `testConf` y llama `shutdown_actor_system` en `Drop`.
+- `TestActorRefJavaCompile`: sin equivalente (no hay interop Java).
+- `metrics/*`: no se porta (infraestructura de benchmark); si se necesitaran benchmarks, se usa `criterion`/`divan` fuera del contrato de comportamiento.
+
+**Diferencias observables.** Sin interop Java ni JMX; el informe del Coroner no tendrá pilas de hilos (limitación de `std`); las etiquetas de ScalaTest se sustituyen por mecanismos de `cargo`.
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: `Coroner.watch(100 ms, "XXXX", out)` genera un informe que contiene `"Coroner's Report"` y `"XXXX"` si no se cancela (`Await.ready(coroner, 5.seconds)`) — testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:39-47.
+- A2: cancelar a tiempo no genera salida (`report === ""`) — testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:49-56.
+- A3: con `displayThreadCounts = true` el informe contiene `"Coroner Thread Count starts at "`, `"Coroner Thread Count started at "` y el título, pero no `"Coroner's Report"` — testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:58-68.
+- A4: `printReport` con dos hilos en deadlock (candados `ReentrantLock` en orden inverso) incluye `"Coroner's Report"` y, si la JVM soporta sincronizadores propios, la sección `"Deadlocks found for monitors and ownable synchronizers"` con los nombres `deadlock-thread-a` y `deadlock-thread-b`; si no, la sección `"…but NOT ownable synchronizers"` con `None` — testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:70-151.
+- A5: `MetricsKit` mide descriptores de fichero, tiempo sobre un número conocido de operaciones, promedio con `Gauge`, histogramas, y falla con `"can not be stored in this histogram"` al desbordar — testkit/src/test/scala/org/apache/pekko/testkit/metrics/MetricsKitSpec.scala:39-84 (benchmarks de la suite JVM; ver Diferencias).
+- A6: `WithLogCapturing` imprime el log capturado sólo si el test falla y con prefijo `| ` — derivada de WithLogCapturing.scala:31-76, *no afirmada por spec* (no hay spec de WithLogCapturing). Caracterización propuesta.
+- A7: `PekkoJUnitActorSystemResource` crea el sistema en `before()` (nombre y config dados, `testConf` por defecto) y lo apaga en `after()` — derivada de PekkoJUnitActorSystemResource.java:51-85, *no afirmada por spec directa* (la usa LoggingAdapterTest.java:44-53 como infraestructura).
 
-**Oráculo.** No aplica.
+**Validación prevista.** A1-A3: portados (con un hilo "coroner" y `Vec<u8>` como `out`). A4: portado sólo si `parking_lot::deadlock` está disponible; el texto de las secciones es específico de JMX, por lo que la aserción se adapta a las cabeceras que defina rakka (diferencia documentada). A5: no se porta (JVM). A6-A7: caracterización propia. Sin oráculo: infraestructura de test.
 
-**Decisiones.** Q-TK-6
+**Decisiones.** Q-TK-6 (harness: `TestSystem`, `LogCapture`, `Coroner`), Q-TK-9 (límites del Coroner y exclusión de `metrics/*`).
 
 ## AC-TK-013 — Funciones de paquete: filterEvents(Iterable|varargs), filterException[T], TestDuration.dilated
 
@@ -2380,31 +2770,107 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 ## AC-TK-015 — JavaSerializable y TestJavaSerializer (serializador `java-test`, id 23, binding del testkit)
 
-*Unidad TK · visibilidad internal-required · analysis `listed`*
+*Unidad TK · visibilidad internal-required · analysis `extracted`*
 
-**Contrato observable.** [contractual interno] reference.conf del testkit registra pekko.actor.serializers.java-test = TestJavaSerializer, serialization-identifiers id 23 y binding JavaSerializable -> java-test. Pendiente.
+**Contrato observable.** [contractual interno] El `reference.conf` del testkit registra el serializador `java-test` (clase `TestJavaSerializer`), su identificador numérico `23` y el binding `"org.apache.pekko.testkit.JavaSerializable" = java-test`. Un mensaje de test que mezcla el marcador `JavaSerializable` (que extiende `java.io.Serializable`) se serializa con `TestJavaSerializer`: `toBinary` escribe el objeto con `ObjectOutputStream` mientras `JavaSerializer.currentSystem` está fijado al sistema; `fromBinary` lo lee con `ClassLoaderObjectInputStream` sobre el `classLoader` del sistema; `includeManifest = false`. Sirve para mensajes ad hoc entre sistemas (remote/cluster) sin habilitar la serialización Java general (`allow-java-serialization = off`).
 
 **Fuente.**
+- testkit/src/main/scala/org/apache/pekko/testkit/JavaSerializable.scala:17-22; testkit/src/main/scala/org/apache/pekko/testkit/TestJavaSerializer.scala:30-52
 - testkit/src/main/resources/reference.conf:36-49
+- specs: no hay spec propio en testkit; evidencia relacionada: actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:86,216 (`BothTestSerializableAndJavaSerializable`, otro marcador de test, no este)
 
-**Condiciones.**
-- Pendiente.
+**Precondiciones.** Un `ExtendedActorSystem` (constructor de `TestJavaSerializer(system)`); la entrada del `serialization-bindings` debe cargarse (viene en el `reference.conf` del testkit, o explícita como indica el Scaladoc: "needs to be explicitly enabled in the config").
 
-**Orden / concurrencia / ciclo de vida.** Pendiente.
+**Comportamiento.** `TestJavaSerializer extends BaseSerializer` (identificador desde `serialization-identifiers`: 23). `toBinary(o)`: `ByteArrayOutputStream` + `ObjectOutputStream`, `JavaSerializer.currentSystem.withValue(system) { out.writeObject(o) }` (TestJavaSerializer.scala:38-44). `fromBinary(bytes, clazz)`: `ClassLoaderObjectInputStream(system.dynamicAccess.classLoader, UnsynchronizedByteArrayInputStream(bytes))`, `readObject` bajo `currentSystem.withValue(system)` y cierre en `finally` (45-51).
 
-**Dependencias.** Filas: AC-SER-001. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
+**Errores.** `NotSerializableException`/`ClassNotFoundException` propagados por `ObjectOutputStream`/`ObjectInputStream`.
 
-**Equivalente Rust propuesto.** serializador de test registrado por nombre (Q-X-2)
+**Orden / concurrencia / ciclo de vida.** Sin estado; la fijación de `currentSystem` es por hilo (`DynamicVariable`).
 
-**Diferencias observables.** Pendiente.
+**Dependencias.** Filas: AC-SER-002 ; AC-SER-003.5 ; AC-SER-004.1 ; AC-SER-004.2 ; AC-SER-013 ; AC-CFG-001. Externas: serialización de objetos Java (JVM).
+
+**Equivalente Rust propuesto.** La serialización de objetos Java no existe en Rust. Se propone un serializador de pruebas `TestSerializer` registrado en el registro de serializadores (Q-X-2) con identificador `23` y binding por marcador (`trait TestSerializable: serde::Serialize + DeserializeOwned`), implementado con un formato binario estándar (bincode/postcard) y `include_manifest = false`; el identificador `23` y el nombre `java-test` se conservan por paridad de configuración (`pekko.actor.serializers.java-test`). Viabilidad media: se preserva el contrato "mensajes de test ad hoc pasan por un serializador de id 23 sin habilitar el serializador general" pero no el formato de bytes (JVM) — un diferencial byte a byte con Pekko no es posible ni necesario.
+
+**Diferencias observables.** Formato de bytes distinto (no interoperable con Pekko JVM); marcador como trait en lugar de interfaz `Serializable`; `JavaSerializer.currentSystem` sustituido por un contexto de serialización explícito (AC-SER-007.2).
+
+**Aserciones.** No hay spec del serializador en el repositorio de Pekko; todo es *no afirmada por spec* y se propone como caracterización:
+- A1: con la config del testkit, `serialization.serializerFor(clase JavaSerializable)` es `TestJavaSerializer` y su `identifier` es `23` — derivada de testkit/src/main/resources/reference.conf:38-48.
+- A2: `fromBinary(toBinary(x), None) == x` para un mensaje `JavaSerializable` — derivada de TestJavaSerializer.scala:38-51.
+- A3: `includeManifest == false` — derivada de TestJavaSerializer.scala:37.
+- A4: con `allow-java-serialization = off` el binding sigue funcionando para mensajes marcados — derivada de reference.conf:46-48 y del propósito en el Scaladoc (TestJavaSerializer.scala:30-36).
+
+**Validación prevista.** Caracterización propia (A1-A4) en la unidad SER/TK con el serializador de pruebas; diferencial no aplicable (formato JVM). Justificado: sin spec ni valor de comparación.
+
+**Decisiones.** Q-X-2 (registro de serializadores por nombre), Q-TK-10 (serializador de pruebas sin formato Java).
+
+## AC-TK-016 — TestActors: EchoActor, BlackholeActor y ForwardActor
+
+*Unidad TK · visibilidad public · analysis `extracted`*
+
+**Contrato observable.** [contractual por spec] Actores de uso común en tests: `EchoActor` responde a `sender()` el mismo mensaje sin modificar; `BlackholeActor` ignora todo; `ForwardActor(ref)` reenvía cada mensaje con `ref.forward(message)` (conserva el emisor original). Props: `echoActorProps`, `blackholeProps`, `forwardActorProps(ref)`.
+
+**Fuente.**
+- testkit/src/main/scala/org/apache/pekko/testkit/TestActors.scala:21-56
+- specs: testkit/src/test/scala/org/apache/pekko/testkit/TestActorsSpec.scala:16-41; usados como utilería en actor-tests (DeadLetterSupressionSpec, DeadLetterSuspensionSpec, ActorSystemDispatcherSpec.scala:88)
+
+**Precondiciones.** Ninguna; `ForwardActor` exige un `ActorRef` destino.
+
+**Comportamiento.** Ver contrato. `EchoActor.receive = { case message => sender() ! message }`; `BlackholeActor.receive = { case _ => }`; `ForwardActor.receive = { case message => ref.forward(message) }`. Los mensajes no se transforman ni se filtran; el echo usa el `sender()` del mensaje (si es `deadLetters` la respuesta va a dead letters).
+
+**Errores.** Ninguno propio.
+
+**Orden / concurrencia / ciclo de vida.** Los de un actor normal (mailbox FIFO por emisor).
+
+**Dependencias.** Filas: AC-TK-001.1 ; AC-REF-002 ; AC-CELL-001. Externas: ninguna.
+
+**Equivalente Rust propuesto.** `testkit::actors::{echo_props(), blackhole_props(), forward_props(target)}` y los tipos `EchoActor`, `BlackholeActor`, `ForwardActor`; `forward` conserva el emisor. Viabilidad alta.
+
+**Diferencias observables.** Mensajes dinámicos (`Any`) bajo Q-X-3; igual comportamiento.
 
 **Aserciones.**
-- Pendiente de lectura.
+- A1: `EchoActor` devuelve el mensaje unchanged (`"hello world"`) al `ImplicitSender` — testkit/src/test/scala/org/apache/pekko/testkit/TestActorsSpec.scala:20-29.
+- A2: `ForwardActor(testActor)` reenvía `"forward me"` al `testActor` — testkit/src/test/scala/org/apache/pekko/testkit/TestActorsSpec.scala:31-40.
+- A3: `BlackholeActor` no responde ni falla ante cualquier mensaje — derivada de TestActors.scala:35-39, *no afirmada por spec*. Caracterización propuesta: `expect_no_message`.
+- A4: `ForwardActor` conserva el emisor original (el destino ve `sender == emisor`) — derivada de `ref.forward` (TestActors.scala:46-50), *no afirmada por spec*. Caracterización propuesta.
 
-**Oráculo.** No aplica.
+**Validación prevista.** A1-A2 portados con TestActorsSpec; A3-A4 caracterización propia. Sin oráculo.
 
-**Decisiones.** Q-X-2
+**Decisiones.** Q-X-3.
 
+## AC-TK-017 — SocketUtil (direcciones y puertos libres para tests)
+
+*Unidad TK · visibilidad public · analysis `extracted`*
+
+**Contrato observable.** [contractual] Utilidad de `object SocketUtil` para obtener direcciones TCP/UDP libres en `localhost`/loopback: `temporaryLocalPort(udp)`, `temporaryLocalPort(protocol: Tcp|Udp|Both)` (con `Both`, hasta 5 intentos para un puerto libre en TCP y UDP, y `RuntimeException("Unable to find a port that is free for tcp and udp")` si no lo logra), `temporaryServerAddress(address = RANDOM_LOOPBACK_ADDRESS, udp)`, `temporaryServerAddresses(n, hostname, udp)`, `temporaryServerHostnameAndPort`, `temporaryUdpIpv6Port(iface)`, `notBoundServerAddress([address])` (puerto 0). Para `RANDOM_LOOPBACK_ADDRESS` elige `127.20.<0-255>.<0-254>` si el sistema permite enlazar `127.20.0.0`, y `127.0.0.1` si no. Cada dirección se obtiene enlazando un socket al puerto 0 y cerrándolo (hay una ventana de carrera hasta que el test lo reutilice). Fallo al enlazar ⇒ `RuntimeException("Binding to <addr> failed with <msg>", cause)`.
+
+**Fuente.**
+- testkit/src/main/scala/org/apache/pekko/testkit/SocketUtil.scala:24-135
+- specs: no hay spec propio; usado por actor-tests/src/test/scala/org/apache/pekko/io/UdpIntegrationSpec.scala:23,76, actor-tests/src/test/scala/org/apache/pekko/io/CapacityLimitSpec.scala:20, actor-tests/src/test/scala/org/apache/pekko/io/TcpListenerSpec.scala:152, entre otros (unidad IO)
+
+**Precondiciones.** Permiso para enlazar sockets locales. `temporaryUdpIpv6Port` exige una interfaz con dirección IPv6.
+
+**Comportamiento.** `temporaryServerAddresses` genera `n` direcciones: por cada una elige host (según arriba), crea `ServerSocketChannel` (TCP) o `DatagramChannel` (UDP), `bind(new InetSocketAddress(host, 0))`, lee el puerto efectivo, cierra el socket y devuelve `InetSocketAddress(host, puerto)` (SocketUtil.scala:84-117). `canBindOnAlternativeLoopbackAddresses` se calcula una vez al cargar el objeto (31-38). `findBoth(tries)` repite `temporaryLocalPort(udp=false)` y comprueba que el puerto también esté libre en UDP (52-73).
+
+**Errores.** `RuntimeException` descrito arriba (dos casos). Otros errores de E/S se propagan.
+
+**Orden / concurrencia / ciclo de vida.** Sin estado compartido salvo la constante calculada al inicio; seguro entre hilos. No reserva el puerto: otro proceso puede tomarlo (inherente).
+
+**Dependencias.** Filas: AC-IO-001 ; AC-TK-009. Externas: pila de red del SO.
+
+**Equivalente Rust propuesto.** `testkit::net::{temporary_local_port(Protocol), temporary_server_address(host, udp), temporary_server_addresses(n, host, udp), notbound_server_address(..)}` con `std::net::{TcpListener, UdpSocket}`: enlazar a `127.20.x.y:0` (Linux) o `127.0.0.1:0` (macOS/Windows, donde sólo `127.0.0.1` está activo por defecto), leer `local_addr()` y soltar. La detección de `canBindOnAlternativeLoopbackAddresses` se hace una vez con `OnceLock`. Viabilidad alta.
+
+**Diferencias observables.** La disponibilidad de `127.20.x.y` depende del SO; la fila ya contempla el respaldo a `127.0.0.1`. Los errores son `io::Error`/tipo propio (Q-X-5).
+
+**Aserciones.** Sin spec propio: *no afirmada por spec*; caracterización propuesta derivada del código:
+- A1: `temporary_server_address(RANDOM_LOOPBACK_ADDRESS)` devuelve una IP en `127.20.0.0/16` si el SO lo permite, si no `127.0.0.1`, con puerto > 0 — derivada de SocketUtil.scala:31-38,91-96.
+- A2: tras obtener una dirección libre se puede enlazar a ella inmediatamente — derivada de SocketUtil.scala:101-116.
+- A3: `temporary_local_port(Both)` devuelve un puerto libre tanto en TCP como en UDP — derivada de SocketUtil.scala:52-73.
+- A4: `temporary_server_addresses(n, ..)` devuelve `n` direcciones distintas (en el mismo host se garantiza por puerto distinto mientras no se cierren) — derivada de SocketUtil.scala:84-117, *con la salvedad de que los sockets se cierran tras cada elección, por lo que la unicidad no está garantizada*; la caracterización sólo exige `len == n`.
+- A5: `not_bound_server_address()` es `127.0.0.1:0` — derivada de SocketUtil.scala:132-134.
+
+**Validación prevista.** Caracterización propia (A1-A5); el uso real se valida en la unidad IO. Sin oráculo (dependiente del SO).
+
+**Decisiones.** Q-X-5 (errores).
 
 ## API mínima de testkit por spec portada
 
@@ -2423,7 +2889,7 @@ Qué necesita cada spec leído de `TestKit`/`TestProbe`/`EventFilter` (todos le�
 | actor-tests/src/test/java/.../event/LoggingAdapterTest.java | `javadsl.TestKit` (`expectMsgClass`, `getRef`), `PekkoJUnitActorSystemResource` | 011, 012.2 |
 | testkit/src/test/.../TestProbeSpec.scala | contrato propio de TestProbe (ver AC-TK-001.x/002.x) | 001.x, 002.x |
 
-Resumen de la API mínima transversal que un port 1:1 debe ofrecer antes de portar cualquier spec de otra unidad: (1) `TestKit`/`TestProbe` con `ref`, `send`, `reply`, `watch`/`unwatch`, `expectMsg`, `expectMsgType`, `expectMsgPF`, `expectMsgAllOf`, `expectNoMessage`, `expectTerminated`, `fishForMessage`, `receiveN`, `ignoreMsg`, `within`, `awaitCond`, `awaitAssert`, `lastSender`; (2) `EventFilter` (`error/warning/info/debug/custom`, `[E]`, `start`/`pattern`/`message`/`source`/`occurrences`, `intercept`) y `filterEvents`/`filterException`, junto con `TestEventListener` y `TestEvent.Mute/UnMute`; (3) `PekkoSpec.testConf` (loggers=TestEventListener, loglevel/stdout-loglevel=WARNING); (4) `TestKit.shutdownActorSystem`; (5) `TestActors.echoActorProps`, `TestLatch` (AC-TK-009, sin leer); (6) `ExplicitlyTriggeredScheduler` (AC-TK-008) para los specs de scheduler; (7) entrega síncrona del testActor (Q-TK-1, blocking).
+Resumen de la API mínima transversal que un port 1:1 debe ofrecer antes de portar cualquier spec de otra unidad: (1) `TestKit`/`TestProbe` con `ref`, `send`, `reply`, `watch`/`unwatch`, `expectMsg`, `expectMsgType`, `expectMsgPF`, `expectMsgAllOf`, `expectNoMessage`, `expectTerminated`, `fishForMessage`, `receiveN`, `ignoreMsg`, `within`, `awaitCond`, `awaitAssert`, `lastSender`; (2) `EventFilter` (`error/warning/info/debug/custom`, `[E]`, `start`/`pattern`/`message`/`source`/`occurrences`, `intercept`) y `filterEvents`/`filterException`, junto con `TestEventListener` y `TestEvent.Mute/UnMute`; (3) `PekkoSpec.testConf` (loggers=TestEventListener, loglevel/stdout-loglevel=WARNING); (4) `TestKit.shutdownActorSystem`; (5) `TestActors.echoActorProps` (AC-TK-016), `TestLatch` (AC-TK-009); (6) `ExplicitlyTriggeredScheduler` (AC-TK-008) para los specs de scheduler; (7) entrega síncrona del testActor (Q-TK-1, blocking).
 
 ## Descomposiciones
 
@@ -2434,6 +2900,7 @@ Resumen de la API mínima transversal que un port 1:1 debe ofrecer antes de port
 - AC-TK-002 -> AC-TK-002.1 (API de probe), .2 (AutoPilot), .3 (childActorOf/DelegatingSupervisorStrategy).
 - AC-TK-005 -> AC-TK-005.1 (reglas de coincidencia de EventFilter), .2 (intercept/filterEvents/occurrences), .3 (TestEventListener/Mute/UnMute).
 - AC-TK-006 -> AC-TK-006.1 (TestActorRef) y AC-TK-006.2 (CallingThreadDispatcher).
+- AC-TK-009 (cierre 2026-10-31) -> se conserva como AC-TK-009 (TestLatch, TestBarrier, TestException) y se añaden AC-TK-016 (TestActors) y AC-TK-017 (SocketUtil), porque son comportamientos independientes con y sin spec propio. No se usa el esquema padre/hijos porque el padre sigue teniendo contrato propio.
 - AC-TK-012 -> AC-TK-012.1 (PekkoSpec/TestKitUtils) y AC-TK-012.2 (Coroner, TestTags, WithLogCapturing, metrics).
 
 Los padres desaparecen; sus `impl`/`validation` eran `pending`, de modo que los hijos heredan `pending`.
@@ -2449,6 +2916,8 @@ Los padres desaparecen; sus `impl`/`validation` eran `pending`, de modo que los 
 | AC-EVT-022 | `event/japi/EventBusJavaAPI.scala` sin ninguna cita en el inventario |
 | AC-TK-013 | `testkit/package.scala` (`filterEvents`, `filterException`) |
 | AC-TK-014 | `testkit/TestKitUtils.scala` (uncited-testkit-main.txt) |
+| AC-TK-016 | `testkit/TestActors.scala` (spec propio `TestActorsSpec`; separado de AC-TK-009 en el cierre 2026-10-31) |
+| AC-TK-017 | `testkit/SocketUtil.scala` (sin spec propio; separado de AC-TK-009 en el cierre 2026-10-31) |
 | AC-TK-015 | `testkit/JavaSerializable.scala`, `testkit/TestJavaSerializer.scala` y claves `pekko.actor.serializers.java-test` / `serialization-identifiers` / `serialization-bindings` del reference.conf del testkit (uncited-testkit-main.txt) |
 
 Además, se separaron como filas propias comportamientos que el inventario mezclaba: textos de `Logging.scala` para arranque de loggers (dentro de AC-EVT-011), `UnhandledMessageForwarder` (AC-EVT-010) y `DeadLetterActorRef`/`EmptyLocalActorRef` (AC-EVT-008).
@@ -2469,29 +2938,7 @@ Además, se separaron como filas propias comportamientos que el inventario mezcl
 
 ## Filas que siguen `listed`
 
-- AC-SYS-001.2: Sobrecargas con ClassLoader no tienen equivalente directo (Q-X-4). Sólo se leyó el encabezado de las sobrecargas (ASY:193-330); falta leer el cuerpo de apply(name, bootstrapSetup/setup) y la fusión de config.
-- AC-SYS-002: Se leyó la implementación; el cuerpo de ExtensionSpec:99,153 no se leyó, por lo que las aserciones son derivadas del código. Pasar a extracted tras leerlo.
-- AC-SYS-010: No se leyó ActorSelectionSpec:162,245. Dependencia fuerte de TK-001.1 (testActor-N es systemActorOf).
-- AC-SYS-011: No se leyó FaultHandling.scala:189-195 (efecto en hijos remotos). Sin spec.
-- AC-SYS-012: No se leyó ASY:530-650 completo (accesores) ni uptime. Sólo se leyó toString (ASY:1262 es toString del ActorSystemImpl) y el test de redacción (ver AC-SYS-022).
-- AC-SYS-013: printTree es depuración (accidental) pero la usan TestKit.shutdownActorSystem y ASS:318; formato leído en ASY:1264-1300. Falta leer 755-806.
-- AC-SYS-016: Se leyó la implementación y LocalActorRefProviderSpec:132-198; SupervisorSpec:510-540 (ConfigurationException) no se leyó. Mensajes de InvalidActorNameException los fija ActorPath (AC-PATH).
-- AC-SYS-017: No se leyó AskSpec:248,268 ni VirtualPathContainer (ActorRef.scala:763-860). La ruta del test es actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala.
-- AC-SYS-018: No se leyó ARP:40-187 ni ProviderSelectionSpec. Hook principal hacia remote (fuera de alcance, pero el trait debe poder alojarlo).
-- AC-SYS-020: Q-SYS-3: propuesta de equivalente (no exclusión). No se leyó ManifestInfo.scala ni su spec.
-- AC-SYS-021: Q-SYS-3: propuesta de equivalente; no se leyó Main.scala.
-- AC-EVT-013.3: Omisión derivada de dividir AC-EVT-013. No se leyó LOG:233-480 (LogSource) ni 573-705; sin spec asociado.
-- AC-EVT-018: No se leyó Actor.scala:330-368.
-- AC-EVT-019: Implementación leída (completa); LoggingReceiveSpec no se leyó, por lo que las aserciones son derivadas del código. Pasar a extracted tras leerlo.
-- AC-EVT-021: Q-EVT-4: propuesta de equivalente, la fila sigue en alcance. No se leyó JavaLogger.scala ni su spec.
-- AC-EVT-022: Omisión detectada: archivo sin ninguna cita en el inventario (uncited-classic-main.txt no lo listó pero el árbol event/japi sí lo contiene). Q-EVT-5. No se leyó.
-- AC-TK-006.1: No se leyó TestActorRef.scala ni TestActorRefSpec. Q-TK-2: choque con el modelo de propiedad de Rust. Citas del inventario sin verificar.
-- AC-TK-006.2: No se leyó CallingThreadDispatcher.scala (395 líneas) ni CallingThreadDispatcherModelSpec (uncited por el orquestador). Q-TK-1 (blocking) depende de esta fila.
-- AC-TK-007: No se leyó (TestFSMRef.scala:147 líneas).
-- AC-TK-009: No se leyeron. JavaSerializable y TestJavaSerializer pasan a AC-TK-015.
-- AC-TK-011: No se leyó. Q-EVT-5 aplica por analogía (API Java sin equivalente propio).
-- AC-TK-012.2: No se leyeron. metrics/* (MetricsKit, HdrHistogram, etc.) es infraestructura de benchmarks de la suite JVM: se justifica en Cobertura; no es comportamiento observable de actores.
-- AC-TK-015: Omisión detectada (uncited-testkit-main.txt: JavaSerializable.scala, TestJavaSerializer.scala). No se leyeron. Depende de la política de serialización Java (AC-SER-004).
+Tras el cierre documental (2026-10-31) **ninguna fila de este grupo queda `listed`**. Las filas extraídas en esta pasada conservan decisiones abiertas que afectan a `impl`/`validation`, no al contrato extraído: AC-SYS-001.2 (Q-X-4, Q-SYS-6), AC-SYS-018 (Q-X-2, Q-SYS-6), AC-SYS-020 y AC-SYS-021 (Q-SYS-3), AC-EVT-019 (Q-EVT-7), AC-EVT-021 (Q-EVT-4), AC-EVT-013.3 (Q-EVT-1, Q-EVT-6), AC-TK-006.1 (Q-TK-2, Q-TK-8), AC-TK-006.2 (Q-TK-1 bloqueante, Q-TK-7, Q-TK-8), AC-TK-007 (Q-TK-2), AC-TK-011 (Q-EVT-5, Q-TK-3), AC-TK-012.2 (Q-TK-6, Q-TK-9) y AC-TK-015 (Q-TK-10). Cuando se implementen, su `impl` queda `partial` hasta que el Owner responda.
 
 ## Cobertura
 
@@ -2501,24 +2948,97 @@ Archivos de Pekko del área y filas que los cubren (rutas relativas a `upstream/
 - ActorSystem.scala: AC-SYS-001.1/.2, -002, -004 a -015, -022, -023 (Settings también toca AC-CFG; ver nota en AC-SYS-022).
 - ActorRefProvider.scala: AC-SYS-003.1/.2, -008, -016 a -019, -024, -025.
 - ActorRef.scala (partes de dead letters, líneas 573-756): AC-EVT-008; el resto del archivo pertenece a AC-REF.
-- Actor.scala (ActorLogging/Unhandled/DiagnosticActorLogging, líneas 297-382): AC-EVT-010, -014, -018 (sin leer).
-- ActorLogMarker.scala: AC-EVT-015 (sin leer).
-- dungeon/Children.scala:310-316: AC-SYS-007. dungeon/FaultHandling.scala:189-195: AC-SYS-011 (sin leer).
+- Actor.scala (UnhandledMessage 293-303, ActorLogging/DiagnosticActorLogging 328-382, aroundReceive/unhandled 545-550 y 656-661): AC-EVT-010, -014, -018 (leído en el cierre 2026-10-31).
+- ActorLogMarker.scala: AC-EVT-015 (leído en el cierre 2026-10-31).
+- dungeon/Children.scala:310-316: AC-SYS-007. dungeon/FaultHandling.scala:186-196: AC-SYS-011 (leído en el cierre 2026-10-31).
 - Main.scala: AC-SYS-021. util/ManifestInfo.scala: AC-SYS-020.
 
 **actor/src/main/scala/org/apache/pekko/event**
 - ActorClassificationUnsubscriber.scala: AC-EVT-005. AddressTerminatedTopic.scala: AC-DW-012 (fuera de este grupo; es el tópico de AddressTerminated para remote, sin test en classic). DeadLetterListener.scala: AC-EVT-009. EventBus.scala: AC-EVT-001 a -005. EventStream.scala: AC-EVT-006. EventStreamUnsubscriber.scala: AC-EVT-007. LoggerMailbox.scala: AC-EVT-020. Logging.scala: AC-EVT-011 a -017 (incl. .1/.2/.3). LoggingReceive.scala: AC-EVT-019. japi/EventBusJavaAPI.scala: AC-EVT-022. jul/JavaLogger.scala: AC-EVT-021.
 
 **testkit/src/main/scala/org/apache/pekko/testkit**
-- CallingThreadDispatcher.scala: AC-TK-006.2. ExplicitlyTriggeredScheduler.scala: AC-TK-008. JavaSerializable.scala, TestJavaSerializer.scala: AC-TK-015. SocketUtil.scala, TestActors.scala, TestBarrier.scala, TestException.scala, TestLatch.scala: AC-TK-009. TestActorRef.scala: AC-TK-006.1. TestEventListener.scala: AC-TK-005.1/.2/.3. TestFSMRef.scala: AC-TK-007. TestKit.scala: AC-TK-001.x, -002.x, -003, -010. TestKitExtension.scala: AC-TK-004. TestKitUtils.scala: AC-TK-014. package.scala: AC-TK-013, -004. javadsl/*: AC-TK-011.
+- CallingThreadDispatcher.scala: AC-TK-006.2. ExplicitlyTriggeredScheduler.scala: AC-TK-008. JavaSerializable.scala, TestJavaSerializer.scala: AC-TK-015. TestActors.scala: AC-TK-016. SocketUtil.scala: AC-TK-017. TestBarrier.scala, TestException.scala, TestLatch.scala: AC-TK-009. TestActorRef.scala: AC-TK-006.1. TestEventListener.scala: AC-TK-005.1/.2/.3. TestFSMRef.scala: AC-TK-007. TestKit.scala: AC-TK-001.x, -002.x, -003, -010. TestKitExtension.scala: AC-TK-004. TestKitUtils.scala: AC-TK-014. package.scala: AC-TK-013, -004. javadsl/*: AC-TK-011.
 - resources/reference.conf del testkit: AC-TK-004 (test.*), AC-TK-006.2 (calling-thread-dispatcher), AC-TK-015 (serializers).
 
 **Claves de `actor/src/main/resources/reference.conf` del área (sólo las de este grupo)**: `pekko.loggers`, `logging-filter`, `loggers-dispatcher`, `logger-startup-timeout`, `loglevel`, `stdout-loglevel` (AC-EVT-011/016); `log-config-on-start` (AC-SYS-002); `log-dead-letters`, `log-dead-letters-during-shutdown`, `log-dead-letters-suspend-duration` (AC-EVT-009); `jvm-exit-on-fatal-error` (AC-SYS-015); `fail-mixed-versions` (AC-SYS-020); `pekko.actor.guardian-supervisor-strategy` (AC-SYS-008); `pekko.actor.debug.event-stream`/`unhandled`/`receive` (AC-EVT-006/010/019); `pekko.actor.mailbox.logger-queue` (AC-EVT-020); `pekko.coordinated-shutdown.close-actor-system-timeout` (AC-SYS-014). No se recorrió todo el reference.conf: las demás secciones (dispatchers, mailboxes, serialization, deployment, `creation-timeout`, `unstarted-push-timeout`, `daemonic`, `home`, `debug.autoreceive/lifecycle/fsm`) pertenecen a otras unidades (CFG, DSP, MBX, SER, CELL, FSM).
 
 **Archivos de tests sin comportamiento observable propio (justificación)**
-- testkit/src/test/scala/org/apache/pekko/testkit/metrics/* (MetricsKit, HdrHistogram, AveragingGauge, etc.): infraestructura de benchmarking de la suite JVM; no define comportamiento de actores (AC-TK-012.2).
-- testkit/src/test/java/.../PekkoJUnitActorSystemResource.java, TestActorRefJavaCompile.java: boilerplate de compilación/JUnit (TestActorRefJavaCompile sólo verifica que compile la API Java).
+- testkit/src/test/scala/org/apache/pekko/testkit/metrics/* (MetricsKit, HdrHistogram, AveragingGauge, etc.): infraestructura de benchmarking de la suite JVM, leída en el cierre 2026-10-31; sólo la consume ActorCreationPerfSpec y no define comportamiento de actores (AC-TK-012.2, Q-TK-9).
+- testkit/src/test/java/.../PekkoJUnitActorSystemResource.java, TestActorRefJavaCompile.java: boilerplate de compilación/JUnit (TestActorRefJavaCompile sólo verifica que compile la API Java); descritos en AC-TK-012.2.
 - actor-tests/src/test/java/org/apache/pekko/event/ActorWithMDC.java: actor auxiliar de LoggingAdapterTest (cubierto por AC-EVT-014).
 - actor-tests/src/test/java/org/apache/pekko/actor/setup/ActorSystemSetupTest.java: cubierto por AC-CFG-015 (sólo verifica que la API sea usable desde Java).
 - actor-tests/src/test/scala-2.13+/org/apache/pekko/actor/ActorSystemScala213PlusSpec.scala: cubierto por AC-SYS-001.2 y AC-SYS-014 (`Using` termina el sistema).
-- actor-tests/src/test/scala/org/apache/pekko/testkit/CallingThreadDispatcherModelSpec.scala: AC-TK-006.2 (sin leer).
+- actor-tests/src/test/scala/org/apache/pekko/testkit/CallingThreadDispatcherModelSpec.scala: AC-TK-006.2 (leído en el cierre 2026-10-31).
+
+## Revisión de exhaustividad (cierre documental 2026-10-31)
+
+Se contrastó el árbol de fuentes del grupo (`actor/.../actor/ActorSystem.scala`, `ActorRefProvider.scala`, `ActorRef.scala` parcial, `Actor.scala` parcial, `ActorLogMarker.scala`, `event/**`, `util/ManifestInfo.scala`, `pekko/Main.scala`; `testkit/src/main/**`, `testkit/src/test/**` y las specs de `actor-tests` que usan estas APIs). Clasificación: **C** = cubierto por contratos concretos, **D** = duplicado o fachada equivalente, **I** = detalle interno sin contrato independiente (justificado), **F** = fuera de estos módulos con frontera explícita, **P** = pendiente de análisis (nunca se convierte en "fuera de alcance").
+
+| Elemento revisado | Clase | Fila(s) o justificación |
+|---|---|---|
+| `ActorSystem.apply/create` (todas las sobrecargas), `BootstrapSetup`, `ProviderSelection` | C | AC-SYS-001.2, AC-SYS-018, AC-CFG-015 |
+| Validación del nombre, `uid`, `Version` | C | AC-SYS-001.1, AC-SYS-013, AC-CFG-003 |
+| `ActorSystemImpl.start` / `_initialized` / `assertInitialized` | C | AC-SYS-002, AC-SYS-023 |
+| `terminate` / `finalTerminate` / `isTerminating` / `close` / `abort` | C | AC-SYS-004, AC-SYS-014, AC-SYS-011 |
+| `registerOnTermination` + `TerminationCallbacks` | C | AC-SYS-006 |
+| Accesores públicos (`name`, `settings`, `startTime`, `uptime`, `eventStream`, `log`, `deadLetters`, `scheduler`, `dispatchers`, `mailboxes`, `dispatcher`, `/`, `child`, `descendant`, `logConfiguration`, `toString`) y getters Java (`getEventStream`, `getScheduler`, `getDispatcher`, `getWhenTerminated`) | C / D | AC-SYS-012 y AC-SYS-005; los getters Java son fachada equivalente (Q-EVT-5) |
+| `ExtendedActorSystem` (`provider`, `guardian`, `systemGuardian`, `systemActorOf`, `logFilter`, `printTree`) | C | AC-SYS-013, AC-SYS-010 |
+| `threadFactory` / `MonitorableThreadFactory`, `dynamicAccess` / `ReflectiveDynamicAccess` | F | AC-DSP-015 cubre el factory de hilos; `dynamicAccess` se sustituye por el registro de fábricas (Q-X-2, Q-SYS-6). Frontera: ninguna API pública de rakka expone estos dos |
+| `uncaughtExceptionHandler` | C | AC-SYS-015 (Q-SYS-2) |
+| `ActorSystem.Settings` (claves) y `toString` redactado | F / C | claves: AC-CFG-* (otro grupo); `toString`: AC-SYS-022 |
+| `Settings.amendSlf4jConfig` | F | AC-CFG-018 (otro grupo; ConfigSpec.scala:186-204); depende de `pekko-slf4j`, fuera de los módulos |
+| Registro de extensiones (`registerExtension`, `extension`, `hasExtension`, `findExtension` con `creation-timeout`) | F | AC-EXT-001.2 / AC-EXT-002 (otro grupo); el orden de carga está en AC-SYS-002 |
+| `createScheduler` / `stopScheduler` | F | el contrato del scheduler y de `close()` está en AC-SCH-* (otro grupo); el enganche `registerOnTermination(stopScheduler)` está en AC-SYS-002 |
+| `ActorSystem.stop(actor)` (enrutado a `StopChild` de los guardianes) | D | AC-CELL-010 lo cubre (system.stop); el actor guardián está en AC-SYS-003.1 |
+| `actorOf` con `guardianProps` (UnsupportedOperationException) | C | AC-SYS-009 |
+| `ActorRefProvider` (trait), `rootGuardianAt`, `getExternalAddressFor`, `getDefaultAddress`, `serializationInformation`, `addressString` | C | AC-SYS-018 |
+| `LocalActorRefProvider.actorOf` | C | AC-SYS-016 |
+| `Guardian` / `SystemGuardian` (protocolo de hooks) | C | AC-SYS-003.1, AC-SYS-003.2, AC-SUP-014 |
+| `tempPath`, `tempContainer`, `VirtualPathContainer` | C | AC-SYS-017 |
+| `resolveActorRef`, hijos especiales (`temp`, `deadLetters`, `extraNames`), `bubble-walker` | C | AC-SYS-024, AC-SYS-025, AC-SYS-019 |
+| `IgnoreActorRef` | F | AC-REF / AC-PATH-015 (otro grupo); la dirección `pekko://local/ignore` se afirma en AC-SYS-018 A8 |
+| `ManifestInfo`, `Main` | C | AC-SYS-020, AC-SYS-021 (solape con AC-UTIL-016.9: el contrato completo vive en AC-SYS-020) |
+| `EventBus` y clasificaciones, `EventStream`, unsubscribers, `DeadLetterListener`, `UnhandledMessage`, `LoggingBus`, `LogEvent`, `LoggingAdapter`, `BusLogging`/`NoLogging`, `LogSource`, `Diagnostic*`, `Marker*`, `LoggingFilter`, `StdOutLogger`, `LoggerMailbox` | C | AC-EVT-001..017, AC-EVT-020 |
+| `ActorLogging`, `DiagnosticActorLogging` | C | AC-EVT-018, AC-EVT-014 |
+| `LoggingReceive` | C | AC-EVT-019 |
+| `JavaLogger` / `JavaLoggingFilter` / `jul.Logger` / `JavaLogging` | C | AC-EVT-021 (Q-EVT-4) |
+| `japi.EventBus`, `LookupEventBus`, `SubchannelEventBus`, `ScanningEventBus`, `ManagedActorEventBus` | D | AC-EVT-022: fachada 1:1 de AC-EVT-002..005 (Q-EVT-5) |
+| `Logging.LoggerException`, `Logging.LogEventException` | I | `LoggerException` es la causa artificial de `Error` sin causa (AC-EVT-012); `LogEventException` sólo lo consume `AbstractDispatcher.reportFailure` (AC-DSP, frontera) para republicar el evento original |
+| `AddressTerminatedTopic` | F | AC-DW-012 (otro grupo; sin test en classic) |
+| `TestKit` / `TestKitBase` / `TestProbe` / `TestActor` / `AutoPilot` | C | AC-TK-001.x, AC-TK-002.x, AC-TK-003 |
+| `TestKitExtension`, `package.scala`, `TestKitUtils` | C | AC-TK-004, AC-TK-013, AC-TK-014 |
+| `EventFilter`, `TestEventListener`, `TestEvent.Mute/UnMute` | C | AC-TK-005.x |
+| `ExplicitlyTriggeredScheduler` | C | AC-TK-008 |
+| `TestKit.shutdownActorSystem` | C | AC-TK-010 |
+| `TestActorRef` | C | AC-TK-006.1 |
+| `CallingThreadDispatcher` / `CallingThreadMailbox` / `CallingThreadDispatcherQueues` | C | AC-TK-006.2 |
+| `TestFSMRef` | C | AC-TK-007 |
+| `TestLatch`, `TestBarrier`, `TestException` | C | AC-TK-009 |
+| `TestActors` | C | AC-TK-016 (nueva) |
+| `SocketUtil` | C | AC-TK-017 (nueva) |
+| `javadsl.TestKit`, `javadsl.EventFilter` | D | AC-TK-011: delegan 1:1 en `TestProbe`/`EventFilter` (Q-EVT-5) |
+| `JavaSerializable`, `TestJavaSerializer` y claves `serializers`/`serialization-identifiers`/`serialization-bindings` del testkit | C | AC-TK-015 (Q-TK-10) |
+| `pekko.test.*` (`timefactor`, `filter-leeway`, `single-expect-default`, `expect-no-message-default`, `default-timeout`, `calling-thread-dispatcher`) | C | AC-TK-004, AC-TK-006.2 |
+| `PekkoSpec`, `PekkoSpecSpec` | C | AC-TK-012.1 |
+| `Coroner`, `WatchedByCoroner`, `TestTags`, `WithLogCapturing`, `AbstractSpec`, `PekkoJUnitActorSystemResource`, `TestActorRefJavaCompile` | C | AC-TK-012.2 |
+| `testkit/src/test/.../metrics/*` (MetricsKit, MetricsKitOps, HdrHistogram, AveragingGauge, KnownOpsInTimespanTimer, FileDescriptorMetricSet, MemoryUsageSnapshotting, MetricKeyDSL, PekkoConsoleReporter) | I | AC-TK-012.2 / Q-TK-9: infraestructura de benchmarking (Codahale + HdrHistogram) de la suite JVM, `private[pekko]`, consumida únicamente por `ActorCreationPerfSpec` (rendimiento, sin contrato funcional). Se leyó `MetricsKit`, `MetricsKitOps`, `HdrHistogram` y su spec; no hay comportamiento observable de actores |
+| Specs `ImplicitSenderSpec`, `DefaultTimeoutSpec`, `TestTimeSpec`, `ExplicitlyTriggeredSchedulerSpec`, `TestEventListenerSpec`, `TestProbeSpec` | C | AC-TK-003, AC-TK-004/013, AC-TK-008, AC-TK-005.x, AC-TK-001/002 |
+| Interrupciones (`Thread.interrupt`) en `ActorModelSpec:422-477` | P | Q-TK-7: no portable a Rust; requiere decisión del Owner (exclusión de dos casos), no es "fuera de alcance" por defecto |
+| Handlers asíncronos ejecutados en el hilo del emisor (CTD) | P | Q-TK-8: depende del modelo de runtime/Receive (Q-X-3, Q-X-4) |
+| Re-lectura contra fuente de los bloques `extracted` previos con aserciones "derivada del código / no afirmada por spec" no incluidos en la auditoría puntual de este cierre (AC-SYS-003.2, -005..-008, -015, -019, -022..-025, AC-EVT-002..-005, -008, -009, -011, -013.1, -013.2, -017, -020, AC-TK-001.1..001.5, -002.x, -004, -005.x, -010, -012.1, -013, -014) | P | Se corrigieron los bloques con textos explícitos de "no leído" (AC-SYS-004, -009; AC-EVT-001, -010, -012, -014, -015) y se re-leyeron CoordinatedShutdownSpec:535-582, ActorSystemDispatcherSpec:105-168, LoggingAdapterTest.java:114-125, Actor.scala:293-303,328-382,545-550,656-661 y ActorLogMarker.scala. El resto sigue marcado con sus leyendas originales; deben re-leerse en la ejecución de su unidad |
+
+### Hallazgos de la lectura completa
+
+- **Contradicción (AC-SYS-016):** el antiguo A4 afirmaba que `SupervisorSpec:510-540` probaba "dispatcher/mailbox inválido"; el spec prueba un `MailboxType` cuyo `create` lanza (`ConfigurationException` con causa para hijos y routers hijos; `ActorInitializationException` para top-level).
+- **Contradicción (AC-SYS-010):** `ActorSelectionSpec:162,245` no usa `systemActorOf`; selecciona `/`, `/user` y `/system`.
+- **Contradicción (AC-SYS-004):** `CoordinatedShutdownSpec:546,557` sí afirma el comportamiento de `terminate()` frente a `CoordinatedShutdown`; se añadieron A6-A9.
+- **Contradicción (AC-SYS-009):** `ActorSystemDispatcherSpec:156` pertenece a la clase `ActorSystemDispatchersSpec` y afirma que el guardián `/user` con `guardianProps` usa el default-dispatcher.
+- **Omisión (AC-EVT-012):** `LogEvent.apply` lanza `IllegalArgumentException("Unsupported log level [..]")` para niveles distintos de los cuatro soportados (Logging.scala:771-800).
+- **Comportamiento no obvio (AC-EVT-013.3):** `LogSource.fromAnyRef(o, system)` no añade la dirección del sistema para `Class`/`Actor`/`ActorRef`/`String`, a diferencia de `Logging(system, src)` (Logging.scala:395-402 vs 573-576).
+- **Comportamiento no obvio (AC-EVT-019):** `LoggingReceive` registra en `isDefinedAt`, antes de ejecutar el cuerpo; el orden Debug → respuesta es observable y obliga a que el `Receive` de rakka exponga `is_defined_at` (Q-EVT-7).
+- **Comportamiento no obvio (AC-TK-011):** `javadsl.TestKit` usa un `TestProbe` (no el `TestKit` Scala), por lo que su `getRef` es `testProbe-N`.
+- **Solape (AC-SYS-020 / AC-UTIL-016.9):** ambas filas citan `ManifestInfo`; el contrato completo vive en AC-SYS-020 y AC-UTIL-016.9 debe limitarse a `util.Version`/referencias.
+
+### Representación propuesta de TestActorRef / CallingThreadDispatcher / TestFSMRef (resumen)
+
+Choque: Pekko devuelve de `underlyingActor` una referencia compartida y mutable al actor, que el test lee mientras la CTD ejecuta `receive` en su propio hilo sin sincronización; Rust exige un único `&mut A` y propiedad clara. Representación (detalle en AC-TK-006.1, AC-TK-006.2 y AC-TK-007): (1) candado reentrante por actor (`ReentrantMutex`) que además es el `ctdLock` de la CTD; (2) estado en una celda protegida por ese candado, con acceso por cierre `with_actor(|a| ..)` o guarda `!Send` (`underlying_actor()`); (3) la reentrada (un actor enviándose mensajes directa o indirectamente) nunca crea un segundo `&mut A`: sólo encola en la cola del hilo y retorna, y la invocación exterior drena la cola en FIFO; (4) colas por (buzón, hilo) en `Mutex<HashMap<ThreadId, VecDeque<_>>>` con `resume`/`cleanUp` que las vacían hacia el hilo actual / dead letters; (5) suspensión con `Mutex<bool>` bajo el mismo candado que la cola; (6) mensajes de sistema por una cola propia procesada de inmediato; (7) el manejador se ejecuta en el hilo del emisor (manejadores `async` con `block_on` sin reactor). Se preservan: ejecución síncrona (`!` retorna tras `receive`), orden determinista con un hilo, reentrada diferida, `ask` con futuro ya completo, `Kill`/reinicio síncronos. Diferencias: acceso al actor serializado (más estricto), sin `Thread.interrupt` (Q-TK-7), handlers async acotados (Q-TK-8).

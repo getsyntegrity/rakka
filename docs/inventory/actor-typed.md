@@ -18,7 +18,7 @@ Por eso cada fila del TSV declara en `depends_on` qué unidades clásicas necesi
 
 Una fila es una feature observable, no un método: por ejemplo `watchWith` es una fila, pero las sobrecargas Scala/Java de `watchWith` no. Las filas de las unidades núcleo (BEH, SIG, CTX, REF, SYS, SUP) más TMR están marcadas `extracted`: se leyó la implementación y se ubicaron los tests que afirman el comportamiento (por título de test y, en los casos dudosos, por el cuerpo). El resto está `listed`: el contrato sale de la Scaladoc y de los títulos de los specs, sin lectura completa del cuerpo. `impl` y `validation` están todos en `pending`.
 
-Total: **209 filas** tras la revisión de contratos del 2026-10-30 (el inventario inicial tenía 170): 174 `public`, 24 `internal-required`, 6 `api-may-change`, 4 `internal-accidental`, 1 `deprecated`; 177 `extracted`, 32 `listed`. Hay filas descompuestas en hijos `<ID>.<n>` y omisiones agregadas; ver `docs/inventory/contracts/typed-*.md`. Se usó el inventario previo del port a Go (goPekko, `docs/parity/actor-typed-design-closure-2026-10-26/inventory/INV-T-typed.md` y `typed-owner-decisions-2026-10-27.md`) solo como chequeo cruzado; las citas son siempre a upstream. Donde goPekko tomó una decisión sobre el mismo punto (por ejemplo S-2, S-3, S-4, S-5, S-6, B-4, B-5), la fila la menciona en `notes` sólo como antecedente: no vale como decisión para Rust y queda como `Q:` pendiente del Owner.
+Total: **260 filas** (cierre documental del 2026-10-31; el inventario inicial tenía 170, 209 tras la revisión del 2026-10-30): 207 `public`, 24 `internal-required`, 24 `api-may-change`, 4 `internal-accidental`, 1 `deprecated`; 260 `extracted` y 0 `listed`. Varias filas se descompusieron en hijos `<ID>.<n>` (ver `docs/inventory/contracts/typed-*.md`).
 
 Dos cosas que podrían parecer features y no lo son: no existe `Behavior.widen` en Pekko 1.7.1 (lo reemplaza `transformMessages`), y `OrElseSpec` prueba una composición escrita en el propio test, no una API de `Behaviors`. Ninguna de las dos tiene fila.
 
@@ -28,29 +28,29 @@ El orden de la tabla es el orden sugerido de implementación: cada unidad necesi
 
 | Orden | Unidad | Qué cubre | Filas | Análisis | Depende de (tipado) | Clásico primero |
 |---|---|---|---|---|---|---|
-| 1 | BEH | Behavior y fábricas de `Behaviors` (same, unhandled, stopped, empty, ignore, setup, receive*, interceptores, transformMessages, monitor, logMessages, withMdc) | 23 | extracted | — | AC-CELL |
+| 1 | BEH | Behavior y fábricas de `Behaviors` (same, unhandled, stopped, empty, ignore, setup, receive*, interceptores, transformMessages, monitor, logMessages, withMdc) | 26 | extracted | — | AC-CELL |
 | 2 | SIG | Señales: PreRestart, PostStop, Terminated, ChildFailed, MessageAdaptionFailure, DeathPact | 8 | extracted | BEH | AC-CELL, AC-DW |
 | 3 | REF | `ActorRef[T]`, `RecipientRef`, narrow, ignoreRef, `ActorRefResolver` | 7 | extracted | — | AC-REF, AC-PATH |
 | 4 | CTX | `ActorContext`: spawn, stop, watch, receive timeout, adapters, ask, pipeToSelf | 18 | extracted | BEH, SIG, REF | AC-CELL, AC-DW, AC-SCH |
-| 5 | SYS | `ActorSystem`, guardian, terminate, settings, scheduler | 11 | extracted | BEH, CTX | AC-SYS, AC-CFG, AC-SCH |
-| 6 | SUP | Supervisión: stop/resume/restart, withLimit, backoff, stash de restart, anidado | 21 | extracted | BEH, SIG, CTX, TMR, STASH | AC-SUP |
-| 7 | TMR | `TimerScheduler` | 8 | extracted | BEH, CTX | AC-SCH |
-| 8 | STASH | `StashBuffer` | 6 | listed | BEH, CTX | — |
-| 9 | EVT | Event stream tipado, DeadLetter, UnhandledMessage, Dropped | 4 | listed | REF, SYS | AC-EVT |
-| 10 | LOG | `context.log`, MDC (Mapped Diagnostic Context), integración SLF4J | 5 | listed | CTX | AC-EVT |
-| 11 | DSP | `Props`, `DispatcherSelector`, `MailboxSelector`, `ActorTags` | 5 | listed | — | AC-DSP, AC-MBX, AC-CFG |
-| 12 | EXT | Extensiones tipadas | 3 | listed | SYS | AC-EXT |
-| 13 | ASK | `AskPattern` desde fuera de un actor, `StatusReply` | 4 | listed | REF, SYS | AC-ASK |
-| 14 | CS | CoordinatedShutdown (reusa el clásico) | 1 | listed | SYS | AC-CS |
-| 15 | RCP | Receptionist y `ServiceKey` | 7 | listed | CTX, EXT | AC-DW |
-| 16 | RT | Routers pool y group | 5 | listed | CTX, RCP, EVT | — |
-| 17 | PS | `Topic` (pub-sub local) | 1 | listed | RCP, EVT | — |
-| 18 | SPV | `SpawnProtocol` | 1 | listed | CTX, ASK | — |
-| 19 | ADP | Interop clásico/tipado (`toTyped`, `toClassic`, `PropsAdapter`, `ActorAdapter`) | 7 | listed | SYS, SUP | AC-CELL, AC-SUP, AC-SYS |
-| 20 | SER | Serializadores de `ActorRef` y `ServiceKey` | 3 | listed | REF, RCP | AC-SER |
-| 21 | DLV | Entrega confiable local (`ProducerController`, `ConsumerController`, work pulling) | 7 | listed | CTX, TMR, STASH, RCP | AC-SER (solo chunking) |
-| 22 | JAPI | Fachadas `javadsl` | 6 | listed | todas | — |
-| 23 | TK | `actor-testkit-typed` | 9 | listed | SYS, CTX, EVT | AC-SCH (ManualTime) |
+| 5 | SYS | `ActorSystem`, guardian, terminate, settings, scheduler | 15 | extracted | BEH, CTX | AC-SYS, AC-CFG, AC-SCH |
+| 6 | SUP | Supervisión: stop/resume/restart, withLimit, backoff, stash de restart, anidado | 24 | extracted | BEH, SIG, CTX, TMR, STASH | AC-SUP |
+| 7 | TMR | `TimerScheduler` | 9 | extracted | BEH, CTX | AC-SCH |
+| 8 | STASH | `StashBuffer` | 6 | extracted | BEH, CTX | — |
+| 9 | EVT | Event stream tipado, DeadLetter, UnhandledMessage, Dropped | 4 | extracted | REF, SYS | AC-EVT |
+| 10 | LOG | `context.log`, MDC (Mapped Diagnostic Context), integración SLF4J | 5 | extracted | CTX | AC-EVT |
+| 11 | DSP | `Props`, `DispatcherSelector`, `MailboxSelector`, `ActorTags` | 5 | extracted | — | AC-DSP, AC-MBX, AC-CFG |
+| 12 | EXT | Extensiones tipadas | 7 | extracted | SYS | AC-EXT |
+| 13 | ASK | `AskPattern` desde fuera de un actor, `StatusReply` | 4 | extracted | REF, SYS | AC-ASK |
+| 14 | CS | CoordinatedShutdown (reusa el clásico) | 1 | extracted | SYS | AC-CS |
+| 15 | RCP | Receptionist y `ServiceKey` | 10 | extracted | CTX, EXT | AC-DW |
+| 16 | RT | Routers pool y group | 8 | extracted | CTX, RCP, EVT | — |
+| 17 | PS | `Topic` (pub-sub local) | 3 | extracted | RCP, EVT | — |
+| 18 | SPV | `SpawnProtocol` | 1 | extracted | CTX, ASK | — |
+| 19 | ADP | Interop clásico/tipado (`toTyped`, `toClassic`, `PropsAdapter`, `ActorAdapter`) | 13 | extracted | SYS, SUP | AC-CELL, AC-SUP, AC-SYS |
+| 20 | SER | Serializadores de `ActorRef` y `ServiceKey` | 3 | extracted | REF, RCP | AC-SER |
+| 21 | DLV | Entrega confiable local (`ProducerController`, `ConsumerController`, work pulling) | 25 | extracted | CTX, TMR, STASH, RCP | AC-SER (solo chunking) |
+| 22 | JAPI | Fachadas `javadsl` | 16 | extracted | todas | — |
+| 23 | TK | `actor-testkit-typed` | 42 | extracted | SYS, CTX, EVT | AC-SCH (ManualTime) |
 | | | **Total** | **170** | | | |
 
 Aunque TK figura al final por dependencias de código, en la práctica `ActorTestKit` y `TestProbe` (AT-TK-001, AT-TK-002) se necesitan desde la primera historia de BEH para poder validar. Recomiendo tratarlos como infraestructura temprana.

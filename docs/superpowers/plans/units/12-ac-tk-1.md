@@ -1,6 +1,6 @@
 # Spec 12 — AC-TK (1/1)
 
-**Estado:** bloqueada. **Filas:** 25. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** bloqueada. **Filas:** 27. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -9,21 +9,25 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 09 `AC-DSP-1` (`09-ac-dsp-1.md`), por las filas AC-DSP-001.
+- Spec 09 `AC-DSP-1` (`09-ac-dsp-1.md`), por las filas AC-DSP-001, AC-DSP-002.
 - Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-001.1, AC-SYS-004, AC-SYS-010, AC-SYS-013. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-003, AC-SUP-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 05 `AC-CFG-1` (`05-ac-cfg-1.md`), por las filas AC-CFG-001.
 - Spec 18 `AC-EXT-1` (`18-ac-ext-1.md`), por las filas AC-EXT-001.1, AC-EXT-001.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 11 `AC-EVT-1` (`11-ac-evt-1.md`), por las filas AC-EVT-008, AC-EVT-011, AC-EVT-012, AC-EVT-017.
-- Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-002.
-- Spec 20 `AC-FSM-1` (`20-ac-fsm-1.md`), por las filas AC-FSM-001.1, AC-FSM-001.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-002, AC-REF-009.2.
+- Spec 13 `AC-CELL-1` (`13-ac-cell-1.md`), por las filas AC-CELL-001, AC-CELL-004, AC-CELL-010. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 08 `AC-MBX-1` (`08-ac-mbx-1.md`), por las filas AC-MBX-013.
+- Spec 20 `AC-FSM-1` (`20-ac-fsm-1.md`), por las filas AC-FSM-001.1, AC-FSM-002, AC-FSM-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`), por las filas AC-SCH-010.
-- Spec 23 `AC-SER-1` (`23-ac-ser-1.md`), por las filas AC-SER-001.1, AC-SER-001.2, AC-SER-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 26 `AC-JAPI-1` (`26-ac-japi-1.md`), por las filas AC-JAPI-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 23 `AC-SER-1` (`23-ac-ser-1.md`), por las filas AC-SER-002, AC-SER-003.5, AC-SER-004.1, AC-SER-004.2, AC-SER-013. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 24 `AC-IO-1` (`24-ac-io-1.md`), por las filas AC-IO-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
 - Bloqueantes: `Q-TK-1`.
-- Propuestas aún sin decisión del Owner: `Q-EVT-5`, `Q-TK-2`, `Q-TK-3`, `Q-TK-4`, `Q-TK-5`, `Q-TK-6`, `Q-X-3`, `Q-X-5`.
+- Propuestas aún sin decisión del Owner: `Q-EVT-5`, `Q-TK-10`, `Q-TK-2`, `Q-TK-3`, `Q-TK-4`, `Q-TK-5`, `Q-TK-6`, `Q-TK-7`, `Q-TK-8`, `Q-TK-9`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -68,9 +72,9 @@ Filas: AC-TK-010, AC-TK-011, AC-TK-012.1, AC-TK-012.2, AC-TK-013, AC-TK-014. Con
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 5: JavaSerializable y TestJavaSerializer (serializador `java-test`, id 23, binding del…
+### Tarea 5: JavaSerializable y TestJavaSerializer (serializador `java-test`, id 23, binding del… (+2 filas)
 
-Filas: AC-TK-015. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-TK-015, AC-TK-016, AC-TK-017. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -94,18 +98,20 @@ Filas: AC-TK-015. Contratos y aserciones: `docs/inventory/contracts/classic-syst
 | AC-TK-005.1 | EventFilter: fábricas error/warning/info/debug/custom/apply[E],… | `EventFilter::error::<E>()`, `::warning()`, `::info()`, `::debug()`, `::custom(f)` | testkit/src/test/scala/org/apache/pekko/testkit/TestEventListenerSpec.scala:23-83 | Q-TK-3 |
 | AC-TK-005.2 | EventFilter.intercept, filterEvents, filterException, awaitDone/assertDone y… | `filter.intercept(&system, \|\| ..)`, `filter_events(&system, [..], \|\| ..)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-210 ;… | Q-TK-4 |
 | AC-TK-005.3 | TestEventListener: Mute/UnMute, conversión de… | logger de test que captura `LogEvent` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-210 ;… | - |
-| AC-TK-006.1 | TestActorRef (underlyingActor, receive síncrono) | `TestActorRef<A>` con `underlying_actor()` (Q-TK-2) | testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:130-313 | Q-TK-2 |
-| AC-TK-006.2 | CallingThreadDispatcher (ejecución síncrona en el hilo del emisor;… | dispatcher de test síncrono (inline) | testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:35 (comentario… | Q-TK-1 |
-| AC-TK-007 | TestFSMRef | - | testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:24,52,84,89,94,99 | Q-TK-2 |
+| AC-TK-006.1 | TestActorRef (underlyingActor, receive síncrono) | `TestActorRef<A>` con candado reentrante compartido con la CTD: `with_actor(cierre)` y… | testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:130-154 ;… | Q-TK-1, Q-TK-2, Q-TK-8, Q-X-5 |
+| AC-TK-006.2 | CallingThreadDispatcher (ejecución síncrona en el hilo del emisor;… | `CallingThreadDispatcher` con `ReentrantMutex` por actor, colas `HashMap<ThreadId,… | actor-tests/src/test/scala/org/apache/pekko/testkit/CallingThreadDispatcherModelSpec.scal… | Q-TK-1, Q-TK-7, Q-TK-8, Q-X-4, Q-X-5 |
+| AC-TK-007 | TestFSMRef | `TestFsmRef<S, D, A: Fsm<S, D>>` sobre `TestActorRef<A>`: `state_name()`/`state_data()`… | testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:24-50 ;… | Q-TK-1, Q-TK-2, Q-TK-8 |
 | AC-TK-008 | ExplicitlyTriggeredScheduler (tiempo manual) | scheduler manual inyectable (`ManualScheduler`) | testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:22… | Q-TK-4 |
-| AC-TK-009 | Utilidades: TestLatch, TestBarrier, TestActors (Echo, Blackhole, Forward),… | módulo `testkit::util` | testkit/src/test/scala/org/apache/pekko/testkit/TestActorsSpec.scala | - |
+| AC-TK-009 | Utilidades de sincronización de test: TestLatch, TestBarrier y TestException | `testkit::util::{TestLatch, TestBarrier, TestException}` sobre Mutex/Condvar con timeout… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:212-232 ;… | Q-TK-4, Q-TK-5 |
 | AC-TK-010 | TestKit.shutdownActorSystem / shutdown (verifySystemShutdown) | `shutdown_actor_system(&system, timeout, verify)` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:189-205 | - |
-| AC-TK-011 | javadsl TestKit / EventFilter | N/A (misma API; sin distinción Java) | testkit/src/test/java/org/apache/pekko/testkit/javadsl/TestKitApiTest.java | Q-EVT-5 |
+| AC-TK-011 | javadsl TestKit / EventFilter | N/A (misma API; sin distinción Java) | testkit/src/test/java/org/apache/pekko/testkit/javadsl/TestKitApiTest.java:27-182 ;… | Q-EVT-5, Q-TK-3 |
 | AC-TK-012.1 | PekkoSpec: configuración base de specs (testConf), nombre del sistema por la… | `tests/common::TestSystem` (harness de tests de rakka) | testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpecSpec.scala | Q-TK-6 |
-| AC-TK-012.2 | Infra restante de specs: Coroner, TestTags, WithLogCapturing, AbstractSpec,… | helpers de `tests/common` (sólo los que un spec portado use) | testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala | Q-TK-6 |
+| AC-TK-012.2 | Infra restante de specs: Coroner, TestTags, WithLogCapturing, AbstractSpec,… | helpers de `tests/common` (sólo los que un spec portado use) | testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:39-47 ;… | Q-TK-6, Q-TK-9 |
 | AC-TK-013 | Funciones de paquete: filterEvents(Iterable\|varargs), filterException[T],… | funciones libres `filter_events`, `filter_exception`, trait `Dilate` | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:77-105 | Q-TK-4 |
 | AC-TK-014 | TestKitUtils.testNameFromCallStack / scrubActorSystemName | función de harness que usa `std::any::type_name`/nombre de test | derivada del código (ver bloque de contrato) | Q-TK-6 |
-| AC-TK-015 | JavaSerializable y TestJavaSerializer (serializador `java-test`, id 23,… | serializador de test registrado por nombre (Q-X-2) | derivada del código (ver bloque de contrato) | - |
+| AC-TK-015 | JavaSerializable y TestJavaSerializer (serializador `java-test`, id 23,… | serializador de pruebas id 23 / nombre java-test registrado por nombre (Q-X-2) con… | derivada del código (ver bloque de contrato) | Q-TK-10, Q-X-2 |
+| AC-TK-016 | TestActors: EchoActor, BlackholeActor y ForwardActor (echoActorProps,… | `testkit::actors::{echo_props, blackhole_props, forward_props}` | testkit/src/test/scala/org/apache/pekko/testkit/TestActorsSpec.scala:16-41 | Q-X-3 |
+| AC-TK-017 | SocketUtil: direcciones y puertos libres para tests (TCP/UDP, loopback… | `testkit::net::*` con std::net::{TcpListener, UdpSocket} | derivada del código (ver bloque de contrato) | Q-X-5 |
 
 ## Gates y criterio de cierre
 

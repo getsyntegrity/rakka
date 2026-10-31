@@ -22,7 +22,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: `Q-RT-4`.
-- Propuestas aún sin decisión del Owner: `Q-RT-1`, `Q-RT-2`, `Q-RT-3`, `Q-RT-5`, `Q-RT-6`, `Q-RT-7`, `Q-RT-8`, `Q-X-1`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
+- Propuestas aún sin decisión del Owner: `Q-RT-1`, `Q-RT-2`, `Q-RT-3`, `Q-RT-5`, `Q-RT-6`, `Q-RT-7`, `Q-RT-8`, `Q-RT-9`, `Q-X-1`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -90,7 +90,7 @@ Filas: AC-RT-013.3, AC-RT-014, AC-RT-015, AC-RT-016. Contratos y aserciones: `do
 | AC-RT-013.1 | DefaultResizer: capacidad (rampup/backoff), cotas y validaciones | `DefaultResizer { lower_bound, upper_bound, pressure_threshold, rampup_rate,… | actor-tests/src/test/scala/org/apache/pekko/routing/ResizerSpec.scala:104-135 | Q-RT-4 |
 | AC-RT-013.2 | DefaultResizer: pressure (routees ocupados) y mecanica de resize del pool… | `ResizablePoolCell` con `AtomicU64` contador y `AtomicBool` resize_in_progress | actor-tests/src/test/scala/org/apache/pekko/routing/ResizerSpec.scala:138-254 | Q-RT-4 |
 | AC-RT-013.3 | Resizer.fromConfig: seleccion DefaultResizer vs OptimalSizeExploringResizer,… | `Resizer::from_config(&Config) -> Result<Option<Resizer>, ResizerInitError>` | actor-tests/src/test/scala/org/apache/pekko/routing/ResizerSpec.scala:61-102 | Q-RT-3, Q-X-1 |
-| AC-RT-014 | OptimalSizeExploringResizer | `OptimalSizeExploringResizer` con metricas por tamano | actor-tests/src/test/scala/org/apache/pekko/routing/MetricsBasedResizerSpec.scala:91-372… | Q-RT-4 |
+| AC-RT-014 | OptimalSizeExploringResizer | OptimalSizeExploringResizer con traits inyectables RouteeLoad, Clock y Rng;… | actor-tests/src/test/scala/org/apache/pekko/routing/MetricsBasedResizerSpec.scala:89-111,… | Q-RT-4, Q-RT-9, Q-X-1 |
 | AC-RT-015 | Listeners / Listen / Deafen / WithListeners | trait `Listeners { fn listeners(&mut self) -> &mut BTreeSet<ActorRef>; fn gossip(&self,… | actor-tests/src/test/scala/org/apache/pekko/actor/routing/ListenerSpec.scala:29-70 | Q-RT-8 |
 | AC-RT-016 | Configuracion de deployment de routers (router.type-mapping, nr-of-instances,… | registro de fabricas por nombre (`router.type-mapping`) y `fn from_config(&Config)` por… | actor-tests/src/test/scala/org/apache/pekko/routing/ConfiguredLocalRoutingSpec.scala:139-… | Q-RT-3, Q-X-2 |
 

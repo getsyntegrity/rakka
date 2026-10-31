@@ -1,6 +1,6 @@
-# Spec 38 — AT-LOG (1/1)
+# Spec 38 — AT-EVT (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 5. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 4. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -8,12 +8,12 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 39 `AT-DSP-1` (`39-at-dsp-1.md`), por las filas AT-DSP-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 27 `AT-BEH-1` (`27-at-beh-1.md`), por las filas AT-BEH-003.
 
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-LOG-1`, `Q-T-LOG-2`, `Q-T-LOG-3`, `Q-T-LOG-4`.
+- Propuestas aún sin decisión del Owner: `Q-T-EVT-1`, `Q-X-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -22,9 +22,9 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ## Tareas
 
-### Tarea 1: context.log (SLF4J Logger), nombre de logger detectado y setLoggerName (+4 filas)
+### Tarea 1: EventStream tipado: Publish / Subscribe / Unsubscribe (+3 filas)
 
-Filas: AT-LOG-001, AT-LOG-002, AT-LOG-003, AT-LOG-004, AT-LOG-005. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AT-EVT-001, AT-EVT-002, AT-EVT-003, AT-EVT-004. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -35,11 +35,10 @@ Filas: AT-LOG-001, AT-LOG-002, AT-LOG-003, AT-LOG-004, AT-LOG-005. Contratos y a
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-LOG-001 | context.log (SLF4J Logger), nombre de logger detectado y setLoggerName | trait ActorLog en contexto; nombre por defecto = type_name del comportamiento que loguea… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1, Q-T-LOG-2 |
-| AT-LOG-002 | MDC automatico: pekkoSource, pekkoAddress, sourceActorSystem, pekkoTags | Campos estructurados del span tracing por mensaje (pekko_source, pekko_address,… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1 |
-| AT-LOG-003 | Configuracion SLF4J: pekko.use-slf4j=on y Slf4jLogger agregado automaticamente | Config key aceptada; el backend por defecto se decide en Q-T-LOG-1/Q-X-7. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-3 |
-| AT-LOG-004 | LoggerOps (trace2/traceN... para Scala 2) y Markers | Subsumido por macros de tracing (sin varargs ambiguos). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/LoggerOpsSpec.scal… | Q-T-LOG-4 |
-| AT-LOG-005 | Mensajes de log del LocalActorRefProvider en logger "serialization" | Log debug con target fijo al resolver refs por path. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LocalActorRefProviderLogMes… | Q-T-LOG-1 |
+| AT-EVT-001 | EventStream tipado: Publish / Subscribe / Unsubscribe | trait EventBus{publish<E:Any>(E); subscribe<E>(ActorRef<E>); unsubscribe}; Q-X-6 define… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/eventstream/EventStreamSpec… | Q-X-6 |
+| AT-EVT-002 | Dead letters (DeadLetter) y suscripcion via message adapter | Suscripcion de un actor a DeadLetter mediante adaptador. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/eventstream/EventStreamSpec… | - |
+| AT-EVT-003 | UnhandledMessage publicado al quedar un mensaje sin manejar | Evento UnhandledMessage{message,sender,recipient}. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelega… | Q-T-EVT-1 |
+| AT-EVT-004 | Dropped (stash de supervision lleno, group router sin routees, Topic sin… | fn publish_dropped(system, msg, reason, sender) con un unico camino; la variante Topic… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:882-9… | Q-T-EVT-1 |
 
 ## Gates y criterio de cierre
 
@@ -55,4 +54,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 39 `AT-DSP-1` (`39-at-dsp-1.md`).
+Spec 39 `AT-LOG-1` (`39-at-log-1.md`).

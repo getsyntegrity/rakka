@@ -8,9 +8,9 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-011.
-- Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-018. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 19 `AC-ASK-1` (`19-ac-ask-1.md`), por las filas AC-ASK-001.1, AC-ASK-001.2, AC-ASK-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-011, AC-REF-014, AC-REF-015.
+- Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-017, AC-SYS-018. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 19 `AC-ASK-1` (`19-ac-ask-1.md`), por las filas AC-ASK-001.1, AC-ASK-002, AC-ASK-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
@@ -38,7 +38,7 @@ Filas: AC-REF-026, AC-REF-027. Contratos y aserciones: `docs/inventory/contracts
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
 | AC-REF-026 | ActorSelection: equals, hashCode, toString, toSerializationFormat, anchorPath,… | `impl Eq/Hash/Display for ActorSelection`; `to_serialization_format()` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:337-359 | - |
-| AC-REF-027 | VirtualPathContainer y /temp (refs virtuales de nivel raíz) | contenedor de hijos virtual (mapa concurrente nombre→ref) | derivada del código (ver bloque de contrato) | - |
+| AC-REF-027 | VirtualPathContainer y /temp (refs virtuales de nivel raíz) | contenedor de hijos virtual (mapa concurrente nombre→ref) | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:138-225 | - |
 
 ## Gates y criterio de cierre
 

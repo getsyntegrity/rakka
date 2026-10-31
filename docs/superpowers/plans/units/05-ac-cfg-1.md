@@ -96,7 +96,7 @@ Filas: AC-CFG-017.6, AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos
 | AC-CFG-012.4 | Secciones resizer y optimal-size-exploring-resizer: claves y defaults de… | structs `DefaultResizerConfig` / `OptimalSizeExploringResizerConfig` leídos de Config | derivada del código (ver bloque de contrato) | - |
 | AC-CFG-013 | Deploy, Scope, LocalScope, NoScopeGiven (valores y withFallback) | `struct Deploy` + `enum Scope { Local, NoScopeGiven, Other(Box<dyn ...>) }` | actor-tests/src/test/scala/org/apache/pekko/actor/DeployerSpec.scala:93,108:93-142 | Q-CFG-12, Q-X-2 |
 | AC-CFG-014 | pekko.actor.router.type-mapping (alias de routers) | tabla estática nombre→constructor | actor-tests/src/test/scala/org/apache/pekko/actor/DeployerSpec.scala:231:231-246 | Q-X-2 |
-| AC-CFG-015 | BootstrapSetup / ActorSystemSetup / Setup (config programática: classLoader,… | builder `ActorSystem::builder().config(..).setup(T)` con `TypeMap` | actor-tests/src/test/scala/org/apache/pekko/actor/setup/ActorSystemSetupSpec.scala:31,39,… | Q-CFG-13 |
+| AC-CFG-015 | BootstrapSetup / ActorSystemSetup / Setup (config programática: classLoader,… | builder `ActorSystem::builder().config(..).setup(T)` con `TypeMap` | actor-tests/src/test/scala/org/apache/pekko/actor/setup/ActorSystemSetupSpec.scala:31-78… | Q-CFG-13 |
 | AC-CFG-016 | DynamicAccess / ReflectiveDynamicAccess (instanciar clases por FQCN desde… | registro estático `name -> fn(&Settings,&Config) -> Box<dyn T>` poblado por el usuario o… | actor-tests/src/test/scala/org/apache/pekko/actor/DynamicAccessSpec.scala:40,50,59,72… | Q-X-2 |
 | AC-CFG-017.1 | Combinación y sustitución: withFallback, resolve tardío, `${?x}` opcional,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden FB-01..08, SUB-01..14, REF-01..02 | Q-X-1 |
 | AC-CFG-017.2 | Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden DUR-MS-*, DUR-NS-*, DUR-ERR-*, DUR-SCI-*, DUR-ROUND-*, DUR-LARGE-*, DUR-NUMBER,… | Q-X-1 |
@@ -107,7 +107,7 @@ Filas: AC-CFG-017.6, AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos
 | AC-CFG-017.7 | Sintaxis del archivo: comentarios `#` y `//`, claves con guiones y puntos,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden REF-04..10, LIST-*, TYPE-* | Q-X-1 |
 | AC-CFG-018 | Settings.amendSlf4jConfig: `pekko.use-slf4j` agrega… | función `amend_logging_backend(&Config, &FactoryRegistry) -> Config` (Q-X-7) | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:186-204 | Q-CFG-10, Q-X-7 |
 | AC-CFG-019 | Validación de la config contra reference.conf (`checkValid` con… | `Config::check_valid(&reference, &["pekko"]) -> Result<(), ConfigError>` | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:30-205 (config de… | Q-CFG-3 |
-| AC-CFG-020 | Combinación no soportada coordinated-shutdown:… | validación en `Settings::from_config` | derivada del código (ver bloque de contrato) | - |
+| AC-CFG-020 | Combinación no soportada coordinated-shutdown:… | validación en `Settings::from_config` | actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:572-582 | - |
 
 ## Gates y criterio de cierre
 

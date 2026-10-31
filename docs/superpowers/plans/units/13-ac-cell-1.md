@@ -14,7 +14,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 11 `AC-EVT-1` (`11-ac-evt-1.md`), por las filas AC-EVT-010.
 - Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-009.2, AC-REF-016, AC-REF-020.
 - Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`), por las filas AC-SCH-001.
-- Spec 09 `AC-DSP-1` (`09-ac-dsp-1.md`), por las filas AC-DSP-016.
+- Spec 09 `AC-DSP-1` (`09-ac-dsp-1.md`), por las filas AC-DSP-016.1, AC-DSP-016.2.
 
 Decisiones:
 
@@ -103,7 +103,7 @@ Filas: AC-CELL-017, AC-CELL-018, AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-
 | AC-CELL-016 | Arranque de un hijo: reserva, uid nuevo, hereda suspensiones del padre,… | `make_child` con reserva atómica y suspensión heredada | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:87-100 ;… | Q-REF-5 |
 | AC-CELL-017 | ReceiveTimeout | timer por actor en la celda (tarea cancelable) con `ReceiveTimeoutDeadline` | actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:82-320 | - |
 | AC-CELL-018 | API de ActorContext: self, props, system, dispatcher, parent, getters Java | `Context` con métodos equivalentes | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:367-388 ;… | Q-X-8 |
-| AC-CELL-019 | El contexto sólo es válido dentro del procesamiento del actor | `&mut Context` prestado sólo durante el handler | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:193-230 | Q-CELL-3 |
+| AC-CELL-019 | El contexto sólo es válido dentro del procesamiento del actor | `&mut Context` prestado sólo durante el handler | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:193-230 ;… | Q-CELL-3 |
 | AC-CELL-020 | El mensaje que causó el fallo no se reprocesa tras restart | - | actor-tests/src/test/scala/org/apache/pekko/actor/Ticket669Spec.scala:36-47 | - |
 | AC-CELL-021 | Interrupción de hilo: InterruptedException → ActorInterruptedException al padre | N/A (Rust no interrumpe hilos) | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:422-477 | Q-CELL-2 |
 | AC-CELL-022 | Hooks de instrumentación… | trait `Interceptor` o métodos `pub(crate)` con implementación por defecto | derivada del código (ver bloque de contrato) | - |

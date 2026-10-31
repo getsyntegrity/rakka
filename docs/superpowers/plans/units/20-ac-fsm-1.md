@@ -16,7 +16,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: `Q-FSM-4`.
-- Propuestas aún sin decisión del Owner: `Q-FSM-1`, `Q-FSM-2`, `Q-FSM-3`, `Q-RT-8`, `Q-X-3`, `Q-X-5`.
+- Propuestas aún sin decisión del Owner: `Q-CS-7`, `Q-FSM-1`, `Q-FSM-2`, `Q-FSM-3`, `Q-RT-8`, `Q-X-3`, `Q-X-5`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -51,11 +51,11 @@ Filas: AC-FSM-006.1, AC-FSM-006.2, AC-FSM-007, AC-FSM-008, AC-FSM-009. Contratos
 | AC-FSM-001.2 | Registro de when(estado, stateTimeout), initialize/startWith, despacho de… | registro `HashMap<S, Vec<StateFn>>` y `fn process_event(&mut self, ev: Event<D>) ->… | actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:28-107,119-168 ;… | Q-FSM-1 |
 | AC-FSM-002 | Transiciones: onTransition (goto incluido al mismo estado, no en stay),… | `on_transition(Fn(&S,&S,&TransitionCtx))` + `subscribe(ref)`; listeners en… | actor-tests/src/test/scala/org/apache/pekko/actor/FSMTransitionSpec.scala:80-179 ;… | Q-FSM-1, Q-RT-8, Q-X-3 |
 | AC-FSM-003 | State timeout (StateTimeout; cancelado por cualquier mensaje; forMax;… | `state_timeout` en `FsmState` + generacion `u64`; el timer usa el scheduler del sistema | actor-tests/src/test/scala/org/apache/pekko/actor/FSMTimingSpec.scala:33-73,113-127 ;… | Q-FSM-2 |
-| AC-FSM-004 | Timers con nombre (startSingleTimer, startTimerWithFixedDelay/AtFixedRate,… | `start_single_timer(name, msg, delay)` etc. sobre scheduler; `HashMap<String,… | actor-tests/src/test/scala/org/apache/pekko/actor/FSMTimingSpec.scala:75-138 ;… | Q-FSM-2 |
+| AC-FSM-004 | Timers con nombre (startSingleTimer, startTimerWithFixedDelay/AtFixedRate,… | `start_single_timer(name, msg, delay)` etc. sobre scheduler; `HashMap<String,… | actor-tests/src/test/scala/org/apache/pekko/actor/FSMTimingSpec.scala:75-138 ;… | Q-CS-7, Q-FSM-2 |
 | AC-FSM-005 | whenUnhandled y manejo por defecto de eventos no manejados (warning + stay) | `when_unhandled(fn)`; defecto `log::warn!("unhandled event {:?} in state {:?}")` | actor-tests/src/test/scala/org/apache/pekko/actor/FSMTimingSpec.scala:140-158 ;… | Q-FSM-3 |
 | AC-FSM-006.1 | Terminacion: stop(), stop(reason), onTermination(StopEvent) y estado inexistente | `stop(reason)`, `on_termination(Fn(StopEvent))`; razon `StopReason { Normal, Shutdown,… | actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:170-221 | Q-FSM-4, Q-X-5 |
 | AC-FSM-006.2 | Terminacion externa: stop del actor -> StopEvent(Shutdown), timers cancelados… | implementacion en el hook post_stop del trait Fsm | actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:188-206,223-260,95-99 | Q-FSM-4 |
-| AC-FSM-007 | LoggingFSM: log rotativo (logDepth), getLog; debug.fsm | `LoggingFsm` como extension del trait con `ring: Vec<Option<LogEntry>>` | actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:262-332 | Q-FSM-3 |
+| AC-FSM-007 | LoggingFSM: log rotativo (logDepth), getLog; debug.fsm | `LoggingFsm` como extension del trait con `ring: Vec<Option<LogEntry>>` | actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:262-332 | Q-CS-7, Q-FSM-3 |
 | AC-FSM-008 | transform(...) using | combinador `transform(f).using(g)` sobre `StateFn` | actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:334-351 | Q-FSM-1 |
 | AC-FSM-009 | Acceso a stateName/stateData/nextStateData e initialize antes de startWith… | metodos del trait Fsm que devuelven Result / panic documentado segun Q-X-5 | actor-tests/src/test/scala/org/apache/pekko/actor/FSMTransitionSpec.scala:156-179 | Q-FSM-1 |
 

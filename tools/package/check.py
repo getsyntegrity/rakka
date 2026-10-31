@@ -76,6 +76,18 @@ counts_text = (f"{sum(c.values())} decisiones: {c['blocking']} bloqueantes, {c['
                f"{c['accepted_with_changes']} aceptadas con cambios, {c['rejected']} rechazadas")
 for doc in ("docs/implementation-order.md", "README.md", "docs/decisions.md"):
     check(counts_text in open(doc, encoding="utf-8").read(), f"{doc}: stale decision counts (expected '{counts_text}')")
+# unit plan: explicit row -> unit assignment (docs/unit-rows.tsv)
+if os.path.exists("docs/unit-rows.tsv"):
+    map_ids = [x[0] for x in R("docs/contract-map.tsv")[1:]]
+    assigned = collections.defaultdict(list)
+    for x in R("docs/unit-rows.tsv")[1:]: assigned[x[0]].append(x[1])
+    for rid in map_ids:
+        check(len(assigned.get(rid, [])) == 1, f"unit-rows.tsv: {rid} is in {len(assigned.get(rid, []))} units (expected exactly 1)")
+    for rid in assigned: check(rid in set(map_ids), f"unit-rows.tsv: unknown row {rid}")
+    declared = dict(re.findall(r"(?m)^### (P\d+) .*\n\n- \*\*Resultado.*\n- \*\*Filas \((\d+);", open("docs/unit-plan.md", encoding="utf-8").read()))
+    per_unit = collections.Counter(u for us in assigned.values() for u in us)
+    check(set(declared) == set(per_unit), f"unit-plan.md units {sorted(set(declared) ^ set(per_unit))} differ from unit-rows.tsv")
+    for u, n in declared.items(): check(per_unit.get(u) == int(n), f"unit-plan.md {u}: declares {n} rows, unit-rows.tsv has {per_unit.get(u)}")
 print(f"abbreviated_citations_skipped={abbreviated}")
 print(f"rows={len(rows)} decisions={sum(c.values())} groups={len(reg) - sum(c.values())} citation_problems={bad} failures={len(fail)}")
 for f in fail: print("FAIL", f)

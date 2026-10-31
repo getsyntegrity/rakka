@@ -8,8 +8,8 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 35 `AT-SUP-1` (`35-at-sup-1.md`), por las filas AT-SUP-001, AT-SUP-005, AT-SUP-014, AT-SUP-015. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 31 `AT-CTX-1` (`31-at-ctx-1.md`), por las filas AT-CTX-005, AT-CTX-011. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 36 `AT-SUP-1` (`36-at-sup-1.md`), por las filas AT-SUP-001, AT-SUP-005, AT-SUP-014, AT-SUP-015. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 32 `AT-CTX-1` (`32-at-ctx-1.md`), por las filas AT-CTX-005, AT-CTX-011. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 27 `AT-BEH-1` (`27-at-beh-1.md`), por las filas AT-BEH-014.
 
 Decisiones:

@@ -1,4 +1,4 @@
-# Spec 43 — AT-RT (1/1)
+# Spec 44 — AT-RT (1/1)
 
 **Estado:** pendiente de decisiones propuestas. **Filas:** 8. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
@@ -9,10 +9,10 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 27 `AT-BEH-1` (`27-at-beh-1.md`), por las filas AT-BEH-023.
-- Spec 31 `AT-CTX-1` (`31-at-ctx-1.md`), por las filas AT-CTX-002, AT-CTX-005.
-- Spec 39 `AT-DSP-1` (`39-at-dsp-1.md`), por las filas AT-DSP-001, AT-DSP-002.
-- Spec 42 `AT-RCP-1` (`42-at-rcp-1.md`), por las filas AT-RCP-005.2, AT-RCP-005.3.
-- Spec 37 `AT-EVT-1` (`37-at-evt-1.md`), por las filas AT-EVT-004.
+- Spec 32 `AT-CTX-1` (`32-at-ctx-1.md`), por las filas AT-CTX-002, AT-CTX-005.
+- Spec 40 `AT-DSP-1` (`40-at-dsp-1.md`), por las filas AT-DSP-001, AT-DSP-002.
+- Spec 43 `AT-RCP-1` (`43-at-rcp-1.md`), por las filas AT-RCP-005.2, AT-RCP-005.3.
+- Spec 38 `AT-EVT-1` (`38-at-evt-1.md`), por las filas AT-EVT-004.
 
 Decisiones:
 
@@ -71,4 +71,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 44 `AT-PS-1` (`44-at-ps-1.md`).
+Spec 45 `AT-PS-1` (`45-at-ps-1.md`).

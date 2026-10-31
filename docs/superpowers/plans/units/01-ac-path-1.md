@@ -15,7 +15,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-PATH-003, AC-PATH-004, AC-PAT
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-PATH-1`, `Q-PATH-2`, `Q-PATH-3`, `Q-PATH-4`, `Q-PATH-5`, `Q-PATH-6`.
+- Propuestas aún sin decisión del Owner: `Q-PATH-1`, `Q-PATH-2`, `Q-PATH-3`, `Q-PATH-4`, `Q-PATH-5`, `Q-PATH-6`, `Q-UTIL-14`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -46,13 +46,13 @@ Filas: AC-PATH-014, AC-PATH-015, AC-PATH-016. Contratos y aserciones: `docs/inve
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-PATH-001 | Address: protocol, system, host?, port?; alcance local vs global; toString y… | `pub struct Address { protocol, system, host: Option<String>, port: Option<i32> }` con… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:117-134 ;… | Q-PATH-3, Q-PATH-4 |
+| AC-PATH-001 | Address: protocol, system, host?, port?; alcance local vs global; toString y… | `pub struct Address { protocol, system, host: Option<String>, port: Option<i32> }` con… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:117-134 ;… | Q-PATH-3, Q-PATH-4, Q-UTIL-14 |
 | AC-PATH-002 | Orden de Address (addressOrdering) | `Address::pekko_compare(&self, &Address) -> Ordering` (sin `impl Ord`) | actor-tests/src/test/scala/org/apache/pekko/actor/AddressSpec.scala:25-36 | Q-PATH-1, Q-PATH-6 |
 | AC-PATH-007 | ActorPath.fromString | `ActorPath::from_string(&str) -> Result<ActorPath, MalformedUrl>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:25-56 | Q-PATH-4, Q-PATH-6 |
 | AC-PATH-008 | Validación de elementos de path (nombres de actor) | `fn validate_path_element(&str) -> Result<(), InvalidActorName>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:79-82 ;… | Q-PATH-2, Q-PATH-4 |
-| AC-PATH-009 | ActorPaths (fachada Java: fromString, validatePathElement, isValidPathElement) | mismas funciones en Rust (sin fachada) | actor-tests/src/test/java/org/apache/pekko/actor/ActorSelectionTest.java (el test sólo… | Q-PATH-5 |
+| AC-PATH-009 | ActorPaths (fachada Java: fromString, validatePathElement, isValidPathElement) | mismas funciones en Rust (sin fachada) | derivada del código (ver bloque de contrato) | Q-PATH-5 |
 | AC-PATH-011 | uid en paths: "#uid" en `/`, undefinedUid=0, newUid aleatorio ≠0, withUid;… | `uid: i32` en el nodo hijo; `new_uid()` con RNG local | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:25-28 ;… | Q-PATH-6 |
-| AC-PATH-014 | Igualdad, hash y orden de ActorPath (ignoran uid) | `impl PartialEq/Eq/Hash` sin uid; sin `Ord`; `ActorPath::pekko_compare` | derivada del código (ver bloque de contrato) | Q-PATH-3, Q-PATH-6 |
+| AC-PATH-014 | Igualdad, hash y orden de ActorPath (ignoran uid) | `impl PartialEq/Eq/Hash` sin uid; sin `Ord`; `ActorPath::pekko_compare` | derivada del código (ver bloque de contrato) | Q-PATH-3, Q-PATH-6, Q-UTIL-14 |
 | AC-PATH-015 | Paths especiales del proveedor local: "/", "/user", "/system", "/deadLetters",… | constantes en `provider::local` | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:248 ;… | - |
 | AC-PATH-016 | ChildActorPath: validación del nombre en el constructor (`/` y `#` prohibidos) | `ChildActorPath::new(parent, name, uid) -> Result<_, IllegalArgumentError>` (privado a… | derivada del código (ver bloque de contrato) | - |
 

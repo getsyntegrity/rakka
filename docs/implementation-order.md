@@ -1,6 +1,8 @@
 # Orden de implementación
 
-Este documento ordena las 716 filas del inventario (507 de Classic en `docs/inventory/actor-classic.tsv`, 209 de Typed en `docs/inventory/actor-typed.tsv`) en 49 specs **preliminares**: son agrupaciones de filas que aún requieren revisión de atomicidad y de dependencias antes de considerarse ejecutables. Cada spec tiene como máximo 5 tareas y vive en `docs/superpowers/plans/units/` (índice con estado y dependencias: `docs/superpowers/plans/units/README.md`, generado por `tools/package/generate.py`). Las 492 filas del inventario inicial se revisaron contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 (`9a54d129…`); 69 se descompusieron en hijos y se agregaron las omisiones detectadas. **La documentación completa no es implementación ni paridad**: las columnas `impl` y `validation` del inventario son la única medida de avance.
+> **Cierre documental 2026-10-31:** el plan de unidades vigente es `docs/unit-plan.md` (64 unidades en 10 olas, sin ciclos entre unidades; asignación en `docs/unit-rows.tsv`; costuras en `docs/cycles.md`). Las 50 specs generadas de abajo siguen siendo agrupaciones preliminares por unidad de inventario y no deben ejecutarse.
+
+Este documento ordena las 783 filas del inventario (523 de Classic en `docs/inventory/actor-classic.tsv`, 260 de Typed en `docs/inventory/actor-typed.tsv`) en 50 specs **preliminares**: son agrupaciones de filas que aún requieren revisión de atomicidad y de dependencias antes de considerarse ejecutables. Cada spec tiene como máximo 5 tareas y vive en `docs/superpowers/plans/units/` (índice con estado y dependencias: `docs/superpowers/plans/units/README.md`, generado por `tools/package/generate.py`). Las 492 filas del inventario inicial se revisaron contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 (`9a54d129…`); 69 se descompusieron en hijos y se agregaron las omisiones detectadas. **La documentación completa no es implementación ni paridad**: las columnas `impl` y `validation` del inventario son la única medida de avance.
 
 ## Cómo se ejecuta
 
@@ -16,7 +18,7 @@ En Pekko, un actor tipado corre dentro de una celda clásica (`ActorAdapter`, `A
 
 ## Decisiones bloqueantes
 
-El registro único está en `docs/decisions.md` (190 decisiones: 8 bloqueantes, 181 propuestas, 0 aceptadas, 0 aceptadas con cambios, 1 rechazadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
+El registro único está en `docs/decisions.md` (211 decisiones: 8 bloqueantes, 202 propuestas, 0 aceptadas, 0 aceptadas con cambios, 1 rechazadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
 
 ## Orden de las specs
 
@@ -28,49 +30,49 @@ Fases: 1 valores sin concurrencia (PATH, UTIL, CFG); 2 runtime Classic (REF, MBX
 | Unidad | Filas pendientes | Specs (orden de ejecución) |
 |---|---|---|
 | AC-PATH | 9 | 01 |
-| AC-UTIL | 64 | 02, 03, 04 |
+| AC-UTIL | 67 | 02, 03, 04 |
 | AC-CFG | 29 | 05 |
 | AC-REF | 32 | 06, 07 |
 | AC-MBX | 23 | 08 |
-| AC-DSP | 22 | 09 |
-| AC-SCH | 15 | 10 |
+| AC-DSP | 25 | 09 |
+| AC-SCH | 17 | 10 |
 | AC-EVT | 24 | 11 |
-| AC-TK | 25 | 12 |
-| AC-CELL | 38 | 13, 14 |
+| AC-TK | 27 | 12 |
+| AC-CELL | 39 | 13, 14 |
 | AC-SYS | 27 | 15 |
-| AC-SUP | 21 | 16 |
+| AC-SUP | 22 | 16 |
 | AC-DW | 13 | 17 |
 | AC-EXT | 5 | 18 |
-| AC-ASK | 28 | 19 |
+| AC-ASK | 30 | 19 |
 | AC-FSM | 11 | 20 |
 | AC-RT | 22 | 21 |
 | AC-CS | 15 | 22 |
 | AC-SER | 23 | 23 |
 | AC-IO | 35 | 24, 25 |
-| AC-JAPI | 19 | 26 |
+| AC-JAPI | 21 | 26 |
 | AT-BEH | 26 | 27 |
 | AT-SIG | 8 | 28 |
 | AT-REF | 7 | 29 |
-| AT-TK | 19 | 30 |
-| AT-CTX | 18 | 31 |
-| AT-SYS | 15 | 32 |
-| AT-TMR | 9 | 33 |
-| AT-STASH | 6 | 34 |
-| AT-SUP | 24 | 35 |
-| AT-ADP | 13 | 36 |
-| AT-EVT | 4 | 37 |
-| AT-LOG | 5 | 38 |
-| AT-DSP | 5 | 39 |
-| AT-EXT | 7 | 40 |
-| AT-ASK | 4 | 41 |
-| AT-RCP | 10 | 42 |
-| AT-RT | 8 | 43 |
-| AT-PS | 3 | 44 |
-| AT-SPV | 1 | 45 |
-| AT-CS | 1 | 46 |
-| AT-SER | 3 | 47 |
-| AT-DLV | 7 | 48 |
-| AT-JAPI | 6 | 49 |
+| AT-TK | 42 | 30, 31 |
+| AT-CTX | 18 | 32 |
+| AT-SYS | 15 | 33 |
+| AT-TMR | 9 | 34 |
+| AT-STASH | 6 | 35 |
+| AT-SUP | 24 | 36 |
+| AT-ADP | 13 | 37 |
+| AT-EVT | 4 | 38 |
+| AT-LOG | 5 | 39 |
+| AT-DSP | 5 | 40 |
+| AT-EXT | 7 | 41 |
+| AT-ASK | 4 | 42 |
+| AT-RCP | 10 | 43 |
+| AT-RT | 8 | 44 |
+| AT-PS | 3 | 45 |
+| AT-SPV | 1 | 46 |
+| AT-CS | 1 | 47 |
+| AT-SER | 3 | 48 |
+| AT-DLV | 25 | 49 |
+| AT-JAPI | 16 | 50 |
 <!-- END GENERATED UNIT TABLE -->
 
 ## Ya implementado (no se repite)
