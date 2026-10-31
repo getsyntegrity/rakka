@@ -1,0 +1,163 @@
+# source: Typesafe Config 1.4.9 (config-1.4.9.jar, SHA-1 verified by tools/oracle/fetch-jars.sh), the HOCON library of Apache Pekko 1.7.1; not Pekko code; Temurin-11.0.32+9 jshell
+# generated: ORACLE=jars tools/oracle/run.sh tools/oracle/config-hocon.jsh (jsh md5 f54de837908f) on 2026-10-30
+FB-01 receiver scalar wins over fallback scalar -> ok 1
+FB-02 objects merge key by key, receiver wins on conflict -> ok 1,2,3
+FB-03 scalar in receiver replaces object in fallback -> ok NUMBER
+FB-04 object in receiver over scalar in fallback keeps the receiver object -> ok OBJECT
+FB-05 substitution is late-bound: override of referenced key is seen -> ok 2
+FB-06 resolving the fallback first freezes the substitution -> ok 1
+FB-07 chain of three: first receiver wins -> ok 1
+FB-08 explicit config only (no fallback) does not see reference keys -> ok false
+FB-09 hasPath on null value is false -> ok false
+FB-10 hasPathOrNull on null value is true -> ok true
+SUB-01 optional substitution of a missing path leaves the key absent -> ok false
+SUB-02 optional substitution concatenated with an array (reference.conf:78) -> ok [d]
+SUB-03 same, with the optional path defined by the application -> ok [u, d]
+SUB-04 required substitution of a missing path fails -> ERR UnresolvedSubstitution [String: 1: Could not resolve substitution to a value: ${no.such.path}]
+SUB-05 self-reference concatenates strings -> ok foobar
+SUB-06 += appends to an existing list -> ok [1, 2]
+SUB-07 += on a missing key creates the list -> ok [2]
+SUB-08 substitution to an unset environment variable, optional -> ok false
+SUB-09 substitution to an unset environment variable, required -> ERR UnresolvedSubstitution [String: 1: Could not resolve substitution to a value: ${RAKKA_ORACLE_UNSET_VARIABLE_42}]
+SUB-10 cyclic substitution fails -> ERR UnresolvedSubstitution [String: 2: Could not resolve substitution to a value: ${a} was part of a cycle of substitutions involving ${b}, ${a}, ${b}]
+SUB-11 substitution inside a quoted string is not substituted -> ok ${a}
+SUB-12 a getter on an unresolved config fails -> ERR NotResolved [b has not been resolved, you need to call Config#resolve(), see API docs for Config#resolve()]
+SUB-13 substitution of an object merges with a later object -> ok [x, y]
+SUB-14 reference.conf:878 shape: key set to another key's list -> ok [a, b]
+INC-01 include of a missing file is ignored -> ok 1
+INC-02 required include of a missing file fails -> ERR IO [no-such-file-oracle: no-such-file-oracle.conf: java.io.IOException: resource not found on classpath: no-such-file-oracle.conf, no-such-file-oracle.json: java.io.IOException: resource not found on classpath: no-such-file-oracle.json, no-such-file-oracle.properties: java.io.IOException: resource not found on classpath: no-such-file-oracle.properties]
+INC-03 file() include of a missing file is ignored -> ok 1
+INC-04 classpath() include of a missing resource is ignored -> ok 1
+DUR-MS 10 ms -> ok 10
+DUR-NS 10 ms -> ok 10000000
+DUR-MS 10ms -> ok 10
+DUR-NS 10ms -> ok 10000000
+DUR-MS 10 milliseconds -> ok 10
+DUR-NS 10 milliseconds -> ok 10000000
+DUR-MS 1 us -> ok 0
+DUR-NS 1 us -> ok 1000
+DUR-MS 1us -> ok 0
+DUR-NS 1us -> ok 1000
+DUR-MS 5 ns -> ok 0
+DUR-NS 5 ns -> ok 5
+DUR-MS 1 d -> ok 86400000
+DUR-NS 1 d -> ok 86400000000000
+DUR-MS 1d -> ok 86400000
+DUR-NS 1d -> ok 86400000000000
+DUR-MS 2 minutes -> ok 120000
+DUR-NS 2 minutes -> ok 120000000000
+DUR-MS 5 minutes -> ok 300000
+DUR-NS 5 minutes -> ok 300000000000
+DUR-MS 5s -> ok 5000
+DUR-NS 5s -> ok 5000000000
+DUR-MS 5 s -> ok 5000
+DUR-NS 5 s -> ok 5000000000
+DUR-MS 1 h -> ok 3600000
+DUR-NS 1 h -> ok 3600000000000
+DUR-MS 100 -> ok 100
+DUR-NS 100 -> ok 100000000
+DUR-MS 1.5 s -> ok 1500
+DUR-NS 1.5 s -> ok 1500000000
+DUR-MS 0.5 ms -> ok 0
+DUR-NS 0.5 ms -> ok 500000
+DUR-MS -1s -> ok -1000
+DUR-NS -1s -> ok -1000000000
+DUR-MS 0 -> ok 0
+DUR-NS 0 -> ok 0
+DUR-MS 1 hour -> ok 3600000
+DUR-NS 1 hour -> ok 3600000000000
+DUR-MS 1 day -> ok 86400000
+DUR-NS 1 day -> ok 86400000000000
+DUR-ERR 5 foo -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse time unit 'foo' (try ns, us, ms, s, m, h, d)]
+DUR-ERR  -> ERR BadValue [String: 1: Invalid value at 'x': No number in duration value '']
+DUR-ERR abc -> ERR BadValue [String: 1: Invalid value at 'x': No number in duration value 'abc']
+DUR-ERR 1 s s -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse duration number '1 s']
+DUR-ERR infinite -> ERR BadValue [String: 1: Invalid value at 'x': No number in duration value 'infinite']
+DUR-ERR off -> ERR BadValue [String: 1: Invalid value at 'x': No number in duration value 'off']
+DUR-SCI scientific notation is accepted -> ok 1000
+DUR-UNQUOTED 5 minutes -> ok 300000
+DUR-NUMBER bare number is milliseconds -> ok 100
+DUR-ROUND 1 ns in millis truncates toward zero -> ok 0
+DUR-ROUND 999999 ns in millis truncates toward zero -> ok 0
+DUR-ROUND -1500 us in millis truncates toward zero -> ok -1
+DUR-LARGE overflow -> ok 9223372036854775807
+DUR-LARGE 292 years in ns still fits -> ok 9223286400000000000
+SIZE 128 KiB -> ok 131072
+SIZE 128KiB -> ok 131072
+SIZE 128 K -> ok 131072
+SIZE 128 k -> ok 131072
+SIZE 1 MB -> ok 1000000
+SIZE 1MB -> ok 1000000
+SIZE 1 kB -> ok 1000
+SIZE 1 KB -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse size-in-bytes unit 'KB' (try k, K, kB, KiB, kilobytes, kibibytes)]
+SIZE 512 -> ok 512
+SIZE 512 B -> ok 512
+SIZE 512 bytes -> ok 512
+SIZE 1.5 KiB -> ok 1536
+SIZE 1 GiB -> ok 1073741824
+SIZE 1 MiB -> ok 1048576
+SIZE 1 g -> ok 1073741824
+SIZE 0 -> ok 0
+SIZE -1 KiB -> ERR BadValue [String: 1: Invalid value at 'x': Attempt to construct memory size with negative number: -1024]
+SIZE 1 TiB -> ok 1099511627776
+SIZE 256 MiB -> ok 268435456
+SIZE-ERR unlimited -> ERR BadValue [String: 1: Invalid value at 'x': No number in size-in-bytes value 'unlimited']
+SIZE-ERR 128 XiB -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse size-in-bytes unit 'XiB' (try k, K, kB, KiB, kilobytes, kibibytes)]
+SIZE-ERR  -> ERR BadValue [String: 1: Invalid value at 'x': No number in size-in-bytes value '']
+SIZE-ERR KiB -> ERR BadValue [String: 1: Invalid value at 'x': No number in size-in-bytes value 'KiB']
+SIZE-ERR 1 KiB KiB -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse size-in-bytes number '1 KiB']
+SIZE-ERR 8 EiB -> ERR BadValue [String: 1: Invalid value at 'x': size-in-bytes value is out of range for a 64-bit long: '9223372036854775808']
+SIZE-ERR 8388608 TiB -> ERR BadValue [String: 1: Invalid value at 'x': size-in-bytes value is out of range for a 64-bit long: '9223372036854775808']
+SIZE-NUMBER bare number is bytes -> ok 4096
+SIZE-MEMORY getMemorySize -> ok 4194304
+BOOL on -> ok true
+BOOL off -> ok false
+BOOL yes -> ok true
+BOOL no -> ok false
+BOOL true -> ok true
+BOOL false -> ok false
+BOOL "on" -> ok true
+BOOL "off" -> ok false
+BOOL "true" -> ok true
+BOOL "yes" -> ok true
+BOOL "maybe" -> ERR WrongType [String: 1: x has type STRING rather than BOOLEAN]
+BOOL 1 -> ERR WrongType [String: 1: x has type NUMBER rather than BOOLEAN]
+BOOL "ON" -> ERR WrongType [String: 1: x has type STRING rather than BOOLEAN]
+TYPE-01 missing key -> ERR Missing [String: 1: No configuration setting found for key 'b']
+TYPE-02 string where int expected -> ERR WrongType [String: 1: a has type STRING rather than NUMBER]
+TYPE-03 quoted number as int -> ok 7
+TYPE-04 int where string expected -> ok 7
+TYPE-05 object where string expected -> ERR WrongType [String: 1: a has type OBJECT rather than STRING]
+TYPE-06 list where string expected -> ERR WrongType [String: 1: a has type LIST rather than STRING]
+TYPE-07 null where string expected -> ERR Null [String: 1: Configuration key 'a' is set to null but expected STRING]
+TYPE-08 long beyond int -> ERR WrongType [String: 1: a has type out-of-range value 3000000000 rather than 32-bit integer]
+TYPE-09 double as int -> ok 1
+TYPE-10 whole double as int -> ok 2
+TYPE-11 getConfig on scalar -> ERR WrongType [String: 1: a has type NUMBER rather than OBJECT]
+TYPE-12 getString of boolean -> ok on
+TYPE-13 getDouble of int -> ok 3.0
+SPECIAL-01 log-dead-letters = on is a boolean -> ok STRING
+SPECIAL-02 log-dead-letters = 10 is a number -> ok NUMBER
+SPECIAL-03 infinite is a string -> ok STRING
+SPECIAL-04 unlimited is a string -> ok unlimited
+SPECIAL-05 off is a string by getString -> ok off
+SPECIAL-06 on is a string by getString -> ok on
+SPECIAL-07 5 minutes unquoted is a string -> ok 5 minutes
+SPECIAL-08 duration getter on infinite fails -> ERR BadValue [String: 1: Invalid value at 'x': No number in duration value 'infinite']
+LIST-01 string list -> ok [a, b]
+LIST-02 empty list -> ok []
+LIST-03 mixed list as string list coerces -> ok [1, true, x]
+LIST-04 list of objects -> ok 2
+LIST-05 numeric-keyed object as list -> ok [a, b]
+LIST-06 trailing comma allowed -> ok [1, 2]
+LIST-07 missing comma between elements on one line fails -> ERR WrongType [String: 1: l has type list of STRING rather than list of NUMBER]
+REF-01 library-extensions default (line 78) -> ok [org.apache.pekko.serialization.SerializationExtension$]
+REF-02 library-extensions with application value first -> ok [org.apache.pekko.serialization.SerializationExtension$, my.Ext]
+REF-03 max-decompressed-size = unlimited (line 863) -> ok unlimited
+REF-04 direct-buffer-size = 128 KiB (line 966) -> ok 131072
+REF-05 log-dead-letters-suspend-duration = 5 minutes (line 68) -> ok 300000
+REF-06 key with dots in quotes is one key -> ok true
+REF-07 unquoted key with hyphens -> ok 8
+REF-08 comment styles # and // -> ok 3
+REF-09 triple-quoted string keeps newlines -> ok a\u000Ab
+REF-10 duplicate keys: later object merges, later scalar wins -> ok 1,2,2
