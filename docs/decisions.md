@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 190 decisiones: 8 bloqueantes, 182 propuestas, 0 aceptadas, 0 aceptadas con cambios, 0 rechazadas.** Ninguna recomendación fue aceptada por el Owner: todas las filas afectadas siguen en alcance con `impl=pending` y no se cierran hasta que la decisión se registre en `docs/decisions/owner-decisions.tsv` con fecha y autor.
+**Estado: 190 decisiones: 8 bloqueantes, 181 propuestas, 0 aceptadas, 0 aceptadas con cambios, 1 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1832,16 +1832,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** TK
 - **Origen:** classic-system
 
-### Q-UTIL-1 — Negativos y rango de Timeout
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Preguntas abiertas, Q-UTIL-1): `FiniteDuration` es un `Long` de nanosegundos con signo entre -(2^63-1) y 2^63-1; `Timeout(-5.millis)` es válido y `ask` lo rechaza después (AC-ASK-001, ≤0). `std::time::Duration` no tiene negativos y llega a ~584 mil años. `Timeout.create(ofSeconds(Long.MAX_VALUE))` lanza `ArithmeticException: long overflow` en Pekko y tampoco se reproduce.
-- **Alternativas:** (a) quedarse con `std::time::Duration` y que `ask` reciba un `Timeout` siempre positivo, documentando que `Timeout(-5.millis)` no se puede construir (lo implementado); (b) tipo `FiniteDuration` propio con `i64` nanosegundos, exacto pero hay que reimplementar la aritmética; (c) `Timeout::new` falible que rechace lo que Pekko no puede construir.
-- **Recomendación:** (a) hasta que AC-ASK necesite el caso. Sin respuesta del Owner la fila AC-UTIL-001 queda `partial`.
-- **Filas afectadas:** AC-UTIL-001
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
 ### Q-UTIL-2 — toString de Timeout conserva la unidad
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -1946,5 +1936,14 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 
 Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la sección 4).
 
-Ninguna.
+### Q-UTIL-1 — Negativos y rango de Timeout
+
+- **Estado:** rechazada
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Preguntas abiertas, Q-UTIL-1): `FiniteDuration` es un `Long` de nanosegundos con signo entre -(2^63-1) y 2^63-1; `Timeout(-5.millis)` es válido y `ask` lo rechaza después (AC-ASK-001, ≤0). `std::time::Duration` no tiene negativos y llega a ~584 mil años. `Timeout.create(ofSeconds(Long.MAX_VALUE))` lanza `ArithmeticException: long overflow` en Pekko y tampoco se reproduce.
+- **Alternativas:** (a) quedarse con `std::time::Duration` y que `ask` reciba un `Timeout` siempre positivo, documentando que `Timeout(-5.millis)` no se puede construir (lo implementado); (b) tipo `FiniteDuration` propio con `i64` nanosegundos, exacto pero hay que reimplementar la aritmética; (c) `Timeout::new` falible que rechace lo que Pekko no puede construir.
+- **Recomendación:** (a) hasta que AC-ASK necesite el caso. Sin respuesta del Owner la fila AC-UTIL-001 queda `partial`.
+- **Filas afectadas:** AC-UTIL-001
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** rechazar: la recomendación (a) (std::time::Duration, sólo valores positivos) NO se adopta. ALTERNATIVA ELEGIDA Y VIGENTE: preservar el dominio de Pekko, es decir (b) en su variante mínima (i64 nanosegundos con signo, sin biblioteca de aritmética) con (c) constructores falibles que rechazan lo que Pekko rechaza; admite duraciones negativas, cero y positivas en [-(2^63-1), 2^63-1] ns (Long.MinValue fuera). La restricción a positivos no se acepta como adaptación al lenguaje. No decide Q-UTIL-2, Q-UTIL-3, Q-UTIL-4 ni Q-UTIL-5 (Owner (instrucción en la sesión), 2026-10-31)
 

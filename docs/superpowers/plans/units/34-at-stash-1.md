@@ -39,7 +39,7 @@ Filas: AT-STASH-001, AT-STASH-002, AT-STASH-003, AT-STASH-004, AT-STASH-005, AT-
 |---|---|---|---|---|
 | AT-STASH-001 | StashBuffer: creacion con capacidad (withStash) y StashOverflowException | struct StashBuffer<M> { buf: VecDeque<M>, capacity } con stash() -> Result<(),… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.sc… | Q-X-5 |
 | AT-STASH-002 | unstashAll (orden, stash durante unstash) | stash.unstash_all(behavior) -> Behavior<M>. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.sc… | - |
-| AT-STASH-003 | unstash(behavior, n, wrap) | stash.unstash(behavior, n, |m| wrap(m)). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.sc… | - |
+| AT-STASH-003 | unstash(behavior, n, wrap) | stash.unstash(behavior, n, \|m\| wrap(m)). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.sc… | - |
 | AT-STASH-004 | Inspeccion: isEmpty, nonEmpty, size, capacity, isFull, head, foreach,… | Metodos sobre StashBuffer; head -> Option<&M>. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.sc… | - |
 | AT-STASH-005 | Semantica del unstash: same, unhandled, stopped, Behavior inicial | Logica en unstash_all. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:32… | Q-X-6 |
 | AT-STASH-006 | UnstashException (falla durante unstash) | ActorError::Unstash. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:47… | Q-T-STASH-1 |

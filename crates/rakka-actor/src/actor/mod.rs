@@ -6,8 +6,8 @@ pub(crate) mod jstring;
 
 pub use address::Address;
 pub use errors::{
-    ChildError, FromStringError, IllegalArgumentError, IllegalStateError, InvalidActorNameError,
-    MalformedUrlError, NumberFormatError,
+    ArithmeticError, ChildError, FromStringError, IllegalArgumentError, IllegalStateError,
+    InvalidActorNameError, MalformedUrlError, NumberFormatError,
 };
 mod path;
 pub(crate) mod uri;

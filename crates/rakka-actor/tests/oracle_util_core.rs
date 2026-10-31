@@ -19,14 +19,6 @@ const GOLDEN: &str = include_str!("oracle/util-core.golden");
 /// Golden cases that depend on an open Owner question or on a Java-only facade: not produced
 /// by Rust on purpose. Each must exist in the golden and must not be produced below.
 const PENDING: &[(&str, &str)] = &[
-    ("TO-NEG-01 Timeout(-5, MILLISECONDS)", "Q-UTIL-1"),
-    ("TO-NEG-02 Timeout(Long.MinValue, NANOSECONDS)", "Q-UTIL-1"),
-    ("TO-NEG-03 create(ofMillis(-250))", "Q-UTIL-1"),
-    (
-        "TO-NEG-04 create(ofSeconds(9223372036, 854775808))",
-        "Q-UTIL-1",
-    ),
-    ("TO-NEG-05 create(ofSeconds(Long.MAX_VALUE))", "Q-UTIL-1"),
     ("TO-STR-01 Timeout(100, MILLISECONDS)", "Q-UTIL-2"),
     ("TO-STR-02 Timeout.zero", "Q-UTIL-2"),
     ("TO-STR-03 Timeout(1000, MILLISECONDS)", "Q-UTIL-2"),
@@ -58,7 +50,7 @@ fn esc(s: &str) -> String {
 
 /// Units in `TimeUnit.values()` order with the longest `length` that stays within 2^63-1 ns
 /// (the oracle prints it as `length=`).
-const UNITS: [(&str, TimeUnit, u64); 7] = [
+const UNITS: [(&str, TimeUnit, i64); 7] = [
     (
         "NANOSECONDS",
         TimeUnit::Nanoseconds,
@@ -85,10 +77,10 @@ fn err(e: &IllegalArgumentError) -> String {
 }
 
 fn nanos(t: Timeout) -> String {
-    format!("nanos={}", t.duration().as_nanos())
+    format!("nanos={}", t.as_nanos())
 }
 
-fn of(length: u64, unit: TimeUnit) -> String {
+fn of(length: i64, unit: TimeUnit) -> String {
     Timeout::of(length, unit).map_or_else(|e| err(&e), |t| ok(nanos(t)))
 }
 
@@ -112,8 +104,8 @@ fn rust_lines() -> Vec<(String, String)> {
         let at_max = Timeout::of(max, unit)
             .map_or_else(|e| err(&e), |t| ok(format!("length={max} {}", nanos(t))));
         case(format!("TO-MAX {name}"), at_max);
-        // One past the bound; for NANOSECONDS that is 2^63 here and Long.MinValue in the script.
-        case(format!("TO-OVER {name}"), of(max + 1, unit));
+        // One past the bound; for NANOSECONDS that wraps to Long.MinValue, as in the script.
+        case(format!("TO-OVER {name}"), of(max.wrapping_add(1), unit));
     }
     case("TO-03 Timeout(0, DAYS)".into(), of(0, TimeUnit::Days));
     case(
@@ -122,7 +114,7 @@ fn rust_lines() -> Vec<(String, String)> {
     );
     case(
         "TO-05 Timeout(Long.MaxValue, DAYS)".into(),
-        of(i64::MAX as u64, TimeUnit::Days),
+        of(i64::MAX, TimeUnit::Days),
     );
     let (a, b) = (
         Timeout::of(1000, TimeUnit::Milliseconds).unwrap(),
@@ -145,16 +137,41 @@ fn rust_lines() -> Vec<(String, String)> {
         "TO-07 ne Timeout(1 s) Timeout(2 s)".into(),
         ok(format!("eq={}", one == two)),
     );
+    // `Timeout.create(java.time.Duration)` goes through `TryFrom<std::time::Duration>`; the
+    // negative cases cannot be a `std::time::Duration`, so they use the signed constructors.
+    let created = |duration: Duration| {
+        Timeout::try_from(duration).map_or_else(
+            |e| format!("ERR {} [{}]", e.java_class(), e.message()),
+            |t| ok(nanos(t)),
+        )
+    };
     case(
         "TO-08 create(ofMillis(250))".into(),
-        ok(nanos(Timeout::new(Duration::from_millis(250)))),
+        created(Duration::from_millis(250)),
     );
     case(
         "TO-09 create(ofSeconds(9223372036, 854775807))".into(),
-        ok(nanos(Timeout::new(Duration::new(
-            9_223_372_036,
-            854_775_807,
-        )))),
+        created(Duration::new(9_223_372_036, 854_775_807)),
+    );
+    case(
+        "TO-NEG-01 Timeout(-5, MILLISECONDS)".into(),
+        of(-5, TimeUnit::Milliseconds),
+    );
+    case(
+        "TO-NEG-02 Timeout(Long.MinValue, NANOSECONDS)".into(),
+        Timeout::new(i64::MIN).map_or_else(|e| err(&e), |t| ok(nanos(t))),
+    );
+    case(
+        "TO-NEG-03 create(ofMillis(-250))".into(),
+        of(-250, TimeUnit::Milliseconds),
+    );
+    case(
+        "TO-NEG-04 create(ofSeconds(9223372036, 854775808))".into(),
+        created(Duration::new(9_223_372_036, 854_775_808)),
+    );
+    case(
+        "TO-NEG-05 create(ofSeconds(Long.MAX_VALUE))".into(),
+        created(Duration::from_secs(i64::MAX as u64)),
     );
 
     // ---- Helpers.base64 (AC-UTIL-002)

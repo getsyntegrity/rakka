@@ -30,6 +30,11 @@ class PackageSandbox(unittest.TestCase):
                 shutil.copytree(source, target, ignore=shutil.ignore_patterns("__pycache__"))
             else:
                 shutil.copy(source, target)
+        # Mechanism tests must not depend on the real Owner answers: start from an empty response file.
+        owner_path = os.path.join(self.root, OWNER_FILE)
+        header = open(owner_path, encoding="utf-8").readline()
+        with open(owner_path, "w", encoding="utf-8", newline="") as owner_file:
+            owner_file.write(header)
 
     def regenerate(self):
         env = dict(os.environ, RAKKA_PACKAGE_ROOT=self.root)
