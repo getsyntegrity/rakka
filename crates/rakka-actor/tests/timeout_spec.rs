@@ -177,6 +177,7 @@ fn a_std_duration_beyond_the_range_fails_with_long_overflow_not_saturation() {
         let err = Timeout::try_from(too_long).unwrap_err();
         assert_eq!(err.java_class(), "ArithmeticException", "{too_long:?}");
         assert_eq!(err.message(), "long overflow", "{too_long:?}");
+        assert_eq!(err.to_string(), "long overflow", "{too_long:?}");
     }
 }
 

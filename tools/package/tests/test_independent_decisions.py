@@ -66,6 +66,20 @@ class IndependentDecisions(PackageSandbox):
         self.assertIn("fixture-owner-a, 2031-03-04", decisions_doc)
         self.assertIn("fixture-owner-b, 2031-03-05", decisions_doc)
 
+    def test_a_rejection_that_names_the_chosen_alternative_closes_only_that_decision(self):
+        self.regenerate()
+        before = self.status_counts()
+        answer = "rechazar: (a) no se adopta. ALTERNATIVA ELEGIDA Y VIGENTE: (b) mínima con (c)"
+        self.append(OWNER_FILE, f"Q-UTIL-1\trejected\t2031-03-04\tfixture-owner-a\t{answer}\n")
+        self.regenerate()
+        entry = self.register()["Q-UTIL-1"]
+        self.assertEqual(("rejected", answer), (entry["status"], entry["decision"]))
+        self.assertIn("ALTERNATIVA ELEGIDA Y VIGENTE", self.read("docs/decisions.md"))
+        counts = self.status_counts()
+        self.assertEqual((before["proposed"] - 1, 1), (counts["proposed"], counts["rejected"]))
+        for other in MEMBERS[1:]:
+            self.assertEqual("proposed", self.register()[other]["status"], other)
+
     def test_answering_the_group_is_rejected(self):
         self.append(OWNER_FILE, "Q-X-9\taccepted\t2031-03-04\tfixture-owner-a\taceptar todas\n")
         with self.assertRaises(subprocess.CalledProcessError) as raised:

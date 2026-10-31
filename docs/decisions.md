@@ -1945,5 +1945,5 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Filas afectadas:** AC-UTIL-001
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
-- **Respuesta del Owner:** rechazar la recomendación (a): conservar el comportamiento de Pekko; Timeout admite duraciones negativas, cero y positivas dentro del rango de FiniteDuration [-(2^63-1), 2^63-1] ns, con representación i64 y constructores falibles; la restricción a valores positivos no se acepta como adaptación al lenguaje. No decide Q-UTIL-2, Q-UTIL-3, Q-UTIL-4 ni Q-UTIL-5 (Owner (instrucción en la sesión), 2026-10-31)
+- **Respuesta del Owner:** rechazar: la recomendación (a) (std::time::Duration, sólo valores positivos) NO se adopta. ALTERNATIVA ELEGIDA Y VIGENTE: preservar el dominio de Pekko, es decir (b) en su variante mínima (i64 nanosegundos con signo, sin biblioteca de aritmética) con (c) constructores falibles que rechazan lo que Pekko rechaza; admite duraciones negativas, cero y positivas en [-(2^63-1), 2^63-1] ns (Long.MinValue fuera). La restricción a positivos no se acepta como adaptación al lenguaje. No decide Q-UTIL-2, Q-UTIL-3, Q-UTIL-4 ni Q-UTIL-5 (Owner (instrucción en la sesión), 2026-10-31)
 
