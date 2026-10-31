@@ -1,0 +1,105 @@
+# Spec 09 — AC-DSP (1/1)
+
+**Estado:** pendiente de decisiones propuestas. **Filas:** 22. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+
+## Alcance y exclusiones
+
+Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
+
+## Prerrequisitos
+
+- Spec 08 `AC-MBX-1` (`08-ac-mbx-1.md`), por las filas AC-MBX-001, AC-MBX-002, AC-MBX-004, AC-MBX-013.
+- Spec 05 `AC-CFG-1` (`05-ac-cfg-1.md`), por las filas AC-CFG-001, AC-CFG-007, AC-CFG-012.1, AC-CFG-012.2, AC-CFG-012.3, AC-CFG-012.4, AC-CFG-015, AC-CFG-016.
+- Spec 21 `AC-RT-1` (`21-ac-rt-1.md`), por las filas AC-RT-012. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 11 `AC-EVT-1` (`11-ac-evt-1.md`), por las filas AC-EVT-011. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+
+Decisiones:
+
+- Bloqueantes: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-DSP-1`, `Q-DSP-2`, `Q-DSP-3`, `Q-DSP-4`, `Q-DSP-5`, `Q-MBX-6`, `Q-X-2`, `Q-X-3`, `Q-X-4`.
+- Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
+
+## Estrategia de oráculo y procedencia
+
+valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comportamiento con actores: Pekko compilado desde upstream/pekko vía `tools/oracle/sbt.sh` (procedencia: commit 9a54d12); donde ningún oráculo es ejecutable, la aserción es el cuerpo del spec de Pekko portado 1:1. Todo golden lleva en su cabecera la fuente exacta (jars con SHA-1 verificado, o commit de Pekko) y el hash del script, como los goldens existentes.
+
+## Tareas
+
+### Tarea 1: MessageDispatcher: attach/detach, inhabitants y apagado diferido (shutdown-timeout) (+5 filas)
+
+Filas: AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-004, AC-DSP-005, AC-DSP-006. Contratos y aserciones: `docs/inventory/contracts/classic-dispatch.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 2: Selección del dispatcher de un actor (Props, deployment, "same-as-parent") y… (+5 filas)
+
+Filas: AC-DSP-007, AC-DSP-008, AC-DSP-009, AC-DSP-010, AC-DSP-011, AC-DSP-012. Contratos y aserciones: `docs/inventory/contracts/classic-dispatch.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 3: AffinityPool executor (affinity-pool-executor) (+5 filas)
+
+Filas: AC-DSP-013, AC-DSP-014, AC-DSP-015, AC-DSP-016, AC-DSP-017, AC-DSP-018. Contratos y aserciones: `docs/inventory/contracts/classic-dispatch.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 4: Configuradores internos PekkoJdk9ForkJoinPool / ForkJoinPoolConstants / CachingConfig (+3 filas)
+
+Filas: AC-DSP-019, AC-DSP-020, AC-DSP-021, AC-DSP-022. Contratos y aserciones: `docs/inventory/contracts/classic-dispatch.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+## Trazabilidad contrato → aserción → validación
+
+| Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
+|---|---|---|---|---|
+| AC-DSP-001 | MessageDispatcher: attach/detach, inhabitants y apagado diferido… | `trait Dispatcher` con contador de habitantes; pool de hilos o runtime async | actor-tests/src/test/scala/org/apache/pekko/dispatch/DispatcherShutdownSpec.scala:32 ;… | Q-MBX-6 |
+| AC-DSP-002 | Dispatcher (event-based): registerForExecution con CAS a Scheduled y reintento… | `spawn` de tarea por mailbox con flag atómico | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatcherActorSpec.scala:71,7… | Q-MBX-6 |
+| AC-DSP-003 | throughput y throughput-deadline-time | parámetros del loop de mailbox | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatcherActorSpec.scala:84,1… | Q-DSP-5, Q-MBX-6 |
+| AC-DSP-004 | Registro Dispatchers: lookup por id, hasDispatcher, alias (string) con… | `Dispatchers` con `DashMap<String, Arc<dyn Dispatcher>>` | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:155-228… | Q-DSP-2, Q-DSP-4 |
+| AC-DSP-005 | default-dispatcher (fork-join-executor por defecto,… | dispatcher sobre pool work-stealing | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:171-175 | - |
+| AC-DSP-006 | internal-dispatcher, default-blocking-io-dispatcher y ExecutionContext externo… | ids fijos + `Executor` provisto por el usuario (p. ej. handle de tokio) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53,77,1… | Q-X-4 |
+| AC-DSP-007 | Selección del dispatcher de un actor (Props, deployment, "same-as-parent") y… | resolución en el provider | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:266-295… | - |
+| AC-DSP-008 | ForkJoinExecutorConfigurator (PekkoForkJoinPool, parallelism,… | runtime multi-hilo work-stealing (tokio o pool propio) con N=parallelism | actor-tests/src/test/scala/org/apache/pekko/dispatch/ForkJoinExecutorConfiguratorSpec.sca… | Q-DSP-1, Q-X-4 |
+| AC-DSP-009 | ThreadPoolExecutorConfigurator y ThreadPoolConfig | pool de hilos propio (sin work stealing) | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:234-240 | Q-DSP-1 |
+| AC-DSP-010 | ExecutorServiceConfigurator SPI, default-executor y fallback, executor por FQCN | trait `ExecutorFactory` + registro | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53,77 | Q-DSP-2, Q-X-2 |
+| AC-DSP-011 | PinnedDispatcher (un hilo dedicado por actor) | `std::thread` dedicado por actor | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/PinnedActorSpec.scala:49-62 ;… | - |
+| AC-DSP-012 | BalancingDispatcher (cola compartida, work stealing; deprecado como tipo de… | cola MPMC compartida | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/BalancingDispatcherSpec.scala:… | - |
+| AC-DSP-013 | AffinityPool executor (affinity-pool-executor) | pool propio con colas por hilo | derivada del código (ver bloque de contrato) | Q-DSP-1 |
+| AC-DSP-014 | VirtualThreadExecutorConfigurator y virtualize (JDK 21) | N/A (equivalente natural: tareas async) | actor-tests/src/test/scala-jdk21-only/org/apache/pekko/dispatch/VirtualThreadPoolDispatch… | Q-DSP-1 |
+| AC-DSP-015 | MonitorableThreadFactory: nombres "<system>-<dispatcherId>-N", daemonic,… | `std::thread::Builder::name` | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:230-264 | - |
+| AC-DSP-016 | Dispatcher como ExecutionContextExecutor (execute, batching, reportFailure →… | `Executor::execute(Box<dyn FnOnce + Send>)` | actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:36,55,85,… | - |
+| AC-DSP-017 | ExecutionContexts / Futures helpers (parasitic, global, fromExecutor),… | `std::future` + executor del runtime | actor-tests/src/test/scala/org/apache/pekko/dispatch/SameThreadExecutionContextSpec.scala… | Q-DSP-3 |
+| AC-DSP-018 | SerializedSuspendableExecutionContext | - | actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:212,232,2… | Q-DSP-3 |
+| AC-DSP-019 | Configuradores internos PekkoJdk9ForkJoinPool / ForkJoinPoolConstants /… | - | derivada del código (ver bloque de contrato) | Q-DSP-1 |
+| AC-DSP-020 | Envelope y validación de mensaje nulo (InvalidMessageException) | tipo Envelope { message, sender } con validación | derivada del código (ver bloque de contrato) | Q-X-3 |
+| AC-DSP-021 | BalancingDispatcherConfigurator: requisito MultipleConsumerSemantics y… | validación en la construcción del dispatcher | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:439-458 | - |
+| AC-DSP-022 | Dispatchers.getConfig: resolución de alias devolviendo config vacía | función pura de resolución sobre Config | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:210-228 | - |
+
+## Gates y criterio de cierre
+
+```bash
+cargo fmt --all --check
+cargo build --workspace
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo llvm-cov --workspace --lcov --output-path target/lcov.info   # cobertura de líneas nuevas o modificadas >= 90 %; reportar comando, resultado y líneas no cubiertas con motivo
+```
+
+La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserción `A#` de cada fila tiene un test que se observó fallar y luego pasar; (3) la cobertura de líneas nuevas o modificadas es >= 90 % y está documentada; (4) las columnas `impl` y `validation` del inventario reflejan lo demostrado (`partial` si queda una decisión abierta o una diferencia); (5) las diferencias observables respecto de Pekko están anotadas con su `Q-`. Tests verdes no equivalen a paridad.
+
+## Siguiente
+
+Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`).

@@ -6,7 +6,7 @@ Este documento resume `docs/inventory/actor-classic.tsv`, que es la definición 
 
 `pekko-actor` es mucho más que "actores que se mandan mensajes". Además del núcleo (direcciones y paths, referencias, la celda que ejecuta cada actor, supervisión, DeathWatch, mailboxes y dispatchers) trae su propio sistema de configuración por claves, un bus de eventos con logging, un scheduler de timers, patrones (ask, pipe, circuit breaker, backoff), una máquina de estados finitos (FSM), routers, el apagado coordinado (CoordinatedShutdown), serialización, red no bloqueante (`pekko.io`: TCP, UDP y DNS) y una API Java paralela a la de Scala. El testkit clásico (`testkit/`) no es parte del módulo pero se incluye porque sin él no se pueden portar las specs que fijan el comportamiento.
 
-En total el inventario tiene **322 filas**: 246 públicas, 56 internas necesarias para que lo público funcione (`internal-required`), 13 internas accidentales y 7 deprecadas.
+En total el inventario tiene **507 filas** (tras la revisión de contratos del 2026-10-30; el inventario inicial tenía 322): 351 `public`, 106 `internal-required`, 38 `internal-accidental`, 12 `deprecated`. Varias filas del inventario inicial se descompusieron en hijos `<ID>.<n>` (el padre desaparece y una referencia a un padre significa todos sus hijos) y se agregaron las omisiones detectadas; la lista está en `docs/inventory/contracts/*.md`, secciones "Descomposiciones" y "Omisiones agregadas".
 
 ## Cómo se contó
 
@@ -24,28 +24,28 @@ El orden de la tabla es el orden sugerido de implementación. La idea es ir de l
 
 | # | Unidad | Qué cubre | Filas | extracted / listed | Depende de |
 |---|---|---|---|---|---|
-| 1 | UTIL | Timeout, helpers, Done, excepciones base, ByteString, colas e índices de apoyo | 22 | 3 / 19 | — |
-| 2 | CFG | Carga de config HOCON, `Settings`, cada sección de `reference.conf`, Deploy, reflexión por nombre | 17 | 17 / 0 | UTIL |
-| 3 | PATH | `Address`, `ActorPath`, parseo y validación de nombres, paths especiales | 15 | 15 / 0 | UTIL |
-| 4 | REF | `ActorRef`, `tell`/`forward`/`sender`, `Props`, `actorOf`, selección, deadLetters, refs internos | 25 | 23 / 2 | PATH, CFG |
-| 5 | MBX | Mailboxes (estados, colas, acotadas, prioridad, control), selección de mailbox, Stash | 19 | 18 / 1 | REF, CFG |
-| 6 | DSP | Dispatchers, executors, throughput, registro por id | 19 | 14 / 5 | MBX, CFG |
-| 7 | SCH | Scheduler, Cancellable, Timers por actor | 13 | 12 / 1 | DSP |
-| 8 | EVT | EventStream, buses, dead letters, logging | 21 | 8 / 13 | REF, DSP |
-| 9 | CELL | Ciclo de vida del actor: creación, receive, become, hooks, restart, stop, ReceiveTimeout | 23 | 23 / 0 | MBX, DSP, SCH, EVT |
-| 10 | SUP | Supervisión: directivas, estrategias, ventanas de reinicio, guardianes | 17 | 16 / 1 | CELL |
-| 11 | DW | DeathWatch: watch, unwatch, watchWith, Terminated, death pact | 13 | 13 / 0 | CELL |
-| 12 | SYS | `ActorSystem`: creación, guardianes, terminate, callbacks, provider local | 21 | 19 / 2 | todo lo anterior |
-| 13 | EXT | Extensiones por sistema | 4 | 3 / 1 | SYS |
-| 14 | TK | TestKit, TestProbe, EventFilter, scheduler manual | 12 | 7 / 5 | SYS, EVT |
-| 15 | ASK | ask, pipe, gracefulStop, retry, CircuitBreaker, BackoffSupervisor | 17 | 7 / 10 | SYS, SCH |
-| 16 | FSM | Máquina de estados finitos (FSM) | 8 | 0 / 8 | CELL, SCH |
-| 17 | RT | Routers (pools, groups, resizers) | 15 | 0 / 15 | CELL, SUP |
-| 18 | CS | CoordinatedShutdown | 9 | 0 / 9 | SYS, EXT |
-| 19 | SER | Serialización (sólo la parte local) | 12 | 0 / 12 | EXT |
-| 20 | IO | `pekko.io`: TCP, UDP, DNS | 11 | 0 / 11 | SYS |
-| 21 | JAPI | API Java (`AbstractActor`, builders, interfaces funcionales, TypedActor) | 9 | 0 / 9 | — |
-| | **Total** | | **322** | **198 / 124** | |
+| 1 | UTIL | Timeout, helpers, Done, excepciones base, ByteString, colas e índices de apoyo | 64 | 28 / 36 | — |
+| 2 | CFG | Carga de config HOCON, `Settings`, cada sección de `reference.conf`, Deploy, reflexión por nombre | 29 | 29 / 0 | UTIL |
+| 3 | PATH | `Address`, `ActorPath`, parseo y validación de nombres, paths especiales | 16 | 16 / 0 | UTIL |
+| 4 | REF | `ActorRef`, `tell`/`forward`/`sender`, `Props`, `actorOf`, selección, deadLetters, refs internos | 32 | 26 / 6 | PATH, CFG |
+| 5 | MBX | Mailboxes (estados, colas, acotadas, prioridad, control), selección de mailbox, Stash | 23 | 13 / 10 | REF, CFG |
+| 6 | DSP | Dispatchers, executors, throughput, registro por id | 22 | 12 / 10 | MBX, CFG |
+| 7 | SCH | Scheduler, Cancellable, Timers por actor | 15 | 9 / 6 | DSP |
+| 8 | EVT | EventStream, buses, dead letters, logging | 24 | 19 / 5 | REF, DSP |
+| 9 | CELL | Ciclo de vida del actor: creación, receive, become, hooks, restart, stop, ReceiveTimeout | 38 | 36 / 2 | MBX, DSP, SCH, EVT |
+| 10 | SUP | Supervisión: directivas, estrategias, ventanas de reinicio, guardianes | 21 | 21 / 0 | CELL |
+| 11 | DW | DeathWatch: watch, unwatch, watchWith, Terminated, death pact | 13 | 12 / 1 | CELL |
+| 12 | SYS | `ActorSystem`: creación, guardianes, terminate, callbacks, provider local | 27 | 16 / 11 | todo lo anterior |
+| 13 | EXT | Extensiones por sistema | 5 | 4 / 1 | SYS |
+| 14 | TK | TestKit, TestProbe, EventFilter, scheduler manual | 25 | 18 / 7 | SYS, EVT |
+| 15 | ASK | ask, pipe, gracefulStop, retry, CircuitBreaker, BackoffSupervisor | 28 | 25 / 3 | SYS, SCH |
+| 16 | FSM | Máquina de estados finitos (FSM) | 11 | 11 / 0 | CELL, SCH |
+| 17 | RT | Routers (pools, groups, resizers) | 22 | 21 / 1 | CELL, SUP |
+| 18 | CS | CoordinatedShutdown | 15 | 15 / 0 | SYS, EXT |
+| 19 | SER | Serialización (sólo la parte local) | 23 | 21 / 2 | EXT |
+| 20 | IO | `pekko.io`: TCP, UDP, DNS | 35 | 34 / 1 | SYS |
+| 21 | JAPI | API Java (`AbstractActor`, builders, interfaces funcionales, TypedActor) | 19 | 7 / 12 | — |
+| | **Total** | | **507** | **393 / 114** | |
 
 Hay un ciclo real que el orden tiene que romper: la celda (CELL) necesita el EventStream para publicar errores y el scheduler para ReceiveTimeout, y el `ActorSystem` (SYS) es quien crea ambos. Por eso SCH y EVT aparecen antes que CELL, pero sólo en su forma mínima (programar una tarea, publicar un evento). Lo mismo pasa con el testkit: las specs de CELL, SUP y DW usan `TestProbe` y `EventFilter`, que a su vez necesitan un sistema andando. La propuesta es construir un TK mínimo (probe con `expectMsg`, `expectTerminated` y captura de logs) junto con SYS, y validar CELL/SUP/DW después con las specs portadas. PATH, CFG y la parte de valores de REF se validan con tests comunes y con el oráculo (`tools/oracle`, los jars oficiales), sin sistema de actores.
 
@@ -81,7 +81,7 @@ Pekko se apoya en piezas de la JVM y del ecosistema Scala que en Rust no existen
 
 ## Preguntas abiertas para el Owner
 
-Hay 44 filas con `Q:` en la columna `notes`. Las agrupo por tema; las cinco primeras bloquean diseño en las unidades núcleo y conviene decidirlas antes de empezar CELL.
+Hay 313 filas de Classic con una decisión `Q-` en la columna `notes` (los hijos de una fila descompuesta cuentan por separado). El registro único, con evidencia, alternativas y recomendación de cada una, es `docs/decisions.md`. Las agrupo por tema; las cinco primeras bloquean diseño en las unidades núcleo y conviene decidirlas antes de empezar CELL.
 
 1. **Qué es un "fallo" y cómo se clasifica** (AC-SUP-001, AC-SUP-004, AC-SYS-015). Pekko distingue `Exception` (el decider por defecto reinicia) de `Error`/`Throwable` (escala), y trata aparte los errores fatales de la JVM. En Rust hay `Err` devuelto por el handler y `panic`. Propuesta: ambos son fallos supervisables; `Err` se trata como `Exception` y `panic` también, salvo que el Owner prefiera que `panic` escale. Alternativa rechazada: no capturar panics, porque rompería el aislamiento entre actores que es el punto de la supervisión.
 2. **Tipado de mensajes en classic** (AC-REF-002, AC-CELL-001, AC-ASK-001). El classic de Pekko es dinámico (`Any` + `PartialFunction`). Propuesta: mensajes `Box<dyn Any + Send>` y un `receive` que hace downcast y devuelve `Handled`/`Unhandled`, para que `unhandled`, `become` y `UnhandledMessage` funcionen igual; el tipado fuerte queda para `pekko-actor-typed`. Alternativa: enums por actor, más idiomático pero no permite reproducir `unhandled` ni `ActorSelection` genérico sin trucos.
@@ -96,6 +96,7 @@ Hay 44 filas con `Q:` en la columna `notes`. Las agrupo por tema; las cinco prim
 
 ## Qué no se terminó
 
-Las unidades FSM, RT, CS, SER, IO y JAPI están enteras en `listed`: tienen evidencia y specs citados, pero sus contratos son resúmenes y hay que extraerlos antes de planificarlas. En EVT y ASK la mitad de las filas está en ese estado. Las citas de specs indican la línea del título del test; los cuerpos de las aserciones se leyeron sólo puntualmente (por ejemplo el orden LIFO de los callbacks de terminación o los nombres temporales de ask), así que el escenario de cada fila hay que confirmarlo contra el cuerpo del test al planificar la unidad. No se leyeron los filtros MiMa (compatibilidad binaria) ni los internos de `ByteString`. Las columnas `impl` y `validation` avanzan unidad por unidad. Estado al 2026-10-30 (se recuenta con `docs/inventory/actor-classic.tsv`): 303 filas `pending`, 12 `partial` y 7 `done` en `impl`. Lo implementado es AC-PATH (7 `done`, 8 `partial`) y la parte del núcleo de AC-UTIL (4 `partial`); las otras 18 filas de AC-UTIL y todo AC-CFG siguen `pending`. Los `partial` son pendientes reales (preguntas `Q:` abiertas del Owner o piezas diferidas) y no se cierran por tener tests verdes.
+Tras la revisión de contratos, 393 de 507 filas están en `extracted` (se leyó implementación y cuerpos de specs) y 114 siguen en `listed`; el motivo de cada una está en su `notes` y en la sección "Filas que siguen listed" del archivo de contratos de su grupo. `listed` significa que el contrato todavía no es verificable y la fila no puede ejecutarse. Las citas de specs indican la línea del título del test y, para las filas `extracted`, el bloque de contrato cita además las aserciones. No se leyeron los filtros MiMa ni todos los internos de `ByteString`.
 
-El orden de implementación está en `docs/implementation-order.md` y las reglas de trabajo en `AGENTS.md`; ambos existen. La tabla de unidades de arriba es el orden sugerido inicial y `docs/implementation-order.md` lo ajusta por fases.
+
+Las columnas `impl` y `validation` avanzan unidad por unidad. Estado: 484 filas `pending`, 16 `partial` y 7 `done` en `impl` (el recuento exacto sale de `docs/inventory/actor-classic.tsv`). Lo implementado es AC-PATH y la parte del núcleo de AC-UTIL; los `partial` son pendientes reales (decisiones `Q-` abiertas del Owner o piezas diferidas) y no se cierran por tener tests verdes. El orden de implementación está en `docs/implementation-order.md`, las specs ejecutables en `docs/superpowers/plans/units/` y las reglas de trabajo en `AGENTS.md`.
