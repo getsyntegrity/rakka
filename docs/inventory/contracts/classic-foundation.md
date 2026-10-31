@@ -23,8 +23,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Condiciones.**
 - Normal: `Timeout(100.millis).duration == 100.millis`; `Timeout(1000.millis) == Timeout(1.second)` (igualdad numérica del FiniteDuration).
-- Límites: `Duration(length, unit)` lanza `IllegalArgumentException("requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)")` si excede el rango; 106751 DAYS ok, 106752 DAYS falla (oráculo TO-*). FiniteDuration admite negativos: `Timeout(-5.millis)` es válido (TO-NEG-01..05); `ask` lo rechaza después (AC-ASK-001).
-- Errores: `Timeout.create(ofSeconds(Long.MAX_VALUE))` lanza `ArithmeticException: long overflow` (según plan; no reproducido en Rust).
+- Límites: `Duration(length, unit)` lanza `IllegalArgumentException("requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)")` si excede el rango; 106751 DAYS ok, 106752 DAYS falla (oráculo TO-*). El rango de `FiniteDuration` es [-(2^63-1), 2^63-1] ns, con negativos, cero y positivos: `Timeout(-5.millis)` es válido (TO-NEG-01) y `ask` lo rechaza después (AC-ASK-001). `Long.MinValue` ns está fuera: `Timeout(Long.MinValue, NANOSECONDS)` y `create(ofNanos(Long.MIN_VALUE))` lanzan `IllegalArgumentException` con el mismo mensaje (TO-NEG-02; medido en los jars con `Timeout.create`). `-(2^63-1)` ns es válido en cada unidad y `-max-1` falla (medido en los jars).
+- Errores: `Timeout.create(ofSeconds(9223372036, 854775808))` y `create(ofSeconds(Long.MAX_VALUE))` lanzan `ArithmeticException: long overflow` (TO-NEG-04, TO-NEG-05); en Rust son el `Err(ArithmeticError)` de `TryFrom<std::time::Duration>`, sin saturar ni truncar.
 - toString conserva la unidad: `Timeout(100 milliseconds)`, `Timeout(0 days)` (TO-STR-01..03).
 - Nota de procedencia: scala-library (scala.concurrent.duration) no está en upstream/pekko: su comportamiento sólo se conoce por el oráculo de jars.
 
@@ -32,18 +32,18 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Dependencias.** Ninguna fila. Externas: `scala.concurrent.duration.{Duration, FiniteDuration}`, `java.util.concurrent.TimeUnit`. Consumidores: AC-ASK-001, AC-CFG-002 (CreationTimeout, UnstartedPushTimeout, LoggerStartTimeout).
 
-**Equivalente Rust propuesto y diferencias observables.** `pub struct Timeout(Duration)` (`Copy`, `PartialEq`, `Eq`, `Hash`) con `Timeout::ZERO`, `Timeout::new(Duration)`, `Timeout::of(length: u64, TimeUnit) -> Result<Timeout, IllegalArgumentError>`, `impl From<Duration> for Timeout`. Ya implementado en crates/rakka-actor/src/util/timeout.rs. Diferencias observables: sin negativos, `new` no impone el límite de 2^63-1 ns, `Debug` no conserva la unidad, `Timeout.create` desborda distinto (Q-X-9).
+**Equivalente Rust propuesto y diferencias observables.** `pub struct Timeout(i64)` (`Copy`, `PartialEq`, `Eq`, `Hash`; campo privado; invariante único |nanos| <= 2^63-1) con `Timeout::ZERO`, `Timeout::new(nanos: i64) -> Result<Timeout, IllegalArgumentError>`, `Timeout::of(length: i64, TimeUnit) -> Result<Timeout, IllegalArgumentError>`, `impl TryFrom<std::time::Duration> for Timeout` (`Error = ArithmeticError`) y `as_nanos() -> i64`. Implementado en crates/rakka-actor/src/util/timeout.rs (decisión Q-UTIL-1 del Owner, 2026-10-31). Diferencias observables que quedan: `Debug` no conserva la unidad (Q-UTIL-2, abierta); `std::time::Duration` no puede ser negativa, así que los negativos se construyen con `new`/`of`, no con `try_from`.
 
 **Aserciones.**
 - A1 `Timeout(testTimeout)` implícito en `echo ? "hallo"` a un actor que no responde falla con `AskTimeoutException` dentro de testTimeout+leeway: ActorTimeoutSpec.scala:34-39 (la aserción es de ask, AC-ASK-001).
 - A2 el mismo resultado con timeout explícito `echo.?("hallo")(testTimeout)`: ActorTimeoutSpec.scala:41-45.
 - A3 `Timeout.zero.duration == Duration.Zero`: derivada del código Timeout.scala:39; oráculo TO-* (*no afirmada por spec*).
 - A4 `Timeout(length, unit)` fuera de rango lanza IllegalArgumentException con el mensaje exacto de arriba: oráculo TO-* (*no afirmada por spec*).
-- A5 `Timeout(1000.millis) == Timeout(1.second)`, `Timeout(-5.millis)` válido, `toString` con unidad: oráculo TO-*, TO-NEG-*, TO-STR-* (*no afirmadas por spec*).
+- A5 `Timeout(1000.millis) == Timeout(1.second)` (también para negativos: `Timeout(-1000.millis) == Timeout(-1.second)` y mismo hash, medido en los jars), `Timeout(-5.millis)` válido, `toString` con unidad: oráculo TO-*, TO-NEG-*, TO-STR-* (*no afirmadas por spec*). Activos en Rust: TO-* y TO-NEG-01..05; TO-STR-* siguen pendientes (Q-UTIL-2).
 
 **Oráculo.** Sí, con jars oficiales: jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/util-core.jsh, golden crates/rakka-actor/tests/oracle/util-core.golden); NO es Pekko compilado de upstream/pekko. Los jars son el artefacto publicado de 1.7.1, no el commit fijado compilado; si discrepan gana la fuente (docs/upstream.md).
 
-**Decisiones.** Q-X-9 (Q-UTIL-1 negativos/rango, Q-UTIL-2 toString con unidad).
+**Decisiones.** Q-UTIL-1 (negativos/rango): resuelta por el Owner el 2026-10-31. Q-UTIL-2 (toString con unidad): abierta; la fila sigue `partial`.
 
 
 ---

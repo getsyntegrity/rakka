@@ -14,7 +14,7 @@ pub enum TimeUnit {
 
 impl TimeUnit {
     /// Nanoseconds in one of this unit.
-    pub(crate) const fn nanos(self) -> u64 {
+    pub(crate) const fn nanos(self) -> i64 {
         match self {
             TimeUnit::Nanoseconds => 1,
             TimeUnit::Microseconds => 1_000,

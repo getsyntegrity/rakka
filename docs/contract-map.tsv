@@ -1,5 +1,5 @@
 row_id	unit	module	spec	spec_seq	analysis	impl	validation_source	oracle	decisions	contract_doc
-AC-UTIL-001	UTIL	classic	AC-UTIL-1	2	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/ActorTimeoutSpec.scala:34-45 (pertenece a AC-ASK-001)	jars oficiales pekko-actor + scala-libra	Q-UTIL-1,Q-UTIL-2,Q-X-9	docs/inventory/contracts/classic-foundation.md
+AC-UTIL-001	UTIL	classic	AC-UTIL-1	2	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/ActorTimeoutSpec.scala:34-45 (pertenece a AC-ASK-001)	jars oficiales pekko-actor + scala-libra	Q-UTIL-1,Q-UTIL-2	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-002.1	UTIL	classic	AC-UTIL-1	2	extracted	partial	derivada del código	jars oficiales pekko-actor + scala-libra		docs/inventory/contracts/classic-foundation.md
 AC-UTIL-002.2	UTIL	classic	AC-UTIL-1	2	extracted	partial	derivada del código	jars oficiales pekko-actor + scala-libra	Q-UTIL-7,Q-X-9	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-002.3	UTIL	classic	AC-UTIL-1	2	extracted	partial	derivada del código	jars oficiales pekko-actor + scala-libra	Q-UTIL-3,Q-X-9	docs/inventory/contracts/classic-foundation.md
