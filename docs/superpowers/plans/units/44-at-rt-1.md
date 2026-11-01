@@ -1,4 +1,4 @@
-# Spec 43 — AT-RT (1/1)
+# Spec 44 — AT-RT (1/1)
 
 **Estado:** pendiente de decisiones propuestas. **Filas:** 8. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
@@ -9,10 +9,10 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 27 `AT-BEH-1` (`27-at-beh-1.md`), por las filas AT-BEH-023.
-- Spec 31 `AT-CTX-1` (`31-at-ctx-1.md`), por las filas AT-CTX-002, AT-CTX-005.
-- Spec 39 `AT-DSP-1` (`39-at-dsp-1.md`), por las filas AT-DSP-001, AT-DSP-002.
-- Spec 42 `AT-RCP-1` (`42-at-rcp-1.md`), por las filas AT-RCP-005.2, AT-RCP-005.3.
-- Spec 37 `AT-EVT-1` (`37-at-evt-1.md`), por las filas AT-EVT-004.
+- Spec 32 `AT-CTX-1` (`32-at-ctx-1.md`), por las filas AT-CTX-002, AT-CTX-005.
+- Spec 40 `AT-DSP-1` (`40-at-dsp-1.md`), por las filas AT-DSP-001, AT-DSP-002.
+- Spec 43 `AT-RCP-1` (`43-at-rcp-1.md`), por las filas AT-RCP-005.2, AT-RCP-005.3.
+- Spec 38 `AT-EVT-1` (`38-at-evt-1.md`), por las filas AT-EVT-004.
 
 Decisiones:
 
@@ -49,8 +49,8 @@ Filas: AT-RT-005, AT-RT-006. Contratos y aserciones: `docs/inventory/contracts/t
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
 | AT-RT-001 | Routers.pool(poolSize)(behavior) | fn pool<M>(size, behavior_factory) -> PoolRouter<M>; el Behavior de las rutas debe ser… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/RoutersSpec.scala:… | Q-T-RT-3 |
-| AT-RT-002.1 | Estrategia de ruteo: Round robin (por defecto de pool) | trait RoutingLogic<M>{select_routee(&M)->Option<ActorRef<M>>; routees_updated(set)};… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/routing/RoutingLog… | Q-T-RT-2 |
-| AT-RT-002.2 | Estrategia de ruteo: Random (por defecto de group) | trait RoutingLogic<M>{select_routee(&M)->Option<ActorRef<M>>; routees_updated(set)};… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/routing/RoutingLog… | Q-T-RT-2 |
+| AT-RT-002.1 | Estrategia de ruteo: Round robin (por defecto de pool) | trait RoutingLogic<M>{select_routee(&M)->Option<ActorRef<M>>; routees_updated(set)};… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/routing/RoutingLog… | Q-T-RT-1, Q-T-RT-2 |
+| AT-RT-002.2 | Estrategia de ruteo: Random (por defecto de group) | trait RoutingLogic<M>{select_routee(&M)->Option<ActorRef<M>>; routees_updated(set)};… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/routing/RoutingLog… | Q-T-RT-1, Q-T-RT-2 |
 | AT-RT-002.3 | Estrategia de ruteo: Consistent hashing | trait RoutingLogic<M>{select_routee(&M)->Option<ActorRef<M>>; routees_updated(set)};… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/routing/RoutingLog… | Q-T-RT-1, Q-T-RT-2 |
 | AT-RT-003 | Pool: withBroadcastPredicate, withPoolSize, withRouteeProps | PoolRouter::with_broadcast_predicate(Fn(&M)->bool), with_pool_size,… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/RoutersSpec.scala:… | Q-T-RT-3 |
 | AT-RT-004 | Routers.group(serviceKey) | fn group<M>(key:ServiceKey<M>) -> GroupRouter<M>; internamente suscripcion a Listing y… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/RoutersSpec.scala:… | Q-T-EVT-1, Q-T-RT-3 |
@@ -71,4 +71,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 44 `AT-PS-1` (`44-at-ps-1.md`).
+Spec 45 `AT-PS-1` (`45-at-ps-1.md`).

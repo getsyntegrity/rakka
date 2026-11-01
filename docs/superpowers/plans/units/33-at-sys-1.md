@@ -1,4 +1,4 @@
-# Spec 32 — AT-SYS (1/1)
+# Spec 33 — AT-SYS (1/1)
 
 **Estado:** pendiente de decisiones propuestas. **Filas:** 15. **Tareas:** 3 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
@@ -8,12 +8,12 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 36 `AT-ADP-1` (`36-at-adp-1.md`), por las filas AT-ADP-006.1, AT-ADP-006.2, AT-ADP-006.3, AT-ADP-006.4. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 37 `AT-ADP-1` (`37-at-adp-1.md`), por las filas AT-ADP-006.1, AT-ADP-006.2, AT-ADP-006.3, AT-ADP-006.4. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 29 `AT-REF-1` (`29-at-ref-1.md`), por las filas AT-REF-001.
-- Spec 34 `AT-STASH-1` (`34-at-stash-1.md`), por las filas AT-STASH-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 46 `AT-CS-1` (`46-at-cs-1.md`), por las filas AT-CS-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 38 `AT-LOG-1` (`38-at-log-1.md`), por las filas AT-LOG-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 37 `AT-EVT-1` (`37-at-evt-1.md`), por las filas AT-EVT-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 35 `AT-STASH-1` (`35-at-stash-1.md`), por las filas AT-STASH-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 47 `AT-CS-1` (`47-at-cs-1.md`), por las filas AT-CS-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 39 `AT-LOG-1` (`39-at-log-1.md`), por las filas AT-LOG-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 38 `AT-EVT-1` (`38-at-evt-1.md`), por las filas AT-EVT-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
@@ -66,13 +66,13 @@ Filas: AT-SYS-010, AT-SYS-011, AT-SYS-012. Contratos y aserciones: `docs/invento
 | AT-SYS-006 | Settings tipados y restart-stash-capacity | struct TypedSettings { restart_stash_capacity: usize, .. } desde la config. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:882-9… | Q-T-SYS-2 |
 | AT-SYS-007.1 | ActorSystem.name y address | system.name() -> &str; system.address() -> Address. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.sc… | - |
 | AT-SYS-007.2 | ActorSystem.startTime y uptime | system.start_time() (ms desde epoch) y system.uptime() (segundos enteros) con reloj… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.sc… | Q-T-TMR-4 |
-| AT-SYS-007.3 | ActorSystem.log, logConfiguration y printTree | system.log() (target de tracing), system.log_configuration(), system.print_tree() ->… | sin spec en el area leida (ActorSystemSpec top-level no lo cubre) | Q-T-SYS-1 |
+| AT-SYS-007.3 | ActorSystem.log, logConfiguration y printTree | system.log() (target tracing sin span de actor), system.log_configuration() (INFO con… | No hay spec que afirme el comportamiento. Usos de diagnostico:… | Q-T-SYS-1, Q-T-SYS-2 |
 | AT-SYS-007.4 | ActorSystem.threadFactory, dynamicAccess y executionContext | thread_factory/dynamic_access segun Q-T-SYS-1; system.executor() -> handle del runtime. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.sc… | Q-T-SYS-1, Q-X-4 |
 | AT-SYS-008 | systemActorOf | system.system_actor_of(behavior, name, props). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervis… | - |
 | AT-SYS-009 | Scheduler tipado (scheduleOnce, scheduleWithFixedDelay, scheduleAtFixedRate) | Trait Scheduler sobre el timer del runtime. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SchedulerSpec.scala:19-27… | Q-T-TMR-4 |
 | AT-SYS-010 | deadLetters | system.dead_letters::<M>(). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec… | Q-X-6 |
 | AT-SYS-011 | ActorSystemAdapter / AdapterExtension (sistema tipado sobre el clasico) | En Rust: decidir si existe un runtime clasico debajo (porte en capas) o un runtime… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpe… | Q-X-8 |
-| AT-SYS-012 | Settings.toString redacta valores sensibles | impl Display para Settings que aplica una funcion redact(config). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:27-46 | Q-T-SYS-2 |
+| AT-SYS-012 | Settings.toString redacta valores sensibles | impl Display para Settings que aplica una funcion redact(config). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:27-46 | Q-T-SYS-2, Q-X-1 |
 
 ## Gates y criterio de cierre
 
@@ -88,4 +88,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 33 `AT-TMR-1` (`33-at-tmr-1.md`).
+Spec 34 `AT-TMR-1` (`34-at-tmr-1.md`).

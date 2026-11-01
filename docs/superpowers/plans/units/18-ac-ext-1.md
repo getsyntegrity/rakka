@@ -40,7 +40,7 @@ Filas: AC-EXT-001.1, AC-EXT-001.2, AC-EXT-002, AC-EXT-003, AC-EXT-004. Contratos
 | AC-EXT-001.2 | ActorSystemImpl.registerExtension: una instancia por sistema, registro en… | mapa `ExtensionKey -> OnceLock<Result<Arc<dyn Any>, Arc<Error>>>` con espera acotada por… | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:82-97 | Q-EXT-2, Q-X-4 |
 | AC-EXT-002 | extension() y hasExtension() | `fn extension<E>() -> Option<Arc<E>>` | - (JavaExtension.java:83-88 y ExtensionSpec.scala:70-80 lo ejercitan) | Q-EXT-1 |
 | AC-EXT-003 | Carga automática desde config (library-extensions / extensions) | registro nombre→ExtensionId | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:99,111,122,135,153,… | Q-CFG-8, Q-X-2 |
-| AC-EXT-004 | Extensiones provistas por pekko-actor (CoordinatedShutdown,… | - | derivada del código (ver bloque de contrato) | Q-EXT-3 |
+| AC-EXT-004 | Extensiones provistas por pekko-actor (CoordinatedShutdown,… | - | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala | Q-EXT-1, Q-EXT-3 |
 
 ## Gates y criterio de cierre
 

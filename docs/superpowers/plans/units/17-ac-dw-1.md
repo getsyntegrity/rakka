@@ -8,7 +8,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 13 `AC-CELL-1` (`13-ac-cell-1.md`), por las filas AC-CELL-004, AC-CELL-007.1, AC-CELL-008.1, AC-CELL-013.3, AC-CELL-014, AC-CELL-015.2.
+- Spec 13 `AC-CELL-1` (`13-ac-cell-1.md`), por las filas AC-CELL-004, AC-CELL-007.1, AC-CELL-008.1, AC-CELL-013.1, AC-CELL-013.3, AC-CELL-014, AC-CELL-015.2.
 - Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-015.
 - Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-004.
 - Spec 18 `AC-EXT-1` (`18-ac-ext-1.md`), por las filas AC-EXT-001.1, AC-EXT-001.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
@@ -68,7 +68,7 @@ Filas: AC-DW-013. Contratos y aserciones: `docs/inventory/contracts/classic-cell
 | AC-DW-009 | Al pararse, un actor deja de vigilar a todos (sin Terminated a deadLetters) | - | derivada del código (ver bloque de contrato) | - |
 | AC-DW-010 | Notificación a watchers al morir (remotos primero, luego locales; el padre se… | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:154-167 | Q-DW-2 |
 | AC-DW-011 | Protocolo Watch/Unwatch de sistema (addWatcher/remWatcher) | - | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:230-252 | - |
-| AC-DW-012 | AddressTerminated y AddressTerminatedTopic (watch de refs remotos) | hook en el trait de ref (`is_local`) + topic opcional | derivada del código (ver bloque de contrato) | Q-DW-2 |
+| AC-DW-012 | AddressTerminated y AddressTerminatedTopic (watch de refs remotos) | hook en el trait de ref (`is_local`) + topic opcional | actor-tests/src/test/scala/org/apache/pekko/event/AddressTerminatedTopicBenchSpec.scala:2… | Q-DW-2 |
 | AC-DW-013 | Interacción con Stash: Terminated desestachado vuelve a ser entregable | - | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:83-98,186-190… | - |
 
 ## Gates y criterio de cierre

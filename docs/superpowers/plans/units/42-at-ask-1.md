@@ -1,6 +1,6 @@
-# Spec 38 — AT-LOG (1/1)
+# Spec 42 — AT-ASK (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 5. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 4. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -8,12 +8,13 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 39 `AT-DSP-1` (`39-at-dsp-1.md`), por las filas AT-DSP-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 29 `AT-REF-1` (`29-at-ref-1.md`), por las filas AT-REF-004.
+- Spec 38 `AT-EVT-1` (`38-at-evt-1.md`), por las filas AT-EVT-002.
 
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-LOG-1`, `Q-T-LOG-2`, `Q-T-LOG-3`, `Q-T-LOG-4`.
+- Propuestas aún sin decisión del Owner: `Q-T-ASK-1`, `Q-T-ASK-2`, `Q-X-3`, `Q-X-8`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -22,9 +23,9 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ## Tareas
 
-### Tarea 1: context.log (SLF4J Logger), nombre de logger detectado y setLoggerName (+4 filas)
+### Tarea 1: AskPattern.ask / ? desde fuera de un actor (+3 filas)
 
-Filas: AT-LOG-001, AT-LOG-002, AT-LOG-003, AT-LOG-004, AT-LOG-005. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AT-ASK-001, AT-ASK-002, AT-ASK-003, AT-ASK-004. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -35,11 +36,10 @@ Filas: AT-LOG-001, AT-LOG-002, AT-LOG-003, AT-LOG-004, AT-LOG-005. Contratos y a
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-LOG-001 | context.log (SLF4J Logger), nombre de logger detectado y setLoggerName | trait ActorLog en contexto; nombre por defecto = type_name del comportamiento que loguea… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1, Q-T-LOG-2 |
-| AT-LOG-002 | MDC automatico: pekkoSource, pekkoAddress, sourceActorSystem, pekkoTags | Campos estructurados del span tracing por mensaje (pekko_source, pekko_address,… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1 |
-| AT-LOG-003 | Configuracion SLF4J: pekko.use-slf4j=on y Slf4jLogger agregado automaticamente | Config key aceptada; el backend por defecto se decide en Q-T-LOG-1/Q-X-7. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-3 |
-| AT-LOG-004 | LoggerOps (trace2/traceN... para Scala 2) y Markers | Subsumido por macros de tracing (sin varargs ambiguos). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/LoggerOpsSpec.scal… | Q-T-LOG-4 |
-| AT-LOG-005 | Mensajes de log del LocalActorRefProvider en logger "serialization" | Log debug con target fijo al resolver refs por path. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LocalActorRefProviderLogMes… | Q-T-LOG-1 |
+| AT-ASK-001 | AskPattern.ask / ? desde fuera de un actor | async fn ask<Req,Res>(target:&dyn RecipientRef<Req>, make:impl… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:71-130,132-189 | Q-T-ASK-1, Q-X-9 |
+| AT-ASK-002 | askWithStatus y StatusReply | `enum StatusReply<T> { Success(T), Error(StatusError) }`; `StatusError::Message(String)… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:267-272 ;… | Q-T-ASK-1, Q-X-9 |
+| AT-ASK-003 | Status.Failure clasico como respuesta falla el Future | Si se adopta Q-X-8(a): el ref temporal acepta el mensaje de fallo clasico; en (b) no… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:191-216 | Q-X-3, Q-X-8 |
+| AT-ASK-004 | ask solo sobre InternalRecipientRef | trait RecipientRef<T> con ask() como metodo provisto: no hay restriccion; Q-T-ASK-2… | Sin test dedicado (todos los tests de AskSpec usan refs internos) | Q-T-ASK-2 |
 
 ## Gates y criterio de cierre
 
@@ -55,4 +55,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 39 `AT-DSP-1` (`39-at-dsp-1.md`).
+Spec 43 `AT-RCP-1` (`43-at-rcp-1.md`).

@@ -37,6 +37,16 @@ mapped = {x[0]: x for x in R("docs/contract-map.tsv")[1:]}
 check(set(mapped) == set(rows), "contract-map.tsv does not cover exactly the inventory rows")
 for i, r in rows.items():
     if r["impl"] != "done": check(mapped.get(i, [""] * 4)[3] not in ("", "(implementada)"), f"{i}: not assigned to a spec")
+# decisions a contract block declares must appear (normalized) in the generated traceability column
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # -I drops the script directory from sys.path
+from contract_decisions import declared_decisions
+for path in glob.glob("docs/inventory/contracts/*.md"):
+    for row_id, declared in declared_decisions(open(path, encoding="utf-8").read()).items():
+        if row_id not in mapped: continue
+        in_map = set(re.findall(r"Q-(?:T-)?[A-Z]+-\d+", mapped[row_id][9]))
+        for q in sorted(declared):
+            check(q in reg, f"{row_id}: contract declares unknown decision {q}")
+            check(q in in_map, f"{row_id}: contract declares {q} but contract-map.tsv decisions column omits it")
 for p in glob.glob("docs/superpowers/plans/units/[0-9]*.md"):
     n = len(re.findall(r'^### Tarea \d+', open(p, encoding="utf-8").read(), re.M))
     check(n <= 5, f"{p}: {n} tasks")
@@ -76,6 +86,25 @@ counts_text = (f"{sum(c.values())} decisiones: {c['blocking']} bloqueantes, {c['
                f"{c['accepted_with_changes']} aceptadas con cambios, {c['rejected']} rechazadas")
 for doc in ("docs/implementation-order.md", "README.md", "docs/decisions.md"):
     check(counts_text in open(doc, encoding="utf-8").read(), f"{doc}: stale decision counts (expected '{counts_text}')")
+# unit plan: explicit row -> unit assignment (docs/unit-rows.tsv)
+if os.path.exists("docs/unit-rows.tsv"):
+    map_ids = [x[0] for x in R("docs/contract-map.tsv")[1:]]
+    assigned = collections.defaultdict(list)
+    for x in R("docs/unit-rows.tsv")[1:]: assigned[x[0]].append(x[1])
+    for rid in map_ids:
+        check(len(assigned.get(rid, [])) == 1, f"unit-rows.tsv: {rid} is in {len(assigned.get(rid, []))} units (expected exactly 1)")
+    for rid in assigned: check(rid in set(map_ids), f"unit-rows.tsv: unknown row {rid}")
+    declared = dict(re.findall(r"(?m)^### (P\d+) .*\n\n- \*\*Resultado.*\n- \*\*Filas \((\d+);", open("docs/unit-plan.md", encoding="utf-8").read()))
+    per_unit = collections.Counter(u for us in assigned.values() for u in us)
+    check(set(declared) == set(per_unit), f"unit-plan.md units {sorted(set(declared) ^ set(per_unit))} differ from unit-rows.tsv")
+    for u, n in declared.items(): check(per_unit.get(u) == int(n), f"unit-plan.md {u}: declares {n} rows, unit-rows.tsv has {per_unit.get(u)}")
+# unit plan: generated parts (decisions per unit, execution order) and declared dependencies are consistent
+if os.path.exists("docs/unit-plan.md"):
+    import subprocess
+    unit_plan = subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools/package/unit_plan.py"), "--check"], capture_output=True, text=True, env=dict(os.environ, RAKKA_PACKAGE_ROOT=ROOT))
+    for line in unit_plan.stdout.splitlines():
+        if line.startswith("FAIL"): fail.append("unit-plan: " + line[5:])
+    check(unit_plan.returncode == 0 or any(l.startswith("FAIL") for l in unit_plan.stdout.splitlines()), "unit_plan.py --check crashed: " + unit_plan.stderr[-300:])
 print(f"abbreviated_citations_skipped={abbreviated}")
 print(f"rows={len(rows)} decisions={sum(c.values())} groups={len(reg) - sum(c.values())} citation_problems={bad} failures={len(fail)}")
 for f in fail: print("FAIL", f)

@@ -1,6 +1,6 @@
-# Spec 49 — AT-JAPI (1/1)
+# Spec 46 — AT-SPV (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 6. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 1. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -8,12 +8,13 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Ninguno entre specs de este plan.
+- Spec 32 `AT-CTX-1` (`32-at-ctx-1.md`), por las filas AT-CTX-002, AT-CTX-003.
+- Spec 42 `AT-ASK-1` (`42-at-ask-1.md`), por las filas AT-ASK-001.
 
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-JAPI-1`.
+- Propuestas aún sin decisión del Owner: `Q-T-SPV-1`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -22,9 +23,9 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ## Tareas
 
-### Tarea 1: javadsl.Behaviors (espejo Java de los factories) (+5 filas)
+### Tarea 1: SpawnProtocol (Spawn -> ActorRef) con nombres unicos
 
-Filas: AT-JAPI-001, AT-JAPI-002, AT-JAPI-003, AT-JAPI-004, AT-JAPI-005, AT-JAPI-006. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AT-SPV-001. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -35,12 +36,7 @@ Filas: AT-JAPI-001, AT-JAPI-002, AT-JAPI-003, AT-JAPI-004, AT-JAPI-005, AT-JAPI-
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-JAPI-001 | javadsl.Behaviors (espejo Java de los factories) | Sin fachada separada: una sola API Rust cubre la semantica (propuesta Q-T-JAPI-1); sin… | actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/javadsl/InterceptTest.java;… | Q-T-JAPI-1 |
-| AT-JAPI-002 | javadsl.AbstractBehavior + Receive + ReceiveBuilder | Sin fachada separada: una sola API Rust cubre la semantica (propuesta Q-T-JAPI-1); sin… | actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/javadsl/ReceiveBuilderTest.j… | Q-T-JAPI-1 |
-| AT-JAPI-003 | javadsl.BehaviorBuilder | Sin fachada separada: una sola API Rust cubre la semantica (propuesta Q-T-JAPI-1); sin… | actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/javadsl/BehaviorBuilderTest.… | Q-T-JAPI-1 |
-| AT-JAPI-004 | javadsl.AbstractMatchingBehavior | Sin fachada separada: una sola API Rust cubre la semantica (propuesta Q-T-JAPI-1); sin… | Sin test Java dedicado identificado | Q-T-JAPI-1 |
-| AT-JAPI-005 | javadsl.ActorContext (getSelf, getLog, Optional getChild, CompletionStage… | Sin fachada separada: una sola API Rust cubre la semantica (propuesta Q-T-JAPI-1); sin… | actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/javadsl/ActorContextAskTest.… | Q-T-JAPI-1 |
-| AT-JAPI-006 | Otras fachadas Java: TimerScheduler, StashBuffer, Routers, AskPattern, Adapter | Sin fachada separada: una sola API Rust cubre la semantica (propuesta Q-T-JAPI-1); sin… | actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/javadsl/StashBufferTest.java… | Q-T-JAPI-1 |
+| AT-SPV-001 | SpawnProtocol (Spawn -> ActorRef) con nombres unicos | struct Spawn<M>{behavior,name,props,reply_to:ActorRef<ActorRef<M>>} y enum SpawnCommand… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SpawnProtocolSpec.scala:46-… | Q-T-SPV-1 |
 
 ## Gates y criterio de cierre
 
@@ -56,4 +52,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Última spec del plan.
+Spec 47 `AT-CS-1` (`47-at-cs-1.md`).

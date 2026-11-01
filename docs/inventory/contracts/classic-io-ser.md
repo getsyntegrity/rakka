@@ -4,7 +4,7 @@ Revisión del inventario de `pekko-actor` 1.7.1 (commit `9a54d129…`) para las 
 
 Convenciones: "derivada del código" = ninguna spec afirma el comportamiento (no afirmada por spec); "oráculo" = comparación posible contra los jars oficiales con `tools/oracle/run.sh` (ningún escenario nuevo se escribió ni se ejecutó en esta revisión). Los IDs `Q-X-n` son los transversales del orquestador y no se redefinen aquí.
 
-Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
+Resumen (cierre documental 2026-10-31): 79 filas, todas `extracted` (las 15 `listed` pasaron a `extracted` tras leer cuerpos de implementación y tests; se añadieron AC-JAPI-012 y AC-JAPI-013). Decisiones: ver al final.
 
 
 ### AC-SER-001.1 — Resolución de serializador por clase: serializerFor/findSerializerFor, bindings ordenados de más específico a menos, desempate, null -> NullSerializer
@@ -387,29 +387,34 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 
 ### AC-SER-007.1 — Serialization.serializedActorPath(actorRef): formato con la dirección de transporte actual
 
-**Contrato observable.** Sin Information vigente: si la ref es local con celda usa path.toSerializationFormatWithAddress(provider.getDefaultAddress) (si lanza no-fatal, path.toSerializationFormat); si no, path.toSerializationFormat. Con Information(address, system): si la ref pertenece a ese system (o no tiene sistema) usa la address de la Information; si pertenece a otro, provider.getExternalAddressFor(address) o la default.
+**Contrato observable.** `Serialization.serializedActorPath(actorRef)` produce la cadena con la que se serializa una ref. Sin `Information` vigente (thread-local nula): si la ref es `ActorRefWithCell` usa `path.toSerializationFormatWithAddress(system.provider.getDefaultAddress)` y, si eso lanza una excepción no fatal, `path.toSerializationFormat`; si no es `ActorRefWithCell` (p. ej. `DeadLetterActorRef`, `EmptyLocalActorRef`, refs de promesa) usa `path.toSerializationFormat`. Con `Information(address, system)`: si la ref no tiene celda o su sistema es el mismo (`==`) que el de la Information usa `toSerializationFormatWithAddress(address)`; si pertenece a otro sistema usa `provider.getExternalAddressFor(address).getOrElse(provider.getDefaultAddress)` de ese otro sistema.
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/serialization/Serialization.scala:66-95 (serializedActorPath) ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:470-496 (SerializedActorRef (path con serializedActorPath :475)) ; LocalActorRefProvider.getExternalAddressFor actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:759
+**Fuente.** actor/src/main/scala/org/apache/pekko/serialization/Serialization.scala:66-95 (serializedActorPath) ; actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:248-257 (contrato de los dos formatos) ; actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:297-305 (RootActorPath) ; actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:374-378,398-415,449-452 (ChildActorPath, fragmento `#uid`) ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:471-476 (único consumidor: SerializedActorRef) ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:759-761 (getExternalAddressFor/getDefaultAddress del provider local) ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:541-560 (IgnoreActorRef.path).
 
-**Condiciones.** Local provider: getExternalAddressFor(addr) = Some(addr) si addr == rootPath.address, si no None (ActorRefProvider.scala:759).
+**Precondiciones.** La ref pertenece a un sistema en marcha del que se pueda leer `provider`. Para la rama con `Information` la variable thread-local debe haberse fijado (`serialize`/`deserialize`/`withTransportInformation`, AC-SER-007.2).
 
-**Orden / concurrencia / ciclo de vida.** Depende de la variable thread-local currentTransportInformation (ver AC-SER-007.2).
+**Comportamiento.** (1) `RootActorPath.toSerializationFormat` es `address.toString + name`; `toSerializationFormatWithAddress(addr)` reemplaza la dirección sólo si el root no tiene host (`address.host.isDefined` -> conserva la propia; si no usa `addr`) (ActorPath.scala:297-305). (2) `ChildActorPath.toSerializationFormat` añade `#<uid>` cuando `uid != undefinedUid(0)` (`appendUidFragment`, :449-452); `toSerializationFormatWithAddress` aplica la misma regla de reemplazo de dirección (sólo si el root no tiene host, `addressStringLengthDiff` :410-414) y añade el fragmento uid. (3) Excepción: para el path de `IgnoreActorRef` (`pekko://local/ignore`) nunca se cambia la dirección ni se añade uid: devuelve `this.toString` (:399-402). (4) Con provider local, `getExternalAddressFor(addr)` es `Some(addr)` sólo si `addr == rootPath.address`, si no `None` (-> `getDefaultAddress` = `rootPath.address`). Consecuencia para un sistema local sin remote: toda serialización de una ref local da `pekko://<sistema>/<ruta>#<uid>` con la dirección raíz del sistema (sin host/puerto); el resultado sólo difiere entre ramas si hay `Information` con una dirección distinta, caso que en `pekko-actor` sólo ocurre con otro provider (remote/cluster, fuera del módulo).
 
-**Dependencias.** AC-PATH, AC-REF-023, AC-SYS-018
+**Errores.** No lanza en la rama sin Information para refs con celda: cualquier `NonFatal` de `getDefaultAddress` degrada a `toSerializationFormat` (Serialization.scala:83-84). Sin celda y sin Information no hay camino de error. Con Information el cálculo no está protegido: una excepción de `getExternalAddressFor` se propaga al serializador.
 
-**Equivalente Rust propuesto.** `fn serialized_actor_path(actor_ref:&ActorRef, ctx:Option<&TransportInformation>)->String`
+**Orden / concurrencia.** Lee la variable thread-local `currentTransportInformation` en el hilo que serializa (AC-SER-007.2); no hay estado propio. `getDefaultAddress` es `val`-like y estable.
 
-**Diferencias observables.** Remote queda fuera del módulo (límite del inventario): solo se necesita el caso local.
+**Dependencias.** AC-PATH (ActorPath/Address, `#uid`), AC-REF-023 (SerializedActorRef/writeReplace), AC-SER-007.2, AC-SYS-018 (provider).
+
+**Equivalente Rust propuesto.** `fn serialized_actor_path(actor_ref: &ActorRef, ctx: Option<&TransportInformation>) -> String`. Viable y exacto para el caso local: el path ya conoce su dirección raíz y uid. Se conserva: formato `<dirección-raíz><ruta>#<uid>` (sin `#` si uid=0), excepción de `IgnoreActorRef`, degradación a la forma sin dirección. Límite: las ramas "otra Information" y `getExternalAddressFor` distinta de la default sólo tienen sentido con un provider no local (remote/cluster), fuera de esta fase; se implementan con un `TransportInformation` explícito y pruebas con un provider simulado (Q-SER-3).
 
 **Aserciones.**
-- A1. Formato "path con address por defecto" para refs locales — derivada del código Serialization.scala:78-85; no afirmada por spec
-- A2. Formato con otra Information/address — derivada del código Serialization.scala:86-93; no afirmada por spec
+- A1. Ref local con celda, sin Information: devuelve `<path con dirección raíz>#<uid>`; la ref de un actor `/user/a` de un sistema `S` da `pekko://S/user/a#<uid>` — *no afirmada por spec*. Verificada contra el jar publicado 1.7.1 (`ORACLE=jars tools/oracle/run.sh` con un script jshell local no versionado, 2026-10-31; es el cross-check de jars, no el build desde fuente): un actor de usuario en el sistema `O1` da `pekko://O1/user/$b#1313291330`; el root guardian da `pekko://O1/` (sin uid). Caracterización propuesta: crear el actor, leer `ref.path.uid` y comparar la cadena. Respaldo indirecto de la forma de `toSerializationFormat`: ActorSelectionSpec.scala:352-357 afirma `ActorSelection.toSerializationFormat` (`pekko://ActorSelectionSpec/user/c2`), que es otra API.
+- A2. Ref sin celda (DeadLetterActorRef) sin Information: `path.toSerializationFormat` — *no afirmada por spec*. Verificada contra el jar publicado 1.7.1 (`ORACLE=jars tools/oracle/run.sh` con un script jshell local no versionado, 2026-10-31; es el cross-check de jars, no el build desde fuente): `deadLetters` da `pekko://O1/deadLetters` (uid 0, sin fragmento). Caracterización propuesta: serializar `deadLetters`. (ActorRefSpec.scala:288-317 y SerializeSpec.scala:491-508 usan este formato sólo por ida y vuelta Java, no comparan la cadena.)
+- A3. Con `Information(addr, mismoSistema)` el root sin host se reescribe con `addr` — *no afirmada por spec*. Respaldo parcial: ActorPathSpec.scala:84-107 afirma `toStringWithAddress` (mismo reemplazo de dirección, incluido que un root con host conserva la suya, :102-105), pero no `toSerializationFormatWithAddress` ni el `#uid`.
+- A4. Con `Information` de otro sistema usa `getExternalAddressFor(addr)` o la default — *no afirmada por spec*; necesita provider simulado.
+- A5. `IgnoreActorRef` conserva `pekko://local/ignore` sin uid ni cambio de dirección — *no afirmada por spec*. Verificada contra el jar publicado 1.7.1 (`ORACLE=jars tools/oracle/run.sh` con un script jshell local no versionado, 2026-10-31; es el cross-check de jars, no el build desde fuente): `system.provider.ignoreRef` da `pekko://local/ignore`.
 
-**Oráculo.** Jar oficial: ActorRef local -> Serialization.serializedActorPath fuera y dentro de withTransportInformation. Escenario no existe ni se ejecutó.
+**Validación prevista.** Diferencial con el jar oficial (escenario nuevo `tools/oracle/ser-actor-path.jsh` a crear en implementación: sistema local, actor hijo, `deadLetters`, con y sin `withTransportInformation`; A1, A2 y A5 ya medidos a mano) para A1-A3 y A5, y test de caracterización en Rust para A4 con provider simulado. Justificación: ningún spec de Pekko afirma el formato; el oráculo es la única fuente de verdad ejecutable.
 
-**Decisiones.** Q-SER-3
+**Decisiones.** Q-SER-3 (cómo viaja la Information: parámetro explícito o thread/task-local). Efecto: no cambia el formato; sólo la superficie de `serialized_actor_path`. Puede avanzar el caso local sin esperar al Owner.
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-SER-007.2 — Información de transporte (Serialization.Information, currentTransportInformation, withTransportInformation, getCurrentTransportInformation)
 
@@ -609,32 +614,39 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 
 ### AC-SER-013 — JavaSerializer habilitado: toBinary/fromBinary con ObjectStream y JavaSerializer.currentSystem; serialización Java de ActorRef (SerializedActorRef)
 
-**Contrato observable.** JavaSerializer(system): includeManifest=false; toBinary usa ObjectOutputStream con JavaSerializer.currentSystem fijada; fromBinary usa ClassLoaderObjectInputStream sobre UnsynchronizedByteArrayInputStream. ActorRef (LocalActorRef) se serializa vía writeReplace a SerializedActorRef(path serializedActorPath) y readResolve lo resuelve con currentSystem.value.provider.resolveActorRef(path); sin currentSystem lanza IllegalStateException.
+**Contrato observable.** Con `pekko.actor.allow-java-serialization = on` el binding `java.io.Serializable` resuelve a `JavaSerializer` (en lugar de `DisabledJavaSerializer`, AC-SER-004.1). `JavaSerializer(system)`: `includeManifest=false`; `toBinary` serializa con `ObjectOutputStream` dentro de `JavaSerializer.currentSystem.withValue(system)`; `fromBinary` lee con `ClassLoaderObjectInputStream(system.dynamicAccess.classLoader, UnsynchronizedByteArrayInputStream(bytes))` dentro del mismo `withValue`. Una ref a actor (`LocalActorRef`, `RepointableActorRef`, `MinimalActorRef` y derivados) define `writeReplace()` -> `SerializedActorRef(path)` con `path = Serialization.serializedActorPath(ref)` (AC-SER-007.1); `readResolve()` resuelve con `currentSystem.value.provider.resolveActorRef(path)`.
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/serialization/Serializer.scala:306-335 (JavaSerializer.currentSystem) ; actor/src/main/scala/org/apache/pekko/serialization/Serializer.scala:340-362 (JavaSerializer) ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:462-496
+**Fuente.** actor/src/main/scala/org/apache/pekko/serialization/Serializer.scala:306-335 (JavaSerializer.currentSystem) ; actor/src/main/scala/org/apache/pekko/serialization/Serializer.scala:340-362 (JavaSerializer) ; actor/src/main/scala/org/apache/pekko/util/ClassLoaderObjectInputStream.scala:25-31 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:462-496 (writeReplace de ActorRefWithCell, SerializedActorRef) ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:520-521 (MinimalActorRef.writeReplace) ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:201 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:622-657 (resolveActorRef) ; actor/src/main/resources/reference.conf:761-778,799-831 (allow-java-serialization, bindings).
 
-**Condiciones.** Error al deserializar una ref sin sistema: IllegalStateException("Trying to deserialize a serialized ActorRef without an ActorSystem in scope. Use 'org.apache.pekko.serialization.JavaSerializer.currentSystem.withValue(system) { ... }'") (ActorRef.scala:481-483).
+**Precondiciones.** `allow-java-serialization = on`; si está `off`, construir `JavaSerializer` lanza `DisabledJavaSerializer.JavaSerializationException("Attempted creation of `JavaSerializer` while `pekko.actor.allow-java-serialization = off` was set!")` (Serializer.scala:341-343). Para deserializar refs debe haber `currentSystem` fijada.
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** (1) Ida y vuelta de objetos `Serializable` arbitrarios (case classes anidadas, records, lambdas serializables) por el formato estándar de Java. (2) `fromBinary` carga clases con el classloader del sistema y cae al resolver estándar si no la encuentra (ClassLoaderObjectInputStream.scala:26-30). (3) Una ref viva se deserializa a la MISMA instancia (`eq`) si el path resuelve a un actor vivo del mismo sistema. (4) Si el actor ya no existe (`getChild` -> `Nobody`), devuelve `EmptyLocalActorRef(provider, ref.path / elems, eventStream)` y registra un debug (ActorRefProvider.scala:648-656). (5) Path inválido o de otra dirección -> `deadLetters` con debug "Resolve (deserialization) of unknown (invalid) path [..], using deadLetters." (:622-627); path vacío -> `deadLetters` (:644-646). (6) `DeadLetterActorRef` (un `MinimalActorRef`) se deserializa a `system.deadLetters` del sistema en `currentSystem`. (7) `ActorCell` no es serializable (`NotSerializableException`).
 
-**Dependencias.** AC-SER-004, AC-REF-023
+**Errores.** Sin `currentSystem` al leer una ref: `IllegalStateException("Trying to deserialize a serialized ActorRef without an ActorSystem in scope. Use 'org.apache.pekko.serialization.JavaSerializer.currentSystem.withValue(system) { ... }'")` (ActorRef.scala:479-483), texto exacto afirmado por ActorRefSpec.scala:334-338. Objeto no serializable: `java.io.NotSerializableException` del flujo Java. Clase no encontrada al leer: `ClassNotFoundException` del flujo.
 
-**Equivalente Rust propuesto.** Sin equivalente (Q-SER-2).
+**Orden / concurrencia.** `currentSystem` es una `DynamicVariable` (thread-local heredable por `InheritableThreadLocal`); válida sólo durante el `withValue`. No hay estado compartido en el serializador.
 
-**Diferencias observables.** No hay Java serialization en Rust. Observable: ninguno si se excluye (propuesto); las refs se serializan con serializedActorPath mediante un serializador propio de ref.
+**Dependencias.** AC-SER-004.1/.2, AC-SER-007.1, AC-REF-023, AC-IO-012 (UnsynchronizedByteArrayInputStream), AC-PATH (resolución de paths).
+
+**Equivalente Rust propuesto.** Sin equivalente para el formato Java (Q-SER-2: exclusión propuesta). Lo que SÍ es contrato transferible y se mantiene en alcance: la resolución de una ref serializada como path (`resolve_actor_ref(path)`: misma ref viva / `EmptyLocalActorRef` / `deadLetters` con sus mensajes de debug) y el error de "sin sistema en alcance", expuestos mediante un serializador propio de refs (`ActorRefSerializer`) que use `serialized_actor_path`. Diferencia: la identidad `eq` de la ref se sustituye por igualdad de path+uid.
 
 **Aserciones.**
-- A1. Con allow-java=on: Serializable->JavaSerializer; Address, Person y Record hacen roundtrip — SerializeSpec.scala:416-418,465-476
-- A2. Una función se serializa y deserializa con JavaSerializer (f2(3)==4) — SerializeSpec.scala:437-444
-- A3. Un ActorCell no es serializable (NotSerializableException) — SerializeSpec.scala:478-489
-- A4. DeadLetterActorRef se deserializa a la misma instancia a.deadLetters — SerializeSpec.scala:491-508
-- A5. Un LocalActorRef serializado y leído con currentSystem devuelve la misma ref, también vía JavaSerializer — ActorRefSpec.scala:288-317
+- A1. Con allow-java=on, `Serializable` -> `JavaSerializer` — SerializeSpec.scala:418-420 (test "declare Serializable classes to be use JavaSerializer").
+- A2. `Address`, `Person` y `Record` hacen ida y vuelta por `ser.serialize`/`deserialize` — SerializeSpec.scala:465-476 (`===` sobre el valor original).
+- A3. Una función `Int => Int` se serializa con `JavaSerializer` y `f2(3) == 4` — SerializeSpec.scala:437-444.
+- A4. Un `ActorCell` no es serializable (`NotSerializableException` capturada en el actor) — SerializeSpec.scala:478-489.
+- A5. `DeadLetterActorRef` se deserializa a la misma instancia `a.deadLetters` bajo `currentSystem.withValue` — SerializeSpec.scala:491-508.
+- A6. Un `LocalActorRef` escrito con `ObjectOutputStream` y leído con `currentSystem` vuelve como `ActorRefWithCell` y `eq` a la original, tanto por `ObjectInputStream` como por `new JavaSerializer(esys).fromBinary(bytes, None)` — ActorRefSpec.scala:288-317.
+- A7. Leer una ref sin `currentSystem` lanza `IllegalStateException` con el texto exacto de arriba — ActorRefSpec.scala:319-339.
+- A8. Si el actor ya murió (PoisonPill + `expectTerminated`), la lectura devuelve `EmptyLocalActorRef(provider, ref.path, eventStream)` (`===`) — ActorRefSpec.scala:341-365.
+- A9. Construir `JavaSerializer` con allow-java=off lanza `JavaSerializationException` con el texto citado — *no afirmada por spec* (el comportamiento de `off` se afirma sólo por el reemplazo con `DisabledJavaSerializer`, SerializeSpec.scala:372-374). Caracterización propuesta sólo si el Owner decide no excluir (Q-SER-2).
+- A10. Path inválido/foráneo -> `deadLetters` con debug — *no afirmada por spec* (derivada de ActorRefProvider.scala:622-638); caracterización propuesta con un path de otra dirección.
 
-**Oráculo.** Jar oficial: jshell con allow-java-serialization=on. Escenario no existe ni se ejecutó.
+**Validación prevista.** Si Q-SER-2 acepta la exclusión: A1-A5, A9 no se portan (JVM-específicos) y se documentan como excluidos; A6-A8 y A10 se portan como pruebas del serializador de refs de Rust (misma secuencia: serializar, parar o no, deserializar, comparar), más un diferencial con el jar para A10. Si no se acepta: no hay forma razonable de emular el formato binario de Java; se registraría como divergencia funcional para el Owner. Justificación: los specs de ActorRefSpec y SerializeSpec afirman comportamientos de resolución que sobreviven a la exclusión del formato.
 
-**Decisiones.** Q-SER-2
+**Decisiones.** Q-SER-2 (excluir Java serialization). Efecto: A1-A5 y A9 quedan excluidos con la decisión; A6-A8 se reformulan sobre el serializador de refs. La fila sigue en alcance y `impl=pending`. Bloquea sólo la parte JVM; el serializador de refs puede avanzar.
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-SER-014 — SerializationExtension: registro como library-extension, acceso y prohibición de pedirla desde el constructor de un serializador
 
@@ -1013,28 +1025,35 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 
 ### AC-IO-004.4 — Bucle de selección y ChannelRegistry: interest ops, MaxSelectMillis=10000, cancelAndClose y mensajes ChannelReadable/Writable/Acceptable/Connectable
 
-**Contrato observable.** ChannelRegistry.register(channel, initialOps)(channelActor) registra en el selector y devuelve al actor un ChannelRegistration (enableInterest/disableInterest/cancelAndClose(andThen)). El bucle select(10000 ms) despacha por readyOps: OP_READ -> ChannelReadable, OP_WRITE -> ChannelWritable, ambos -> ChannelWritable luego ChannelReadable, OP_ACCEPT -> ChannelAcceptable, OP_CONNECT -> ChannelConnectable; antes de enviar borra el interés del key (evita re-selección). Las operaciones de interés se ejecutan siempre en el hilo del selector. cancelAndClose cancela la key, cierra el canal y ejecuta "andThen" tras el siguiente select.
+**Contrato observable.** Costura interna entre los actores de canal (TcpConnection, TcpListener, UdpListener, UdpSender, UdpConnection) y el selector NIO. `ChannelRegistry.register(channel, initialOps)(implicit channelActor)` registra el canal en el selector del `SelectionHandler` y entrega al `channelActor` un `ChannelRegistration` con `enableInterest(op)`, `disableInterest(op)` y `cancelAndClose(andThen)`. Un bucle de select (`MaxSelectMillis = 10000` ms) traduce disponibilidad en mensajes al actor del canal: `OP_READ` -> `ChannelReadable`; `OP_WRITE` -> `ChannelWritable`; ambos -> `ChannelWritable` y luego `ChannelReadable`; `OP_ACCEPT` -> `ChannelAcceptable`; `OP_CONNECT` -> `ChannelConnectable`. Antes de enviar, borra de `interestOps` los ops listos (evita re-selección inmediata); el actor debe volver a habilitar el interés.
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:59-82 (interfaces) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:90 (MaxSelectMillis) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:106-109 (mensajes) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:161-198 (bucle) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:202-223 (register) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:225-239 (shutdown) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:241-291 (interest/cancelAndClose) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:293-309 (Task) ; actor-tests/src/test/scala/org/apache/pekko/io/TcpConnectionSpec.scala:883-960 (LocalServerTest (ChannelRegistry simulado))
+**Fuente.** actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:59-82 (ChannelRegistry, ChannelRegistration) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:84-110 (MaxSelectMillis 90, mensajes 106-109) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:151-310 (ChannelRegistryImpl: bucle 161-198, register 202-223, shutdown 225-239, interest/cancelAndClose 241-291, Task 293-309) ; actor/src/main/scala/org/apache/pekko/io/SelectionHandler.scala:313-337 (el SelectionHandler crea el registry con `SerializedSuspendableExecutionContext(dispatcher.throughput)(selector-dispatcher)` y lo apaga en `postStop`) ; actor/src/main/resources/reference.conf:930-938,964-1000 (selector-dispatcher; las claves `select-timeout` de UDP, :1046 y :1102, no las consume el bucle: `MaxSelectMillis` es constante) ; actor-tests/src/test/scala/org/apache/pekko/io/TcpConnectionSpec.scala:883-1140 (registry simulado) ; actor-tests/src/test/scala/org/apache/pekko/io/TcpListenerSpec.scala:36-142,163,187 ; actor-tests/src/test/scala/org/apache/pekko/io/CapacityLimitSpec.scala:22-52 (único spec con selector real).
 
-**Condiciones.** readyOps inválido -> warning "Invalid readyOps: [..]". CancelledKeyException se ignora. Errores de tarea: log error "Error during selector management task: [..]".
+**Precondiciones.** Un `SelectionHandler` vivo con su dispatcher de selector. Los canales deben ser no bloqueantes (los crea cada actor de canal).
 
-**Orden / concurrencia / ciclo de vida.** Un único hilo por selector (pinned-dispatcher); MaxSelectMillis fuerza despertar cada 10 s para liberar referencias a actores muertos.
+**Comportamiento.** (1) Bucle: `selector.select(MaxSelectMillis) > 0` -> recorre `selectedKeys`; por cada key válida lee `readyOps`, ejecuta `key.interestOps(interestOps & ~readyOps)` y envía el mensaje al `attachment` (el actor); al final `keys.clear()`; `wakeUp.set(false)`. (2) Tras cada vuelta el Task se re-encola en el contexto de ejecución, detrás de las tareas ya en cola (reprogramación). (3) `register`: tarea en el hilo del selector que hace `channel.register(selector, initialOps, channelActor)` y envía un `ChannelRegistration` al actor; `ClosedChannelException` se ignora (carrera con cierre). (4) `enableInterest`/`disableInterest` encolan una tarea que calcula `newOps` y sólo llama a `key.interestOps` si cambia; siempre en el hilo del selector (comentario "benchmarks show ... lock contention"). (5) `cancelAndClose(andThen)`: tarea que hace `key.cancel()` y `channel.close()` (ambos dentro de `Try`) y encola `andThen` como otra tarea, de modo que corra tras el siguiente `select` (necesario en JDK 11/Windows para liberar el canal a nivel de SO). (6) `shutdown`: cierra todos los canales de `selector.keys` y luego el selector. (7) `execute(task)` encola y, si `wakeUp.compareAndSet(false,true)`, llama a `selector.wakeup()`. (8) Todo el estado del selector se toca sólo desde un contexto serializado.
 
-**Dependencias.** AC-DSP-011 (pinned-dispatcher), AC-IO-004.1
+**Errores.** `readyOps` no reconocido: `log.warning("Invalid readyOps: [{}]", x)`. `CancelledKeyException` dentro del bucle o de una tarea se ignora (el canal se cerró desde otro hilo en `postStop` de la conexión). Cualquier otra `NonFatal` en una tarea: `log.error(e, "Error during selector management task: [{}]", e)` (el comentario FIXME :299 reconoce que no se avisa a nadie). `selector.isOpen == false` detiene la reprogramación del bucle (:195-198).
 
-**Equivalente Rust propuesto.** Reactor sobre `mio::Poll` con un tipo `ChannelRegistration` que expone enable/disable de interés; o tokio (Q-IO-1).
+**Orden / concurrencia.** Un único hilo lógico por selector (dispatcher del selector, pinned-dispatcher por defecto, AC-IO-011); las tareas se ejecutan en orden de encolado. Orden de entrega observable para un canal listo para leer y escribir: `ChannelWritable` ANTES de `ChannelReadable`. El interés pedido por el actor se hace efectivo asíncronamente: `enableInterest` retorna antes de que la key lo tenga; por eso los actores de canal toleran un `ChannelReadable` en vuelo tras `disableInterest` (TcpConnectionSpec.scala:362-381).
 
-**Diferencias observables.** Con tokio el modelo edge-triggered de readiness difiere; los ChannelReadable/Writable no existen en el API público.
+**Dependencias.** AC-IO-004.1 (el `SelectionHandler` y el pool `selectors`), AC-DSP-011 (pinned-dispatcher), AC-IO-003 (`TraceLogging`, `SelectorDispatcher`), AC-IO-002.4/.5/.7 y AC-IO-006.x/AC-IO-007 (consumen la costura).
+
+**Equivalente Rust propuesto.** `trait ChannelRegistry { fn register(&self, channel, initial_ops, channel_actor) }` + `ChannelRegistration { enable_interest, disable_interest, cancel_and_close }` como costura interna. Sobre ella, dos implementaciones: reactor sobre `mio::Poll` (un hilo por selector, con el mismo orden Writable-antes-de-Readable y limpieza de interés) o adaptador sobre tokio donde el "interés" se traduce a tareas de lectura/escritura (Q-IO-1 opción c). Se conserva: protocolo de mensajes interno, orden Writable->Readable, `cancelAndClose(andThen)` ejecutando `andThen` después de que el canal esté cerrado, y robustez ante `Readable` tardío. No se conserva: `OP_*` de NIO como API pública ni la semántica level-triggered de `select`.
 
 **Aserciones.**
-- A1. Traducción readyOps -> mensajes y limpieza de interés — derivada del código SelectionHandler.scala:161-198; no afirmada por spec (los specs inyectan los mensajes a mano)
+- A1. El registry NO se prueba por sí mismo: ningún spec toca `ChannelRegistryImpl`. Los specs de conexión lo SUSTITUYEN por `LocalServerTest extends ChannelRegistry` (TcpConnectionSpec.scala:883-947): `register` reenvía `Registration(channel, initialOps)` a `registerCallReceiver`; `ChannelRegistration` falso reenvía `op` a `interestCallReceiver` en `enableInterest` y `-op` en `disableInterest` (:925-930); `cancelAndClose(andThen)` por defecto ejecuta `andThen` de inmediato, y en `EstablishedConnectionTest` cierra el canal cliente, hace `selectNow()` y luego `Try(andThen())` (:1049-1056). Esto fija el CONTRATO que los actores esperan de la costura: registran con `initialOps=0` (:960 `Registration(clientSideChannel, 0)`), piden `OP_CONNECT` al conectar (:998), `OP_READ` tras `Register` salvo pull mode (:1005), y `-OP_READ` en `SuspendReading` (:368).
+- A2. Los mensajes `ChannelConnectable/Readable/Writable/Acceptable` se inyectan a mano (`selector.send(connectionActor, ChannelReadable)`, TcpConnectionSpec.scala:116,151,166,353,372,503-603,643,678; `listener ! ChannelAcceptable`, TcpListenerSpec.scala:57,65,73); un `ChannelReadable` tardío tras `SuspendReading` se ignora aunque haya datos pendientes (TcpConnectionSpec.scala:362-381).
+- A3. Con el selector real y `max-channels = 4`: tras listener + conexión servidor + conexión cliente (3 canales) un `Bind` adicional responde `Bound` (4.º canal), y el siguiente `Bind` y un `Connect` responden `CommandFailed` con el mismo comando (`theSameInstanceAs`) (el conteo es del `SelectionHandler`, AC-IO-004.2) — CapacityLimitSpec.scala:27-45. Es la única prueba de integración que atraviesa el registry real, sin afirmar nada sobre los mensajes de readiness.
+- A4. Traducción `readyOps` -> mensajes, borrado de interés, `OP_READ|OP_WRITE` -> Writable antes que Readable — *no afirmada por spec*; derivada de SelectionHandler.scala:161-198. Caracterización propuesta: con la costura `ChannelRegistry` de Rust, test con canal loopback que fuerza ambos readiness y comprueba el orden de entrega y que el interés queda a 0 hasta el siguiente `enable_interest`.
+- A5. `cancelAndClose(andThen)` ejecuta `andThen` después de cerrar el canal y de un `select` — *no afirmada por spec* (sólo comentada, SelectionHandler.scala:260-268). Caracterización propuesta: `andThen` observa el canal cerrado.
+- A6. `readyOps` inválido -> warning "Invalid readyOps: [..]"; error de tarea -> log "Error during selector management task" — *no afirmada por spec*; textos derivados de SelectionHandler.scala:192,306 (sólo diagnóstico, sin contrato de formato más allá del texto).
 
-**Oráculo.** No aplica: interno de NIO.
+**Validación prevista.** (a) Costura `ChannelRegistry` falsa en Rust que reproduce `LocalServerTest` para portar TcpConnectionSpec/TcpListenerSpec (AC-IO-002.x); es el uso principal. (b) Pruebas de caracterización propias del reactor (A4, A5) en loopback; (c) CapacityLimitSpec portado como integración (A3). Sin oráculo: es NIO interno, no observable por la API pública; el diferencial queda en TcpIntegrationSpec (AC-IO-002.x).
 
-**Decisiones.** Q-IO-1, Q-IO-2
+**Decisiones.** Q-IO-1 (modelo de ejecución) y Q-IO-2 (estrategia de port de specs). Efecto: si Q-IO-1 adopta la costura (c) este contrato se implementa tal cual como interfaz interna; si adopta tokio puro (b) A4/A5 se reinterpretan sobre tareas por conexión y la costura se reduce a un `trait` de pruebas. Puede avanzar la definición del trait y del test de contrato sin esperar al Owner.
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-IO-005 — Opciones de socket: Inet.SocketOption(+V2), Inet.SO.*, Tcp.SO.*, Udp.SO.Broadcast, DatagramChannelCreator, forwarders Scala y fábricas Java
 
@@ -1170,7 +1189,7 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 - A3. Con bind local: el servidor ve Received(d, clientAddress) — UdpConnectedIntegrationSpec.scala:97-114
 - A4. Tras Unbind del servidor y nuevo bind en la misma dirección el cliente puede seguir enviando — UdpConnectedIntegrationSpec.scala:116-136
 - A5. Cuando el servidor desaparece el actor sobrevive y los Send con ack (1,2,3) se acusan; al volver un servidor recibe Received — UdpConnectedIntegrationSpec.scala:138-174
-- A6. Connect con host por nombre que SÍ resuelve falla por doConnect — derivada del código UdpConnection.scala:55-63,82-92; no afirmada por spec y NO verificada contra el jar
+- A6. Connect con host por nombre que SÍ resuelve falla por doConnect — derivada del código UdpConnection.scala:55-63,82-92; no afirmada por spec. Verificada contra el jar publicado 1.7.1 (`ORACLE=jars tools/oracle/run.sh` con un script jshell local no versionado, 2026-10-31): `UdpConnectedMessage.connect(handler, InetSocketAddress.createUnresolved("localhost", 40999))` responde `CommandFailed(Connect(.. localhost:40999 ..))` aunque `localhost` resuelve, mientras que `new InetSocketAddress("127.0.0.1", 40999)` (ya resuelta) responde `Connected` y un nombre inexistente (`doesnotexist.local`) también `CommandFailed`. Defecto latente confirmado de 1.7.1 (Q-IO-5)
 - A7. El lote de lectura no se limita por receive-throughput — derivada del código UdpConnection.scala:132-141; no afirmada por spec
 
 **Oráculo.** Jar oficial en loopback: el caso "Connect con nombre localhost" debe ejecutarse para confirmar el defecto (propuesto en Q-IO-5). Escenario no existe ni se ejecutó.
@@ -1667,82 +1686,104 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 
 **Estado.** analysis=extracted; impl=pending; validation=pending.
 
-### AC-JAPI-001 — AbstractActor + createReceive/ReceiveBuilder y AbstractActor.ActorContext (getters Java, become(Receive), receive timeout con java.time.Duration)
+### AC-JAPI-001 — AbstractActor + createReceive y AbstractActor.ActorContext (getters Java, become(Receive), receive timeout con java.time.Duration)
 
-**Contrato observable.** AbstractActor extiende Actor: receive = createReceive().onMessage (:317-318); receiveBuilder() = ReceiveBuilder.create() (:324). Receive(onMessage: PartialFunction[Any, BoxedUnit]).orElse(other) compone; emptyBehavior no coincide con ningún mensaje (:42-55). AbstractActor.ActorContext añade getSelf, getProps, getSender, getChildren (Iterable), findChild(name): Optional, getParent, getSystem, getDispatcher, become(Receive[, discardOld]), getReceiveTimeout/setReceiveTimeout(java.time.Duration)/cancelReceiveTimeout (= setReceiveTimeout(Duration.Undefined)). Hooks preStart, postStop, preRestart(reason, Optional), postRestart, supervisorStrategy delegan en Actor.
+**Contrato observable.** Clase base Java del actor clásico. `createReceive()` (abstracto) devuelve un `AbstractActor.Receive` (envoltorio de `PartialFunction[Any, BoxedUnit]`); `AbstractActor.receive` es `createReceive().onMessage` y es lo que el runtime usa como comportamiento inicial. `Receive.orElse(other)` compone las funciones; `AbstractActor.emptyBehavior` no coincide con ningún mensaje. `getContext()`/`getSelf()`/`getSender()` exponen `context`/`self`/`sender()`. `AbstractActor.ActorContext` añade a `ActorContext`: `getSelf`, `getProps`, `getSender`, `getChildren` (Iterable), `findChild(name): Optional`, `getParent`, `getSystem`, `getDispatcher`, `become(Receive[, discardOld])`, `getReceiveTimeout`/`setReceiveTimeout(java.time.Duration)`/`cancelReceiveTimeout`. La construcción de comportamientos con `receiveBuilder()` se contrata aparte en AC-JAPI-012.
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:42-55 (Receive) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:64-200 (ActorContext) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:229-325 (AbstractActor) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:141-159 (become) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:192-200 (receive timeout)
+**Fuente.** actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:42-55 (Receive, emptyBehavior) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:64-200 (ActorContext Java) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:229-324 (AbstractActor: getContext 236, getSelf 243, getSender 255, supervisorStrategy 261, preStart 271, postStop 280, preRestart 286 y 298, postRestart 309, createReceive 315, receive 317, receiveBuilder 324) ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:424-464 (ActorCell implementa AbstractActor.ActorContext y los getters Java) ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:602-609,632 (become, Procedure y receive inicial) ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:44-56 (getChildren, findChild) ; actor/src/main/scala/org/apache/pekko/actor/dungeon/ReceiveTimeout.scala:25-37 (estado por defecto Undefined) ; actor/src/main/scala-2/org/apache/pekko/util/JavaDurationConverters.scala (asScala = Duration.fromNanos(toNanos); asJava = ofNanos(toNanos)).
 
-**Condiciones.** createReceive() debe devolver un Receive; el ReceiveBuilder.build() construye la PF con la lógica de AC-JAPI-004.1 (primer caso que coincida gana; sin coincidencia -> unhandled).
+**Precondiciones.** El actor se crea por `Props` con una clase concreta (AC-JAPI-006). `createReceive()` se invoca UNA vez al instanciar (ActorCell.scala:632 usa `instance.receive` sólo si la pila de comportamientos está vacía) y debe devolver un `Receive` no nulo.
 
-**Orden / concurrencia / ciclo de vida.** createReceive() se invoca al construir el actor (receive es def; ver AC-CELL-001).
+**Comportamiento.** (1) Clasificación de fachada: `AbstractActor extends Actor`; `getContext()` es `context.asInstanceOf[AbstractActor.ActorContext]` y la celda real (`ActorCell`) YA implementa `AbstractActor.ActorContext` (ActorCell.scala:426), de modo que `getSelf/getParent/getSystem/getDispatcher/getProps/getChildren/findChild` son alias de `self/parent/system/dispatcher/props/children/getChild` de la MISMA celda; `getSender()` = `sender()`; `become(Receive)` = `become(behavior.onMessage, discardOld = true)`; `setReceiveTimeout(java.time.Duration)` = `setReceiveTimeout(timeout.asScala)`; `cancelReceiveTimeout()` = `setReceiveTimeout(Duration.Undefined)`. No hay lógica propia de ejecución: todo delega en la implementación Scala (AC-CELL, AC-FSM...). (2) Comportamiento diferencial propio (sólo conversiones y valores por defecto): (a) `become(Receive)` descarta el comportamiento anterior por defecto (`discardOld=true`), igual que la forma Scala; (b) `findChild` devuelve `Optional.ofNullable(getChild(name))` (vacío si no existe); (c) `getChildren()` es una vista Java de la colección inmutable; (d) las conversiones de `java.time.Duration` pasan por nanosegundos (`toNanos`): duraciones que no caben en `Long` nanos (~292 años) desbordan con `ArithmeticException` de Java; (e) `getReceiveTimeout()` convierte con `receiveTimeout.asJava`; mientras no se haya fijado un timeout el valor es `Duration.Undefined` (ReceiveTimeout.scala:25) y `Undefined.toNanos` lanza `IllegalArgumentException` en scala.concurrent.duration (derivado del tipo; ver A8); (f) `preRestart(reason, Optional)` es el gancho que se sobrescribe en Java: la versión Scala `preRestart(reason, Option)` está deprecada y delega en la versión `Optional` (`message.toJava`), que a su vez llama a `super.preRestart(reason, message.toScala)` (AbstractActor.scala:286-300); (g) los demás ganchos (`preStart`, `postStop`, `postRestart`, `supervisorStrategy`) son re-declaraciones con `@throws(Exception)` sólo para que Java pueda sobrescribirlos.
 
-**Dependencias.** AC-CELL-001 (Actor), AC-JAPI-004.1
+**Errores.** `createReceive` no definido -> error de compilación en Java (no existe en Rust). `UntypedAbstractActor.createReceive` lanza `UnsupportedOperationException("createReceive should not be used by UntypedAbstractActor")` (AC-JAPI-002). Un mensaje que ninguna función del `Receive` acepta pasa a `unhandled` (UnhandledMessage al EventStream, AC-CELL), no es un error del builder. Excepciones de `createReceive` durante la creación -> `ActorInitializationException` (AC-CELL).
 
-**Equivalente Rust propuesto.** No hay clase base Java: el equivalente es `impl Actor for T` con `fn receive(&mut self, ctx, msg) -> Handled`; `ReceiveBuilder` solo si Q-JAPI-2 lo adopta.
+**Orden / concurrencia.** `getContext()` y el contexto no son seguros entre hilos (documentado, AbstractActor.scala:230-235): sólo dentro del actor. `become` entra en vigor para el siguiente mensaje.
 
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1). Observable: ninguno si la semántica de AC-CELL-001 se porta.
+**Dependencias.** AC-CELL-001 (celda y comportamiento), AC-CELL (become/unbecome, receive-timeout), AC-JAPI-012 (ReceiveBuilder), AC-JAPI-004.1/.3, AC-UTIL-018.2 (JavaDurationConverters).
+
+**Equivalente Rust propuesto.** El trait `Actor` de Rust con su `receive`/`Context` ya expone self, sender, parent, system, children, become y receive-timeout con `std::time::Duration`; no hace falta una clase base ni `Receive` nuevo. Se conserva todo el efecto observable de las filas CELL; lo que se pierde es sólo el nombre `getX()`, `Optional` (-> `Option`) y la vista `Iterable` (-> iterador). Diferencias a documentar: `getReceiveTimeout()` sin timeout (A8) en Rust devolverá `Option::None` en lugar de lanzar. Q-JAPI-1 decide si se ofrecen los alias.
 
 **Aserciones.**
-- A1. Props.create(JavaAPITestActor.class) crea un ActorRef no nulo — JavaAPI.java:66-69
-- A2. Actor con parámetros de constructor "a","b",17,18 responde "a-b-17-18" (también con boxed/unboxed y null) — JavaAPI.java:99-143
-- A3. receive = createReceive().onMessage; orElse; emptyBehavior — derivada del código AbstractActor.scala:42-55,317-318; no afirmada por spec leída
+- A1. Un actor Java cuya `createReceive` devuelve `receiveBuilder().build()` vacío se crea y su clase queda en `Props.actorClass()` — ActorCreationTest.java:83-106 y 321-325 (afirma `p.actorClass()`, no comportamiento de mensajes).
+- A2. `UntypedAbstractActor.onReceive` recibe los mensajes y `getSender()/getSelf()` responden al remitente: el actor responde "a-b-17-18" a "get" — JavaAPI.java:98-106 y 163-209 (`getSender().tell(reply, getSelf())`).
+- A3. `createReceive` con `receiveBuilder().match(Object.class, ...)` procesa mensajes, `getSender()` y `getSelf()` — StashJavaAPITestActors.java:43-56 (con stash; responde `5` a "Hello", StashJavaAPI.java:31-39).
+- A4. `receive` inicial = `createReceive().onMessage`; `become(Receive)` reemplaza descartando el anterior — *no afirmada por spec Java*. Respaldo en Scala del mecanismo subyacente: ActorCell become/unbecome (spec de AC-CELL). Caracterización propuesta: actor que hace `become` y comprueba que el comportamiento viejo ya no responde.
+- A5. `findChild(name)` vacío para hijo inexistente / presente para existente — *no afirmada por spec* (Children.scala:56). Caracterización propuesta.
+- A6. `Receive.orElse` compone en orden; `emptyBehavior` no cubre nada — *no afirmada por spec*. Caracterización propuesta con `isDefinedAt`.
+- A7. `setReceiveTimeout(Duration.ofMillis(n))`/`cancelReceiveTimeout()` equivalen a las formas Scala — *no afirmada por spec Java*; la semántica del timeout la afirman los specs Scala de ReceiveTimeout (AC-CELL). Caracterización propuesta.
+- A8. `getReceiveTimeout()` sin timeout fijado lanza `IllegalArgumentException` — *no afirmada por spec*; derivada del código AbstractActor.scala:168-171 + ReceiveTimeout.scala:25. Verificada contra el jar publicado 1.7.1 (`ORACLE=jars tools/oracle/run.sh` con un script jshell local no versionado, 2026-10-31; es el cross-check de jars, no el build desde fuente): un actor `AbstractActor` que llama `getContext().getReceiveTimeout()` obtiene `java.lang.IllegalArgumentException: toNanos not allowed on infinite Durations`. Es un defecto/artefacto de la fachada Java; en Rust se propone `Option::None` (divergencia a registrar si se porta).
+- A9. `preRestart(reason, Optional)` recibe el mensaje que causó el fallo como `Optional` (vacío si no hubo) — *no afirmada por spec Java*; respaldo Scala en los specs de reinicio (AC-SUP). Caracterización propuesta.
 
-**Oráculo.** Jar oficial desde Java/jshell: no aplicable al port Rust (API distinta).
+**Validación prevista.** (1) Para la fachada: la semántica la cubren las filas CELL/SUP/TMR con sus specs Scala portados; no se duplican tests por cada alias. (2) Diferencial con oráculo sólo para A8 (único comportamiento no derivable con seguridad). (3) Si Q-JAPI-1 acepta la exclusión, esta fila se cierra con la justificación de fachada (ActorCell implementa la interfaz) y sin tests propios.
 
-**Decisiones.** Q-JAPI-1, Q-JAPI-2
+**Decisiones.** Q-JAPI-1 (portar o no la fachada Java). Efecto: sin fachada, ninguna aserción A4-A9 se implementa como API separada (se prueban en CELL); con fachada, se implementan como alias sin lógica propia más A8. No bloquea CELL.
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-JAPI-002 — UntypedAbstractActor, AbstractLoggingActor, AbstractActorWithStash/UnboundedStash/UnrestrictedStash, AbstractActorWithTimers, UntypedAbstractActorWithTimers
 
-**Contrato observable.** UntypedAbstractActor: createReceive() lanza UnsupportedOperationException("createReceive should not be used by UntypedAbstractActor") (:338-339); receive = { case msg => onReceive(msg) } (:341); onReceive(Any) obligatorio (@throws Throwable); unhandled delegable. AbstractLoggingActor = AbstractActor with ActorLogging. AbstractActorWithStash/UnboundedStash/UnrestrictedStash mezclan Stash/UnboundedStash/UnrestrictedStash (:410,:419,:427).
+**Contrato observable.** Variantes de `AbstractActor` que mezclan un trait Scala: `UntypedAbstractActor` (estilo `onReceive(Object)`, `createReceive` prohibido), `AbstractLoggingActor` (+ `ActorLogging`), `AbstractActorWithStash` (+ `Stash`, cola de doble extremo con mailbox acotado por defecto), `AbstractActorWithUnboundedStash` (+ `UnboundedStash`), `AbstractActorWithUnrestrictedStash` (+ `UnrestrictedStash`, sin mailbox impuesto), `AbstractActorWithTimers` y `UntypedAbstractActorWithTimers` (+ `Timers`, `getTimers()`).
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:336-358 (UntypedAbstractActor) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:365 (AbstractLoggingActor) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:410 (WithStash) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:419 (WithUnboundedStash) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:427 (WithUnrestrictedStash) ; actor/src/main/scala/org/apache/pekko/actor/Timers.scala:78,94
+**Fuente.** actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:336-357 (UntypedAbstractActor), 365 (AbstractLoggingActor), 410 (AbstractActorWithStash), 419 (UnboundedStash), 427 (UnrestrictedStash) ; actor/src/main/scala/org/apache/pekko/actor/Timers.scala:78-83 (AbstractActorWithTimers, `getTimers`), 94-99 (UntypedAbstractActorWithTimers, @since 1.1.0) ; actor/src/main/scala/org/apache/pekko/actor/Stash.scala:71-76,82 (Stash, UnboundedStash, UnrestrictedStash y sus RequiresMessageQueue).
 
-**Condiciones.** UntypedAbstractActor.createReceive -> UnsupportedOperationException con el texto fijo (:338-339). Stash: reglas de AC-MBX/AC-STASH.
+**Precondiciones.** Para `*WithStash`/`UnboundedStash` el mailbox debe ser deque: lo exige el marker `RequiresMessageQueue[DequeBasedMessageQueueSemantics]` (el sistema selecciona `unbounded-deque-based` o el acotado según el trait; `UnrestrictedStash` exige que el usuario configure un mailbox compatible, p. ej. `.withMailbox("pekko.actor.mailbox.unbounded-deque-based")`).
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** Todas son composiciones de `AbstractActor` con un trait existente; no añaden lógica. `UntypedAbstractActor`: `receive = { case msg => onReceive(msg) }` (comodín: todo mensaje va a `onReceive`), `createReceive` final y lanza `UnsupportedOperationException("createReceive should not be used by UntypedAbstractActor")`, `unhandled` re-declarado. `AbstractActorWithTimers.getTimers` = `timers` (el `TimerScheduler` del trait `Timers`). Stash: `stash()`, `unstashAll()` se heredan del trait; `postStop`/`preRestart` del trait devuelven los mensajes apilados al mailbox (AC-MBX/AC-STASH).
 
-**Dependencias.** AC-JAPI-001, AC-MBX
+**Errores.** `createReceive()` en `UntypedAbstractActor` -> `UnsupportedOperationException` (el runtime nunca lo llama porque `receive` está sobrescrito). Mailbox no compatible con deque en `WithStash` -> error de creación del actor (AC-MBX-RequiresMessageQueue). Desborde del stash acotado -> `StashOverflowException` (AC-STASH).
 
-**Equivalente Rust propuesto.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Orden / concurrencia.** Igual que Scala: stash y timers sólo se usan dentro del actor; los timers se cancelan al reiniciar/parar.
 
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Dependencias.** AC-JAPI-001, AC-MBX (Stash, deque), AC-TIM (Timers), AC-LOG (ActorLogging).
+
+**Equivalente Rust propuesto.** Los traits `Stash`, `Timers` y el logging por contexto de Rust (AC-TIM/AC-STASH/AC-LOG). No hay herencia: la composición es opcional por capacidad. Efecto observable que se preserva: lo especificado por las filas Scala. No se necesita `UntypedAbstractActor` (en Rust un único `receive`).
 
 **Aserciones.**
-- A1. createReceive de UntypedAbstractActor lanza UnsupportedOperationException con el texto exacto — derivada del código AbstractActor.scala:338-339; no afirmada por spec leída
+- A1. Las tres variantes de stash funcionan de forma equivalente: tras 2 mensajes apilados con `stash()` y un tercero que dispara `unstashAll()`, el actor responde `5` (longitud de "Hello") al probe — StashJavaAPI.java:31-39 (helper), 40-55 (tres tests: WithStash, WithUnboundedStash, WithUnrestrictedStash con `withMailbox("pekko.actor.mailbox.unbounded-deque-based")`), con los actores de StashJavaAPITestActors.java:24-87. El assert (`expectMsg(5)`) cubre sólo la primera respuesta; no verifica el orden ni el contenido tras el segundo mensaje.
+- A2. `UntypedAbstractActor`: `onReceive` recibe y `getSender().tell(.., getSelf())` responde — JavaAPI.java:98-106,163-209.
+- A3. `AbstractFSMWithStash` y las clases del stash compilan desde Java sin "inherits unrelated defaults" — AbstractFSMWithStashActorTest.java:27-81 (ver AC-JAPI-003; es un contrato de compilación JVM/Scala 3, sin equivalente en Rust).
+- A4. `AbstractActorWithTimers.getTimers()` devuelve el mismo `TimerScheduler` que `timers` y los timers se cancelan al reiniciar — *no afirmada por spec Java*; la semántica de los timers la afirman los specs Scala (AC-TIM; Timers.scala:78-99 sólo delega). Caracterización: no necesaria en JAPI.
+- A5. `AbstractLoggingActor.log` — *no afirmada por spec Java*; es `ActorLogging` (AC-LOG).
+- A6. `createReceive` de `UntypedAbstractActor` lanza `UnsupportedOperationException` con ese texto — *no afirmada por spec*; derivada de AbstractActor.scala:338-339. Sin equivalente (no hay `createReceive` en Rust).
 
-**Oráculo.** No aplicable.
+**Validación prevista.** Por fachada: cubierta por las filas AC-STASH, AC-TIM, AC-LOG. No se duplica test salvo, si Q-JAPI-1 acepta la fachada, A1 portado como prueba de integración de la clase base (un actor con stash apilando y reentregando). Justificación: la única lógica diferencial es la selección del mailbox por trait (verificable en MBX).
 
-**Decisiones.** Q-JAPI-1
+**Decisiones.** Q-JAPI-1. Efecto: sin fachada, la fila se cierra por equivalencia con STASH/TIM/LOG; con fachada, se añaden alias de tipo sin lógica. No bloquea.
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-JAPI-003 — AbstractFSM / AbstractLoggingFSM / AbstractFSMWithStash y builders FSM (FSMStateFunctionBuilder, FSMTransitionHandlerBuilder, FSMStopBuilder)
 
-**Contrato observable.** AbstractFSM[S, D] extiende FSM[S, D]: when(stateName, stateFunctionBuilder|timeout), startWith(state, data[, timeout]), onTransition(builder|UnitApply2), whenUnhandled(builder), onTermination(stopBuilder), matchEvent* (por clase, predicado, lista de tipos, igualdad, cualquiera), matchState(from, to, apply), matchStop(reason|class), matchData, goTo, startTimerWithFixedDelay/AtFixedRate/startSingleTimer/setTimer con java.time.Duration. AbstractFSM.NullFunction = FSM.NullFunction. AbstractLoggingFSM = AbstractFSM with LoggingFSM; AbstractFSMWithStash mezcla Stash y reexpone postStop.
+**Contrato observable.** Versión Java del FSM. `AbstractFSM[S, D] extends FSM[S, D]`: `when(state, builder)`, `when(state, timeout, builder)` (con `FiniteDuration` o `java.time.Duration`), `startWith(state, data[, timeout])`, `onTransition(builder | UnitApply2)`, `whenUnhandled(builder)`, `onTermination(builder)`, constructores de builder `matchEvent` (7 formas), `matchEventEquals` (2), `matchAnyEvent`, `matchState` (2), `matchStop` (3), `matchData` (2), `goTo`, y temporizadores `startTimerWithFixedDelay/AtFixedRate/startSingleTimer(name, msg, java.time.Duration)` y `setTimer` (deprecados). `AbstractLoggingFSM` añade `LoggingFSM`; `AbstractFSMWithStash` añade `Stash`.
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:26-45 (objeto) ; actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:86-130 (when) ; actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:140-170 (startWith) ; actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:175-206 (handlers) ; actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:217-348 (matchEvent*) ; actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:361-448 (matchState/Stop/Data) ; actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:448 (goTo) ; actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:466-560 (timers) ; actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:568-586 (variantes)
+**Fuente.** actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:26-586 (when 86-130, startWith 140-166, onTransition 175-188, whenUnhandled 196, onTermination 203, matchEvent 217-309, matchEventEquals 322-338, matchAnyEvent 348, matchState 361-375, matchStop 386-415, matchData 424-439, goTo 448, timers 466-549, Normal/Shutdown 554-560, LoggingFSM 568, WithStash 575-585) ; actor/src/main/java/org/apache/pekko/japi/pf/FSMStateFunctionBuilder.java:27-274 ; actor/src/main/java/org/apache/pekko/japi/pf/FSMStopBuilder.java:27-131 ; actor/src/main/java/org/apache/pekko/japi/pf/FSMTransitionHandlerBuilder.java:24-98 ; actor/src/main/java/org/apache/pekko/japi/pf/PFBuilder.java:22-149 (base de los builders).
 
-**Condiciones.** Mismas condiciones que FSM (AC-FSM): estado inicial exigido por initialize(); timers con nombre.
+**Precondiciones.** Se llama desde el constructor de la subclase antes de `initialize()`, como el FSM Scala (AC-FSM). Argumentos de builder no nulos salvo los comodines indicados.
 
-**Orden / concurrencia / ciclo de vida.** Igual que FSM.
+**Comportamiento.** (1) Fachada: cada método de `AbstractFSM` delega en el FSM Scala (`super.when`, `super.startWith`, `super.onTransition`, `super.whenUnhandled`, `super.onTermination`, `startTimer*`/`setTimer` con `.asScala`) y los builders producen `PartialFunction` que se pasan a esos métodos; la máquina de estados, los timeouts de estado, `StateTimeout`, `stay`, `stop`, `using`, `replying`, notificaciones y el orden de los handlers de transición son los de AC-FSM. (2) Comportamiento propio de los builders (el único diferencial): `FSMStateFunctionBuilder.erasedEvent` evalúa, por este orden, evento (clase -> `isInstance`; valor -> `equals`; null -> cualquiera), dato de estado (clase -> `isInstance`; valor -> `equals`; null -> cualquiera) y por último el predicado (FSMStateFunctionBuilder.java:57-80); la variante con lista `eventMatches` comprueba primero el tipo de dato y luego, por cada elemento de la lista, `isInstance` si es `Class` o `event.equals(em)` si no, cortando en el primero que coincide (:188-203). `FSMStopBuilder.stop(reason, ..)` compara con `reason.equals(e.reason())`; `stop(reasonType, ..)` usa `isInstance` y predicado opcional. `FSMTransitionHandlerBuilder.state(from, to, ..)` trata `null` como comodín en `from` y `to` y compara con `equals`; DEVUELVE un PF de pares (from,to) y, como en Scala, TODOS los handlers instalados con `onTransition` se ejecutan. (3) `build()` de los tres builders delega en `PFBuilder.build`/`UnitPFBuilder.build`, que SÍ resetea el estado (a diferencia de `ReceiveBuilder.build`, AC-JAPI-012). (4) `matchEvent(eventType, dataType, ..)` con ambos tipos exige que el dato sea de ese tipo; sin predicado ni tipo de dato el caso aplica a todo dato. (5) `when(state, builder)` sin timeout pasa `null: FiniteDuration` (sin timeout de estado por defecto).
 
-**Dependencias.** AC-FSM-001, AC-JAPI-004
+**Errores.** Evento no cubierto por la función de estado ni por `whenUnhandled` -> warning "unhandled event .. in state .." y `stay` (AC-FSM). `eventMatches` con elemento null o `event` null -> `NullPointerException` en la evaluación (`event.equals(em)`). Casts de `stateData` a `Q` no verificados: tipo de dato incorrecto -> `ClassCastException` en el cuerpo del usuario. `startWith` sin `initialize()` -> el FSM no arranca (AC-FSM).
 
-**Equivalente Rust propuesto.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Orden / concurrencia.** El orden de `when(...)` repetidos para un mismo estado es el de AC-FSM (se encadenan con `orElse`: el primero que cubre gana); `whenUnhandled`/`onTermination` sobrescriben (la última llamada gana: "Calling this method again will overwrite", AbstractFSM.scala:191-203). Los handlers de transición se acumulan.
 
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Dependencias.** AC-FSM-001 (y las filas FSM de estado/timers/stash), AC-JAPI-004.1/.2/.3, AC-JAPI-002 (Stash), AC-TIM, AC-UTIL-018.2.
+
+**Equivalente Rust propuesto.** Una sola API de FSM en Rust (AC-FSM): función de estado como `match` sobre `(evento, dato)`; `matchEvent*`/`matchState`/`matchStop` se expresan con patrones nativos y no necesitan builder. Se conservan todos los efectos observables del FSM; se pierden `isInstance` por clase (TypeId exacto), `null` como comodín (-> `_`) y los nombres. Los builders sólo son viables como utilidad opcional (Q-JAPI-1/Q-JAPI-2).
 
 **Aserciones.**
-- A1. MyFSM (AbstractFSM) emite "Transitioning from start to start." al iniciar y "Transitioning from start to next." al recibir "next" — AbstractFSMActorTest.java:51-61
+- A1. FSM Java con `onTransition(this::logTransition)`, `startWith("start","data")`, `when("start", matchEventEquals("next", (s,d) -> goTo(s)))`, `when("next", AbstractFSM.NullFunction())`, `initialize()`: al arrancar emite "Transitioning from start to start." y al recibir "next" emite "Transitioning from start to next." — AbstractFSMActorTest.java:27-62 (test canCreateFSM, :52-62). Cubre `onTransition(UnitApply2)`, `matchEventEquals(event, apply)`, `goTo`, `NullFunction`.
+- A2. `AbstractFSMWithStash` con `matchEvent(String.class, (event, data) -> ..)`, `stash()`, `unstashAll()` y `goTo("next")`: "work" se apila en `start`, "go" desapila y transita, y en `next` el probe recibe "work" — AbstractFSMWithStashActorTest.java:34-81 (test :73-81). El propósito declarado es de COMPILACIÓN con Scala 3 (cabecera :27-33: javac rechaza subclases si la clase base no declara un override real de `postStop`); sin equivalente en Rust.
+- A3. Orden de evaluación evento -> dato -> predicado; lista `eventMatches` con clases e instancias; `null` comodín — *no afirmada por spec*; derivada de FSMStateFunctionBuilder.java:57-80,188-203. Caracterización propuesta en el FSM de Rust (patrones con guarda).
+- A4. `matchStop(reason, ..)` por igualdad y `matchStop(Class, ..)` por tipo con predicado; `matchState(from, to, ..)` con `null` comodín — *no afirmada por spec*; derivada de FSMStopBuilder.java:40-124 y FSMTransitionHandlerBuilder.java:36-91.
+- A5. `startTimer*`/`setTimer` con `java.time.Duration` convierten con `asScala` y delegan — *no afirmada por spec Java*; semántica de timers en AC-FSM (FSMTimersSpec).
+- A6. `whenUnhandled`/`onTermination` sobrescriben; `onTransition` acumula — *no afirmada por spec Java*; semántica documentada en AbstractFSM.scala:168-204 y afirmada para la forma Scala por FSMTransitionSpec/FSMActorSpec (AC-FSM).
 
-**Oráculo.** No aplicable.
+**Validación prevista.** Por fachada, la semántica FSM la validan los specs Scala portados (AC-FSM). Sólo si Q-JAPI-1 acepta la fachada: A1 portado como prueba de integración y A3/A4 como caracterización de los builders. A2 se descarta como contrato JVM. Sin oráculo propio (el oráculo FSM de AC-FSM cubre el núcleo).
 
-**Decisiones.** Q-JAPI-1
+**Decisiones.** Q-JAPI-1 (fachada), Q-JAPI-2 (isInstance en builders). Efecto: sin fachada, la fila se cierra por equivalencia con AC-FSM y A3/A4 se cierran como "no aplicable (patrones nativos)". No bloquea AC-FSM.
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-JAPI-004.1 — japi.pf Match/PFBuilder/AbstractMatch/AbstractPFBuilder/CaseStatement: PartialFunction construible por casos (tipo, tipo+predicado, igualdad, cualquiera)
 
@@ -1761,7 +1802,7 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 **Diferencias observables.** `type.isInstance` incluye subtipos JVM; en Rust se compara TypeId exacto (Q-X-6/Q-JAPI-2): un caso `Number` no atraparía un `Integer`. Se reemplaza MatchError (excepción) por `Err(MatchError)` o `None`.
 
 **Aserciones.**
-- A1. Con casos Integer(*10) y Number(*-10): 4711 -> 47110.0; Double 4711 -> -47110.0; String "4711" -> MatchError — MatchBuilderTest.java:28-58
+- A1. Con casos Integer(*10) y Number(*-10): 4711 -> 47110.0; Double 4711 -> -47110.0; String "4711" -> MatchError — MatchBuilderTest.java:28-66
 - A2. matchUnchecked(GenericClass.class, ..) extrae el valor "A" de GenericClass<String> — MatchBuilderTest.java:68-85
 - A3. Con predicado (val no vacío) y valor "" -> MatchError — MatchBuilderTest.java:87-110
 - A4. matchEquals("hello") + matchAny: isDefinedAt("hello") y isDefinedAt("42") son true; apply("42")==42 — PFBuilderTest.java:25-36
@@ -1775,57 +1816,64 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 
 ### AC-JAPI-004.2 — japi.pf UnitMatch/UnitPFBuilder (variante con efecto, sin valor de retorno)
 
-**Contrato observable.** UnitMatch.create(UnitPFBuilder).match(i) aplica el primer caso y devuelve void; lanza MatchError sin coincidencia (UnitMatch.java:142). UnitPFBuilder tiene los mismos matchers (match con/sin predicado, matchUnchecked, matchEquals con/sin predicado, matchAny).
+**Contrato observable.** Gemelos de `Match`/`PFBuilder` para acciones sin resultado: `UnitPFBuilder<I>` (final, ctor público) ofrece `match(Class, UnitApply)`, `matchUnchecked(Class, UnitApply)`, `match(Class, TypedPredicate, UnitApply)`, `matchUnchecked(Class, TypedPredicate, UnitApply)`, `matchEquals(obj, UnitApply)`, `matchEquals(obj, TypedPredicate, UnitApply)` y `matchAny(UnitApply)`. `UnitMatch<I>` estático crea un `UnitPFBuilder` con el primer caso (`match`, `matchUnchecked`, `matchEquals`, `matchAny`), `UnitMatch.create(builder)` congela la PF y `match(i)` la aplica lanzando `MatchError` si ningún caso aplica. La PF interna es `UnitCaseStatement` (`PartialFunction[F, Unit]`).
 
-**Fuente.** actor/src/main/java/org/apache/pekko/japi/pf/UnitMatch.java:61-142 ; actor/src/main/scala/org/apache/pekko/japi/pf/CaseStatements.scala:33-38
+**Fuente.** actor/src/main/java/org/apache/pekko/japi/pf/UnitPFBuilder.java:24-175 ; actor/src/main/java/org/apache/pekko/japi/pf/UnitMatch.java:27-145 (match 37-45, create 120, match(i) 142) ; actor/src/main/java/org/apache/pekko/japi/pf/AbstractPFBuilder.java:26-46 ; actor/src/main/java/org/apache/pekko/japi/pf/AbstractMatch.java:26-41 ; actor/src/main/scala/org/apache/pekko/japi/pf/CaseStatements.scala:32-38 (UnitCaseStatement) ; consumidores: actor/src/main/scala/org/apache/pekko/actor/AbstractFSM.scala:424-439 (matchData) y FSMStopBuilder/FSMTransitionHandlerBuilder.
 
-**Condiciones.** MatchError sin coincidencia.
+**Precondiciones.** Mismas que AC-JAPI-004.1 (no nulos).
 
-**Orden / concurrencia / ciclo de vida.** Primer caso gana.
+**Comportamiento.** Idéntico a PFBuilder/Match salvo el tipo de resultado: `isDefinedAt` = predicado; `apply` ejecuta la acción y devuelve `BoxedUnit`. Orden de alta, `type.isInstance`, `equals` y `matchAny` como en 004.1. Diferencias de superficie con `PFBuilder`: `UnitPFBuilder` SÍ tiene `matchEquals(obj, TypedPredicate, UnitApply)` (UnitPFBuilder.java:138-160) y `PFBuilder`/`Match` NO tienen la variante con predicado; `UnitMatch` expone ambas formas de `matchUnchecked` (47, 72); `matchAny` de `UnitPFBuilder` usa un predicado siempre verdadero. `build()` hereda el reset de `AbstractPFBuilder`.
 
-**Dependencias.** AC-JAPI-004.1
+**Errores.** `UnitMatch.match(i)` sin coincidencia -> `scala.MatchError(i)`. `matchEquals(null, ..)` -> NPE en la evaluación. Una excepción del `UnitApply` se propaga a quien llama a `match`.
 
-**Equivalente Rust propuesto.** Misma estructura que AC-JAPI-004.1 con acción `FnMut(&T)`.
+**Orden / concurrencia.** Orden de alta; builder mutable no seguro entre hilos; `UnitMatch` tras `create` es inmutable.
 
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Dependencias.** AC-JAPI-004.1 (misma mecánica), AC-JAPI-004.3 (FI.UnitApply), AC-JAPI-003 (consumidor).
 
-**Aserciones.**
-- A1. Semántica igual a Match con retorno void — derivada del código UnitMatch.java:142; no afirmada por spec
-
-**Oráculo.** No aplicable.
-
-**Decisiones.** Q-JAPI-2
-
-**Estado.** analysis=listed; impl=pending; validation=pending.
-
-### AC-JAPI-004.3 — japi.pf FI: interfaces funcionales (Apply, UnitApply, Predicate, TypedPredicate, Apply2, UnitApply2/3, UnitApplyVoid, ...)
-
-**Contrato observable.** Contrato: cada interfaz declara un único método (apply/defined) y puede lanzar Exception (Apply) según el caso.
-
-**Fuente.** actor/src/main/java/org/apache/pekko/japi/pf/FI.java:14-232 (no leído en detalle)
-
-**Condiciones.** n/a: no leído.
-
-**Orden / concurrencia / ciclo de vida.** n/a
-
-**Dependencias.** AC-JAPI-004.1
-
-**Equivalente Rust propuesto.** Closures.
-
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Equivalente Rust propuesto.** `ReceiveBuilder<()>`/`CaseBuilder<()>` de AC-JAPI-012 o `match` nativo. Se preserva el orden de casos y el MatchError como `Err`. Es la misma implementación que 004.1 con otro parámetro de tipo: en Rust ambos se unifican con un genérico `R` (con `R = ()`), por lo que NO requiere tipo separado.
 
 **Aserciones.**
-- A1. Sin aserciones: no leído — n/a
+- A1. Ningún test de Pekko ejercita `UnitMatch` ni `UnitPFBuilder` directamente: se usan de forma indirecta en `AbstractFSM.matchData`, `FSMStopBuilder` y `FSMTransitionHandlerBuilder`, que ejerce AbstractFSMActorTest.java:52-62 (transición por `UnitApply2`; no pasa por `UnitPFBuilder` sino por `pekko.compat.PartialFunction.fromFunction`, AbstractFSM.scala:185-188) — por lo que la mecánica `UnitPFBuilder` queda *no afirmada por spec*.
+- A2. `UnitMatch.match` con coincidencia ejecuta la acción; sin coincidencia lanza `MatchError` — *no afirmada por spec*; derivada de UnitMatch.java:142-144 y CaseStatements.scala:32-38. Verificada contra el jar publicado 1.7.1 (`ORACLE=jars tools/oracle/run.sh` con un script jshell local no versionado, 2026-10-31; es el cross-check de jars, no el build desde fuente): `UnitMatch.create(UnitMatch.match(String.class, ..)).match(1)` -> `scala.MatchError: 1 (of class java.lang.Integer)`; y `PFBuilder.build()` resetea (la segunda PF sólo acepta lo añadido después). Caracterización propuesta (reutilizando los tests de AC-JAPI-004.1 con `R = ()`).
+- A3. `UnitPFBuilder.matchEquals(obj, TypedPredicate, UnitApply)` exige `equals` y luego el predicado — *no afirmada por spec*; derivada de UnitPFBuilder.java:138-160.
 
-**Oráculo.** No aplicable.
+**Validación prevista.** Caracterización en Rust compartida con 004.1 (parametrizada por `R`); sin oráculo (semántica determinista de Java). Justificación: no hay spec; el único riesgo es duplicar lógica.
 
-**Decisiones.** Q-JAPI-1
+**Decisiones.** Q-JAPI-2 (builders por TypeId exacto), Q-JAPI-1. Efecto: con (c) de Q-JAPI-2 la fila se cierra como "no aplicable".
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
+
+### AC-JAPI-004.3 — japi.pf FI: interfaces funcionales (Apply, UnitApply, Predicate, TypedPredicate, Apply2, UnitApply2/3/4, UnitApplyVoid, TypedPredicate2)
+
+**Contrato observable.** `FI` es una clase final con constructor privado que agrupa interfaces funcionales (todas `@FunctionalInterface` y `@Deprecated`, "Will be removed in 2.0.0", con recomendación de usar `org.apache.pekko.japi.function.Function`): `Apply<I,R>` (`R apply(I) throws Exception`), `Apply2<I1,I2,R>`, `TypedPredicate<T>` (`boolean defined(T)`), `TypedPredicate2<T,U>`, `UnitApply<I>` (`void apply(I) throws Exception`), `UnitApply2<I1,I2>`, `UnitApply3`, `UnitApply4`, `UnitApplyVoid` (`void apply() throws Exception`), y el privado de paquete `Predicate` (`boolean defined(Object)`).
+
+**Fuente.** actor/src/main/java/org/apache/pekko/japi/pf/FI.java:14-232 (Apply 36-45, Apply2 60-70, TypedPredicate 82-91, TypedPredicate2 102-111, UnitApply 124-131, UnitApply2 142-150, UnitApply3 162-171, UnitApply4 184-194, UnitApplyVoid 206-209, Predicate 222-230) ; usos: ReceiveBuilder.java, PFBuilder.java, UnitPFBuilder.java, FSM*Builder.java, AbstractFSM.scala:50-51.
+
+**Precondiciones.** n/a (tipos).
+
+**Comportamiento.** Sin lógica: contratos de firma. Las que devuelven valor o ejecutan acción PUEDEN lanzar `Exception` comprobada (`throws Exception`), a diferencia de `java.util.function.*`; los predicados (`defined`) no lanzan comprobadas. Se usan como parámetro de los builders.
+
+**Errores.** Una excepción lanzada por una acción se propaga al invocador (el runtime del actor, que la trata como fallo del actor; para `Apply` dentro de un `Match`, a quien llama `match`).
+
+**Orden / concurrencia.** n/a.
+
+**Dependencias.** AC-JAPI-004.1/.2, AC-JAPI-003, AC-JAPI-012.
+
+**Equivalente Rust propuesto.** Closures `Fn`/`FnMut`/`FnOnce` (`Box<dyn FnMut(&T) -> Result<R, Error>>`). Efecto preservado: acciones falibles. Sin tipo propio. Es duplicado exacto de `japi.function.*` salvo el nombre del método (`defined` vs `test`).
+
+**Aserciones.**
+- A1. Sin aserciones de Pekko: no hay test de `FI`; las interfaces se usan en lambdas de ReceiveBuilderTest.java (p. ej. :98,176-195), PFBuilderTest.java:25-36 y MatchBuilderTest.java:29-110 (clases anónimas `FI.Apply`/`FI.TypedPredicate` con `@SuppressWarnings("deprecation")` en :27). Esos tests no afirman propiedades de `FI` sino de los builders.
+- A2. Las acciones pueden lanzar `Exception` comprobada y los predicados no — *no afirmada por spec*; derivada de FI.java:45,70,131,150,171,194,209 (`throws Exception`) y :91,111,230 (sin throws). Sin test posible en Rust (todo closure puede devolver `Result`).
+
+**Validación prevista.** Ninguna propia: se valida por los tests de los builders (004.1, 004.2, 012). Justificación: sólo firmas.
+
+**Decisiones.** Q-JAPI-1 (fachada). Efecto: sin fachada, se cierra por equivalencia con closures.
+
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-JAPI-004.4 — japi.pf DeciderBuilder: decider de supervisión por tipo de Throwable
 
-**Contrato observable.** Clase final con constructor privado; match(Class<P extends Throwable>, Apply<P, Directive>), match(Class, TypedPredicate<P>, Apply), matchAny(Apply<Throwable, Directive>) delegan en Match.match/matchAny.
+**Contrato observable.** Clase pública (no `final`, `DeciderBuilder.java:20`) con constructor privado; match(Class<P extends Throwable>, Apply<P, Directive>), match(Class, TypedPredicate<P>, Apply), matchAny(Apply<Throwable, Directive>) delegan en Match.match/matchAny.
 
 **Fuente.** actor/src/main/java/org/apache/pekko/japi/pf/DeciderBuilder.java:20-78
 
@@ -1848,56 +1896,68 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 
 **Estado.** analysis=extracted; impl=pending; validation=pending.
 
-### AC-JAPI-005.1 — japi.function: Function, Function2, Procedure, Effect, Predicate (+ identity), y japi.Creator/Pair/Option/Util
+### AC-JAPI-005.1 — japi.function (Function, Function2, Procedure, Effect, Predicate, Creator, identity) y japi.Function/Procedure/Effect/Predicate/Creator/Pair/Option/Util deprecados
 
-**Contrato observable.** Function[-T,+R].apply(T): R (puede lanzar Exception); Function.identity; Function2, Procedure, Effect, Predicate.test. japi.Pair(first, second).toScala; Pair.create. japi.Option (some/none/option(v)/fromScalaOption, get/getOrElse/isEmpty/asScala/iterator). japi.Util: classTag, immutableSeq(arr|iterable), immutableSingletonSeq, javaArrayList, immutableIndexedSeq, option(Optional). JavaPartialFunction con noMatch.
+**Contrato observable.** Dos familias de interfaces SAM para Java: (a) `org.apache.pekko.japi.function.*` (vigente, `Serializable`, `@SerialVersionUID(1L)`, con varianza): `Function[-T,+R]`, `Function2`, `Procedure[-T]`, `Effect`, `Predicate[-T]` (`test`), `Creator[+T]` (`create()`), con `Function.identity` (`@since 1.2.0`); `apply`/`create` pueden lanzar `Exception`. (b) `org.apache.pekko.japi.*` (deprecado desde 1.2.0, "Will be removed ... in Pekko 2.0.0"): `Function`, `Function2`, `Procedure`, `Effect`, `Predicate`, `Creator[T]` sin varianza y no `Serializable` salvo `Creator`. Utilidades en `JavaAPI.scala`: `Pair[A,B]` (case class `Serializable`, `toScala`, `Pair.create`), `Option[A]` (deprecado; `some`, `none`, `option(v)`, `fromScalaOption`, `get`, `getOrElse`, `isEmpty`, `isDefined`, `asScala`, `iterator`, `Iterable`) y `Util` (`classTag`, `immutableSeq` x3, `immutableSingletonSeq`, `javaArrayList`, `immutableIndexedSeq`, `option(Optional)` deprecado desde 1.2.1). `JavaPartialFunction` se contrata en AC-JAPI-013.
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/japi/function/Function.scala:28-108 ; actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:36-117 (interfaces y Pair) ; actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:120-168 (JavaPartialFunction) ; actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:187-252 (Option) ; actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:255-311 (Util)
+**Fuente.** actor/src/main/scala/org/apache/pekko/japi/function/Function.scala:28-108 (Function 28-30, object Function.identity 33-39, Function2 50, Procedure 63, Effect 76, Predicate 90, Creator 101-108) ; actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:29-118 (versiones deprecadas) ; actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:88-100 (Pair) ; actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:180-250 (Option) ; actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:252-311 (Util) ; actor/src/main/scala/org/apache/pekko/util/ConstantFun.scala:38 (javaIdentityFunction).
 
-**Condiciones.** Util.option(Optional.ofNullable(null)).isEmpty es true; con valor isDefined (JavaAPI.java:155-161).
+**Precondiciones.** n/a (tipos y utilidades puras).
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** Interfaces sin lógica (firmas). Lógica real, toda trivial y determinista: `Option.some(v)`=Some(v) (permite null), `Option.none`=singleton (`assertSame`), `Option.option(v)`=`none` si `v==null` si no `some(v)`, `Option.Some.get`=v, `None.get` lanza `NoSuchElementException("None.get")`, `getOrElse(d)`=v o d, `asScala`, iteración con 0 ó 1 elemento (`iterator`), conversiones implícitas Scala<->Java. `Pair(first, second)`, `toScala`=(first, second). `Util.immutableSeq(array)`: copia a `IndexedSeq`, `Nil` si el array es null o vacío; `immutableSeq(Iterable)`: devuelve la misma si ya es `immutable.Seq`, si no copia con `VectorBuilder` y `EmptyImmutableSeq` si está vacía; `immutableSingletonSeq(v)`=`v :: Nil`; `javaArrayList(seq)` copia a `ArrayList`; `immutableIndexedSeq` = `immutableSeq(..).toVector`; `Util.option(Optional)` = `Option(jOption.orElse(null))` (NOTA: un `Optional.of(null)` no existe; `Optional.empty` -> None).
 
-**Dependencias.** -
+**Errores.** `None.get` -> `NoSuchElementException("None.get")`. `Util.option(null)` -> `NullPointerException`. `Creator.create()` puede lanzar `Exception` y debe devolver una instancia distinta en cada llamada (contrato de documentación, no verificado).
 
-**Equivalente Rust propuesto.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Orden / concurrencia.** Inmutables; sin estado.
 
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Dependencias.** AC-JAPI-006 (Creator en Props), AC-JAPI-004.3 (FI es su predecesor), AC-UTIL (ConstantFun).
 
-**Aserciones.**
-- A1. Pair.create(1,"2"), Tuple4.create, Tuple22.create compilan — JavaAPI.java:147-151
-- A2. Util.option(Optional.ofNullable(null)) está vacío; con "hello" está definido — JavaAPI.java:153-161
-
-**Oráculo.** No aplicable.
-
-**Decisiones.** Q-JAPI-1
-
-**Estado.** analysis=listed; impl=pending; validation=pending.
-
-### AC-JAPI-005.2 — Funciones y tuplas generadas (japi.function.Functions, japi.tuple.Tuple1..22) desde boilerplate
-
-**Contrato observable.** Generación de Function3..22 y Tuple1..22 con create y accesores; solo compilación.
-
-**Fuente.** actor/src/main/boilerplate/.../Functions.scala.template y Tuples.scala.template (no leídos)
-
-**Condiciones.** n/a
-
-**Orden / concurrencia / ciclo de vida.** n/a
-
-**Dependencias.** -
-
-**Equivalente Rust propuesto.** Tuplas de Rust (hasta 12 en traits estándar).
-
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Equivalente Rust propuesto.** Closures, `Option<T>`, tuplas `(A, B)`, `Vec<T>`/`Arc<[T]>` y `Result`. Efecto preservado: construcción y consulta de opciones/pares. No se portan: varianza, `Serializable` (capturar lambdas para línea de número es un artefacto de Java 8 documentado en los comentarios) ni el tipo `japi.Option` (duplicado de `java.util.Optional`).
 
 **Aserciones.**
-- A1. Tuple4.create y Tuple22.create compilan — JavaAPI.java:147-151
+- A1. `Option.some("abc")`: `isEmpty` falso, `isDefined` verdadero, `get`="abc", `getOrElse("other")`="abc" — JavaAPITestBase.java:30-37 (test shouldCreateSomeString).
+- A2. `Option.none()`: vacío, no definido, `getOrElse("other")`="other" — JavaAPITestBase.java:39-50.
+- A3. Una `Option` presente entra en un `for` Java (itera una vez); una vacía no itera — JavaAPITestBase.java:52-65.
+- A4. `Option.none()` es singleton (`assertSame`) — JavaAPITestBase.java:67-70.
+- A5. `Pair.create(1, "2")`, `Tuple4.create(1,"2",3,4L)`, `Tuple22.create(...)` compilan (sólo compilación) — JavaAPI.java:145-151.
+- A6. `Util.option(Optional.ofNullable(null))` está vacío y `Util.option(Optional.ofNullable("hello"))` está definido — JavaAPI.java:153-161.
+- A7. `None.get` lanza `NoSuchElementException("None.get")`, `Option.option(null)` = none, `Util.immutableSeq` de array nulo/vacío = `Nil`, de `Iterable` ya `immutable.Seq` devuelve la misma instancia, `javaArrayList` copia en orden — *no afirmada por spec*; derivada de JavaAPI.scala:211-249,255-311. Medidos con el jar (ver AC-JAPI-004.2): `Option.none().get()` -> `NoSuchElementException: None.get`; `Option.option(null).isEmpty()` verdadero; `Util.immutableSeq(new String[0])` = `List()`; `japi.function.Function.identity().apply("z")` = "z". Caracterización propuesta con tests propios de las funciones de Rust equivalentes si Q-JAPI-1 acepta la fachada; si no, no aplica.
+- A8. `Function.identity` devuelve su entrada — *no afirmada por spec Java*; derivada de Function.scala:39 y ConstantFun.scala:38. Trivial.
+- A9. Los `japi.function.*` son `Serializable` y los `japi.*` deprecados no lo son (salvo `Creator`) — *no afirmada por spec*; propiedad JVM sin equivalente.
 
-**Oráculo.** No aplicable.
+**Validación prevista.** Ninguna prueba específica de Rust si se excluye la fachada (closures y `Option` nativos cumplen por tipos). Con fachada: A1-A4, A6 se portan como tests de `option`/`some`/`none` y A7 como caracterización. Sin oráculo (funciones puras).
 
-**Decisiones.** Q-JAPI-1
+**Decisiones.** Q-JAPI-1. Efecto: sin fachada se cierra por equivalencia con `Option`/closures/tuplas; deprecado en 1.2.0 con retirada anunciada para Pekko 2.0.0 (evidencia para el Owner: lo deprecado no es parte del núcleo de largo plazo).
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
+
+### AC-JAPI-005.2 — Funciones y tuplas generadas (japi.function.Function3..22, Procedure2..22, japi.tuple.Tuple3..22) desde boilerplate
+
+**Contrato observable.** El generador de plantillas del build produce: `japi.function.Function3..Function22` (`trait FunctionN[-T1.., +R] extends Serializable { def apply(arg1: T1, ...): R }`), `Procedure2..Procedure22` (`apply(...)`: Unit; el valor `[2..#` del rango incluye 2 hasta el máximo) y `japi.tuple.Tuple3..Tuple22` (companion `Tuple<N>.create(t1..tN)` y `final case class Tuple<N>(t1..tN)` con `val toScala`). Las aridades 1 y 2 de las tuplas son `Pair` (JavaAPI.scala) y las de función 1 y 2 son `Function`/`Function2` (AC-JAPI-005.1).
+
+**Fuente.** actor/src/main/boilerplate/org/apache/pekko/japi/function/Functions.scala.template:14-45 (`[3..22#` Function, `[2..#` Procedure) ; actor/src/main/boilerplate/org/apache/pekko/japi/tuple/Tuples.scala.template:14-31 (`[3..22#` Tuple y companion) ; plugin project/plugins.sbt:21 (sbt-boilerplate 0.7.0: el rango y `##1L` se expanden al compilar; las plantillas son la única fuente).
+
+**Precondiciones.** n/a.
+
+**Comportamiento.** Puramente declarativo: `Function<N>` lanza `Exception` permitida (`@throws(classOf[Exception])`), es `Serializable` con `@SerialVersionUID(1L)` y contravariante en los argumentos / covariante en `R`; `Tuple<N>` es case class (igualdad estructural, `toString`, `hashCode`, `copy` de Scala), `create` equivale al constructor, `toScala` es la tupla de Scala `(t1, .., tN)`. `Tuple<N>` NO es `scala.Product<N>` ni `scala.Tuple<N>`: es un tipo distinto hecho para Java. (El rango de Procedure en la plantilla es `[2..#` sin límite superior explícito: sbt-boilerplate 0.7.0, project/plugins.sbt:21, aplica su aridad máxima por defecto, 22; detalle del build, sin comportamiento en tiempo de ejecución.)
+
+**Errores.** Ninguno (tipos).
+
+**Orden / concurrencia.** n/a. Inmutables.
+
+**Dependencias.** AC-JAPI-005.1.
+
+**Equivalente Rust propuesto.** Tuplas nativas de Rust (hasta 12 elementos con `Debug`/`Eq`/`Hash` derivados) y closures. Efecto preservado: agrupar N valores y compararlos estructuralmente. Diferencias: Rust limita las tuplas con traits derivados a 12; Pekko llega a 22. Si se exigiera paridad de aridad se usaría un macro; recomendación: no portar.
+
+**Aserciones.**
+- A1. `Tuple4.create(1,"2",3,4L)` y `Tuple22.create(1..22)` compilan y existen en `japi.tuple` — JavaAPI.java:145-151 (`mustCompileTupleCreation`; sólo compila: no hay `assert`).
+- A2. Igualdad estructural, `toScala` y `create` de `Tuple<N>`; aridad máxima 22; `Function<N>` serializables — *no afirmada por spec*; derivada de Tuples.scala.template:14-31 y Functions.scala.template:14-45. Caracterización: sin test en Rust (se confía en las tuplas nativas).
+
+**Validación prevista.** Ninguna para Rust si se excluye la fachada. Justificación: sólo tipos generados; el único test es de compilación Java.
+
+**Decisiones.** Q-JAPI-1. Efecto: exclusión propuesta apoyada en que lo generado es equivalente a tuplas y closures nativos.
+
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-JAPI-005.3 — japi.Throwables: isFatal / isNonFatal con la semántica de scala.util.control.NonFatal
 
@@ -1970,7 +2030,10 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 - A1. Props.create(creator) y Props.create(classOf[Actor], creator) crean actores — PropsCreationSpec.scala:72-82
 - A2. Props(Actor), Props(classOf, null) y Props(classOf, null, null) crean actores — PropsCreationSpec.scala:53-70
 - A3. Props.create(JavaAPITestActor.class) / con Creator lambda / con Creator erasado crean actores — JavaAPI.java:66-96
-- A4. Textos de validación y de closing-over — derivada del código AbstractProps.scala:35,38-39,72,75-78,136; no afirmada por spec
+- A4. Los textos de validación SÍ están afirmados por spec (corrige "derivada"): closing-over de Creator anónimo/local no estático: "cannot use non-static local Creator to create actors; make it static (e.g. local to a static method) or top-level" — ActorCreationTest.java:186-203 (`Props.create(Actor.class, new Creator<Actor>(){..})`), 224-237 (`new C() {}`), 302-319 (`new P("hello") {}`); Creator erasado (`G`, lambda sin clase): "erased Creator types (e.g. lambdas) are unsupported, use Props.create(actorClass, creator) instead" — ActorCreationTest.java:205-215 y 327-341; clase abstracta: `String.format("Actor class [%s] must not be abstract", H.class.getName())` — ActorCreationTest.java:267-274.
+- A5. Creator estático/top-level/paramétrico/acotado/superinterfaz infiere `p.actorClass()` (AbstractActor, Actor, UntypedAbstractActor...) y Creators anónimos creados en método estático se aceptan — ActorCreationTest.java:217-222, 239-265, 286-300; con clase explícita: `Props.create(TestActor.class, () -> new TestActor(17))` y Creator anónimo — 321-325, 343-353; Issue 20537 (creator reutilizado en varios Props) — 355-369.
+- A6. Los textos "Actor class [..] must be subClass of org.apache.pekko.actor.Actor or org.apache.pekko.actor.IndirectActorProducer.", "unsupported type found in Creator argument [..]" y "unexpected type: .." — derivada del código AbstractProps.scala:38-39,72,78; no afirmada por spec (ActorCreationTest no los ejercita).
+- A7. Constructores con parámetros: `Props.create(Class, "a","b",Integer.valueOf(17),18)` y variantes boxed/unboxed y `null` crean el actor y la respuesta refleja los argumentos ("a-b-17-18", "a-null-null-18", "null-undefined-0-0", "a-null-0-0") — JavaAPI.java:98-143 (resolución de constructor por reflexión Scala: concordancia con null y primitivas; sin equivalente en Rust).
 
 **Oráculo.** Jar oficial: jshell con Props.create inválidos y volcar mensajes. Escenario no existe ni se ejecutó.
 
@@ -1980,53 +2043,66 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 
 ### AC-JAPI-007 — EventBus Java (EventBus, LookupEventBus, SubchannelEventBus, ScanningEventBus, ManagedActorEventBus)
 
-**Contrato observable.** EventBus[E,S,C]: subscribe(subscriber, to): Boolean, unsubscribe(subscriber, from): Boolean, unsubscribe(subscriber): Unit, publish(event). LookupEventBus: mapSize, compareSubscribers, classify, publish(event, subscriber). SubchannelEventBus: subclassification, classify, publish. ScanningEventBus: compareClassifiers, compareSubscribers, matches, publish. ManagedActorEventBus(system): mapSize, classify -> ActorRef.
+**Contrato observable.** Adaptadores abstractos para implementar los buses de eventos desde Java sin tipos abstractos de Scala. `japi.EventBus[E,S,C]`: `subscribe(S, C): Boolean`, `unsubscribe(S, C): Boolean`, `unsubscribe(S): Unit`, `publish(E): Unit`. `LookupEventBus` (hooks protegidos `mapSize`, `compareSubscribers`, `classify`, `publish(E,S)`), `SubchannelEventBus` (`subclassification` público, `classify`, `publish(E,S)`), `ScanningEventBus` (`compareClassifiers`, `compareSubscribers`, `matches`, `publish(E,S)`), `ManagedActorEventBus[E](system)` (suscriptor y clasificador son `ActorRef`; hooks `mapSize`, `classify`).
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/event/japi/EventBusJavaAPI.scala:26-230 (firmas)
+**Fuente.** actor/src/main/scala/org/apache/pekko/event/japi/EventBusJavaAPI.scala:26-49 (EventBus), 57-100 (LookupEventBus), 108-144 (SubchannelEventBus), 152-195 (ScanningEventBus), 203-230 (ManagedActorEventBus) ; actor/src/main/scala/org/apache/pekko/event/EventBus.scala:93,136,219,277 (los traits Scala delegados) ; ejemplos/tests Java del módulo docs: docs/src/test/java/jdocs/event/EventBusDocTest.java:119-268 (implementaciones) y 277-349 (tests).
 
-**Condiciones.** n/a (no leído)
+**Precondiciones.** Hooks implementados por la subclase; `ManagedActorEventBus` exige un `ActorSystem` en el constructor. Los hooks Java pueden ensancharse de `protected` a `public` (los ejemplos lo hacen).
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** (1) Clasificación de fachada: cada clase crea internamente (campo `private val bus`) una instancia anónima del bus Scala correspondiente (`pekko.event.EventBus with LookupClassification`, `SubchannelClassification`, `ScanningClassification`, `ActorEventBus with ManagedActorClassification with ActorClassifier`) cuyos hooks reenvían a los métodos abstractos de la clase Java; `subscribe`, `unsubscribe` (2 formas) y `publish` delegan 1:1 en ese `bus`. No hay lógica propia: la semántica (orden de suscriptores, dedup, subclasificación, desuscripción automática al morir el suscriptor, BoundedBuffer...) es la de AC-EVT-002..005. (2) Único detalle propio: `ManagedActorEventBus` fija `override val system = ManagedActorEventBus.this.system` y su `mapSize` Java reenvía `ManagedActorEventBus.this.mapSize()`.
 
-**Dependencias.** AC-EVT-001
+**Errores.** Los de los traits Scala delegados (AC-EVT-002..005): p. ej. `compareSubscribers` inconsistente rompe el orden; sin validación propia. Un hook que lanza propaga la excepción a quien llama `publish`.
 
-**Equivalente Rust propuesto.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Orden / concurrencia.** Hereda el modelo de AC-EVT-002..005 (thread-safe; `publish` síncrono en el hilo del llamador). El campo `bus` se inicializa en la construcción de la clase base abstracta, ANTES del constructor de la subclase: los hooks no deben depender de campos de la subclase durante `subscribe` desde el constructor (derivado del orden de inicialización; no afirmado).
 
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Dependencias.** AC-EVT-001..005 (comportamiento), AC-EVT-022 (fila que cubre el mismo archivo desde EVT: DUPLICADA con ésta; coordinar para mantener un único contrato), Q-X-6 (Subclassification).
 
-**Aserciones.**
-- A1. Sin aserciones: no leído — n/a
-
-**Oráculo.** No aplicable.
-
-**Decisiones.** Q-JAPI-1
-
-**Estado.** analysis=listed; impl=pending; validation=pending.
-
-### AC-JAPI-008 — Sobrecargas con java.time.Duration, Optional y CompletionStage en Scheduler, ActorSelection, ActorSystem, etc.
-
-**Contrato observable.** Cada sobrecarga convierte java.time.Duration a FiniteDuration y delega en la versión Scala; devuelve Optional/CompletionStage donde Scala usa Option/Future.
-
-**Fuente.** citas de la columna evidence (no leídas)
-
-**Condiciones.** n/a
-
-**Orden / concurrencia / ciclo de vida.** n/a
-
-**Dependencias.** AC-SCH, AC-SEL, AC-SYS
-
-**Equivalente Rust propuesto.** `std::time::Duration` + `Option` + `async fn`: una sola API.
-
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Equivalente Rust propuesto.** Los mismos traits de bus de AC-EVT (`Lookup`, `Subchannel`, `Scanning`, `ManagedActor`), sin distinción Java/Scala. Se preserva el efecto observable completo de las filas EVT. No se ofrece una segunda API.
 
 **Aserciones.**
-- A1. Sin aserciones: no leído — n/a
+- A1. `LookupEventBus`: tras `subscribe(testActor, "greetings")`, publicar `MsgEnvelope("time", ..)` no entrega y `MsgEnvelope("greetings","hello")` entrega "hello" — docs/src/test/java/jdocs/event/EventBusDocTest.java:277-290.
+- A2. `SubchannelEventBus` con subclasificación "empieza por": suscripción a "abc"; "xyzabc" y "bcdef" no entregan, "abc" entrega "c" y "abcdef" entrega "d" — EventBusDocTest.java:292-308 (con `StartsWithSubclassification`, :152-162). Nota: el spec sitúa la semántica `isSubclass(x,y)=x.startsWith(y)` y espera que "abcdef" (subclase de "abc") llegue.
+- A3. `ScanningEventBus` con clasificador numérico 3 y `matches = event.length() <= classifier`: "xyzabc" no entrega, "ab" entrega "ab", "abc" entrega "abc" — EventBusDocTest.java:310-325.
+- A4. `ManagedActorEventBus`: subscriber1 y subscriber2 a observer1, subscriber2 a observer2; publicar n1 (clasificador observer1) llega a ambos; n2 (observer2) sólo a subscriber2 y probe1 no recibe nada en 500 ms — EventBusDocTest.java:327-349.
+- A5. Los tests anteriores viven en el módulo `docs` (ejemplos de documentación), NO en `actor-tests`; en `actor-tests` no hay ningún test Java de estas clases. La semántica de los buses está afirmada por los specs Scala EventBusSpec.scala (LookupEventBusSpec :353, ScanningEventBusSpec :317, y los de Subchannel y ManagedActor del mismo archivo; AC-EVT-002..005).
+- A6. `unsubscribe(S)` y `unsubscribe(S,C)` de las fachadas reenvían al bus Scala — *no afirmada por spec Java*; respaldo en EventBusSpec (Scala). Caracterización no necesaria.
 
-**Oráculo.** No aplicable.
+**Validación prevista.** Ninguna propia: cubierta por los tests de AC-EVT-002..005 portados. Si Q-JAPI-1 acepta una fachada, A1-A4 (ejemplos de documentación) se portan como pruebas de integración de la fachada. Justificación: delegación 1:1 demostrable por lectura (EventBusJavaAPI.scala:95-98,139-142,191-194,226-229).
 
-**Decisiones.** Q-JAPI-1
+**Decisiones.** Q-JAPI-1; duplicidad con AC-EVT-022 (Q-EVT-5 en classic-system). Efecto: se recomienda cerrar JAPI-007 como "Duplicado/fachada equivalente de AC-EVT-002..005" y mantener AC-EVT-022 como registro de la exclusión/inclusión.
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
+
+### AC-JAPI-008 — Sobrecargas Java con java.time.Duration, Optional y CompletionStage (Scheduler, ActorSelection, ActorSystem, Actor, Address)
+
+**Contrato observable.** Métodos Java-friendly que convierten tipos de Java a los de Scala y delegan. Inventario verificado en `pekko-actor` (excluyendo CoordinatedShutdown, que cubren AC-CS-*): `Scheduler` (8 sobrecargas con `java.time.Duration` + `ExecutionContext`/`sender` explícitos): `scheduleWithFixedDelay(Duration, Duration, Runnable, EC)` (Scheduler.scala:129-135), `scheduleWithFixedDelay(Duration, Duration, receiver, message, EC, sender)` (:186-195), `scheduleAtFixedRate` análogas (:264-270, :332-342), `schedule` deprecadas (:373-383, :413-417), `scheduleOnce(Duration, receiver, message, EC, sender)` (:446-452) y `scheduleOnce(Duration, Runnable)(implicit EC)` (:490-493). `ActorSelection.resolveOne(java.time.Duration): CompletionStage[ActorRef]` (ActorSelection.scala:137-141) y `resolveOneCS(FiniteDuration|Duration)` deprecados (:110-126). `ActorSystem.getWhenTerminated: CompletionStage[Terminated]` (ActorSystem.scala:721 declaración, :1003 implementación `whenTerminated.asJava`). `ActorIdentity.getActorRef: Optional[ActorRef]` (Actor.scala:102-105), `Address.getHost(): Optional[String]` y `getPort(): Optional[Integer]` (Address.scala:57-62), `AbstractActor.preRestart(Throwable, Optional[Any])` (AbstractActor.scala:298), `AbstractActor.ActorContext.findChild: Optional` y los receive-timeout con Duration (AC-JAPI-001). Las sobrecargas de `AbstractFSM` (timers y `when/startWith` con Duration) se contratan en AC-JAPI-003.
+
+**Fuente.** (las citadas arriba) ; actor/src/main/scala-2/org/apache/pekko/util/JavaDurationConverters.scala (Scala 2.13) y scala-3 equivalente: `asScala = Duration.fromNanos(self.toNanos)`, `asJava = JDuration.ofNanos(self.toNanos)` ; actor/src/main/scala/org/apache/pekko/util/FutureConverters.scala (CompletionStage <-> Future, AC-UTIL-018.1) ; actor/src/main/scala/org/apache/pekko/util/OptionConverters.scala (Option <-> Optional, AC-UTIL-018.2).
+
+**Precondiciones.** Duraciones y argumentos no nulos (`null` -> `NullPointerException` en `toNanos`/`asScala`). Las de planificación exigen un `ExecutionContext` explícito (en Java no hay implícitos).
+
+**Comportamiento.** Todas convierten `java.time.Duration` por nanosegundos y reenvían a la sobrecarga Scala equivalente; las que devuelven `CompletionStage` aplican `FutureConverters.asJava` al `Future` de la versión Scala (el `CompletionStage` se completa/falla exactamente como el `Future`); las que devuelven `Optional` aplican `toJava` al `Option`. Consecuencias propias: (a) duración de Java que no cabe en `Long` nanosegundos -> `ArithmeticException` de `Duration.toNanos` ANTES de planificar; (b) duración negativa o cero pasa tal cual a la validación del scheduler (AC-SCH-001..004, "must be > 0"/IllegalArgumentException en las periódicas, `scheduleOnce` acepta cero/negativo según AC-SCH-001), sin validación adicional; (c) `Address.getPort` devuelve `Optional<Integer>` (boxed) por un `asInstanceOf` explícito; (d) `resolveOne(Duration)` es la forma NO deprecada para Java; `resolveOneCS` quedó como alias deprecado.
+
+**Errores.** `resolveOne`: `ActorNotFound` (el `CompletionStage` falla) si no existe o no responde en el timeout; las de `Scheduler` lanzan `IllegalArgumentException`/`IllegalStateException` como las Scala (AC-SCH-009 tras `close`). `Optional`: nunca null; vacío en lugar de ausencia.
+
+**Orden / concurrencia.** Idéntica a las versiones Scala. El `CompletionStage` se completa en el dispatcher/hilo del `Future` subyacente.
+
+**Dependencias.** AC-SCH-001..004, AC-REF-011 (ActorSelection.resolveOne), AC-SYS-004 (`whenTerminated`), AC-REF-013 (ActorIdentity), AC-PATH-001 (Address), AC-UTIL-018.1/.2, AC-JAPI-001/003.
+
+**Equivalente Rust propuesto.** `std::time::Duration`, `Option<T>`, `Future` (tokio) y `JoinHandle`/`CancellationToken`; una sola API: las sobrecargas Java desaparecen. Se preserva el efecto observable de la implementación Scala; no se necesitan conversiones (`Duration` de Rust ya es nanosegundos de `u64`/`u32`: el límite de 292 años de Java desaparece, lo que es una diferencia benigna a documentar).
+
+**Aserciones.**
+- A1. `selection.resolveOne(Duration.ofMillis(10))` sobre un actor existente completa con esa misma ref antes de 3 s — ActorSelectionTest.java:36-47 (test :37-47).
+- A2. `system.getWhenTerminated()` se completa (≤ 2 s) tras `system.terminate()` y NO está completo antes — ActorSystemTest.java:42-52 (`testGetWhenTerminated`, `testGetWhenTerminatedWithoutTermination`); el try-with-resources cierra el sistema y su `getWhenTerminated` completa — ActorSystemTest.java:54-62 (`testTryWithResources`).
+- A3. `scheduleWithFixedDelay`, `scheduleAtFixedRate`, `scheduleOnce` con `java.time.Duration` — *no afirmada por spec Java* (ninguno de los tests Java del módulo `actor-tests` llama a estas sobrecargas; los specs Scala SchedulerSpec cubren la semántica, AC-SCH-001..004). Caracterización propuesta: la conversión Duration -> nanos produce el mismo calendario que la forma Scala.
+- A4. `Address.getHost/getPort`, `ActorIdentity.getActorRef`, `AbstractActor.preRestart(.., Optional)` devuelven `Optional` vacío/presente según el `Option` — *no afirmada por spec Java*; derivada de Address.scala:57-62, Actor.scala:102-105. Trivial.
+- A5. `ArithmeticException` con `Duration` mayor que ~292 años y `NullPointerException` con `null` — *no afirmada por spec*; derivada de la API JDK (`Duration.toNanos`). Sin equivalente en Rust.
+
+**Validación prevista.** A1 y A2 portados como pruebas de integración de `resolve_one(timeout)` y `when_terminated()` (que ya existen en las filas REF/SYS en su forma Scala: el test Java es el mismo caso con otra firma). El resto no necesita test propio: las filas AC-SCH ya prueban el calendario. Justificación: delegación 1:1 por lectura.
+
+**Decisiones.** Q-JAPI-1. Efecto: sin fachada, todas las sobrecargas se cierran por equivalencia con la API única de Rust. Se añade la nota de que las deprecadas (`schedule`, `resolveOneCS`, `setTimer`) siguen la decisión de sus filas Scala (AC-SCH-004).
+
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-JAPI-009.1 — TypedActor (clásico, deprecado): proxies JDK; semántica de invocación (void, Future, Option/JOption, valor)
 
@@ -2090,80 +2166,166 @@ Resumen: 77 filas (62 `extracted`, 15 `listed`). Decisiones: ver al final.
 
 **Estado.** analysis=extracted; impl=pending; validation=pending.
 
-### AC-JAPI-009.3 — TypedProps, TypedActorExtension y createActorRefProxy (creación de proxies, interfaces, timeout, dispatcher)
+### AC-JAPI-009.3 — TypedProps, TypedActorExtension, TypedActorFactory y createActorRefProxy (creación de proxies, interfaces, timeout, dispatcher)
 
-**Contrato observable.** typedActorOf crea Props(new TypedActor(proxyVar, creator(), interfaces)).withDeploy(props.actorProps().deploy) y el proxy con createActorRefProxy; cada TypedProps trae interfaces, creator, timeout, dispatcher.
+**Contrato observable.** (TypedActor clásico, deprecado desde Akka 2.6.0, `@deprecated("Use 'org.apache.pekko.actor.typed' API.")`.) `TypedProps[T]` es la configuración inmutable y compartible de un TypedActor: `interfaces`, `creator`, `dispatcher` (por defecto `Dispatchers.DefaultDispatcherId`), `deploy`, `timeout: Option[Timeout]` (por defecto `None`), `loader: Option[ClassLoader]`. Fábricas Scala (`apply[T](implementation: Class[T])`, `apply(interface, implementation)`, `apply(interface, creator: => T)`, `apply[T: ClassTag]()`) y constructores Java (clase; `Creator`; interfaz + clase). Modificadores `withDispatcher`, `withDeploy`, `withLoader` (Java con null -> `None`, y Scala con `Option`), `withTimeout` (Java con null -> `None`), `withInterface`, `withoutInterface`, `actorProps()`. `TypedProps.extractInterfaces(clazz)` = `[clazz]` si es interfaz, si no `clazz.getInterfaces`. `TypedActorFactory` (`typedActorOf(props)`, `typedActorOf(props, name)`, `typedActorOf(props, actorRef)`, `stop(proxy)`, `poisonPill(proxy)`, `isTypedActor`, `getActorRefFor`), `TypedActor(system)` extensión (`TypedActorExtension`: `DefaultReturnTimeout` desde `pekko.actor.typed.timeout`, `getActorRefFor`, `isTypedActor`, `createActorRefProxy`, `invocationHandlerFor`) y `TypedActor(context)` / `TypedActor.get(context)` -> `ContextualTypedActorFactory` (los typed actors creados son hijos del contexto).
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:87-111 (typedActorOf (3 variantes))
+**Fuente.** actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:43-113 (TypedActorFactory) ; actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:115-143 (extensión y contexto) ; actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:526-689 (TypedProps) ; actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:691-700 (ContextualTypedActorFactory) ; actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:702-774 (TypedActorExtension, createActorRefProxy 734-757, invocationHandlerFor 762-773) ; actor/src/main/resources/reference.conf:147-152 (`pekko.actor.typed.timeout = 5s`).
 
-**Condiciones.** n/a: no leído.
+**Precondiciones.** Al menos una interfaz en `props.interfaces` (el proxy JDK se crea con `Proxy.newProxyInstance(loader, interfaces)`; si el `loader` no está definido toma el del primer interfaz); `T <: R` y `R` debe ser una interfaz de las proxiadas. `typedActorOf(props, actorRef)` no crea actor.
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** `typedActorOf(props[, name])`: crea un `AtomVar` para resolver el huevo-gallina proxy/actor, cachea `creator` e `interfaces` para no cerrar sobre `props`, crea el actor con `Props(new TypedActor.TypedActor(proxyVar, c(), i)).withDeploy(props.actorProps().deploy)` (el dispatcher de `TypedProps` SÍ llega al actor: `actorProps()` hace `Props.default.withDispatcher(d).withDeploy(deploy)` y el dispatcher de un `Props` vive en su `deploy`; ver A8) y devuelve el proxy; el orden de las sentencias en `createActorRefProxy` es relevante (comentario "do not change order"): primero `proxyVar.set(proxy)` y después `actorVar.set(actorRef)` para que el actor pueda leer `TypedActor.self` y el proxy ya apunte al actor. `typedActorOf(props, actorRef)`: sólo proxy; las llamadas se envían como `MethodCall` al `actorRef` dado (p. ej. un router). `stop(proxy)`: `false` si no es un proxy; si lo es, `InternalActorRef.stop()` y `true`. `poisonPill(proxy)`: `false` si no es proxy; si no `ref ! PoisonPill` y `true`. `getActorRefFor(proxy)`: `null` si no es proxy. `isTypedActor`: verdadero sólo si es una clase proxy JDK cuyo `InvocationHandler` es `TypedActorInvocationHandler`. `timeout` efectivo = `props.timeout.getOrElse(DefaultReturnTimeout)` (5 s por defecto), aplicado a métodos con retorno no-void (AC-JAPI-009.1).
 
-**Dependencias.** AC-JAPI-009.1
+**Errores.** `stop(null)`/`poisonPill(null)` devuelven `false` (invocationHandlerFor(null) = null). Interfaz inexistente / proxy no creable -> excepción de `Proxy.newProxyInstance` (IllegalArgumentException). Nombre de actor duplicado -> `InvalidActorNameException` (AC-CELL). `TypedActor.self` fuera de contexto -> `IllegalStateException` (AC-JAPI-009.2).
 
-**Equivalente Rust propuesto.** Q-JAPI-3.
+**Orden / concurrencia.** `TypedProps` inmutable y thread-safe. El contexto devuelto por `TypedActor(context)` no debe escapar del actor (documentado, TypedActor.scala:126-130).
 
-**Diferencias observables.** Ver AC-JAPI-009.1.
+**Dependencias.** AC-JAPI-009.1/.2, AC-CELL (creación de actores, Props/Deploy), AC-EXT (ExtensionId), AC-ASK (Timeout), AC-SYS-004.
+
+**Equivalente Rust propuesto.** Sin equivalente dinámico: Rust no tiene proxies por reflexión. Opciones (Q-JAPI-3): excluir, o una macro `#[typed_actor] trait` que genere un proxy que traduzca llamadas a mensajes con las cuatro formas de retorno. Viabilidad alta pero con diseño propio; se preservaría: ciclo crear/parar/poisonPill, timeout por defecto 5 s configurable por `pekko.actor.typed.timeout`, proxy contra un `ActorRef` externo (router). Se perdería: múltiples interfaces y `loader`.
 
 **Aserciones.**
-- A1. Se crea un proxy válido (isTypedActor) — TypedActorSpec.scala:292-296
+- A1. `typedActorOf(TypedProps[Bar](classOf[Foo], classOf[Bar]).withTimeout(..))` crea un proxy que `isTypedActor` (true) y se detiene con `stop` (true) — TypedActorSpec.scala:292-296 (`be able to instantiate`), 298-301 (`be able to stop`).
+- A2. `stop(null)` devuelve false (no detiene no iniciados) — TypedActorSpec.scala:303-305.
+- A3. `TypedProps[StackedImpl](classOf[Stacked], classOf[StackedImpl])` soporta interfaces apiladas: `notOverriddenStacked`="foobar", `stacked`="FOOBAR" — TypedActorSpec.scala:458-463.
+- A4. `typedActorOf(TypedProps[Bar]())` (sólo implementación; `extractInterfaces(Bar)`): `futurePigdog(200 ms)` y `futurePigdog(Zero)` no están completados al volver y producen el mismo resultado — TypedActorSpec.scala:465-473.
+- A5. `TypedProps[StackedImpl]()` con interfaces complejas: `stackable1`="foo", `stackable2`="bar" — TypedActorSpec.scala:475-480.
+- A6. `typedActorOf(TypedProps[Foo](), router)` (proxy sobre un `RoundRobinGroup` de typed actors): se pueden invocar `optionPigdog()` repetidamente; `getActorRefFor(t).path.toStringWithoutAddress` da las rutas de los routees; los cuatro `stop` devuelven true — TypedActorSpec.scala:606-636 (el test sólo escribe `info(..)` y no hace asserts sobre el valor de `optionPigdog`; las aserciones son `isTypedActor` de t1 y t2 y `mustStop`).
+- A7. `pekko.actor.typed.timeout = 5s` es el timeout por defecto — reference.conf:147-152; consumo en TypedActor.scala:715 (`DefaultReturnTimeout`) — *no afirmada por spec* en su valor. El valor 5 s queda confirmado por `DefaultReturnTimeout` (ver A8); el efecto sobre una llamada concreta sigue siendo caracterización propuesta (AC-JAPI-009.1).
+- A8. `props.dispatcher` se aplica al actor creado por `typedActorOf` — *no afirmada por spec* (hipótesis inicial de que no se aplicaba, REFUTADA). Verificada contra el jar publicado 1.7.1 (`ORACLE=jars tools/oracle/run.sh` con un script jshell local no versionado, 2026-10-31; es el cross-check de jars, no el build desde fuente): con `withDispatcher("my-disp")` el método del proxy corre en un hilo `O2-my-disp-5`; sin dispatcher en `O2-pekko.actor.default-dispatcher-4`; con `pekko.actor.internal-dispatcher` en `O2-pekko.actor.internal-dispatcher-2`. Además `isTypedActor(proxy)`=true, `stop(null)`=false y `DefaultReturnTimeout`=`Timeout(5000 milliseconds)` (confirma A7 y A2). El spec "be able to use balancing dispatcher" (TypedActorSpec.scala:482-491; `newFooBar("pooled-dispatcher", ..)` construye con `.withDispatcher`, :278-281) sólo comprueba que 120 llamadas devuelven "Pigdog"+i, no en qué dispatcher corren. No se declara como defecto: pendiente de verificación con oráculo (propuesta: crear typed actor con `withDispatcher("pooled-dispatcher")` y leer `getContext().getDispatcher()` desde dentro).
+- A9. `TypedProps.withTimeout(null)` -> `None`; `withLoader(null)` -> `None`; `withoutInterface` quita las interfaces extraídas — *no afirmada por spec*; derivada de TypedActor.scala:645,659,679-680.
 
-**Oráculo.** No aplicable.
+**Validación prevista.** Si Q-JAPI-3 acepta (b): portar A1-A6 contra el proxy macro-generado más oráculo para A7-A8. Si se excluye: se documenta la exclusión sin tests. A7/A8 ya fueron medidas con el jar (ver A8). Justificación: deprecado, único test de integración es TypedActorSpec.
 
-**Decisiones.** Q-JAPI-3
+**Decisiones.** Q-JAPI-3 (excluir o macro). Efecto: A7 sólo importa si se porta. Bloquea únicamente AC-JAPI-009.1-.3; nada más depende.
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ### AC-JAPI-010 — Fábricas Java de mensajes IO: TcpMessage, UdpMessage, UdpConnectedMessage, TcpSO, UdpSO y SoJavaFactories
 
-**Contrato observable.** UdpMessage: noAck(token), noAck, send(payload, target[, ack]), bind(handler, endpoint[, options]), unbind, simpleSender([options]), suspendReading, resumeReading. UdpConnectedMessage: connect(handler, remote[, local][, options]), send(data[, ack]), disconnect, noAck, suspendReading, resumeReading. TcpSO/UdpSO: keepAlive, oobInline, tcpNoDelay, broadcast + SoJavaFactories (receiveBufferSize, reuseAddress, sendBufferSize, trafficClass).
+**Contrato observable.** Objetos estáticos para Java que construyen comandos de IO y opciones de socket. `TcpMessage`: `connect(remote, local, options, timeout: FiniteDuration | java.time.Duration, pullMode)`, `connect(remote)`, `bind(handler, endpoint, backlog, options, pullMode)`, `bind(handler, endpoint, backlog)`, `register(handler, keepOpenOnPeerClosed, useResumeWriting)`, `register(handler)`, `unbind`, `close`, `confirmedClose`, `abort`, `noAck(token)`, `noAck`, `write(data, ack)`, `write(data)`, `writeFile(String, pos, count, ack)`, `writePath(Path, pos, count, ack)`, `resumeWriting`, `suspendReading`, `resumeReading`, `resumeAccepting(batchSize)`. `UdpMessage`: `noAck`, `send` (2), `bind` (2), `unbind`, `simpleSender` (2), `suspendReading`, `resumeReading`. `UdpConnectedMessage`: `connect` (3), `send` (2), `disconnect`, `noAck`, `suspendReading`, `resumeReading`. `TcpSO` (`keepAlive`, `oobInline`, `tcpNoDelay`), `UdpSO` (`broadcast`), `SoJavaFactories` (`receiveBufferSize`, `reuseAddress`, `sendBufferSize`, `trafficClass`).
 
-**Fuente.** actor/src/main/scala/org/apache/pekko/io/Udp.scala:257-363 ; actor/src/main/scala/org/apache/pekko/io/UdpConnected.scala:194-275 ; actor/src/main/scala/org/apache/pekko/io/Inet.scala:187-219
+**Fuente.** actor/src/main/scala/org/apache/pekko/io/Tcp.scala:672-677 (TcpSO), 702-933 (TcpMessage completo, incluida la conversión implícita privada `fromJava` -> `Util.immutableSeq`) ; actor/src/main/scala/org/apache/pekko/io/Udp.scala:257-363 (UdpMessage desde 257, UdpSO desde 354) ; actor/src/main/scala/org/apache/pekko/io/UdpConnected.scala:194-275 (UdpConnectedMessage) ; actor/src/main/scala/org/apache/pekko/io/Inet.scala:187-221 (SoJavaFactories) ; ejemplos Java: docs/src/test/java/jdocs/io/IODocTest.java:48-97, JavaReadBackPressure.java:45, UdpDocTest.java, UdpConnectedDocTest.java, JavaUdpMulticast.java.
 
-**Condiciones.** n/a (delegan en los constructores Scala; ver filas IO).
+**Precondiciones.** `options` es un `java.lang.Iterable<SocketOption>` (no nulo salvo `Nil` implícito); `Path`/`String` válidos para `writePath/writeFile`.
 
-**Orden / concurrencia / ciclo de vida.** n/a
+**Comportamiento.** Fachada pura: cada método construye el case class/object correspondiente de Scala con los defaults de la forma Scala. Conversiones propias: (a) `connect(remote, local, options, timeout, pullMode)`: `local` null -> `None` (`Option(localAddress)`), `timeout` null -> `None`, `options` Iterable -> `immutable.Seq` vía `Util.immutableSeq` (copia); la variante `java.time.Duration` convierte con `asScala` primero; (b) `connect(remote)` = `Connect(remote, None, Nil, None, pullMode=false)`; (c) `bind(handler, endpoint, backlog)` = `Bind(.., Nil)` y el `pullMode` de la forma larga se respeta; (d) `register(handler)` = `Register(handler)` (keepOpenOnPeerClosed=false, useResumeWriting=true por defecto de la case class); (e) `write(data)` = `Write(data)` (ack = NoAck); (f) `writeFile(String)` = `WritePath(Paths.get(String), ..)`; (g) UdpMessage.bind/simpleSender copian las opciones a `IndexedSeq` (`asScala.to(IndexedSeq)`); (h) `UdpConnectedMessage.connect(handler, remote, local, options)` envuelve `local` SIN `Option(..)` -> `Some(localAddress)`: pasar `null` produce `Some(null)` (diferencia con `TcpMessage.connect`, que usa `Option(..)`), y las otras formas usan `None`; (i) `UdpConnectedMessage.send(data, ack: AnyRef)` frente a `Udp.send(.., ack: Event)`: el tipo del ack difiere (`AnyRef` vs `Event`); (j) `TcpSO.keepAlive(on)` etc. = `KeepAlive(on)` etc.
 
-**Dependencias.** AC-IO-002.1, AC-IO-005
+**Errores.** Los de los constructores Scala (`require` de AC-IO-002.1: p. ej. `Bind` con backlog negativo, `Connect` con parámetros inválidos, `Write` vacío si la case class lo valida; `ResumeAccepting(batchSize > 0)`), no añadidos por la fachada. `null` donde la fachada no lo tolera -> `NullPointerException` (p. ej. `options` null en `UdpMessage.bind`).
 
-**Equivalente Rust propuesto.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Orden / concurrencia.** n/a (constructores puros).
 
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Dependencias.** AC-IO-002.1, AC-IO-002.2..002.6, AC-IO-005, AC-IO-006.1/.2, AC-IO-007, AC-UTIL-018.2.
 
-**Aserciones.**
-- A1. Cada fábrica construye el mensaje equivalente — derivada del código Udp.scala:257-352; no afirmada por spec
-
-**Oráculo.** No aplicable.
-
-**Decisiones.** Q-JAPI-1
-
-**Estado.** analysis=listed; impl=pending; validation=pending.
-
-### AC-JAPI-011 — Clases base Java del núcleo: AbstractScheduler, AbstractActorRef, AbstractPromiseActorRef, AbstractCircuitBreaker, JSerializer, annotation/* (@InternalApi, @DoNotInherit, @ApiMayChange)
-
-**Contrato observable.** AbstractScheduler extiende AbstractSchedulerBase y expone schedule(initialDelay, interval, runnable, executor) (deprecado, FIXME #26910) con variantes java.time.Duration que convierten a FiniteDuration. Las clases Abstract* de actor/ y pattern/ declaran campos con offsets Unsafe para operaciones atómicas (sin API pública propia).
-
-**Fuente.** actor/src/main/java/org/apache/pekko/actor/AbstractScheduler.java:14-90 ((lectura parcial))
-
-**Condiciones.** n/a
-
-**Orden / concurrencia / ciclo de vida.** n/a
-
-**Dependencias.** AC-SCH, AC-ASK, AC-CB
-
-**Equivalente Rust propuesto.** Sin equivalente: los atómicos se expresan con `std::sync::atomic`.
-
-**Diferencias observables.** La API Rust es una sola; no se porta la superficie Java (Q-JAPI-1).
+**Equivalente Rust propuesto.** Construir directamente los enums/structs de mensajes (`Tcp::Connect { .. }`, builders con `Default`). Sin API Java. Se preserva: valores por defecto de cada comando; `Option` para local/timeout. Diferencia a declarar: el caso `Some(null)` de `UdpConnectedMessage.connect` no puede existir en Rust.
 
 **Aserciones.**
-- A1. Sin aserciones: no leído — n/a
+- A1. Los comandos creados con `TcpMessage.connect(...)`, `bind(...)`, `register(...)`, `resumeAccepting(1)` se envían a `IO.Tcp` y funcionan en los ejemplos de documentación — docs/src/test/java/jdocs/io/IODocTest.java:48,56,64,97 y JavaReadBackPressure.java:45 (el módulo `docs`; son ejemplos/compilación, sin aserciones sobre la igualdad de los comandos).
+- A2. Ningún test de `actor-tests` usa `TcpMessage`, `UdpMessage` ni `UdpConnectedMessage` (búsqueda en el árbol de tests: sólo docs/src/test/java) — por tanto la igualdad `TcpMessage.x(...) == Tcp.X(...)` es *no afirmada por spec*. Caracterización propuesta: para cada fábrica, comparar con el case class construido a mano con los mismos argumentos (incluidos los casos null -> None).
+- A3. `UdpConnectedMessage.connect(handler, remote, null, options)` -> `Connect(.., Some(null), ..)` — *no afirmada por spec*; derivada de UdpConnected.scala:208. Solo se documenta; no se porta.
+- A4. `TcpSO.tcpNoDelay(true)` = `Tcp.SO.TcpNoDelay(true)` — *no afirmada por spec*; derivada de Tcp.scala:672-677. Trivial.
 
-**Oráculo.** No aplicable.
+**Validación prevista.** Por fachada, sin pruebas dedicadas si Q-JAPI-1 excluye; el comportamiento de los comandos lo validan AC-IO-002.x/006/007. Con fachada: A2 como test de igualdad por fábrica. Sin oráculo.
 
-**Decisiones.** Q-JAPI-1
+**Decisiones.** Q-JAPI-1. Efecto: sin fachada, la fila se cierra por equivalencia con la construcción directa de los mensajes.
 
-**Estado.** analysis=listed; impl=pending; validation=pending.
+**Estado.** analysis=extracted; impl=pending; validation=pending.
+
+### AC-JAPI-011 — Clases base Java del núcleo: AbstractScheduler, JSerializer, AbstractActorRef/AbstractActorCell/AbstractPromiseActorRef/AbstractCircuitBreaker (offsets Unsafe) y annotation/* (@InternalApi, @DoNotInherit, @ApiMayChange, @InternalStableApi)
+
+**Contrato observable.** Archivos Java/Scala de `pekko-actor` que sirven a Java y no son actores. (1) `AbstractScheduler` (público): clase abstracta que extiende `AbstractSchedulerBase` (= `Scheduler`, Scheduler.scala:503-504) para implementar un `Scheduler` en Java; exige `schedule(FiniteDuration, FiniteDuration, Runnable, ExecutionContext)` (`@Deprecated`), `scheduleOnce(FiniteDuration, Runnable, ExecutionContext)` y `maxFrequency()`; ofrece las dos sobrecargas con `java.time.Duration` ya implementadas. (2) `JSerializer` (público, Serializer.scala:292-303): base para escribir serializadores en Java; `fromBinary(bytes, manifest: Option[Class])` es final y delega en el abstracto `fromBinaryJava(bytes, manifest.orNull)` (manifest puede ser null). (3) `AbstractActorRef`, `AbstractActorCell`, `AbstractPromiseActorRef`, `AbstractCircuitBreaker`: clases `final`/package-private de utilería que obtienen con `Unsafe.objectFieldOffset` los desplazamientos de campos volátiles (`_cellDoNotCallMeDirectly`, `_lookupDoNotCallMeDirectly`, `_stateDoNotCallMeDirectly`, `_watchedByDoNotCallMeDirectly`, `_currentStateDoNotCallMeDirectly`, `_currentResetTimeoutDoNotCallMeDirectly`, y los de `ActorCell`: mailbox, children, nextName, functionRefs) para CAS en Scala; sin API ni comportamiento propio. (4) `annotation/ApiMayChange`, `DoNotInherit`, `InternalApi`, `InternalStableApi`: anotaciones `@Documented @Retention(CLASS)` (retención CLASS "to be accessible by MiMa") con `@Target` TYPE (DoNotInherit) o METHOD/CONSTRUCTOR/FIELD/TYPE/PACKAGE (las otras tres).
+
+**Fuente.** actor/src/main/java/org/apache/pekko/actor/AbstractScheduler.java:14-90 (Javadoc contractual 14-31, clase 32, schedule abstracto 43 y sobrecarga Duration 55, scheduleOnce abstracto 72 y sobrecarga Duration 79, maxFrequency 89) ; actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:502-504 (AbstractSchedulerBase) ; actor/src/main/scala-2/org/apache/pekko/util/JavaDurationConverters.scala (asFiniteDuration) ; actor/src/main/scala/org/apache/pekko/serialization/Serializer.scala:286-303 (JSerializer) ; actor/src/main/java/org/apache/pekko/actor/AbstractActorRef.java ; actor/src/main/java/org/apache/pekko/actor/dungeon/AbstractActorCell.java ; actor/src/main/java/org/apache/pekko/pattern/AbstractPromiseActorRef.java ; actor/src/main/java/org/apache/pekko/pattern/AbstractCircuitBreaker.java ; actor/src/main/java/org/apache/pekko/annotation/ApiMayChange.java:36-45, DoNotInherit.java:33-36, InternalApi.java:31-40, InternalStableApi.java:33-42.
+
+**Precondiciones.** `AbstractScheduler`: la subclase implementa los tres métodos abstractos. `JSerializer`: ctor con un único `ExtendedActorSystem` (preferido) o vacío, como todo serializador (AC-SER-001.2).
+
+**Comportamiento.** (1) `AbstractScheduler.schedule(Duration, Duration, Runnable, EC)` = `schedule(asFiniteDuration(initialDelay), asFiniteDuration(interval), runnable, executor)` y `scheduleOnce(Duration, Runnable, EC)` = `scheduleOnce(asFiniteDuration(delay), runnable, executor)` (AbstractScheduler.java:55-60 y 79-82): fachada de conversión sobre los abstractos que implementa el usuario. Requisitos contractuales de implementación del Javadoc (AbstractScheduler.java:14-31): si el scheduler es `Closeable` DEBE ejecutar todas las tareas pendientes en `close()` para cerrar correctamente los dispatchers (una tarea ejecutada en `close()` puede correr antes de su plazo); DEBE lanzar `IllegalStateException` si no puede planificar una tarea; una vez planificada, la tarea DEBE ejecutarse; se instancia por reflexión al arrancar el `ActorSystem` con argumentos `(Config de system.settings.config, LoggingAdapter, ThreadFactory)` (AC-SCH-010). Los demás métodos de `Scheduler` (`scheduleWithFixedDelay`, `scheduleAtFixedRate`, mensajes a actor...) son `final` en `Scheduler` y se implementan sobre `scheduleOnce`/`schedule` (AC-SCH). (2) `JSerializer`: sólo reenvía `fromBinary` y exige implementar `identifier`, `includeManifest`, `toBinary`, `fromBinaryJava`. (3) Offsets Unsafe: inicialización estática; si el campo no existe lanza `ExceptionInInitializerError(t)`; detalle de plataforma JVM cubierto por AC-UTIL-020. (4) Anotaciones: sin efecto en ejecución; sólo documentación y verificación de compatibilidad binaria en el build.
+
+**Errores.** `AbstractScheduler`: `NullPointerException` con Duration null (conversión); los de `Scheduler`. Offsets: `ExceptionInInitializerError` al cargar la clase si el nombre del campo cambia. Anotaciones: n/a.
+
+**Orden / concurrencia.** Los offsets sirven a accesos atómicos (CAS/volatile) de ActorCell, RepointableActorRef, PromiseActorRef y CircuitBreaker (AC-CELL, AC-REF, AC-ASK, AC-CB); sin orden propio. El scheduler es llamado desde múltiples hilos (responsabilidad de la implementación).
+
+**Dependencias.** AC-SCH (Scheduler, implementación pluggable AC-SCH-010), AC-SER-002 (Serializer), AC-UTIL-020 (Unsafe y offsets), AC-CELL, AC-ASK, AC-CB, AC-UTIL-018.2.
+
+**Equivalente Rust propuesto.** (1) `trait Scheduler` implementable por el usuario (hace falta para `scheduler.implementation`, AC-SCH-010): un solo trait, sin clase "Abstract" Java ni sobrecarga Duration. (2) `JSerializer`: nada (el trait `Serializer` de Rust ya es el SPI único; `manifest.orNull` -> `Option<&TypeId>`). (3) Offsets Unsafe: no existen (atómicos de Rust: `AtomicPtr`, `ArcSwap`). (4) Anotaciones: `#[doc(hidden)]`, `pub(crate)`, `#[non_exhaustive]` y marcado de estabilidad en docs; `@DoNotInherit` -> traits selladas (`sealed` pattern). Se preserva el efecto observable de cada una: que un `Scheduler` de usuario se pueda conectar, y que las APIs internas no sean extensibles por el usuario.
+
+**Aserciones.**
+- A1. Ningún test de `actor-tests`, `testkit` o `actor-tests` Java ejercita `AbstractScheduler`, `JSerializer`, `AbstractActorRef`, `AbstractActorCell`, `AbstractPromiseActorRef`, `AbstractCircuitBreaker` ni las anotaciones directamente (búsqueda de sus nombres en `actor-tests/src/test`, `testkit/src` y `docs/src/test`: sólo aparecen definiciones en `actor/src/main`) — sin aserciones de Pekko. Los offsets Unsafe se ejercitan de forma indirecta por los specs de ActorCell/PromiseActorRef/CircuitBreaker (AC-CELL, AC-ASK, AC-CB).
+- A2. `AbstractScheduler.scheduleOnce(Duration, ..)` y `schedule(Duration, Duration, ..)` (y los requisitos del Javadoc: ejecutar pendientes en close, IllegalStateException) convierten por `asFiniteDuration` y delegan en las abstractas — *no afirmada por spec*; derivada de AbstractScheduler.java. Caracterización propuesta: un scheduler de prueba que registra los `FiniteDuration` recibidos y comprueba la conversión.
+- A3. `JSerializer.fromBinary(bytes, Some(c))` llama `fromBinaryJava(bytes, c)` y con `None` pasa `null` — *no afirmada por spec*; derivada de Serializer.scala:295-298. En Rust no aplica.
+- A4. Las anotaciones tienen retención `CLASS` y sólo metadatos — *no afirmada por spec* (declaración en el fuente; sin comportamiento en tiempo de ejecución).
+
+**Validación prevista.** (1) `AbstractScheduler`: ninguna en Rust; la conexión de un scheduler de usuario se prueba en AC-SCH-010. (2-4): sin pruebas (internos/JVM). Justificación: sin comportamiento observable por la API pública.
+
+**Decisiones.** Q-JAPI-1 (para AbstractScheduler y JSerializer como fachada). Efecto: AbstractScheduler y JSerializer se cierran por equivalencia con el trait `Scheduler`/`Serializer` único; offsets y anotaciones son detalle interno sin contrato independiente (frontera: AC-UTIL-020).
+
+**Estado.** analysis=extracted; impl=pending; validation=pending.
+
+### AC-JAPI-012 — ReceiveBuilder (receiveBuilder()): construcción del Receive por casos con orden de alta, isInstance, igualdad, predicados y matchAny
+
+**Contrato observable.** `ReceiveBuilder.create()` (o `AbstractActor.receiveBuilder()`) acumula casos en orden de alta y `build()` devuelve un `Receive` cuya función parcial prueba los casos en ese orden y ejecuta el primero que aplica. Casos: `match(Class<P>, UnitApply<P>)`, `match(Class, TypedPredicate, UnitApply)`, `match(Class, BooleanSupplier, UnitApply)`, `matchUnchecked(...)` (3 formas, sin chequeo genérico), `matchEquals(obj, ...)` (3 formas) y `matchAny(...)` (2 formas). `type.isInstance(o)` incluye subtipos; `matchEquals` usa `object.equals(o)`.
+
+**Fuente.** actor/src/main/java/org/apache/pekko/japi/pf/ReceiveBuilder.java:48-297 (addStatement 52-55, build 63-69, create 76, match/matchUnchecked 87-203, matchEquals 210-268, matchAny 278-297) ; actor/src/main/scala/org/apache/pekko/japi/pf/CaseStatements.scala:25-38 (UnitCaseStatement, CaseStatement.empty) ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:42-55.
+
+**Precondiciones.** Sin tipos nulos: `type`, `object`, `apply`, `predicate` y `externalPredicate` deben ser no nulos; nada se valida al construir.
+
+**Comportamiento.** `addStatement` encadena con `orElse` (primero en añadirse, primero en probarse). `build()` devuelve `new Receive(statements.orElse(empty))` o `new Receive(empty)` si no hay casos; la PF `empty` no está definida para ningún mensaje (CaseStatement.empty = `PartialFunction.empty`). El comentario del código (`FIXME why no new Receive(statements)?`) reconoce que el `orElse(empty)` es redundante. Los predicados con `BooleanSupplier` se evalúan DESPUÉS de comprobar el tipo y en cada `isDefinedAt`/`apply` (la función parcial se consulta primero con `isDefinedAt` y luego con `apply` en el runtime). Para `matchUnchecked` con tipo y aplicación incompatibles, el fallo (`ClassCastException`) ocurre al aplicar, no al construir.
+
+**Errores.** Sin coincidencia no hay excepción: `isDefinedAt` es falso y el actor trata el mensaje como no manejado. `matchEquals(null, ..)` lanza `NullPointerException` al evaluar `object.equals(o)` (en cada mensaje, no al registrar). `type == null` -> `NullPointerException` al evaluar `type.isInstance`. `matchUnchecked` con tipos cruzados -> `ClassCastException` al aplicar (afirmado, A11). Una excepción del cuerpo (`UnitApply.apply throws Exception`) sale por el `receive` y la gestiona la supervisión.
+
+**Orden / concurrencia.** Orden de casos = orden de llamada. El builder es mutable y no seguro entre hilos; es habitual construirlo en `createReceive` (un solo hilo). DIFERENCIA DOCUMENTAL: el Javadoc de `build()` dice "After this call the builder will be reset" pero `ReceiveBuilder.build()` NO resetea `statements` (a diferencia de `AbstractPFBuilder.build()`, AbstractPFBuilder.java:39-46, que sí pone `statements = null`): llamar dos veces a `build()` devuelve dos `Receive` con los mismos casos y se pueden seguir añadiendo casos tras el primer `build()`.
+
+**Dependencias.** AC-JAPI-001, AC-JAPI-004.3 (FI.UnitApply/TypedPredicate), AC-JAPI-004.2 (UnitPFBuilder, familia análoga), AC-CELL-001.
+
+**Equivalente Rust propuesto.** Un `match` de Rust sobre un enum de mensajes ya es el equivalente idiomático para actores tipados; para actores clásicos con `Box<dyn Any>` (Q-X-3) se ofrece `ReceiveBuilder::new().match_type::<T>(|t| ..).match_type_if::<T>(pred, |t| ..).match_equals(v, |v| ..).match_any(|m| ..).build()`. Se conserva: orden de alta, primer caso gana, predicado tras el tipo, ausencia de excepción por no coincidencia. No se conserva: subtipos (Q-X-6/Q-JAPI-2: TypeId exacto), `matchUnchecked` (sin genéricos reificados), `BooleanSupplier` (cualquier closure sirve) ni el comportamiento "build no resetea" (decidir; recomendación: `build(self)` consume el builder).
+
+**Aserciones.**
+- A1. Sin casos: `isDefinedAt("hello")` y `isDefinedAt(42)` son falsos — ReceiveBuilderTest.java:89-94.
+- A2. `match(Msg1.class, ..)`: Msg1 se procesa ("match Msg1"); Msg2, String e Integer no están definidos — ReceiveBuilderTest.java:96-106.
+- A3. `match(Msg.class, ..)` (interfaz) acepta subclases Msg1 y Msg2 (isInstance) — ReceiveBuilderTest.java:108-121.
+- A4. Con casos Msg1, Msg2, Msg en ese orden, cada mensaje va al handler más específico por ORDEN de alta (Msg1 -> "match Msg1", Msg2 -> "match Msg2") — ReceiveBuilderTest.java:135-150. (La sobrecarga se resuelve en compilación Java, no en el builder.)
+- A5. Un handler general (`anotherHandleMsg(Msg)`) recibe Msg2 ("match Msg") y el específico Msg1 — ReceiveBuilderTest.java:160-174.
+- A6. `match(type, predicate, apply)`: Msg1 con `true` coincide, Msg2 con `value.equals("foo")` coincide, Msg2("bar") no, String/Integer no — ReceiveBuilderTest.java:176-195.
+- A7. `match(type, BooleanSupplier, apply)`: Msg1 coincide cuando el supplier da `true`; Msg2 no (tipo) — ReceiveBuilderTest.java:201-211.
+- A8. `matchEquals(msg2, ..)`, `matchEquals("foo", ..)`, `matchEquals(17, ..)` usan `equals`: `Msg2("foo")` (otra instancia igual), "foo" y 17 coinciden; `Msg2("bar")`, "hello" y 42 no — ReceiveBuilderTest.java:213-237.
+- A9. `matchAny` tras `match(Msg1)`: Msg1 va al primero, Msg2/String/Integer a `matchAny` (orden: el específico antes que el comodín) — ReceiveBuilderTest.java:239-256.
+- A10. `matchUnchecked(List.class, (List<String> l) -> ..)` acepta una `List` — ReceiveBuilderTest.java:258-272.
+- A11. `matchUnchecked(String.class, (Integer i) -> ..)` con "foo": `isDefinedAt` es true y `apply` lanza `ClassCastException` — ReceiveBuilderTest.java:274-287.
+- A12. `build()` no resetea el builder y llamarlo dos veces comparte los casos; `matchEquals(null)` lanza `NullPointerException` al evaluar; `matchAny(BooleanSupplier, ..)` con supplier falso no coincide — *no afirmada por spec*; derivada de ReceiveBuilder.java:63-69,215-218,290-297. Verificada contra el jar publicado 1.7.1 (`ORACLE=jars tools/oracle/run.sh` con un script jshell local no versionado, 2026-10-31; es el cross-check de jars, no el build desde fuente): construir `match(String)`, `build()`, añadir `match(Integer)`, `build()` otra vez: la segunda PF acepta String e Integer (los casos previos se conservan), mientras que `PFBuilder` equivalente tras `build()` queda vacío (la segunda PF sólo acepta Integer); `matchEquals(null, ..)` -> `NullPointerException`; `matchAny(() -> false, ..)` no está definido. Caracterización propuesta con tests propios de Rust (marcados como caracterización, no test original de Pekko).
+
+**Validación prevista.** Portar A1-A11 como tests del `ReceiveBuilder` de Rust adaptando `isInstance` a TypeId exacto (A3 se reescribe con un `trait`/`enum` registrado según Q-JAPI-2 o se marca como divergencia declarada) y A12 como caracterización. Sin oráculo: son semánticas de Java deterministas ya afirmadas por el spec. Para decidir "fachada o comportamiento propio": este es el ÚNICO componente de JAPI con semántica diferencial propia no derivada de otra implementación (no delega en un equivalente Scala; el equivalente Scala es `case` de pattern matching, que no es una clase).
+
+**Decisiones.** Q-JAPI-2 (isInstance vs TypeId exacto), Q-JAPI-1 (fachada). Efecto: si no se ofrece builder (Q-JAPI-2 c), A1-A11 se cierran como "no aplicable, patrón nativo de Rust"; si se ofrece, A3/A9 definen la divergencia de subtipos. No bloquea otras filas.
+
+**Estado.** analysis=extracted; impl=pending; validation=pending.
+
+### AC-JAPI-013 — JavaPartialFunction: función parcial pura para Java (noMatch, isCheck, isDefinedAt/apply/applyOrElse)
+
+**Contrato observable.** `abstract class JavaPartialFunction[A, B] extends AbstractPartialFunction[A, B]`: el usuario implementa `apply(x: A, isCheck: Boolean): B` (puede lanzar `Exception`) y señala "no definido" lanzando `JavaPartialFunction.noMatch()` (una `NoMatchException` preasignada, `NoStackTrace`). `isDefinedAt(x)` llama `apply(x, true)` y devuelve `true` salvo que se lance `NoMatch`; `apply(x)` llama `apply(x, false)` y convierte `NoMatch` en `scala.MatchError(x)`; `applyOrElse(x, default)` llama `apply(x, false)` y, ante `NoMatch`, devuelve `default(x)`.
+
+**Fuente.** actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:120-178 (JavaPartialFunction, NoMatch, noMatch, documentación del patrón isCheck 126-160) ; consumidor: testkit/src/main/scala/org/apache/pekko/testkit/javadsl/TestKit.scala (usa `JavaPartialFunction` en `expectMsgPF`/`receiveWhile`; verificado por búsqueda: es el único uso fuera de la definición).
+
+**Precondiciones.** El cuerpo de `apply(x, isCheck)` debe ser puro respecto a `isCheck == true` (se llama potencialmente más de una vez por aplicación: una con `true` y otra con `false`).
+
+**Comportamiento.** (1) `isDefinedAt` captura SÓLO `NoMatch` (cualquier otra excepción del cuerpo se propaga). (2) `apply` y `applyOrElse` capturan SÓLO `NoMatch`. (3) `noMatch()` devuelve siempre el mismo objeto `NoMatch` (case object) lanzable. (4) El uso típico `if (pf.isDefinedAt(x)) pf.apply(x)` ejecuta el cuerpo dos veces (con `isCheck` true y false), lo que permite evitar efectos secundarios en la comprobación. (5) `applyOrElse` ejecuta el cuerpo UNA sola vez (con `isCheck=false`), a diferencia de `isDefinedAt`+`apply`.
+
+**Errores.** `apply(x)` sin coincidencia: `MatchError(x)`. Otras excepciones del usuario: propagadas tal cual (incluida `Exception` comprobada).
+
+**Orden / concurrencia.** Sin estado; sujeto a lo que haga el cuerpo.
+
+**Dependencias.** AC-JAPI-005.1 (misma unidad JavaAPI.scala), testkit javadsl (fuera de este módulo; frontera: pekko-testkit).
+
+**Equivalente Rust propuesto.** `Fn(&A, bool) -> Result<B, NoMatch>` o, idiomáticamente, `Fn(&A) -> Option<B>`; las dos fases `isCheck` se sustituyen por el propio `Option`. Se preserva: distinguir "definido" de "no definido" y que `apply` sin coincidencia sea un error (`MatchError` como `Err`). Se pierde: la doble llamada (innecesaria con `Option`).
+
+**Aserciones.**
+- A1. Sin tests de Pekko sobre `JavaPartialFunction` en `actor-tests` (búsqueda exhaustiva: sólo aparece en JavaAPI.scala y testkit/javadsl/TestKit.scala) — *no afirmada por spec en este módulo*. La usan `TestKit.expectMsgPF`/`receiveWhile` del testkit Java, cuyos tests están en el módulo del testkit.
+- A2. `isDefinedAt` = no lanza `NoMatch` con `isCheck=true`; `apply` convierte `NoMatch` en `MatchError`; `applyOrElse` usa `default` — *no afirmada por spec*; derivada de JavaAPI.scala:168-177. Medido con el jar (ver método en AC-JAPI-004.2): `isDefinedAt("a")` llama al cuerpo con `isCheck=true`; `apply("a")` con `false`; `applyOrElse` una sola vez con `false`; `apply(1)` sin coincidencia -> `scala.MatchError: 1 (of class java.lang.Integer)`. Caracterización propuesta para Rust: las mismas observaciones con un contador de llamadas.
+
+**Validación prevista.** Ninguna si se excluye la fachada (el `Option` nativo cumple). Con fachada: A2 como test propio. Sin oráculo.
+
+**Decisiones.** Q-JAPI-1. Efecto: sin fachada se cierra por equivalencia con `Option`. Fila nueva (omisión del inventario original: `JavaPartialFunction` no figuraba en ninguna fila).
+
+**Estado.** analysis=extracted; impl=pending; validation=pending.
 
 ## Descomposiciones
 
@@ -2193,6 +2355,8 @@ Cada una con la evidencia del archivo o clave de Pekko que el inventario no cubr
 - AC-IO-013 — `io/ByteBufferCleaner.java` + `ByteBufferCleanerSpec.scala`.
 - AC-JAPI-010 — fábricas Java de IO (`TcpMessage` en `Tcp.scala:702-`, `UdpMessage` `Udp.scala:257-352`, `UdpConnectedMessage` `UdpConnected.scala:194-275`, `TcpSO`/`UdpSO`, `SoJavaFactories` `Inet.scala:187-219`).
 - AC-JAPI-011 — `actor/AbstractScheduler.java`, `AbstractActorRef.java`, `pattern/AbstractPromiseActorRef.java`, `pattern/AbstractCircuitBreaker.java`, `annotation/*.java`.
+- AC-JAPI-012 (cierre 2026-10-31) — `japi/pf/ReceiveBuilder.java` (297 líneas) y `ReceiveBuilderTest.java`: tenía sólo una mención en AC-JAPI-001 y es el único componente JAPI con semántica diferencial propia.
+- AC-JAPI-013 (cierre 2026-10-31) — `JavaPartialFunction` (`japi/JavaAPI.scala:120-178`): no figuraba en ninguna fila.
 
 Además, la descomposición hizo explícitos comportamientos que el padre ocultaba (no son omisiones del inventario, pero no tenían fila propia): `NestedDeserialization` ya existía (AC-SER-009); nuevos hijos para UdpSettings (AC-IO-006.3), bucle de selección (AC-IO-004.4), TcpDnsClient (AC-IO-009.4), códec DNS (AC-IO-009.5), ResolvConfParser (AC-IO-009.6), IdGenerator (AC-IO-009.7) y AsyncDnsManager (AC-IO-009.8), cuyos archivos aparecían en `uncited-classic-main.txt` (`dns/RecordClass`, `dns/RecordType`, `dns/internal/AsyncDnsManager`, `AsyncDnsProvider`, `DnsMessage`, `DomainName`, `Question`, `RecordClassSerializer`, `RecordTypeSerializer`, `io/DnsProvider`, `InetAddressDnsProvider`, `TcpIncomingConnection`, `TcpOutgoingConnection`, `WithUdpSend`, `japi/pf/AbstractMatch`, `AbstractPFBuilder`, `UnitMatch`, `UnitPFBuilder`). Tests sin citar de `uncited-classic-tests.txt` ahora citados: `IdGeneratorSpec`, `NameserverAddressParserSpec`, `AsyncDnsManagerSpec`, `DomainNameSpec`, `MessageSpec`, `TcpDnsClientSpec`, `TcpIntegrationSpecSupport`, `PFBuilderTest`, `NoVerification.scala` (clase auxiliar de `NoVerificationWarningSpec`, AC-SER-004.2). No se leyeron `AsyncDnsResolverIntegrationSpec`/`DockerBindDnsService` (requieren Docker).
 
@@ -2213,21 +2377,7 @@ Inventario viejo vs. código/tests de 1.7.1.
 
 ## Filas que siguen listed
 
-- AC-SER-007.1: no se leyó `toSerializationFormatWithAddress` (AC-PATH) ni el provider remoto; ningún spec afirma el formato.
-- AC-SER-013: no se leyó `ClassLoaderObjectInputStream`, `resolveActorRef` ni `ActorRefSpec.scala:319-340`.
-- AC-IO-004.4: no se leyó el soporte de `TcpConnectionSpec.scala:883-1142` que simula el registry.
-- AC-JAPI-001: faltan `ReceiveBuilder.java` y `ActorCreationTest.java`.
-- AC-JAPI-002: faltan `StashJavaAPI.java`, `Timers.scala:78-94`.
-- AC-JAPI-003: solo firmas de `AbstractFSM` y un test; faltan los builders y `AbstractFSMWithStashActorTest.java`.
-- AC-JAPI-004.2: solo firmas de `UnitMatch`; sin spec propio.
-- AC-JAPI-004.3: `FI.java` no leído.
-- AC-JAPI-005.1: se leyeron firmas, no cuerpos.
-- AC-JAPI-005.2: plantillas de boilerplate no leídas.
-- AC-JAPI-007: solo firmas, sin tests.
-- AC-JAPI-008: sobrecargas no leídas.
-- AC-JAPI-009.3: `TypedProps`/`TypedActorExtension` no leídos.
-- AC-JAPI-010: `TcpMessage` no leído (sí `UdpMessage`/`UdpConnectedMessage` por firmas).
-- AC-JAPI-011: solo `AbstractScheduler.java` parcialmente.
+Ninguna tras el cierre documental de 2026-10-31. Quedan pendientes de verificación con el oráculo (no bloquean `analysis=extracted`; constan como "no afirmada por spec" en cada bloque): AC-SER-007.1 A3-A4 (rama con `Information`; el factory Java de `withTransportInformation` es curried y no se pudo invocar desde jshell) y AC-IO-007 A6 (Q-IO-5). Ya medidos con el jar 1.7.1 el 2026-10-31: AC-JAPI-001 A8, AC-JAPI-012 A12, AC-JAPI-004.2 A2, AC-JAPI-013 A2, AC-JAPI-009.3 A7-A8, AC-SER-007.1 A1/A2/A5.
 
 ## Cobertura
 
@@ -2238,3 +2388,43 @@ Archivos del árbol de Pekko de esta área y las filas que los cubren.
 **IO** (`actor/src/main/scala/org/apache/pekko/io/`): `IO.scala` -> AC-IO-001; `Tcp.scala` -> AC-IO-002.1, AC-IO-003, AC-IO-005 (SO), AC-JAPI-010 (TcpMessage, TcpSO); `TcpManager.scala` -> AC-IO-004.1; `TcpListener.scala`, `TcpIncomingConnection.scala` -> AC-IO-002.2; `TcpOutgoingConnection.scala` -> AC-IO-002.3; `TcpConnection.scala` -> AC-IO-002.4/.5/.6/.7; `SelectionHandler.scala` -> AC-IO-003 (settings), AC-IO-004.1/.2/.3/.4; `Inet.scala` -> AC-IO-005; `Udp.scala` -> AC-IO-006.1/.2/.3; `UdpManager.scala` -> AC-IO-004.1; `UdpListener.scala` -> AC-IO-006.1; `UdpSender.scala`, `WithUdpSend.scala` -> AC-IO-006.2; `UdpConnected.scala`, `UdpConnectedManager.scala`, `UdpConnection.scala` -> AC-IO-007, AC-IO-004.1; `Dns.scala`, `DnsProvider.scala` -> AC-IO-008.1; `InetAddressDnsProvider.scala`, `SimpleDnsManager.scala` -> AC-IO-008.5; `InetAddressDnsResolver.scala` -> AC-IO-008.3; `SimpleDnsCache.scala` -> AC-IO-008.4; `DirectByteBufferPool.scala` -> AC-IO-010; Java: `UnsynchronizedByteArrayInputStream.java` -> AC-IO-012, `ByteBufferCleaner.java` -> AC-IO-013. `io/dns/`: `DnsProtocol.scala`, `DnsResourceRecords.scala`, `CachePolicy.scala`, `RecordType.scala`, `RecordClass.scala` -> AC-IO-008.2; `DnsSettings.scala` -> AC-IO-009.1; `IdGenerator.scala` -> AC-IO-009.7; `internal/AsyncDnsResolver.scala` -> AC-IO-009.2; `internal/DnsClient.scala` -> AC-IO-009.3; `internal/TcpDnsClient.scala` -> AC-IO-009.4; `internal/DnsMessage.scala`, `DomainName.scala`, `Question.scala`, `RecordTypeSerializer.scala`, `RecordClassSerializer.scala`, `package.scala` -> AC-IO-009.5; `internal/ResolvConfParser.scala` -> AC-IO-009.6; `internal/AsyncDnsManager.scala`, `AsyncDnsProvider.scala` -> AC-IO-009.8 / AC-IO-008.5. `reference.conf`: `:345-364` y `:930-938` AC-IO-011; `:940-1026` AC-IO-003; `:1028-1082` AC-IO-006.3; `:1084-1138` AC-IO-007; `:1140-1233` AC-IO-008.x / AC-IO-009.x. Tests: `TcpConnectionSpec`, `TcpIntegrationSpec`, `TcpIntegrationSpecSupport`, `TcpListenerSpec`, `CapacityLimitSpec`, `UdpIntegrationSpec`, `UdpConnectedIntegrationSpec`, `InetAddressDnsResolverSpec`, `SimpleDnsCacheSpec`, `UnsynchronizedByteArrayInputStreamSpec`, `ByteBufferCleanerSpec`, `dns/DnsSettingsSpec`, `dns/IdGeneratorSpec`, `dns/NameserverAddressParserSpec`, `dns/internal/*Spec` (AsyncDnsResolverSpec, DnsClientSpec, TcpDnsClientSpec, AsyncDnsManagerSpec, DomainNameSpec, MessageSpec, ResolvConfParserSpec). Sin leer: `dns/AsyncDnsResolverIntegrationSpec.scala`, `dns/DockerBindDnsService.scala` (requieren Docker).
 
 **JAPI**: `actor/AbstractActor.scala` -> AC-JAPI-001/002; `actor/AbstractFSM.scala` y `japi/pf/FSM*Builder.java` -> AC-JAPI-003; `japi/pf/{Match,PFBuilder,AbstractMatch,AbstractPFBuilder}.java`, `pf/CaseStatements.scala` -> AC-JAPI-004.1; `UnitMatch.java`, `UnitPFBuilder.java` -> AC-JAPI-004.2; `FI.java` -> AC-JAPI-004.3; `DeciderBuilder.java` -> AC-JAPI-004.4; `japi/function/Function.scala`, `japi/JavaAPI.scala` -> AC-JAPI-005.1; `boilerplate/*.template` -> AC-JAPI-005.2; `japi/Throwables.scala` -> AC-JAPI-005.3; `japi/JAPI.java` -> AC-JAPI-005.4; `actor/AbstractProps.scala` -> AC-JAPI-006; `event/japi/EventBusJavaAPI.scala` -> AC-JAPI-007; `Scheduler.scala`, `ActorSelection.scala`, `ActorSystem.scala` sobrecargas -> AC-JAPI-008; `actor/TypedActor.scala` -> AC-JAPI-009.1/.2/.3; `actor/AbstractScheduler.java`, `AbstractActorRef.java`, `pattern/Abstract*.java`, `annotation/*.java` -> AC-JAPI-011. `dispatch/Abstract*.java`, `dispatch/affinity/` y `util/Unsafe.java`, `util/JavaVersion.scala`: pertenecen a MBX/DSP/UTIL y no son cubiertos por este grupo (sin comportamiento propio del módulo de IO/serialización/API Java; implementación interna de colas atómicas). Los archivos `annotation/ApiMayChange.java`, `DoNotInherit.java`, `InternalApi.java`, `InternalStableApi.java` son anotaciones sin comportamiento en tiempo de ejecución (solo metadatos de compilación). `actor/src/main/mima-filters` y `scala-2.13`/`scala-3` (compatibilidad de compilación) no definen comportamiento observable.
+
+## Contradicciones y hallazgos del cierre documental (2026-10-31)
+
+11. **AC-JAPI-006 A4** decía que los textos de validación de `Props.create` eran "derivada del código; no afirmada por spec": `ActorCreationTest.java:186-341` afirma tres de ellos con `assertEquals` exacto (closing-over, Creator erasado, clase abstracta). Corregido en el bloque.
+12. **`ReceiveBuilder.build()` no resetea el builder** aunque su Javadoc (ReceiveBuilder.java:57-62) dice "After this call the builder will be reset"; `AbstractPFBuilder.build()` (usado por PFBuilder, UnitPFBuilder y los FSM*Builder) sí lo hace (AbstractPFBuilder.java:39-46). Contratado en AC-JAPI-012. El `FIXME` del propio código reconoce además que `statements.orElse(empty)` es redundante.
+13. **`DeciderBuilder` no es `final`** (AC-JAPI-004.4 decía "clase final"; DeciderBuilder.java:20 es `public class` con constructor privado). Corregido.
+14. **`UdpConnectedMessage.connect` usa `Some(localAddress)`** y `TcpMessage.connect` usa `Option(localAddress)`: con `null`, el primero produce `Some(null)` (AC-JAPI-010 A3).
+15. **AC-JAPI-007 duplica AC-EVT-022** (ambas cubren `event/japi/EventBusJavaAPI.scala`); los únicos tests son ejemplos del módulo `docs` (`docs/src/test/java/jdocs/event/EventBusDocTest.java`), no de `actor-tests`. Se mantienen las dos filas con contrato idéntico por referencia; recomendación al coordinador: dejar una sola.
+16. **Los tests de las fábricas Java de IO (AC-JAPI-010) no existen en `actor-tests`**; sólo hay ejemplos en `docs/src/test/java/jdocs/io/`. La igualdad fábrica = case class queda *no afirmada por spec*.
+17. **AC-JAPI-001 `getReceiveTimeout()`**: con el valor por defecto `Duration.Undefined` la conversión `asJava` (`toNanos`) lanza `IllegalArgumentException: toNanos not allowed on infinite Durations` (medido con el jar 1.7.1).
+18. **AC-JAPI-009.3 (hipótesis refutada por medición)**: se sospechó que `typedActorOf` descartaba el dispatcher de `TypedProps` porque sólo toma `props.actorProps().deploy` (TypedActor.scala:91,102). Medido con el jar 1.7.1: SÍ se aplica (el dispatcher de un `Props` vive en su `deploy`). No hay diferencia.
+19. **Q-IO-5 (doConnect ignora la dirección resuelta) — CONFIRMADO con el jar 1.7.1**: `UdpConnection.doConnect(@unused address)` conecta con `channel.connect(remoteAddress)` (UdpConnection.scala:88), la dirección sin resolver, aunque `reportConnectFailure` le pase la resuelta. Medido: `UdpConnected.Connect` a `InetSocketAddress.createUnresolved("localhost", 40999)` -> `CommandFailed`; a una dirección ya resuelta -> `Connected`. Resuelve la incertidumbre de Q-IO-5; sólo queda la decisión del Owner de corregir o replicar.
+
+## Revisión de exhaustividad (cierre documental 2026-10-31)
+
+Clasificación del árbol de fuentes del grupo (`serialization/`, `io/`, `japi/`, clases base Java de `actor/src/main/java`, `AbstractActor*.scala`, `AbstractFSM.scala`, `TypedActor.scala`, `event/japi/`, y los tests Java de `actor-tests`).
+
+Cubierto por contratos concretos:
+- Serialización: todos los archivos de `serialization/` (ver "Cobertura"); `JSerializer` pasó a AC-JAPI-011 con referencia a AC-SER-002.
+- IO: TCP, UDP, UDP conectado, DNS (AC-IO-001..013); costura `ChannelRegistry` y bucle de selección (AC-IO-004.4).
+- JAPI: `AbstractActor` y familia (AC-JAPI-001/002), `ReceiveBuilder` (AC-JAPI-012), `AbstractFSM` y builders FSM (AC-JAPI-003), `japi.pf` (AC-JAPI-004.1-.4), `japi.function`/`JavaAPI.scala` (AC-JAPI-005.1-.4, AC-JAPI-013), `Props` Java (AC-JAPI-006), `TypedActor`/`TypedProps`/`TypedActorExtension` (AC-JAPI-009.1-.3), fábricas Java de IO (AC-JAPI-010).
+
+Duplicado o fachada equivalente (con evidencia de que delega en la misma implementación):
+- `AbstractActor.getContext()` es un cast de `context` y `ActorCell` implementa `AbstractActor.ActorContext` (ActorCell.scala:424-464): getters Java = alias de la celda (AC-JAPI-001). `UntypedAbstractActor`, `AbstractLoggingActor`, `AbstractActorWith*Stash`, `AbstractActorWithTimers` componen traits Scala (AC-JAPI-002).
+- `AbstractFSM`: cada método reenvía a `FSM` (AbstractFSM.scala:86-549); los builders producen `PartialFunction` para esos métodos (AC-JAPI-003).
+- `EventBusJavaAPI`: cada clase contiene un `bus` Scala anónimo y reenvía 1:1 (EventBusJavaAPI.scala:57-230) (AC-JAPI-007; duplicado de AC-EVT-022).
+- Sobrecargas `java.time.Duration`/`Optional`/`CompletionStage`: conversión + delegación (AC-JAPI-008). `TcpMessage`/`UdpMessage`/`UdpConnectedMessage`/`TcpSO`/`UdpSO`/`SoJavaFactories`: constructores de case classes (AC-JAPI-010). `japi.function.*`, `Tuple3..22`, `Function3..22` (AC-JAPI-005.1/.2). `JAPI.java` (AC-JAPI-005.4). `FI.java` duplica `japi.function` (AC-JAPI-004.3).
+- Comportamiento diferencial propio (no es sólo fachada): `ReceiveBuilder` (orden de alta, `isInstance`, `matchEquals(null)`, `build` sin reset, supplier externo) AC-JAPI-012; `PFBuilder`/`Match`/`UnitMatch` (isInstance, MatchError) AC-JAPI-004.1/.2; builders FSM (orden evento/dato/predicado, `null` comodín) AC-JAPI-003; `Props.create` (validaciones y mensajes) AC-JAPI-006; `JavaPartialFunction` (`isCheck`, `noMatch`) AC-JAPI-013; `japi.Option` (`none` singleton, `option(null)`) AC-JAPI-005.1; conversiones de `Duration` (desbordo a 292 años, `Undefined`) AC-JAPI-001/008; `UdpConnectedMessage.connect` con `Some(null)` AC-JAPI-010; `AbstractActor.getReceiveTimeout()` sin timeout AC-JAPI-001.
+
+Detalle interno sin contrato independiente (justificado):
+- `AbstractActorRef.java`, `AbstractActorCell.java`, `AbstractPromiseActorRef.java`, `AbstractCircuitBreaker.java`: offsets `Unsafe` de campos privados, sin API (AC-JAPI-011; ver AC-UTIL-020). `annotation/*.java`: metadatos con retención CLASS (AC-JAPI-011). `ChannelRegistryImpl`, `Task` y el `wakeUp` atómico: mecanismo del reactor NIO (AC-IO-004.4). `AbstractMatch`/`AbstractPFBuilder`/`CaseStatement`: clases auxiliares de AC-JAPI-004.1.
+
+Fuera de estos módulos con frontera explícita:
+- `CoordinatedShutdown` y sus sobrecargas Java (`addTask(Supplier<CompletionStage>)`, `run(reason, Optional)`, etc., CoordinatedShutdown.scala:577-801): AC-CS-* (otro grupo). `Scheduler` en sí (calendario, validaciones): AC-SCH-001..004; aquí sólo sus sobrecargas. `testkit/javadsl/TestKit.scala` (usa `JavaPartialFunction`): módulo pekko-testkit, fuera de pekko-actor. Tests de ejemplo en `docs/src/test/java/jdocs/{event,io}`: módulo `docs`; se citan como evidencia, no como tests de paridad.
+- `dispatch/Abstract*.java`, `dispatch/affinity/`, `util/Unsafe.java`: MBX/DSP/UTIL.
+
+Pendiente de análisis (NO fuera de alcance; asignar a los grupos indicados, no revisado en este grupo):
+- Tests Java de `actor-tests` sin cita en el inventario: `CircuitBreakerTest.java` y `AbstractCircuitBreaker` (grupo CB), `StatusReplyTest.java` (ASK/StatusReply), `ActorWithMDC.java` (EVT, MDC), `setup/ActorSystemSetupTest.java` (SYS/CFG, Setup). Sin leer en este grupo: `LoggingAdapterTest.java`, `PatternsTest.java`, `CompletionStagesTests.java`, `JavaFutureTests.java`, `AddressTest.java`, `JavaExtension.java`, `ByteStringTest.java`, `ConstantFunJavaTest.java`, `JavaConverterScala3InlineTest.java`: están citados por filas de otros grupos (EVT, ASK, DSP, PATH, EXT, UTIL); el coordinador debe confirmar que cada uno se lee allí.
+- `JavaAPI.java:46-63` (`mustCompile`: `Kill.getInstance()`, `PoisonPill.getInstance()`, `ReceiveTimeout.getInstance()`, `LocalScope.getInstance()`, `NoScopeGiven.getInstance()`, `Logging.loggerInitialized()`, `GetRoutees.getInstance()`, `NoRouter.getInstance()`, `FromConfig.getInstance()`, `ActorPaths.fromString`): fachadas Java de singletons (`getInstance`) y de `ActorPaths`; son compilación, pero los objetos están contratados en sus filas (AC-CELL/AC-RT/AC-PATH). Pendiente: confirmar que `ActorPaths` (clase estática Java) tiene fila en PATH; no verificado.
+- `Props` Java API completa (más allá de `create`) y `ActorSystem.create` estáticos (ActorSystem.scala:205-211): fachadas pendientes de contrastar con AC-REF-007/AC-SYS.

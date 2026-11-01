@@ -1,6 +1,6 @@
 # Spec 04 — AC-UTIL (3/3)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 4. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** bloqueada. **Filas:** 7. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -8,15 +8,15 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
+- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-002.2, AC-UTIL-006.5.
 - Spec 03 `AC-UTIL-2` (`03-ac-util-2.md`), por las filas AC-UTIL-016.6.
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-002.2.
-- Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`), por las filas AC-SCH-008. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`), por las filas AC-SCH-008.1, AC-SCH-008.2, AC-SCH-008.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 24 `AC-IO-1` (`24-ac-io-1.md`), por las filas AC-IO-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
-- Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-UTIL-10`, `Q-UTIL-13`, `Q-UTIL-8`.
+- Bloqueantes: `Q-UTIL-12`.
+- Propuestas aún sin decisión del Owner: `Q-UTIL-10`, `Q-UTIL-11`, `Q-UTIL-13`, `Q-UTIL-8`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -25,9 +25,18 @@ jars oficiales pekko-actor + scala-library 1.7.1; ya existe tools/oracle/util-co
 
 ## Tareas
 
-### Tarea 1: Helpers.makePattern (patrón glob `?`/`*` a java.util.regex.Pattern) (+3 filas)
+### Tarea 1: Acceso Unsafe y offsets de campos (Unsafe.java, AbstractActorRef, AbstractActorCell,… (+5 filas)
 
-Filas: AC-UTIL-023, AC-UTIL-024, AC-UTIL-025, AC-UTIL-026. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-020, AC-UTIL-021, AC-UTIL-022, AC-UTIL-023, AC-UTIL-024, AC-UTIL-025. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 2: Helpers.isWindows (detección de SO por os.name)
+
+Filas: AC-UTIL-026. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -38,9 +47,12 @@ Filas: AC-UTIL-023, AC-UTIL-024, AC-UTIL-025, AC-UTIL-026. Contratos y asercione
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
+| AC-UTIL-020 | Acceso Unsafe y offsets de campos (Unsafe.java, AbstractActorRef,… | `std::sync::atomic` (`AtomicPtr`, `AtomicU32`) / `arc-swap` | actor-tests/src/test/scala/org/apache/pekko/util/AsciiStringCopySpec.scala:22-52 | Q-UTIL-11 |
+| AC-UTIL-021 | Filtros MiMa (compatibilidad binaria) | N/A (en Rust: semver + `cargo-semver-checks`) | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
+| AC-UTIL-022 | UnsynchronizedByteArrayInputStream, ByteStringInputStream, ByteBufferCleaner | `std::io::Cursor<&[u8]>` | actor-tests/src/test/scala/org/apache/pekko/io/UnsynchronizedByteArrayInputStreamSpec.sca… | Q-UTIL-11, Q-UTIL-12 |
 | AC-UTIL-023 | Helpers.makePattern (patrón glob `?`/`*` a java.util.regex.Pattern) | `glob_matches` cubre el contrato; sin regex | actor-tests/src/test/scala/org/apache/pekko/util/GlobSpec.scala:60-73 | Q-UTIL-8 |
-| AC-UTIL-024 | Helpers.compareIdentityHash / identityHashComparator (orden por… | orden por dirección/ID único del objeto; en Rust no existe identityHashCode estable | derivada del código (ver bloque de contrato) | Q-UTIL-10 |
-| AC-UTIL-025 | Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para… | `fn current_time_millis_to_utc_string(i64) -> String` y `fn timestamp(i64) -> String` | derivada del código (ver bloque de contrato) | - |
+| AC-UTIL-024 | Helpers.compareIdentityHash / identityHashComparator (orden por… | orden por dirección/ID único del objeto; en Rust no existe identityHashCode estable | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:309 ;… | Q-UTIL-10 |
+| AC-UTIL-025 | Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para… | `fn current_time_millis_to_utc_string(i64) -> String` y `fn timestamp(i64) -> String` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:282-316 | Q-UTIL-10 |
 | AC-UTIL-026 | Helpers.isWindows (detección de SO por os.name) | `cfg!(windows)` | derivada del código (ver bloque de contrato) | Q-UTIL-13 |
 
 ## Gates y criterio de cierre

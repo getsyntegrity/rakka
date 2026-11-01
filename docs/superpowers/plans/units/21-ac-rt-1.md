@@ -22,7 +22,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: `Q-RT-4`.
-- Propuestas aún sin decisión del Owner: `Q-RT-1`, `Q-RT-2`, `Q-RT-3`, `Q-RT-5`, `Q-RT-6`, `Q-RT-7`, `Q-RT-8`, `Q-X-1`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
+- Propuestas aún sin decisión del Owner: `Q-ASK-1`, `Q-RT-1`, `Q-RT-2`, `Q-RT-3`, `Q-RT-5`, `Q-RT-6`, `Q-RT-7`, `Q-RT-8`, `Q-RT-9`, `Q-X-1`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -71,7 +71,7 @@ Filas: AC-RT-013.3, AC-RT-014, AC-RT-015, AC-RT-016. Contratos y aserciones: `do
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-RT-001 | Router (valor inmutable), RoutingLogic, Routee (ActorRefRoutee,… | `struct Router { logic: Arc<dyn RoutingLogic>, routees: Vec<Routee> }`, `enum Routee {… | actor-tests/src/test/scala/org/apache/pekko/routing/RoundRobinSpec.scala:163-210 ;… | Q-RT-1 |
+| AC-RT-001 | Router (valor inmutable), RoutingLogic, Routee (ActorRefRoutee,… | `struct Router { logic: Arc<dyn RoutingLogic>, routees: Vec<Routee> }`, `enum Routee {… | actor-tests/src/test/scala/org/apache/pekko/routing/RoundRobinSpec.scala:163-210 ;… | Q-RT-1, Q-X-3 |
 | AC-RT-002 | RouterConfig / Pool / Group / CustomRouterConfig; estrategia por defecto del… | trait `RouterConfig`, `trait Pool: RouterConfig`, `trait Group: RouterConfig`, `fn… | actor-tests/src/test/scala/org/apache/pekko/routing/RoutingSpec.scala:147-204 ;… | Q-RT-1, Q-X-5 |
 | AC-RT-003.1 | Actor router (RoutedActorCell/RoutedActorRef): ruteo en el hilo del emisor,… | `RoutedActorCell`: `ArcSwap<Router>` + enrutamiento en `tell` sin pasar por mailbox | actor-tests/src/test/scala/org/apache/pekko/routing/RouteeCreationSpec.scala:29-59 ;… | Q-RT-2, Q-X-4 |
 | AC-RT-003.2 | Mensajes de gestion del router: GetRoutees, AddRoutee, RemoveRoutee,… | enum `RouterManagement { GetRoutees, AddRoutee(Routee), RemoveRoutee(Routee),… | actor-tests/src/test/scala/org/apache/pekko/routing/RoundRobinSpec.scala:111-127 ;… | Q-RT-2 |
@@ -84,15 +84,15 @@ Filas: AC-RT-013.3, AC-RT-014, AC-RT-015, AC-RT-016. Contratos y aserciones: `do
 | AC-RT-009.1 | ConsistentHashing: seleccion por clave (hashMapping, ConsistentHashable,… | `ConsistentHashingRoutingLogic` con clave `HashKey { Bytes(Vec<u8>), Str(String),… | actor-tests/src/test/scala/org/apache/pekko/routing/ConsistentHashingRouterSpec.scala:76-… | Q-RT-5, Q-X-3 |
 | AC-RT-009.2 | ConsistentHash (anillo con nodos virtuales) | `ConsistentHash<T>` con `BTreeMap<i32, T>` y `nodeFor(&[u8]\|&str)` | - (sin spec dedicado; cubierto indirectamente por… | Q-RT-5 |
 | AC-RT-009.3 | MurmurHash (variante Pekko): startHash/extendHash/finalizeHash, arrayHash,… | modulo `murmur_hash` con las mismas constantes y aritmetica `wrapping` i32 | - (sin spec dedicado en actor-tests) | Q-RT-5 |
-| AC-RT-010 | ScatterGatherFirstCompleted (pool, group, within) | `ScatterGatherFirstCompletedRoutingLogic { within }`; pool/group | actor-tests/src/test/scala/org/apache/pekko/routing/ScatterGatherFirstCompletedSpec.scala… | Q-RT-6 |
+| AC-RT-010 | ScatterGatherFirstCompleted (pool, group, within) | `ScatterGatherFirstCompletedRoutingLogic { within }`; pool/group | actor-tests/src/test/scala/org/apache/pekko/routing/ScatterGatherFirstCompletedSpec.scala… | Q-ASK-1, Q-RT-6 |
 | AC-RT-011 | TailChopping (pool, group, interval, within) | `TailChoppingRoutingLogic { within, interval }` con scheduler | actor-tests/src/test/scala/org/apache/pekko/routing/TailChoppingSpec.scala:58-135 | Q-RT-6 |
 | AC-RT-012 | BalancingPool | `BalancingPool` + dispatcher de cola compartida (work-stealing/mailbox comun) | actor-tests/src/test/scala/org/apache/pekko/routing/BalancingSpec.scala:133-178… | Q-RT-7 |
 | AC-RT-013.1 | DefaultResizer: capacidad (rampup/backoff), cotas y validaciones | `DefaultResizer { lower_bound, upper_bound, pressure_threshold, rampup_rate,… | actor-tests/src/test/scala/org/apache/pekko/routing/ResizerSpec.scala:104-135 | Q-RT-4 |
 | AC-RT-013.2 | DefaultResizer: pressure (routees ocupados) y mecanica de resize del pool… | `ResizablePoolCell` con `AtomicU64` contador y `AtomicBool` resize_in_progress | actor-tests/src/test/scala/org/apache/pekko/routing/ResizerSpec.scala:138-254 | Q-RT-4 |
 | AC-RT-013.3 | Resizer.fromConfig: seleccion DefaultResizer vs OptimalSizeExploringResizer,… | `Resizer::from_config(&Config) -> Result<Option<Resizer>, ResizerInitError>` | actor-tests/src/test/scala/org/apache/pekko/routing/ResizerSpec.scala:61-102 | Q-RT-3, Q-X-1 |
-| AC-RT-014 | OptimalSizeExploringResizer | `OptimalSizeExploringResizer` con metricas por tamano | actor-tests/src/test/scala/org/apache/pekko/routing/MetricsBasedResizerSpec.scala:91-372… | Q-RT-4 |
+| AC-RT-014 | OptimalSizeExploringResizer | OptimalSizeExploringResizer con traits inyectables RouteeLoad, Clock y Rng;… | actor-tests/src/test/scala/org/apache/pekko/routing/MetricsBasedResizerSpec.scala:89-111,… | Q-RT-4, Q-RT-9, Q-X-1, Q-X-5 |
 | AC-RT-015 | Listeners / Listen / Deafen / WithListeners | trait `Listeners { fn listeners(&mut self) -> &mut BTreeSet<ActorRef>; fn gossip(&self,… | actor-tests/src/test/scala/org/apache/pekko/actor/routing/ListenerSpec.scala:29-70 | Q-RT-8 |
-| AC-RT-016 | Configuracion de deployment de routers (router.type-mapping, nr-of-instances,… | registro de fabricas por nombre (`router.type-mapping`) y `fn from_config(&Config)` por… | actor-tests/src/test/scala/org/apache/pekko/routing/ConfiguredLocalRoutingSpec.scala:139-… | Q-RT-3, Q-X-2 |
+| AC-RT-016 | Configuracion de deployment de routers (router.type-mapping, nr-of-instances,… | registro de fabricas por nombre (`router.type-mapping`) y `fn from_config(&Config)` por… | actor-tests/src/test/scala/org/apache/pekko/routing/ConfiguredLocalRoutingSpec.scala:139-… | Q-RT-3, Q-X-1, Q-X-2 |
 
 ## Gates y criterio de cierre
 

@@ -23,11 +23,11 @@ class PackageSandbox(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp(prefix="rakka-package-")
         self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
-        for entry in ("tools", "docs", "README.md", "AGENTS.md"):
+        for entry in ("tools", "docs", "crates", "README.md", "AGENTS.md"):
             source = os.path.join(REPO, entry)
             target = os.path.join(self.root, entry)
             if os.path.isdir(source):
-                shutil.copytree(source, target, ignore=shutil.ignore_patterns("__pycache__"))
+                shutil.copytree(source, target, ignore=shutil.ignore_patterns("__pycache__", "target"))
             else:
                 shutil.copy(source, target)
         # Mechanism tests must not depend on the real Owner answers: start from an empty response file.

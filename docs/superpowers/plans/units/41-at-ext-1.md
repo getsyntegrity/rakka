@@ -1,4 +1,4 @@
-# Spec 40 — AT-EXT (1/1)
+# Spec 41 — AT-EXT (1/1)
 
 **Estado:** pendiente de decisiones propuestas. **Filas:** 7. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
@@ -8,7 +8,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 36 `AT-ADP-1` (`36-at-adp-1.md`), por las filas AT-ADP-008.
+- Spec 37 `AT-ADP-1` (`37-at-adp-1.md`), por las filas AT-ADP-008.
 
 Decisiones:
 
@@ -44,13 +44,13 @@ Filas: AT-EXT-003. Contratos y aserciones: `docs/inventory/contracts/typed-exten
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-EXT-001.1 | Extension / ExtensionId: identidad, una instancia por sistema y concurrencia | ExtensionId<T> como valor estatico/Arc con identidad por puntero; registry… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:89-120… | Q-T-EXT-2 |
+| AT-EXT-001.1 | Extension / ExtensionId: identidad, una instancia por sistema y concurrencia | ExtensionId<T> como valor estatico/Arc con identidad por puntero; registry… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:89-120… | Q-T-EXT-2, Q-X-2 |
 | AT-EXT-001.2 | Extension: fallo de creacion cacheado | Registro con Result<Arc<T>,Arc<Error>> cacheado y clonado en cada acceso. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:136-153 | Q-T-EXT-3 |
-| AT-EXT-001.3 | Extension: extension() sin registro y hasExtension | Result<Arc<T>,ExtensionError::NotRegistered> y has_extension(). | Sin test dedicado de extension() no registrada; hasExtension afirmado en… | Q-T-EXT-2 |
-| AT-EXT-002.1 | Carga desde configuracion: pekko.actor.typed.library-extensions | Lista de nombres sustituida por registro explicito (Q-X-2):… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:165-19… | Q-X-2 |
-| AT-EXT-002.2 | Carga desde configuracion: pekko.actor.typed.extensions | Registro explicito con politica "skip" solo para errores de resolucion de nombre. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:121-15… | Q-T-EXT-1 |
-| AT-EXT-002.3 | Carga de extensiones tipadas desde el sistema clasico (LoadTypedExtensions) | n/a si no hay sistema clasico (Q-X-8 b). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:204-220 | Q-X-8 |
-| AT-EXT-003 | ExtensionSetup / AbstractExtensionSetup (override en tests) | Builder del sistema acepta ExtensionOverride(id, factory). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:37-40,… | - |
+| AT-EXT-001.3 | Extension: extension() sin registro y hasExtension | Result<Arc<T>,ExtensionError::NotRegistered> y has_extension(). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:121-13… | Q-T-EXT-2 |
+| AT-EXT-002.1 | Carga desde configuracion: pekko.actor.typed.library-extensions | Lista de nombres sustituida por registro explicito (Q-X-2):… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:165-193 | Q-X-2 |
+| AT-EXT-002.2 | Carga desde configuracion: pekko.actor.typed.extensions | Registro explicito con politica "skip" solo para errores de resolucion de nombre. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:121-15… | Q-T-EXT-1, Q-X-2 |
+| AT-EXT-002.3 | Carga de extensiones tipadas desde el sistema clasico (LoadTypedExtensions) | n/a si no hay sistema clasico (Q-X-8 b). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:204-234 | Q-X-8 |
+| AT-EXT-003 | ExtensionSetup / AbstractExtensionSetup (override en tests) | Builder del sistema acepta ExtensionOverride(id, factory). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:37-40… | - |
 
 ## Gates y criterio de cierre
 
@@ -66,4 +66,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 41 `AT-ASK-1` (`41-at-ask-1.md`).
+Spec 42 `AT-ASK-1` (`42-at-ask-1.md`).

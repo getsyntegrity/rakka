@@ -9,11 +9,11 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 28 `AT-SIG-1` (`28-at-sig-1.md`), por las filas AT-SIG-001, AT-SIG-003, AT-SIG-005, AT-SIG-006, AT-SIG-007. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 37 `AT-EVT-1` (`37-at-evt-1.md`), por las filas AT-EVT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 35 `AT-SUP-1` (`35-at-sup-1.md`), por las filas AT-SUP-001, AT-SUP-003, AT-SUP-013, AT-SUP-022. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 38 `AT-LOG-1` (`38-at-log-1.md`), por las filas AT-LOG-001, AT-LOG-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 33 `AT-TMR-1` (`33-at-tmr-1.md`), por las filas AT-TMR-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 34 `AT-STASH-1` (`34-at-stash-1.md`), por las filas AT-STASH-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 38 `AT-EVT-1` (`38-at-evt-1.md`), por las filas AT-EVT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 36 `AT-SUP-1` (`36-at-sup-1.md`), por las filas AT-SUP-001, AT-SUP-003, AT-SUP-013, AT-SUP-022. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 39 `AT-LOG-1` (`39-at-log-1.md`), por las filas AT-LOG-001, AT-LOG-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 34 `AT-TMR-1` (`34-at-tmr-1.md`), por las filas AT-TMR-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 35 `AT-STASH-1` (`35-at-stash-1.md`), por las filas AT-STASH-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 29 `AT-REF-1` (`29-at-ref-1.md`), por las filas AT-REF-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
@@ -78,12 +78,12 @@ Filas: AT-BEH-023, AT-BEH-024. Contratos y aserciones: `docs/inventory/contracts
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
 | AT-BEH-001 | Behavior[T]: tipo base sellado (@DoNotInherit) con tags internos y… | enum Behavior<M> { Same, Unhandled, Stopped(Option<PostStopFn>), Empty, Ignore,… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:204-339… | Q-T-BEH-1, Q-T-BEH-4 |
-| AT-BEH-002 | Behaviors.same | Variante Behavior::Same; validate_as_initial devuelve Err(InvalidInitialBehavior). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:242-252;… | - |
+| AT-BEH-002 | Behaviors.same | Variante Behavior::Same; validate_as_initial devuelve Err(InvalidInitialBehavior). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:242-252;… | Q-T-BEH-1 |
 | AT-BEH-003 | Behaviors.unhandled | Behavior::Unhandled; el runtime publica UnhandledMessage{msg, sender, recipient} en el… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:256-266;… | Q-X-6 |
 | AT-BEH-004 | Behaviors.stopped y stopped(postStop) | Behavior::Stopped(Option<Arc<dyn Fn(&mut Ctx<M>) + Send + Sync>>) (propuesta, no… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:268-277;… | Q-T-BEH-1 |
 | AT-BEH-005 | Behaviors.empty | Behavior::Empty. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/AdaptationFailureS… | - |
 | AT-BEH-006 | Behaviors.ignore | Behavior::Ignore. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/AdaptationFailureS… | - |
-| AT-BEH-007 | Behaviors.setup (DeferredBehavior) | **Requisitos observables (contrato):** (R1) la misma fabrica se invoca una vez por cada… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/DeferredSpec.scala:50-175;… | Q-T-BEH-1 |
+| AT-BEH-007 | Behaviors.setup (DeferredBehavior) | **Requisitos observables (contrato):** (R1) la misma fabrica se invoca una vez por cada… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/DeferredSpec.scala:50-175;… | Q-T-BEH-1, Q-X-5 |
 | AT-BEH-008.1 | Behaviors.receive / receiveMessage: Receive[T] con y sin contexto | behaviors::receive(\|ctx, msg\| ...) y behaviors::receive_message(\|msg\| ...) devuelven un… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:349-381,… | Q-T-BEH-2 |
 | AT-BEH-008.2 | Behaviors.receivePartial / receiveMessagePartial: funciones parciales con… | No hay PartialFunction: se modela con receive cuyo match devuelve Behavior::Unhandled en… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ReceivePartialSpec… | Q-T-BEH-2 |
 | AT-BEH-008.3 | Behaviors.receiveMessageWithSame (desde 1.1.0) | behaviors::receive_message_with_same(\|msg\| ...). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:383-397 | Q-T-BEH-2 |

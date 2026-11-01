@@ -1,4 +1,4 @@
-# Spec 39 — AT-DSP (1/1)
+# Spec 39 — AT-LOG (1/1)
 
 **Estado:** pendiente de decisiones propuestas. **Filas:** 5. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
@@ -8,12 +8,17 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 38 `AT-LOG-1` (`38-at-log-1.md`), por las filas AT-LOG-002.
+- Spec 27 `AT-BEH-1` (`27-at-beh-1.md`), por las filas AT-BEH-019.
+- Spec 32 `AT-CTX-1` (`32-at-ctx-1.md`), por las filas AT-CTX-016.
+- Spec 37 `AT-ADP-1` (`37-at-adp-1.md`), por las filas AT-ADP-006.1.
+- Spec 40 `AT-DSP-1` (`40-at-dsp-1.md`), por las filas AT-DSP-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 30 `AT-TK-1` (`30-at-tk-1.md`), por las filas AT-TK-006.1, AT-TK-006.2, AT-TK-006.3, AT-TK-006.4.
+- Spec 31 `AT-TK-2` (`31-at-tk-2.md`), por las filas AT-TK-006.5.
 
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-DSP-1`, `Q-T-DSP-2`, `Q-T-DSP-3`, `Q-X-4`.
+- Propuestas aún sin decisión del Owner: `Q-T-LOG-1`, `Q-T-LOG-2`, `Q-T-LOG-3`, `Q-T-LOG-4`, `Q-T-TK-2`, `Q-X-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -22,9 +27,9 @@ valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comp
 
 ## Tareas
 
-### Tarea 1: Props tipado (empty, encadenado, firstOrElse, allOf) (+4 filas)
+### Tarea 1: context.log (SLF4J Logger), nombre de logger detectado y setLoggerName (+4 filas)
 
-Filas: AT-DSP-001, AT-DSP-002, AT-DSP-003, AT-DSP-004, AT-DSP-005. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AT-LOG-001, AT-LOG-002, AT-LOG-003, AT-LOG-004, AT-LOG-005. Contratos y aserciones: `docs/inventory/contracts/typed-extended.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -35,11 +40,11 @@ Filas: AT-DSP-001, AT-DSP-002, AT-DSP-003, AT-DSP-004, AT-DSP-005. Contratos y a
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-DSP-001 | Props tipado (empty, encadenado, firstOrElse, allOf) | struct Props{selectors: Vec<Selector>} con builder; first_of::<T>() y all_of::<T>(). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/PropsSpec.scala:20-31 | Q-T-DSP-1 |
-| AT-DSP-002 | DispatcherSelector: default, blocking, fromConfig, sameAsParent | DispatcherSelector::{default,blocking,from_config(path),same_as_parent}; mapeo a pools… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/DispatcherSelector… | Q-T-DSP-2, Q-X-4 |
-| AT-DSP-003 | MailboxSelector: default (SingleConsumerOnlyUnboundedMailbox),… | MailboxSelector::{Default, Bounded(n), FromConfig(path)}. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/MailboxSelectorSpec.scala:3… | Q-T-DSP-3 |
-| AT-DSP-004 | ActorTags | ActorTags(Vec<String>) en Props. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-DSP-1 |
-| AT-DSP-005 | Dispatchers.lookup y ids (DefaultDispatcherId, InternalDispatcherId) | Dispatchers::lookup(selector)->Executor. | Sin test leido para lookup directo | - |
+| AT-LOG-001 | context.log (SLF4J Logger), nombre de logger detectado y setLoggerName | trait ActorLog en contexto; nombre por defecto = type_name del comportamiento que loguea… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1, Q-T-LOG-2, Q-X-7 |
+| AT-LOG-002 | MDC automatico: pekkoSource, pekkoAddress, sourceActorSystem, pekkoTags | campos estructurados del span `tracing` abierto por mensaje: `pekko_source`,… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1, Q-T-TK-2 |
+| AT-LOG-003 | Configuracion SLF4J: pekko.use-slf4j=on y Slf4jLogger agregado automaticamente | Config key aceptada; el backend por defecto se decide en Q-T-LOG-1/Q-X-7. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-3, Q-X-7 |
+| AT-LOG-004 | LoggerOps (trace2/traceN... para Scala 2) y Markers | **subsumido por la macros de `tracing`** (`info!("template {} {}", a, b)` o campos… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1, Q-T-LOG-4 |
+| AT-LOG-005 | Mensajes de log del LocalActorRefProvider en logger "serialization" | Log debug con target fijo al resolver refs por path. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LocalActorRefProviderLogMes… | Q-T-LOG-1 |
 
 ## Gates y criterio de cierre
 
@@ -55,4 +60,4 @@ La spec se cierra únicamente cuando: (1) todos los gates pasan; (2) cada aserci
 
 ## Siguiente
 
-Spec 40 `AT-EXT-1` (`40-at-ext-1.md`).
+Spec 40 `AT-DSP-1` (`40-at-dsp-1.md`).
