@@ -18,7 +18,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: `Q-SER-1`.
-- Propuestas aún sin decisión del Owner: `Q-SER-2`, `Q-SER-3`, `Q-SER-4`, `Q-SER-5`, `Q-SER-6`, `Q-X-1`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-6`.
+- Propuestas aún sin decisión del Owner: `Q-SER-2`, `Q-SER-3`, `Q-SER-4`, `Q-SER-5`, `Q-SER-6`, `Q-X-1`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-6`, `Q-X-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -67,7 +67,7 @@ Filas: AC-SER-010, AC-SER-011, AC-SER-012, AC-SER-013, AC-SER-014. Contratos y a
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-SER-001.1 | Resolución de serializador por clase: serializerFor/findSerializerFor,… | `SerializerRegistry::serializer_for(TypeKey) -> Result<Arc<dyn Serializer>,… | actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:191-243 | Q-SER-1, Q-X-6 |
+| AC-SER-001.1 | Resolución de serializador por clase: serializerFor/findSerializerFor,… | `SerializerRegistry::serializer_for(TypeKey) -> Result<Arc<dyn Serializer>,… | actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:191-243 | Q-SER-1, Q-X-2, Q-X-6 |
 | AC-SER-001.2 | Carga de serializers y bindings desde config y SerializationSetup: alias ->… | `SerializerRegistryBuilder::from_config(&Config, &SerializationSetup, &FactoryRegistry)` | actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:283-304 ;… | Q-SER-1, Q-X-2 |
 | AC-SER-001.3 | Serialization.serialize/deserialize: por id+manifest, por clase y por… | `Serialization::{serialize, deserialize, deserialize_by_type, deserialize_buffer}` | actor-tests/src/test/scala/org/apache/pekko/serialization/SerializationSetupSpec.scala:10… | Q-SER-1, Q-SER-3 |
 | AC-SER-002 | SPI Serializer (identifier, toBinary, fromBinary, includeManifest),… | `trait Serializer { fn identifier(&self)->i32; fn to_binary(&self,&dyn… | actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:245-275 ;… | Q-SER-1, Q-X-3 |
@@ -77,9 +77,9 @@ Filas: AC-SER-010, AC-SER-011, AC-SER-012, AC-SER-013, AC-SER-014. Contratos y a
 | AC-SER-003.4 | BooleanSerializer (id 35): 1 byte, 0=false 1=true, rechaza otros valores | `BoolSerializer` | actor-tests/src/test/scala/org/apache/pekko/serialization/PrimitivesSerializationSpec.sca… | - |
 | AC-SER-003.5 | Tabla por defecto de reference.conf: serializers, serialization-bindings y… | `default_serialization_table() -> SerializationSettings` | actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:364-400 | Q-SER-1, Q-SER-2 |
 | AC-SER-004.1 | DisabledJavaSerializer: reemplaza JavaSerializer con… | `DisabledJavaSerializer` | actor-tests/src/test/scala/org/apache/pekko/serialization/DisabledJavaSerializerWarningSp… | Q-SER-2 |
-| AC-SER-004.2 | allow-java-serialization, warn-about-java-serializer-usage,… | `JavaSerializerWarnings` | actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:446-456,513… | Q-SER-2 |
+| AC-SER-004.2 | allow-java-serialization, warn-about-java-serializer-usage,… | `JavaSerializerWarnings` | actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:446-456,513… | Q-SER-2, Q-X-7 |
 | AC-SER-005 | SerializationSetup/SerializerDetails (registro programático de serializadores… | `SerializationSetup::new(\|sys\| vec![SerializerDetails::new(alias, serializer, use_for)])` | actor-tests/src/test/scala/org/apache/pekko/serialization/SerializationSetupSpec.scala:11… | Q-X-2 |
-| AC-SER-006 | AsyncSerializer, AsyncSerializerWithStringManifest y… | `trait AsyncSerializer { async fn to_binary_async; async fn from_binary_async }` | actor-tests/src/test/scala/org/apache/pekko/serialization/AsyncSerializeSpec.scala:111-137 | Q-SER-5 |
+| AC-SER-006 | AsyncSerializer, AsyncSerializerWithStringManifest y… | `trait AsyncSerializer { async fn to_binary_async; async fn from_binary_async }` | actor-tests/src/test/scala/org/apache/pekko/serialization/AsyncSerializeSpec.scala:111-137 | Q-SER-5, Q-X-4 |
 | AC-SER-007.1 | Serialization.serializedActorPath(actorRef): formato con la dirección de… | `serialized_actor_path(&ActorRef) -> String` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:84-107 (solo… | Q-SER-3 |
 | AC-SER-007.2 | Información de transporte (Serialization.Information,… | `TransportInformation { address, system }` + `with_transport_information(system, f)` | derivada del código (ver bloque de contrato) | Q-SER-3 |
 | AC-SER-008.1 | pekko.actor.serialize-messages: verifica que cada mensaje sobreviva a… | `MessageSerializationCheck` | actor-tests/src/test/scala/org/apache/pekko/actor/dungeon/DispatchSpec.scala:21-43 ;… | Q-SER-4 |

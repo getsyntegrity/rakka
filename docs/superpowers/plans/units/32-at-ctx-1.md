@@ -23,7 +23,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-BEH-5`, `Q-T-CTX-1`, `Q-T-CTX-2`, `Q-T-CTX-3`, `Q-T-CTX-4`, `Q-T-TMR-2`, `Q-X-3`, `Q-X-4`, `Q-X-8`.
+- Propuestas aún sin decisión del Owner: `Q-T-BEH-5`, `Q-T-CTX-1`, `Q-T-CTX-2`, `Q-T-CTX-3`, `Q-T-CTX-4`, `Q-T-TMR-2`, `Q-X-3`, `Q-X-4`, `Q-X-6`, `Q-X-8`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -73,13 +73,13 @@ Filas: AT-CTX-013, AT-CTX-014, AT-CTX-015, AT-CTX-016, AT-CTX-017, AT-CTX-018. C
 | AT-CTX-008 | setReceiveTimeout / cancelReceiveTimeout | ctx.set_receive_timeout(Duration, msg: M) con M: Clone. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:578-… | Q-T-TMR-2 |
 | AT-CTX-009 | scheduleOnce(delay, target, msg) | ctx.schedule_once(Duration, &target, msg) -> Cancellable. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:597-… | - |
 | AT-CTX-010 | executionContext | ctx.executor() -> handle de runtime (p.ej. tokio::runtime::Handle) o spawner abstracto. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.sc… | Q-X-4 |
-| AT-CTX-011 | messageAdapter[U](f) | ctx.message_adapter::<U>(\|u: U\| -> M) -> ActorRef<U>; clave por TypeId de U; el 'matchea… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec… | Q-T-CTX-1 |
+| AT-CTX-011 | messageAdapter[U](f) | ctx.message_adapter::<U>(\|u: U\| -> M) -> ActorRef<U>; clave por TypeId de U; el 'matchea… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec… | Q-T-CTX-1, Q-X-3 |
 | AT-CTX-012 | ask (desde el actor) con mapResponse | ctx.ask(&target, \|reply_to\| Req, timeout, \|res: Result<Res, AskError>\| -> M). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpe… | Q-X-4, Q-X-9 |
 | AT-CTX-013 | askWithStatus (StatusReply) | StatusReply<T> como Result<T, StatusError>; ctx.ask_with_status. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpe… | - |
 | AT-CTX-014 | pipeToSelf(future)(mapResult) | ctx.pipe_to_self(future, \|Result<V, E>\| -> M): spawnea la future en el runtime y envia… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextPipeTo… | Q-X-4 |
-| AT-CTX-015 | delegate(delegator, msg) | ctx.delegate(behavior, msg) -> Behavior<M>. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelega… | - |
+| AT-CTX-015 | delegate(delegator, msg) | ctx.delegate(behavior, msg) -> Behavior<M>. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelega… | Q-X-6 |
 | AT-CTX-016 | Chequeo de hilo del ActorContext (no thread-safe) | En Rust el borrow checker lo resuelve en compilacion: ActorContext<'a> solo existe como… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.sc… | Q-T-BEH-5, Q-T-CTX-2 |
-| AT-CTX-017 | TypedActorContext / asScala / asJava y ClassicActorContextProvider | Un unico ActorContext<M> (asScala/asJava desaparecen: eran la identidad). El puente… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpe… | Q-T-CTX-4, Q-X-8 |
+| AT-CTX-017 | TypedActorContext / asScala / asJava y ClassicActorContextProvider | Un unico ActorContext<M> (asScala/asJava desaparecen: eran la identidad). El puente… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpe… | Q-T-CTX-2, Q-T-CTX-4, Q-X-8 |
 | AT-CTX-018 | spawnMessageAdapter (interno) y hooks internos… | Metodos pub(crate) del contexto. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:63… | Q-T-CTX-1 |
 
 ## Gates y criterio de cierre

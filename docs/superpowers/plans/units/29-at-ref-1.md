@@ -16,7 +16,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-BEH-4`.
+- Propuestas aún sin decisión del Owner: `Q-T-BEH-4`, `Q-X-3`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -49,7 +49,7 @@ Filas: AT-REF-007. Contratos y aserciones: `docs/inventory/contracts/typed-core.
 |---|---|---|---|---|
 | AT-REF-001 | ActorRef[-T]: tell / ! , contravariante, Comparable, Serializable | struct ActorRef<M: Send + 'static> { inner: Arc<dyn RefInner> } con tell(&self, msg: M);… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpe… | Q-T-BEH-4 |
 | AT-REF-002 | Rechazo de mensajes null | No aplica: Rust no tiene null; el tipo M lo garantiza. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:662-… | - |
-| AT-REF-003 | narrow / unsafeUpcast | narrow: ActorRef<Super>::narrow::<Sub>() que envuelve con From<Sub> for Super (costo de… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/InterceptSpec.scala:324… | Q-T-BEH-4 |
+| AT-REF-003 | narrow / unsafeUpcast | narrow: ActorRef<Super>::narrow::<Sub>() que envuelve con From<Sub> for Super (costo de… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/InterceptSpec.scala:324… | Q-T-BEH-4, Q-X-3 |
 | AT-REF-004 | RecipientRef[-T] | trait RecipientRef<M> { fn tell(&self, msg: M); } | sin spec propio en este modulo; se usa en… | - |
 | AT-REF-005 | Igualdad, hash y path de ActorRef | impl PartialEq/Eq/Hash/Ord para ActorRef<M> delegando en path y uid. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:535-… | Q-T-BEH-4 |
 | AT-REF-006 | ignoreRef | system.ignore_ref::<M>() -> ActorRef<M>. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorRefIgnoreSpec.scala:71… | - |

@@ -37,16 +37,16 @@ mapped = {x[0]: x for x in R("docs/contract-map.tsv")[1:]}
 check(set(mapped) == set(rows), "contract-map.tsv does not cover exactly the inventory rows")
 for i, r in rows.items():
     if r["impl"] != "done": check(mapped.get(i, [""] * 4)[3] not in ("", "(implementada)"), f"{i}: not assigned to a spec")
-# decisions a contract block declares must appear in the generated traceability column
+# decisions a contract block declares must appear (normalized) in the generated traceability column
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # -I drops the script directory from sys.path
+from contract_decisions import declared_decisions
 for path in glob.glob("docs/inventory/contracts/*.md"):
-    current = None
-    for line in open(path, encoding="utf-8"):
-        heading = re.match(r"#+ (A[CT]-[A-Z]+-\d+(?:\.\d+)?)\b", line)
-        if heading: current = heading.group(1)
-        elif current in mapped and line.startswith("- **Decisiones**:"):
-            in_map = set(re.findall(r"Q-(?:T-)?[A-Z]+-\d+", mapped[current][9]))
-            for q in set(re.findall(r"Q-(?:T-)?[A-Z]+-\d+", line)) - {"Q-CFG-1", "Q-CFG-2"}:
-                check(q in in_map, f"{current}: contract declares {q} but contract-map.tsv decisions column omits it")
+    for row_id, declared in declared_decisions(open(path, encoding="utf-8").read()).items():
+        if row_id not in mapped: continue
+        in_map = set(re.findall(r"Q-(?:T-)?[A-Z]+-\d+", mapped[row_id][9]))
+        for q in sorted(declared):
+            check(q in reg, f"{row_id}: contract declares unknown decision {q}")
+            check(q in in_map, f"{row_id}: contract declares {q} but contract-map.tsv decisions column omits it")
 for p in glob.glob("docs/superpowers/plans/units/[0-9]*.md"):
     n = len(re.findall(r'^### Tarea \d+', open(p, encoding="utf-8").read(), re.M))
     check(n <= 5, f"{p}: {n} tasks")

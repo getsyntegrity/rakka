@@ -73,20 +73,18 @@ for i, r in by_id.items():           # also decisions cited in notes
         q = ALIASES.get(q, q)
         if q in dec_ids: row_decisions[i].add(q)
         elif q not in dec_ids: print("UNDEFINED", i, q, file=sys.stderr)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # -I drops the script directory from sys.path
+from contract_decisions import declared_decisions
 def contract_declared_decisions():
-    """Decisions each contract block declares on its `- **Decisiones**:` line, by row id."""
     declared = {}
     for path in sorted(glob.glob("docs/inventory/contracts/*.md")):
-        current = None
-        for line in open(path, encoding="utf-8"):
-            heading = re.match(r"#+ (A[CT]-[A-Z]+-\d+(?:\.\d+)?)\b", line)
-            if heading: current = heading.group(1)
-            elif current and line.startswith("- **Decisiones**:"):
-                declared[current] = {ALIASES.get(q, q) for q in re.findall(r"Q-(?:T-)?[A-Z]+-\d+", line)}
+        for row_id, ids in declared_decisions(open(path, encoding="utf-8").read()).items():
+            declared.setdefault(row_id, set()).update(ids)
     return declared
 for row_id, declared in contract_declared_decisions().items():   # explicit contract declarations count too
     for q in declared:
         if q in dec_ids and row_id in by_id: row_decisions[row_id].add(q)
+        elif q not in dec_ids: print("UNDEFINED", row_id, q, file=sys.stderr)
 dec_by_id = {d["id"]: d for d in DEC}
 
 # ------------------------------------------------------- Owner responses (the single editable source)

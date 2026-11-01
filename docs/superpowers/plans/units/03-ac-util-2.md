@@ -77,7 +77,7 @@ Filas: AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3, AC-UTIL-018.4, AC-UTIL-018.5
 | AC-UTIL-016.1 | OptionVal (Option sin allocación) | `Option<T>` de Rust (ya sin allocación) | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
 | AC-UTIL-016.2 | ConstantFun (funciones constantes/identidad Scala y Java) | closures `const`/`identity` donde se necesiten | actor-tests/src/test/java/org/apache/pekko/util/ConstantFunJavaTest.java:24-46 | Q-UTIL-11 |
 | AC-UTIL-016.3 | Collections (EmptyImmutableSeq, PartialImmutableValuesIterable) | `Vec`/iteradores nativos | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
-| AC-UTIL-016.4 | ImmutableIntMap (mapa Int->Int inmutable) | `BTreeMap<i32,i32>` persistente | actor-tests/src/test/scala/org/apache/pekko/util/ImmutableIntMapSpec.scala:25-156 | Q-UTIL-14 |
+| AC-UTIL-016.4 | ImmutableIntMap (mapa Int->Int inmutable) | `BTreeMap<i32,i32>` persistente | actor-tests/src/test/scala/org/apache/pekko/util/ImmutableIntMapSpec.scala:25-156 | Q-UTIL-11, Q-UTIL-14 |
 | AC-UTIL-016.5 | PrettyDuration (formateo legible de duraciones) | `pretty(Duration, include_nanos, precision) -> String` | actor-tests/src/test/scala/org/apache/pekko/util/PrettyDurationSpec.scala:25-58 | Q-UTIL-9 |
 | AC-UTIL-016.6 | Glob (matching `?`/`*` sin regex) | `glob_matches(pattern: &str, input: &str) -> bool` (greedy con backtracking de un solo… | actor-tests/src/test/scala/org/apache/pekko/util/GlobSpec.scala:33-91 | Q-UTIL-8 |
 | AC-UTIL-016.7 | Reflect (findConstructor, findClassLoader, getCallerClass, instantiate) | n/a: sin reflexión; las fábricas las cubre AC-CFG-016 (Q-X-2) | actor-tests/src/test/scala/org/apache/pekko/util/ReflectSpec.scala:29-65 | Q-CFG-8, Q-UTIL-11, Q-X-2 |
@@ -92,11 +92,11 @@ Filas: AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3, AC-UTIL-018.4, AC-UTIL-018.5
 | AC-UTIL-016.16 | WallClock / AlwaysIncreasingClock (reloj de pared estrictamente creciente) | trait `WallClock` + `AlwaysIncreasingClock` con `AtomicI64` | derivada del código (ver bloque de contrato) | - |
 | AC-UTIL-016.17 | ErrorMessages.RemoteDeploymentConfigErrorPrefix | `const REMOTE_DEPLOYMENT_CONFIG_ERROR_PREFIX: &str` | derivada del código (ver bloque de contrato) | - |
 | AC-UTIL-016.18 | Unused (marcador para silenciar warnings) | n/a: Rust avisa por `_` | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
-| AC-UTIL-017.1 | FrequencySketch (Count-Min Sketch de 4 bits) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/FrequencySketchSpec.scala:23-374 ;… | Q-UTIL-14 |
-| AC-UTIL-017.2 | FrequencyList (lista de frecuencias LFU) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/FrequencyListSpec.scala:32-266 | - |
-| AC-UTIL-017.3 | RecencyList (LRU por reloj) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/RecencyListSpec.scala:21-129 | - |
-| AC-UTIL-017.4 | SegmentedRecencyList (LRU segmentado) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/SegmentedRecencyListSpec.scala:32-157 | - |
-| AC-UTIL-017.5 | DoubleLinkedList | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/DoubleLinkedListSpec.scala:25-200 | - |
+| AC-UTIL-017.1 | FrequencySketch (Count-Min Sketch de 4 bits) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/FrequencySketchSpec.scala:23-374 ;… | Q-UTIL-11, Q-UTIL-14, Q-UTIL-8 |
+| AC-UTIL-017.2 | FrequencyList (lista de frecuencias LFU) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/FrequencyListSpec.scala:32-266 | Q-UTIL-11 |
+| AC-UTIL-017.3 | RecencyList (LRU por reloj) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/RecencyListSpec.scala:21-129 | Q-UTIL-11 |
+| AC-UTIL-017.4 | SegmentedRecencyList (LRU segmentado) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/SegmentedRecencyListSpec.scala:32-157 | Q-UTIL-11 |
+| AC-UTIL-017.5 | DoubleLinkedList | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/DoubleLinkedListSpec.scala:25-200 | Q-UTIL-11 |
 | AC-UTIL-018.1 | FutureConverters / CompletionStage <-> Future | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/java/org/apache/pekko/util/JavaConverterScala3InlineTest.java:34-46 | Q-UTIL-11, Q-X-4 |
 | AC-UTIL-018.2 | OptionConverters / FunctionConverters / JavaDurationConverters | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78 ;… | Q-UTIL-1, Q-UTIL-11 |
 | AC-UTIL-018.3 | ccompat (JavaConverters, compat.Future/PartialFunction) y shims de Scala 2.12 | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78 | Q-UTIL-11 |

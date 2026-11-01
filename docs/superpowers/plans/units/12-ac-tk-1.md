@@ -27,7 +27,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: `Q-TK-1`.
-- Propuestas aún sin decisión del Owner: `Q-EVT-5`, `Q-TK-10`, `Q-TK-2`, `Q-TK-3`, `Q-TK-4`, `Q-TK-5`, `Q-TK-6`, `Q-TK-7`, `Q-TK-8`, `Q-TK-9`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
+- Propuestas aún sin decisión del Owner: `Q-EVT-5`, `Q-TK-10`, `Q-TK-2`, `Q-TK-3`, `Q-TK-4`, `Q-TK-5`, `Q-TK-6`, `Q-TK-7`, `Q-TK-8`, `Q-TK-9`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`, `Q-X-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -86,7 +86,7 @@ Filas: AC-TK-015, AC-TK-016, AC-TK-017. Contratos y aserciones: `docs/inventory/
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
 | AC-TK-001.1 | TestKitBase/TestKit: testActor (cola interna, actor de sistema sobre… | `TestKit::new(&system)` con canal propio; `test_actor() -> ActorRef` | testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:32-57,193-198,200-211 | Q-TK-1, Q-TK-4 |
-| AC-TK-001.2 | TestKit expect*: expectMsg, expectMsgPF, expectMsgType/Class,… | `expect_msg(&v)`, `expect_msg_type::<T>()`, `expect_msg_pf(f)`,… | testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:32-57,107-124,151-160 | Q-TK-4 |
+| AC-TK-001.2 | TestKit expect*: expectMsg, expectMsgPF, expectMsgType/Class,… | `expect_msg(&v)`, `expect_msg_type::<T>()`, `expect_msg_pf(f)`,… | testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:32-57,107-124,151-160 | Q-TK-4, Q-X-5 |
 | AC-TK-001.3 | TestKit expectNoMessage / expectNoMsg | `expect_no_message()` y `expect_no_message_for(dur)` | testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:223-233 | - |
 | AC-TK-001.4 | TestKit receiveWhile, receiveN, receiveOne, fishForMessage,… | `receive_n(n)`, `receive_while(f)`, `fish_for_message(f)`, `fish_for_specific_message(f)` | testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:162-191 | - |
 | AC-TK-001.5 | TestKit within / remaining / remainingOr / remainingOrDefault / awaitCond /… | `within(min, max, \|\| ..)`, `remaining()`, `await_cond(..)`, `await_assert(..)` | testkit/src/test/scala/org/apache/pekko/testkit/TestTimeSpec.scala:22-49 | Q-TK-4 |
@@ -96,8 +96,8 @@ Filas: AC-TK-015, AC-TK-016, AC-TK-017. Contratos y aserciones: `docs/inventory/
 | AC-TK-003 | ImplicitSender y DefaultTimeout | `TestKit::tell_from_probe`/sender explícito; `default_timeout()` | testkit/src/test/scala/org/apache/pekko/testkit/ImplicitSenderSpec.scala:28-32 ;… | Q-X-3 |
 | AC-TK-004 | Dilatación de tiempo y settings (pekko.test.timefactor, single-expect-default,… | `TestKitSettings` leído de config + `Dilate` trait | testkit/src/test/scala/org/apache/pekko/testkit/TestTimeSpec.scala:22-34 | Q-TK-5 |
 | AC-TK-005.1 | EventFilter: fábricas error/warning/info/debug/custom/apply[E],… | `EventFilter::error::<E>()`, `::warning()`, `::info()`, `::debug()`, `::custom(f)` | testkit/src/test/scala/org/apache/pekko/testkit/TestEventListenerSpec.scala:23-83 | Q-TK-3 |
-| AC-TK-005.2 | EventFilter.intercept, filterEvents, filterException, awaitDone/assertDone y… | `filter.intercept(&system, \|\| ..)`, `filter_events(&system, [..], \|\| ..)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-210 ;… | Q-TK-4 |
-| AC-TK-005.3 | TestEventListener: Mute/UnMute, conversión de… | logger de test que captura `LogEvent` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-210 ;… | - |
+| AC-TK-005.2 | EventFilter.intercept, filterEvents, filterException, awaitDone/assertDone y… | `filter.intercept(&system, \|\| ..)`, `filter_events(&system, [..], \|\| ..)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-210 ;… | Q-TK-4, Q-X-7 |
+| AC-TK-005.3 | TestEventListener: Mute/UnMute, conversión de… | logger de test que captura `LogEvent` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-210 ;… | Q-X-7 |
 | AC-TK-006.1 | TestActorRef (underlyingActor, receive síncrono) | `TestActorRef<A>` con candado reentrante compartido con la CTD: `with_actor(cierre)` y… | testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:130-154 ;… | Q-TK-1, Q-TK-2, Q-TK-8, Q-X-5 |
 | AC-TK-006.2 | CallingThreadDispatcher (ejecución síncrona en el hilo del emisor;… | `CallingThreadDispatcher` con `ReentrantMutex` por actor, colas `HashMap<ThreadId,… | actor-tests/src/test/scala/org/apache/pekko/testkit/CallingThreadDispatcherModelSpec.scal… | Q-TK-1, Q-TK-7, Q-TK-8, Q-X-4, Q-X-5 |
 | AC-TK-007 | TestFSMRef | `TestFsmRef<S, D, A: Fsm<S, D>>` sobre `TestActorRef<A>`: `state_name()`/`state_data()`… | testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:24-50 ;… | Q-TK-1, Q-TK-2, Q-TK-8 |

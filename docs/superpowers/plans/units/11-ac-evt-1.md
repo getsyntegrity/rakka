@@ -23,7 +23,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-EVT-1`, `Q-EVT-2`, `Q-EVT-3`, `Q-EVT-4`, `Q-EVT-5`, `Q-EVT-6`, `Q-EVT-7`, `Q-X-2`, `Q-X-3`, `Q-X-6`, `Q-X-7`.
+- Propuestas aún sin decisión del Owner: `Q-EVT-1`, `Q-EVT-2`, `Q-EVT-3`, `Q-EVT-4`, `Q-EVT-5`, `Q-EVT-6`, `Q-EVT-7`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-6`, `Q-X-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -76,11 +76,11 @@ Filas: AC-EVT-017, AC-EVT-018, AC-EVT-019, AC-EVT-020, AC-EVT-021, AC-EVT-022. C
 | AC-EVT-002 | LookupClassification | `HashMap<Classifier, BTreeSet<Subscriber>>` | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:335-369 | - |
 | AC-EVT-003 | SubchannelClassification (jerarquía de clasificadores) | índice de subclasificación sobre `EventClass` (ver Q-X-6) | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:150-297 | Q-X-6 |
 | AC-EVT-004 | ScanningClassification | `Vec`/`BTreeSet<(Classifier, Subscriber)>` + predicado | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:300-333 | - |
-| AC-EVT-005 | ManagedActorClassification (desuscripción automática al morir el suscriptor) y… | actor unsubscriber interno + mapa `ActorRef -> BTreeSet<ActorRef>` | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:180-298 | - |
-| AC-EVT-006 | EventStream: subscribe por clase, unsubscribe, publish; null →… | `EventStream` con suscripciones por `EventClass`/`TypeId` (Q-X-6) | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:86-113 | Q-EVT-1 |
-| AC-EVT-007 | EventStreamUnsubscriber: quita suscriptores al terminar | actor interno `EventStreamUnsubscriber` | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:298-423 | - |
-| AC-EVT-008 | Tipos de dead letters: DeadLetter, SuppressedDeadLetter, Dropped,… | structs `DeadLetter`, `SuppressedDeadLetter`, `Dropped`; trait marker… | actor-tests/src/test/scala/org/apache/pekko/actor/DeadLetterSupressionSpec.scala:41-106 | Q-EVT-1 |
-| AC-EVT-009 | DeadLetterListener: log de dead letters con límite (log-dead-letters),… | actor de sistema `DeadLetterListener` | actor-tests/src/test/scala/org/apache/pekko/actor/DeadLetterSuspensionSpec.scala:70-103… | Q-EVT-1 |
+| AC-EVT-005 | ManagedActorClassification (desuscripción automática al morir el suscriptor) y… | actor unsubscriber interno + mapa `ActorRef -> BTreeSet<ActorRef>` | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:180-298 | Q-X-4 |
+| AC-EVT-006 | EventStream: subscribe por clase, unsubscribe, publish; null →… | `EventStream` con suscripciones por `EventClass`/`TypeId` (Q-X-6) | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:86-113 | Q-EVT-1, Q-X-6 |
+| AC-EVT-007 | EventStreamUnsubscriber: quita suscriptores al terminar | actor interno `EventStreamUnsubscriber` | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:298-423 | Q-X-4 |
+| AC-EVT-008 | Tipos de dead letters: DeadLetter, SuppressedDeadLetter, Dropped,… | structs `DeadLetter`, `SuppressedDeadLetter`, `Dropped`; trait marker… | actor-tests/src/test/scala/org/apache/pekko/actor/DeadLetterSupressionSpec.scala:41-106 | Q-EVT-1, Q-X-3 |
+| AC-EVT-009 | DeadLetterListener: log de dead letters con límite (log-dead-letters),… | actor de sistema `DeadLetterListener` | actor-tests/src/test/scala/org/apache/pekko/actor/DeadLetterSuspensionSpec.scala:70-103… | Q-EVT-1, Q-X-7 |
 | AC-EVT-010 | UnhandledMessage (publicación y log con debug.unhandled) | `struct UnhandledMessage` + forwarder interno | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:115-131 | Q-EVT-1 |
 | AC-EVT-011 | LoggingBus: niveles, setLogLevel, logger stdout de arranque,… | trait `Logger` + `LoggingBus`; Q-X-7 decide actor vs backend | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:133-148 ;… | Q-EVT-2, Q-X-2, Q-X-7 |
 | AC-EVT-012 | Familia LogEvent (Error/Warning/Info/Debug y variantes con MDC/marker:… | `enum LogEvent { Error(..), Warning(..), Info(..), Debug(..) }` con `LogLevel` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:240-280,347-356 | - |
@@ -90,7 +90,7 @@ Filas: AC-EVT-017, AC-EVT-018, AC-EVT-019, AC-EVT-020, AC-EVT-021, AC-EVT-022. C
 | AC-EVT-014 | DiagnosticLoggingAdapter (MDC) y DiagnosticActorLogging | campos estructurados de `tracing` o `HashMap` en el adaptador | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:240-280 ;… | - |
 | AC-EVT-015 | MarkerLoggingAdapter, LogMarker, ActorLogMarker | `struct LogMarker { name, properties }` y métodos con marker | actor-tests/src/test/scala/org/apache/pekko/event/MarkerLoggingSpec.scala:28-46 | - |
 | AC-EVT-016 | LoggingFilter / DefaultLoggingFilter / LoggingFilterWithMarker | trait `LoggingFilter` + `DefaultLoggingFilter` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:209-215 ;… | Q-X-2 |
-| AC-EVT-017 | DefaultLogger / StdOutLogger / StandardOutLogger: formato de salida,… | `StdOutFormatter` + `StandardOutLogger` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:282-345 | Q-EVT-2 |
+| AC-EVT-017 | DefaultLogger / StdOutLogger / StandardOutLogger: formato de salida,… | `StdOutFormatter` + `StandardOutLogger` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:282-345 | Q-EVT-2, Q-X-7 |
 | AC-EVT-018 | ActorLogging (log perezoso con logSource = path del actor) | `ctx.log()` | actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:36-43 ;… | Q-EVT-1 |
 | AC-EVT-019 | LoggingReceive (decora receive con log Debug; activable por debug.receive) | `logging_receive(ctx, receive)` / `with_label`; exige un Receive con `is_defined_at`… | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:74-94 ;… | Q-EVT-1, Q-EVT-7, Q-X-3 |
 | AC-EVT-020 | LoggerMailbox (vacía la cola de logs al cerrar) | mailbox del logger con drenaje final | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:189-205 | Q-X-7 |

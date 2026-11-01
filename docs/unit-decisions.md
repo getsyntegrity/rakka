@@ -20,7 +20,7 @@
 | Q-PATH-1 | propuesta | 1: AC-PATH-002 | Bloquea: nada hasta que exista un consumidor (cluster); puede avanzar: AC-PATH-002 con pekko_compare. | — | `classic-foundation` |
 | Q-PATH-2 | propuesta | 1: AC-PATH-008 | Bloquea: AC-PATH-008 (cierre; VAL-22/23 pendientes); puede avanzar: el resto. | — | `classic-foundation` |
 | Q-PATH-3 | propuesta | 2: AC-PATH-001, AC-PATH-014 | Bloquea: nada. | — | `classic-foundation` |
-| Q-PATH-4 | propuesta | 3: AC-PATH-001, AC-PATH-007, AC-PATH-008 | Bloquea: nada; puede avanzar con (a). | — | `classic-foundation` |
+| Q-PATH-4 | propuesta | 4: AC-PATH-001, AC-PATH-004, AC-PATH-007, AC-PATH-008 | Bloquea: nada; puede avanzar con (a). | — | `classic-foundation` |
 | Q-PATH-5 | propuesta | 1: AC-PATH-009 | Bloquea: AC-PATH-009 (cierre); puede avanzar: AC-PATH-007/008. | — | `classic-foundation` |
 | Q-PATH-6 | propuesta | 7: AC-PATH-002, AC-PATH-004, AC-PATH-005, AC-PATH-006, AC-PATH-007, AC-PATH-011 … (+1) | Bloquea: publicación de uri.rs/jstring.rs; puede avanzar: el resto de PATH. | — | `classic-foundation` |
 | Q-UTIL-14 | propuesta | 2: AC-PATH-001, AC-PATH-014 | Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*. | — | `classic-foundation` |
@@ -40,20 +40,22 @@
 
 ## P03 UTIL-ESTRUCTURAS
 
-16 filas; 6 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 6 propuestas.
+16 filas; 8 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 8 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
-| Q-UTIL-10 | propuesta | 4: AC-UTIL-007, AC-UTIL-008, AC-UTIL-011, AC-UTIL-015.1 | Bloquea: AC-UTIL-012 y AC-UTIL-013 (colas bloqueantes) hasta fijar Q-X-4; puede avanzar: AC-UTIL-010, 011, 017.*. | — | `classic-foundation` |
-| Q-UTIL-11 | propuesta | 3: AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
+| Q-UTIL-10 | propuesta | 7: AC-UTIL-007, AC-UTIL-008, AC-UTIL-010, AC-UTIL-011, AC-UTIL-012, AC-UTIL-013 … (+1) | Bloquea: AC-UTIL-012 y AC-UTIL-013 (colas bloqueantes) hasta fijar Q-X-4; puede avanzar: AC-UTIL-010, 011, 017.*. | — | `classic-foundation` |
+| Q-UTIL-11 | propuesta | 10: AC-UTIL-012, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.4, AC-UTIL-017.1 … (+4) | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
 | Q-UTIL-14 | propuesta | 2: AC-UTIL-016.4, AC-UTIL-017.1 | Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*. | — | `classic-foundation` |
 | Q-UTIL-15 | propuesta | 1: AC-UTIL-010 | Bloquea: nada (AC-UTIL-010 puede cerrarse con (b) documentado); puede avanzar: todo AC-UTIL-010. | — | `classic-foundation` |
-| Q-UTIL-8 | propuesta | 1: AC-UTIL-009 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
+| Q-UTIL-8 | propuesta | 2: AC-UTIL-009, AC-UTIL-017.1 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
+| Q-X-4 | propuesta | 1: AC-UTIL-012 | — | — | `transversal` |
+| Q-X-5 | propuesta | 1: AC-UTIL-015.1 | — | — | `transversal` |
 | Q-X-6 | propuesta | 1: AC-UTIL-008 | — | — | `transversal` |
 
 ## P04 UTIL-BYTES
 
-9 filas; 4 decisiones distintas en sus filas: 0 respondidas, 1 bloqueantes, 3 propuestas.
+9 filas; 6 decisiones distintas en sus filas: 0 respondidas, 1 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -61,6 +63,8 @@
 | Q-CFG-11 | propuesta | 1: AC-UTIL-006.8 | Bloquea: AC-CFG-010 (y AC-UTIL-006.8); puede avanzar: aceptar las claves en `off`. | — | `classic-foundation` |
 | Q-UTIL-11 | propuesta | 2: AC-UTIL-006.8, AC-UTIL-022 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
 | Q-UTIL-14 | propuesta | 1: AC-UTIL-006.1 | Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*. | — | `classic-foundation` |
+| Q-UTIL-8 | propuesta | 1: AC-UTIL-006.1 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
+| Q-X-3 | propuesta | 1: AC-UTIL-006.8 | — | — | `transversal` |
 
 ## P05 UTIL-GLOB
 
@@ -72,11 +76,12 @@
 
 ## P06 UTIL-PLATAFORMA
 
-6 filas; 3 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 3 propuestas.
+6 filas; 4 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-UTIL-10 | propuesta | 2: AC-UTIL-024, AC-UTIL-025 | Bloquea: AC-UTIL-012 y AC-UTIL-013 (colas bloqueantes) hasta fijar Q-X-4; puede avanzar: AC-UTIL-010, 011, 017.*. | — | `classic-foundation` |
+| Q-UTIL-11 | propuesta | 2: AC-UTIL-020, AC-UTIL-021 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
 | Q-UTIL-13 | propuesta | 1: AC-UTIL-026 | Bloquea: nada; (a) es suficiente. | — | `classic-foundation` |
 | Q-UTIL-8 | propuesta | 1: AC-UTIL-023 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
 
@@ -87,7 +92,7 @@
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CFG-3 | propuesta | 1: AC-CFG-019 | Bloquea: AC-CFG-019 (y la parte fail-fast de AC-CFG-002). | Puede avanzar: lectura de cada clave en Settings. | `classic-foundation` |
-| Q-CFG-4 | propuesta | 2: AC-UTIL-002.4, AC-UTIL-002.5 | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
+| Q-CFG-4 | propuesta | 9: AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.6 … (+3) | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-CFG-5 | propuesta | 1: AC-CFG-003 | Bloquea: AC-CFG-003, AC-UTIL-005.1; puede avanzar: el resto. | — | `classic-foundation` |
 | Q-CFG-6 | propuesta | 1: AC-CFG-001 | Bloquea: AC-CFG-001 (carga por defecto); puede avanzar: `ActorSystem::new(config)` con config explícita. | — | `classic-foundation` |
 | Q-X-1 | propuesta | 9: AC-CFG-001, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5 … (+3) | — | — | `transversal` |
@@ -104,7 +109,7 @@
 | Q-CFG-4 | propuesta | 2: AC-CFG-002, AC-CFG-005 | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-CFG-7 | propuesta | 1: AC-CFG-007 | Bloquea: AC-CFG-007 y AC-UTIL-016.11 (impl); puede avanzar: aceptar y validar las claves. | — | `classic-foundation` |
 | Q-CFG-8 | propuesta | 1: AC-CFG-006 | Bloquea: AC-CFG-006 y AC-EXT-003; puede avanzar: AC-EXT-001.*, AC-EXT-002. | — | `classic-foundation` |
-| Q-X-2 | propuesta | 2: AC-CFG-006, AC-CFG-009 | — | — | `transversal` |
+| Q-X-2 | propuesta | 3: AC-CFG-004, AC-CFG-006, AC-CFG-009 | — | — | `transversal` |
 | Q-X-3 | propuesta | 1: AC-CFG-010 | — | — | `transversal` |
 | Q-X-6 | propuesta | 1: AC-CFG-011 | — | — | `transversal` |
 | Q-X-7 | propuesta | 3: AC-CFG-004, AC-CFG-011, AC-CFG-018 | — | — | `transversal` |
@@ -122,24 +127,26 @@
 
 ## P10 CFG-DEPLOY
 
-3 filas; 3 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 3 propuestas.
+3 filas; 4 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CFG-12 | propuesta | 1: AC-CFG-013 | Bloquea: nada en pekko-actor; puede avanzar: AC-CFG-013 con (a). | — | `classic-foundation` |
+| Q-CFG-4 | propuesta | 1: AC-CFG-012.1 | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-UTIL-8 | propuesta | 1: AC-CFG-012.2 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
 | Q-X-2 | propuesta | 2: AC-CFG-012.1, AC-CFG-013 | — | — | `transversal` |
 
 ## P11 EVT-BUS
 
-11 filas; 4 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 4 propuestas.
+11 filas; 5 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-EVT-1 | propuesta | 2: AC-EVT-006, AC-EVT-008 | Bloquea: la comparación textual exacta de AC-EVT-006/008/009/010/013.3/018/019; la lógica avanza con `message_type_name`. | — | `classic-system` |
 | Q-EVT-3 | propuesta | 1: AC-EVT-013.1 | Bloquea: nada (puede decidirse al implementar AC-EVT-013.1). | — | `classic-system` |
 | Q-X-2 | propuesta | 1: AC-EVT-016 | — | — | `transversal` |
-| Q-X-6 | propuesta | 1: AC-EVT-003 | — | — | `transversal` |
+| Q-X-3 | propuesta | 1: AC-EVT-008 | — | — | `transversal` |
+| Q-X-6 | propuesta | 2: AC-EVT-003, AC-EVT-006 | — | — | `transversal` |
 
 ## P12 SCH-RUEDA
 
@@ -161,7 +168,7 @@
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-DSP-2 | propuesta | 1: AC-MBX-004 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
-| Q-MBX-1 | propuesta | 4: AC-MBX-007, AC-MBX-009, AC-MBX-011, AC-MBX-012 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
+| Q-MBX-1 | propuesta | 5: AC-MBX-007, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
 | Q-MBX-2 | propuesta | 2: AC-MBX-011, AC-MBX-015 | — | — | `classic-dispatch` |
 | Q-MBX-3 | propuesta | 1: AC-MBX-012 | Bloquea la implementación de AC-MBX-012 (ambas variantes); el resto puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-4 | propuesta | 2: AC-MBX-009, AC-MBX-010 | — | — | `classic-dispatch` |
@@ -193,7 +200,7 @@
 | Q-DSP-5 | propuesta | 2: AC-DSP-003, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-MBX-5 | propuesta | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-MBX-6 | propuesta | 5: AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-023, AC-MBX-002 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
-| Q-X-4 | propuesta | 2: AC-CELL-013.1, AC-DSP-001 | — | — | `transversal` |
+| Q-X-4 | propuesta | 3: AC-CELL-013.1, AC-DSP-001, AC-MBX-001 | — | — | `transversal` |
 
 ## P16 DSP-EJECUTORES
 
@@ -202,7 +209,7 @@
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-DSP-1 | propuesta | 9: AC-DSP-005, AC-DSP-006, AC-DSP-008, AC-DSP-009, AC-DSP-010, AC-DSP-011 … (+3) | Bloquea la implementación de AC-DSP-008/009/013/014/019; puede avanzar: lectura/validación de claves y las funciones puras `scaledPoolSize` y `resolveMinimumRunnable`. | — | `classic-dispatch` |
-| Q-DSP-2 | propuesta | 2: AC-DSP-004, AC-DSP-010 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
+| Q-DSP-2 | propuesta | 3: AC-DSP-004, AC-DSP-006, AC-DSP-010 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-DSP-3 | propuesta | 4: AC-DSP-016.1, AC-DSP-017.1, AC-DSP-017.2, AC-DSP-018 | Bloquea sólo AC-DSP-017.2. | — | `classic-dispatch` |
 | Q-DSP-4 | propuesta | 2: AC-DSP-004, AC-DSP-022 | — | — | `classic-dispatch` |
 | Q-DSP-6 | propuesta | 2: AC-DSP-008, AC-DSP-019 | — | — | `classic-dispatch` |
@@ -210,7 +217,7 @@
 | Q-UTIL-11 | propuesta | 2: AC-UTIL-018.4, AC-UTIL-018.5 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
 | Q-X-1 | propuesta | 1: AC-DSP-004 | — | — | `transversal` |
 | Q-X-2 | propuesta | 1: AC-DSP-010 | — | — | `transversal` |
-| Q-X-4 | propuesta | 4: AC-DSP-006, AC-DSP-008, AC-UTIL-018.4, AC-UTIL-018.5 | — | — | `transversal` |
+| Q-X-4 | propuesta | 5: AC-DSP-006, AC-DSP-008, AC-DSP-013, AC-UTIL-018.4, AC-UTIL-018.5 | — | — | `transversal` |
 | Q-X-5 | propuesta | 1: AC-DSP-016.1 | — | — | `transversal` |
 
 ## P17 REF-MUERTOS
@@ -296,26 +303,30 @@
 
 ## P25 SYS-GUARDIANES
 
-12 filas; 7 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 7 propuestas.
+12 filas; 10 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 10 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-SYS-3 | propuesta | 1: AC-SYS-020 | Bloquea: nada (AC-SYS-020/021 pueden implementarse con (a)); si el Owner exige paridad de manifests, queda partial. | — | `classic-system` |
 | Q-SYS-4 | propuesta | 2: AC-SYS-002, AC-SYS-003.2 | Bloquea: sólo AC-SYS-003.2 (sin spec) y la rama de espera de AC-SYS-002; el resto avanza. | — | `classic-system` |
 | Q-SYS-6 | propuesta | 2: AC-SYS-001.2, AC-SYS-013 | Bloquea: nada; AC-SYS-001.2/013/018 avanzan con (a). | — | `classic-system` |
+| Q-X-1 | propuesta | 1: AC-SYS-001.2 | — | — | `transversal` |
 | Q-X-2 | propuesta | 3: AC-SUP-014, AC-SYS-002, AC-SYS-008 | — | — | `transversal` |
-| Q-X-4 | propuesta | 1: AC-SYS-001.2 | — | — | `transversal` |
-| Q-X-5 | propuesta | 2: AC-SYS-001.1, AC-SYS-007 | — | — | `transversal` |
+| Q-X-3 | propuesta | 1: AC-SYS-003.1 | — | — | `transversal` |
+| Q-X-4 | propuesta | 2: AC-SYS-001.2, AC-SYS-007 | — | — | `transversal` |
+| Q-X-5 | propuesta | 7: AC-SYS-001.1, AC-SYS-001.2, AC-SYS-002, AC-SYS-007, AC-SYS-008, AC-SYS-009 … (+1) | — | — | `transversal` |
 | Q-X-7 | propuesta | 1: AC-SYS-002 | — | — | `transversal` |
+| Q-X-8 | propuesta | 1: AC-SYS-009 | — | — | `transversal` |
 
 ## P26 SYS-PROVEEDOR
 
-8 filas; 7 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 7 propuestas.
+8 filas; 8 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 8 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CFG-9 | propuesta | 1: AC-SYS-018 | Bloquea: AC-CFG-008; puede avanzar: provider `local`. | — | `classic-foundation` |
 | Q-EVT-1 | propuesta | 1: AC-SYS-012 | Bloquea: la comparación textual exacta de AC-EVT-006/008/009/010/013.3/018/019; la lógica avanza con `message_type_name`. | — | `classic-system` |
+| Q-SYS-5 | propuesta | 1: AC-SYS-012 | Bloquea: nada; AC-SYS-022 y AC-SYS-012 avanzan con (a). | — | `classic-system` |
 | Q-SYS-6 | propuesta | 1: AC-SYS-018 | Bloquea: nada; AC-SYS-001.2/013/018 avanzan con (a). | — | `classic-system` |
 | Q-X-10 | propuesta | 1: AC-SYS-018 | — | — | `transversal` |
 | Q-X-2 | propuesta | 2: AC-SYS-016, AC-SYS-018 | — | — | `transversal` |
@@ -357,7 +368,7 @@
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CFG-8 | propuesta | 1: AC-EXT-003 | Bloquea: AC-CFG-006 y AC-EXT-003; puede avanzar: AC-EXT-001.*, AC-EXT-002. | — | `classic-foundation` |
-| Q-EXT-1 | propuesta | 2: AC-EXT-001.1, AC-EXT-002 | Bloquea: AC-EXT-001.1, AC-EXT-002 y, por el índice, AC-EXT-004; puede avanzar: AC-EXT-003. | — | `classic-foundation` |
+| Q-EXT-1 | propuesta | 3: AC-EXT-001.1, AC-EXT-002, AC-EXT-004 | Bloquea: AC-EXT-001.1, AC-EXT-002 y, por el índice, AC-EXT-004; puede avanzar: AC-EXT-003. | — | `classic-foundation` |
 | Q-EXT-2 | propuesta | 1: AC-EXT-001.2 | Bloquea: AC-EXT-001.2; puede avanzar: AC-EXT-002. | — | `classic-foundation` |
 | Q-EXT-3 | propuesta | 1: AC-EXT-004 | Bloquea: el cierre de impl de AC-EXT-004; puede avanzar: todo lo demás. | — | `classic-foundation` |
 | Q-X-2 | propuesta | 1: AC-EXT-003 | — | — | `transversal` |
@@ -415,7 +426,7 @@
 
 ## P34 EVT-LOGGING
 
-11 filas; 8 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 8 propuestas.
+11 filas; 9 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 9 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -426,7 +437,8 @@
 | Q-EVT-7 | propuesta | 1: AC-EVT-019 | Bloquea: AC-EVT-019 (y el log de FSM con debug.fsm); relacionada con Q-X-3. | — | `classic-system` |
 | Q-X-2 | propuesta | 1: AC-EVT-011 | — | — | `transversal` |
 | Q-X-3 | propuesta | 1: AC-EVT-019 | — | — | `transversal` |
-| Q-X-7 | propuesta | 2: AC-EVT-011, AC-EVT-020 | — | — | `transversal` |
+| Q-X-4 | propuesta | 2: AC-EVT-005, AC-EVT-007 | — | — | `transversal` |
+| Q-X-7 | propuesta | 4: AC-EVT-009, AC-EVT-011, AC-EVT-017, AC-EVT-020 | — | — | `transversal` |
 
 ## P35 RT-NUCLEO
 
@@ -488,7 +500,7 @@
 
 ## P39 TERMINACION
 
-10 filas; 8 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 8 propuestas.
+10 filas; 9 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 9 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -497,13 +509,14 @@
 | Q-SYS-2 | propuesta | 1: AC-SYS-015 | Bloquea: AC-SYS-015; el resto avanza. | — | `classic-system` |
 | Q-SYS-3 | propuesta | 1: AC-SYS-021 | Bloquea: nada (AC-SYS-020/021 pueden implementarse con (a)); si el Owner exige paridad de manifests, queda partial. | — | `classic-system` |
 | Q-SYS-5 | propuesta | 1: AC-SYS-022 | Bloquea: nada; AC-SYS-022 y AC-SYS-012 avanzan con (a). | — | `classic-system` |
+| Q-X-1 | propuesta | 1: AC-SYS-022 | — | — | `transversal` |
 | Q-X-2 | propuesta | 1: AC-SYS-021 | — | — | `transversal` |
-| Q-X-4 | propuesta | 1: AC-SYS-005 | — | — | `transversal` |
+| Q-X-4 | propuesta | 3: AC-SYS-004, AC-SYS-005, AC-SYS-006 | — | — | `transversal` |
 | Q-X-5 | propuesta | 1: AC-SYS-015 | — | — | `transversal` |
 
 ## P40 SER-NUCLEO
 
-18 filas; 9 decisiones distintas en sus filas: 0 respondidas, 1 bloqueantes, 8 propuestas.
+18 filas; 11 decisiones distintas en sus filas: 0 respondidas, 1 bloqueantes, 10 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -513,9 +526,11 @@
 | Q-SER-5 | propuesta | 1: AC-SER-006 | — | — | `classic-io-ser` |
 | Q-SER-6 | propuesta | 2: AC-SER-010, AC-SER-012 | — | — | `classic-io-ser` |
 | Q-X-1 | propuesta | 2: AC-SER-010, AC-SER-011 | — | — | `transversal` |
-| Q-X-2 | propuesta | 2: AC-SER-001.2, AC-SER-005 | — | — | `transversal` |
+| Q-X-2 | propuesta | 3: AC-SER-001.1, AC-SER-001.2, AC-SER-005 | — | — | `transversal` |
 | Q-X-3 | propuesta | 2: AC-SER-002, AC-SER-003.3 | — | — | `transversal` |
+| Q-X-4 | propuesta | 1: AC-SER-006 | — | — | `transversal` |
 | Q-X-6 | propuesta | 1: AC-SER-001.1 | — | — | `transversal` |
+| Q-X-7 | propuesta | 1: AC-SER-004.2 | — | — | `transversal` |
 
 ## P41 SER-SISTEMA
 
@@ -536,7 +551,7 @@
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
-| Q-IO-1 | propuesta | 9: AC-IO-001, AC-IO-002.2, AC-IO-002.3, AC-IO-002.4, AC-IO-002.7, AC-IO-003 … (+3) | — | — | `classic-io-ser` |
+| Q-IO-1 | propuesta | 10: AC-IO-001, AC-IO-002.2, AC-IO-002.3, AC-IO-002.4, AC-IO-002.6, AC-IO-002.7 … (+4) | — | — | `classic-io-ser` |
 | Q-IO-2 | propuesta | 6: AC-IO-002.2, AC-IO-002.3, AC-IO-002.4, AC-IO-002.5, AC-IO-002.6, AC-IO-004.4 | — | — | `classic-io-ser` |
 | Q-IO-3 | propuesta | 7: AC-IO-002.1, AC-IO-002.3, AC-IO-002.5, AC-IO-002.6, AC-IO-003, AC-IO-010 … (+1) | — | — | `classic-io-ser` |
 | Q-IO-4 | propuesta | 1: AC-IO-002.3 | — | — | `classic-io-ser` |
@@ -575,7 +590,7 @@
 
 ## P45 TK-API
 
-22 filas; 13 decisiones distintas en sus filas: 0 respondidas, 1 bloqueantes, 12 propuestas.
+22 filas; 14 decisiones distintas en sus filas: 0 respondidas, 1 bloqueantes, 13 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -591,7 +606,8 @@
 | Q-TK-9 | propuesta | 1: AC-TK-012.2 | Bloquea: nada. | — | `classic-system` |
 | Q-X-2 | propuesta | 1: AC-TK-015 | — | — | `transversal` |
 | Q-X-3 | propuesta | 2: AC-TK-002.3, AC-TK-003 | — | — | `transversal` |
-| Q-X-5 | propuesta | 2: AC-TK-002.3, AC-TK-017 | — | — | `transversal` |
+| Q-X-5 | propuesta | 3: AC-TK-001.2, AC-TK-002.3, AC-TK-017 | — | — | `transversal` |
+| Q-X-7 | propuesta | 2: AC-TK-005.2, AC-TK-005.3 | — | — | `transversal` |
 
 ## P46 JAPI-ACTORES
 
@@ -599,7 +615,7 @@
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
-| Q-JAPI-1 | propuesta | 12: AC-JAPI-001, AC-JAPI-002, AC-JAPI-003, AC-JAPI-004.3, AC-JAPI-005.1, AC-JAPI-005.2 … (+6) | — | — | `classic-io-ser` |
+| Q-JAPI-1 | propuesta | 13: AC-JAPI-001, AC-JAPI-002, AC-JAPI-003, AC-JAPI-004.2, AC-JAPI-004.3, AC-JAPI-005.1 … (+7) | — | — | `classic-io-ser` |
 | Q-JAPI-2 | propuesta | 5: AC-JAPI-003, AC-JAPI-004.1, AC-JAPI-004.2, AC-JAPI-004.4, AC-JAPI-012 | — | — | `classic-io-ser` |
 | Q-JAPI-4 | propuesta | 3: AC-JAPI-001, AC-JAPI-008, AC-JAPI-012 | — | — | `classic-io-ser` |
 | Q-X-5 | propuesta | 2: AC-JAPI-004.4, AC-JAPI-005.3 | — | — | `transversal` |
@@ -613,22 +629,24 @@
 | Q-ASK-1 | propuesta | 1: AC-ASK-017 | Bloquea el diseno de la firma publica de ask/gracefulStop/after/retry (AC-ASK-001.*, 003, 004, 007, 008, 010); puede avanzar la validacion de entradas (AC-ASK-001.2 A3-A5) y los textos con tests de unidad sin runtime. | — | `classic-patterns` |
 | Q-ASK-10 | propuesta | 1: AC-ASK-017 | — | — | `classic-patterns` |
 | Q-ASK-9 | propuesta | 1: AC-ASK-017 | Bloquea solo la implementacion de AC-ASK-017. | — | `classic-patterns` |
-| Q-EVT-5 | propuesta | 1: AC-EVT-022 | Bloquea: nada. | — | `classic-system` |
+| Q-EVT-5 | propuesta | 2: AC-EVT-022, AC-JAPI-007 | Bloquea: nada. | — | `classic-system` |
 | Q-JAPI-1 | propuesta | 2: AC-JAPI-007, AC-JAPI-010 | — | — | `classic-io-ser` |
 | Q-JAPI-3 | propuesta | 3: AC-JAPI-009.1, AC-JAPI-009.2, AC-JAPI-009.3 | — | — | `classic-io-ser` |
 | Q-JAPI-4 | propuesta | 1: AC-JAPI-010 | — | — | `classic-io-ser` |
-| Q-X-5 | propuesta | 1: AC-ASK-017 | — | — | `transversal` |
+| Q-X-5 | propuesta | 2: AC-ASK-017, AC-JAPI-009.1 | — | — | `transversal` |
 
 ## P48 T-COMPORTAMIENTO-NUCLEO
 
-21 filas; 4 decisiones distintas en sus filas: 0 respondidas, 1 bloqueantes, 3 propuestas.
+21 filas; 6 decisiones distintas en sus filas: 0 respondidas, 1 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
-| Q-T-BEH-1 | bloqueante | 5: AT-BEH-001, AT-BEH-004, AT-BEH-007, AT-BEH-011, AT-BEH-023 | Bloquea AT-BEH-001, 004, 007, 011, 023 y AT-SUP-005/013; puede avanzar todo lo que no construye Behaviors (SIG, REF, STASH solo-estructura). | — | `typed-core` |
+| Q-T-BEH-1 | bloqueante | 6: AT-BEH-001, AT-BEH-002, AT-BEH-004, AT-BEH-007, AT-BEH-011, AT-BEH-023 | Bloquea AT-BEH-001, 004, 007, 011, 023 y AT-SUP-005/013; puede avanzar todo lo que no construye Behaviors (SIG, REF, STASH solo-estructura). | — | `typed-core` |
 | Q-T-BEH-2 | propuesta | 3: AT-BEH-008.1, AT-BEH-008.2, AT-BEH-008.3 | — | — | `typed-core` |
 | Q-T-BEH-4 | propuesta | 5: AT-BEH-001, AT-BEH-022, AT-REF-001, AT-REF-003, AT-REF-005 | Bloquea la firma de narrow; no bloquea tell/igualdad. | — | `typed-core` |
 | Q-T-SIG-1 | propuesta | 1: AT-SIG-001 | Bloquea la API publica de Signal (AT-SIG-001/004/005); el resto avanza. | — | `typed-core` |
+| Q-X-3 | propuesta | 1: AT-REF-003 | — | — | `transversal` |
+| Q-X-5 | propuesta | 1: AT-BEH-007 | — | — | `transversal` |
 
 ## P49 T-ADAPTADOR-CLASICO
 
@@ -663,7 +681,7 @@
 | Q-T-SYS-3 | propuesta | 1: AT-SYS-003 | Bloquea solo la rama de overflow de AT-SYS-003. | — | `typed-core` |
 | Q-T-SYS-4 | propuesta | 1: AT-SYS-005 | Bloquea AT-SYS-005 (parte close); terminate/whenTerminated avanzan. | — | `typed-core` |
 | Q-T-TMR-4 | propuesta | 2: AT-SYS-007.2, AT-SYS-009 | Bloquea la validacion determinista, no la implementacion. | — | `typed-core` |
-| Q-X-1 | propuesta | 1: AT-SYS-001 | — | — | `transversal` |
+| Q-X-1 | propuesta | 2: AT-SYS-001, AT-SYS-012 | — | — | `transversal` |
 | Q-X-2 | propuesta | 3: AT-EXT-001.1, AT-EXT-002.1, AT-EXT-002.2 | — | — | `transversal` |
 | Q-X-4 | propuesta | 4: AT-CS-001, AT-DSP-002, AT-DSP-005, AT-SYS-007.4 | — | — | `transversal` |
 | Q-X-6 | propuesta | 1: AT-SYS-010 | — | — | `transversal` |
@@ -717,7 +735,7 @@
 
 ## P54 T-CONTEXTO-SENALES
 
-14 filas; 6 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 6 propuestas.
+14 filas; 8 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 8 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -725,8 +743,10 @@
 | Q-T-CTX-3 | propuesta | 2: AT-CTX-005, AT-CTX-006 | Bloquea la firma de spawn/stop/watch/watchWith (AT-CTX-002/004/005/006); la logica avanza. | — | `typed-core` |
 | Q-T-SIG-1 | propuesta | 1: AT-SIG-004 | Bloquea la API publica de Signal (AT-SIG-001/004/005); el resto avanza. | — | `typed-core` |
 | Q-T-TMR-2 | propuesta | 1: AT-CTX-008 | — | — | `typed-core` |
+| Q-X-3 | propuesta | 1: AT-CTX-011 | — | — | `transversal` |
 | Q-X-4 | propuesta | 3: AT-CTX-010, AT-CTX-012, AT-CTX-014 | — | — | `transversal` |
 | Q-X-5 | propuesta | 2: AT-SIG-007, AT-SUP-015 | — | — | `transversal` |
+| Q-X-6 | propuesta | 1: AT-CTX-015 | — | — | `transversal` |
 
 ## P55 T-SUPERVISION
 
@@ -821,11 +841,12 @@
 
 ## P61 T-JAVADSL
 
-17 filas; 6 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 6 propuestas.
+17 filas; 7 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 7 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-T-BEH-6 | propuesta | 1: AT-JAPI-001.3 | Bloquea AT-BEH-018/019 (dependen tambien de Q-X-7); no bloquea el resto de BEH. | — | `typed-core` |
+| Q-T-CTX-2 | propuesta | 1: AT-CTX-017 | — | — | `typed-core` |
 | Q-T-CTX-4 | propuesta | 1: AT-CTX-017 | Bloquea la ejecutabilidad de AT-CTX-017 y AT-SUP-020/021; el contrato esta cerrado y el resto de CTX avanza. | — | `typed-core` |
 | Q-T-JAPI-1 | propuesta | 16: AT-JAPI-001.1, AT-JAPI-001.2, AT-JAPI-001.3, AT-JAPI-002.1, AT-JAPI-002.2, AT-JAPI-003 … (+10) | Bloquea: impl de AT-JAPI-001.2, 002.1, 002.2, 003 y 004 (dependen de Q-T-JAPI-2). | Puede avanzar: AT-JAPI-001.1, 005.1, 006.2-006.5 (alias de filas AT-*). | `typed-extended` |
 | Q-T-JAPI-2 | propuesta | 5: AT-JAPI-001.2, AT-JAPI-002.1, AT-JAPI-002.2, AT-JAPI-003, AT-JAPI-004 | Bloquea: impl de AT-JAPI-001.2, 002.1, 002.2, 003 y 004. | Puede avanzar: el resto de JAPI y toda la API Rust de scaladsl. | `typed-extended` |
@@ -986,6 +1007,12 @@ Sin decisiones asociadas a sus filas en `contract-map.tsv`.
 | Q-UTIL-11 | propuesta | 3: AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
 | Q-X-4 | propuesta | 1: AC-UTIL-018.1 | — | — | `transversal` |
 
+## Filas que citan una agrupación sin miembros concretos (pendientes de revisión)
+
+Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas filas la citan pero ninguna de sus decisiones individuales es un miembro. **No se les asigna ningún miembro automáticamente** y haberlas desligado de la agrupación no prueba que no necesiten decisiones individuales: su revisión semántica está pendiente.
+
+- Q-X-9 (Q-UTIL-1, Q-UTIL-2, Q-UTIL-3, Q-UTIL-4, Q-UTIL-5): 9 filas: AC-ASK-001.1, AC-ASK-005, AC-CS-003.1, AC-UTIL-002.4, AC-UTIL-005.2, AT-ASK-001, AT-ASK-002, AT-CTX-012, AT-DLV-003.3
+
 ## Totales
 
-Total de pares unidad–decisión: 437 (3 respondidas, 12 bloqueantes, 422 propuestas).
+Total de pares unidad–decisión: 458 (3 respondidas, 12 bloqueantes, 443 propuestas).

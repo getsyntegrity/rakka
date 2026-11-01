@@ -157,6 +157,10 @@ def build_decisions(unit_rows, contract_map, register, cards):
     # A `group` decision only labels its members: it has no answer of its own, so it never blocks. A row that cites a group
     # is tied to the members it cites itself; the group id is dropped from the row's decisions.
     groups = {q for q, r in reg.items() if r["status"] == "group"}
+    members_of = {q: set(re.findall(r"Q-[A-Z]+-\d+", reg[q]["recommendation"])) - {q} for q in groups}
+    unresolved_group_rows = {q: sorted(r["row_id"] for r in contract_map
+                                       if q in re.findall(r"Q-(?:T-)?[A-Z]+-\d+", r["decisions"]) and not members_of[q] & set(re.findall(r"Q-(?:T-)?[A-Z]+-\d+", r["decisions"])))
+                             for q in groups}
     decisions_of_row = {r["row_id"]: [q for q in (ALIASES.get(q, q) for q in re.findall(r"Q-(?:T-)?[A-Z]+-\d+", r["decisions"])) if q not in groups]
                         for r in contract_map}
     unknown = sorted({q for qs in decisions_of_row.values() for q in qs if q not in reg})
@@ -219,7 +223,12 @@ def build_decisions(unit_rows, contract_map, register, cards):
     summary = f"Total de pares unidad–decisión: {sum(totals.values())} ({totals['respondida']} respondidas, {totals['bloqueante']} bloqueantes, {totals['propuesta']} propuestas)."
     if unknown:
         summary += f" **IDs de decisión de `contract-map.tsv` ausentes del registro: {', '.join(unknown)}.**"
-    lines += ["## Totales", "", summary, ""]
+    lines += ["## Filas que citan una agrupación sin miembros concretos (pendientes de revisión)", "",
+              "Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas filas la citan pero ninguna de sus decisiones individuales es un miembro. "
+              "**No se les asigna ningún miembro automáticamente** y haberlas desligado de la agrupación no prueba que no necesiten decisiones individuales: su revisión semántica está pendiente.", ""]
+    for q in sorted(unresolved_group_rows):
+        lines.append(f"- {q} ({', '.join(sorted(members_of[q]))}): {len(unresolved_group_rows[q])} filas: {', '.join(unresolved_group_rows[q]) or 'ninguna'}")
+    lines += ["", "## Totales", "", summary, ""]
     return "\n".join(lines), per_unit, kind, reg, unknown
 
 

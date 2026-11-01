@@ -72,7 +72,7 @@ Filas: AT-SYS-010, AT-SYS-011, AT-SYS-012. Contratos y aserciones: `docs/invento
 | AT-SYS-009 | Scheduler tipado (scheduleOnce, scheduleWithFixedDelay, scheduleAtFixedRate) | Trait Scheduler sobre el timer del runtime. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SchedulerSpec.scala:19-27… | Q-T-TMR-4 |
 | AT-SYS-010 | deadLetters | system.dead_letters::<M>(). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec… | Q-X-6 |
 | AT-SYS-011 | ActorSystemAdapter / AdapterExtension (sistema tipado sobre el clasico) | En Rust: decidir si existe un runtime clasico debajo (porte en capas) o un runtime… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpe… | Q-X-8 |
-| AT-SYS-012 | Settings.toString redacta valores sensibles | impl Display para Settings que aplica una funcion redact(config). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:27-46 | Q-T-SYS-2 |
+| AT-SYS-012 | Settings.toString redacta valores sensibles | impl Display para Settings que aplica una funcion redact(config). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:27-46 | Q-T-SYS-2, Q-X-1 |
 
 ## Gates y criterio de cierre
 
