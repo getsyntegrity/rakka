@@ -1,6 +1,6 @@
 # Política de capas de test (unitario vs. integración)
 
-Fuente única de verdad de la política de testing de rakka, válida para cualquier agente o persona (Claude, OpenCode, Codex o combinaciones). No depende de skills ni de configuraciones de una herramienta concreta. `AGENTS.md` contiene sólo las reglas esenciales y exige leer este documento antes de crear, modificar o revisar pruebas. Si ambos difieren, no se resuelve por interpretación propia: se reporta al Owner.
+Fuente única de verdad de la política de testing de rakka, válida para cualquier agente o persona (Claude, OpenCode, Codex o combinaciones). No depende de skills ni de configuraciones de una herramienta concreta. `AGENTS.md` contiene sólo las reglas esenciales y exige leer este documento, junto con `skills/testing/SKILL.md` (procedimiento), antes de crear, modificar, portar, clasificar o revisar pruebas. Si ambos difieren, no se resuelve por interpretación propia: se reporta al Owner.
 
 Esta política no aprueba decisiones funcionales pendientes ni autoriza implementar módulos. Una diferencia semántica con Pekko sigue requiriendo decisión explícita del Owner (`Q:` en `notes`).
 
@@ -27,7 +27,7 @@ Livianos, rápidos, aislados y atómicos: un comportamiento por caso (puede tene
 - Sin red, archivos reales, variables de entorno de la máquina ni servicios instalados.
 - Sin `sleep` para esperar resultados.
 - Tiempo y azar bajo control (reloj y fuente aleatoria inyectables) cuando afecten al comportamiento.
-- Mocks, stubs o fakes sólo para aislar un colaborador. Una función pura se prueba directamente. No hace falta una librería de mocks ni nuevas dependencias de testing si un doble pequeño alcanza.
+- Mocks, stubs o fakes sólo para aislar un colaborador. Una función pura se prueba directamente, y un componente real probado de forma aislada puede tener tests unitarios: no es obligatorio mockear el componente bajo prueba. No hace falta una librería de mocks ni nuevas dependencias de testing si un doble pequeño alcanza.
 - El resultado esperado sale del contrato (Pekko, golden, valores escritos a mano), nunca de reimplementar el algoritmo de producción en el test.
 - Ubicación: junto al componente, con las convenciones de Rust (`#[cfg(test)] mod tests` en el mismo archivo) y las del repositorio.
 - TDD estricto: RED real (falla por la razón correcta, con comando y salida guardados) antes del código de producción, luego GREEN y refactor.
@@ -76,15 +76,15 @@ Por cada unidad:
 
 1. Al extraer el contrato, marcar cada aserción como **unitaria** o **de integración** (con la capa justificada según §1).
 2. Desarrollar con TDD unitario.
-3. Agregar y ejecutar la integración correspondiente **en cuanto los componentes reales estén disponibles**. No acumular toda la integración para el final del proyecto.
+3. Agregar y ejecutar la integración correspondiente **en cuanto los componentes reales estén disponibles**, y en todo caso antes de cerrar la unidad. No acumular toda la integración para el final del proyecto.
 4. Verificar la trazabilidad **contrato → escenario → prueba → evidencia** (la fila del inventario, la aserción, el test que la cubre y el comando/salida que lo prueba).
 5. Actualizar `impl`/`validation` sólo cuando se cumplan las reglas vigentes de `AGENTS.md`.
 
-Costuras temporales: un doble que cumpla las aserciones del contrato (ver `docs/implementation-order.md`) permite avanzar con unitarios antes de que exista el componente real, pero **un test con mocks no demuestra que los componentes reales funcionen juntos**. Mientras falte una integración necesaria, la fila queda `partial` y se anota la dependencia pendiente (qué componente real falta).
+Costuras temporales: un doble que cumpla las aserciones del contrato (ver `docs/implementation-order.md`) permite avanzar con unitarios antes de que exista el componente real, pero **un doble no acredita la integración con el componente sustituido**. Mientras falte esa integración necesaria, la fila permanece `partial` y se identifica el componente real y la prueba pendiente.
 
 Reglas que se mantienen sin cambios:
 
-- Cobertura mínima del 90 % de las líneas de producción nuevas o modificadas, con `cargo llvm-cov` (los tests de ambas capas pueden aportar; se documentan comando, resultado y líneas sin cubrir). La cobertura no sustituye a los unitarios, a la integración necesaria ni a la paridad.
+- Cobertura mínima del 90 % de las líneas de producción nuevas o modificadas, con `cargo llvm-cov` (la cobertura combinada de ambas capas cuenta; no hay un 90 % obligatorio separado por capa; se documentan comando, resultado y líneas sin cubrir). La cobertura de integración no sustituye los unitarios necesarios, ni demuestra paridad, ni permite omitir escenarios contractuales.
 - Una pregunta abierta (`Q:`) impide cerrar el comportamiento afectado: `partial`, no `done`, aunque ambas capas estén verdes.
 
 ## 7. Paridad con Pekko
