@@ -8,7 +8,7 @@
 
 ## 1. Resultado
 
-Seis unidades en lugar de una (7 + 9 + 4 + 4 + 2 + 5 = 31). De las cuatro hipótesis anteriores se sostienen dos, se corrige una y se amplía una:
+Seis unidades en lugar de una (7 + 9 + 4 + 4 + 2 + 5 = 31). De las cuatro hipótesis anteriores se sostienen tres (supervisión base, AbstractBehavior, interoperabilidad) y se corrige una (backoff y stash):
 
 | Hipótesis anterior | Veredicto | Evidencia |
 |---|---|---|
