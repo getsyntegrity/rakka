@@ -4,7 +4,11 @@
 
 **Revisión 2 (tras la revisión del PR #6, base `8178fa4`):** corrige (1) la lectura de Q-X-8(b), (2) el análisis de la costura P49→P55 (AT-ADP-006.2/.3/.4) y (3) el alcance de C6 y el estado de AT-BEH-010. Sigue siendo provisional y no aplicada.
 
+**Revisión 4b (2026-11-01, misma base que la rev. 4):** precisa (1) el inicio y el cierre de S6a, (2) la estrategia de validación antes de P62–P64 y (3) las responsabilidades de `actorOf`/CTX-017, y corrige dos afirmaciones de la rev. 4. Está en el **§14**; las correcciones llevan la marca **[Rev. 4b]**. Sigue siendo una propuesta que no aplica la partición, no acepta R-DP ni R-FB y no autoriza implementación.
+
 **Revisión 3 (2026-11-01, base `ae96f56b138f9c3cdabc313f31c161880e6760f2`; la rama incorpora además `origin/develop` f756fba, PR #7, por merge):** resuelve con evidencia C10 (hooks del `ActorAdapter` desde un padre Classic), la arista `AT-CTX-018>AT-SUP-016` y la posición de `FailedBehavior`, y revisa S1–S6 (ciclos, atomicidad, costuras). Los resultados están en el **§12**; las afirmaciones de la rev. 2 que la evidencia refuta se corrigieron en su lugar y llevan la marca **[Rev. 3]**. Sigue siendo una propuesta: no se tocó `docs/unit-rows.tsv`, ni estados `impl`/`validation`, ni respuestas del Owner, ni contratos o TSV (los deltas están descritos, no aplicados). **Propuesta documental y evidencia: no aplica asignaciones ni autoriza implementación.** Los resultados del oráculo son observaciones de escenarios concretos (JDK 11), no garantías generales.
+
+**Revisión 4 (2026-11-01, base `c274c2cc2eca5bc5682c54a47abd22b45ff7a5c0` = `origin/develop` tras el squash del PR #8):** resuelve con evidencia P61↔S6b (quién provee `actorOf`), la costura `DeathPactException` (C13) y la atomicidad de S4. Los resultados y la **organización recomendada vigente** están en el **§13**; lo que cambia respecto de la rev. 3 lleva la marca **[Rev. 4]**. Sigue siendo una propuesta: no se tocó `docs/unit-rows.tsv`, contratos, TSV, `impl`/`validation` ni respuestas del Owner, y no se escribió código.
 
 **Base revisada:** rama `docs/p55-partition-proposal` desde `origin/develop` = `590893c3946e9532d5422125c758f4a8bd5508d6` (squash del PR #5; `develop` no avanzó desde entonces). Upstream: `upstream/pekko` en `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (v1.7.1, verificado). P55 tiene **31 filas** (igual que el antecedente).
 
@@ -153,7 +157,7 @@ Orden: **S1 → S2 → S3 → S4**; **S5** tras S1; **S6** tras S2. S5 y S6 son 
 | P49 (ADP-006.2) → P48 (BEH-001/011/012: valor `Failed`) | implementación, **ya dentro de P48** [Rev. 3]; la arista `006.2>BEH-024` es documental | `BehaviorImpl.scala:40,71,94-96`; `Behavior.scala:248-250,303-304` |
 | P49 (ADP-006.3) → AT-SUP-005 | referencia documental / solape de validación **[Rev. 3: verificado, §12.1]**; los hooks son alcanzables y requieren aserciones propias | `tools/oracle/adapter-classic-restart.jsh` |
 | P49 (ADP-006.4) ↔ S1/S2 | P49 implementa el decisor; S1/S2 lo consumen y validan; la costura `006.4>SUP-001` es documental | `ActorAdapter.scala:232-273` |
-| P61 (CTX-017, JAPI-001/002/003/004/006) → S1/S5/S6 | aristas declaradas P61→P55; para S6b (CTX-017/ADP-005, `ctx.actorOf`) el orden **no está resuelto** (§12.4, S6b) | `AT-CTX-017>AT-SUP-021`, etc. |
+| P61 (CTX-017, JAPI-001/002/003/004/006) → S1/S5/S6 | aristas declaradas P61→P55. **[Rev. 4]** para S6b: P61 es consumidor y validación posterior (CTX-017 no tiene código propio; `actorOf` lo provee S6b sobre el puente de P49); sin ciclo (§13.1) | `AT-CTX-017>AT-SUP-021`, etc. |
 | S2 (SUP-016) → P49 (CTX-018 `cancelAllTimers`) | implementación [Rev. 3]; la arista declarada `CTX-018>SUP-016` va en sentido inverso | `Supervision.scala:298,334,394`; `ActorContextImpl.scala:128-131` |
 | S1 (SUP-003) → SUP-010 (S4 en rev. 2) | implementación [Rev. 3], no registrada en rev. 2: `StopSupervisor` llama a `log` | `Supervision.scala:97-118,159-167` |
 | S1 ↔ S2 (SIG-006 ↔ SUP-014); S1 ↔ S6 (BEH-024 ↔ SUP-022) | ciclos de aristas; V/documental (§12.4) | `p55-unit-edges.out` |
@@ -177,7 +181,7 @@ Orden: **S1 → S2 → S3 → S4**; **S5** tras S1; **S6** tras S2. S5 y S6 son 
 - **C10 — AT-ADP-006.3 A1/A2 (RESUELTA en la rev. 3, §12.1):** citan `ClassicSupervisingTypedSpec:94-103` y `TimerSpec:174-200`, que ejercen el restart *tipado* (`RestartSupervisor`), no `ActorAdapter.preRestart/postRestart` (oráculo S-A; causa `RuntimeException` desde el handler, estrategia `supervise(restart)` interna). Los hooks son alcanzables por API pública (padre Classic con `Restart` y excepción que sale del Behavior: S-C, S-E, S-F) y ninguna aserción portada los ejerce. Delta propuesto (no aplicado): reetiquetar A1/A2 como validación compartida con AT-SUP-005/AT-SIG-002/AT-SUP-016 y añadir aserciones N (PreRestart sin PostStop y nuevo `setup`; composición con `supervise(restart)`; `TimerMsg` obsoleto tras restart clásico).
 - **C11 — Definición de `FailedBehavior` (reformulada en la rev. 3, §12.3):** el valor ya está contratado en P48 (AT-BEH-001 variante `Failed`, AT-BEH-011 «Failed devuelve sí mismo», AT-BEH-012 `isAlive` falso) pero ninguna aserción lo cubre; AT-BEH-024 describe producción y notificación y mezcla la reacción del adaptador (AT-ADP-006.2). Delta propuesto: §12.3.
 - **C12 — Arista `AT-CTX-018>AT-SUP-016` (rev. 3, §12.2):** invertir para `cancelAllTimers` (SUP-016 consume a CTX-018); ningún otro comportamiento de CTX-018 se relaciona con SUP-016. Delta: quitar `AT-SUP-016` de `depends_on` de AT-CTX-018 y añadir `AT-CTX-018` a AT-SUP-016.
-- **C13 — `DeathPactException` (rev. 3, sin resolver):** AT-BEH-011 (P48) contrata que `interpretSignal` lance `DeathPactException`, cuyo tipo y texto solo define AT-SIG-006 (S1, `MessageAndSignals.scala:18-27`); AT-BEH-011 no declara esa dependencia y AT-BEH-003 (P52) sí (`AT-BEH-003>AT-SIG-006`). Es el mismo patrón que `FailedBehavior`; no se analizó con la misma profundidad (§12.4).
+- **C13 — `DeathPactException` (rev. 3). [Rev. 4: resuelta en §13.2 (R-DP); lo que sigue es el planteamiento original]:** AT-BEH-011 (P48) contrata que `interpretSignal` lance `DeathPactException`, cuyo tipo y texto solo define AT-SIG-006 (S1, `MessageAndSignals.scala:18-27`); AT-BEH-011 no declara esa dependencia y AT-BEH-003 (P52) sí (`AT-BEH-003>AT-SIG-006`). Es el mismo patrón que `FailedBehavior`; no se analizó con la misma profundidad (§12.4).
 - **C14 — Otras aristas (rev. 3, §12.4):** añadir `AT-SUP-013>AT-SUP-002` (el rechazo vive en `Supervisor.apply`, `Supervision.scala:44-51`); retirar `AT-BEH-024>AT-SUP-022` (documental) y `AT-ADP-006.2>AT-BEH-024` (sustituida por BEH-001/011/012); marcar `AT-SIG-006>AT-SUP-014` como validación; BEH-024 A1 es compartida con SUP-001/SIG-005 A2 (no ejerce `FailedBehavior`).
 - **Fuera de alcance, registrado sin tarea:** no se auditó el resto de afirmaciones de AT-ADP-006.1 ni los bloques AT-ADP-006.5-.8.
 
@@ -237,6 +241,7 @@ La alternativa (b) registrada es «**runtime tipado nativo con interop aparte**�
 - **Confirmado por fuente (leído en cuerpo):** los 31 bloques contractuales de P55 y los de AT-ADP-006.2/.3/.4; `Supervision.scala:40-445`; `InterceptorImpl.scala:85-125`; `ActorAdapter.scala:41-66,90-100,150-180,228-362`; `BehaviorImpl.scala:60-100`; `scaladsl/adapter/PropsAdapter.scala:25-40`; `scaladsl/AbstractBehavior.scala:15-105`; `SupervisorStrategy.scala` (Scaladoc de backoff y `withMaxRestarts`); `reference.conf:22-27`.
 - **Afirmado por spec (leído):** `SupervisionSpec` (índice y fragmentos `:876-960,1032-1076,1270-1307,1441-1462,1527-1573,1661-1692`); `ActorContextSpec:255-279`; `BehaviorSpec:215-228`; `WatchSpec:165-204`; `ClassicSupervisingTypedSpec:60-165` (nombres y expectativas); `TypedSupervisingClassicSpec:55-75`; `TimerSpec:174-200`; `AdapterSpec:60-110,317-330`; `AdaptationFailureSpec:66-127`.
 - **No leí (rev. 2; sigue vigente salvo lo indicado en la rev. 3):** `StashSpec` (rev. 3: solo `:630-675`), `ActorThreadSpec`, `TerminatedSpec`, el resto de `AdapterSpec` y `TimerSpec` (rev. 3: `AdapterSpec:112-200,300-375`, `TimerSpec:160-235,322-410`); `StashBufferImpl.scala`, `TimerSchedulerImpl.scala` (rev. 3: `:34-75,160-196`), `ActorContextAdapter.scala` completo (rev. 3: `:54,125-150`); los bloques AT-ADP-006.1/.5-.8 y AT-JAPI-* (solo su relación declarada). Las aserciones que dependen de ellos se toman del contrato.
+- **[Rev. 4]** Resueltos en §13: la costura `DeathPactException`, `AT-BEH-007>AT-SUP-001`, `AT-BEH-003>AT-SIG-006` y P61↔S6b; límites propios de la rev. 4 en §13.4 y §13.7. Lo que sigue es la lista de la rev. 3:
 - **Pendiente / no verificado (rev. 3):** C10, la costura `CTX-018>SUP-016` y la posición de `FailedBehavior` quedaron resueltas en §12; siguen pendientes la costura `DeathPactException` (C13), `AT-BEH-007>AT-SUP-001`, `AT-BEH-003>AT-SIG-006`, las dependencias de la capa de interoperabilidad con Q-X-8 (b) y el oráculo de Q-T-SUP-3 y de las aserciones N de P55 (solo se ejecutó el escenario de §12.1, con JDK 11).
 - No revisé P16, las nueve filas pendientes de Q-X-9 ni el resto de las unidades. La atomicidad de S1-S6 no está acreditada: es una propuesta, no un plan ejecutable. Los controles mecánicos (31 filas, `check.py`, `unit_plan.py --check`) no demuestran la validez semántica de la propuesta.
 
@@ -356,11 +361,11 @@ Método: el script `docs/proposals/evidence/p55-unit-edges.py` (salida `p55-unit
 | `SUP-003>SUP-010` (S1→S4) | **implementación**: `StopSupervisor.handleException` llama a `log` (`Supervision.scala:97-118,159-167`) y A1/A2 de SUP-003 afirman el log | mover SUP-010 a S1 (O2) |
 | `SUP-013` sin arista a `SUP-002` | falta: el rechazo de `AbstractBehavior` está en `Supervisor.apply` (`Supervision.scala:44-51`) | añadir `SUP-013>SUP-002`; S5 → S1 |
 | `CTX-018>SUP-016` (P49→P55) | §12.2 | invertir |
-| `AT-BEH-007>AT-SUP-001` (P48→P55), `AT-BEH-003>AT-SIG-006` (P52→P55) | **no analizadas** a fondo; `DeathPactException` (C13) sigue el patrón de `FailedBehavior` | pendiente |
+| `AT-BEH-007>AT-SUP-001` (P48→P55), `AT-BEH-003>AT-SIG-006` (P52→P55) | **[Rev. 4]** analizadas en §13.2: la primera es validación, la segunda documental; `DeathPactException` sigue el patrón de `FailedBehavior` | resuelto en §13.2 (R-DP) |
 
 Con los deltas del §12 **el script no encuentra ciclos** entre las unidades de P55 (`p55-unit-edges.out`, caso `rev3+deltas`: S2→S1, S3→S2, S5→S1, S6a→S1, S6a→S2). Ese resultado depende de retirar aristas por clasificación manual; no demuestra atomicidad de las unidades ni que sean implementables en ese orden, y no cubre aristas hacia otras unidades (P48/P49/P52…). Sin aristas declaradas S4→S1–S3: su dependencia es de validación y debe registrarse como orden, no como arista.
 
-**Organización propuesta (sin aplicar), 31 filas, cada una una vez:**
+**Organización propuesta de la rev. 3 (sin aplicar), 31 filas, cada una una vez — [Rev. 4: sustituida por la organización vigente de §13.4 (STASH-006 pasa a S1; S4 pasa a S4v, unidad de validación)]:**
 
 | Unidad | Filas | n |
 |---|---|---|
@@ -382,10 +387,10 @@ Cambios respecto de §3, con su motivo:
 - **S1 — fallo sin reinicio.** *Resultado:* una excepción bajo `Stop`/`Resume` se registra con el formato y nivel configurados, detiene o no el actor y el padre observa `ChildFailed(causa)`; un `Terminated` sin manejar hace fallar al actor con `DeathPactException`. *Puede comenzar con:* P48 (BEH-004/007/011/012 incluida la variante `Failed`), P53 (BEH-013), P52 (LOG-001), P54 (SIG-004); la integración con la celda exige P49 (ADP-006.1/.2/.4). *Decisiones:* no impiden comenzar las de §8 salvo la forma de `Behavior` (Q-T-BEH-1) heredada de P48; impiden cerrar Q-X-5, Q-T-SUP-1, Q-T-SIG-1, Q-T-SUP-5, Q-X-7. *Cierre:* `SupervisionSpec:129-147,214-222,387-418,1441-1461,1497-1525`, `WatchSpec:130-204`, `TerminatedSpec`, `ActorContextSpec:483-533`; aserciones N de `Failed` (P48); oráculo jshell `Stop`/`Resume` con fallo en mensaje y en setup. *Atomicidad:* aceptable con reservas: SIG-006 no aporta código propio (el lanzamiento es de `interpretSignal`, P48) y SIG-006 A3 / SUP-010 A3-A5 cierran en S2/S3; se mantiene en S1 porque su A1 (`WatchSpec:165-204`) necesita la cadena `ChildFailed` de SIG-005. Si el Owner prefiere no tener filas `partial` en S1, SIG-006 pasaría a S2 junto con SUP-014 (alternativa, no recomendada: SIG-006 A1 no usa `restart`).
 - **S2 — Restart.** *Resultado:* `Restart` con y sin límite/ventana: `PreRestart`, timers cancelados, hijos detenidos y espera de `Terminated`, mensajes apilados con capacidad y `Dropped`, nuevo `setup`. *Comienza con:* S1; P53 (STASH-001, TMR-006); P52 (EVT-004); P50 (SYS-006); P54 (CTX-005/006); P49 (CTX-018 `cancelAllTimers`). *Decisiones:* Q-T-BEH-1 (bloqueante, SUP-005), Q-T-STASH-1 y Q-X-6 (SUP-009) impiden comenzar según ficha; cerrar: Q-T-SUP-4, Q-T-SUP-7, Q-T-SUP-8/Q-T-TMR-4. *Cierre:* `SupervisionSpec:149-174,224-281,512-847,1078-1105`, `TimerSpec:174-232,327-404`, `ActorContextSpec:255-279`; oráculo con 2 hijos de parada lenta. *Atomicidad:* sí; el stash no se separa de la espera de hijos (SUP-008 A1). SUP-014 no aporta código (su única aserción usa `restart`).
 - **S3 — Backoff.** *Resultado:* `restartWithBackoff` con retardo exponencial y jitter, `ScheduledRestart`/`ResetRestartCount`, `withMaxRestarts`. *Comienza con:* S2 (misma clase `RestartSupervisor`, `SUP-007.1>SUP-009`) y P53 (TMR-001). *Decisiones:* cerrar: Q-T-SUP-3 (bloqueante, SUP-007.3), Q-T-SUP-6, Q-T-SUP-8/Q-T-TMR-4 (reloj/azar inyectables). *Cierre:* `SupervisionSpec:882-1076,1117-1176`, oráculo para Q-T-SUP-3 (no ejecutado), N para la fórmula. *Atomicidad:* sí; las señales de SUP-017 solo las producen los timers de Backoff (`Supervision.scala:198-203`).
-- **S4 — supervisión compuesta.** *Resultado:* la supervisión conserva su semántica al anidarse (deduplicación `isSame`), al cambiar de Behavior (re-wrap), al detenerse bajo cualquier estrategia y al fallar un `unstashAll`. *Comienza con:* S1-S3 completos (validación), P53 (BEH-015, STASH), P48 (BEH-004). *Decisiones:* cerrar: Q-T-SUP-1 (SUP-011), Q-T-STASH-1. *Cierre:* `SupervisionSpec:176-212,448-490,1195-1230,1270-1406,1661-1692`, `StashSpec:460-610`. *Atomicidad:* **la más débil**: sin SUP-010 es una unidad de composición con una sola idea (interceptor + estrategias), pero buena parte de su cierre es validación de S1-S3; si el Owner no quiere una unidad de validación, cada fila cerraría en la última unidad que necesite (SUP-011/012/019 y SUP-018/STASH-006 en S3).
+- **[Rev. 4: sustituido por §13.3 (S4v, unidad de validación; STASH-006 a S1)].** **S4 — supervisión compuesta.** *Resultado:* la supervisión conserva su semántica al anidarse (deduplicación `isSame`), al cambiar de Behavior (re-wrap), al detenerse bajo cualquier estrategia y al fallar un `unstashAll`. *Comienza con:* S1-S3 completos (validación), P53 (BEH-015, STASH), P48 (BEH-004). *Decisiones:* cerrar: Q-T-SUP-1 (SUP-011), Q-T-STASH-1. *Cierre:* `SupervisionSpec:176-212,448-490,1195-1230,1270-1406,1661-1692`, `StashSpec:460-610`. *Atomicidad:* **la más débil**: sin SUP-010 es una unidad de composición con una sola idea (interceptor + estrategias), pero buena parte de su cierre es validación de S1-S3; si el Owner no quiere una unidad de validación, cada fila cerraría en la última unidad que necesite (SUP-011/012/019 y SUP-018/STASH-006 en S3).
 - **S5 — AbstractBehavior.** *Resultado:* el estilo orientado a objetos y su rechazo bajo `supervise`. *Comienza con:* P48 (BEH-007), S1 (`Supervisor.apply`) y P54. *Decisiones:* Q-T-BEH-1 y Q-T-BEH-5 impiden cerrar SUP-013 y BEH-010 A1/A2/A4/A5; Q-T-CTX-2 (A3). *Cierre:* `ActorThreadSpec:188-277`, `SupervisionSpec:1527-1573`, `AdaptationFailureSpec:66-127`. *Atomicidad:* se sostiene por el test compartido (A4 = SUP-013 A1/A2) y por el tipo; el rechazo vive en S1.
 - **S6a — typed lanzado desde Classic.** *Resultado:* stop por defecto, `supervise(restart)` respetado y `rethrowTypedFailure` según el origen (guardián, `systemActorOf`, spawns desde Classic, `ctx.spawn`). *Comienza con:* S1, S2 (SUP-020 A2), P49 (ADP-003, PropsAdapter), P50 (SYS-008). *Decisiones:* Q-X-8, Q-T-ADP-3 (mecanismo; las obligaciones no se excluyen: §9). *Cierre:* `ClassicSupervisingTypedSpec:74-160`, `WatchSpec:100-162`. *Atomicidad:* sí por el flag compartido; ADP-002 A1-A4 = SUP-020 A1-A3 (C4).
-- **S6b — hijo Classic bajo padre typed.** *Resultado:* el padre typed supervisa al hijo Classic con el decisor Classic por defecto (log ERROR) y `watch`/`unwatch`/`stop`/`actorOf` cruzados. *Comienza con:* P49 (ADP-006.4), P21 (decisor Classic). *Relación con P61 (AT-CTX-017), orden sin resolver:* P61 **no** es un requisito de inicio demostrado y se retira de «Comienza con»; tampoco se declara consumidor posterior. Evidencia: (i) `actor-typed.tsv` declara `AT-CTX-017 depends_on … AT-SUP-021` (arista P61→S6b; AT-ADP-005 y AT-SUP-021 no declaran a CTX-017); (ii) los contratos solapan: `ctx.actorOf` es el puente de CTX-017 (`scaladsl/adapter/package.scala:142-152`) y también el objeto de AT-ADP-005 (`:100-152`), y la A1 de CTX-017 es el mismo test que la A1 de ADP-005 (`AdapterSpec:291-297`); A1 de ADP-005 ejerce `context.actorOf`; no se verificó una por una si A3–A9 dependen de hijos creados con ese puente; (iii) la supervisión del hijo clásico que decide SUP-021 es lo que CTX-017 consume. Sin resolver: a qué fila se atribuye la implementación de `actorOf` (ADP-005/S6b o CTX-017/P61). Si fuera CTX-017, la integración de S6b dependería de P61 y habría un ciclo P61↔S6b; no se analizó ni se decidió, y la validación que necesitaría P61 (A1 compartida, A2/A3 de CTX-017 sin spec) tampoco. *Decisiones:* Q-X-8, Q-T-SUP-7, Q-T-CTX-4. *Cierre:* `AdapterSpec:300-343`, `TypedSupervisingClassicSpec:55-75`, `AdapterTest.java:338-352`. *Atomicidad:* sí; no comparte aserciones con S6a.
+- **S6b — hijo Classic bajo padre typed.** *Resultado:* el padre typed supervisa al hijo Classic con el decisor Classic por defecto (log ERROR) y `watch`/`unwatch`/`stop`/`actorOf` cruzados. *Comienza con:* P49 (ADP-006.4), P21 (decisor Classic). *[Rev. 4: resuelto en §13.1: P61 es consumidor/validación posterior; S6b implementa solo la fachada y valida; la estrategia es ADP-006.4 (P49).] Relación con P61 (AT-CTX-017), orden sin resolver en la rev. 3:* P61 **no** es un requisito de inicio demostrado y se retira de «Comienza con»; tampoco se declara consumidor posterior. Evidencia: (i) `actor-typed.tsv` declara `AT-CTX-017 depends_on … AT-SUP-021` (arista P61→S6b; AT-ADP-005 y AT-SUP-021 no declaran a CTX-017); (ii) los contratos solapan: `ctx.actorOf` es el puente de CTX-017 (`scaladsl/adapter/package.scala:142-152`) y también el objeto de AT-ADP-005 (`:100-152`), y la A1 de CTX-017 es el mismo test que la A1 de ADP-005 (`AdapterSpec:291-297`); A1 de ADP-005 ejerce `context.actorOf`; no se verificó una por una si A3–A9 dependen de hijos creados con ese puente; (iii) la supervisión del hijo clásico que decide SUP-021 es lo que CTX-017 consume. Sin resolver: a qué fila se atribuye la implementación de `actorOf` (ADP-005/S6b o CTX-017/P61). Si fuera CTX-017, la integración de S6b dependería de P61 y habría un ciclo P61↔S6b; no se analizó ni se decidió, y la validación que necesitaría P61 (A1 compartida, A2/A3 de CTX-017 sin spec) tampoco. *Decisiones:* Q-X-8, Q-T-SUP-7, Q-T-CTX-4. *Cierre:* `AdapterSpec:300-343`, `TypedSupervisingClassicSpec:55-75`, `AdapterTest.java:338-352`. *Atomicidad:* sí; no comparte aserciones con S6a.
 
 ### 12.5 Resumen de la revisión
 
@@ -406,8 +411,333 @@ Cambios respecto de §3, con su motivo:
 - **D-1 (propuesta, sin aplicar).** ¿Se autorizan los deltas de B (reasignación en `docs/unit-rows.tsv`, edición de `depends_on` y de contratos) y, con ellos, S1–S6b? Publicar esta revisión **no** autoriza reasignar filas ni modificar contratos. Sustituye a las preguntas 7 y 8 de §10 en lo que se refiere a `FailedBehavior` y a la reasignación.
 - **D-2 (propuesta, sin aplicar).** Si prefiere B/C de §12.3 (mover o dividir BEH-024) en lugar de R-FB, que sigue siendo una recomendación no registrada como decisión.
 - **D-3 (arquitectura, no una obligación nueva).** El objetivo vigente del proyecto es preservar los comportamientos observables de Pekko que estén dentro del alcance. Lo observado en S-C, S-E y S-F (con un padre Classic que decide `Restart`: `PreRestart` entregado por `ActorAdapter.preRestart` sin `PostStop`, nuevo `setup`, timers inactivos, el actor sigue vivo) corresponde al contrato de los hooks de AT-ADP-006.3 y por tanto ya está bajo esa regla; su paridad no está pendiente de aprobación. S-G y S-H (descarte o entrega de un `TimerMsg` de la incarnación anterior) son observaciones exploratorias pendientes de corroboración (un escenario cada una, JDK 11, con sleeps): todavía no cierran ninguna aserción. Si se confirman como comportamientos observables dentro del alcance vigente, se aplica la obligación de paridad; excluirlos requiere una decisión explícita de divergencia. La falta de corroboración no es una exclusión automática ni una elección libre de compatibilidad. Lo que falta decidir sobre S-C/S-E/S-F es **cómo se implementa**: depende de Q-X-8 y Q-T-ADP-2/3 (con (b) la capa de interoperabilidad no queda exenta por defecto). Excluir cualquier parte ya obligatoria exigiría una **decisión explícita de divergencia** por aserción.
-- **Dudas abiertas que esta revisión no resuelve:** (i) **S4** es la unidad de atomicidad más débil (§12.4): su cierre es en buena parte validación de S1–S3 y podría no ser una unidad propia; (ii) **`DeathPactException`** (C13): la costura BEH-011 (P48) / SIG-006 (S1) / BEH-003 (P52) no se analizó con la profundidad de `FailedBehavior`, y las aristas `BEH-007>SUP-001` y `BEH-003>SIG-006` siguen sin verificar.
+- **[Rev. 4: las dudas (i) y (ii) quedaron resueltas en §13.3 y §13.2.]** **Dudas abiertas que esta revisión no resuelve:** (i) **S4** es la unidad de atomicidad más débil (§12.4): su cierre es en buena parte validación de S1–S3 y podría no ser una unidad propia; (ii) **`DeathPactException`** (C13): la costura BEH-011 (P48) / SIG-006 (S1) / BEH-003 (P52) no se analizó con la profundidad de `FailedBehavior`, y las aristas `BEH-007>SUP-001` y `BEH-003>SIG-006` siguen sin verificar.
 - **Obligaciones de paridad ya vigentes (no son decisiones pendientes):** conservar los comportamientos observables de Pekko dentro del alcance, incluida la interoperabilidad (S6, §9) y el reinicio clásico del adaptador (§12.1). Las decisiones pendientes son D-1, D-2, la arquitectura de D-3 y las de §8/§10.
 - Siguen sin respuesta las preguntas 1-6 de §10 (Q-X-8, Q-X-5, Q-T-BEH-5, Q-T-SIG-1, Q-T-SUP-1, Q-T-SUP-3) y los bloqueantes Q-T-BEH-1 y Q-T-SUP-3.
 
 **¿Se puede aprobar P55 documentalmente?** Como propuesta de organización, sí una vez el Owner responda D-1 (y D-2 si objeta R-FB). **No** está lista como plan ejecutable. Impedimentos concretos: (1) los deltas no están aplicados y los ciclos S1↔S2/S1↔S6 solo desaparecen con ellos; (2) O2/O3/O4 son reasignaciones que exigen autorización; (3) la costura `DeathPactException` (C13) y las aristas `BEH-007>SUP-001`, `BEH-003>SIG-006` no se analizaron; (4) el oráculo se ejecutó con JDK 11 (Java 21 pendiente), con sleeps como sincronización, y solo cubre C10; Q-T-SUP-3 y las aserciones N de P55 siguen sin medir; (5) Q-T-BEH-1 y Q-T-SUP-3 (bloqueantes) impiden cerrar S2, S3 y S5.
+
+## 13. Revisión 4: P61↔S6b, `DeathPactException` y atomicidad de S4
+
+**Estado: PROPUESTA documental. No aplicada.** No cambia `docs/unit-rows.tsv`, contratos, TSV, `impl`/`validation`, respuestas del Owner ni código. Los resultados de este apartado sustituyen a los de la rev. 3 donde se indica **[Rev. 4]**; las conclusiones de la rev. 3 que no se mencionan aquí siguen vigentes. Los PR #6/#7/#8 y sus evidencias históricas no se tocaron (`p55-c10-run1.txt`, `p55-c10-run2.txt`, `p55-unit-edges.py/.out` intactos).
+
+**Base:** `origin/develop` = `c274c2cc2eca5bc5682c54a47abd22b45ff7a5c0` (squash del PR #8); rama local `docs/p55-partition-rev4`. **Upstream:** `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (v1.7.1; leído del `HEAD` del módulo del submódulo y de los fuentes en el checkout principal, ver §13.7 para el control de `check.py`).
+
+**Clases de evidencia (como §12):** **[código]** `upstream/pekko`; **[spec]** lo que afirma un test de Pekko; **[contrato]** texto de `docs/inventory/contracts`; **[propuesta]** juicio propio. No se ejecutó el oráculo en esta revisión: ninguna afirmación se apoya en él.
+
+**Método y alcance del grafo.** `docs/proposals/evidence/p55-rev4-edges.py` (salida `p55-rev4-edges.out`; no es un control del repositorio) lee `depends_on` de `docs/inventory/actor-typed.tsv`, asigna las 31 filas de P55 a la organización de §13.4 y añade las filas AT-* de **P48, P49, P52, P53, P54 y P61**. Calcula tres grafos entre unidades: *declarado* (todo `depends_on`), *inicio* (solo dependencias de implementación) y *cierre* (inicio + validación). La clasificación de cada arista analizada (`CLASIFICACION`/`AGREGADAS` en el script) es juicio manual con la evidencia de §13.1–§13.3; las aristas no analizadas se tratan como implementación. **Verificado:** aristas fila→fila entre esas 137 filas. **No verificado:** aristas hacia filas clásicas (AC-*), hacia otras unidades typed (P50, P51, P56, P57, P62–P64…) y las dependencias de código que ningún `depends_on` declara.
+
+### 13.1 P61↔S6b: quién provee `actorOf`
+
+Leídos completos AT-CTX-017 (`typed-core.md:1531`), AT-ADP-005 (`typed-extended.md:417`), AT-SUP-021 (`typed-core.md:2895`), AT-ADP-004 y AT-ADP-006.4 (contrato del mismo código), AT-JAPI-006.5; `scaladsl/adapter/package.scala:42-197`, `javadsl/Adapter.scala:108-143`, `ActorContextAdapter.scala:18-117`, `ActorAdapter.scala:36-60,84-143,215-273`; `AdapterSpec.scala:30-370` entero, `TypedSupervisingClassicSpec.scala` entero, y la búsqueda de todos los usos de `actorOf`/`toClassic` de contexto en `actor-typed`, `actor-typed-tests` y `actor-testkit-typed`.
+
+**Ruta pública de `ctx.actorOf(props)` [código]:**
+
+| Capa | Componente | Código | Lo contratan |
+|---|---|---|---|
+| Fachada Scala | `TypedActorContextOps.actorOf(props[, name])` y `toClassic` (dos delegaciones de una línea) | `package.scala:142-152` | AT-ADP-005 (su objeto), AT-CTX-017 (`Comportamiento`), AT-ADP-004 (`toClassic` de contexto) |
+| Fachada Java | `Adapter.toClassic(ctx)`, `Adapter.actorOf(ctx, props[, name])` | `Adapter.scala:116-117,137-141` | AT-JAPI-006.5 («Semántica = AT-ADP-001..005»), AT-CTX-017 |
+| Puente | `ActorContextAdapter.toClassic`: devuelve `classicContext` o lanza `UnsupportedOperationException("Only adapted classic ActorContext permissible (<ctx> of class <clase>)")` | `ActorContextAdapter.scala:26-42` | AT-ADP-004 (la conversión, **sin** el texto del error de contexto), AT-CTX-017 (`Errores`, A3) |
+| Creación del hijo | `classicContext.actorOf` (celda clásica, nombre, despliegue) | clásico (AC-CELL/AC-PATH) | AT-CTX-017 («errores del clásico, no se transforman») |
+| Estrategia | `ActorAdapter.supervisorStrategy` (hijo clásico ⇒ `classicSupervisorDecider` = `defaultDecider` con `Restart` por defecto; log ERROR) | `ActorAdapter.scala:55-58,232-266` | **AT-ADP-006.4** (contrato completo, incluida la rama clásica: «el decisor clásico por defecto si es clásico»), AT-SUP-021 (la misma rama), AT-ADP-005 (condiciones) |
+| Validación compartida | cuatro cuerpos de test | `AdapterSpec:291-297,317-343,361-369`, `TypedSupervisingClassicSpec:60-75` | AT-CTX-017 A1; AT-ADP-005 A1, A5, A6, A8, A9; AT-SUP-021 A1-A3; AT-ADP-006.4 A1-A4 |
+
+**Solapes [contrato + spec]:** (i) un mismo test se afirma en tres o cuatro filas: `AdapterSpec:291-297` = CTX-017 A1 = ADP-005 A1; `AdapterSpec:317-330` = ADP-005 A5 = SUP-021 A2 = ADP-006.4 A1; `AdapterSpec:332-343` = ADP-005 A6 = SUP-021 A3 = ADP-006.4 A2; `TypedSupervisingClassicSpec:60-75` = ADP-005 A8 = SUP-021 A1 = ADP-006.4 A4; `AdapterSpec:361-369` = ADP-005 A9 = ADP-006.4 A3. (ii) El **código** de la estrategia es uno solo (`ActorAdapter.supervisorStrategy`) y su contrato completo es AT-ADP-006.4 (P49): **SUP-021 no aporta código propio**. (iii) El código de la fachada es de dos delegaciones y el del puente de una función; no hay dos implementaciones del puente: el contrato de CTX-017 y el de ADP-004 se refieren a la misma función `toClassic`.
+
+**Lo que cada fila contrata y aporta (aserciones leídas una por una):**
+
+| Aserción | Qué ejerce [spec + código] | Componentes reales que necesita |
+|---|---|---|
+| CTX-017 A1 = ADP-005 A1 (`:291-297`) | el padre typed crea un hijo clásico con `actorOf` y recibe `pong` | fachada (S6b), puente y conversión de ref (ADP-004), celda clásica, traducción de mensajes (ADP-006.1); *fixture*: `system.spawnAnonymous(typed1…)` (ADP-002, S6a) |
+| CTX-017 A2 (sobrecarga con nombre) | sin spec; caracterización: `context.child(name)` lo devuelve | fachada (S6b), CTX-003 (`child`, P49); oráculo nuevo |
+| CTX-017 A3 (texto del error) | sin spec; contexto que no es `ActorContextAdapter` | puente (P49); un contexto no adaptado (en Pekko `StubbedActorContext`, BehaviorTestKit, P63) o, en Rust, un contexto de prueba que haga de entrada |
+| CTX-017 A4 (`asScala`/`asJava`) | identidad | ninguno: estructural, sin equivalente en Rust según el propio contrato |
+| ADP-005 A2 (`:283-289`) | **contexto clásico** `context.actorOf(typed2Props)`: no ejerce la fachada de `actorOf` typed | `PropsAdapter` (ADP-003, P49) y celda clásica; valida ADP-003 |
+| ADP-005 A3 (`:299-306`) | `ClassicActorContextOps.watch` de un ref typed | fachada (S6b), conversión de ref, AC-DW (P23) |
+| ADP-005 A4 (`:308-315`) | `context.watch(refClásico)` desde typed | CTX-005 (P54), traducción `Terminated` (ADP-006.1) |
+| ADP-005 A5/A6/A8 | hijo clásico bajo padre typed: log ERROR y `Restart` por defecto; fallo de constructor ⇒ parada | `ActorAdapter.supervisorStrategy` (P49), `defaultDecider` (AC-SUP, P21), fachada (S6b) |
+| ADP-005 A7 (`:345-359`) | `ClassicActorContextOps.stop` y `context.stop` de un hijo clásico | fachada (S6b), CTX-004 (P49), conversión de ref |
+| ADP-005 A9 (`:361-369`) | hijo **typed** sin supervisor bajo padre typed: se registra la causa; no usa hijos clásicos | `supervisorStrategy` rama typed (ADP-006.4); *fixture*: `system.spawnAnonymous` (ADP-002) y `ctx.spawnAnonymous` (CTX-002) |
+
+**Quién provee y quién consume [propuesta, apoyada en lo anterior]:**
+- **P49 provee** el puente (ADP-004), la clase `ActorContextAdapter`, la estrategia con su rama clásica (ADP-006.4), la traducción de señales (ADP-006.1) y `PropsAdapter` (ADP-003).
+- **S6b provee** las cinco delegaciones de fachada (`actorOf` ×2, `watch`/`unwatch`/`stop` de `ClassicActorContextOps`) y la **validación de integración** del camino completo. No implementa estrategia ni puente: atribuirle la estrategia (SUP-021) sería atribuir dos veces el mismo código (ADP-006.4).
+- **P61 consume.** **[Rev. 4b: justificación corregida en §14.3.]** CTX-017 no necesita una implementación separada porque sus comportamientos (obtener el contexto clásico de forma fallible, `actor_of` con y sin nombre) son los mismos que implementan el puente de P49 y `actor_of` de S6b; **conserva su contrato, sus aserciones A1-A4 y su trazabilidad**, y responde por el texto y el momento del error del puente (A3) y por la sobrecarga con nombre (A2). La rev. 4 lo justificaba por «pocas delegaciones» y por la desaparición de `asScala`/`asJava`, lo que no demuestra que el comportamiento pueda omitirse. JAPI-006.5 es delegación Java (Q-T-JAPI-1). Por tanto **P61 es consumidor y validación posterior, no proveedor de `actor_of` ni del puente.**
+- **Por qué no puede ser proveedor de `actorOf`:** ADP-005 A1, A5, A6, A7 y A8 usan `ctx.actorOf` como fixture o como objeto; si su implementación fuera de CTX-017 (P61, posterior a P55), esos cinco tests no podrían ejecutarse en S6b mientras CTX-017 declara `depends_on AT-SUP-021`: ese es el único camino que cierra un ciclo P61↔S6b, y la evidencia lo descarta. Además CTX-017 dice de sí mismo que fija «solo la frontera del contexto» y remite el resto del `package object` a AT-ADP-*.
+
+**Resolución: sin mover ni dividir filas.** La arista declarada `AT-CTX-017>AT-SUP-021` (P61→S6b) es correcta como **validación**; `AT-ADP-005>AT-SUP-021` y `AT-SUP-021>AT-ADP-005` son referencias entre contratos, no dependencia de código. No queda ningún ciclo real P61↔S6b (script: grafos *inicio* y *cierre* sin ciclos que incluyan P61).
+
+| Consumidor → proveedor | Clase | Evidencia | Prueba de integración |
+|---|---|---|---|
+| S6b (fachada `actorOf`/`watch`/`stop`) → P49 (puente ADP-004, `ActorContextAdapter`, ADP-006.1, ADP-003) | implementación, **para comenzar** | `package.scala:142-152`, `ActorContextAdapter.scala:26-42` | A1 `:291-297`: padre typed real, hijo clásico real, ping/pong |
+| S6b → P21 (`defaultDecider`, creación en celda) | implementación, para comenzar (ya en la clausura de P49) | `ActorAdapter.scala:55-58` | A5/A6/A8 |
+| S6b → P54 (CTX-005 `watch`) | implementación, para comenzar | `AdapterSpec:299-315` | A3, A4 |
+| S6b → ADP-006.4 (P49) | S6b **valida** el código de P49; no lo implementa | `ActorAdapter.scala:232-266` | A5, A6, A8 (aserciones compartidas, se ejecutan una vez en S6b) |
+| S6b → S6a (fachada ADP-002) | *fixture* de cierre del montaje 1:1 de `AdapterSpec`; exige ADP-002 **implementado**, no cerrado | `AdapterSpec:253,261,294,311,321,335,356` | A1 y demás |
+| S6b → P50/P62 (sistema typed y testkit) | cierre de A8 (`ScalaTestWithActorTestKit`) | `TypedSupervisingClassicSpec:55-57` | A8 |
+| P49 (ADP-006.4) → S6b | **validación**: A1, A2, A4 de 006.4 solo se ejecutan con la fachada `actorOf` de S6b; 006.4 queda `partial` hasta entonces | mismos cuerpos de test | las mismas |
+| P61 (CTX-017) → S6b | validación posterior (A1 compartida, A2) | `AdapterSpec:291-297` | A1 ya ejecutada; A2 con oráculo |
+| P61 (CTX-017 A3) → P49 (puente) | validación | `ActorContextAdapter.scala:31-34` | contexto no adaptado (ver unitario U1) |
+| P61 (JAPI-006.5) → S6a, S6b, P49 | delegación Java sobre las mismas piezas | `Adapter.scala:116-141` | `AdapterTest.java:302-355` |
+| S6b → P61 | **ninguna** | ninguna aserción ni código de ADP-005/SUP-021 usa CTX-017 ni JAPI | — |
+
+**Pruebas, separando capas (según `docs/testing-policy.md`):**
+- *Unitarios livianos (sin sistema de actores):* **U1** el puente rechaza un contexto no adaptado con el texto exacto (CTX-017 A3; el doble solo hace de *entrada* no adaptada; frontera declarada; el texto sale del oráculo, pendiente); **U2** la fachada reenvía `props` y `name` sin transformar al contexto clásico (doble grabador de la frontera clásica; no prueba la integración); **U3** la tabla del decisor clásico (`ActorInitializationException`, `ActorKilledException`, `DeathPactException` clásica ⇒ Stop; resto ⇒ Restart) como función pura; **U4** la extracción del mensaje de log de una `ActorInitializationException` con causa/`InvocationTargetException` (`:248-255`).
+- *Integración con componentes reales:* **I1** A1 de `AdapterSpec`; **I2** A5/A6/A8 (decisor, log ERROR, reinicio/parada del hijo clásico); **I3** A3/A4/A7 (watch/stop cruzados); **I4** ADP-005 A2 con `PropsAdapter`; **I5** CTX-017 A2 (nombre) con oráculo; **I6** A9 (rama typed de la estrategia).
+
+**Deltas propuestos (sin aplicar):** (1) CTX-017 A3 y ADP-004: registrar la conversión de contexto de ADP-004 y el texto de CTX-017 A3 como una única aserción compartida (unitario U1, ejecutable en P49); (2) marcar como compartidas las aserciones triplicadas de arriba (igual que C4) y fijar que se ejecutan en S6b; (3) **C15** — la `Fuente` de ADP-006.4 cita `ActorAdapter.scala:41-52` para `classicSupervisorDecider`, que está en `:55-58`; corregir la cita (no cambia el comportamiento); (4) ningún cambio de `unit-rows.tsv` ni de asignación.
+
+### 13.2 `DeathPactException`
+
+Leídos completos AT-BEH-011, AT-BEH-007, AT-BEH-003, AT-SIG-001, AT-SIG-004, AT-SIG-006, AT-SUP-001 y AT-SUP-014 (AT-SIG-005, AT-BEH-001 y AT-BEH-012 solo por sus `depends_on`/notas y por la lectura de la rev. 3); `Behavior.scala:235-316`, `MessageAndSignals.scala:14-120`, `ActorAdapter.scala:36-60,84-180,215-273`, `InterceptorImpl.scala:51-126`, `Supervision.scala:70-130,332-351`, `StashBufferImpl.scala:186-244`, `ActorCell.scala:642-679`; cuerpos de `WatchSpec:96-204`, `ActorContextSpec:483-533`, `SupervisionSpec:353-376,1408-1439,1668-1692`, `DeferredSpec:60-100`, `TerminatedSpec`.
+
+**Criterio de `FailedBehavior` aplicado:** ¿el valor o comportamiento ya está contratado en una unidad anterior y lo que falta es una aserción? **Sí.**
+
+| Aspecto | Qué es [código] | Dónde está contratado hoy [contrato] | Unidad que lo implementa (propuesta) |
+|---|---|---|---|
+| **Representación del error** | `final case class DeathPactException(ref)` con mensaje `death pact with <ref> was triggered` (`MessageAndSignals.scala:22-27`) | SIG-006 (S1: contrato y A4, derivada); Rust: `ActorError::DeathPact(ref)` | **P48**, junto con `ActorError` (tipo de retorno del intérprete, BEH-011); el texto depende del `Display` de `ActorRef` (AT-REF, P48) |
+| **Condición** | `interpretSignal`: señal `Terminated(ref)` **y** resultado `Unhandled`. `ChildFailed extends Terminated` y `Terminated.unapply(t: Terminated)` ⇒ **un `ChildFailed` sin manejar también produce `DeathPactException`** (con la `ref` del hijo) (`Behavior.scala:270-277`, `MessageAndSignals.scala:63-66,96-104`) | **BEH-011 (P48)**: «`interpretSignal(Terminated)` con resultado Unhandled ⇒ DeathPactException(ref)» y «lanza DeathPact después de interpretar»; **SIG-001 (P48)**: variantes de `Signal` y «Terminated produce DeathPactException»; también SIG-006, SUP-014, BEH-003 (Condiciones) | **P48** (`interpret_signal`) |
+| **Lanzamiento / propagación** | se lanza **dentro** de `interpretSignal`, antes de que el adaptador vea el resultado; por eso lo captura el supervisor, cuya llamada interna es `Behavior.interpretSignal(nested, …)` (`InterceptorImpl.scala:75-79`, `Supervision.scala:91-95`). Si no hay supervisor, sale de `handleSignal` a la celda y decide el padre (`ActorAdapter.scala:240-261`: registra, log ERROR, `Stop`) | BEH-011 (orden), SIG-006 (orden), ADP-006.4 | P48 (lanzamiento), P53 (`intercept`, BEH-013), P49 (adaptador) |
+| **Reacción de supervisión** | `onFailure[DeathPactException](restart)`: el selector por tipo (también desenvuelve `UnstashException`, `Supervision.scala:75-76`) y `RestartSupervisor` | SUP-014 (única aserción), SIG-006 A3, SUP-002 (selector), SUP-005 | S1 (selector), S2 (restart) |
+| **Validación del resultado observable** | A1 `WatchSpec:165-204` (un `ChildFailed` sin manejar: dos ERROR, el padre recibe `Terminated`/`ChildFailed`); A2 `ActorContextSpec:483-533` (`Terminated(_) => unhandled`: log, `PostStop`, el actor termina); A3 `SupervisionSpec:1408-1439` (restart) | SIG-006 A1-A3; SUP-014 A1 = SIG-006 A3 | S1 (A1, A2), S2 (A3) |
+
+**Segunda ubicación de lanzamiento [código]:** `ActorAdapter.unhandled` también lanza `DeathPactException` para `Terminated` (`:222-225`; SIG-006 y BEH-003 lo citan). **Por lectura, no es alcanzable por las rutas examinadas:** `handleSignal` llama a `interpretSignal`, que ya lanzó para cualquier `Terminated` no manejado; el desapilado de señales también usa `interpretSignal` (`StashBufferImpl.scala:202`), y `unhandled(msg)` desde `unstash` recibe mensajes. Es una **inferencia de lectura**, no verificada con el oráculo; si se confirma es una rama defensiva sin observable y no requiere prueba propia.
+
+**Aristas en cuestión [código + contrato]:**
+
+| Arista | Clase | Evidencia | Efecto |
+|---|---|---|---|
+| `AT-BEH-007>AT-SUP-001` (P48→P55) | **validación**, no de implementación | BEH-007 implementa `Behavior.start`/`DeferredBehavior`; ninguna de sus líneas usa código de SUP-001. Lo que sus A2/A6 observan (fábrica que falla ⇒ `ActorInitializationException`, log, parada, el padre ve `Terminated`) lo hacen la celda clásica (`ActorCell.scala:642-679`, AC-CELL) y la estrategia del adaptador (ADP-006.4, P49) | BEH-007 puede **comenzar y casi cerrar** sin P55; A2/A6 se validan con P49 |
+| *no declarada* `BEH-007>SUP-005` | **validación** | A8/A9 (`SupervisionSpec:353-376,1668-1692`) exigen `supervise(restart)` | BEH-007 queda `partial` hasta S2; se añade al análisis |
+| `AT-BEH-003>AT-SIG-006` (P52→P55) | **documental** | A1-A3 de BEH-003 no producen `Terminated`; el lanzamiento es de BEH-011; la rama de `ActorAdapter.unhandled` es defensiva (arriba) | sin efecto en el orden |
+| *no declarada* `BEH-011→SIG-006` (P48→P55) | **implementación inversa** (tipo del error), resuelta sin arista (ver R-DP) | `interpretSignal` necesita `DeathPactException`, definido por la fila SIG-006 de P55 | se evita con R-DP |
+| `AT-SIG-006>AT-SUP-014` | **validación** (A3 de SIG-006 = A1 de SUP-014) | `SupervisionSpec:1408-1439` | SIG-006 `partial` hasta S2 |
+| `AT-SUP-014>AT-SIG-006` | **documental**: SUP-014 no tiene código propio; su capacidad (ser supervisable) resulta de lanzar dentro de `interpretSignal` (P48), `intercept` (P53), selector (SUP-002) y restart (SUP-005) | `Behavior.scala:270-277` | se quita del grafo de inicio; el ciclo S1↔S2 desaparece |
+| `AT-SUP-001` (rol en estas rutas) | sin código propio: el default `Stop` lo implementa ADP-006.4 (P49) y, para actores lanzados desde Classic, `supervise(stop)` (S1/SUP-003) | `ActorAdapter.scala:232-266`, `package.scala:60` | S1 valida |
+
+**R-DP — ubicación mínima (propuesta; sin duplicar contratos, sin diferencias con Pekko):**
+1. **P48** implementa `ActorError::DeathPact(ref)` con el texto de Pekko y la condición en `interpret_signal`, y gana aserciones **N** (D, derivadas del código; ninguna de BEH-011 A1-A5 las cubre hoy): N1 `Terminated` sin manejar ⇒ `DeathPact(ref)` *después* de interpretar; N2 `ChildFailed` sin manejar ⇒ `DeathPact` con la `ref` del hijo; N3 `Terminated` manejado ⇒ sin error; N4 `PostStop`/`PreRestart` sin manejar ⇒ sin error; N5 el texto `death pact with <ref> was triggered` (**es SIG-006 A4**: compartida, se ejecuta una vez en P48). Son **unitarios** (sin sistema de actores: la `ActorRef` es un valor de P48 y el contexto es un contexto de prueba pasado como entrada; frontera declarada).
+2. **S1 / SIG-006** conserva la validación extremo a extremo: A1 y A2 (integración con adaptador P49, watch P54, `ChildFailed` de SIG-005, parada por defecto). SIG-006 **no tiene código propio** ni lo necesita: es una fila de contrato/validación dentro de S1.
+3. **S2 / SUP-014** ejecuta la aserción compartida A3/A1 (`:1408-1439`) y es la prueba de que la excepción es supervisable.
+4. Contrato (sin aplicar): referencia en BEH-011 «texto: ver SIG-006 A4»; **no** añadir `BEH-011→SIG-006` a `depends_on` (crearía una arista P48→P55 contra el orden del plan).
+5. Abierto, no inventado: la forma exacta de `ActorError` depende de Q-X-5 y Q-T-BEH-1; el efecto observable (texto, momento, log, `PostStop`) no.
+
+### 13.3 Atomicidad de S4
+
+Leídos completos AT-SUP-011, -012, -019, -018, AT-STASH-006, AT-SUP-010 y AT-BEH-015 (AT-BEH-013 solo su contrato observable; AT-SIG-002 y AT-SUP-004 por las líneas que citan `UnstashException`); `Supervision.scala:44-130,133-178,292-351,396-428`, `InterceptorImpl.scala:51-126`, `StashBufferImpl.scala:186-290`, `ActorAdapter.scala:143-162`; cuerpos de `SupervisionSpec:176-213,446-492,847-880,1243-1407,1630-1692` y las estrategias de `StashSpec:460-610` tal como las describen sus contratos (**no releí cada test de `StashSpec`**; las estrategias por aserción de SUP-018 salen de los contratos y de `SupervisionSpec:1195-1230`, rev. 3).
+
+| Fila | Código propio [código] | Dónde vive hoy el comportamiento | Estrategias por aserción | Primera unidad en que puede comenzar | Última dependencia para cerrar |
+|---|---|---|---|---|---|
+| **SUP-011** | `isSame` (5 líneas, `Supervision.scala:78-83`) y la selección «el más interno que coincide» (`isInstanceOfTheThrowableClass`, `:75-76`), ambos de la clase base `AbstractSupervisor` | desduplicación genérica: `InterceptorImpl.deduplicate` (BEH-013/015, P53) | A1 stop·resume·restart (BehaviorTestKit); A2 stop·restart·**backoff**; A3 stop·resume·restart; A4 restart.withLimit; A5 stop·resume·**backoff**·restart.withLimit·restart (profundidad de pila); A6 resume·restart.withLimit·restart·stop + `intercept`; A7 **backoff**·resume | S1 (`isSame` + escenarios solo con Stop/Resume, N) | **S3** (A2, A5, A7) |
+| **SUP-012** | ninguno: el re-envoltorio es `InterceptorImpl.receive/receiveSignal → deduplicate` (`:90-123`) | BEH-013/015 (P53); `Fuente` de SUP-012 = fuente de BEH-015 | A1 = SUP-011 A5; A2 (`ActorContextSpec:255-279`) no cambia de Behavior (C2); la evidencia real (C2) usa restart y backoff | S1 (resume tras cambio de Behavior, N) | **S3** (evidencia real de C2 con backoff) |
+| **SUP-019** | ninguno: «un Behavior que no está vivo no se re-envuelve» es `deduplicate` (`:106-111`, BEH-015); `aroundStart` y `restartCompleted` ya son de S1/S2 | BEH-015 (P53), S1, S2 | A1, A2, A3: las **cinco** (`allStrategies`, `SupervisionSpec:1651-1657`); A3 todas salvo resume | S1 (Stop y Resume) | **S3** |
+| **SUP-018** | ninguno propio: wrap en `unstash` (STASH-006), desenvolvimiento en selector/log/resume (S1: `:76,102,174`), `PreRestart` al Behavior desapilado (S2: `:318,327,416`), restauración en el adaptador (P49, ADP-006.1) | SUP-004 (resume ⇒ `e.behavior`), SIG-002 (restart), SUP-010, ADP-006.1, STASH-006 | A1 stop·A4 resume (S1) · A2 restart·A5 restart.withStashCapacity (S2) · A3 backoff (S3) | S1 (A1, A4) | **S3** (A3) |
+| **STASH-006** | `UnstashException(cause, behavior)`, `unwrap`, texto `[<cause>] when unstashing in [<behavior>]` y el *wrap* dentro del bucle de `unstash` (`StashBufferImpl.scala:204-207,268-287`) | solo aquí (ni STASH-003/004 ni ningún contrato de P53 lo mencionan: búsqueda en los contratos) | A1/A2 = SUP-018 A1-A4 (compartidas); A3 texto (D, unitario) | **S1** (lo consumen `Stop`, `Resume`, el selector y el log) | A1/A2: **S3** (con SUP-018) |
+
+**Hallazgos que fundamentan la decisión:**
+1. **Ninguna de las cuatro filas restantes de S4 aporta una implementación propia coherente más allá de dos piezas pequeñas** (`isSame`; `UnstashException`). SUP-012 y SUP-019 son aserciones sobre un mecanismo ya contratado en P53 (BEH-013/015); SUP-018 es el escenario transversal de comportamientos ya contratados en SUP-004, SIG-002, SUP-010, ADP-006.1 y STASH-006 (**mismo patrón que `FailedBehavior`**: el valor está contratado antes, lo que falta es la aserción).
+2. **`UnstashException` no puede quedarse en la última unidad:** S1 la consume en tres sitios (`Supervision.scala:76` selector, `:102` log, `:174` `Resume` devuelve `e.behavior`). Con STASH-006 en S4 el script encuentra un **ciclo de implementación S1↔S4** (`p55-rev4-edges.out`, «contraste»: `S1→S4v` por `SUP-002>`, `SUP-004>`, `SUP-010>STASH-006` y `S4v→S1` por `SUP-011>SUP-002`).
+3. **La última dependencia de cierre de las cinco filas es S3 (Backoff)** (tabla): ninguna se cierra completa antes de S3; cada una cierra por aserciones repartidas entre S1, S2 y S3.
+4. Redistribuir las filas a la unidad donde cierra su última aserción (S3) mezcla el resultado de Backoff con la composición; repartirlas por aserción rompe el principio de una fila → una unidad.
+
+**Decisión de la propuesta (con evidencia): S4 no es una unidad de implementación atómica; es una unidad de VALIDACIÓN.** Se identifica como tal (**S4v**):
+- **Implementación redistribuida (sin mover filas entre unidades distintas de P55):** `isSame` y la selección del más interno se implementan en S1 con la clase base (SUP-002; la fila SUP-011 sigue en S4v); **STASH-006 pasa de S4 a S1** (tipo, `unwrap`, texto y *wrap*, extendiendo el `unstash_all` de P53; las filas P53 no cambian). No cambia su P-id (sigue en P55): solo la subunidad provisional S4→S1; `unit-rows.tsv` solo registra P-ids, de modo que el delta aplica únicamente si el Owner adopta la partición en unidades.
+- **S4v (SUP-011, SUP-012, SUP-018, SUP-019): unidad de validación.** Resultado: *la matriz de composición de supervisión queda verificada con las cinco estrategias reales*. No tiene código de producción propio; su entregable son los escenarios y la evidencia. Escenarios completos (todos con interceptores, estrategias, stash y adaptador reales):
+  - **V1** anidado/plano por tipo de excepción (SUP-011 A1-A4, A6);
+  - **V2** desduplicación y pila (SUP-011 A5-A7 = SUP-012 A1; requiere un observable equivalente a la profundidad de pila de la JVM —también BEH-015 A4—: cuestión de diseño de la prueba, no exclusión);
+  - **V3** persistencia tras cambiar de Behavior (SUP-012 A2 y la evidencia real de C2);
+  - **V4** Behavior que para, con las cinco estrategias (SUP-019 A1-A3);
+  - **V5** falla durante el desapilado (SUP-018 A1-A5 = STASH-006 A1/A2).
+- **Criterio de cierre de S4v:** V1-V5 en verde con componentes reales, cada aserción compartida ejecutada **una** vez, y las filas SUP-011/012/018/019 y STASH-006 cerradas solo si no queda decisión abierta (Q-T-SUP-1 condiciona `isSame`/SUP-011; Q-T-STASH-1 condiciona SUP-018/STASH-006).
+- **Separación pedida:** *atomicidad de implementación*: S1 incorpora `isSame` y `UnstashException` (unas pocas líneas de Scala); *atomicidad de validación*: S4v es un único escenario de aceptación con cinco partes y un criterio de cierre, no una unidad de código.
+- **Unitarios livianos que no cierran filas** (sin sistema de actores): `is_same` por tipo de error; `UnstashError` (texto, `unwrap`, *wrap* conservando el último Behavior desapilado con un `Behavior` y contexto de prueba P48); desduplicación en P53. **Integración:** V1-V5.
+- *Alternativas descartadas:* disolver S4 en S3 (mezcla resultados); partir S4 por fila (cada fila se cierra con aserciones de tres unidades).
+
+### 13.4 Organización recomendada vigente (única)
+
+Sustituye a «Organización propuesta (sin aplicar)» de §12.4 y a §3/§5. **31 filas, cada una una vez** (script: afirmación de 31 sin pérdidas ni duplicados y de que todas son de P55 en `unit-rows.tsv`).
+
+| Fila | Rev. 2 (§3) | Rev. 3 (§12.4) | **Rev. 4 (vigente)** |
+|---|---|---|---|
+| AT-BEH-010 | S5 | S5 | **S5** |
+| AT-BEH-024 | S1 | S1 | **S1** |
+| AT-SIG-002 | S2 | S2 | **S2** |
+| AT-SIG-005 | S1 | S1 | **S1** |
+| AT-SIG-006 | S1 | S1 | **S1** |
+| AT-SUP-001 | S1 | S1 | **S1** |
+| AT-SUP-002 | S1 | S1 | **S1** |
+| AT-SUP-003 | S1 | S1 | **S1** |
+| AT-SUP-004 | S1 | S1 | **S1** |
+| AT-SUP-005 | S2 | S2 | **S2** |
+| AT-SUP-006 | S2 | S2 | **S2** |
+| AT-SUP-007.1 | S3 | S3 | **S3** |
+| AT-SUP-007.2 | S3 | S3 | **S3** |
+| AT-SUP-007.3 | S3 | S3 | **S3** |
+| AT-SUP-008 | S2 | S2 | **S2** |
+| AT-SUP-009 | S2 | S2 | **S2** |
+| AT-SUP-010 | S4 | S1 | **S1** |
+| AT-SUP-011 | S4 | S4 | **S4v** (cambia) |
+| AT-SUP-012 | S4 | S4 | **S4v** (cambia) |
+| AT-SUP-013 | S5 | S5 | **S5** |
+| AT-SUP-014 | S2 | S2 | **S2** |
+| AT-SUP-016 | S2 | S2 | **S2** |
+| AT-SUP-017 | S3 | S3 | **S3** |
+| AT-SUP-018 | S2 | S4 | **S4v** (cambia) |
+| AT-SUP-019 | S4 | S4 | **S4v** (cambia) |
+| AT-SUP-020 | S6 | S6a | **S6a** |
+| AT-SUP-021 | S6 | S6b | **S6b** |
+| AT-SUP-022 | S6 | S6a | **S6a** |
+| AT-STASH-006 | S2 | S4 | **S1** (cambia) |
+| AT-ADP-002 | S6 | S6a | **S6a** |
+| AT-ADP-005 | S6 | S6b | **S6b** |
+
+| Unidad | Rol | Filas | Comienza con | Cierra con (última dependencia) | Filas `partial` hasta entonces |
+|---|---|---|---|---|---|
+| **S1** T-SUPERVISION-FALLO-BASE | implementación + validación e2e | SUP-001, 002, 003, 004, 010, STASH-006, BEH-024, SIG-005, SIG-006 | P48 (BEH-004/007/011/012, SIG-001 con `DeathPact`), P53 (BEH-013, stash), P52 (LOG-001), P54 (SIG-004), P49 (ADP-006.1/.2/.4) | S2 (SIG-006 A3, SUP-010 A3-A5), S3, S4v (STASH-006 A1/A2) | SIG-006, SUP-010, STASH-006, BEH-024, SUP-001 |
+| **S2** T-SUPERVISION-REINICIO | implementación | SIG-002, SUP-005, 006, 008, 009, 014, 016 | S1; P53 (STASH-001, TMR-006); P52 (EVT-004); P49 (CTX-018); P54 (CTX-005/006) | S3 (SUP-009 con Backoff), Q-T-BEH-1, Q-T-STASH-1, Q-X-6 | SUP-014 (aserción compartida con SIG-006), SUP-009 |
+| **S3** T-SUPERVISION-BACKOFF | implementación | SUP-007.1, .2, .3, SUP-017 | S2; P53 (TMR-001) | Q-T-SUP-3 (bloqueante), Q-T-SUP-6, reloj/azar inyectables | SUP-007.3, SUP-017 |
+| **S4v** V-SUPERVISION-COMPOSICION | **validación** | SUP-011, 012, 018, 019 | S1 (escenarios parciales Stop/Resume), pero **cierra** con S1+S2+S3, P53, P49 | V1-V5 en verde | las cuatro hasta V1-V5 |
+| **S5** T-ABSTRACTBEHAVIOR | implementación | BEH-010, SUP-013 | S1 (`Supervisor.apply`), P48 (BEH-007), P54 | Q-T-BEH-1, Q-T-BEH-5, Q-T-CTX-2 | BEH-010, SUP-013 |
+| **S6a** T-INTEROP-TYPED-DESDE-CLASICO | fachada + validación | ADP-002, SUP-020, SUP-022 | S1 (`supervise(stop)`); P49 (ADP-003, PropsAdapter); P50 (SYS-008) | **S2** para SUP-020 A2, la variante *override* de A3 y ADP-002 A3 (SUP-022 cierra con S1); Q-X-8 [Rev. 4b: etapas en §14.1] | SUP-020 y ADP-002 hasta S2; SUP-022 hasta Q-X-5/Q-X-8 y herramientas de §14.2 |
+| **S6b** T-INTEROP-CLASICO-BAJO-TYPED | fachada + validación | ADP-005, SUP-021 | P49, P21, P54 (§13.1); *no* depende de S1-S3 | S6a (fixture ADP-002), P50/P62 (A8), Q-X-8, Q-T-SUP-7, Q-T-CTX-4 | ADP-005, SUP-021 |
+
+**Orden de implementación:** P48 → P49 (con P53/P54/P52 donde corresponda) → **S1 → S2 → S3**; **S5** y **S6a** tras S1 [Rev. 4b: es el orden de *implementación*; la *validación* de S6a es en dos etapas, S1 y S2, y SUP-020/ADP-002 solo cierran con S2, §14.1]; **S6b** tras P49/P21/P54 (independiente de S1-S3; cierra tras S6a y el sistema typed); **S4v** al final, tras S3; **P61** después de S1, S5, S6a y S6b. **Orden de validación** (cuándo se pueden ejecutar las aserciones compartidas): `DeathPact` N1-N5 en P48; ADP-006.4 A1/A2/A4 en S6b; SIG-006 A1/A2 en S1 y A3 en S2; V1-V5 en S4v; CTX-017 A1 ya ejecutada en S6b, A2/A3 en P61 (A3 también ejecutable en P49 como U1).
+
+**Grafo (script, `p55-rev4-edges.out`):**
+- *Inicio:* **sin ciclos que incluyan unidades de P55** (ni internos ni con P48/P49/P52/P53/P54/P61).
+- *Declarado* (sin clasificar): ciclos S1↔S2, S1↔S4v, S1↔S6a y los que atraviesan P48/P49/P52 con S1; desaparecen al clasificar.
+- *Cierre:* quedan lazos P48↔S1 (`BEH-007>SUP-001`, `BEH-007>SUP-005`) y S1↔S4v (`STASH-006>SUP-018`): **no son ciclos de implementación** sino filas que se cierran tarde (`partial`), como SIG-006 y SUP-010.
+- **Sin revisar / hallazgo ajeno a P55:** en el grafo declarado entre las unidades externas existen ciclos de filas P48↔P52↔P49 y P49↔P53↔P52↔P54 (p. ej. `ADP-006.2>BEH-003` frente a `LOG-002>ADP-006.1`, `STASH-005>EVT-003` frente a `CTX-018>STASH-005`), contrarios a las dependencias entre unidades de `unit-plan.md`. **No se analizaron**: no son de P55, pero impiden afirmar que el grafo de las unidades vecinas sea acíclico.
+
+### 13.5 Qué cambia respecto de la rev. 3 (marcado **[Rev. 4]** en su lugar)
+1. **P61↔S6b resuelto sin mover filas** (§13.1): P61 es consumidor/validación posterior; SUP-021 no tiene código propio (lo implementa ADP-006.4, P49); S6b = fachada + validación.
+2. **C13 resuelto** (§13.2): R-DP; `BEH-007>SUP-001` es validación, `BEH-003>SIG-006` documental; `SUP-014>SIG-006` pasa de «implementación» a documental; falta añadir `BEH-007→SUP-005` (validación).
+3. **S4 → S4v** y **STASH-006 → S1** (§13.3); sustituye a «S4 la más débil» de §12.4 y a la nota «cada fila cerraría en S3».
+4. **S6b ya no «comienza con P49 (ADP-006.4)»** como implementación: la valida (corrige §12.4 S6b). Se corrige «sin aristas entre S6a y S6b»: S6b usa la fachada ADP-002 como *fixture*.
+5. SUP-010 sigue en S1 (O2) y SUP-018 sigue en validación; O3 queda como «SUP-018 en S4v, STASH-006 en S1».
+
+### 13.6 Resumen: demostrado, propuesto, decisiones
+
+**Demostrado por la evidencia citada (código + contratos + specs):** (a) la ruta pública de `actorOf` son dos delegaciones sobre un puente de una función y una estrategia del adaptador contratada por ADP-006.4; (b) un mismo test se afirma en tres o cuatro filas; (c) CTX-017 coincide en sus comportamientos con operaciones que implementan P49 y S6b y por eso no necesita una implementación separada **[Rev. 4b: no es una exclusión; ver §14.3]**; (d) ninguna aserción de ADP-005/SUP-021 usa CTX-017; (e) `interpretSignal` lanza `DeathPactException` también para un `ChildFailed` sin manejar; (f) la condición y el lanzamiento de `DeathPactException` están contratados en BEH-011 y SIG-001 (P48) y ninguna aserción de esas filas los cubre; (g) `SUP-014` y `SIG-006 A3` son el mismo test; (h) SUP-012 y SUP-019 no tienen código propio; `UnstashException` la consume S1 (tres sitios) y su `wrap` no está contratado en P53; (i) el script: sin ciclos de inicio en P55 y ciclo S1↔S4 si STASH-006 se queda en S4.
+
+**Propuestas (juicio propio, sin aplicar):** la atribución de la fachada a S6b y del puente a P49; R-DP; S4v como unidad de validación y STASH-006→S1; las aserciones compartidas y N; la clasificación de aristas del script.
+
+**Decisiones del Owner (arquitectura/organización; no excluyen comportamiento):**
+- **D-1 (rev. 4).** ¿Se aplica la organización de §13.4 (STASH-006 a S1, S4→S4v como unidad de validación, S6a/S6b) en `unit-rows.tsv` y derivados? Sustituye a D-1 de §12.5 en lo que difiere.
+- **D-2** (sin cambios): R-FB frente a mover/dividir BEH-024.
+- **D-4 (nueva).** ¿Se acepta R-DP (valor `DeathPact` y N1-N5 en P48 con SIG-006 A4 compartida, sin arista BEH-011→SIG-006)? Alternativa descartada: mover SIG-006 a P48 no es viable, porque SIG-006 declara `depends_on` AT-SIG-004 (P54), posterior a P48.
+- **D-3** y las preguntas 1-6 de §10 siguen sin respuesta.
+- **No son decisiones del Owner (obligaciones ya vigentes):** conservar los comportamientos observables en S6a/S6b con cualquier alternativa de Q-X-8; ejecutar las aserciones compartidas; cerrar con evidencia.
+
+**¿Lista para decidir?** **La propuesta organizativa (§13.4) está lista para que el Owner decida su aplicación** (D-1, D-4; D-2 si objeta R-FB): las tres cuestiones técnicas investigables (P61↔S6b, `DeathPact`, S4) están resueltas con evidencia. **Las unidades no están listas para implementar:** (1) Q-T-BEH-1 y Q-T-SUP-3 (bloqueantes) impiden cerrar S2, S3 y S5; (2) el oráculo no se ejecutó para CTX-017 A2/A3, SIG-006 A4, `DeathPact` ni la matriz de S4v (Java 21 pendiente, S-G/S-H y Q-T-SUP-3 sin ampliar); (3) los deltas no están aplicados; (4) hay ciclos de filas entre P48/P49/P52/P53/P54 sin analizar; (5) **[Rev. 4b: analizado en §14.2]** el plan ubica el testkit tipado (P62-P64) después de P55 y los specs portados lo usan; se propone una estrategia con dos alternativas acíclicas (adelantar cortes mínimos, D-5, o cierre posterior) y quedan pendientes Q-X-7 y Q-T-TMR-4.
+
+### 13.7 Límites y controles de la rev. 4
+- **Leído en cuerpo completo:** los contratos citados al inicio de §13.1-§13.3 y los fuentes/specs listados; **no leído:** `StashSpec` test a test (se usaron las estrategias de los contratos), `AdapterTest.java` salvo `:75-96`, `TypedWatchingClassic{Spec,Test}` (se registran como usuarios de `actorOf`/`toClassic` por búsqueda), `ActorContextSpec:255-279` (C2, rev. 3).
+- **Controles ejecutados:** ver el informe de entrega (script de aristas; 31 filas contra `unit-rows.tsv`; `unit_plan.py --check`; `git diff --check`; `check.py`, con la limitación del upstream en el worktree).
+- No se ejecutó Cargo ni regeneradores; no se tocaron `Cargo.toml`, TSV ni contratos.
+
+## 14. Revisión 4b: inicio y cierre de S6a, validación antes de P62–P64, `actorOf` y CTX-017
+
+**Estado: PROPUESTA documental. No aplicada.** Precisa tres puntos de la rev. 4 (§13) y corrige dos afirmaciones suyas (marcadas **[Rev. 4b]** en §13). No cambia `unit-rows.tsv`, contratos, TSV, estados `impl`/`validation`, decisiones del Owner ni código. Base y upstream como en §13 (`c274c2cc2eca5bc5682c54a47abd22b45ff7a5c0`; upstream `9a54d1294c3ac7821bbed3c940769c3d5027d1ff`). Evidencia nueva: `docs/proposals/evidence/p55-rev4-testkit-needs.py/.out` (herramientas de testkit por aserción y cierre de dependencias de cortes mínimos) y la ampliación de `p55-rev4-edges.py/.out` (procedencia de las aristas, una arista de validación más). **Orden de implementación** (qué se puede escribir) y **orden de validación** (qué prueba se puede ejecutar y qué fila se puede cerrar) se separan en todas las tablas de este apartado.
+
+### 14.1 S6a: qué comienza con S1 y qué necesita S2
+
+Leídos `ClassicSupervisingTypedSpec.scala` entero, `scaladsl/adapter/package.scala:49-137`, `InterceptorImpl.scala:82-123`, `Supervision.scala:70-83` y los bloques de AT-ADP-002, AT-SUP-020 y AT-SUP-022.
+
+**Hallazgos [código + spec]:**
+1. La fachada de S6a es un envoltorio: `Behaviors.supervise(behavior).onFailure(SupervisorStrategy.stop)` con `rethrowTypedFailure = false` (`package.scala:57-62,71-77,111-130`). **Escribirla solo necesita `StopSupervisor` y `Failed` (S1) y el adaptador (P49)**: ninguna parte de la *implementación* de S6a necesita S2.
+2. El *override* de los tests (`supervise(b).onFailure(restart)` pasado a `spawn`) funciona porque el envoltorio externo y el interno tienen la misma clase de excepción (`Throwable` por omisión): `InterceptorImpl.deduplicate` conserva el más interno si `isSame` coincide (`InterceptorImpl.scala:106-121`, `Supervision.scala:78-83`). El mecanismo de desduplicación y `isSame` están en S1/P53; **lo que hace falta de S2 es `RestartSupervisor` para ejecutar el *override***.
+3. ADP-002 A3 (`PreRestart`) y la variante de *override* de A4 (`:117-128`) coinciden con SUP-020 A2 y la variante de A3; ADP-002 declara `depends_on AT-SUP-020` pero no `AT-SUP-005` (arista de validación añadida a mano en el script).
+
+| Aserción | Comportamiento | Para comenzar su implementación | Ejecutable con S1 | Necesita S2 |
+|---|---|---|---|---|
+| SUP-020 A1 = ADP-002 A1, A2 | `spawn`/`spawnAnonymous` desde sistema clásico: `PostStop`, sin más mensajes, `Terminated` | S1 (`StopSupervisor`, `Failed`), P49 (ADP-006.2 rama `Failed`) | sí | no |
+| SUP-020 A2 = ADP-002 A3 | *override* con `restart`: `PreRestart`, sin terminación | S1 (`isSame` + envoltorio) | no | **sí** (`RestartSupervisor`) |
+| SUP-020 A3 = ADP-002 A4 | desde contexto clásico: `spawn` y `spawnAnonymous` con Stop; *override* con `restart` | S1 | las dos variantes Stop | la variante *override* |
+| SUP-020 A4 | `systemActorOf` con Stop por defecto | S1; P50 (SYS-008) | sí | no |
+| SUP-020 A5 | `PropsAdapter(behavior)` con Stop por defecto | S1; P49 (ADP-003) | sí | no |
+| SUP-020 A6 (N) | el decisor del padre clásico no se invoca (0 invocaciones) | S1; P49 | sí (caracterización con oráculo) | no |
+| SUP-020 A7 (N) | `spawn` valida el Behavior inicial, `spawnAnonymous` no | S1; P48 (BEH-012) | sí | no |
+| ADP-002 A5 | hijo typed de padre clásico responde `ok` (`AdapterSpec:275-281`) | S1; P49 | sí | no |
+| SUP-022 A1 | hijo `ctx.spawn` informa la causa en `ChildFailed` (`WatchSpec:100-162`) | S1 (SIG-005, `Failed`) | sí | no |
+| SUP-022 A2 = SUP-020 A1 | guardián/clásico: `PostStop` y termina | S1 | sí | no |
+| SUP-022 A3 (D) | guardián y `systemActorOf` con `rethrowTypedFailure = false` | S1; P50 | sí | no |
+
+**Condiciones de cierre de las filas:**
+- **SUP-022:** puede cerrar con S1 (sus tres aserciones no usan Restart), una vez resueltas Q-X-5 y Q-X-8 y disponibles las herramientas de §14.2 (A1 es un spec de `ScalaTestWithActorTestKit` y `LoggingTestKit`). Hasta entonces `partial`.
+- **SUP-020 y ADP-002:** cierran con **S2** (A2, la variante *override* de A3/A4, ADP-002 A3), además de Q-X-8, Q-T-ADP-3, Q-T-SUP-7 y un reloj inyectable para los `expectNoMessage` de tiempo real (Q-T-TMR-4). Hasta que corra S2 permanecen `partial` aunque las demás aserciones estén verdes.
+- **S6a como unidad:** su *implementación* puede terminarse tras S1; su *validación* es en dos etapas (S1: las aserciones de la columna «con S1»; S2: las de «necesita S2»). Corrige la formulación resumida «S6a va después de S1» de la rev. 4: es el orden de **implementación**; el de **cierre** es después de S2 (§13.4 ya lo decía en la columna «Cierra con» pero no en el resumen de orden).
+
+### 14.2 Validación de integración antes de P62–P64
+
+**Qué usan los specs [script `p55-rev4-testkit-needs.py`, cota inferior].** De las **135** aserciones de las 31 filas, en los rangos citados se detecta: `LoggingTestKit` en **72**, `ActorTestKit`/`TestProbe[T]` tipado en **70**, `TestKit`/`TestProbe` clásico en **20**, `TestInbox` en **12**, `BehaviorTestKit` en **11**, `Thread.sleep` en **4**, `ManualTime` en **0**; en 23 no se detecta ninguna (derivadas o N). Es una cota inferior: no ve helpers definidos fuera del rango citado ni rangos adicionales sin nombre de archivo. Las 11 con `BehaviorTestKit`: BEH-024 A3, SUP-001 A2, SUP-002 A1/A2, SUP-004 A1, SUP-005 A1/A4, SUP-006 A1/A2/A3, SUP-011 A1.
+
+**Ubicación en el plan [`unit-plan.md`]:** el testkit clásico (P44, P45: `TestKit`, `TestProbe`, `EventFilter`, `ExplicitlyTriggeredScheduler`) ya está **antes** de P48 y P55. El tipado está **después**: P62 (`ActorTestKit`, `TestProbe[T]`, `ManualTime`; orden 75), P63 (`BehaviorTestKit`, `TestInbox`; orden 76, declara depender de P55) y P64 (`LoggingTestKit`; orden 77).
+
+**Tres clases de capacidad (según `docs/testing-policy.md` §2-§3):**
+
+| Clase | Qué es | Qué aserciones | Quién la aporta | Límite |
+|---|---|---|---|---|
+| **G. Utilidades genéricas** | un canal al que un actor real de prueba reenvía lo que recibe, espera acotada con *timeout* explícito, *latch*, guarda RAII que libera el sistema | aserciones cuyo observable es «llegó / no llegó un mensaje en un plazo» o «terminó» | cada test (biblioteca estándar; sin crate ni dependencia nuevos) | **solo observan**: el actor bajo prueba, el mailbox, el dispatcher y la supervisión son los reales. Reproducir la superficie de `TestProbe`/`ActorTestKit` (`expectMessageType`, `fishForMessage`, `within`, dilatación de plazos…) sería un testkit paralelo: no se hace; si una aserción necesita más que canal + *timeout*, espera al corte A |
+| **T. Herramienta cuyo comportamiento propio se comprueba** | `BehaviorTestKit` (su propagación de la excepción, su cola de efectos, `TestInbox`) | las 11 de arriba; en BEH-024 A3 y SUP-001 A2 el sujeto incluye al testkit | P63 (AT-TK-003.x, 005.1, 011, 012) | **cierre posterior** en P63; no se simula |
+| **R. Componentes reales obligatorios** | celda, mailbox, dispatcher, scheduler (P13-P24), `ActorAdapter` (P49), sistema typed (P50), estrategias de supervisión (S1-S3), *stash* (P53), `EventStream` para `Dropped`/no entregados (P52), tubería de logs real (LOG-001/002, P52), `watch` (P54) | todas las de integración | las unidades indicadas | **no se sustituyen** por dobles ni por una utilidad de prueba; un doble no acredita la integración (`testing-policy.md` §6) |
+
+**Cortes mínimos de testkit y sus dependencias [script, parte 2; cierre de `depends_on` entre filas AT-*]:**
+- **Corte A** — `ActorTestKit` + `TestProbe[T]` (AT-TK-001.1/.2/.3, 002.1/.3 y sus dependencias, 010, 014): 21 filas; unidades P49, P50, P51, P52, P54 y la propia P62. **Ninguna fila de P55**; no alcanza P56 ni P63.
+- **Corte B** — `LoggingTestKit` (AT-TK-006.1-.5, 013): 52 filas declaradas (P48, P49, P50, P52, P53, P54, P62, P64 y **10 filas de P55**). Las 10 filas de P55 entran solo a través de seis aristas declaradas que esta revisión clasifica como *no de implementación* (`ADP-006.2>BEH-024`, `ADP-006.3>SUP-005`, `ADP-006.4>SUP-001`, `BEH-003>SIG-006`, `CTX-018>SUP-016`, `BEH-007>SUP-001`; §13.1-§13.2 y rev. 3): sin ellas, 42 filas, **ninguna de P55**, más P62 y P64. Es un resultado que depende de esa clasificación manual.
+- **Corte C** — `BehaviorTestKit` (AT-TK-003.1/.2, 005.1, 011, 012): alcanza P56, P62 y P63 (no se puede adelantar barato) y filas de P55 solo por `CTX-018>SUP-016` y `BEH-003>SIG-006`.
+- Dependencias fuera del corte: las de la clase R y las decisiones **Q-X-7** (backend de logging; sin respuesta) y **Q-T-TMR-4/Q-T-SUP-8** (reloj inyectable).
+
+**Estrategia propuesta (concreta; sin implementar nada ni usar dobles para declarar la integración):**
+1. **Implementación y unitarios no dependen de P62-P64.** Se escriben ya, con las pruebas unitarias de la política (decisión del selector, `is_same`, contadores y plazos de restart con reloj inyectable, fórmula de backoff, `UnstashError`, `DeathPact`, tabla del decisor clásico, etc.).
+2. **Integración con observable «mensaje/terminación»:** puede ejecutarse antes de P62 con utilidades de la clase G sobre el runtime real, **solo** para aserciones donde bastan canal y *timeout*. Cada una declara en el test que la utilidad es solo observadora (frontera). No sustituye el cierre 1:1 del spec.
+3. **Cierre 1:1 de los specs de Pekko (70 aserciones con `ActorTestKit`/`TestProbe[T]` y 72 con `LoggingTestKit`):** requiere los cortes A y B. Dos alternativas, ambas **acíclicas** (ni P62 ni P64 dependen de P55 según las dependencias declaradas del plan y del inventario):
+   - **Alternativa 1 (recomendada por la evidencia): adelantar los cortes mínimos A y B**, es decir, dividir P62 y P64 en un «mínimo» previo a la validación de S1 y un resto posterior. Evidencia: corte A sin filas de P55 ni unidades posteriores salvo P62; corte B sin filas de P55 tras la clasificación; P44/P45 (classic) ya están antes. Es una reordenación de unidades: **decisión del Owner (D-5)**.
+   - **Alternativa 2: cierre posterior.** Se mantiene el orden del plan; las filas de P55 con aserciones que usan esas herramientas quedan `partial` identificando la dependencia pendiente (cortes A/B, P62/P64) hasta que existan. No bloquea ninguna implementación.
+4. **`BehaviorTestKit` (T):** cierre posterior en **P63** en cualquiera de las dos alternativas. Las 11 aserciones se identifican en la fila (`partial`: «pendiente BehaviorTestKit, P63»). Las equivalentes con actores reales existen (p. ej. SUP-011 A3 respecto de A1) y se ejecutan antes.
+5. **Logs (72):** además del corte B, **Q-X-7** debe estar respondida para ejecutar `LoggingTestKit` contra la tubería real; hasta entonces esas aserciones permanecen `partial` en ambas alternativas.
+
+**Estado del orden:** determinado. Con la alternativa 1 el orden es P48 → P49 → … → *corte A (P62-mín) → corte B (P64-mín)* → integración de S1…; con la alternativa 2 es el del plan. Lo que **no** está resuelto: (i) que el Owner elija; (ii) Q-X-7 y Q-T-TMR-4; (iii) que el corte B no tenga dependencias de código hacia P55 no declaradas (no se leyó la implementación de `LoggingTestKit` en Pekko más allá de los contratos y de la declaración de dependencias); (iv) la clasificación manual de las seis aristas.
+
+### 14.3 `actorOf` y CTX-017: responsabilidades
+
+**Corrección a la rev. 4 [Rev. 4b].** La rev. 4 justificó que CTX-017 «no tiene código de producción propio» porque la fachada de Pekko son pocas delegaciones y `asScala`/`asJava` desaparecen. Eso no demuestra que su comportamiento pueda omitirse en Rust. La conclusión correcta, que sustituye a aquella justificación, es otra: **CTX-017 no necesita una implementación separada porque sus comportamientos observables coinciden con operaciones que ya implementan P49 (puente) y S6b (`actor_of`)**; la fila **conserva su contrato, sus aserciones y su trazabilidad** y no puede cerrarse sin que A1-A3 se ejecuten. No es una exclusión funcional y no fija una API Rust: la forma (método, trait de extensión, `Result` u `Option`) sigue pendiente de Q-X-8 y Q-T-JAPI-1; el contrato de CTX-017 propone `Result`/`Option` y `to_classic()` solo si hay capa clásica.
+
+| Parte | Operación pública equivalente (observable; forma sin decidir) | Implementa | Contrato (responde) | Aserciones | Consume / valida |
+|---|---|---|---|---|---|
+| Obtener el contexto clásico desde el contexto typed | operación **fallible**: éxito si el contexto es el adaptado; si no, error con el texto «Only adapted classic ActorContext permissible (<ctx> of class <clase>)» en el momento de la llamada | **P49**: puente `ActorContextAdapter.toClassic` (`ActorContextAdapter.scala:26-42`) | ADP-004 (la conversión) y **CTX-017** (condición, texto, momento: `Errores`) | CTX-017 A3 (sin spec; unitario U1 + oráculo): compartida con ADP-004, que no tiene aserción de contexto | S6b, P61 (Java) |
+| Crear hijo clásico desde el contexto typed, sin nombre | `actor_of(props)`: delega sin transformar en el contexto clásico; nombre, supervisión y errores son los del clásico | **S6b**, sobre la anterior | ADP-005 y **CTX-017** (`Comportamiento`) | CTX-017 A1 = ADP-005 A1 (compartida; integración I1) | P61 valida; supervisión = ADP-006.4 (P49) |
+| Con nombre | la misma operación con nombre (`context.child(name)` lo devuelve) | **S6b** (misma operación, parámetro adicional) | solo **CTX-017** | CTX-017 A2 (sin spec): unitario U2 («reenvía `name` sin transformar») + oráculo + integración con CTX-003 | P61 |
+| `watch`/`unwatch`/`stop` cruzados | operaciones del contexto clásico sobre refs typed | **S6b** + P49 (CTX-004) + P54 (CTX-005) | ADP-005 | ADP-005 A3, A4, A7 | — |
+| Estrategia sobre hijos clásicos | decisor clásico por defecto y log ERROR | **P49** (ADP-006.4) | ADP-006.4 y SUP-021 (mismo código) | SUP-021 A1-A3 = ADP-006.4 A4/A1/A2 = ADP-005 A8/A5/A6 | S6b valida |
+| Identidad `asScala`/`asJava` | el mismo contexto en ambas vistas | — | **CTX-017** | A4 (D, sin spec) | — |
+| Fachada Java | `Adapter.toClassic(ctx)`/`actorOf(ctx, …)` delegan en lo anterior | **P61** (JAPI-006.5) | JAPI-006.5 (semántica = ADP-001..005) | JAPI-006.5 A4, A6 (`AdapterTest.java:302-355`) | usa P49 y S6b |
+
+**Equivalencia de A4.** Si Rakka expone **un único tipo de contexto** (propuesta del contrato, sujeta a decisión), la identidad entre dos vistas se cumple por construcción y no hay comportamiento observable adicional que ejecutar. La fila conserva A4 con esa justificación escrita y no se convierte en exclusión: si el Owner decidiera mantener dos vistas, A4 se ejecuta como aserción de identidad. Que `TypedActorContext` no exista como tipo aparte tampoco quita las operaciones de A1-A3.
+
+**Quién implementa y quién consume (resumen):** P49 implementa el puente y la estrategia; S6b implementa `actor_of` (con y sin nombre) y los `watch`/`unwatch`/`stop` cruzados y valida el camino completo; P61 implementa la fachada Java (delegación) y **cierra CTX-017** cuando se hayan ejecutado A1 (S6b), A2 y A3 y quede registrada A4. **Consume** CTX-017 de S6b y P49; ni ADP-005 ni SUP-021 dependen de CTX-017 ni de JAPI (verificado en §13.1).
+
+### 14.4 Orden consolidado: implementación frente a validación
+
+| Unidad | Implementación comienza tras | Validación ejecutable por etapas | Filas que cierra (condición) |
+|---|---|---|---|
+| **S1** | P48, P49, P52 (LOG-001), P53 (BEH-013, *stash*), P54 (SIG-004) | unitarios desde el inicio; integración G con S1; integración 1:1 con cortes A/B (alt. 1) o P62/P64 (alt. 2) | SUP-001/002/003/004 y SIG-005 tras la integración; SIG-006 y SUP-010 tras S2/S3; STASH-006 con S4v |
+| **S2** | S1; P53 (TMR-006), P49 (CTX-018), P54 (CTX-005/006), P52 (EVT-004) | ídem | SUP-005/006/008/016/SIG-002 tras la integración; SUP-009 con S3; SUP-014 con SIG-006 A3 |
+| **S3** | S2; P53 (TMR-001) | ídem, con reloj/azar inyectables | tras Q-T-SUP-3 (007.3) y Q-T-SUP-6 (017) |
+| **S4v** | — (sin implementación propia) | V1-V5 tras S3 | SUP-011/012/018/019 al terminar V1-V5 |
+| **S5** | S1 (`Supervisor.apply`), P48 (BEH-007), P54 | ídem | tras Q-T-BEH-1, Q-T-BEH-5, Q-T-CTX-2 |
+| **S6a** | **S1** (sin S2) | etapa 1 con S1 (tabla de §14.1); etapa 2 con S2 | SUP-022 con S1; SUP-020 y ADP-002 con S2 |
+| **S6b** | P49, P21, P54 (independiente de S1-S3) | integración tras tener ADP-002 *implementado* (S6a tras S1) | ADP-005, SUP-021 tras A1-A8; CTX-017 A1/A2 y ADP-006.4 A1/A2/A4 quedan ejecutadas aquí |
+| **P61** | S1, S5, S6a, S6b | CTX-017 A2/A3, JAPI | CTX-017 y JAPI |
+| **P63** | P55 | `BehaviorTestKit` (11 aserciones de §14.2) | cierre posterior de esas aserciones |
+
+### 14.5 Procedencia de las aristas y controles de esta revisión
+
+**Derivadas del inventario** (`depends_on` de `actor-typed.tsv`, ambos extremos entre las 137 filas del conjunto revisado): **245** pares fila→fila. Se tratan como implementación salvo que se indique. **Introducidas a mano (juicio, `CLASIFICACION`/`AGREGADAS` en `p55-rev4-edges.py`):** (a) **13** aristas declaradas que se *reclasifican* como validación o documentales, con su evidencia (`p55-rev4-edges.out`, «Procedencia»); (b) **15** aristas *añadidas* que el inventario no declara (STASH-006 hacia S1, `isSame`, validaciones de S4v, `BEH-007>SUP-005`, `ADP-002>SUP-005`, `SUP-013>SUP-002`, `SUP-016>CTX-018`); (c) las seis aristas de «no implementación» que usa `p55-rev4-testkit-needs.py`, copiadas de las anteriores. Todo lo manual es propuesta sujeta a revisión.
+
+**Lo que la ausencia de ciclos NO demuestra.** Que el grafo de *inicio* no tenga ciclos con unidades de P55 solo dice que **las aristas revisadas, tal como las clasifica esta propuesta**, admiten un orden. No demuestra atomicidad de las unidades (§13.3 la discute con otra evidencia), ni paridad con Pekko, ni que no existan dependencias de código que ningún `depends_on` declare, ni cubre las filas clásicas ni las unidades typed no revisadas. Siguen los ciclos de filas entre P48/P49/P52/P53/P54 (§13.4), sin analizar.
+
+**Estado de la propuesta organizativa.** Está lista para que el Owner **decida** su aplicación (D-1, D-4, **D-5** nueva): las tres precisiones técnicas están resueltas con evidencia y ya no queda un orden desconocido para la validación; el orden depende ahora de una elección de organización (alternativa 1 o 2 de §14.2), no de un hecho sin investigar. **Las unidades siguen sin estar listas para implementarse**: Q-T-BEH-1 y Q-T-SUP-3 (bloqueantes), Q-X-7, Q-T-TMR-4, Q-X-8, oráculo pendiente (Java 21), y los límites ya listados en §13.6.
+
+**Decisiones del Owner nuevas (organización):** **D-5** — ¿adelantar los cortes mínimos A y B de P62/P64 a antes de la validación de S1 (alternativa 1), o mantener el orden del plan con cierre posterior (alternativa 2)? Cualquiera de las dos es acíclica según la evidencia; no hay ninguna exclusión de comportamiento en ninguna.
+**Cuestiones técnicas todavía sin resolver (no son decisiones del Owner):** dependencias de código reales del corte B hacia P55 (§14.2 iii); revisión de los ciclos de filas externos; oráculo para CTX-017 A2/A3, SIG-006 A4, `DeathPact` y la matriz de S4v.
