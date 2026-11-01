@@ -10,10 +10,12 @@ La capa la determina **el alcance y qué componentes ejecuta el test**, no la ca
 
 Preguntas, en orden; la primera respuesta afirmativa fija la capa:
 
-1. ¿El caso necesita un ActorSystem, runtime de actores, mailbox/dispatcher reales, supervisión, timers reales, archivos, red, entorno o un servicio externo? → **Integración.**
-2. ¿Intervienen dos o más actores reales, aunque sea en memoria y en el mismo proceso? → **Integración.**
+1. ¿Usa archivos reales, red, variables de entorno de la máquina o un servicio externo? → **Integración.**
+2. ¿Necesita un ActorSystem o runtime de actores, o conecta dos o más componentes reales (actores, mailbox + dispatcher + celda, supervisión + hijos, timers + destinatario) para validar un proceso completo? → **Integración.** Esto incluye toda interacción entre actores reales, aunque sea en memoria y en el mismo proceso.
 3. ¿El spec de Pekko que se porta arranca actores reales? → **Integración.** No se convierte en unitario sustituyendo el runtime por mocks.
-4. ¿Valida un comportamiento concreto de una función, componente o transición de estado con a lo sumo dobles pequeños para aislar un colaborador? → **Unitario.**
+4. ¿Valida un comportamiento concreto de una función, componente o transición de estado, aunque el componente sea el real (p. ej. un mailbox aislado, la decisión de una estrategia de supervisión, una transición de estado), con a lo sumo dobles pequeños para aislar un colaborador? → **Unitario.**
+
+Usar un componente real no vuelve integración a un test: probar una implementación real de forma aislada sigue siendo unitario. La integración aparece al conectar componentes y validar el proceso del escenario.
 
 Si una aserción del contrato exige ambos niveles (la lógica interna y el comportamiento observable en el sistema), se escriben las dos pruebas; una no sustituye a la otra.
 
@@ -82,7 +84,7 @@ Costuras temporales: un doble que cumpla las aserciones del contrato (ver `docs/
 
 Reglas que se mantienen sin cambios:
 
-- Cobertura mínima del 90 % de las líneas de producción nuevas o modificadas, con `cargo llvm-cov` (los tests de ambas capas pueden aportar; se documentan comando, resultado y líneas sin cubrir). La cobertura no sustituye a la integración ni a la paridad.
+- Cobertura mínima del 90 % de las líneas de producción nuevas o modificadas, con `cargo llvm-cov` (los tests de ambas capas pueden aportar; se documentan comando, resultado y líneas sin cubrir). La cobertura no sustituye a los unitarios, a la integración necesaria ni a la paridad.
 - Una pregunta abierta (`Q:`) impide cerrar el comportamiento afectado: `partial`, no `done`, aunque ambas capas estén verdes.
 
 ## 7. Paridad con Pekko
