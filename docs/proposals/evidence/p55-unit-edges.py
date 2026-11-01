@@ -10,7 +10,7 @@ repositorio ni prueba equivalencia semántica: solo muestra qué aristas declara
   orig        asignación de la revisión 2 (§3 de p55-partition.md)
   rev3        asignación propuesta en §12.4 (SUP-010 -> S1; SUP-018 y STASH-006 -> S4; S6 -> S6a/S6b)
   rev3+deltas rev3 aplicando los deltas de arista de §12 (retirar SIG-006>SUP-014 y BEH-024>SUP-022,
-              que se clasifican como validación/documental; añadir SUP-013>SUP-002 y SUP-016>CTX-018)
+              que se clasifican como validación/documental; añadir SUP-013>SUP-002; SUP-016>CTX-018 no se modela porque CTX-018 no es de P55)
 """
 import csv
 import re
