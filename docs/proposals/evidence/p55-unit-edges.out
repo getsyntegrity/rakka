@@ -1,0 +1,24 @@
+== orig: sizes={'S1': 7, 'S2': 9, 'S3': 4, 'S4': 4, 'S5': 2, 'S6': 5} total=31
+S1 -> S2  ['AT-SIG-006>AT-SUP-014']
+S1 -> S4  ['AT-SUP-003>AT-SUP-010']
+S1 -> S6  ['AT-BEH-024>AT-SUP-022']
+S2 -> S1  ['AT-SUP-014>AT-SIG-006']
+S3 -> S2  ['AT-SUP-007.1>AT-SUP-009']
+S6 -> S1  ['AT-SUP-020>AT-SUP-001', 'AT-SUP-020>AT-SUP-003', 'AT-SUP-020>AT-BEH-024', 'AT-SUP-022>AT-BEH-024', 'AT-SUP-022>AT-SUP-001']
+S6 -> S2  ['AT-SUP-020>AT-SUP-005']
+cycles: [['S1', 'S6', 'S1'], ['S1', 'S6', 'S2', 'S1']]
+== rev3: sizes={'S1': 8, 'S2': 7, 'S3': 4, 'S4': 5, 'S5': 2, 'S6a': 3, 'S6b': 2} total=31
+S1 -> S2  ['AT-SIG-006>AT-SUP-014']
+S1 -> S6a  ['AT-BEH-024>AT-SUP-022']
+S2 -> S1  ['AT-SUP-014>AT-SIG-006']
+S3 -> S2  ['AT-SUP-007.1>AT-SUP-009']
+S6a -> S1  ['AT-SUP-020>AT-SUP-001', 'AT-SUP-020>AT-SUP-003', 'AT-SUP-020>AT-BEH-024', 'AT-SUP-022>AT-BEH-024', 'AT-SUP-022>AT-SUP-001']
+S6a -> S2  ['AT-SUP-020>AT-SUP-005']
+cycles: [['S1', 'S6a', 'S1'], ['S1', 'S6a', 'S2', 'S1']]
+== rev3+deltas: sizes={'S1': 8, 'S2': 7, 'S3': 4, 'S4': 5, 'S5': 2, 'S6a': 3, 'S6b': 2} total=31
+S2 -> S1  ['AT-SUP-014>AT-SIG-006']
+S3 -> S2  ['AT-SUP-007.1>AT-SUP-009']
+S5 -> S1  ['AT-SUP-013>AT-SUP-002']
+S6a -> S1  ['AT-SUP-020>AT-SUP-001', 'AT-SUP-020>AT-SUP-003', 'AT-SUP-020>AT-BEH-024', 'AT-SUP-022>AT-BEH-024', 'AT-SUP-022>AT-SUP-001']
+S6a -> S2  ['AT-SUP-020>AT-SUP-005']
+cycles: none

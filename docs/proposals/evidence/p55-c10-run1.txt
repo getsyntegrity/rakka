@@ -1,0 +1,36 @@
+S-A typed-supervise(restart) cause=RuntimeException parent=restartAll | setup#1
+S-A typed-supervise(restart) cause=RuntimeException parent=restartAll | signal=PreRestart timerActive=false via=[typed:RestartSupervisor typed:RestartSupervisor typed:RestartSupervisor typed:RestartSupervisor typed:RestartSupervisor]
+S-A typed-supervise(restart) cause=RuntimeException parent=restartAll | setup#2
+S-A typed-supervise(restart) cause=RuntimeException parent=restartAll | kid terminated=false
+S-B no-user-supervise cause=RuntimeException parent=restartAll | setup#1
+S-B no-user-supervise cause=RuntimeException parent=restartAll | signal=PostStop timerActive=false via=[classic-hook:ActorAdapter.postStop]
+S-B no-user-supervise cause=RuntimeException parent=restartAll | parent saw Terminated(child)
+S-B no-user-supervise cause=RuntimeException parent=restartAll | kid terminated=true
+S-C no-user-supervise cause=Kill parent=restartAll | setup#1
+S-C no-user-supervise cause=Kill parent=restartAll | parent decider invoked, cause=ActorKilledException -> Restart
+S-C no-user-supervise cause=Kill parent=restartAll | signal=PreRestart timerActive=false via=[classic-hook:ActorAdapter.preRestart]
+S-C no-user-supervise cause=Kill parent=restartAll | setup#2
+S-C no-user-supervise cause=Kill parent=restartAll | kid terminated=false
+S-D no-user-supervise cause=Kill parent=defaultStrategy | setup#1
+S-D no-user-supervise cause=Kill parent=defaultStrategy | signal=PostStop timerActive=false via=[classic-hook:ActorAdapter.postStop]
+S-D no-user-supervise cause=Kill parent=defaultStrategy | parent saw Terminated(child)
+S-D no-user-supervise cause=Kill parent=defaultStrategy | kid terminated=true
+S-E Props-spawn cause=Kill parent=restartAll | setup#1
+S-E Props-spawn cause=Kill parent=restartAll | parent decider invoked, cause=ActorKilledException -> Restart
+S-E Props-spawn cause=Kill parent=restartAll | signal=PreRestart timerActive=false via=[classic-hook:ActorAdapter.preRestart]
+S-E Props-spawn cause=Kill parent=restartAll | setup#2
+S-E Props-spawn cause=Kill parent=restartAll | kid terminated=false
+S-F typed-supervise(restart) cause=Kill parent=restartAll | setup#1
+S-F typed-supervise(restart) cause=Kill parent=restartAll | parent decider invoked, cause=ActorKilledException -> Restart
+S-F typed-supervise(restart) cause=Kill parent=restartAll | signal=PreRestart timerActive=false via=[typed:RestartSupervisor classic-hook:ActorAdapter.preRestart]
+S-F typed-supervise(restart) cause=Kill parent=restartAll | setup#2
+S-F typed-supervise(restart) cause=Kill parent=restartAll | kid terminated=false
+S-G classic-restart stale-TimerMsg new-incarnation-recreates-timer-T | setup#1
+S-G classic-restart stale-TimerMsg new-incarnation-recreates-timer-T | parent decider invoked, cause=ActorKilledException -> Restart
+S-G classic-restart stale-TimerMsg new-incarnation-recreates-timer-T | setup#2
+S-G classic-restart stale-TimerMsg new-incarnation-recreates-timer-T | kid terminated=false
+S-H classic-restart stale-TimerMsg new-incarnation-has-no-timer | setup#1
+S-H classic-restart stale-TimerMsg new-incarnation-has-no-timer | parent decider invoked, cause=ActorKilledException -> Restart
+S-H classic-restart stale-TimerMsg new-incarnation-has-no-timer | setup#2
+S-H classic-restart stale-TimerMsg new-incarnation-has-no-timer | incarnation#2 (no timer) received org.apache.pekko.actor.typed.internal.TimerSchedulerImpl$TimerMsg
+S-H classic-restart stale-TimerMsg new-incarnation-has-no-timer | kid terminated=false
