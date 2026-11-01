@@ -62,11 +62,11 @@ Mientras `rakka-testint` no exista, no se crea ni se modifica `Cargo.toml` por i
 |---|---|---|
 | Cálculo de backoff (`min`, `max`, `randomFactor`, nº de reinicio → retardo) | Unitario | Función pura; el azar se inyecta o se fija con factor 0. Se verifica el valor esperado escrito a mano desde el contrato, sin recalcular con la fórmula de producción. |
 | Un hijo falla y se reinicia por completo (preRestart, nueva instancia, postRestart, mensajes posteriores) | Integración | Requiere supervisión, celda, mailbox y dispatcher reales; se observa el ciclo de vida completo. |
-| Orden de mensajes entre dos actores reales | Integración | Es una propiedad del mailbox/dispatcher reales; con un doble no se demuestra. |
+| Orden de mensajes entre dos actores reales | Integración | Interacción entre actores reales sobre mailbox y dispatcher reales; con un doble no se demuestra. El orden FIFO de un mailbox probado de forma aislada, sin actores, es unitario. |
 | Parser (HOCON, path, address) sobre una cadena en memoria | Unitario | Sin I/O; entrada y salida son valores. |
 | Carga de configuración real desde archivos temporales | Integración | Usa el sistema de archivos real; el directorio temporal es único por test y se elimina aunque el test falle. |
 | Transición de estado de un componente (p. ej. estado de un `Terminated`/watch aislado) | Unitario | Un comportamiento, sin runtime. |
-| Cancelación de un timer programado y no entrega posterior del mensaje | Integración | Requiere scheduler real y la celda que recibe; con tiempo controlable si el scheduler lo admite, sin sleeps arbitrarios. |
+| Cancelación de un timer programado y no entrega posterior del mensaje al actor destinatario | Integración | Conecta scheduler real y actor receptor; con tiempo controlable si el scheduler lo admite, sin sleeps arbitrarios. Cancelar una tarea en el scheduler aislado, con reloj controlado y sin destinatario real, es unitario. |
 
 No se exige una integración artificial a funciones puras que no tienen una frontera de integración relevante.
 
