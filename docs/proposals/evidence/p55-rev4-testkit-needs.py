@@ -142,3 +142,72 @@ for label, seeds in CUTS.items():
     in_p55_skip = sorted(r for r in reached_skip if unit_of[r] == "P55")
     after_skip = sorted({unit_of[r] for r in reached_skip if order[unit_of[r]] > order["P55"]}, key=lambda u: order[u])
     print(f"   sin las aristas clasificadas como no-implementación: {len(reached_skip)} filas; filas de P55: {in_p55_skip or 'ninguna'}; posteriores a P55: {after_skip or 'ninguna'}")
+
+# --- Parte 3: corte B contrastado con el código leído de LoggingTestKit (rev. 4c) ---
+# Lectura manual de actor-testkit-typed @ 9a54d129: internal/LoggingTestKitImpl.scala:44-176, internal/TestAppender.scala:35-137,
+# internal/LogbackUtil.scala:25-59, TestKitSettings.scala, scaladsl/LoggingTestKit.scala, LoggingEvent.scala; y
+# actor-typed internal/ActorMdc.scala:23-45. Esos seis archivos de actor-testkit-typed no mencionan supervisión, reinicio ni
+# ActorAdapter (búsqueda por texto sin distinguir mayúsculas: 0 coincidencias de supervis|restart|ActorAdapter en cada uno).
+CODIGO_COMPROBADO = {
+    "AT-TK-006.1": "directa: LoggingTestKitImpl.matches (:61-71)",
+    "AT-TK-006.2": "directa: fábricas de scaladsl/LoggingTestKit.scala (error[A] = nivel ERROR + causa)",
+    "AT-TK-006.3": "directa: LoggingTestKitImpl.expect/awaitDone/awaitNoExcess (:86-121)",
+    "AT-TK-006.4": "directa: TestAppender.append/filter (:84-120)",
+    "AT-TK-013": "directa: LogbackUtil.getLogbackLogger/convertLevel (:25-59)",
+    "AT-TK-010": "directa: TestKitSettings.FilterLeeway y ExpectNoMessageDefaultTimeout (LoggingTestKitImpl.scala:103,109,111)",
+    "AT-LOG-001": "transitiva: los eventos observados nacen en ctx.log (ActorContextImpl)",
+    "AT-LOG-002": "transitiva: MDC pekkoSource/sourceActorSystem que consulta `source` (ActorMdc.scala:23-45)",
+    "AT-ADP-006.1": "transitiva parcial: limpieza del MDC tras cada mensaje (ActorAdapter.aroundReceive, solo esa parte)",
+}
+print("\n== Parte 3: corte B (LoggingTestKit): dependencias del inventario frente a dependencias leídas en el código")
+cut_b = closure(CUTS["corte B (LoggingTestKit)"], DOCUMENTAL)
+proven = set(CODIGO_COMPROBADO)
+print(f"filas del cierre declarado sin las aristas no-implementación: {len(cut_b)}; con evidencia de código: {len(proven & cut_b)} de {len(proven)}")
+for row_id in sorted(proven):
+    print(f"   {row_id} [{unit_of.get(row_id)}] {CODIGO_COMPROBADO[row_id]}")
+declared_only = sorted(cut_b - proven)
+by_unit = {}
+for row_id in declared_only:
+    by_unit.setdefault(unit_of[row_id], []).append(row_id)
+print(f"relación declarada SOLO en el inventario (sin respaldo en el código leído): {len(declared_only)} filas")
+for unit in sorted(by_unit, key=lambda u: order[u]):
+    print(f"   {unit}: {len(by_unit[unit])} filas")
+print("filas de P55 en el cierre declarado:", sorted(r for r in cut_b if unit_of[r] == "P55") or "ninguna")
+print("filas de P55 con evidencia de código:", sorted(r for r in proven if unit_of.get(r) == "P55") or "ninguna")
+
+# --- Parte 4: capacidades concretas que usan las aserciones (rev. 4c) ---
+# Para cada aserción cuyo rango citado usa LoggingTestKit o un TestProbe, qué condiciones/métodos concretos se invocan.
+# Cota inferior (solo el rango citado). Sirve para justificar por escenario qué capacidad mínima hace falta; no define una API.
+LOG_FACTORY = re.compile(r"LoggingTestKit\s*\.\s*(error|warn|info|debug|trace|messageContains|custom|deadLetters|empty)\b")
+LOG_WITH = re.compile(r"\.\s*(withOccurrences|withLogLevel|withMessageRegex|withMessageContains|withCheckExcess|withSource|withMdc|withLoggerName|withCustom|withCause)\b")
+LOG_CAUSE_TYPED = re.compile(r"LoggingTestKit\s*\.\s*(?:error|warn)\s*\[")
+PROBE = re.compile(r"\.\s*(expectMessageType|expectMessage|expectNoMessage|expectTerminated|receiveMessages|receiveMessage|fishForMessage|awaitAssert|expectMsgType|expectMsgPF|expectNoMsg|expectMsg|within)\b")
+from collections import Counter
+
+log_factory, log_with, probe_methods = Counter(), Counter(), Counter()
+log_assertions = no_cond_assertions = 0
+for row in P55:
+    for match in assertion.finditer(blocks[row]):
+        label, body = match.groups()
+        code = ""
+        for filename, first, last in citation.findall(body):
+            if "Spec" not in filename and "Test" not in filename:
+                continue
+            piece = read_range(filename, int(first), int(last or first))
+            if piece:
+                code += piece + "\n"
+        if "LoggingTestKit" in code:
+            log_assertions += 1
+            for name in LOG_FACTORY.findall(code):
+                log_factory[name] += 1
+            for name in LOG_WITH.findall(code):
+                log_with[name] += 1
+            if LOG_CAUSE_TYPED.search(code):
+                log_with["(factoría tipada por causa: error[E]/warn[E])"] += 1
+        for name in PROBE.findall(code):
+            probe_methods[name] += 1
+print("\n== Parte 4: capacidades concretas usadas en los rangos citados (cota inferior; número de apariciones)")
+print(f"aserciones cuyo rango usa LoggingTestKit: {log_assertions}")
+print("fábricas:", dict(sorted(log_factory.items())))
+print("condiciones/ajustes:", dict(sorted(log_with.items())))
+print("métodos de sonda/espera:", dict(sorted(probe_methods.items())))

@@ -190,3 +190,32 @@ corte C (BehaviorTestKit): 36 filas; unidades=['P48', 'P49', 'P53', 'P50', 'P52'
    filas de P55 alcanzadas: ['AT-SIG-006', 'AT-SUP-014', 'AT-SUP-016']
    unidades posteriores a P55 alcanzadas: ['P56', 'P62', 'P63']
    sin las aristas clasificadas como no-implementación: 28 filas; filas de P55: ninguna; posteriores a P55: ['P56', 'P62', 'P63']
+
+== Parte 3: corte B (LoggingTestKit): dependencias del inventario frente a dependencias leídas en el código
+filas del cierre declarado sin las aristas no-implementación: 42; con evidencia de código: 9 de 9
+   AT-ADP-006.1 [P49] transitiva parcial: limpieza del MDC tras cada mensaje (ActorAdapter.aroundReceive, solo esa parte)
+   AT-LOG-001 [P52] transitiva: los eventos observados nacen en ctx.log (ActorContextImpl)
+   AT-LOG-002 [P52] transitiva: MDC pekkoSource/sourceActorSystem que consulta `source` (ActorMdc.scala:23-45)
+   AT-TK-006.1 [P64] directa: LoggingTestKitImpl.matches (:61-71)
+   AT-TK-006.2 [P64] directa: fábricas de scaladsl/LoggingTestKit.scala (error[A] = nivel ERROR + causa)
+   AT-TK-006.3 [P64] directa: LoggingTestKitImpl.expect/awaitDone/awaitNoExcess (:86-121)
+   AT-TK-006.4 [P64] directa: TestAppender.append/filter (:84-120)
+   AT-TK-010 [P62] directa: TestKitSettings.FilterLeeway y ExpectNoMessageDefaultTimeout (LoggingTestKitImpl.scala:103,109,111)
+   AT-TK-013 [P64] directa: LogbackUtil.getLogbackLogger/convertLevel (:25-59)
+relación declarada SOLO en el inventario (sin respaldo en el código leído): 33 filas
+   P48: 6 filas
+   P49: 5 filas
+   P53: 2 filas
+   P50: 4 filas
+   P52: 5 filas
+   P54: 7 filas
+   P62: 3 filas
+   P64: 1 filas
+filas de P55 en el cierre declarado: ninguna
+filas de P55 con evidencia de código: ninguna
+
+== Parte 4: capacidades concretas usadas en los rangos citados (cota inferior; número de apariciones)
+aserciones cuyo rango usa LoggingTestKit: 72
+fábricas: {'error': 84, 'info': 6}
+condiciones/ajustes: {'(factoría tipada por causa: error[E]/warn[E])': 67, 'withLogLevel': 4, 'withMessageContains': 9, 'withMessageRegex': 4, 'withOccurrences': 13, 'withSource': 1}
+métodos de sonda/espera: {'expectMessage': 233, 'expectMessageType': 34, 'expectMsg': 25, 'expectNoMessage': 43, 'expectTerminated': 12, 'receiveMessage': 42}

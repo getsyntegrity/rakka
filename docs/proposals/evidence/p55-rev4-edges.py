@@ -6,7 +6,7 @@ No es un control del repositorio ni prueba equivalencia semántica. Lee `depends
 docs/inventory/actor-typed.tsv y la asignación fila->unidad de docs/unit-rows.tsv, y calcula
 aristas entre unidades en TRES grafos:
 
-  declarado   todas las aristas `depends_on` entre filas del conjunto revisado (sin clasificar)
+  declarado   SOLO las aristas `depends_on` del inventario entre filas del conjunto revisado (sin clasificar ni añadir)
   inicio      aristas de IMPLEMENTACIÓN: sin las que la revisión 4 clasifica como validación o
               documentales (CLASIFICACION, abajo), más las añadidas (AGREGADAS)
   cierre      inicio + aristas de VALIDACIÓN (hace falta para cerrar, no para comenzar)
@@ -115,29 +115,40 @@ in_scope = set(assignment)
 
 
 def build_edges(mode, assignment=assignment):
-    """mode: 'declarado' | 'inicio' | 'cierre'. Devuelve {(unidad, unidad): [aristas fila]}."""
-    pairs = []
-    for row_id in in_scope:
-        for target in declared(row_id):
-            pairs.append((row_id, target, "implementacion"))
-    for (a, b), (cls, _) in AGREGADAS.items():
-        pairs.append((a, b, cls))
+    """mode: 'declarado' | 'inicio' | 'cierre'. Devuelve {(unidad, unidad): [aristas fila con procedencia]}.
+
+    declarado: SOLO aristas derivadas de `depends_on` del inventario, sin clasificar ni añadir nada.
+    inicio:    inventario (reclasificado donde corresponda) + aristas añadidas; solo clase "implementacion".
+    cierre:    inicio + las de clase "validacion" (se descartan las "documental").
+    Procedencia en la etiqueta: [inv] inventario sin tocar; [reclas:<clase>] inventario reclasificado a mano;
+    [anadida:<clase>] propuesta añadida a mano que el inventario no declara.
+    """
+    inventory = {(o, t) for o in in_scope for t in declared(o) if t in in_scope and o != t}
+    pairs = [(o, t, "implementacion", "inv") for (o, t) in sorted(inventory)]
+    if mode != "declarado":
+        pairs = []
+        for (o, t) in sorted(inventory):
+            if (o, t) in CLASIFICACION:
+                pairs.append((o, t, CLASIFICACION[(o, t)][0], "reclas"))
+            elif (o, t) in AGREGADAS:
+                pairs.append((o, t, AGREGADAS[(o, t)][0], "reclas"))
+            else:
+                pairs.append((o, t, "implementacion", "inv"))
+        for (o, t), (cls, _) in sorted(AGREGADAS.items()):
+            if (o, t) not in inventory:
+                pairs.append((o, t, cls, "anadida"))
     edges = {}
-    for origin, target, cls in pairs:
+    for origin, target, cls, provenance in pairs:
         if origin not in in_scope or target not in in_scope or origin == target:
             continue
-        if mode != "declarado":
-            if (origin, target) in CLASIFICACION:
-                cls = CLASIFICACION[(origin, target)][0]
-            elif (origin, target) in AGREGADAS:
-                cls = AGREGADAS[(origin, target)][0]
-            if mode == "inicio" and cls != "implementacion":
-                continue
-            if mode == "cierre" and cls == "documental":
-                continue
+        if mode == "inicio" and cls != "implementacion":
+            continue
+        if mode == "cierre" and cls == "documental":
+            continue
         unit_a, unit_b = assignment[origin], assignment[target]
         if unit_a != unit_b:
-            edges.setdefault((unit_a, unit_b), set()).add(f"{origin}>{target}")
+            tag = "[inv]" if provenance == "inv" else f"[{provenance}:{cls}]"
+            edges.setdefault((unit_a, unit_b), set()).add(f"{origin}>{target}{tag}")
     return {k: sorted(v) for k, v in edges.items()}
 
 
@@ -213,6 +224,18 @@ for k in manual_new:
     print("  ", k[0], ">", k[1], "->", AGREGADAS[k][0])
 print(f"listadas en AGREGADAS pero ya declaradas: {manual_same or 'ninguna'}")
 print("Las demás aristas se toman tal cual del inventario y se tratan como implementación (no revisadas una por una).")
+
+# Comprobaciones específicas de la separación declarado / inicio / cierre.
+flat = lambda mode: {e.split("[")[0] for v in build_edges(mode).values() for e in v}
+decl, ini, cie = flat("declarado"), flat("inicio"), flat("cierre")
+assert "AT-ADP-002>AT-SUP-005" not in decl, "una arista añadida no puede figurar como declarada"
+assert not any(f"{o}>{t}" in decl for (o, t) in AGREGADAS if (o, t) not in derived), "declarado contiene propuestas"
+assert "AT-ADP-002>AT-SUP-005" not in ini and "AT-ADP-002>AT-SUP-005" in cie, "validación: solo en cierre"
+assert "AT-SUP-013>AT-SUP-002" in ini and "AT-SUP-013>AT-SUP-002" in cie, "implementación añadida: inicio y cierre"
+assert "AT-BEH-003>AT-SIG-006" in decl and "AT-BEH-003>AT-SIG-006" not in cie, "documental: declarada, ausente de inicio y cierre"
+assert "AT-SIG-006>AT-SUP-014" in decl and "AT-SIG-006>AT-SUP-014" not in ini and "AT-SIG-006>AT-SUP-014" in cie
+print("\n== Comprobaciones de la separación declarado/inicio/cierre: OK")
+print("ADP-002>SUP-005 declarada en inventario:", ("AT-ADP-002", "AT-SUP-005") in derived)
 
 # Grafo declarado en docs/unit-plan.md (dependencias entre unidades): alcanzabilidad.
 with open("docs/unit-plan.md", encoding="utf-8") as handle:
