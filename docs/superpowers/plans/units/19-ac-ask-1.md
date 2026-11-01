@@ -21,7 +21,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-ASK-1`, `Q-ASK-10`, `Q-ASK-2`, `Q-ASK-3`, `Q-ASK-4`, `Q-ASK-5`, `Q-ASK-6`, `Q-ASK-7`, `Q-ASK-8`, `Q-ASK-9`, `Q-CS-7`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
+- Propuestas aún sin decisión del Owner: `Q-ASK-1`, `Q-ASK-10`, `Q-ASK-2`, `Q-ASK-3`, `Q-ASK-4`, `Q-ASK-5`, `Q-ASK-6`, `Q-ASK-7`, `Q-ASK-8`, `Q-ASK-9`, `Q-CS-7`, `Q-X-1`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -79,11 +79,11 @@ Filas: AC-ASK-015.3, AC-ASK-015.4, AC-ASK-015.5, AC-ASK-015.6, AC-ASK-016, AC-AS
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-ASK-001.1 | ask / `?` sobre ActorRef: ref temporal PromiseActorRef como sender, Future… | `async fn ask<M, R>(target: &ActorRef, msg: M, timeout: Duration) -> Result<R,… | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:34-39 | Q-ASK-1, Q-X-3 |
+| AC-ASK-001.1 | ask / `?` sobre ActorRef: ref temporal PromiseActorRef como sender, Future… | `async fn ask<M, R>(target: &ActorRef, msg: M, timeout: Duration) -> Result<R,… | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:34-39 | Q-ASK-1, Q-X-3, Q-X-4, Q-X-9 |
 | AC-ASK-001.2 | ask: entradas invalidas (timeout <= 0, destinatario no soportado, destinatario… | enum `AskError { Timeout{..}, InvalidTimeout{..}, UnsupportedRecipient{..},… | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:41-92 | Q-ASK-1, Q-X-3 |
-| AC-ASK-001.3 | ask: AskTimeoutException al vencer el timeout (target, timeout, sender, clase… | AskError::Timeout { target: String, timeout: Duration, message_type: &str, sender:… | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:94-126 | Q-ASK-1, Q-X-3 |
+| AC-ASK-001.3 | ask: AskTimeoutException al vencer el timeout (target, timeout, sender, clase… | AskError::Timeout { target: String, timeout: Duration, message_type: &str, sender:… | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:94-126 | Q-ASK-1, Q-X-3, Q-X-4 |
 | AC-ASK-002 | PromiseActorRef: ciclo de vida, vigilable, path /temp que codifica el nombre… | TemporaryReplyRef { state: AtomicU8/enum {Fresh, Registering, Registered(path), Stopped,… | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:227-289 | Q-ASK-2 |
-| AC-ASK-003 | ask sobre ActorSelection y respuestas dirigidas via selection | ask_selection(selection, msg, timeout) reutilizando el mismo ReplyRef que ask; prefijo =… | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:128-225 | Q-ASK-1 |
+| AC-ASK-003 | ask sobre ActorSelection y respuestas dirigidas via selection | ask_selection(selection, msg, timeout) reutilizando el mismo ReplyRef que ask; prefijo =… | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:128-225 | Q-ASK-1, Q-X-3 |
 | AC-ASK-004 | Ask explicito (fabrica de mensaje que recibe replyTo) | `ask_with(target, \|reply_to: ActorRef\| Msg { reply_to }, timeout)` | actor-tests/src/test/scala/org/apache/pekko/pattern/extended/ExplicitAskSpec.scala:33-59 | Q-ASK-1 |
 | AC-ASK-005 | StatusReply (Success/Error/Ack) y askWithStatus | `enum StatusReply<T> { Success(T), Error(Box<dyn Error + Send + Sync>) }` +… | actor-tests/src/test/scala/org/apache/pekko/pattern/StatusReplySpec.scala:31,39,46,53,60,… | Q-ASK-1, Q-X-9 |
 | AC-ASK-006 | pipeTo / pipeToSelection (Future y CompletionStage) y Status.Failure | `fn pipe_to<T>(fut: impl Future<Output=Result<T,E>>, target: ActorRef, sender:… | actor-tests/src/test/scala/org/apache/pekko/pattern/PipeToSpec.scala:29,35,41,49,55,66,73… | Q-X-4, Q-X-5 |
@@ -99,7 +99,7 @@ Filas: AC-ASK-015.3, AC-ASK-015.4, AC-ASK-015.5, AC-ASK-015.6, AC-ASK-016, AC-AS
 | AC-ASK-011.4 | CircuitBreaker: callbacks… | trait/closures `on_open(Fn())`... y `with_circuit_breaker(fut)`; la variante sync =… | actor-tests/src/test/scala/org/apache/pekko/pattern/CircuitBreakerSpec.scala:37-75,170-19… | Q-ASK-3, Q-ASK-5 |
 | AC-ASK-011.5 | CircuitBreaker: API Java (callWithCircuitBreakerCS, defineFailureFn con… | La API Java no se porta (Q-ASK-9); la regresion #17415 se porta como test de… | actor-tests/src/test/java/org/apache/pekko/pattern/CircuitBreakerTest.java:42-78 ;… | Q-ASK-3, Q-ASK-4, Q-ASK-9 |
 | AC-ASK-012 | CircuitBreaker: defineFailureFn y exception-allowlist | closure `is_failure: Fn(&Result<T,E>) -> bool` + `allowlist: HashSet<&str>` por… | actor-tests/src/test/scala/org/apache/pekko/pattern/CircuitBreakerSpec.scala:83-91,205-21… | Q-ASK-4, Q-X-5 |
-| AC-ASK-013 | CircuitBreakersRegistry (breakers por id desde config) | `CircuitBreakerRegistry` como extension: `HashMap<String, Arc<CircuitBreaker>>` bajo Mutex | actor-tests/src/test/scala/org/apache/pekko/pattern/CircuitBreakerSpec.scala:94-105,761-8… | Q-ASK-3, Q-X-2 |
+| AC-ASK-013 | CircuitBreakersRegistry (breakers por id desde config) | `CircuitBreakerRegistry` como extension: `HashMap<String, Arc<CircuitBreaker>>` bajo Mutex | actor-tests/src/test/scala/org/apache/pekko/pattern/CircuitBreakerSpec.scala:94-105,761-8… | Q-ASK-3, Q-X-1, Q-X-2 |
 | AC-ASK-014 | CircuitBreakerTelemetry (SPI) | trait `CircuitBreakerTelemetry` + registro de fabricas por nombre (Q-X-2) | - (sin specs upstream) | Q-ASK-6, Q-X-2 |
 | AC-ASK-015.1 | BackoffSupervisor.props / BackoffOpts: parametros, validaciones y mensajes… | Builder consumidor BackoffOpts::on_stop/on_failure ->… | actor-tests/src/test/scala/org/apache/pekko/pattern/BackoffSupervisorSpec.scala:60-66,69-… | Q-ASK-10, Q-ASK-7, Q-X-3, Q-X-5 |
 | AC-ASK-015.2 | BackoffOpts.onStop: reinicio del hijo tras su detencion con backoff exponencial | actor `BackoffOnStopSupervisor` con timer interno y `child: Option<ActorRef>` | actor-tests/src/test/scala/org/apache/pekko/pattern/BackoffSupervisorSpec.scala:92-139,29… | Q-ASK-7, Q-X-5 |
@@ -108,7 +108,7 @@ Filas: AC-ASK-015.3, AC-ASK-015.4, AC-ASK-015.5, AC-ASK-015.6, AC-ASK-016, AC-AS
 | AC-ASK-015.5 | BackoffOpts.onStop: finalStopMessage | campo `final_stop_message: Option<Box<dyn Fn(&Msg)->bool>>` | actor-tests/src/test/scala/org/apache/pekko/pattern/BackoffSupervisorSpec.scala:394-431 | Q-ASK-7 |
 | AC-ASK-015.6 | BackoffSupervisor: composicion de la estrategia de supervision del hijo… | Estrategia del hijo como decide(&Failure) -> Directive compuesto en el constructor… | actor-tests/src/test/scala/org/apache/pekko/pattern/BackoffSupervisorSpec.scala:92-117,11… | Q-ASK-7, Q-X-5 |
 | AC-ASK-016 | Backoff (API vieja) / BackoffOptions deprecada | Q-ASK-8 propone no portar la API deprecada (equivalente: BackoffOpts) | sin tests de la API deprecada en Pekko 1.7.1 (grep en actor-tests, actor-typed*,… | Q-ASK-10, Q-ASK-8 |
-| AC-ASK-017 | Patterns / PatternsCS (fachadas Java) | Q-ASK-9 propone no portar las fachadas Java (el API Rust unico las cubre) | actor-tests/src/test/java/org/apache/pekko/pattern/PatternsTest.java:83-114,116-128,130-2… | Q-ASK-10, Q-ASK-9 |
+| AC-ASK-017 | Patterns / PatternsCS (fachadas Java) | Q-ASK-9 propone no portar las fachadas Java (el API Rust unico las cubre) | actor-tests/src/test/java/org/apache/pekko/pattern/PatternsTest.java:83-114,116-128,130-2… | Q-ASK-1, Q-ASK-10, Q-ASK-9, Q-X-5 |
 
 ## Gates y criterio de cierre
 

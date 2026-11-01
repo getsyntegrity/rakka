@@ -153,8 +153,12 @@ def build_decisions(unit_rows, contract_map, register, cards):
     rows_of_unit = collections.defaultdict(list)
     for r in unit_rows:
         rows_of_unit[r["unit"]].append(r["row_id"])
-    decisions_of_row = {r["row_id"]: [ALIASES.get(q, q) for q in re.findall(r"Q-(?:T-)?[A-Z]+-\d+", r["decisions"])] for r in contract_map}
     reg = {r["id"]: r for r in register}
+    # A `group` decision only labels its members: it has no answer of its own, so it never blocks. A row that cites a group
+    # is tied to the members it cites itself; the group id is dropped from the row's decisions.
+    groups = {q for q, r in reg.items() if r["status"] == "group"}
+    decisions_of_row = {r["row_id"]: [q for q in (ALIASES.get(q, q) for q in re.findall(r"Q-(?:T-)?[A-Z]+-\d+", r["decisions"])) if q not in groups]
+                        for r in contract_map}
     unknown = sorted({q for qs in decisions_of_row.values() for q in qs if q not in reg})
     per_unit = {}
     for unit, rows in rows_of_unit.items():
@@ -179,6 +183,7 @@ def build_decisions(unit_rows, contract_map, register, cards):
         "",
         "## Cómo leerlo",
         "",
+        "- **Agrupaciones:** una decisión de estado `group` (p. ej. Q-X-9) sólo rotula a sus miembros: no tiene respuesta propia, no se lista ni impide cerrar. Cada fila se asocia a los miembros que cita.",
         "- **Estado:** `respondida` (el Owner contestó: se muestra su respuesta), `bloqueante` (registrada como bloqueante, sin respuesta), `propuesta` (recomendación sin respuesta).",
         "- **Impide cerrar la unidad:** toda decisión no respondida cuyo ID figura en alguna fila de la unidad (regla de `AGENTS.md`: una pregunta abierta deja la fila `partial`, nunca `done`). "
         "Se cumple por construcción para las columnas `bloqueante` y `propuesta`.",

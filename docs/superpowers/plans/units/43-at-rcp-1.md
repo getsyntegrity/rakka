@@ -16,7 +16,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-RCP-1`, `Q-T-RCP-2`, `Q-T-RCP-3`.
+- Propuestas aún sin decisión del Owner: `Q-T-RCP-1`, `Q-T-RCP-2`, `Q-T-RCP-3`, `Q-X-2`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -47,12 +47,12 @@ Filas: AT-RCP-005.3, AT-RCP-006, AT-RCP-007, AT-RCP-008. Contratos y aserciones:
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-RCP-001 | Receptionist (extension) y seleccion local/cluster | trait ReceptionistBehaviorProvider{name(),behavior()}; struct LocalReceptionist… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-2 |
+| AT-RCP-001 | Receptionist (extension) y seleccion local/cluster | trait ReceptionistBehaviorProvider{name(),behavior()}; struct LocalReceptionist… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-2, Q-X-2 |
 | AT-RCP-002 | ServiceKey[T](id) | struct ServiceKey<M>{id:String, type_name:&'static str, _m:PhantomData<fn(M)>};… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/receptionist/ReceptionistAp… | Q-T-RCP-1 |
 | AT-RCP-003 | Register / Registered | enum… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-3 |
 | AT-RCP-004 | Deregister / Deregistered | ReceptionistCommand::Deregister{key,service,reply_to}; misma estructura de estado que… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-3 |
-| AT-RCP-005.1 | Subscribe / Listing y Find: Find | enum ReceptionistCommand::{Find,Subscribe}; struct… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-3 |
-| AT-RCP-005.2 | Subscribe / Listing y Find: Subscribe y Listing inicial/incremental | enum ReceptionistCommand::{Find,Subscribe}; struct… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-3 |
+| AT-RCP-005.1 | Subscribe / Listing y Find: Find | enum ReceptionistCommand::{Find,Subscribe}; struct… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-1, Q-T-RCP-3 |
+| AT-RCP-005.2 | Subscribe / Listing y Find: Subscribe y Listing inicial/incremental | enum ReceptionistCommand::{Find,Subscribe}; struct… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-1, Q-T-RCP-3 |
 | AT-RCP-005.3 | Subscribe / Listing y Find: Listing: accesores y chequeo de clave | enum ReceptionistCommand::{Find,Subscribe}; struct… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | Q-T-RCP-1 |
 | AT-RCP-006 | Desregistro automatico al terminar | Observacion de terminacion via watch_with(RegisteredActorTerminated) sobre el estado del… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/receptionist/Local… | - |
 | AT-RCP-007 | ReceptionistSetup (reemplazo para tests) | ReceptionistSetup::new(\|system\| Receptionist) pasado al builder del sistema. | Sin test dedicado (el mecanismo comun lo cubre ExtensionsSpec) | - |

@@ -1,6 +1,6 @@
 # Spec 47 — AT-CS (1/1)
 
-**Estado:** sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias. **Filas:** 1. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 1. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -13,7 +13,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-X-4`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -35,7 +35,7 @@ Filas: AT-CS-001. Contratos y aserciones: `docs/inventory/contracts/typed-extend
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-CS-001 | CoordinatedShutdown en el ActorSystem tipado (reutiliza el clasico) | Delega en el CoordinatedShutdown portado (AC-CS). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.sc… | - |
+| AT-CS-001 | CoordinatedShutdown en el ActorSystem tipado (reutiliza el clasico) | Delega en el CoordinatedShutdown portado (AC-CS). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.sc… | Q-X-4 |
 
 ## Gates y criterio de cierre
 

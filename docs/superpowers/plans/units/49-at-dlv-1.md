@@ -97,7 +97,7 @@ Filas: AT-DLV-007. Contratos y aserciones: `docs/inventory/contracts/typed-exten
 | AT-DLV-005.1 | Chunking: partición de mensajes grandes en el ProducerController | requiere un mecanismo de serialización de mensajes (Q-T-SER-1): `trait… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/delivery/ProducerController… | Q-T-DLV-1, Q-T-SER-1 |
 | AT-DLV-005.2 | Chunking: recolección y reensamblado en el ConsumerController | `collected_chunks: Vec<SequencedMessage>` y `MessageSerializer::deserialize`. **Se… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/delivery/ConsumerController… | Q-T-DLV-1, Q-T-SER-1 |
 | AT-DLV-005.3 | Chunking con DurableProducerQueue: almacenamiento por trozo, reintento… | igual que AT-DLV-001.6 más el algoritmo de re-almacenamiento completo. **Se preserva**:… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/delivery/TestDurableProduce… | Q-T-DLV-1, Q-T-DLV-2, Q-T-SER-1 |
-| AT-DLV-006 | Configuracion pekko.reliable-delivery.* y Settings | structs `ProducerSettings`/`ConsumerSettings`/`WorkPullingSettings` con `Default`… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/delivery/ConsumerController… | Q-X-1, Q-X-9 |
+| AT-DLV-006 | Configuracion pekko.reliable-delivery.* y Settings | structs `ProducerSettings`/`ConsumerSettings`/`WorkPullingSettings` con `Default`… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/delivery/ConsumerController… | Q-UTIL-1, Q-X-1, Q-X-9 |
 | AT-DLV-007 | Flight recorder (JFR) de actor y delivery | eventos `tracing` (nivel `trace`/`debug`, `target = "pekko::delivery"`) con los mismos… | derivada del código (ver bloque de contrato) | Q-T-DLV-3 |
 
 ## Gates y criterio de cierre

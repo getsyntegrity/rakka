@@ -52,7 +52,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | 44 | [AT-RT-1](44-at-rt-1.md) | 8 | 2 | pendiente de decisiones | 27, 32, 40, 43, 38 |
 | 45 | [AT-PS-1](45-at-ps-1.md) | 3 | 1 | pendiente de decisiones | 32, 43, 38 |
 | 46 | [AT-SPV-1](46-at-spv-1.md) | 1 | 1 | pendiente de decisiones | 32, 42 |
-| 47 | [AT-CS-1](47-at-cs-1.md) | 1 | 1 | sin decisiones abiertas (preliminar) | - |
+| 47 | [AT-CS-1](47-at-cs-1.md) | 1 | 1 | pendiente de decisiones | - |
 | 48 | [AT-SER-1](48-at-ser-1.md) | 3 | 1 | pendiente de decisiones | 29, 43 |
 | 49 | [AT-DLV-1](49-at-dlv-1.md) | 25 | 5 | pendiente de decisiones | 32, 27, 43, 41 |
 | 50 | [AT-JAPI-1](50-at-japi-1.md) | 16 | 3 | pendiente de decisiones | 27, 36, 28, 39, 32, 42, 34, 35, 44, 37 |

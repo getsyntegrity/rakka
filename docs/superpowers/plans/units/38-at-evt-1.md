@@ -35,8 +35,8 @@ Filas: AT-EVT-001, AT-EVT-002, AT-EVT-003, AT-EVT-004. Contratos y aserciones: `
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-EVT-001 | EventStream tipado: Publish / Subscribe / Unsubscribe | trait EventBus{publish<E:Any>(E); subscribe<E>(ActorRef<E>); unsubscribe}; Q-X-6 define… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/eventstream/EventStreamSpec… | Q-X-6 |
-| AT-EVT-002 | Dead letters (DeadLetter) y suscripcion via message adapter | Suscripcion de un actor a DeadLetter mediante adaptador. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/eventstream/EventStreamSpec… | - |
+| AT-EVT-001 | EventStream tipado: Publish / Subscribe / Unsubscribe | trait EventBus{publish<E:Any>(E); subscribe<E>(ActorRef<E>); unsubscribe}; Q-X-6 define… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/eventstream/EventStreamSpec… | Q-T-EVT-1, Q-X-6 |
+| AT-EVT-002 | Dead letters (DeadLetter) y suscripcion via message adapter | Suscripcion de un actor a DeadLetter mediante adaptador. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/eventstream/EventStreamSpec… | Q-X-6 |
 | AT-EVT-003 | UnhandledMessage publicado al quedar un mensaje sin manejar | Evento UnhandledMessage{message,sender,recipient}. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelega… | Q-T-EVT-1 |
 | AT-EVT-004 | Dropped (stash de supervision lleno, group router sin routees, Topic sin… | fn publish_dropped(system, msg, reason, sender) con un unico camino; la variante Topic… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:882-9… | Q-T-EVT-1 |
 

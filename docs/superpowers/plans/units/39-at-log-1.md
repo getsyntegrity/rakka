@@ -18,7 +18,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-LOG-1`, `Q-T-LOG-2`, `Q-T-LOG-3`, `Q-T-LOG-4`, `Q-T-TK-2`.
+- Propuestas aún sin decisión del Owner: `Q-T-LOG-1`, `Q-T-LOG-2`, `Q-T-LOG-3`, `Q-T-LOG-4`, `Q-T-TK-2`, `Q-X-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -40,10 +40,10 @@ Filas: AT-LOG-001, AT-LOG-002, AT-LOG-003, AT-LOG-004, AT-LOG-005. Contratos y a
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-LOG-001 | context.log (SLF4J Logger), nombre de logger detectado y setLoggerName | trait ActorLog en contexto; nombre por defecto = type_name del comportamiento que loguea… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1, Q-T-LOG-2 |
+| AT-LOG-001 | context.log (SLF4J Logger), nombre de logger detectado y setLoggerName | trait ActorLog en contexto; nombre por defecto = type_name del comportamiento que loguea… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1, Q-T-LOG-2, Q-X-7 |
 | AT-LOG-002 | MDC automatico: pekkoSource, pekkoAddress, sourceActorSystem, pekkoTags | campos estructurados del span `tracing` abierto por mensaje: `pekko_source`,… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1, Q-T-TK-2 |
-| AT-LOG-003 | Configuracion SLF4J: pekko.use-slf4j=on y Slf4jLogger agregado automaticamente | Config key aceptada; el backend por defecto se decide en Q-T-LOG-1/Q-X-7. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-3 |
-| AT-LOG-004 | LoggerOps (trace2/traceN... para Scala 2) y Markers | **subsumido por la macros de `tracing`** (`info!("template {} {}", a, b)` o campos… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-4 |
+| AT-LOG-003 | Configuracion SLF4J: pekko.use-slf4j=on y Slf4jLogger agregado automaticamente | Config key aceptada; el backend por defecto se decide en Q-T-LOG-1/Q-X-7. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-3, Q-X-7 |
+| AT-LOG-004 | LoggerOps (trace2/traceN... para Scala 2) y Markers | **subsumido por la macros de `tracing`** (`info!("template {} {}", a, b)` o campos… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-LOG-1, Q-T-LOG-4 |
 | AT-LOG-005 | Mensajes de log del LocalActorRefProvider en logger "serialization" | Log debug con target fijo al resolver refs por path. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LocalActorRefProviderLogMes… | Q-T-LOG-1 |
 
 ## Gates y criterio de cierre

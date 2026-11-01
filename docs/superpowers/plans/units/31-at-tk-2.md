@@ -22,7 +22,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-T-LOG-1`, `Q-T-SER-1`, `Q-T-TK-2`, `Q-T-TK-3`, `Q-T-TK-4`, `Q-T-TMR-4`, `Q-X-4`, `Q-X-7`, `Q-X-8`.
+- Propuestas aún sin decisión del Owner: `Q-T-EVT-1`, `Q-T-LOG-1`, `Q-T-SER-1`, `Q-T-TK-1`, `Q-T-TK-2`, `Q-T-TK-3`, `Q-T-TK-4`, `Q-T-TMR-4`, `Q-X-1`, `Q-X-4`, `Q-X-7`, `Q-X-8`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -55,12 +55,12 @@ Filas: AT-TK-009.4, AT-TK-010, AT-TK-011, AT-TK-012, AT-TK-013, AT-TK-014. Contr
 |---|---|---|---|---|
 | AT-TK-006.5 | LogCapturing (ScalaTest, JUnit4) y CapturingAppender | libtest oculta stdout de tests que pasan (with_test_writer) + guard RAII que vuelca el… | actor-testkit-typed/src/test/scala/org/apache/pekko/actor/testkit/typed/scaladsl/TestAppe… | Q-T-LOG-1, Q-T-TK-2, Q-X-7 |
 | AT-TK-007 | ManualTime (scheduler disparado explicitamente) | Reloj inyectable (clock trait) en el scheduler; ManualTime::time_passes. | actor-testkit-typed/src/test/scala/docs/org/apache/pekko/actor/testkit/typed/scaladsl/Man… | Q-T-TMR-4, Q-X-4 |
-| AT-TK-008 | Probes de eventos del sistema: createUnhandledMessageProbe,… | ActorTestKit::create_unhandled_probe/dead_letter_probe/dropped_probe. | actor-testkit-typed/src/test/scala/org/apache/pekko/actor/testkit/typed/scaladsl/ActorTes… | - |
+| AT-TK-008 | Probes de eventos del sistema: createUnhandledMessageProbe,… | ActorTestKit::create_unhandled_probe/dead_letter_probe/dropped_probe. | actor-testkit-typed/src/test/scala/org/apache/pekko/actor/testkit/typed/scaladsl/ActorTes… | Q-T-EVT-1 |
 | AT-TK-009.1 | ScalaTestWithActorTestKit, ScalaTestWithActorTestKitBase y ActorTestKitBase | fixture RAII/macro sobre #[tokio::test]: un testkit por suite, apagado en Drop, nombre… | actor-testkit-typed/src/test/scala/org/apache/pekko/actor/testkit/typed/scaladsl/ActorTes… | Q-T-SER-1, Q-T-TK-3 |
 | AT-TK-009.2 | TestKitJunitResource (JUnit 4) | mismo fixture que AT-TK-009.1 (sin JUnit). | actor-testkit-typed/src/test/java/org/apache/pekko/actor/testkit/typed/javadsl/ActorTestK… | Q-T-SER-1, Q-T-TK-3 |
 | AT-TK-009.3 | TestKitJUnit5Extension, @JUnit5TestKit y JUnit5TestKitBuilder (JUnit 5) | ActorTestKitBuilder con la misma precedencia; la extension JUnit se sustituye por el… | actor-testkit-typed/src/test/scala/org/apache/pekko/actor/testkit/typed/scaladsl/JUnit5Te… | Q-T-SER-1, Q-T-TK-3 |
 | AT-TK-009.4 | SerializationTestKit (verifySerialization) | verify_serialization(&obj) sobre el registro de serializadores (Q-T-SER-1); requiere… | persistence-typed-tests/src/test/scala/org/apache/pekko/persistence/typed/jackson/Replica… | Q-T-SER-1, Q-T-TK-3 |
-| AT-TK-010 | TestKitSettings y pekko.actor.testkit.typed.* (timefactor, timeouts) | struct TestKitSettings con dilated(). | actor-testkit-typed/src/test/scala/org/apache/pekko/actor/testkit/typed/scaladsl/TestProb… | - |
+| AT-TK-010 | TestKitSettings y pekko.actor.testkit.typed.* (timefactor, timeouts) | struct TestKitSettings con dilated(). | actor-testkit-typed/src/test/scala/org/apache/pekko/actor/testkit/typed/scaladsl/TestProb… | Q-T-TK-1, Q-X-1 |
 | AT-TK-011 | ActorSystemStub: ActorSystem mínimo sin runtime real que usa BehaviorTestKit… | ActorSystemStub que implementa el trait de sistema tipado con las operaciones no… | actor-testkit-typed/src/test/scala/org/apache/pekko/actor/testkit/typed/scaladsl/Behavior… | Q-T-TK-4, Q-X-7, Q-X-8 |
 | AT-TK-012 | ControlledExecutor y DebugRef: ejecutor manual (cola de tareas que se corre a… | ejecutor FIFO manual + ref que registra mensajes recibidos | actor-testkit-typed/src/test/scala/org/apache/pekko/actor/testkit/typed/scaladsl/Behavior… | Q-T-TK-4, Q-X-8 |
 | AT-TK-013 | LogbackUtil y LogCapturingExtension: utilidades de captura de logs sobre… | captura de eventos de log por test sobre el backend elegido en Q-X-7 | actor-testkit-typed/src/test/java/jdocs/org/apache/pekko/actor/testkit/typed/javadsl/LogC… | Q-T-LOG-1, Q-T-TK-2, Q-T-TK-3, Q-X-7 |
