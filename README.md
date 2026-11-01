@@ -9,7 +9,7 @@ Estado: la **documentación de migración** (inventario, contratos, decisiones y
 - **Decisiones:** `docs/decisions.md` (211 decisiones: 8 bloqueantes, 202 propuestas, 0 aceptadas, 0 aceptadas con cambios, 1 rechazadas).
 
 - Alcance y estado por funcionalidad: `docs/inventory/`
-- Cierre documental 2026-10-31: plan final de 64 unidades `docs/unit-plan.md` (asignación fila→unidad en `docs/unit-rows.tsv`), ciclos y costuras `docs/cycles.md`, paquete de decisiones para el Owner `docs/owner-decision-package.md`.
+- Cierre documental 2026-10-31: plan final de 77 unidades (P05 particionada el 2026-11-01) `docs/unit-plan.md` (asignación fila→unidad en `docs/unit-rows.tsv`), ciclos y costuras `docs/cycles.md`, paquete de decisiones para el Owner `docs/owner-decision-package.md`.
 - Orden de trabajo y specs preliminares (no ejecutables hasta su revisión de atomicidad y dependencias): `docs/implementation-order.md`, `docs/superpowers/plans/units/`
 - Decisiones pendientes del Owner: `docs/decisions.md`
 - Referencia upstream y licencia: `docs/upstream.md`, `LICENSE`, `NOTICE`

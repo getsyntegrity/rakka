@@ -418,8 +418,8 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Evidencia:** reference.conf:78 usa `org.apache.pekko.serialization.SerializationExtension$`; ReflectiveDynamicAccess.scala:69-87 resuelve `fqcn$` y luego `fqcn`; ExtensionSpec.scala:143 lista `InstanceCountingExtension` con y sin `$`.
 - **Alternativas:** (a) registrar ambos nombres (con y sin `$`) para cada extensión; (b) normalizar quitando `$` al resolver; (c) claves propias de Rust y tabla de alias de los FQCN de Pekko.
 - **Recomendación:** (b): mantiene el reference.conf sin cambios y los duplicados siguen creando una sola instancia. [Cierre documental 2026-10-31] Clasificación: representación (nombres estables). Consecuencias observables: reference.conf con `...SerializationExtension$` debe cargar la misma extensión una sola vez. Bloquea: AC-CFG-006 y AC-EXT-003; puede avanzar: AC-EXT-001.*, AC-EXT-002.
-- **Filas afectadas:** AC-CFG-006, AC-EXT-003
-- **Unidades afectadas:** CFG, EXT
+- **Filas afectadas:** AC-CFG-006, AC-EXT-003 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.7]
+- **Unidades afectadas:** CFG, EXT, UTIL
 - **Origen:** classic-foundation
 
 ### Q-CFG-9 — Proveedor distinto de local (remote, cluster, FQCN) en un sistema solo-local
@@ -448,8 +448,8 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Evidencia:** Dispatch.scala:171-223, Children.scala:283-307, SerializeSpec.scala:310-361, DispatchSpec.scala:29-41; en Rust los mensajes son `Box<dyn Any + Send>` (Q-X-3).
 - **Alternativas:** (a) portar el chequeo sólo para tipos con serializador registrado; (b) no portar los dos modos y rechazar las claves en `on`; (c) portar con un trait `Verifiable` opt-in.
 - **Recomendación:** (a) cuando exista AC-SER; mientras tanto las claves se aceptan en `off`. [Cierre documental 2026-10-31] Clasificación: DIVERGENCIA FUNCIONAL potencial (los mensajes en Rust son `Box<dyn Any + Send>`, Q-X-3) y dependencia de AC-SER. Consecuencias observables: verificación de serialización en `serialize-messages`/`serialize-creators` y el prefijo `no-serialization-verification-needed-class-prefix`. Bloquea: AC-CFG-010 (y AC-UTIL-006.8); puede avanzar: aceptar las claves en `off`.
-- **Filas afectadas:** AC-CFG-010
-- **Unidades afectadas:** CFG, SER
+- **Filas afectadas:** AC-CFG-010 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.12]
+- **Unidades afectadas:** CFG, SER, UTIL
 - **Origen:** classic-foundation
 
 ### Q-CFG-12 — Deploy.withFallback descarta los tags de `this`
@@ -2068,7 +2068,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Evidencia:** util/Glob.scala:43-72 recorre `charAt` (unidades UTF-16): `?` consume una unidad, no un punto de código; Helpers.makePattern usa `.` de java.util.regex que no cruza terminadores de línea (Helpers.scala:44-45) mientras Glob.matches sí; WildcardIndex.scala:87-89 elige entre `prefix*` solapados según el orden de iteración de un HashMap de Scala. GlobSpec.scala:60-73 sólo compara sobre {a,b,*,?}. [Cierre documental 2026-10-31] Medido con el jar: Glob.matches("a?b","a\nb") = true, Glob.matches("a*b","a\nb") = true, Glob.matches("a?b","a\u0085b") = true, pero makePattern("a?b") rechaza "a\nb" y "a\u0085b" y makePattern("a*b") rechaza "a\nb". Par sustituto: makePattern("a?b") acepta "a\uD83D\uDE42b" (un punto de código) y Glob.matches("a?b", ...) = false (Glob.matches("a??b", ...) = true). Uso en producción: ActorSelection.scala:364 (`pattern = Helpers.makePattern`, usado por SelectChildPattern) y :369 (`Glob.matches`, el que decide).
 - **Alternativas:** (a) operar sobre `&[u16]` (idéntico a Java, incluidos pares sustitutos); (b) sobre `char` de Rust (distinto para caracteres fuera del BMP); (c) igual que (a) y fijar el orden de `prefix*` por inserción; documentar la diferencia de saltos de línea.
 - **Recomendación:** (c): los nombres válidos de actor son ASCII/%XX (ActorPath.scala:127-148) y los patrones de selección vienen del usuario; la diferencia de saltos de línea debe decidirla el Owner. [Cierre documental 2026-10-31] Clasificación: representación (UTF-16 vs char) + divergencia funcional ya existente DENTRO de Pekko (Glob y makePattern difieren en saltos de línea y pares sustitutos). Resuelto por medición: la semántica contractual en producción es la de Glob.matches (UTF-16, sin terminadores de línea especiales); makePattern sólo se conserva como definición histórica. Consecuencias observables: nombres de actor con caracteres fuera del BMP o con saltos de línea (los nombres válidos son ASCII/%XX, ActorPath.scala:127-148, así que sólo afecta a patrones de selección arbitrarios). Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023).
-- **Filas afectadas:** AC-UTIL-009, AC-UTIL-016.6, AC-UTIL-023, AC-CFG-012.2
+- **Filas afectadas:** AC-UTIL-009, AC-UTIL-016.6, AC-UTIL-023, AC-CFG-012.2 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.15]
 - **Unidades afectadas:** UTIL, CFG
 - **Origen:** classic-foundation
 
@@ -2098,7 +2098,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Evidencia:** util/LockUtil.scala:19-27 (ReentrantGuard, deprecado), util/TypedMultiMap.scala, util/JavaVersion.scala, util/Reflect.scala, util/LineNumbers.scala, util/BoxedType.scala, java/org/apache/pekko/annotation/*.java, java/org/apache/pekko/util/Unsafe.java, mima-filters, shims de Scala 2.12/2.13/3 (scala-2.13/util/*Converters.scala), cachés de cluster (FrequencySketch...).
 - **Alternativas:** (a) cada fila se mantiene en alcance con un equivalente Rust documentado (atómicos, `pub(crate)`, traits sellados, semver) y la diferencia observable anotada; (b) proponer al Owner excluirlas explícitamente fila por fila.
 - **Recomendación:** (a) ahora; (b) sólo con aprobación explícita del Owner (nada se excluye sin autorización). [Cierre documental 2026-10-31] Clasificación: mezcla de representación (Option<T>, atómicos, pub(crate), semver-checks) y EXCLUSIÓN DE ALCANCE (sólo si el Owner la aprueba fila por fila). Cierre documental: cada fila afectada (AC-UTIL-014, 015.2, 016.1-.4, .7, .8, .9, .11-.15, .18, 017.*, 018.*, 019, 020, 021, 022) tiene ahora un efecto observable identificado y una representación Rust; ninguna se excluye. Candidatas a exclusión explícita (requieren aprobación): AC-UTIL-016.7 (findMarker/findClassLoader/getCallerClass), 016.12 (ClassLoaderObjectInputStream), 016.13 (BoxedType), 018.3 (ccompat), 021 (MiMa, sustituible por cargo-semver-checks). Bloquea: nada; puede avanzar: el resto con (a).
-- **Filas afectadas:** AC-UTIL-014, 015.2, 016.*, 017.*, 018.*, 019, 020, 021, 022
+- **Filas afectadas:** AC-UTIL-014, 015.2, 016.*, 017.*, 018.*, 019, 020, 021, 022 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.8, AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.11, AC-UTIL-016.13, AC-UTIL-016.14, AC-UTIL-016.18, AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.4, AC-UTIL-018.5, AC-UTIL-019]
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 

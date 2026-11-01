@@ -1395,7 +1395,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Orden / concurrencia / ciclo de vida.** Sin estado (los `getCallerClass` se evalúan al cargar el objeto).
 
-**Dependencias.** AC-UTIL-016.13 (BoxedType), AC-CFG-016 (DynamicAccess), AC-PROPS (creación de actores).
+**Dependencias.** AC-UTIL-016.13 (BoxedType; `Reflect.scala:111` lo consume: Reflect depende de BoxedType). Consumidores citados por este contrato: AC-CFG-016 (DynamicAccess), AC-PROPS (creación de actores); el contrato de AC-CFG-016 no cita Reflect, por lo que esa arista no está registrada.
 
 **Equivalente Rust propuesto y diferencias observables.** Rust no tiene reflexión; el efecto observable preservado es la **creación de actores por nombre/fábrica registrada con argumentos** (Q-X-2). `findConstructor` -> un `FactoryRegistry` que resuelve por nombre y por firma de argumentos (`TypeId` de cada argumento), con los mismos errores "ningún constructor coincide" / "varios coinciden" (el caso `null` se modela con `Option`). `findClassLoader`/`getCallerClass`/`findMarker` no tienen equivalente (los class loaders no existen): propuesta de exclusión documentada para aprobación del Owner (Q-UTIL-11), sin eliminar la fila.
 
@@ -1554,7 +1554,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/util/ClassLoaderObjectInputStream.scala:25-31`
-- consumidores: serialización Java (`JavaSerializer`, AC-SER-004)
+- consumidor: `JavaSerializer.fromBinary` (AC-SER-013), `Serializer.scala:358`
 
 **Precondiciones.** `is` es un stream con formato de serialización Java.
 
@@ -1564,7 +1564,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Orden / concurrencia / ciclo de vida.** Una instancia por deserialización; no thread-safe.
 
-**Dependencias.** AC-SER-004, AC-CFG-016.
+**Dependencias.** Ninguna fila. Consumidor: AC-SER-013 (`JavaSerializer.fromBinary`), que le pasa `system.dynamicAccess.classLoader` (AC-CFG-016); la clase no depende de esa fila.
 
 **Equivalente Rust propuesto y diferencias observables.** Sin equivalente: ni la serialización Java ni los class loaders existen en Rust. Efecto observable a preservar: **resolver un tipo por nombre durante la deserialización con un registro de tipos específico del sistema** (el `TypeRegistry` del `ActorSystem`) antes de uno global. Se propone integrarlo en el registro de fábricas/serializadores (Q-X-2, AC-SER-003). Exclusión explícita de la clase sólo con aprobación del Owner (Q-UTIL-11).
 
@@ -1596,7 +1596,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Orden / concurrencia / ciclo de vida.** Mapa inmutable.
 
-**Dependencias.** AC-UTIL-016.7.
+**Dependencias.** Ninguna. Consumidor: AC-UTIL-016.7 (`Reflect.scala:111`); BoxedType no depende de Reflect.
 
 **Equivalente Rust propuesto y diferencias observables.** Sin equivalente: Rust no distingue primitivos de envoltorios; las coincidencias de constructor por `TypeId` (AC-UTIL-016.7) ya son exactas. El efecto observable (aceptar un argumento `Integer` para un parámetro `int`) se vuelve trivial. Se registra como "n/a por diseño del lenguaje, con el efecto preservado".
 

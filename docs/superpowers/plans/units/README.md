@@ -8,7 +8,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 |---|---|---|---|---|---|
 | 01 | [AC-PATH-1](01-ac-path-1.md) | 9 | 2 | pendiente de decisiones | 02 |
 | 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | bloqueada | 05, 03, 04, 23, 11, 08 |
-| 03 | [AC-UTIL-2](03-ac-util-2.md) | 30 | 5 | bloqueada | 02, 05, 18, 23 |
+| 03 | [AC-UTIL-2](03-ac-util-2.md) | 30 | 5 | bloqueada | 02, 05, 18 |
 | 04 | [AC-UTIL-3](04-ac-util-3.md) | 7 | 2 | bloqueada | 02, 03, 10, 24 |
 | 05 | [AC-CFG-1](05-ac-cfg-1.md) | 29 | 5 | pendiente de decisiones | 11, 18, 15, 22, 06, 16, 23, 02, 21 |
 | 06 | [AC-REF-1](06-ac-ref-1.md) | 30 | 5 | pendiente de decisiones | 01, 08, 13, 05, 19, 11, 15, 14, 17, 23 |
@@ -28,7 +28,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | 20 | [AC-FSM-1](20-ac-fsm-1.md) | 11 | 2 | bloqueada | 13, 21, 10, 05 |
 | 21 | [AC-RT-1](21-ac-rt-1.md) | 22 | 4 | bloqueada | 06, 19, 16, 13, 17, 05, 08, 23, 10, 09 |
 | 22 | [AC-CS-1](22-ac-cs-1.md) | 15 | 3 | pendiente de decisiones | 05, 10, 15, 17 |
-| 23 | [AC-SER-1](23-ac-ser-1.md) | 23 | 4 | bloqueada | 05, 06, 15, 25, 18 |
+| 23 | [AC-SER-1](23-ac-ser-1.md) | 23 | 4 | bloqueada | 05, 06, 15, 25, 03, 18 |
 | 24 | [AC-IO-1](24-ac-io-1.md) | 30 | 5 | pendiente de decisiones | 15, 18, 25, 05, 09, 16 |
 | 25 | [AC-IO-2](25-ac-io-2.md) | 5 | 1 | pendiente de decisiones | 24, 09 |
 | 26 | [AC-JAPI-1](26-ac-japi-1.md) | 21 | 4 | pendiente de decisiones | 03, 13, 20, 16, 06, 11, 01, 15, 10, 19, 23, 24, 04 |
@@ -59,7 +59,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 
 ## Ciclos y dependencias hacia adelante
 
-El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL, SYS, EVT, SCH, TK se necesitan entre sí), por eso el orden es por unidad. 119 dependencias de spec van hacia una spec posterior. Regla de costura para todas: la spec que consume define un trait con el contrato mínimo que necesita, lo prueba con un doble de prueba que cumple las aserciones del bloque de contrato de la fila, y cuando llega la spec que lo implementa el doble se reemplaza y se re-ejecutan los tests; nada de eso reduce el contrato de la fila posterior. Lista:
+El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL, SYS, EVT, SCH, TK se necesitan entre sí), por eso el orden es por unidad. 118 dependencias de spec van hacia una spec posterior. Regla de costura para todas: la spec que consume define un trait con el contrato mínimo que necesita, lo prueba con un doble de prueba que cumple las aserciones del bloque de contrato de la fila, y cuando llega la spec que lo implementa el doble se reemplaza y se re-ejecutan los tests; nada de eso reduce el contrato de la fila posterior. Lista:
 
 - `AC-PATH-1` necesita `AC-UTIL-1`.
 - `AC-UTIL-1` necesita `AC-CFG-1`.
@@ -70,7 +70,6 @@ El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL,
 - `AC-UTIL-1` necesita `AC-MBX-1`.
 - `AC-UTIL-2` necesita `AC-CFG-1`.
 - `AC-UTIL-2` necesita `AC-EXT-1`.
-- `AC-UTIL-2` necesita `AC-SER-1`.
 - `AC-UTIL-3` necesita `AC-SCH-1`.
 - `AC-UTIL-3` necesita `AC-IO-1`.
 - `AC-CFG-1` necesita `AC-EVT-1`.

@@ -12,6 +12,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-007.1, AC-REF-007.2, AC-REF-023.
 - Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-018.
 - Spec 25 `AC-IO-2` (`25-ac-io-2.md`), por las filas AC-IO-012. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 03 `AC-UTIL-2` (`03-ac-util-2.md`), por las filas AC-UTIL-016.12.
 - Spec 18 `AC-EXT-1` (`18-ac-ext-1.md`), por las filas AC-EXT-001.1, AC-EXT-001.2.
 
 Decisiones:

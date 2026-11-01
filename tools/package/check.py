@@ -88,6 +88,13 @@ if os.path.exists("docs/unit-rows.tsv"):
     per_unit = collections.Counter(u for us in assigned.values() for u in us)
     check(set(declared) == set(per_unit), f"unit-plan.md units {sorted(set(declared) ^ set(per_unit))} differ from unit-rows.tsv")
     for u, n in declared.items(): check(per_unit.get(u) == int(n), f"unit-plan.md {u}: declares {n} rows, unit-rows.tsv has {per_unit.get(u)}")
+# unit plan: generated parts (decisions per unit, execution order) and declared dependencies are consistent
+if os.path.exists("docs/unit-plan.md"):
+    import subprocess
+    unit_plan = subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools/package/unit_plan.py"), "--check"], capture_output=True, text=True, env=dict(os.environ, RAKKA_PACKAGE_ROOT=ROOT))
+    for line in unit_plan.stdout.splitlines():
+        if line.startswith("FAIL"): fail.append("unit-plan: " + line[5:])
+    check(unit_plan.returncode == 0 or any(l.startswith("FAIL") for l in unit_plan.stdout.splitlines()), "unit_plan.py --check crashed: " + unit_plan.stderr[-300:])
 print(f"abbreviated_citations_skipped={abbreviated}")
 print(f"rows={len(rows)} decisions={sum(c.values())} groups={len(reg) - sum(c.values())} citation_problems={bad} failures={len(fail)}")
 for f in fail: print("FAIL", f)

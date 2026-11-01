@@ -112,6 +112,6 @@ Regla general: la unidad consumidora define el trait con el contrato minimo; se 
 
 ## 6. Condicionados a decision del Owner
 
-- Bloqueantes sin respuesta (ejecucion parcial permitida): Q-UTIL-12 (P04), Q-UTIL-6 (UTIL-005.2 en P05), Q-RT-4 (P36/P37, forma de S10), Q-SER-1 (P40), Q-FSM-4 (FSM-006.x en P33), Q-TK-1 (P44/P45), Q-T-BEH-1 (P48), Q-T-SUP-3 (P55).
+- Bloqueantes sin respuesta (ejecucion parcial permitida): Q-UTIL-12 (P04), Q-UTIL-6 (UTIL-005.2 en P67), Q-RT-4 (P36/P37, forma de S10), Q-SER-1 (P40), Q-FSM-4 (FSM-006.x en P33), Q-TK-1 (P44/P45), Q-T-BEH-1 (P48), Q-T-SUP-3 (P55).
 - No bloqueante pero estructural: Q-X-8 (Ola 7-9) y Q-X-2 (registro de fabricas, P09/P30).
 - Ciclos cuya separacion no depende de ninguna decision: todos los de las secciones 1 y 2 (se resuelven por agrupacion/orden).
