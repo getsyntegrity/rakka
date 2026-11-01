@@ -14,6 +14,7 @@ Port a Rust de los módulos de actores de Apache Pekko 1.7.1: `pekko-actor` (Cla
 - `tools/package/generate.py` y `check.py` — regeneran y verifican el paquete documental desde los TSV (no editar a mano los archivos generados).
 - `docs/superpowers/plans/*.md` — planes detallados previos (PATH, UTIL, detalle HOCON de CFG).
 - `docs/research/` — evaluaciones de herramientas (REA).
+- `docs/testing-policy.md` — política de testing (fuente única de verdad; ver "Capas de test"). `.claude/skills/test-layer-policy/` es sólo un adaptador opcional para Claude Code que remite a ese documento.
 
 ## Comandos
 
@@ -49,6 +50,16 @@ Ninguna diferencia semántica con Pekko se acepta sin decisión explícita del O
 - **TDD estricto por comportamiento: RED → GREEN → REFACTOR.** Cada comportamiento empieza con un test que falla por la razón correcta; se guarda la evidencia real (comando y salida del fallo) antes de escribir el código de producción, después la del GREEN. No se inventa evidencia ni se declara RED sin haberlo observado.
 - **Cobertura mínima del 90 %** de las líneas de producción nuevas o modificadas de cada unidad, medida con `cargo llvm-cov` y documentada en el plan o en el PR (comando, resultado y líneas no cubiertas con su motivo).
 - **Nombres que expresan propósito.** Variables, parámetros, campos, funciones, tipos, módulos, archivos y tests dicen qué hacen. Se evitan nombres genéricos (`data`, `tmp`, `helper`, `util2`), abreviaturas ambiguas y los identificadores de specs (`AC-CFG-001`, `T3`) como sustituto del significado; el identificador de la fila va en comentarios o docs, no en el nombre.
+
+## Capas de test
+
+**Antes de crear, modificar o revisar pruebas, leer completo [`docs/testing-policy.md`](docs/testing-policy.md)** (fuente única de verdad: criterios de elección, ejemplos y lista de verificación). Esto vale para cualquier agente, sin depender de skills. Reglas esenciales:
+
+- **Dos capas, definidas por alcance y no por carpeta.** Unitario: un comportamiento aislado y atómico de una función, componente o transición de estado; sin ActorSystem ni runtime de actores, sin red/archivos reales/entorno/servicios, sin sleeps, con tiempo y azar controlados, y sin reproducir el algoritmo de producción para calcular lo esperado. Integración: un escenario contractual completo con los componentes reales involucrados; toda interacción entre actores reales es integración aunque sea en memoria. Los dobles sólo aíslan colaboradores ajenos al escenario y la frontera sustituida se declara.
+- **Ubicación.** Unitarios junto al componente; integración de un crate en su `tests/`; integración transversal Classic/Typed o multi-crate en el crate interno `rakka-testint` (**previsto, aún no existe**; no publicable y distinto del testkit público). No crear ese crate ni tocar `Cargo.toml` sin tarea explícita.
+- **TDD y cobertura se mantienen en ambas capas:** RED real antes del código, GREEN, refactor; cobertura mínima del 90 % según "Reglas de calidad".
+- **Por unidad:** identificar aserciones unitarias y de integración; TDD unitario; agregar y ejecutar la integración en cuanto existan los componentes reales (no acumularla al final); verificar contrato → escenario → prueba → evidencia. Un test con mocks no prueba que los componentes reales funcionen juntos: si falta una integración necesaria, la fila queda `partial` con la dependencia pendiente identificada.
+- **Paridad.** Se conservan las aserciones observables de los specs de Pekko; un spec que arranca actores reales es integración. Los diferenciales contra el jar oficial complementan ambas capas y no reemplazan aserciones. Tests verdes y cobertura no prueban paridad.
 
 ## Reglas
 
