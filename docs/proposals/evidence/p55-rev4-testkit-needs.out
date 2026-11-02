@@ -1,0 +1,221 @@
+== Parte 1: herramientas en los rangos citados por las aserciones (cota inferior)
+AT-BEH-010 (6 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit
+   A3: typed ActorTestKit/TestProbe[T]
+   A4: typed ActorTestKit/TestProbe[T]
+   A5: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A6: (ninguna detectada en el rango)
+AT-BEH-024 (4 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: BehaviorTestKit, TestInbox
+   A4: (ninguna detectada en el rango)
+AT-SIG-002 (5 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: (ninguna detectada en el rango)
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A5: (ninguna detectada en el rango)
+AT-SIG-005 (4 aserciones)
+   A1: TestInbox
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: (ninguna detectada en el rango)
+AT-SIG-006 (4 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: (ninguna detectada en el rango)
+AT-SUP-001 (4 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: BehaviorTestKit, TestInbox
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: (ninguna detectada en el rango)
+AT-SUP-002 (4 aserciones)
+   A1: BehaviorTestKit, TestInbox
+   A2: BehaviorTestKit, TestInbox
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: (ninguna detectada en el rango)
+AT-SUP-003 (3 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+AT-SUP-004 (4 aserciones)
+   A1: BehaviorTestKit, TestInbox
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: LoggingTestKit
+   A4: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+AT-SUP-005 (5 aserciones)
+   A1: BehaviorTestKit, TestInbox
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: BehaviorTestKit, TestInbox
+   A5: LoggingTestKit
+AT-SUP-006 (7 aserciones)
+   A1: BehaviorTestKit, TestInbox
+   A2: BehaviorTestKit, TestInbox, sleep
+   A3: BehaviorTestKit, TestInbox
+   A4: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A5: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A6: LoggingTestKit
+   A7: LoggingTestKit
+AT-SUP-007.1 (5 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit
+   A3: LoggingTestKit
+   A4: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A5: (ninguna detectada en el rango)
+AT-SUP-007.2 (4 aserciones)
+   A1: (ninguna detectada en el rango)
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: typed ActorTestKit/TestProbe[T]
+AT-SUP-007.3 (3 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: (ninguna detectada en el rango)
+   A3: (ninguna detectada en el rango)
+AT-SUP-008 (7 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: (ninguna detectada en el rango)
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A5: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A6: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A7: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+AT-SUP-009 (4 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: typed ActorTestKit/TestProbe[T]
+   A4: (ninguna detectada en el rango)
+AT-SUP-010 (5 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: LoggingTestKit
+   A5: LoggingTestKit
+AT-SUP-011 (7 aserciones)
+   A1: BehaviorTestKit, TestInbox
+   A2: (ninguna detectada en el rango)
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A4: typed ActorTestKit/TestProbe[T]
+   A5: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A6: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A7: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+AT-SUP-012 (2 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+AT-SUP-013 (3 aserciones)
+   A1: (ninguna detectada en el rango)
+   A2: (ninguna detectada en el rango)
+   A3: (ninguna detectada en el rango)
+AT-SUP-014 (1 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+AT-SUP-016 (4 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: LoggingTestKit, sleep, typed ActorTestKit/TestProbe[T]
+   A4: LoggingTestKit, sleep, typed ActorTestKit/TestProbe[T]
+AT-SUP-017 (2 aserciones)
+   A1: typed ActorTestKit/TestProbe[T]
+   A2: (ninguna detectada en el rango)
+AT-SUP-018 (5 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: typed ActorTestKit/TestProbe[T]
+   A4: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A5: typed ActorTestKit/TestProbe[T]
+AT-SUP-019 (3 aserciones)
+   A1: typed ActorTestKit/TestProbe[T]
+   A2: typed ActorTestKit/TestProbe[T]
+   A3: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+AT-SUP-020 (7 aserciones)
+   A1: classic TestKit/TestProbe
+   A2: classic TestKit/TestProbe
+   A3: classic TestKit/TestProbe
+   A4: classic TestKit/TestProbe
+   A5: classic TestKit/TestProbe
+   A6: (ninguna detectada en el rango)
+   A7: (ninguna detectada en el rango)
+AT-SUP-021 (3 aserciones)
+   A1: typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, classic TestKit/TestProbe
+   A3: LoggingTestKit, classic TestKit/TestProbe
+AT-SUP-022 (3 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: classic TestKit/TestProbe
+   A3: (ninguna detectada en el rango)
+AT-STASH-006 (3 aserciones)
+   A1: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A2: LoggingTestKit, typed ActorTestKit/TestProbe[T]
+   A3: (ninguna detectada en el rango)
+AT-ADP-002 (5 aserciones)
+   A1: classic TestKit/TestProbe
+   A2: classic TestKit/TestProbe
+   A3: classic TestKit/TestProbe
+   A4: classic TestKit/TestProbe
+   A5: classic TestKit/TestProbe
+AT-ADP-005 (9 aserciones)
+   A1: classic TestKit/TestProbe
+   A2: classic TestKit/TestProbe
+   A3: classic TestKit/TestProbe
+   A4: classic TestKit/TestProbe
+   A5: LoggingTestKit, classic TestKit/TestProbe
+   A6: LoggingTestKit, classic TestKit/TestProbe
+   A7: classic TestKit/TestProbe
+   A8: typed ActorTestKit/TestProbe[T]
+   A9: LoggingTestKit, sleep
+
+Resumen: aserciones por herramienta detectada (cota inferior)
+BehaviorTestKit: 11
+TestInbox: 12
+LoggingTestKit: 72
+LogCapturing: 0
+ManualTime: 0
+typed ActorTestKit/TestProbe[T]: 70
+classic TestKit/TestProbe: 20
+sleep: 4
+
+== Parte 2: cierre de depends_on (solo filas AT-*) de cortes mínimos de testkit
+orden del plan: P55=68 P62=75 P63=76 P64=77
+corte A (ActorTestKit + TestProbe tipado): 21 filas; unidades=['P49', 'P50', 'P52', 'P51', 'P54', 'P62']
+   filas de P55 alcanzadas: ninguna
+   unidades posteriores a P55 alcanzadas: ['P62']
+   sin las aristas clasificadas como no-implementación: 21 filas; filas de P55: ninguna; posteriores a P55: ['P62']
+corte B (LoggingTestKit): 52 filas; unidades=['P48', 'P49', 'P53', 'P50', 'P52', 'P54', 'P55', 'P62', 'P64']
+   filas de P55 alcanzadas: ['AT-BEH-024', 'AT-SIG-002', 'AT-SIG-005', 'AT-SIG-006', 'AT-SUP-001', 'AT-SUP-003', 'AT-SUP-005', 'AT-SUP-010', 'AT-SUP-014', 'AT-SUP-022']
+   unidades posteriores a P55 alcanzadas: ['P62', 'P64']
+   sin las aristas clasificadas como no-implementación: 42 filas; filas de P55: ninguna; posteriores a P55: ['P62', 'P64']
+corte C (BehaviorTestKit): 36 filas; unidades=['P48', 'P49', 'P53', 'P50', 'P52', 'P54', 'P55', 'P56', 'P62', 'P63']
+   filas de P55 alcanzadas: ['AT-SIG-006', 'AT-SUP-014', 'AT-SUP-016']
+   unidades posteriores a P55 alcanzadas: ['P56', 'P62', 'P63']
+   sin las aristas clasificadas como no-implementación: 28 filas; filas de P55: ninguna; posteriores a P55: ['P56', 'P62', 'P63']
+
+== Parte 3: corte B (LoggingTestKit): dependencias del inventario frente a dependencias leídas en el código
+filas del cierre declarado sin las aristas no-implementación: 42; con evidencia de código: 9 de 9
+   AT-ADP-006.1 [P49] transitiva parcial: limpieza del MDC tras cada mensaje (ActorAdapter.aroundReceive, solo esa parte)
+   AT-LOG-001 [P52] transitiva: los eventos observados nacen en ctx.log (ActorContextImpl)
+   AT-LOG-002 [P52] transitiva: MDC pekkoSource/sourceActorSystem que consulta `source` (ActorMdc.scala:23-45)
+   AT-TK-006.1 [P64] directa: LoggingTestKitImpl.matches (:61-71)
+   AT-TK-006.2 [P64] directa: fábricas de scaladsl/LoggingTestKit.scala (error[A] = nivel ERROR + causa)
+   AT-TK-006.3 [P64] directa: LoggingTestKitImpl.expect/awaitDone/awaitNoExcess (:86-121)
+   AT-TK-006.4 [P64] directa: TestAppender.append/filter (:84-120)
+   AT-TK-010 [P62] directa: TestKitSettings.FilterLeeway y ExpectNoMessageDefaultTimeout (LoggingTestKitImpl.scala:103,109,111)
+   AT-TK-013 [P64] directa: LogbackUtil.getLogbackLogger/convertLevel (:25-59)
+relación declarada SOLO en el inventario (sin respaldo en el código leído): 33 filas
+   P48: 6 filas
+   P49: 5 filas
+   P53: 2 filas
+   P50: 4 filas
+   P52: 5 filas
+   P54: 7 filas
+   P62: 3 filas
+   P64: 1 filas
+filas de P55 en el cierre declarado: ninguna
+filas de P55 con evidencia de código: ninguna
+
+== Parte 4: capacidades concretas usadas en los rangos citados (cota inferior; número de apariciones)
+aserciones cuyo rango usa LoggingTestKit: 72
+fábricas: {'error': 84, 'info': 6}
+condiciones/ajustes: {'(factoría tipada por causa: error[E]/warn[E])': 67, 'withLogLevel': 4, 'withMessageContains': 9, 'withMessageRegex': 4, 'withOccurrences': 13, 'withSource': 1}
+métodos de sonda/espera: {'expectMessage': 233, 'expectMessageType': 34, 'expectMsg': 25, 'expectNoMessage': 43, 'expectTerminated': 12, 'receiveMessage': 42}
