@@ -1,0 +1,225 @@
+root.parent==root|true
+root.parent|pekko://sys/
+(root/user/a).parent|pekko://sys/user
+(root/user/a).parent.parent|pekko://sys/
+root.descendant(user,'',a)|pekko://sys/user/a elements=n=2 ["user","a"]
+root./(Seq(user,'',a))|pekko://sys/user/a elements=n=2 ["user","a"]
+root.descendant(Seq(''))|pekko://sys/ elements=n=1 [""]
+root.descendant(new java.util.ArrayList[String]())|pekko://sys/ same=true elements=n=1 [""]
+root./("")|pekko://sys/ elements=n=1 [""]
+root.elements|n=1 [""]
+ua.elements|n=2 ["user","a"]
+ua.name/root.name|a|/
+ua.toString|pekko://sys/user/a
+ua.toStringWithoutAddress|/user/a
+ua.toSerializationFormat|pekko://sys/user/a
+root.toString|pekko://sys/
+root.toSerializationFormat|pekko://sys/
+root==RootActorPath(same addr)|true
+ua==root/user/a|true
+ua vs different system|false
+ua.withUid(5)==ua|true
+ua.withUid(5).toString|pekko://sys/user/a
+ua.withUid(5).toSerializationFormat|pekko://sys/user/a#5
+ua.uid|0
+ua.compareTo(root)|-1
+ua.hashCode==other.hashCode|true
+ActorPath.fromString('pekko://sys/user/a')|toString=pekko://sys/user/a ser=pekko://sys/user/a uid=0 elements=n=2 ["user","a"] addr=pekko://sys isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys/user/a')|true
+AddressFromURIString.apply('pekko://sys/user/a')|pekko://sys
+AddressFromURIString.parse('pekko://sys/user/a')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/user/a')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/user/a')|Some((pekko://sys,n=2 ["user","a"]))
+ActorPath.fromString('pekko://sys/')|toString=pekko://sys/ ser=pekko://sys/ uid=0 elements=n=1 [""] addr=pekko://sys isRoot=true
+ActorPath.fromString-apply-via-Try('pekko://sys/')|true
+AddressFromURIString.apply('pekko://sys/')|pekko://sys
+AddressFromURIString.parse('pekko://sys/')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/')|Some((pekko://sys,n=1 [""]))
+ActorPath.fromString('pekko://sys')|toString=pekko://sys/ ser=pekko://sys/ uid=0 elements=n=1 [""] addr=pekko://sys isRoot=true
+ActorPath.fromString-apply-via-Try('pekko://sys')|true
+AddressFromURIString.apply('pekko://sys')|pekko://sys
+AddressFromURIString.parse('pekko://sys')|pekko://sys
+AddressFromURIString.unapply('pekko://sys')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys')|Some((pekko://sys,n=0 []))
+ActorPath.fromString('pekko://sys//a')|toString=pekko://sys/a ser=pekko://sys/a uid=0 elements=n=1 ["a"] addr=pekko://sys isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys//a')|true
+AddressFromURIString.apply('pekko://sys//a')|pekko://sys
+AddressFromURIString.parse('pekko://sys//a')|pekko://sys
+AddressFromURIString.unapply('pekko://sys//a')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys//a')|Some((pekko://sys,n=2 ["","a"]))
+ActorPath.fromString('pekko://sys/a/')|toString=pekko://sys/a ser=pekko://sys/a uid=0 elements=n=1 ["a"] addr=pekko://sys isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys/a/')|true
+AddressFromURIString.apply('pekko://sys/a/')|pekko://sys
+AddressFromURIString.parse('pekko://sys/a/')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/a/')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/a/')|Some((pekko://sys,n=2 ["a",""]))
+ActorPath.fromString('pekko://sys/a%41')|toString=pekko://sys/a%41 ser=pekko://sys/a%41 uid=0 elements=n=1 ["a%41"] addr=pekko://sys isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys/a%41')|true
+AddressFromURIString.apply('pekko://sys/a%41')|pekko://sys
+AddressFromURIString.parse('pekko://sys/a%41')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/a%41')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/a%41')|Some((pekko://sys,n=1 ["a%41"]))
+ActorPath.fromString('pekko://sys/a%4')|THROWS java.net.MalformedURLException: cannot parse as ActorPath: pekko://sys/a%4
+ActorPath.fromString-apply-via-Try('pekko://sys/a%4')|false
+AddressFromURIString.apply('pekko://sys/a%4')|THROWS java.net.MalformedURLException: pekko://sys/a%4
+AddressFromURIString.parse('pekko://sys/a%4')|THROWS java.net.MalformedURLException: pekko://sys/a%4
+AddressFromURIString.unapply('pekko://sys/a%4')|None
+ActorPathExtractor.unapply('pekko://sys/a%4')|None
+ActorPath.fromString('pekko://sys/a#5')|toString=pekko://sys/a ser=pekko://sys/a#5 uid=5 elements=n=1 ["a"] addr=pekko://sys isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys/a#5')|true
+AddressFromURIString.apply('pekko://sys/a#5')|pekko://sys
+AddressFromURIString.parse('pekko://sys/a#5')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/a#5')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/a#5')|Some((pekko://sys,n=1 ["a#5"]))
+ActorPath.fromString('pekko://sys/user/a?q')|toString=pekko://sys/user/a ser=pekko://sys/user/a uid=0 elements=n=2 ["user","a"] addr=pekko://sys isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys/user/a?q')|true
+AddressFromURIString.apply('pekko://sys/user/a?q')|pekko://sys
+AddressFromURIString.parse('pekko://sys/user/a?q')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/user/a?q')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/user/a?q')|Some((pekko://sys,n=2 ["user","a"]))
+ActorPath.fromString('pekko://my_sys/user/a')|THROWS java.net.MalformedURLException: cannot parse as ActorPath: pekko://my_sys/user/a
+ActorPath.fromString-apply-via-Try('pekko://my_sys/user/a')|false
+AddressFromURIString.apply('pekko://my_sys/user/a')|THROWS java.net.MalformedURLException: pekko://my_sys/user/a
+AddressFromURIString.parse('pekko://my_sys/user/a')|THROWS java.net.MalformedURLException: pekko://my_sys/user/a
+AddressFromURIString.unapply('pekko://my_sys/user/a')|None
+ActorPathExtractor.unapply('pekko://my_sys/user/a')|None
+ActorPath.fromString('pekko://s y/a')|THROWS java.net.MalformedURLException: cannot parse as ActorPath: pekko://s y/a
+ActorPath.fromString-apply-via-Try('pekko://s y/a')|false
+AddressFromURIString.apply('pekko://s y/a')|THROWS java.net.MalformedURLException: pekko://s y/a
+AddressFromURIString.parse('pekko://s y/a')|THROWS java.net.MalformedURLException: pekko://s y/a
+AddressFromURIString.unapply('pekko://s y/a')|None
+ActorPathExtractor.unapply('pekko://s y/a')|None
+ActorPath.fromString('')|THROWS java.net.MalformedURLException: cannot parse as ActorPath:
+ActorPath.fromString-apply-via-Try('')|false
+AddressFromURIString.apply('')|THROWS java.net.MalformedURLException:
+AddressFromURIString.parse('')|THROWS java.net.MalformedURLException:
+AddressFromURIString.unapply('')|None
+ActorPathExtractor.unapply('')|None
+ActorPath.fromString('://x')|THROWS java.net.MalformedURLException: cannot parse as ActorPath: ://x
+ActorPath.fromString-apply-via-Try('://x')|false
+AddressFromURIString.apply('://x')|THROWS java.net.MalformedURLException: ://x
+AddressFromURIString.parse('://x')|THROWS java.net.MalformedURLException: ://x
+AddressFromURIString.unapply('://x')|None
+ActorPathExtractor.unapply('://x')|None
+ActorPath.fromString('pekko://sys@h:1/a')|toString=pekko://sys@h:1/a ser=pekko://sys@h:1/a uid=0 elements=n=1 ["a"] addr=pekko://sys@h:1 isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys@h:1/a')|true
+AddressFromURIString.apply('pekko://sys@h:1/a')|pekko://sys@h:1
+AddressFromURIString.parse('pekko://sys@h:1/a')|pekko://sys@h:1
+AddressFromURIString.unapply('pekko://sys@h:1/a')|Some(pekko://sys@h:1)
+ActorPathExtractor.unapply('pekko://sys@h:1/a')|Some((pekko://sys@h:1,n=1 ["a"]))
+ActorPath.fromString('/user/a')|THROWS java.net.MalformedURLException: cannot parse as ActorPath: /user/a
+ActorPath.fromString-apply-via-Try('/user/a')|false
+AddressFromURIString.apply('/user/a')|THROWS java.net.MalformedURLException: /user/a
+AddressFromURIString.parse('/user/a')|THROWS java.net.MalformedURLException: /user/a
+AddressFromURIString.unapply('/user/a')|None
+ActorPathExtractor.unapply('/user/a')|None
+ActorPath.fromString('pekko://sys/a#0')|toString=pekko://sys/a ser=pekko://sys/a uid=0 elements=n=1 ["a"] addr=pekko://sys isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys/a#0')|true
+AddressFromURIString.apply('pekko://sys/a#0')|pekko://sys
+AddressFromURIString.parse('pekko://sys/a#0')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/a#0')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/a#0')|Some((pekko://sys,n=1 ["a#0"]))
+ActorPath.fromString('pekko://sys/a#x')|THROWS java.lang.NumberFormatException: For input string: "x"
+ActorPath.fromString-apply-via-Try('pekko://sys/a#x')|false
+AddressFromURIString.apply('pekko://sys/a#x')|pekko://sys
+AddressFromURIString.parse('pekko://sys/a#x')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/a#x')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/a#x')|Some((pekko://sys,n=1 ["a#x"]))
+ActorPath.fromString('pekko://sys/a#-1')|toString=pekko://sys/a ser=pekko://sys/a#-1 uid=-1 elements=n=1 ["a"] addr=pekko://sys isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys/a#-1')|true
+AddressFromURIString.apply('pekko://sys/a#-1')|pekko://sys
+AddressFromURIString.parse('pekko://sys/a#-1')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/a#-1')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/a#-1')|Some((pekko://sys,n=1 ["a#-1"]))
+ActorPath.fromString('pekko://sys/a#')|THROWS java.lang.NumberFormatException: For input string: ""
+ActorPath.fromString-apply-via-Try('pekko://sys/a#')|false
+AddressFromURIString.apply('pekko://sys/a#')|pekko://sys
+AddressFromURIString.parse('pekko://sys/a#')|pekko://sys
+AddressFromURIString.unapply('pekko://sys/a#')|Some(pekko://sys)
+ActorPathExtractor.unapply('pekko://sys/a#')|Some((pekko://sys,n=1 ["a#"]))
+ActorPath.fromString('pekko://sys/a#5#6')|THROWS java.net.MalformedURLException: cannot parse as ActorPath: pekko://sys/a#5#6
+ActorPath.fromString-apply-via-Try('pekko://sys/a#5#6')|false
+AddressFromURIString.apply('pekko://sys/a#5#6')|THROWS java.net.MalformedURLException: pekko://sys/a#5#6
+AddressFromURIString.parse('pekko://sys/a#5#6')|THROWS java.net.MalformedURLException: pekko://sys/a#5#6
+AddressFromURIString.unapply('pekko://sys/a#5#6')|None
+ActorPathExtractor.unapply('pekko://sys/a#5#6')|None
+ActorPath.fromString('pekko://sys@h:1/user/a#7')|toString=pekko://sys@h:1/user/a ser=pekko://sys@h:1/user/a#7 uid=7 elements=n=2 ["user","a"] addr=pekko://sys@h:1 isRoot=false
+ActorPath.fromString-apply-via-Try('pekko://sys@h:1/user/a#7')|true
+AddressFromURIString.apply('pekko://sys@h:1/user/a#7')|pekko://sys@h:1
+AddressFromURIString.parse('pekko://sys@h:1/user/a#7')|pekko://sys@h:1
+AddressFromURIString.unapply('pekko://sys@h:1/user/a#7')|Some(pekko://sys@h:1)
+ActorPathExtractor.unapply('pekko://sys@h:1/user/a#7')|Some((pekko://sys@h:1,n=2 ["user","a#7"]))
+RelativeActorPath.unapply('foo/bar')|Some(n=2 ["foo","bar"])
+RelativeActorPath.unapply('')|Some(n=1 [""])
+RelativeActorPath.unapply('foo//bar')|Some(n=3 ["foo","","bar"])
+RelativeActorPath.unapply('../sibling')|Some(n=2 ["..","sibling"])
+RelativeActorPath.unapply('foo?x=1')|Some(n=1 ["foo"])
+RelativeActorPath.unapply('a:b/c')|None
+RelativeActorPath.unapply('foo/%4')|None
+RelativeActorPath.unapply('foo/bar#1234')|Some(n=2 ["foo","bar#1234"])
+RelativeActorPath.unapply('foo/bar/')|Some(n=3 ["foo","bar",""])
+RelativeActorPath.unapply('/foo')|Some(n=2 ["","foo"])
+RelativeActorPath.unapply('..')|Some(n=1 [".."])
+RelativeActorPath.unapply('a/./b')|Some(n=3 ["a",".","b"])
+isValidPathElement('a')|true
+isValidPathElement('a b')|false
+isValidPathElement('$a')|false
+isValidPathElement('a%41')|true
+isValidPathElement('a%4')|false
+isValidPathElement('')|false
+isValidPathElement('-')|true
+isValidPathElement('_a')|true
+isValidPathElement('a#1')|false
+isValidPathElement('a?')|false
+isValidPathElement('a/b')|false
+isValidPathElement('ä')|false
+isValidPathElement('$$')|false
+isValidPathElement('a@b')|true
+isValidPathElement('.')|true
+isValidPathElement('..')|true
+isValidPathElement('a*')|true
+isValidPathElement('a:b')|true
+stale.old ser|pekko://sys/user/a#-1652550216
+stale.new ser|pekko://sys/user/a#-13786451
+stale.uids differ|true
+stale.resolve old string with #uid|class=EmptyLocalActorRef eqNew=false eqOld=true path=pekko://sys/user/a#-1652550216 isTerminated=true
+stale.resolve no-uid string|class=RepointableActorRef eqNew=true eqOld=false path=pekko://sys/user/a#-13786451 isTerminated=false
+stale.resolve #0|class=RepointableActorRef eqNew=true eqOld=false path=pekko://sys/user/a#-13786451 isTerminated=false
+stale.resolve #x|THROWS java.lang.NumberFormatException: For input string: "x"
+stale.resolve current uid|class=RepointableActorRef eqNew=true eqOld=false path=pekko://sys/user/a#-13786451 isTerminated=false
+stale.resolve nonexistent|class=EmptyLocalActorRef eqNew=false eqOld=false path=pekko://sys/user/zzz isTerminated=true
+stale.resolve other system|class=DeadLetterActorRef eqNew=false eqOld=false path=pekko://sys/deadLetters isTerminated=true
+stale.resolve remote addr|class=DeadLetterActorRef eqNew=false eqOld=false path=pekko://sys/deadLetters isTerminated=true
+stale.resolve relative 'foo'|class=DeadLetterActorRef eqNew=false eqOld=false path=pekko://sys/deadLetters isTerminated=true
+stale.resolve garbage ''|class=DeadLetterActorRef eqNew=false eqOld=false path=pekko://sys/deadLetters isTerminated=true
+stale.deadLetters path|pekko://sys/deadLetters
+rev3.RelativeActorPath.unapply('foo')|Some(n=1 ["foo"])
+rev3.RelativeActorPath.unapply('pekko%3A%2F%2FClusterSystem%40127.0.0.1%3A7355')|Some(n=1 ["pekko%3A%2F%2FClusterSystem%40127.0.0.1%3A7355"])
+rev3.RelativeActorPath.unapply('pekko://sys/user/a')|None
+rev3.RelativeActorPath.unapply('foo bar')|None
+rev3.RelativeActorPath.unapply('foo/a b')|None
+rev3.RelativeActorPath.unapply('%')|None
+rev3.RelativeActorPath.unapply('foo/%ZZ')|None
+rev3.RelativeActorPath.unapply('%2F')|Some(n=1 ["%2F"])
+rev3.RelativeActorPath.unapply('%41')|Some(n=1 ["%41"])
+rev3.RelativeActorPath.unapply('#')|Some(n=1 ["#"])
+rev3.RelativeActorPath.unapply('#x')|Some(n=1 ["#x"])
+rev3.RelativeActorPath.unapply('foo#')|Some(n=1 ["foo#"])
+rev3.RelativeActorPath.unapply('?')|Some(n=1 [""])
+rev3.RelativeActorPath.unapply('ä')|Some(n=1 ["ä"])
+rev3.resolve 'path#' (empty uid)|THROWS java.lang.NumberFormatException: For input string: ""
+rev3.resolve '#' alone|class=DeadLetterActorRef eqLive=false path=pekko://sys3/deadLetters
+rev3.resolve uid 2147483647|class=EmptyLocalActorRef eqLive=false path=pekko://sys3/user/a#2147483647
+rev3.resolve uid 2147483648|THROWS java.lang.NumberFormatException: For input string: "2147483648"
+rev3.resolve uid 4294967296|THROWS java.lang.NumberFormatException: For input string: "4294967296"
+rev3.resolve uid -1|class=EmptyLocalActorRef eqLive=false path=pekko://sys3/user/a#-1
+rev3.resolve uid -5|class=EmptyLocalActorRef eqLive=false path=pekko://sys3/user/a#-5
+rev3.resolve live uid (negative or positive Int)|class=RepointableActorRef eqLive=true path=pekko://sys3/user/a#581136746
+rev3.live uid|581136746
+rev3.resolve uid on the intermediate element /p#<wrong>/c|THROWS java.lang.NumberFormatException: For input string: "12345/c"
+rev3.resolve uid on the intermediate element /p#<live>/c|THROWS java.lang.NumberFormatException: For input string: "-1596376024/c"
+rev3.resolve uid on both /p#<live>/c#<childuid>|class=DeadLetterActorRef eqLive=false path=pekko://sys3/deadLetters
+rev3.stop window: resolve with live uid, stop told, not processed|class=RepointableActorRef eqB=true isTerminated=false
+rev3.stop window: resolve without uid|class=RepointableActorRef eqB=true isTerminated=false
+rev3.after stop processed: resolve with the old uid|class=EmptyLocalActorRef eqB=true isTerminated=true
