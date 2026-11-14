@@ -1,0 +1,360 @@
+# ADR 0015: Ask and reply (local request/reply)
+
+- Status: proposed. Decisions marked **[Owner]** were approved by the owner on 2026-10-10; everything marked
+  **[Proposal]** keeps that label. On 2026-10-11 the owner authorized implementing increments I-1 to I-6 in the order of
+  "Increment sequence", with reuse of `ErrInvalidHandle` (neutral text) and the alignment of `Watch(askRef)` described in
+  D3, D7 and D8. That authorization is not an acceptance of the `[Proposal]` items: a slice that finds a defect in one
+  reports it instead of deciding silently. Nothing here is implemented until its increment lands, and no parity is
+  verified.
+- Date: 2026-10-10
+- Stage: 1
+- Module: pekko-actor
+
+Design only. This ADR changes no code. It refines the Ask text already proposed in ADR 0010 (D2, D5, D8, "Ask
+completion") and ADR 0008 (associated runtime Ask). Both are still `proposed`; this ADR does not accept them. It is an
+independent ADR and is not merged into ADR 0010 **[Owner, Q5]**.
+
+## Provenance
+
+- goPekko, update 2026-10-11: rebased on `origin/develop` `443da01` (#47). Since the first draft, develop gained local
+  Watch (#41, with `ErrInvalidHandle`, `Context.Watch`, `WatchWith`, `Unwatch`), ADR 0014 and its runtime (#42, #43, #45,
+  #47: `Spawner`, `Parent`/`Child`/`Children`, name scoping, spawn gate), `Context.Stop`, and the Goexit-in-`PostStop`
+  fix. The facts below that were written against `44c1b62` were rechecked against this base; line references were
+  refreshed. The hierarchy runtime does not yet stop children recursively (ADR 0014 slice 3b), which Ask does not need.
+- goPekko, original base: `44c1b6285f54` (`origin/develop`, includes #38 and #39). Earlier candidates of this ADR: `c8ba07b`
+  (numbered 0013) and `7901755` (numbered 0015, before the R1 and R2 decisions). The local `develop` ref of the main
+  checkout is stale (`b1863f1`); do not review against it.
+- Apache Pekko: `v1.7.1`, commit `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (`upstream/pekko`, read-only).
+- GoAkt: not consulted (see below).
+- Numbering **[Owner, Q5]**: 0013 is reserved for DeathWatch, 0014 stays with actor hierarchy, and Ask is 0015. When
+  this ADR was first written no `docs/adr/0013*` existed on any branch or worktree and 0014 existed only on an unmerged
+  branch; 0015 and 0016 were free. As of 2026-10-11 `docs/adr/0014-*` is on `origin/develop` (#42) and `0015` is still
+  free there.
+- Cross-front reference: resolved. ADR 0014 on `develop` cites Ask as `docs/adr/0015-ask-and-reply.md`, and
+  `docs/adr/0014-actor-children-and-hierarchical-termination.md` is on `develop` (#42).
+
+Evidence labels used below: **[Pekko]** cited from `upstream/pekko` v1.7.1; **[Go]** a deliberate adaptation of this
+ADR; **[Unverified]** not established by evidence.
+
+## Feature
+
+Send a request to an actor and obtain its first reply as a value, bounded by a deadline, without the caller being an
+actor.
+
+## How Pekko solves it
+
+Module: `actor` (classic) and `actor-typed`. Every ask creates its own `PromiseActorRef`; the reply address is the
+correlation key. Classic and typed share this mechanism. Paths are under `upstream/pekko/`; `AS` is
+`actor/src/main/scala/org/apache/pekko/pattern/AskSupport.scala` and `TA` is
+`actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/AskPattern.scala`.
+
+**[Pekko]**
+
+- Identity and correlation: one `Promise` and one `PromiseActorRef` per ask (`AS:711-744`). There is no correlation id;
+  concurrent asks have distinct refs.
+- Temporary ref: path `<prefix>$<base64 counter>` under `/temp`, registered lazily when `path` is first read
+  (`AS:527-541, 592-612`; `ActorRefProvider.scala:428-441, 603-611`). A local ask whose ref is never inspected is never
+  registered (`AS:667`).
+- First reply wins: `tryComplete`; when it returns false the message goes to dead letters (`AS:614-629`).
+  `PromiseRefSpec.scala:54-64` pins "the second message is a dead letter".
+- Late reply after completion or stop: `DeadLetter(message, sender, this)` (`AS:614-629`); typed:
+  `typed/AskSpec.scala:132, 164`.
+- Timeout: `scheduleOnce`, then `tryComplete(Failure(onTimeout))` (`AS:725-738`). The reply and the timeout race through
+  `tryComplete`. Classic fails with `AskTimeoutException`; typed fails with `java.util.concurrent.TimeoutException`
+  (`TA:141`).
+- Cleanup on every outcome: `result.future.onComplete { _ => a.stop(); f.cancel() }` (`AS:739-742`).
+- Target already terminated: an immediate failure, and the message is still sent so it lands in dead letters
+  (`AS:372-376`; `TA:146-163`; `AskSpec.scala:41, 50`; typed `AskSpec.scala:71, 109`). It is a point-in-time
+  `isTerminated` check. **No watch is placed on the target during the wait**: typed `AskPattern` has no
+  `RecipientTerminated`. A target that stops after the send is therefore not detected early by the ask itself.
+- Non-positive timeout: `IllegalArgumentException` (`AS:377-378`; `AskSpec.scala:72, 83`).
+- Error replies: classic `Status.Failure` fails the future (`AS:622`); typed `askWithStatus` and `StatusReply` separate
+  mechanism errors from business errors (`StatusReply.scala:173-181`; typed `AskSpec.scala:267-281`).
+- Per-actor ask: `ActorContext.ask` is `AskPattern.ask` plus `pipeToSelf` (`ActorContextImpl.scala:228-232`).
+
+**[Unverified]**
+
+- The remote reply path and ask across `ActorSystem`s (only `RemoteContextAskSpec.scala:76` was found, and it was not
+  read in detail).
+- `VirtualPathContainer` edge cases for a reply after unregistration.
+- Ask on an `ActorSelection` with a terminated target (no `isTerminated` branch exists, `AS:455-468`).
+- That Pekko never cancels a request already sent: this comes from the absence of any cancel mechanism in `AS`, not from a
+  test.
+- That a target stopping during the wait leaves the ask pending until timeout: this comes from reading `AS` and `TA`; no
+  test pins it.
+
+## How GoAkt solves it
+
+Not consulted. Pekko is the default source (`CLAUDE.md`), and no evidence has been presented that GoAkt solved this
+better.
+
+## Evidence
+
+- Benchmark: none. Benchmarks are deferred to the end of the front.
+- Judge: Pekko-side specs exist: S03 and S17 (G8.a), S04 (G8.b), S12 (I4.a), S15 (I5.a). There is no Go ask scenario
+  yet. Go-only specs A1, H1, F1, F2 and P4 are listed in `docs/judge.md:79-90`.
+- Complexity: one public function, one unexported endpoint type, one unexported clock seam.
+- Idiomatic in Go: yes. A blocking call with `context.Context` for deadline and cancellation, and a typed `Ref[R]` as the
+  reply address.
+
+## Decision
+
+### D1. Public API (`pekko-actor/actor`, file `ask.go`, per ADR 0011) [Owner, signature, 2026-10-14]
+
+```go
+// Ask sends build(replyTo) to target and waits for the first reply, the deadline, or cancellation.
+func Ask[T, R any](ctx context.Context, target Ref[T], build func(replyTo Ref[R]) T) (R, error)
+```
+
+- A package function, not a method: Go forbids type parameters on interface methods (ADR 0010 `:64`). **[Go]**
+- Pekko takes an explicit timeout. Here the deadline is the one on `ctx`, so there is a single source of truth. **[Go]**
+- `replyTo` is an ordinary `Ref[R]` that the caller places in the message (ADR 0010 D2: no implicit sender). It is valid
+  for this Ask only.
+- `build` is called at most once, on the caller's goroutine. It is not called when the Ask fails before sending (D5).
+- `Ask` blocks the calling goroutine. Calling it from `Receive` blocks that actor. The API cannot detect this today:
+  `Context[T]` offers no way to tell that it is inside a handler beyond its own methods (`Self`, `StopSelf`, `Stop`, `Watch`,
+  `WatchWith`, `Unwatch`, `Parent`, `Child`, `Children`; it is also a `Spawner`). The non-blocking `AskFrom` is out of
+  scope (D7).
+
+Minimal usage (illustrative; a runnable version is `ExampleAsk`):
+
+```go
+type Get struct{ ReplyTo actor.Ref[int] }
+
+ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+defer cancel()
+n, err := actor.Ask(ctx, counter, func(r actor.Ref[int]) Get { return Get{ReplyTo: r} })
+```
+
+The actor replies with `msg.ReplyTo.Tell(ctx, 42)`.
+
+### D2. Deadline is mandatory [Owner, Q1]
+
+- A `ctx` that is still live (not canceled, not expired) and has no deadline fails with `ErrAskNoDeadline` and nothing
+  is sent. There is no default timeout and no configurable one. The check comes after the context-state check (D5), so
+  an already canceled context without a deadline reports the cancellation, not the missing deadline **[Owner]**.
+- Attribution: ADR 0010 proposes `Ask` with a required deadline outside actors (`:103`, `:179`). ADR 0008 (`:124`)
+  adds the semantics this ADR relies on: the deadline bounds the wait for the reply, not the target's processing.
+  Both ADRs are `proposed`.
+- Reason: without a deadline the Ask retains its endpoint and timer for as long as the target stays silent.
+
+### D3. Errors: mechanism versus business [Owner for the split, Q4; names are Proposal]
+
+`Ask` returns only **mechanism** failures. Business errors travel inside `R` as ordinary payload. `StatusReply[R]` and
+`AskStatus` are deferred and unscheduled **[Owner, Q4]**.
+
+`ErrAskTimeout` and `ErrAskCanceled` are Ask's own errors, accepted by the owner on condition that
+`errors.Is(err, context.DeadlineExceeded)` and `errors.Is(err, context.Canceled)` hold respectively. Returning the literal
+`context` values is not required **[Owner]**.
+
+| Error | When | Pekko |
+|---|---|---|
+| `ErrAskTimeout` | the deadline was reached first; `errors.Is(err, context.DeadlineExceeded)` also holds | `AskTimeoutException` (classic) and `TimeoutException` (typed); Go has one **[Go]** |
+| `ErrAskCanceled` | `ctx` was canceled first, before or during the wait; `errors.Is(err, context.Canceled)` holds, with or without a deadline on `ctx` | none **[Go]** |
+| `ErrAskNoDeadline` | `ctx` is live and has no deadline | none: Pekko requires a positive timeout (`AS:377-378`) **[Go]** |
+| `ErrRecipientTerminated` | the target's termination had **completed** before the send (D5); never for a merely accepted Stop | `AS:312-319, 372-376`; `TA:146-163` |
+| `ErrInvalidHandle` | the target is not a verified native ref (D6) | `AS:383` is only an analogue: "Unsupported recipient type" |
+
+**One sentinel per condition [Owner, R2].** The condition "nil, foreign or non-native handle" has one sentinel,
+`ErrInvalidHandle`, and Ask does not publish a second name for it. For `Watch`, `WatchWith` and `Unwatch`, a native handle of another System of the same process is not an invalid handle (ADR 0010, Amendment 2026-10-25, accepted by the Owner on 2026-10-25 as a design and not yet implemented; implementation note, 2026-10-26: implemented by DTH-01, PR #1207, `cad059c`, and `ErrInvalidHandle` no longer lists a handle of another System). For every other API, including Ask, the condition and its sentinel are unchanged. Local Watch (first drafted on the branch
+`feat/actor-local-watch`, since merged as #41) declares `ErrInvalidHandle` in `pekko-actor/actor/errors.go`, with a
+message specific to Watch ("invalid handle for watch: ..."). Rules as first agreed:
+
+- Whichever of Ask and Watch reaches `develop` first declares `ErrInvalidHandle`; the other reuses it unchanged. There is
+  never a second variable for the same condition.
+- The message text must be neutral enough for both users. It was Watch-specific, so the Ask increment that adopts it
+  neutralizes the wording (see the status below).
+- Ask's error wraps or returns `ErrInvalidHandle` so `errors.Is(err, ErrInvalidHandle)` holds. It stays distinct from
+  `ErrUnknownHandle` (`errors.go:16-17`, "a handle this System never issued"), which `System.Stop/Done` return.
+- Status 2026-10-11 **[Owner]**: `ErrInvalidHandle` exists on `develop` (declared by Watch, #41, in
+  `pekko-actor/actor/errors.go`). Ask reuses it: no second sentinel is created for the same condition. Its message is
+  Watch-specific today ("invalid handle for watch: ..."), so the first Ask increment that returns it (I-2) neutralizes the
+  text in the same commit that adopts it, for example "actor: invalid handle: nil, of another system or not a native
+  actor handle", and updates the Watch doc comments that quote it. `errors.Is(err, ErrInvalidHandle)` is unchanged for
+  every Watch caller, so the change is textual only. The other four sentinels carry no such dependency.
+
+### D4. State machine [Proposal; the cases are evidence-based]
+
+```
+            +--> replied      first Tell to replyTo
+pending ----+--> timed_out    deadline fired, or ctx.Err() == DeadlineExceeded
+            +--> cancelled    ctx.Err() == Canceled
+rejected                      target termination already completed at send time
+```
+
+- `rejected` is not part of the race. It exists because Pekko fails at once without waiting (`AS:372-376`). It is entered
+  before the request is sent, so nothing can compete with it.
+- One terminal transition: a single atomic compare-and-swap on the endpoint, `pending` to a terminal state. The winner
+  stores the result and wakes the caller. Every other attempt is a no-op. Reply, timeout and cancellation compete only
+  for that transition. **[Pekko]** `tryComplete`, `AS:725-738`.
+- Classification: when `ctx.Done()` wins, `ctx.Err()` decides. `DeadlineExceeded` is `timed_out`; `Canceled` is
+  `cancelled`. **[Go]**
+- Who releases what, all on the winner's path (mirrors `AS:739-742`): the winner stops the deadline timer and wakes the
+  caller. The endpoint is never registered in `System`, so there is nothing to deregister. The caller owns the
+  `cancel` of any context it derived. No per-Ask state remains after the transition.
+- **No promise to cancel processing.** The request stays in the target's mailbox or may already be running. Timeout and
+  cancellation end the wait only.
+
+### D5. Order of checks and the terminated target [Owner, Q2 and R1; order Owner]
+
+Checks run in this order and the first failure returns **[Owner]**. Steps 1 to 3 send nothing, do not call `build` and
+create no endpoint.
+
+1. Validate the target (D6): `ErrInvalidHandle`.
+2. `ctx` is already canceled, or its deadline has already expired (judged by the injected clock): `ErrAskCanceled` or
+   `ErrAskTimeout`. This comes **before** the deadline check, so an already canceled `ctx` that has no deadline returns
+   `ErrAskCanceled`, and `errors.Is(err, context.Canceled)` holds. An expired deadline implies a deadline, so
+   `ErrAskNoDeadline` never masks it. **[Owner, Q2]** keeps the rule that a pre-canceled context or an expired deadline
+   prevents the send.
+3. `ctx` is live and has no deadline: `ErrAskNoDeadline` (D2).
+4. Termination: if the target's termination has **completed**, the Ask creates an endpoint, moves it straight to
+   `rejected`, calls `build`, delivers the request through the normal `Tell` path (which dead-letters it), and returns
+   `ErrRecipientTerminated`. **[Owner, Q2]**
+5. Otherwise the endpoint is created, the deadline timer is armed, the request is sent with `Tell`, and the caller waits
+   on the completion signal and `ctx.Done()`.
+
+Only step 4 produces `ErrRecipientTerminated`, and only for completed termination.
+
+Terminated versus stop accepted **[Owner, Q2]**. "Completed termination" means the cell has run its finish step
+(`PostStop` returned) and its `done` channel is closed (`close(c.done)` in `finish`, `stop.go:79`; the field is
+`cell.go:33`). A stop that was merely accepted (`stopRequested` set, `cell.go:38`) is **not** termination. The Ask checks completion through that cell state. It uses
+no Watch API and changes no lifecycle contract.
+
+After the send, a target that terminates does **not** complete the Ask early. There is no automatic Watch, and the Ask
+may stay pending until its deadline **[Owner, Q2]**. This matches Pekko's lack of a watch during the wait **[Pekko]**.
+
+Consequences **[Go]**, derived from `Tell` (`ref.go:32-47`), which dead-letters when `stopRequested || closed`:
+
+- **Stop accepted but termination not completed [Owner, R1].** The distinction is kept: this window does **not** return
+  `ErrRecipientTerminated`. The request is dead-lettered by `Tell`, and the Ask stays pending until the deadline
+  (`ErrAskTimeout`) or cancellation (`ErrAskCanceled`). Only completed termination enables the immediate failure. The
+  scenario that pins this is AK19 (see "Scenario determinism").
+- Termination completes between step 4 and the send: the same outcome as above. The check in step 4 is a point-in-time
+  read, as in Pekko's `isTerminated` (`AS:372-376`) **[Pekko]**.
+
+`build` is called on the rejected path because it needs a `Ref[R]` to produce the message. The dead-lettered message
+therefore carries a `replyTo` that is already terminal. **[Go]** adaptation: Pekko creates no ask ref on that branch
+(`AS:373-375`).
+
+### D6. Local scope and target ownership [Owner, Q6]
+
+Scope is local. Ask between `ActorSystem`s and remote ask are deferred **[Owner, Q6]**.
+
+`Ask(ctx, target, build)` receives no `System`, and `context.Context` carries no system, so the context is never used
+to decide ownership. The owner of an Ask is derived from the target:
+
+1. `target` must be the native implementation: `r, ok := target.(*ref[T])`, with `ok`, `r != nil`, `r.c != nil` and
+   `r.c.sys != nil`. A nil interface, a typed nil, a user-implemented `Ref`, a test double, and another Ask's reply
+   endpoint all fail with `ErrInvalidHandle`.
+2. The owner is `r.c.sys` (`cell` struct, `cell.go`). The clock, the executor and dead-letter publication come from that `System`.
+3. The owner is verified by the provenance mark of the cell, never by `ID` coincidence: `commit` records the System
+   that committed the cell, and the mark must be the cell's own `r.c.sys`. (Amended by ADR 0024: this was
+   `r.c.sys.lookup(r)` returning the very same cell, which needs a registry that keeps terminated actors.) A native
+   ref whose cell no System committed, or another System did, fails with `ErrInvalidHandle`. A terminated target does
+   **not** fail here: the mark is never cleared, so a terminated cell passes this check and is handled by step 4 of D5.
+4. The reply endpoint belongs to that same `System`: late and duplicate replies are dead-lettered there (D8).
+
+Concrete limitation **[Go]**: the API carries no origin identity for the caller. The Ask has no owner of its own to
+compare against, because the target's system defines the owner. It therefore cannot reject a native ref that comes from
+a different `System` than the one the caller meant. It rejects refs that are not native or whose owner cannot be
+verified. Rejecting "foreign" refs needs an origin identity that the current API does not provide; this ADR designs no
+public parameter for it. Cross-system and remote support stay deferred.
+
+Note: `idSeq` is process-wide, so IDs are unique across `System`s in one process (`id.go:14-18`), and a collision is
+not reachable today. The design does not rely on that.
+
+### D7. Dependencies with Watch and lifecycle [Proposal]
+
+No Watch or lifecycle contract is modified or assumed by this proposal.
+
+| Need | State at `443da01` | Policy |
+|---|---|---|
+| Detect a target that stops during the wait | local Watch is on `develop` (#41) | Do not depend, and register no automatic Watch. The wait ends by deadline or cancellation (D5) **[Owner, Q2]**. |
+| Detect completed termination before the send | `done` closed (`close(c.done)`, `stop.go:79`); `System.Done(h)` exists | Read the cell state; no new contract (D5). |
+| `System` shutdown cancels pending Asks | `System.Shutdown` exists since U10 (#192, #193) and does **not** cancel pending Asks | Decided as not guaranteed: a pending Ask keeps its own deadline or context, there is no Ask registry, and an Ask against a target whose termination completed returns `ErrRecipientTerminated`. Whether Pekko completes the pending Asks when the whole system terminates is *sin verificar* in the pinned tree. Scenario AK17 is resolved as "not guaranteed" and is covered by `TestShutdownDoesNotCancelAPendingAsk`. |
+| `Context.Ask` / `AskFrom` | `Context[T]` has `Stop`, `Watch`, `WatchWith`, `Unwatch`, `Parent`, `Child`, `Children` and is a `Spawner`, but no Ask | Deferred. |
+| Watch on the reply endpoint | Watch has landed; `resolve` (`watch.go`) rejects any handle that does not implement the unexported `owner() *System`, with the typed cause `ErrInvalidHandle` | **Aligned with the accepted Watch contract [Owner, 2026-10-11]**, replacing the earlier draft that proposed a no-op published as `ContextMisuse`: `Watch(askRef)`, `WatchWith(askRef, m)` and `Unwatch(askRef)` stop the watcher with `ErrInvalidHandle`, because the endpoint is not an actor handle (D8: it must not implement `owner()`); `Unwatch` resolves the handle before anything else (`watch.go` `unregister` -> `resolve`), as the Owner-accepted Watch contract implements it (ADR 0010, "Accepted for the local watch increment", 2026-10-10), and is a no-op only once the watcher's own stop was accepted. `System.Stop`/`Context.Stop` on it do nothing (the endpoint is not registered: unknown ID); `System.Done(askRef)` returns `ErrUnknownHandle`. Text corrected in #161: an earlier draft of this row said `Unwatch(askRef)` was a no-op, which contradicted the accepted contract. ADR 0010's `ContextMisuse` stays unimplemented (X1 is not claimed). Scenario AK23 pins this in I-2. |
+
+### D8. Reply endpoint [Proposal]
+
+A second implementation of `Ref[R]` in `ask_endpoint.go`: an unexported type in package `actor`. `Ref[T]` has only `ID()`
+and `Tell` (`ref.go:18-21`), so no cell changes are needed.
+
+- `ID()` is unique, drawn from `idSeq` with a distinct prefix (`ask-<n>`).
+- It is **not** registered in `System.names` or `System.byID`: when this was decided `byID` was never pruned (ADR 0024
+  retires finalized actors since), so per-call registration would have leaked, and nothing needs it. **[Pekko]** also avoids registering a local ask ref until its path is read (`AS:667`).
+- `Tell(ctx, R)` attempts the terminal transition. A losing attempt (duplicate or late reply) publishes
+  `DeadLetter{Msg: reply, To: id}` through the owner `System`. **[Pekko]** `AS:625-627`, `PromiseRefSpec.scala:54-64`.
+- It does **not** implement the unexported `owner() *System` of `watch.go`, so `Watch`/`WatchWith` reject it with
+  `ErrInvalidHandle` (D7). A test pins that the endpoint stays outside that interface.
+- It is not an actor, receives no delivery, carries no metadata and is not guarded (ADR 0008 `:94, :106, :111`, still
+  `proposed`).
+- A late or duplicate reply is observed through `SubscribeDeadLetters` and the `DeadLettersPublished` counter that ADR
+  0010 `:186` already requires.
+
+### D9. Time source [Proposal]
+
+The deadline timer is armed on an injectable clock, so the judge's controlled mode can fire it (ADR 0010 `:186`,
+`docs/judge.md:128-136`). There is no clock today. This ADR requires a minimal unexported `clock` seam beside the
+existing unexported `executor` (`executor.go:17-22`), with `time.AfterFunc` as the production default. The timer
+duration is `deadline - clock.Now()`. Increment I-1 introduces it.
+
+## Alternatives considered
+
+1. **Async `Ask` returning a future or channel.** Closer to Pekko, but the Go idiom is a blocking call plus `ctx`, and a
+   channel result is a resource the caller must drain. Rejected for now; revisit with `AskFrom`.
+2. **Correlation id in an envelope.** The cell stores the bare `T`, so there is no envelope, and Pekko uses none
+   either. Rejected.
+3. **Register the endpoint in `System`.** It gives a Pekko-like `/temp` lookup, but `byID` was never pruned when this was decided (a leak; ADR 0024 retires finalized actors since), and
+   the lookup is only needed for remote. Rejected locally.
+4. **Explicit `timeout` parameter as in Pekko.** Two sources of truth next to the `ctx` deadline. Rejected.
+5. **Watch the target to fail early.** Pekko does not do it, it would couple Ask to Watch's lifecycle (Watch has since landed, #41), and the owner chose
+   not to **[Owner, Q2]**.
+6. **A type-erased reply path (for example through `Handle`).** Rejected **[Owner, Q3]**: replies are typed through
+   `Ref[R]` only, and no type-erased API is added.
+7. **`StatusReply[R]` / `AskStatus` now.** Deferred **[Owner, Q4]**.
+8. **Merge into ADR 0010.** Rejected **[Owner, Q5]**.
+9. **Default or configurable timeout.** Rejected **[Owner, Q1]**.
+
+## Consequences
+
+- One public function and five sentinels, one of which (`ErrInvalidHandle`) is shared with Watch under the D3 rule; one
+  unexported endpoint type; one unexported clock seam. No new package and no
+  `spi/` (no port is needed; ADR 0011).
+- Ask is local request/reply only. Remote and cross-`System` paths are neither designed nor claimed.
+- Deliberate differences from Pekko **[Go]**: the deadline comes from `ctx`; one timeout error; `ErrAskCanceled`;
+  `ErrAskNoDeadline`; business errors travel as payload instead of `Status.Failure`; a pre-terminal endpoint on the
+  rejected path.
+- ADR 0010's Ask text stays `proposed`. Its acceptance and this ADR's acceptance are separate owner decisions.
+- The hierarchy front's Ask reference to 0015 is done (ADR 0014 on `develop`).
+
+## Decisions record
+
+| Q | Decision | Status |
+|---|---|---|
+| Q1 | Mandatory deadline; `ErrAskNoDeadline`; no default or configurable timeout | **[Owner]** (D2) |
+| Q2 | Completed termination returns `ErrRecipientTerminated` and dead-letters the request; accepted Stop is not termination; no automatic Watch; pre-canceled or expired contexts prevent the send | **[Owner]** (D5) |
+| Q3 | Typed replies through `Ref[R]` only; no `Handle` or type-erased path | **[Owner]** (D1, D8) |
+| Q4 | `StatusReply[R]` and `AskStatus` deferred; business errors as payload; the returned error is a mechanism failure | **[Owner]** (D3) |
+| Q5 | Independent ADR 0015; not merged into 0010 | **[Owner]** |
+| Q6 | Local scope; native ref with verified owner; identity never by `ID`; cross-system and remote deferred | **[Owner]** (D6) |
+| R1 | Accepted Stop is not termination: no `ErrRecipientTerminated`; the request is dead-lettered and the Ask stays pending until deadline or cancellation. Only completed termination enables the immediate failure | **[Owner]** (D5, AK19) |
+| R2 | One sentinel per condition: the invalid-handle condition uses `ErrInvalidHandle`; no second name such as `ErrInvalidTarget`. The first of Ask and Watch to land declares it, the other reuses it | **[Owner]** (D3) |
+| Order | Target valid, then context canceled or expired, then mandatory deadline, then completed termination. An already canceled context without a deadline reports the cancellation | **[Owner]** (D5) |
+
+## Open questions
+
+Q1 to Q6, R1 and R2 are closed by the owner. No design question is open.
+
+Dependencies that remain, not questions:
+
+- `ErrInvalidHandle` is on `develop` with a Watch-specific message. I-2 reuses it and neutralizes the text (D3).
+- Everything marked **[Unverified]** above stays unverified until a Pekko harness oracle or a Go scenario exists.
+
+## Pekko -> goPekko -> scenario -> evidence matrix
+
+Ids `AK*` are proposed; final ids are assigned at registration in `judge/scenarios/` and
+`migration/stage-1/milestone-1.md`. Kind: **P** parity (a Pekko oracle exists or can be built), **G** Go-only, asserted on
+goPekko alone (tier S, `docs/judge.md:61`). Nothing in this table is implemented or verified.
+
+| Id | Scenario | Kind | Pekko evidence | Decision | Existing spec |
