@@ -1,0 +1,360 @@
+package eventstream {
+
+import java.util.concurrent.{ ConcurrentHashMap, ConcurrentLinkedQueue, CountDownLatch, TimeUnit }
+import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.Await
+import scala.concurrent.duration._
+import scala.collection.concurrent.TrieMap
+import com.typesafe.config.ConfigFactory
+import org.apache.pekko
+import pekko.actor.{ ActorIdentity, CoordinatedShutdown, ExtendedActorSystem, Identify, RecordingRef, Peek }
+import pekko.Done
+import scala.concurrent.Future
+import pekko.actor.{ Actor, ActorRef, ActorSystem, AllDeadLetters, DeadLetter, Dropped, PoisonPill, Props, Terminated }
+import pekko.event.EventStream
+import pekko.util.MessageBufferMap
+
+// Oracle for the EventStream (ADR 0038, issue #793). One scenario per JVM: `Run EV1` ... `Run EV10`, plus EV1t, EV1tv2, EV1tv3 (EV1 with traits) and EV4f, EV4fv2, EV4fv3 (covered registration on a fresh stream), and EV11, EV11v2, EV11v3, EV11v4 (a DeadLetter that cannot reach a full DeadLetter subscriber), and EV13, EV13v2, EV13v3, EV13v4 (unsubscribe of a never-registered subscriber from a channel that is not a node, or from an unrelated channel), and EV12, EV12v2 (subscribe and unsubscribe on the EventStream of a System that is terminating and of one that is terminated).
+// Every line is `[nnn +ms] text`; nnn is the order in which log() was called.
+trait Iface
+class Base(val id: String) { override def toString = s"Base($id)" }
+class Sub(id: String) extends Base(id) with Iface { override def toString = s"Sub($id)" }
+trait I
+trait J extends I
+class C(val id: String) extends J { override def toString = s"C($id)" }
+trait K
+class C2(val id: String) extends I with K { override def toString = s"C2($id)" }
+class Unrelated(val id: String) { override def toString = s"Unrelated($id)" }
+final case class Fence(id: String)
+
+object Log {
+  private val t0 = System.nanoTime()
+  private val seq = new AtomicInteger()
+  def log(s: String): Unit = synchronized {
+    println(f"[${seq.incrementAndGet()}%03d +${(System.nanoTime() - t0) / 1000000}%5dms] $s")
+  }
+}
+import Log.log
+
+object Fences {
+  private val m = new ConcurrentHashMap[String, CountDownLatch]()
+  def latch(id: String): CountDownLatch = m.computeIfAbsent(id, _ => new CountDownLatch(1))
+  // A direct tell from the publishing thread is queued behind every delivery that thread made before it
+  // (one mailbox, FIFO per sender thread), so the fence proves "everything published before has arrived".
+  def fence(a: ActorRef, id: String): Unit = {
+    a ! Fence(id)
+    require(latch(id).await(10, TimeUnit.SECONDS), s"fence $id timed out")
+  }
+}
+
+object Records {
+  val m = TrieMap.empty[String, ConcurrentLinkedQueue[Any]]
+  def of(name: String): ConcurrentLinkedQueue[Any] = m.getOrElseUpdate(name, new ConcurrentLinkedQueue[Any]())
+  def list(name: String): Seq[Any] = { val b = Vector.newBuilder[Any]; of(name).forEach(e => b += e); b.result() }
+}
+
+// Records every event it receives. `gate` (optional): the first non-Fence event blocks inside receive until released.
+class Collector(name: String, gate: Option[CountDownLatch] = None, entered: Option[CountDownLatch] = None, quiet: Boolean = false)
+    extends Actor {
+  private val got = Records.of(name)
+  private var first = true
+  private var n = 0
+  def receive = {
+    case Fence(id) => log(s"$name fence $id"); Fences.latch(id).countDown()
+    case e =>
+      n += 1
+      if (!quiet || n == 1) log(s"$name recv ${show(e)}")
+      got.add(e)
+      if (first && gate.isDefined) {
+        first = false
+        entered.foreach(_.countDown()); log(s"$name is inside receive, blocked")
+        gate.get.await(30, TimeUnit.SECONDS); log(s"$name leaves receive")
+      }
+  }
+  def show(e: Any): String = e match {
+    case d: DeadLetter if d.message.isInstanceOf[DeadLetter] =>
+      val (k, inner) = Run.nesting(d) // iterative: toString of a deeply nested DeadLetter would itself recurse
+      s"DeadLetter[nested=$k](innermost=$inner, outer sender=${d.sender}, outer recipient=${d.recipient})"
+    case d: DeadLetter => s"DeadLetter(message=${d.message}, sender=${d.sender}, recipient=${d.recipient})"
+    case d: Dropped    => s"Dropped(message=${d.message}, reason=${d.reason}, sender=${d.sender}, recipient=${d.recipient})"
+    case o             => o.toString
+  }
+}
+
+object Run {
+  // Number of DeadLetter wrappers around the first non-DeadLetter message, minus one, and that message.
+  def nesting(e: Any): (Int, Any) = {
+    var k = -1; var x = e
+    while (x.isInstanceOf[DeadLetter]) { x = x.asInstanceOf[DeadLetter].message; k += 1 }
+    (k, x)
+  }
+
+  val cfg = ConfigFactory.parseString("""
+    pekko.loglevel = "OFF"
+    pekko.stdout-loglevel = "OFF"
+    pekko.actor.default-dispatcher.fork-join-executor.parallelism-max = 4
+    pekko.coordinated-shutdown.phases.before-service-unbind.timeout = 30s
+    bounded-mb {
+      mailbox-type = "org.apache.pekko.dispatch.BoundedMailbox"
+      mailbox-capacity = 1
+      mailbox-push-timeout-time = 0s
+    }
+  """).withFallback(ConfigFactory.load())
+
+  def count(es: Seq[Any], id: String): Int = es.count(_.toString.contains(id))
+
+  def main(args: Array[String]): Unit = {
+    val wd = new Thread(() => { Thread.sleep(60000); println("WATCHDOG"); Runtime.getRuntime.halt(3) })
+    wd.setDaemon(true); wd.start()
+    val sys = ActorSystem("evs", cfg)
+    var code = 0
+    try {
+      args(0) match {
+        case "EV1"  => ev1(sys)
+        case "EV2"  => ev2(sys)
+        case "EV3"  => ev3(sys)
+        case "EV4"  => ev4(sys)
+        case "EV5a" => ev5(sys, allChannels = false)
+        case "EV5b" => ev5(sys, allChannels = true)
+        case "EV6"  => ev6(sys)
+        case "EV7"  => ev7(sys)
+        case "EV8"  => ev8(sys)
+        case "EV9"  => ev9(sys)
+        case "EV10" => ev10(sys)
+        case "EV1t"   => ev1t(sys, subscribeTo = Seq(classOf[I]), unsubscribeFrom = classOf[J], then = Some(classOf[I]))
+        case "EV1tv2" => ev1t(sys, subscribeTo = Seq(classOf[J]), unsubscribeFrom = classOf[I], then = Some(classOf[J]))
+        case "EV1tv3" => ev1t(sys, subscribeTo = Seq(classOf[I], classOf[J]), unsubscribeFrom = classOf[J], then = Some(classOf[I]))
+        case "EV4f"   => ev4f(sys, baseFirst = false, xOnBase = false)
+        case "EV4fv2" => ev4f(sys, baseFirst = false, xOnBase = true)
+        case "EV4fv3" => ev4f(sys, baseFirst = true, xOnBase = false)
+        case "EV11"   => ev11(sys, n = 3, channel = classOf[DeadLetter])
+        case "EV11v2" => ev11(sys, n = 1, channel = classOf[DeadLetter])
+        case "EV11v3" => ev11(sys, n = 3, channel = classOf[AllDeadLetters])
+        case "EV12"   => ev12(sys, holdInPhase = true)
+        case "EV12v2" => ev12(sys, holdInPhase = false)
+        case "EV13"   => ev13(sys, jIsNode = false)
+        case "EV13v2" => ev13v2(sys, controlFirst = true)
+        case "EV13v4" => ev13v2(sys, controlFirst = false)
+        case "EV13v3" => ev13(sys, jIsNode = true)
+        case "EV11v4" => ev11(sys, n = 3, channel = classOf[DeadLetter], dl2First = true)
+      }
+    } catch { case t: Throwable => log(s"HARNESS FAILURE $t"); code = 1 }
+    log("-- end")
+    sys.terminate(); Await.result(sys.whenTerminated, 10.seconds)
+    Runtime.getRuntime.halt(code)
+  }
+
+  def coll(sys: ActorSystem, name: String): ActorRef = sys.actorOf(Props(new Collector(name)), name)
+  def attempt[T](label: String)(f: => T): Unit =
+    try log(s"$label -> returned ${f}") catch { case t: Throwable => log(s"$label -> threw ${t.getClass.getName}: ${t.getMessage}") }
+
+  // EV1: return values of subscribe / unsubscribe; duplicate subscription; unknown pair; unsubscribe(subscriber).
+  def ev1(sys: ActorSystem): Unit = {
+    val es = new EventStream(sys, false)
+    val a = coll(sys, "a"); val b = coll(sys, "b")
+    attempt("subscribe(a, Base) first")(es.subscribe(a, classOf[Base]))
+    attempt("subscribe(a, Base) second")(es.subscribe(a, classOf[Base]))
+    es.publish(new Base("p1")); Fences.fence(a, "f1")
+    log("-- one publish of Base(p1) after two subscriptions of a to Base")
+    attempt("unsubscribe(b, Base) b never subscribed")(es.unsubscribe(b, classOf[Base]))
+    attempt("unsubscribe(a, Unrelated) a never subscribed to it")(es.unsubscribe(a, classOf[Unrelated]))
+    attempt("unsubscribe(a, Base) first")(es.unsubscribe(a, classOf[Base]))
+    attempt("unsubscribe(a, Base) second")(es.unsubscribe(a, classOf[Base]))
+    es.publish(new Base("p2")); Fences.fence(a, "f2")
+    log("-- Base(p2) published after a was unsubscribed from Base")
+    es.subscribe(a, classOf[Base]); es.subscribe(a, classOf[Iface]); es.subscribe(a, classOf[Unrelated])
+    attempt("unsubscribe(a) all channels")(es.unsubscribe(a))
+    es.publish(new Sub("p3")); es.publish(new Unrelated("p4")); Fences.fence(a, "f3")
+    log("-- Sub(p3) and Unrelated(p4) published after unsubscribe(a)")
+    es.subscribe(a, classOf[Base])
+    attempt("unsubscribe(a, Sub) a subscribed only to the superclass Base")(es.unsubscribe(a, classOf[Sub]))
+    es.publish(new Sub("p5")); Fences.fence(a, "f4")
+    log("-- Sub(p5) published after unsubscribe(a, Sub)")
+    attempt("unsubscribe(a, Base) after the subclass unsubscribe")(es.unsubscribe(a, classOf[Base]))
+  }
+
+  // EV2: null subscriber / null unsubscriber / null channel.
+  def ev2(sys: ActorSystem): Unit = {
+    val es = new EventStream(sys, false)
+    val a = coll(sys, "a")
+    attempt("subscribe(null, Base)")(es.subscribe(null, classOf[Base]))
+    attempt("unsubscribe(null, Base)")(es.unsubscribe(null, classOf[Base]))
+    attempt("unsubscribe(null: ActorRef)")(es.unsubscribe(null: ActorRef))
+    es.publish(new Base("p1")); Fences.fence(a, "f1")
+    log("-- Base(p1) published after the failed null-subscriber calls (a has no subscription)")
+    val es2 = new EventStream(sys, false)
+    attempt("fresh stream: unsubscribe(a, null channel) a not subscribed")(es2.unsubscribe(a, null))
+    val es3 = new EventStream(sys, false)
+    attempt("fresh stream: subscribe(a, null channel)")(es3.subscribe(a, null))
+    attempt("same stream: publish(Base p2) after subscribe(a, null channel)")(es3.publish(new Base("p2")))
+  }
+
+  // EV3: matching rules, no-match, null event.
+  def ev3(sys: ActorSystem): Unit = {
+    val es = new EventStream(sys, false)
+    val names = Seq("exactBase", "exactSub", "iface", "unrelated", "anyRef", "charSeq", "deadLetters")
+    val m = names.map(n => n -> coll(sys, n)).toMap
+    es.subscribe(m("exactBase"), classOf[Base]); es.subscribe(m("exactSub"), classOf[Sub])
+    es.subscribe(m("iface"), classOf[Iface]); es.subscribe(m("unrelated"), classOf[Unrelated])
+    es.subscribe(m("anyRef"), classOf[AnyRef]); es.subscribe(m("charSeq"), classOf[CharSequence])
+    es.subscribe(m("deadLetters"), classOf[DeadLetter])
+    def settle(tag: String): Unit = names.foreach(n => Fences.fence(m(n), s"$tag-$n"))
+    log("-- publish Sub(s1): subclass of Base, implements Iface")
+    es.publish(new Sub("s1")); settle("s1")
+    log("-- publish Base(b1): not an Iface")
+    es.publish(new Base("b1")); settle("b1")
+    log("-- publish String hello")
+    es.publish("hello"); settle("hello")
+    class Nobody; val nb = new Nobody
+    log("-- publish Nobody on es2, where no subscription matches its class")
+    val es2 = new EventStream(sys, false); es2.subscribe(m("deadLetters"), classOf[DeadLetter]); es2.subscribe(m("unrelated"), classOf[Unrelated])
+    es2.publish(nb); settle("nb")
+    log("-- (es2 subscribers: unrelated -> Unrelated, deadLetters -> DeadLetter)")
+    attempt("publish(null)")(es.publish(null))
+    settle("null")
+  }
+
+  // EV4: one actor subscribed to a class and to its superclass / interface.
+  def ev4(sys: ActorSystem): Unit = {
+    val es = new EventStream(sys, false)
+    val x = coll(sys, "x"); val y = coll(sys, "y"); val z = coll(sys, "z")
+    attempt("x subscribe Base")(es.subscribe(x, classOf[Base]))
+    attempt("x subscribe Iface")(es.subscribe(x, classOf[Iface]))
+    attempt("x subscribe Sub")(es.subscribe(x, classOf[Sub]))
+    attempt("y subscribe Sub")(es.subscribe(y, classOf[Sub]))
+    attempt("y subscribe Base (after Sub)")(es.subscribe(y, classOf[Base]))
+    attempt("z subscribe AnyRef")(es.subscribe(z, classOf[AnyRef]))
+    attempt("z subscribe Base")(es.subscribe(z, classOf[Base]))
+    es.publish(new Sub("d1"))
+    Seq(x, y, z).foreach(a => Fences.fence(a, "f-" + a.path.name))
+    log("-- one publish of Sub(d1); count the recv lines of each actor")
+    attempt("x unsubscribe Base")(es.unsubscribe(x, classOf[Base]))
+    es.publish(new Sub("d2")); Seq(x, y, z).foreach(a => Fences.fence(a, "g-" + a.path.name))
+    log("-- one publish of Sub(d2) after x unsubscribed from Base only (still on Iface and Sub)")
+  }
+
+  // EV4f: a covered registration on a fresh stream. z subscribes to AnyRef then Base (v3: Base then AnyRef).
+  // v2 (EV4fv2): x registered on Base first, so Base is already a node. One publish of Base(d1), then fences.
+  def ev4f(sys: ActorSystem, baseFirst: Boolean, xOnBase: Boolean): Unit = {
+    val es = new EventStream(sys, false)
+    val z = coll(sys, "z")
+    if (xOnBase) { val x = coll(sys, "x"); attempt("x subscribe Base")(es.subscribe(x, classOf[Base])) }
+    if (baseFirst) {
+      attempt("z subscribe Base")(es.subscribe(z, classOf[Base]))
+      attempt("z subscribe AnyRef")(es.subscribe(z, classOf[AnyRef]))
+    } else {
+      attempt("z subscribe AnyRef")(es.subscribe(z, classOf[AnyRef]))
+      attempt("z subscribe Base")(es.subscribe(z, classOf[Base]))
+    }
+    es.publish(new Base("d1")); Fences.fence(z, "f-z")
+    log("-- one publish of Base(d1); count the z recv lines")
+  }
+
+  // EV5 / EV6 helper
+  def blocker(sys: ActorSystem, name: String, quiet: Boolean = false): (ActorRef, CountDownLatch, CountDownLatch) = {
+    val gate = new CountDownLatch(1); val entered = new CountDownLatch(1)
+    (sys.actorOf(Props(new Collector(name, Some(gate), Some(entered), quiet)), name), gate, entered)
+  }
+
+  // EV5: unsubscribe linearization with a blocked subscriber.
+  def ev5(sys: ActorSystem, allChannels: Boolean): Unit = {
+    val es = new EventStream(sys, false)
+    val (s, gate, entered) = blocker(sys, "s")
+    es.subscribe(s, classOf[Base])
+    es.publish(new Base("e1")); require(entered.await(10, TimeUnit.SECONDS))
+    log("-- e1 delivered, s blocked inside receive; publish e2 e3 e4 into its mailbox")
+    es.publish(new Base("e2")); es.publish(new Base("e3")); es.publish(new Base("e4"))
+    log("-- publisher returned from e2 e3 e4 while s is blocked")
+    if (allChannels) attempt("unsubscribe(s) all channels")(es.unsubscribe(s))
+    else attempt("unsubscribe(s, Base)")(es.unsubscribe(s, classOf[Base]))
+    es.publish(new Base("e5"))
+    log("-- e5 published after unsubscribe returned; open the gate")
+    gate.countDown()
+    Fences.fence(s, "f")
+    log("-- fence: everything s was ever going to receive from this thread has arrived")
+  }
+
+  // EV6: publisher is not blocked by a blocked subscriber.
+  def ev6(sys: ActorSystem): Unit = {
+    val es = new EventStream(sys, false)
+    val (s, gate, entered) = blocker(sys, "s", quiet = true)
+    es.subscribe(s, classOf[Base])
+    es.publish(new Base("e0")); require(entered.await(10, TimeUnit.SECONDS))
+    val n = 1000
+    val done = new CountDownLatch(1)
+    val t = new Thread(() => { for (i <- 1 to n) es.publish(new Base("e" + i)); done.countDown() })
+    t.start()
+    val finished = done.await(10, TimeUnit.SECONDS)
+    log(s"-- publisher thread published $n events while s is blocked inside receive: finished=$finished")
+    gate.countDown()
+    Fences.fence(s, "f")
+    val ids = Records.list("s").map(_.toString)
+    log(s"-- gate opened; fence passed; s received ${ids.size} events, in publish order: ${ids == (0 to n).map(i => s"Base(e$i)")}")
+  }
+
+  // EV7: unsubscribe on termination; subscribing an already-terminated actor. Uses the system's own eventStream.
+  def ev7(sys: ActorSystem): Unit = {
+    val es = sys.eventStream
+    val dl = coll(sys, "dl"); es.subscribe(dl, classOf[DeadLetter])
+    val obs = sys.actorOf(Props(new Collector("obs", quiet = true)), "obs"); es.subscribe(obs, classOf[Base])
+    def stopAndWait(a: ActorRef): Unit = {
+      val l = new CountDownLatch(1)
+      sys.actorOf(Props(new Actor { context.watch(a); def receive = { case Terminated(_) => l.countDown() } }))
+      Thread.sleep(100) // lets the watcher register; the Terminated is what the latch waits on
+      a ! PoisonPill; require(l.await(10, TimeUnit.SECONDS))
+    }
+    def deadFor(name: String): Int =
+      Records.list("dl").count { case d: DeadLetter => d.recipient.path.name == name; case _ => false }
+    def publishAndReport(tag: String, name: String, n: Int, pace: Boolean): Unit = {
+      var last = 0
+      for (k <- 1 to n) {
+        es.publish(new Base(s"$tag$k")); Fences.fence(dl, s"f$tag$k")
+        val d = deadFor(name)
+        if (d != last) { log(s"publish $tag$k: dead letters for $name so far = $d"); last = d }
+        if (pace && k % 10 == 0) Thread.sleep(5)
+      }
+      log(s"-- $n publishes of $tag done; dead letters for $name in total = ${deadFor(name)}; last change shown above")
+    }
+    val victim = coll(sys, "victim")
+    attempt("subscribe(victim, Base)")(es.subscribe(victim, classOf[Base]))
+    attempt("subscribe(victim, Base) again")(es.subscribe(victim, classOf[Base]))
+    stopAndWait(victim)
+    log("-- victim terminated (Terminated observed by a watcher)")
+    publishAndReport("v", "victim", 40, pace = true)
+    Fences.fence(obs, "fobs")
+    log(s"-- obs (a live subscriber to Base) received ${Records.list("obs").count(_.isInstanceOf[Base])} of 40 events")
+    val racer = coll(sys, "racer")
+    es.subscribe(racer, classOf[Base])
+    racer ! PoisonPill
+    log("-- racer stopped with PoisonPill; publishing at once, without waiting for its termination")
+    publishAndReport("r", "racer", 300, pace = false)
+    val dead = coll(sys, "dead")
+    stopAndWait(dead)
+    log("-- dead terminated; now subscribe it")
+    attempt("subscribe(dead, Base) already terminated")(es.subscribe(dead, classOf[Base]))
+    publishAndReport("w", "dead", 40, pace = true)
+    attempt("subscribe(dead, Base) again later")(es.subscribe(dead, classOf[Base]))
+  }
+
+  // EV8: bounded mailbox (capacity 1, push timeout 0): full mailbox.
+  def ev8(sys: ActorSystem): Unit = {
+    val es = sys.eventStream
+    val dl = coll(sys, "dl"); es.subscribe(dl, classOf[DeadLetter])
+    val dr = coll(sys, "dr"); es.subscribe(dr, classOf[Dropped])
+    val gate = new CountDownLatch(1); val entered = new CountDownLatch(1)
+    val s = sys.actorOf(Props(new Collector("s", Some(gate), Some(entered))).withMailbox("bounded-mb"), "s")
+    es.subscribe(s, classOf[Base])
+    es.publish(new Base("e1")); require(entered.await(10, TimeUnit.SECONDS))
+    log("-- e1 taken by s (blocked inside receive); mailbox empty, capacity 1")
+    es.publish(new Base("e2")); log("-- e2 published: fills the mailbox")
+    es.publish(new Base("e3")); log("-- e3 published: mailbox full")
+    es.publish(new Base("e4")); log("-- e4 published: mailbox full")
+    Fences.fence(dl, "fdl"); Fences.fence(dr, "fdr")
+    log("-- dl and dr fenced (a DeadLetter is published synchronously inside publish)")
+    gate.countDown()
+    val deadline = System.nanoTime() + 10000000000L
+    while (Records.list("s").size < 2 && System.nanoTime() < deadline) Thread.sleep(5)
+    Thread.sleep(50) // no further event is expected; this only gives a wrongly queued one time to show up
+    log(s"-- gate open; s drained: it received ${Records.list("s").mkString(",")}")
+  }
+
