@@ -1,0 +1,360 @@
+# Audit 3 (update, consolidated): static audit of existing evidence at `33b2127`
+
+- Audited head: `origin/develop` = `33b2127ad62befb91b71b7f4bb4ee6698ef4d332` ("docs(readside): close the U6 provenance discrepancy and record the closures of #715, #717 and #718 (#729)", commit 2026-10-23T13:19:40-03:00 = 16:19:40Z, GitHub `mergedAt` 16:19:41Z). Both source drafts began at `1e2dc18` (#727, 16:10:31Z). `1e2dc18..33b2127` is #729, five documentation files (ADR 0027, `traceability.md`, the U6 design, the two U6 unit records, +22/-14 lines). The whole diff was read. No Go file, test, script or `go.mod` changed, so every code and test finding is valid at both SHAs; the claims about provenance, 40000/40002 wording and the closures of #715/#717/#718 are updated to `33b2127`. Re-checked with `git fetch origin` before each push.
+- **Consolidation.** This document consolidates two drafts of the same audit: #728 (now CLOSED unmerged, 2026-10-23T16:59:36Z, branch kept at `28bd9bc` and replaced by #730; revision 2; compared at head `bb37812723dd3d084b59db09fb6f5e930e38869f` and re-read at its later head `28bd9bc84a14b43800339d64f3cf597f4d1358ee`, whose one extra commit is incorporated below, file `docs/audit/auditoria-3-1e2dc18.md`, written by one session) and #730 (head `2af87131124ca958efb9947701bfb5310ef976d6`, file `docs/audit/auditoria-3-33b2127.md`, written by another). Each difference was resolved against the code, the records and the sources at `33b2127`, and the resolution is in section 14. Useful findings of both are kept; claims found false, duplicated or unsupported are removed. The execution of every review cited is accounted for in section 3.3 without inferring independence or its absence from the GitHub account alone.
+- **Review status (exact).** (1) The text of #728 at `bb37812` was independently reviewed on 2026-10-23 (documentary reviewer; verdict READY_WITH_MINORS, 7 minor findings). That report is not stored in the repository and is known only from the account of the session that obtained it. (2) The corrections made at `28bd9bc` (#728) and every edit of this branch after `c1a1967` (`b1093dd`, `ffa4110`, `06aedbf`, `3f95a1b`, `8b0d922`, `64726bb`) were checked against git and GitHub only by the authoring agents; they were not independently reviewed by the time those commits were made. (3) Section 3.3 attributes one review to `c1a1967` (the consolidation commit); it rests on the authoring session's account and is not stored in the repository. (4) An independent documentary review of the final text at `64726bb` was performed on 2026-10-23 (verdict READY_WITH_MINORS; 5 findings, applied in the commit that follows `64726bb`); that report is not stored in the repository either. The corrections applied after that review were checked only by the authoring agent. (5) An independent documentary review covered the delta `64726bb..5295a78` (commit `8ff9d3d` and the section 15 commit), on 2026-10-23, verdict CHANGES_NEEDED with 7 findings (2 major, 5 minor); the report is not stored in the repository. Later edits, including `f25a561` and the application of those findings, were checked only by the authoring agent when made; items 6 and 7 below record later reviews that covered them. The reviewer ran no engine or test (static review) and could not verify the reviewer evidence of #732 cited in 15.1. A second static review, by a fresh agent started from another session (read-only by instruction, no Docker), covered the delta `64726bb..f25a561` (it did not cover the commit that applies the findings above): verdict no blocker, five minors; its report is not stored in the repository either. The statements of section 15 about reviews of #731 (READY_WITH_MINORS on `a43d7bc`, its delta READY) rest on the account of the session that obtained them: #731 has no comments or reviews on GitHub. (6) An independent documentary review covered the delta `5295a78..928e0a9` (`f25a561` and the commit that applies the findings of item 5), on 2026-10-23, verdict READY_WITH_MINORS with 3 minor findings; the report is not stored in the repository. It was static (no engine or test ran). It confirmed the facts about #733, #731, #732, #729, the ten Markdown files and the ADR 0029 quotes against git and GitHub. It could not verify the reviewer evidence of #732 cited in 15.1, which remains reported and uncorroborated. (7) A third static review, by a fresh agent started from the session that wrote `3c69d9c` (read-only by instruction, no Docker), covered `f25a561..3c69d9c` (that is `928e0a9` and `3c69d9c`): verdict no blocker, two minors (the list of reviewed commits, and the mutant figures of the #733 review, which are the reviewer's and differ in detail from #733's body); the report is not stored in the repository. The edits that apply the three minors of item 6 and the two of this item, and these items themselves, are checked only by the authoring agents. Nothing in this file may be read as "independently reviewed in full". #728 was closed unmerged on 2026-10-23T16:59:36Z and replaced by this PR; its branch is kept at `28bd9bc`.
+- **Scope of the SHA.** Every finding in sections 1-14 is about `33b2127`, the audited SHA, and is not rewritten, except the pointers "see section 15", the counts of section 12 and the wording fixes listed in the Review status. `develop` later moved to `48403b2` (#731, #732); what changed is only in section 15, with pointers marked "see section 15" in the rows it affects.
+- Previous audit: read-only, 2026-10-22, `develop` `590e86b745d4b1f11e891e5559c2b6b88969b200`, a local file that was never in the repository (Audit 2 was not recoverable either). This document reuses its axes and compares against its recorded verdict.
+- Nature: **static**. No test, engine, container, checker, judge, mutation or campaign was run. What would need an execution is marked `unverified`. Remote CI was not executed either (billing, section 12).
+- Language: English (`skills/gopekko-cognitive-doc-design/SKILL.md:72`). Paths are relative to the repository root at `33b2127` (line numbers cited for files that #729 did not touch are identical at `1e2dc18`), with these short forms: a bare `*_integration_test.go` name is in `gopekko-testint/`; `pgcheckpoint/` is in `pekko-persistence-postgres/`; `sqlitecheckpoint/`, `sqlitejournal/`, `sqlitemock/`, `sqlitetx.go` are in `pekko-persistence-sqlite/` (the last two under `internal/`); `projection/` and `spi/` are in `pekko-projection/`; `411-u6-*.md` is in `migration/stage-2/persistence/units/`; `*.scala` names are upstream Pekko files, not in this repository. Repository paths cited here were checked with `git cat-file -e 33b2127:<path>` after the consolidation (summary in section 12). Upstream `*.scala` files and pgx's `tx.go` are outside the repository.
+
+## 0. How to read
+
+Four evidence categories, never merged. A green Go test is not Pekko parity.
+
+| Code | Category | Meaning here |
+|---|---|---|
+| **AD** | ACCEPTED DESIGN | A decision or ADR the Owner accepted (not "Proposed"). Says nothing about code. |
+| **II** | INTEGRATED IMPLEMENTATION | Code on `develop` at the audited head. Says nothing about whether it was run. |
+| **RE** | RECORDED EXECUTION | A run with SHA and time written in a repo file or PR comment, with who ran it. Not re-run here. |
+| **CD** | COMPARATIVELY DEMONSTRATED | Behavior shown by tests that **ran** against two engines (table A) or against Pekko (table B). Reading Pekko source is **alignment by reading**, never CD. |
+
+Fault technique: **REAL** (real engine behavior), **SIM** (test-owned proxy, driver wrapper or injected error against a real engine), **MOCK** (`pgxmock`, `sqlitemock`, no engine). Reading labels: **(L)** read by the auditor at the cited line; **(R)** taken from a recorded run; **(X)** inference. Levels L0-L4 are those of `gopekko-testint/README.md` (L0 double, L1 real engine logic, L2 client SIGKILL, L3 engine hard stop, L4 power loss). "Not demonstrated" never means "not supported".
+
+## 1. Verdict
+
+| Question | Previous (590e86b) | Now (33b2127) |
+|---|---|---|
+| MVP end to end | Not demonstrated | **Demonstrated for a bounded route, not as a whole.** One persistence id: a persistent actor in a child process writes events, a test-owned `Source` over the real journal reader feeds `RunAtomic`, a durable store (PostgreSQL and SQLite) commits effect and checkpoint in one transaction, and a killed projecting child is resumed from the committed checkpoint (section 6). This rests on author runs of the suite at `a603b87` and on equivalence of the code by reading to `33b2127`; no full-suite run exists on the audited head. Pending at `33b2127`, separate from crediting that route: production `Source`, non-atomic `projection.Run` with a durable store (closed on SQLite at `48403b2` by #732, see section 15), several ids (U7), rebuild (U8). |
+| Pekko parity | Not demonstrated | **Not demonstrated.** Pins and alignment by reading only; no executed parity for the read side (table B). |
+| SQLite and PostgreSQL parity | Partial: journal only at L1 | **Partial, with more recorded evidence.** Same scenario functions run on both engines for journal, snapshots, checkpoints and U6 (table A). Open: L3/L4, the 5 s rollback deadline on a real engine, fault asymmetries. |
+| Guard | Slice A, bootstrap, empty manifest | **Unchanged** (no commit under `tools/`, `docs/parity/` capabilities, `scripts/` since 590e86b). |
+
+## 2. Changes since the previous audit (590e86b to 33b2127)
+
+`git rev-list --count 590e86b..1e2dc18` = 30 commits, grouped by PR; `590e86b..33b2127` = 31 (#729 is the 31st). The drafts said 32 and 33; neither matches the same ranges (section 14).
+
+| PR (squash) | Area | What it did |
+|---|---|---|
+| #695 (`dca0ce9`), #686 (`bdae37f`) | actor | No `PostStop` after failed `PreStart` (#690); bounded mailbox, ADR 0030 accepted 2026-10-22. |
+| #687 (`1449248`) | docs | `docs/parity/actor-local-fidelity-audit-2026-10-22.md`; opened #674-#694. |
+| #696, #697, #698 | testint | Serialization registry evidence; PG cross-process recovery and client death (L2); PG COMMIT outcomes through a test-owned proxy (SIM). |
+| #702, #703, #704 | testint | U-3 on PG (snapshots, checkpoints, record), merged 13:17:38Z, 13:18:32Z, 13:19:18Z. |
+| #701 (`a84c226`) | docs | U6 atomic-mode design, accepted for U6 only (M1-M6 and three extras). |
+| #705-#708 | projection, adapters | `spi` atomic contract; `RunAtomic`; `Atomic` on `pgcheckpoint` and `sqlitecheckpoint`. |
+| #709-#714, #716 | testint | U6 matrix; last squash `c02293b`. |
+| #719, #722, #724 | docs | U6 integration record, reconciliation, Pekko divergence in the projection README. |
+| #720, #723, #726 | fix, docs | SQLSTATE 40003 at COMMIT is uncertain (Owner-authorized); provenance corrected to a labelled paraphrase. |
+| #721, #725 | testint | RK1-RK3 names; X4 proxy barrier, X4 on SQLite as SIM, statement order. |
+| #727 (`1e2dc18`) | docs | Closure record of the U6 review findings (+73 lines, one file). |
+| #729 (`33b2127`, commit 16:19:40Z, `mergedAt` 16:19:41Z) | docs | Provenance of the 40003 amendment closed with the Owner's textual confirmation (ADR 0027, design section 17); 40000/40002 worded as "current classification"; closures of #715/#717/#718 recorded; "not demonstrated" instead of "not resistant" for crashes. Five files, no code. |
+
+Closed/resolved: PG snapshots, checkpoints, recovery and client kill moved from L0 to L1/L2 (baseline H3, G1, G2); bounded mailbox exists (part of H12); U6 exists. Still open from the baseline: H1 in part, H2, H4 (guard), H5 (remote CI), H7 (SQLite `Delete`, now a narrow residual: section 8), H8 (T6, #563), H9 (campaign tree `8e13e29b` vs recorded `f1697b67`), H10 (no upcasting: #407, #408, #388), H11 (stale docs, section 4.5), part of H6.
+
+## 3. Recorded runs of the integration suite
+
+### 3.1 The "143 tests, 860 PASS entries, 28 atomic" evidence, run by run
+
+Sources: `migration/stage-2/persistence/units/411-u6-atomic-mode.md` (record) and `migration/stage-2/persistence/units/411-u6-pending-717-718.md` (pending file), both read at `1e2dc18`; PR comments read with `gh api .../issues/<n>/comments`. Command is `GOPEKKO_TESTINT_ENGINES=all go test -tags integration -race -timeout 40m -v` in `gopekko-testint` unless noted.
+
+| # | Tested SHA | Who | Time (UTC) | Counts | Where recorded | Status |
+|---|---|---|---|---|---|---|
+| 1 | `c02293b` (#716 squash) | author | not timed | 140 top-level PASS, 25 atomic; `ok` 270.521 s | record :61-67 | recorded; earlier same-suite runs on `9a6211d` (268.004 s) and `65bed9f` (265.163 s), 140 PASS |
+| 2 | `88e9ea9afb0b` (tip of #715 before its record commit) | author (session that added #717/#718) | from 14:21:52Z, 275 s | 143 top-level PASS, 860 PASS lines with subtests, 0 FAIL, 0 SKIP; atomic count not stated for this run | pending file :19-29 | recorded; logs are scratch files, not in the repo |
+| 3 | `642cd5c41a09` (head of #715) | **a reviewer; executor, isolation and log not recorded; reported 14:29-14:33Z. Who reported it, and where, is not recorded either: the report reached this audit through the text of the first #728 draft** | | reported 143 / 860 / 28 | **no repo text records its counts, SHA or times.** The closing comment on #715 (2026-10-23T16:09:48Z) says generically that the engine-suite results of the replacing content "are those recorded by the independent reviews of the candidate trees, not re-run now" and that "a reviewer checked the equivalence of the replacing squashes with `642cd5c`"; it carries no counts, SHAs or times for engine-suite runs (the SHAs and times it does carry are those of the replacing merges) | **reported, pending corroboration** (the #715 mention is indirect) |
+| 4 | `9bad3a2d2cf7` (consolidation candidate) | author (consolidation session) | 15:06:19Z-15:10:58Z, 276.050 s | 143 top-level, 860 PASS entries, 28 `TestIntegrationAtomic*`, 0 FAIL, 0 SKIP | pending file :57-61 | recorded; contains the #720/#723 code |
+| 5 | `14853c77038787f713d4750eb268af88deb18fc9` (merge in `candidate/u6-consolidation`, committed 15:13:05Z; not on `develop`) | **a reviewer; executor, isolation and log not recorded; reported 15:21:19Z-15:25:59Z; same provenance of the report as row 3** | | reported 143 / 860 / 28 | **no repo text records its counts or times** (only the generic #715 comment above); the SHA is not mentioned anywhere under `migration/`, `docs/` or `gopekko-testint/` at `33b2127` on this tree (other branches were not searched for this statement) | **reported, pending corroboration** |
+| 6 | `089d1acd5011` (closure candidate) | author | 15:18:49Z-15:23:29Z, 277.395 s | 143 top-level, 28 atomic, 0 FAIL, 0 SKIP (860 not stated) | record :141 | recorded |
+| 7 | `a603b87372` (tip of develop after #725) | author | 15:51:52Z-15:56:30Z, 277.315 s | 143 top-level, 28 atomic, 0 FAIL, 0 SKIP | record :142 | recorded; first line of the log is that SHA |
+| - | `33b2127`, `1e2dc18`, `4f12574` | none | | | | **No full-suite run exists on the audited head.** |
+
+Rows 3 and 5 are **not** reclassified as author evidence and are not counted as recorded evidence either. Two cautions: (1) the record says the independent reviews "did not reproduce the 140-test full module" for the earlier candidate (:96) and that the three closure reviews had no Docker and "did not reproduce the full-suite run" (:149, :154); it is silent about full-suite runs by an independent reviewer on `642cd5c` or `14853c7`, so the reported runs would be additional, unrecorded evidence; (2) rows 5 and 6 overlap in time (15:21:19Z-15:23:29Z); the repository does not say whether they ran on one machine or two, and nothing here depends on it. All runs of rows 1-7 that are recorded are the author's. The 28 atomic cases per run were not counted by the auditor.
+
+Reviews that are recorded in PR comments, and those that are not, are accounted for in section 3.3. Subset runs, not the full module.
+
+### 3.2 Which tested trees equal the audited tree
+
+`33b2127` differs from `1e2dc18` in documentation only (#729), so the Go-level comparison below holds for both. Columns say `1e2dc18` where the diff was read at that SHA.
+
+| Tested tree | Difference to `1e2dc18`, read from `git diff` | Evidence applies to `1e2dc18`/`33b2127`? |
+|---|---|---|
+| `88e9ea9`/`642cd5c` (rows 2, 3) | **Behavior**: #720 (`commitPhase`: 40003 uncertain, 115 lines of new mock-level tests in `pgcheckpoint/atomic_40003_test.go`); renames `R1/R2` to `RK1/RK2` in three test files (names/comments, 8 lines); Go comments in four production files; documentation (#719, #722, #724, #726, #727). The `gopekko-testint` test logic is the same apart from the renames. | Suite counts apply to the integration tests as they were; they **say nothing about 40003**, which no engine test exercises. |
+| `9bad3a2`, `14853c7`, `089d1ac` (rows 4-6) | Contain the #720 code. To `1e2dc18` every changed Go line that was read is a `//` comment (`git diff -U0` of `089d1ac..1e2dc18` for the three production files, `14853c7..1e2dc18` for `pgcheckpoint/atomic.go` and the two `pgcheckpoint` test files); no `go.mod`, `go.sum` or `scripts/` change. | Yes for behavior, by reading (X); not re-run. Whole range `14853c7..33b2127`: five Go files (`pgcheckpoint/atomic.go`, `pgcheckpoint/atomic_40003_test.go`, `pgcheckpoint/atomic_test.go`, `projection/atomic.go`, `spi/atomic.go`), read with `git diff -w -U0`: every changed Go line is a comment, either a whole `//` line or a trailing comment after identical code (one line of `atomic_test.go`: the `// PROPOSED amendment` comment became `// amendment authorized by the Owner`). |
+| `a603b87` (row 7) | #726 (one comment line in `pgcheckpoint/atomic.go`, docs), #727 and #729 (docs). | Yes, same caveat. |
+
+Classification of the later deltas (`git log`): #720 behavior (unit-tested); #723 comments/docs; #721 test rename; #722, #724, #726, #727, #729 documentation.
+
+### 3.3 Reviews: who ran each, isolation, SHA and evidence
+
+Nothing here infers independence, or its absence, from the GitHub account: every PR comment below was posted from the account `pablogore`, which is also the author's, and that fact does not say who ran the review. What the record does say is the executor named in the comment or in the repository, the isolation it states, the SHA, and where the evidence is. **"Independent" in this audit means: a separate agent context given the diff and the plan instead of the author's conclusions, with the runs and the verdict written separately. It does not mean a different person, machine, operating-system user, Docker daemon or credentials.** No document in the repository shows any of those differences, and none shows their absence either.
+
+| Review | Reviewed SHA | Executor and isolation, as stated | What it ran | Evidence | Limit |
+|---|---|---|---|---|---|
+| #705 + #706 | `dceed3a` (1b; 1a `ceb0536` below) | "a fresh agent given the diffs and the accepted design, not the author's conclusions"; "in its own worktree" | `go vet`, `go test -race -cover` of `pekko-projection`; mutants | #705 and #706 comments, 2026-10-23T03:52:12Z-13Z | Unit level; no engine |
+| #707 | `df7d98b` (merge of 1b into 2a) | same; own worktree | `go vet`, tests of `pekko-persistence-postgres`; 12 own mutants | #707 comment 03:56:00Z | Mock level |
+| #708 | `bb963f3` | same; own worktree | `go vet`, tests of `pekko-persistence-sqlite`; 10 mutants (1 survived) | #708 comment 03:56:02Z | Double level |
+| #709 | `b16ed6c` | "a fresh agent given the diff and the plan"; worktree not stated | SQLite `-race` subset; **PostgreSQL not run** | #709 comment 12:23:15Z | PostgreSQL claim not verified by it |
+| #710 | `287ff07` | same; worktree not stated | SQLite and PostgreSQL 17.6 via colima, 7 tests, `-race`; 9 mutants | #710 comment 12:46:12Z | PostgreSQL run before U-3 landed (M6 chronology) |
+| #711 | not stated in the comment | same; "observed both engines itself" | SQLite `-race` 12 tests; `GOPEKKO_TESTINT_ENGINES=all` 46.8 s, 0 FAIL, 0 SKIP; 9 mutants | #711 comment 12:55:13Z | Same; SHA not stated |
+| #712 + #713 | `5190d8e` (#713 head, contains #712) | same; worktree not stated | SQLite 49 PASS lines; `ENGINES=all` 94 PASS lines; 7 production mutants | #712 and #713 comments 13:02:58Z, 13:02:59Z | Subset runs |
+| #714 | not stated in the comment | same; "observed both engines itself (Docker through colima was available)" | `-run TestIntegrationAtomic -race` both engines, 62 s, 0 SKIP; 6 mutants | #714 comment 13:10:12Z | Subset run |
+| Combined candidate `candidate/u6-reconciled` (final verdict on `5b35968`) | `5b35968` | "fresh agents", per the unit record, section "Author evidence and reviewer evidence" (the record says "that reviewer" for the final verdict) | gates and the atomic subset on both engines; **not** the 140-test full module; no lint | unit record only (no PR comment) | Report text not in the repository; isolation not stated |
+| Closure work, three reviews described by the unit record: the 40003 fix (`2e4c685` with `2c0e38d`), the candidate `52d6ff4`, the documentation delta `52d6ff4..26ba60f` | as listed | per the record ("Independent reviews, exact scope", `411-u6-atomic-mode.md:147-155`): fresh agents, read-only, no Docker, no integration tests | read the diffs; unit tests of `pgcheckpoint` and, for the candidate, of the three production modules with `-race`, `check_deps.sh`, `go vet -tags integration`; the RED of the 40003 tests reproduced in a scratch copy | the record | Did not reproduce the full-suite run; the reconciliation commits and later changes were not reviewed (record :147-155); reports not stored |
+| Other readings of the closure phase: the closure record `f34a660`, the provenance correction #729 (`8be2c06`), the verification of the first #728 text (`26c808b`), and the review attributed to the consolidation commit `c1a1967` (a later independent review of the text at `64726bb` is described in the header, item 4) | as listed | fresh agents launched by the session that prepared that work. That they were told to be read-only, ran nothing needing Docker and, where anything ran, used a scratch copy outside the worktree comes from the account of that session, **not from a repository file**; the read-only condition was an instruction in the prompt, not a sandbox | reads of git and GitHub, `check_deps.sh`-level checks as stated in each prompt | **none in the repository**: the reports were returned to that session and are not stored | Everything in this row rests on that session's account |
+| Rows 3 and 5 of table 3.1 (full-suite runs on `642cd5c` and `14853c7`) | as in 3.1 | executor, isolation and log **not recorded** anywhere in the repository | reported 143 / 860 / 28 | none in the repository | Reported, not corroborated |
+| #697, #698, #702, #703, #716, #719 | n/a | no review recorded: 0 comments and 0 reviews on each (#704 has only the Owner-confirmation comment, which records no run) | n/a | `gh api` | No reviewer evidence exists for them |
+
+All reviews above are subset runs or readings. The only full-module runs recorded in the repository are the author's (table 3.1).
+
+## 4. Axes: status
+
+### 4.1 Actors and close-out items
+
+| Item | AD | II | RE | Alignment by reading | Limit |
+|---|---|---|---|---|---|
+| Bounded mailbox, opt-in | ADR 0030 accepted 2026-10-22 | `actor.WithMailboxCapacity(n)`; overflow to dead letters (`docs/adr/0030-bounded-mailbox.md:162-164`, `pekko-actor/README.md:19-28`) | local validation only | `BoundedMailbox(n, pushTimeOut=0)` in `Mailbox.scala:705-726` at the pin (L) | **Not backpressure** (#685); variants #688; Port posts #689; default unbounded. |
+| `Terminated` at the tail | ADR 0010 amendment | `README:61` | as above | none | Also changes unbounded watchers' order. |
+| `PostStop` after failed `PreStart` (#690/#695) | n/a | `stop.go` `finalize` (L) | audit doc rev 8 | `ActorCell.scala:663-666`, `FaultHandling.scala:247-254` per the audit doc | Per #687. |
+| Fidelity matrix (#687) | n/a | n/a | audited at `590e86b7`, not repeated | levels in the doc | The doc cites #683 as "ActorSelection", but its title is Terminated flags (X). |
+| Shutdown does not drain; pending Asks | n/a | `pekko-actor/README.md:497` (L) | none | none | No issue found. |
+| Retention T6 | ADR 0024 | T2-T5 only | none | none | #563 open. |
+| Judge campaign | n/a | `judge/go-mutation-report.tsv` (tree `f1697b67`, commit `67422501`) | stale | none | `pekko-actor` tree is now `8e13e29b382fa27b41427de820e49eb8b42f45ef`: not CURRENT (X; `scripts/check-judge-matrix.py` not run). |
+
+Open actor issues (reference only; `PoisonPill` has no issue found): #452, #443, #448, #450, #461, #563, #674-#685, #688, #689, #691-#694. Stale: `pekko-actor/README.md:512` "eleven approved scenarios".
+
+### 4.2 Persistence: PostgreSQL and SQLite (RE: author runs unless stated)
+
+| Capability | SQLite | PostgreSQL | Technique | Not shown |
+|---|---|---|---|---|
+| Migrations (0001 journal, 0002 snapshot, 0003 checkpoint in both adapters; `pgschema/migrations/`, `sqliteschema/migrations/`), `ErrSchemaGap` (`pgschema.go:50-52,298`, `sqliteschema.go:48-50,266`), cold start | II, L1 | II, L1 (30 cases, `-race`) | REAL | Mutual exclusion during migration. |
+| Journal | L1 | L1 | REAL | Server crash. |
+| Snapshots | L1 | **L1** (#702): 8 tests, 44 leaf cases, 52 PASS (README:19) | REAL | Faults on snapshot `Save`/`COMMIT`. |
+| Checkpoints | L1 | **L1** (#703) | REAL | Same. |
+| Cross-process recovery | 4 tests, orderly close | `recovery_postgres_integration_test.go` (#697), module 96 tests / 637 PASS at the time of #697 (README:22; the module is now 143 top-level tests, table 3.1) | REAL | A crash. |
+| Client SIGKILL | L2 `kill_*` 300/300, WAL 200/200 | `recovery_postgres_kill_integration_test.go`: 5 tests x20 `-race` = 100 PASS | REAL (child SIGKILL) | **L3 never run**; L4 not demonstrable. A mutant that omits `fsync` is not tried and can survive a client kill, because the operating system's cache lives on (`gopekko-testint/README.md:454`). |
+| COMMIT outcomes | only injected errors (`failures_sqlite_*`) | #698: 11 tests, 49 PASS | **SIM** (TCP proxy cuts or swallows `CommandComplete COMMIT`); `P0001` trigger REAL | Server fall; exactly-once; after a lost acknowledgement the application's retry stores the event twice (recorded in the test). |
+| Rollback deadline (ADR 0025, 5 s) | `sqlitetx.rollbackAndRelease` | `txcleanup` | MOCK | Never exercised on a real engine (ADR 0025:81). |
+| Durability policy | `sqlitetx.go` policy; `ErrNotDurable` re-exported at `sqliteschema.go:63`; 59 cases, 5/5 mutants (README:437-455) | `synchronous_commit` raised | REAL (setting observed) | Settings, not crash survival. |
+| `Journal.Delete` | see section 8 | `TestIntegrationJournalPostgresDurabilityFloorOfDelete` (`journal_postgres_durability_integration_test.go:112`) | | Section 8. |
+
+### 4.3 Read side
+
+| Item | AD | II | RE | Limit |
+|---|---|---|---|---|
+| U1-U5 | ADR 0026 subset, ADR 0027 U4/U5 subsets | II | author | No production `Source`. `projection.Run` with a durable store has **no test on any engine at `33b2127`** (a SQLite test exists at `48403b2`, section 15): `git grep 'projection\.Run\b\|projection\.Config{'` finds it only in `pekko-projection` unit tests, its README and example. |
+| U6 contract | M1-M6 + three extras, **only at** `072386623b0139e4d5671eca96e85dc7e5c5252c` (ADR 0027 Status; record :5) | `spi/atomic.go`; `projection/atomic.go` `RunAtomic`; `pgcheckpoint/atomic.go` `Atomic`; `sqlitecheckpoint/atomic.go` | section 3.1 | The Owner's acceptance is a typed turn in a local session log; the ADR states that limit itself. |
+| SQLSTATE rules | M-rules; **40003 amendment authorized by the Owner**, provenance in ADR 0027 and design section 17 is a **paraphrase** by the coordinator, labelled as such (#726); #729 adds the Owner's textual confirmation (quoted there, time not recorded, no retroactive authorization, R6 not accepted) | 40001, 40P01, class 23, class 40 rejected; **40003 and P0001 uncertain, cause preserved, no retry**; 40000/40002 unchanged (current classification) | 40003: unit-level classification with a MOCK (`pgcheckpoint/atomic_40003_test.go`) | Real 40003 at COMMIT: not shown. |
+| COMMIT cases | | `atomic_commit_postgres_integration_test.go:71,145,162,175,189` | reviewer subset runs (#712/#713) | |
+| RK1, RK2 | | `atomic_kill_integration_test.go:222`, both engines | author | **RK3 not run.** |
+| X4 | | PG proxy barrier `atomic_cancel_commit_postgres_integration_test.go:42`; in server `atomic_inflight_postgres_integration_test.go:61`; SQLite `atomic_cancel_commit_sqlite_integration_test.go:33` | author | SQLite X4 is **SIM**. |
+| One-transaction detectors | | PG `xmin` (`atomic_inflight_...:106`), wire order (`atomic_order_integration_test.go:137`), SQLite statement sequence (`atomic_sqlite_sim_integration_test.go:266`) | author | |
+| U7, U8 | ADR 0026 O1, O2, O6, ADR 0027 P8, O8 **Proposed** (`decisions.md:32,46`) | not started (`traceability.md:24`) | none | Blocked on Owner decisions. |
+
+U6 fault technique by case: COMMIT lost / answer lost = **SIM** (proxy). Deferred unique violation (class 23), `P0001`, `pg_terminate_backend` between handler and COMMIT, swallowed SQL error, 40001 write skew = **REAL** PG. SQLite COMMIT failures (SIM-1, SIM-2, X4s) = **SIM** (test-owned driver wrapper); no real SQLite COMMIT failure exists. 40003, `pgx.ErrTxCommitRollback`, class mapping = **MOCK**. 40P01 on a server: no test.
+
+**Chronology (M6), a recorded fact.** M6 applies the D3 extension to the U6 PostgreSQL cases once U-3 has landed (13:17:38Z-13:19:18Z). The independent-review comments on #709-#714 are timestamped 12:23:15Z-13:10:12Z, before that; the authors' run times for those slices are not recorded. The record (`411-u6-atomic-mode.md:55`) and the `gopekko-testint` README (:621) state that these runs were made before the M6 condition, are not retroactively authorized, and that their authorization is **pending the Owner's explicit decision**. ADR 0027 after #729 and design section 17 (`docs/readside/u6-atomic-mode-design.md:360`) record the Owner's confirmation that it "does not authorize earlier runs retroactively"; that bounds the scope of the confirmation and is not a separate decision. The three M6 sentences quoted in section 4.5 still say a decision is pending, so the repository wording is inconsistent; no retroactive authorization is recorded, and the Owner's confirmation does not grant one. M6 is therefore **historical chronology**, not an open Owner decision; correcting the three sentences is a documentation item (P0, section 10), not a decision. The later suites (rows 2-7 are after 13:19:18Z) ran with U-3 landed.
+
+### 4.4 Serialization, dependencies, guard
+
+| Item | AD | II | Limit |
+|---|---|---|---|
+| Serialization | ADR 0021 subset | Unchanged since 590e86b; #696 adds testint evidence | No upcasters/event versioning: #407, #408, #388 open. `pekko-serialization/README.md:7-18` is stale (says no real-engine cycle). |
+| Dependency direction | ADR 0022 D2 and ADR 0028 D2 amendments | `scripts/deps.allow:9,12,14` agrees with `CLAUDE.md:28-37` | `check_deps.sh:23-36` compares modules only; "only to implement the store" is prose, not enforced. |
+| Parity guard | slice A only | `tools/cmd/parityguard`; `docs/parity/capabilities.json` `bootstrap`, `capabilities: []` | Not in CI (`.github/scripts/ci-fast.go:36`). Green means structure only. |
+| Real engines only in `gopekko-testint` | ADR 0029 | Holds by static grep (L): no testcontainers, docker, DSN, `sql.Open(`, `:memory:` outside it; the PostgreSQL modules use `pgxmock/v4`, the SQLite module uses `internal/sqlitemock` and fake `database/sql/driver` connectors, no `sqlmock`; `gopekko-testint` is imported by no module | Not re-verified by execution. |
+
+### 4.5 Documentation (stale or over-claiming at `1e2dc18`, L)
+
+| Where | Statement | Problem |
+|---|---|---|
+| `gopekko-testint/README.md:3-4` | "the full validation units remain planned" | Contradicted by executed rows in the same file. |
+| `gopekko-testint/README.md:25,41` | U-3 PostgreSQL "not integrated" | Contradicted by :19 (#702-#704). |
+| `gopekko-testint/README.md:162` | "L2 validation (U-5) remains pending" | Contradicted by :22-24. |
+| `docs/adr/0029-...:3,8,107-111` | "D3 remains pending", "PostgreSQL was not run"; and, at :8, "SQLite U-1 to U-5 are integrated and validated at the levels their matrices state" | Contradicts its later update and the integrated work; "validated" reads stronger than the L1/L2 levels the same sentence names, and nothing there shows power loss. |
+| `docs/readside/traceability.md:4,22,51-54` | old pin; U5 PG "written, not run"; "Nothing is tested yet" | Stale. |
+| `docs/readside/decisions.md:58` | atomic mode "needs ... U6" | U6 is integrated. |
+| `pekko-projection/README.md:21` | adapters "unit tests with doubles only" | Stale. |
+| `docs/adr/0028-sqlite-durable-backend-and-adapter.md:113-115` | "Not verified by any test of this repository: what the engine does with those statements ..."; "The `journaltest` conformance suite is not run" | Scoped to the unit tests of the module (a double), but read as repository-wide it is stale: `journaltest` and real-engine cases run in `gopekko-testint` (table A). |
+| `README.md:47` | dependency rules "run in CI" | `ci-fast` does not run `check_deps.sh`. |
+| `docs/ci.md` | documents workflows (for example `nightly.yml` and `judge-calibration.yml`) that are not under `.github/workflows/`, which holds `ci.yml` and `labeler.yml` at `33b2127` | Its banner points to `docs/ci-economy.md`. |
+| `docs/readside/traceability.md` | a Test column with "(to add)" cells | Stale (see the row above for lines 4, 22, 51-54). |
+| `pekko-actor/README.md:512` | "eleven approved scenarios" | Disagrees with `docs/actor-core-parity.md` and the TSV. |
+| `411-u6-atomic-mode.md:55`, `411-u6-pending-717-718.md:70`, `gopekko-testint/README.md:621` (the three M6 occurrences found by `git grep -i -E` with the three phrases "pending the Owner", "stays pending" and "authorization is pending" over `migration/stage-2/persistence`, `docs/readside`, ADR 0027 and `gopekko-testint` at `33b2127`; a fourth hit, `411-u4-read-side-base.md:13`, is about another unit) | M6 runs "not retroactively authorized, and their authorization is pending the Owner's explicit decision" | ADR 0027 after #729 records the Owner's confirmation as not authorizing earlier runs retroactively. The wording is inconsistent with it: historical chronology, no retroactive authorization, no pending Owner decision recorded. |
+
+Resolved by #729 and no longer listed: the 40003 authorization quote in the unit record (:137 at `1e2dc18` reproduced a disputed Spanish text; at `33b2127` the record points to ADR 0027), the "#715 stays pending" paragraph (:59), and the "not closed" sentence for #715/#717/#718 (now a closure table, :159-167).
+
+No `README` claim found that equates `synchronous=FULL`/`synchronous_commit` with crash survival.
+
+## 5. Comparisons
+
+### 5.A Between engines (PostgreSQL vs SQLite): executed, same scenario functions
+
+| Area | Shared code (tests) | Recorded execution | Engine-specific remainder |
+|---|---|---|---|
+| Journal | `runScenarios`: `TestIntegrationJournalSharedSequencePolicy`, `...SharedReplay`, `...SharedWriters`, `...SharedPersistenceIDs`, `...SharedRoundTrip` (`journal_scenarios_*_integration_test.go`); the 35-case `journaltest` suite on both | author, L1 (README) | Duplicate recognition differs per adapter (`journal_engines_integration_test.go:27-28`). |
+| Snapshots | `snapshotsSave`, `snapshotsDelete`, unreadable, two-instances (`TestIntegrationSnapshots{SQLite,Postgres}*`, `snapshot_engines_integration_test.go`) | #702, author: 8 tests, 52 PASS | SQLite cold reads only on SQLite. |
+| Checkpoints | `TestIntegrationCheckpoints{SQLite,Postgres}ReadSaveClear`, `...Unreadable`, `...TwoInstances` | #703, author; U-3 subset 18 PASS in the per-prefix table (record) | |
+| U6 atomic | `u6Engines` loop (`atomic_engines_integration_test.go:78`) used by `TestIntegrationAtomicProjectsEachCommandOnce` (`atomic_matrix_integration_test.go:42`), handler failures (`atomic_handler_integration_test.go:75-147`), checkpoint failure/cancellation/two runners (`atomic_checkpoint_integration_test.go:45-227`), `...KilledClientDoesNotLeaveAHalfAppliedEnvelope` (`atomic_kill_integration_test.go:222`) | section 3.1 rows 1-7 (author) | **Asymmetric**: PG proxy COMMIT faults, in-server `xmin`, wire order, 40001 are PG-only; SQLite SIM wrapper and statement sequence are SQLite-only; X4 uses a proxy barrier on PG (SIM) and a driver wrapper on SQLite (SIM). |
+
+Table A is **execution** evidence (CD at L1/L2 for the shared parts). It is not durability evidence and the engines are not shown equivalent under server crash.
+
+### 5.B Against Apache Pekko
+
+Pins (checked): `upstream/pekko` submodule = `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` = tag `v1.7.1`; Pekko Projection tag `v1.1.0` dereferences to `be34eadcb1771e45abf7207bddaeb22633b7d4f8` (ADR 0027, `traceability.md:33`; not a submodule). Upstream was read through `gh api` at those SHAs; the submodule is not checked out here. Upstream line numbers cited here (`JdbcSessionUtil.scala` 43-44 for `func(session)` and `session.commit()`, 46-53 for the rollback path) were re-read at the Projection pin when this document was consolidated.
+
+**Executed against Pekko (recorded, not re-run).**
+
+| What | Covers | SHA / date | Does not cover |
+|---|---|---|---|
+| (i) Go-side mutation campaign of the actor-core judge (`judge/mutate_go.py`): the 15 Go scenarios pass on unmodified code; 19/19 mutations met, 18/18 designed mutations detected, benign 1/1 (`migration/stage-2/persistence/evidence/go-campaign-6742250/PROVENANCE.md`, `judge/go-mutation-report.tsv`) | `pekko-actor` core, Go side only (this row does not run Pekko) | Go commit `67422501`, tree `f1697b67`, 2026-10-18 16:47:55-17:07:14, darwin/arm64 | Not CURRENT for `pekko-actor` tree `8e13e29b`. No persistence, no projection. |
+| (ii) Pekko-side runs of the same judge (`judge/run-pekko.sh`, sbt) as documented in `docs/actor-core-parity.md` section 4: controlled S01, S10, S11, S19 (1 run), concurrent S01, S02, S10, S11, S19, S20, S21 (300 runs each, 300/300 pass) | Real Pekko `9a54d12` (v1.7.1) against the same scenarios as Go | the document is dated 2026-10-09 (Go code under test `55159fa`); no separate run date is recorded | darwin/arm64; only the scenarios listed; no persistence, no projection. |
+| Pekko mutations M66 (omission of `PostStop`: `timeout` 30/30, **not** detected) and M67 (excess: detected by G5.f), `judge/mutation-report.tsv`, `migration/stage-1/judge-g5f-pekko/EXECUTION-RECORD.md` | Actor `PostStop` accounting | base `f9a8838`; recorded in PR #482 (commit `c4d44b7`, 2026-10-17T00:28:31-03:00, which is not among the commits the PR lists and is therefore presumably its squash; merged 2026-10-17T03:28:32Z); the run date is not stated in the record | One platform (darwin/arm64), one run of 30. |
+| JVM baseline of the Pekko persistence TCK on the **in-memory** journal: 15/15 and 8/8 hand mutations caught (`migration/stage-2/persistence/JVM-BASELINE.md`) | The upstream oracle itself | authorized by the Owner after #492, 2026-10-17 | Runs only on the JVM; "none can run against Go" (`JUDGE-SETUP.md` section 1). It does not run Go code. |
+
+No test and no judge result runs upstream Pekko Projection, or compares Go persistence adapters, `RunAtomic` or the checkpoint stores with Pekko. **Executed parity for persistence and read side: none.**
+
+**Alignment by reading (not CD).**
+
+| Capability | Upstream (path:line at the pin) | Go | Result of reading |
+|---|---|---|---|
+| Offset saved first, then handler, one transaction | `JdbcProjectionImpl.scala:71-82` (Projection v1.1.0); commit `JdbcSessionUtil.scala:43-45` | `RunAtomic`+`AtomicStore` (`projection/atomic.go:62`, `spi/atomic.go:105`) | Order matches (X). |
+| Rollback on failure | `JdbcSessionUtil.scala:46-53` | adapters roll back, preserve cause | Equivalent by reading (X). |
+| Recovery strategy | `HandlerRecoveryImpl.scala:63-110` around the whole handler future, commit failure included | only `PhaseHandler` follows `Recovery` | **Diverges**: no COMMIT retry (documented, #724). |
+| Lost acknowledgement then re-applied effect | inferred from reading that upstream may retry (X) | `ErrCommitUncertain`, no retry | **Not run.** Proposed experiment: run the upstream Jdbc test fixtures with a connection that drops the commit acknowledgement (mechanism unverified). |
+| Session abstraction | `JdbcSession.scala:39-67` | generic `TxHandler[T]` | Accepted adaptation. |
+| Bounded mailbox | `Mailbox.scala:705-726` | `WithMailboxCapacity(n)` | Overflow to dead letters, no blocking. |
+| Commit-outcome whitelist | not present upstream | classes 23/40 rejected, 40003 and P0001 uncertain | Go-only extension. |
+
+Not yet compared: remoting, cluster, routing, FSM, timers, stash, event adapters, tags, at-least-once delivery, `CoordinatedShutdown`, persistence query beyond finite ranges, grouped/vector projections. No Pekko surface inventory exists (`docs/quality-gates.md`).
+
+## 6. End to end: demonstrated and pending
+
+**Demonstrated** (RE: author, section 3.1 rows 1-7; reviewer subset runs on #712-#714; L1/L2; one persistence id; both engines unless noted):
+
+| Step | Test (file:line at `1e2dc18`) |
+|---|---|
+| Command side: a persistent actor in a child process persists events | `u6Command` (`atomic_engines_integration_test.go:146`) |
+| Test `Source` over the real journal reader (`CurrentEventsByPersistenceID`, exclusive resume) | `u6Source` (`atomic_engines_integration_test.go:105-116`) |
+| `RunAtomic`, durable store, effect and checkpoint once each | `TestIntegrationAtomicProjectsEachCommandOnce` (`atomic_matrix_integration_test.go:42`) |
+| Resume from the committed checkpoint after more commands | `TestIntegrationAtomicResumesFromTheCheckpointAfterMoreCommands` (`atomic_handler_integration_test.go:75`) |
+| Handler failure rolls effect and checkpoint back; retry applies once | `...HandlerFailureRollsTheEffectBackWithTheCheckpoint` (:90), `...RetryAndFailAppliesTheEffectOnce` (:105) |
+| Kill/restart: projecting child SIGKILLed before COMMIT (resume applies the envelope: 2 invocations, 1 effect) and after COMMIT (resume does not redeliver) | `TestIntegrationAtomicKilledClientDoesNotLeaveAHalfAppliedEnvelope` (`atomic_kill_integration_test.go:222`, RK1/RK2, L2) |
+| One transaction, checkpoint first | PG `xmin` and wire order, SQLite statement sequence (section 4.3) |
+
+**Pending**, each separate; none is a precondition for crediting the route above: production `Source` (#412, #415); non-atomic `projection.Run` with `sqlitecheckpoint`/`pgcheckpoint` on a real engine (grep confirms no such test at `33b2127`; SQLite closed by #732, PostgreSQL still pending: section 15); a persistent-actor crash followed by catch-up; several ids (U7, #416); rebuild (U8, #416); server crash and power loss (L3/L4). While develop was at `33b2127`, the Owner-authorized SQLite test was developed in draft #732 and the text reconciliation in draft #731 (both created after `33b2127` was merged: 17:10:44Z and 17:03:09Z); nothing in sections 1-14 credits either. Both were integrated afterwards (section 15).
+
+## 7. Decisions and the refinements R1-R6, one by one
+
+Accepted, and only these: M1-M6 and three extras at `072386623b0` (O1/P5, AM1-AM6, generic API, checkpoint-first order, classification and no retry after any COMMIT failure, bounded D3 extension, one envelope per transaction, location in the checkpoint packages, documentation of preconditions); the **40003 amendment**. The Owner's confirmation says R1-R5 and later decisions are not accepted (ADR 0027 Status). #700 is **closed** (2026-10-23T12:31:08Z, superseded by #701, comment 12:31:07Z); its improvements are R1-R5.
+
+| Ref | What it is | Does `develop` already behave so? (L) | Accepted? | Effect of leaving it Proposed | Pending? |
+|---|---|---|---|---|---|
+| R1 | Evidence of the PG classification by reading pgx v5.7.5 (`tx.go:180-200`), unrun | `commitPhase` tests `ErrTxCommitRollback` first (`pgcheckpoint/atomic.go`) | No | None on behavior: it is documentation of grounding. | No |
+| R2 | Say "neither committed" only before COMMIT is written; a cancelled context during COMMIT is uncertain | Yes: ctx ended before COMMIT is `PhaseCheckpoint`; during COMMIT `PhaseCommitUncertain` (X4 tests); SQLite all-uncertain | No (wording) | None; wording only. | No |
+| R3 | Invalid config fails with `ErrInvalidConfig` before any effect | Yes: `AtomicConfig.validate` (`projection/atomic.go:42-56`), test `projection/atomic_test.go:103,105` | No | Behavior stays; if declined, code and tests change. | No |
+| R4 | Narrowed handle; a handler that ends the transaction | Yes: `Tx` offers Exec/Query/QueryRow, invalidated on return; design cases G4/G5, unrelated to audit G5 (`atomic_checkpoint_integration_test.go:160,182`) | No (a design default, not one of the extras) | Behavior stays; engine behavior is recorded, not promised. | No |
+| R5 | Record author and reviewer evidence separately | Practiced in the unit record | No | None; a process rule. | No |
+| R6 | Context ended before COMMIT is `PhaseCheckpoint` | Yes, both adapters (`pgcheckpoint/atomic.go` `upToCommit`; `sqlitecheckpoint/atomic.go:111-113`), pinned by unit tests and `...CancellationBeforeCommitStoresNothing` (`atomic_checkpoint_integration_test.go:70`) | **No, Proposed** (design 16.2) | The code keeps an addition to the accepted meaning of `PhaseCheckpoint`; if the Owner declines it, adapters and tests must change. | **Only R6 has a real pending decision, and it is not a blocker for anything else.** |
+
+Other decisions: **40000 and 40002 keep the current classification** (rejected, in the accepted whitelist). Widening the whitelist or narrowing them is an **optional improvement**, not a blocker. `P0001` stays uncertain. M6 is historical chronology with no retroactive authorization (section 4.3), not a pending decision.
+
+## 8. G5: `Journal.Delete` on SQLite (downgraded)
+
+Two different guarantees hide behind the name.
+
+1. **The highest-sequence floor** survives `Delete`. `sqlitejournal.Delete` (`sqlitejournal/journal.go:214-227`) removes events only and never touches `journal_highest`; the floor is written by `Write` (`upsertHighest`, :171). Covered under other names, on a real engine and both engines: the shared scenario "the highest number survives deleting every event, a lower write does not decrease it, and a deleted number can be written again" (`journal_scenarios_integration_test.go:186-197` via `sDeleteAll`, `TestIntegrationJournalSharedSequencePolicy`), the SQLite cases at `journal_sqlite_cases_integration_test.go:130-148`, and at mock level `TestDeleteRemovesEventsOnlyAndNeverTouchesTheHighest` (`sqlitejournal/journal_test.go:316-325`: no statement mentions `journal_highest`). A mutant that deletes or lowers the floor in `Delete`, or drops `upsertHighest` in `Write`, would fail them (X).
+2. **The durability policy** on the `Delete` write path (refuse a non-durable connection, `ErrNotDurable`). `Delete` goes through `sqlitetx.Run` (:214-227), as does `Write`. The real-engine policy tests run over `durWriters()` = Migrate, journal Write, snapshot Save, checkpoint Save (`durability_policy_sqlite_integration_test.go:112-141`); **`Delete` is not in that list**, nor in `failures_sqlite_integration_test.go:120`. At mock level `sqlitemock.ExpectBegin` scripts the whole policy handshake (`sqlitemock/script.go:49-54`) and the `Delete` unit test uses it (`journal_test.go:318-323`), so a mutant that bypasses `sqlitetx.Run` in `Delete` fails the mock script (X, not run).
+
+**Conclusion:** G5 as "SQLite `Delete` floor is untested" is **removed**. A residual remains, and it is small: no **real-engine** test makes `Delete` refuse under a non-durable pragma set (`ErrNotDurable`, nothing deleted), so a defect visible only against real pragmas in `Delete`'s own path, and not in the shared `sqlitetx.Run`, would not be caught by an integration test. Fix would be one more `durWriters` entry. Priority P2.
+
+## 9. Gaps (not demonstrated is not unsupported)
+
+| Gap | Label | Check (proposed, not run) |
+|---|---|---|
+| Real 40003 at COMMIT | not demonstrated; classified with a MOCK only | **No mechanism is known in the repository.** The PostgreSQL appendix read for design section 17 gives names only. Option: leave as classification-only and say so. Any experiment would be a *proposed experiment, mechanism unverified*, possibly impossible. |
+| 40P01 on a server | not demonstrated | Proposed experiment: two-session deadlock through `RunAtomic` (mechanism unverified). |
+| Real SQLite COMMIT failure | simulation only | Proposed experiment: full volume or locked file at COMMIT in a temp FS (unverified). |
+| RK3 random kills | not run | Seeded random SIGKILL points, same assertions as RK1/RK2. |
+| Upstream re-applies after a lost acknowledgement | read, not run | Table B. |
+| PG server kill (L3) | never run | Stop/restart the container on the same volume. |
+| Power loss (L4) | not demonstrable here | Out of scope. L1/L2 do not show server crash or power loss. |
+| Rollback deadline (5 s) on a real engine | never exercised | Proposed: a proxy that holds the rollback answer. |
+| Real-engine `Delete` policy refusal on SQLite | residual (section 8) | Add `Delete` to `durWriters`. |
+
+**Verified mechanisms that exist in the repo** (not proposals): the COMMIT proxy (`commit_proxy_postgres_integration_test.go`, #698/#725), `pg_terminate_backend` (`atomic_commit_postgres_integration_test.go`, `recovery_postgres_kill_integration_test.go`), the advisory-lock trigger kill, the deferred unique violation, a 40001 write skew, the SQLite driver wrapper.
+
+## 10. Prioritized pending work
+
+Re-derived. Not listed as Owner decisions: "R1-R6 gate" (only R6 is pending), 40000/40002 and whitelist widening (optional), #700 (closed). G5 is P2. M6 is not listed as a pending decision (historical chronology, no retroactive authorization); its stale wording is a documentation item.
+
+| Pri | Item | Issue | Depends on |
+|---|---|---|---|
+| P0 | (Partly done by #731 at `48403b2`: see section 15 for fixed and still open.) Reconcile stale docs (section 4.5): testint README, ADR 0029, traceability, decisions.md:58, `pekko-projection/README.md:21`, ADR 0028, the M6 wording at `411-u6-atomic-mode.md:55`, `411-u6-pending-717-718.md:70` and `gopekko-testint/README.md:621` (wording contradicts the recorded decision; documentation only, no Owner decision) | none found | none |
+| P1 | Record the reported reviewer full-suite runs (rows 3 and 5) with executor, isolation, command, time, SHA and counts, or state they cannot be recorded | none | the reviewer's logs |
+| P1 | (SQLite part done by #732 at `48403b2`, section 15, with detectors published in draft #733; PostgreSQL not.) Non-atomic `projection.Run` with a durable store on a real engine (SQLite first), with restart; then production `Source` | #412, #415, #414 (RSD) | `Source` shape (unverified which decisions are accepted); PG needs a check of ADR 0029 D3 scope |
+| P1 | Event versioning and upcasters | #407, #408, #388 | decision #407 |
+| P2 | Owner decision on R6 (accept or decline) | none | Owner |
+| P2 | `Delete` in `durWriters` (section 8); RK3; 40P01; PG L3; rollback deadline | none | Owner authorization for PG engine work beyond ADR 0029 D3 where it applies |
+| P2 | Guard slices B-E, `snapshottest`/`checkpointtest` | none | G1 evidence (available at L1) |
+| P2 | Actor campaign refresh and T6; actor fidelity gaps | #563, #461; #452, #443, #448, #450, #674-#685, #688, #689, #691-#694 (open; #686 and #687 are merged pull requests and #690 is closed) | per issue |
+| P2 | Remote CI restoration or replacement | none | billing |
+| P2 | U7, U8 | #416 | ADR 0026 O1, O2, O6 (Proposed) |
+| Optional | Widen or narrow the COMMIT whitelist (40000/40002) | none | Owner; not a blocker |
+
+## 11. Next work item
+
+**Recommended: reconcile the stale documents (P0)**: no Owner decision and no dependency; it removes the largest source of misreading (README and ADR 0029 still say PostgreSQL was not run). Then the first concrete technical item is a real-engine test of the non-atomic `projection.Run` with `sqlitecheckpoint`, a restart and a test `Source` (reusing `u6Source`/`u6Command` shapes), which needs no new engine authorization on SQLite. That test was integrated by #732 at `48403b2` (section 15). As of `48403b2` the next items are the still-open stale statements (section 15), the production `Source`, and the two open minors of #732, for which draft #733 publishes detectors (not integrated).
+
+## 12. Evidence limits and checks
+
+- Static: no test, engine, container, checker, judge or campaign run. `scripts/check-judge-matrix.py` and `scripts/check_deps.sh` not run.
+- **Remote CI was not executed.** Jobs do not start because of billing (run 39984076029, observed 2026-10-23T16:07Z: job `go` failed with 0 steps in 2 s). Neither green nor red evidence about code.
+- Every recorded full-module run in the repository is local and by the author; rows 3 and 5 of section 3.1 are reported and uncorroborated. Reviews are accounted for in section 3.3. The Owner's acceptances rest on a typed turn in a local session log.
+- **Issue-search scope.** `gh issue list --state open --limit 500` returned **367** open issues (fewer than the limit, so the open set was read completely); `--state all --limit 1000` returned 432. All 367 titles were filtered by keyword (delete, floor, durab, sqlite, projection, source, upcast, guard, parity, judge, billing, 40003, SQLSTATE, RK3, deadlock, kill, rollback, atomic, U6-U8, rebuild) and `gh issue list --state all --search` was run for "Delete floor sqlite", "40003 OR SQLSTATE OR RK3 OR deadlock" and "judge OR campaign OR billing OR guard" (the first two returned 0). Titles are mostly Spanish, so "no issue found" means *none among these queries*, not that none exists. No issue was created.
+- Pekko was read through the GitHub API at the pins; only files listed in section 5.B were read.
+- **Second-pass checks (this edit, observed outputs; not stored in the repository).** At the start `gh pr list --state open` showed #730 at `8b0d9227` (the task brief had `3f95a1b`; the delta is `8b0d922`, three wording changes, now included) and `origin/develop` = `33b2127`. Path check of every backticked token with a path-like extension in this file: approximately 96 distinct tokens (the author's count, not reproduced in the later review); 28 with a directory resolve directly with `git cat-file -e 33b2127:<path>`; 7 distinct upstream `*.scala` names (skipped); the remaining short names resolve to a file in the 33b2127 tree by basename, except `tx.go` (pgx, outside the repository), `nightly.yml` and `judge-calibration.yml` (cited as absent from `.github/workflows/`), and the globs/self-references `docs/audit/*.md` and the two audit files, which are not at `33b2127`. Line limit: file is under 400 lines and the PR adds only this file. No docs checker applies to `docs/audit/` (see below).
+- **Verification of the drafts.** A read-only agent compared 55 claims of the first #728 text with git, GitHub and the pinned upstream tags (about 45 correct). That report is not stored in the repository, and it covered the first #728 text, not the consolidated one.
+- **Thin axes, as limits.** Pekko Projection alignment compares the transactional exactly-once path only (four upstream files); `MergeableOffset`, `ProjectionManagement`, the offset store and the other capabilities of `traceability.md` were not re-compared. Serialization has one row (no change since `590e86b`). Whether `check_deps.sh` or the import guard covers imports inside `gopekko-testint` beyond the module list was not checked. Evidence by SHA is given where a run names one; most rows cite the test file and the README row, not the SHA of the executing tree.
+- **Issue search.** "No issue found" means none among the queries described above; closed issues were searched only by the `--state all` queries.
+- Checks run on this document by the author of the consolidation, with scripts and commands whose output is not stored in the repository (the figures below are that author's report, not reproducible from the repository without rerunning them; the commit counts are the exception and are one command each): `git fetch origin`; `git rev-parse origin/develop`; `git rev-list --count` on both commit ranges (30 and 31); `gh pr view` and `gh api` for the `mergedAt`, `closedAt`, comments and issue types cited; `git cat-file -e 33b2127:<path>` for approximately 79 repository paths with an extension cited in backticks (approximately 73 before the corrections taken from the later head of #728; counts are the author's and were not reproduced) (the bare names that remain, such as `journal.go`, resolve to one file in the module named nearby; `tx.go` is pgx's and is outside the repository; seven distinct `*.scala` names are upstream and were skipped), with no path missing; `git show 33b2127:<file>` plus a substring check for 27 `path:line` citations of tests and production code (all matched); the 40-hex SHAs resolve in the local clone except the two upstream pins, which were checked with `gh api` instead. No markdown or link checker exists for `docs/audit/*.md` (`scripts/`, `.github/scripts/` and `docs/ci-economy.md` were searched; `.github/scripts/ci-fast.go:245` only skips `.md` files). `scripts/check-adr-signatures.sh` concerns ADR signatures and was run only to confirm that the change breaks nothing there.
+
+## 13. Closure of #715, #717 and #718
+
+Final state (from `gh pr view <n> --json state,closedAt`, `gh api .../issues/<n>/comments`, observed 2026-10-23T16:2xZ): all three **CLOSED**, by `pablogore`, branches kept, each with one explanatory comment posted **before** the close.
+
+| PR | Comment (UTC) | closedAt (UTC; -03:00) | Branch kept at | Replaced by |
+|---|---|---|---|---|
+| #715 `docs/u6-record` | 16:09:48Z | 16:10:00Z; 13:10:00 | `642cd5c41a09b7d304fd2dc624c0f9cc0a0fc97d` | Per its comment: #701, #705 to #714, #716 and #719 to #726 (as cited by the comment). The closure records #727 (squash `1e2dc18`, merged 16:10:31Z) and #729 (`33b2127`, `mergedAt` 16:19:41Z) merged after the comment and are cited by this audit, not by the comment |
+| #717 `test/testint-u6-4e-cancel-commit-inflight` (+3931/-46) | 16:09:50Z | 16:09:58Z; 13:09:58 | `c53812788488e523be5965445d5427e136400049` | #725 (`a603b87`, merged 15:51:11Z) |
+| #718 `test/testint-u6-4f-sqlite-x4-order-detector` (+275/-5; stacked on #717) | 16:09:52Z | 16:09:56Z; 13:09:56 | `991b6ccff80ed909e624c4a72b18d869e5f90de6` | #725 |
+
+The comments report a static comparison of test names and files against `4f12574` (#715: 19 files differ; #717: 22; #718: 19; every `Test*` name exists on `develop`, plus the 40003 tests). The #727 record repeats the 19-file comparison against `a603b87`. #729 added to the unit record (`411-u6-atomic-mode.md:159-167`) a table with the same closure times, heads and replacements as above, and corrected #727's statement that they were "not closed" (the closures preceded #727's merge by about half a minute). GitHub records the account that closed them, not which session or person used it, and this audit attributes the closures to none. This audit did not close, comment on or modify them and did not re-verify those comparisons (check: compare test names of branches `c538127`, `991b6cc` with `a603b87`).
+
+## 14. Consolidation of #728 and #730: differences and how each was resolved
+
+Sources compared: #728 revision 2 (head `bb37812723dd3d084b59db09fb6f5e930e38869f`, 301 lines) and #730 (head `2af87131124ca958efb9947701bfb5310ef976d6`, 242 lines), both auditing `33b2127`. Resolution was made against the repository at `33b2127` and GitHub, not by preferring one draft.
+
+| # | Point | #728 | #730 | Resolution and evidence |
+|---|---|---|---|---|
+| 1 | Commits `590e86b..1e2dc18` | "32 commits; #729 is the 33rd" | 30 | **30**, and 31 up to `33b2127`: `git rev-list --count` on both ranges. |
+| 2 | Time of #729 | commit 16:19:40Z | `mergedAt` 16:19:41Z | Both are true and both are stated: `git log -1 --format=%cI` gives 13:19:40 -03:00; `gh pr view` gives `mergedAt` 16:19:41Z. |
+| 3 | End-to-end verdict | "Demonstrated for a bounded route, not as a whole" | "Still not demonstrated as a whole, but the middle has far more recorded evidence" | **#728's wording kept, with the basis stated in the verdict row**: `u6Command` (`atomic_engines_integration_test.go:146`), `u6Source` (:105) and the tests at the lines cited in section 6 exist; the route is one persistence id, L1/L2, author runs. |
+| 4 | Evidence of runs | per-run table (rows 1-7) | summary | **#728's table kept**; it cites the unit record and the pending file. |
+| 5 | Review executors | "independent reviewer" for rows 3 and 5; "account does not separate author from reviewer; the text does" | "independent" defined as a separate reading and run, not a different person; reviews labelled with the account | Neither deduction is kept: section 3.3 lists executor, stated isolation, SHA and evidence per review, and states what is not recorded. |
+| 6 | `Journal.Delete` | section 8 (floor covered under other names; residual: no real-engine non-durable refusal test) | "no test names `Journal.Delete`" is true only for the durability-policy file | **#728's section 8 kept**; line citations re-read at `33b2127` (`journal.go:171,214`, `journal_sqlite_cases_integration_test.go:133,143`, `durability_policy_sqlite_integration_test.go:112`). |
+| 7 | Upstream line numbers | `JdbcSessionUtil` 43-45 and 46-53 | "approximate; rollback 47-54" | Re-read at the Projection pin: `func(session)` 43, `session.commit()` 44, `catch` 46, rollback 49, `throw ex` 53. **#728's numbers kept**; #730's correction was wrong and is dropped. |
+| 8 | Actor issues range | "#674-#694" in the priority table | exact list | Exact list: #674-#685, #688, #689, #691-#694 are open; #686 and #687 are merged pull requests; #690 is closed (`gh api repos/.../issues/N`). |
+| 9 | #715 "replaced by" | cites #727 and #729 as replacements | cites the comment | The closing comment cites #701, #705 to #714, #716 and #719 to #726 and not #727 or #729; section 13 says so. |
+| 10 | M6 authorization | "history, not an open item" | "pending the Owner" | **#728's reading is the one the record supports (and the Owner instructed so in this session)**: design section 17 (`u6-atomic-mode-design.md:360`, `git grep` at `33b2127`) says the Owner's confirmation "does not authorize earlier runs retroactively"; the three sentences saying "pending" are stale wording (section 4.5). Historical chronology, not an Owner decision. |
+| 11 | `ADR 0028:113-115` stale | "Stale" | "unverified" | Read: the text is scoped to unit tests with a double; stale only if read repository-wide (section 4.5). |
+| 12 | Migrations | one row, no versions | versions and `ErrSchemaGap` evidence | #730's evidence added to section 4.2 (`pgschema.go:50-52,298`, `sqliteschema.go:48-50,266`; files 0001-0003 in both adapters). |
+| 13 | Limits on thin axes | not stated | stated | #730's limits kept in section 12. |
+| 14 | `sin verificar` | present | translated | Replaced by "unverified" in an English artifact. |
+| 15 | First person | present | present | Replaced by impersonal wording. |
+| 16 | Dropped from #730 | | the time of the acceptance ("00:24 -03:00" vs the Owner turn at 00:28:17 -03:00) and its section 2.1 delta table | Not repeated: the first is not needed for any conclusion here; the second is covered by the #729 row of section 2 and the header. |
+| 17 | Findings of #730 carried into the consolidated text | | `docs/ci.md`, `ErrNotDurable` re-export, the `pgxmock`/`sqlitemock`/no-`sqlmock` detail, the sizes of #717/#718, `PoisonPill`, the "(to add)" column, the no-`fsync` limit, ADR 0029 "validated" | Added to sections 4.2, 4.4, 4.5, 4.1 and 13 (an earlier version of this consolidation had dropped them; a later read found it). |
+| 18 | Later #728 head `28bd9bc84a14b43800339d64f3cf597f4d1358ee` | judge provenance split, M6 locations, #715 comment mention, range note | | Each addition re-verified before inclusion: files exist (`judge/run-pekko.sh`, `judge/mutate_go.py`), `docs/actor-core-parity.md` dated 2026-10-09 at `55159fa`, PR #482 merged 2026-10-17T03:28:32Z, the #715 comment text, the three M6 lines, and `git diff -w -U0 14853c7..33b2127` over the Go files. Its commit-count correction (30/31) and `mergedAt` 16:19:41Z agree with this document. |
+| 19 | File lines and paths | spot-checked at `33b2127`: 27 `path:line` claims (functions at the cited lines) | | All 27 matched; the full path check is in section 12. |
+| 20 | Re-verification of the facts of `28bd9bc` at `33b2127` and on GitHub (second pass) | | | Confirmed by command: `git rev-list --count` 30 and 31; `gh pr view 729` `mergedAt` 16:19:41Z; `gh pr view 482` merged 2026-10-17T03:28:32Z with merge commit `c4d44b7` (author date 2026-10-17T00:28:31-03:00); #715 comment 16:09:48Z, closed 16:10:00Z; #717 comment 16:09:50Z, closed 16:09:58Z; #718 comment 16:09:52Z, closed 16:09:56Z; `PROVENANCE.md` time 16:47:55 to 17:07:14 and darwin/arm64; `git grep` finds the three M6 sentences at the stated lines; `git diff -w -U0 14853c7..33b2127 -- '*.go'` touches the five stated files, every changed line a comment; 367 open and 432 total issues; `judge/run-pekko.sh` exists and `docs/actor-core-parity.md` section 4 lists the stated scenarios. No value of #728 `28bd9bc` was found false. |
+| 21 | Review status | "reviewed" (`bb37812`) | "review" in commit messages | The two are kept apart: `bb37812` independently reviewed (7 minor findings); the `28bd9bc` corrections and the edits after `c1a1967` verified by the authoring agents only when made; the text at `64726bb` independently reviewed once (5 findings), with the later corrections checked by the authoring agent only (header, "Review status"; reports not stored). |
+
