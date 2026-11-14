@@ -1,0 +1,360 @@
+# Gate A: concurrent calibration
+
+Status: **all 14 concurrent scenarios are measured with the final harness, on macOS (section 10) and on GitHub Actions / Linux
+(section 11). `judge/calibration.tsv` is the Linux one (run 37982617368); the macOS one is `judge/calibration.macos.tsv`. No
+technical blocker is left. Scope of what is put to approval: Gate A, Pekko side only (section 12). It is not approved by this document.**
+**Sections 3 to 8 are HISTORICAL**: they describe the earlier campaigns (harness `a85d2f6`, `f1f5286`, `0427a60`) and say
+'pending' about things that section 10 resolved. They are kept as evidence, are not mixed with the final campaigns, and no
+row of `calibration.tsv` comes from them. The tables are in sections 10 and 11; what is and is not met is in section 12.
+Contract: `docs/judge.md` section 5, "Concurrent run count". Mechanism: `judge/calibrate.py`, `.github/workflows/judge-calibration.yml`.
+Tests: `judge/selftest_calibrate.py` (47 checks, in the `judge-selftests` job). Every number below comes from a campaign
+that was run; nothing is an estimate.
+
+## 1. What is measured, and what it means
+
+For one concurrent scenario and one mutant the judge runs the scenario `n = 200` times (each in a fresh `ActorSystem`,
+inside one JVM) and counts `d`, the runs where the mutant is detected. Then:
+
+- `q_low` is the one-sided 95% Clopper-Pearson **lower** bound of the per-run detection probability: the `q` with
+  `P(X >= d) = 5%`, `X ~ Binomial(200, q)`. Never `d/200`.
+- `N = max(300, ceil(ln 0.01 / ln(1 - q_low)))`: a defect that shows up with probability at least `q_low` per run is
+  caught with at least 99% probability in `N` runs. A pull request runs `min(N, 5000)`.
+
+**Scope of the result.** It is valid for **that mutant class, on that scenario**, on the recorded Pekko commit, JVM,
+`sbt`, machine and `Judge.scala`. It does not say that a rarer defect is caught, that another mutant is, or that the
+scenario passes on the Go side. A row with `N = 300` means 'this mutant is detected in nearly every run', so only the
+floor of the contract applies; it measures nothing about intermittent defects.
+
+**Unit of observation.** One run (a fresh `ActorSystem` and a fresh scenario execution). The runs share a JVM, a scheduler
+thread pool and the JIT state, so they are **not** independent in the strict sense. The contract says independence is
+assumed, not proven; section 4 says what a check on it can and cannot show.
+
+**Verified formula** (`python3 -I judge/calibrate.py selftest`, `judge/selftest_calibrate.py`): the five values of the
+table in `docs/judge.md`; the closed forms `q_low(d = n) = 0.05^(1/n)` and `q_low(d = 1) = 1 - 0.95^(1/n)`; that the
+tail probability crosses 5% at `q_low` (checked on both sides for `d` in 1, 2, 5, 20, 100, 199, 200); that `q_low` is
+below `d/n` and increases with `d`; `d = 0`, `d > n` and `n = 0` are rejected. A second implementation (SciPy) was not
+available in this environment, so the check is against the definition and the closed forms, not against a library.
+
+## 2. Which scenarios and mutants
+
+13 scenarios declare the concurrent mode (`S01 S02 S03 S05 S06 S07 S08 S10 S11 S13 S14 S16 S17`).
+`python3 -I judge/calibrate.py choose` picks, for each, the designed pair with a **valid** concurrent detection in
+`judge/mutation-report.tsv` (outcome `failed`, the expected rule fired) that failed in the fewest of its 30 runs (the most
+intermittent defect the scenario is known to see); the lowest mutation number breaks a tie. The 200 runs that follow are
+new, so the choice does not bias them (a selection by the lowest rate would, if anything, push the first estimate down).
+
+When the first campaigns ran, four scenarios had **no** calibratable mutant (historical; section 10 resolves all four):
+
+| Scenario | Why | What lifts it |
+|---|---|---|
+| `S03` | no designed mutant left: `M37` was moved to `S17` because `S03` has one reply | retire `S03`'s concurrent mode (`S17` supersedes it) or design a mutant; a contract decision |
+| `S08` (`M11`), `S11` (`M6`), `S14` (`M14`) | their only designed mutants end every run in `timeout` in concurrent mode: the expected event never arrives, and the scenario has no completion witness other than that event. By `docs/judge.md` section 4 a `timeout` is not a detection | a concurrent completion witness for the negative assertion (section 4 of the contract), then a campaign |
+
+One pair was excluded after its campaign: `S06` with `M1`. 2 of its 200 runs (52 and 92) ended in `timeout` with 11 of 12
+messages received. The cause is the mutant: `M1` keeps one message in a `stash` and strands it when no later message
+arrives (a lost message, which is a different defect). The campaign is not a result (a `timeout` is never a detection or a
+survival), the logs are kept as evidence, and `choose` takes the next pair by the same rule (`M41`). The exclusion is in
+`EXCLUDED` in `calibrate.py` with this reason.
+
+## 3. Results of the first campaigns (HISTORICAL, harness `a85d2f6`; superseded by section 10)
+
+Pekko `v1.7.1` (`9a54d1294c`), Java `openjdk 11.0.32`, `sbt 1.12.14`, macOS 26.3.1 arm64, 16 CPUs, 2026-10-09, one JVM per
+campaign. Harness `Judge.scala` + `judge.sbt` identical at `a85d2f6` and `f1f5286` (`calibrate.py` compares their
+bytes). Total: 9 campaigns of 200 runs (8 recorded, `S07` not recorded), the excluded one (`M1/S06`, a 10th) and one
+diagnostic replicate of `S07` (section 4), 2200 runs in all. Each campaign took under two minutes.
+
+| Scenario | Mutant | `d` / 200 | `q_low` | `N` | runs on a PR | Early (40) / rest (160) |
+|---|---|---|---|---|---|---|
+| S01 | M1 | 200 | 0.98513 | 300 | 300 | 40/40, 160/160 |
+| S02 | M1 | 195 | 0.94816 | 300 | 300 | 38/40, 157/160 |
+| S05 | M3 | 200 | 0.98513 | 300 | 300 | 40/40, 160/160 |
+| S06 | M41 | 200 | 0.98513 | 300 | 300 | 40/40, 160/160 |
+| S10 | M4 | 190 | 0.91666 | 300 | 300 | 34/40, 156/160 (p = 0.005); replicate 39/40, 151/160 (p = 0.69), section 8 |
+| S13 | M12 | 197 | 0.96169 | 300 | 300 | 39/40, 158/160 |
+| S16 | M43 | 200 | 0.98513 | 300 | 300 | 40/40, 160/160 |
+| S17 | M37 | 200 | 0.98513 | 300 | 300 | 40/40, 160/160 |
+| **S07** | M9 | 3 in one JVM; 5 in a replicate; **0 with one JVM per run** | **not recorded** | - | - | section 4 |
+| S03, S08, S11, S14 | - | - | **pending** | - | - | no calibratable mutant; section 8 |
+
+No run among the recorded campaigns was a harness error or a timeout; every `sbt` exited 0 and compiled. The 5 passes of
+`S02/M1` are complete runs (the mutant swapped two equal messages from different senders, which is not a G1 violation):
+a real miss of the defect, which is what the bound measures.
+
+## 4. (HISTORICAL) `S07` could not be calibrated with `M9`, and what the early/late test does and does not say
+
+`S07` with `M9` (`terminated` is delivered before the subject's final `post-stop`) is the one intermittent defect measured.
+
+| Campaign | Protocol | `d` / 200 | Detections at run (position in its JVM) |
+|---|---|---|---|
+| first calibration | 200 runs in one JVM | 3 | 6, 9, 42 |
+| diagnostic replicate | 200 runs in one JVM | 5 | 6, 13, 14, 33, 36 |
+| pre-registered (section 7) | **one fresh JVM per run** | **0** | none (200 of 200 judgeable, all exits 0) |
+
+- Fresh JVM per run: `d = 0`. By `docs/judge.md` section 5 item 3 a campaign with no detection is a **harness error**, not a
+  survival: the scenario cannot see this defect class under that protocol, and no `N` is chosen (the scenario must change first).
+- Runs in one JVM: all 8 detections in 400 runs fall between positions 6 and 42 of their JVM, none in positions 1-5 and
+  none in the 316 runs after 42. The hypothesis that fits both facts is that the race window opens only once the JVM is
+  warm and closes again later. It is a hypothesis; nothing here tests it.
+- So neither protocol gives a `q_low` that a pull request could rely on, and `S07` stays `pending`. Discarding the warm-up
+  would remove exactly the window where `M9` is seen, which is why it was not done.
+
+**What the early/late test is.** It compares the detection rate of the first 40 runs of a campaign with the rest (Fisher
+exact; level 0.01 divided by the number of campaigns compared). A difference **refutes** a rate that does not depend on the
+position of a run, and the row stays `pending`. A pass does **not** show independence or interchangeability: it only
+means this one pattern was not detected, with the power the counts allow (a campaign with `d` near `n` has almost none).
+The 40-run split was chosen after `S07` showed the effect, so for that scenario it is a diagnostic; for campaigns whose
+protocol was fixed beforehand (section 7) it is the gate they were told they would face.
+
+```mermaid
+flowchart TD
+    A[calibrate.py run: one campaign per mutant] --> B{all 200 runs judgeable?<br/>outcome failed, d >= 1}
+    B -- no: timeout, harness-error,<br/>incomplete, d=0, partial --> P[row stays pending<br/>record exits 1]
+    B -- yes --> C{rate depends on the run position?<br/>early vs rest, refuted at corrected alpha}
+    C -- refuted --> P
+    C -- not refuted --> R[row written: d, q_low, N, runs_on_pr<br/>no claim of independence]
+```
+
+## 5. Reproduce, and what the job guarantees
+
+```
+python3 -I judge/calibrate.py choose
+python3 -I judge/calibrate.py run <pekko-copy> <workdir> [S..]          # needs a clean judge/ tree
+python3 -I judge/calibrate.py record <workdir> [--also <replicate-dir>]... [--out FILE]
+```
+
+- `run` refuses a dirty `judge/` tree, a Pekko copy whose `actor/` or `testkit/` differ from the pin, and the harness test
+  knobs. Each campaign writes `manifest.json` with status `started`, then `finished` after judging; a `started`
+  directory is a partial execution and is never reused or mixed (`--discard-partial` moves it aside).
+- Each manifest records the inputs of the run: Pekko commit, patch hash, harness commit, Java, `sbt`, OS, CPUs, run count,
+  deadline, the `sbt.log` hash and, per scenario, the counts, the outcome and one letter per run in run order.
+- `record` writes a row only for a campaign whose runs were all judgeable and whose detection rate was not shown to depend on the run position, refuses to mix campaigns
+  made under different Pekko, harness bytes, tools, CPUs or run count, and exits non-zero otherwise.
+- `.github/workflows/judge-calibration.yml` is manual (`workflow_dispatch`), runs the same commands, never commits, and
+  uploads logs, manifests and the candidate table as an artifact **even when it fails**. It was linted with `actionlint`;
+  it has **not** been run on GitHub in this work. Rows from a different machine would carry its own CPU count.
+
+Evidence of the pre-registered campaigns (section 7), same place: `calibration-s07-m9-perjvm-0427a60/` (`SHA256SUMS` digest
+`ae2a1d5e47e919de635cc14f9f1fda83db314f5845e616de239aacdf008482c1`, 403 files), `calibration-s10-m4-rep1-0427a60/`
+(`9e510bc0fa76f27402d8f706bfba3d109d607c7c30029296df2d33d4583c9e5a`, 402 files) and the five-JVM cost measurement
+`calibration-cost-s07-m9-5jvm/` (`2430d6824a46f32a2f3429b0a36b257827fa327f1beea106593f9f7d0ab77a37`), harness commit `0427a60`.
+
+Evidence of the first campaigns, kept **outside the repository** on the machine that ran them (`judge-evidence/` next to the
+checkout): `calibration-a85d2f6/` (SHA-256 of its `SHA256SUMS`: `ed4b7884cd09d10da7ff1e3a14e80d73bcb69a5109058e1865d2656e4e0bd418`,
+4016 files) and `calibration-diag-s07-m9-rep1/` (`07f4666e8ed19c7a71a950fcfc6c645ed6b7e751e2139f17d04ffa0b60f3b255`, 402 files).
+The manifests of the first were rewritten once by `calibrate.py reorder` to put the per-run vector in run order (it had
+followed file-name order); the original is kept in each as `per_run_file_order`. Anyone without that machine cannot re-judge
+these logs, so the table rests on this report until the workflow produces the same artifact.
+
+## 6. (HISTORICAL) What was pending after the first campaigns
+
+Superseded: every item below was resolved or reclassified in sections 10 and 11. Kept to show how the state moved.
+
+1. `S07`: neither protocol works (section 4). It needs a scenario change that makes `M9` visible from a cold JVM, or an
+   explicit decision to calibrate `S07` with another of its mutants (`M8` breaks `I1.a`, 7 of 30 in the report) and to say that
+   `I1.b` then has no calibrated bound. That is a coverage decision for the owner, not a thing this PR picks.
+2. `S08`, `S11`, `S14`: a completion-witness defect, diagnosed in section 8 (the scenario waits for the very event its mutant
+   removes). More runs of the same design only reproduce the `timeout`.
+3. `S03`: a coverage decision, section 8.
+4. All recorded rows have `N = 300`, the contract's floor: they show the mutants are detected in almost every run and say
+   nothing about rarer defects. Only `S07` had an intermittent one, and it could not be calibrated.
+5. The evidence is local; the manual job has not been exercised on GitHub.
+6. goPekko-side calibration (`side = go`) does not exist, and **does not block Gate A**: `docs/judge.md` section 5 item 5 makes
+   the file per side, section 6 item 3 applies goPekko-side mutations 'once the runtime exists', and the plan
+   (`gate-a-closure-plan.md` section 1) defines the gate over the Pekko side. The Go calibration belongs to the later
+   acceptance of the Go runtime, with its own `race` and recorder columns.
+
+## 7. (HISTORICAL) Protocol of the second set of campaigns (written before they ran)
+
+Fixed in the commit that adds this section. A result is read with these rules, whatever it turns out to be.
+
+1. **Cost first.** Five fresh JVMs of `S07` under `M9` are timed before the campaign. Nothing else is decided by that number
+   except whether the campaign fits in one sitting; it does not change the protocol.
+2. **`S07` / `M9`, one JVM per run** (`calibrate.py run --per-jvm`): `n = 200` fresh JVMs, one execution of `S07` in each.
+   `d` is the number of those executions that detect `M9`; `q_low` and `N` follow section 1 per execution. A pull request
+   that relies on this row must run `N` fresh JVMs, one execution each, not `N` runs in one JVM. The row's `recorder`
+   column says `one JVM per run`.
+3. **`S10` / `M4`, replicate** in the same protocol as its first campaign (200 runs in one JVM), a new JVM and a new work
+   directory. It is evidence, not a row: the row keeps the first campaign's `d`. It is given to `record` with `--also`.
+4. **Gate.** For both, the early-versus-late test of section 4 (first 40 runs against the rest, Fisher, level 0.01 divided by
+   the number of campaigns compared) decides whether a row is written. A failing test keeps the scenario `pending`.
+   **A passing test is not evidence of independence or of interchangeability**: it is the absence of one detectable
+   pattern. The rows say so in this document; they are not an independence certificate.
+5. **Validity.** A campaign is a result only if all 200 executions were judgeable (`calibrate.py record`). A JVM that dies or
+   hangs leaves no log and the campaign is `incomplete`; nothing is retried until it turns green. A replacement campaign is
+   a new campaign with its own directory and is reported next to the first one.
+6. **Not decided here.** Whether a per-batch protocol (one detection event per JVM, `q_low` over batches) is adopted
+   afterwards depends on the measured cost of the per-run protocol.
+
+## 8. (HISTORICAL) Results of the second set of campaigns, and the work it led to
+
+`S10` / `M4`, replicate (200 runs in one JVM, new directory): `d = 190`, first 40 runs 39/40, rest 151/160 (p = 0.69). The
+first campaign's drop (34/40 against 156/160, p = 0.0051) did not reproduce. Neither campaign is refuted at the corrected
+level (0.0009), so the `S10` row stays. That does not make its runs interchangeable, and the row keeps `N = 300` (the floor).
+
+`S07` / `M9`, one JVM per run: section 4. Cost, measured: 0.3-0.4 s per JVM, 200 runs in about a minute, so the per-batch
+protocol (one detection event per JVM) is not needed to make this one affordable and was not adopted.
+
+**Completion witness for `S08`, `S11`, `S14`** (read from `Judge.scala`; not yet tested). Each scenario ends when the event
+its mutant removes arrives (`terminated` for `S08` with `M11` and for `S14` with `M14`; the `dead-letter` for `S11` with `M6`), so
+under the mutant it can only end by `timeout`, which `docs/judge.md` section 4 does not count as detection. The contract
+already names the cure: a round trip through the watcher's mailbox for `terminated` (section 4, witnesses for I2 and
+I3), and the dead-letter subscriber barrier for dead letters. A proposal, with the acceptance criteria of its own PR:
+
+| Scenario | End the run on | Why it is a witness |
+|---|---|---|
+| `S08` | `w` receives `ack2`, sent by the handler of `ack1`, both sent after the watch | `ack1` is queued before any `Terminated`; `ack2` is sent while `ack1` runs, so it is behind it (FIFO) |
+| `S11` | `post-stop` of `c`, then the existing dead-letter barrier | `M5` is queued behind `stop`; after `post-stop` and the barrier every dead letter has been delivered |
+| `S14` | `terminated(w, child)` **or** a second `pre-start` of `child` | either outcome decides `G7.b`: Stop gives the first, a restart the second |
+
+Acceptance: baseline of each passes (both modes), the mutation of each fails with its rule in a valid campaign (no
+`timeout`), `S08` also orders the stop before the watch (`e.settle(c)`, as `S11` and `S10` do), the report rows are re-run
+with the changed harness, and the calibration of those scenarios is measured afterwards with the section 7 protocol.
+Changing `Judge.scala` changes the harness bytes, so it is a separate PR and the campaigns above are not mixed with it.
+
+**`S03`.** It sends one reply; `S17` sends that reply and a second one, and asserts the same rule with the same value.
+Everything `S03` can see in the first reply `S17` sees too, but that is an argument, not a demonstration: no mutant
+distinguishes them today. Decision proposed: add one mutant that breaks the single-reply path (`M61`, the ask completes with
+a value other than the reply), run it on `S03` and `S17`, and retire the concurrent mode of `S03` only if `S17` detects it
+at least as often. Otherwise `S03` keeps its own mutant and gets calibrated. This goes in the same PR as the witnesses.
+
+**Go harness (`S02`, `S11`).** It does not wait for `S07`. Its precondition is a Go test that fails when a dead-letter
+callback is still running after `Done` has closed and every `Tell` has returned; without it the recorder of
+`gate-a-closure-plan.md` section 9 is not allowed to rely on `Done`. Its evidence of equivalence is accepted only under the
+gate; building it is not.
+
+## 9. Harness change, and the protocol of the final campaigns (written before they ran)
+
+`Judge.scala` changed (a post-stop gate, completion witnesses for `S08`, `S11` and `S14`, a new scenario `S18`), so the
+harness bytes of every campaign above differ from the ones that follow. The earlier campaigns stay as historical evidence in
+their sections and are **not** mixed with the new ones: `calibrate.py record` refuses to combine campaigns whose
+`Judge.scala` and `judge.sbt` differ, and every row of `calibration.tsv` is rewritten by one directory of campaigns made
+with the final harness bytes. Rows that are not re-measured would otherwise mix harness versions, so **all 13+1 rows are
+re-measured**, not only the five that changed (a campaign is under two minutes).
+
+1. **Unit of observation:** one execution of the scenario, inside a JVM that executes `n = 200` of them in sequence. This is
+   how the judge runs `N` runs in a pull request (`JUDGE_RUNS=N`), so the calibrated protocol and the accepted one are the
+   same. `--per-jvm` (a fresh JVM per execution) is run in addition for `S18` only, as supplementary evidence; it never
+   becomes a row.
+2. **Mutants:** `choose()` over the report rows regenerated with the final harness (30 runs, both modes), with `S07`/`M9`
+   excluded (calibrated on `S18`). `S11` is calibrated with `M62` (`I3.b`, both modes): `M6` is detected in concurrent mode
+   by `REQ`, not by `I3.a`, which `S11` asserts only in controlled mode.
+3. **Statistic:** `d`, `q_low` (Clopper-Pearson, one-sided 95%) and `N` as in section 1. `d = 0` computes no `N`.
+4. **Gate:** the early-versus-late test of section 4 (first 40 runs against the rest, Fisher, level 0.01 divided by the number
+   of campaigns compared) refutes a position-free rate; a pass proves nothing about independence.
+5. **Validity:** a campaign is a result only if all 200 executions were judgeable. Nothing is retried until it turns green; a
+   replacement campaign is a new directory reported next to the first.
+6. **Configuration recorded in each manifest:** Pekko commit, patch hash, harness commit, Java, `sbt`, OS, CPUs, run count,
+   deadline, the `sbt.log` hash and one letter per run in run order.
+
+## 10. Final state: harness `4a30ba4`
+
+One directory of campaigns, `calibration-final-4a30ba4/`, made with the final bytes of `Judge.scala` and `judge.sbt`, in the
+protocol of section 9 (200 executions in one JVM per mutant, sequentially; the same shape as a pull request run). Pekko
+`v1.7.1` (`9a54d1294c`), Java `openjdk 11.0.32`, `sbt 1.12.14`, macOS 26.3.1 arm64, 16 CPUs, 2026-10-09. All 14 campaigns
+(one per scenario and mutant, in 13 directories: `M1` runs `S01` and then `S02` in one JVM) were judgeable (no timeout, no
+harness error, every `sbt` exit 0, compiled; checked against the 13 manifests). `calibrate.py record` wrote all 14 rows; they are `judge/calibration.macos.tsv`.
+
+| Scenario | Mutant | Rule | `d` / 200 | `q_low` | `N` | Early (40) / rest (160), Fisher p |
+|---|---|---|---|---|---|---|
+| S01 | M1 | G1.a | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+| S02 | M1 | G1.a | 189 | 0.91060 | 300 | 39/40, 150/160 (0.697) |
+| S03 | M61 | G8.a | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+| S05 | M3 | G4.b | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+| S06 | M41 | G4.a | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+| **S07** | **M8** | I1.a | **22** | **0.07565** | 300 | 2/40, 20/160 (0.259) |
+| S08 | M11 | G6.b | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+| S10 | M4 | G5.c | 192 | 0.92899 | 300 | 34/40, 158/160 (0.0009) |
+| S11 | M62 | I3.b | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+| S13 | M12 | G6.d | 196 | 0.95482 | 300 | 40/40, 156/160 (0.586) |
+| S14 | M14 | G7.b | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+| S16 | M43 | I6.a | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+| S17 | M37 | G8.a | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+| S18 | M9 | I1.b | 200 | 0.98513 | 300 | 40/40, 160/160 (1.000) |
+
+Every `N` is the contract's floor of 300, and that is a **valid result**, not a deficiency: the contract defines the floor
+(`docs/judge.md` section 5, item 1) and raises `N` only for defects that are rare. `S07/M8` shows that an intermittent defect
+(22 of 200) also lands on the floor: `q_low = 0.0757`, and the floor is already reached from `q_low >= 0.0152`. What the rows
+say is conditional, as the contract's rule always is: a defect of the measured class, detected with probability at least
+`q_low` per execution, is caught within `N` executions with at least 99% probability, if the executions are independent.
+
+**Reading the early/late column.** The gate refutes a position-free rate at level `0.01 / 14 = 0.0007`; no campaign is
+refuted. `S10/M4` is the closest: 0.0009. It dropped in the first 40 runs in two of its three campaigns (34/40 in the first
+and in this one, 39/40 in the replicate). Pooled over the three, the first 40 runs detect 107/120 (0.89) and the rest 465/480
+(0.97), p = 0.0011. That pooling was not planned, so it is an observation and not a test; it does not change a row (`N` is
+the floor at either rate) but it is the best indication in the data that early runs of a JVM behave differently. Passing the
+gate is not evidence of independence or of interchangeability. That is a limit of the bounds, not a new requirement: the
+contract assumes independence (`docs/judge.md` section 5, item 1) and this work does not claim to have proved it.
+
+### The causal chains, from the pinned Pekko
+
+Messages are `Msg` values run by the receiving actor; "hop" means a message an actor sends itself while handling the
+previous one. File references are in `upstream/pekko/actor/src/main/scala/org/apache/pekko/` (`$A`).
+
+**S18, `I1.b` (new scenario).** Why not `S07`: the wait in `postStop` lets `S07`'s watcher handle `X` before any `Terminated`
+exists, which removed the window `M8` needs: `M8/S07` was 7 of 30 before and 0 of 200 with the wait (exploratory run, not a
+result). So the wait lives in `S18`, and `S07` is as it was.
+1. `w` watches `c` and, in the same handler, sends `c` `probe1`: the `Watch` is in `c`'s system queue before `probe1`.
+2. `c` forwards the probe to itself (`probe2`), and only `probe2` completes the promise the driver awaits. A system message is
+   drained after the user message being handled at the latest (`$A/dispatch/Mailbox.scala:276`), so the `Watch` was
+   processed before `probe2` ran. Only then the driver sends `go`; "`watch` was sent" is not the confirmation used.
+3. `c` stops; in `postStop`, after `post-stop-begin`, `PostStopGate` sends `w` three hops (`gate0 -> gate1 -> gate2`) and waits.
+   `w` converts a `DeathWatchNotification` into a `Terminated` at the tail of its mailbox in its system processing, after the
+   user message in hand (`$A/actor/dungeon/DeathWatch.scala:99-115`). `gate1` is enqueued before that conversion and `gate2`
+   after it, so when `gate2` runs any notification that was in `w`'s system queue at `gate0` has been handled.
+4. Under `M9` (`tellWatchersWeDied()` before `postStop`) the notification was queued before `gate0`, so `w` records `terminated`
+   before `c` records `post-stop`: `I1.b` fires. Under baseline no notification exists yet; the gate releases by itself and
+   `terminated` is recorded after `post-stop`. The release never waits for a `Terminated`, so there is no deadlock; the
+   5 s `guard` only protects the run, and reaching it records an event outside the vocabulary (a harness error, never a pass
+   or a detection).
+5. The property in baseline is proved by two recorded events and their global stamps, not by the wait.
+
+**S08, `G6.b`.** `settle(c)` returns the future of a probe that watches `c`; its `Terminated` arrives after `c`'s mailbox was
+swapped and cleaned (`$A/actor/dungeon/FaultHandling.scala:261-266`), so `w` watches an already-stopped actor. The `Watch`
+goes to the dead-letter mailbox and `DeadLetterActorRef` sends the `DeathWatchNotification` synchronously on `w`'s own thread
+(`$A/actor/ActorRef.scala:745-751`). In the same handler `w` sends itself `fin1`; after the handler the system queue is
+drained (the notification becomes a `Terminated` behind `fin1`); `fin1` sends `fin`, which is behind that `Terminated`. `fin`
+ends the run in both outcomes. `ack1 -> ack2` between two ordinary messages would not have shown this: the proof is that the
+notification was already in `w`'s system queue when the hops started. Under `M11` no notification is sent, the log is complete
+and `G6.b` fires ("w never saw terminated(c)"): 30/30 and 1/1. Limit: this rests on the system-queue drain after each
+message; a baseline where the `Terminated` arrived after `fin` would fail `G6.b` (0 of 230 baseline runs).
+
+**S11, `I3.a`/`I3.b`.** `M5` was sent right after the stop request, racing with the mailbox swap; the milestone table says "after
+`terminated` is observed". Now `M5` is sent only after `settle(c)` (termination and clean-up done), so its publication is
+synchronous on the driver's thread (`$A/dispatch/Dispatcher.scala:73-77`, `Mailboxes.scala:68-72`, `ActorRef.scala:742`).
+The run ends on `rec.sent`, incremented after the `!` returned; the dead-letter subscriber barrier of `runOne` then covers
+delivery. `postStop` is not the witness (it runs before the mailbox clean-up, `FaultHandling.scala:254` against `:261`).
+`M6` (no publication) now ends the run complete: controlled gives `I3.a`; concurrent gives `REQ` (the required dead letter is
+missing) and not `I3.a`, which `S11` asserts only in controlled mode, so that concurrent row is a valid `failed` with
+`expected_hit = false`. Because `I3.b` holds in both modes, `S11` is calibrated with `M62` (every dead letter twice): 30/30,
+1/1, rule `I3.b`.
+
+**S14, `G7.b`.** The run ends on `terminated` at `w` (Stop) or on a second `pre-start` of the child (the restart that `M14`
+causes). A failed initialization leaves no actor, so Pekko does not call `preRestart` (`FaultHandling.scala:94-98`) and the
+rule's "restarted" check cannot fire; `M14` is detected because the log is complete, the second `pre-start` is there and the
+`Terminated` is not (rules `G7.b` and `REQ`, 30/30 and 1/1). Only the first initialization fails, so the restart does not loop.
+
+**S03 and S17 (`M61`, `G8.a`).** `M61` makes the ask machinery hand an ask the reply of the previous ask of the same system
+(replies crossed); the test actor's reply is untouched. The first ask of a system is left alone because the logger start-up
+asks internally. Both scenarios detect it in every run (30/30, 1/1 each). They observe different paths: `S03` sees ask,
+`received`, `ask-replied`; `S17` sees the same plus a dead letter for the second reply, i.e. also the branch of
+`PromiseActorRef.!` that handles a reply after completion (`$A/pattern/AskSupport.scala:608-628`). `M37` is visible only to
+`S17`. That `S17` detects `M61` as often as `S03` is **not** a reason to retire `S03`'s concurrent mode, and it was not
+retired: its coverage is argued by path, not demonstrated by a mutant that only `S03` could see, and `S03` has its own
+calibrated row (`M61`). A proposal to retire it needs the full coverage argument reviewed by a person; none is made here.
+
+### Known limits of this state
+
+- `S07/M9` is excluded from the calibration (section 2); `I1.b` is calibrated on `S18`, `I1.a` on `S07/M8`.
+- `M58` on `S07` still ends every concurrent run in `timeout` (no watcher is notified, so the `Terminated` the run waits for
+  never comes). It is the same class of defect as `S08`/`S14` and is not fixed here; `G6.a` is observed in controlled mode
+  and `S07` is calibrated with `M8`.
+- The report rows of scenarios this change did not touch were produced with earlier harness bytes (their `harness_commit` is
+  in the report). They are valid for the scenarios as they were; the 14 calibration rows were re-measured with one harness.
+- Independence between executions is assumed and only one way it could fail is checked. Evidence is on one machine.
+- `calibration.tsv` has no column for the harness commit or the protocol; both are in this document and in each manifest.
+
+Evidence, outside the repository (`judge-evidence/` next to the checkout), digests of each `SHA256SUMS`:
+`calibration-final-4a30ba4/` 5626 files, `7bb9e5f7800e65b320e19192f25fddda4e5febeffd2c5058604ebd1bceed3bb4`;
+`report-campaign-harness-witnesses/` 564 files, `59c6c25ad143f8564a52ecf20d4f2c38b3ecb69f165ab7fedb151f2f6252bfb4`
+(the 18 new report rows, harness `a97af71`).
+
