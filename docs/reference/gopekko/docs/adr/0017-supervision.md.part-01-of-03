@@ -1,0 +1,360 @@
+# ADR 0017: Supervision (Apache Pekko Classic model)
+
+- Status: **accepted on 2026-10-14** by the owner, at commit `d6c74c2fb442ad68d075e90bf6719c630d1a1a6e`: the four hashes below and the
+  A-list (A1-A13, including A9a, A9b and A9c) as written there. The acceptance fixes the contract and the declared adaptations; **it
+  does not show that any behavior is implemented or equivalent**, which each delivery unit must demonstrate with its own tests. The
+  pending capabilities and divergences (#443 and #450-#452) stay inside the migration target and are not excluded from the final
+  surface. Nothing in this ADR is implemented or verified against Pekko beyond the reproductions recorded in
+  `migration/stage-1/supervision/h4-repro/RESULTS.md`. The divergences and the missing capabilities are registered in issues (table
+  "Issue register").
+  Accepted hashes (sha256, at `d6c74c2`): `docs/adr/0017-supervision.md` `6d3ef40840d99adae3898b21cc8d2e8f2023b316add28aea8fcbe7894d661fbf`;
+  `docs/adr/signatures/supervision.go` `2d20be50fd6c43f3b77ab2c747e2588a5daf91f4668855545f8b5480c6c7e6b1`; `docs/adr/0010-actor-api.md`
+  `9e1c1c434c7ac1e79c0a990711654b9aa501c462392e935fdf0f1e6ca80bda6e`; `migration/stage-1/supervision/h4-repro/RESULTS.md`
+  `440f0566f7ced24c62fa6c811880b83e5137154064038035908d0cf53b4ab2c1`. These hashes are those of the content at `d6c74c2`; the
+  acceptance record in this section and in the heading of the A-list is the only change after that commit, so the hash of this file at
+  the merge differs by design.
+  Amendment 2026-10-25: five dated markers were added (the rows H5b, `ErrInvalidHandle` case 3 and D-1, the paragraph "H5b: the three `ErrInvalidHandle` cases are kept apart" and the clause of A9c) with the references (GOV-15 #1065; DTH-01 #785); no original text was removed. Accepted by the Owner on 2026-10-25 through an explicit message in the working session, not a GitHub comment: "La enmienda explícita de ADR 0017, conservando el texto histórico y las referencias GOV-15 #1065 y DTH-01 #785." The hash of this file differs from the one above for this reason too; the markers say the behavior is not yet implemented.
+  Implementation note (2026-10-26, reconciliation; not a new acceptance): DTH-01 was integrated by PR #1207 as `cad059c177b37f62c27b8a2e89a2826972817f18`, so the condition "once DTH-01 is implemented" of the five markers is met. The texts they mark (row H5b, `ErrInvalidHandle` case 3, D-1, the H5b paragraph and the A9c clause) now describe the state before `cad059c` for a handle of another System in `Watch`, `WatchWith` and `Unwatch`; cases 1 and 2 are unchanged. The **[Run]** tags in those rows refer to the `H5Probe` observation recorded by this ADR, not to the H5b cross-System probe of `migration/stage-1/watch-cross-system-probe/`, which is neither compiled nor executed. No parity is claimed.
+  Amendment 2026-10-28 (documentation only; SUP-05, #779): the subsection "The zero value of `Budget` and `DefaultStrategy`: alternatives" was added at the end of S4. It records the alternatives and the behavior that A4 and `docs/adr/signatures/supervision.go` already chose. No row of the A4 matrix, no A-list row, no signature and no implementation changed, and it introduces no policy. The Owner approved it on 2026-10-28 as a documentation amendment (decision D-2 of #779).
+  Amendment 2026-10-28 (documentation only; SUP-10, #781): the A9 row and `docs/adr/signatures/supervision.go` add the field `OriginalCause` to `InitializationError`, the cause of the restart whose new instance failed (Pekko's `originalCause` of `PostRestartException`). `Unwrap` keeps returning `Err` only. Reading it through Go errors is an adaptation approved by the Owner on 2026-10-28 (decisions D1 to D5 of #781); it has no Pekko counterpart and no Pekko scenario was executed. No other policy changed.
+  Amendment 2026-11-02 (documentation only; SUP-02, #778): a dated amendment was added at the end of S12 and two markers (the `Kill` / `ActorKilledException` row of the S12 table and item 3 of "Explicit gaps") point to it. It records that `ErrActorKilled` exists (PR #1310) and that the default decider maps it to Stop (PR #1311). No original text was removed, no policy changed, and it claims no `Kill` delivery and no `Kill` parity. The Owner authorized it for this unit on 2026-11-02 in the working session.
+  Amendment 2026-11-02 (second note; documentation only; MSG-07, #816): the paragraph "Update 2026-11-02 (MSG-07, #816)" was added after the table of the S12 amendment above. It records that `Kill` is now delivered (PR #1313). It removes no text and changes no policy; the "Not delivered" row above keeps its text as the state at the first amendment. The Owner authorized it on 2026-11-02 in the working session.
+  The earlier owner answers (H1-H9, second and third rounds) are kept below as the history of how the contract was reached.
+- Date: 2026-10-14
+- Stage: 1
+- Module: pekko-actor
+
+Design only. It answers issue #167 and fixes the contract that #168-#174 must implement. The rule of this ADR: every behavior is
+the Apache Pekko Classic behavior, traced to its source, its tests or a reproduction against the pinned runtime; a Go adaptation
+keeps the observable behavior; a deviation or a Go-specific choice is listed for owner approval; a postponed capability is an
+explicit gap and is never replaced by another behavior called parity. Nothing is decided here by what Verimand might need.
+
+Two names are kept apart: **"ADR 0010 D3"** is the recommendation "default supervision: Restart (classic)" (`0010:225`);
+**"the stop-on-failure divergence"** is today's behavior, where a failing actor stops (`docs/actor-core-parity.md:67,194`, ADR 0014
+deviation 10 `:66`).
+
+## Provenance and method
+
+- goPekko: `develop` `fab8f1d`, branch `docs/adr-supervision-minimal`.
+- Apache Pekko `v1.7.1`, commit `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (`upstream/pekko`, read-only). Migration kit
+  `cf91c9d5068d9aaf95a36164169f08c3e636c909` (`migration-kit`, read-only submodule).
+- **Method, stated honestly.** This ADR and its matrix are manual analysis by the orchestrator, with read-only mapping passes over
+  upstream and the repository, adversarial reviews (the last one bounded to the final semantic delta), and **reproductions that were really run against the pinned
+  Pekko** (H4, H5, H6). **The migration kit has not been used for this document and is not claimed.** It is used for the
+  implementation units in "Delivery units": each one runs the Anthropic kit at `cf91c9d` with its own manifest, RULEBOOK and RUNBOOK
+  naming the exact upstream sources and tests, and is recorded (commands, kit version, models, inputs, outputs, manual changes).
+  Generating documents or mappings is not described as using the migrator.
+- Evidence labels. **[Pekko]**: `path:line` relative to `upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/` unless it
+  starts with `../dispatch/` (the `dispatch` package one level up), `actor/src/main/resources/`, `actor-tests/`, `actor-typed/`,
+  `actor-typed-tests/`, `docs/` (all under `upstream/pekko/`) or `judge/` (this repository). A citation marked † was re-read by the
+  orchestrator; the others were read by a mapping pass or a reviewer. **[Run]**: observed on the pinned runtime
+  (`h4-repro/RESULTS.md`). **[Code]**: goPekko `file:line`. **[Go]**: an adaptation. Status of each decision: **F** faithful, **A**
+  adaptation that keeps the observable behavior (listed individually in "The A-list"), **G** explicit gap, **H** needs a human
+  decision.
+
+## Owner answers applied (2026-10-14)
+
+| Q | Answer | Where applied |
+|---|---|---|
+| H1 | (a) guardians as actors, Classic; own unit; a gap until then; an internal supervisor that omits observable guardian behavior is not accepted | S1, U5 |
+| H2 | Yes: Classic is the supervision model; ADR 0010's scope updated; the four directives and both strategies are the target; pending capabilities explicit | M0, `0010` edited, S3, units |
+| H3 | Yes: the ADR 0014 "children before `PostStop`" rule is a termination rule; a restart keeps the verified Classic order; the judge's guarantees are scoped | S6, "Scope of the judge's guarantees" |
+| H4 | Do not choose by preference; reproduce on the pinned runtime; the observed behavior defines the port; record contradictions and propose corrections; do not change the Go runtime | S11, `RESULTS.md` |
+| H5 | Separate the cases: foreign watch handles (respect the approved Go contract, check upstream first); `Goexit` needs an explicit adaptation with mapping, consequence and tests | S12, H5b, H5c |
+| H6 | Preserve upstream truncation and overflow with explicit conversions independent of Go `int`; add edge cases from the pinned source | S4 |
+| H7 | Align creation failures with Classic supervision; identify the conflicting approved `Spawn` contract; propose the reconciliation and the caller impact before modifying | S10, "Reconciliation of Spawn", U4 |
+| H8 | Preserve the original message and distinguish absence, including valid nil payloads; justify `any` against `*T` | S8 |
+| H9 | Yes: keep the parent-context capabilities Classic lets the decider observe, including the failed child; what is missing stays pending | S13 |
+| A-list | Not approved in block; each adaptation with its observable equivalence and test cases; the zero `Directive` is not automatically Escalate; check what an absent strategy does | "The A-list" |
+
+### Second round (2026-10-14, after the reproductions)
+
+| Q | Decision | Where applied |
+|---|---|---|
+| H4 | **Accepted as the target behavior**: with the default `preRestart`, a Stop during the wait abandons the restart, `PostStop(old)` runs twice and `Terminated` is delivered once. Reproduction and evidence preserved. **U7 corrects the scope of G5** so it does not reject this valid Pekko behavior | S11, "Scope of the judge's guarantees", U7, #449 |
+| H5b | **Not approved**: `ErrInvalidHandle` is **not** turned into an ordinary supervised failure as a substitute for compatibility between ActorSystems. The rejection of refs of another System is a **divergence pending correction**, with an issue and tests to be derived; it is separate from `nil` and from Go handles without an equivalent; it is **not parity**. Superseded for `Watch`, `WatchWith` and `Unwatch` by the ADR 0010 amendment (accepted on 2026-10-25) once DTH-01 is implemented; until then this row describes the current state. (GOV-15 #1065; DTH-01 #785) | S12, #443 |
+| H5c | **Accepted, option 1**: `ErrGoexit` with Stop by default, a Go-specific adaptation, explicit and tested; no JVM parity; it does not authorize changing the classification of failures that do have a Pekko equivalent | S12, #448 |
+| H7 | **Direction approved**: the factory runs during the child's start and a creation failure is supervised by the parent, as in Classic. U4 must reconcile expressly the affected contracts of `Spawn`, ADR 0011/0012/0014, the documentation and the tests; no two contradictory contracts, no silent API change | S10, "Contracts U4 must reconcile", U4, #444 |
+| A5 | **Port the upstream behavior also when the clock reads exactly zero**; the explicit flag is **not** approved; a test of that edge is required | S4, A5, `a5-edge/` |
+| A1-A13 | Presented as a full table (adaptation, upstream source, equivalence, differences, tests); **not approved in block** | "The A-list" |
+| Hashes | **Pending** until the table and the final content are reviewed | final message |
+
+### Third round (2026-10-14, corrections to the A-list)
+
+| Point | Decision | Where applied |
+|---|---|---|
+| A1, A3, A5, A6, A8, A10, A13 | **Direction accepted**, subject to the equivalence tests of the implementation units | "The A-list" |
+| A2 | Verify the upstream result of an invalid directive; if there is no equivalent, declare a Go-specific validation | A2: `Directive` is sealed; **[Run]** `null` gives `MatchError` and the parent fails; no equivalent is claimed |
+| A4 | Make the `MaxRetries`/`Within` matrix explicit (negatives, zero, finite window, overflow); "no count" is not "unlimited" when a window exists | S4 matrix (24 cells **[Run]** on the real class), A4 |
+| A7 | User-defined strategies are a missing capability in #450 with a concrete task and dependencies; the constructors do not replace it | A7, #450 item 1 |
+| A9 | Separate demonstrated mappings, the approved `Goexit`, and pending cases | "A9 split" (A9a, A9b, A9c) |
+| A11 | Preserve `loggingEnabled` and `logFailure` in a unit of their own; events do not substitute logs; the sink is `github.com/pablogore/kit-logger` | A11, S14, U9 (#451) |
+| A12 | `FailedMessage` keeps presence and value; it does not authorize accepting nil where Classic rejects it; distinguish both contracts | A12, S8, #452 |
+| Missing Classic capabilities | Issues and follow-up; Typed is a later independent stage (#66) | "Explicit gaps", #450 |
+
+## M0. Which model is ported (accepted by the owner for supervision: H2)
+
+The repository ports **Classic** (`org.apache.pekko.actor`) wherever a runtime contract exists, and its oracle is Classic.
+
+| Contract | Pekko source cited by the repo | Model | Owner acceptance |
+|---|---|---|---|
+| Stop, `Done`, stop before first activation | `dungeon/FaultHandling.scala`, `dungeon/Dispatch.scala` (`stop.go:11`, ADR 0012) | Classic | ADR 0012, bounded case, 2026-10-10 |
+| Hierarchy, recursive stop | `dungeon/FaultHandling.scala:180-212`, `Children.scala`, `ChildrenContainer.scala` (ADR 0014) | Classic | ADR 0014 D1-D7, 2026-10-10/11 |
+| Local DeathWatch | `dungeon/DeathWatch.scala`, `DeathWatchSpec` (`watch.go:11`) | Classic | ADR 0010 watch increment, 2026-10-10 (bounded) |
+| Dead letters | `dungeon/Dispatch.scala`, `../dispatch/Mailbox.scala` | Classic | none separately: ADR 0010 D5 (2026-10-08) decides only the late reply to a completed Ask |
+| Ask | `pattern/AskSupport.scala`; classic and typed `AskSpec` pin some behavior | Classic mechanism | ADR 0015 `[Owner]`, 2026-10-10 |
+| **Supervision** | ADR 0010 "(b) Semantics" and D3: classic | Classic | **accepted 2026-10-14 (H2)**; `0010` edited |
+| Judge oracle | `judge/pekko-harness/Judge.scala:22` imports `org.apache.pekko.actor._` | Classic | — |
+
+The three scenarios named by #167 are Classic [`judge/pekko-harness/Judge.scala:386-420`†, `docs/judge.md:68-71`]:
+
+- **S13**: `w` watches `c`; `c` throws `RuntimeException`; then `c` receives `R`. Expected: `R` is received by the second instance and
+  `w` gets no `terminated` (G4, G6, G7). `c` is a child of the driver actor, created with `ctx.actorOf` (`Judge.scala:194-195`†); the
+  driver uses the **default** strategy.
+- **S14**: `w` spawns a child whose first `preStart` throws, and watches it. Expected: `w` gets `terminated`; a second `pre-start`
+  would be the wrong behavior (G7.b: an initialization failure stops the child).
+- **S16**: `boss` has a decider that records `decided` (naming the failing child through `sender()`, `Judge.scala:131`†) and returns
+  `Restart`; `w1` calls `watchWith(c, X)` then `watch(c)` (a conflict, `IllegalStateException`, which fails `w1`); `w2` calls
+  `watchWith(c, X)` twice (a no-op). Expected: `w1`'s failure is decided by `boss` and the queued `ack` is processed by the restarted
+  `w1` (I6).
+
+Typed is a different contract, not a variation (default **stop**, `docs/src/main/paradox/typed/fault-tolerance.md:5-11`; restart done
+inside the behavior by `Supervise`, `actor-typed/.../internal/Supervision.scala`; guardian supervised by the classic root guardian;
+test base `SupervisionSpec`). It is not mixed in. ADR 0010's milestone-1 scope (`:215-216`) was updated by this answer.
+
+## Decision matrix
+
+Notation: **Source** (file, symbol, test, run) → **Observable** → **Go adaptation** → **Status**.
+
+### S1. Supervision of top-level actors and guardians (H1: guardians as actors)
+
+- **Source.** `ActorSystem.scala:927-937` (`actorOf` attaches the actor to the `/user` guardian, its parent);
+  `ActorRefProvider.scala:518-533`† (`rootGuardianStrategy`: log and Stop for any failure; `guardianStrategy` from
+  `pekko.actor.guardian-supervisor-strategy`, `actor/src/main/resources/reference.conf:123`, default `DefaultSupervisorStrategy`, i.e.
+  `defaultStrategy`; `systemGuardianStrategy` = `defaultStrategy`); `ActorRefProvider.scala:315-326` (`Guardian`: `Terminated(_)` stops
+  itself, `StopChild`, and a no-op `preRestart` so the guardian keeps its children when it restarts), `:331-374` (`SystemGuardian` and
+  the termination hooks), `:476-485` (the fake parent of the root: a failed guardian is logged, the system's termination future fails
+  and the guardian is stopped), `:613-618` (the Watch chain /user → /system → root). Tests: `actor-tests/.../actor/ActorSystemSpec.scala:328`†
+  (a `Kill` on `/user` terminates the system), `:336`† (with `StoppingSupervisorStrategy` a top-level actor that throws is stopped),
+  `:359`† (a guardian strategy that escalates shuts the system down), `SupervisorMiscSpec.scala:87`† (a top-level actor that throws
+  is restarted: `preStart` runs twice and it is not terminated), `ActorLifeCycleSpec.scala:142` (a top-level default restart; it uses
+  `become`), `SupervisorSpec.scala:510` (a top-level creation failure is stopped).
+- **Observable.** A top-level actor is a child of the `/user` guardian; one that fails with an `Exception` is **restarted**, without
+  limit; an initialization failure, a kill or a death pact stops it; the guardian strategy is configurable; a failure of a guardian
+  stops it and, through the Watch chain, ends the system; creating a top-level actor while `/user` is terminating fails with
+  "cannot create children while terminating or terminated" (`dungeon/Children.scala:313-314`†).
+- **Go.** The owner chose (a): the root guardian, the `/user` guardian and the `/system` guardian are **actors** with these
+  strategies, top-level `Spawn` is child creation under `/user`, and the Watch chain is kept. This **amends ADR 0014's** statement that
+  the root owner is not an actor (`0014:110-111`, "a difference of mechanism, not of contract") for the supervision unit U5, which
+  applies it to ADR 0014 when it lands; ADR 0014 is not edited before. An internal supervisor that omits observable guardian behavior
+  is not accepted.
+- **Status.** **F** (decided). **Delivered** in U5a (#463), U5b (#465) and U5c: the guardians, the supervision of top-level actors by `/user`, the public
+  `GuardianStrategy` and the validated top-level names. **G** was delivered in part by U10 (#192, #193): the end of the system when `/user` fails or escalates is observable through `WhenTerminated`, and `Terminate` and `Shutdown` exist; the termination hooks of `SystemGuardian` and `CoordinatedShutdown` remain open.
+
+### S2. Default strategy and classification of failures
+
+- **Source.** `Actor.scala:588` (`supervisorStrategy` defaults to `defaultStrategy`); `FaultHandling.scala:218-232`†
+  (`defaultDecider`: `ActorInitializationException`, `ActorKilledException`, `DeathPactException` → Stop; any other `Exception` →
+  Restart; anything else is undefined; `defaultStrategy = OneForOneStrategy()(defaultDecider)`); `FaultHandling.scala:582-586`†
+  (`OneForOneStrategy` defaults: `maxNrOfRetries = -1`, `withinTimeRange = Duration.Inf`, `loggingEnabled = true`);
+  `FaultHandling.scala:366-390`† (an undefined decider falls to `escalateDefault`). Tests that use the **default** decider: judge S13
+  and S14; `DeathWatchSpec.scala:216` (an unhandled `Terminated` → `DeathPactException` → Stop); `SupervisorMiscSpec.scala:87`†;
+  `ActorLifeCycleSpec.scala:142`; `SupervisorSpec.scala:510`.
+- **Observable.** A parent that does not override its strategy restarts an ordinary failure **without limit** and stops an
+  initialization failure, a kill and a death pact. **An absent strategy is the default strategy, not Escalate**; "undefined" is a
+  property of the decider for one cause, never of the strategy.
+- **Go.** The runtime default for a parent without a strategy is `DefaultStrategy`, exactly that. No default limit is invented; the
+  restart-loop hazard is upstream's and will be documented (A3).
+- **Status.** **F**. **G** until the default strategy lands (U3, which needs Restart from U2): the stop-on-failure divergence stays.
+
+### S3. Directives and strategies admitted (H2: the whole set is the target)
+
+- **Source.** `FaultHandling.scala:128-161` (`Resume`, `Restart`, `Stop`, `Escalate`); `:366-390`† (`handleFailure`: Resume →
+  `resumeChild`; Restart and Stop → `processFailure`; Escalate → returns false); `dungeon/FaultHandling.scala:305-325`† (on false the
+  parent does `throw f.cause`: the parent itself fails with the same cause); `FaultHandling.scala:666-677`† (`OneForOneStrategy.processFailure`:
+  one child restarts if permitted, otherwise it is stopped) and `:554-567`† (`AllForOneStrategy.processFailure`: a Restart restarts **all**
+  children only if **every** child gets permission, otherwise **all** are stopped, and a Stop directive stops all of them); `:238-243`
+  (`stoppingStrategy`); `:260-279` (`makeDecider`). Tests: `SupervisorSpec.scala` AllForOne helpers `:144-160,172-180,192-205` and tests
+  `:292,318,323,354,364,401`; its OneForOne helpers and tests `:162-170,182-190` and `:306,311,330,335,340,382,389`;
+  `SupervisorHierarchySpec.scala:815` (after a Resume the actor **and its children** keep working);
+  `docs/src/test/scala/docs/actor/FaultHandlingDocSpec.scala:139` with Resume `:150-156` (keeps the state), Restart `:159-165` (resets
+  it), Stop `:166-172` and Escalate `:173-`. `SupervisorHierarchySpec.scala:767`† is **not** an AllForOne test: its decider is
+  `makeDecider(Nil)`, which escalates, and it relies on a custom `preRestart` that keeps the children (it belongs to S6).
+- **Observable.** Four directives and two strategies; Escalate makes the parent fail with the same cause; resuming an escalating
+  parent also resumes the failed child (`dungeon/Children.scala:216-222`).
+- **Go.** **All four directives, `OneForOne`, `AllForOne`, `stoppingStrategy` and the `makeDecider` helpers are the target.** A
+  directive constant is exported only when its semantics land, so an unimplemented directive is never mapped silently to another.
+  **The zero `Directive` is invalid, not Escalate** (A2).
+- **Status.** **F**, delivered over several units (U1 Stop/Resume/Escalate, U2 Restart, U6 AllForOne). **G**: user-defined
+  `SupervisorStrategy` subclasses (A7, #450 item 1); `loggingEnabled` and `logFailure` have their own unit U9 (#451, S14).
+
+### S4. Restart budget, window, zero and unlimited (H6: preserve, with explicit conversions)
+
+- **Source.** `FaultHandling.scala:58-88`† (`ChildRestartStats.requestRestartPermission` and `retriesInWindowOkay`); `:303-307`†
+  (`withinTimeRangeOption`: a finite, non-negative duration is a window, **zero included**; `Duration.Inf` or a negative value is no
+  window; `maxNrOfRetriesOption`: negative is no limit); `:550,662`† (the window is stored as `withinTimeRangeOption(...).map(_.toMillis.toInt)`).
+  **[Run]** the value stored by the real strategy (`RESULTS.md`, H6). Tests: `SupervisorSpec.scala:572`† (`-1` and `Inf`: restarts
+  forever), `:589`† (`-1` with a finite window behaves as **one** restart per window), `:601`† (`N` with `Inf`: `N` restarts, then
+  stop), `:232` (`maxNrOfRetries = 0` stops at the first failure); `RestartStrategySpec.scala:43,91,115,173,224`;
+  `SupervisorHierarchySpec.scala:790` (a denied restart ends in `Terminated` at the watcher).
+- **Observable.** The algorithm (`:58-88`†) on `(retries: Option[Int], window: Option[Int])` where `window` is in milliseconds:
+  `retries = Some(n)`, `n < 1` → deny; `(Some(n), None)` → count restarts, allow while `count <= n`; `(x, Some(w))` → window rule with
+  `x.getOrElse(1)`; `(None, _)` → allow. Window rule: `retriesDone = count + 1`; the window starts at the first request (`0` marks "not
+  started", `:75`); `insideWindow = (now - windowStart) <= MILLISECONDS.toNanos(w)`; inside: `count = retriesDone`, allow iff `retriesDone <= n`;
+  outside: `count = 1`, window restarts, allow. A denied restart stops the child. Statistics are per child in the parent's record, survive
+  its restarts and start fresh for a new child, even under the same name. `AllForOne` asks every child (`children.forall`).
+- **Go.** `Budget{MaxRetries int32; Within time.Duration}`. The conversion is explicit and independent of the platform `int`:
+
+  ```go
+  // Pekko: withinTimeRangeOption(w).map(_.toMillis.toInt) with w finite.
+  func windowMillis(within time.Duration) (ms int32, has bool) {
+      if within < 0 { return 0, false }          // Duration.Inf or negative -> None
+      return int32(within.Milliseconds()), true  // toMillis truncates toward zero; toInt keeps the low 32 bits
+  }
+  func windowNanos(ms int32) int64 { return int64(ms) * int64(time.Millisecond) } // MILLISECONDS.toNanos(Int): no saturation in range
+  func retriesOption(n int32) (int32, bool) { return n, n >= 0 }                  // maxNrOfRetriesOption
+  ```
+
+  `MaxRetries` is `int32` because Scala's `Int` is; the restart counter is `int32` and wraps like Scala's `Int`.
+  **[Run]** conversion table the Go function must reproduce (ns → stored ms): `1 → 0`, `999999 → 0`, `1000000 → 1`, `1999999 → 1`,
+  `2147483647 ms → 2147483647`, `2147483648 ms → -2147483648`, `4294967295 ms → -1`, `4294967296 ms → 0`, `4294967301 ms → 5`,
+  `Long.Max ns → 2077252342`, `0 → 0`, `-1 ms → none`, `Inf → none`. Consequences preserved: a window whose milliseconds modulo 2^32 are at least 2^31 (the
+  first such range is about 24.8 to 49.7 days, and it repeats every 2^32 ms) is stored negative, so `(now - windowStart) <= negative`
+  is false and every restart is allowed (`MILLISECONDS.toNanos(-2147483648) = -2147483648000000` **[Run]**); a window of exactly a
+  multiple of 2^32 ms is a zero window; a sub-millisecond window is a zero window; on a real clock a zero window is
+  effectively unlimited (a restart is inside it only within the same nanosecond).
+  Edge cases to port from the fixed source: `n = 0` with any window denies; `n < 0` with a window allows one restart per window (`:62`†);
+  `n < 0` without a window never denies; boundary `diff == w` inside, `diff == w + 1ns` outside; the first request anchors the window and
+  a later one inside it increments; after the window the counter is `1` and the new anchor is the current time; `AllForOne` advances every
+  counter until one denies.
+- **The matrix of `MaxRetries` × `Within` (A4), measured on the real class.** "No count" (`MaxRetries < 0`) is **not** "unlimited": it means
+  unlimited **only when there is no window**; with a window, a missing count behaves as **one** restart per window (`x.getOrElse(1)`,
+  `:62`†, `SupervisorSpec:589`†). **[Run]** `A2A4Probe` calls the real `ChildRestartStats.requestRestartPermission` five times in a row per
+  cell (raw output `a2a4-sbt.out`; the transcription `a5-edge/oracle.py` reproduces all 24 cells, `a5-edge/matrix_check.out`). The window
+  columns are the **stored** Pekko value: `Inf`/negative → none; `0` and `2^32 ms` → `Some(0)`; `10 s` → `Some(10000)`; `2^31 ms` →
+  `Some(-2147483648)` (overflow).
+
+  | `MaxRetries` \ `Within` | none (`Inf`, or negative) | zero window (`0`, `2^32 ms`) | finite, 10 s | overflow, `2^31 ms` (stored negative) |
+  |---|---|---|---|---|
+  | `< 0` (no count) | allow ×5: **unlimited** | allow ×5 (a zero window is almost never "inside") | allow, **deny ×4**: one restart per window | allow ×5 (never inside) |
+  | `0` | deny ×5 | deny ×5 (a count below 1 denies first) | deny ×5 | deny ×5 |
+  | `1` | allow, deny ×4 | allow ×5 (never inside, so the count resets) | allow, deny ×4 | allow ×5 |
+  | `3` | allow ×3, deny ×2 | allow ×5 | allow ×3, deny ×2 | allow ×5 |
+
+  Reading the table: a **window narrows** what a count allows only when it is finite and wide enough to be "inside"; a **zero or overflowed
+  window makes the count ineffective** (a request is outside the window, so the counter resets to 1 and the restart is allowed: always for an
+  overflowed negative window, and for a zero window unless the clock returns the same reading, as stated above). `MaxRetries = 0`
+  always denies. "No count with no window" is the only unlimited cell. These are properties of the pinned implementation, preserved (H6).
+- **The reading of exactly zero (owner decision A5, 2026-10-14).** Pekko uses the **value `0`** of `restartTimeWindowStartNanos` as
+  "window not started" (`:75`), in every branch that stores it: the first request stores `now`, and the reset after an expired window stores
+  `now`. If `now` is exactly `0` the stored value is `0` and the **next** request treats the window as not started and anchors again. The Go
+  port keeps **exactly that**: `windowStartNanos int64` where `0` means "not started", the injected clock gives an `int64` nanosecond
+  reading that may be `0` or negative (as `System.nanoTime` may), and **no explicit flag** is introduced. The edge is a required test,
+  derived from the pinned source (the real class reads `System.nanoTime` and cannot be driven to a chosen reading, so these expectations
+  come from `migration/stage-1/supervision/h4-repro/a5-edge/oracle.py`, a line-by-line transcription of `:49-89`, **not from a run of
+  Pekko**; its output is `oracle.out`). With `retries = 2`, `window = 1000 ms`, readings `0, 100 ms, 1050 ms` the permissions are
+  `allow, allow, deny` (a flag-based variant would give `allow, allow, allow`); with `retries = 1`, `window = 1000 ms`, readings
+  `-2000 ms, 0, 1050 ms` they are `allow, allow, deny` (the reset stores `0`; a flag-based variant would allow the third); controls without
+  a zero reading and at the window edge agree in both. Negative readings must be representable.
+- **Status.** **F** (conversions, edge cases and the zero reading preserved). **A5** (the clock source only), **A4** (representation),
+  **A6** (`int32`). No H6 deviation remains: H6 is resolved as "reproduce".
+
+#### The zero value of `Budget` and `DefaultStrategy`: alternatives (amendment 2026-10-28, #779)
+
+In Go a struct literal with no fields is a value, so `Budget{}` is the pair `{MaxRetries: 0, Within: 0}` and the language needs an answer to
+"what does it mean". Pekko has no such value. Its strategies take `maxNrOfRetries = -1` and `withinTimeRange = Duration.Inf` as constructor
+defaults (`FaultHandling.scala:468-470`, `:582-584`), and `defaultStrategy` is `OneForOneStrategy()(defaultDecider)` (`:230-232`), so in Pekko
+"nothing given" is unlimited, while an explicit `0` is a different thing: `Some(0)` denies (`:58-60`, `SupervisorSpec.scala:232`).
+
+**Chosen (already A4, unchanged).** `Budget{}` is the literal pair and it is never a default. `MaxRetries == 0` denies every restart in every
+window column of the matrix above (row `0`: deny ×5). The default is a different value: `DefaultStrategy` is `OneForOne` with
+`Budget{MaxRetries: -1, Within: -1}` (unlimited) and the default decider (S2, A3), and `Budget{MaxRetries: -1, Within: -1}` is how a program
+spells Pekko's constructor defaults. The accepted signature file already says it: "`Budget{}` is NOT Pekko's default (that is -1 / no window):
+the provided strategies carry the defaults". Observable difference: a parent whose `SupervisorStrategy()` returns `OneForOne(Budget{}, d)`, where
+`d` answers `Restart`, stops the failing child with a `restart-denied` event; a parent that declares no strategy restarts it with no limit.
+
+| Alternative | What `Budget{}` would mean | Observable difference | Why it is not adopted |
+|---|---|---|---|
+| Read the zero literal as "unset" and apply Pekko's constructor defaults | `{-1, -1}`: unlimited | `OneForOne(Budget{}, d)` would restart forever | It turns row `0` of the accepted matrix (deny) into "unlimited", which A4 preserves; and a forgotten field would become an unlimited restart loop. Source: `:58-60`, `:582-584` |
+| Tell "unset" from `0` with an optional representation (pointer fields, an option type or a constructor-only type) | "unset", distinct from `0` | A different public type | It changes `Budget{MaxRetries int32; Within time.Duration}`, which A4 and the signature file fix, so it would be a new API decision and not a clarification. Not decided here |
+| Reject the zero `Budget` when the strategy is built (an error or a panic) | no valid value | `OneForOne(Budget{}, d)` would be refused | It would make valid programs invalid: `Budget{}` is used with deciders that never answer `Restart` (`pekko-actor/actor/example_test.go:84`) and Pekko has no equivalent error |
+
+The first and third rows rest on Pekko source; the second is a Go design alternative with no Pekko counterpart. Nothing in this subsection
+changes behavior: the tests that already pin it are `TestDefaultStrategyHasNoInventedLimit` (`supervision_default_internal_test.go:282`, `:298`),
+the `Budget{}` case of `sup1Decisions` (`supervision_goside_internal_test.go:251`) and the zero-budget cases of `AllForOne`
+(`supervision_allforone_internal_test.go:336`). Unresolved Owner decisions for this slice: none.
+
+### S5. Suspension and internal failure notification
+
+- **Source.** `dungeon/FaultHandling.scala:215-245`† (`handleInvokeFailure`: `suspendNonRecursive`, mark failed, `suspendChildren`,
+  `parent.sendSystemMessage(Failed(self, t, uid))`); `:305-325`† (`handleFailure`: acts only if the child is known and the `uid`
+  matches, otherwise drops the `Failed`); `../dispatch/sysmsg/SystemMessage.scala:215-277`† (`Failed` is stashed while the receiver is
+  suspended or waiting for children; `Recreate`, `Suspend` and `Resume` are stashed while waiting for children; `Terminate` is not);
+  `../dispatch/Mailbox.scala:233-234,263-279,301` (system messages are processed before user messages) and `:50-52,124-128,148-171`
+  (the suspend counter). Tests: `SupervisorHierarchySpec.scala:832`† ("suspend children while failing"); `SupervisorSpec.scala:460`
+  (system messages are not lost when processing one throws); `UidClashTest.scala:104` (a stale `Terminated` after a restart).
+- **Observable.** The failed actor and its children process no user message until the directive is applied; the decision runs at the
+  parent's next system-message boundary, ahead of its user messages; a stale `Failed` is dropped.
+- **Go.** A system-message class of its own, counted suspension, recursive child suspension, the stale check by incarnation ID (A10).
+  Constraint: it is **not** an item of the subject-keyed runtime lane (`watch.go:218,238,280` would delete or drop it).
+- **Status.** **F**.
+
+### S6. New instance, hooks, children and order of the restart (H3: yes)
+
+- **Source.** `dungeon/FaultHandling.scala:92-118`† (`faultRecreate`), `:278-303`† (`finishRecreate`); `Actor.scala:625-647`†
+  (defaults: `preRestart` unwatches and stops every child and then calls `postStop()`; `postRestart` calls `preStart()`);
+  `ActorCell.scala:622-640` (`newActor`); `dungeon/Children.scala` and `ChildrenContainer.scala` (the `Recreation` wait). **[Run]** the
+  event order of a restart whose children are held (`RESULTS.md`, H4): with the default hooks `C.postStop` (of the old instance) runs
+  from inside `preRestart`, **before any child's `postStop` has ended** (the latch holds the children); the relative order in which
+  the two children *begin* their `postStop` is not guaranteed and varied between runs. Tests:
+  `ActorLifeCycleSpec.scala:49,84,116,142`, `SupervisorSpec.scala:240`, `ActorRefSpec.scala:441`, `SupervisorTreeSpec.scala:27` and
+  `SupervisorHierarchySpec.scala:767`† (children kept by a custom `preRestart` are restarted in turn); judge G4 (`docs/judge.md:68`).
+  Nearly every restart test overrides `preRestart` or `postRestart` (`RestartStrategySpec.scala:60,102,132,187,243`;
+  `SupervisorSpec.scala:67,247,250,428,467,474,477`; `ActorLifeCycleSpec.scala:56-57`; `ActorRefSpec.scala:453-454`).
+- **Observable.** `preRestart(reason, message)` on the old instance: children are unwatched and stopped and `postStop()` runs **at
+  once, without waiting for the children**; then the restart waits until the children terminate; then the factory builds the **new
+  instance**, `postRestart(reason)` runs on it (default: `preStart()`); surviving children, if a custom `preRestart` kept them, are
+  restarted in turn. A failure inside `preRestart` is only logged.
+- **Go.** The factory is retained and runs once per restart, in the restarting activation (A8). `PostStop(old)` runs as the default
+  `preRestart` does, before the children have completed. **H3 is accepted**: the ADR 0014 rule "descendant finalization before
+  ancestor `PostStop`" (`0014:176-178`, in its Termination section) is a **termination** rule and is not applied to the cleanup of an
+  instance during a restart.
+- **Status.** **F**.
+
+#### Scope of the judge's guarantees (H3, H4)
+
+The judge's text today (`docs/judge.md:68-69`) states G4 (restart order) and G5 (stop: "every child's final `post-stop` happens before the
+parent's final `post-stop`; `post-stop` runs once per instance"). Their scope must not be widened:
+
+| Relation | Applies to | Does not apply to |
+|---|---|---|
+| G4 | the order `pre-restart(old)`, `post-stop(old)`, `post-restart(new)`, `pre-start(new)` of a restart that completes | the cleanup of the old instance relative to its children (the default `preRestart` runs `post-stop(old)` before any child's `post-stop` has ended, **[Run]**) |
+| G5 "children before the parent's final post-stop" | the **final** `post-stop` of an actor that terminates (termination rule) | `post-stop(old)` during a restart |
+| G5 "`post-stop` runs once per instance" | nothing that holds in general: the runtime calls `post-stop` **once, at termination, on the current instance**; the *default* `preRestart` also calls it on the old instance, and a custom `preRestart` may call it zero or several times | a Stop that reaches an actor waiting for its children inside a restart whose default `preRestart` already called `post-stop`: **two calls observed** (S11); a `preRestart` that does not call it: **one** call, at termination, after the children |
+
+**Accepted correction (owner, H4, 2026-10-14), to be applied in U7** (#449; the judge is not modified by this documentation work): reword
+G5 to say "the final `post-stop`" for the children-first rule, and replace "runs once per instance" by "the runtime calls `post-stop`
+once, at termination, on the current instance; the default `pre-restart` also calls it on the old instance", with a reference to S11,
+so that G5 does not reject this valid Pekko behavior; add a Pekko-side scenario for S11 and its Go mirror (U7).
+The Pekko documentation that G5 cites (`upstream/pekko/docs/src/main/paradox/actors.md:941-957`) describes the termination order
+(children first, then `postStop`) and does **not** say "once per instance": that wording is the judge's own, and only the judge's
+wording is contradicted by the observed double call.
+
+### S7. Mailbox, identity, `Ref` and name
+
+- **Source.** `ActorCell.scala:718-721`† (`clearActorFields` touches only `currentMessage` and the behavior stack);
+  `../dispatch/Mailbox.scala` (a suspended mailbox keeps its user messages); `Children.scala` name reservation. Tests:
+  `RestartStrategySpec.scala:43` (a ping queued behind the crash is processed after the restart), `SupervisorHierarchySpec.scala:832`†,
+  `SupervisorMiscSpec.scala:102,126` (a new child cannot reuse a name until the old child is removed).
+- **Observable.** Same cell, same mailbox, same `ActorRef`, path and `uid`; queued and arriving messages are kept in order.
+- **Go.** `Ref`, ID, name and `Done` are stable; nothing is dead-lettered by a restart.
+- **Status.** **F**.
+
+### S8. Destination of the message that caused the failure (H8)
+
+- **Source.** `ActorCell.scala:549-566` (`invoke` keeps `currentMessage` when the message throws); `dungeon/FaultHandling.scala:101`†
+  (`optionalMessage = Some(currentMessage.message)`); `ActorCell.scala:718-721`† (cleared afterwards). **[Run]** `C.preRestart(message=Some(boom))`
+  (`RESULTS.md`). Tests: `Ticket669Spec.scala:37,49`. No test asserts the message value.
+- **Observable.** The failed message is not redelivered and not dead-lettered; it is available only as the `message: Option[Any]`
+  argument of `preRestart`. That argument is `None` when the restart was not caused by a message (a sibling restarted by an
+  `AllForOne`, a restart requested by the parent), and `Some(x)` otherwise, where `x` can be a user message, the `Failed` envelope of an
