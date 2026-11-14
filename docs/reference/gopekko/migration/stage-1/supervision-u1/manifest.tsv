@@ -1,0 +1,4 @@
+source	target
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala	pekko-actor/actor/supervision_resume_internal_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala	pekko-actor/actor/supervision_decider_child_internal_test.go
+docs/adr/0017-supervision.md	pekko-actor/actor/supervision_goside_internal_test.go
