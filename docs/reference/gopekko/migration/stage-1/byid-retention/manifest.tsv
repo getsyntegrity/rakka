@@ -1,0 +1,11 @@
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala	pekko-actor/actor/hierarchy.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala	pekko-actor/actor/registry_retention_internal_test.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala	pekko-actor/actor/registry_characterization_internal_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala	pekko-actor/actor/registry_characterization_internal_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala	pekko-actor/actor/registry_retention_internal_test.go
+docs/adr/0024-actor-registry-retention-after-termination.md	pekko-actor/actor/registry.go
+docs/adr/0024-actor-registry-retention-after-termination.md	pekko-actor/actor/system.go
+docs/adr/0024-actor-registry-retention-after-termination.md	pekko-actor/actor/ref.go
+docs/adr/0024-actor-registry-retention-after-termination.md	pekko-actor/actor/cell.go
+docs/adr/0015-ask-and-reply.md	pekko-actor/actor/ask_endpoint.go
+docs/adr/0024-actor-registry-retention-after-termination.md	pekko-actor/actor/registry_retention_api_test.go
