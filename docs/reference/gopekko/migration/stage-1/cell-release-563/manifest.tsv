@@ -1,0 +1,12 @@
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala	pekko-actor/actor/cell.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala	pekko-actor/actor/stop.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala	pekko-actor/actor/stop.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala	pekko-actor/actor/cell_release_internal_test.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala	pekko-actor/actor/cell_release_internal_test.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala	pekko-actor/actor/cell_release_internal_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala	pekko-actor/actor/cell_release_internal_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala	pekko-actor/actor/cell_release_internal_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala	pekko-actor/actor/cell_release_api_test.go
+docs/adr/0024-actor-registry-retention-after-termination.md	pekko-actor/actor/stop.go
+docs/adr/0024-actor-registry-retention-after-termination.md	pekko-actor/actor/cell_release_api_test.go
+docs/adr/0015-ask-and-reply.md	pekko-actor/actor/cell_release_api_test.go

@@ -1,0 +1,81 @@
+// Informative heap measurement for T6 (#563, ADR 0024 D5). This is not a contract and not a test of the suite: it is kept
+// as .txt so no tool compiles it. To use it, copy it as actor/zz_heap_measure_test.go into a scratch copy of pekko-actor
+// (never into the repository tree), run `go test -count=1 -v -run TestZZHeapMeasure ./actor/`, and delete the copy.
+//
+// Method. N actors each hold a 1 MiB slice in their instance. Every actor reports its first message on a channel, so the
+// "alive" reading is taken after all N instances exist. All are stopped; the program waits for every Done and keeps every
+// Ref. Each reading is runtime.MemStats.HeapAlloc after two runtime.GC() calls: it measures what is still reachable, not
+// what the process returns to the operating system (RSS is not measured).
+//
+// Baselines. The comparison tree is the code of develop before #739, f23a215f9701dd7b5046dada0150ba75dfbe61c1. Between that
+// commit and a807fed22327dfd3a02587528ce13a85661ddbab the production diff of pekko-actor/actor is cell.go and stop.go only.
+//
+// Limits. One scenario, one instance size, one platform per run, no restart or failure state in the cells. The figures
+// vary with the Go version and the platform and no test asserts them.
+package actor_test
+
+import (
+	"context"
+	"fmt"
+	"runtime"
+	"testing"
+
+	"github.com/getsyntegrity/gopekko/pekko-actor/actor"
+)
+
+type hmActor struct {
+	payload []byte
+	ready   chan<- struct{}
+}
+
+func (a *hmActor) Receive(*actor.Context[int], int) error {
+	a.payload[0]++
+	a.ready <- struct{}{}
+	return nil
+}
+
+func hmHeap() uint64 {
+	runtime.GC()
+	runtime.GC()
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return m.HeapAlloc
+}
+
+func TestZZHeapMeasure(t *testing.T) {
+	const n, size = 200, 1 << 20
+	sys := actor.NewSystem(actor.Config{})
+	base := hmHeap()
+	ready := make(chan struct{}, n)
+	refs := make([]actor.Ref[int], 0, n)
+	dones := make([]<-chan struct{}, 0, n)
+	for i := 0; i < n; i++ {
+		r, err := actor.Spawn(sys, fmt.Sprintf("a%d", i), func() actor.Actor[int] {
+			return &hmActor{payload: make([]byte, size), ready: ready}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Tell(context.Background(), 1)
+		d, _ := sys.Done(r)
+		refs, dones = append(refs, r), append(dones, d)
+	}
+	for i := 0; i < n; i++ {
+		<-ready // every instance exists and has run
+	}
+	alive := hmHeap()
+	for _, r := range refs {
+		sys.Stop(r)
+	}
+	for _, d := range dones {
+		<-d // every Done closed
+	}
+	stoppedHeld := hmHeap() // every Ref still held
+	runtime.KeepAlive(refs)
+	refs = nil
+	dropped := hmHeap()
+	mb := func(x uint64) float64 { return float64(x) / (1 << 20) }
+	fmt.Printf("HEAPMB go=%s base=%.1f alive=%.1f stopped_refs_held=%.1f refs_dropped=%.1f\n",
+		runtime.Version(), mb(base), mb(alive), mb(stoppedHeld), mb(dropped))
+	runtime.KeepAlive(sys)
+}
