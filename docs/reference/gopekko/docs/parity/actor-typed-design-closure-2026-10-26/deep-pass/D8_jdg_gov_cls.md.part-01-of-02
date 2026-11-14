@@ -1,0 +1,360 @@
+# D8 deep second pass: JDG-06..10, JDG-13, GOV-26/29/30/33/34/36..41
+
+> Verification status (2026-10-26): checked by V6_D7b_D8.md: 62 findings checked in full, 7 partially, 1 not verified. Corrections from the verification are applied in this file. Stories not covered by the verification keep the producer's wording unverified.
+
+Baselines: Pekko v1.7.1 `9a54d12` (`upstream/pekko`, read directly); goPekko `develop` `9abfb40` (snapshot `tmp/develop/`). ADR 0032 not in develop. Nothing edited. The bundle holds 17 stories (6 JDG, 11 GOV; no CLS story is in this bundle).
+
+Method limits (apply to every story): the issue bodies carry no "ACT2 reconciliation" block; dependency edges were taken from each body's `Dependencies` table plus a reference scan of `issues_all2.json` (bodies only, no comments). The develop snapshot does not contain `judge/go_scope.py`, `judge/evaluate.py`, `scripts/check-judge-matrix.py`, `judge/*.tsv`; only `tmp/cmp/` copies of `comparator.py`, `mutate_go.py`, `run-pekko.sh`, `go-scope.json`, `judge.sbt`. AC evidence commands that use the missing files could not be checked, so no JDG story is DEEP.
+
+Prior-audit findings verified first (`govA.md`, `govB.md`, `jdg-cls-tkt.md`): F2 (JDG-13 not wired as dependency of #1048/#1049) confirmed (#1097 is referenced only by epic #1017). govB F-9 (GOV-26 durable keys), F-10 (GOV-39 AC-R6-1 corrupted), F-11 (GOV-33/GOV-43 id 21 overlap), F-12 (decision stories blocked on implementation stories), F-13 (GOV-37 plan row TY-03), F-14 (GOV-29/30 blank spec cells) confirmed or refined below. New findings not in the prior audit are marked NEW.
+
+## Owner-instruction check for the 11 GOV stories (quote locations)
+
+Searched: ADR 0033, ADR 0031 (head and O-table), ADR 0021 O7, plan `actor-typed-delivery-plan.md` section 8.7 (O-1..O-12), the 11 story bodies, and the bodies of their consumers/siblings (#808, #1074, #1016, #794, #894, #812, #896, #1073, #1037, #1042) with a regex for "Owner decided/approved/instruct/words".
+- Result: no GOV-26/29/30/33/34/36/37/38/39/40/41 decision is recorded as an explicit Owner instruction. Each story itself records `Owner decision pending`. The decisions are open (f) proposals.
+- Related accepted Owner acts that bound but do not decide them: ADR 0033 line 3 "accepted by the Owner on 2026-10-24, in the working session" and line 33 "The Owner accepted this ADR on 2026-10-24 in the working session, so D1 to D13 are accepted decisions" (D8 io exclusion rule at line 42; D9 at 43; D10 at 44; D11 at 45; D13 at 47). No verbatim Owner words are quoted in ADR 0033. Contrast ADR 0031 lines 5-6, which quote the Owner's words verbatim ("Apruebo O1, O2, O3a, O3b, O3c con protocolo local \"pekko\", O4 y O5 ...") for O1 local-only Address (table row O1, line 127) and O2 no parser in the first implementation (row O2, line 128).
+- Plan line 632 (O-6): "Each needs an explicit Owner decision and a recorded source and reason" (covers IO-01..19, SYS-14..16, TSD-15/16, TYP-24/32/33). Plan line 627 (O-1): Go-only rows "stay `pending approval` until the Owner approves their alternative evidence".
+- Which stories each GOV decision blocks (from consumer references): GOV-26 #1075: none declares it (story text names #999 TYP-26 and #980 TSD-09 as "owner stories" but their bodies do not reference #1075); GOV-29 #1078: #794 EVT-11 (edge type not verified); GOV-30 #1079: #794; GOV-33 #1082: #808 IO-01 and #804 SER-01 mention it (the story depends_on #808, the reverse); GOV-34 #1083: #951 SER-02 mentions it; GOV-36 #1085: #1135 TKT-01, #1137 TKT-03 (`depends_on`), #1139 TKT-05, #1146 TKT-12, and GOV-25/GOV-26; GOV-37 #1086: #1126 SYS-26 mentions it; GOV-38 #1087: #1175 TYP-41 (`depends_on`) and #896 MSG-08; GOV-39 #1088: #1069..#1072 (GOV-20..23), #972 IO-09, #923 IO-12, #921 IO-06, #808, #762; GOV-40 #1187: #812 IDN-03; GOV-41 #1186: #894 IDN-09.
+
+---
+
+### #1029 JDG-06 — Execute the parity judge for the Classic stash
+- Depth: PARTIAL (Pekko source and the three cited spec bodies opened; the Go-side and `go_scope.py`/`check-judge-matrix.py` evidence commands, the JDG-02 contract and ADR 0033 text for V3 could not be checked because the contract does not exist yet and the files are not in the snapshot)
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT (AC/reference wording contradicts Pekko) + DEP
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| Scope: unstashAll order | `Stash.scala:245-252` private `unstashAll(filterPredicate)`: `theStash.reverseIterator.filter(..)` then `enqueueFirst` each, `finally theStash = Vector.empty`; public `unstashAll()` at 227 | no ActorWithStashSpec case asserts the ordering of unstash observed by me (searched `ActorWithStashSpec.scala` lines 135-190 only; earlier cases 1-135 not opened) | no stash symbol | spec-does-not-observe (for the lines opened) |
+| Scope: "stash survives restart (`ActorWithStashSpec:149`)" | `Stash.scala:89-92` `preRestart` = `try unstashAll() finally super.preRestart`; `Stash.scala:100-102` `postStop` also `unstashAll()` | `ActorWithStashSpec.scala:149-182` "process stashed messages after restart": actor stashes "hello" (restartLatch not open), "crash" throws, `preRestart` opens `restartLatch`; asserts `hasMsgLatch` opens, i.e. the stashed "hello" is received after restart | none | NO: Pekko does not keep the stash across the restart; it prepends the stash to the mailbox and clears it at `preRestart` |
+| Scope: leftover at stop to dead letters (`ActorWithBoundedStashSpec:126-133`) | `Stash.scala:100-102` postStop `unstashAll()` (comment 96-98: "otherwise stashed messages won't be propagated to DeadLetters") | `ActorWithBoundedStashSpec.scala:121-133` `testDeadLetters`: 11 stashes with bounded deque mailbox capacity 10 (`Bounded10`, lines 69-73) and `stash-capacity = 20`; `stasher ! "world"` then `expectMsg(DeadLetter("hello1", testActor, stasher))` (capacity violation of unstashAll); `stasher ! PoisonPill`; `expectMsg(DeadLetter("hello"+n, testActor, stasher))` for n in 2..11 | none | yes for the cited behavior, but the case needs PoisonPill, a bounded deque mailbox and a sender-bearing DeadLetter |
+| AC-R1-1 | n/a (process) | n/a | `go_scope.py` not in snapshot | unverified |
+| AC-R2-1 | see rows above | see rows above | none | partial |
+| AC-R3-1 | n/a | n/a | `mutate_go.py` exists in `tmp/cmp/`; Pekko mutants of `Stash.scala` | unverified |
+| AC-R4-1 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) Restart statement is not Pekko's. Current text (Scope, diagram, Atomic outcome): "stash kept across restart" / "stash survives restart (`ActorWithStashSpec:149`)" / diagram `Restart: stash kept`. Evidence: `Stash.scala:89-92` and spec `ActorWithStashSpec.scala:149-182`. Neutral replacement: "stashed messages are prepended to the mailbox by `preRestart` (`Stash.scala:89-92`) and the restarted instance receives them (`ActorWithStashSpec.scala:149-182`: the message stashed before the crash is received after the restart)".
+  - F2 (high) The stop scenario cannot run on the stated dependency set. The oracle case sends `PoisonPill` (`ActorWithBoundedStashSpec.scala:130`) and needs a bounded deque mailbox (`:69-73`, config `:77-96`). The story depends on #898 and #935 only; PoisonPill is #770 (MSG-06), a bounded mailbox is not named. Open question: which Go stop mechanism the scenario uses (S19's external stop is the existing one; Pekko `ActorSystem.stop`/`context.stop` also run `postStop`). Missing evidence: a Pekko case that asserts stash-to-dead-letters at stop without PoisonPill, or an Owner/JDG-02 decision.
+  - F3 (medium) Dead-letter content. The upstream assertion carries `DeadLetter(msg, testActor, stasher)` (sender and recipient, `:127,:133`); the story states the judge event is `dead-letter(message, recipient)` and drops the sender. ADR 0032 D3/D4/D6 are recorded as Owner-accepted in the open PR #1014, but ADR 0032 is not integrated in develop. State as exclusion by judge-vocabulary limit, not as Pekko behavior.
+  - F4 (low) Traceability cites `ActorWithStashSpec.scala:149` for "stash and unstash ordering"; that case asserts post-restart reception only.
+- Dependencies: add `depends_on` #770 (MSG-06) -> #1029 or record an alternative stop mechanism (see F2). #1027, #898, #935 edges exist and point the right way; #898/#935 P0 produce for P1 consumer (no inversion). Status `blocked` is consistent with undelivered #898/#935/#1027. Atomicity: three scenarios (order, restart, stop) in one story with estimate 300-450 lines; the handoff itself says "slice by scenario": SPLIT candidate.
+- Oracle (D13): oracle exists (ActorWithStashSpec, ActorWithBoundedStashSpec) and can host a differential scenario; whether the judge can express "bounded mailbox + PoisonPill" is for JDG-02.
+
+### #1030 JDG-07 — Execute the parity judge for ReceiveTimeout
+- Depth: PARTIAL (Pekko source and the cited spec bodies opened; the JDG-02 contract, manual-clock harness and evidence commands are not available; ADR 0010 exclusion text not re-read beyond ADR 0033 D4)
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| "get timeout" | `dungeon/ReceiveTimeout.scala:37` setReceiveTimeout; `:44-58` checkReceiveTimeout; `:60-64` reschedule via `system.scheduler.scheduleOnce(f, self, ReceiveTimeout)` at `:62` | `ReceiveTimeoutSpec.scala:82-95` (`taggedAs TimingTest`): 500 ms timeout, asserts a latch opened by `ReceiveTimeout` within `TestLatch.DefaultTimeout` | not implemented | yes, but real-time |
+| "reschedule after regular receive" | `ReceiveTimeout.scala:40-42,71-76` (cancel before receive, reschedule after unless NotInfluenceReceiveTimeout) | `:97-113` (`TimingTest`): sends `Tick`, asserts the latch eventually opens; does NOT observe that the timer was rescheduled (no timing comparison) | none | spec-does-not-observe the rescheduling |
+| "turn off" | `:44-57` `case _ => cancelReceiveTimeoutTask()` | `:115-136` (`TimingTest`): handler calls `setReceiveTimeout(Duration.Undefined)`; asserts `count.get === 1` read right after the latch opens (does not wait for a possible second timeout) | none | spec-does-not-observe absence after turn-off |
+| "cancel when stopped" | cancel on stop in the actor cell (not located by me) | `:313-320` (not TimingTest): subscribes probe to `DeadLetter`, `ref ! "Stop"`, expects "stopping", `expectNoMessage(400ms)` | none | yes (negative, wall-clock) |
+| NotInfluenceReceiveTimeout | `ReceiveTimeout.scala:42,72`; trait `Actor.scala:164` | `:151-285` seven cases, all `TimingTest` (11 of 13 cases in the file are `TimingTest`) | none | exists; story includes only if JDG-02 lists |
+| AC-R1-1..R4-1 | process ACs | n/a | n/a | unverified |
+
+- Findings:
+  - F1 (high) Internal tension R2 vs Evidence. R2: "the Pekko spec cases tagged `TimingTest` are not used as wall-clock tests"; AC-R2-1 evidence cites `ReceiveTimeoutSpec.scala:82,97,115` as "the oracle cases", all `TimingTest` with 500 ms real-time timeouts. Only `:313` is untagged. Neutral replacement for the evidence: "the Pekko cases at `:82`, `:97`, `:115` are `TimingTest` wall-clock cases and observe only delivery, eventual delivery and one delivery; the controlled-mode scenario is a goPekko scenario that re-expresses them; `:313` observes no dead letter within 400 ms after stop".
+  - F2 (medium) Label "reschedule after a regular message" is not observed by the cited spec (see row 2). Open question: which Pekko case observes rescheduling; missing evidence: none located (NotInfluence cases `:151-285` compare timing of messages that do not reset the timer and are closest).
+  - F3 (low) `Atomic outcome` lists four behaviors (delivery, reschedule, off, cancel-on-stop) in one story; acceptable as one observable inactivity-timeout contract.
+- Dependencies: `#1027` and `#861` edges correct in direction. #861 depends on #1037 (GOV-06) per its body, so the ADR-0010 exclusion gate is transitive: acceptable, but the label `blocked` should be read as blocked by #1037 as well. Inversion: none (both P1).
+- Oracle (D13): oracle exists and can host a differential scenario via the Pekko scheduler (`ReceiveTimeout.scala:62`) with the manual clock; the Pekko side runs `ExplicitlyTriggeredScheduler` in `Judge.scala`; real-time `TimingTest` caveat applies to the cited specs.
+
+### #1032 JDG-08 — Execute the parity judge for PoisonPill and Kill
+- Depth: PARTIAL (source and cited spec bodies opened; no spec found that asserts PoisonPill mailbox position; DeathWatchSpec/FaultHandling cases not all opened)
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT + SPLIT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| PoisonPill at its mailbox position then stop | `ActorCell.scala:576` `case PoisonPill => self.stop()` (processed as an ordinary message from the mailbox) | AC cites `ActorWithBoundedStashSpec.scala:130` which only sends PoisonPill to an actor with a stash and observes dead letters (`:130-133`). No spec located that asserts "messages before are received, after are not". Searched `actor-tests/.../actor/*` files containing `PoisonPill`: ActorLifeCycleSpec:138 (postStop throws), DeathWatchSpec:140,148,158,185,300, DeadLetterSupressionSpec:38, FunctionRefSpec:91, ActorSelectionSpec, ActorWithBoundedStashSpec:130 (DeathWatchSpec bodies at 140-185 not opened) | no PoisonPill | `ActorRefSpec.scala:422-440` observes that messages sent before PoisonPill are processed and the actor then terminates; messages sent after: no spec found |
+| Kill raises ActorKilledException | `ActorCell.scala:575` `case Kill => throw ActorKilledException("Kill")` | `ActorLifeCycleSpec.scala:50-99` | no Kill | see F1 |
+| default decider stops on ActorKilledException | `FaultHandling.scala:218-224` `defaultDecider`: `ActorInitializationException`, `ActorKilledException`, `DeathPactException` -> Stop, other `Exception` -> Restart | traceability cites `SupervisorSpec.scala` (no line): no `Kill`/`ActorKilledException` occurrence in SupervisorSpec (grep). Other users of `ActorKilledException` in actor-tests: RoutingSpec:158-182, TcpDnsClientSpec:124, SupervisorHierarchySpec:461, PekkoExceptionSpec:35 | none (Go default decider has no case, closure audit row 'Default decider') | spec-does-not-observe |
+| AC-R1..R4 | process | n/a | n/a | unverified |
+
+- Findings:
+  - F1 (high) The cited Kill spec does not observe the default decider. Current text: "`Kill` (raises `ActorKilledException`, stopped by the default decider)" and AC evidence "upstream `ActorLifeCycleSpec.scala:50-99` (Kill cases) is the oracle case cited". Evidence: the spec's supervisor is `Supervisor` with `OneForOneStrategy(maxNrOfRetries = 3)(List(classOf[Exception]))` (`:52-53,:87-88`); each `Kill` is followed by `preRestart`/`postRestart` (case 1, `:57-77`) or `postStop`/`preStart` (case 2, `:90-99`), and only the 4th Kill (retry limit exhausted) yields `postStop` (`:78`). So the case observes Restart under a custom strategy and Stop after the retry limit, not the default decider. Neutral replacement: "`ActorLifeCycleSpec.scala:50-99` observes Kill under a OneForOne strategy with 3 retries: restart on the first three, stop on the fourth. The default decider mapping `ActorKilledException -> Stop` is at `FaultHandling.scala:220`; `DeathWatchSpec.scala:216-245` uses `defaultStrategy.decider` with `Kill` and observes the stop indirectly (DeathPactException of the watcher)".
+  - F2 (medium) Traceability "FaultHandling.scala ... actor-tests/.../actor/SupervisorSpec.scala" cites a spec without a line and without a Kill case.
+  - F3 (medium) Atomicity: two independent contracts (PoisonPill position, Kill/ActorKilledException) with different gates (GOV-07 vs GOV-08, MSG-06 vs MSG-07/MSG-09); the story's own handoff says "slice PoisonPill and Kill as two PRs". SPLIT candidate.
+  - F4 (low) Context claims `ActorCell.scala:575-576`, `FaultHandling.scala:218-221`: verified.
+- Dependencies: edges #770, #816, #1031 correct; #1031 already `depends_on` #816, so listing #816 and #1031 both is redundant for Kill (transitive) but harmless. Status blocked consistent (all four producers open). No cycle.
+- Oracle (D13): oracle exists for Kill (ActorLifeCycleSpec under a custom strategy); for PoisonPill position and default-decider Kill: applicability pending determination (missing: a Pekko case asserting them).
+
+### #1075 GOV-26 — Propose the classification of the typed reference.conf keys
+- Depth: PARTIAL (typed `reference.conf` lines opened; no spec exists for config keys; ADR 0033 D9/D13 read; GOV-25 #1074 body not read in full; the Typed spec usage of each key not traced)
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table: ACs are document-content ACs (Alternatives, Pekko evidence lines, ADR relation, Recommendation, Owner decision pending); no behavior to match.
+
+| AC | Pekko evidence | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC-R2-1 line check | `actor-typed/src/main/resources/reference.conf` (131 lines): `extensions = []` 8; `library-extensions` 18 and `+=` Receptionist 21; `restart-stash-capacity = 1000` 27; `default-mailbox` 30-34; `pekko.library-extensions += ...LoadTypedExtensions` 36; `serializers` 39; `pekko.use-slf4j = on` 68; `pekko.reliable-delivery` 70, producer-controller 71, consumer-controller 97, work-pulling 116 | traceability spec column empty; "no spec found; searched: `*.scala` files for `restart-stash-capacity` not run" | `Config` struct, no HOCON | lines match the story |
+| AC-R4-1 | closed reasons: the seven-reason list is not in ADR 0033 D13 text (line 47 says only "exclusion list is closed and limited to the agreed local frontier and documented JVM-only APIs"); it is in the dossier `actor-typed-completion-design.md:342` | - | - | see F2 |
+
+- Findings:
+  - F1 (medium, refines govB F-9) Current text: "durable delivery keys excluded per D9 with reason `owner-excluded` pending approval". D9 (ADR 0033 line 43) is an accepted Owner decision: "durable queue implementations that depend on persistence are excluded". Which closed reason code applies is the open part. Replace with: "durable-queue keys are excluded by accepted ADR 0033 D9; the reason code recorded in the proposal is an open question (Owner)". Do not write `pending approval` for the exclusion itself.
+  - F2 (medium, NEW) The Design, R4 and ACs say "the closed list of ADR 0033 D13 (jvm-only, ..., owner-excluded)". ADR 0033 D13 does not list those seven codes; they come from dossier section 7.1 (`actor-typed-completion-design.md:342`), which the ADR cites as supporting evidence. Neutral replacement: "from the closed list of the design dossier section 7 (cited by ADR 0033 D13)".
+  - F3 (low) Scope omits key `pekko.actor.typed.library-extensions` line 21 (Receptionist registration) and line 36 (a `pekko.library-extensions` entry loading typed extensions); neither is in the scope list. Open question: whether they are keys to classify.
+  - F4 (low) Status: `blocked` on GOV-25 (#1074, `status:ready`); consistent. P3 consumers: none declared.
+- Dependencies: `#1074 -> #1075 depends_on` correct. Missing consumer edges: the story text names #999 (TYP-26) and #980 (TSD-09) as consumers; neither body references #1075, so the `enables` edges are absent.
+- Oracle (D13): classification record, no behavior: does not apply (a document decision has no Pekko execution oracle).
+
+### #1078 GOV-29 — Propose a decision on LoggingReceive and its debug configuration
+- Depth: DEEP (for a proposal story: all cited Pekko lines opened, spec bodies opened, ADR 0033 D8/D11 read)
+- Labels now: prio:P3, status:ready
+- Verdict: CORRECT (small)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| Pekko evidence lines | `LoggingReceive.scala:28` object; `:44` apply(r); `:51` apply(logLevel)(r); `:80` class; `reference.conf:736-740` `debug { receive = off`; `ActorSystem.scala:455` `AddLoggingReceive = getBoolean("pekko.actor.debug.receive")` | `LoggingReceiveSpec.scala:74-94` "decorate a Receive": `new LoggingReceive(Some("funky"), {case null=>})`, sends "hallo", expects `Logging.Debug("funky", ..., "received unhandled message hallo from " + deadLetters)` then `UnhandledMessage`; `:96-` "be added on Actor if requested": with `debug.receive=true`, expects `Logging.Debug(path, class, "received handled message buh from " + self)`, reply "x", then after `become` an unhandled message line | no Context.Log, no decorator | lines match |
+| AC-R3-1 | ADR 0033 D8 (line 42) and D11 (line 45) | - | - | story AC names D8 only while ADR impact list names D8 and D11 |
+
+- Findings:
+  - F1 (medium) Observable contract is under-stated in the story: `LoggingReceive.apply(r)` "does NOT modify the given Receive unless `pekko.actor.debug.receive` is set" (`LoggingReceive.scala:41-42`, `:64-67`), logs "received handled|unhandled message <o> from <sender> [in state <label>]" (`:92-97`), publishes only when `eventStream.logLevel >= logLevel` (`:89`), default level Debug (`:73`). Alternatives A/B/C do not mention that the decorator is a no-op unless the switch is on. Replacement for the Pekko evidence section: state these four facts with the lines.
+  - F2 (low, confirms govB F-14) Spec cell is filled in the body (`LoggingReceiveSpec.scala:36,74,96`); fine.
+  - F3 (low) R3/AC-R3-1 cite D8 only; ADR impact list also lists D11. Align AC-R3-1 to "D8 and D11".
+- Dependencies: `independent` correct; #794 (EVT-11) references this story; implementation waits on #794 per story context (edge type not verified).
+- Oracle (D13): decision record, does not apply; for an eventual implementation an oracle exists (LoggingReceiveSpec) and applicability is pending determination.
+
+### #1079 GOV-30 — Propose a decision on log-level filtering (LoggingFilter and setLogLevel)
+- Depth: PARTIAL (cited lines opened; `DefaultLoggingFilter` body (1608-) and EventStream usage not read; kit-logger `SetLevel` claim not re-verified)
+- Labels now: prio:P3, status:ready
+- Verdict: CORRECT (spec column empty)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| Evidence lines | `Logging.scala:44` `trait LoggingBus`, `:71` `def setLogLevel(level)`; `:1560` `trait LoggingFilter` (`isErrorEnabled(logClass, logSource)` `:1562` ... `isDebugEnabled` `:1565`); `:1573` `LoggingFilterWithMarker`; `:1608` `class DefaultLoggingFilter(logLevel: () => LogLevel)` | `EventStreamSpec.scala:133-146` "manage log levels": new `EventStream`, `startDefaultLoggers`, `verifyLevel(bus, InfoLevel)`; `setLogLevel(WarningLevel)` then verifies; Debug; Error | `Config.Logger` only | lines match; spec cell blank in story |
+| Kit-logger claim | story: "`Logger.SetLevel(slog.Level)` exists in kit-logger v0.2.0 `pkg/logger/interface.go:23`"; go.mod requires v0.2.0 | - | `pekko-actor/go.mod:9` kit-logger v0.2.0; interface file not in snapshot | unverified |
+
+- Findings:
+  - F1 (medium, confirms govB F-14) Traceability spec cell is empty; evidence: `EventStreamSpec.scala:141-145` observes `setLogLevel`. Replacement: add that case with its assertion (`verifyLevel` after each `setLogLevel`). Specs reference `DefaultLoggingFilter`/`LoggingFilter` at `MarkerLoggingSpec.scala:26` and `Slf4jLoggingFilterSpec.scala` (assertions not read).
+  - F2 (medium) Option A proposes reason `replaced-by-go-stdlib` and says "Owner approval is required" because kit-logger is external; the closed list is from the dossier, not D13 (see GOV-26 F2).
+  - F3 (low) Alternative C "A plus per-source level option later" has no Pekko counterpart (Pekko's filter is per (class, source), `Logging.scala:1562`).
+- Dependencies: `independent`; #794 references it.
+- Oracle (D13): decision record: does not apply.
+
+### #1082 GOV-33 — Propose a decision on the ByteString serializer (id 21)
+- Depth: PARTIAL (source lines and the spec body opened; ADR 0021 O7 read (line 382); `PrimitiveSerializers.scala` body and `signatures/serialization.go` not read)
+- Labels now: prio:P3, status:blocked
+- Verdict: DEP / CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| Evidence | `PrimitiveSerializers.scala:132` `ByteStringSerializer`; `reference.conf:806` serializer, `:822-824` bindings (ByteString1C, ByteString1, ByteStrings), `:846` `primitive-bytestring = 21` | `PrimitivesSerializationSpec.scala:157-176` "ByteStringSerializer": five items (empty, simple, concatenated, sliced, large concatenated); asserts `serializerFor(item.getClass)` is `ByteStringSerializer`, round trip, round trip via ByteBuffer (also `:54-61`: Array and ByteBuffer formats equal, LITTLE_ENDIAN) | no byte-value type | story cites ":58 (ByteString equality)" which is the shared helper line; the cases are at 157-176 |
+| ADR relation | ADR 0021 `:382` "O7. Built-in serializers for primitives and byte slices ... are pending; today the application registers its own" | - | - | consistent |
+
+- Findings:
+  - F1 (medium) Traceability spec fragment: replace `PrimitivesSerializationSpec.scala:58 (ByteString equality)` with `:157-176` (resolve serializer, round trip, ByteBuffer round trip for five ByteString shapes); `:58` is the Array vs ByteBuffer comparison inside `verifySerializationByteBuffer`.
+  - F2 (medium, confirms govB F-11) Overlap with GOV-43 #1190 (ADR 0021 O7 decision on built-in primitive and byte serializers; its Atomic section says it does not decide ByteString). #1190 leaves ByteString disposition to #808 but asks whether built-ins may use ids 4, 18-21, 35; #1082 proposes the fate of id 21. The id-range question overlaps; neither body references the other. Open question: which record owns id 21. Missing evidence: #1190 scope read in full (only its head was read).
+  - F3 (medium) Option A says exclude as `replaced-by-go-stdlib` because `[]byte` is covered by SER-09 #811; ADR 0021 O7 itself says Pekko binds byte-array serializers by default, and Pekko id 4 is the byte-array serializer, id 21 the ByteString one (plan line 49). Whether excluding id 21 leaves id 21 reserved/unassigned is the open part.
+  - F4 (low) Status: `blocked` on IO-01 #808 (`status:blocked`, no prio); the dependency chain GOV-33 -> #808 -> GOV-20..23/GOV-39 is long for a P3 proposal.
+- Dependencies: `#808 -> #1082 depends_on` (the proposal's own text says the decision follows #808's byte-value decision); #808 references this story (mutual reference in bodies; #808 depends_on #1082 or the reverse is not distinguished: check for a cycle in #808's table, not verified). Missing: relation with #1190 GOV-43.
+- Oracle (D13): decision record: does not apply; serializer behavior has an oracle (PrimitivesSerializationSpec) for any later implementation, applicability pending determination.
+
+### #1083 GOV-34 — Propose a decision on the serializedActorPath transport information scope
+- Depth: PARTIAL (spec search limited to local modules; source opened lines 48-130 of `Serialization.scala`; ADR 0031 O1/P-8 and ADR 0033 D8 read)
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| Evidence lines | `Serialization.scala:51` `currentTransportInformation` (`DynamicVariable[Information](null)`, INTERNAL); `:72-95` `serializedActorPath(actorRef)`: with no information set, a ref with a cell uses `path.toSerializationFormatWithAddress(system.provider.getDefaultAddress)` (falls back to `toSerializationFormat` on NonFatal), a ref without cell uses `toSerializationFormat`; with information set and same system uses `toSerializationFormatWithAddress(address)`, otherwise `provider.getExternalAddressFor(address).getOrElse(getDefaultAddress)`; `:102` `Information(address, system)`; `:116-124` `withTransportInformation` | No spec in the local-only modules (`grep -rl serializedActorPath` over `actor`, `actor-tests`, `actor-typed`, `actor-typed-tests` finds only `Serialization.scala`, `ActorRef.scala`); remote/doc tests exist (`SerializationTransportInformationSpec.scala:50-51`, `SerializationDocSpec.scala:257`), which use remote addresses (D8 excludes remote); `withTransportInformation` has no hit in `actor-tests` | no equivalent | story says "ThreadLocal-based" at `:116`: `DynamicVariable` is a scala thread-local-like variable (`:51`); wording ok |
+| ADR relation | ADR 0031 P-8 (line 88): "This claim covers `toString` only; no serialization form is proposed"; O1 local-only; ADR 0033 D8 | - | - | consistent |
+
+- Findings:
+  - F1 (medium) The story's option A "local-only form with no transport information" omits the observable fact that Pekko's `serializedActorPath` for a local ref returns the path with the provider's default address even when no information is set (`:80-85`); for a local-only provider this equals `toSerializationFormat` only when the root address equals the default address, which the Source reading does not show. Open question: whether, in local-only goPekko, the two strings are identical; missing evidence: `LocalActorRefProvider.getDefaultAddress` (not opened).
+  - F2 (low) Alternative B ("context.Context during serialization") is a Go design with no Pekko oracle: the story already says so; keep as open question.
+  - F3 (low) State explicitly in the traceability cell (currently blank): no spec in the local-only modules; remote/doc tests exist (`SerializationTransportInformationSpec.scala:50-51`, `SerializationDocSpec.scala:257`).
+- Dependencies: `#894 -> #1083 depends_on`: #894 (IDN-09) is `blocked` on GOV-41 and others; a proposal about `serializedActorPath` scope depends on an implementation story's decision. Flag: a decision proposal whose producer is an undelivered implementation story (see govB F-12); status `blocked` follows. No cycle found (#894 references #1186, not #1083).
+- Oracle (D13): no applicable spec located (searched above) -> applicability pending determination.
+
+### #1085 GOV-36 — Propose a decision on TestKitSettings and LoggingTestKit
+- Depth: PARTIAL (reference.conf and `TestKitSettings.scala` opened; `LoggingTestKitImpl`, `TestProbeImpl` use of settings and the 24 LoggingTestKit-using specs not read; ADR 0033 D10/D11 read)
+- Labels now: prio:P2, status:blocked
+- Verdict: CORRECT + DEP
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| TestKitSettings | `TestKitSettings.scala:27` object, `:65` class; keys (`actor-testkit-typed/src/main/resources/reference.conf`): `timefactor = 1.0` 13, `single-expect-default = 3s` 18, `expect-no-message-default = 100ms` 22, `default-timeout = 5s` 26, `system-shutdown-default = 10s` 30, `throw-on-shutdown-timeout = true` 33, `filter-leeway = 3s` 37; timefactor must be positive finite (`TestKitSettings.scala:68-70`); durations "dilated" by the factor (`:73-90`) | no spec for settings located (`find actor-testkit-typed -name '*Spec*'`: TestProbeSpec, ActorTestKitSpec, BehaviorTestKitSpec, LoggingEventFilterSpec, TestAppenderSpec, JUnit5TestKitBuilderSpec and docs examples; none named for settings) | no testkit | story cites the keys as "spec" column, which is config, not a spec |
+| LoggingTestKit | `LoggingTestKit.scala:35` trait, `:97` `withCustom(Function[LoggingEvent, Boolean])`, `:130` object | story spec cell empty; specs exist: `LoggingEventFilterSpec.scala` (filter errors/warnings, cause, message, MDC, source; cases at 70-140) and `TestAppenderSpec.scala` (not opened) | none | spec cell should name them |
+
+- Findings:
+  - F1 (medium, NEW) Spec cell for LoggingTestKit is blank although `LoggingEventFilterSpec.scala` exists in `actor-testkit-typed/src/test/.../scaladsl/` and observes error/warn filtering by message, cause, MDC and source (cases `:70,75,80,86,102,107,113,117,124,128,132,136`; bodies not read). Replacement: list the file and "assertions not read".
+  - F2 (medium, extends jdg-cls-tkt F11) 24 files of `actor-typed-tests` import `LoggingTestKit` (3 of them Java or docs examples), so excluding it by D10 leaves V1 ports without an expectation tool; the proposal's option A (matchers over the logger fake) depends on #1052 EVT-15 (`status:ready`, implementation). Open question for the Owner. Do not add a design.
+  - F3 (low) `prio:P2` blocks `TKT-03` (P1) via `depends_on` (priority inversion) while TKT-01 and TKT-12 declare it `independent`, TKT-02 lists none, TKT-05 mentions it in text only (prior F9 confirmed).
+- Dependencies: `#1052 -> #1085 depends_on`: producer is an implementation story; the proposal's content (options struct and matchers) needs the fake's contract, not its implementation. Open question whether `independent` is the right type. Consumer edges to fix by the Architect: #1135/#1146 `independent` vs #1137 `depends_on`.
+- Oracle (D13): TestKitSettings: no spec located (searched above) -> pending determination; LoggingTestKit: oracle LoggingEventFilterSpec exists, applicability pending determination (D10 excludes logback-tied tools).
+
+### #1086 GOV-37 — Propose a decision on AbstractBehavior as the class style of Typed
+- Depth: PARTIAL (source and the three usage specs located; SupervisionSpec:1550-1567 and ActorThreadSpec:208 bodies not opened; ADR 0033 D1/D3 read; ADR 0011 not read)
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| Evidence | `AbstractBehavior.scala:46` `abstract class AbstractBehavior[T](protected val context: ActorContext[T]) extends ExtensibleBehavior[T]`; ctor throws if `context eq null` (`:48-`); `receive` final: `checkRightContext(ctx)` then `onMessage(msg)` (`:90-94`); `receiveSignal` final: `onSignal.applyOrElse(msg, { MessageAdaptionFailure(ex) => throw ex; _ => Behaviors.unhandled })` (`:95-102`); wrong-context error "created with wrong ActorContext ... Wrap in Behaviors.setup" (`:84-88`) | story: `BehaviorSpec.scala (uses AbstractBehavior; line not verified)`. Verified: `BehaviorSpec.scala:473` `new SAbstractBehavior[Command](context)`; `SupervisionSpec.scala:1550-1567` "detect AbstractBehavior with wrong ActorContext" (message contains "created with wrong ActorContext"); `ActorThreadSpec.scala:208` (same message); files using it: SupervisionSpec, BehaviorSpec, WatchSpec, ActorLoggingSpec, ActorThreadSpec, StashSpec, AdaptationFailureSpec (scala and java) | struct actors + `Spawn[T]` | story line cites ok, spec cell incomplete |
+
+- Findings:
+  - F1 (medium, confirms govB F-13) Plan row TY-03 (`actor-typed-delivery-plan.md:115`) already states "A3 is the class style | R" while the plan labels it a reviewer orientation; the story asks the same question as an open choice. Neither is an Owner instruction: ADR 0033 D1 (line 35) decides that A3 stays the runtime and API, and adds a public `Behavior[T]` on top; it does not decide the class style of Typed. State: "the class-style question is open; ADR 0033 D1 fixes only the runtime".
+  - F2 (low) Pekko observable contract not in the story: the wrong-context check and `MessageAdaptionFailure` rethrow (`:84-102`); alternatives A/B/C do not say whether they preserve them. Open question.
+  - F3 (low) Spec cell: replace "line not verified" with `BehaviorSpec.scala:473`, `SupervisionSpec.scala:1550-1567`, `ActorThreadSpec.scala:208,269`.
+- Dependencies: `#809 -> #1086 depends_on` correct; #809 is P0 ready, #1086 P1 blocked: no inversion. #1126 SYS-26 references it (Java overload boundary; edge type not verified).
+- Oracle (D13): decision record, does not apply.
+
+### #1087 GOV-38 — Propose a decision on ignore references (Classic internal API versus Typed public API)
+- Depth: PARTIAL (source and ActorRefIgnoreSpec bodies opened; ADR 0011 and ADR 0032 (not in develop) not read; #896 body not read)
+- Labels now: prio:P2, status:ready
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| Evidence | `ActorRef.scala:529` `@InternalApi private[pekko] final class IgnoreActorRef(provider) extends MinimalActorRef`, `path = IgnoreActorRef.path` = `RootActorPath(Address("pekko","local")) / "ignore"` (`:541-` companion), `writeReplace -> SerializedIgnore`; `ActorSystem.scala:177` typed `def ignoreRef[U]: ActorRef[U]` (public); `ActorRefProvider.scala:72,419` internal | `ActorRefIgnoreSpec.scala:69-` "ignore all incoming messages": request with `system.ignoreRef` then `probe.expectNoMessage()`, later counter increased; `:` ask with ignoreRef fails with `TimeoutException` (500 ms); actor-to-actor ask case | no ignore ref (`deadletter.go` only) | yes |
+| ADR relation | story: ADR 0032 D3/D4/D6 "does not apply because an ignore ref has no sender contract" | - | ADR 0032 not in develop | do not cite ADR 0032 as integrated |
+
+- Findings:
+  - F1 (medium) The story cites "ADR 0032 D3/D4/D6" as relevant in the ADR list; ADR 0032 is open PR #1014, not integrated authority. Replace with "ADR 0032 (open, PR #1014) is not an input".
+  - F2 (low) Observable contract omitted: the Pekko ignore ref has a fixed path `pekko://local/ignore` and is serialized as `SerializedIgnore` (`ActorRef.scala:529-545`), so path and serialization of the ref are part of the contract; alternatives do not mention them (ADR 0031 P-4..P-8 path values apply).
+  - F3 (low) `status:ready`, P2 with consumers #1175 (`depends_on`) and #896. Fine.
+- Dependencies: `independent` correct. Consumers: #1175 TYP-41 `depends_on` #1087; #896 MSG-08 (bundles deadLetters and ignore; the story says its ignore part is decided here).
+- Oracle (D13): decision record: does not apply; ActorRefIgnoreSpec is the oracle for any implementation (applicability pending determination).
+
+### #1088 GOV-39 — Propose a decision on UDP SimpleSender and TCP WriteFile, WritePath, CompoundWrite and ResumeAccepting
+- Depth: DEEP for this proposal story (all cited lines and spec bodies opened; ADR 0033 D8/D13 and ADR 0031 O1 read)
+- Labels now: prio:P3, status:ready
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| Evidence lines | `Udp.scala:138` `case class SimpleSender(options) extends Command`, `:139` object, `:182` `sealed trait SimpleSenderReady` (story says 183); `Tcp.scala:373` `WriteFile(filePath, position, count, ack)`, `:388` `WritePath(path, position, count, ack)`, `:401` `CompoundWrite(head, tailCommand)`, `:449` `ResumeAccepting(batchSize)` | `UdpIntegrationSpec.scala:44-48` `createSimpleSender`: sends `SimpleSender` to `IO(Udp)`, expects `SimpleSenderReady`. `TcpConnectionSpec.scala:277-296` "write a CompoundWrite ...": expects bytes "test1test2test4" and Acks 1, 3, 4. `TcpListenerSpec.scala:85-113` "not accept connections after a previous accept until read is reenabled": `ResumeAccepting(batchSize=1)`, then `2`, asserts OP_ACCEPT interest and token depletion | none | `SimpleSenderReady` is at 182, not 183 |
+| WriteFile / WritePath spec | - | `TcpConnectionSpec.scala:253-273` "write file to network": writes a 10 MB file with `WritePath(tmpFile, 0, size, Ack)` (`:268`), `writer.expectMsg(Ack)`. The story's traceability lists no spec for WriteFile/WritePath | none | gap in story |
+| ADR relation | ADR 0033 D8 (line 42): "`actor.io` is excluded where it depends on sockets, protocols or network transport"; D13 | - | no io package | consistent |
+
+- Findings:
+  - F1 (medium, confirms govB F-10) AC-R6-1 text is corrupted: it contains inlined prose ("... lists the numbers None: no existing story covers ... and the sentence that no story is closed before the Owner decision is recorded."). Neutral replacement: "Given the section `Stories affected`, then it states that no existing story covers these five commands, lists the related stories retired by #1069 and #1070 (#921, #972, #923) and states that no story is closed before the Owner decision."
+  - F2 (low, NEW) Traceability misses the WriteFile/WritePath spec (`TcpConnectionSpec.scala:253-273`); add it.
+  - F3 (low) `SimpleSenderReady` trait is at `Udp.scala:182`, case object at 183 (183 is not wrong). `WriteFile` is `@deprecated("Use WritePath instead")` (`Tcp.scala:372`).
+  - F4 (low) Closed-reason code: `network-io` for all five, but option B explicitly separates WriteFile/WritePath (file transfer): the code list is from the dossier, not D13 (see GOV-26 F2).
+- Dependencies: `#1069 -> #1088 independent` fine; no edge to #808 (IO-01) though #808 mentions this story; #1088 is `ready` while #808/#972/#921 are `blocked`: consistent (consumers wait). Atomicity: five commands in one record; acceptable as one exclusion record (Owner may split).
+- Oracle (D13): decision record: does not apply.
+
+### #1094 JDG-09 — Execute the parity judge for backoff and the circuit breaker
+- Depth: PARTIAL (source and spec bodies opened for the cited cases; BackoffOnRestartSupervisorSpec bodies not opened; JDG-02 contract and judge files not available)
+- Labels now: prio:P2, status:blocked
+- Verdict: CORRECT + SPLIT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| Breaker: closed -> open at threshold | `CircuitBreaker.scala:964` `Closed`, failure counting; open entry `:1100-1108` | `CircuitBreakerSpec.scala:318-` "A synchronous circuit breaker that is closed": "increment failure count on failure" asserts `openLatch` and `currentFailureCount === 1`; all 63 cases are `taggedAs TimingTest` | none | yes, real-time |
+| Breaker: open -> half-open after reset timeout | `CircuitBreaker.scala:1105-1109` `_enter()`: `set(System.nanoTime())` then `scheduler.scheduleOnce(currentResetTimeout) { attemptReset() }`; `:780` `attemptReset = transition(Open, HalfOpen)` | `CircuitBreakerSpec.scala:135-153` section header "that is open" at 135; case `:148` "transition to half-open on reset timeout": asserts `probe.expectMsgType[CBFailure]` with value in (0, longResetTimeout); `:170` invoke onHalfOpen | none | see F1 |
+| Breaker: half-open probe -> close | `CircuitBreaker.scala:1011` `HalfOpen` | `:195-203` section; `:196` "pass through next call and close on success": after `halfOpenLatch`, `breaker().withSyncCircuitBreaker(sayHi)` returns "hi" and `closedLatch` opens | none | yes |
+| Backoff: restart after delay | `BackoffOnStopSupervisor.scala:72-86` on `Terminated` of the child `scheduleOnce(restartDelay, self, StartChild)` (`:86`); `BackoffOnRestartSupervisor.scala:100` same; `:74` reset via `ResetRestartCount` | `BackoffSupervisorSpec.scala:69-81` "start child again ...": child killed with PoisonPill, `awaitAssert` that `CurrentChild` ref differs (no delay measured); `:272-290` "correctly calculate the delay": pure function `RetrySupport.calculateDelay` table (not the supervisor); `BackoffOnRestartSupervisorSpec.scala:222` withinTimeRange (body not opened) | none | spec observes the delay only as a pure function |
+| Backoff "props at line 46" | `BackoffSupervisor.scala:45-46` is `@deprecated("Use props with BackoffOpts instead", since = "Akka 2.5.22") def props(` | - | - | cites a deprecated overload |
+
+- Findings:
+  - F1 (high) Mis-cited premise for "concurrent only". Current text: "The open-state clock uses `System.nanoTime` (`CircuitBreaker.scala:724,740,756,864`), so a manual scheduler cannot drive it: these scenarios are concurrent-only with wide margins." Evidence: lines 724/740/756 are `elapsed = System.nanoTime() - start` in the listener notifications (`notifyCallSuccessListeners` etc.) and 864 is the call start; the open-state clock is `set(System.nanoTime())` at `:1106` and `remainingDuration` at `:1079`; the Open->HalfOpen transition itself is scheduled through `scheduler.scheduleOnce(currentResetTimeout)` (`:1107`), so a scheduler-driven controlled mode can drive that transition, while `remainingDuration()` (and the `CircuitBreakerOpenException.remainingDuration` assertion at `CircuitBreakerSpec.scala:143-145`) reads `nanoTime`. Neutral replacement: "the Open->HalfOpen transition is scheduled with `scheduler.scheduleOnce` (`CircuitBreaker.scala:1107`); `remainingDuration` and the listener elapsed values read `System.nanoTime()` (`:1079`, `:724,740,756`); whether a scenario can run in controlled mode depends on which of those it observes: open question for JDG-02".
+  - F2 (medium) AC-R2-1 cites `CircuitBreakerSpec.scala` (sync open 135, half-open 195, closed 322) - those are section headers of 10+ cases each, every case `TimingTest` (63 of 63 `in {` cases). Name the cases.
+  - F3 (medium) Backoff scenario "restart after backoff" has no Pekko case that observes the delay; `calculateDelay` is tested as a pure function (`BackoffSupervisorSpec.scala:272-290`). Open question: what the controlled-mode scenario observes (delay via the manual clock is not asserted by any cited spec).
+  - F4 (medium) Atomicity: two independent subsystems (breaker, backoff) with different time sources and gates; the handoff says "slice backoff and breaker as two PRs": SPLIT candidate.
+  - F5 (low) Traceability `BackoffSupervisor.scala props at line 46` points to a deprecated overload.
+- Dependencies: #1027, #795 (PAT-09), #909 (PAT-06) correct direction; the bodies of #795/#909 do not reference #1094 (edge declared at consumer only). Priority: P2 consumer, producers P2: no inversion. `blocked` consistent.
+- Oracle (D13): oracle exists (CircuitBreakerSpec, BackoffSupervisorSpec); applicability for the event-log judge pending determination (JDG-02), because breaker callbacks are not events of the closed vocabulary.
+
+### #1095 JDG-10 — Execute the parity judge for Classic routing
+- Depth: PARTIAL (RoundRobin source and RoundRobinSpec:61 body opened; RoutingSpec pool cases not opened; GOV-12 #1042 content not read)
+- Labels now: prio:P2, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| round-robin selection | `RoundRobin.scala:39-48` `RoundRobinRoutingLogic.select`: `next.getAndIncrement % size`; doc `:53-54`: "For concurrent calls, round robin is just a best effort"; `:83` `RoundRobinPool`, `:148` `RoundRobinGroup` | `RoundRobinSpec.scala:61-88`: 10 routees, 10 iterations, each `Await.result(actor ? "hit")` sequential; collects reply ids; asserts `counter.get === 10` routees created and every `replies.values === 10` | none | spec observes equal counts per routee, not the rotation order |
+| story diagram / scope | "A receives M1, M3, M5; B receives M2, M4, M6" | not observed by the spec (reply ids counted only; sender is the ask temp ref) | - | spec-does-not-observe the order |
+| pool of owned routees | `RoundRobin.scala:83` pool; supervisor strategy default | `RoutingSpec.scala:69,122,155` (`RoundRobinPool(2)`, `RoundRobinPool(1, supervisorStrategy = escalator)`) not opened | none | unverified |
+
+- Findings:
+  - F1 (medium) AC-R2-1 says `RoundRobinSpec.scala:61` "(deliver messages in a round robin fashion) is the oracle case cited". It observes per-routee counts after 100 sequential asks, not per-message rotation. Neutral replacement: "`RoundRobinSpec.scala:61-88` observes that 100 sequential asks to a pool of 10 produce exactly 10 replies from each routee and that 10 routees were created; the per-message rotation (M1,M3,M5 / M2,M4,M6) is the semantics of `RoundRobinRoutingLogic.select` (`RoundRobin.scala:42-46`), which no cited spec asserts".
+  - F2 (low) Pekko states round robin is best effort under concurrent calls (`RoundRobin.scala:53-54`); story already excludes cross-sender order (N1).
+  - F3 (medium) Priority inversions: P2 consumer with P3 producers (#912 RTE-04, #878 RTE-07) (confirms jdg-cls-tkt F12). GOV-12 #1042 is P1 ready (not an inversion).
+- Dependencies: #1027, #1042, #912, #878 as stated; direction correct. If GOV-12 excludes routers the story "closes as excluded and runs nothing" (story Context), but then #912/#878 edges are moot: status stays blocked until the Owner decides.
+- Oracle (D13): oracle exists (RoundRobinSpec); applicability for the event-log judge pending determination (JDG-02).
+
+### #1097 JDG-13 — Provide a mutation campaign tool for pekko-actor-typed
+- Depth: PARTIAL (the Go-side facts checked against `tmp/cmp/mutate_go.py`; `selftest_mutate_go.py`, `evaluate.py`, `check-judge-matrix.py` not in snapshot; no Pekko counterpart exists)
+- Labels now: prio:P1, status:blocked
+- Verdict: DEP
+- AC table (no Pekko contract: "Pekko has no equivalent"):
+
+| AC | Pekko | Spec | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R2 stale anchor | n/a | n/a | `mutate_go.py:344-351` `apply()`: `text.count(old) != 1` raises `ValueError(f"{name}: anchor occurs N times, want 1")` under `copy / "actor"` | yes (story says 344-350) |
+| AC-R4 provenance | n/a | n/a | `:238-246` `provenance()`: `+dirty` from `git status --porcelain -- judge pekko-actor`; tree from `rev-parse commit:pekko-actor` | yes; only pekko-actor |
+| R1/R5 | n/a | n/a | `:7` "copies pekko-actor/ into <workdir>/<id>/"; `:459-466` `run_one` copies `root/"pekko-actor"`; `COMPARATOR_PATHS` at `:201` (story says 202) includes `judge/mutate_go.py` | line off by one |
+
+- Findings:
+  - F1 (high, confirms jdg-cls-tkt F2) Consumers not wired: the bodies of #1048 (JDG-12) and #1049 (CLS-03) do not reference #1097; #1097 is referenced only by epic #1017. #1048 R3 runs Go mutants "through `judge/mutate_go.py`", which copies only `pekko-actor`. Add `depends_on` #1097 -> #1048 and #1097 -> #1049 and remove "no story owns" wording in #1047/#1049.
+  - F2 (low) `COMPARATOR_PATHS` is at line 201.
+  - F3 (medium) Open choice "Generalize mutate_go.py or write a sibling" is marked Owner decision in the story, but nothing records an Owner instruction (checked: none). Keep as open question; the story's own Architect proposal (sibling) is a recommendation.
+  - F4 (low) "Out of scope: Typed judge design: #1046" and `depends_on #1046` consistent.
+- Dependencies: `#1046 -> #1097 depends_on` (typed harness location), `#1096 -> #1097 depends_on` (module directory), `#1047 -> #1097 independent` fine (tool is built on a fixture). Missing: #1097 -> #1048, #1097 -> #1049 (above). Status blocked consistent (#1046, #1096 open). Priority P1 with producer #1096 P0, #1046 P1: no inversion.
+- Oracle (D13): does not apply (tooling, no Pekko counterpart; story says so).
+
+### #1186 GOV-41 — Propose the ADR 0031 addendum for the incarnation token form in exact reference strings
+- Depth: DEEP (every cited Pekko line opened, ADR 0031 P-6/P-7/P-8/O1 and ADR 0024 table row read; spec search done)
+- Labels now: prio:P1, status:ready
+- Verdict: CORRECT (traceability)
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| Pekko evidence | `ActorPath.scala:248` `def toSerializationFormat: String` (abstract); `:299` root: `override val toSerializationFormat: String = toString`; `:374-378` child: builds string then `appendUidFragment(sb)`; `:449-452` `appendUidFragment`: `if (uid == ActorCell.undefinedUid) sb else sb.append("#").append(uid)`; `ActorCell.scala:390-404`: `undefinedUid = 0`, `newUid()` random non-zero Int, `splitNameAndUid(name)` splits at the first `#` and calls `Integer.valueOf` on the rest | story: "no focused spec located; Architect to check ActorPathSpec.scala". Checked: `ActorPathSpec.scala` has no `#` and no `toSerializationFormat` case; `toSerializationFormat` is asserted only in `ActorSelectionSpec.scala:352-357` (selection strings) | `ID` is a string type (`id.go:9`, per story; not opened) | lines match |
+| ADR | ADR 0031 P-7 (line 87): "The path value carries no uid and its text never shows one. A uid-bearing form is a separate function owned by #853 and #894"; P-6 incarnation never in equality; P-8 (line 88) text; row O1; ADR 0024 row "A reused name is a different identity ... in Go identity is the ID, not path plus uid (adaptation)" (line 203) | - | - | consistent |
+
+- Findings:
+  - F1 (low) Traceability spec cell: replace "no focused spec located; Architect to check ActorPathSpec.scala" with "no spec found; searched: `ActorPathSpec.scala` (no `#`/uid case), `grep toSerializationFormat` in `actor-tests` (only `ActorSelectionSpec.scala:352-357`, selection strings)". Pekko observable fact to add: `splitNameAndUid` yields a uid from the text after the first `#` and fails with `NumberFormatException` on non-integers (`ActorCell.scala:400-403`).
+  - F2 (low) Alternative (b) "a new per-incarnation integer as in Pekko": in Pekko the uid is a random non-zero Int (`ActorCell.scala:392-398`), `0` meaning undefined; the story does not state this.
+  - F3 (low) Key order inverted (GOV-41 = #1186 < GOV-40 = #1187) already noted (govB X4).
+- Dependencies: `#1187 -> #1186 independent` plus mutual "addenda must agree" - a coupling that is not `independent` in effect: the `#` treatment is decided in both (GOV-40 scope line "Treatment of a `#` fragment ... also decides" #1186). Open question: whether the type should record the shared decision. `#1186` blocks #894 (IDN-09) (referenced) and #957 TYP-22 (named in Context).
+- Oracle (D13): decision record: does not apply; Pekko behavior is Source only (ADR 0031 head).
+
+### #1187 GOV-40 — Propose the ADR 0031 addendum for the grammar of actor path text parsing
+- Depth: PARTIAL (all cited Pekko lines and ActorPathSpec opened; the #812 body, which the story says contradicts P-8, was not read; ADR 0031 O2/P-5 rows read at head only)
+- Labels now: prio:P1, status:ready
+- Verdict: CORRECT (line citations)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko | Match? |
+|---|---|---|---|---|
+| Evidence | `Address.scala:148-160` `PathUtils.split` (fragment appended to the last element as `sub + "#" + fragment`); `:185-215` `AddressFromURIString.unapply(addr)` via `new URI(addr)`, `None` on `URISyntaxException`; rejects scheme null or (userInfo and host both null); no userInfo: port must be -1; with userInfo needs host and port; `:221-231` `ActorPathExtractor` uses `uri.getRawPath` and `getRawFragment`, `drop(1)`; `ActorPath.scala:72-76` `fromString` throws `MalformedURLException("cannot parse as ActorPath: " + s)`; `:124-131` `isValidPathElement` | `ActorPathSpec.scala:25-56`: parse own String rep equals the path; parse `pekko://my_sys@host:1234/some/ref`; parse `akka://...`; `AddressFromURIString` for pekko and akka; malformed: `""`, `"://hallo"`, `"s://dd@:12"`, `"s://dd@h:hd"`, `"a://l:1/b"` all throw `MalformedURLException`; `:76-` toString and `toStringWithAddress` | `Address` local exists; no parser | lines match; `AddressFromURIString` is at 185 (object) and `ActorPathExtractor` object at 221 |
+| ADR | ADR 0031 row O2 (line 128): "Exclude from #766 ...; #812 owns it; no grammar is defined here"; P-8 nothing escaped or decoded | - | - | consistent |
+
+- Findings:
+  - F1 (medium) The story's R3 requires stating Pekko behavior comes from `java.net.URI` and is Source only: verified in code (`Address.scala:186-188,224`). But the spec cases that exist do not include a `%XX` case; the claim about "malformed `%XX`" in the story Design ("digest correction of #812 AC1 and AC2 (no escaping, only malformed `%XX`)") has no Pekko spec in `ActorPathSpec.scala`: open question; missing evidence: a Pekko case with percent-encoding (none located in `ActorPathSpec.scala:25-56`; AddressSpec not opened).
+  - F2 (low) Scope item "reject `host without userInfo with port`" in govB differs: precisely, no userInfo and port != -1 -> None (`Address.scala:191-194`).
+  - F3 (low) The oracle ActorPathSpec cases mostly cover forms ADR 0031 O1 excludes (host/port, `akka://`): state which of the 7 cases are applicable (only the own-String-rep case at `:27-30` and the malformed list are within local-only O1).
+- Dependencies: `#1186 -> #1187 independent` with required agreement on `#`: see GOV-41. `#812` (P2, blocked) is the consumer; the producer is P1 (no inversion).
+- Oracle (D13): oracle exists for a subset (ActorPathSpec own-rep and malformed cases) and can host a differential scenario of the parser later; applicability pending determination for host/port and `akka://` cases (excluded by O1).
+
+---
+
+## Counts
+- DEEP: 3 (#1078 GOV-29, #1088 GOV-39, #1186 GOV-41)
+- PARTIAL: 14 (#1029, #1030, #1032, #1083 GOV-34 (spec search limited to local modules), #1094, #1095, #1097, #1075, #1079, #1082, #1085, #1086, #1087, #1187), each with its missing items stated above.
+
+## Stories the Architect should re-read first
+#1032 JDG-08 (Kill spec does not observe the default decider), #1029 JDG-06 ("stash kept across restart" is not Pekko: `preRestart` unstashes), #1094 JDG-09 (mis-cited nanoTime premise; scheduler drives Open->HalfOpen at `CircuitBreaker.scala:1107`), #1030 JDG-07 (TimingTest cases cited as oracle while R2 forbids them), #1088 GOV-39 (corrupted AC-R6-1; missing WritePath spec), #1085 GOV-36 (LoggingTestKit spec cell blank; settings/dependency inconsistency), #1075/#1079/#1088 and every GOV with the seven-reason closed list attributed to ADR 0033 D13.
+
+## Key Learnings

@@ -1,0 +1,5 @@
+1. ADR 0033 D13 does not itself contain the seven exclusion reason codes; they live in the design dossier section 7 at line 342, so GOV stories citing the list as D13 text misattribute it.
+2. In Pekko v1.7.1 `Stash.preRestart` and `Stash.postStop` both call `unstashAll`, so a restart prepends the stash to the mailbox instead of keeping it, and the stop case needs PoisonPill in the cited bounded-stash spec.
+3. ActorLifeCycleSpec lines 50-99 send Kill under a custom OneForOneStrategy with three retries and observe restarts, not the default-decider Stop that the JDG-08 story attributes to it.
+4. CircuitBreaker schedules the Open to HalfOpen transition with scheduler.scheduleOnce at line 1107 while only remainingDuration and listener elapsed values read System.nanoTime, contradicting the concurrent-only premise cited at lines 724, 740, 756 and 864.
+5. None of the eleven assigned GOV decisions is recorded as an explicit Owner instruction; ADR 0031 quotes Owner words verbatim for O1 and O2, whereas ADR 0033 records acceptance without quoting.
