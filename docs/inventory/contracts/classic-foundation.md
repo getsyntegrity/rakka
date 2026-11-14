@@ -3877,23 +3877,46 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Invariantes del nombre de un ChildActorPath.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:328-335`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:290-293,339-342 (`/` ya separó nombre y uid)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:328-335` (`ChildActorPath`, constructor `private[pekko]`)
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:290-293,339-342` (`RootActorPath./` y `ChildActorPath./`: `splitNameAndUid` antes de construir)
+- `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:400-404` (`splitNameAndUid`: corta en el primer `#`; el uid va por `Integer.valueOf`)
 
 **Condiciones.**
 - Errores con mensajes exactos sin prefijo `requirement failed: ` (usa `throw new IllegalArgumentException`).
 - Vía `/`, un nombre con `#` se divide en nombre y uid antes de construir; con `/` en el nombre, sólo es posible construyendo directamente (interno).
+- Revisión 2026-11-14 (leída en `upstream/pekko` @ `9a54d129`): la segunda condición es imprecisa. Vía `/` **sí** llega un nombre con `/` al constructor (`"a/b"`, `"/"`; el oráculo CH da `IllegalArgumentException`); lo único inalcanzable vía `/` es el `#`. Tabla completa en "Criterios" más abajo.
 
 **Orden / concurrencia / ciclo de vida.** Pura.
 
 **Dependencias.** AC-PATH-010, AC-PATH-011.
 
-**Equivalente Rust propuesto y diferencias observables.** Validación en el constructor interno; no se expone.
+**Equivalente Rust propuesto y diferencias observables.** Validación en el constructor interno; no se expone. Estado leído en `develop` @ `fb7a744` (`crates/rakka-actor/src/actor/path.rs`): `ActorPath::child` (:206-215) divide nombre/uid, rechaza `/` con el mensaje exacto y llama a `new_child` (:217-223), que **no valida nada**. Falta el chequeo de `#` (inalcanzable hoy) y el chequeo en el constructor en sí. Cambio mínimo: `new_child` pasa a devolver `Result<ActorPath, IllegalArgumentError>` y aloja los dos chequeos en el orden de Pekko; `child` deja de duplicar el de `/`. Sin diferencia observable vía API pública.
+
+**Criterios (contrato → aserción).** Capa: todos unitarios (valor puro, sin sistema, sin I/O; `docs/testing-policy.md` §1 pregunta 4).
+
+| # | Criterio (positivo / negativo / límite) | Fuente | Evidencia existente | Prueba pendiente |
+|---|---|---|---|---|
+| A1 | Negativo: nombre con `/` → `IllegalArgumentException`, mensaje `"/ is a path separator and is not legal in ActorPath names: [<name>]"` (`a/b`, `/`, y vía raíz `root / "a/b"`) | ActorPath.scala:331-332 | Golden `CH [a/b]`, `CH [/]`, `CH root/'a/b'` (path-address.golden:285,286,295) comparados en `oracle_path_address.rs:786-790`; unitario `child_splits_name_and_uid` (path.rs:799-804) | Ninguna para el contrato público. Tras el cambio mínimo estos tests deben seguir verdes sin editarse |
+| A2 | Negativo: nombre con `#` en el constructor → `IllegalArgumentException`, mensaje `"# is a fragment separator and is not legal in ActorPath names: [<name>]"` | ActorPath.scala:333-335 | Ninguna (vía `/` es inalcanzable; ActorPathSpec sólo prueba `RootActorPath`, :108-115) | Unitario de `new_child("a#b", 0)` en `path.rs` (RED: hoy acepta). Oráculo `CH-CTOR-HASH`: `new ChildActorPath(parent, "a#b", 0)` en jshell (ver Brechas) |
+| A3 | Límite: nombre con `/` y `#` a la vez → gana el mensaje de `/` (se comprueba primero) | ActorPath.scala:331-335 | Ninguna | Unitario de `new_child("a/b#c", 0)`; oráculo `CH-CTOR-BOTH` |
+| A4 | Límite: tras `splitNameAndUid`, el mensaje de `/` nombra el fragmento antes del `#` (`child("a/b#5")` → `[a/b]`) | ActorPath.scala:339-342, ActorCell.scala:400-404 | Ninguna (`CH` no tiene este caso) | Unitario `child("a/b#5")`; oráculo `CH java a/b#5` |
+| A5 | Límite: `splitNameAndUid` precede al chequeo de `/`, así que un uid inválido gana (`child("a#b/c")` → `NumberFormatException [For input string: "b/c"]`) | ActorCell.scala:400-404 | Parcial: `foo#1#2`, `foo#abc` (CH-277..280, test `child_splits_name_and_uid`) | Unitario `child("a#b/c")`; oráculo `CH a#b/c` |
+| A6 | Positivo/límite: el constructor **no** valida el conjunto de caracteres, ni nombre vacío, ni `$` inicial, ni espacios ni no-ASCII (`""`, `$a`, `a b`, `ü`, `.`, `..`, `a?b`, `a%2`) | ActorPath.scala:328-335 (sólo `/` y `#`) | Golden CH-281..293; unitario `child_splits_name_and_uid` | Ninguna; sirve de guardia para que el cambio no agregue `validate_path_element` |
+| A7 | Atomicidad: un nombre rechazado no altera el padre ni devuelve un path parcial | `Result` en Rust; excepción en Pekko | Implícita en el tipo (`&self` + `Result`) | Aserción `parent.same_instance(..)` y `parent.to_string()` sin cambios dentro de A2 |
+
+**Tres planos, sin mezclar.**
+- *Exigido por Pekko:* A1-A6 (fuente `path:line` arriba; A1, A4-A6 además observados en el jar/fuente por el golden CH; A2-A4 aún sin observar).
+- *Decisiones de goPekko (no se trasladan):* sólo-local `Address` (ADR 0031 O1), sentinel `ErrInvalidPath` único para todos los errores, `Child` que valida el conjunto de caracteres de `isValidPathElement` (O5) y rechaza nombre vacío — el Owner de goPekko lo retiró el 2026-11-04 por la regla «tal cual Pekko» (ADR 0031, enmienda (b)), de modo que la divergencia (f) de goPekko es lo que Rakka ya cumple (A6). `==` de Go que compara uid: forma de Go.
+- *Necesario para Rust:* sin excepciones → `Result<_, IllegalArgumentError>`; ownership: el padre es `Arc<Node>` (clon barato), el error devuelto no retiene el padre; `Send + Sync` automáticos (`Address`, `String`, `Arc`); sin asincronía ni cancelación.
+
+**Evidencia goPekko consultada** (SHA `8ad83a60b7229573b0af2145c6414d3d67371867`; registro en `docs/research/gopekko-sources.md`). Contrasta, no sustituye, la fuente de Pekko: ADR 0031 fila P5 y C3 (clase *Source*, nunca ejecutada: «No JVM run»); scope `docs/scopes/852-actor-path-navigation.md` (negativos S8/S9 del lado Go); `migration/stage-1/actor-852-path-navigation/manifest.tsv` (filas «Executed (Pekko v1.7.1 oracle, disposable copy)» sobre `/`, parent y descendant, no sobre el constructor). Coinciden con A1-A3 y A6; **no aportan ninguna observación ejecutada de `#` en el constructor**, así que A2-A4 siguen pendientes de oráculo propio.
 
 **Aserciones.**
-- A1 mensajes y condiciones: derivadas del código ActorPath.scala:331-335 (*no afirmadas por spec*; ActorPathSpec sólo prueba el RootActorPath, :108-115).
+- A1 mensajes y condiciones: derivadas del código ActorPath.scala:331-335 (*no afirmadas por spec*; ActorPathSpec sólo prueba el RootActorPath, :108-115). Ver tabla de criterios: A1-A7.
 
-**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec. Escenario CH-* del golden cubre construcciones de hijos.
+**Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec. Escenario CH-* del golden cubre construcciones de hijos. Ampliación prevista (no ejecutada: esta máquina no tiene JRE): `CH-CTOR-*` con `new ChildActorPath(parent, name, uid)`; el constructor es `private[pekko]`, que en el bytecode de Scala es público, pero **no se verificó**.
+
+**Brechas.** (1) `impl`/`validation` siguen `pending` en el TSV aunque A1 y A6 ya tienen evidencia; no se cambian en esta entrega (sólo documentación): se actualizan al cerrar la unidad. (2) A2-A4 sin evidencia. (3) El golden se amplía con jshell + Java 21, que debe estar en PATH del implementador. Ninguna es una decisión del Owner.
 
 **Decisiones.** Ninguna.
 
