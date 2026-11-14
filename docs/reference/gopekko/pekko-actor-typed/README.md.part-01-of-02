@@ -1,0 +1,360 @@
+# pekko-actor-typed
+
+**Status: first slices (#847, TYP-02; #954 Slices A and B, TYP-04; #956, TYP-09; #925 Slice A, TYP-03; #976, TYP-10; #997; #1183, TYP-49; #1184, TYP-50; #889, TYP-13; #1182 slice A, TYP-48).** The module installs and replaces a Typed receive behavior on the
+`pekko-actor` runtime, delivers `PostStop` and `PreRestart` to its signal handler, hands `Terminated` to the active behavior (internal tests only, see "Terminated and the death pact"), stops a Typed actor whose turn fails (default Stop) and, with `Supervise(...).OnFailure(...)`, **restarts** a supervised behavior within a limit (see "Supervision and restart"), resumes it with `Resume()` (#1183) and decides nested supervisors by the innermost matching layer (#1184, see "Nesting") and holds messages in a bounded `StashBuffer` obtained from `WithStash` (#889, see "Stash") and ends an actor with the result `Stopped()` or `StoppedWith(postStop)` (#1182 slice A, see "Stopped") and replays a stash with `Unstash` and `UnstashAll` (#927 slices A1, A2, B and C, see "Replay"). Everything else of Typed is planned: backoff, `ChildFailed`, a public Typed spawn and watch. #925 delivers only Slice A (the `Unhandled` result); publication of an unhandled message is not published yet. **No parity with Pekko Typed is claimed**: the
+evidence is Go unit tests derived from, or read against, Pekko v1.7.1, and for the supervision and restart rules also six executed Pekko oracles in `docs/parity/oracles/` (counted from the directory, which holds eight files; the other two, `interceptors-2026-11-05.md` and `evt-1-unhandled-dropped-2026-11-05.md`, are not about these rules): `d-a-restart-setup-unbounded-2026-11-04.md`, `d-a-with-children-2026-11-05.md`, `s-2-supervision-2026-11-05.md`, `typed-restart-child-wait-2026-11-06.md`, `typed-resume-2026-11-06.md` and `typed-nested-supervision-2026-11-06.md`; none is a differential run of this module (ADR 0033 D13).
+
+## Purpose
+
+An actor is a `Behavior[T]` value. Each processed message returns the behavior that handles the next one, so a
+protocol phase is an immutable value rather than mutable state. Design: [ADR 0033](../docs/adr/0033-actor-typed-scope-and-architecture.md),
+[ADR 0034](../docs/adr/0034-typed-behavior-boundary.md) (*partly accepted*) and [ADR 0035](../docs/adr/0035-typed-supervision.md) (*Accepted*, with its amendments of 2026-11-04 and 2026-11-05).
+
+## Public usage and observable behavior
+
+Package [`typed`](typed/): `Behavior[T]`, `Setup`, `Receive`, `ReceiveMessage`, `Same`, `Context[T]` (only `Self()`),
+`NewActor`, `ErrNilBehavior`, `ErrInvalidInitialBehavior`, and, from #954 Slice A, `Signal`, `ReceiveSignal`, `PostStop` and
+`ErrSignalBaseNotReceive` (see "Signals" below) from Slice B, `Terminated` with its accessor `Who()`, and, from #925 Slice A, `Unhandled` (see "Unhandled" below), and, from #976, `Supervise`, `Matcher` (`AnyError`, `ErrorIs`, `ErrorAs`), `Strategy`, `Restart`, `RestartStrategy.WithLimit`, `.WithStopChildren` and `.WithStashCapacity` (see "Supervision and restart"), and, from #889, `WithStash`, `StashBuffer`, `Contains`, `ErrStashOverflow` and `ErrStashEmpty` (see "Stash"), and, from #1182 slice A, `Stopped` and `StoppedWith` (see "Stopped"). `NewActor` returns the factory for `actor.Spawn`, so the
+Typed ref is the runtime's own `actor.Ref[T]`. Runnable: [`ExampleNewActor`](typed/example_test.go).
+`Behavior[T]` binds its protocol at compile time, as Pekko's invariant `Behavior[T]` does: a `Behavior[string]` is rejected where a
+`Behavior[int]` is expected ([`behavior_protocol_test.go`](typed/behavior_protocol_test.go)).
+
+```go
+ref, err := actor.Spawn(sys, "counter", typed.NewActor(start)) // start is a typed.Setup(...) behavior
+```
+
+```mermaid
+flowchart TD
+  S[Spawn] --> P[PreStart: run every Setup]
+  P -->|Same, nil or error| F[start failure: *actor.InitializationError]
+  P -->|Receive| R[current behavior]
+  R -->|message| T{result}
+  T -->|Same| R
+  T -->|Receive| R2[replaces current for the next message]
+  T -->|Setup| P2[started at once, its result replaces current]
+  T -->|nil, error or panic| X[failed turn: nothing installed, the actor stops, PostStop to the current behavior]
+```
+
+- `Setup` runs once per start of the actor, before its first message; `Same` and replacements never run it again.
+- The behavior returned for message *n* handles message *n+1* and later, until another result replaces it.
+- `Same` and a replacement keep the actor's `Ref` and mailbox: replacement changes a field of one interpreter actor.
+- A failed turn installs nothing and stops the actor (see "Default Stop").
+
+## Signals (#954 Slice A)
+
+`ReceiveSignal(base, onSignal)` attaches a signal handler to a `Receive`/`ReceiveMessage`/`ReceiveSignal` base; any other base
+fails the start with `ErrSignalBaseNotReceive` (`*actor.InitializationError`). Runnable: [`ExampleReceiveSignal`](typed/example_test.go).
+
+- **Implemented:** when the actor stops (parent or system), the **current started** behavior's handler receives `PostStop` exactly
+  once, after any running message handler returned and before `Done` closes. A behavior replaced by a message handler takes its own
+  handler with it. A behavior without a handler drops the signal. A start that failed gets no `PostStop`.
+- **Declared only (opaque, never delivered):** `ChildFailed` (#1346, the M-A story; #1250 was closed as not planned in favor of it; the stop half was delivered by #1368),
+  `MessageAdaptionFailure` (#975). `PreRestart` is delivered since #976 (see "Supervision and restart"). They exist so the sealed `Signal` set is complete; they have no exported field or constructor. `Terminated` is no longer
+  in this list: see the next section.
+- **Restart by a Classic parent (#976 slice 3c-1, decision D-4).** The interpreter's `actor.PreRestarter` delivers `PreRestart` to the old
+  behavior and nothing else, as `ActorAdapter.preRestart` does (`ActorAdapter.scala:309-314`): no `PostStop` reaches the old instance, and because it replaces
+  the runtime's default step (`Actor.scala:625-631`) the children are **not stopped by it**. The runtime restarts the surviving children and the new `Setup`
+  creates its own, so after the restart the actor has both (oracle S-2, scenario P1). Test: [`restart_rethrow_test.go`](typed/restart_rethrow_test.go) R16.
+- **Evidence gap, no coverage claimed:** a Stop that abandons a restart still runs the termination `PostStop` on an instance, and the
+  runtime's restart step cannot be held from here, so that race has no scenario (`TODO(TYP-04-edge)`).
+- A `PostStop` handler error cannot reach the runtime as an error: it is raised as a panic, which the runtime reports as `poststop-panic`
+  and survives (`TODO(TYP-04-edge)`; Pekko logs it, no logger accessor yet, #1179).
+
+## Terminated and the death pact (#954 Slice B)
+
+Scope: [`docs/scopes/954-slice-b-terminated-death-pact.md`](../docs/scopes/954-slice-b-terminated-death-pact.md) (on the unmerged branch of PR #1249).
+ADR: "Amendment (accepted)" in [ADR 0034](../docs/adr/0034-typed-behavior-boundary.md) (on the unmerged branch of PR #1251).
+Record: [`EXECUTION-RECORD.md`](../migration/stage-1/typed-954-slice-b/EXECUTION-RECORD.md).
+
+**Today no production caller can make a Typed actor receive `Terminated`.** There is no public Typed `Watch`, `WatchWith` or `Unwatch` until #1171
+(scope D-B2). The delivery below is proven by internal tests of package `typed` only (scope D-B3), which register the watch through the runtime.
+For the same reason no example is added: an example needs a public watch.
+
+- **Implemented (internal tests):** the interpreter's `OnTerminated` gives `Terminated` to the signal handler of the **active** behavior (the one
+  current after the previous turn), so after a replacement the new behavior's handler gets it. The value is built from the runtime's
+  notification and exposes `Who() actor.ID`. It is deliberately **not** named `ID()`: it does not implement `actor.Handle`, so the signal alone is not a
+  `Watch` or `Stop` subject. The handler's result is applied like a message result (a replacement is used for the next message). A failing handler
+  (error, panic, nil behavior) is the default Stop of "Default Stop".
+- **Death pact (ADR 0035 contract 10, #1379).** No signal handler or `Unhandled` for `Terminated` triggers the death pact.
+  The cause is resolved inside the interpreter using `fail()` so Typed supervision (`Supervise`) can apply Restart, Resume, or Stop.
+  With no matching supervisor the default Stop applies, the parent's decider is **not consulted** (mechanism M-B).
+  The cause wraps `actor.ErrDeathPact` (test DP2). Not recorded until #1179.
+- **`Same` counts as handled.** A handler that answers `Same` for `Terminated` has handled it: no death pact, the actor keeps running.
+  Trap: a total handler that answers `Same` to every signal (as `ExampleReceiveSignal` does) swallows `Terminated`. The way out is to return
+  `Unhandled` for it: the explicit decline is delivered by #925 Slice A (see "Unhandled" below) and takes the death pact.
+- **Differs from Pekko:** `Terminated` keeps only the identity of the terminated actor (scope D-B1 option A, accepted). Pekko's `Terminated.ref` also offers the
+  path, ordering, `toString`, and `tell` only through a cast (the ref is an `ActorRef[Nothing]`); none of these exists here.
+
+Tests (all in package `typed`; the watch is registered through the wrapped runtime context): T1 to T4
+[`signal_term_bhv_test.go`](typed/signal_term_bhv_test.go); T5 to T11, T16 [`signal_term_internal_test.go`](typed/signal_term_internal_test.go); T12 to T14
+[`signal_term_race_internal_test.go`](typed/signal_term_race_internal_test.go). Their evidence labels and known weaknesses are in the execution record.
+
+```mermaid
+flowchart TD
+  N[runtime notification: watched actor terminated] --> H{active behavior has a signal handler?}
+  H -->|no| D[death pact: StopSelf, parent decider not consulted]
+  H -->|yes| S[handler gets Terminated]
+  S -->|Same or a replacement| K[handled: the actor keeps running]
+  S -->|error, panic or nil| D2[failed turn: default Stop]
+```
+
+## Empty and Ignore (#1181, TYP-47)
+
+`Empty[T]()` (Pekko `Behaviors.empty`, `Behavior.scala:305-306`) and `Ignore[T]()` (`Behaviors.ignore`, `Behavior.scala:297-298`) are two distinct
+behaviors, each with a message handler and a signal handler:
+
+| | Message | Signal | `Terminated` |
+|---|---|---|---|
+| `Empty` | `Unhandled` (recorded by the #925 hook) | `Unhandled` | death pact (default Stop) |
+| `Ignore` | `Same` (nothing recorded) | `Same` | handled, no death pact |
+
+- **Implemented.** Both are valid initial behaviors and valid results of a starting `Setup`; returning one from a handler replaces the behavior.
+- **Aliveness (AC-R4-1).** The package has no public aliveness query, so there is no direct test. The only evidence is indirect: both are valid starting behaviors and keep the actor running. READ, pending Owner approval (ADR 0033 D13).
+- **Not delivered.** `UnhandledMessage` is still not published (Slice B of #925), so `Empty`'s unhandled messages are observable only through the
+  unexported hook, as in #925 Slice A. `Stopped`/`StoppedWith` are #1182.
+- **Evidence.** [`empty_ignore_internal_test.go`](typed/empty_ignore_internal_test.go), written with go-specs. READ against Pekko v1.7.1 sources, **pending
+  Owner approval (ADR 0033 D13)**; no Typed oracle run, no parity claim.
+
+## Unhandled (#925 Slice A)
+
+Scope: [`docs/scopes/925-typed-unhandled-marker.md`](../docs/scopes/925-typed-unhandled-marker.md). Scope section 11.1 and the Owner log L3 live
+only on the unmerged branch of PR #1261 (`docs/925-scope-confirm`); the kit ([`migration/stage-1/typed-925-unhandled/`](../migration/stage-1/typed-925-unhandled/))
+is on the unmerged branch of PR #1260. Record: [`EXECUTION-RECORD.md`](../migration/stage-1/typed-925-unhandled/EXECUTION-RECORD.md).
+
+`Unhandled[T]()` (Pekko `Behaviors.unhandled`) is the one new export. It is the result of a handler that does not handle what it received.
+
+**Today no production caller can observe an unhandled message.** The record hook below is a no-op in production: it stores and publishes nothing.
+The publication of `UnhandledMessage` is Slice B, after #897 and an event stream (decisions B-4, X4, X6 and EVT-1 stay pending). It is **not published yet**.
+
+- **Implemented (Receive handlers).** A handler that returns `Unhandled` succeeds: the behavior and its signal handler are kept, nothing restarts,
+  stops or fails. The message is recorded **once**, through an **unexported** per-instance hook, **before** the next turn. It is never a dead letter.
+  The record carries no sender (X6).
+- **Implemented (signals).** A signal handler that returns `Unhandled` for `Terminated` takes the death pact, routed through Typed supervision (#1379). With no matching supervisor the default Stop applies (Classic decider not consulted). For any other signal (`PostStop`) the result is dropped. `Same` still counts as handled.
+- **Implemented (start).** `Unhandled` as an initial behavior, or as the result of a `Setup`, fails the start with `ErrInvalidInitialBehavior`
+  (the message is unchanged and reads "Same ...").
+- **Differs from Pekko.** A `Setup` returned by a handler that resolves to `Unhandled` (or `Same`) fails **this** turn in Go; Pekko fails the **next** turn
+  (`Behavior.scala:184-192`). Registered gap, pinned by `TestUnhandled_U6_TurnTimeSetupToUnhandledFailsTurn`.
+- **The hook is a seam.** It is an unexported production injection point (`newActor(initial, onUnhandled)`), accepted for this case (decision U-2 (a)) and
+  to be removed when the event stream exists.
+- **Evidence.** [`unhandled_internal_test.go`](typed/unhandled_internal_test.go), package `typed`, internal because the hook is unexported: U1, U3, U4, U6, U7,
+  U9 and, here, U2 and U5. All rows are READ against Pekko v1.7.1 specs and sources, **pending Owner approval (ADR 0033 D13)**. The Pekko specs publish through
+  an event stream that Go does not have, so no Go test is claimed equivalent to a Pekko spec. No parity claim; not V3.
+- **Not delivered:** publication of the unhandled message (Slice B, #897), the sender (X6), `ChildFailed` (#1346; #1250 was closed as not planned in favor of it), `MessageAdaptionFailure` (#975),
+  public watch (#1171).
+
+```mermaid
+flowchart TD
+  M[message handler result] -->|Unhandled| K[keep behavior and signal handler]
+  K --> R[unexported hook records the message once, before the next turn]
+  R --> P[production hook: no-op, nothing stored or published]
+  G[Terminated signal handler result] -->|Unhandled| D[death pact: StopSelf, decider not consulted]
+  G2[other signal, e.g. PostStop] -->|Unhandled| Z[dropped]
+```
+
+## Default Stop (#956)
+
+A Typed actor with no matching `supervise` stops when a **turn** fails (ADR 0033 D2, ADR 0035 contract 1, mechanism M-B: the
+interpreter is the default wrapper). Tests: [`default_stop_test.go`](typed/default_stop_test.go) S1 to S8 and S9/S10 of [`typed_test.go`](typed/typed_test.go).
+
+- **Implemented:** a failed turn is a returned error, a panic or a nil behavior (a returned `Setup` that yields `Same` also fails the turn). The
+  interpreter calls `StopSelf` and returns nil: the parent's decider is **not consulted**, the actor is not restarted (`Setup` runs once),
+  and a watcher gets a plain `Terminated` (S1 to S3). Its children stop with it (S5), mail queued behind the failing message is
+  dead-lettered and never handled (S4), and the handler of the behavior that was current when the turn failed receives `PostStop` once,
+  before the `Terminated` (S8).
+- **Unchanged:** a Classic actor under the same parent keeps ADR 0017's decider-chosen Restart (S6); `runtime.Goexit` in a handler is not caught
+  and keeps the runtime's `ErrGoexit` path (S7).
+- **Implemented (TYP-09-start, #1377):** a failed **start** without `Supervise` stops the actor itself, matching Pekko's default
+  `supervise(stop)` wrapper: the interpreter calls `StopSelf` and returns nil, so the parent's decider is **not consulted**.
+  Test: `TestUnsupervisedFirstSetupFailure` in [`initial_start_unsupervised_test.go`](typed/initial_start_unsupervised_test.go).
+  Inside a `Supervise` it follows "Supervision and restart".
+- **Pending, not delivered:** logging the failure at ERROR (ADR 0035 contract 13; no per-actor logger accessor, #1179). The cause of a
+  stopped turn is recorded nowhere until that and `ChildFailed` exist.
+- **Where the excluded rows went:** `Resume`, including "the previous behavior survives and handles the next message" (the
+  obligation of the old #847 S10): delivered by #1183, see "Resume" under "Supervision and restart". Innermost-match selection and its tests: delivered by #1184, see "Nesting" (`Supervise`/`OnFailure`/`Restart` themselves are delivered by #976). A Typed parent applying the stop: delivered by #976
+  as M-A-lite (see below); `ChildFailed` to a watching parent: #1346. Restart and limits: #976 (delivered); backoff: #986; the bounded restart stash: #999; the stop-during-wait boundary: #997 (delivered, see "Supervision and restart").
+
+## Supervision and restart (#976, TYP-10)
+
+`Supervise(b).OnFailure(match, strategy)` wraps a behavior; a failed turn whose cause `match` selects restarts it (ADR 0035 contracts 2, 3 and 6;
+S-2, S-3 as amended on 2026-11-05). Runnable: [`ExampleSupervise`](typed/example_test.go).
+
+```go
+worker := typed.Supervise(start).OnFailure(typed.AnyError(), typed.Restart().WithLimit(3, time.Minute))
+```
+
+| Symbol | Meaning |
+|---|---|
+| `AnyError()`, `ErrorIs(target)`, `ErrorAs[E]()` | comparable matchers with `errors.Is` / `errors.As` semantics; a panic is a cause (`*actor.PanicError`); `runtime.Goexit` is never caught |
+| `Restart()` | restart without a limit |
+| `.WithLimit(n, within)` | at most `n` restarts per window that opens at the first failure; `-1` is no limit, `0` and other negatives restart nothing |
+| `.WithStopChildren(false)` | keep the children on a restart (default `true`: stop them and wait) |
+| `.WithStashCapacity(n)` | bound what the restart holds while it waits for its children (#999 U2): `n >= 0` is the capacity, `0` holds nothing, a negative `n` is the default 1000 |
+
+**Restart stash (#999, U2).** While a restart waits for the children it stopped, a message, or a `Terminated` of an actor that is
+not awaited, is held up to the capacity. What arrives at a full stash is discarded and published once, with `actor.Publish`, as
+`actor.Dropped{Msg, Reason: "Stash is full in [RestartSupervisor]", Sender: nil, Recipient: this actor}`: the arriving one is the
+one dropped, the held ones are replayed in order, and it is never a `DeadLetter`. The awaited children's `Terminated` never takes a
+place, so a capacity of 0 still completes the restart. A failure during the replay keeps the entries not yet replayed under the
+capacity the stash was created with. The default 1000 is a constant of this module (D-3 of scope 999: no `System` setting yet).
+Tests: [`restart_stash_bound_test.go`](typed/restart_stash_bound_test.go) (internal tests, `package typed`, that observe public events; no sleeps); evidence: Pekko 1.7.1
+oracles W3d, D1 and `restart-stash-capacity-2026-11-13` (CP0, CP2, CPN, CS1, CF1), Go unit evidence of them, not Typed parity.
+
+**A stop during the wait (#999, U3).** A stop that reaches the restart while it still waits discards what was held, with no event
+and no dead letter, and the new incarnation never runs. If the stash is **full** at that moment, `PostStop` is dropped like any other
+input: one `actor.Dropped{Msg: typed.PostStop{}, Reason: "Stash is full in [RestartSupervisor]", Sender: nil, Recipient: this actor}`,
+after the `Dropped` of the messages (oracle W3e: 1500 messages at capacity 1000 give 500 + 1). Below capacity nothing is published (W3a).
+If instead the rebuilt behavior stops **during the replay**, the entries still held behind it are `DeadLetter`s in order, once; what
+the stash dropped earlier is not published again (that last point is evidenced by the Go test S8 only; oracles W3c, RS1, RS2 cover the dead-lettering of the entries behind the stop). Tests:
+[`restart_stash_stop_test.go`](typed/restart_stash_stop_test.go) (S6) and [`restart_stash_replay_test.go`](typed/restart_stash_replay_test.go) (S8), internal
+tests (`package typed`, scope approved by the Owner's U3 instruction) that observe only `Dropped`, dead letters and the log of the actor; a failure during the replay
+keeps the stash in `TestRestartStashBound_FailureDuringReplayKeepsTheStash` (CF1, U2). The capacity zero case of the stop (full from the start) is read from
+`StashBufferImpl.scala:69`, **not run on Pekko**; `TestRestartStashStop_CapacityZeroIsFullFromTheStart` only pins the Go behavior (inferred).
+
+```mermaid
+flowchart LR
+  A[input while the restart waits] --> B{awaited child's Terminated?}
+  B -->|yes| C[consumed, never counted]
+  B -->|no| D{held < capacity?}
+  D -->|yes| E[held, replayed in order]
+  D -->|no| F[actor.Dropped published once]
+```
+
+```mermaid
+flowchart TD
+  F[failed turn: error, panic or nil behavior] --> M{innermost layer whose matcher selects the cause}
+  M -->|none| D[default Stop: the interpreter stops the actor]
+  M -->|layer k| L{limit exceeded?}
+  L -->|yes: rethrow outward| M
+  L -->|no| Q{PreRestart already given for this failure?}
+  Q -->|no: first handling| PR[PreRestart to the old behavior only]
+  Q -->|yes: a Setup failed during this restart| C
+  PR --> C{children to stop?}
+  C -->|yes| WT[stop them, wait for their Terminated, hold messages]
+  C -->|no| S
+  WT --> S[Setup runs again from the initial behavior]
+  S -->|fails| M
+  S -->|ok| R[replay the held inputs in order]
+  M -->|no layer left after a rethrow| X{start returned and a match-all layer in the chain?}
+  X -->|yes| P[return the cause: the parent decides]
+  X -->|no| D
+```
+
+- **Implemented (restart).** `PreRestart` goes to the old behavior only (no `PostStop`), the supervised behavior is rebuilt from its initial value (`Setup` reruns, state is
+  reset), and the actor keeps its `Ref`, its mailbox and its own watches (the children it stops are unwatched and watched again by the wait, as `Supervision.scala:421-427` does; a `watchWith` child is not re-watched until #1171). The restart is a **loop**, never a recursion: a `Setup` that fails during a restart is one more failure
+  (R10: 100 000 in a row, same stack depth). By default the restart stops the children and waits for their `Terminated`; messages and the `Terminated` of other actors that
+  arrive meanwhile are held and replayed in order (R15, R17, R18, C1). The replacement of layers with an equal matcher and the innermost-match rule are described, with their tests, in "Nesting" (#1184).
+- **Implemented (limit).** The limit is checked **before** `PreRestart`; an expired window starts a new one (R5, R6). A failing **first** `Setup`: unlimited does not retry; `WithLimit(n)` runs `Setup`
+  once for n ≤ 1 and n + 1 times for n ≥ 2 (S-3 case (b), oracle scenarios L and P4a).
+- **Where a rethrow lands (S-2.6).** Inside the start, or with no match-all layer in the chain, the interpreter stops the actor and the parent's decider is **not** consulted. After the start
+  has returned, with an `AnyError()` layer anywhere in the chain, the cause is **returned to the runtime** and the parent decides (P4b: 9 runs of `Setup` and 2 consultations; P4c: 6 and 1).
+  A **Classic parent** decides with its own strategy (a Restart answer restarts the child with a fresh count). A **Typed parent** (the stop part of mechanism M-A of ADR 0035, called M-A-lite in the PRs; the Owner chose it in the session of 2026-11-05, not in the #1368 thread, and the ADR does not name it) **stops** a child that is a Typed
+  actor and gives any other child the Classic default decision, as `ActorAdapter.scala:232-262` does; it delivers no `ChildFailed` and no signal of its own. This means that
+  `Restart().WithLimit(n, t)` under `AnyError()` under a Classic parent with the default strategy ends in a restart by the parent, not in a stop.
+- **Implemented (the child wait, #997).** Oracle: [typed-restart-child-wait-2026-11-06](../docs/parity/oracles/typed-restart-child-wait-2026-11-06.md); the tests are in [`typed/`](typed/) and use Classic children.
+  - **A stop during the wait publishes no new incarnation.** If the actor is stopped (`System.Stop`, `PoisonPill`, or the system terminates; the oracle also ran a parent's `context.stop`, W1) while the restart waits for its children, no new `Setup` runs, the behavior gets no `PostStop` after its `PreRestart`, and none of the retained messages or signals is delivered. Tests: `TestRestartStopDuringWait` and `TestRestartStopDuringWait_HeldDiscarded` in [`restart_stopwait_test.go`](typed/restart_stopwait_test.go); oracle W1, W2, W3a.
+  - **The wait ends only with the `Terminated` of the awaited children.** A child that never terminates leaves the restart waiting indefinitely; there is no timeout (Pekko defines none; oracle W4, and the code has no timer). No Go test waits for a child that never ends; the spec "a Terminated that is not an awaited child's is held ..." in `TestRestartChildren` ([`restart_children_test.go`](typed/restart_children_test.go)) shows that an unrelated `Terminated` does not end the wait.
+  - **Several children, a child already stopping, and a Classic child that fails while it is stopped are awaited.** The new `Setup` runs after the last `Terminated`; the failing child is not restarted. Tests: `TestRestartChildren_Several`, `TestRestartChildren_AlreadyStopping`, `TestRestartChildren_ChildFailsWhileStopped` in [`restart_childcases_test.go`](typed/restart_childcases_test.go); oracle W5a, W5b, W5g.
+  - **`WithStopChildren(false)`.** A watch made by the old incarnation survives the restart (`TestRestartKeepChildren_WatchSurvives`). A `Setup` that spawns a fixed child name collides in the next `Setup`, because the kept child still holds the name: the spawn fails with `actor.ErrNameTaken`, and `Setup` runs 4 times in all under `WithLimit(3, ...)` (`TestRestartKeepChildren_NameHeld`; oracle W5e). Tests in [`restart_keepchildren_test.go`](typed/restart_keepchildren_test.go).
+  - **Owned by the runtime, not by a `typed` test.** That a parent's children end before the watcher's `Terminated`, and that a child's throwing `PostStop` does not stop the restart, are `pekko-actor` behavior, pinned there by `TestDescendantsFinalizeBeforeTheirAncestors` ([`termination_internal_test.go`](../pekko-actor/actor/termination_internal_test.go)) and `TestPostStopPanicAndGoexitAtEveryLevelStillComplete` ([`termination_stress_internal_test.go`](../pekko-actor/actor/termination_stress_internal_test.go)). A watcher receives exactly one `Terminated` after a `PostStop` that panics or ends with `runtime.Goexit`, and keeps working: `TestWatchTerminatedAfterThrowingPostStop` ([`watch_poststop_throws_test.go`](../pekko-actor/actor/watch_poststop_throws_test.go), #1394).
+- **Tests:** [`supervise_test.go`](typed/supervise_test.go), [`restart_limit_test.go`](typed/restart_limit_test.go), [`restart_children_test.go`](typed/restart_children_test.go),
+  [`restart_stopchildren_test.go`](typed/restart_stopchildren_test.go), [`restart_rethrow_test.go`](typed/restart_rethrow_test.go) (internal tests; they spawn the children through the wrapped runtime
+  context because a Typed spawn is #1170). Mutations of the production code were run, and each made a test fail, for the children wait and the replay (#1363), `WithStopChildren` (#1364), the PreRestart hook (#1367), the rule of where a rethrow lands and the Typed-parent decider with each of its Stop causes (#1368, #1370); they are in the QA comments of those PRs. The limit window (#1357) and the start rules (#1360) were reviewed by tracing the code against `Supervision.scala`, with no mutation recorded; the basic restart and matcher cases (R1 to R4) rely on ordinary assertions, and several mutations survived the first review of some PRs before they were closed (execution record, section 12).
+
+**Evidence class, stated plainly (ADR 0033 D13).** Executed on Pekko 1.7.1 (oracles of 2026-11-04 and 2026-11-05): the run counts of S-3 (b), P4a, P4b, P4c, the Classic-parent restart with two children (P1) and
+the asynchronous loop C1. Read against `SupervisionSpec`, not run: R1, R2 (512), R4 (214), R5 (224, 261, 528), R6 (239, 550), R17 (575) and R18 (662); the manifest has one row for every test of that spec. R3 is the default Stop of #956, and R15 (held inputs replayed in order) follows `Supervision.scala:254-286` (stashing during a restart) and `:407` (`unstashAll`, the replay in order) and has no spec of its own. No Pekko
+spec: R10 (it guards a Go-specific deviation: the restart is a loop where Pekko recurses). **No Typed parity is claimed and V3 is not reached.**
+
+**Known gaps (temporary, each with its owner):**
+- **c-sync fatal path (#1345).** An unbounded `Restart()` whose `Setup` fails on every restart, with no children to wait for (or `WithStopChildren(false)`), loops without end; Pekko ends in a fatal error (D-a). The loop is iterative, so it never reaches Go's stack overflow, but it has no fatal path.
+- **Restart stash, not observed or inferred only (#999):** the capacity of nested layers with different capacities (`TODO(TYP-26-nested)`; the layer that creates the stash holds), a failure during the **start** (not the replay) of the new incarnation, negative values other than `-1`, and signals other than `Terminated`.
+- **Held inputs behind a `Stopped` are dead letters** (#1182 slice B, "Stopped" below); a held `Terminated` is an ordinary `DeadLetter` of the typed signal (oracle RS2).
+- **Typed children failing during the wait and `watchWith` children are not covered** (#1170, #1346, #1171); the child-wait tests use Classic children.
+- Not delivered: backoff (#986); explicit supervision `Stop()` (see the replay PORT-GAPs); `ChildFailed` (#1346; #1250 was closed as not planned in favor of it); a Typed
+  spawn and watch (#1170, #1171, so `watchWith` children re-watched across a restart); timers cancelled on restart (contract 15) and failure logging (contract 13, #1179).
+- Only `AnyError()` is treated as the match-all that replaces the default stop wrapper; `ErrorAs[error]()` is a different matcher value (Pekko compares the class exactly).
+
+### Resume (#1183, TYP-49)
+
+`Supervise(b).OnFailure(match, Resume())` keeps the behavior when a failure whose cause `match` selects. `Resume()` returns a `ResumeStrategy` and has **no limit option** (Pekko has none).
+Evidence: the executed oracle [typed-resume-2026-11-06](../docs/parity/oracles/typed-resume-2026-11-06.md) (scenario ids R1 to R6 below), `SupervisionSpec.scala:163, 834, 1107, 502` and `ActorContextSpec.scala:281` (read), ADR [0035](../docs/adr/0035-typed-supervision.md) (S-5). All tests are in [`typed/`](typed/).
+
+- **Implemented: state kept, message dropped.** Behavior and state are as they were, only the failed message is dropped, the next one is handled, no `Setup` reruns, and the behavior gets neither `PreRestart` nor `PostStop` until the actor stops, including for a wrapped cause the matcher selects. Test: `TestResume_KeepsStateAndDropsMessage` ([`resume_test.go`](typed/resume_test.go)); oracle R1, R2.
+- **Implemented: an unmatched cause is not resumed.** The actor stops by the default Stop (see "Default Stop"), its behavior gets `PostStop`, and the parent's decider is not consulted. Test: `TestResume_UnmatchedStops`; oracle R1b, R6b. `TestResume_OnFailureNilArguments` covers a nil behavior.
+- **Implemented: death pact supervision (#1379, integrated by #1556).** `Supervise` captures the death pact of an unhandled `Terminated`: DP3 verifies Resume with state kept and no new Setup, DP2 verifies Restart. See [`death_pact_supervision_internal_test.go`](typed/death_pact_supervision_internal_test.go); watch access is internal until #1171.
+- **Implemented: failure during unstashing can resume (#927).** Resume keeps the latest replayed behavior and the remaining buffer; matching uses the underlying cause. Tests: `TestUnstash_F2_ResumeContinuesWithTheBehaviorThatThrew` and `TestUnstashAll_SuperviseErrorIsCatchesFailureDuringReplay` in [`unstash_fail_test.go`](typed/unstash_fail_test.go), derived from the Pekko source/specs (read, not an executed oracle for these rows).
+- **Implemented: a failure in a signal handler is resumed.** The actor stays alive with its state. Test: `TestResume_SignalFailure` ([`resume_children_test.go`](typed/resume_children_test.go)); oracle R1c1.
+- **Implemented: children and watches are untouched.** The children, `Children()` and the watches are unchanged, and a later `Terminated` reaches the same incarnation. Test: `TestResume_KeepsChildrenAndWatches`; oracle R3 (Classic children and `watch`).
+- **Implemented: a failed initial `Setup` is not resumed.** Neither is it retried by an outer `Restart`. The actor fails to start, and the parent's decider is consulted once with an `*actor.InitializationError` that wraps `typed.ErrInvalidInitialBehavior`; the user's error is not in the chain (ADR 0035 S-5). Test: `TestResume_FailedStart` (Resume alone, and under `Restart().WithLimit(3, ...)`) in [`resume_start_test.go`](typed/resume_start_test.go); oracle R4a, R4c, R6c. Two differences from Pekko: the message text (`typed: Same is not a valid initial behavior` against `cannot use Same as initial behavior`, so tests use `errors.Is` and `errors.As`), and delivery as `ChildFailed` to a Typed parent (#1346).
+- **Implemented: nesting with `Restart`, in both orders.** Each failure is taken by the matching layer, and after a restart the rebuilt inner Resume is in force. Test: `TestResume_NestedWithRestart` ([`resume_nested_test.go`](typed/resume_nested_test.go)); oracle R5a, R5b. The two rows use disjoint classes, so they do not show that the **innermost** layer wins; "Nesting" does (#1184).
+
+**Known gaps (each with its owner; Resume is delivered with these):**
+- **The ERROR log line that Resume writes** (ADR 0035 contract 13): #1179. **`watchWith` children:** #1171. **A Typed child that fails:** #1170, #1346.
+- Evidence class (ADR 0033 D13): R1, R1b, R1c1, R1c2, R3, R4a, R4c, R5a to R5e and R6a to R6c were executed on Pekko 1.7.1; the Go tests above are unit evidence derived from them. No parity of the module is claimed.
+
+### Nesting (#1184, TYP-50)
+
+Several `Supervise(b).OnFailure(match, strategy)` layers may be nested. A failed turn is taken by the **innermost layer whose matcher selects the cause**; an exhausted `WithLimit` is rethrown to the next outer layer that matches. Scope: [`docs/scopes/1184-innermost-supervision.md`](../docs/scopes/1184-innermost-supervision.md). Oracles: [typed-nested-supervision-2026-11-06](../docs/parity/oracles/typed-nested-supervision-2026-11-06.md) (scenarios N1 to N11) and [typed-resume-2026-11-06](../docs/parity/oracles/typed-resume-2026-11-06.md) (R5a to R5e), both executed on Pekko 1.7.1, 3 runs each. Record: [`EXECUTION-RECORD.md`](../migration/stage-1/typed-1184-innermost/EXECUTION-RECORD.md). Tests: [`nested_innermost_test.go`](typed/nested_innermost_test.go), [`nested_replacement_test.go`](typed/nested_replacement_test.go).
+
+- **Implemented: the innermost matching layer decides.** A cause is handled by the innermost layer whose matcher selects it, also when the matchers overlap or are equal and the outer layer has another strategy (`TestNested_InnermostMatchWins`: three rows); oracle R5c, R5d, R5e. The specs `SupervisionSpec.scala:201-211` and `:849` use disjoint classes and back R5a and R5b only.
+- **Implemented: an exhausted inner limit reaches the next outer layer** of a different matcher, which handles it by its own strategy, `Resume` or `Restart` (`TestNested_ExhaustedLimitReachesOuter`); oracle N2, N7d.
+- **Implemented: a supervised behavior returned by a handler.** With an equal matcher it replaces the enclosing layer; with a different matcher it is added and both stay (`TestNested_ReturnedSuperviseReplacesEqual`, `TestNested_ReturnedSuperviseKeepsDifferent`); oracle N3, N11 and N4. The first row of the first test (N3, a returned `Resume`) passes even if the enclosing layer is kept, because the innermost layer decides anyway; its second row (a returned limited `Restart`, the shape of N11) is the one that fails then.
+- **Implemented: equal-matcher layers are deduplicated once a stack has started** (the inner layer replaces the enclosing one), at three sites: the initial start (`TestNested_EqualMatcherReplacesAfterStart`, `TestNested_EqualMatcherInnerRethrowStops`; oracle N1, N7, N6c), the stack a handler returns (`TestNested_ReturnedStackDedupes`; N9) and the stack a restart rebuilds (`TestNested_RebuiltStackDedupes`; N10). **Not while the start is failing:** every layer is consulted in turn (`TestRestartLimit_InitialStart`; N8). Rule: [ADR 0035](../docs/adr/0035-typed-supervision.md), Amendment (2026-11-06); Pekko `InterceptorImpl.scala:82-85` (`aroundStart`, then `deduplicate`) and `:106-122`, `Supervision.scala:78-83` (two supervisors are the same when their throwable classes are equal, the strategy is not compared).
+- **Inferred, not observed.** That the layers are deduplicated is concluded from the effects (the actor stops where an outer layer would have taken the rethrow); no log line of the oracle shows the stack of supervisors. The same holds for the rethrow itself (`Supervision.scala:335-337`).
+- **No flattened form (Owner decision D-3).** Pekko's `supervise(b).onFailure(..).onFailure(..)` has no Go counterpart: `OnFailure` returns a `Behavior`, so only the nested form exists. The oracle shows both forms give the same events (N5a).
+
+```mermaid
+flowchart TD
+  S[stack of layers collected] -->|start fails| C[every layer is consulted in turn, no deduplication]
+  S -->|start succeeds| D[dedupeLayers: an inner layer replaces an enclosing one of the same matcher]
+  H[a handler returns a stack] --> D
+  R[a restart rebuilds the stack] --> D
+  D --> M[a failure goes to the innermost matching layer; an exhausted limit goes outward]
+```
+
+**Known gaps (each with its owner):**
+- Explicit `Stop` variants of these rows (the stop is the default Stop): #1182.
+- `ChildFailed` asserted for a watching parent in the rows where the actor stops: #1346.
+- Failures of adapter functions through nested supervisors (`SupervisionSpec.scala:1637`, `:1644`): #975.
+- Nesting with backoff: #986.
+- **Read from the code, no scenario ran them:** an enclosing supervisor of a narrower class than the inner one, and more than two layers, while the start is failing (ADR 0035 Amendment, Evidence paragraph).
+- Evidence class (ADR 0033 D13): N1 to N11 and R5c to R5e were executed on Pekko 1.7.1; the Go tests are unit evidence derived from them. No parity of the module is claimed.
+
+## Stash (#889, TYP-13)
+
+Scope: [`docs/scopes/889-typed-stash-buffer.md`](../docs/scopes/889-typed-stash-buffer.md). Record: [`EXECUTION-RECORD.md`](../migration/stage-1/typed-889-stash-buffer/EXECUTION-RECORD.md).
+Source: [`typed/stash.go`](typed/stash.go). Runnable: [`ExampleWithStash`](typed/example_test.go).
+
+`WithStash(capacity, factory)` is `Behaviors.withStash` (`Behaviors.scala:45-49`) built over `Setup`: it creates an empty `*StashBuffer[T]` of the given
+capacity and returns the behavior `factory` returns. A behavior holds a message of its own protocol in the buffer while it is not ready for it, and asks the buffer
+about its state. `Unstash` and `UnstashAll` replay what it holds (#927, see "Replay" below).
+
+```mermaid
+flowchart LR
+  S[Spawn or restart] --> W[WithStash runs Setup]
+  W --> B[new empty StashBuffer bound to the Context]
+  B --> F[factory returns the behavior]
+  F -->|Stash on a full buffer| O[ErrStashOverflow returned, buffer intact]
+  O -->|handler returns it| X[Supervise decides: Resume, Restart or default Stop]
+```
+
+- **Implemented:** `Stash`, `Head`, `Size`, `Capacity`, `IsEmpty`, `NonEmpty`, `IsFull`, `ForEach` (insertion order, nothing removed), `Exists`, `Clear` and the package function `Contains`
+  (`==` of a comparable `T`; a Go method cannot add the constraint). Tests: [`stash_test.go`](typed/stash_test.go) (S1 to S7c), [`stash_withstash_test.go`](typed/stash_withstash_test.go) (S8, S9).
+- **Errors instead of exceptions.** `Stash` on a full buffer returns an error that wraps `ErrStashOverflow` and leaves the buffer as it was (Pekko throws `StashOverflowException`); `Head` of an empty buffer returns
+  `ErrStashEmpty` (Pekko throws `NoSuchElementException`). Match with `errors.Is`; the text is not API. A handler that returns the overflow error is a failed turn: `Supervise(b).OnFailure(ErrorIs(ErrStashOverflow), Resume())`
+  keeps the actor and the buffer, `Restart()` reruns `Setup` and so builds a **new empty buffer**, and an unmatched cause takes the default Stop (test `TestWithStash_OverflowIsCaughtBySupervision`).
+- **Confinement.** The buffer is actor-confined and not safe for concurrent use; it has no locks, as Pekko's. Use it only inside the behavior that received it. Calling `Stash` or `Clear` from the callback of `ForEach` is **unsupported**.
+- **Capacity is not validated,** as in Pekko: 0 is full from the start (the first `Stash` overflows) and a negative capacity is never full, so the buffer is unbounded.
+- **The zero value is a message.** Pekko rejects `null` (`StashBufferImpl.scala:72`); Go has no null, so `""`, `0` or a nil pointer is stashed and counted. No `ErrNilMessage` exists.
+- **No constructor.** `StashBuffer[T]` is a struct pointer with unexported fields, and `WithStash` is the only way to get one (Pekko's `StashBuffer.apply` is `private[pekko]`).
+- **Separate capacity:** the restart stash has its own bound (`WithStashCapacity`, see "Supervision and restart"); the user-facing `StashBuffer` above is bounded by its own capacity. `Stopped` (#1182) and its interruption of replay (#927 slice C) are implemented; see "Stopped" and "Replay".
+- **Evidence (ADR 0033 D13):** the buffer rows are read against `StashBufferImpl.scala`, `StashBuffer.scala` and `StashBufferSpec.scala` (v1.7.1), not run. Capacity 0 and negative, the zero value and the overflow under `OnFailure` have no Pekko
+  test (alternative evidence; S9 approved by the Owner on 2026-11-10). No Typed parity is claimed.
+
+### Replay (#927 slices A1, A2, B and C, TYP-14, with #1169)
+
+Scope: [`docs/scopes/927-typed-unstash.md`](../docs/scopes/927-typed-unstash.md). Source: [`typed/unstash.go`](typed/unstash.go). Tests: [`unstash_test.go`](typed/unstash_test.go) (U1, U3, U4, U5, U8, D-6) and [`unstash_same_test.go`](typed/unstash_same_test.go) (U2, U6, U7, the Supervise layers) and [`unstash_fail_test.go`](typed/unstash_fail_test.go) (F1, F2, D-4) and [`unstash_stopped_test.go`](typed/unstash_stopped_test.go) (S1-S5).
+
+`UnstashAll(behavior)` and `Unstash(behavior, n, wrap)` give the first messages of the buffer, one at a time and in order, to `behavior` and to the behavior each one returns
+(`StashBufferImpl.scala:156-185, 192-216`), and return `(Behavior[T], error)`: the final behavior, which the handler returns.
+
+- **Eager.** The replay runs inside the call, as Pekko's. Only the messages present at the call are replayed (one stashed by a handler waits for the next call), a `Clear` in a handler ends it, an `n` of zero or less replays nothing but starts the behavior, and an empty buffer returns the behavior unstarted.
