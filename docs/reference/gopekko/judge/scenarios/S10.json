@@ -1,0 +1,70 @@
+{
+ "scenario": "S10",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "received",
+   "a": "parent",
+   "m": "M1",
+   "count": 1
+  }
+ ],
+ "rules": [
+  {
+   "id": "G3.a",
+   "actor": "parent"
+  },
+  {
+   "id": "G5.a",
+   "actor": "parent",
+   "inflight": "M1"
+  },
+  {
+   "id": "G5.b",
+   "actor": "parent",
+   "never": [
+    "M2",
+    "M3"
+   ]
+  },
+  {
+   "id": "G5.c",
+   "parent": "parent",
+   "children": [
+    "child-1",
+    "child-2"
+   ]
+  },
+  {
+   "id": "G5.d",
+   "actors": [
+    "parent",
+    "child-1",
+    "child-2"
+   ]
+  },
+  {
+   "id": "I3.a",
+   "msgs": [
+    {
+     "m": "M2",
+     "to": "parent"
+    },
+    {
+     "m": "M3",
+     "to": "parent"
+    }
+   ],
+   "modes": [
+    "controlled"
+   ]
+  },
+  {
+   "id": "I3.b"
+  }
+ ]
+}

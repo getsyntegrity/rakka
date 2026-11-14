@@ -1,0 +1,27 @@
+{
+ "scenario": "S18",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "terminated",
+   "a": "w",
+   "subj": "c"
+  }
+ ],
+ "rules": [
+  {
+   "id": "G6.a",
+   "watcher": "w",
+   "subject": "c"
+  },
+  {
+   "id": "I1.b",
+   "watcher": "w",
+   "subject": "c"
+  }
+ ]
+}

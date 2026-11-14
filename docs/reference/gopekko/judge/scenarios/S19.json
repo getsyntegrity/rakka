@@ -1,0 +1,64 @@
+{
+ "scenario": "S19",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "received",
+   "a": "c",
+   "m": "M1",
+   "count": 1
+  },
+  {
+   "e": "dead-letter",
+   "m": "M5"
+  }
+ ],
+ "rules": [
+  {
+   "id": "G3.a",
+   "actor": "c"
+  },
+  {
+   "id": "G5.a",
+   "actor": "c",
+   "inflight": "M1"
+  },
+  {
+   "id": "G5.b",
+   "actor": "c",
+   "never": [
+    "M2",
+    "M3"
+   ]
+  },
+  {
+   "id": "G5.d",
+   "actors": [
+    "c"
+   ]
+  },
+  {
+   "id": "G5.e",
+   "actor": "c"
+  },
+  {
+   "id": "I3.a",
+   "msgs": [
+    {
+     "m": "M5",
+     "to": "c"
+    }
+   ],
+   "modes": [
+    "controlled"
+   ]
+  },
+  {
+   "id": "I3.b"
+  }
+ ]
+}

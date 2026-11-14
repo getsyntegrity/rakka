@@ -1,0 +1,32 @@
+{
+ "scenario": "S16",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "received",
+   "a": "w1",
+   "m": "ack",
+   "count": 1
+  },
+  {
+   "e": "received",
+   "a": "w2",
+   "m": "ack",
+   "count": 1
+  }
+ ],
+ "rules": [
+  {
+   "id": "I6.a",
+   "watcher": "w1"
+  },
+  {
+   "id": "I6.b",
+   "watcher": "w2"
+  }
+ ]
+}

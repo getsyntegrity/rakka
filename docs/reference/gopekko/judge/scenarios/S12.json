@@ -1,0 +1,26 @@
+{
+ "scenario": "S12",
+ "modes": [
+  "controlled"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "ask-failed",
+   "a": "q"
+  },
+  {
+   "e": "terminated",
+   "a": "w",
+   "subj": "c"
+  }
+ ],
+ "rules": [
+  {
+   "id": "I4.a",
+   "ask": "q",
+   "msg": "M9",
+   "to": "c"
+  }
+ ]
+}

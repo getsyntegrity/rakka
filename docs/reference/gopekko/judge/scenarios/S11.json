@@ -1,0 +1,31 @@
+{
+ "scenario": "S11",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "dead-letter",
+   "m": "M5"
+  }
+ ],
+ "rules": [
+  {
+   "id": "I3.a",
+   "msgs": [
+    {
+     "m": "M5",
+     "to": "c"
+    }
+   ],
+   "modes": [
+    "controlled"
+   ]
+  },
+  {
+   "id": "I3.b"
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "scenario": "S14",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "terminated",
+   "a": "w",
+   "subj": "child"
+  }
+ ],
+ "rules": [
+  {
+   "id": "G7.b",
+   "actor": "child",
+   "watcher": "w",
+   "subject": "child"
+  }
+ ]
+}

@@ -1,0 +1,21 @@
+{
+ "scenario": "S17",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "ask-replied",
+   "a": "q"
+  }
+ ],
+ "rules": [
+  {
+   "id": "G8.a",
+   "ask": "q",
+   "value": "pong"
+  }
+ ]
+}

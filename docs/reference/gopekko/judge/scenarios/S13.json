@@ -1,0 +1,29 @@
+{
+ "scenario": "S13",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "received",
+   "a": "c",
+   "m": "R",
+   "count": 1,
+   "i": 3
+  }
+ ],
+ "rules": [
+  {
+   "id": "G6.d",
+   "watcher": "w",
+   "subject": "c"
+  },
+  {
+   "id": "G6.a",
+   "watcher": "w",
+   "subject": "c"
+  }
+ ]
+}

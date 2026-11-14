@@ -1,0 +1,24 @@
+{
+ "scenario": "S15",
+ "modes": [
+  "controlled"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "ask-failed",
+   "a": "q"
+  },
+  {
+   "e": "dead-letter",
+   "m": "late"
+  }
+ ],
+ "rules": [
+  {
+   "id": "I5.a",
+   "ask": "q",
+   "reply": "late"
+  }
+ ]
+}
