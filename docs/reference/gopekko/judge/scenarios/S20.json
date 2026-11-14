@@ -1,0 +1,35 @@
+{
+ "scenario": "S20",
+ "modes": [
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "dead-letter",
+   "m": "M1"
+  }
+ ],
+ "rules": [
+  {
+   "id": "G5.b",
+   "actor": "c",
+   "never": [
+    "M1"
+   ]
+  },
+  {
+   "id": "G5.d",
+   "actors": [
+    "c"
+   ]
+  },
+  {
+   "id": "G5.e",
+   "actor": "c"
+  },
+  {
+   "id": "I3.b"
+  }
+ ]
+}

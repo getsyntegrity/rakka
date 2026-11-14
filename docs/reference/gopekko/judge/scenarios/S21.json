@@ -1,0 +1,21 @@
+{
+ "scenario": "S21",
+ "modes": [
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "received",
+   "a": "r",
+   "m": "Z",
+   "count": 3
+  }
+ ],
+ "rules": [
+  {
+   "id": "G3.c",
+   "actor": "r"
+  }
+ ]
+}
