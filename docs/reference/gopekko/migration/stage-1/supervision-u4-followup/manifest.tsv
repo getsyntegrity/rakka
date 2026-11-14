@@ -1,0 +1,9 @@
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala	pekko-actor/actor/spawn_stopping_internal_test.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala	pekko-actor/actor/spawn_stopping_internal_test.go
+docs/adr/0012-stop-before-first-activation.md	pekko-actor/actor/spawn_stopping_internal_test.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala	pekko-actor/actor/spawn_factory_stop_internal_test.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala	pekko-actor/actor/spawn_factory_stop_internal_test.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala	pekko-actor/actor/spawn_factory_stop_internal_test.go
+docs/adr/0012-stop-before-first-activation.md	pekko-actor/actor/spawn_factory_stop_internal_test.go
+migration/stage-1/supervision-u4-followup/RULEBOOK.md	judge/mutate_go.py
+migration/stage-1/supervision-u4-followup/RULEBOOK.md	judge/selftest_mutate_go.py
