@@ -1,0 +1,3 @@
+# strongly connected components > 1 package: 2
+org.apache.pekko	org.apache.pekko.actor	org.apache.pekko.actor.dungeon	org.apache.pekko.dispatch	org.apache.pekko.dispatch.affinity	org.apache.pekko.dispatch.sysmsg	org.apache.pekko.event	org.apache.pekko.japi	org.apache.pekko.japi.function	org.apache.pekko.pattern	org.apache.pekko.pattern.internal	org.apache.pekko.routing	org.apache.pekko.serialization	org.apache.pekko.util
+org.apache.pekko.io	org.apache.pekko.io.dns	org.apache.pekko.io.dns.internal
