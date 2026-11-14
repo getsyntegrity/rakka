@@ -1,0 +1,360 @@
+# pekko-actor
+
+The core of goPekko: actors, lifecycle, dead letters and mailboxes, redesigned
+over goroutines. Source of truth: Apache Pekko v1.7.1. This module imports no
+other goPekko module.
+
+
+## Usage and behavior
+
+Create a `System` with `NewSystem`, implement `Actor[T].Receive`, and pass a
+factory to `Spawn` to obtain a typed `Ref[T]`. Send messages with `ref.Tell`;
+request termination with `sys.Stop(h)`, `ctx.Stop(h)` or `ctx.StopSelf()`. Wait on the
+channel returned by `sys.Done(ref)` to observe completion. See the
+[executable examples](actor/example_test.go) and [`ExampleAsk`](actor/ask_example_test.go).
+
+- Each actor processes messages serially from a FIFO mailbox, unbounded by default.
+  Concurrent senders are ordered by mailbox admission, not call start time.
+  `Tell` ignores its context; it offers no delivery acknowledgement or backpressure.
+- **Bounded mailbox (opt-in; [ADR 0030](../docs/adr/0030-bounded-mailbox.md), accepted by the Owner on 2026-10-22).**
+  `Spawn(owner, name, factory, actor.WithMailboxCapacity(n))` is Pekko Classic's `BoundedMailbox(n, pushTimeOut = 0)`
+  (the mailbox id `bounded-capacity:n`), which Typed's `MailboxSelector.bounded(n)` also builds. When `n` messages are waiting, `Tell` does not block and does not fail:
+  the message is published as a `DeadLetter` to the actor. The message being processed does not count.
+  A `Terminated` delivery and a `Port` post take a slot like any message, as in Pekko (where both are messages to
+  the `ActorRef`). A `Terminated` that finds none is dead-lettered and the watcher is not told (a later `Watch` of the
+  dead subject delivers it); a rejected `Port.Post` returns `false` and is one `DeadLetter`. After `Unwatch`, a queued
+  `Terminated` keeps its slot until it is taken and is then ignored. Stop, restart, suspend, resume and child-failure
+  items are outside the bound, as Pekko's system messages are. `n < 1` returns `ErrInvalidMailboxCapacity`. This is
+  **not backpressure**: the sender learns nothing. Without `WithMailboxCapacity` the capacity stays unbounded; that is
+  a statement about capacity only. The death notification is a system message for **every** actor, with or without a
+  capacity: the `Terminated` and the `WatchWith` message go to the tail of the mailbox when the notification is
+  processed, so a message told after the death but before that processing is handled before them (ADR 0030 D8,
+  amendment of ADR 0010).
+  **Open and pre-existing differences** (ADR 0030 sections 3 and 4): after a dropped `Terminated`, a re-watch with
+  another `WatchWith` message delivers the first one, as Pekko does (decided, ADR 0030 D4); a dropped `Terminated` is a plain `DeadLetter`, not a suppressed one; a `Terminated` still waiting when the
+  watcher stops is discarded, not dead-lettered. Other Pekko variants (blocking `BoundedMailbox`,
+  `NonBlockingBoundedMailbox`, bounded priority/deque/control-aware, bounded stash) are not implemented: #685, #688,
+  #182. What evidence backs this contract, what ran locally, what did not (no `-race`, no JVM scenario, no remote CI)
+  and which points await the Owner is in [`docs/parity/mbx-13/`](../docs/parity/mbx-13/README.md) (story #791); it
+  claims no parity with Pekko.
+- Optional `PreStart` runs before message processing. An error or panic in `Receive` or in `PreStart` is reported to
+  the parent's decider ([Supervision (units U1 to U5)](#supervision-units-u1-to-u5)): the parent's own strategy if it
+  declares one (which may `Restart` the child within a `Budget`), and `DefaultStrategy` otherwise (restart without a
+  limit for an ordinary error, stop for an initialization failure). A top-level actor is a child of the `/user`
+  guardian (unit U5b), so the same default applies to it. An error or panic in `PostStop` stops the actor.
+- `ctx.Stop(h)` is `sys.Stop(h)` from inside a handler: `h` may be a child, a sibling, the parent or the actor itself
+  (stopping oneself is allowed); an invalid, foreign or stopped handle is a no-op. It means "stop accepted, not stop
+  completed": it returns before the target finished, and `Done` tells when it has.
+- `Stop` returns after accepting termination. An in-flight handler completes;
+  queued messages go to dead letters in FIFO order. If the stop is accepted before
+  the first activation, the stop still takes the start step: `PreStart` runs once,
+  then `PostStop` once, with no `Receive` ([ADR 0012](../docs/adr/0012-stop-before-first-activation.md),
+  this case only). Optional `PostStop` then runs once, after every child of the actor finished (see "Recursive
+  stop" below); cleanup releases the name, publishes the pending messages and closes `Done`.
+  A panic in `PostStop`, or a `PostStop` that ends its goroutine with `runtime.Goexit` (what `t.FailNow` does in a
+  test actor), does not strand cleanup: it is reported as `poststop-panic`, and the rest of the finalization (dead
+  letters, name release, watchers, `Done`) still runs, with the `PostStop` of termination run exactly once ([ADR 0014](../docs/adr/0014-actor-children-and-hierarchical-termination.md) D6).
+- **A Stop during the wait of a restart (U7, #449; PR #472).** The default `PreRestart` stops the children and calls `PostStop` on the old instance at once, without waiting for them and with no guard (`Actor.scala:625-631`); a custom `PreRestart` is user code. If a Stop arrives while the restart waits for the children, the restart is **abandoned**: no new instance, no `PostRestart`, no second `PreStart`. The termination then runs `PostStop` once more on the same (old) instance after the children finished, and `Terminated` is delivered once. With the default hooks the old instance therefore sees **two** `PostStop` calls; with a `PreRestart` that does not call it, one. Counts and order follow `migration/stage-1/supervision/h4-repro/RESULTS.md` (Pekko v1.7.1, accepted by the Owner in ADR 0017 H4/S11). Verified by the Go tests `TestSup2PostStopGuard` (W11a/b) and `TestSupStopDuringRestart` (T1-T3) and by the judge scenario S22 (concurrent mode), on Pekko and, since #173, in the Go gate: the default `PreRestart` emits the unexported diagnostics event `prerestart-default` (first statement of `defaultPreRestart`), which the Go harness maps to `pre-restart` for nodes with no `PreRestart` method, and the directed mutant `GMdefaultps` (the pre-U7 guard on the default hook's `PostStop`) must fail S22 by `G5.f`. Before U7 Go ran one `PostStop` in this situation; the double call is Pekko's and Go has it since U7. S22 is not calibrated against Pekko mutations. Go-specific and with no Pekko equivalent (`TestSupStopAfterGoexitInP1`, T4): if the `PostStop` of the default `PreRestart` ends with `runtime.Goexit` and a Stop then arrives, termination runs `PostStop` again. No parity is claimed.
+- **Local deathwatch** ([ADR 0010](../docs/adr/0010-actor-api.md), "Accepted for the local watch increment").
+  Inside `PreStart` and `Receive`, `ctx.Watch(h)` asks to be told when `h` terminates: the actor then gets one
+  `Terminated` through the optional `OnTerminated(ctx, Terminated) error`, after the watched actor's `PostStop`.
+  The death notification is a system message, as in Pekko: the actor processes it between two turns, never inside
+  a handler, and the `Terminated` goes to the **tail** of the mailbox as it is then, behind every message already
+  there (amendment of ADR 0010, ADR 0030 E16). `ctx.WatchWith(h, msg)` delivers `msg` to `Receive`
+  instead. `ctx.Unwatch(h)` withdraws the registration and discards a `Terminated` already queued for it. Watching
+  an actor that has already stopped delivers too; watching oneself does nothing. A `Terminated` with no
+  `OnTerminated` stops the watcher (`ErrDeathPact`); registering again with another message, or mixing `Watch`
+  and `WatchWith`, fails it with `ErrWatchConflict` (the parent's decider chooses; the default strategy restarts it, as it restarts an `IllegalStateException` in Pekko) (a repeat is a no-op only for a message comparable with `==`);
+  a nil or non-actor handle fails it with `ErrInvalidHandle`; a handle of another System of the same process is accepted for `Watch`, `WatchWith` and `Unwatch` (see ADR 0010). Each registration has its own generation,
+  so a notification of an earlier registration is discarded. A watcher that stops releases its links at subjects of another System on
+  that System's executor, after its own stop was accepted; the release removes only that watcher's links, and `Unwatch` removes the link at
+  once. The cross-System stop, `Unwatch` and termination behavior (DTH-02, #827) is covered by Go-only tests in
+  [`actor/watch_cross_system_dth02_internal_test.go`](actor/watch_cross_system_dth02_internal_test.go); Pekko has no two-System spec, so
+  no parity is claimed. These runtime items are not messages and are never
+  dead-lettered. A death pact or an `OnTerminated` failure is a failure of the watcher reported to its parent's decider
+  (the default strategy stops it on a death pact and restarts it on an `OnTerminated` error, unit U3); the same holds for a top-level
+  watcher, decided by `/user`. Not here: remote watchers, `existenceConfirmed` and `ChildFailed`.
+- Messages sent after stop acceptance go directly to dead letters. They may
+  interleave with pending messages being published during cleanup; there is
+  no global dead-letter ordering across publishers.
+- Dead-letter subscribers run synchronously on the publisher goroutine and
+  may run concurrently. They must be safe for concurrent calls, must not block
+  and must not panic. A slow subscriber delays the publisher, including a
+  `Tell` to a stopping actor. A subscriber panic propagates to the publisher.
+  The hub's barrier is internal; it is not a public completion API.
+
+The message admission paths are:
+
+```mermaid
+flowchart TD
+    T["Tell"] --> S{"Stop accepted?"}
+    S -->|No| Q["Queue in FIFO mailbox"]
+    Q --> R["Serial Receive"]
+    S -->|Yes| D["Publish dead letter"]
+    R --> F{"Error or panic?"}
+    F -->|Yes| X["Accept stop, or report to a parent that declares a strategy"]
+    F -->|No| N["Next activation step"]
+```
+
+Sources: [message admission](actor/ref.go), [activation and hooks](actor/cell.go),
+[stop and cleanup](actor/stop.go), [publication hub](internal/deadletter/hub.go).
+
+## Ask: request and reply ([ADR 0015](../docs/adr/0015-ask-and-reply.md))
+
+`Ask` sends a request that carries its own reply address and returns the first reply:
+
+```go
+type Get struct{ ReplyTo actor.Ref[int] }
+
+ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+defer cancel()
+n, err := actor.Ask(ctx, counter, func(r actor.Ref[int]) Get { return Get{ReplyTo: r} })
+```
+
+The target replies with `msg.ReplyTo.Tell(ctx, 42)`. A runnable version is [`ExampleAsk`](actor/ask_example_test.go).
+
+- **It blocks.** `Ask` blocks the calling goroutine until the first reply, the deadline or the cancellation of `ctx`.
+- **A deadline is mandatory.** A live context without a deadline returns `ErrAskNoDeadline` and nothing is sent; there is
+  no default timeout.
+- **From `Receive` it blocks that actor.** An actor that calls `Ask` inside `Receive` processes no other message while it
+  waits, and the deadline or cancellation is its only exit if the reply never comes. An actor that asks itself can end only
+  by the deadline or cancellation, unless something else replies through the reply address.
+  Two actors that ask each other stay blocked in the same way: each `Receive` waits for a request that only the other
+  could read, and only the end of a `ctx` or a reply sent through a reply address ends the wait. A `Stop` of the asking
+  actor is accepted, but its `PostStop` runs only after `Ask` returns (R3); that `Done` closes after `PostStop` follows from
+  the order in `finalize` (`stop.go`), which R3 does not observe. Cancelling `ctx` cancels the wait, not the work of the
+  recipient: the request, if it was sent, stays in the recipient's mailbox and is processed later, and a reply that arrives
+  after the wait ended is dead-lettered. If `ctx` ends while `build` runs, the request is not sent at all.
+  Evidence: [`ask_receive_test.go`](actor/ask_receive_test.go) R1, R1b, R2, R3 and `TestAskAPI_E7_AskFromReceiveBlocksTheActor`.
+  Pekko's `ask` returns a `Future` without blocking the caller (`AskSupport.scala:346-347`, `internalAsk` 372-380); the
+  `Future` completes with the reply, with `AskTimeoutException` at the timeout (`:725-738`), or, in Classic, fails at once when the
+  recipient had already terminated (`:373-375`; Typed fails with `TimeoutException`). A self-Ask or a cycle between two Pekko actors is not blocked, but it
+  completes only if the actor handles the request and replies; otherwise the `Future` fails at the timeout. This is an
+  adaptation of the API ([ADR 0015](../docs/adr/0015-ask-and-reply.md) D1), not parity. A first-class helper is tracked in #675.
+- **Safe use from `Receive` with today's API.** Return from `Receive` at once and let a goroutine do the `Ask`; the result
+  comes back as a message. This is the hand-written shape of Classic's `ask` + `pipeTo(self)`. Runnable version:
+  [`ExampleAsk_fromReceive`](actor/ask_receive_example_test.go).
+
+  ```go
+  func (a *Asker) Receive(c *actor.Context[Msg], m Msg) error {
+      if m.IsReply {              // the result is handled here, inside Receive
+          if m.Err == nil { a.total += m.Value }
+          return nil
+      }
+      self, peer, timeout := c.Self(), a.peer, a.timeout // copied here: a Context is valid only during this call
+      go func() {
+          ctx, cancel := context.WithTimeout(context.Background(), timeout) // per request, owned by this goroutine
+          defer cancel()
+          v, err := actor.Ask(ctx, peer, func(r actor.Ref[int]) Req { return Req{ReplyTo: r} })
+          self.Tell(context.Background(), Msg{IsReply: true, Value: v, Err: err})
+      }()
+      return nil
+  }
+  ```
+
+  - The goroutine touches neither the `Context` nor the actor's fields; it only uses the copies. State changes only in `Receive`.
+  - Create the `ctx` inside the goroutine for each request. A deadline stored in a struct is fixed when it is created: once
+    it passes, every later `Ask` returns `ErrAskTimeout` at once. Deriving it from a parent `ctx` lets the application cancel
+    the wait on shutdown; nothing cancels it when `Receive` returns or when the actor stops.
+  - The deadline bounds the wait inside `Ask`. It does not stop the recipient and does not stop any other work the goroutine does.
+  - Errors travel in the message (`Err`). If the actor has stopped, or its bounded mailbox is full, `Tell` dead-letters the reply.
+  - Replies of concurrent requests arrive in no defined order; put a correlation value in the request if it matters.
+  - The goroutine is not supervised by the actor. A panic in it (including one from `build`) ends the process unless the
+    goroutine recovers it, and nothing limits how many goroutines concurrent requests start.
+  - Evidence: `ExampleAsk_fromReceive` and `TestAskFromReceive_R4_GoroutinePatternKeepsTheActorResponsive` (it uses a
+    far-away deadline held in a field to keep the test short; the per-request `ctx` above is the shape to copy).
+- **Errors are mechanism failures.** `ErrAskTimeout` (`errors.Is(err, context.DeadlineExceeded)`), `ErrAskCanceled`
+  (`errors.Is(err, context.Canceled)`), `ErrAskNoDeadline`, `ErrRecipientTerminated` (the target had completed its
+  termination; a merely accepted `Stop` does not give it) and `ErrInvalidHandle` (a nil or typed-nil target, a `Ref` not created by `Spawn`,
+  or the reply address of another request; a ref of another `System` is not rejected, cross-`System` Ask is deferred) are
+  returned as the sentinels themselves. A business error travels inside the reply value `R` and the error of `Ask` stays nil: this is a
+  Go convention (AK11) and differs from classic Pekko, where a `Status.Failure` reply fails the future. No parity with Pekko
+  is claimed.
+- **The first reply wins.** A later reply is dead-lettered. `build` is called at most once, on the caller's goroutine, and not
+  at all when the target is invalid or the context has already ended or lacks a usable deadline.
+
+The check order, the single winner among reply, timeout and cancellation, and the cleanup of the timer are covered by the
+internal tests with a fake clock; the external tests in [`ask_api_test.go`](actor/ask_api_test.go) cover the public contract.
+
+## Children, names and recursive stop ([ADR 0014](../docs/adr/0014-actor-children-and-hierarchical-termination.md), slices 2 and 3)
+
+Implemented: identity, ownership and names. `Spawn(owner, name, factory)` takes a `Spawner`, which is a `*System`
+(a top-level actor, a child of the `/user` guardian) or the `*Context[T]` of a running actor (a child of that actor). The child's
+protocol is inferred from its factory and may differ from the parent's. `ctx.Parent()`, `ctx.Child(name)` and
+`ctx.Children()` give identities (`Handle`) only: such a handle has no `Tell`, and `Watch`, `Unwatch` and
+`System.Stop` and `ctx.Stop` accept it because they resolve a handle by its ID alone.
+
+```go
+func (b boss) Receive(ctx *actor.Context[startMsg], _ startMsg) error {
+	child, err := actor.Spawn(ctx, "greeter", func() actor.Actor[string] { return greeter(b) })
+	if err != nil {
+		return err // ErrInvalidName, ErrNameTaken or ErrParentStopping
+	}
+	child.Tell(context.Background(), "hello")
+	return nil
+}
+```
+
+See the [executable example](actor/hierarchy_test.go).
+
+- `Spawn` returns the `Ref` of a **committed** child and never calls the factory: the child's first activation runs it,
+  through the executor, before `PreStart`. A nil actor, a panic or a `runtime.Goexit` of the factory is an
+  `*InitializationError` decided by the parent (default Stop; a top-level child is decided by `/user`, U5b), reported with the event `factory-failed`; it is not an error of `Spawn`. `Spawn` has exactly three
+  synchronous errors: `ErrInvalidName`, `ErrNameTaken` and `ErrParentStopping`. `ErrNilActor`, `ErrFactoryPanic` and
+  `FactoryPanicValue` stay exported as the **cause** a decider or an event receives. With an inline executor the first
+  activation, and so the factory, can run on the caller's goroutine inside `Spawn`, and the child may already have
+  terminated when `Spawn` returns; the default executor never runs it inline.
+- A name belongs to its owner: the same name under two parents is allowed, under one parent it is `ErrNameTaken`
+  while a live child, a stopping child or a child still initializing holds it. The name is released when the child
+  terminates, also after a factory failure. A recreated name is a new ID; the old `Ref`
+  keeps targeting the old actor and dead-letters.
+- Child names are validated before anything is reserved, with Pekko's path element rules (ASCII letters and digits,
+  ``-_.*$+:@&=,!~';`` or `%XX` with two hex digits; not empty, not starting with `$`): `ErrInvalidName`, nothing is
+  committed and no ID or event exists. Nothing is trimmed or decoded (`%41` is accepted as written).
+  Validation comes before the stop gate: an invalid name through a stopping parent is `ErrInvalidName`, not
+  `ErrParentStopping`.
+  **Top-level names are validated like child names (U5c, decision D7)**: `""`, `$x`, spaces, `/` and `%zz` return `ErrInvalidName` before any reservation. This is a breaking change of ADR 0014's former D4.
+- **Anonymous children (IDN-01, #765, inventory `ACTINV-002`).** `SpawnAnonymous(owner, factory, opts...)` is Pekko's
+  `actorOf(props)` (`Children.scala` `randomName`, `Helpers.base64`): the owner names the child `$` plus its own counter
+  in Pekko's base-64 alphabet (`$a`, `$b`, ..., `$~`, `$ab`, ...). The counter is per owner (a `*System` counts for
+  `/user`), atomic, starts at 0 and never decreases, so concurrent calls get distinct names and the name of a stopped
+  child is never generated again. A generated name cannot collide with an explicit one: `Spawn` rejects any name
+  starting with `$`. It returns the errors of `Spawn` except `ErrInvalidName` and `ErrNameTaken`; a spawn refused after
+  its options were accepted (for example `ErrParentStopping`) still consumes a counter value, as in Pekko; an invalid
+  `WithMailboxCapacity` is refused first and consumes none (a difference: Pekko draws the name before validating
+  props). `Spawn` with `""` stays `ErrInvalidName`; explicit-name validation and duplicate rejection are unchanged.
+  Evidence: `anonymous_name_internal_test.go`. Not claimed: the other sibling stories or full actor parity. There is no
+  public accessor for the name of a `Ref`, so applications find the child through `Context.Child`/`Children`.
+- Identity is the actor ID. A logical path is at most metadata and is not unique (names are scoped by owner, and no name contains `/`);
+  there is no way to look an actor up by path yet. The contract for local `Address` and `ActorPath` values (diagnostic only,
+  never identity) is in [ADR 0031](../docs/adr/0031-local-address-and-actor-path-values.md), accepted by the Owner.
+  **Implemented so far:**
+  - the local `Address` value (IDN-13, #1007): `NewLocalAddress(protocol, system)`, `Protocol`, `System`, `HasLocalScope`,
+    `String` (`protocol://system`), `Compare` (by UTF-16 code unit, as Pekko) and `==`, and the constant `LocalProtocol`
+    (`"pekko"`, which names the printed scheme only and implies no transport, serialization or remote compatibility); see
+    [`address_test.go`](actor/address_test.go). An empty protocol or system name is `ErrInvalidAddress`; the zero `Address`
+    is "no address" and prints `""`. Host and port are reserved and not exposed.
+  - the local `ActorPath` value (IDN-14, #1008): `NewRootPath(address)` (the root is fixed as `/`), `Child(name)` for one
+    element, `Address`, `Name`, `Elements`, `IsRoot`, `String` (`pekko://sys/user/a`) and `==` as the path equality; see
+    [`actor_path_test.go`](actor/actor_path_test.go). An element must be non-empty and use Pekko's path-element characters,
+    **a leading `$` included**, so names from `SpawnAnonymous` fit; anything else, `/` and `#` included, is `ErrInvalidPath`
+    (stricter than Pekko's `ChildActorPath`). `Spawn` is unchanged: a name you supply still cannot start with `$`. Nothing is escaped or decoded, and the zero `ActorPath` is "no path".
+  - the uid of a path (IDN, #1323 part a; Owner decision of 2026-11-04, ADR 0031 amendment (b)): `ActorPath` carries the uid of the
+    incarnation it names, a signed 32-bit integer; `UID()` reads it and `WithUID(uid)` sets it. **Equality has two forms.** Go's
+    `==` compares the uid too (a difference of Go form, the same precedent as `time.Time`); Pekko's equality, address and
+    elements without the uid, is `Equal`. `String()` ignores the uid, as Pekko's `toString` does. Use `WithUID(0)` for a map key.
+    Without a uid the value is 0 and means "any incarnation". `Parent` and `Child` return the path without a uid; the root
+    guardian has none. See [`actor_path_uid_test.go`](actor/actor_path_uid_test.go), [`uid_internal_test.go`](actor/uid_internal_test.go).
+  - the uid of a spawned actor: each parent incarnation has its own counter that starts at a random 32-bit value (`crypto/rand`);
+    the uid of each child is a bijection of start+k on the 32-bit integers, skipping 0. It is **strictly distinct among the
+    children of one parent incarnation**; between incarnations of the parent it is probabilistic, like Pekko's random draw. On
+    exhaustion the counter wraps: no panic and no spawn failure. The uid is an attribute of the incarnation, derived and not a
+    second identity: identity stays the `ID` (ADR 0024). `PathOf(h)` returns the path with the uid of its incarnation. The
+    Owner decision, verbatim, is in ADR 0031 (note after amendment (b)).
+  - path navigation (IDN-04, #852): `Parent()` (the root is its own parent; the zero path stays zero) and
+    `Descendant(names...)` (empty names are skipped; any other name goes through the same check as `Child`, and a bad name
+    fails the whole call with `ErrInvalidPath`; on the zero path it always returns the zero path and `ErrInvalidPath`, on a
+    valid path no names or only empty names return the receiver); see [`actor_path_test.go`](actor/actor_path_test.go).
+    Both are pure value operations: they take no `System` and look up no actor. Evidence: Go not run on a JVM; Pekko rows
+    executed in a disposable copy (see PR #1292); no parity claim. **Open divergence, not accepted (#1328):** Pekko's `/`
+    splits `name#uid` (executed row 69 of PR #1292 for `fromString`), accepts an empty name and any character but `/` and `#`;
+    here `Descendant` and `Child` reject them (`actor_path_divergence_test.go` pins it). ADR 0031 P-7 is withdrawn.
+  - the path of a reference (IDN-05, #853): the free function `PathOf(h Handle) (ActorPath, bool)` reports the logical path an
+    actor was spawned at (`pekko://sys/user/a`, nested `pekko://sys/user/a/b`, anonymous `pekko://sys/user/$a`, the three
+    guardians included). The path is fixed when the actor is committed and kept by a restart and after termination. A `Ref`
+    reports a logical path; identity is the `ID`: path equality is not identity, so two incarnations that used one path at
+    different times report paths that are `Equal` (and differ in `UID`) and distinct `ID`s. `PathOf` adds no method to `Ref[T]` or `Handle`. It answers
+    `(zero, false)` for a nil or typed-nil handle, a handle this package did not issue (a user type), a hand-built cell,
+    and the handles built from an `ID` alone: `Terminated.Who()` and the stale failed child a decider receives are
+    deferred, not an error. A ref of another System reports its own path with that System's `Address`.
+    Address equality is not proof that two handles belong to the same System instance, because `Config.Name` is neither
+    validated nor unique (two Systems may share a name). See [`ref_path_internal_test.go`](actor/ref_path_internal_test.go). Evidence: Go not run
+    on a JVM; Pekko rows executed in a disposable copy (see PR K, `migration/stage-1/actor-853-ref-path/pekko-repro`); no
+    parity claim. The Classic rows behind N1-N4, P5, P7 and P8 are rows 1-2, 4-12, 14-27 and 28-37 of
+    `migration/stage-1/actor-853-ref-path/pekko-repro/observed.txt`; they supplement the tests and replace none. A handle's
+    public identity is its `ID()`; the unexported `idHandle` struct also carries the path, which does not distinguish two
+    handles of one cell (one residual edge for hand-built handles, in the `idHandle` comment). Not delivered here: parsing a path from text, `Root`, resolving a reference from a path or a string, and
+    parsing and resolving an exact-reference string (#812, #1089, #893, #1092); the path of an ask endpoint (`(zero, false)`).
+
+  - the exact reference string (IDN-09, #894): the free function `ExactRefString(h Handle) (string, bool)` encodes the exact incarnation of the actor behind a handle as `pekko://sys/user/a#<epoch>-<number>` (no method on `Ref[T]` or `Handle`; contract in [the scope](../docs/scopes/894-encode-exact-ref-string.md), kit in [`migration/stage-1/ref-encode-894/`](../migration/stage-1/ref-encode-894/)). The number is the decimal numeric part of the actor's ID, so the format `actor-<decimal>` of an ID is a string contract (the `actor-` prefix is not); the epoch is 16 lowercase hex digits drawn once per process and shared by its Systems. A string is unique within the process; across processes only probabilistically (about 2^-64 per pair of processes), with no absolute uniqueness and no remote resolution promised. `("", false)` for nil, typed-nil, user doubles, hand-built cells, ID-only handles (`Terminated.Who()`, the stale failed child), request endpoints, and the root and the guardians (`/user`, `/system`). A terminated original `Ref` keeps its encoding; a handle of another System is encoded with its own path and Address (an Address is no proof of belonging to a System instance). There is no parse and no resolution here (#1092, #812, #893). One shared counter feeds actor and request IDs; its exhaustion is permanent (no wrap, no reuse, also after a recovered panic), and a spawn whose ID cannot be minted releases its name reservation before the panic propagates. Evidence: Go-only for the token and the cases without a Pekko analogue; the Pekko rows (E1, E3, E6) are in the kit, Go was not run on a JVM, no parity is claimed.
+
+  - parsing absolute path text (IDN-03, #812): the **unexported** `parseActorPath(text string) (ActorPath, error)` turns `protocol://system/element/...` into an `ActorPath` (contract in [the scope](../docs/scopes/812-parse-actor-path.md), kit in [`migration/stage-1/idn-812-parse-actor-path/`](../migration/stage-1/idn-812-parse-actor-path/)); nothing calls it yet and nothing is exported. Strict grammar: the protocol is a scheme kept as written, the system has the `ActorSystem` name set (enforced by the parser only), elements are accepted by `Child` (`%XX` kept verbatim, `.` and `..` legal, no navigation); empty segments, a trailing slash, a missing slash after the system, `#` and `?query` are errors where Pekko accepts or drops them (accepted differences). A failure in the protocol or system part (before the first `/` after `://`, host and port forms included) wraps `ErrInvalidAddress`, a failure in the path part wraps `ErrInvalidPath`. The round trip holds only for addresses whose protocol and system satisfy the parser's shapes; an Address built by `NewLocalAddress` with other characters is constructible and may print text that parses to a different path or fails (for the system `a/b`, `pekko://a/b/x` parses as system `a`, path `b/x`; pinned by a test; whether `NewLocalAddress` enforces the shapes is an open Owner decision). Not delivered: relative text (#1089), parsing or resolving an exact-reference string, an exported parser. Evidence: Pekko rows by number in the kit (PR #1292 oracle), the Go-only rows approved as method by the Owner and met by these tests; Go was not run on a JVM; no parity is claimed.
+
+  **Not implemented:** `Root`, an exported parser, relative text (#1089), `path#uid` encode and parse in `ExactRefString` (#1323 part b) and resolving an exact-reference string (#1092). A `System` exposes its `Address`
+  but no `ActorPath`; a `Ref` reports its path only through `PathOf`. Resolution,
+  `ActorSelection` and serialization of references are not implemented. Pekko parity is not claimed: Go was not run on a JVM;
+  the navigation rows were executed on Pekko in a disposable copy (PR #1292), the rest was derived from reading `Address.scala`,
+  `ActorPath.scala` and `ActorSystem.scala`.
+- **System name and local address** (IDN-15, #1009, [ADR 0031](../docs/adr/0031-local-address-and-actor-path-values.md) O3a-O3c).
+  `Config.Name` names the `System`; an empty name is `"default"`, so `NewSystem(Config{})` is unchanged and still valid.
+  `System.Name()` returns the effective name and `System.Address()` returns the local `Address` (`LocalProtocol` plus that name,
+  for example `pekko://orders`). Both are fixed at creation, copied from `Config` (later writes to the caller's `Config` have no
+  effect) and the same for the whole life of the `System`. **Limitation:** the name is used exactly as given. It is not trimmed,
+  rewritten or validated, so a name that Pekko rejects (`^[a-zA-Z0-9][a-zA-Z0-9-_]*$`, `ActorSystem.scala:840-843`), such as
+  `"a/b"`, is accepted and printed verbatim; an invalid name is never turned into `"default"`. Rejecting it needs a contract
+  decision (`NewSystem` has no error return) and is not part of this cut. Evidence:
+  [`system_name_api_test.go`](actor/system_name_api_test.go), from reading the Pekko source only; no JVM run.
+- **Injectable clock** (TIM-11, #1129). `Config.Clock` takes a `Clock` (`Now() time.Time` and `AfterFunc(d, f) Timer`, with
+  `Timer.Stop() bool`). `StartTime`, `Uptime` and `Ask` read it: `Ask` judges the context deadline with its `Now`, arms the
+  remaining time with its `AfterFunc` and calls `Timer.Stop` once after the Ask settles, ignoring the result, so with a manual
+  clock `ErrAskTimeout` is returned only when the clock fires the callback. A nil `Clock` is the wall clock and `NewSystem` keeps
+  its signature. **Not implemented:** a manual clock or a wall-clock constructor is not exported (a test writes its own double,
+  as [`clock_api_test.go`](actor/clock_api_test.go) does); the only timers armed on it are Ask's and the scheduler's (next item); the
+  restart window of a `Strategy` does not use this clock; a `Clock` whose `AfterFunc` returns a nil `Timer` is a contract violation
+  and is not defended. No Pekko parity is claimed (a Go seam has no oracle; ADR 0033 D13 evidence is pending Owner approval).
+- **Scheduler, first cut** (TIM-02, #821, slice 1; contract: [ADR 0039](../docs/adr/0039-scheduler-lifecycle-and-cancellation.md),
+  **Accepted**). `System.Scheduler().ScheduleOnce(delay, f)` runs `f` once on the System's executor after `delay` on the System's
+  `Clock`, never early, and returns a `Cancellable` (`Cancel`, `IsCancelled`). `Cancel` is true only if it prevented the run; after
+  the run, or while `f` runs, it is false and `IsCancelled` stays false. A `delay` at or below zero is not an error: `f` goes to the
+  executor at once and the handle is never cancellable. A panic in `f` is recovered and written once to `Config.Logger` (nothing
+  without one). A nil `f` returns `ErrNilCallback`. An actor reaches it as `ctx.System().Scheduler()` (`Context.System`, described below, was added by
+  #1182 slice B; this item adds no export to `Context`). Evidence: the zero delay and the `Cancel` values follow the oracle
+  [`scheduler-lifecycle-2026-11-10`](../docs/parity/oracles/scheduler-lifecycle-2026-11-10.md) (SC1, SC3o); the executor hop, the
+  panic report and `ErrNilCallback` are Go-only and pending approval; tests:
+  [`scheduler_internal_test.go`](actor/scheduler_internal_test.go).
+  **Close on System termination** (#1131, implementation integrated by #1553): the root guardian closes the scheduler after actors' `PostStop`
+  and before `WhenTerminated` closes. Pending not-yet-due tasks are dropped, not run; `IsCancelled` stays false unless the caller cancelled them.
+  New schedules after close return `ErrSchedulerClosed` and arm nothing. Close is idempotent; a positive-delay schedule re-checks close after registration
+  and rejects only if cancellation wins. A callback already handed to the executor cannot be recalled. `Terminate` starts an asynchronous shutdown;
+  calling it does not itself mean the scheduler has closed. Internal tests: `TestSchedulerClose`, `TestSchedulerCloseRace`, `TestSchedulerTerminateCloses`,
+  `TestSchedulerCloseNoPanic` and `TestSchedulerP2Recheck` (internal package). Public acceptance evidence (#1559,
+  [`scheduler_close_test.go`](actor/scheduler_close_test.go)): AC-R1-1 rejects ScheduleOnce with any delay after `WhenTerminated` and arms no new timer;
+  AC-R2-1 drops a pending task scheduled before `Terminate`, the clock spy records zero fires, and `IsCancelled` stays false;
+  AC-R3-1 cancels a pre-existing timer and admits `ScheduleOnce` during `PostStop`, then rejects after `WhenTerminated`.
+  The close-after-PostStop ordering is also visible in [`stop.go`](actor/stop.go).
+  The Go judge campaign is stale after #1559 added a test under pekko-actor and changed the core inputs; renewal is a separate delivery.
+  **Not implemented:** `ScheduleTellOnce` (slice 2), fixed delay and fixed rate (#822, #823), keyed timers (#860).
+  Tick rounding is an accepted PORT GAP. No Pekko parity of the module is claimed.
+
+  ```mermaid
+  flowchart TD
+    A[ScheduleOnce delay, f] --> N{f is nil?}
+    N -->|yes| E[ErrNilCallback, nothing armed]
+    N -->|no| C{scheduler closed?}
+    C -->|yes| EC[ErrSchedulerClosed, nothing armed]
+    C -->|no| D{delay at or below 0?}
+    D -->|yes| X[executor runs f at once, handle not cancellable]
+    D -->|no| T[arm System Clock, handle cancellable]
+    T -->|clock fires| F{fire wins and scheduler open?}
+    F -->|yes| X2[executor runs f]
+    F -->|no| S[nothing runs]
+  ```
+- **System start time and uptime** (SYS-03, #842, ACTINV-090). `System.StartTime()` is the instant of creation, read once from the
+  System's clock; `System.Uptime()` is `clock.Now() - StartTime()` as a `time.Duration`, derived on each call and never negative
+  (a clock that goes backwards gives 0). Both, like `Name()` and `Address()`, work after `Shutdown`: the identity and start time
+  do not change, and the uptime is not frozen at termination (as in Pekko). **Limitations:** the name is not validated (see the
+  previous item, ADR 0031 O3a/O3b), so **the acceptance criterion "System name/address validation occurs before actor creation"
+  of #842 is not met and is not claimed**: no name validation exists, and `NewSystem` has no error return to report one. What
+  does hold is narrower: `System.Address()` is valid by construction (protocol is the constant `LocalProtocol`, and the
+  name is never empty because "" becomes `"default"`), so no invalid `Address` can reach an actor. Rejecting a name would
+  reuse Pekko's rule (`ActorSystem.scala:840-843`) and needs a new Owner decision (ADR 0031 O3a: "Validation, if adopted, ... is
+  separate"; see [ADR 0031](../docs/adr/0031-local-address-and-actor-path-values.md)); that decision is **pending** and is
+  proposed in [#842](https://github.com/getsyntegrity/gopekko/issues/842). The clock is the wall clock unless
+  `Config.Clock` supplies one (see the next item); Pekko's `uptime` is whole seconds and `startTime` is epoch milliseconds, here
+  `time.Duration` and `time.Time`. No JVM run; derived from reading `ActorSystem.scala`. Evidence:
+  [`system_uptime_internal_test.go`](actor/system_uptime_internal_test.go),
+  [`system_name_api_test.go`](actor/system_name_api_test.go).
+- Once an actor's stop is accepted, `Spawn` through its `Context` fails with `ErrParentStopping` before anything is
+  committed (also from `PreStart` when the stop was accepted before the first activation, and from `PostStop`). If the
+  stop is accepted after the child was committed and before or while its factory runs, the owner's termination stops the
+  child, never an orphan: if the factory works and `PreStart` succeeds, `PreStart` once, then `PostStop` once; if the
