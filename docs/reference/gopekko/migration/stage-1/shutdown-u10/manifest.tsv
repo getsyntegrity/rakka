@@ -1,0 +1,6 @@
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala	pekko-actor/actor/system_shutdown.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala	pekko-actor/actor/errors.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala	pekko-actor/actor/spawn.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala	pekko-actor/actor/system_shutdown_internal_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala	pekko-actor/actor/system_shutdown_api_test.go
+docs/adr/0015-ask-and-reply.md	pekko-actor/actor/system_shutdown_internal_test.go
