@@ -1,0 +1,91 @@
+P/Persistent.scala	86	def payload: Any
+P/Persistent.scala	91	not the same as the manifest of the serialized representation
+P/Persistent.scala	93	def manifest: String
+P/Persistent.scala	98	def persistenceId: String
+P/Persistent.scala	103	def sequenceNr: Long
+P/Persistent.scala	111	def timestamp: Long
+P/Persistent.scala	115	def metadata: Option[Any]
+P/Persistent.scala	124	def writerUuid: String
+P/Persistent.scala	139	def deleted: Boolean
+P/Persistent.scala	144	def sender: ActorRef
+P/Persistent.scala	247	timestamp not included in equals
+P/Persistent.scala	252	PersistentRepr($persistenceId,$sequenceNr,$writerUuid,$timestamp,$metadata)
+P/serialization/MessageSerializer.scala	173	setPersistenceId
+P/serialization/MessageSerializer.scala	174	setSender
+P/serialization/MessageSerializer.scala	175	setManifest
+P/serialization/MessageSerializer.scala	177	setPayload(persistentPayloadBuilder(persistent.payload
+P/serialization/MessageSerializer.scala	180	setMetadata
+P/serialization/MessageSerializer.scala	184	setSequenceNr
+P/serialization/MessageSerializer.scala	186	setWriterUuid
+P/serialization/MessageSerializer.scala	187	setTimestamp
+P/serialization/MessageSerializer.scala	193	findSerializerFor(payload)
+P/serialization/MessageSerializer.scala	196	manifestFor(serializer, payload)
+P/serialization/MessageSerializer.scala	199	serializer.toBinary(payload)
+P/serialization/MessageSerializer.scala	200	setSerializerId
+P/serialization/MessageSerializer.scala	228	withMetadata
+P/serialization/MessageSerializer.scala	242	serialization.deserialize
+P/serialization/SnapshotSerializer.scala	31	final case class Snapshot(data: Any)
+P/serialization/SnapshotSerializer.scala	59	includeManifest: Boolean = false
+P/serialization/SnapshotSerializer.scala	96	Java Serialization magic value
+P/serialization/SnapshotSerializer.scala	151	writeInt(out, headerBytes.length)
+P/serialization/SnapshotSerializer.scala	154	snapshotSerializer.toBinary(snapshot)
+P/SnapshotProtocol.scala	23	a journal can optionally support persisting metadata
+P/SnapshotProtocol.scala	52	$timestamp, $metadata)
+P/SnapshotProtocol.scala	61	override def equals
+P/Eventsourced.scala	167	Exception in receiveRecover when replaying event type
+P/Eventsourced.scala	169	evt.getClass.getName
+P/Eventsourced.scala	198	Failed to persist event type
+P/Eventsourced.scala	216	Rejected to persist event type
+P/Eventsourced.scala	220	cause.getMessage
+P/Eventsourced.scala	316	Failed to saveSnapshot given metadata
+P/journal/WriteJournalBase.scala	32	don't store sender
+P/journal/WriteJournalBase.scala	33	sender = Actor.noSender
+P/journal/WriteJournalBase.scala	54	adapter.toJournal(payload)
+P/journal/EventAdapter.scala	48	def manifest(event: Any): String
+P/journal/EventAdapter.scala	63	def toJournal(event: Any): Any
+P/journal/EventAdapter.scala	92	def fromJournal(event: Any, manifest: String): EventSeq
+P/journal/EventAdapter.scala	113	override def toString = s"SingleEventSeq($event)"
+P/journal/ReplayFilter.scala	83	log.debug("Replay: {}", persistent)
+P/journal/inmem/InmemJournal.scala	73	private val testSerialization
+P/journal/inmem/InmemJournal.scala	76	else false
+P/journal/inmem/InmemJournal.scala	91	add(p)
+P/journal/inmem/InmemJournal.scala	92	InmemJournal.Write(p.payload
+P/journal/inmem/InmemJournal.scala	140	private def verifySerialization
+P/journal/leveldb/LeveldbStore.scala	97	case Tagged(payload, tags)
+P/journal/leveldb/LeveldbStore.scala	177	serialization.serialize(p).get
+R/reference.conf	230	pekko-persistence-message
+R/reference.conf	231	pekko-persistence-snapshot
+R/reference.conf	234	"org.apache.pekko.persistence.serialization.Message" = pekko-persistence-message
+R/reference.conf	235	"org.apache.pekko.persistence.serialization.Snapshot" = pekko-persistence-snapshot
+A/serialization/Serializer.scala	94	def manifestFor(s: Serializer, message: AnyRef)
+AR/reference.conf	131	serialize-messages = off
+AR/reference.conf	778	allow-java-serialization = off
+T/journal/JournalSpec.scala	65	supportsSerialization: CapabilityFlag = true
+T/journal/JournalSpec.scala	67	supportsMetadata: CapabilityFlag = false
+T/journal/JournalSpec.scala	255	reject non-serializable events
+T/journal/JournalSpec.scala	326	optional(flag = supportsMetadata)
+T/journal/JournalSpec.scala	328	return metadata
+T/snapshot/SnapshotStoreSpec.scala	65	supportsMetadata: CapabilityFlag = false
+T/snapshot/SnapshotStoreSpec.scala	197	optional(flag = supportsSerialization)
+T/snapshot/SnapshotStoreSpec.scala	213	optional(flag = supportsMetadata)
+T/snapshot/SnapshotStoreSpec.scala	214	store metadata
+PT/serialization/MessageSerializerSpec.scala	24	serialize metadata for persistent repr
+PT/serialization/SnapshotSerializerSpec.scala	60	deserialize pre-saved pekko snapshots
+PT/SnapshotSerializationSpec.scala	100	serialization header of more than 255 bytes
+PT/EventAdapterSpec.scala	196	store events after applying adapter
+Q/EventEnvelope.scala	91	timestamp && metadata not included in equals
+D/typed/persistence.md	46	General Data Protection Regulation
+D/typed/persistence.md	48	encrypting the data with a key
+D/persistence.md	88	onPersistFailure
+P/journal/inmem/InmemJournal.scala	162	withTimestamp(System.currentTimeMillis())
+P/journal/leveldb/LeveldbStore.scala	181	withTimestamp(System.currentTimeMillis())
+A/util/Helpers.scala	188	def renderWithRedactions
+A/actor/ActorSystem.scala	492	renderWithRedactions
+P/journal/EventAdapter.scala	25	tagging
+P/journal/EventAdapter.scala	55	EventWithPrimaryKey
+P/journal/EventAdapter.scala	57	1-to-1
+P/journal/EventAdapter.scala	82	multiple (or none)
+P/journal/Tagged.scala	29	case class Tagged(payload: Any, tags: Set[String])
+PTY/internal/ExternalInteractions.scala	77	repr.withMetadata(meta)
+PTY/internal/ExternalInteractions.scala	112	repr.withMetadata(metadata)
+PTY/internal/EventSourcedBehaviorImpl.scala	333	object ReplicatedEventMetadata
