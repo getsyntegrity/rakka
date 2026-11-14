@@ -1,0 +1,11 @@
+OBS child-receive 1
+OBS child-receive 2
+OBS DeadLetter 3
+OBS SuppressedDeadLetter PoisonPill
+OBS child-receive 1
+OBS DeadLetter 2
+OBS DeadLetter Kill
+OBS DeadLetter 3
+OBS SuppressedDeadLetter PoisonPill
+OBS DeadLetter 4
+OBS final postStops=2 preRestarts=0 terminated=2

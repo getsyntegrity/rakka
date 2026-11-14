@@ -1,0 +1,12 @@
+OBS T3 Terminated-after-resumed-failure sender=victim-T3
+OBS T4 Terminated sender=victim-T4
+OBS T4 postStop-after-success sender=deadLetters
+OBS T5 Terminated sender=victim-T5
+OBS T5 preRestart sender=victim-T5
+OBS T5 preRestart-message-is-Terminated=true
+OBS T5 postRestart sender=deadLetters
+OBS T7 Terminated sender=victim-T7
+OBS T7 next-tell sender=deadLetters
+OBS T7 next-from-z sender=z-T7
+OBS T9 sender=inc oldHash=-1325866442 newHash=-62264031 senderHash=-1325866442 (ActorRef.hashCode is derived from path.uid, which is private[pekko])
+OBS T9 sender==old=true sender==new=false terminated.actor==sender=true

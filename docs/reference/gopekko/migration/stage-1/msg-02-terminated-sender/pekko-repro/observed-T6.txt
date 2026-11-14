@@ -1,0 +1,4 @@
+OBS T6 preRestart sender=victim-T6
+OBS T6 preRestart cause=DeathPactException dead=victim-T6
+OBS T6 preRestart message-is-Terminated=true
+OBS T6 postRestart sender=deadLetters

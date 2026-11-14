@@ -1,0 +1,3 @@
+OBS T1 Terminated sender=victim-T1
+OBS T2 WatchWith sender=victim-T2
+OBS T3 postStop-after-deathpact sender=victim-T3
