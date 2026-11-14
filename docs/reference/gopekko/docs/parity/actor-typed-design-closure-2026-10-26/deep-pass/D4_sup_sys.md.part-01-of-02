@@ -1,0 +1,360 @@
+# D4 deep second pass: supervision and system stories (20)
+
+> Verification status (2026-10-26): checked by V3_D3_D4.md: 31 findings checked in full, 24 partially, 8 not verified (counts cover D3 and D4 together). Corrections from the verification are applied in this file. Stories not covered by the verification keep the producer's wording unverified.
+
+Baselines: Pekko v1.7.1 `9a54d12` (read directly). goPekko `origin/develop` `9abfb40` snapshot (`tmp/develop/`). ADR 0032 text is the open PR #1014 (`tmp/ctx/ADR-0032-from-PR1014.md`), not integrated authority. Pekko paths relative to `upstream/pekko`: `A/` = `actor/src/main/scala/org/apache/pekko/actor/`, `D/` = `actor/src/main/scala/org/apache/pekko/dispatch/`, `AT/` = `actor-tests/src/test/scala/org/apache/pekko/actor/`. Go tests were not executed.
+
+Method note: the Go-side column cites comments and code located in the snapshot; I did not run tests. "Spec-does-not-observe" means a Pekko spec exists on the topic but its assertions do not observe the AC.
+
+Stories in this file, in order: 782, 783, 826, 863, 1116, 1117, 1118 (supervision); 842, 843, 1122 (system setup); 883, 919, 1121, 1123 (coordinated shutdown); 801, 802, 803, 1125, 1126, 1127 (exclusion decisions).
+
+---
+
+### #782 SUP-11 — Preserve Failed ordering against parent stop
+- Depth: DEEP (Pekko code and spec search complete; Go side by reading comments and code, tests not run).
+- Labels now: `prio:P2`, `status:ready`.
+- Verdict: CORRECT (AC text names no Pekko disposition that the source supports as one rule; reference gaps) and STATUS (see Dependencies).
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 barriers build Failed-before-Terminate and Terminate-before-Failed traces | System messages are drained earliest-first (`D/Mailbox.scala:459-475` `systemEnqueue` prepends, `systemDrain` returns `currentList.reverse`) and processed in `processAllSystemMessages` (`D/Mailbox.scala:286-322`). No test hook exists for barrier ordering. | no spec found; searched `actor-tests/src/test`, `testkit/src` for `Failed(`, `Recreate(`, `systemEnqueue`, `systemDrain`, `sendAllToDeadLetters`, `deadLetterMailbox`, `StashWhenFailed`, `sysmsgStash`: only `DeathWatchSpec.scala:225,239-240,262` (builds `Failed(child, cause, 0)` as a value to assert the *decider order* via an overridden handleFailure, and sends a `DeathWatchNotification` directly) and `SystemMessageListSpec` (list structure only, per prior audit :26-109). `SupervisorHierarchySpec.scala:870,923` only filter the log `changing Recreate into Create`; the stress test mutes `"received dead "` (:~930) and checks no "undead" child (:611-614), it asserts no dead-letter disposition. | `supervision_failure.go:99-103` `enqueueFailed`: PORT-GAP(failed-to-dead-letters); when the parent cannot take Failed (stop requested or closed) it returns false and the caller stops the child directly (Go interim). | spec-does-not-observe |
+| AC2 match selected Pekko system-message order and disposition for both traces | Failed-before-Terminate: parent handles Failed in order (`dungeon/FaultHandling.scala:305-322` handleFailure), then Terminate (`:180-210`). Terminate-before-Failed has **three** dispositions by parent state, all by source reading: (a) parent already closed or closes before Failed is dequeued: Failed goes to the dead-letter mailbox, `DeadLetter(msg, receiver, receiver)` published (`D/Mailbox.scala:476-482` enqueue on closed; `:300-322` tail dump; `:338-355` cleanUp; `D/Mailboxes.scala:62-63`; `A/ActorRef.scala:739` publishes it; Failed is not `DeadLetterSuppression`, `D/sysmsg/SystemMessage.scala:274-277`); (b) parent still alive but still handling Terminate: after `Terminate` the parent is suspended and, if it has children, in `Termination` wait; `Failed` is `StashWhenFailed` (`SystemMessage.scala:274-277`) so it is stashed (`A/ActorCell.scala:467-475` (stash/unstashAll) and `:506-510` (`shouldStash`)) and **dropped without a dead letter** when `finishTerminate` runs `clearFieldsForTermination` -> `unstashAll()` whose result is discarded (`ActorCell.scala:721-725`, `dungeon/FaultHandling.scala:187-210,246-268`); (c) `ActorCell.systemInvoke` after `isTerminated` sends the rest of the batch with `provider.deadLetters ! msg` (`ActorCell.scala:497-504,541`), whose published sender/recipient differ from path (a) (recipient is `deadLetters`, not the dead actor; sender defaults to `noSender` -> `deadLetters`, `ActorRef.scala:741-742`; as read, no implicit sender in `ActorCell`). | no spec found for any of (a)-(c); same search as AC1. `DeadLetterSupressionSpec.scala:44-67` observes dead-lettering of *user* messages to a dead actor only. | none (comment only). | spec-does-not-observe; Pekko disposition is not a single rule |
+| AC3 decider not invoked for stale child incarnation | `dungeon/FaultHandling.scala:305-322`: `getChildByRef(f.child)`; `Some(stats) if stats.uid == f.uid` calls the strategy; `Some(stats)` with other uid and `None` publish a Debug "dropping Failed" and do not call it. `ChildRestartStats.uid = child.path.uid` (`A/FaultHandling.scala:55`) and `getByRef` matches on `ActorRef.equals` which compares `path.uid` (`ActorRef.scala:183-185`). So a re-created child of the same name has a different uid and falls into `None`; I found no reachable state for the middle branch. | no spec found; searched `dropping Failed`, `old child`, `uid` in `actor-tests/src/test` (only `SupervisorHierarchySpec.scala:322` comment about a Terminated of an old child). | not located in this story's scope (reconciliation says #935/#900 lane). | spec-does-not-observe |
+| AC4 positive and negative tests incl. race boundary, SHA, gates | n/a | n/a | n/a | n/a |
+| AC5 update contract and traceability | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high). The AC "Match selected Pekko system-message order/disposition" presupposes one Pekko disposition for a Failed that loses against the parent stop. Source reading shows three (a/b/c above), one of which is a silent drop (b). Current text: "Match selected Pekko system-message order/disposition for both traces." Neutral replacement: "State, per parent state at the time Failed is dequeued (mailbox closed; stopping with children; stopping without children), which Pekko path applies (`D/Mailbox.scala:300-322,338-355,476-482`; `ActorCell.scala:497-504,721-725`) and whether goPekko adopts it. Open question: which of these dispositions the Owner wants as the observable contract; missing evidence: a Pekko run (no spec observes any of them)."
+  - F2 (medium). Body: "process or dead-letter a pending Failed at the correct boundary". Pekko evidence is source-only; the "dead-letter" half exists in Pekko for (a) and (c) but not for (b). The story title "avoid silently losing an accepted system failure" is contradicted by Pekko path (b) as read. Report this as an observed Pekko behavior, not a bug claim; unverified by any spec.
+  - F3 (medium). Reconciliation anchors are right but incomplete: add `D/Mailbox.scala:286-322` (processAllSystemMessages tail dump), `:476-482` (systemEnqueue on closed), `D/Mailboxes.scala:54-72`, `A/ActorRef.scala:733-743`, `A/ActorCell.scala:467-475,506-510,721-725` and `SystemMessage.scala:215-221,274-277`.
+  - F4 (low). AC3 maps to two Pekko branches; the "stale incarnation" is dropped by the `None` branch in practice (see table).
+- Dependencies: `#900 -> #782` declared `enables` for "same-file ordering"; the text of the same reconciliation calls it "a lane constraint, not a contract dependency". #900 is `prio:P0 status:blocked`, #814 is `prio:P1 status:blocked`. STATUS: `status:ready` is incompatible with the issue's own rule ("applied only when the contract is accepted and every prerequisite is delivered") if `enables` is a prerequisite; I do not propose a label change. Edge type is inconsistent with its explanation (`independent` plus lane note, or keep `enables`). #814 enables only the sender assertions (ADR 0032 D3/D4/D6, open PR #1014): path (a) publishes sender = receiver (`Mailboxes.scala:62-63`), path (c) publishes `deadLetters`; a single "sender" assertion cannot cover both.
+- Oracle (D13): applicability pending determination. Pekko code exists (above); no dedicated spec found; a differential scenario would need a Pekko-side hook to hold system messages (missing evidence: whether `CallingThreadDispatcher`/`testkit` can create the barrier).
+
+### #783 SUP-12 — Preserve Recreate ordering against actor stop
+- Depth: DEEP (same reading as #782).
+- Labels now: `prio:P2`, `status:ready`.
+- Verdict: CORRECT (AC2 text) and STATUS (as #782).
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 both arrival orders with a controlled boundary | `Recreate` is sent by `restart(cause)` through `dispatcher.systemDispatch` (`A/dungeon/Dispatch.scala:158-162`); mailbox rules as #782. | no spec found; searched as #782 plus `faultRecreate`, `finishRecreate`, `Recreation(` in `actor-tests`: only `SupervisorHierarchySpec.scala:870,923` (log filter `changing Recreate into Create`) and `SupervisorSpec.scala:419-458` (PreRestart/PostRestart failure logs, not ordering). | `supervision_restart.go:86-90` `recreate`: closed cell ignores it; PORT-GAP(recreate-dead-letter). | spec-does-not-observe |
+| AC2 "Stop during children-wait still abandons the new instance according to the existing contract" | Recreate is `StashWhenWaitingForChildren` (`SystemMessage.scala:231`) but **Terminate is not stashed** (`:247`). While the actor waits for children in `Recreation(cause)` (a `WaitingForChildren`, `dungeon/ChildrenContainer.scala:58,76`), Terminate runs `terminate()` which swaps the reason to `Termination` (`dungeon/Children.scala:183-187`, `dungeon/FaultHandling.scala:180-210`); `Termination` is **not** `WaitingForChildren` (`ChildrenContainer.scala:60`), so the state becomes SuspendedState. A later `Recreate` in that state is not stashed (only `StashWhenFailed` is, `ActorCell.scala:489-492`) and `faultRecreate` takes its `else` branch (`isNormal` false): `faultResume(causedByFailure = null)` (`dungeon/FaultHandling.scala:92,117`), i.e. it does **not** create a new instance. The stashed Recreate/Failed already waiting are dropped at `finishTerminate` (`ActorCell.scala:721-725`). | no spec found; same searches. | `cell.go` per reconciliation; "existing contract" is not defined in the body (no ADR cited). | spec-does-not-observe |
+| AC3 "Pending Recreate has one disposition and cannot restart an already finalized actor" | Pekko: after close, Recreate goes to dead letters (`Mailbox.scala:476-482`, `Mailboxes.scala:62-63`), and `faultRecreate` with `actor == null` becomes `faultCreate` ("changing Recreate into Create", `dungeon/FaultHandling.scala:92-96`). "One disposition" is not a Pekko property: Recreate has at least four (restart, convert to Create, convert to Resume, dead letter). | `SupervisorHierarchySpec.scala:870,923` only filters the log line. | PORT-GAP | no |
+| AC4/AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high). AC3 asserts a single disposition; Pekko has several, chosen by actor state (above). Current text: "Pending Recreate has one disposition and cannot restart an already finalized actor." Neutral replacement: "List the Pekko dispositions of a Recreate by actor state (restart; Recreate-into-Create when no instance exists, `dungeon/FaultHandling.scala:92-96`; Recreate-into-Resume when not normal, `:116-118`; dead letter when the mailbox is closed, `D/Mailbox.scala:476-482`) and state which goPekko adopts. Open question: the Owner contract; missing evidence: no spec observes any of them."
+  - F2 (medium). AC2 refers to "the existing contract" without citing one; the Pekko behavior in the table (Recreate during a Termination wait becomes a Resume, not an abandon) is a different mechanism from "abandons the new instance".
+  - F3 (low). Reconciliation anchors correct; add `Dispatch.scala:158-162`, `ChildrenContainer.scala:55-60,76`, `ActorCell.scala:489-492,721-725`.
+- Dependencies: as #782 (#900, #814 `enables`; label vs `enables` mismatch). Missing edge: #782 and #783 share the same Pekko machinery and Go file (`supervision_restart.go`); the lane note says #783 after #782 but the dependency table does not list `#782 -> #783`.
+- Oracle (D13): applicability pending determination (as #782).
+
+### #826 SUP-14 — Expire a supervision Context after the decision returns
+- Depth: DEEP (ADRs 0010 X1 and 0017 A13 read at the cited lines; Pekko search documented).
+- Labels now: `prio:P3`, `status:blocked`.
+- Verdict: DEP and CORRECT.
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 a context is valid only for the active decision | No Pekko concept: Pekko's `Decider` is `PartialFunction[Throwable, Directive]` with no context parameter (`A/FaultHandling.scala:251`); the `ActorContext` reaches only `handleFailure/processFailure/handleChildTerminated` of a strategy (`dungeon/FaultHandling.scala:314`, `A/FaultHandling.scala:339,344,366`). Pekko has no expiry of `ActorContext` (the cell is shared). | no spec found; searched `actor-tests` for context use after return / `IllegalStateException` on context: none relevant. | `README.md:254`: "A Context is valid only during the handler call of its own actor; this is not enforced yet (ADR 0010 X1 is not claimed)". ADR 0010:97 (X1, owner decision 2026-10-08, proposed document) says expired context sends carry system metadata, other operations do nothing, each use publishes `ContextMisuse`. ADR 0017:538 (A13): decider context valid only for the decider call. | unsupported (Go-only) |
+| AC2 barrier-controlled external use has a documented safe failure outcome | n/a | n/a | the outcome already has a proposed form in ADR 0010 X1 (no-op plus `ContextMisuse` event); not implemented. | unsupported |
+| AC3 recorded as Go API safety | consistent | n/a | n/a | yes |
+
+- Findings:
+  - F1 (high). Reconciliation says "ADR 0033 D13 requires alternative evidence and explicit Owner approval, row stays pending approval". D13 requires that only where an oracle is shown not to apply. Here the Pekko side has no counterpart concept (Decider has no context), so "does not apply" can be argued with the evidence above; the approval, not "pending approval", is the gate. Neutral replacement for the status text: "Pekko has no expiry of ActorContext and its Decider takes no context (`A/FaultHandling.scala:251`); alternative evidence is Go-only; Owner approval is not recorded."
+  - F2 (medium). The body's "safe failure outcome" is already described in ADR 0010 X1 (:97; the text labels it an owner decision of 2026-10-08, but ADR 0010 is `proposed` and X1 is not among the parts listed as accepted at line 3); the story can cite it as a proposal. The AC "documented safe failure outcome" and X1 may disagree on scope (decision Context only vs every Context): reconciliation asks to decide; X1 text says every `Context` (including zero value).
+  - F3 (medium, DEP). `#777 -> #826 depends_on` ("decider/strategy hook boundary"): Go already passes `*Context[T]` to the decider (`supervision.go:48`) and ADR 0017 A13 already limits its lifetime; expiry does not need the user-strategy boundary of #777. No Pekko or technical basis for the edge in the sources I read. Missing evidence for keeping it: a statement of what in #777 the expiry needs.
+- Dependencies: remove or justify `#777 -> #826`; consumers #1116, #1117, #1118, #863 wait on #826 transitively (see their entries).
+- Oracle (D13): no Pekko counterpart to context expiry found (`A/FaultHandling.scala:251`, no `ActorContext` expiry); applicability pending determination.
+
+### #863 SUP-15 — Allow Spawn inside a decider
+- Depth: DEEP (Go test body read at `supervision_allforone_internal_test.go:864-915`).
+- Labels now: `prio:P3`, `status:blocked`.
+- Verdict: CORRECT (body stale after split; AC3 not met by the located test) and DEP.
+- AC table (after the split in the reconciliation; the body text still lists Spawn/Stop/Watch/self):
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 inventory Spawn/Stop/Watch/self | Context passed to strategy hooks only (`dungeon/FaultHandling.scala:314`); decider has none (`A/FaultHandling.scala:251`). | `AT/SupervisorMiscSpec.scala:144-162` "be able to create a similar kid in the fault handling strategy": overrides `handleChildTerminated`, calls `context.actorOf(Props.empty, child.path.name)` for the stopped child, asserts new ref `ne` the old and same path; then stops the parent and asserts an Error "handleChildTerminated failed" (IllegalStateException). It observes Spawn from a **hook**, not a decider. | inventory moved to #1116. | spec-does-not-observe (hook, not decider) |
+| AC2 implement only documented allowed set after design decision | n/a | n/a | Spawn inside an AllForOne decider already works and is tested: `TestAllForOneDeciderSpawnIsOutsideTheRound` (`supervision_allforone_internal_test.go:864-910`) asserts, for Restart/denial/Stop/Escalate, that the spawned child is outside the round (not charged, not restarted, not stopped; suspended with siblings on Escalate). Documented at `supervision.go:84-85`. No OneForOne decider-spawn test located. | partly (AllForOne only) |
+| AC3 reentrant child creation and stop preserve reservation and failure ordering | Name reservation: `reserve` throws `InvalidActorNameException` when the name exists (`dungeon/ChildrenContainer.scala:142-145`), and `IllegalStateException` while terminating (`:205-206`). | `SupervisorMiscSpec.scala:144-162` observes that re-using the stopped child's name works after its termination was processed; no spec observes a clash or ordering. | the located Go test does not spawn a duplicate name or stop; reservation ordering untested in what I read. | no |
+
+- Findings:
+  - F1 (medium). The body still carries AC1/AC2 for Spawn, Stop, Watch, self (current text: "Inventory Spawn/Stop/Watch/self access independently and identify the accepted subset."). Replace by the reconciliation's narrowed text.
+  - F2 (medium). "Implement only the documented allowed operation set after its design decision" cannot hold for Spawn: it is already implemented (AllForOne); what is missing is a OneForOne case, the reservation-ordering case, and documentation.
+  - F3 (medium). Pekko oracle: the spec cited above exercises a hook (`handleChildTerminated`), the closest thing to "Spawn inside the strategy"; Pekko has no decider-with-context. Which Pekko construct the Go decider corresponds to is exactly the open question of #777/#1116.
+- Dependencies: `#826 -> #863 depends_on` and `#1116 -> #863 depends_on`. #826 (expiry) is not needed to document an existing Spawn behavior; #1116 (allowed set) is needed only to decide whether Spawn stays allowed, which it already is in Go. The chain makes a documentation/test story wait behind a P3 blocked implementation (#826 -> #777). Flag as dependency question; no label change proposed.
+- Oracle (D13): applicability pending determination (hook-level oracle exists, SupervisorMiscSpec:144-162; the decider-level behavior has none).
+
+### #1116 SUP-20 — Decide which parent operations are allowed inside a decider
+- Depth: DEEP.
+- Labels now: `prio:P2`, `status:blocked`.
+- Verdict: DEP and CORRECT.
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 table with upstream behavior per operation (Spawn, Stop, Watch, Unwatch, WatchWith, StopSelf, reads of Self/Parent/Child/Children) | Upstream passes the cell as `ActorContext` to `handleFailure` (`dungeon/FaultHandling.scala:314`). Strategies' own context use: `context.stop` at `A/FaultHandling.scala:565` (AllForOne, non-restart) and `:676` (OneForOne). **No** Pekko code passes a context to a `Decider`. | `SupervisorMiscSpec.scala:144-162` (actorOf in `handleChildTerminated`, observes new child same path and the termination-time IllegalStateException). Nothing for stop/watch/unwatch/stopSelf/reads: no spec found; searched `actor-tests` for `context.stop`, `context.watch` inside `supervisorStrategy` overrides. | decider gets `*Context[T]` (`supervision.go:48`); Spawn tested (AllForOne only); Stop/Watch untested. | spec-does-not-observe |
+| AC-R2-1 cites `supervision.go:76-90` and ADR 0014 reservation rules | n/a | n/a | `supervision.go:76-90` confirmed: snapshot taken before the decider, decider-spawned child outside the round, ascending name order "not a guaranteed contract". ADR 0017:538 (A13) and :630 as the gap statement. | yes |
+| AC-R3-1 status proposed, Owner decision PENDING | n/a | n/a | n/a | yes |
+
+- Findings:
+  - F1 (high). Context sentence: "Upstream passes the whole ActorContext to the strategy (FaultHandling.scala:314)". It is accurate for `SupervisorStrategy.handleFailure`, not for the `Decider`. The Go surface being decided (a `Decider` receiving `*Context[T]`) has no Pekko analog; the Pekko analog is a strategy-hook override (#777's hook set). Neutral replacement: "In Pekko the context reaches strategy hooks (`dungeon/FaultHandling.scala:314`), and the `Decider` is a `PartialFunction[Throwable, Directive]` (`A/FaultHandling.scala:251`) with no context. The question is whether the Go `Decider` context corresponds to Pekko's hook context; evidence missing: Owner decision on #777."
+  - F2 (medium). Depends on #826 (delivery) although the decision only needs the contract of #826; a decision story (P2) is behind an implementation story (P3 blocked).
+  - F3 (low). "Upstream behavior and a source line" per operation: stop has lines (565, 676); spawn has a spec for a hook; watch/unwatch/stopSelf have no Pekko line in the story; reads of Self/Parent/Child/Children have none. The required column cannot be filled from the cited sources alone.
+- Dependencies: `#826 -> #1116 depends_on` questionable (see F2). Missing edge: #777 (what the hook set is) is the upstream of the question in F1; not declared.
+- Oracle (D13): applicability pending determination for hook-level behavior (SupervisorMiscSpec); decision story itself: n/a.
+
+### #1117 SUP-21 — Stop a child from inside a decider
+- Depth: PARTIAL (the built-in Stop spec in `SupervisorSpec` was not opened; AC-R1-1 concerns a user decider, for which the search found no spec).
+- Labels now: `prio:P3`, `status:blocked`.
+- Verdict: ADR (needs #1116 and #777 resolution) and CORRECT.
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 decider stops failing child and returns Resume: child terminates once, watcher told once | Pekko's own strategy stops through `context.stop` then does nothing else (`A/FaultHandling.scala:565,676`); a user-chosen `Stop` directive follows `stopped` path. No Pekko path returns a directive *and* stops: `handleFailure` returns after `processFailure` (`A/FaultHandling.scala:366-395`). | no spec found; searched `actor-tests` for a strategy that calls `context.stop` itself: none. Built-in Stop observed by `SupervisorSpec` (named by prior audit; body not part of this AC). | `Context[T].Stop` exists (`stop.go:31`); behavior unspecified. | spec-does-not-observe |
+| AC-R2-1 stop plus Restart: no new instance, one termination | Pekko `restartChild` on a child whose stop was requested: `child.asInstanceOf[InternalActorRef].restart(cause)` sends Recreate, which the stopping child handles per #783 (Terminate not stashed; Recreate during Termination wait becomes Resume). So "no new instance" is a consequence of Recreate-vs-Terminate ordering (#783), not of the decider. | no spec found. | n/a | spec-does-not-observe |
+| AC-R3-1 AllForOne snapshot unchanged when a sibling is stopped | Pekko AllForOne reads `children` passed to `processFailure` (a snapshot parameter, `A/FaultHandling.scala:552-562`); a stop by user code in the hook does not alter the passed Iterable. | no spec found. | `supervision.go:76-90`: the snapshot "includes children whose stop was already requested". | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium). R2/AC-R2-1 outcome depends on #783's Recreate-vs-Terminate semantics, an undeclared prerequisite. Text: "no new instance is created and one termination is observed" is derived behavior; Pekko source supports it only through #783's mechanism (see #783 AC2).
+  - F2 (low). Traceability says "none found: no spec exercises a user decider stopping a child". Confirmed by my search; additionally no `Decider` in Pekko can reach a context (`A/FaultHandling.scala:251`).
+  - F3 (medium). ADR text in body "ADR 0033 D13: no Pekko spec oracle ... recorded pending approval". D13 says an absent dedicated spec does not show that no oracle applies. Neutral replacement: "oracle applicability pending determination; no dedicated Pekko spec found (search above)."
+- Dependencies: `#826`, `#1116 -> #1117 depends_on` both fine in direction. Missing: `#783 -> #1117` (R2), and `#777` as upstream of the "decider with context" question.
+- Oracle (D13): applicability pending determination.
+
+### #1118 SUP-22 — Watch an actor from inside a decider
+- Depth: PARTIAL (`A/dungeon/DeathWatch.scala` and the `DeathWatchSpec` bodies other than :216-246 were not opened; DeathWatch statements below are from the story and prior audit, not re-read).
+- Labels now: `prio:P3`, `status:blocked`.
+- Verdict: ADR and CORRECT.
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 decider watches a sibling; OnTerminated runs once | Classic `context.watch` is an ordinary cell operation (`A/dungeon/DeathWatch.scala` `watch`; Watch system message `SystemMessage.scala:258`); within strategy hooks it is possible because the cell is the context. | no spec found for a watch registered inside a strategy; searched `actor-tests` for `watch(` inside `supervisorStrategy`/`handleFailure`: none. General death-watch is in `DeathWatchSpec` (not read line by line for this AC). | `watch.go:98,105` exist; Go state "unspecified". | spec-does-not-observe |
+| AC-R2-1 watch failing child + Stop: one Terminated, no failure | Pekko DeathWatch: watching an actor that terminates delivers one `Terminated` unless unwatched; if the watcher has no `Terminated` handling the default is `DeathPactException` (`A/dungeon/DeathWatch.scala` `watchedActorTerminated`, `A/Actor.scala` unhandled Terminated). | `DeathWatchSpec.scala:216-246` (default decider with DeathPactException order, not a decider-time watch). | n/a | spec-does-not-observe |
+| AC-R3-1 captured Context after the decision follows SUP-14 | see #826 | none | n/a | unsupported |
+
+- Findings:
+  - F1 (medium). R2: "no death pact MUST fire if the parent handles Terminated" is a general Pekko DeathWatch property (handled Terminated suppresses the pact), but its decider-time form has no source. Neutral text: "General Pekko DeathWatch behavior applies once registered; whether registration inside a decider is allowed is the #1116 decision; no Pekko source exercises it."
+  - F2 (low). Shares `watch.go` with DTH stories; plan says DTH first, not declared as a story edge.
+- Dependencies: as #1117 (direction OK). Missing edge to DTH work on `watch.go` is only a lane note.
+- Oracle (D13): applicability pending determination (DeathWatch oracles exist for the base behavior; decider-time registration has none found).
+
+
+---
+
+### #842 SYS-03 — Expose immutable System name and start metadata
+- Depth: DEEP for Pekko; PARTIAL for Go in-flight work (PR #1013 not read, only the develop snapshot).
+- Labels now: `status:blocked` (the reconciliation says in flight; prio none).
+- Verdict: CORRECT and DEP.
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 name/address validation before actor creation | `ActorSystemImpl` constructor throws `IllegalArgumentException("invalid ActorSystem name [..], must contain only word characters ...")` unless the name matches `^[a-zA-Z0-9][a-zA-Z0-9-_]*$` (`A/ActorSystem.scala:840-843`), in the constructor body before providers and guardians are built. | `AT/ActorSystemSpec.scala:135-150` "reject common invalid names" (9 names, `an[IllegalArgumentException] should be thrownBy ActorSystem(name)`); `:152-157` "reject all invalid names" (property test against the same regex); `:160-162` "allow valid names". They observe rejection by exception, not "before actor creation". | `system.go:70-72` documents that the name "is not trimmed, rewritten or validated" and is accepted verbatim; `NewSystem(cfg Config) *System` (`system.go:118`) has no error result. ADR 0031 O3a (accepted): "Validation, if adopted, would reuse S2 verbatim and is separate"; O3b (accepted): empty name becomes `"default"`, "goPekko's own decision". | no (Go does not validate; ADR 0031 leaves validation undecided) |
+| AC1 "address" | the address derives from the provider root path; the name is the only user-controlled part. | none asserts address validity. | `NewLocalAddress` cannot fail for non-empty parts (`system.go:134` comment); IDN-02 #766 closed. | spec-does-not-observe |
+| AC2 start time fixed, uptime from accepted clock source | `val startTime: Long = System.currentTimeMillis` (`A/ActorSystem.scala:572`); `def uptime: Long = (System.currentTimeMillis - startTime) / 1000` (`:577`): wall clock, whole seconds, no freeze at termination. | only use found: `ActorSystemSpec.scala:316` (`system.uptime >= 10` as a guard in "reliable deny creation of actors while shutting down"); no spec asserts fixedness or unit. Searched `actor-tests/src/test` for `startTime` and `.uptime`. | no `StartTime`/`Uptime` symbol located (searched `pekko-actor/actor/*.go`). | spec-does-not-observe; unsupported in Go |
+| AC3 termination does not mutate the recorded identity | `name` is a constructor parameter; `val uid` drawn once (`ActorSystem.scala:839`). Nothing in termination rewrites them (source reading). | none; searched `ActorSystemSpec` for name/uid after `terminate`. | `system.go:94-95,120-121`: `name` and `address` "set once by newSystem and never written again". | spec-does-not-observe |
+| AC4/AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high). AC1 has a Pekko contract (reject at construction, `ActorSystem.scala:840-843`; observed by `ActorSystemSpec.scala:135-162`) but the accepted ADR 0031 does not adopt it and Go documents the opposite (`system.go:70-72`). The reconciliation's "contradicts accepted ADR 0031 O3a/O3b" is imprecise: O3a says validation "if adopted ... is separate" (undecided), O3b concerns only the empty name; the contradiction is with the current Go contract. Current text: "System name/address validation occurs before actor creation." Neutral replacement: "Pekko rejects an invalid System name with `IllegalArgumentException` at construction (`ActorSystem.scala:840-843`; `ActorSystemSpec.scala:135-162`). goPekko currently accepts any name (`system.go:70-72`; ADR 0031 O3a leaves validation undecided (its alternatives column cites Pekko's S2 rule as a reason, so the ADR acknowledges S2 without adopting it)). Open question: adopt, adapt or exclude name validation; evidence missing: explicit Owner decision (a deliberate difference from Pekko needs one; D13 does not authorize it)."
+  - F2 (medium). The narrowed AC1 ("name fixed at creation, Address valid by construction") drops a Pekko-observable behavior; it is a proposal awaiting #1066, not an Owner decision, and ADR 0031 does not contain it.
+  - F3 (medium). AC2 "accepted clock source" is undefined: Pekko uses wall-clock `System.currentTimeMillis` for both start and uptime in whole seconds. goPekko has an internal clock seam (`clock.go`) whose export is #1129 (TIM-11, P0 blocked); no dependency is declared. Open question: wall or monotonic clock; evidence missing: Owner decision.
+  - F4 (low). The cited `Deployer.scala` and `ActorSystemSetup.scala` are not relevant to this outcome (agrees with the reconciliation).
+- Dependencies: `#766 -> #842 depends_on` (delivered, closed: OK). `#1066 -> #842 depends_on` (#1066 `status:ready`): acceptable as a gate on the AC rewrite. Possible missing edge to #1129 for AC2 (only if the Go clock is exported).
+- Oracle (D13): oracle exists for AC1 (`ActorSystemSpec.scala:135-162`); AC2/AC3: applicability pending determination (behavior unobserved by specs, not shown inapplicable).
+
+### #843 SYS-04 — Resolve System defaults against spawn descriptors consistently
+- Depth: PARTIAL (Go `Config`/`SpawnOption` taken from the snapshot and #1122's baseline; ADR 0010 dispatcher and mailbox items and ADR 0033 D4 read only at the statements quoted in the bodies).
+- Labels now: `prio:P3`, `status:blocked`.
+- Verdict: CORRECT and SPLIT (already split to #1122; the AC list still contains the split-off AC).
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 define precedence among System defaults and spawn descriptors | For a non-router actor, a dispatcher or mailbox in the **deployment** (HOCON, looked up by path) overrides the one in `Props`: "mailbox and dispatcher defined in deploy should override props" (`A/ActorRefProvider.scala:684-702`); with none given `Props` stands, whose dispatcher defaults to `Dispatchers.DefaultDispatcherId`; `DispatcherSameAsParent` takes the parent's (`:679-701`). General merge: `Deploy.withFallback` (`A/Deployer.scala:98-117`). Routers: `router :: props.deploy.routerConfig :: configRouter` reduced with `b.withFallback(a)` (`ActorRefProvider.scala:721-724`). | `AT/dispatch/DispatchersSpec.scala:266-268` "use dispatcher in deployment config" (`echo1` with no code dispatcher runs on `myapp.mydispatcher`, asserted through thread names); `:270-273` "use dispatcher in deployment config, trumps code" (`Props.withDispatcher("myapp.my-pinned-dispatcher")` loses to the deployment's `myapp.mydispatcher` for `echo2`). `AT/DeployerSpec.scala:93-142` only parses deployment values. | `Config{Name, Throughput, GuardianStrategy, Logger}` (`system.go:69-100`); `SpawnOption` has only `WithMailboxCapacity` (`spawn.go:56`). No dispatcher/mailbox choice exists to take precedence. | oracle exists; Go precedence undefined |
+| AC2 unknown provider/deployment choices classified | see #1122 | see #1122 | n/a | moved |
+| AC3 no HOCON or remote providers | ADR 0033 D8 (as cited in the reconciliation) | n/a | n/a | yes |
+| AC4/AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high). The reconciliation states `Deployer.scala` has "Spec: n/a" and "Setup is the System-level default source". Neither holds: precedence of deployment over `Props` is observed by `DispatchersSpec.scala:270-273`; `ActorSystemSetup` is a typed map of `Setup` objects replaced per concrete class (`setup/ActorSystemSetup.scala:41-87`) applied at creation, not a source of actor defaults. Neutral replacement: "Pekko precedence for dispatcher and mailbox: deployment (by path) over `Props` over the configured default (`ActorRefProvider.scala:684-702`; `DispatchersSpec.scala:270-273`). `ActorSystemSetup` is a bag of bootstrap `Setup` values (`ActorSystemSetup.scala:41-87`). Open question: which goPekko inputs correspond to deployment and to `Props`; evidence missing: #767 and the ADR 0010 dispatcher/mailbox decisions (#1040, #1041)."
+  - F2 (medium). AC1 names two layers; Pekko has three, and the surprising one (config trumps code) is spec-observed.
+  - F3 (medium). AC2 remains in the body although the reconciliation moved it to #1122; the diagram "Return all accepted configuration failures" is #1122's R3.
+  - F4 (low). Title says "consistently", the diagram says "Validate System setup and deployment options": two outcomes.
+- Dependencies: `#767, #792, #789 -> #843 depends_on`, plus `#1040, #1041` (both `status:ready`, P1). Not verified whether #792/#789 themselves depend on #1040/#1041, so the declared edge set may be redundant or not; flagged as unverified. No cycle seen.
+- Oracle (D13): oracle exists for deployment-over-Props (`DispatchersSpec.scala:270-273`) but its mechanism (HOCON deployment) is excluded in Go; applicability pending determination (missing: which Go input plays "deployment").
+
+### #1122 SYS-22 — Reject unknown deployment options when applying System setup
+- Depth: DEEP.
+- Labels now: `prio:P2`, `status:blocked`.
+- Verdict: ADR (needs the #843 option model) and CORRECT.
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 unsupported value gives a typed error naming the option | Pekko classifies by failing: `ProviderSelection.apply` maps `"local"`, `"remote"`, `"cluster"` (and the two class names) and any other string to `Custom(fqcn)` (`A/ActorSystem.scala:136-146`), which fails when the provider class is instantiated (`:975`, `createInstanceFor[...].get`). Unknown router: `IllegalArgumentException("Cannot instantiate router [..], defined in [..] ...")` (`A/Deployer.scala:285-310`). | `AT/ProviderSelectionSpec.scala:27-75` observes only the mapping (Local/Remote/Cluster/Custom keep their fqcn in `Settings`); it does not observe a failing load. Router: no spec found; searched `actor-tests/src/test` for `Cannot instantiate router`. | `ErrInvalidMailboxCapacity` is the only option rejection (`spawn.go:56`; #1122 baseline). | spec-does-not-observe |
+| AC-R2-1 rejected setup creates nothing | A failing provider constructor does `Try(stopScheduler())` and rethrows (`ActorSystem.scala:975-979`). | no spec found | n/a | spec-does-not-observe |
+| AC-R3-1 all rejected options reported | No Pekko counterpart found: both sites throw at the first failure. | none | story says Go-only | unsupported (Go addition) |
+
+- Findings:
+  - F1 (medium). The body labels the whole story "Go-only, no upstream spec verified ... pending approval". Pekko source exists for the base behavior (reject by failing, above) but no spec observes it; only R3 (aggregate) is Go-only. Neutral replacement: "Pekko rejects an unknown provider or router by throwing on the first failure (`ActorSystem.scala:136-146,975`; `Deployer.scala:285-310`); no spec observes the failure. R3 (report every rejected option) has no Pekko counterpart found; D13 then requires alternative evidence and explicit Owner approval, which are absent for R3."
+  - F2 (low). The story itself says it may reduce to value validation, since Go has no by-name options, and asks the Owner to confirm; nothing in Pekko answers that.
+- Dependencies: `#843 -> #1122 depends_on` (OK). Dispatcher and mailbox choices wait for #1040/#1041 per the context text but the table lists only #843; transitive. No cycle.
+- Oracle (D13): R1/R2 applicability pending determination (Pekko source exists, no spec; a differential scenario would require configurations that have no Go option yet); R3 does not apply (no Pekko counterpart: both sites throw at the first failure).
+
+### #883 SYS-10 — Cancel a registered shutdown task before it starts
+- Depth: DEEP.
+- Labels now: `prio:P2`, `status:blocked`.
+- Verdict: CORRECT.
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 cancellation before the accepted phase snapshot excludes the task | `TaskDefinition.cancel()` moves `Pending -> Cancelled` atomically (`A/CoordinatedShutdown.scala:466-481`), merges the phase so cancelled tasks are filtered (`StrictPhaseDefinition.merge`, `:500-503`); a cancelled task also returns `Done` without running (`run`, `:458-459`). The phase's task set is read when the loop reaches the phase (`tasks.get(phaseName)`, `:736`) and `run` maps over that set (`:496`). | `AT/CoordinatedShutdownSpec.scala:170-203` "cancel shutdown tasks": three cancellable tasks, `task2.cancel()`, `assert(task2.isCancelled)`, run, expects `receiveN(2)` messages that are `copy1`/`copy3` with `distinct.size == 2` (does not assert that no third message arrives). `:238-306` "honor registration and cancellation in later phases": a phase-a task cancels a phase-b task; expects the message set `Set("A adds B","A cancels B")` after `receiveN(2)`. | not implemented (no CoordinatedShutdown; doc.go:16 only) | yes (oracle exists) |
+| AC2 cancellation after task start follows the explicit noninterrupting rule | When the state is `Running`, `cancel()` returns `false` and does nothing (`updateAndGet { case Pending => Cancelled; case other => other }`, then `case _ => false`, `:466-481`); no interruption. | **no spec found**; searched `CoordinatedShutdownSpec` for `cancel` (lines 190, 226, 248, 256, 343, 596-643): none cancels a running task; the `taskA.cancel()` at :256 is never reached in the asserted outcome. | n/a | spec-does-not-observe |
+| AC3 repeated cancellation is safe and reports its documented Boolean | A repeated `cancel()` on a `Cancelled` task returns `true` again (the match is on the state after `updateAndGet`, still `Cancelled`, `:466-475`). This differs from the trait documentation: "If this cancellable was (concurrently) cancelled already, then this method will return false although isCancelled will return true" (`A/Scheduler.scala:527-535`). | `AT/CoordinatedShutdownSpec.scala:308-363` "cancel tasks across threads": 20 registrations of the same function; 10 of them are each cancelled 20 times from concurrent futures with `c.cancel() shouldBe true` (`:338-345`); the test fails unless every call returns `true`. Then expects 20 messages (10 `concurrentA`, 10 `BMessage`). | n/a | yes: Pekko answer is `true` on repeat |
+| AC4/AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high). The reconciliation ties the handle to "the shared Scheduler Cancellable (Scheduler.scala:525)". That trait documents `false` on repeat, but the implementation used here returns `true` on repeat and the spec asserts it (`CoordinatedShutdownSpec.scala:343`). Current text: "Repeated cancellation is safe and reports its documented Boolean/result." Neutral replacement: "In Pekko `TaskDefinition.cancel()` returns true on the first cancel and on every repeated cancel, and false once the task is Running (`CoordinatedShutdown.scala:466-481`; `CoordinatedShutdownSpec.scala:308-363`). The `Cancellable` trait documents false on repeat (`Scheduler.scala:527-535`). Open question: which Boolean the Go handle reports; a different answer from `TaskDefinition` is a deliberate difference and needs an explicit Owner decision."
+  - F2 (high). The proposed added AC ("cancelling one registration does not remove another registration of the same function", citing the doc at `:578-579`) is correct, but the code comment at `:411-415` is the better source (each registration is a distinct object; "run that task as many times as it was registered (minus the number of times those were cancelled)"), and the doc phrase "so long as the same task has not been added elsewhere" (`:553-554,578-579`) is stale relative to the code (`:559,:584` already state 'each addition will be run unless cancelled', so the doc contradicts itself). Spec: `CoordinatedShutdownSpec.scala:205-236` "re-register the same task if requested": three registrations of the same function and name, one cancelled, `receiveN(2)` all equal the task name.
+  - F3 (medium). AC2: source exists (return `false`, no interruption) but no spec; D13 applicability pending determination, not "no oracle".
+  - F4 (low). Duplicate invocation of one task object returns the same future and logs "invoked multiple times and deduplicated" (`:456`); not in the AC.
+- Dependencies: `#844 -> #883 depends_on` (OK: same registry, `addCancellableTask` at `:565-571`). `#776 -> #883 depends_on` (TIM-01, `prio:P0 status:blocked`) is declared for the handle type; Pekko evidence: `TaskDefinition extends Cancellable` (`:407`). The edge shares a type, not behavior, and the repeated-cancel Boolean differs between the two Pekko sources (F1), so sharing one Go handle type may force one answer for both: flag as an open question.
+- Oracle (D13): oracle exists for AC1 and AC3 (`CoordinatedShutdownSpec.scala:170-203,238-306,308-363`); AC2 applicability pending determination.
+
+### #919 SYS-12 — Record the accepted coordinated-shutdown reason
+- Depth: DEEP.
+- Labels now: `prio:P2`, `status:blocked`.
+- Verdict: CORRECT (AC3, reason set) and DEP.
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 first accepted reason remains observable | `runStarted: AtomicReference[Option[Reason]]`, set by `compareAndSet(None, Some(reason))` at the start of `run` (`A/CoordinatedShutdown.scala:534,723`); `shutdownReason()` returns it (`:683`). | `AT/CoordinatedShutdownSpec.scala:385-399` "only run once": `shutdownReason() == None` before; after `run(CustomReason)` it is `Some(CustomReason)`; a second `run(UnknownReason)` does not repeat the task ("no additional A") and the reason stays `Some(CustomReason)`. `:535-544` (`run(CustomReason)` gives `Some(CustomReason)`); `:546-555` (`ActorSystem.terminate` gives `ActorSystemTerminateReason`); `:557-570` (`run-by-actor-system-terminate=off` gives `None`). | not implemented | yes (oracle exists) |
+| AC2 repeated Run does not replace the reason | same CAS (`:723`); later `run` returns `runPromise.future` (`:784`). | `:385-399` | n/a | yes |
+| AC3 "a reason value does not silently change phase policy without explicit configured overrides" | `reason-overrides` is read only inside the `terminate-system` task of the last phase, keyed by `reason.getClass.getName`, and only `terminate-actor-system`, `exit-jvm`, `exit-code` are read (`CoordinatedShutdown.scala:206-212,244-247`; `reference.conf:1278-1291`). Phases are read from the base config at extension creation (`:197-203`), so a reason cannot change phases. | `:522-533` call `confWithOverrides` directly, `exit-code` only (None gives 0, `ClusterDowningReason` gives -1); no real run and no phase is observed. | n/a | spec-does-not-observe (source-only) |
+| AC4 concurrent Run and reason observation | CAS gives first-wins. | no concurrent spec found; only the cancel test (`:308`) uses threads. | n/a | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium). Pekko defines `UnknownReason`, `ActorSystemTerminateReason`, `JvmExitReason`, `ClusterDowningReason` and `ClusterJoinUnsuccessfulReason` (`CoordinatedShutdown.scala:120-160`) and accepts user reasons (`CustomReason`, `CoordinatedShutdownSpec.scala:66`, used at :385-399). The story does not state the Go set. The reconciliation's proposal (unknown and actor-system-terminate; others excluded as `cluster-or-remote` and `jvm-only`) is a proposal, not an Owner decision; user-defined reasons, which the spec observes, are not addressed.
+  - F2 (medium). Current text: "A reason value does not silently change phase policy without explicit configured overrides." Pekko: reasons never change phases; they select only `terminate-actor-system`, `exit-jvm`, `exit-code` (`:244-247`). Neutral replacement: "A reason does not change the phase graph, the tasks or the phase timeouts (source: `CoordinatedShutdown.scala:197-203,244-247`; no spec). Any reason-specific override is the subject of #1121."
+  - F3 (low). The diagram and "Atomic outcome" mention a "selected starting phase" and "existing run identity" while the ACs cover the reason only; starting phase is #932.
+- Dependencies: `#882 -> #919 depends_on` (OK: single-run rule at `:723`). `#1121` depends on this story. Possible undeclared link with #971 (Terminate runs the phase sequence with `ActorSystemTerminateReason`, observed at `:546-555`); I did not read #971's body for it.
+- Oracle (D13): oracle exists for AC1/AC2 (`CoordinatedShutdownSpec.scala:385-399,535-570`); AC3 and AC4 applicability pending determination.
+
+### #1121 SYS-21 — Apply per-reason overrides when a coordinated shutdown runs
+- Depth: DEEP.
+- Labels now: `prio:P3`, `status:blocked`.
+- Verdict: ADR (is there an overridable Go setting?) and CORRECT.
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 override set for reason X seen by a run with X, not by another reason | `confWithOverrides(conf, reason)`: if `reason-overrides."<getClass.getName>"` exists it is `.withFallback(conf)`, else `conf` (`CoordinatedShutdown.scala:206-212`); applied once, in the `terminate-system` task, with `coord.shutdownReason()` (`:244-247`). | `AT/CoordinatedShutdownSpec.scala:522-526` (`None`: `exit-code == 0`) and `:528-533` (`ClusterDowningReason`: `exit-code == -1`): internal function, default `reference.conf` entries; no run observed. | not implemented | spec-does-not-observe a run |
+| AC-R2-1 closed list of overridable settings | `reference.conf:1277-1280`: only `exit-jvm`, `exit-code`, `terminate-actor-system` may be overridden; code merges the whole section but reads only those three keys (`:245-247`), so any other key is silently ignored, not rejected. | none | n/a | no (Pekko ignores; the AC demands rejection or unrepresentability, a Go addition) |
+| AC-R3-1 overrides do not change phase order, tasks or timeouts | phases are parsed from the base config before any reason exists (`:197-203`) | no spec found | n/a | spec-does-not-observe |
+
+- Findings:
+  - F1 (high). The story's value depends on a Go setting that does not exist. The only overridable Pekko settings are the JVM exit pair (excluded unless the Owner approves, #1127/#803) and `terminate-actor-system` (Go form: #971/#1124). The story asks the Architect to confirm it is worth keeping. Open question: the first overridable Go setting; evidence missing: #971/#1124 and the #1127 decision.
+  - F2 (medium). R2 "unrepresentable or rejected" differs from Pekko (unknown keys ignored, `:245-247`); a deliberate difference needs an explicit Owner decision (D13 does not authorize it).
+  - F3 (medium). The override key is `reason.getClass.getName`: a JVM class name. A Go reason identifier has no defined mapping.
+  - F4 (low). The only defaults in `reference.conf:1282-1291` are for `ClusterDowningReason` and `ClusterJoinUnsuccessfulReason`, both cluster reasons; no default override applies to a local-only system.
+- Dependencies: `#882, #919 -> #1121 depends_on`. In Pekko the overrides apply inside one task of the last phase (`:244-247`), so `#882` (phase advance) is justified only if the Go override lives in the phase machinery. The real owner of the overridable setting (#971 for `terminate-actor-system`, #1124, or #1127) is not declared as a producer. Flag: `#882` possibly redundant; setting owner missing.
+- Oracle (D13): applicability pending determination (a differential scenario needs a Pekko config override with an observable setting; `terminate-actor-system` is observable through `whenTerminated`, so it is possible in principle; the Go form is missing).
+
+### #1123 SYS-23 — Run the tasks of a shutdown phase concurrently and complete when all settle
+- Depth: DEEP (Scala `Future.sequence` library semantics could not be verified from the checkout).
+- Labels now: `prio:P2`, `status:blocked`.
+- Verdict: CORRECT.
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 second task starts before the first's gate opens | `StrictPhaseDefinition.run` maps the `Set[TaskDefinition]` with `_.run(recoverEnabled)` and wraps in `Future.sequence` (`A/CoordinatedShutdown.scala:491-496`): every task's function is invoked from the mapping without waiting for any returned future; the iteration order of the `Set` is unspecified. A task function that blocks its calling thread before returning its future would delay the others; the code does not prevent that. | `AT/CoordinatedShutdownSpec.scala:141-168` "run ordered phases": phases a, b (after a), c (after b and a); `b1` sends "B" synchronously, `b2` returns a `Future` that sleeps 100 ms then sends "B", `c1` sends "C"; asserts `receiveN(4) == List("A","B","B","C")`. Both b tasks send the same string, so the test cannot tell concurrent from sequential start; it observes only that "C" follows both "B". | not implemented | spec-does-not-observe |
+| AC-R2-1 phase completes only after every task completed; slow task still running means phase incomplete and next phase not started | `Future.sequence(...).map(_ => Done)` (`:496`); `phaseResult.flatMap(_ => loop(remaining))` (`:773`). `Future.firstCompletedOf(List(result, timeoutFut))` (`:768`) lets the timeout also complete the phase result (recover: `Done` after a warning; no recover: failed future), so "completes only after every task" holds only before the phase timeout (#918). | same spec: the 100 ms task (no assertion that the phase result is incomplete while it runs). | n/a | partial |
+| AC-R3-1 next phase starts after the slow task completes | `:773` | same spec ("C" after both "B") | n/a | yes |
+
+- Findings:
+  - F1 (high). The context claim "with recover off a failing task fails the phase result at once (Future.sequence), without waiting for the others" is not established by what I could read: failure timing of `Future.sequence` is Scala library behavior, not verifiable from this checkout, and the spec has no test with a failing task, recover off and a slow peer that I opened for this story (`CoordinatedShutdownSpec.scala:402-440` "continue after timeout or failure" was not read in detail). Neutral replacement: "Pekko runs a phase as `Future.sequence(tasks.map(_.run(recoverEnabled)))` (`CoordinatedShutdown.scala:491-496`). The timing of a failure with recover off while peers still run is not verified from the Pekko sources or specs in the pinned checkout." The story already leaves this to #918.
+  - F2 (medium). "Ported spec ... differential judge scenario (oracle exists)" overstates: the spec cannot observe R1 (identical messages; `b1` synchronous). A differential scenario for R1 needs distinct messages or a gate rather than a port of this test.
+  - F3 (medium). R2 "or, under recover, with a recovered failure": Pekko recovery also covers a task function that throws before returning a future (`:444-451`, `Future.successful(Done)`), and without recover it becomes `Future.failed` (`:452-453`). R2 does not mention that case (not checked whether #918/#844 do).
+  - F4 (low). A task object invoked twice returns the same future (`:456`); irrelevant to phase concurrency.
+- Dependencies: `#844 -> #1123 depends_on` (OK). The prior audit lists "#1123 feeds #882"; this body does not declare `#1123 -> #882` and I did not read #882's body to see whether the reverse is declared. No cycle seen.
+- Oracle (D13): oracle exists for R2/R3 (`CoordinatedShutdownSpec.scala:141-168`); R1 is not observed by it: applicability pending determination (a new Pekko scenario would be needed; no evidence that none can be written).
+
+---
+
+### #801 SYS-14 — Decide the legacy Classic TypedActor proxy disposition
+- Depth: PARTIAL (read `TypedActor.scala:43,118,131,457-502` and `TypedActorSpec.scala:292-305,340-399`; the lifecycle-hook traits, serialization ranges :493-565, router :606- and `TypedProps` were not opened by me; the reconciliation's lines for them are unverified here).
+- Labels now: `status:blocked`.
+- Verdict: OK for the decision framing; CORRECT for two reference notes.
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 describe the user-visible proxy invocation behavior | `TypedActorInvocationHandler.invoke` (`A/TypedActor.scala:466-499`): `toString`/`equals`/`hashCode` answered locally (467-472); one-way (void) method = `actor ! m`, returns `null` (475-476); Future-returning = `ask` mapped, `NullResponse` to `null` (477-481); `Option`/Java `Optional`-returning = blocking `Await.ready`, a `TimeoutException`, `NullResponse` or `AskTimeoutException` becomes `None` (482-491); anything else = blocking `Await.result` with the timeout (492-496). | `AT/TypedActorSpec.scala:292-296` "be able to instantiate" (`isTypedActor(t) == true`); `:298-305` "be able to stop" and "not stop non-started ones" (`stop(null) == false`); `:340-348` void methods (`incr`, `read` returns 1, 2, 2); `:350-354` normal return (`"Pigdog"`); `:356-362` null-returning methods (`JOption.none`, `None`, `null`, future of `null`); `:364-372` Future non-blocking (`f.isCompleted == false`, then the result); `:381-399` Option returning with timeouts, tagged `TimingTest` (not deterministic). | n/a (decision story) | yes |
+| AC2 compare Go interfaces/factories without claiming a proxy | n/a | n/a | `Spawn(owner, name, factory func() Actor[T])` (`spawn.go:85`, as cited by #1125) | n/a |
+| AC3 record an Owner decision; exclusion remains visible | ADR 0033 D8 (exclusions recorded with source and reason); closed reason list `jvm-only ... owner-excluded` in `docs/actor-typed-completion-design.md:342`. The delivery plan lists O-6 as an Owner decision still needed (re-scope 2.3). | n/a | no decision exists | yes (no decision is claimed) |
+| AC4 ADR proposal | n/a | n/a | n/a | n/a |
+| AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (low). `TypedActor` is deprecated since Akka 2.6.0 at three places (`A/TypedActor.scala:43,118,131`): confirmed. The reconciliation states this "supports an exclusion decision with a source-backed fact"; as a fact it is supported, but whether deprecation is a closed exclusion reason is not: the closed list has no "deprecated" code. A deprecated JVM-reflection API may fit `jvm-only`; that classification is the Owner's (O-6), not derived.
+  - F2 (low). The reconciliation says "differential Pekko scenario exists for every proxy behavior listed (TypedActorSpec.scala:292-565)" while also stating `TimingTest` ranges are non-deterministic; both statements are consistent only if "exists" is read as "an oracle spec exists", not "a deterministic scenario exists". D13 applicability: pending determination is the right wording for the retained-adaptation case; for an exclusion no differential is needed (ADR 0033 D13 concerns behavior the port claims).
+  - F3 (low). Story text: "Classic TypedActor proxy"; fine. The 'MethodCall' line anchors given in the reconciliation (148-185) were not individually opened.
+- Dependencies: `independent` declared; I found no source that makes it depend on another story. `#1125`, `#1126` are siblings under the same Owner decision O-6 with no edges, which is consistent.
+- Oracle (D13): does not apply to the decision (Go-only disposition; no behavior is claimed). If an adaptation is later chosen, an oracle exists (`TypedActorSpec.scala:292-399`) for the parts that are deterministic; applicability pending determination for the timing parts.
+
+### #802 SYS-15 — Decide the actor construction mapping to the existing Spawn factory
+- Depth: PARTIAL (the retained scope is the Props/actorOf-to-Spawn mapping; I read `ActorRefProvider.scala:660-720` (`actorOf` internals) but not `Props.scala`, `ActorRefFactory`, or `PropsCreationSpec.scala`).
+- Labels now: `status:blocked`.
+- Verdict: SPLIT (already applied by the reconciliation; the AC list still contains the split-off items) and CORRECT.
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 separate user outcomes from reflection, ClassLoader and Java/Scala overload mechanisms | `DynamicAccess` (`A/DynamicAccess.scala:33`, `@DoNotInherit abstract class`) loads classes and creates instances by name; `ReflectiveDynamicAccess` is its default (`A/ReflectiveDynamicAccess.scala:35`); `AbstractActor` is the Java base class (`A/AbstractActor.scala:229`). Used by the system for providers, routers, mailboxes (`ActorSystem.scala:975`, `Deployer.scala:300-310`, `Mailboxes.scala:86-98`). | no spec found for DynamicAccess as a unit; searched `actor-tests/src/test` for `ReflectiveDynamicAccess`/`DynamicAccess` by file name: none located by name (Mailboxes and router code use it). | `Spawn(owner, name, factory func() Actor[T])` (`spawn.go:85`); no reflection symbol. | n/a |
+| AC2 map actor construction to existing factory behavior | `Props(...)` creation forms (`Props.scala`, not read) and `actorOf` (`ActorRefProvider.scala:660-720`, read: dispatcher/mailbox overrides by deployment, then `LocalActorRef` or `RepointableActorRef`). | `AT/PropsCreationSpec.scala` not read. | factory re-runs on restart (ADR 0010 text at :97). | unverified (not read) |
+| AC3 retained outcomes receive implementation stories; exclusion is not parity | n/a | n/a | n/a | n/a |
+| AC4/AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (medium). After the split into #1125 and #1126, AC1 (reflection/ClassLoader/overload separation) and AC3 (retained outcomes) still describe all three decisions. Current text: "Separate user outcomes from reflection, ClassLoader and Java/Scala overload mechanisms." Neutral replacement: "Record how Pekko `Props`/`actorOf` construction maps to the existing `Spawn` factory; reflection (`DynamicAccess`) is #1125 and `AbstractActor`/Java overloads are #1126."
+  - F2 (medium). The retained story's source anchors (`AbstractActor.scala`, `DynamicAccess.scala`, `ReflectiveDynamicAccess.scala`) are exactly the ones that moved; the retained mapping needs `Props.scala` and `ActorRefProvider.scala:660-720`, which are not in the traceability list. I did not read `Props.scala`.
+  - F3 (medium). The Pekko construction path includes deployment-config override of dispatcher/mailbox (`ActorRefProvider.scala:684-702`; `DispatchersSpec.scala:270-273`), which is a part of "actor construction" with no Go factory counterpart; it belongs to #843, not here, but the mapping decision should state it is out of scope.
+- Dependencies: declared `independent`; the construction mapping and #843 (precedence between defaults and descriptors) overlap on `Props`/descriptor concepts via #767 (IDN-10): undeclared proximity, not asserted as an edge. #1125/#1126 are children by split; the reconciliation does not list a `#802 -> child` type, and the children say `independent`; consistent.
+- Oracle (D13): applicability pending determination for the mapping (Pekko code exists; `PropsCreationSpec` not read).
+
+### #803 SYS-16 — Decide JVM hooks, JFR and virtual-thread pools as jvm-only
+- Depth: PARTIAL (read `CoordinatedShutdown.scala:237-300`, `:823-860`; `VirtualThreadSupport.scala:20-60` header; `ForkJoinExecutorConfigurator.scala` flags by grep; `CoordinatedShutdownSpec.scala:584-646` by sampling; `FlightRecorderLoader.scala` and the JDK21-only specs only located).
+- Labels now: `status:blocked`.
+- Verdict: CORRECT (anchors) and ADR (ForkJoin/virtual-thread classification interacts with the dispatcher decision #1040).
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 separate JVM hooks/exit/JFR/virtual-thread pools from actor termination | JVM hook: `initJvmHook` registers a cancellable JVM shutdown hook when `pekko.jvm-shutdown-hooks` and `coordinated-shutdown.run-by-jvm-shutdown-hook` are on, which runs `coord.run(JvmExitReason)` (`A/CoordinatedShutdown.scala:278-296`; `reference.conf:98,1270`). Exit: `exit-jvm` leads to `System.exit` in the `terminate-system` task (`:246-274`). Virtual threads: `VirtualThreadSupport.isSupported = JavaVersion.majorVersion >= 21`, creates executors through reflection (`D/VirtualThreadSupport.scala:30-60`, `@InternalApi private[dispatch]`); `ForkJoinExecutorConfigurator.isVirtualized = config.getBoolean("virtualize") && JavaVersion.majorVersion >= 21` (`D/ForkJoinExecutorConfigurator.scala:105`). JFR: `pekko.java-flight-recorder` (`reference.conf:108`) and `A/../util/FlightRecorderLoader.scala` (not cited by the story). | JVM hooks: `AT/CoordinatedShutdownSpec.scala:584-646` four `JvmHookTest` cases with a mock `JVMShutdownHooks` (hook counts after add and cancel with the flag combinations; `CoordinatedShutdownSpec.scala:757-797`). Virtual threads: JDK21-only specs `actor-tests/src/test/scala-jdk21-only/.../ForkJoinPoolVirtualThreadSpec.scala`, `VirtualThreadPoolDispatcherSpec.scala` (located, not opened). JFR: no spec located. | none | n/a |
+| AC2 signal-hook ownership and global process effects if a Go integration is retained | `addJvmShutdownHook` runs hooks "in any order concurrently" before Pekko's own hooks (`:823-826` doc); the global effect is the JVM's. | JvmHookTest (mock runtime) | none | n/a |
+| AC3 no exit, signal or telemetry by default without decision | `exit-jvm = off` default (`reference.conf:1263` as cited by #1127; observed in the grep list above only by keyword) | n/a | n/a | yes |
+| AC4/AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (medium). `ForkJoinExecutorConfigurator` is the executor of Pekko's default dispatcher (`reference.conf:469-471` shows `"fork-join-executor"` as an executor value; the exact default-dispatcher binding was not read by me), so classifying it `jvm-only` with the other items touches the dispatcher configuration decision of ADR 0033 D4 (#1040). Open question: whether the fork-join pool is classified here or under #1040; evidence missing: the dispatcher executor bindings in `reference.conf` and ADR 0010's dispatcher items.
+  - F2 (medium). JFR is part of the story title but no source path for JFR is cited (the anchors are `CoordinatedShutdown.scala`, `ForkJoinExecutorConfigurator.scala`, `VirtualThreadSupport.scala`). Candidate anchor found: `actor/src/main/scala/org/apache/pekko/util/FlightRecorderLoader.scala` and `reference.conf:108`. Not opened beyond the grep hit.
+  - F3 (low). AC2 and AC3 duplicate the content of #1127 after the split (signal ownership, no default). The reconciliation says the Go signal and exit integration moved to #1127 but AC2/AC3 text here still ask for it. Neutral replacement: restrict AC2/AC3 to the `jvm-only` record and defer the optional Go integration to #1127.
+  - F4 (low). The reconciliation asserts "JVM hooks ... stay here as a jvm-only record (CoordinatedShutdown.scala:246, :280-296, :830)": the cited lines are correct (246 `exitJvm`, 280-296 `initJvmHook`, 830 `addJvmShutdownHook`).
+- Dependencies: `independent`. `#1127` (child) says `independent`; consistent. Core CoordinatedShutdown stays in #799 and following (the reconciliation lists `#799 (SYS-05)..13`).
+- Oracle (D13): does not apply to a `jvm-only` exclusion record (no Go behavior is claimed); the Pekko JVM-hook specs (`CoordinatedShutdownSpec.scala:584-646`) exist if a Go integration is ever adopted (#1127).
+
+### #1125 SYS-25 — Decide the DynamicAccess boundary as jvm-only
+- Depth: DEEP for the Pekko anchors; the story is a documentation story with no Pekko behavior AC.
+- Labels now: `prio:P3`, `status:ready`.
