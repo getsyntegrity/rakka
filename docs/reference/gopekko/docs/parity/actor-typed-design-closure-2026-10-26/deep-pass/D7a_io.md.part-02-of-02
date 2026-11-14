@@ -1,0 +1,28 @@
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 distinct events | Close->Closed :215/:573, ConfirmedClose->ConfirmedClosed :230/:586, Abort->Aborted :246/:578, plus PeerClosed and ErrorClosed | TcpConnectionSpec.scala:422-448 (Close: pending write acked first, then `Closed` to handler and commander, actor terminated, server read returns -1); :449-456 (one Closed only); :458-475 (Abort: `Aborted`, server read throws IOException with ConnectionResetByPeerMessage); :487-629 ConfirmedClose and peer cases (titles); TcpIntegrationSpec.scala:45-75: Close -> client `Closed`, server `PeerClosed`; Abort -> client `Aborted`, server `ErrorClosed` | absent | yes |
+| AC2 buffers, handler watch, socket released once | actor terminates after close | `assertThisConnectionActorTerminated` (:422-448), `verifyActorTermination` (TcpIntegrationSpec) | absent | partial ("once" not separately asserted) |
+| AC3 pending writes follow the closure contract | Close flushes pending writes (Tcp.scala:208-213 doc); Abort does not (doc :241-244) | :422-448 asserts Ack then Closed; no spec found asserting Abort drops pending writes | absent | partial |
+
+- Findings:
+  - F1 (medium) AC1 should name PeerClosed and ErrorClosed(cause) explicitly (TcpIntegrationSpec.scala:45-75).
+  - F2 (high) Declared deps #984 (reads) and #995 (resume writing) do not gate close semantics (Tcp.scala:215-246 mention neither); pending-write semantics need #972 (recon agrees).
+  - F3 (medium) Atomicity: four commands and about seven events in one story; possible SPLIT, not decided here.
+  - F4 (low) `keepOpenOnPeerClosed` (Register) changes peer-closed handling (TcpConnectionSpec.scala:564-599); see #952 F2.
+- Dependencies: remove #984, #995; add #972 (recon) and #952 (Register defines the handler receiving close events).
+- Oracle (D13): oracle exists; applicability pending determination.
+
+---
+## Counts
+DEEP 1 (#886). PARTIAL 16 (#920 #887 #921 #922 #923 #924 #952 #953 #966 #972 #973 #974 #984 #985 #995 #996). Reasons are given per story.
+
+## Stories the Architect should re-read
+#886 (diagram contradicts Pekko clamping), #920 (diagram, AC1 without spec), #887 (recon misattributes manager creation), #924 (AC3 unsupported), #973 (wrong edge #966), #984 and #996 (wrong edges), #985 (AC3 unsupported), #974 (diagram), #923 (AC2 without spec), #922 (AC3 unsupported).
+
+## Key Learnings
+1. Pekko ByteString take, drop and slice never fail on out-of-range arguments; they clamp, so a "range failure" outcome has no Pekko oracle (ByteStringSpec.scala:361-631).
+2. IO.scala is only a three-member accessor, and each protocol extension creates its own manager (Tcp.scala:654, Udp.scala:236, UdpConnected.scala:174, Dns.scala:242).
+3. SimpleDnsManager.postStop only cancels the cleanup timer, so a pending-request result on DNS manager shutdown is not Pekko behavior.
+4. The TCP after-connect socket option spec is disabled with ignore in TcpConnectionSpec.scala:109, so no active Pekko oracle covers it.
+5. TcpConnectionSpec shows two writes pending at one selector wake-up arriving as one Received (TcpConnectionSpec.scala:122-134); no documented boundary guarantee was found.
