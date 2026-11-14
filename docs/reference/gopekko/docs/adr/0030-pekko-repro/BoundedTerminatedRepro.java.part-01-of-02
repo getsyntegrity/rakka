@@ -1,0 +1,360 @@
+// Reproduction against Apache Pekko v1.7.1 (9a54d1294c3ac7821bbed3c940769c3d5027d1ff) for ADR 0030 D-1a and D-1b.
+// It uses the Classic API and the same mailbox id Typed's MailboxSelector.bounded(2) builds ("bounded-capacity:2").
+// It is not part of any build; see README.md in this directory for how it was run.
+
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.pekko.actor.AbstractActor;
+import org.apache.pekko.actor.ActorRef;
+import org.apache.pekko.actor.ActorSystem;
+import org.apache.pekko.actor.DeadLetter;
+import org.apache.pekko.actor.Props;
+import org.apache.pekko.actor.SuppressedDeadLetter;
+import org.apache.pekko.actor.Terminated;
+
+public class BoundedTerminatedRepro {
+  static final Queue<String> events = new ConcurrentLinkedQueue<>();
+  static final Queue<String> dead = new ConcurrentLinkedQueue<>();
+
+  static class Subject extends AbstractActor {
+    public Receive createReceive() { return receiveBuilder().build(); }
+  }
+
+  static class Collector extends AbstractActor {
+    public Receive createReceive() {
+      return receiveBuilder()
+        .match(DeadLetter.class, d -> dead.add("DeadLetter:" + d.message()))
+        .match(SuppressedDeadLetter.class, d -> dead.add("SuppressedDeadLetter:" + d.message()))
+        .build();
+    }
+  }
+
+  /** D-1a: Terminated dropped by saturation, then a re-watch with another WatchWith message. */
+  static class W1 extends AbstractActor {
+    final ActorRef subject;
+    final CountDownLatch entered, release;
+    W1(ActorRef subject, CountDownLatch entered, CountDownLatch release) {
+      this.subject = subject; this.entered = entered; this.release = release;
+    }
+    @Override public void preStart() { getContext().watchWith(subject, "A"); }
+    public Receive createReceive() {
+      return receiveBuilder()
+        .matchEquals("block", m -> { entered.countDown(); release.await(); })
+        .matchEquals("rewatch", m -> { getContext().watchWith(subject, "B"); events.add("rewatch"); })
+        .match(Terminated.class, t -> events.add("TERMINATED"))
+        .match(String.class, s -> events.add(s))
+        .build();
+    }
+  }
+
+  /** D-1b: Unwatch while a Terminated is already in the mailbox: is its slot kept until it is dequeued? */
+  static class W2 extends AbstractActor {
+    final ActorRef subject;
+    final CountDownLatch entered1, release1, entered2, release2;
+    W2(ActorRef subject, CountDownLatch e1, CountDownLatch r1, CountDownLatch e2, CountDownLatch r2) {
+      this.subject = subject; entered1 = e1; release1 = r1; entered2 = e2; release2 = r2;
+    }
+    @Override public void preStart() { getContext().watch(subject); }
+    public Receive createReceive() {
+      return receiveBuilder()
+        .matchEquals("block", m -> { entered1.countDown(); release1.await(); })
+        .matchEquals("m1", m -> { getContext().unwatch(subject); entered2.countDown(); release2.await(); })
+        .match(Terminated.class, t -> events.add("TERMINATED"))
+        .match(String.class, s -> events.add(s))
+        .build();
+    }
+  }
+
+  /** D-5: a Terminated still in the mailbox when the watcher stops: is it a dead letter? */
+  static class W3 extends AbstractActor {
+    final ActorRef subject;
+    final CountDownLatch entered, release;
+    W3(ActorRef subject, CountDownLatch entered, CountDownLatch release) {
+      this.subject = subject; this.entered = entered; this.release = release;
+    }
+    @Override public void preStart() { getContext().watch(subject); }
+    public Receive createReceive() {
+      return receiveBuilder()
+        .matchEquals("block", m -> { entered.countDown(); release.await(); })
+        .matchEquals("m1", m -> { events.add("m1"); getContext().stop(getSelf()); })
+        .match(Terminated.class, t -> events.add("TERMINATED"))
+        .build();
+    }
+  }
+
+  /**
+   * D-6: a first Terminated is waiting, the actor watches the dead subject again, a second Terminated is enqueued.
+   * Does the second one, which is ignored when taken, hold a slot of the bounded mailbox until then?
+   * rewatch=false is the control: the same sequence without the second Terminated.
+   */
+  static class W4 extends AbstractActor {
+    final ActorRef subject;
+    final boolean rewatch;
+    final CountDownLatch entered1, release1, entered2, release2, entered3, release3;
+    W4(ActorRef subject, boolean rewatch, CountDownLatch[] l) {
+      this.subject = subject; this.rewatch = rewatch;
+      entered1 = l[0]; release1 = l[1]; entered2 = l[2]; release2 = l[3]; entered3 = l[4]; release3 = l[5];
+    }
+    @Override public void preStart() { getContext().watch(subject); }
+    public Receive createReceive() {
+      return receiveBuilder()
+        .matchEquals("block", m -> { entered1.countDown(); release1.await(); })
+        .matchEquals("m1", m -> {
+          events.add("m1");
+          if (rewatch) getContext().watch(subject);
+          entered2.countDown(); release2.await();
+        })
+        .match(Terminated.class, t -> { events.add("TERMINATED"); entered3.countDown(); release3.await(); })
+        .match(String.class, s -> events.add(s))
+        .build();
+    }
+  }
+
+  static void scenarioD6(ActorSystem system, boolean rewatch) throws Exception {
+    ActorRef s = system.actorOf(Props.create(Subject.class));
+    CountDownLatch[] l = new CountDownLatch[6];
+    for (int i = 0; i < 6; i++) l[i] = new CountDownLatch(1);
+    ActorRef w = system.actorOf(Props.create(W4.class, s, rewatch, l).withMailbox("bounded-capacity:2"));
+    w.tell("block", ActorRef.noSender());
+    l[0].await(5, TimeUnit.SECONDS);
+    w.tell("m1", ActorRef.noSender());            // [m1]
+    system.stop(s);
+    waitTerminated(s);
+    l[1].countDown();                             // block ends; the first Terminated is enqueued behind m1: [m1, T1]
+    l[2].await(5, TimeUnit.SECONDS);              // m1 runs: [T1]; with rewatch the second notification is already queued
+    Thread.sleep(300);
+    l[3].countDown();                             // m1 ends; the notification is processed: [T1, T2] (T2 only with rewatch)
+    l[4].await(5, TimeUnit.SECONDS);              // T1 is delivered to the actor, which parks there: [T2] or []
+    w.tell("y1", ActorRef.noSender());            // [T2, y1] or [y1]
+    w.tell("y2", ActorRef.noSender());            // dead-lettered only if T2 holds its slot
+    l[5].countDown();
+    report("D-6 rewatch=" + rewatch + " (expected from the source: with rewatch y2 is dead-lettered and there is one TERMINATED; without, both are admitted)");
+  }
+
+  /**
+   * D-7: a handler watches a dead subject and is stopped inside it; Tells complete while it is stopped. In Pekko the
+   * death notification is a system message, processed after the handler returns, so the Terminated is enqueued
+   * behind every Tell that completed before. Capacity 2: x1 and x2 are admitted, x3 and the Terminated are dropped.
+   */
+  static class W5 extends AbstractActor {
+    final ActorRef subject;
+    final boolean unwatchInside;
+    final CountDownLatch entered1, release1, entered2, release2;
+    W5(ActorRef subject, boolean unwatchInside, CountDownLatch[] l) {
+      this.subject = subject; this.unwatchInside = unwatchInside;
+      entered1 = l[0]; release1 = l[1]; entered2 = l[2]; release2 = l[3];
+    }
+    public Receive createReceive() {
+      return receiveBuilder()
+        .matchEquals("block", m -> { entered1.countDown(); release1.await(); })
+        .matchEquals("m1", m -> {
+          events.add("m1");
+          getContext().watch(subject);            // the subject is dead: the notification is a system message
+          if (unwatchInside) getContext().unwatch(subject);
+          entered2.countDown(); release2.await(); // stopped inside the handler
+        })
+        .match(Terminated.class, t -> events.add("TERMINATED"))
+        .match(String.class, s -> events.add(s))
+        .build();
+    }
+  }
+
+  static void scenarioD7(ActorSystem system) throws Exception { scenarioD7(system, false); }
+
+  /** unwatchInside=true is D-8: the handler also unwatches before it stops, so the notification finds no registration. */
+  static void scenarioD7(ActorSystem system, boolean unwatchInside) throws Exception {
+    ActorRef s = system.actorOf(Props.create(Subject.class));
+    system.stop(s);
+    waitTerminated(s);
+    CountDownLatch[] l = new CountDownLatch[4];
+    for (int i = 0; i < 4; i++) l[i] = new CountDownLatch(1);
+    ActorRef w = system.actorOf(Props.create(W5.class, s, unwatchInside, l).withMailbox("bounded-capacity:2"));
+    w.tell("block", ActorRef.noSender());
+    l[0].await(5, TimeUnit.SECONDS);
+    w.tell("m1", ActorRef.noSender());            // [m1]
+    l[1].countDown();                             // block ends; m1 runs, watches, and stops: []
+    l[2].await(5, TimeUnit.SECONDS);
+    Thread.sleep(300);
+    w.tell("x1", ActorRef.noSender());            // [x1]   completed while the handler is stopped, after the watch call
+    w.tell("x2", ActorRef.noSender());            // [x1, x2]
+    w.tell("x3", ActorRef.noSender());            // full: dead-lettered
+    l[3].countDown();                             // the handler returns: now the notification is processed, the Terminated finds it full
+    report((unwatchInside ? "D-8 unwatch inside the handler (expected: x1 and x2 admitted, only x3 dead-lettered, no Terminated at all)"
+                          : "D-7 (expected from the source: x1 and x2 admitted, x3 and the Terminated dead-lettered, no TERMINATED delivered)"));
+  }
+
+  /**
+   * D-9: like D-7 but the Terminated is admitted (capacity 3, or no capacity at all): in which order does the actor
+   * receive it and the two Tells that completed while the handler was stopped? The notification is processed when the
+   * handler returns and the Terminated goes to the tail of what the mailbox holds then.
+   */
+  static void scenarioD9(ActorSystem system, String mailbox) throws Exception {
+    ActorRef s = system.actorOf(Props.create(Subject.class));
+    system.stop(s);
+    waitTerminated(s);
+    CountDownLatch[] l = new CountDownLatch[4];
+    for (int i = 0; i < 4; i++) l[i] = new CountDownLatch(1);
+    Props p = Props.create(W5.class, s, false, l);
+    ActorRef w = system.actorOf(mailbox == null ? p : p.withMailbox(mailbox));
+    w.tell("block", ActorRef.noSender());
+    l[0].await(5, TimeUnit.SECONDS);
+    w.tell("m1", ActorRef.noSender());
+    l[1].countDown();
+    l[2].await(5, TimeUnit.SECONDS);
+    Thread.sleep(300);
+    w.tell("x1", ActorRef.noSender());
+    w.tell("x2", ActorRef.noSender());
+    l[3].countDown();
+    report("D-9 " + (mailbox == null ? "unbounded" : mailbox) + " (expected from the source: [m1, x1, x2, TERMINATED])");
+  }
+
+  /** D-10: the order of the Terminated (or the WatchWith message) against the Tells that arrive while the handler is stopped. */
+  static class W6 extends AbstractActor {
+    final ActorRef[] subjects;
+    final boolean with;
+    final CountDownLatch registered, entered, release;
+    W6(ActorRef[] subjects, boolean with, CountDownLatch registered, CountDownLatch entered, CountDownLatch release) {
+      this.subjects = subjects; this.with = with; this.registered = registered; this.entered = entered; this.release = release;
+    }
+    public Receive createReceive() {
+      return receiveBuilder()
+        .matchEquals("watch", m -> {
+          for (int i = 0; i < subjects.length; i++) {
+            if (with) getContext().watchWith(subjects[i], "W" + i); else getContext().watch(subjects[i]);
+          }
+          registered.countDown();
+        })
+        .matchEquals("hold", m -> { entered.countDown(); release.await(); })
+        .match(Terminated.class, t -> events.add("T"))
+        .match(String.class, s -> events.add(s))
+        .build();
+    }
+  }
+
+  /** steps: "mN" tells a message, "stopI" stops subject I and waits for it to terminate. */
+  static void scenarioD10(ActorSystem system, String title, boolean with, int n, String... steps) throws Exception {
+    ActorRef[] subs = new ActorRef[n];
+    for (int i = 0; i < n; i++) subs[i] = system.actorOf(Props.create(Subject.class));
+    CountDownLatch registered = new CountDownLatch(1), entered = new CountDownLatch(1), release = new CountDownLatch(1);
+    ActorRef w = system.actorOf(Props.create(W6.class, subs, with, registered, entered, release));
+    w.tell("watch", ActorRef.noSender());
+    registered.await(5, TimeUnit.SECONDS);
+    w.tell("hold", ActorRef.noSender());
+    entered.await(5, TimeUnit.SECONDS);
+    for (String st : steps) {
+      if (st.startsWith("stop")) { ActorRef s = subs[Integer.parseInt(st.substring(4))]; system.stop(s); waitTerminated(s); }
+      else w.tell(st, ActorRef.noSender());
+    }
+    release.countDown();
+    report("D-10 " + title);
+  }
+
+  /**
+   * D-11: PreStart watches a dead subject and fails (#695: no PostStop). The notification is a system message processed
+   * after the failed start, while the parent has not decided yet; with a bounded mailbox that already holds a message
+   * the Terminated finds it full.
+   */
+  static class W7 extends AbstractActor {
+    final ActorRef subject;
+    final CountDownLatch release;
+    W7(ActorRef subject, CountDownLatch release) { this.subject = subject; this.release = release; }
+    @Override public void preStart() throws Exception {
+      getContext().watch(subject);
+      release.await();
+      throw new RuntimeException("prestart boom");
+    }
+    @Override public void postStop() { events.add("POSTSTOP"); }
+    public Receive createReceive() {
+      return receiveBuilder().match(Terminated.class, t -> events.add("TERMINATED")).match(String.class, s -> events.add(s)).build();
+    }
+  }
+
+  static void scenarioD11(ActorSystem system) throws Exception {
+    ActorRef s = system.actorOf(Props.create(Subject.class));
+    system.stop(s);
+    waitTerminated(s);
+    CountDownLatch release = new CountDownLatch(1);
+    ActorRef w = system.actorOf(Props.create(W7.class, s, release).withMailbox("bounded-capacity:1"));
+    w.tell("m", ActorRef.noSender());
+    release.countDown();
+    report("D-11 PreStart watches a dead subject and fails, bounded-capacity:1 holding one message");
+  }
+
+  static void waitTerminated(ActorRef r) throws Exception {
+    for (int i = 0; i < 100 && !r.isTerminated(); i++) Thread.sleep(20);
+    Thread.sleep(300); // the DeathWatchNotification is a system message already queued in the watcher
+  }
+
+  static void report(String title) throws Exception {
+    Thread.sleep(500);
+    System.out.println(title);
+    System.out.println("  received by the actor: " + events);
+    System.out.println("  dead letters:          " + dead);
+    events.clear(); dead.clear();
+  }
+
+  public static void main(String[] args) throws Exception {
+    ActorSystem system = ActorSystem.create("repro");
+    ActorRef collector = system.actorOf(Props.create(Collector.class));
+    system.eventStream().subscribe(collector, DeadLetter.class);
+    system.eventStream().subscribe(collector, SuppressedDeadLetter.class);
+
+    // ---- D-1a
+    ActorRef s1 = system.actorOf(Props.create(Subject.class));
+    CountDownLatch e = new CountDownLatch(1), r = new CountDownLatch(1);
+    ActorRef w1 = system.actorOf(Props.create(W1.class, s1, e, r).withMailbox("bounded-capacity:2"));
+    w1.tell("block", ActorRef.noSender());
+    e.await(5, TimeUnit.SECONDS);
+    w1.tell("m1", ActorRef.noSender());
+    w1.tell("m2", ActorRef.noSender());           // mailbox full: [m1, m2]
+    system.stop(s1);
+    waitTerminated(s1);
+    r.countDown();                                // the notification is processed now: self.tell(Terminated) finds it full
+    Thread.sleep(500);
+    w1.tell("rewatch", ActorRef.noSender());      // watchWith(subject, "B") on the dead subject
+    report("D-1a (expected from the source: m1, m2, rewatch, then the OLD message A)");
+
+    // ---- D-1b
+    ActorRef s2 = system.actorOf(Props.create(Subject.class));
+    CountDownLatch e1 = new CountDownLatch(1), r1 = new CountDownLatch(1), e2 = new CountDownLatch(1), r2 = new CountDownLatch(1);
+    ActorRef w2 = system.actorOf(Props.create(W2.class, s2, e1, r1, e2, r2).withMailbox("bounded-capacity:2"));
+    w2.tell("block", ActorRef.noSender());
+    e1.await(5, TimeUnit.SECONDS);
+    w2.tell("m1", ActorRef.noSender());           // mailbox: [m1]
+    system.stop(s2);
+    waitTerminated(s2);
+    r1.countDown();                               // block ends; Terminated is enqueued behind m1: [m1, T]; m1 runs: [T]
+    e2.await(5, TimeUnit.SECONDS);
+    w2.tell("x1", ActorRef.noSender());           // [T, x1]: full if T keeps its slot after Unwatch
+    w2.tell("x2", ActorRef.noSender());           // dead-lettered if T keeps its slot
+    r2.countDown();
+    report("D-1b (expected from the source: x1 delivered, x2 dead-lettered, no TERMINATED)");
+
+    // ---- D-5
+    ActorRef s3 = system.actorOf(Props.create(Subject.class));
+    CountDownLatch e3 = new CountDownLatch(1), r3 = new CountDownLatch(1);
+    ActorRef w3 = system.actorOf(Props.create(W3.class, s3, e3, r3).withMailbox("bounded-capacity:2"));
+    w3.tell("block", ActorRef.noSender());
+    e3.await(5, TimeUnit.SECONDS);
+    w3.tell("m1", ActorRef.noSender());           // [m1]
+    system.stop(s3);
+    waitTerminated(s3);
+    r3.countDown();                               // Terminated is enqueued behind m1: [m1, T]; m1 stops the actor with T pending
+    report("D-5 (expected from the source: m1 handled, the pending Terminated is a dead letter)");
+
+    // ---- D-6
+    scenarioD6(system, true);
+    scenarioD6(system, false);
+
+    // ---- D-7
+    scenarioD7(system);
+    scenarioD7(system, true);
+
+    // ---- D-9
+    scenarioD9(system, "bounded-capacity:3");
+    scenarioD9(system, null);
+
+    // ---- D-11

@@ -1,0 +1,10 @@
+    scenarioD11(system);
+
+    // ---- D-10
+    scenarioD10(system, "a plain Watch, m3 m4 | death | m5", false, 1, "m3", "m4", "stop0", "m5");
+    scenarioD10(system, "one WatchWith, m3 | death | m5", true, 1, "m3", "stop0", "m5");
+    scenarioD10(system, "two WatchWith, m3 | death 0 | m4 | death 1 | m6", true, 2, "m3", "stop0", "m4", "stop1", "m6");
+
+    system.terminate();
+  }
+}
