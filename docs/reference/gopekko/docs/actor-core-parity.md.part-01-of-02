@@ -1,0 +1,360 @@
+# Parity of the pekko-actor local core with Pekko: second increment
+
+- Update (U10, #192/#193): the System can be terminated in order (`Terminate`, `WhenTerminated`, `Shutdown(ctx)`), with order tested as relations, not as a total order, on the controlled, inline and real executors. This is not `CoordinatedShutdown`, promises nothing about journal writes, durability, draining or pending Asks, and is not a parity claim; differences from Pekko are in `migration/stage-1/shutdown-u10/RULEBOOK.md` section 12. The Go campaign was not run, so the Go CURRENT line of the matrix no longer applies to this tree (see the execution record).
+- Update (U9, #451): supervision decisions are logged to `Config.Logger` (`kit-logger`) with `Strategy.WithLogging` as `loggingEnabled`; the earlier "events but no logs" divergence is closed for the strategies. The `PreRestart` failure log is delivered by SUP-07 (#780); an overridable `logFailure` and the `EventFilter` assertions of ported tests stay open. This is not a parity claim, and the code has no independent review.
+- Status: evidence for review. It does **not** claim parity of `pekko-actor`.
+- Date: 2026-10-09
+- Oracle: Apache Pekko `v1.7.1`, commit `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (`upstream/pekko`, read-only).
+- Code under test: goPekko `pekko-actor` at `origin/develop` `55159fa` (#35); the runtime is **not** changed by this increment; Go `1.27.2`.
+- Contract and rules: [judge.md](judge.md). Guarantee ids (G1, I3, ...) are the ones defined there; Pekko line
+  references are the ones verified there (paths relative to `upstream/pekko`).
+- Update 2026-10-10: D2 is resolved for one bounded case by [ADR 0012](adr/0012-stop-before-first-activation.md) (approved for
+  that case only) and the fix of section 9. Sections 1 to 8 are the historical record of the increment as measured at `55159fa` /
+  `b1863f1`, when D2 was open; they are kept, not rewritten. Section 9 is the current state of D2 and S20.
+- Update (ADR 0014 slice 3c): `pekko-actor` now has parent/child hierarchy with recursive stop (slices 2, 3a and 3b). The Go S10
+  spawns two real children, and clause G5.c is asserted on goPekko with no waiver (`judge/go-scope.json` has `"waivers": {}`).
+  The text of sections 1 to 8 that says there is no hierarchy is the historical record of `55159fa`. Section 10 and the D1
+  entry below are the current state. This still does **not** claim parity of the module.
+
+"La paridad completa de pekko-actor no está establecida" (D2 se resolvió solo para el caso acotado de la sección 9).
+
+Semaphore used below: 🟢 implemented and verified within the stated scope · 🟡 partial or incomplete validation · 🔴 pending
+or unresolved divergence. A green row never means parity of the module; it means that the listed scenarios, modes and clauses
+passed on both runtimes and that the listed deliberate defects were caught.
+
+## 1. What this increment adds, and what it inherits
+
+| | Inherited from #35 (not re-derived here) | New in this increment |
+|---|---|---|
+| Scenarios | S01, S02, S10, S11 | **S19** external stop, **S20** stop before the first activation (D2), **S21** serial `Receive` |
+| Clauses | all clauses of judge.md up to G8, I6 | **G3.c** `Receive` calls of one actor never overlap, **G5.e** a stopped actor runs `pre-start` and `post-stop` once each, in order |
+| Mechanism | `go-scope.json` `scenarios` and `waivers` (S10 G5.c; the waiver was removed in slice 3c) | `go-scope.json` `diagnostics` (known divergences) and `judge/diagnose_go.py` |
+| Pekko mutations | M1..M62 | **M63**, **M64**, **M65** |
+| Go mutations | GM1, GM2, GM7, GM6a, GM6b, GM62, GMlost, GMdup, GMnostart, GMbenign | **GMstop**, **GMoverlap** |
+
+The comparator is the existing `judge/comparator.py` with two new clauses and `evaluate.py` is unchanged; there is no second
+oracle. `diagnose_go.py` judges nothing itself: it asks `evaluate.py` and compares the result with the divergence recorded in
+`go-scope.json`.
+
+## 2. Comparable contract (new scenarios)
+
+"Sync" is the completion witness. No scenario uses a sleep to establish an order, and no order between concurrent senders is
+imposed or asserted. Upstream references are paths under `upstream/pekko`.
+
+| Scenario | Guarantee, Pekko reference | Preconditions and sync | Allowed | Forbidden | Intentional Go difference |
+|---|---|---|---|---|---|
+| S19 external stop | G5: `docs/src/main/paradox/actors.md:923-957` (stop via `ActorRefFactory`, current message continues, queued messages are not processed, dead-lettered); `actor/.../actor/ActorSystem.scala:939-948` and `actor/.../actor/dungeon/Dispatch.scala:167-169` (external `stop` sends `Terminate`) | Concurrent: `M1` is held inside `Receive` until the stop is accepted; `M2` and `M3` are queued behind it first. Controlled: `M1` runs and returns (one thread cannot hold it). The stop is called from the test goroutine, not from the actor. Sync: `Done` / `Terminated` probe, then `M5` is sent to the stopped actor | `M1` finishes before `post-stop-begin`; `M2`, `M3` dead-lettered at most once; `M5` dead-lettered (exactly once in controlled mode) | `M2` or `M3` received; `post-stop` missing or repeated; a message both received and dead-lettered | none |
+| S20 stop before the first activation (D2) | G5.e: `actor/.../actor/dungeon/Dispatch.scala:79-111` (`Create` is enqueued ahead of any `Terminate`), `actor/.../actor/dungeon/FaultHandling.scala:247-254` (`postStop`) | Concurrent only. Pekko: the actor lives on a one-thread dispatcher whose thread a blocker actor holds, so `Create` cannot run; `M1` is queued, the stop is sent, then the blocker is released. Go: the system runs on a held executor, so `Spawn`'s first activation cannot run until released. Both sides check that no event of the actor exists before the release; otherwise the run is a harness error | `pre-start`, `post-stop-begin`, `post-stop` once each, in that order; `M1` dead-lettered once, never received | `pre-start` or `post-stop` missing, repeated, or out of order | **D2**, see section 5 |
+| S21 serial processing | G3.c: `docs/src/main/paradox/general/actors.md:56-62`; `actor/.../dispatch/Mailbox.scala:187-195` (`setAsScheduled`), `:230-240` (`run`) | Concurrent only. Three senders each send four messages and a sentinel to one receiver whose handler yields the processor 50 times between `received` and `received-end`. Sync: three sentinels received | any interleaving between senders | a `received` of the receiver while an earlier `received` of it has no `received-end` yet | none |
+
+S21 is a negative property: the absence of an overlap in the runs is evidence, not a proof, and it depends on the handler
+giving a second worker time to enter.
+
+## 3. Result matrix
+
+| Area | Status | Evidence and limit |
+|---|---|---|
+| Per-sender FIFO (S01, S02) | 🟢 | inherited from #35; re-run, still passes on both sides |
+| Successful `Spawn`, start hook before first `Receive` | 🟢 | inherited (S01 G2.a, G3.b) |
+| Hooks never overlap `Receive` | 🟢 | inherited (G3.a in S01, S10, S19) |
+| Serial processing of `Receive` itself | 🟢 | **new** S21 G3.c. Pekko 300 of 300, Go 300 of 300, concurrent only. M64 (Pekko) and GMoverlap (Go) are caught by G3.c. Evidence of absence over many runs, not a proof. Go calibration of the number of runs of the GMoverlap mutant: measured in sections 8 and 8.1 (`N = 300`, on macOS and on Linux; the floor, a sensitivity measurement and not evidence of absence) |
+| `StopSelf`, in-flight message finishes, queued not received | 🟢 | inherited (S10 G5.a, G5.b) |
+| External `System.Stop(handle)` | 🟢 | **new** S19, both sides, both modes. M63 (Pekko) and GMstop (Go) are caught by G5.b in concurrent mode; controlled mode cannot queue messages behind a held handler and does not exercise G5.b |
+| `PostStop` once per instance | 🟢 | inherited (S10 G5.d); S19 G5.d, G5.e |
+| Children stop before parent | 🟢 for G5.c, 🟡 for the rest | **judge-verified:** S10 on goPekko, controlled (newest-first schedule, `ctlExec.RunNewest`) and concurrent (300 runs), with two children: each child's `post-stop` is recorded before the parent's `post-stop-begin` (G5.c). Mutants GMearly (the parent finalizes without waiting for its children) and GMnopropagate (the parent does not request its children's stop either) are designed to be caught by that clause; their campaign result is the Go campaign row of section 10 (campaign `0be9018`). **Go unit tests only, not judge-verified:** name release and reuse, `Done` of a parent implies `Done` of every descendant (ADR 0014 D3), exactly-once finalization, stale and duplicate completion signals, reservations, `PostStop` panics or `Goexit` at every level (`termination_internal_test.go`, `completion_internal_test.go`, `termination_stress_internal_test.go`). Decisions P1-P7 of the implementation are not yet accepted by the owner ([ADR 0014 implementation decisions](adr/0014-implementation-decisions.md)) |
+| Dead letters of pending and late messages, exactly once | 🟢 | inherited (S10, S11); S19 adds `M5` after an external stop |
+| Pending messages with a wrapped buffer | 🟡 | internal, covered by `stop_wrap_test.go` only |
+| `Done` closing after `PostStop` and dead-letter publication | 🟡 | used as completion witness, no Pekko equivalent; own contract |
+| Name reservation, factory failures | 🟡 | U4 (#444) aligns the contract with Classic: `Spawn` commits the child and returns its `Ref`, the factory runs in the child's first activation, and a nil actor, a panic or a Goexit is an `InitializationError` decided by the parent (`ActorCell.scala:642-683`, `dungeon/Dispatch.scala:79-111`, `dungeon/Children.scala:271-345`); the name is held until the child terminates. Go unit tests only (`spawn_supervised_*_internal_test.go`; `SupervisorHierarchySpec:861-912` adapted, `ActorLifeCycleSpec:165-190` only partly since it is a `PreStart` failure); `runtime.Goexit` has no JVM counterpart; no judge scenario, no parity claim, and the module-close campaigns of U4 are pending |
+| `Receive` failure | 🟡 | divergence D3. Under a parent that declares a strategy (U1, U2) the failure is reported to it and `Resume`, `Restart` (bounded by a `Budget`; `PreRestart`, `PostRestart`, `FailedMessage` and `InitializationError`), `Stop` or `Escalate` applies (counted recursive suspension); three upstream cases are adapted, not ported verbatim (V1 and V2 from `SupervisorHierarchySpec` 815 and 832, V3 from `SupervisorMiscSpec` 165, with `Kill` as a `Receive` error and replies on explicit channels), in `supervision_resume_internal_test.go` and `supervision_decider_child_internal_test.go`; `supervision_goside_internal_test.go` holds Go extensions (V4-V17, V5b, V5c) with no Pekko case. All of them pass. U2 tests are in `supervision_restart_internal_test.go`, `supervision_restart_goside_internal_test.go` and `supervision_budget_internal_test.go`; their headers declare the `PORT-GAP`s (for example AllForOne-U6, escalate-kill-U5, dispatcher-config) and mark partial adaptations. U3 (#448): a parent that declares no strategy, or returns a zero `Strategy`, applies `DefaultStrategy` (`OneForOne`, unlimited budget; Stop for `*InitializationError`, `ErrDeathPact` and the Go-only `ErrGoexit`, Restart for any other cause), and the death pact and `OnTerminated` failures reach the parent's decider; U3 itself left a top-level actor stopping directly; since U5b it is a child of `/user` and its failures take the same path (historical wording of U3, superseded). U3 tests are in `supervision_default_internal_test.go` (the `DeathWatchSpec:216` case, adapted) and `supervision_default_goside_internal_test.go` (Go-side, including the Goexit continuation with Restart and Resume); `PORT-GAP(top-level-default-U5)` covered `SupervisorMiscSpec` and `ActorLifeCycleSpec:142` and was closed by U5b (adapted there), and U4 closes the Goexit of a factory (`PORT-GAP(factory-goexit-U4)`, the creation failures are in the "Name reservation, factory failures" row above). `AllForOne` is implemented in U6 (#447; scenarios AF1-AF18, three mutants; no parity claimed); the guardians exist since U5a to U5c (#463, #465, #467), `System.Terminate` and `Shutdown` (U10, #479) and supervision logging (U9) are integrated (a failed `PreRestart` writes one Error entry to `Config.Logger` since SUP-07, #780; `PostRestart` stays logged through supervision); escalation that kills (`Kill`, `ActorKilledException`, #450) is pending. No judge scenario; no parity claim beyond the adapted upstream case, and none for the Go extensions. The mutation campaign, judge campaign and complete `-race` of U3 are pending until the module closes |
+| Stop accepted before the first activation (D2) | 🟢 | historical: S20 detected it (Pekko 300 of 300 pass; Go failed G5.e in every run at `b1863f1`). **Resolved for this case by ADR 0012, see section 9** |
+| Calibrated number of concurrent runs | 🟡 | Go: S19 and S21 are calibrated (section 8: 200 of 200 detections each, `N = 300`) on macOS and on a Linux runner (section 8.1), both at the floor. S01, S02, S10 and S11 have no Go calibration and run the floor of 300, which is not a calibrated number. Pekko S19, S20 and S21 have no calibration row either |
+
+No row is green for a clause that the comparator does not assert.
+
+## 4. Reproducible evidence
+
+Run on darwin/arm64, Go 1.27.2, Python 3.14.5, `golangci-lint` v2.14.0 (the pin of `.golangci-version`), sbt with the JVM
+selected by `run-pekko.sh`. The Pekko side runs on a disposable copy whose `actor/` and `testkit/` trees are identical to
+`upstream/pekko` at `9a54d12` (`judge/mutate.py` `preflight` checks the tree hashes).
+
+```sh
+# Pekko side
+judge/run-pekko.sh $PK $OUT/ctl controlled 10000 S01 S10 S11 S19
+JUDGE_RUNS=300 judge/run-pekko.sh $PK $OUT/con concurrent 10000 S01 S02 S10 S11 S19 S20 S21
+python3 -I judge/evaluate.py $OUT/ctl controlled --expect-runs 1 S01 S10 S11 S19
+python3 -I judge/evaluate.py $OUT/con concurrent --expect-runs 300 S01 S02 S10 S11 S19 S20 S21
+
+# Go side: approved-parity scenarios, then the known divergences
+judge/run-go.sh $OUT/go 300
+
+# the judge must fail on broken code
+python3 -I judge/mutate.py run $PK $OUT/pkmut M63 M64 M65        # Pekko side, rows go to judge/mutation-report.tsv
+python3 -I judge/mutate_go.py $OUT/mut --runs 30 --report $OUT/mutation-report-go.tsv
+```
+
+### Results per scenario, mode and runtime
+
+| Scenario | Mode | Runs | Pekko `9a54d12` | goPekko (`-race`) | Evidence |
+|---|---|---|---|---|---|
+| S01, S10, S11 | controlled | 1 | pass | pass | inherited, re-run |
+| S01, S02, S10, S11 | concurrent | 300 | 300/300 | 300/300 | inherited, re-run |
+| S19 | controlled | 1 | pass | pass | new |
+| S19 | concurrent | 300 | 300/300 | 300/300 | new |
+| S21 | concurrent | 300 | 300/300 | 300/300 | new |
+| S20 (D2) | concurrent | 300 | 300/300 pass | 300/300 **fail**, exactly G5.e | new, diagnostic on the Go side |
+
+Go gate (`run-go.sh`, S01 S02 S10 S11 S19 S21): all pass. Go diagnostics (S20): `divergence-confirmed`, which is not a pass
+and not parity.
+
+### Results per clause (new clauses)
+
+| Clause | Scenarios | Pekko | Go | Designed mutation: Pekko | Designed mutation: Go |
+|---|---|---|---|---|---|
+| G3.c | S21 | pass | pass | M64 caught by G3.c (30 of 30 runs) | GMoverlap caught by G3.c (S21, 30 of 30 runs) |
+| G5.e | S19, S20 | S19 pass, S20 pass | S19 pass, **S20 fail** | M65 caught by G5.e (S20, 30 of 30 runs) | none: the Go failure is the detection itself |
+| G5.b via external stop | S19 | pass | pass | M63 caught by G5.b (S19 concurrent, 30 of 30 runs) | GMstop caught by G5.b (S19 concurrent) |
+
+### Deliberate defects
+
+Pekko side, new rows of `judge/mutation-report.tsv` (30 concurrent runs; controlled 1): M63 S19 concurrent `failed` (G5.b),
+S19 controlled `survived` (a designed pair that cannot queue behind a held handler; the mutation counts as caught by its
+concurrent row, as M4 and M8 do); M64 S21 concurrent `failed` (G3.c); M65 S20 concurrent `failed` (G5.e).
+`scripts/check-judge-matrix.py`: 65 mutations, 31 of 31 implemented Pekko mutations detected by their expected rules, every
+clause observed (30 of 30).
+
+Go side (`mutate_go.py`, 30 concurrent runs, `-race`): all twelve mutations met, including the two new ones and the
+timing-only `GMbenign`, which still **survives** in every cell (allowed interleavings are not flagged).
+
+| Mutation | Analog | Defect | Caught by |
+|---|---|---|---|
+| GMstop | M63 | an external `Stop` is applied after the queued messages, like a `PoisonPill` | S19 concurrent `G5.b` |
+| GMoverlap | M64 | a second worker takes messages of `r` from the same mailbox | S21 concurrent `G3.c` (30 of 30); S02 `G1.a` also fires (17 of 30) |
+| GMbenign | - | `runtime.Gosched()` before every `Tell` | survives everywhere |
+
+The earlier mutations (GM1, GM2, GM7, GM6a, GM6b, GM62, GMlost, GMdup, GMnostart) are unchanged and still met.
+
+### Go detections recorded in the repository
+
+`judge/go-mutation-report.tsv` is the committed record of a `judge/mutate_go.py` campaign (macOS arm64, go1.27.2, `-race`,
+30 concurrent runs per cell, controlled 1, the 12 mutations of `MUTATIONS`, gate S01 S02 S10 S11 S19 S20 S21). It is separate
+from `judge/mutation-report.tsv` (Pekko) and its counters are never added to the Pekko ones. Each row carries the campaign commit
+(`go_commit`), the tree of `pekko-actor/` at that commit, the digest of the mutation definition, of the comparator and of the
+preserved logs, the Go version and the platform. These values prove identity and coherence; the workspace being clean is
+recorded only by `mutate_go.py` refusing to write a report from a `+dirty` workspace.
+
+`scripts/check-judge-matrix.py` reports five facts that are never merged: designed (11 mutations + 1 benign), detected,
+valid without detection, invalid (`invalid-campaign`, `harness-error`, `timeout`; visible, never a detection), and
+incomplete or without evidence. Calibration (`calibration*.tsv`) and parity (the Go gate) are reported on their own lines.
+S20 is a parity cell: its rows are accepted, but a designed detection cannot be attributed to it because none exists, and
+it has no Go calibration.
+
+Campaign of `e9c6bac` (all 12 met): 11/11 designed mutations detected by their designed clauses, GMbenign survives in every
+cell, 0 invalid, 0 incomplete. This is one platform (macOS); Linux is not measured. It does not establish full pekko-actor parity.
+
+**First Linux campaign (`ba287d8`, #1463).** The first Go campaign on Linux (linux/amd64, go1.27.2, `-race`, 30 concurrent runs, 15 scenarios, 475 rows: 71 failed, 402 survived, 2 excluded, 0 timeouts, 0 harness errors) met all 19 of its mutations (the 18 designed ones and the benign one) and the checker reports `goPekko CURRENT on linux/amd64 ... detected 18/18; benign survived 1/1`. It is retained by the tag `evidence/go-campaign-ba287d8` (full SHA `ba287d81d86d5f3dd99a0671089dae76f85e8b1d`); its provenance, the hashes of the package and the earlier attempts are in `migration/stage-1/judge-anchors-1463/PROVENANCE.md`. It supersedes `b1887c4` as the CURRENT record; the campaigns described above and the row "Recorded Go mutation campaign" of section 10 are earlier campaigns, kept as history. One platform, one campaign; it is not full `pekko-actor` parity, and no area state in this document changed.
+
+**Historical versus current.** The checker prints two lines per platform and never merges them. HISTORICAL is the aggregate of
+the Go reports available in the repository (today one, macOS arm64; the line names the platforms and says when there is no Linux
+report: it is not Linux evidence). It counts detections that were valid with the comparator and the Go core of the campaign. CURRENT counts only rows that were measured with every input of the campaign as HEAD has it: `tree` is the git tree of the whole `pekko-actor/` directory at HEAD (`git rev-parse HEAD:pekko-actor`, as `judge/mutate_go.py` `provenance` and `scripts/check-judge-matrix.py` compute it): the Go core, its tests, the judge harness `judge_internal_test.go`, `go.mod`, `go.sum` **and `pekko-actor/README.md`**, so any change to a tracked file of that directory, a README edit included, changes it; `comparator_sha256` is the digest at HEAD of `judge/evaluate.py`, `judge/go_scope.py`, `judge/go-scope.json`, every file of `judge/scenarios/`, the campaign script `judge/mutate_go.py` (what is run, how a cell is judged, what counts as a detection) and `.go-version`; and `go_version` is the toolchain `.go-version` pins. The `definition_sha256` of each mutation is checked separately and a stale one rejects the row. Conservative: any change to a spec or to the script counts, relevant or not. Not an input: the platform (a row names it; a second platform is a second report), the documentation outside `pekko-actor/` and the selftests (the documentation inside `pekko-actor/` is part of `tree`, see above). When the runtime, the rules or the specs change, the rows stay as history and CURRENT drops to none until the campaign is
+run again: they are never presented as evidence about the new code. `judge/selftest_go_report.py` checks this distinction.
+
+**Preserving the logs.** The hashes of the TSV prove identity and coherence, not the logs. `mutate_go.py --revalidate <workdir>
+<report>` is read-only: it re-judges preserved logs and prints the digest of the comparator it used next to the digests recorded
+in the rows. With the same digest it is an exact historical reproduction. With another one it says it is a re-evaluation with a
+different comparator, not a historical reproduction, and a verdict that differs is attributed to the comparator, never assumed to
+be altered logs (only a logs-digest mismatch says that). To reproduce the campaign exactly, run it from a checkout of the tag
+`evidence/go-campaign-e9c6bac` (`PROVENANCE.md`). The logs are not committed. The evidence package
+(`go-campaign-e9c6bac.tar.gz`, 5,584 files, 642,209 bytes, sha256 `bef637b826cbfca6ca7bce819a1ef178aba7a1e4c0b937dfcdf51664884a5bd8`,
+plus `.sha256`, a per-file `SHA256SUMS` and `PROVENANCE.md`) is built deterministically and is prepared but NOT published yet.
+The proposed place is a GitHub release attached to the tag `evidence/go-campaign-e9c6bac` (which points at the full SHA
+`e9c6bac9bcba4d20c1b474c8c1b895fbf1fbb1b1`), with those three files as assets. A squash drops `go_commit` from the history, so
+the report stays valid only while an `evidence/*` tag retains that commit.
+
+Not covered by a mutation: an external `Stop` that is ignored makes the scenario wait for `Done` until the deadline, which
+the campaign rules classify as a `timeout`, never as a detection. That defect is therefore not claimed as detected.
+
+## 5. Differences and open items
+
+- **D1, retired in part (slice 3c): no hierarchy.** It was the waiver of S10 G5.c in `judge/go-scope.json`. The hierarchy exists and the waiver is gone. What is judge-verified: G5.c, a child's `post-stop` recorded before the parent's `post-stop-begin`, with two children (S10, both modes). What is covered by Go unit tests only: child names, `Done` of a parent implying `Done` of its subtree (D3), exactly-once finalization, stale and duplicate signals. What stays **not implemented**: `Kill` and user-defined strategies (#450) (system `Shutdown` exists since U10, #479, and `AllForOne` since U6, #447) (the guardians exist since U5a to U5c, #463, #465, #467; at slice 3c they did not); supervision with `Resume`, `Restart`, `Stop` and `Escalate` exists for parents that declare a strategy (U1, U2), and the default strategy for the rest (U3; top-level actors are children of `/user` since U5b), and no scenario of the judge covers it. Parity of the hierarchy is not claimed beyond G5.c.
+  Historical note (ADR 0014 slice 2): at that point parent/child identity, per-parent names and `Spawn(Spawner, ...)` existed but a stopping parent did not stop its children, so D1 and the waiver were still true. Slices 3a and 3b added the recursive stop and slice 3c removed the waiver, as stated above.
+- **D2, retired: stop before the first activation.** Defined here (the first increment, section 5, and ADR 0012; not decision D2 of ADR 0010). It was a known divergence (S20 failing exactly with G5.e): a stop accepted before the first activation ran neither `PreStart` nor `PostStop`, whereas in Pekko `Create` is queued ahead of `Terminate` and both hooks run. [ADR 0012](adr/0012-stop-before-first-activation.md) is **accepted** (option 1, amended by #690 and #695): `finalize` runs the start step first when it has not run (`beginStartLocked`), then `PostStop`, except for an instance whose `PreStart` failed (`initFailed`: Pekko leaves `_actor` null and calls `postStop` only `if (a ne null)`, `dungeon/FaultHandling.scala:247-254`). Evidence: `TestPreStartHooks`, `TestAFailedPreStartKeepsTerminationButSkipsPostStop` and judge scenario S20 (section 9). Limit: the mechanism differs from Pekko (a system message queued ahead of `Terminate` versus a transition inside the first activation), so equivalence is observable, not structural.
+- D3, known, narrowed by U1 and U2: a `Receive` error stops the actor unless its parent declares a strategy (then `Resume`, `Restart`, `Stop` or `Escalate`); a parent without a strategy now applies the default strategy (U3), like Classic, for every actor that has a parent; a top-level actor is a child of `/user` (U5b) and is restarted by default, like any child.
+- `scripts/check-judge-matrix.py` used to print `goPekko: 0 observed (no runtime yet)` and did not list S19 to S21 in the
+  milestone scenario table. Both are resolved in section 8: S19, S20 and S21 are registered, and the Go line is honest about
+  what it does and does not derive. It still reads only the Pekko mutation report, so it derives no Go detection.
+
+## 6. Review follow-up (after the native review of `1c19e55`)
+
+| Advisory | Resolution | Evidence |
+|---|---|---|
+| An empty diagnostics list fails the gate | Not a defect of D2, a gap in the contract. An explicit `"diagnostics": {}` is a valid scope and exits 0 saying nothing was checked; an absent or non-object key, an unknown scenario, a missing reason or a gate-resident diagnostic exits 2; a diagnostic whose spec declares no mode exits 1. Emptying the list is still a visible edit: `selftest_diagnose_go.py` pins S20 as D2 with exactly G5.e, so it fails until the fix PR changes it on purpose. Table in [judge.md](judge.md) section 7b | new, `selftest_diagnose_go.py` |
+| `selftest_backfill.py` states G5.b without checking it | The claim was correct (M63 also breaks G5.b) but unasserted. It now requires 30/30 clauses with none pending, and a counterfactual without the M63 detection must leave `G5.b  pending`, so the claim cannot pass vacuously | new, `selftest_backfill.py` |
+
+The `Stop` hook error `unrelated target status is inconsistent` is raised by the selectorless native STATUS when the worktree has
+undeclared untracked files (`go.work.sum`, `odd/`); it does not concern the approved record of `1c19e55`. This is a process
+note, not a statement about the actor core.
+  The Go observation lives in `judge-go`.
+
+## 7. Recommended next increment
+
+1. Decide ADR 0012 (owner), then a separate runtime change; on resolution `diagnose_go.py` reports `resolved` and S20 moves
+   into `scenarios` (or gets a reasoned waiver) in the same change.
+2. Done for S19 and S21 on macOS (section 8) and on Linux (section 8.1). Still to do: a Go calibration of S01, S02, S10 and S11
+   (each needs a designed mutant whose detection is intermittent; none was measured here).
+3. Remaining 🟡 rows: name reservation and factory failures (Classic-aligned since U4, Go unit tests only), `Receive` failure, and the parts of the hierarchy that only Go unit tests cover (slice 3c judge-verified G5.c only).
+
+## 8. Increment 3: Go calibration of S19 and S21, and matrix registration
+
+Validation only: no runtime code, threshold, upstream pin, ADR or diagnostic changed. Stacked on #36 (`a024fc0`).
+New evidence is marked **new**; everything else in sections 1 to 7 is inherited from #36 and was only re-run.
+
+**Mapping verified against `judge/mutate_go.py` and a 30-run `mutate_go.py` campaign.** GMstop is designed to be caught by S19
+concurrent `G5.b` only, and it is: 30 of 30 runs fail with exactly `G5.b`; S19 controlled and every other cell survive
+(controlled mode cannot queue messages behind a held handler). GMoverlap is designed to be caught by S21 concurrent `G3.c`
+(30 of 30 fail with `G3.c`); it also fires S02 `G1.a` (23 of 30 in this run, 17 of 30 in #36), which is incidental and is not
+what S02 is calibrated with. GMbenign still survives in every cell.
+
+| Scenario | Go mutant (analog) | Designed clause | Race | Samples | Detections | `q_low` | `N` | `runs_on_pr` | Environment |
+|---|---|---|---|---|---|---|---|---|---|
+| S19 (concurrent) | GMstop (M63) | G5.b | `go test -race` | 200 | 200 | 0.98513 | 300 (the floor) | 300 | macOS 26.3.1 arm64, Apple M4 Max, 16 CPUs, go1.27.2, 2026-10-10 UTC |
+| S21 (concurrent) | GMoverlap (M64) | G3.c | `go test -race` | 200 | 200 | 0.98513 | 300 (the floor) | 300 | same |
+
+Method (unchanged, `docs/judge.md` section 5 and item 7): `q_low` is the one-sided 95% Clopper-Pearson lower bound, the `q`
+with `P(X >= 200) = 5%` for `X ~ Binomial(200, q)`, which for `d = n` is `0.05^(1/200) = 0.98513`; `N = max(300,
+ceil(ln 0.01 / ln(1 - q_low))) = max(300, 2) = 300`; `runs_on_pr = min(N, 5000) = 300`. Both mutants are detected in every
+run, so the floor decides, not the bound. Every campaign was complete and valid: 200 logs `r1..r200` per scenario accepted by
+`evaluate.campaign`, `go test` exit 0, no harness error, no timeout, no run failing with another clause. The early/late
+stationarity diagnostic (first 40 runs against the rest) gave p = 1.0000 for both. The rows are in
+`judge/calibration.macos.tsv`; the Linux rows of `judge/calibration.tsv` were measured separately (section 8.1). A rate of 200 of 200 says a defect of this class is caught with probability at least
+0.985 per run; it says nothing about other defect classes, and S19 holds the handler on purpose, so the detection of GMstop is near-deterministic (the
+handler is held, not randomly timed), so `N = 300` is the floor, not evidence that a rarer interleaving would also be caught.
+
+### 8.1 Linux Go calibration (new evidence)
+
+Run [38017253735](https://github.com/getsyntegrity/gopekko/actions/runs/38017253735) of the `judge-calibration` workflow, started
+by `workflow_dispatch` on the branch of #37 with `side = go`, `scenarios = S19 S21` and `per_jvm = false`. The run's head
+commit is `5101b750d0d1b0e62fd5498a211972d3d8f5cd02`, which is also the `harness` recorded in both manifests. No JVM campaign ran:
+the Pekko job was skipped.
+
+| Item | Value |
+|---|---|
+| Environment | GitHub-hosted `ubuntu-latest`: Ubuntu 24.04.5, kernel 6.17.0-1022-azure x86_64, 2 CPUs, go1.27.2 linux/amd64 |
+| Pekko pin | `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` |
+| Mutants and clauses | S19 / GMstop / G5.b, S21 / GMoverlap / G3.c, `go test -race` |
+| Samples | 200 per mutant, `go test` exit 0, no harness error, no timeout |
+| Detections | 200 of 200 each; every failing run fired exactly the designed clause |
+| Stationarity | first 40 runs against the rest, 40/40 and 160/160, p = 1.0000 for both |
+| `q_low` and `N` | 0.98513 and `N = max(300, ceil(ln 0.01 / ln(1 - q_low))) = 300`; `runs_on_pr = 300` |
+| Artifact | `judge-calibration-go-38017253735`; its `SHA256SUMS` (5714 entries) was verified with `sha256sum -c` |
+
+The two rows were recorded with `calibrate.py go-record` from the downloaded campaign directory. The destination was derived from the `os`
+recorded in the manifests (Linux), so only the two `pending` Go rows of `judge/calibration.tsv` changed; `judge/calibration.macos.tsv` and
+every Pekko row are untouched. Linux (2 CPUs, x86_64) and macOS (16 CPUs, arm64) give the same numbers, which are a property of two
+near-deterministic mutants, not a claim that the judge detects any rare interleaving. S20 is not calibrated.
+
+### 8.2 Revalidation of the calibration evidence, and what each kind of data is
+
+Review found that `go-run` recovery and `go-record` trusted the `results` declared in `manifest.json`: editing that summary
+(or deleting logs) changed the verdict of a recovered campaign and the rows that were recorded. Both now go through
+`go_validate_campaign` ([judge.md](judge.md) section 5, item 7), which re-evaluates the JSONL logs with `evaluate.py` and requires
+the manifest to agree. Both existing campaign sets were revalidated with it, without repeating any campaign
+(`calibrate.py go-validate`, read-only):
+
+| Evidence | Result |
+|---|---|
+| Linux, artifact `judge-calibration-go-38017253735` (GMstop/S19 and GMoverlap/S21) | both valid: 200 logs each, process log digest equal, `go test` exit 0, declared summary equal to the re-derived one; `go-record` into a scratch file reproduces the two committed rows of `judge/calibration.tsv` byte for byte |
+| macOS, the campaign directory of the earlier calibration (harness `abd1533`) | both valid in the same way; `go-record` into a scratch file reproduces the two committed rows of `judge/calibration.macos.tsv` byte for byte |
+
+No row changed. The three kinds of data stay apart:
+
+- **Measured data:** the committed rows of `judge/calibration.tsv` and `judge/calibration.macos.tsv` (200 of 200 detections,
+  `q_low = 0.98513`, `N = 300`), derived from campaigns that now pass the validation.
+- **Observed evidence:** what the runs showed (every failing run fired exactly the designed clause; stationarity p = 1.0000;
+  the artifact digests). It supports the rows; it is not itself a parity claim.
+- **Calibration:** the number of runs `N` that follows from the measured rate. At 200 of 200 it is the floor of 300, not
+  evidence about rarer interleavings.
+
+The digests of the manifests and logs are integrity checks inside the documented flow, not authenticity: they do not prove who ran the campaign.
+
+**State of the two pull requests.** #36 and #37 are both ready for review and **neither is merged**. #37 is stacked on #36
+(`a024fc0`). After #36 is squash-merged, the delta, the tree and the provenance of #37 must be verified (the diff against the
+new base, that the tree is the intended one, and which commits the rows were recorded from): retargeting #37 by itself does not
+guarantee a clean diff, because a squash rewrites the commits #37 was stacked on.
+
+**S20 is not calibrated, by construction.** It stays the D2 divergence diagnostic: it is in `go-scope.json` `diagnostics`, not
+in `scenarios`, in no Go calibration row, and `diagnose_go.py` still requires exactly `G5.e` (`run-go.sh` at 300 runs:
+`divergence-confirmed`, all 300 runs fail with exactly `G5.e`). Its failure is the divergence itself and is never counted as a
+mutation detection. The upstream Pekko M65 evidence (`judge/mutation-report.tsv`) is untouched. Selftests that fail if S20
+enters a Go parity list, the Go calibration scope or rows, or a Go mutation's designed detectors:
+`selftest_calibrate.py` (scope, `go_plan`, `go_record`, row rules) and `selftest_backfill.py` (the checker on altered
+copies of `go-scope.json`, `calibration.tsv`, `mutate_go.py` and the milestone).
+
+**Matrix** (`migration/stage-1/milestone-1.md`, `scripts/check-judge-matrix.py`), with Pekko evidence, Go design and Go
+calibration kept apart:
+
+| Item | Registered as | Evidence shown |
+|---|---|---|
+| S19 | G3, G5, I3 (G3.a, G5.a, G5.b, G5.d, G5.e, I3.a, I3.b), M63 on G5 | Pekko: M63 caught by G5.b (report, checked). Go: designed GMstop; calibration measured (macOS and Linux) |
+| S21 | G3 (G3.c), M64 on G3 | Pekko: M64 caught by G3.c (report, checked). Go: designed GMoverlap; calibration measured (macOS and Linux) |
+| S20 | milestone scenario table only, marked known divergence D2 (diagnostic, not parity); in **no** relation row | Pekko: M65 caught by G5.e (report). Go: divergence confirmed by `diagnose_go.py`, not a pass |
+
+The checker's Go line now reads, e.g., `goPekko: 0 clauses observed by this checker ...; designed Go mutations 11 + 1
+benign; scenarios run by the Go judge 6 (+1 known divergence: S20); Go calibration rows measured: calibration.tsv 2/2,
+calibration.macos.tsv 2/2` (the Linux rows are recorded; `selftest_backfill.py` still checks that the counter falls back to
+0/2 when they are pending). It does **not** claim Go observed detection: the Go mutation reports of `mutate_go.py` are
+not committed, so the checker has nothing to derive a Go detection from, and "observed on goPekko" stays unclaimed (🟡) until a
+Go report is committed and bound to commits the way the Pekko one is. It also fails if a scenario run by the Go judge is not
+registered, if a known divergence is not marked as such or sits in a relation row, if a Go mutation designs a detection by a
+clause its scenario does not assert or by S20, or if S20 has a Go calibration row.
+
+| Row | Status | Evidence |
+|---|---|---|
+| Go calibration of S19 and S21 on macOS | 🟢 | **new**, section 8 table; measured, not estimated |
+| Go calibration of S19 and S21 on Linux (`judge/calibration.tsv`) | 🟢 | **new**, section 8.1: workflow run 38017253735 on the exact commit `5101b75`, 200 of 200 each, `N = 300` (the floor). The workflow file changed to run it, so the run is of the commit that carries the workflow |
+| Recovery and `go-record` validate the logs, not the manifest summary | 🟢 | **new**, `go_validate_campaign`, 28 tampered campaigns in `selftest_calibrate.py`, built with real logs and the real evaluator; both existing campaign sets revalidated (section 8.2) |
+| Go calibration of S01, S02, S10, S11 | 🔴 | **pending**: not in scope of this increment |
+| Matrix registration of S19, S20 (as divergence) and S21 | 🟢 | **new**, checker and selftests |
+| Observed detection on goPekko in the matrix checker | 🟡 | not derived; Go reports not committed |
+| D2 | 🟢 | historical row: open at the time of this increment. Resolved for the bounded case, see section 9 |
+
+## 9. D2 resolved for the bounded case (ADR 0012)
+
+Scope: a stop accepted after a successful `Spawn` and before the first activation. It does not define restart, system shutdown or a
+cancellation API, and it does not establish parity of `pekko-actor`.
+
+| Item | State | Evidence |
+|---|---|---|
+| Runtime: one start-step transition (`beginStartLocked`) shared by `drain` and `finalize` | 🟢 | `cell.go`, `stop.go`; `PreStart` once, then `PostStop` once, no `Receive` |
+| Exceptional paths: `PreStart` error, panic and `runtime.Goexit` after an early stop; `PostStop` panic; repeated and racing `Stop` | 🟢 | `lifecycle_internal_test.go`: deterministic tests plus 200 racing runs under `-race`; the old test "a Stop accepted before the start step runs no hook" was inverted on purpose |
+| S20 resolved, measured with the **existing comparator before moving it** | 🟢 | `diagnose_go.py` on a 300-run campaign at the fixed runtime (scope still unchanged): `S20 D2 concurrent resolved`, every run passed |
+| S20 in the Go approved-parity gate | 🟢 | `go-scope.json` `scenarios` now lists S20, `diagnostics` is `{}`; `run-go.sh` at 300 runs exits 0, `S20: complete, 300 of 300 runs`, 300 pass. `diagnose_go.py` no longer reports S20: its validation is the gate's |
+| Guards updated | 🟢 | `selftest_go_scope`, `selftest_diagnose_go`, `selftest_mutate_go`, `selftest_calibrate`, `selftest_backfill`, `scripts/check-judge-matrix.py`, `calibrate.py` messages; the guards of a known divergence still hold if one is recorded again |
+| Stale Go mutant anchor | 🟢 | `GM2` anchored a line this change rewrote; re-anchored to `PostStopper[T]); ok {` and measured: `GM2 met` (30 runs) |
+| Historical evidence of D2 and M65 | 🟢 | kept: sections 1 to 8, `judge/mutation-report.tsv` (M65 caught by G5.e), ADR 0012 "Evidence" |
+| S20 calibration (Go) | 🔴 | **not calibrated**: no Go mutant is designed for S20 yet; `GO_NEVER` keeps it out of the Go calibration scope and rows, and the checker rejects an S20 Go row |
+| Cancelled context for `PreStart` (ADR 0008, K1) | 🔴 | future obligation, **not implemented**: the runtime has no actor-owned context and this change adds no cancellation API |
+| Restart and system shutdown | 🔴 | not defined by this decision |
+| Pekko S19, S20 and S21 calibration; Go S01, S02, S10, S11 calibration | 🟡 | pending, separate increments |
+
+## 10. Local deathwatch (S07, S08, S09, S18)
+
+Increment: `Watch`, `WatchWith`, `Unwatch` and `Terminated` between local actors (ADR 0010, "Accepted for the local watch
+increment"; `pekko-actor/actor/watch.go`). It does not establish pekko-actor parity.
+
+| Item | State | Evidence |
+|---|---|---|
+| S07, S08, S09, S18 on the Go side | 🟢 in the gate | `judge/run-go.sh` at 300 concurrent runs (`-race`): 300/300 in every mode the spec declares (S09 controlled only); reproduced by a second, independent run |
+| S16 (conflicting registrations) | 🟡 in the Go gate (U8, #175) | a supervisor node records `decided` and restarts the failed watcher; `received(w1, ack)` comes from the new instance. The watchers use a comparable message type (Go compares `WatchWith` messages with `==`). Clauses `I6.a` and `I6.b`; mutants GMwatchoverwrite and GMwatchsamefail. The runtime raises `ErrWatchConflict` and unit tests assert it. Not calibrated; no parity claim |
+| S13, S14 | 🟡 in the Go gate (U8, #175) | S13: two restarts deliver no `Terminated` and the stop after `maxNrOfRetries = 2` delivers one (`G6.d` with GMrestartnotify, `G6.a` with GMnonotify; #1484); S14: an initialization failure stops the child (`G7.b`, mutant GMinitrestart). Differences from the Pekko body: S13's Go run ends on a message of the watcher placed behind the Terminated; S14's child fails in its factory, not in `PreStart` (see `docs/judge.md`). Not calibrated; no parity claim |
+| Detections by a deliberate defect (Go mutants) for S07, S08, S09, S18 | 🔴 partial (#1470) | designed: GMtwice (M5; S07 concurrent `I2.a`), GMnonotify (M58; S07 controlled and concurrent `G6.a`, since the final wait of S07, S14, S18 and S22 ends at the bound of `expectTerminated(max)` instead of a harness error or a timeout) and GMwatchdead (M11; S08 `G6.b`). Not observable on the Go side with the scenarios as they are: M10 (ignore `Unwatch`) survives in S09 because the Go `Terminated` is enqueued at the tail, behind the `settle` message the scenario sends; M8 and M9 are detected (S07 `I1.a` in 3 of 30 runs; S18 concurrent `I1.b`) but break order rules that no Pekko spec asserts, so they are not designed. The Pekko side has M5, M8 to M12 and M58 |
+| Go calibration of S07, S08, S09, S18 | 🔴 none | 300 is the floor, not a calibrated number |
+| Recorded Go mutation campaign (`b1887c4`, **HISTORICAL**: superseded; the CURRENT record is `23389e3` (linux/amd64, #1474), see [`PROVENANCE.md`](../migration/stage-1/judge-campaign-23389e3/PROVENANCE.md); `ba287d8` (#1464) and `7ef8d4e` (#1471) are retained by their tags; the previous campaigns `0be9018`, `57eb304`, `0e9b944`, `ccb730c`, `3797b82`, `80ca2dc`, `2325f10`, `7349c35` and `706b1ad` are HISTORY, kept by their `evidence/go-campaign-*` tags) | 🟢 13 of 13 | all 14 mutations, 11 scenarios, 30 runs, `-race`, macOS arm64, 252 rows, **0 timeouts, 0 harness errors, 0 invalid**: the 13 designed mutations are detected by their designed clauses (GMdup by S01 G1.a, controlled and concurrent; GMearly and GMnopropagate by S10 G5.c in controlled mode, GMnopropagate also in concurrent mode, where GMearly fires G5.c in 28 of 30 runs without a designed cell), GMbenign survives in every cell, S18 completes under GMdup. Only macOS; no Linux. It says nothing about the Watch guarantees (no Go mutant targets S07, S08, S09 or S18, and none of them is calibrated) and, for the hierarchy, only about G5.c with two children |
+| Differences from Pekko | listed | no `existenceConfirmed`; the watch conflict is a typed panic; a `WatchWith` message that is not comparable with `==` cannot repeat; a suspended watcher is told nothing until it resumes: the death notification waits in the lane behind `suspended` and `restarting` (`blockedLocked`, `supervision_restart.go`), pinned by `TestTerminatedIsHeldWhileTheWatcherIsSuspendedAndDeliveredOnceAfterTheResume`; the system items (restart, suspend, resume) have their own queue `sysq`; `Terminated` carries no envelope or metadata (ADR 0008 is still proposed) |
+
+The judge's S09 differs from the Pekko script in one deliberate way: after the watched actor is `Done` it sends the watcher one more
+message, so that a `Terminated` that `Unwatch` should have cancelled would be observed before the run ends. The Pekko script has no such settle.
+
+### 10.1 Seven DeathWatchSpec cases through the migration kit
+
+`pekko-actor/actor/watch_test.go` ports the applicable cases of `DeathWatchSpec.scala` (lines 135, 145, 154, 169, 268, 293 faithfully, 216 reduced) through the kit (`migration/stage-1/watch-test-port/`): one implementer, two adversarial reviewers and one fixer, all `model: "sonnet"` (identity self-reported as `claude-sonnet-5-5`). Results at the gate: 7 of 7 pass under `-race`, 200 repeats; removing the notification, the death pact, the `Unwatch` cancellation or the `WatchWith` delivery from the runtime makes the matching case fail. Skipped, with reason: 195 (restart), 248 (children), 257 (injects a system message), 305 (stash). The runtime was written directly by the session under a one-off owner exception; it is not a migrator product. Amendments queued for the owner: `AMENDMENTS.md`.
