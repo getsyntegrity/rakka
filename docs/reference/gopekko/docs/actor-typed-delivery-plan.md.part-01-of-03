@@ -1,0 +1,360 @@
+# ACT2 delivery plan: completing the local scope of Pekko `actor` and `actor-typed`
+
+- Status: **proposal of the Architect role for Owner review.** This document is proposed for review in PR #1015. No issue has been created or changed, none of its stories has been implemented, and it accepts no ADR. It claims no parity or completeness.
+- Date: 2026-10-24 (revision 5, 2026-11-07: Owner resolution O-1 is resolved by the amendment "the V scale and what V2 and V3 require per row" of ADR 0033; the V2 row of the table in section 5.1 gains the coverage of every contract and the V3 row is superseded by it. Revision 4. Revision 2 reconciled the plan against issue bodies, external instructions and the global label inventory; revision 3 recorded the Owner resolutions O-1, O-3, O-4 and O-8; revision 4 applies the review of PR #1015: ADR 0032 D5 is scoped to `Terminated` and `WatchWith`, every D5 names its ADR, and section 10 is refreshed)
+- Normative input: [ADR 0033](adr/0033-actor-typed-scope-and-architecture.md), accepted by the Owner on 2026-10-24 (confirmed in the file header). Only its accepted decisions bind this plan.
+- Proposal-only inputs (not approved, verified here): the inventory, slices, V0-V3 labels and slice plan of [the design dossier](actor-typed-completion-design.md).
+- Baseline: goPekko `develop` at `a3aa35d`; this plan sits on branch `docs/adr-0033-actor-typed-scope`, on top of commit `4006450` (ADR 0033 and the dossier). Plan commits after that one are listed by `git log` on the branch, and the branch is under review in PR #1015. Apache Pekko `v1.7.1`, `9a54d1294c3ac7821bbed3c940769c3d5027d1ff`.
+
+## 0. Method, limits and Git state
+
+### 0.1 What was verified for this plan
+
+- Read-only validation of every `absent`/`partial`/`adapted` inventory row against the pinned upstream source and spec bodies and against the Go source (classic rows, typed rows, testkit).
+- Read-only `gh` listing of the ACT2 program (#746 to #764 and 253 children) and of the in-flight PRs #1011, #1013, #1014; bodies read in full for #746, #763, #809, #768, #1008 (and #765, #1007 as samples).
+- The repository label inventory and the labels the ACT2 stories actually carry.
+- Git and numbering state, rechecked after `git fetch`.
+
+### 0.2 Limits (pending verification)
+
+- **Story format.** No repository file defines it. See 7.1: the four `spec-*` skills in `~/.claude/skills` were read in full (revision 2); they are normative for atomicity, spec sections, acceptance-criteria identity, contract-style dependencies and evidence, and they define no issue template, language, label rule or size limit. The ACT2 template remains an inferred repository convention, not validated by them. Retired by #1222: see "Superseded" in `AGENTS.md` for what replaces these skills.
+- **Story bodies read.** Revision 2 read in full the bodies and comments of the 22 stories labeled `status:ready`, of the issues listed in 2.3 (IO group, SYS-14 to SYS-16, SYS-03, SYS-04, TSD-14 to TSD-16, the affected TYP stories), of #746, #763, #809, #768, #1008, and PRs #1011 and #1013. The remaining ACT2 child bodies (about 200) were not read: their rows use titles only and are marked **U** (reconcile before reuse).
+- **Legacy issues.** No `[ACT-xxx]` issue in #159 to #193 is open (35 issues in that range, all closed; the close reason was checked for four of them only). See 2.5.
+- **Upstream gaps.** Not opened: `ClassicSupervisingTypedSpec`, `TypedSupervisingClassicSpec`, `AdapterSpec`, the bodies of `LoggerSpec`, `LoggingReceiveSpec`, `EventBusSpec`, resizer/tail-chopping/balancing router specs, io/japi/util specs, `DispatchersSpec`, `MailboxConfigSpec`, `ConfigSpec`, `DeathWatchSpec` bodies, `ConsistentHashingRouterSpec`; the delivery implementations beyond their heads; several paradox pages (`style-guide`, `interaction-patterns`, `actor-lifecycle`, `logging`, `event-stream`). The `ByteBuffer` vs array byte order of the primitive serializers was not compared. These areas are **pending contractual validation** (1.3).
+- **Estimates.** All line estimates and affected-file lists are estimates unless marked "fact". Facts come from reading the Go source.
+- **Labels and projects.** Verified against the global inventory in revision 2 (7.2).
+- **External instructions.** The four `spec-*` skills and `issue-creation` were read from `~/.claude/skills`. A bounded search also found copies of `spec-governance` and `spec-evidence` (listing truncated at 10 results) in `/Users/pablogore/workspace/syntegrity/spec-governance-pack/skills/` and `openspec-*` skills in `/Users/pablogore/nuevo/.opencode/skills/`. Those were not read or diffed against the installed copies, and `~/.claude/plugins` and `~/.agents/skills` were not searched. Whether the pack differs from what was read is unverified. Retired by #1222: see "Superseded" in `AGENTS.md` for what replaces these skills.
+- **Issue numbers and titles** were read on 2026-10-24 and must be rechecked at publication time (the in-flight PRs can change their state).
+- **Pasted requests.** The requests that asked for this plan and its revision reached the session compressed, with missing words. Rules were reconstructed conservatively (no GitHub changes, no code, no ADR edits, English plan, existing labels only, stop after delivery).
+
+### 0.3 Git state
+
+Before the first writing of this plan: branch `docs/adr-0033-actor-typed-scope`, clean tree, HEAD `4006450`, branch pushed and tracking `origin/docs/adr-0033-actor-typed-scope`. The two ADR 0033 documents were already committed; they are not modified by this plan. Since then the plan itself was committed on the same branch (initial version, then the Owner resolutions of revision 3). The branch was then published as PR #1015 against `develop` for review; the plan was revised after that PR was opened (revision 4). No issue was created or changed. Use `git log` and `git status` for the current commit and push state.
+
+## 1. Validated inventory: corrections to the dossier
+
+These corrections live here; the accepted documents are not modified. "Dossier" means `docs/actor-typed-completion-design.md`. Paths relative to `upstream/pekko/` unless marked Go.
+
+### 1.1 Corrections found by the validation
+
+| Row | Dossier said | Validated |
+|---|---|---|
+| C-30 `Kill` | No upstream spec located | Exercised by `actor-tests/.../actor/SupervisorMiscSpec.scala:70-73,171` and seven more actor-tests files (`ActorLifeCycleSpec`, `SupervisorTreeSpec`, `SupervisorHierarchySpec`, `DeathWatchSpec`, `ActorSystemSpec`, `ActorRefSpec`, `routing/RoutingSpec`). `Kill` throws `ActorKilledException` at `ActorCell.scala:575`; default decider stops on it (`FaultHandling.scala:216-222`). |
+| C-21 `PoisonPill` | `Actor.scala:46` | Case objects are `Actor.scala:52` (`PoisonPill`) and `:67` (`Kill`); handled at `ActorCell.scala:576`. Used by `ActorRefSpec`, `RoutingSpec:107`, `ActorWithBoundedStashSpec:130`, `TimerSpec:126`. It is the default stop message of `gracefulStop`. |
+| E-03 | `UnhandledMessageSpec` "if present" | The spec does not exist. Behavior is tested in `event/EventStreamSpec.scala:115` and `LoggingReceiveSpec`. `UnhandledMessage` is at `Actor.scala:297`; `unhandled` at `:656-663`; `Dropped` at `ActorRef.scala:622`. |
+| C-25 | no `/system`, no root guardian | (Already corrected in dossier rev. 2.) All three guardians exist in Go; only `/user` is spawnable. |
+| C-18 timers | one `TimerSpec` | Two specs share the name: classic `actor-tests/.../actor/TimerSpec.scala` and typed `actor-typed-tests/.../typed/TimerSpec.scala`. Classic implementation `dungeon/TimerSchedulerImpl.scala:33,59,88,134`. |
+| C-20 scheduler | `Scheduler.scala:61,525` | Also `LightArrayRevolverScheduler.scala:50`. Wheel-specific specs (`SchedulerSpec` l.520-660: wrap-around, oversleep) have no Go meaning: mark `excluded: jvm-implementation`. |
+| C-03 `Props` | `PropsCreationSpec` as oracle | That spec covers reflection and the Java API only. `Props.withActorTags` and `Deploy.tags` were missing from the dossier. No Go-relevant Pekko oracle for `Props` options. |
+| S-01 serialization | ids unknown | `Serializer.scala:58,70,94,423,436`; `PrimitiveSerializers.scala:27 Long, :69 Int, :107 String, :132 ByteString, :166 Boolean`. Ids in `reference.conf:840-847`: Java 1, ByteArray 4, Long 18, Int 19, String 20, ByteString 21, Boolean 35, Null 0; ids 0-40 reserved. All primitives use `includeManifest=false`, so the manifest is `""`. Boolean decodes only bytes `0`/`1`, anything else throws. |
+| TY-01 | includes `orElse` | Not a Pekko Typed API: `OrElseSpec.scala:26-28` says `OrElseBehavior` was removed as unsafe with `narrow`. Port the spec as function composition. |
+| TY-03 | `AbstractBehaviorSpec` "if present" | Does not exist; `AbstractBehavior` is exercised in `SupervisionSpec`, `BehaviorSpec`, `WatchSpec`, `ActorLoggingSpec`, `AdaptationFailureSpec`. |
+| TY-04 | `SupervisorStrategy.scala:26-300` | The file has 366 lines (`restartWithBackoff` l.82/116, `Backoff` l.186+, `withResetBackoffAfter` l.320). `Supervisor.apply` rejects a wrapped `AbstractBehavior` outside `setup` (`internal/Supervision.scala:45-52`). New contracts in section 5.3. |
+| TY-09 | `AskPattern.scala:84-135` | Context methods are `ActorContext.scala:317 ask`, `:326 askWithStatus`, `:336 pipeToSelf`; `AskPattern.scala:84` is the `?` operator, `:117` `ask`, `:135` `askWithStatus`. |
+| TY-13 `SpawnProtocol` | names `child-0`, `child-1`... | A given name that is taken falls back to `name`, `name-1`, `name-2`...; unnamed spawns are anonymous (`SpawnProtocolSpec.scala:86-116`). |
+| TY-17/19 | `/system` spawn optional | Hard prerequisite: `LocalReceptionist` is created through `internalSystemActorOf` (`internal/receptionist/ReceptionistImpl.scala`), and `Topic` uses `context.system.receptionist`. |
+| TY-20 delivery | local with optional durable queue | Local-capable: `ProducerController`, `ConsumerController`, `WorkPullingProducerController`, `DurableProducerQueue` SPI and the in-memory `TestDurableProducerQueue`. Not local: `ShardingProducerController`/`ShardingConsumerController` (cluster-sharding-typed), `EventSourcedProducerQueue` (persistence-typed), `DeliverySerializable`. |
+| K-03 | `BehaviorTestKit` as a general test tool | Does not support timers, scheduler, supervision, async tasks or futures (`testing-sync.md:8-20`); `StubbedActorContext.scheduleOnce` returns a `Cancellable` whose `cancel()` is false (`StubbedActorContext.scala:160-163`). |
+| 11.1 stash | "unstashed `Terminated` is re-received" is typed | That is classic. Typed `interpretUnstashedMessages` delivers stashed signals, and public typed `StashBuffer[T]` only holds messages; signals are stashed only by the restart supervisor. |
+
+### 1.2 Status of every row after validation
+
+The State column is the Go implementation state only; contract validation against Pekko is tracked separately in 1.3. States: I implemented, A adapted, P partial, ABS absent, DIV divergent, UND undetermined. Scope: R required, X excluded, OD owner decision (per-item review per ADR 0033 D4), and "pending" where the ADR leaves classification to the inventory.
+
+| ID | Capability | Go state (verified in code) | Evidence (Go, fact) | Scope |
+|---|---|---|---|---|
+| C-01..C-02 | Lifecycle hooks, restart hooks | I | `actor.go`, `supervision_hooks.go:60,67` | R |
+| C-03 | `Props`/`Deploy` options | A | `spawn.go:34,56`: only `WithMailboxCapacity` | R for options; X for reflection and HOCON deploy |
+| C-04..C-05 | Spawn, names, hierarchy | I | `spawn.go:85,98`, `hierarchy.go` | R |
+| C-06 | Supervision directives and budget | I | `supervision*.go` | R |
+| C-07 | User strategies, `Kill` decider case | P | decider callback is public (`Decider[T]`, `MakeDecider`); `Strategy` is closed; no `ActorKilledException` | R |
+| C-08 | Local deathwatch | I | `watch.go` | R |
+| C-09 | `existenceConfirmed`, pending `Terminated` at watcher stop | ABS/DIV | `watch.go` (`processDeathsLocked`), `port.go` (`takePortDeadLocked`) discard silently | R (local); remote part X |
+| C-10 | Dead letters, suppression | A | `deadletter.go`: `DeadLetter{Msg, To}`, no sender, no suppression | R; the sender carried by a dead letter is decided by ADR 0032 D3, D4 and D6 (accepted) and tested with an explicit sender; ADR 0032 D5 does not apply |
+| C-11 | Ref identity | A | `ref.go`, `id.go` | R |
+| C-12 | `ActorPath` | ABS | #1011 in flight | R |
+| C-13 | `Address` | P | `address.go`: local only | R |
+| C-14 | `ActorSelection`/`Identify` | ABS | none | OD |
+| C-15 | Sender, `forward` | ABS | no `TellFrom` in code | R (ADR 0032 D1-D4 and D6 accepted); ADR 0032 D5 is open and concerns only the sender of `Terminated` and `WatchWith` |
+| C-16 | `become`/`unbecome`/`unhandled` | ABS | none (DeathPact half adapted as `ErrDeathPact`, `errors.go:54`) | OD |
+| C-17 | Stash (classic) | ABS | no code; `internal/mailbox/queue.go` has no front insertion | **R** (D4) |
+| C-18 | Timers | ABS | `clock.go` unexported, only `Ask` uses it (`ask.go:176`) | **R** (D4) |
+| C-19 | `ReceiveTimeout` | ABS | none | OD (needed by FSM and by typed `setReceiveTimeout`) |
+| C-20 | Scheduler, `Cancellable` | ABS | none | R as dependency of C-18 |
+| C-21 | `PoisonPill` | ABS | `Stop` drops queue (`stop.go:20-26`) | OD |
+| C-22 | FSM | ABS | none | OD |
+| C-23 | Extensions | ABS | none | R (typed `Extensions`); HOCON loading X |
+| C-24 | `CoordinatedShutdown` | ABS | only `Terminate`/`WhenTerminated`/`Shutdown(ctx)` (`system_shutdown.go:30,38,54`); `doc.go:16` says planned | R (local phases); cluster phases and JVM hook X |
+| C-25 | `ActorSystem`, guardians | P | root, `/user`, `/system` exist; `spawnTarget` uses `/user` only | R |
+| C-28 | `Status`, `StatusReply` | ABS | none | R as `(R, error)` |
+| C-29 | Go-only adaptation APIs `OrdinaryFailure`, `ResumeWith`, `FactoryPanicValue`, `Port` | I | `start_failure.go`, `port.go` | R, **alternative evidence required (no Pekko oracle)** |
+| C-30 | `Kill` | ABS | none | OD |
+| D-01 | Mailbox FIFO and bounded | I | ADR 0030 | R |
+| D-02 | Mailbox variants | ABS | none | OD |
+| D-03 | Dispatchers | A | `executor.go`, `Config.Throughput`; nothing exported | OD; JVM pools X |
+| D-04 | JVM executor plumbing | n/a | n/a | X (`jvm-only`) |
+| E-01 | EventStream/EventBus | P | `SubscribeDeadLetters` only | R (typed eventstream needs it) |
+| E-02 | Logging | A | `Config.Logger` used only by supervision logging; no `Context.Log` | R via kit-logger (D11) |
+| E-03 | `Dropped`/`UnhandledMessage` | ABS | no such types; `DeadLetter` only | R |
+| P-01 | Ask | A | `ask.go:104` | R |
+| P-02 | `AskFrom`, `pipeTo`, `gracefulStop`, `after`, `retry` | ABS | `port.go:12` documents the goroutine idiom | R as Go idioms |
+| P-03 | `CircuitBreaker` | ABS | none | R |
+| P-04 | `Backoff`, `BackoffSupervisor` | ABS | `doc.go:9` | R |
+| R-01 | Routers: round-robin, random, broadcast, consistent hash, pools, groups | ABS | none | R subset; typed routers are R (D9) |
+| R-02 | Resizers, tail-chopping, scatter-gather, balancing | ABS | none | OD |
+| S-01 | Serialization | module | `pekko-serialization` has the registry, no primitive serializers | R: local primitives; extension X |
+| I-01 | `io` | ABS | none | X (`network-io`, ADR 0033 D8) except non-network byte values if a capability justifies them |
+| J-01 | `japi` | n/a | n/a | X (`java-api`) |
+| U-01 | `ByteString`, `Timeout`, `Helpers`... | replaced | stdlib and `context` | X (`replaced-by-go-stdlib`) |
+| U-02 | `WildcardIndex`, `MessageBuffer`, `TokenBucket`... | ABS | none | R on demand |
+| U-03 | JVM-only util | n/a | n/a | X |
+| T-00 | `Done`, `NotUsed`, `Main`, `PekkoException`, `PekkoVersion` | replaced | `errors.go` | X |
+| T-01 | `reference.conf` | A | `Config` struct | OD per key |
+| TY-01 | `Behavior[T]`, `Behaviors` combinators | ABS | none | R |
+| TY-02 | Signals | ABS | hooks exist as interfaces | R |
+| TY-03 | `AbstractBehavior` | A | A3 is the class style | R |
+| TY-04 | `supervise` and strategies | ABS | parent-owned Classic model only | R, needs a new ADR |
+| TY-05 | `StashBuffer` | ABS | none | **R** |
+| TY-06 | `TimerScheduler` | ABS | none | **R** |
+| TY-07 | Interceptors, `monitor`, `logMessages`, `withMdc`, `narrow`, `transformMessages` | ABS | none | R |
+| TY-08..TY-10 | Message adapter, `context.ask`, `pipeToSelf`, context API | ABS/P | `Ask` exists; `Port.Post` base | R |
+| TY-11..TY-12 | `Props` options, typed `ActorSystem` | P | `System`, `Config` | R |
+| TY-13 | `SpawnProtocol` | ABS | none | R (local) |
+| TY-14 | Typed `Extensions` | ABS | none | R (programmatic registry) |
+| TY-15 | `ActorRefResolver` | ABS | blocked by ADR 0031 scope (#894) | OD (local string form) |
+| TY-16 | Typed `EventStream` | P | dead letters only | R |
+| TY-17..TY-19 | Receptionist, routers, `Topic` (local) | ABS | none | R (D9) |
+| TY-20 | Delivery (local) | ABS | none | R local controllers; durable and sharding X |
+| TY-21 | Classic<->Typed adapters | n/a | one runtime | one ADR per adapter (D12) |
+| TY-22 | JFR, `ActorMdc` internals | n/a | n/a | X (`jvm-only`) |
+| TY-23 | `javadsl` | n/a | n/a | X (`java-api`) |
+| TY-24 | typed `reference.conf` | A | `Config` | OD per key |
+| K-01..K-04 | `ActorTestKit`, `TestProbe`, `BehaviorTestKit`/`TestInbox`, `ManualTime` | ABS | no exported equivalent | R (D10) |
+| K-05 | `LoggingTestKit`, `LogCapturing`, `CapturingAppender` | n/a | n/a | X (logback); replaced by the logger fake (D11) |
+| K-06 | `SerializationTestKit` | ABS | none | OD (follows TY-15) |
+| K-07 | JUnit resources, javadsl testkit | n/a | n/a | X |
+
+### 1.3 Contract validation status by area (Go state is not contract validation)
+
+The "State" column in 1.2 is the Go implementation state, verified by reading the Go source. It says nothing about whether the upstream contract has been fully validated. This table separates the two.
+
+| Area | Go state verified | Pekko contract validation |
+|---|---|---|
+| Lifecycle, supervision, deathwatch, dead letters, ask (rows C-01 to C-11 judged subset, P-01) | read in code and audits | Partly validated: judge scenarios S01 to S22 and 14 upstream specs cited by name; a citation is not a full port. `DeathWatchSpec` bodies not opened in this revision |
+| Stash, timers, scheduler, `ReceiveTimeout`, `PoisonPill`, `Kill`, `become`/`unhandled`, `Props`, `ActorSelection`/`Identify`, extensions, `CoordinatedShutdown`, mailbox variants, FSM | read in code (absent) | Source symbol and spec files located and opened; contracts extracted from spec bodies (partially, see 0.2) |
+| Patterns (`pipeTo`, `gracefulStop`, `after`/`retry`, `StatusReply`, `CircuitBreaker`, `Backoff`), routers (round-robin, random, broadcast, consistent hash), event stream | read in code (absent/partial) | Source and spec files located; `EventBusSpec`, `LoggerSpec`, `LoggingReceiveSpec`, `ConsistentHashingRouterSpec`, resizer/tail-chopping/balancing specs **not opened: pending contractual validation** |
+| Serialization primitives | read in `pekko-serialization` (absent) | Upstream ids and manifests validated from source and `reference.conf`; byte-order of `ByteBuffer` vs array forms not compared |
+| `io`, `japi`, `util`, top-level files | read in code (absent/replaced) | Specs not opened: **pending contractual validation** (rows are exclusions or replacements, so no contract is being ported) |
+| Typed core (Behavior, signals, supervision, stash, timers, interceptors, adapters, ask, context) | read in code (absent) | Source and spec bodies opened for the listed contracts (1.1, 5.3); `ClassicSupervisingTypedSpec`, `TypedSupervisingClassicSpec`, `AdapterSpec` not opened |
+| Typed services (Receptionist, routers, Topic, `SpawnProtocol`, `EventStream`) | read in code (absent) | Source and specs opened |
+| Typed delivery | read in code (absent) | Docs and controller heads only: **pending contractual validation** for the implementation behavior |
+| Testkit | read in code (absent) | Public methods listed from source; `Effect.scala` internals and `ExplicitlyTriggeredScheduler` body not opened |
+
+## 2. Existing ACT2 issues: verification and proposed plan changes
+
+All read on 2026-10-24 with `gh` (read-only). Program #746 and epics #747 to #764 are open, unlabeled, uncommented, unassigned. Only four children are closed: IDN-01 #765, IDN-02 #766, IDN-13 #1007, IDN-15 #1009. Merged PRs: #1005 (IDN-01), #1006 (ADR 0031), #1010 (IDN-13), #1012 (IDN-15). Open PRs: #1011 (IDN-14, `ActorPath` value; "Refs #1008", +389/-10, not a draft, no reviews, `go` and `label` checks failing, attributed by its author to a billing annotation), #1013 (SYS-03, draft, "Refs #842", does not close it, same check failures), #1014 (MSG-01, ADR 0032, partly accepted, closes #768). Every body read is pinned to the planning cut `ec31e60`, which predates ADR 0033; none cites it.
+
+### 2.1 Backbone status: verified versus pending reconciliation
+
+| Group | Status |
+|---|---|
+| **Verified (body read in full)** | IDN-14 #1008, SYS-03 #842, MSG-06 #770, BHV-01 #771, ASK-07 #774, ASK-11 #775, SUP-02 #778, SUP-07 #780, SUP-10 #781, SUP-11 #782, SUP-12 #783, DTH-01 #785, DTH-03 #786, DTH-07 #788, MBX-13 #791, EVT-11 #794, PAT-09 #795, SYS-05 #799, SYS-06 #800, SER-01 #804, SER-04 #806, SER-09 #811; plus the 2.3 set. Verdicts in 2.2 and 2.3 |
+| **Pending reconciliation (title-level mapping only)** | all other TIM, BHV (#817, #897, #772, #855, #898, #899, #935), SUP, DTH, MBX, DSP, EVT, PAT, RTE, FSM, IDN (remaining), ASK, MSG (#814, #854, #816, #896, #769, #815), SER, SYS (#798, #841, #843 partly, #844, #882, #883, #918, #919, #932, #950, #971), TSD (#959 to #963, #979 to #981, #991 to #1001, #1003 verified) and TYP not listed in 2.3. Their bodies, dependencies and acceptance criteria were not read. Per ADR 0033 D5 each needs an ADR-impact list and a reconciliation before its slice starts |
+
+The plan therefore does not assert that the pending group is valid. It uses their numbers and titles as the existing candidates for the slice rows in section 3, nothing more.
+
+### 2.2 Readiness of the `status:ready` stories (bodies read)
+
+The `status:ready` label is not reliable evidence of readiness. Verdicts below come from the bodies, the Go code and ADR 0033.
+
+| Story | Verdict | Reason |
+|---|---|---|
+| #770 MSG-06 `PoisonPill` | NOT STARTABLE | ADR 0010 line 225 excludes it "for now"; ADR 0033 D4 requires individual classification (A-04); a new exported control message is also a D3 question |
+| #771 BHV-01 `become` | NOT STARTABLE | Same: ADR 0010 exclusion list, D4. The earlier version of this plan listed it as needing no ADR while its own A-04 row blocked it; A-04 is binding |
+| #794 EVT-11 actor-scoped logging | NOT STARTABLE as written | "The API uses kit-logger" implies `Context.Log`, a new export needing its individual ADR 0011 justification (D3) and the D11 test fake. A slice without a new export (stable fields, no re-execution on logger failure) could start |
+| #1008 IDN-14 | IN FLIGHT | PR #1011 implements it and refs it; do not start a second implementation. The `ready` label is stale |
+| #842 SYS-03 | IN FLIGHT | PR #1013 refs it; criterion 1 contradicts accepted ADR 0031 O3a/O3b and awaits Owner approval of the proposed narrowing (comment on #842) |
+| #786 DTH-03 | NOT STARTABLE | Tied to the open ADR 0032 D5 / #814 (ADR 0033 D6) |
+| #778 SUP-02 | CONDITIONAL | Owner resolution O-3: `ActorKilledException` is an independent prerequisite contract (D-08a). SUP-02 depends on that contract to classify the exception as Stop (D-08b); the circularity with `Kill` #816 is removed. Still conditional until D-08a is delivered |
+| #785 DTH-01 | CONDITIONAL | Reverses the documented `ErrInvalidHandle` contract for handles of another System (`errors.go:48-51`, `watch.go:114`); needs the ADR 0033 D5 impact list (ADR 0014, 0024) and a lock-order design; shares `watch.go` |
+| #795 PAT-09 | CONDITIONAL | Body refers to "the accepted failure predicate" and a breaker that does not exist; confirm where the type and predicate come from |
+| #799 SYS-05 | CONDITIONAL | New exported `System` method and an undefined relation to `Shutdown`'s result; needs a note fixing the Go form |
+| #774 ASK-07, #775 ASK-11, #780 SUP-07, #781 SUP-10, #782 SUP-11, #783 SUP-12, #788 DTH-07, #791 MBX-13, #800 SYS-06, #804 SER-01, #806 SER-04, #811 SER-09 | STARTABLE after the impact check | No ADR conflict found in the body; the ADR 0033 D5 impact check of the slice has not been done. Notes: #782 and #783 share `supervision_restart.go`/`cell.go`/`watch.go` with other work (single owner at a time); any assertion about the sender of a runtime-delivered `Terminated` or `WatchWith` message in #783 waits for ADR 0032 D5; #804 and #811 must agree on id allocation; #774 needs a short note on API shape (value type vs `(R, error)`); #775 is test-only |
+
+"Startable" means no ADR conflict was found in the body. None of these stories may start until the ADR 0033 D5 impact list of its slice is completed and recorded; this plan records no such check yet.
+
+### 2.3 Reconciliation of the affected issues (bodies read)
+
+Recommendations rest on the issue body, ADR 0033 and a Pekko reference (`A/` = `upstream/pekko/actor/src/main/scala/org/apache/pekko/`, `T/` = `upstream/pekko/actor-typed/src/main/scala/org/apache/pekko/actor/typed/`). Vocabulary: KEEP, SPLIT, RE-SCOPE, EXCLUDE (reason from the closed list: `jvm-only`, `java-api`, `replaced-by-go-stdlib`, `replaced-by-goPekko-module`, `cluster-or-remote`, `network-io`, `owner-excluded`), PENDING. **Nothing is closed or edited by this plan; every row is a proposal for the Owner.**
+
+| Issue | Body scope (key line) | Recommendation | Pekko reference |
+|---|---|---|---|
+| IO-01 #808 | "Specify Go module/package ownership for IO, bytes and manager extensions"; "actor imports no I/O or serialization module" | RE-SCOPE to two decisions: the `network-io` exclusion record (D8) and whether any byte-value type is needed | `A/io/IO.scala:24`, `A/util/ByteString.scala:31` |
+| IO-02 #846, IO-03 #886, IO-04 #920 | Immutable byte construction, slicing, builder finalization | PENDING on #808. Lean: `replaced-by-go-stdlib` (`[]byte`), but that lean is not stated in the bodies | `A/util/ByteString.scala:36,94,158`, `A/util/ByteIterator.scala:428` |
+| IO-05 #887, IO-06 #921, IO-07 #922, IO-08 #952, IO-09 #972, IO-10 #984, IO-11 #996, IO-12 #923, IO-13 #973, IO-14 #985, IO-16 #953, IO-17 #974, IO-18 #995, IO-19 #966 | TCP/UDP bind, connect, handler, write, suspend, close, options, DNS cache and queries, datagrams; none names a concrete local capability | EXCLUDE `network-io` (ADR 0033 D8: no adapter over `net` without a concrete local capability). One proposal per issue; each needs its exclusion record | `A/io/Tcp.scala:133,161,187,246,351,425,432,442,578`, `A/io/Udp.scala:98,114,125,164`, `A/io/UdpConnected.scala:108`, `A/io/dns/DnsProtocol.scala`, `A/io/dns/CachePolicy.scala:22,28` |
+| IO-15 #924 | "Lookup runs outside the requesting actor turn and replies through its mailbox" | EXCLUDE `network-io`, with a caveat: DNS lookup is the nearest candidate for a local capability (OS resolver); the body names none, so it stays excluded unless the inventory identifies one | `A/io/Dns.scala:76,80,85` |
+| SYS-14 #801 | "Describe the user-visible proxy invocation behavior"; "Record an Owner decision; exclusion must remain visible" | KEEP as a decision slice; expected outcome `jvm-only`, still an Owner decision. The reflective-proxy mechanism claim comes from the issue body; `TypedActor.scala` was not opened | `A/actor/TypedActor.scala:44,119,703` |
+| SYS-15 #802 | "Separate user outcomes from reflection, ClassLoader and Java/Scala overload mechanisms" | KEEP as a decision slice and SPLIT its outcomes: `DynamicAccess`/`ReflectiveDynamicAccess` are `jvm-only`, `AbstractActor` is `java-api`, construction maps to the existing factory | `A/actor/DynamicAccess.scala:33`, `ReflectiveDynamicAccess.scala:35`, `AbstractActor.scala:229` |
+| SYS-16 #803 | "Do not add exit, signal interception or telemetry by default without the required decision" | KEEP the decision and SPLIT: JVM hooks, JFR, virtual-thread pools are `jvm-only`; a Go signal-hook/exit subset stays an Owner decision. Core `CoordinatedShutdown` belongs to #799/#800 and must not be absorbed | `A/actor/CoordinatedShutdown.scala:246,830`, `A/dispatch/VirtualThreadSupport.scala:29` |
+| SYS-03 #842 | Criterion 1: "System name/address validation occurs before actor creation" | RE-SCOPE criterion 1 as proposed in the comment on #842 (name fixed at creation, Address valid by construction, validation tracked separately). Not accepted; Owner approval pending (8.7 O-7) | `A/actor/ActorSystem.scala:572,577,840-843` |
+| SYS-04 #843 | "Define precedence among System defaults and actor spawn descriptors"; "Do not add HOCON" | KEEP; consistent with ADR 0033. Touches dispatcher and mailbox configuration (D4 items) through #792 and #789 | `A/actor/setup/ActorSystemSetup.scala:48,64`, `A/actor/Props.scala`, `A/actor/Deployer.scala` |
+| TSD-14 #1003 | "The exact lost worker incarnation is removed"; "Confirmed work is not reassigned because of a stale death notification" | KEEP (local, no persistence) | `T/delivery/WorkPullingProducerController.scala:77`, `delivery/internal/WorkPullingProducerControllerImpl.scala:104,169` |
+| TSD-15 #1002 | `LoadState`/`StoreMessageSent` as request/reply messages; "no database adapter or persistence import" | RE-SCOPE to the `DurableProducerQueue` message protocol and an optional-queue port; no store (D9) | `T/delivery/DurableProducerQueue.scala:33,48,57,59` |
+| TSD-16 #1004 | "Load-state recovery preserves next sequence and retained message identity"; "A protocol-only implementation is not reported as a durable backend" | RE-SCOPE/SPLIT: keep protocol-level confirmation and recovery semantics against an in-memory double; EXCLUDE any durable backend (D9, `owner-excluded`) | `T/delivery/DurableProducerQueue.scala:67` |
+| TYP-01 #809 | "Specify setup, receive, same, unhandled, stopped, empty and ignore"; Typed default Stop distinct from Classic Restart | KEEP. ADR 0033 names it as the Behavior-boundary ADR. Correct its contract list (no `orElse`, 1.1). Traceability pulls adapter surface (`ACTINV-126`) that D12 puts under separate ADRs | `T/Behavior.scala:49,122`, `T/scaladsl/Behaviors.scala:39-100` |
+| TYP-09 #956, TYP-10 #976, TYP-11 #986, TYP-12 #997, TYP-26 #999, TYP-06 #975 | Default Stop and Resume; retry window; backoff stop; children wait; restart stash capacity; supervised adapter transform | KEEP, gated on the Typed supervision ADR (D2). **None of the bodies lists that ADR as a dependency, and no story creating it was found**: the dependency and the story are missing (NEW-02) | `T/SupervisorStrategy.scala:35,44,50,82,116,147,167,173,176,288,298`, `T/scaladsl/ActorContext.scala:292` |
+| TYP-22 #957 | "The resolver shares the accepted local path/incarnation encoding" | KEEP (Typed-only, no runtime conversion, so not a D12 adapter); blocked by #894, #853, #812 | `T/ActorRefResolver.scala:35,44,49` |
+| TYP-24 #958, TYP-32 #982, TYP-33 #983 | Reference views; System views; Context views of the current turn | RE-SCOPE (D12): three adapters, three ADRs, each the first deliverable of its story; inclusion PENDING until each ADR exists | `T/scaladsl/adapter/package.scala:49,80,86,103,142,157,164` |
+
+### 2.4 Gaps: stories that do not exist and are needed (suggested, none published)
+
+| Key | Title | Why |
+|---|---|---|
+| NEW-02 | Decide the Typed supervision profile | ADR 0033 D2; missing dependency of the TYP supervision stories |
+| NEW-03 | Record the justification of each exported `pekko-actor` API for Typed | D3: each export justified individually under ADR 0011; whether one ADR or a per-story record is used is Owner decision O-2 |
+| NEW-04 | Review the ADR 0010 exclusions item by item | D4 |
+| NEW-05 | Maintain the actor inventory and the oracle register | D13 is already accepted; this only proposes how to maintain the inventory (not a new decision) |
+| NEW-06 | Record the scope-exclusion register | D8, D9, D12 and 2.3 |
+| NEW-07 | Export an injectable clock for schedulers and tests | timers, `ManualTime`, judge |
+| NEW-08 | Insert messages at the mailbox head | stash replay order |
+| NEW-09 | Spawn system actors under `/system` | Receptionist, Topic |
+| NEW-10 | Expose child failure cause as a signal source | `ChildFailed` |
+| NEW-11 | Provide a `kit-logger` test fake | D11 |
+| NEW-12 | Create the `pekko-actor-typed` module skeleton | D3 |
+| NEW-13 to NEW-16 | Typed testkit: `TestProbe`; `TestInbox`/`BehaviorTestKit`/effects; `ActorTestKit`; `ManualTime` | D10 |
+| NEW-17, NEW-18 | Extend the judge contract for Classic additions; design the Typed judge harness (design) | judge |
+| NEW-19 | Register Pekko-oracle availability per row (design) | D13 |
+
+NEW-01 from the first version is folded into #809. Each NEW item is a suggestion for the Architect/Owner. None authorizes issue creation.
+
+Added by Owner resolutions (suggested, none published): NEW-20 = J-02a (Typed unstash dead-letter sender contract), NEW-21 = D-08a (`ActorKilledException` contract), NEW-22 = D-08c (end-to-end `Kill` default-stop validation).
+
+### 2.5 Legacy `[ACT-xxx]` issues
+
+`gh` shows no open issue in #159 to #193 (35 issues in that range, all closed; close reasons checked for #159 and #170 COMPLETED, #190 and #193 NOT_PLANNED; the other 31 were not checked). #746's legacy table maps #176 to #191 and #193 to ACT2 stories (for example #176/#177 to #791, #182/#183 to the stash stories, #190 to #771/#817/#809/#847/#925) and has no row for #159 to #175 or #192. Whether those unmapped legacy issues were delivered or superseded, and whether ACT2 overlaps them, is **PENDING**: their bodies were not read, and no closure or overlap claim is made from titles.
+
+### 2.6 Layered duplicates (keep, add dependency)
+
+TYP-15/16/27/30/20/25/07/08/13/14/19 and TSD-01 duplicate Classic base stories (TIM, MBX, DSP, SYS, ASK, BHV, EVT). Keep both; add an explicit dependency of each typed story on its Classic base story (`depends_on`: it needs the base story's output).
+
+## 3. Classic slices
+
+**One row is one story.** Several stories are never combined: a dependency between them is expressed in "Depends on", not by merging rows. Suffix letters (`C-04a`, `C-04b`) keep the earlier IDs stable. Dependencies use this vocabulary: `depends_on` (needs another story's output), `enables`, `independent`. "Body" shows whether the issue body was read (**V**, see 2.2/2.3) or not (**U**, reconcile before use). Sizes are estimates in authored changed lines including tests and README (budget 400 per PR; split before coding if exceeded).
+
+### Slice A: decisions (drafting can start now; acceptance is Owner work)
+
+| Story | Result | Depends on | Notes |
+|---|---|---|---|
+| A-01 | ADR for the Typed Behavior boundary (#809 TYP-01, **V**) | none | Contracts: `same`/`unhandled` markers (`Behavior.scala:279`), `validateAsInitial` (`:240`), `canonicalize` (`:184`), `interpretSignal` throws `DeathPactException` for an unhandled `Terminated` (`:270`), null behavior rejected. Alternatives incl. A2/A3 layer shape and allocation per message (ADR 0010:56). Blocks all TYP implementation |
+| A-02 | ADR for the Typed supervision profile (NEW-02) | A-01 | Default Stop with `PostStop`; restart sends `PreRestart` only and resets state; `withLimit`; backoff; restart stash (1000, `Dropped` on overflow); `stopChildren`; `UnstashException`; `ScheduledRestart(owner)` (5.3). Missing dependency of TYP-09/10/11/12/26/06 |
+| A-03 | Justification record for each exported `pekko-actor` API (NEW-03) | none | ADR 0033 D3 requires individual justification under ADR 0011 (owner decision 2). Candidates: injectable clock, mailbox head insert, `/system` spawn, `Context.Log`, event stream, dead-letter sink, child failure cause. Whether this is one ADR or a record inside each story is Owner decision O-2; this row is an index, not a blanket approval |
+| A-04 | Per-item review of the ADR 0010 exclusions (NEW-04) | none | `become`/`unbecome`, `unhandled`, `ReceiveTimeout`, `PoisonPill`, `Kill`, `ActorSelection`/`Identify`, dispatcher/mailbox configuration, FSM, router beyond typed. Binding for #770 and #771 |
+| A-05 | Maintain the inventory and the oracle register (NEW-05, DOC) | none | **Not a new decision**: ADR 0033 D13 already accepts the oracle rule. This story proposes how the inventory and register are kept; Owner approval remains mandatory for every Go-only row that needs alternative evidence |
+| A-06 | Scope-exclusion register (NEW-06) | A-04 | Sources and reasons for the exclusions in 2.3 |
+| A-07 | Resolve ADR 0032 D5 (#814) | #1014 merged | Stays open (ADR 0033 D6) |
+| A-08 | ADR 0015 D3/D4/D7/D8/D9 and `AskFrom` reconciliation | none | Before ASK-01/02/04 start (ADR 0033 D5) |
+
+### Slice B: inventory and judge design (docs only; can start now)
+
+| Story | Result | Depends on |
+|---|---|---|
+| B-01 | Actor+typed inventory kept as a document, rows per section 1.2 with 1.3 validation status (DOC) | independent |
+| B-02 | Judge contract additions for Classic: event kinds, clauses and mutants for timers, stash, `ReceiveTimeout`, `PoisonPill`, `Kill`, scheduler cancel, backoff, circuit breaker, routing (NEW-17, DOC) | B-01 |
+| B-03 | Typed judge harness design: second sbt entry point depending on `actor-typed` and `actor-testkit-typed` (names to confirm in `build.sbt`), `run-pekko.sh` argument, recording through `setup`/`receiveSignal`, no `decided` event (NEW-18, DOC) | B-01 |
+| B-04 | Oracle register: per row `oracle: pekko-differential` or `go-only` with its alternative-evidence proposal (NEW-19, DOC) | B-01 |
+
+Judge execution stories are separate and later (Slice P). Design work never counts as V3 evidence.
+
+### Slice C: time foundation
+
+| Story | Issue | Result and upstream contract | Est. | Depends on | Body |
+|---|---|---|---|---|---|
+| C-01 | NEW-07 | Export an injectable clock for schedulers and tests (`clock.go` is unexported; only `Ask` uses it) | 120-180 | A-03 | n/a |
+| C-02 | TIM-01 #776 | Scheduler lifecycle and cancellation. `cancel()` true only if it prevented execution (`Scheduler.scala:525`, `SchedulerSpec:127,146`); never fires early (`:156`) | 150-250 | C-01 | U |
+| C-03 | TIM-02 #821 | One-shot schedule (`Scheduler.scala:428-479`) | 100-150 | C-02 | U |
+| C-04a | TIM-03 #822 | Fixed delay; reject non-positive interval (`SchedulerSpec:701-730`) | 150-250 | C-02 | U |
+| C-04b | TIM-04 #823 | Fixed rate; stop with terminated target (`SchedulerSpec:252,269`) | 150-250 | C-02 | U |
+| C-05 | TIM-05 #860 | Keyed actor timer with generation filter (`TimerSchedulerImpl:147-158`); single-shot removed after firing (`:149`) | 200-300 | C-03, A-03 | U |
+| C-06 | TIM-06 #900 | Cancel timers on restart and stop (`Timers.scala:41,46`; `TimerSpec:250,301`); old incarnation discarded (`:142-145`) | 150-250 | C-05; shares `supervision_restart.go` | U |
+| C-07a | TIM-07 #937 | Fixed-delay actor timers | ~150 | C-05 | U |
+| C-07b | TIM-08 #938 | Fixed-rate actor timers | ~150 | C-05 | U |
+| C-08 | TIM-09 #861 | `ReceiveTimeout` (`dungeon/ReceiveTimeout.scala:28`; `ReceiveTimeoutSpec:82,97,115,313`) | 200-300 | C-03, A-04 | U |
+| C-09 | TIM-10 #901 | `NotInfluenceReceiveTimeout` marker (`Actor.scala:158`; spec `:151,173`) | ~100 | C-08 | U |
+
+### Slice D: mailbox head insert, stash, messages
+
+| Story | Issue | Result and upstream contract | Est. | Depends on | Body |
+|---|---|---|---|---|---|
+| D-01 | NEW-08 | Insert messages at the mailbox head (`internal/mailbox/queue.go` has `Push`, `Pop`, `TakePending`, `Len`) | 120-200 | A-03 | n/a |
+| D-02 | BHV-04 #772 | Stash ownership/boundary (`Stash.scala:71,126`) | decision-sized | A-04 | U |
+| D-03 | BHV-05 #855 | Stash the current envelope; stashing the same envelope twice throws (`Stash.scala:184`, `ActorWithStashSpec:141`) | 150-250 | D-02 | U |
+| D-04 | BHV-06 #898 | Unstash prepends in original order then clears (`Stash.scala:245-252`) | 150-250 | D-01, D-03 | U |
+| D-05 | BHV-07 #899 | Bounded stash; overflow throws `StashOverflowException` (`Stash.scala:186-188`) | ~150 | D-03 | U |
+| D-06 | BHV-08 #935 | Stash survives restart; leftover to dead letters at stop (`ActorWithStashSpec:149`, `ActorWithBoundedStashSpec:126-133`) | 200-300 | D-04; shares `supervision_restart.go`. Classic path: O-4 does not apply; a dead-letter sender assertion uses ADR 0032 D6 (accepted) with an explicit sender and is not blocked by ADR 0032 D5 | U |
+| D-07 | MSG-06 #770 | `PoisonPill` at its mailbox position (`Actor.scala:44,52`, `ActorCell.scala:576`) | 150-200 | A-04 (**NOT STARTABLE** today) | V |
+| D-08a | NEW-21 (suggested; none published) | `ActorKilledException` as an independent contract: the exception type that `Kill` raises and that the default decider classifies (`ActorCell.scala:575`, `FaultHandling.scala:216-222`); no `Kill` delivery in this story | 100-150 | A-03 | n/a |
+| D-08b | SUP-02 #778 | Default decider classifies `ActorKilledException` as Stop; the existing classes are documented and tested | 150-250 | D-08a | V |
+| D-08 | MSG-07 #816 | `Kill` implementation: the message raises `ActorKilledException` inside the actor (`ActorCell.scala:575`). Independent of SUP-02 | 150-250 | A-04, D-08a | U |
+| D-08c | NEW-22 (suggested; none published) | End-to-end validation that `Kill` stops the actor under the default decider (`SupervisorMiscSpec.scala:70-73,171`) | 100-150 | D-08, D-08b | n/a |
+| D-09a | BHV-01 #771 | Replace the receive behavior (`become`, `discardOld`) | ~150 | A-04 (**NOT STARTABLE** today) | V |
+| D-09b | BHV-02 #817 | Push and restore behaviors (`unbecome`) | ~150 | D-09a | U |
+| D-09c | BHV-03 #897 | `UnhandledMessage` publication (`Actor.scala:297,656-663`) | ~150 | E-03a, A-04 | U |
+| D-10 | MSG-08 #896 | `deadLetters` and ignore refs | ~150 | E-01a; provides the `deadLetters` ref used by J-02a (O-4) | U |
+| D-11a | MSG-02 #814 | Current sender inside `Receive` | 200-300 | #1014 (ADR 0032); resolves ADR 0032 D5 (`Terminated`/`WatchWith` sender); provides the `TellFrom` surface of ADR 0032 D4 | U |
+| D-11b | MSG-03 #854 | `Forward` preserving sender | 200-300 | D-11a | U |
+
+### Slice E: events and logging foundation
+
+| Story | Issue | Result and upstream contract | Est. | Depends on | Body |
+|---|---|---|---|---|---|
+| E-01a | EVT-01 #793 | Event stream subscription semantics (`EventStreamSpec:150-296`; null subscriber rejected `:102,108`) | 150-250 | A-03 | U |
+| E-01b | EVT-02 #836 | Classified event subscriptions (registration only; the issue title no longer says "typed", which collided with `pekko-actor-typed`) | 150-250 | E-01a | U |
+| E-01c | EVT-03 #870 | Publish via mailboxes | 150-250 | E-01b (the dependency of #870 in its reconciliation; E-01a transitively) | U |
+| E-02 | EVT-04 #905 | Explicit unsubscribe, of one classifier and of all registrations of a subscriber (`EventStream.scala:64,74`, `EventStreamSpec:298,327`); removal of a terminated subscriber moved to #1056 (EVT-17) by the reconciliation of #905 | ~150 | E-01c (the dependency of #905 in its reconciliation) | U |
+| E-03a | EVT-05 #871 | Suppressed dead letters (`ActorRef.scala:601,610`) | ~150 | E-01a, E-01c; D-11a (#814, closed) for the sender-bearing assertions only | U |
+| E-03b | EVT-06 #906 | `Dropped(message, reason, sender, recipient)` (`ActorRef.scala:622`); the sender follows ADR 0032 D3, D4 and D6 (accepted) and is asserted with an explicit sender; ADR 0032 D5 does not apply | 150-250 | E-01c, E-03a (the dependencies of #906 in its reconciliation; E-01a transitively); D-11a for the sender-bearing assertions only. `AllDeadLetters` subscription moved to #1057 (EVT-18) | U |
+| E-04a | EVT-11 #794 | Actor-scoped logging with `kit-logger` `With` per actor and `Context.Log`; **NOT STARTABLE as written**; a no-new-export slice could start | 150-250 | A-03 (D3 justification), E-05 | V |
+| E-04b | EVT-13 #848 | Clear per-message logging context | ~150 | E-04a | U |
+| E-04c | EVT-14 #849 | Structured log markers | ~150 | E-04a | U |
+| E-05 | NEW-11 | `kit-logger` test fake: captures `With` fields, honors `SetLevel`, race-safe `Entries` (the shipped mock does none) | 120-200 | none (test support) | n/a |
+| E-06 | EVT-07 #907, EVT-08 #940, EVT-09 #837, EVT-10 #872, EVT-12 #891 | Dead-letter logging limits and EventBus variants; each is its own story and its own Owner classification | per Owner | A-04 | U |
+
+### Slice F: system foundation
+
+| Story | Issue | Result | Est. | Depends on | Body |
+|---|---|---|---|---|---|
+| F-01 | NEW-09 | Spawn system actors under `/system` (the guardian exists; `spawnTarget` uses `/user` only) | 120-200 | A-03 | n/a |
+| F-02a | SYS-01 #798 | Extension identity and initialization | 150-250 | A-04 | U |
+| F-02b | SYS-02 #841 | Register and get an extension (`ExtensionSpec:70-97`; HOCON loading excluded) | 150-250 | F-02a | U |
+| F-03 | SYS-03 #842 | Start time and uptime | in flight | PR #1013; criterion 1 pending Owner approval (O-7) | V |
+| F-04a | SYS-05 #799 | Termination callbacks; needs a note fixing the Go form | 150-250 | none (conditional) | V |
+| F-04b | SYS-06 #800 | Validate the shutdown phase graph (cycles rejected, `CoordinatedShutdownSpec:103`) | 150-250 | none | V |
+| F-04c | SYS-07 #844 | Tasks in a phase (parallel within a phase, next phase waits, `CoordinatedShutdownSpec:141-168`) | ~200 | F-04b | U |
+| F-04d | SYS-08 #882 | Advance phases | ~200 | F-04c | U |
+| F-04e | SYS-09 #918 | Phase timeout and recovery (`:402,:442`) | ~200 | F-04d, C-03 | U |
+| F-04f | SYS-10 #883 | Cancel a task | ~150 | F-04c | U |
+| F-04g | SYS-11 #950 | Wait for an actor in a phase | ~150 | F-04c | U |
+| F-04h | SYS-12 #919 | Shutdown reason | ~150 | F-04d | U |
+| F-04i | SYS-13 #971 | System termination integration | ~200 | F-04d | U |
+| F-04j | SYS-17 #932 | Start shutdown from a phase | ~150 | F-04d | U |
+| F-05 | SYS-04 #843 | Setup and deployment options | per Owner | A-04 | V |
+
+### Slice G: classic completeness
+
+Each story of these epics stays its own story; this plan creates no combined story for them. Their rows are the epic checklists of #752 (SUP), #753 (DTH), #750 (ASK), #757 (PAT), #758 (RTE), #754 (MBX), #755 (DSP), #759 (FSM), #761 (SER) and #747 (IDN); only the constraints below are added by this plan.
+
+| Constraint | Stories | Reason |
+|---|---|---|
+| Single owner of shared runtime files | #782, #783, #784, #785, #826, C-06, D-06 | `supervision_restart.go`, `cell.go`, `watch.go` |
+| Reverses a documented contract; ADR 0033 D5 impact list first | #785 DTH-01 | `ErrInvalidHandle` rejects foreign handles today (`errors.go:48-51`, `watch.go:114`); ADR 0014, 0024 |
+| Closes a documented PORT-GAP | #781 (`original-cause`), #782 (`failed-to-dead-letters`), #783 (`recreate-dead-letter`) | `supervision_hooks.go:20`, `supervision_restart.go:89` |
+| Depends on the open ADR 0032 D5 | #786, #814 (which resolves it), the runtime-delivery part of #854, and any assertion about the sender of `Terminated` or `WatchWith`. Not `DeadLetter` or `Dropped` sender assertions (ADR 0032 D3, D4, D6) and not the Typed stash dead-letter path (J-02a) | ADR 0033 D6 |
+| Id allocation shared | #804, #811 | both use ACTINV-092 and reserved ids 0-40 (`pekko-serialization`) |
+| Home module | #804, #806, #811 | `pekko-serialization`, not `pekko-actor`; ADR 0011 vs 0021 import question goes in the ADR 0033 D5 impact list |
+| Needs a circuit-breaker type and failure predicate first | #795 PAT-09 and the PAT circuit-breaker siblings | body refers to "the accepted failure predicate" |
+| Ordering of FSM | FSM-01..09 depend on C-06 and, for the stash variant, D-04 | FSM uses timers |
+| After PR #1011 merges | IDN-03 #812, IDN-04 #852 | `ActorPath` value |
+
+## 4. Typed slices
+
+All typed stories are blocked by A-01, by A-03 for the exports they consume, and by H-01. ADR 0033 D3 says Typed is implemented after its shared dependencies are published: H-01 (skeleton, `go.mod`, `deps.allow`, README) may merge early, but H-02 onward waits for the specific foundation each story consumes.
