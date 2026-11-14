@@ -1,0 +1,360 @@
+# Judge contract
+
+> **Scope change (2026-10-17):** goPekko has no tenancy module. The relations and mutations that mention tenancy or `tenancy.Owner` (P2, T4, T5, M44, M50) specify a requirement that is replaced; they are kept unchanged and are historical, no code implements them. Row ids and classification are not altered.
+
+
+- Status: proposed, for owner review
+- Date: 2026-10-08
+- Governs: `migration-kit/prompts/00b-judge-setup.md` (pre-Step 1) and Step 6 (behavior matching)
+- Replaces: the parity criterion in `migration/stage-1/feasibility.md` §3.3 and §9 (see its Amendments)
+
+The judge decides parity by checking **observable events against invariants and guaranteed order relations**, never by requiring two runs to produce the same trace. A run passes when every guaranteed relation holds and no unexpected event appears. Two valid interleavings both pass. A missing, extra or misordered guaranteed event fails.
+
+Every guarantee below was checked against `upstream/pekko` at `v1.7.1` (`9a54d12`). Paths are relative to `upstream/pekko/`; `docs/…` means `docs/src/main/paradox/…`.
+
+## 1. Why not identical traces
+
+The feasibility report proposed comparing normalised traces and requiring 100 byte-identical runs. Pekko does not promise a total order, so that criterion fails runs that Pekko itself considers correct:
+
+- Messages from different senders may interleave (`docs/general/message-delivery-reliability.md:119-129`).
+- Ordering is not transitive across intermediaries (`…:141-155`).
+- A child's failure and its last user messages to the parent may arrive in either order (`…:172-183`, `docs/actors.md:494-498`).
+
+A non-identical trace therefore says nothing about correctness, and normalising traces until they match would hide real defects. The judge asserts relations instead.
+
+## 2. Observable events
+
+Both harnesses record the same event vocabulary through the public API only. Scenario actors are test code in each harness, so they record their own hooks.
+
+| Event | Recorded when | Fields |
+|---|---|---|
+| `spawned` | spawn returns | actor |
+| `pre-start`, `post-stop` | the hook runs | actor, instance |
+| `pre-restart`, `post-restart` | the hook runs | actor, instance, cause kind, failed message (pre-restart, when there is one) |
+| `sent` | at the `tell` call site | from, to, message |
+| `received` | receive starts handling a message | actor, instance, message |
+| `decided` | a decider written by the scenario returns | supervisor, child, cause kind, directive |
+| `terminated` | a watcher handles `Terminated` | watcher, subject |
+| `dead-letter` | an event-stream subscriber gets a dead letter whose message is one of the scenario's message types | message, recipient |
+| `ask-replied`, `ask-failed` | the ask completes | asker, target, reply or failure kind |
+
+- **Identity** is the scenario's logical name (`parent`, `child-1`), plus an instance counter per actor that increments on restart. Paths, UIDs, thread names and timestamps are not recorded.
+- **No sender field.** ADR 0010 (D2, proposed) gives goPekko no implicit sender, and Pekko replaces a missing sender with `deadLetters` (`actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:686-690`), so a sender can never match. Reply addresses travel in the message and are compared as payload. If the owner chooses an implicit sender, `sender` returns to `received` and `dead-letter`.
+- **Ask failure kinds.** Pekko fails both cases with the same exception class (`actor/…/pattern/AskSupport.scala:312-318`), so the kind comes from the path, not from the exception: `recipient-terminated` when the ask has already failed when the call returns, `timeout` when it fails as the deadline passes, and `rejected` (goPekko only, `ErrRejected`) when a guard rejected the asked message.
+- **Default decider.** A supervisor without a scenario decider records no `decided` event; scenarios that rely on the default decider (G7) assert the lifecycle events it produces instead.
+- **Ordering.** Each actor's events carry a per-actor sequence number; an actor processes one message at a time, so its own events are totally ordered. A global sequence number exists only for diagnostics and is never asserted.
+
+### Recording
+
+The event log is **not** produced by an observer, and not by any queue that may drop. Observers are asynchronous and lossy by design (ADR 0008, "Observer execution"); a verdict that depends on them could pass because an event was dropped.
+
+- Each harness owns an **append-only recorder**. Scenario code (hooks, handlers, probes) appends synchronously to a **per-actor buffer**, and the append returns an acknowledgement (that actor's sequence number) only after the event is stored. Buffers are merged only at `Flush`, which returns when every append so far is acknowledged; end-of-run checks run after it. There is no lock shared between actors on the append path, so the recorder adds no happens-before edge between actor goroutines that `go test -race` could mistake for synchronization of the runtime under test. The calibration file records which recorder was used.
+- **Provenance is observed through a harness guard, never through observers.** The harness registers a recording `Guard` that logs every delivery it is asked to evaluate. A delivery received by the actor and present in the guard log was `Application`; one received and absent from the log was `Runtime`. This is what E10 and E13 assert. `Origin()` read by observers is not used (observers are not evidence).
+- **Dead letters.** They reach the recorder through a harness-owned subscriber that is registered before the first send. The recorder keeps **every** dead letter it receives, unfiltered; filtering to the scenario's message types is applied only to the events compared. On goPekko the harness compares the unfiltered count with the monotonic `DeadLettersPublished` counter (a runtime requirement, ADR 0010), read at the scenario-complete boundary after a subscriber barrier (a sentinel the subscriber acknowledges), waiting a bounded time for equality. A gap is a **harness error**, never a pass. **Asymmetry, stated:** Pekko has no such counter, so on the Pekko side completeness rests on the barrier alone (the subscriber registered before the first send, and the sentinel acknowledged after the last).
+- `ObserverFault` events and observer statistics are never evidence for a parity verdict. They are checked by their own scenarios (E11, E12), through the statistics, not through the judge log.
+- Events keep their source, so a missing source is distinguishable from a missing event.
+
+## 3. Guarantees, by tier
+
+| Tier | Meaning | Judge behavior |
+|---|---|---|
+| **G** | Documented Pekko guarantee | Asserted in every run, both modes |
+| **I** | Behavior of `v1.7.1` verified in source, not documented as a guarantee; local actors, default (FIFO) mailbox | Asserted in the mode the relation names; goPekko may deviate only through an ADR |
+| **N** | Not guaranteed | Never asserted; every allowed order must pass |
+| **S** | Own specification: goPekko's ADRs 0008 and 0010 define it and Pekko has no equivalent | Asserted on goPekko only; the Pekko harness shows non-interference (E05). No Pekko oracle, so detection rests on mutations of goPekko |
+
+| Id | Relation | Tier | Source |
+|---|---|---|---|
+| G1 | For messages sent directly with `tell` from A to B: if both are received, they are received in send order. FIFO mailboxes only. | G | `docs/general/message-delivery-reliability.md:111-138` |
+| G2 | A parent that creates a child and then sends to it: creation is ordered before the message, so the message, if delivered, is received after the child's `pre-start`. | G | `…:158-166`, `docs/actors.md:447` |
+| G3 | Per instance: `pre-start` → `received`* → end of instance; hooks never overlap `received`. Clause G3.c: the `Receive` calls of one actor never overlap (one message at a time). | G | `docs/actors.md:447-505`; G3.c: `docs/general/actors.md:56-62` (single-threadedness of handling the actor's state), `actor/…/dispatch/Mailbox.scala:187-195` (`setAsScheduled`, one run of a mailbox at a time), `:230-240` (`run`) |
+| G4 | Restart that completes: `pre-restart(old)` → `post-stop(old)` (the default `pre-restart` stops the children and calls `post-stop` without waiting for them) → `post-restart(new)` → `pre-start(new)` (the default `post-restart`). A stop requested while the restart waits for the children abandons it: no new instance, no `post-restart`, no second `pre-start` (clause G5.f, S22). The failing message is not received again; queued messages are kept and received by the new instance. | G | `docs/actors.md:463-492`, `…:1217-1220` |
+| G5 | Stop: the current message finishes and queued messages are not received; every child's final `post-stop` happens before the parent's final `post-stop`; the runtime calls `post-stop` once, at termination, on the current instance (the default `pre-restart` also calls it on the old instance, so an instance whose restart was abandoned by a stop sees two calls; clause G5.f, S22). The stop may be requested from outside the actor (`ActorSystem.stop`, S19). Clause G5.e: an actor that is stopped before its first activation still runs `pre-start` and then `post-stop`, once each (S20). Clause G5.f: a stop requested while a restart waits for the children gives exactly the hook counts of that case (S22). Clause G5.d keeps its meaning for every scenario that has no such stop. | G | `docs/actors.md:923-957`; `actor/…/actor/dungeon/FaultHandling.scala:180-212,247-276,327-351` and `actor/…/actor/Actor.scala:625-631` (the wording "once per instance" was the judge's, not Pekko's); external stop: `actor/…/actor/ActorSystem.scala:939-948`, `actor/…/actor/dungeon/Dispatch.scala:167-169` (`Terminate` system message); G5.e: `actor/…/actor/dungeon/Dispatch.scala:79-111` (`Create` is enqueued as a system message at initialization, ahead of any `Terminate`), `actor/…/actor/dungeon/FaultHandling.scala:247-254` (`finishTerminate` calls `postStop`) |
+| G6 | Watching a subject that stops yields `terminated` at the watcher; watching an already-stopped subject yields it too; after `unwatch`, none is handled; a restart yields none. | G | `docs/actors.md:411-443` |
+| G7 | Default decider: `Restart` for an ordinary failure; `Stop` for initialization failure, kill and death pact. | G | `actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:210-223` |
+| G8 | Ask: the result is the first reply, or a timeout failure once the deadline passes if none arrived; it completes exactly once. | G | `actor/…/pattern/AskSupport.scala:72-75` (scaladoc of `ask`) |
+| I1 | `terminated(W, S)` is handled after every message S sent directly to W, and after S's final `post-stop`. Both modes. | I | `actor/…/actor/dungeon/FaultHandling.scala:247-276` (post-stop, then notifications), `actor/…/actor/dungeon/DeathWatch.scala:99-114` (Terminated enqueued as a user message from S) |
+| I2 | With a single registration, `terminated` is handled exactly once. Re-registering may produce two (documented). Both modes. | I | `docs/actors.md:432-438`, `actor/…/actor/dungeon/DeathWatch.scala:81-93`, `:117-119` |
+| I3 | Controlled mode: a message sent to a terminated actor, and every message still queued at its stop, is published once as `dead-letter`. Concurrent mode: a message is never both received and dead-lettered, and never dead-lettered twice. Excludes messages marked `DeadLetterSuppression`. Pekko documents dead letters as best-effort (`docs/general/message-delivery-reliability.md:315-320`). | I | `actor/…/dispatch/Mailboxes.scala:54-72`, `actor/…/dispatch/Mailbox.scala:336-354`, `actor/…/actor/ActorRef.scala:686-716` |
+| I4 | Once the subject's termination has been observed, an ask to it fails at once (`recipient-terminated`) and the message is dead-lettered. Both modes. | I | `actor/…/pattern/AskSupport.scala:372-375` |
+| I5 | A reply that arrives after its ask has completed (timeout, an earlier reply, or rejection) is not delivered to the asker: it is published as a dead letter. Controlled mode. | I | `actor/…/pattern/AskSupport.scala:614-628` (`if (alreadyCompleted) provider.deadLetters ! message`) |
+| I6 | Registering `watch` or `watchWith` again for the same subject with a different termination message fails the watcher (`IllegalState`); the same message is a no-op. Both modes. | I | `actor/…/actor/dungeon/DeathWatch.scala:35-65`, `:125-131` (`checkWatchingSame`) |
+| P1 | Delivery provenance is set only by the runtime, from the delivery path. No exported function accepts an origin; `InboundEnvelope` is sealed and `Terminated` is not constructible by application code. A `Terminated`-shaped user type, or the registered `WatchWith` value, sent with `Tell` is an application message. | S | ADR 0008, "Provenance" |
+| P2 | `Terminated` reaches a watcher whose `Watch` was called from a lifecycle hook, with tenancy required; guards are not called for it. | S | ADR 0008, "Provenance" |
+| P3 | The `WatchWith` message keeps **internal** provenance although its value belongs to the application protocol: guards are not called, it goes only to the registrant, once, and its payload is the value captured at registration (no API lets the watched actor change it; a payload that holds pointers shared with the watched actor is the registrant's responsibility). The same value sent with `Tell` is an application message. | S | ADR 0008, decision D6 |
+| P4 | A `ReplyTo` or an ask correlation never makes a message internal. A send to the ask completion endpoint only completes that ask, once; it is not a delivery to an actor. The `AskFrom` mapped result, a reply sent to an ordinary `Ref`, and anything carrying a foreign or stale endpoint are application messages, guarded. | S | ADR 0008, decision D6; ADR 0010 |
+| F1 | `Forward` preserves the ask correlation; a plain `Tell` while processing an ask does not, and does not complete or fail it. | S | ADR 0010, "Ask completion and forwarding" |
+| F2 | Only the first `Forward` made while processing an asked message carries its ask correlation. A second `Forward`, a `Forward` after the turn, and a plain `Tell` do not, and a rejection of those does not complete or fail the ask. | S | ADR 0010, "Ask completion and forwarding" |
+| A1 | A guard rejection of an asked message completes the ask once with `ErrRejected`; a later reply does not change the result and is dead-lettered (I5). | S | ADR 0008, core rule 2 |
+| C1 | The metadata an envelope carries is an immutable snapshot: mutating the sender's bytes after enqueue, or bytes returned to the receiver, changes nothing stored. | S | ADR 0008, "Metadata" |
+| C2 | Each propagation path delivers the metadata its table row says (tell, ask from outside, forward, dead letter, `Terminated`, hooks). | S | ADR 0008, "Propagation" |
+| H1 | `AskFrom` called from a lifecycle hook is refused loudly: it creates no ask and fails the actor with `ErrAskFromHook` (an initialization failure when called from `PreStart`). | S | ADR 0010, decision D4 |
+| K1 | Accepting a stop cancels the actor-owned processing context; a caller's cancellation or deadline never does; `post-stop` and the termination notifications wait for the handler to return. Cooperative: cancellation does not interrupt user code. | S | ADR 0008, "`context.Context`, cancellation and deadlines" |
+| X1 | A `*Context[T]` is valid only during the call it was passed to. Afterwards a send made with it carries system metadata and no ask correlation, other operations on it do nothing, and each use is published as `ContextMisuse`. | S | ADR 0010, "Signatures checked" |
+| T1 | A system that requires a guard which is not registered fails `NewSystem`; a missing extension is never open. | S | ADR 0008, core rule 4 |
+| T2 | An application delivery that a guard rejects never reaches `Receive`; a guard error, a guard panic and an expired guard budget each reject. | S | ADR 0008, core rules 1 and 3 |
+| T3 | A trusted key can be declared and written only with the capability handed to extensions at start-up. Application code cannot write it by name or with a nil or forged capability, and cannot declare it. | S | ADR 0008, "Trusted versus caller-supplied" |
+| T4 | There is no default tenant: a missing, malformed or unknown tenant rejects. | S | ADR 0008, tenancy rule 5 |
+| T5 | An actor spawned with `tenancy.Owner` rejects a message from any other tenant. | S | ADR 0008, tenancy rule 6 |
+| O1 | An observer, however slow or blocked, never delays an actor's processing, a sender or an ask. | S | ADR 0008, decision D7 |
+| O2 | When an observer's queue is full the event is dropped, and the drop is counted in that observer's statistics. | S | ADR 0008, decision D7 |
+| O3 | An observer's panic does not reach an actor, a sender, another observer or the runtime. | S | ADR 0008, decision D7 |
+| O4 | On system shutdown each observer is drained for at most the shutdown deadline and then abandoned; a never-returning observer does not hold shutdown past that deadline; events not delivered are counted as `Abandoned`; the final statistics stay readable. No lossless delivery is promised. | S | ADR 0008, decision D7 |
+| N1 | Order between different senders at one receiver. | N | `docs/general/message-delivery-reliability.md:119-129` |
+| N2 | Order across intermediaries (A→C versus A→B→C). | N | `…:141-155` |
+| N3 | A child's failure notification versus its earlier user messages to the parent. | N | `…:172-183` |
+
+A scenario that would only pass under one N-tier order is rejected at scenario review.
+
+## 4. Verdict rules
+
+A scenario run ends in exactly one of three results: **pass**, **fail** or **harness error**. Harness errors block the gate like failures.
+
+**End of run.** Positive assertions are checked as events arrive. Negative assertions ("no `terminated`", "not received") are checked only at the end of the run:
+
+- **Controlled mode:** at quiescence, when no actor is runnable, every queue is empty and no timer is due before the next scripted step.
+- **Concurrent mode:** after a scenario-declared observation barrier acknowledged through the public harness API. Record a scenario-complete boundary before system teardown. Events caused by teardown belong to a separate phase and do not satisfy or violate scenario assertions; any violation observed before the boundary remains a failure.
+  *The final wait of a scenario whose contract is a `Terminated` that must arrive (S07, S13, S14, S18, S22 on the Pekko harness) is bounded by `deadline / 4`, like `TestKit.expectTerminated(max)` (`TestKit.scala:503-506`) and like `awaitOrQuiesce` on the Go side: when the bound passes without the completion witness the run records `run-end` and the comparator reports the missing required event as a clause failure (G6.a), not a timeout of the whole deadline. An unmutated run is *inferred* to get its witness in milliseconds (the baselines of the next campaign will show it; on a loaded machine a run slower than the bound would be reported as a failure, as on the Go side), so the bound should never decide a passing run (`Judge.absenceBounded`, `judge/selftest_harness_bound.py`).*
+- **Negative assertions:** each names its subject, interval and completion witness. For restart, await a reply processed by the new instance before the boundary; for unwatch, order unwatch before stopping the subject in the watcher actor and await the subject's termination through a separate probe. A sleep alone is not a completion witness. The harness must demonstrate that all relevant notifications have been processed before closing the interval; if it cannot establish this using public APIs, report a harness error rather than pass.
+- **Witnesses for I2 and I3.** For a duplicate `terminated` (I2) the witness is a round trip through the watcher's mailbox after the subject's termination; for a duplicate or contradictory dead letter (I3), the subscriber barrier of "Recording". A duplicate `terminated`, or a dead letter for a message that was also received, observed during teardown is a fail labelled `late-violation`; teardown never turns a violation into a pass.
+- **Drain and shutdown:** do not assume an event-stream subscriber survives system shutdown. Obtain subscriber acknowledgements while it is alive and await system termination separately. Record teardown events for diagnostics in their own phase.
+
+Rules:
+
+- **Missing event:** an expected event is absent at the end of the run. Fail.
+- **Unexpected event:** any event outside the scenario's allowed set. Fail. Examples: a third `post-stop` across one restart, a duplicate `terminated` after a single registration, a `dead-letter` for a message that was also received.
+- **Misordering:** any G or I relation violated in a mode where it is asserted. Fail.
+- **Timeout or blocking:** each scenario has a deadline (logical time in controlled mode; wall-clock, generous, in concurrent mode). Not reaching the end of run by then is a fail labelled `stuck`, reported with the partial event log. A stuck or flaky scenario is a defect to triage, never a run to retry until green. **Expected outcome.** A scenario may declare `expect: stuck`, for a case that must never return (a guard that does not return, E07b): then reaching the deadline without the end of run is a pass and reaching the end is a fail.
+- **Payloads:** compared exactly. A failure is compared by the kind the scenario declares (`IllegalState`, `Timeout`), not by message text, because exception text differs between languages.
+
+Allowed normalisation is limited to: identities to logical names, failures to declared kinds, timestamps dropped, dead letters filtered to the scenario's message types. Sorting events, dropping event kinds and collapsing duplicates are forbidden.
+
+## 5. Two modes
+
+| | Controlled | Concurrent |
+|---|---|---|
+| Purpose | Reproduce a scenario step by step | Find violations that only some interleavings show |
+| Pekko side | `CallingThreadDispatcher` and `ExplicitlyTriggeredScheduler` from `testkit/src/main/scala/org/apache/pekko/testkit/` | Default dispatcher, real scheduler |
+| goPekko side | An injectable executor and clock; ask deadlines are armed on that clock (requirements on the runtime; see ADR 0010) | Default runtime, `go test -race` |
+| Inputs | Scripted, single seed | Scripted, many senders, recorded seed per run |
+| Runs | 1 per scenario | N per scenario, produced by 00b (see Concurrent run count below); nightly for `timing`-tagged runs |
+| Clock | Advanced by the scenario | Real, deadlines generous |
+
+In controlled mode every send of the scenario comes from the calling thread. That is what makes I3 strict there: `CallingThreadDispatcher` does not deliver to dead letters a message enqueued by another thread during cleanup (`testkit/src/main/scala/org/apache/pekko/testkit/CallingThreadDispatcher.scala:381-386`). A scenario that sends from another thread is concurrent-only.
+
+### Concurrent run count
+
+The number of runs per concurrent scenario is not chosen here; **00b must produce it**, as `judge/calibration.tsv`, one row per concurrent scenario and side: `scenario, side, race, recorder, mutant, mutant_runs, detections, q_low, N, runs_on_pr, date, pekko, go, cpus`. The rule:
+
+1. **Floor, 300 runs.** With zero violations in `n` independent runs, the 95% upper bound on the per-run violation rate is about `3/n` (rule of three; exactly `1 - 0.05^(1/300) = 0.994%` for 300), so 300 clean runs bound it below 1%. Independence between runs is assumed, not proven.
+2. **Raise it where a defect is intermittent.** For each concurrent scenario, 00b picks one mutant that only some interleavings expose (for S02 and S06, a mutation of M1's family on the queue order) and runs the scenario against it `n = 200` times, counting `d` detections. It takes `q_low`, the one-sided 95% **Clopper-Pearson lower bound** of the detection probability (the `q` with `P(X >= d) = 5%` for `X ~ Binomial(200, q)`), never the point estimate `d / 200`. Then `N = max(300, ceil(ln(0.01) / ln(1 - q_low)))`: a defect that shows up with probability at least `q_low` per run is caught with at least 99% probability. The bound is valid for **that mutant class**, not for every defect.
+3. **`d = 0` is a harness error.** If 200 runs never detect the mutant, the scenario cannot see that defect class; fix the scenario before choosing `N`.
+4. **Cap.** A pull request runs `min(N, 5000)` runs, and `runs_on_pr` records it; the nightly job runs the full `N`. A scenario with `N > 5000` is reported as **capped** in the 00b report, so a merge never silently relies on fewer runs than the calibration asks for.
+5. **Per side.** `q_low` is measured separately on the Pekko side and on the goPekko side, and goPekko with `go test -race`; `race` says which. The file also records the date, the versions, the CPU count and the recorder, because `q` depends on them. A change of runtime, scheduler, hardware or recorder requires re-running the calibration. The milestone acceptance reads `N` from this file.
+6. **Independence is assumed; one way it can fail is checked.** The bounds above are conditional on the executions being independent: that is the assumption of item 1, and it is not something a pull request has to prove. `judge/calibrate.py record` makes one check on it: it compares the detection rate of the first 40 executions of a campaign with the rest (Fisher exact, level 0.01 divided by the number of campaigns compared, replicates included). A difference refutes a rate that does not depend on the position of an execution, and the row stays `pending`. Passing proves nothing about independence. Where executions share a JVM, a scenario can also be calibrated with one fresh JVM per execution (`calibrate.py run --per-jvm`), which removes the shared JVM state and still does not make them independent; the row's `recorder` column says which protocol produced it, and a pull request must use that protocol with `N` executions. The protocol of a campaign is written down before it runs. Measurements: `migration/stage-1/gate-a-calibration.md`.
+
+7. **The goPekko side (`side = go`) uses exactly this method.** `judge/calibrate.py go-run` copies `pekko-actor/`, applies one mutation of `judge/mutate_go.py`, runs the Go harness with `go test -race` for `n = 200` concurrent runs and judges the logs with the same `evaluate.py`; `go-record` turns a finished campaign into a row with the same `q_low`, `N` floor of 300 and cap. Differences, all in the mechanism and none in the statistics: the mutant is a Go edit, `race` is `go test -race`, the `recorder` is the per-actor buffer of `judge_internal_test.go`, `go` holds the Go version and `pekko` the pinned upstream commit. A detection is a run that failed **with the clause the mutation was designed to be caught by** (`G5.b` for S19/GMstop, `G3.c` for S21/GMoverlap); a campaign counts only if `evaluate.campaign()` accepts exactly runs `r1..r200`, the `go test` exit is 0 and no run is a harness error or a timeout. A missing, duplicate or surplus run, a harness error, a timeout or a run that fails with another clause is never a detection and never a survival, and `go-record` records nothing and exits non-zero (see the contract below). Only **S19 and S21** are calibrated on the Go side (`calibrate.py go-plan` prints and validates the pairs against `mutate_go.py` and `go-scope.json`). **S20 (the known divergence D2) is never calibrated**: its expected failure is the divergence itself, not the detection of a deliberate defect, so `go_plan`, `go-record`, `check` and `scripts/check-judge-matrix.py` refuse an S20 Go row, an S20 result or a Go mutation designed to be detected by S20. The Linux rows of `judge/calibration.tsv` were measured by the `judge-calibration` workflow on a GitHub-hosted Linux runner (run 38017253735, commit `5101b75`; see `docs/actor-core-parity.md` section 8.1); the macOS rows are in `judge/calibration.macos.tsv`. S01, S02, S10 and S11 have no Go calibration yet, so their 300 runs are the floor, not a calibrated `N`.
+
+   **Validation of a finished campaign (`go_validate_campaign`).** The `results` stored in `manifest.json` are a summary, not evidence. One function, used by both the recovery of `go-run` and by `go-record`, decides whether a campaign directory is evidence, and `calibrate.py go-validate <workdir>` runs it read-only. It checks, in this order: (1) `manifest.json` parses, is `finished` and has every key `go-run` writes; (2) `config_sha256` equals the digest of the stored `config`; (3) identity: the scenarios and the mutant are the Go plan (`go_plan()`: S19/GMstop with `G5.b`, S21/GMoverlap with `G3.c`; S20 is refused), `mutation_sha256` is the digest of the mutation of that name in `judge/mutate_go.py`, `runs` is 200, the race mode is `go test -race`, the platform is Linux or macOS, `cpus` is a positive integer; (4) `go-test.log` beside the manifest exists and its sha256 is `go_test_log_sha256`, and `go_test_exit` is 0; (5) `logs/` holds exactly `r1..r200` once each per scenario, and every log is judged **again** by the same `go_results` / `evaluate.py` path as the initial run; (6) every field of the declared per-scenario result (`outcome`, `runs`, `pass`, `fail`, `unexpected`, `harness_error`, `timeout`, `clause`, `fired_rules`, `ids_ok`, `detail`, `per_run`) equals the re-derived one. A declared `outcome` of `failed` is never proof of a detection; the detections, run counts and per-run vector that feed `q_low`, `N` and the stationarity test are the re-derived ones. The specs for step 5 are **not** read from the work directory (its `specs/` is as editable as its logs): they are regenerated by `judge/go_scope.py` from the repository that contains the code, into a scratch directory. A campaign judged against specs that changed since it ran therefore fails at step 6 instead of being accepted silently. The check adds no field to the manifest: the macOS campaign and the Linux run 38017253735 carry every key it needs and pass it (see `docs/actor-core-parity.md` section 8.1). **The hashes are consistency and integrity checks inside the documented flow, not authenticity**: whoever can edit the logs and the manifest can recompute every digest, and the validation neither signs nor attests anything. It also does not compare `harness_sha256`, `pekko` or `go` with the current tree; `go-record` only requires them to agree across the campaigns of one directory.
+
+   **Exit status of `go-run`.** `0` every scenario detected its mutation, `1` a valid campaign that did not detect it (survived, or only runs without the designed clause), `2` an execution error (`go test` non-zero, harness error, timeout, missing or surplus runs) **or invalid evidence**. The worst status of the campaigns wins. A `finished` campaign with the same configuration is **recovered only after the validation above passed**; a recovered intact campaign then exits with the same status as its initial run (recovery never counts as a success by itself: the re-derived outcome decides). If the validation fails (a deleted, truncated, duplicated or surplus log, a missing or changed `go-test.log`, a summary that does not match the logs, a configuration whose digest does not match), `go-run` prints every problem, exits `2`, reports no result from that directory, and does nothing else: it deletes nothing, moves nothing aside, does not re-run and does not rewrite the manifest. A new run needs the person to move the directory aside; `--discard-partial` keeps its meaning (it moves a partial or different-configuration campaign aside) and is not applied to a finished campaign of the same configuration whose evidence is invalid.
+
+   **Destination of `go-record`.** The platform is read from the `os` recorded in the manifests, never from the machine that runs `go-record`: `Linux` campaigns go to `judge/calibration.tsv`, `macOS` (`Darwin`) campaigns to `judge/calibration.macos.tsv`, and that table is also the default `--base`. An unrecognized or mixed platform is refused. `--out` may name any other file (a candidate). The committed table of the other platform is refused as `--out` or `--base`, before anything is read for writing, and the file name decides nothing. An **existing** path is compared with the canonical table by **file identity** (`os.path.samefile`), so a symbolic link of any chain length, a hard link and, on a case-insensitive filesystem, a capitalization variant (`CALIBRATION.TSV`) are all recognized; relative paths are fine. A path that **does not exist yet** is compared by its **resolved path** (`os.path.realpath`, a missing tail kept as given). If the identity check itself fails (any `OSError` other than the path not existing, for example a permission error), `go-record` stops with an explanatory message and writes nothing; it never continues silently toward the write. The default destination and default `--base` come from the same canonical definition. So a macOS campaign never replaces Linux rows and the reverse. A scratch copy that merely has the name of the other platform's table is a different file and is **not** refused by the destination rule; the content checks of `go-record` (rows, conditions, all-or-nothing) still apply to it. **Limits:** this is a local guard against mistakes, **not a security boundary**: the file can change between the check and the write (a race), and a filesystem may offer other aliases that identity cannot see. **Restriction of the mixed-conditions key.** The conditions that must be identical across the campaigns of one directory include `os`, which is the full `platform.platform()` string (for example the exact macOS build and kernel), not just the platform family. Every campaign of one directory must therefore come from the same exact OS build; campaigns run after an operating-system update cannot be mixed with earlier ones. The key is deliberately unchanged: relaxing it would first need a decision on which environment differences are admissible for `q_low` to transfer.
+
+   **Failed re-calibration contract.** A failed attempt is never presented as a new measurement. `go-record` validates **every** campaign with `go_validate_campaign` before it computes any row; invalid evidence is printed as `INVALID` lines, the exit status is `1` and nothing is written. If any campaign of the directory is invalid, partial, survived, timed out, had a harness error, was incomplete, was `unexpected` or fails the position check, `go-record` prints every `PENDING` reason, exits `1` and **writes nothing**: the destination keeps its previous bytes. An earlier valid measurement therefore stays exactly as it was, with its own `date`, `pekko`, `go` and `cpus` (the provenance of that measurement, not of the failed attempt, which lives only in its `manifest.json` and the `PENDING` report); a row is never reset to `pending` by a failed attempt either. Only when every campaign is valid are the Go rows replaced, in one step (a temporary file beside the table, then `os.replace`), so an error while writing also keeps the previous file. This guarantees atomic replacement only (readers see the old or the new file, never a mix); it is **not** crash durability: the temporary file is not `fsync`ed, so after a power loss or a system crash the table may be lost or revert. The Pekko `record` is unchanged.
+
+   **Running the Go calibration on Linux (`judge-calibration.yml`, retired).** *The workflow was deleted by #430 (`b0aa46ed`, `docs/ci-economy.md`: no judges or calibrations in Actions, dispatch included); what follows describes what it did. The commands it ran (`calibrate.py select-side`, `go-run`, `go-record`) are still local and tested by `judge/selftest_calibrate.py`; the package of a campaign run by hand is checked by `judge/verify_package.py` (`judge/selftest_package.py`).* The workflow had an explicit `side` input (`workflow_dispatch` only; `pekko` is the default). Start it from Actions with `side = go`, leaving `scenarios` empty (S19 and S21) or naming a subset; `per_jvm` must stay `false`. The `labeled` trigger has no inputs and always runs the Pekko side exactly as before. A first job, `select`, runs `calibrate.py select-side`, which refuses an unknown side, any scenario outside the side's plan (S20 is refused by name as the known divergence D2, a duplicate is refused, an empty list is the whole Go plan) and `per_jvm = true` with `side = go`; if it refuses, no campaign job runs. With `side = go` only the job `calibrate-go` runs, alone on `ubuntu-latest`: no Java, sbt, Pekko copy or witness step. It sets up Go through `.github/actions/go-setup` (the version of `.go-version`; the workflow never writes one), runs `calibrate.py go-run` (`go test -race`, 200 runs per mutant) and then `calibrate.py go-record` with an explicit candidate destination, `--out $RUNNER_TEMP/out/calibration.candidate.tsv --base judge/calibration.tsv`. The checked-out tables are never written, and the Linux destination follows from the `os` the manifests recorded. A failed `go-run` or `go-record` makes the job red, and the record step and the upload run anyway (`if: always()`), so the evidence of a failed campaign is kept without being recorded as a measurement (`go-record` writes nothing on any problem). The artifact `judge-calibration-go-<run id>` holds the manifests and logs of the campaigns (`calibration/`), `environment.txt` (checked-out SHA, Pekko pin, OS, kernel, CPUs, Go version, the plan), `checked-out-sha.txt`, `go-run.log`, `go-record.log`, the candidate table and `SHA256SUMS`. **The workflow commits and pushes nothing** (`permissions: contents: read`): a person downloads the artifact, checks the digests, and records the Linux rows by running `go-record` on the downloaded `calibration/` directory against `judge/calibration.tsv`, then commits the table in a pull request. Until that is done the Linux Go rows stay `pending`; they were recorded this way from run 38017253735.
+
+Values for `n = 200` (computed with the exact binomial, to be recomputed by 00b from its own counts):
+
+| d | point estimate | `q_low` | `N` |
+|---|---|---|---|
+| 1 | 0.5% | 0.00026 | 17957 (capped: PR runs 5000) |
+| 2 | 1% | 0.00178 | 2586 |
+| 5 | 2.5% | 0.00990 | 463 |
+| 10 | 5% | 0.02737 | 300 |
+| 20 | 10% | 0.06726 | 300 |
+
+With `d = 1` the point-estimate formula would have asked for 919 runs; the lower bound asks for about twenty times that.
+
+Restart windows (`maxNrOfRetries` within a time range) are measured with `System.nanoTime` in Pekko (`actor/…/actor/FaultHandling.scala:66-88`), not with the scheduler. A manual clock cannot drive them, so windowed retry scenarios run only in concurrent mode, with margins wide enough not to depend on timing.
+
+## 6. Proving the judge detects defects
+
+The judge is real only when it fails on broken code.
+
+1. **Self-tests (CI, every PR):** hand-written event logs per family. Every valid alternative interleaving must pass; every invalid one must fail with the expected rule id.
+2. **Mutations on the Pekko side (every mutation without the `(goPekko)` mark):** applied to a scratch copy outside the repository, never to `upstream/pekko`. The minimum set is listed below. Each must make at least one scenario fail, and the report lists the failing scenario and rule per mutation.
+3. **Mutations on the goPekko side:** every mutation, including those marked `(goPekko)`, which have no Pekko equivalent. Applied once the runtime exists.
+4. **No required relation without a mutation.** Every G, I and S relation in section 3 must be broken by at least one mutation above, and every such relation must be asserted by at least one scenario. A relation with no mutation, or with no scenario, is a gap in the contract. The relation to scenario to mutation matrix is in `migration/stage-1/milestone-1.md`, and `scripts/check-judge-matrix.py` fails when a row is missing. The matrix records the **designed** detection. The **observed** one is not typed in any document: 00b writes `judge/mutation-report.tsv`, one row per mutation, scenario and mode, with the run counts and an `outcome` (`scripts/check-judge-matrix.py` reads it and accepts only pairs that were designed). `outcome` is the state of the **campaign**, not the number of violations: `failed` (the judge caught the mutation) needs every requested run to be judgeable and at least one to fail; `survived` needs every requested run to pass; a campaign with a harness error or a timeout among its runs is `harness-error` or `timeout` even if other runs failed (a run counts by the state of its execution, not by what its log shows: a run that ended in timeout is a timeout even when its prefix already proves a violation, which the comparator reports as verdict `fail` with state `timeout`), and a set of logs that is not exactly the runs requested (missing, duplicate or surplus identifiers) is `incomplete`. The violations seen stay in the row (`fail`, `fired_rules`) as **observations**, never as detection or survival. A **clause** is observed when at least one mutation designed to break it was caught by that clause in a valid campaign; a designed mutation that was not caught, not implemented or not a valid result is an unmet expectation, listed and never erasing another mutation's detection. A relation has every clause observed when each of its clauses is observed. Designed coverage, observed detection and execution reliability are reported as three separate facts.
+
+   **The JVM of a Pekko row (`jdk`, `sbt_version`, `platform`).** The Pekko code runs inside the JVM of sbt (the `judge` project does not fork `run`), and `sdkman-init.sh`, which the runners source, replaces `PATH` and `JAVA_HOME`; `JAVA_8_HOME` alone only feeds Pekko's build. So `judge/run-pekko.sh` and `judge/mutate.py run` pass `-java-home "$JAVA_8_HOME"` to sbt, read the `welcome to sbt` banner and refuse to register a row (or exit 3) when the Java is not 1.8 (`judge/jdk.py`, `judge/selftest_jdk.py`). The three columns record what the banner said; A refusal aborts the whole `run` call (the rows of earlier mutations of that call are not written; their `sbt.log` files stay in the work directory), so run one mutation per call, as the campaign driver does. `-` marks a row that no run of this tree produced (re-evaluation, not implemented) or an earlier row whose runner did not record them. The 13 rows of the campaign of #1489 carry `11.0.32`: they ran on JDK 11 (correction of 2026-11-09 in `migration/stage-1/judge-pekko-1484/PROVENANCE.md`).
+
+   **Pekko baselines (`judge/pekko-baseline-report.tsv`, `judge/baseline.py`).** A mutation row says the judge catches a defect; a baseline row says the same scenario passes on unmutated Pekko. `baseline.py run <copy> <workdir> <scenarios>` runs each scenario in every mode it declares (S21 only concurrent; 30 concurrent runs, 1 controlled) with the same preflight, classification and JVM rule as `mutate.py run`, and writes one row per scenario and mode (`passed`, `failed`, `harness-error`, `timeout`, `incomplete`, `compile-error`; columns in the docstring). A baseline row is CURRENT by the rule of the mutation rows (`pekko_current.py`). `scripts/check-judge-matrix.py` prints `Pekko baseline CURRENT` and `Pekko V3 evidence`: a designed detection is listed only when its mutation row is CURRENT and ran on Java 1.8, the baseline of its scenario is CURRENT, passed and ran on Java 1.8 in **every** mode the scenario declares, and both rows were produced by the same judge inputs (`pekko_current.same_inputs`: the same commits, or identical files at both). That is the evidence part of level V3; assigning V3 stays an Owner decision. `judge/selftest_baseline.py` tests it.
+
+| Id | Mutation | Expected to break |
+|---|---|---|
+| M1 | Reverse two queued messages from one sender | G1 |
+| M2 | Skip `post-stop` | G5 |
+| M3 | Redeliver the failing message after restart | G4 |
+| M4 | Call the parent's `post-stop` before a child's | G5 |
+| M5 | Deliver `terminated` twice for one registration | I2 |
+| M6 | Drop dead-letter publication | I3 |
+| M7 | Process one queued message after stop | G5 |
+| M8 | Enqueue `terminated` ahead of a message the subject sent to the watcher earlier | I1 |
+| M9 | Notify the watchers before the subject's final `post-stop` | I1 |
+| M10 | Ignore `unwatch`: deliver `terminated` anyway | G6 |
+| M11 | Deliver no `terminated` when the watcher watches an already-stopped subject | G6 |
+| M12 | Deliver `terminated` when the subject restarts | G6 |
+| M13 | The default decider stops the child on an ordinary failure | G7 |
+| M14 | The default decider restarts the child on an initialization failure | G7 |
+| M15 | An ask to a terminated actor waits for its deadline instead of failing at once | I4 |
+| M16 | Deliver the parent's first message to a child before the child's `pre-start` | G2, G3 |
+| M17 | Run `post-stop` without waiting for the `Receive` in flight | G3, G5 |
+| M18 | (goPekko) Treat a value as internal because it equals or looks like a runtime signal (a `Terminated`-shaped value, or the registered `WatchWith` value) sent with `Tell` | P1 |
+| M19 | (goPekko) Call the guards for `Terminated` | P2 |
+| M20 | (goPekko) Call the guards for the `WatchWith` message | P3 |
+| M21 | (goPekko) Deliver the `AskFrom` mapped result with internal provenance, unguarded | P4 |
+| M22 | (goPekko) `Forward` drops the ask correlation | F1 |
+| M23 | (goPekko) A plain `Tell` while processing an ask completes or fails that ask | F1 |
+| M24 | (goPekko) A rejected asked message leaves the ask waiting for its deadline | A1 |
+| M25 | (goPekko) Share the sender's byte slice with the receiver instead of copying | C1 |
+| M26 | (goPekko) `Forward` drops the metadata of the original sender | C2 |
+| M27 | (goPekko) Call observers inline on the sender's goroutine | O1 |
+| M28 | (goPekko) A full observer queue blocks the sender instead of dropping | O1, O2 |
+| M29 | (goPekko) A dropped event is not counted | O2 |
+| M30 | (goPekko) An observer panic propagates | O3 |
+| M31 | (goPekko) Deliver a reply sent to an ordinary `Ref` that was used as a `ReplyTo` with internal provenance | P4 |
+| M32 | (goPekko) Let a message carry an application-chosen endpoint or correlation that completes a different ask or marks the delivery internal | P4 |
+| M33 | (goPekko) Re-read the `WatchWith` payload from the watcher's mutable state at termination instead of the value captured at registration | P3 |
+| M34 | (goPekko) Shutdown waits for an observer that never returns | O4 |
+| M35 | (goPekko) Events dropped at shutdown are not counted as `Abandoned` | O4 |
+| M36 | An ask never times out | G8 |
+| M37 | A second reply overwrites the first result of an ask | G8 |
+| M38 | A reply that arrives after its ask completed is dropped silently instead of dead-lettered | I5 |
+| M39 | (goPekko) A second `Forward` in the same turn also carries the ask correlation | F2 |
+| M40 | Restart discards the messages that were queued | G4 |
+| M41 | Restart runs `post-restart` before `post-stop` of the old instance | G4 |
+| M42 | (goPekko) A reply that arrives after a rejection completes the ask again | A1 |
+| M43 | A second `watch` or `watchWith` with a different message silently overwrites the first | I6 |
+| M44 | (goPekko) `AskFrom` is accepted from a hook and its result is lost under tenancy | H1 |
+| M45 | (goPekko) A trusted key is written by name through `WithUntyped` | T3 |
+| M46 | (goPekko) A trusted write is accepted with a nil or forged capability | T3 |
+| M47 | (goPekko) `NewSystem` starts without a required guard | T1 |
+| M48 | (goPekko) A guard error or panic lets the delivery through | T2 |
+| M49 | (goPekko) A missing tenant is given a default tenant | T4 |
+| M50 | (goPekko) `tenancy.Owner` is ignored and a foreign tenant is accepted | T5 |
+| M51 | (goPekko) A caller's cancellation cancels the actor-owned processing context | K1 |
+| M52 | (goPekko) Accepting a stop does not cancel the actor-owned processing context | K1 |
+| M53 | (goPekko) A `*Context[T]` used after its turn still carries that turn's metadata and correlation | X1 |
+| M54 | (goPekko) The metadata of a `Tell` is snapshotted at processing time instead of at enqueue | C2 |
+| M55 | (goPekko) A dead letter loses the envelope's metadata | C2 |
+| M56 | (goPekko) `Terminated` carries the subject's metadata instead of the watcher's | C2 |
+| M57 | (goPekko) A lifecycle hook receives a tenant | C2 |
+| M58 | Do not notify the watchers when a watched actor stops | G6 |
+| M59 | A repeated `watchWith` with the same message also fails the watcher | I6 |
+| M60 | A message the actor already received is also published as a dead letter when it terminates | I3 |
+| M61 | An ask completes with the reply of the previous ask of the same system (replies crossed); the first ask of a system is untouched | G8 |
+| M62 | Every dead letter is published twice | I3 |
+| M63 | `ActorSystem.stop` of a child behaves like a `PoisonPill`: queued messages are received before the stop | G5 |
+| M64 | Two runs of the mailbox of one actor can be scheduled at the same time (`Receive` calls overlap) | G3 |
+| M65 | A stop accepted before the actor's `Create` is processed skips `Create`, so neither `pre-start` nor `post-stop` run (the divergence D2, reproduced inside Pekko) | G5 |
+| M66 | A Stop that arrives while a restart waits for its children skips the `PostStop` of the termination (the second one of the old instance) | G5.f |
+| M67 | A Stop that arrives while a restart waits for its children makes the old instance receive an extra `PostStop` (a third one), before the termination is notified | G5.f |
+
+## 7. Oracles
+
+| Feature | Oracle |
+|---|---|
+| Lifecycle, supervision, deathwatch, FIFO, dead letters, ask | Pekko `v1.7.1`, through both harnesses |
+| Serialization registry round-trip | Pekko for registry semantics; the wire format is ADR 0002's decision |
+| Envelope metadata, tenancy (fail-closed), observability hooks | **Own specification**, ADR 0008, verified with `go-specs`. Pekko has no equivalent. The Pekko harness still runs the actor part of these scenarios to show that metadata does not change actor behavior. |
+| Routing, patterns beyond ask | Deferred until after milestone 1 |
+
+## 7b. The Go side
+
+The Go harness is `pekko-actor/actor/judge_internal_test.go`; it writes the event log of section 2 and the verdict is the
+same `comparator.py`. Which scenarios it runs, and which clause of a scenario does not apply to Go (with the reason), are
+listed in `judge/go-scope.json`; `judge/go_scope.py` rejects a stale or reasonless waiver. `judge/run-go.sh` runs it and
+`judge/mutate_go.py` breaks the Go core on a scratch copy to show the judge fails on broken code (section 6, item 3).
+Status and limits: [actor-core-parity.md](actor-core-parity.md).
+
+**Restart and supervision scenarios in the Go gate.** S13 (two restarts send no `terminated`, the stop sends one, `DeathWatchSpec.scala:195-211`), S14 (an initialization failure
+stops the child) and S16 (a conflicting watch fails the watcher once, an identical repeat does not) are in `scenarios`, with
+no waiver. The Go harness records `pre-restart`, `post-restart`, `decided` and the instance number `i` (see the header of
+`judge_internal_test.go`), so `I6.a` and `I6.b` are decided on real `decided` events and `G6.d` on real `terminated` events.
+`G7.b` has two halves and only one can fire for S14, on either side: a child whose start failed is replaced by the creation path
+(`faultCreate` in Go, Pekko's `faultCreate`), which runs no `PreRestart`, so `pre-restart` never appears for it; a wrong decider that
+restarts it is detected by the **missing `terminated`** (the run still ends, through the witness on the second instance's `pre-start`).
+**Difference from Pekko in S14.** Pekko's child throws in `preStart`; the Go child fails in its **factory** on instance 1 (a panic, which
+the runtime reports as an `InitializationError` decided by the parent, the same class as a `PreStart` that returns an error and the
+same default decision, Stop). Reason: the existing mutant GMnostart never calls `PreStart`, so a child that fails there would stay alive
+and silent and the run could not end; a probe message to such a child was tried and rejected, because a message queued at a failing,
+suspended child cannot be finalized by GM7. A failing `PreStart` is covered by Go unit tests, not by the judge:
+`TestDefaultStrategyInitializationStops` (T4 of U3: a failed first `PreStart` under a parent that declares nothing stops the child
+and the watcher gets `Terminated`), `TestSup1Initialization` and `TestSup4PreStartFailuresUnderAFiniteBudget`.
+S16's watchers use a message type that
+is comparable with `==`, because the runtime tells a repeated `WatchWith` from a conflicting one that way and the message type
+of the other scenarios holds funcs. S13 (#1484) replicates `DeathWatchSpec.scala:195-211` on both sides: `c` is the child of a supervisor with `maxNrOfRetries = 2`; two failures
+restart it, `R` is received by its third instance, the third failure exceeds the limit and stops it. `G6.d` (`r_G6d`) is violated by a
+`terminated(c)` at `w` that precedes the last `post-stop` of `c` (every restart runs one; the stop runs the last, and `I1.b` orders the
+Terminated of the stop after it); `G6.a` asks for the Terminated of the stop. The Go run ends on a `fin` of `w` placed behind that
+Terminated (as S08), so a run without it is a complete log, not a harness error; the Pekko run ends when `R` was received, a `terminated` arrived and `c` ran three `post-stop` (two restarts and the stop). Five Go mutants check the clauses: GMrestartnotify (S13 `G6.d`), GMnonotify (S07 and S13 `G6.a`), GMinitrestart (S14 `G7.b`),
+GMwatchoverwrite (S16 `I6.a`) and GMwatchsamefail (S16 `I6.b`). S13, S14 and S16 are not calibrated. The records of S13 before #1484 (Go and Pekko) are HISTORICAL for it.
+
+**S22 in the Go gate (stop during a restart, default hooks).** S22 is in `scenarios`, concurrent mode, with no waiver and the same
+spec as the Pekko side (`judge/scenarios/S22.json`, unchanged): `c` has `pre-start` 1, `pre-restart` 1, `post-restart` 0 and `post-stop` 2
+(G5.f), one `terminated` at the watcher (I2.a), and the final `post-stop` of each child comes before the final `post-stop-begin` of `c`
+(G5.c). The Go body (`judgeS22`) mirrors the Pekko one: `c` and its two children are default-hook nodes (`judgeDefaultNode`, no
+`PreRestart` and no `PostRestart`), the children are held in `post-stop` behind a latch, and the Stop of `c` is requested through its
+parent before the latch opens.
+
+*Why it needed an event.* With a custom `PreRestart` the hook records `pre-restart` itself, and a custom hook runs only its own code, so its
+`PostStop` call is never guarded: a Go S22 built on it sees two `PostStop` calls with and without the change of unit U7 and could not
+detect the code U7 changed, which is the default restart path. That path emitted nothing the harness could see. It now emits the unexported
+diagnostics event `prerestart-default` as the first statement of `defaultPreRestart` (`supervision_restart.go`), so the event exists only when
+the runtime really executed the default hook. The harness only observes: `judgeSink` maps `prerestart-default` to the judge event
+`pre-restart` for nodes that have no `PreRestart` method and never emits `pre-restart` for them itself. `post-stop`, `pre-start` and
+`terminated` keep coming from the node's own `PostStop` and `PreStart` and the watcher's `Terminated`; the harness assumes or rebuilds no call
+and no count. The event changes nothing else (`TestSupDefaultRestartEvent` runs the default-restart path with and without a sink and compares
+the order of `PostStop`, `Terminated` once and the factory calls).
+
+*History, recorded exactly.* Before U7, Go ran **one** `PostStop` in this situation (the default `PreRestart` went through `beginPostStop`,
+which made the termination skip its own call). The double call is **Pekko's** (`Actor.scala:625-631` calls `postStop`; `FaultHandling.scala`
+`finishTerminate` calls it again) and Go has it since U7. The directed Go mutant **GMdefaultps** restores the pre-U7 body of `defaultPreRestart`;
+it is designed to fail S22 with `G5.f` and counts as met only if `G5.f` is among the fired rules. S22 is **not calibrated** (neither on the
+Pekko side nor on the Go side: calibration is a separate measurement and none was made). The Go gate has 15 scenarios and 21 designed mutations (plus one
+benign): GMtwice (M5, S07 concurrent `I2.a`), GMnonotify (M58, S07 controlled and concurrent `G6.a`; the final wait of S07, S14, S18 and S22 is `awaitOrQuiesce`, bounded like `expectTerminated(max)`, `TestKit.scala:503-506`) and GMwatchdead (M11, S08 `G6.b`; S08 needs no bounded wait because its `fin` witness is queued behind the `Terminated`) are the Go mutations for the basic delivery of `Terminated` (#1470). The committed `judge/go-mutation-report.tsv` is CURRENT only while the core files, the comparator, `judge/mutate_go.py`, the specs and
+the pinned toolchain are those it was run with. The core files are **`pekko-actor/` without `*.md`**: every other file there counts (`*.go`, `*_test.go`, `go.mod`, `go.sum`, and any data file added later), documentation does not, so a README change keeps a campaign CURRENT (`core_sha` in `judge/mutate_go.py`, decision of the Owner of 2026-11-10, #1510). A row whose `go_commit` is unknown to the clone is not CURRENT. `scripts/check-judge-matrix.py` says whether they are, and any later change of those inputs makes
+it stale until the campaign is run again.
+
+*`G5.f` on the Pekko side, two senses, documented apart.* Two Pekko mutations act on the real path of a Stop that arrives while a restart waits
+for its children (`FaultHandling.scala`: `faultRecreate`, `finishRecreate`, `finishTerminate`; `Actor.scala:625-631`); each ran once, 30 concurrent runs of
+S22, darwin/arm64, `judge/mutation-report.tsv`:
+1. **An EXCESS of `PostStop` is detected (M67).** The old instance gets a third `postStop`, inside `finishTerminate`, before the termination is
+   notified. `failed` in 30 of 30 runs, only `G5.f`, with the observed count "`c: 3 post-stop, expected 2`". A count above the expected one is a
+   failure on a prefix and on a complete log, and the run completes (S22 waits for a `terminated` and at least two `post-stop` of `c`).
+2. **An OMISSION of the second `PostStop` is NOT detected (M66).** The same path with the second call skipped: `timeout` in 30 of 30 runs, no
+   violation provable. The S22 completion predicate (`Judge.scala:479`) waits for that very `post-stop`, so the run never completes, and
+   `G5.f` only fails a count on a prefix once it is exceeded (`comparator.py:291-299`). M66 is kept as it is: it is not counted as a detection and
+   was not reclassified. The scenario and the comparator were not changed.
+   *Update of 2026-11-09 (not a rerun):* the Pekko harness now bounds the final wait of S22 by `deadline / 4` (`Judge.absenceBounded`), so with this harness the same omission would close a complete log with one `post-stop` of `c` and `G5.f` would count it. The paragraph above describes the run of 2026-10 (`timeout`, row `M66 S22 concurrent` of `judge/mutation-report.tsv`, HISTORICAL); M66 is not counted as detected until a campaign reruns it. The M67 note in `judge/mutate.py` ("S22 cannot detect it") has the same history.
+This is observed evidence for one direction of the count on one design each. It is **not** a claim of total mutation detection and **not** a claim
+that the exact count is covered in both senses: no design of an omission is shown to be detected.
+
+*Two excluded cells (not applicable).* S22 judges a Stop that arrives while a restart waits for held children. Under **GM2** (`PostStop`
+skipped) and **GMstop** (an external Stop applied after queued work) that state is never reached: the precondition was reached in 0 of 30 runs
+and every run recorded the scenario's own guard `gate-timeout`, which is outside the vocabulary and so a `harness-error` (the control,
+GMdefaultps, reached it in 30 of 30). The cells **GM2 x S22 x concurrent** and **GMstop x S22 x concurrent**, and only those, are reported as
+`excluded` in `go-mutation-report.tsv` (`EXCLUDED_CELLS` in `judge/mutate_go.py`; justification and logs in
+`migration/stage-1/restart-gaps-173/EXCLUSIONS.md`). Rules: `excluded` is never passed, survived or detected, and the runner lists each one. A
+cell is excluded only if **every one of its runs** is a harness error whose own message is the guard `gate-timeout` and whose log shows the
+children never began `PostStop` (the harness uses the same event name for the gate of the children's held `PostStop`; a run in which the
+children did begin it is that other gate and is not excluded). One run that differs (another error, a pass, a failure, a timeout, the other
+gate) leaves the cell as it is, `harness-error` or what it is, and the mutation is not met. The classification of `harness-error` is unchanged
+everywhere else; S22 and the comparator are unchanged; the designed detections of GM2 (S10 `G5.a`, `G5.d`) and GMstop (S19 `G5.b`) are kept.
+A campaign with this table proves only this explicit matrix, with its two declared exclusions; it does not prove S22 under GM2 or GMstop. The
+report of campaign 3 (with its two INVALID rows) is kept whole and is not rewritten.
+
+*The liveness defect that GMstop causes.* "Not applicable" is about S22, not about the mutant. Under GMstop an external Stop sent to a
+suspended actor never takes effect: the mutant applies it only in the idle branch of `drain`, which comes after the suspension check, whereas
