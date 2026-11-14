@@ -1,0 +1,360 @@
+# D5a deep second pass: event stream / logging / patterns / serialization stories
+
+> Verification status (2026-10-26): checked by V4_D5.md: 75 findings checked in full, 6 partially, 0 not verified. Corrections from the verification are applied in this file. Stories not covered by the verification keep the producer's wording unverified.
+
+Baselines: Pekko v1.7.1 `9a54d129` (read directly in `upstream/pekko`); goPekko `origin/develop` `9abfb40` snapshot in `tmp/develop`. ADR 0032 is not integrated authority (PR #1014). Stories are appended one by one as finished.
+
+Common facts used below (verified in this pass):
+- ADR 0033 D11 (`0033-...md:45`): "Logging context uses `kit-logger` `With` per actor and does not depend on global fields. The test fake must capture `With` fields, honor `SetLevel` and guard `Entries`...".
+- ADR 0033 D13 (`:47`): differential scenario required "whenever an applicable oracle exists"; rows with no applicable oracle need alternative evidence plus explicit Owner approval; "while the approval is missing, the row is recorded as pending approval".
+- ADR 0033 D3 (`:37`): the ADR 0011 individual justification is required for each unexported `pekko-actor` API that `pekko-actor-typed` needs.
+- #1020 (GOV-02, `status:ready`) scope, read from its body: clock (#776), mailbox head insert (#1098), `/system` spawn (#1055), `Context.Log` (E-04a), event stream, dead-letter sink, child failure cause. It does not list a pattern package, EventBus variants or serializer ports.
+- goPekko state: `develop/pekko-actor/actor` has `Config.Logger kitlog.Logger` (`system.go:89`) used only for supervision entries (`supervision_logging.go:58-69`); no `Context.Log`, no event bus, no `pattern` package, no `aroundReceive`-style hook (grep of `pekko-actor` finds none).
+
+---
+
+### #794 EVT-11 — Expose actor-scoped logging
+- Depth: PARTIAL (the rest of `LoggerSpec.scala` and `LoggingReceiveSpec.scala` bodies beyond the MDC cases were not read; no spec was found for ACs 2-3, but the search was by grep for `ActorLogging|DiagnosticActorLogging|MDC|clearMDC` over `actor-tests`, not a reading of every spec)
+- Labels now: `prio:P1`, `status:blocked`
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 identity/source stable across turns, explicit across restart | `ActorLogging.log` is a lazy per-instance adapter `Logging(context.system, this)` (`Actor.scala:340-349`); `DiagnosticActorLogging.log` is `val log = Logging(this)` (`Actor.scala:370-372`); source string is `a.self.path.toString` (`Logging.scala:324-331`), so the source follows the path; a restart creates a new Actor instance and therefore a new adapter | `LoggingReceiveSpec.scala:~136-142` expects `Logging.Debug(actor.path.toString, actor.underlyingActor.getClass, ...)`: observes source = path for LoggingReceive output only. `JavaLoggerSpec.scala:62-72` asserts `getSourceClassName == LogProducer class`. Nothing observes the source across a restart: "no spec found; searched: grep ActorLogging/DiagnosticActorLogging in actor-tests (7 files, bodies of the 4 that use `log` read for the source assertion)" | no `Context.Log` | spec-does-not-observe (restart part) |
+| AC2 uses kit-logger, no observability backend needed | Pekko publishes `Error/Warning/Info/Debug` events to the `LoggingBus` (`Logging.scala:2032-2042`, `BusLogging`); there is no kit-logger counterpart | no spec; kit-logger is Go-only | `Config.Logger` exists (`system.go:89`); `kitlogtest` fake is #1052 | unsupported (no Pekko counterpart; D13 alternative evidence) |
+| AC3 logging failure cannot change directive or run a handler twice | no Pekko text states it. Pekko's `notify*` only calls `bus.publish` (`Logging.scala:2032-2042`); a logger that fails runs in its own actor, not in the caller | "no spec found; searched: `ActorLogging|DiagnosticActorLogging` in actor-tests, event/*.scala file list" | goPekko has a precedent for the same property in supervision logs: the Logger call runs under `protect`, a panic is absorbed and a Goexit applies the decision once (`supervision_logging.go:41-53`) | unsupported (Go-only; the recon says so) |
+| AC4 focused cases | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (medium) The body still contradicts the reconciliation. Boundary: "Actor-scoped log source and level/filter integration only." and Dependencies: "No new-story prerequisite. Existing integrated behavior is the baseline." while the reconciliation (and the labels) say level/filter belongs to #1079 and prerequisites are #1020 and #1052. Evidence: #1079 body ("Out of scope: ... actor logging: #794"). Neutral replacement for the boundary: "Actor-scoped log source (`ActorLogging`, `DiagnosticActorLogging`: `Actor.scala:340-349`, `:370-381`); level filtering is decided in #1079." Replacement for Dependencies: list #1020 (`depends_on`) and #1052 (`depends_on`).
+  - F2 (medium) Source list: the body cites `LoggingReceive.scala`, which is receive tracing (decision #1078). `LoggingReceiveSpec.scala:147-162` ("log with MDC") does exercise `DiagnosticActorLogging`, but only to show that a `LoggingReceive` debug event carries the actor MDC. Keep `Actor.scala:340,370` and `Logging.scala:324-331,645-649`.
+  - F3 (low) The reconciliation says the story "Carries status:ready"; the current label is `status:blocked`. The reconciliation text is stale, not the label.
+  - F4 (medium) AC1 "explicit across restart" has no Pekko counterpart as stated. Pekko contract: the log source is the actor path and does not change on restart; the adapter object is new because the instance is new. Open question: what a Go "explicit" restart marker would be; missing evidence: any Pekko or ADR statement about a restart field. Do not add one.
+  - F5 (info) The reconciliation says a #1020 justification is needed for the new export `Context.Log`. This is satisfiable: #1020's scope names `Context.Log` (E-04a). (Contrast with the pattern/bus stories below.)
+- Dependencies: #1020 -> #794 `depends_on` OK (named in #1020 scope). #1052 -> #794 `depends_on` OK (#1052 is `status:ready`; it provides the `With`-capturing fake required by D11). #1078/#1079 `independent` OK (their bodies exclude #794). Missing in the body text (F1), not in the reconciliation. No cycle.
+- Oracle (D13): AC1 source=path part: applicability pending determination (the LoggingReceiveSpec/JavaLoggerSpec assertions observe the source string via the Pekko LoggingBus, which Go does not have; whether a differential scenario can host it is not shown). AC2: kit-logger has no Pekko counterpart by construction; AC3: oracle applicability pending determination. Under D13 a row with no applicable oracle needs alternative evidence and Owner approval; no approval exists.
+
+---
+
+### #848 EVT-13 — Clear per-message logging context after each actor turn
+- Depth: DEEP
+- Labels now: `prio:P1`, `status:blocked`
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 per-message fields apply only to the documented Receive/hook scope | `DiagnosticActorLogging.aroundReceive` sets `log.mdc(mdc(msg))`, runs `super.aroundReceive`, and in `finally` calls `log.clearMDC()` (`Actor.scala:375-381`); `clearMDC` = `mdc(emptyMDC)` (`Logging.scala:1682`) | `LoggerSpec.scala:242-273` ("log message with given MDC values"): per message the user `mdc` function is recomputed; asserts the Warning event for message 3 has `mdc.size == 3` (requestId, currentMsg, currentMsgLength) and for message 4 `mdc.size == 1`. It observes that each turn's MDC is exactly what `mdc(msg)` returned, not the clear itself (no log is emitted outside a receive). `LoggingReceiveSpec.scala:147-162` asserts a `Debug2` event's `mdc == myMDC` | no hook, no `Context.Log` | yes for per-message recomputation; spec-does-not-observe for clear |
+| AC2 success, failure, panic and restart boundaries clear fields | the `finally` (`Actor.scala:378-380`) covers an exception thrown from receive; a restart builds a new instance whose `_mdc` starts as `emptyMDC` (`Logging.scala:1631`) | "no spec found; searched: grep `clearMDC|MDC|mdc(` over actor-tests/scala and java (LoggerSpec, LoggingReceiveSpec, LoggingAdapterTest, ActorWithMDC)". Java `LoggingAdapterTest.java:92-125` with `ActorWithMDC.java:31-58` calls `setMDC` then `clearMDC` itself; asserts `{messageLength=8}` etc., `{}` for an empty map and for `null` (`Logging.scala:1649,1677`): observes null/empty handling, not a clear after failure | absent | spec-does-not-observe |
+| AC3 static actor fields intact after per-message fields are cleared | Pekko has no static MDC state: `logSource` and `logClass` are separate event fields (`Logging.scala:324-331`), outside the MDC; the MDC is replaced wholesale by `mdc(msg)` and cleared to empty | `LoggerSpec.scala:270-273`: message 4 still has `requestId`, but that is returned again by the user function on every call, not retained state | absent | unsupported (no Pekko counterpart) |
+
+- Findings:
+  - F1 (medium) The reconciliation says "Under ADR 0033 D11 per-actor kit-logger With loggers are immutable, so clear must be restated as no leak between turns" and "Pekko mutable MDC maps to a per-turn derived With logger". D11 (`0033:45`) says only that logging context uses `With` per actor and no global fields; the per-turn derived logger is a reading of D11, not ADR text. Neutral wording: "Pekko behavior: the MDC is set before and cleared after every message (`Actor.scala:375-381`), including when receive throws. Whether and how Go carries per-message fields is the open question; missing evidence: an ADR or Owner statement on the Go carrier (D11 fixes only per-actor `With`)."
+  - F2 (medium) AC1 "documented Receive/hook scope": goPekko has no receive hook (no `aroundReceive` equivalent found in `develop/pekko-actor`). The AC presupposes a hook that does not exist; this is an unstated prerequisite. Open question: which Go point plays the role of `aroundReceive`; no Pekko or ADR text answers it.
+  - F3 (medium) AC3 has no Pekko basis (see table). Keep only if the Owner accepts a Go-only rule; oracle applicability pending determination (Pekko keeps source/class as event fields outside the MDC, `Logging.scala:324-331`; no spec asserts it after a clear).
+  - F4 (low) Source list names `LoggingReceive.scala`; the spec `LoggingReceiveSpec.scala:147-162` is the only LoggingReceive test that touches MDC. Keep `Actor.scala:370-381`, `Logging.scala:1623-1683,760`.
+  - F5 (medium) AC2 "panic": Go-only wording. Pekko covers exception in receive and restart via `finally` and new instance; there is no Pekko spec for either.
+- Dependencies: #794 -> #848 `depends_on` OK. #1052 -> #848 `depends_on` OK. Missing: the receive hook (F2); no story found for it; do not invent one, record as open. Priority P1 depends on P1 stories only: consistent. Status `blocked` is consistent with undelivered #794/#1020.
+- Oracle (D13): oracle exists and can host a differential scenario for "MDC of a message equals the user function result and does not carry to the next" (`LoggerSpec.scala:242-273`), subject to a Go counterpart; clear-after-failure: applicability pending determination (no spec observes it, but the behavior exists at `Actor.scala:378-380`; absence of a spec is not absence of behavior).
+
+---
+
+### #849 EVT-14 — Attach structured markers to actor logs
+- Depth: DEEP
+- Labels now: `prio:P1`, `status:blocked`
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 marker name/properties use immutable caller-independent data | `class LogMarker(val name: String, val properties: Map[String, Any])` (`Logging.scala:1687`); Scala `Map` is immutable but its `Any` values are not copied; `getProperties` returns a copy-converted view (`:1693-1696`) | `MarkerLoggingSpec.scala:29-37` asserts `info.message` and `info.marker.name == "SECURITY"` only; properties are not asserted | absent | spec-does-not-observe (properties); "bounded" has no Pekko counterpart (no size limit in `LogMarker`) |
+| AC2 marker-aware filters preserve the accepted level behavior | `LoggingFilterWithMarker.isXEnabled(logClass, logSource, marker)` defaults to the marker-less level check (`Logging.scala:1573-1582`); `DefaultLoggingFilter` is level only (`:1608-1616`); `MarkerLoggingAdapter` calls the marker overload before publishing (`:1757-1768`) | "no spec found for a filter that uses the marker; searched: MarkerLoggingSpec (read in full, 2 tests), LoggerSpec/LoggingReceiveSpec by grep `marker|Marker`" | absent; level filtering is decision #1079 | unsupported/spec-does-not-observe |
+| AC3 unmarked log retains the ordinary path | `MarkerLoggingAdapter extends BusLogging` (`:1742-1747`); marker-less methods are inherited from `BusLogging` (`:2032-2042`) and publish `Error/Warning/Info/Debug` without marker | `MarkerLoggingSpec.scala:29-47` only exercises marked calls ("add markers", "allow cause exceptions"; the second asserts `cause.getMessage`) | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium) Source list: `Actor.scala` and `LoggingReceive.scala` are not marker sources (confirmed). Marker sources: `Logging.scala:1687` (LogMarker), `:946-956` (`LogEventWithMarker`), `:1573-1617` (filter), `:1742-1768` (adapter); `actor/ActorLogMarker.scala` (the `deadLetter(messageClass)` marker with property `pekkoMessageClass`); spec `MarkerLoggingSpec.scala`. The reconciliation's `ActorLogMarker.scala:26` and `Logging.scala:832-851` were not individually line-checked beyond the printed ranges; `:832-851` are `Error` apply overloads with marker.
+  - F2 (medium) AC2 text "marker-aware filters" presumes a filter that Pekko's default does not have: the default filter ignores the marker. A marker-driven filter is Go-side; it also overlaps #1079. Open question: whether any marker filtering is in scope; missing evidence: Pekko spec or ADR.
+  - F3 (medium) The reconciliation's "a kit-logger mapping of marker name and properties ... needs a D11 note" is correct as an open item: D11 does not mention markers. Do not invent the mapping; record it as an open question for the Owner/ADR.
+  - F4 (low) The Pekko slf4j consumption of markers is in another module (not read); the default `StdOutLogger` behavior for markers was not read.
+- Dependencies: #794 -> #849 `depends_on` OK; #1052 -> #849 `depends_on` OK. The prior audit's unstated edge #907 (DeadLetterListener publishes `ActorLogMarker.deadLetter`) -> consumer of this story: #907 would need #849 (reader F-12); not in this bundle. No cycle.
+- Oracle (D13): MarkerLoggingSpec exists and can host a differential scenario for "marker name reaches the event" (`:29-37`); properties, filter and unmarked path: applicability pending determination.
+
+---
+
+### #837 EVT-09 — Expose lookup-classified EventBus
+- Depth: DEEP
+- Labels now: `prio:P3`, `status:blocked`
+- Verdict: CORRECT (plus an open question on the #793 edge)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 user classifier maps each event to its lookup key | `LookupClassification.classify(event): Classifier` (`EventBus.scala:113`), `publish` iterates `subscribers.valueIterator(classify(event))` (`:126-129`) | `EventBusSpec.scala:104-110` ("publish the given event to the only subscriber"), `:139-149` ("not publish ... to any other subscribers than the intended ones"); `LookupEventBusSpec` classifies by `event.toString` (`:342`) | absent | yes (spec observes classification) |
+| AC2 ordering and duplicate prevention follow comparator rules | `compareSubscribers` "need to provide a total ordering" (`:91,108`); storage is `Index` over a `ConcurrentSkipListSet(valueComparator)` (`util/Index.scala:28-`), so equal-by-comparator subscribers are duplicates and iteration follows the comparator | duplicates: `EventBusSpec.scala:76-80` asserts `subscribe` returns true then false, `unsubscribe` true. Ordering: not observed; the Lookup spec uses `compareIdentityHash` (`EventBusSpec.scala:344-345`) and never asserts publish order | absent | yes (duplicates); spec-does-not-observe (ordering) |
+| AC3 reusable bus, not a hidden System EventStream | `EventBus` is a trait; `EventStream` is a separate class `extends LoggingBus with SubchannelClassification` (`EventStream.scala:35`) | "no spec found; searched: EventBusSpec/EventStreamSpec by structure: Pekko tests a bus instance, not absence of a global stream" | absent | unsupported (Go-only framing) |
+
+- Findings:
+  - F1 (medium) The reconciliation says "`EventBus.scala:93` LookupClassification and `:159` subscribe (synchronized) verified". `:159` is `SubchannelClassification.subscribe`. `LookupClassification.subscribe` is `:120` (`subscribers.put(to, subscriber)`), which is not `synchronized`. Replacement: cite `:93-129`; `subscribe`/`unsubscribe` return Boolean (`:120,122`), asserted by `EventBusSpec.scala:62-86`.
+  - F2 (medium) Pekko-observed contract that the ACs omit: `subscribe` and `unsubscribe` return values (true/false) and publish with no subscribers is a no-op (`EventBusSpec.scala:62-86,100-102`); the diagram's "Complete without delivery" matches `:100-102,151-156`.
+  - F3 (medium) Dependency #793 -> #837. #793's ACs are about EventStream matching (exact/subtype/interface), unsubscribe linearization and ActorRef vs callback subscribers. In Pekko, `LookupClassification` does not use `EventStream` or `Subclassification`; the dependency is not shown by Pekko. The reconciliation's reason is "subscription semantics ADR -> bus contract" with no evidence. Open question: does the #793 ADR govern a generic user-classifier bus; missing evidence: #793 has no AC for it.
+  - F4 (medium) New public type: #1020's scope does not list EventBus variants (#1020 body, Scope), so "depends_on #1020" is not covered by #1020's listed candidates (plan A-03 and #1020 Scope list no pattern package); the edge's stated reason is therefore not evidenced by #1020. This repeats the prior audit's F-3 and F-8 (no GOV story classifies EventBus variants; plan E-06 gives each variant an Owner classification). Do not recommend a new GOV story; state the missing record.
+- Dependencies: #793 -> #837 `depends_on`: not supported by Pekko code (F3). #1020 -> #837 `depends_on`: not covered by #1020's listed candidates; the edge's stated reason is not evidenced by #1020 (F4). Cycle: none.
+- Oracle (D13): oracle exists and can host a differential scenario (EventBusSpec lookup run, `:353-368`); ordering: applicability pending determination.
+
+---
+
+### #872 EVT-10 — Expose scanning-classified EventBus
+- Depth: DEEP
+- Labels now: `prio:P3`, `status:blocked`
+- Verdict: DEP (edge #837 should be re-evaluated) and CORRECT
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 user predicate decides membership | `matches(classifier, event): Boolean` (`EventBus.scala:242`), `publish` scans every `(classifier, subscriber)` pair (`:261-268`); `PredicateClassifier` is `Event => Boolean` (`:83-85`) | `ScanningEventBusSpec` (`EventBusSpec.scala:300-333`): `matches = event.toString == classifier` (String classifiers, not a function); shared tests `:104-110,139-149` | absent | yes (via string-equality matcher; function classifiers are not exercised) |
+| AC2 ordering and duplicate prevention | set of tuples ordered by `compareClassifiers` then `compareSubscribers` (`:220-227`); `subscribe` returns `subscribers.add` (`:249`) | duplicates: `EventBusSpec.scala:76-80`. Ordering: not observed (identity hash comparator `:309`) | absent | yes (duplicates); spec-does-not-observe (ordering) |
+| AC3 unsubscribe removes only matching owned registrations | `unsubscribe(sub, from)` removes the pair (`:251`); `unsubscribe(sub)` removes every pair whose subscriber compares 0 (`:253-259`) | pair removal: `EventBusSpec.scala:66-86` (true/false), `:139-149`. The single-argument `unsubscribe(subscriber)` is not called by any EventBusSpec test | absent | yes (pair); no spec found (single-argument; searched EventBusSpec in full) |
+
+- Findings:
+  - F1 (medium) Edge #837 -> #872. In Pekko `ScanningClassification` is an independent trait (`:219`; it does not extend `LookupClassification`); the reconciliation says the edge is "not technical" and "re-point to #793", but the live body still lists only #837. The body Dependencies text needs correction; the reconciliation record already lists #793 and #1020.
+  - F2 (medium) "owned" in AC3 has no Pekko counterpart (registrations are not owned; removal is by subscriber comparison). Replacement text: "`unsubscribe(subscriber, from)` removes that pair; `unsubscribe(subscriber)` removes every pair of subscribers that compare equal (`EventBus.scala:251-259`)."
+  - F3 (low) Spec citation: the reconciliation asks to cite EventBusSpec; the scanning-specific run is `ScanningEventBusSpec` (`:317-333`).
+  - F4 (low) The same #1020 coverage question as #837 (F4 there): not covered by #1020's listed candidates.
+- Dependencies: #837 -> #872 `depends_on`: remove (not a Pekko dependency). #793 -> #872 `depends_on`: same open question as #837 F3. #1020 -> #872: not covered by #1020's listed candidates; the edge's stated reason is not evidenced by #1020.
+- Oracle (D13): oracle exists and can host a differential scenario (ScanningEventBusSpec); single-argument unsubscribe and ordering: applicability pending determination.
+
+---
+
+### #795 PAT-09 — Open a circuit breaker after its failure threshold
+- Depth: DEEP (scoped to Closed counting, trip, Open fail-fast; Half-Open, listeners and registry are other stories and were not audited here)
+- Labels now: `prio:P2`, `status:blocked`
+- Verdict: CORRECT (plus an open question on timers)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 Closed counting follows the accepted failure predicate | `Closed.callSucceeds = set(0)`, `callFails = if (incrementAndGet() == maxFailures) tripBreaker(Closed)` (`CircuitBreaker.scala:964-1006`, the Closed object: `callSucceeds` 980, `callFails` 988, `_enter` 995-998); default `failureFn`: `Success` false, `Failure` ignored if in `allowExceptions`, else true (`:807-811`); a call timeout is a failure (`callThrough`, timeout branch ~`:880-900`) | `CircuitBreakerSpec.scala:679-687` ("reset failure count after success": one success, four failures -> count 4, success -> 0); `:672-677` async failure -> count 1; `:653-659` exception -> count 1; `:706-720` call timeout -> count 1 and `TimeoutException`; `:661-670` and `:689-704` custom failure function. All are tagged `TimingTest` | absent | yes |
+| AC2 threshold transition occurs once under concurrent completions | `incrementAndGet() == maxFailures` plus `transition` using `swapState` CAS (`:700-705`: "else some other thread already swapped state") | `CircuitBreakerMTSpec.scala:62-69` ("transition to open ... fail-fast") asserts 100 later calls all return "CBO". No spec counts the transitions: `onOpen` latches have size 1 (`CircuitBreakerSpec.scala:34-36`), so a double transition is not detectable | absent | spec-does-not-observe |
+| AC3 Open calls fail fast without evaluating the operation | `Open.invoke` ignores `body` (by-name) and returns `Future.failed(new CircuitBreakerOpenException(remainingDuration()))` (`:1066-1071`); exception class `:1137-` | `CircuitBreakerSpec.scala:465-472` asserts `intercept[CircuitBreakerOpenException]` when calling `withCircuitBreaker(Future(sayHi))`. Non-evaluation is not asserted | absent | yes (exception); spec-does-not-observe (non-evaluation) |
+
+- Findings:
+  - F1 (high) Text in the reconciliation: "Pekko counts only failures in Closed (CircuitBreaker.scala:964-988, tripBreaker at maxFailures)". Pekko also resets the count to 0 on every success in Closed (`Closed.callSucceeds = set(0)`), observed by `CircuitBreakerSpec.scala:679-687`. The trip is therefore on `maxFailures` consecutive failures since the last success/entry, not on a total. Neutral replacement for the AC: "In Closed, a failed result increments the count and a successful result resets it to 0; when the count equals maxFailures the breaker moves to Open (`CircuitBreaker.scala` Closed object; `CircuitBreakerSpec.scala:679-687`)."
+  - F2 (medium) The reconciliation replaces "accepted failure predicate" by "the default rule". Pekko's default is `failureFn` (`:807-811`): exceptions in `allowExceptions` and `Success` are not failures; a timeout is a failure. `allowExceptions` is a constructor argument (9-arg primary constructor), so the "default rule" and the allowlist share one code path, while the reconciliation assigns the allowlist to #1100 (PAT-17). The boundary between the stories is an open question; missing evidence: which of these the Owner places in PAT-09.
+  - F3 (medium) Code observation (no spec): with `callTimeout == Duration.Zero` the `callThrough` branch calls `callFails()` on any `Failure` and does not apply `defineFailureFn` or the allow-list (`:863-875`). Do not carry this into an AC without a decision; record as a Pekko code fact.
+  - F4 (medium) Timers: the constructor takes `callTimeout` and the timeout failure uses `scheduler.scheduleOnce`; Open entry also schedules `attemptReset` (`CB:1105-1109`). The story says "No new-story prerequisite", but counting timeouts or leaving Open needs a scheduler (#821 TIM-02 and the clock stories are cited elsewhere). Open question: whether PAT-09 excludes call timeouts and the Open->Half-Open schedule; missing evidence: the story's boundary does not say.
+  - F5 (medium) Atomicity: closed counting, trip, Open fail-fast, exception type and construction validation (`require exponentialBackoffFactor >= 1.0`, `randomFactor in [0,1]`, `:163-164`) are several observable outcomes; the reconciliation adds two more. Verdict is not SPLIT because they share one state machine, but the Architect should decide.
+  - F6 (high, from the prior audit, confirmed) The `depends_on #1020` edge is not covered by #1020's listed candidates (plan A-03 and #1020 Scope list no pattern package); the edge's stated reason is therefore not evidenced by #1020. A new public package also needs placement (ADR 0011 owner decision on the `actor` package) which no story decides.
+  - F7 (low) All cited specs are `TimingTest`; CircuitBreakerMTSpec is not tagged. Whether TimingTest specs run in the Pekko build used for the oracle was not checked.
+- Dependencies: #1020 -> #795 `depends_on`: not covered by #1020's listed candidates; the edge's stated reason is not evidenced by #1020 (F6). Missing: scheduler/clock prerequisite or exclusion (F4). #795 -> #1100 `enables`: consistent with F2 only after the boundary question is answered. No cycle.
+- Oracle (D13): oracle exists and can host a differential scenario for Closed counting, reset-on-success and Open fail-fast (`CircuitBreakerSpec.scala:465-472,653-704`), subject to the judge's clock limits (JDG-09 #1094 per the prior audit, not re-read here); single-transition under concurrency: applicability pending determination.
+
+
+---
+
+### #838 PAT-04 — Retry an asynchronous operation a fixed number of times
+- Depth: DEEP
+- Labels now: `prio:P2`, `status:blocked`
+- Verdict: CORRECT (plus an open question on the #773 edge)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 attempt count includes or excludes the first call exactly as documented | `attempts` = "the maximum number of retry attempts after the initial attempt" (`RetrySupport.scala:74`); implementation: while `maxAttempts - attempted > 0` it attempts and retries, and at `attempted == maxAttempts` it makes one last `tryAttempt()` (`:366-389`, the private `retry`), i.e. initial call plus `attempts` retries; `require(maxAttempts >= 0)` | `RetrySpec.scala` "return a failure for a Future that would have succeeded but additional attempts were exhausted": `attempts = 5`, asserts message `"6"` and `failCount == 6`; "make one attempt when no additional attempts are configured": `attempts = 0`, counter == 1 | absent | yes |
+| AC2 an accepted success stops future attempts | `case Success(value) if shouldRetry(value, null) => doRetry`, otherwise `result` is returned (`:379-383`) | "run a successful Future only once": counter == 1; "return a success for a Future that succeeds eventually": attempts 10, five failures then 5 | absent | yes |
+| AC3 nonretryable failure and exhausted attempts return the documented last outcome | exhausted: "the returned future is simply the result of the last invoke attempt" (`:37`); non-retryable: only the `shouldRetry` overloads (since 1.1.0, `:62-83` doc, `:80`) can decline a retry; the plain `retry` retries every `NonFatal` failure (`retryOnException`, `:~362`); a non-`NonFatal` failure is returned as is (`Failure(e) if NonFatal(e) && shouldRetry`) | exhausted: message `"6"` (above); non-retryable: "be able to skip retry with predicate for exception" asserts `IllegalArgumentException` and counter == 1; "be able to retry with predicate for value" asserts 5 after predicate `t < 5` | absent | yes |
+
+- Findings:
+  - F1 (medium) AC3 "nonretryable failure" is only expressible through the `shouldRetry` overloads, which neither the body nor the reconciliation names. The plain `retry(attempt, attempts)` has no way to mark a failure non-retryable. Neutral replacement: "A failure is retried unless the retry predicate (`shouldRetry(value, exception)`, `RetrySupport.scala:80,334`) returns false or the failure is not `NonFatal`; then the failed result is returned (`RetrySpec.scala` 'be able to skip retry with predicate for exception')."
+  - F2 (low) AC1 can use the replacement the reconciliation proposes ("attempts excludes the initial call, `RetrySupport.scala:74`"); both specs above assert it (`"6"`/`failCount == 6`, and 0 -> 1 call).
+  - F3 (medium) Not in any AC but observed by spec: an attempt function that throws is handled like a failed future ("handle thrown exceptions in same way as failed Future": five throws then 5), and `attempts < 0` fails a `require` (code, no spec).
+  - F4 (medium) Edge #773 -> #838: #773 (ASK-01) is a decision slice about a "nonblocking local request result" (its ACs: completion, timeout, cancellation, losing reply, cleanup ownership). Pekko's `retry` takes `() => Future[T]` generically and does not use Ask. The edge is plausible if the Go "asynchronous result" is the shared type, but neither story states that; open question: does PAT-04's attempt result type come from #773; missing evidence: a statement in #773's ACs.
+  - F5 (low) The reconciliation says Go replaces futures by `context.Context` deadlines (ADR 0033 consequences). That is a recorded difference to document; a deadline affects only a delay/timeout overload, which this story does not include.
+- Dependencies: #773 -> #838 `depends_on`: see F4 (kept, evidence incomplete). Status `blocked` consistent with #773 `status:blocked`. #838 -> #875 `depends_on`: see #875. No cycle.
+- Oracle (D13): oracle exists and can host a differential scenario (RetrySpec cases above); no judge capability was checked.
+
+---
+
+### #875 PAT-05 — Delay retries with backoff and jitter
+- Depth: DEEP
+- Labels now: `prio:P2`, `status:blocked`
+- Verdict: CORRECT and DEP
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 bounded min/max delay and random factor deterministic under injected randomness | `calculateDelay(restartCount, min, max, randomFactor)`: `rnd = 1.0 + ThreadLocalRandom.current().nextDouble() * randomFactor`; `max.min(min * math.pow(2, restartCount)) * rnd`, falling back to `maxBackoff` if the computation fails or is not finite (`RetrySupport.scala:404-415`). The random factor is applied after the cap, so with `randomFactor > 0` the result can exceed `maxBackoff`. There is no randomness injection point | `BackoffSupervisorSpec.scala:272-290` ("correctly calculate the delay"): a table with `randomFactor = 0d` only: (0,5m,7m)=5m, (2,5s,7s)=7s, (2,5s,7d)=20s, (29,5m,10m)=10m, overflow cases (29,10000d,10000d) and (`Int.MaxValue`,...) = 10000d. No row has `randomFactor > 0`. `RetrySpec.scala` (read in full, 222 lines) has no test of the min/max/randomFactor overload | absent | yes (min*2^n, cap, overflow with factor 0); no spec found (jitter; searched `calculateDelay|randomFactor` over actor-tests: only `BackoffSupervisorSpec.scala:287` calls `calculateDelay`); unsupported (injected randomness has no Pekko counterpart) |
+| AC2 attempts are not overlapped unless the contract allows it | the next attempt starts only inside `transformWith` after the previous future completed (`:379-383`), after `after(delay, scheduler)` when a delay is given (`RetrySupport.scala:363-370`; `FutureTimeoutSupport.scala:50-64`) | "no spec found; searched: RetrySpec.scala in full" (no test observes non-overlap) | absent | spec-does-not-observe |
+| AC3 cancelling the chain prevents future attempts and releases scheduled tasks | no counterpart: `retry` returns a `Future`; `RetrySupport.scala` contains no cancel API (`grep cancel|Cancellable` finds nothing) | no spec | absent | unsupported |
+
+- Findings:
+  - F1 (high) AC1 "Bounded min/max delay": in Pekko the delay is bounded by `maxBackoff` only when `randomFactor == 0`; with jitter the value is `min(max, min*2^n) * (1 + r*randomFactor)` and may exceed `maxBackoff` (`RetrySupport.scala:404-415`). The reconciliation states the formula correctly but the AC wording does not. Neutral replacement: "The delay is `min(maxBackoff, minBackoff * 2^n) * (1 + r * randomFactor)` with `r` uniform in [0,1) (`RetrySupport.scala:404-415`), so with `randomFactor > 0` it may exceed `maxBackoff`; `BackoffSupervisorSpec.scala:272-290` pins the `randomFactor = 0` cases."
+  - F2 (medium) The reconciliation's "AC 3 has no Pekko counterpart ... Go adaptation, D13 pending approval": consistent with the search above (no cancel API found). Alternative evidence with explicit Owner approval under D13 would come into question only if an oracle is shown not to apply, with the reason documented; none is recorded in the issue or an ADR. Record: "no cancel API found in RetrySupport.scala (searched: cancel, Cancellable); D13 oracle applicability pending determination".
+  - F3 (medium) The min/max/randomFactor validation of the backoff `retry` overload (`require(minBackoff > Duration.Zero)`, `maxBackoff >= minBackoff`, `0.0 <= randomFactor <= 1.0`, `RetrySupport.scala:172-177`) is in no AC and no spec.
+  - F4 (high) Edge #821 -> #875. #821 (TIM-02) is "Schedule a one-shot actor message" (AC: enqueue one message after its due point under an injected clock). Pekko's retry delay uses `after(delay, scheduler)` (`RetrySupport.scala:363-370`; `FutureTimeoutSupport.scala:50-64`), i.e. a future-timeout helper over the scheduler, not an actor message. The reconciliation reason "scheduleOnce -> delay between attempts" does not match the Pekko code. Open question: which Go primitive implements the delay; missing evidence: a story or ADR text. Do not infer #821 is the right producer.
+  - F5 (medium) Edges #875 -> #909 and #875 -> #941 (`enables`, "calculateDelay reused"): in Pekko the supervisors call `RetrySupport.calculateDelay` directly (`internal/BackoffOnStopSupervisor.scala:85`, `internal/BackoffOnRestartSupervisor.scala:99`) and not the retry loop; the delay math does not need #838 or the scheduler. The chain #838 -> #875 -> #909/#941 is longer than the code needs (the prior audit F-13(d)); the edge is not wrong in direction, but it forces the retry loop and the scheduler before the supervisors.
+  - F6 (medium) Edge #838 -> #875: in Pekko the backoff overload is built on the delay-function overload (`RetrySupport.scala:186-188`), so a shared loop is code-supported; but the delay-function and fixed-delay overloads are story #1101 (PAT-18), not named as a prerequisite of #875. Open question: is #1101 a prerequisite; missing evidence: the #875/#1101 boundary.
+- Dependencies: #838 -> #875 `depends_on` kept (F6 open). #821 -> #875 `depends_on`: questionable (F4). #875 -> #909 and #875 -> #941 `enables`: reason imprecise (F5). No cycle.
+- Oracle (D13): AC1 min/max/cap/overflow: oracle exists and can host a differential scenario (`BackoffSupervisorSpec.scala:272-290`); jitter and non-overlap: applicability pending determination (no spec observes them, but the behavior exists at `:404-413`, `:379-383`); AC3: no Pekko counterpart found (see F2).
+
+---
+
+### #811 SER-09 — Serialize byte slices with explicit nil and empty behavior
+- Depth: DEEP
+- Labels now: `prio:P2`, `status:blocked`
+- Verdict: CORRECT and ADR (ACs 2 and 3 differ from Pekko and need an explicit Owner decision)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 nil/empty behavior specified from "the accepted Go adaptation" | `ByteArraySerializer.toBinary(o)`: `null => null`, `Array[Byte] => o` unchanged, other => `IllegalArgumentException("<class> only serializes byte arrays, not [<type>]")`; `fromBinary(bytes, clazz) = bytes` (`Serializer.scala:436-448`); buffer variant: `null` writes nothing, `Array[Byte]` is `buf.put(bytes)` (`:450-464`) | `SerializeSpec.scala:245-256` ("use ByteArraySerializer for byte arrays"): for `"foo".getBytes`, `null: Array[Byte]` and `Array[Byte]()` asserts `fromBinary(toBinary(a))` is the same instance as `a`, and that `toBinary("pigdog")` throws `IllegalArgumentException` with the exact message | no built-in serializer; `develop/pekko-serialization` registers only user serializers (ADR 0021 O7) | yes for Pekko behavior; no accepted Go adaptation exists |
+| AC2 serialized output does not retain a mutable caller-owned alias | Pekko is the opposite: `toBinary` returns the input array itself ("just returns the byte array unchanged/uncopied", doc above `Serializer.scala:431`) | `SerializeSpec.scala:249-250` asserts `theSameInstanceAs(a)` | ADR 0021 section 8 (`:280-282`): `ToBinary` returns bytes that belong to the caller and do not alias serializer state | no (differs from Pekko) |
+| AC3 deserialization returns bytes satisfying the existing byte-ownership contract | Pekko `fromBinary` returns the input array itself (`Serializer.scala:~443-445`) | `SerializeSpec.scala:249-250` (same instance) | ADR 0021 section 8 (`:283-284`): a value returned by `FromBinary` must not alias `data` (it copies) | no (differs from Pekko) |
+
+- Findings:
+  - F1 (high) ACs 2 and 3 describe a copy on both sides. Pekko's `ByteArraySerializer` is a no-copy pass-through, asserted by `SerializeSpec.scala:249-250`. ADR 0021 section 8 (accepted 2026-10-19) fixes the Go byte-ownership contract for all serializers, and its adaptation table (`:300-312`) lists no ByteArraySerializer exception. Whether a built-in byte serializer follows section 8 (copies) or the Pekko pass-through is a deliberate difference that needs an explicit Owner decision (D13 does not authorize it). Neutral replacement text for the AC: "Pekko behavior: `toBinary` and `fromBinary` return the same array (`Serializer.scala` ByteArraySerializer; `SerializeSpec.scala:249-250`). The Go behavior under ADR 0021 section 8 is an open question; missing evidence: an Owner decision on whether a built-in byte serializer is an exception to or an application of section 8."
+  - F2 (medium) AC1 "accepted Go adaptation" refers to something that does not exist: ADR 0021 O7 (`:382`) is open ("Built-in serializers for primitives and byte slices ... are pending"). Pekko's nil/empty behavior (null in, null out; empty array preserved) is observable now; a Go "distinct encoding" for nil vs empty (the diagram text) has no Pekko counterpart (Pekko's `toBinary(null)` returns `null`, not an encoding).
+  - F3 (medium) Source list: `PrimitiveSerializers.scala` is not the oracle for byte slices. The byte serializer is `ByteArraySerializer` in `Serializer.scala`; the serializers in `PrimitiveSerializers.scala` are `@InternalApi private[pekko]` and their scalar behavior belongs to #804. `ActorRef.scala` is irrelevant (confirmed). The reconciliation's "Pekko id 4" is correct: `reference.conf:841`; the id block is `:838-846`.
+  - F4 (high) The id: ADR 0021 D3 (`:395`) reserves 0-40 and the adaptation table says the Go id is reported by the serializer itself (`:304`, no configuration layer). A Pekko-compatible id 4 would sit inside the reserved range that `pekko-serialization/serialization/builder.go:104-111` rejects (verified by the prior audit, not re-read); how a built-in registers there is undecided. I read #1190 (GOV-43) only by title and labels (`status:ready`), not its decision text.
+  - F5 (low) The exact exception message asserted by the spec is JVM-specific; in Go the type system removes the non-byte-array case. Do not carry it into an AC.
+- Dependencies: #1190 -> #811 `depends_on` OK (O7). #804 -> #811 `independent` (shared id allocation): fine. Status `blocked` is consistent with the undelivered #1190 decision. No cycle.
+- Oracle (D13): oracle exists and can host a differential scenario for pass-through, null and empty (`SerializeSpec.scala:245-256`). ACs 2-3 are differences from that oracle, not Go-only rows, so D13 alternative evidence does not authorize them; they need an explicit Owner decision.
+
+---
+
+### #805 SER-03 — Specify a Go buffer-oriented serializer extension
+- Depth: DEEP
+- Labels now: `prio:P3`, `status:blocked`
+- Verdict: CORRECT (source list)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 compare ByteBufferSerializer outcomes with Go buffer/slice ownership options | `trait ByteBufferSerializer { def toBinary(o: AnyRef, buf: ByteBuffer): Unit; def fromBinary(buf: ByteBuffer, manifest: String): AnyRef }` (within `Serializer.scala:176-226`, doc `:176-210`); array methods are used "when `ByteBuffer` is not used, e.g. in Pekko Persistence" (`:180-182`) | `SerializeSpec.scala:258-275`: `ByteBuffer.allocate(128)` little-endian; after `toBinary(payload, buf)` asserts `position == payload.length`; after `flip` and `fromBinary(buf, "")` asserts `remaining == 0` and the string equals; a wrong type throws `IllegalArgumentException` with the exact message. `PrimitivesSerializationSpec.scala:48-61`: asserts array and buffer formats are equal (given LITTLE_ENDIAN) and round-trip | no buffer port in `pekko-serialization`; ADR 0021 section 8 fixes slice ownership | yes (Pekko behavior); the Go comparison is the story's deliverable |
+| AC2 specify borrowing, capacity, retention and aliasing rules | Pekko: relative `put`/`get` on the caller's buffer, position-based, no explicit offset or length, no return value; capacity failure is the unchecked `BufferOverflowException` (see #850). Non-test users include actor `Serialization.scala:288`, remote `MessageSerializer.scala:97` and `WrappedPayloadSupport.scala:100-106` (`asReadOnlyByteBuffer()`, little-endian, "may avoid one copy") | "no spec found for capacity or retention rules; searched: `BufferOverflowException` in actor-tests (no file)" | none | spec-does-not-observe |
+| AC3 distinct opt-in port or explicit adaptation; do not change existing ownership silently | Pekko: `ByteBufferSerializer` is a separate trait mixed into a serializer (`ByteArraySerializer extends BaseSerializer with ByteBufferSerializer`, `Serializer.scala:~433`) | no spec | ADR 0021 section 8 | n/a (a Go decision) |
+| AC4/AC5 ADR with alternatives and Owner decisions; contract and traceability | n/a | n/a | no ADR exists for it | n/a |
+
+- Findings:
+  - F1 (low) Source list: remove `ActorRef.scala` (its only serialization code is the Java serialization of `ActorRef`, as the #850 audit already records); `PrimitiveSerializers.scala` is relevant only as the second set of implementers. Add the `Serializer.scala` buffer trait, `SerializeSpec.scala:258-275` and `PrimitivesSerializationSpec.scala:48-61`.
+  - F2 (low) The reconciliation's one change ("cite `Serializer.scala:211-223` as the buffer-variant contract") is correct as to content; the trait body is inside those lines and its doc starts at `:176`.
+  - F3 (info, status) The label is `status:blocked` while the story lists no prerequisite ("independent") and its outcome is an ADR proposal; the reconciliation gives "Plan silent; P3 per Owner decision on buffer ownership". I do not propose a label change; this only records that no producer story blocks it.
+  - F4 (medium) Non-test users of the buffer port: actor Serialization.deserializeByteBuffer (Serialization.scala:288), remote MessageSerializer.scala:97 and WrappedPayloadSupport.scala:100-106; implementers include the actor primitives, ByteArraySerializer, remote primitives and ShardingSerializer. Neither the body nor the reconciliation mentions this. Open question: whether a local (non-remote) Go consumer exists; missing evidence: the ADR 0033 D8 classification of the buffer port.
+- Dependencies: none required (`independent`) OK. #805 -> #850 `depends_on` (consumer) OK.
+- Oracle (D13): oracle exists and can host a differential scenario for the Pekko buffer round trip (`SerializeSpec.scala:258-275`); the Go ownership rules are a decision with no Pekko counterpart: applicability pending determination until an option is chosen.
+
+---
+
+### #806 SER-04 — Limit nested deserialization depth
+- Depth: DEEP
+- Labels now: `prio:P3`, `status:blocked`
+- Verdict: ADR (propagation mechanism undecided) and CORRECT
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 depth tracked across nested registry deserialization, including delegated serializers | `Serialization.deserializeByteArray` wraps the serializer call in `NestedDeserialization.atNextLevel(maxNestingDepth)` (`Serialization.scala:237`); the depth is a per-thread counter (`NestedDeserialization.scala`, `ThreadLocal[Array[Int]]`); a serializer that calls another serializer directly must count itself: `remote/.../WrappedPayloadSupport.scala:95-114` ("the two branches below call one directly and count it here, while the third delegates to `Serialization`, which counts it itself") | `remote/.../NestedPayloadDepthSpec.scala`: "accept nesting within the configured depth" (`maxNestingDepth == 32`, 4 levels of `Some` accepted); "reject nesting beyond the configured depth with NotSerializableException" (200 levels, message includes `"nesting depth"`); "reject deep nesting that would otherwise exhaust the stack" (20000 levels). No spec in actor-tests (searched `NestedDeserialization\|maxNestingDepth\|serialization-max-nesting-depth` over `upstream/pekko`: hits only actor main, reference.conf, remote main and spec, jackson main and `JacksonFactorySpec`) | none; ADR 0021 `:269` "nested calls are allowed; their depth is not limited, O1" | yes (remote spec); unsupported in Go today |
+| AC2 exact boundary and reset between independent reads tested | counter incremented, `> max` throws, decremented in `finally` (`NestedDeserialization.scala`, `atNextLevel`): depth `max` is accepted, `max + 1` rejected | "not leak depth between messages": after a rejected 200-level read a 4-level read is accepted. The exact `32`/`33` boundary is not asserted by any spec found | none | yes (reset); spec-does-not-observe (exact boundary) |
+| AC3 limit error classified without enabling an unreadable-snapshot fallback | the failure is a `NotSerializableException`, the ordinary deserialization failure; message "Message exceeds the maximum deserialization nesting depth of [N]. Configure with 'pekko.actor.serialization-max-nesting-depth'." | the remote spec asserts the exception type and that the message contains "nesting depth" | ADR 0021 `:246` "Only explicit evidence classifies data as unreadable ... its failure stays a deserialization failure with its cause" and D4 (`:396`) | yes (type); the "no fallback" half is a persistence matter, see #851 F3 |
+
+- Findings:
+  - F1 (high) The reconciliation says "ADR 0033 D13: no applicable actor-tests oracle, Go-only evidence needs Owner approval". The Pekko behavior has an oracle spec in the `remote` module (`NestedPayloadDepthSpec`), driven by the remote protobuf container, and the depth check itself is in `actor` (`Serialization.scala:237`). Nothing shows that spec cannot apply to a Go differential scenario, and D13 requires a differential scenario when an applicable oracle exists. Use: "oracle applicability pending determination (spec in `remote`, behavior in `actor`)"; do not state that Go-only evidence needs Owner approval.
+  - F2 (medium) Anchors: `Serialization.scala:163-164` (`maxNestingDepth`) reads config key `pekko.actor.serialization-max-nesting-depth`; default 32 at `reference.conf:785`. Both `maxNestingDepth` and `NestedDeserialization` are `@InternalApi private[pekko]`. Replace the wrong sources `ActorSystem.scala` and `Decompression.scala` (confirmed irrelevant) by these.
+  - F3 (medium) AC3 is tied in the reconciliation to "ADR 0021 O10/O11". O10 is the location/name of the "snapshot unreadable" sentinel and O11 the treatment of an unknown id (`0021:386-387`), both deferred to #409; neither covers a depth-limit error. The accepted anchors for classification are ADR 0021 D4 (`:396`) and the rule at `:246`.
+  - F4 (medium) "configured nesting limit": ADR 0021's adaptation table (`:304`) says there is no configuration layer, so the source of the limit in Go is undecided; and the depth would have to travel through calls where `FromBinary` has no context (O6, `:376`). This is the open decision of GOV-44 (#1189); missing evidence: its outcome (I read #1189 by title and labels only).
+  - F5 (low) ADR 0021 O1 (`:381`) is "pending; this design does not claim parity", not a prohibition (prior audit F-15); the reconciliation's phrase "contradiction with this story's premise" overstates it.
+- Dependencies: #1189 -> #806 `depends_on` OK (#1189 is `status:ready`, #806 `blocked` is consistent). No cycle. ADR 0021 O12 (`:377`, serializers safe for concurrent use) is relevant to any shared depth counter.
+- Oracle (D13): applicability pending determination (see F1).
+
+---
+
+### #807 SER-05 — Bound supported decompression output
+- Depth: DEEP
+- Labels now: `prio:P3`, `status:blocked`
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 the limit applies to bytes produced, not compressed input size | `Decompression.gunzip` counts bytes read from the `GZIPInputStream` in 4 KiB chunks and throws once `total > maxDecompressedSize` (`Decompression.scala:62-81`, check `:71-75`) | `DecompressionSpec.scala` "accept a payload of exactly the limit" (1024 bytes, limit 1024: length 1024), "reject a payload one byte over the limit" (1025: `NotSerializableException`), "reject a highly compressible payload without decompressing all of it" (64 MiB of zeros, compressed < 1 MiB, limit 1 KiB: exception) | no compressed format in `pekko-serialization` | yes |
+| AC2 unlimited mode explicit and documented | negative limit or `unlimited` = no limit (`:44-55`, `:71`); default `serialization.max-decompressed-size = unlimited` (`reference.conf:863`, doc `:852-862`) | "apply no limit when the maximum is negative" (1025 bytes accepted with -1); "read the maximum from configuration, unlimited by default" (`-1L`); "read a configured -1 as unlimited"; "read a configured maximum as a size" (`16 KiB` -> 16384) | n/a | yes |
+| AC3 if no compressed format is retained, record that in scope | `Decompression` is `@InternalApi private[pekko]`; the consumers listed in `reference.conf:852-862` are cluster, cluster-metrics, cluster-sharding, cluster-tools and distributed-data; Jackson has its own setting | n/a | none | n/a |
+| AC4/AC5 ADR | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (low) The reconciliation says the expected outcome is an exclusion "cluster-or-remote" (ADR 0033 D8). The consumers named in `reference.conf:852-862` support the premise; I did not open those consumers. The exclusion itself is an Owner/ADR decision, not established here. Sources: `ActorSystem.scala` and `NestedDeserialization.scala` are wrong (confirmed); the anchors are `Decompression.scala:44-55,62-81` and `reference.conf:852-863`.
+  - F2 (low) Whether any compressed format is retained is the story's deliverable (AC3); state it as an open question with missing evidence: the ADR 0033 D8 classification record.
+  - F3 (info, status) `status:blocked` with no prerequisite and a decision-slice outcome: same observation as #805 F3; no label change proposed.
+- Dependencies: `independent` OK. #807 -> #851 `depends_on` OK (#851 AC1 makes an exclusion leave #851 unnecessary).
+- Oracle (D13): oracle exists (DecompressionSpec) for gzip limit semantics; whether it can host a differential scenario depends on whether a gzip format is retained at all: applicability pending determination.
+
+---
+
+### #845 SER-07 — Expose an asynchronous serializer port
+- Depth: DEEP
+- Labels now: `prio:P3`, `status:blocked`
+- Verdict: CORRECT (AC3 text contradicts the recorded decision A) and ADR (ADR 0021 O6)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 both asynchronous calls have one documented result shape | `trait AsyncSerializer`: `toBinaryAsync(o: AnyRef): Future[Array[Byte]]` (`AsyncSerializer.scala:40`), `fromBinaryAsync(bytes, manifest): Future[AnyRef]` (`:45`); the returned array must not be mutated afterwards (`:38`); "Only used for Pekko persistence journals that explicitly support async serializers" (`:28`) | `AsyncSerializeSpec.scala:111-119` ("find async serializers"): finds the serializer through `ser.findSerializerFor`, casts it to `SerializerWithStringManifest with AsyncSerializer`, calls `toBinaryAsync(o1).futureValue`, then `fromBinaryAsync(binary, manifest).futureValue`, asserts the object equals the original | no async port; `spi.Serializer` is synchronous | yes |
+| AC2 the existing synchronous Serializer remains supported without hidden background work | an async serializer is also a synchronous one: `AsyncSerializerWithStringManifest extends SerializerWithStringManifest with AsyncSerializer`, with `final override toBinary/fromBinary` that log a warning and `Await.result(..., Duration.Inf)` (`:52-70`) | `AsyncSerializeSpec.scala:121-125` ("logs warning if sync methods called"): `ser.serialize(Message1(...))` produces exactly one warning starting "Async serializer called synchronously"; `:127-137` (CS flavor): two warnings for serialize + deserialize and the round trip equals | `spi.Serializer` unchanged | spec observes the Pekko bridge only; the AC's "plain synchronous serializer untouched" has no Pekko counterpart (Go-only) |
+| AC3 the consuming journal must advertise support; no persistence import in actor or serialization | no advertisement mechanism exists: no capability flag or registry (`AsyncSerializer.scala:25-46`); the only detection is the cast in the spec (`AsyncSerializeSpec.scala:115`); `toBinaryAsync` appears only in `AsyncSerializer.scala` and the spec in the whole checkout (prior grep; re-confirmed for the file list of `toBinaryAsync`) | `AsyncSerializeSpec.scala:113-115` (the cast) | decision recorded in the issue body, option A, without a quoted Owner instruction or accepted ADR (see below) | no (AC text contradicts decision A) |
+
+- Findings:
+  - F1 (high) AC3 text: "The consuming journal must advertise support". Recorded decision (issue body of #845 and of #1193, headed "Owner decision recorded on 2026-10-25: option A"): "The consumer detects the optional asynchronous port on the serializer value by a type assertion; no advertisement exists." Pekko evidence agrees (the only detection is the cast at `AsyncSerializeSpec.scala:115`). I verified the decision text in the two GOV/story bodies; the original Owner instruction itself is not available to this audit. Neutral replacement text for the AC: "The asynchronous port is optional: a consumer detects it on the registered serializer value by a type assertion; no persistence import is added to `actor` or `serialization` (Pekko: `AsyncSerializeSpec.scala:115`; #1193 body records "Decision (Owner): option A" without a quoted Owner instruction or accepted ADR)." Note the #845 body says applying this wording "is left for when it is made ready".
+  - F2 (medium) AC2 "without hidden background work": Pekko's synchronous bridge blocks with `Await.result(..., Duration.Inf)` and logs a warning (`AsyncSerializer.scala:58-70`); a bridge is not work-free and belongs to #885 (SER-08, decision GOV-47 #1194). The AC describes the untouched Go synchronous interface, which has no Pekko counterpart; no Pekko text states it (searched AsyncSerializer.scala, AsyncSerializeSpec.scala); D13 oracle applicability pending determination; or move it out.
+  - F3 (medium) Pekko's async serializer is a refinement of a synchronous one (it extends `SerializerWithStringManifest`), not a port a plain `Serializer` may skip. The decision comments in #1193 record the same for Go (the builder accepts only `spi.Serializer`, `builder.go:43`; not re-read by me).
+  - F4 (medium) AC1 "one documented result shape": the Go shape is blocked by #773 (ASK-01 is `status:blocked`, a decision slice) and by ADR 0021 O6 (`:376-377`: no `context.Context`, no I/O in a serializer). These are the real open items; do not fill them in.
+  - F5 (low) The Java flavor (`AsyncSerializerWithStringManifestCS`, `AsyncSerializeSpec.scala:127-137`) is not needed for Go.
+- Dependencies: #773 -> #845 `depends_on` kept (result type). #1193 -> #845 `depends_on`: the decision is already recorded (GOV-46 issue is still open and `status:ready`); the reconciliation lists the edge, consistent with the recorded text. #845 -> #885 `depends_on` (bridge) per the prior audit. Status `blocked` consistent with #773 `blocked`. No cycle.
+- Oracle (D13): oracle exists and can host a differential scenario for the round trip and the synchronous-call warning (`AsyncSerializeSpec.scala:111-137`); AC3 has a Pekko-side observation (the cast) and an Owner decision; the Go-only part of AC2 has no counterpart.
+
+---
+
+### #850 SER-10 — Write through the accepted buffer-oriented serializer port
+- Depth: DEEP
+- Labels now: `prio:P3`, `status:blocked`
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 implement only the buffer contract selected in SER-03 | `ByteBufferSerializer.toBinary(o, buf): Unit`, `fromBinary(buf, manifest)` (`Serializer.scala:176-226`) | `SerializeSpec.scala:258-275` (position == payload length after write; remaining == 0 after read); `PrimitivesSerializationSpec.scala:48-61` (buffer output equals array output given LITTLE_ENDIAN, then round trip) | none | n/a (depends on #805's decision) |
+| AC2 no write can mutate bytes outside the provided accepted range | Pekko relies on `java.nio.ByteBuffer` relative `put`/`putLong`. The one explicit overflow path: `ByteStringSerializer.toBinary(o, buf)` calls `bs.copyToBuffer(buf)` and throws `new BufferOverflowException()` when the copied count is below `bs.length` (`PrimitiveSerializers.scala:138-145`; the code comment: "ByteString.copyToBuffer does not throw BufferOverflowException"); the bytes that fit have already been copied | "no spec found; searched: `BufferOverflowException` over actor-tests (no file); the buffer cases above only write into a 128 or 4096 byte buffer" | none | spec-does-not-observe |
+| AC3 the existing byte-slice Serializer remains unchanged | the array methods stay on the same classes (`ByteArraySerializer`, primitives); buffer and array formats are equal | `PrimitivesSerializationSpec.scala:48-61` | ADR 0021 section 8 | yes |
+
+- Findings:
+  - F1 (medium) AC2 "No write can mutate bytes outside the provided accepted range" / the diagram's "Return bounded capacity failure": Pekko guarantees range safety only through `ByteBuffer` semantics, and on overflow the fitting prefix of a `ByteString` is already written and the position advanced (`PrimitiveSerializers.scala:141-144`; inference from the comment and the return count; no JDK source in the checkout). A Pekko capacity failure is an unchecked `BufferOverflowException` with no message and no required-size information. Whether the JDK's `ByteBuffer.put` writes a prefix before throwing is not verifiable in this checkout (no JDK source), so I make no claim about the other serializers. Neutral replacement text: "Pekko behavior: capacity failure is `java.nio.BufferOverflowException`; for `ByteStringSerializer` the bytes that fit are already written (`PrimitiveSerializers.scala:141-144`). Whether a Go buffer port guarantees an untouched buffer on failure is an open question; missing evidence: the #805 decision."
+  - F2 (low) Source list: `ActorRef.scala` (only Java-serialization `writeReplace`, per the earlier second-pass audit recorded in the issue) is spurious; replace it with `Serializer.scala:176-226,432-465` and `PrimitiveSerializers.scala:27-40,69-78,107-121,132-148,166-194` (the buffer methods are `@InternalApi private[pekko]`).
+  - F3 (low) The reconciliation's non-byte-array case: `ByteArraySerializer.toBinary(o, buf)` throws `IllegalArgumentException` with the exact message (`Serializer.scala:~452-458`), asserted by `SerializeSpec.scala:270-273`; it is a JVM type check that the Go type system removes.
+  - F4 (info) Not verified by me: #805's decision (the story depends on it; #805 is a decision slice with no decision yet).
+- Dependencies: #805 -> #850 `depends_on` OK. Status `blocked` consistent (the producer is undecided). No cycle.
+- Oracle (D13): oracle exists and can host a differential scenario for buffer/array equivalence and round trip (`PrimitivesSerializationSpec.scala:48-61`, `SerializeSpec.scala:258-275`); overflow and partial-write behavior: applicability pending determination (Pekko code exists at `PrimitiveSerializers.scala:141-144`, no spec observes it).
+
+---
+
+### #851 SER-11 — Enforce the accepted decompression-output limit
+- Depth: DEEP (the full path from a snapshot to the decoder in Pekko persistence is not verified, as the issue itself says)
+- Labels now: `prio:P3`, `status:blocked`
+- Verdict: CORRECT (AC3 reformulated by the recorded decision; the D13 wording needs correction)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 implement only compressed formats retained by SER-05; an exclusion leaves this story unnecessary | Pekko has two decompression paths: `Decompression.gunzip` (`Decompression.scala:62-81`) and the Jackson serializer's own gzip and LZ4 paths (`JacksonSerializer.scala` decompress, ~`:575-612`, `IllegalArgumentException`) | `DecompressionSpec.scala` (gzip); `JacksonSerializerSpec.scala:654-704` (gzip beyond `max-decompressed-size`, LZ4 declaring a size beyond it, `-1` unlimited; the first two assert the message includes `max-decompressed-size`) | none | n/a (depends on #807) |
+| AC2 the exact output-byte boundary is enforced during production, not after allocating the full oversized result | count per 4 KiB chunk, check `total > max` after each `in.read` and before `out.write` (`Decompression.scala:62-81`, check `:71`): at most `max` bytes are written to the output buffer, one extra chunk is read | `DecompressionSpec.scala`: 1024 accepted / 1025 rejected; the 64 MiB-of-zeros bomb (compressed < 1 MiB) rejected with limit 1 KiB; "name the setting in the failure" asserts the message includes `pekko.serialization.max-decompressed-size` | none | yes |
+| AC3 (as reformulated 2026-10-25, GOV-45 option A) the decoder returns the size-limit error and releases its resources; it neither decides nor performs any snapshot recovery | `gunzip` closes its stream in `finally in.close()` (`:80`); the decoder throws and does not recover; the snapshot store is a separate consumer: `LocalSnapshotStore.load` retries an older snapshot on any failure and logs an error (`LocalSnapshotStore.scala:112-129`) | no spec asserts the close: "no spec found; searched: `DecompressionSpec` read in full, `ClusterMessageSerializerDecompressionSpec` (named by the earlier audit, not re-read)". The fallback loop is likewise not asserted by a spec that I opened | the decision is recorded; no code | spec-does-not-observe (close); yes (separation of responsibility, by code) |
+
+- Findings:
+  - F1 (high) D13 wording in the recorded decision: "that evidence is alternative evidence and stays `pending approval` until the Owner approves it (ADR 0033 D13)". D13 reserves alternative evidence and approval for rows with no applicable Pekko oracle. Here the behavior exists in Pekko code (`Decompression.scala:80` close, the decoder throwing) and the limit has an oracle (`DecompressionSpec`); the absence of a spec that asserts the close does not show that no applicable oracle exists. Neutral wording: "oracle applicability for resource release and for absence of recovery: pending determination (behavior at `Decompression.scala:80`; no Pekko spec asserts it)". Nothing shows that D13 approval is currently owed.
+  - F2 (medium) Failure type: Pekko throws `NotSerializableException` in `Decompression.gunzip` (`:72-75`) and `IllegalArgumentException` in the Jackson serializer (Jackson half not verified by the verification). The AC says "size-limit failure" without choosing; the decision text lists it as still open. Keep it as an open question (do not pick).
+  - F3 (medium) The fallback half of the AC is a persistence matter. Pekko's snapshot store DOES fall back automatically on any load failure (`LocalSnapshotStore.scala:112-129`, the heuristics comment `:58-64`), which is what the reformulated criterion 3 leaves out of the decoder. The reformulation is consistent with the Pekko separation (decoder throws, store decides); the Go consumer's policy is outside this story (ADR 0021 O10/O11, `:386-387`, deferred to #409).
+  - F4 (low) Anchors: `gunzip` is `Decompression.scala:62-81` and `maxDecompressedSize` is `:44-55` (the reconciliation's ranges include the scaladoc (gunzip 57-82, maxDecompressedSize 39-55); the code-only ranges are 62-81 and 44-55); failure message `:72-75`; setting `reference.conf:863`.
+  - F5 (low) The cited `ActorSystem.scala` and `NestedDeserialization.scala` are wrong sources (confirmed). The cluster consumer cited by the earlier audit (`ClusterMessageSerializer.scala:160-169`) was not re-read.
+  - F6 (info) #1192 body records "Decision (Owner): option A" on 2026-10-25; the body quotes no Owner instruction and no ADR records it.
+- Dependencies: #807 -> #851 `depends_on` OK. #1192 -> #851 `depends_on`: the decision is recorded, the GOV issue is still open and `status:ready`; the edge stays consistent. Status `blocked` consistent with #807 undecided. No cycle.
+- Oracle (D13): oracle exists and can host a differential scenario for the limit (`DecompressionSpec.scala`, gzip) and for the Jackson variant (`JacksonSerializerSpec.scala:654-704`); resource release and no-recovery: applicability pending determination (F1).
+
+---
