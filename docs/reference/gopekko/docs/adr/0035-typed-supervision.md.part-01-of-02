@@ -1,0 +1,360 @@
+# ADR 0035: Typed supervision profile on the shared runtime
+
+- Status: **Accepted** (S-1–S-6; amended 2026-11-04, 2026-11-05, 2026-11-06 and 2026-11-10).
+  - Status history: partly accepted by the Owner on 2026-10-27 (decisions S-1 and S-6, `docs/parity/typed-owner-decisions-2026-10-27.md` **Amendment of 2026-11-04 (accepted): the Owner decided S-2, S-3, S-4 and S-5, including case D-a of S-3 for actors without children at restart time (accepted on 2026-11-04 after the oracle against the fixed build; the variant with children stays "To be verified"); see "Amendment (accepted): decisions S-2 to S-5" at the end.** **Amended on 2026-11-05** (additive, [oracle of D-a with children](../parity/oracles/d-a-with-children-2026-11-05.md)): the precondition of D-a ("no children at restart time") is superseded by "the restart does not wait for children to stop", and sub-case C1 (asynchronous, no fatal error) is added; see "Amendment (2026-11-05)" at the end. **Amended again on 2026-11-05 (c)** (additive, [oracle of S-2](../parity/oracles/s-2-supervision-2026-11-05.md)): S-2.6 is rewritten, S-3 case (b) with a limit is corrected, S-2.3c is qualified and the "To be verified" of S-2 is closed; see "Amendment (2026-11-05, c)" at the end.
+  section 0): alternative (a) with contracts 1 to 7 and 9 to 15 (contract 3 for M-A and narrower matchers), M-A, M-B, D-c, D-e, and the
+  precision of ADR 0033 D2, as published at `develop` `2029305`. At that date still proposed (S-2 to S-5 were accepted on 2026-11-04, see above): the M-B match-all `withLimit` case (S-2), D-a (S-3),
+  contract 8 and D-f (S-4), the cause shape of contract 14 (S-5); publication of `Dropped` is deferred. Before that decision nothing
+  here was accepted; it changes no code, no other ADR and no issue. Revised on 2026-10-26 (audit #004, block 3) to correct
+  citations and to stop stating the proposed divergence of decision 3 as a Pekko fact, and on 2026-10-27 (final validation) to align
+  labels and the matrix with the decision package `docs/parity/typed-supervision-decision-package-2026-10-27.md` (PR #1217); see "Revision log". It extends [ADR 0017](0017-supervision.md) (Classic) for the Typed
+  profile, as ADR 0033 D2 requires; it does not amend ADR 0017.
+- Date: 2026-10-26
+- Stage: 1 (actor core, Typed profile)
+- Module: `pekko-actor-typed` (ADR 0033 D3), consuming `pekko-actor`
+- Issues: #1063 (GOV-01, this proposal); consumers #956 (TYP-09), #1183, #1184, #994; builds on [ADR 0034](0034-typed-behavior-boundary.md)
+  (#809). Program #746.
+- Number: #1063 proposed 0034; ADR 0034 is taken by the Behavior boundary it depends on, so this proposal uses 0035 (free on
+  2026-10-26 in `origin/develop` `13fb995` and in every remote branch). Proposed, not reserved.
+- Sources: Apache Pekko `v1.7.1`, `9a54d1294c3ac7821bbed3c940769c3d5027d1ff`. `T`, `AA`, `TT` as in ADR 0034; `S` =
+  `T/internal/Supervision.scala`; `SS` = `TT/SupervisionSpec.scala`; `SO` = `T/SupervisorStrategy.scala`; Classic `A` =
+  `upstream/pekko/actor/src/main/scala/org/apache/pekko/actor`. Levels SPEC / READ as in ADR 0034. Nothing was run. The author opened
+  the fifteen contract lines below, `AA/ActorAdapter.scala:232-260`, `AA/ActorContextAdapter.scala:66-75`,
+  `T/scaladsl/adapter/package.scala:54-62` and `S:76-84, 330-341`; the matrix rows come from a read-only research pass that opened
+  each test body, and were not all re-opened by the author.
+
+## Question
+
+Which Typed supervision contract does goPekko adopt (default Stop, `supervise`/`onFailure`, Resume, Restart, restart limits, backoff,
+stash during restart, stopping children, `PreRestart`/`PostStop`/`ChildFailed`, failures in setup, processing and message
+adaptation), selected per actor at creation (ADR 0033 D2), on the shared runtime and without changing the Classic profile of ADR 0017?
+Waiting for the answer: #956 (TYP-09), #1183, #1184, #994 (Typed System guardian), and every Typed story that restarts or stashes.
+
+## The finding that shapes the answer: who applies the default Stop
+
+"Classic restarts, Typed stops" is true of the **outcome** but hides two different **mechanisms**, chosen by how the Typed actor was
+spawned (`AA/ActorContextAdapter.scala:69, 74`; `T/scaladsl/adapter/package.scala:56-130`):
+
+| Spawned by | Mechanism | Parent observes |
+|---|---|---|
+| A Typed actor (`ctx.spawn`) | No wrapper. The failure escapes the child; the **parent's** adapter strategy returns Stop for a Typed child (`AA/ActorAdapter.scala:232-262`: `TypedActorFailedException` at 236-239, `isTypedActor` defined at 241-246 and tested at 258, Stop at 258-259) | `ChildFailed(ref, cause)` if it watches the child, else nothing |
+| A Classic actor, a Classic System, `systemActorOf` or `PropsAdapter` | The behavior is wrapped in `supervise(_).onFailure(stop)`; the **child** stops itself; the Classic parent's strategy is not consulted (the wrapper is built at `AA/ActorSystemAdapter.scala:130` and `T/scaladsl/adapter/PropsAdapter.scala:34`, and for the Classic system and context `spawn`/`spawnAnonymous` at `T/scaladsl/adapter/package.scala:60, 74, 114, 127`; its failure ends in `context.stop(self)` at `AA/ActorAdapter.scala:168-172`), **except** when the user's own match-all `supervise` replaces that wrapper (matrix, decision-3 row) | plain `Terminated` |
+| A Typed actor, child is Classic | The parent adapter's decider `defaultDecider.applyOrElse(_, Restart)` (`AA/ActorAdapter.scala:55-58, 261`; `A/FaultHandling.scala:218-223`): Stop on `ActorInitializationException`, `ActorKilledException` and `DeathPactException`; every other non-fatal failure, a non-fatal `Error` included, is Restart (a Classic parent would escalate an `Error`) | `ChildFailed` if watched and stopped |
+
+So a Classic parent with the default Restart strategy and an unsupervised Typed child gets a **stopped** child
+(`TT/coexistence/ClassicSupervisingTypedSpec.scala:105`), and a Typed parent with an unsupervised Classic child gets a **restarted**
+child for an `Exception` (`TT/coexistence/TypedSupervisingClassicSpec.scala:61-71`; a non-fatal `Error` restarts too, CODE).
+
+## Alternatives
+
+| Alternative | Consequence | Cost |
+|---|---|---|
+| (a) The Pekko Typed contract as a behavior wrapper inside `pekko-actor-typed`, over the shared runtime, default Stop by both mechanisms above | One runtime; ADR 0017 unchanged; every contract below has a home; Typed restart never uses the runtime Restart | The layer implements restart, limits, backoff and its own stash (about the size of `Supervision.scala`, 440 lines); backoff needs a timer source, and the `Dropped` overflow needs an event stream |
+| (b) Typed default Stop, but restarts only through the parent-owned Classic strategies of ADR 0017 | No restart code in the layer | Not Pekko: Typed restart is per behavior and keeps the actor's children and mailbox ordering differently; `withLimit` rethrow, backoff and the restart stash have no equivalent; contracts 2 to 8 below become differences |
+| (c) Contract (a), with backoff and the restart stash marked `pending` in the contract | Smaller first contract | The pending rows need a later ADR revision, and every story that backs off stays unspecified |
+| (d) Do nothing now: Typed actors get default Stop only; every other strategy is pending | Unblocks #956's default-Stop row only | Resume, Restart and limits stay unspecified; #1183 and #1184 stay blocked |
+
+## Pekko evidence: the contracts (R6 of #1063, extended)
+
+Disposition: **adopt** (same observable behavior), **adapt** (same intent, a stated Go difference), **pending** (needs a capability that
+does not exist yet; the contract is still fixed here).
+
+| # | Contract | Pekko | Spec | Disposition |
+|---|---|---|---|---|
+| 1 | Default Stop delivers `PostStop` and terminates; a non-matching failure falls to the default | `AA/ActorAdapter.scala:232-262`; `S:159-166` | `SS:387` "default to stop when no strategy", `SS:492`, `SS:502` | adopt (both mechanisms, section "Proposal") |
+| 2 | Restart sends `PreRestart` to the old behavior only and rebuilds from the initial behavior (setup re-run, state reset) | `S:318-319`, `S:327`, `S:392-404` | `SS:512` "restart when handled exception"; `TT/ActorContextSpec.scala:255` | adopt |
+| 3 | `withLimit(n, within)`: counted from the first failure of the window; an expired window resets the count; past the limit the failure is **rethrown** (no restart) | `S:335-337`, `S:430-440` | `SS:528` "stop when restart limit is hit", `SS:550` "reset fixed limit after timeout", `SS:224`, `SS:261` | adopt |
+| 4 | Backoff: delay `min(max, min·2^n)·(1+rand·randomFactor)`; `resetBackoffAfter` default `(min+max)/2`; past `withMaxRestarts` the actor **fails** (not rethrow) | delay `S:185-196`; `S:338-340, 377-383, 396-399`; `SO:86` (Scaladoc `SO:66-68`; the Java overload `SO:116-120` delegates, its Scaladoc `SO:102-104`). Only `-1` disables `withMaxRestarts` in the code (`S:335`), although the Scaladoc says "zero or negative" (`SO:329-331`); a failure of the initial `setup` under backoff is always retried, ignoring the limit (`S:308-309`) | `SS:912`, `SS:991`, `SS:1117`, `SS:960`, `SS:1122` | adopt with real-time timers (`time.AfterFunc` and `Port`); deterministic tests pending manual time. Follows the code where the Scaladoc differs |
+| 5 | Stash during restart/backoff: `StashBuffer[Any]`, default capacity `restart-stash-capacity = 1000`; signals other than the awaited children's `Terminated` and the supervisor's own signals are stashed too; overflow publishes `Dropped(msg, "Stash is full in [RestartSupervisor]")` with no sender and the actor as **recipient** (`classic ActorRef.scala:627-630`); leftovers go to dead letters if the new behavior stops during the replay (`T/internal/StashBufferImpl.scala:215-252`, READ); the stash is discarded with no event if the actor stops before the replay (READ) | `S:120-124, 254-286, 365-376`; `actor-typed/src/main/resources/reference.conf:27` | `SS:882`, `SS:912`, `SS:1195`, `SS:1199` | adopt for the stash (capacity as an option); publication of `Dropped` is a **deferred capability** |
+| 6 | Start failure under restart: unlimited restart, an exhausted limit or a non-matching class fail the actor; a limited restart or backoff retries the start | `S:294-311`; with `withLimit(n)` for n ≤ 1 the initial start is not retried (`S:302`, `(restartCount + 1) >= maxRestarts`; READ) | `SS:1090`, `SS:1099`, `SS:1145`, `SS:1157`, `SS:1122` | adopt |
+| 7 | `stopChildren = true` (default) stops the children, waits for their termination (re-watching `watchWith` children) and stashes meanwhile; `withStopChildren(false)` restarts at once | `S:226, 252-270, 362-363, 384-388, 421-428`; default `SO:162`, `SO:199`; `withStopChildren` `SO:173`, `SO:215` | `SS:575`, `SS:579`, `SS:618`, `SS:662`, `SS:666` | adopt |
+| 8 | `ScheduledRestart(owner)` and `ResetRestartCount(owner)` are consumed only by their owner supervisor (nested backoff); `ScheduledRestart` is dead-letter-suppressed | `S:198-203`, `S:222-250` | `SS:1060`, `SS:1069`; an unowned `ResetRestartCount` **reaches the user behavior** in Pekko (`SS:1049-1051`) | **divergence** (D-f): internal `Port` posts never reach the user behavior, which contradicts `SS:1049-1051`. Open, decision S-4 of the decision package |
+| 9 | Supervision wraps message-adapter functions: a throwing adapter becomes `MessageAdaptionFailure`, rethrown by default, so supervision applies | `AA/ActorAdapter.scala:197-213`; `T/internal/BehaviorImpl.scala:73-76` | `SS:1575` "apply supervision to adapter function"; `TT/scaladsl/AdaptationFailureSpec.scala:91` | adopt (with the message-adapter story) |
+| 10 | `DeathPactException` is supervisable | `T/Behavior.scala:270-276` | `SS:1408` "be able to recover from a DeathPactException" | adopt (ADR 0034 P6) |
+| 11 | Strategy matrix: every strategy on an initially stopped or setup-stopped behavior | — | `SS:1659-1695` | adopt |
+| 12 | `supervise` rejects an `AbstractBehavior` instance outside `setup` | `S:45-50` | `SS:1527` | adapt: the Go equivalent is an `Extend` value that keeps mutable state; the rule becomes "a supervised behavior with state is built inside `Setup`", checked where detectable |
+| 13 | Strategy logging: enabled by default at ERROR; `withLoggingEnabled`, `withLogLevel`; `withCriticalLogLevel` for backoff | `SO:35, 50, 238-243`; `S:106-108` | `SS:1441`, `SS:1452`, `SS:1463` | adopt (through kit-logger, ADR 0033 D11) |
+| 14 | Resume on a failing deferred factory fails the actor | `S:151-152, 175`; `T/Behavior.scala:240-242` | `SS:1107` | adopt the outcome; **open question** (decision S-5): in Pekko the parent sees an initialization error wrapping the validation `IllegalArgumentException`, not the user's error |
+| 15 | Timers of the actor are cancelled on every handled failure, before `PreRestart` is delivered | `S:298`, `S:334`, then `S:344` | `TT/TimerSpec.scala:174`, `:202` "discard timers from old incarnation after restart" (`GotPreRestart(false)` at `:194`) | adopt (with the Typed timers story) |
+
+Additional guarantees used below: matching is by class on the unwrapped exception, only non-fatal throwables are caught (`S:75-76` is the class match; `NonFatal` is at `S:146, 163, 171, 297, 333`;
+`SS:214`); nested `supervise` tries the innermost first (`T/Behavior.scala:82-86`; `SS:1637`, `SS:1644`); a `supervise` whose class is
+**exactly equal** (`==`, not a subclass) to an enclosing one's makes the enclosing one disappear, at start and after every turn *(Superseded by Amendment (2026-11-06): once a stack has started, not while the start is failing)*
+(`T/internal/InterceptorImpl.scala:82-85, 106-122`; `S:78-83`; `SS:1270`); Resume keeps the
+current behavior (`S:169-178`; `SS:834`); `ChildFailed` reaches a Typed parent only for a watched child that failed through the parent's
+strategy (`AA/ActorAdapter.scala:80-101, 232-273`; `TT/WatchSpec.scala:100`, `:130`).
+
+## Mixed hierarchy matrix
+
+Unsupervised Typed child unless stated. "Processing" = failure while handling a message or signal; "setup" = failure in `setup`, a
+constructor or `preStart`; "death pact" = unhandled `Terminated`.
+
+| Parent | Child | Failure | Pekko outcome | Decided by | Spec | Level | goPekko under this proposal |
+|---|---|---|---|---|---|---|---|
+| Classic | Classic | processing | Restart | parent Classic strategy | `SupervisorSpec.scala:401` uses a custom strategy; the outcome comes from `defaultDecider` (`A/FaultHandling.scala:218-223`) | CODE | ADR 0017, unchanged |
+| Classic | Classic | setup | Stop | parent Classic strategy | `SupervisorSpec.scala:546` uses a custom strategy that maps initialization errors to Restart; the outcome comes from `defaultDecider` | CODE | ADR 0017, unchanged |
+| Classic | Classic | death pact | Stop | parent Classic strategy | `actor-tests/.../DeathWatchSpec.scala:216` | SPEC | ADR 0017, unchanged |
+| Classic | Typed | processing | Stop; a watcher gets plain `Terminated` (`ClassicSupervisingTypedSpec` asserts it for a separate test watcher; the parent gets it only if it watches) | child's default stop wrapper | `ClassicSupervisingTypedSpec.scala:74, 84, 105, 130, 152` | SPEC | same: wrapper in the child (mechanism M-B) |
+| Classic | Typed + `supervise(restart)` | processing | Restart, `PreRestart`, no `Terminated` | child's restart supervisor | `ClassicSupervisingTypedSpec.scala:94, 117` | SPEC | same |
+| Classic | Typed | setup | Stop; no initialization failure reaches the parent | child's default stop wrapper | no spec found (searched `ClassicSupervisingTypedSpec`, `AdapterSpec`, `SS`) | READ | same |
+| Classic | Typed | death pact | Stop | child's default stop wrapper | no spec found | READ | same |
+| Classic | Typed + match-all `supervise(...).onFailure(restart.withLimit)` (class exactly `Throwable`, the default of `onFailure`) | limit exceeded while handling a message or signal, cause an `Exception` | Restart by the Classic parent: the user supervisor replaced the default wrapper, the rethrow reaches the parent, `PreRestart` and `setup` run again and the limit count restarts (`S:78-83`, `S:337`; `AA/ActorAdapter.scala:55-58, 309-323`) | parent Classic strategy | no spec found (searched `ClassicSupervisingTypedSpec`, `AdapterSpec`, `SS`) | READ | Under the default parent strategy an `Exception` gives Restart (children kept and restarted *(qualified by Amendment (2026-11-05, c), S-2.3c)*), `DeathPactException` gives Stop, any other non-fatal cause gives Escalate; a custom parent strategy decides; a start failure always stops. *(Superseded by Amendment (2026-11-05, c), S-2.6.)* Decision S-2 of the decision package (Architect recommendation: follow Pekko); open |
+| Classic | Typed + `supervise(...).onFailure[E](restart.withLimit)` with a narrower class `E` | limit exceeded | Stop: the default wrapper survives and catches the rethrow (`S:162-166`) | child's default stop wrapper | no spec found | READ | same |
+| Classic | Typed + match-all `restartWithBackoff.withMaxRestarts` | limit exceeded | Stop: backoff fails instead of rethrowing (`S:338-340`) | child | `SS:960` (Typed parent) | SPEC (outcome), READ (this parent) | same |
+| Typed | Typed | processing | Stop; `ChildFailed(cause)` if watched | parent's Typed strategy | `SS:387`; `TT/WatchSpec.scala:100` | SPEC | same: parent decider (mechanism M-A) |
+| Typed | Typed + `supervise(stop)` | processing | Stop; `ChildFailed` | child fails, parent maps to Stop | `TT/WatchSpec.scala:130` | SPEC | same |
+| Typed | Typed + `restart.withLimit` | limit exceeded | rethrow, then Stop; `ChildFailed` | parent's Typed strategy | `SS:528` | SPEC | same |
+| Typed | Typed | setup | Stop | parent's Typed strategy | `SS:1090, 1099, 1157, 1184` | SPEC | same |
+| Typed | Typed | death pact | Stop | parent's Typed strategy | `TT/WatchSpec.scala:165`; `TT/ActorContextSpec.scala:483` | SPEC | same |
+| Typed | Classic | processing | Restart | parent adapter decider `defaultDecider.applyOrElse(_, Restart)` (`AA/ActorAdapter.scala:55-58`) | `TT/coexistence/TypedSupervisingClassicSpec.scala:61` (asserts Restart for an `Exception` only); `TT/scaladsl/adapter/AdapterSpec.scala:317` | SPEC | same: the Typed parent's decider delegates Classic children to the Classic default decider |
+| Typed | Classic | setup | Stop; `ChildFailed` if watched | parent adapter, Classic default decider | `AdapterSpec.scala:332` | SPEC | same |
+| Typed | Classic | death pact | Stop | parent adapter decider | no spec found | READ | same |
+| Typed | Classic | processing, non-fatal `Error` | Restart | parent adapter decider | no spec found | CODE | same (`pekko-actor/actor/supervision_decider.go:61-67`) |
+| Classic | Classic | processing, `Error` | Escalate | parent Classic strategy | no spec found | CODE | an ADR 0017 matter |
+| any | any | fatal throwable | not caught by any supervisor | — | no spec found | CODE | `runtime.Goexit` (language adaptation) |
+
+Reaching a Classic child from a Typed parent needs a Classic↔Typed spawn adapter, which ADR 0033 D12 leaves to its own ADR; until then
+those three rows describe the contract, not a reachable path.
+
+## Proposal (Architect)
+
+**M-A and M-B.** The Typed module selects the mechanism when it spawns the actor, from the `Spawner` it is given:
+- **M-A (Typed parent).** Spawned through a Typed context: the child has no default wrapper. An unhandled failure is returned by the
+  interpreter's `Receive` (or `PreStart`) to the runtime, which hands it to the parent. The parent is a Typed interpreter that
+  implements `actor.Supervisor`: its decider returns `Stop` for children it spawned as Typed, records the cause per child (to turn the
+  next `Terminated` of that child into `ChildFailed`), and applies the Classic default decider to any other child. The runtime decider
+  already receives the failing child and the cause (`Decider`, `pekko-actor/actor/supervision.go:48`; `Supervisor`, `:114`;
+  `supervision_decider.go:27-69`).
+- **M-B (any other spawner: `*actor.System`, a Classic `*actor.Context`, the Typed System guardian).** The child's behavior is wrapped
+  in a default `Supervise(...).OnFailure(Stop)`. An unhandled failure makes the interpreter call `StopSelf` and return `nil`, so the
+  Classic parent's decider is not consulted. Pekko has one exception (CODE): a user `supervise` whose class is exactly `Throwable`
+  replaces the default wrapper, and a `withLimit` rethrow then reaches the Classic parent, whose strategy decides according to the cause
+  (decision-3 row of the matrix). The earlier "stop" recommendation followed the Scaladoc (`SO:263`), not the code, and is withdrawn.
+  The case is decision S-2 of the decision package, still open; it is not part of contracts 1 to 15.
+
+**Supervise.** `Supervise(b).OnFailure(match, strategy)` wraps a behavior. `match` is a **comparable value**, not a function:
+`AnyError()` (match-all, the counterpart of `Throwable`), `ErrorIs(target)` or `ErrorAs[E]()`. It selects causes with `errors.Is`/`errors.As`
+semantics (Go has no class hierarchy); two matchers are equal when they are the same constructor with the same target or type. Panics are causes (`*actor.PanicError`); `runtime.Goexit` (`actor.ErrGoexit`) is never caught by a
+Typed supervisor, as Pekko never catches fatal throwables. Innermost first; a nested `Supervise` with an equal matcher makes the
+outer one disappear (contract list, "additional guarantees").
+
+**Restart lives in the layer.** A Typed restart never uses the runtime Restart: it keeps the cell, ID, mailbox and watches, delivers
+`PreRestart` to the old behavior, stops and awaits the children (contract 7) with `Stop`, `Watch` and `OnTerminated`, stashes messages
+in a layer-owned buffer (contract 5) and re-runs `Setup` (contract 2). The runtime's `PreRestarter`/`PostRestarter` hooks are only
+reached if a Classic parent restarts the cell, which M-B prevents except in the Pekko path of decision S-2.
+
+**Intentional differences proposed.**
+- D-a: when every restart of an unlimited `Restart` fails in `setup`, Pekko recurses synchronously (`S:384-386, 414-418`) until a
+  `StackOverflowError` escapes (READ). goPekko treats a failure of `setup` during an unlimited restart like a start failure (contract 6):
+  the actor fails. No spec covers the Pekko behavior. **Divergence with a concrete impediment** (decision S-3): with
+  `jvm-exit-on-fatal-error = on` Pekko exits the JVM, or restarts forever if setup created children; Go cannot recover a stack overflow either.
+- D-b: **not a difference** (Pekko's code and `SS:882` stash): the backoff Scaladoc says messages are dropped during back-off (`SO:64`, `SO:100`; the stash-capacity docs at `SO:294`, `SO:346` describe only the overflow); the code and `SS:882` stash them. goPekko follows the
+  code and the spec.
+- D-c: contract 12 is adapted as stated in its row.
+- D-e: `errors.Is`/`errors.As` walk the wrap chain of a cause; Pekko matches only the class of the thrown exception (`S:75-76`). A
+  wrapped cause can therefore match a Go supervisor where the same Pekko exception, wrapped as a cause, would not.
+- D-f: the internal restart and reset signals of a nested backoff never reach the user behavior (contract 8); Pekko lets an unowned
+  `ResetRestartCount` through (`SS:1049-1051`). This contradicts an assertion of that spec: a **divergence**, open (decision S-4).
+- D-d: **not a difference** (Pekko's own behavior): an exception in a `PreRestart` or `PostStop` handler is logged and the restart or stop continues (`S:344-347` for `PreRestart`; `A/dungeon/FaultHandling.scala:254-257` for `PostStop`, the Classic `aroundPostStop` that `AA/ActorAdapter.scala:325-336` relies on; READ, no spec found).
+
+### Restart sequence
+
+```mermaid
+sequenceDiagram
+  participant M as Mailbox (cell)
+  participant I as Interpreter
+  participant S as Typed supervisor
+  participant C as Children
+  M->>I: message
+  I->>S: behavior fails (error or panic)
+  S->>S: match cause, check limit window
+  alt Resume
+    S-->>I: keep current behavior
+  else Restart (limit not exceeded)
+    S->>I: cancel timers, then PreRestart to old behavior
+    S->>C: Stop each child, Watch
+    M->>S: messages during restart go to the restart stash
+    C-->>S: Terminated of each child
+    S->>I: re-run Setup from the initial behavior
+    S->>I: unstash in order
+  else Stop, or limit exceeded
+    S-->>I: fail: M-A returns the cause to the parent, M-B calls StopSelf
+  end
+```
+
+## Capabilities this contract consumes
+
+| Capability | Exists? | Used by contract | Note |
+|---|---|---|---|
+| `Stop`, `Watch`, `OnTerminated`, `Children`, `StopSelf` | yes | 1, 2, 7 | |
+| Parent decider with child handle and cause | yes (`Decider`, `supervision.go:48`) | M-A, `ChildFailed` | no export needed (the delivery plan's NEW-10 child-failure export is not required) |
+| Real-time timer into the cell | yes, with `time.AfterFunc` and `Port.Post` (`port.go:25-62`) | 4, 8 | enough for the contract; only deterministic tests need manual time |
+| Manual time for tests and the judge | no (clock is unexported, `clock.go:8-26`) | 4, 15 | contract 4 and its tests can use a clock local to `pekko-actor-typed`; the System clock export (#1129) is needed only for one time source shared with Ask (ManualTime, the judge) |
+| Actor timers to cancel | no (Typed timers story) | 15 | |
+| Event stream to publish `Dropped` | no (dead letters only) | 5 | readiness document, decision 5 |
+| Logger per actor | partly (`Config.Logger`, no accessor) | 13 | readiness document, section 3 |
+
+## ADR impact list (ADR 0033 D5)
+
+| ADR | Status read from the file | Impact |
+|---|---|---|
+| 0033 D2 | accepted 2026-10-24 | This ADR is the Typed supervision ADR D2 asks for. D2 says "a profile is selected when the actor is created"; the mechanism of M-A/M-B is a precision, proposed below, not a change of its acceptance |
+| 0017 | accepted 2026-10-14 | Extension, not contradiction: M0 says Typed "is a different contract, not a variation … not mixed in" (`0017-supervision.md`, M0). No Classic row changes; the Classic default Restart stays for Classic children of Classic and Typed parents |
+| 0010 D3 | proposed, supervision accepted | D3 fixes Restart for Classic only; untouched |
+| 0011 owner decision 2 | accepted | no export is required by this ADR; the clock and event-stream exports are justified in their own stories |
+| 0032 D3, D4, D6 | partly accepted, only in PR #1014 (not in `develop`) | The `Dropped` of contract 5 has no sender and the actor as recipient (`classic ActorRef.scala:627-630`); its mapping follows D3/D4/D6 once integrated; D5 does not apply. #1063 calls them "accepted": true of the PR text, not of `develop` |
+| 0034 | partly accepted (B-1, 2026-10-27); B-2 accepted for `Terminated` only (amendment of 2026-10-28), the `ChildFailed` half of B-2 (#1250) and X2, X4, X6 proposed | consumed: failure outcome (P8), death pact (P6, as amended), signals (P5) |
+
+**Proposed precision of ADR 0033 D2 (wording for the Owner; not an approval of it):**
+
+> Classic and Typed coexist as two profiles on the shared runtime. The profile of an actor is fixed when it is created, by the API that
+> creates it: an actor created by `pekko-actor-typed` from a `Behavior[T]` has the Typed profile; every other actor has the Classic
+> profile. A Typed actor that has no matching `supervise` stops on failure whoever its parent is. When its parent is a Typed actor, the
+> parent's Typed strategy applies the stop and the parent may observe `ChildFailed`; otherwise the actor's own default stop applies it
+> and the parent observes `Terminated`. A Classic child keeps the Classic defaults of ADR 0017, including under a Typed parent; there it is decided by Pekko's adapter
+> decider (initialization, kill and death-pact errors stop; other non-fatal failures restart). Nothing in
+> the Typed profile changes the behavior of a Classic actor.
+
+## Recommendation and Owner decision
+
+**Architect orientation:** alternative (a), which keeps one runtime and leaves ADR 0017 unchanged, with M-A/M-B and the differences
+D-a to D-f. Backoff and the restart stash are part of the contract; delivery is sliced (stop and resume, then restart with limits and
+stopping children, then backoff and stash once a timer source and the event stream exist). Slicing is a delivery plan, not a pending
+contract, which is why (c) is not recommended.
+
+**Owner decision: S-1 and S-6 accepted on 2026-10-27 (status line); S-2 to S-5 pending.** The questions are now decisions S-1 to S-6 of `docs/parity/typed-supervision-decision-package-2026-10-27.md`; they supersede readiness
+decisions 2 to 4 and the list below, kept for the record. D-b and D-d are Pekko behavior; contract 8, D-a, D-f, the cause of contract 14
+and the M-B case are decided separately.
+1. Accept alternative (a) with contracts 1 to 15, M-A/M-B and D-a to D-f, as the Typed supervision contract?
+2. Accept the D2 precision quoted above as the reading of ADR 0033 D2?
+3. A Typed actor spawned outside a Typed context (M-B), supervised with a match-all `Supervise(...).OnFailure(AnyError(),
+   Restart.WithLimit(n, w))`, exceeds the limit while handling a message or signal: replicate Pekko (READ: the Classic parent's strategy
+   decides, Restart by default, and the limit count starts again) or keep the default stop wrapper so the actor stops (proposed
+   divergence)? A narrower matcher, a backoff strategy or a start failure stop the actor in Pekko too and are not part of this question.
+
+## Profile selection
+
+- **Selector:** the creating API (M-A: Typed spawn from a Typed context; M-B: any other spawner, including a Typed System guardian).
+- **Default per profile:** Typed: Stop (by M-A or M-B); Classic: ADR 0017 `DefaultStrategy` (Restart, Stop on initialization failure,
+  death pact and Goexit).
+- **Invariant:** no Classic actor's directive, restart, hooks or termination changes because a Typed actor exists in the same System.
+
+## Consequences
+
+- #956 can be restated against contract 1 and M-A/M-B; #1183 (Resume without re-running setup) against contract 14 and the Resume guarantee; #1184 (innermost matching strategy) against the nesting guarantee. Existing stories map onto the other contracts: #976 (TYP-10, restart within its limit: contracts 2, 3, 6), #997 (TYP-12, child handling during restart: contract 7), #986 (TYP-11, backoff: contract 4), #999 (TYP-26, bounded restart stash: contract 5), #975 (TYP-06, failing message-adapter transform: contract 9). Their criteria are reconciled in `docs/parity/typed-supervision-stories-reconciliation-2026-10-26.md` (audit #004, block 3).
+- Backoff (contract 4) can use real-time timers; its deterministic tests wait for manual time. The `Dropped` publication waits for the event stream.
+- The Classic↔Typed spawn adapters stay with ADR 0033 D12.
+- Nothing is implemented and no parity is claimed. Rows marked READ need an oracle-applicability determination (ADR 0033 D13).
+
+## Revision log
+
+- 2026-10-26, audit #004 block 3 (citation and precision corrections; no decision added, no status changed):
+  - The default wrapper is not "never" bypassed: Pekko's one bypass (a match-all user `supervise` replacing it) is now stated as Pekko
+    behavior in the matrix, and "stop" in that case is marked as the proposed divergence of decision 3 everywhere it appears.
+  - The replacement rule needs exactly equal classes; matchers are now comparable values so "equal matcher" is defined.
+  - Added D-e (wrap-chain matching) and D-f (unowned reset signal), two differences the first version omitted.
+  - Contract 15 has a spec (`TimerSpec.scala:174, 202`); timers are cancelled before `PreRestart` (diagram corrected).
+  - `Dropped` has no sender and the actor as recipient.
+  - Contract 4 cites the delay formula and records the `withMaxRestarts` Scaladoc mismatch and the start-failure exception; contract 5
+    records signals, replay leftovers and stop-before-replay; contract 6 records the n ≤ 1 start case; line fixes in contracts 7 and 9,
+    the Classic decider citation and the goPekko `Decider` citation.
+- 2026-10-26, audit #004 block 4: the "Manual time" capability row restated; no decision added, status unchanged.
+- 2026-10-27, audit #004 final validation: labels, the M-B exception and the mixed matrix aligned with the decision package (#1217);
+  the decision-3 "stop" recommendation withdrawn; no decision accepted, status unchanged.
+- 2026-11-05, citation audit of #976 slice 4 (every Pekko citation of this ADR re-read from `upstream/pekko` at v1.7.1 / `9a54d12`; citation corrections only, no decision added or changed, status unchanged): five citations pointed at lines that do not carry the claim, and the claim is unchanged in each: `AA/ActorAdapter.scala:240-258` (matrix row and contract 1) now `232-262`, because the Stop for a Typed child is at 258-259 and the `TypedActorFailedException` path at 236-239; `SO:82` and `SO:116` (contract 4, `resetBackoffAfter` default) now `SO:86`, with the Scaladoc at `SO:66-68` and `102-104`; `S:75-76` (non-fatal throwables) is the class match, `NonFatal` is at `S:146, 163, 171, 297, 333`; and D-d's `PostStop` half cites `A/dungeon/FaultHandling.scala:254-257` instead of `AA/ActorAdapter.scala:325-336`, which has no catch of its own. 203 of the 209 line references of this ADR matched as written.
+
+## Amendment (accepted): decisions S-2 to S-5
+
+- Status: **Accepted** by the Owner on 2026-11-04. S-2 is accepted with its evidence marked To be verified *(closed by Amendment (2026-11-05, c))*; D-a (S-3, case c) is accepted under D14 and D15 for actors without children at restart time, and its variant with children is **To be verified**. Additive: the earlier text does not change. *Superseded by Amendment (2026-11-05) as to the precondition.*
+- Principle applied: ADR 0033 D14 (behave exactly as Pekko). Identifiers are those of `docs/parity/typed-supervision-decision-package-2026-10-27.md`.
+- Code citations: `S` = `upstream/pekko/actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala`.
+- Pekko documentation: [fault tolerance](https://pekko.apache.org/docs/pekko/current/typed/fault-tolerance.html),
+  [actor lifecycle](https://pekko.apache.org/docs/pekko/current/typed/actor-lifecycle.html),
+  [RestartSupervisorStrategy](https://pekko.apache.org/api/pekko/current/org/apache/pekko/actor/typed/RestartSupervisorStrategy.html).
+
+### S-2: `withLimit` with a match-all matcher (case M-B)
+
+The behavior of Pekko Typed is adopted. When the limit is exceeded Pekko rethrows the cause (`S:335-337`). The rethrown cause reaches the
+Classic parent, whose strategy decides: under the default strategy an `Exception` restarts the actor (`setup` runs again, the restart
+count starts again, the children are kept and restarted *(qualified by Amendment (2026-11-05, c), S-2.3c)*), a `DeathPactException` stops it, and any other non-fatal cause escalates.
+A start failure always stops it. *(Superseded by Amendment (2026-11-05, c), S-2.6.)* Evidence: code reading only; a differential scenario is required before V3 (ADR 0033 D13). **To be verified.** *(Superseded by Amendment (2026-11-05, c).)*
+
+### S-3: restart loop and restart limits
+
+The behavior of Pekko Typed is adopted. Rules:
+
+1. **Default supervision.** With no strategy defined, the actor stops on an exception. Classic restarts; Typed does not.
+2. **Three failure cases under `restart`.** The oracle
+   ([`d-a-restart-setup-unbounded-2026-11-04.md`](../parity/oracles/d-a-restart-setup-unbounded-2026-11-04.md)) shows three different
+   cases. They must not be mixed. `S:332-349` is the failure handler, `S:294-309` the handler of the initial start, `S:380-418` the restart itself.
+
+   | Case | `restart` without a limit | `restart.withLimit(n, t)` |
+   |---|---|---|
+   | **(a) Failure while processing a message or signal** | Restarts indefinitely; the framework does not break the loop (`S:335` is skipped when `maxRestarts == -1`; `S:349` restarts). Oracle scenario 4: 5 failures, 5 restarts, the next valid message is processed. | Restarts up to `n` times within the window `t`; the count returns to zero when the window ends. On the next failure the cause is rethrown (`S:335-337`) and the actor stops. The final outcome depends on the parent (M-B case of S-2). |
+   | **(b) Failure in the *first* `setup` (initial start)** | **Does not restart.** The cause is rethrown (`S:302-304`): the child fails with `ActorInitializationException` and a parent that watches it receives `ChildFailed`. Oracle scenarios 1 and 2 (`setup` ran once; no `StackOverflowError`; the system stayed up). | Restarts, then fails: the first start and then up to `n` restarts (the initial-start check at `S:302-306`, the later failures at `S:335-349`). *(Superseded by Amendment (2026-11-05, c), S-3 case (b) with a limit.)* Oracle scenario 3 with `withLimit(3, 10.seconds)`: `setup` ran 4 times, then the child failed and the parent received `ChildFailed`. |
+   | **(c) Failure in `setup` *during a restart*** | **Case D-a, status Accepted for an actor with no children at restart time (below); the variant with children is To be verified.** *(Superseded by Amendment (2026-11-05).)* The restart is recursive (`S:386` calls `restartCompleted`, whose failure at `S:414` goes back through `S:349` to `S:386`) and ends in `StackOverflowError`, a fatal error. Oracle scenarios 5 and 6 (the child had no children). | Bounded by the limit: the failure counts as a restart (`S:335-349`) and the cause is rethrown when the limit is exceeded (oracle scenario 3). |
+
+3. **`restartWithBackoff(...).withMaxRestarts(n)`.** On reaching `n` the actor stops (`S:338-340`).
+4. **No automatic escalation to the parent.** That is Classic. The parent learns of the failure only if it watches the child (`watch`).
+   If it handles the signal it receives `ChildFailed`. If it watches and does not handle the signal it fails with `DeathPactException`
+   and its own supervision applies (`Behavior.scala:274`).
+5. **End of the system.** For cases (a) and (b) the `ActorSystem` ends only if the guardian stops: a stopped guardian stops the system
+   ([actor lifecycle](https://pekko.apache.org/docs/pekko/current/typed/actor-lifecycle.html)). In those cases there is no special rule that turns
+   a restart loop into a fatal system failure. **Case (c) (D-a) is the one exception**: the loop ends in a fatal error and the fatal-error path
+   applies, see "D-a" below. *(Superseded by Amendment (2026-11-05): the exception is the synchronous sub-case (c-sync) only; sub-case C1 follows this general rule.)*
+6. **Out of this ADR.** Fatal JVM or runtime errors, except as observed in D-a.
+
+**Rejected alternative (cases (a) and (b)):** treating the restart loop of a failure while processing, or of a failure in the first `setup`, as a fatal
+failure that ends the `ActorSystem`. Reason: it contradicts ADR 0033 D14, because Pekko does not do it. This does not apply to case (c): there Pekko does end
+in a fatal error (oracle scenarios 5 and 6), which is why D-a is decided separately. *(Superseded by Amendment (2026-11-05) for sub-case C1: there the loop is asynchronous and no fatal error occurs.)*
+
+#### D-a: unbounded `restart` whose `setup` fails on every restart, with no children at restart time (status: Accepted); variant with children: To be verified
+*(The precondition in this heading is superseded by Amendment (2026-11-05).)*
+
+Principles applied: ADR 0033 D14 and D15 (upstream-acknowledged bugs).
+Oracle: [`docs/parity/oracles/d-a-restart-setup-unbounded-2026-11-04.md`](../parity/oracles/d-a-restart-setup-unbounded-2026-11-04.md).
+
+Observed Pekko behavior:
+
+| `pekko.jvm-exit-on-fatal-error` | Pekko 1.7.1 (oracle sections 3 and 6) | Pekko with the #3620 fix (`1.8.x` HEAD `59d8040885ea17675ad63aebc9f746e687306934`, build `1.8.0-M0+1-59d80408-SNAPSHOT`; oracle section 7) |
+|---|---|---|
+| `on` (default) | Restart recursion inside `setup` (about 2000 nested runs in 0.6 s) ends in `StackOverflowError`. Order: error log "shutting down JVM since ... is enabled", JVM shutdown hook, CoordinatedShutdown (`JvmExitReason`), `registerOnTermination`, exit code 255. Stable (5 of 5). | Identical (4 of 4). |
+| `off` | The same `StackOverflowError`, log "shutting down ActorSystem", CoordinatedShutdown starts, the `actor-system-terminate` phase times out after 10 s and **the ActorSystem never terminates** (7 of 7). | The same `StackOverflowError`; CoordinatedShutdown (`ActorSystemTerminateReason`) completes with no phase timeout, the child and the guardian stop, `registerOnTermination` runs and **the ActorSystem terminates in about 0.63 s** (5 of 5). |
+
+The 1.7.1 hang with `off` is apache/pekko bug [#3620](https://github.com/apache/pekko/issues/3620) (label `bug`): `Mailbox` is a `ForkJoinTask`
+reused for the whole life of the actor, and a fatal `Error` escaping `Mailbox.run()` completes that task exceptionally, so the mailbox never runs again
+and the child cannot process `Terminate`. It is fixed on `main` by [#3621](https://github.com/apache/pekko/pull/3621) (milestone 2.0.0-M5) and on
+`1.8.x` by [#3627](https://github.com/apache/pekko/pull/3627) (milestone 1.8.0). No published release contains the fix yet. The investigation
+(five repetitions, thread dumps, lifecycle logs and a `thread-pool-executor` control that terminates) is section 6 of the oracle document.
+
+**Decision.** goPekko follows the fixed behavior (D15), not the 1.7.1 hang:
+
+- An unbounded `restart` whose `setup` fails on every restart, **when the actor has no children at restart time** (the case the oracle verified), ends in a fatal error. *(Precondition superseded by Amendment (2026-11-05).)*
+  goPekko detects it and treats it through the fatal-error path. It does not recurse up to Go's stack overflow.
+- `on` (default): goPekko runs, **synchronously and in this order**: (1) the fatal-error log, (2) the complete CoordinatedShutdown, (3) the
+  `registerOnTermination` callbacks. Only then does it call `os.Exit(255)`. A bare `os.Exit` without that previous step does **not** satisfy this decision.
+  - Why the order needs an explicit translation. In Pekko the fatal-error handler logs and then calls `System.exit(-1)` (`ActorSystem.scala:874-876`;
+    the process status is 255). CoordinatedShutdown runs because it registered itself as a JVM shutdown hook when `pekko.coordinated-shutdown.run-by-jvm-shutdown-hook = on`
+    (the default), and the hook runs it with `JvmExitReason` (`CoordinatedShutdown.scala:278-290`; default in `reference.conf:1271`). So the order depends on
+    `System.exit` triggering the JVM shutdown hooks. Go has no shutdown hooks, and `os.Exit` runs no `defer` and waits for no goroutine, so the hook step must be explicit.
+  - The oracle's "JVM shutdown hook ran" line (oracle section 3, scenario 5) is the harness's own hook. The JVM runs all shutdown hooks concurrently, so the position
+    of a user hook relative to CoordinatedShutdown is not a guarantee of Pekko; it is not part of this decision.
+  - The oracle shows `whenTerminated` printed in only some `on` runs (oracle section 7.2, run 3). That is a race between the printing thread and `System.exit`, not Pekko behavior.
+    goPekko does not have to reproduce it.
+- `off`: goPekko terminates the ActorSystem (CoordinatedShutdown completes and the termination callbacks run, as observed with the fix) and does **not** call `os.Exit`.
+  What happens to the process is up to the application.
+  - Evidence: oracle section 7.3, row "Process": with the fixed build the ActorSystem terminated in about 0.63 s, but the process exited (code 0) only when the harness's own
+    20 s sleep ended; the ActorSystem did not exit the process.
+  - This does not depend on `pekko.coordinated-shutdown.exit-jvm` (default `off`, `reference.conf:1263`), a separate option that this decision does not change; its gopekko
+    equivalent, if one exists, keeps its own default and semantics.
+- The detection mechanism (a depth threshold or other) is an implementation detail and is not part of this ADR. It must not change the observable behavior.
+
+**Rejected alternatives.**
+
+- Literal recursion up to Go's stack overflow: `fatal error: stack overflow` is not recoverable, runs no hooks and ignores the configuration.
+- Reproducing the 1.7.1 hang: it is an acknowledged upstream bug (D15).
+- Stopping only the actor: a deviation without justification under D14, and the earlier proposal D-a.
+
+**Variant with children: To be verified (nothing is decided).** *(Superseded by Amendment (2026-11-05): the oracle has been run, see below.)* The recursion is synchronous only when the set of children to stop is empty at restart
+(`Supervision.scala:362`, `:384-388`: `if (childrenToStop.isEmpty) restartCompleted(ctx) else Behaviors.empty // wait for termination of children`). The oracle covered only
+an actor without children. Two variants are not covered and need a new oracle scenario, which has not been run:
