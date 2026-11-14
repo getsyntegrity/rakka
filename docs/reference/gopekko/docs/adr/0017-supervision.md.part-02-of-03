@@ -1,0 +1,360 @@
+  escalated failure (`dungeon/FaultHandling.scala:306`†), a `Terminated` (a death pact: `Actor.scala:658`) or a `watchWith` message
+  (`DeathWatch.scala:81-92`).
+- **Go.** The hook receives a value that keeps the original message and distinguishes absence **without ambiguity**:
+
+  ```go
+  // FailedMessage is Pekko's Option[Any]. The zero value is None.
+  type FailedMessage struct { value any; present bool }
+  func (m FailedMessage) Value() (value any, ok bool) { return m.value, m.present }
+  type PreRestarter[T any] interface { PreRestart(ctx *Context[T], cause error, message FailedMessage) }
+
+  // ChildFailure is the Go value of Pekko's Failed system message (child, cause) when it is the "message" of a restart.
+  type ChildFailure struct { Child Handle; Cause error }
+  ```
+
+  The escalated case needs a Go value for Pekko's `Failed(child, cause, uid)` system message: `ChildFailure` (the `uid` is the incarnation ID
+  carried by `Child`). Without it that case could not be represented or tested; it is part of A12. Why not `*T`: it cannot carry the escalated `Failed` envelope or a `Terminated` (neither is a `T`), and a nil `*T` conflates absence
+  with a present message whose value is the zero value of a pointer-like `T`. Why not a bare `any`: nil `any` conflates `None` with
+  `Some(nil)`, and a nil payload is a valid `T` in Go (a nil pointer or interface message). `FailedMessage` is `Option[Any]` with no
+  extra semantics: it preserves the message as received (not copied, not converted) and the presence bit. **It is a representation, not a
+  statement about admission**: Classic rejects `null` messages (`InvalidMessageException`, `ActorRefProvider.scala:472`, `ActorRef.scala:685,737`)
+  and goPekko today delivers a nil message (`docs/actor-core-first-cut.md:25`); that divergence is #452 and this ADR does not authorize
+  accepting nil where Classic rejects it (A12).
+- **Test cases.** a user message (`ok` true, the same value); no message (`ok` false); an escalated failure (a `ChildFailure`); a
+  `Terminated`; a `watchWith` message; and, as a **Go-side test with no upstream counterpart** (Pekko rejects null messages with
+  `InvalidMessageException`, `ActorRefProvider.scala:472`, so `Some(null)` cannot happen there), a present message whose value is a nil
+  pointer or nil interface (`ok` true, value nil, distinguishable from None). This last case is the reason for the presence bit; it adds no
+  Pekko semantics, it only keeps a Go-valid payload from being read as "no message".
+- **Status.** **F** for the behavior; **A12** for the representation.
+
+### S9. DeathWatch during a restart and on final termination
+
+- **Source.** `dungeon/DeathWatch.scala:29-31` (`watching`, `watchedBy`, `terminatedQueued` are cell fields); `ActorCell.scala:718`† and
+  `dungeon/FaultHandling.scala:92-118,278-303`† (a restart never calls `tellWatchersWeDied` or `unwatchWatchedActors`);
+  `dungeon/FaultHandling.scala:247-276`† (`finishTerminate`: `postStop`, then the parent's `DeathWatchNotification`, then the watchers);
+  `:180-185`† (`terminate` unwatches first). **[Run]** a single `W.Terminated` after the stop in every mode. Tests:
+  `DeathWatchSpec.scala:195`† ("notify with a Terminated message once when an Actor is stopped but not when restarted"),
+  `UidClashTest.scala:104`, judge S13 (G6).
+- **Observable.** A restart delivers no `Terminated` and keeps both watch sets; the default `preRestart` unwatches only the children
+  (discarding a queued `Terminated` for them); the final stop delivers exactly one `Terminated`.
+- **Go.** The registrations of the accepted watch contract survive a restart; the restart must not take the stop path that withdraws
+  what the actor watches (`stop.go:39-58`).
+- **Status.** **F**.
+
+### S10. Failures of initialization, factory and hooks (H7: align with Classic)
+
+- **Source.** `ActorCell.scala:642-683` (`create`: a constructor or `preStart` failure is wrapped as `ActorInitializationException` and
+  reaches the parent as `Failed`; the constructor runs when the `Create` system message is processed, `dungeon/Dispatch.scala:79-111`, not
+  in the caller of `actorOf`); `dungeon/FaultHandling.scala:92-96,158-178`† (a `Recreate` of an actor that never started becomes
+  `faultCreate`: `preStart` runs, not `postRestart`); `:137-144` (a `Resume` of a never-initialized actor becomes `Create`, and a `Resume`
+  after a `PostRestartException` becomes `Restart`); `:298-302`† (a failure of the new instance or of `postRestart` is a
+  `PostRestartException`, an `ActorInitializationException`, reported to the parent, and marks the actor failed fatally so `preRestart` is
+  skipped next time, `:104`†); `:102-108`† (a failure in `preRestart` is only logged); `:254-257`† (a `postStop` failure is logged).
+  Synchronous in `actorOf`: an invalid name, a name already reserved and a terminating parent (`dungeon/Children.scala:271-272,313-316`†).
+  Tests: `SupervisorSpec.scala:419` (failures in the constructor and in `preRestart` during restarts), `:546` (fails in `preStart`,
+  `:97-100`), `SupervisorHierarchySpec.scala:861` (throws in the constructor, `:886-888`), `ActorLifeCycleSpec.scala:165`, judge S14.
+- **Observable.** A failure creating the actor is **never returned to the caller of `actorOf`**: the reference is returned and the
+  failure is an `ActorInitializationException` handled by the parent's decider (default Stop). A first start that fails runs `preStart` again
+  on a restart, never `postRestart`.
+- **Go.** `PreStart` failures and failures of the new instance reach the decider as an initialization failure; this ADR also aligns the
+  factory (see "Reconciliation of Spawn").
+- **Status.** **F**. The direction is **approved by the owner (H7, 2026-10-14)**: the factory runs during the child's start and a creation
+  failure is supervised by the parent, as in Classic. The reconciliation of the affected contracts is the work of **U4 (#444)** and is
+  specified below; nothing is modified before U4's RULEBOOK is approved.
+
+#### Reconciliation of Spawn (H7): approved direction, the contracts U4 must reconcile expressly
+
+**Why the contracts conflict.** (1) ADR 0014 (accepted design): the creation transaction "reserve under the hierarchy lock, run the
+factory with no lock on the caller's goroutine, commit or roll back" (`0014:115-118,130-145`) and its behavior table "Factory nil, panic:
+that reservation is released; **error returned**; no ID, no event", "Factory ends with Goexit: the caller never gets a return; … name
+reusable" (`0014:221-222`), "a factory that never returns blocks the parent finalization" (`:145`). (2) The public contract of `Spawn`
+(`spawn.go:29-40`, accepted layout ADR 0011 `:56`): `ErrNilActor` and an error wrapping `ErrFactoryPanic` **returned by `Spawn`**, "a
+failed Spawn creates nothing: no ID, no registration and no event". **The synchronous return does not demonstrate equivalence with a
+supervised initialization failure**: Pekko returns the reference and delivers the failure to the parent. ADR 0010 `:97` already states that
+"the factory runs again on every restart".
+
+**The direction (R1).** `Spawn` keeps its synchronous errors where Pekko has them synchronously (`ErrInvalidName`, `ErrNameTaken`,
+`ErrParentStopping`). The factory runs in the child's **start step**, on its own activation (the same code path as the restart's
+construction); a nil actor or a panic becomes an `InitializationError` (cause `ErrNilActor`, or the error wrapping `ErrFactoryPanic`)
+handled by the parent's decider (default Stop, as for `ActorInitializationException`). The child exists from the moment `Spawn` returns:
+it has an ID and a reserved name, `Done` closes when it terminates, watchers get `Terminated`, and its name is free only after that. A
+`Goexit` inside the factory is `ErrGoexit` (H5c, default Stop). A top-level factory failure is decided by `/user` (U5b): Stop by default, as for any child.
+
+**No silent API change.** The signature `Spawn(owner Spawner, name string, factory func() Actor[T]) (Ref[T], error)` is unchanged. What
+changes is observable behavior and is therefore stated, not implied: `Spawn` stops returning `ErrNilActor`/`ErrFactoryPanic`; the error set
+of `Spawn` becomes `ErrInvalidName`, `ErrNameTaken`, `ErrParentStopping` (plus the others it already has); the exported identifiers
+`ErrNilActor`, `ErrFactoryPanic` and `FactoryPanicValue` **remain exported** and are reachable from the cause of the failure received by a
+decider or an event. U4's RULEBOOK must state this list for the owner's approval before any file is modified.
+
+**Contracts U4 must reconcile expressly** (found by `rg` over `*.go` and `*.md` for `ErrNilActor`, `ErrFactoryPanic`, `factoryPanicError`
+and `factory`). U4 may not leave any row with the old text next to the new contract:
+
+| # | Contract or artifact | Where | Today | Required reconciliation | Test or check |
+|---|---|---|---|---|---|
+| 1 | `Spawn` doc and code | `spawn.go:5-17,29-83` | the factory runs on the caller's goroutine; failures are returned; "creates nothing" | rewrite the doc: the factory runs in the start step; list the synchronous errors; remove "creates nothing" for factory failures | `spawn_errors_test.go` rewritten |
+| 2 | exported sentinels | `errors.go:11-14,68-87` | "returned by Spawn" | doc says "cause of an `InitializationError`"; identifiers kept | `errors.Is(cause, ErrFactoryPanic)`, `FactoryPanicValue(cause)` on the cause a decider receives |
+| 3 | Spawn error cases | `spawn_errors_test.go:21-62,88-109` | nil/panicking factory "creates nothing and frees the name"; a factory `Goexit` frees the name; the name is held while the factory runs | replace by: a failing factory yields a child that terminates (Stop by default), `Done` closes, `Terminated` is delivered, the name is released only then; `Goexit` → `ErrGoexit` → Stop; the name is held from `Spawn` until termination | new tests derived from `SupervisorHierarchySpec:861`, `ActorLifeCycleSpec:165` |
+| 4 | internal tests | `hierarchy_internal_test.go:265`, `termination_internal_test.go:328` | assert the returned `ErrNilActor`/`ErrFactoryPanic`; "the reservation rolls back" | rewrite to the supervised contract; the rollback assertions move to the start step | same files, adapted |
+| 5 | executable example | `example_test.go:80` (`ExampleFactoryPanicValue`) | `Spawn` returns the panic | the example obtains the value from the decider's cause | example output updated |
+| 6 | ADR 0014 creation transaction | `0014:115-118,130-145` | factory outside the lock before commit; "unresolved reservation" window | the reservation commits at `Spawn`; the factory runs in the start step; what a factory that never returns blocks (the child's start and completion, not `Spawn`) | hierarchy tests that hold the factory on a channel |
+| 7 | ADR 0014 behavior table | `0014:104,221-224,233,238-239` | rows for nil, panic, `Goexit`, stop during a reserved factory, root gate closed | rewrite each row for the new contract | one test per rewritten row |
+| 8 | ADR 0011 export list | `0011:56,78,118,164` | `ErrNilActor`, `ErrFactoryPanic`, `FactoryPanicValue` listed as errors of `Spawn` | say they are causes; layout unchanged | review |
+| 9 | ADR 0012 | `0012:63` and the paired-hooks rule | a stop before the first activation runs `PreStart` once and then `PostStop` | state the case where the factory fails with a stop already accepted: no instance exists, so no hook runs, and the stop completes | test: stop accepted, then a failing factory |
+| 10 | module README | `pekko-actor/README.md:105-107,125-137,150,165,198,267,290-293` | factory failures returned; "reservations whose factory has not returned" | update every statement (the module README contract requires it) | `check` by reading + `rg` for the old phrases |
+| 11 | parity and first-cut docs | `docs/actor-core-parity.md:66,217`, `docs/actor-core-first-cut.md:13,26` | "name reservation, factory failures" as 🟡 "different contracts" | restate: now Classic-aligned, Go unit tests only, no parity claimed until the judge compares it | review |
+| 12 | ADR 0015 / Ask, Watch | wherever a test spawns an actor with a failing factory to exercise another contract | none found by search | search again at U4; any hit is reconciled | `rg` at U4 |
+
+**Interaction with ADR 0012** (row 9): a stop accepted before the first activation must now run the factory in the start step, and a nil
+or panicking factory with a pending stop leaves no instance for `PostStop`; the paired-hooks rule needs that statement.
+
+**Alternatives considered and not adopted:** keep the synchronous return and also report the failure to a decider (two contradictory paths
+for one failure; the synchronous return is not what Classic does); supervise only restarts (the asymmetry the owner asked to remove).
+
+### S11. A stop concurrent with a restart (H4: reproduced and **accepted by the owner as the target behavior**)
+
+- **Source.** `dungeon/FaultHandling.scala:180-212`† (`terminate`), `dungeon/Children.scala:183-189`† (`setChildrenTerminationReason`
+  replaces the `Recreation` reason by `Termination`), `dungeon/FaultHandling.scala:345-348`† (the last child's removal then calls
+  `finishTerminate`, **not** `finishRecreate`), `:247-257`† (`finishTerminate` runs `aroundPostStop` on `actor`, which `clearActorFields`†
+  does not clear). `Terminate` is not stashed while waiting for children (`../dispatch/sysmsg/SystemMessage.scala:215-277`†).
+- **[Run]** (`RESULTS.md`, H4; three runs per mode, identical counts; only the begin order of the two held children varied):
+  - **default hooks**, a Stop while the restart waits for held children: no new instance (`constructors=1`, no `postRestart`, no second
+    `preStart`); `postStop` of the old instance **twice** (once from the default `preRestart`, once from the termination after the
+    children finished); one `Terminated`.
+  - `preRestart` that stops the children without calling `postStop`: `postStop` once, after the children; one `Terminated`.
+  - no restart (control): `postStop` once, after the children; one `Terminated`.
+- **Observable.** The restart is abandoned in favor of the termination; the old instance's `postStop` runs once per call that reaches
+  it, so **twice with the default hooks**. A Stop accepted while the decision is pending terminates the actor; the child already sent its
+  `Failed` before its own `DeathWatchNotification` (`dungeon/FaultHandling.scala:233` before `:263`), so the parent still handles the
+  `Failed` (the decider runs; an Escalate still fails the parent; a Restart sent to a dying child becomes `faultResume(null)` or a dead
+  letter, `:97,115-117`); a stashed `Failed` is dropped as "unknown child" after the child's removal (`:321-323`), and one stashed by a
+  parent that is itself terminating is discarded without being handled (`ActorCell.scala:471-474,539,723`: `clearFieldsForTermination`
+  calls `unstashAll()` and ignores the result).
+- **Go.** The port is the observed behavior: the restart is abandoned, the termination path of ADR 0014 runs, and `PostStop(old)` runs
+  as many times as it is called (twice with the default hooks). The rule to port is Pekko's: the **termination path calls `PostStop`
+  once, on the current instance**; the call made by the default `PreRestart` is user-level code with no guard. The Go runtime is **not**
+  changed now: `postStopBegun` is per cell and guards a single call (`stop.go:113-121`), a rule that only matters once restart exists.
+  **Delivered in U7 (#449, PR #472):** the default `PreRestart` no longer goes through that guard (`supervision_restart.go`, `defaultPreRestart`), so a Stop during a
+  restart's wait gives the observed two calls. Before U7 the per-cell guard gave **one** call: an explicit gap against the observed behavior, not a different contract.
+- **Discrepancy and correction.** The observed behavior contradicts the judge's own wording of G5, "`post-stop` runs once per
+  instance" (`docs/judge.md:69`). It does **not** contradict the Pekko documentation G5 cites (`actors.md:941-957` describes the
+  termination order and says nothing about "once per instance"). ADR 0012 (`:63`) scopes its "once" guarantee to the
+  stop before the first activation and ADR 0014 D6 is the `Goexit` fix: neither decides this. **Accepted by the owner (2026-10-14):** the
+  observed behavior (restart abandoned, `PostStop(old)` twice with the default `preRestart`, one `Terminated`) is the target; **U7**
+  corrects the scope of G5 and G4 as in "Scope of the judge's guarantees" and adds a Pekko-side scenario and a Go mirror asserting the
+  observed counts (#449); the double call is a property of the **default** `preRestart` and does not occur when `preRestart` does not call
+  `postStop`. The reproduction and its evidence are preserved in `migration/stage-1/supervision/h4-repro/`.
+- **Status.** **F** (observed and accepted). No H4 choice remains.
+
+### S12. Mapping of failures to Pekko exception classes (H5: separate cases)
+
+No JVM exception is translated by default. The mapping is derived from existing goPekko contracts and checked against upstream.
+Precedence: a failure raised while the start step runs is an initialization failure whatever its own class.
+
+| Go source | Upstream equivalent | Default decider | Status |
+|---|---|---|---|
+| An error returned by `Receive` | an `Exception` (S13 throws `RuntimeException`) | Restart | **F**: the repository already treats the returned error and the panic as the same failure (`cell.go:176-185`) |
+| A panic in `Receive`, `panic(nil)` included | an `Exception` | Restart | **F**, `PanicError` (A9) |
+| `PreStart` error or panic (first instance) | `ActorInitializationException` | Stop | **F**, S14, `ActorCell.scala:642-683` |
+| Failure of the new instance or of `PreStart` after a restart | `PostRestartException` (an `ActorInitializationException`) | Stop | **F**, S10 |
+| Factory nil/panic | `ActorInitializationException` | Stop | **F** after U4 (H7, #444) |
+| `ErrDeathPact` (an unhandled `Terminated`) | `DeathPactException` | Stop | **F**, `Actor.scala:658`, `DeathWatchSpec.scala:216` |
+| `ErrWatchConflict` | `IllegalStateException` (an `Exception`) | Restart | **F**, S16, `DeathWatch.scala:125-131` |
+| `ErrInvalidHandle` — case 1: a **nil** handle in `Watch`/`WatchWith`/`Unwatch` | `IllegalArgumentException("ActorRef is not internal: null")` **[Pekko]** (`DeathWatch.scala:47-48,63-64,77-78`; the probe printed only the wrapper class and the root-cause message), an `Exception`; **[Run]** in `preStart` it reaches the parent as an `ActorInitializationException` (default decider: Stop) | `Receive`: Restart (inferred from `FaultHandling.scala:222`; **not run**); `PreStart`: Stop (**[Run]**) | **F**: an equivalent exists, so it is supervised like every `Exception` |
+| `ErrInvalidHandle` — case 2: a **Go handle without a demonstrable equivalent** (a `Handle` that is not an actor reference, a zero ID) | upstream has the same `IllegalArgumentException` branch (`case unexpected`, commented "will not happen"), but a user cannot build a non-internal `ActorRef`, so it is **not demonstrable by a test** | **not classified** | **Interim unchanged**: the approved Go contract (`0010:170`) keeps rejecting it and the watcher stops with `ErrInvalidHandle` without consulting the decider; registered in #443, not parity |
+| `ErrInvalidHandle` — case 3: a handle of **another System** | **none**: a reference of another ActorSystem of the same JVM is *not* rejected; `watch` and `watchWith` work and `Terminated` arrives **[Run]**; no upstream test observes it | **not classified** | **Divergence pending correction (#443)**. **Interim unchanged** (as case 2). Not parity, and **not** an ordinary supervised failure (owner, H5b). Superseded for `Watch`, `WatchWith` and `Unwatch` by the ADR 0010 amendment (accepted on 2026-10-25) once DTH-01 is implemented; until then this row describes the current state. (GOV-15 #1065; DTH-01 #785) |
+| `runtime.Goexit` in `Receive`, `PreStart`, `PreRestart`, `PostRestart`, the decider or the factory | none (Go-specific adaptation `ErrGoexit`) | **Stop** | **A (accepted, H5c option 1)**: explicit and tested, no JVM parity |
+| `Kill` / `ActorKilledException` | no Go source (`Kill` is excluded by ADR 0010 `:216`) **[Note 2026-11-04: the exclusion no longer applies to `Kill` and `PoisonPill`; see the ADR 0010 amendment 2026-11-04.]** | Stop | **G** (#450) **Note (2026-11-02): partly superseded by the amendment below** (the cause `ErrActorKilled` and its Stop mapping exist; delivery of `Kill` stays a gap, #816) |
+| A `Throwable` that is not an `Exception` (JVM `Error`) | no Go source | undefined → Escalate | reachable only through a decider that returns Escalate |
+
+JVM fatal errors are not handled by the actor (`dungeon/FaultHandling.scala:353-359`†: only `InterruptedException` and `NonFatal`); Go
+runtime faults that `recover` cannot catch are outside any supervision.
+
+**H5b: the three `ErrInvalidHandle` cases are kept apart.** The owner did **not** approve turning `ErrInvalidHandle` into an ordinary
+supervised failure as a substitute for compatibility between ActorSystems. Therefore: case 1 (`nil`) is supervised because Pekko has the
+equivalent and treats it as an `Exception`; cases 2 and 3 keep **today's approved Go behavior** (the watcher stops with `ErrInvalidHandle`
+and the decider is not consulted), which is an *interim exception to supervision recorded as a divergence*, not a classification. Case 3
+is a **divergence pending correction**: Pekko accepts the reference (**[Run]**, `H5Probe`), no upstream test exists for it (the specs that
+create more than one `ActorSystem` do not watch across systems), so its tests will be new: a Pekko-side judge scenario and its Go mirror
+(#443). The restriction is **not marked as parity** anywhere. The approved Watch texts that list the three cases together
+(`0010:170`, `pekko-actor/README.md:41`) are edited by the unit that makes case 1 supervised, and only for case 1; they keep stating cases 2
+and 3 as they are, now labelled as a divergence.
+
+Note (2026-10-25): Superseded for `Watch`, `WatchWith` and `Unwatch` by the ADR 0010 amendment (accepted on 2026-10-25) once DTH-01 is implemented; until then this paragraph describes the current state. Case 2 and case 1 are not affected. (GOV-15 #1065; DTH-01 #785)
+
+**H5c (`Goexit`): accepted adaptation, option 1.** Today a handler that ends its goroutine with `runtime.Goexit` is reported as
+`receive-failed` (or `prestart-failed` from `PreStart`) with `errGoexit` and the actor stops; the runtime hands the activation to a fresh
+goroutine (`cell.go:133-170`). In the **factory** the caller of `Spawn` never gets a return and no actor exists (`spawn.go:51-55`, ADR 0014
+`:222`), so for the factory row "the actor stops" does not describe today's behavior; after U4 the factory runs in the start step and
+follows the mapping below. Mapping (accepted): the failure carries `ErrGoexit` (replacing the unexported value, so `errors.Is` keeps working
+and a decider can recognize it); the **default decider treats it as Stop**, a Go-specific entry added to Classic's closed set of Stop
+classes; a custom decider may choose any directive. Consequence: the approved behavior (the actor stops) is preserved. **It has no JVM
+parity** (Pekko has no mechanism that ends the processing thread without an exception) **and it does not authorize changing the
+classification of any failure that has a Pekko equivalent.** Tests (#448): `Goexit` in `Receive`, `PreStart`, `PreRestart`, `PostRestart`,
+the decider and the factory each reach the decider with `ErrGoexit`; default → Stop; a decider choosing Restart restarts; `t.FailNow` in a
+test actor; the activation continues in a fresh goroutine and no message is lost. In `PostStop` a `Goexit` stays `poststop-panic` and the
+termination goes on (existing contract, `stop.go:131-139`); inside a restart it hands over to the restart continuation, not to `finalize`.
+
+**Amendment 2026-11-02 (documentation only; SUP-02, #778; the rows above keep their original text).** `ErrActorKilled` and its default classification:
+
+| Aspect | Record |
+|---|---|
+| Go contract implemented | `ErrActorKilled` is an exported sentinel with text `Kill`, matched with `errors.Is` (`pekko-actor/actor/errors.go`, SUP-16 #1112, PR #1310, squash `70806ce`). `defaultDecider` returns **Stop** for it, also wrapped and inside an `*InitializationError` (`supervision_decider.go`, PR #1311, squash `ba5b684`). A parent that declares its own decider decides for itself. Every other cause keeps its row above. |
+| Accepted differences from Pekko | The cause is a sentinel, not a class: Go has no class hierarchy, so a decider matches it with `errors.Is`. Pekko's `ActorKilledException` constructor is `private[pekko]`; a Go sentinel cannot be sealed, so user code can return `ErrActorKilled` from `Receive` and the runtime treats it as any cause (Stop under the default decider). Pekko's `NoStackTrace` has no Go counterpart. **JVM `Error` and `InterruptedException` have no direct Go equivalent**: Pekko's default decider leaves a non-`Exception` `Throwable` unmatched, so it escalates (`FaultHandling.scala:210-217`, 218-223), and `InterruptedException` is handled apart (`dungeon/FaultHandling.scala:228-230`, #450 item 5). The Go default decider is defined for every cause and **never returns Escalate**; a panic is an `Exception`-class failure (Restart). This is unchanged; it is now stated in `pekko-actor/README.md`. |
+| Upstream reading evidence | Read, not run, at the pin `9a54d1294c3ac7821bbed3c940769c3d5027d1ff`: `Actor.scala:174-177` (the exception), `ActorCell.scala:575` (`case Kill => throw ActorKilledException("Kill")`), `FaultHandling.scala:218-223` (default decider, Stop on `ActorKilledException` at `:220`). `DeathWatchSpec.scala:216-241` observes the default Stop indirectly (the killed child stops, so its watcher fails with `DeathPactException`). No Pekko scenario was executed for this amendment. |
+| Go tests that exist | `TestDefaultDecider` rows for `ErrActorKilled`, wrapped, and inside an initialization failure (`supervision_default_internal_test.go`); `TestErrActorKilled_DefaultStrategyStops` (PostStop once, no restart) and `TestErrActorKilled_ExplicitRestartStrategyStillRestarts` (`err_actor_killed_test.go`). |
+| Not delivered | The `Kill` message does not exist until #816; nothing in goPekko produces `ErrActorKilled` except user code. Therefore **no end-to-end `Kill` parity is claimed**: it needs #816 and the validation of #1031. `PoisonPill` (#770) is a separate unit. |
+
+**Update 2026-11-02 (MSG-07, #816; supersedes only the "Not delivered" row of the amendment above; the original decision and the first amendment keep their text).** The **historical** record is: S12 listed `Kill` / `ActorKilledException` as a gap (#450 item 3) with default Stop. The **current** state, in order of integration into `develop`:
+
+| Step | State now | Source |
+|---|---|---|
+| Cause contract | `ErrActorKilled`, an exported sentinel with text `Kill`, matched with `errors.Is` (SUP-16, #1112) | PR #1310, squash `70806ce` |
+| Classification | the default decider maps it to Stop, also wrapped or inside an `*InitializationError` (SUP-02, #778) | PR #1311, squash `ba5b684` |
+| Ordered delivery | `Kill` is posted at the end of the messages already queued, through the existing ordered lane of the Port, and is processed at its place (MSG-07, #816) | PR #1313, squash `ecd8acb` |
+
+How `Kill` behaves (Go implementation, `pekko-actor/actor/kill.go`): when the actor reaches it, `Receive` is **not** called. The actor fails with `ErrActorKilled` exactly as a failed `Receive` does: the `receive-failed` event, the `FailedMessage` (its value is the `Kill` marker, Pekko's `Some(Kill)`), the parent's decider, the budget and the restart machinery. Messages queued before it are processed; those after it are dead-lettered when the decider stops the actor. A suspended actor keeps `Kill` until it resumes. `Kill` sent to a stopped actor, an actor whose stop was accepted or a full bounded mailbox is an ordinary `DeadLetter` whose `Msg` is `Kill` (Pekko's `Kill` is not `DeadLetterSuppression`, `Actor.scala:60`).
+
+Approved Go exports and their adaptations: `actor.Kill` (stateless marker, unexported type), `(*System).Kill(Handle)` and `(*Context[T]).Kill(Handle)`. `Kill` is not a value of `Ref[T]`: `Tell(Kill)` is not recognized, because `Ref[T]` is typed and `Ref` and `Handle` gain no method (D3, EXP-1 records in PR #1313). Other differences from Pekko: no sender; Go's own log text instead of `Error(ActorKilledException, ..., "Kill")`; a user can return `ErrActorKilled` from `Receive` (Pekko's constructor is `private[pekko]`).
+
+Evidence and limits: upstream was read at the pin `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (`ActorCell.scala:549-559, 575`; `dungeon/FaultHandling.scala:101, 215-235`; `FaultHandling.scala:218-223`) and the oracle specs were read, not run (`ActorLifeCycleSpec.scala:50-110`, `DeathWatchSpec.scala:216-241`, `LoggingReceiveSpec.scala:279-290`). Go tests: `pekko-actor/actor/kill_test.go`, `err_actor_killed_test.go`, `TestDefaultDecider`. **There is no differential evidence for `Kill` yet** and no end-to-end scenario: that is #1031, together with a Pekko run. `Kill` on `/user` and a router's escalation of it are not verified. No `Kill` parity is claimed. `PoisonPill` (#770) is a separate unit.
+
+### S13. Shape and failure of the decider (H9: keep the parent's context capabilities)
+
+- **Source.** `Decider = PartialFunction[Throwable, Directive]`; `FaultHandling.scala:372`† (`applyOrElse(cause, escalateDefault)`);
+  `:260-279` (`makeDecider` helpers). **The decider runs inside the parent's actor with `sender()` set to the failing child**
+  (`dungeon/FaultHandling.scala:306`†: `currentMessage = Envelope(f, f.child, system)`) and with the parent's `context` available:
+  `SupervisorMiscSpec.scala:165-179`† asserts `sender()`; `UidClashTest.scala:84-86` calls `context.stop(self)` in it;
+  `SupervisorMiscSpec.scala:151` uses `context.actorOf` inside `handleChildTerminated` of a strategy **subclass** for a child that was
+  *stopped* (not failing; not the decider; a hook the built-in strategies leave empty, `FaultHandling.scala:552,664`, and a custom
+  subclass, gap A7); the judge's `decided` event records the failing child (`Judge.scala:131`†). A decider that throws fails the parent through the system-message catch (`ActorCell.scala:533-534`);
+  `SupervisorSpec.scala:460-506`.
+- **Observable.** An unmatched cause escalates; the decider identifies the failing child and has the parent's context (self, children,
+  stop, spawn, watch); an exception in the decider fails the parent.
+- **Go.** The decider receives the parent's context, the failing child and the cause, and reports whether it is defined for that cause:
+  `type Decider[T any] func(ctx *Context[T], child Handle, cause error) (Directive, bool)`; `Strategy[T]` is generic in the parent's
+  message type for that reason (A1, A13). The `*Context[T]` is valid **only for the duration of the decider call** (as the handler's is,
+  ADR 0010) and offers whatever `Context` offers at the time of the unit; a capability the context does not yet have stays **pending in
+  the target contract, not removed**. `ok == false` is "undefined" and means Escalate. A panic or `Goexit` in the decider is a failure of
+  the **parent**, as in Pekko. The `makeDecider` helpers are small constructors, delivered with their unit or recorded as a gap.
+- **Status.** **F** for the behavior; **A1, A13** for the shape.
+
+### S14. Observability
+
+- **Source.** `FaultHandling.scala:395-423` (`logFailure`: Warning for Resume, Error for Restart and Stop, nothing for Escalate;
+  `loggingEnabled`); the lifecycle `Debug` logs; the judge records `pre-restart`, `post-restart`, `decided` (`docs/judge.md:30,33`).
+- **Observable.** Failures are logged per directive; hooks and decisions are observable to the judge.
+- **Go.** goPekko publishes events (`receive-failed`, `prestart-failed`, `stop-accepted`, `poststop-panic`) and they stay. Restart, denial,
+  decision and decider failure need further events so the Go judge can compare with Pekko's `decided`, `pre-restart`, `post-restart`
+  (A11). **Events are an additional channel and do not substitute the logs**: `loggingEnabled` and `logFailure` are preserved by their own
+  unit, **U9 (#451)**, with `github.com/pablogore/kit-logger` as the sink (owner, 2026-10-14). U9 delivered it (PR for #451): `Config.Logger`, `Strategy.WithLogging` and `GuardianStrategy.WithLogging`; the
+  restart-hook logs, an overridable `logFailure` and the `EventFilter` assertions of ported tests remain declared gaps (#461, #450).
+- **Status.** **A11** (events, additive), **U9** (`loggingEnabled`, `logFailure`: a unit, not a gap that is accepted).
+
+## The A-list (A1-A13): adaptation, upstream source, equivalence, differences, tests — **accepted by the owner on 2026-10-14**
+
+The owner accepted every row (A1-A13, including A9a, A9b and A9c) as written at `d6c74c2`; earlier rows were reviewed one by one. "Differences" lists everything that is not identical to upstream, including
+what is merely a different representation. `†` = re-read by the orchestrator. Rows A1-A13 are the only adaptations this ADR proposes besides
+H5c (`ErrGoexit`, accepted) and the `Spawn` reconciliation (H7, direction approved, specified in S10).
+
+**Owner's direction (2026-10-14).** The direction of **A1, A3, A5, A6, A8, A10 and A13** is accepted, subject to the equivalence tests of the
+implementation units (no row is closed by this ADR alone). **A2, A4, A7, A9, A11 and A12** were corrected as the owner asked and are
+presented again below for review. Nothing here approves the hashes.
+
+| # | Adaptation | Upstream source | Observable equivalence | Differences (all of them) | Tests |
+|---|---|---|---|---|---|
+| A1 | `Decider[T] func(ctx *Context[T], child Handle, cause error) (Directive, bool)`; `ok == false` means "undefined for this cause" | `Decider = PartialFunction[Throwable, Directive]`; `decider.applyOrElse(cause, escalateDefault)` (`FaultHandling.scala:372`†); `makeDecider` (`:260-279`) | a matched cause yields the directive; an unmatched one escalates and the parent fails with the same cause (`:386-388`, `dungeon/FaultHandling.scala:314`†) | a Go function instead of a `PartialFunction`; the boolean replaces `isDefinedAt`; `child` is a `Handle` instead of `sender()`; the parent's context is a parameter instead of ambient | an unmatched cause escalates and the parent fails with that cause (`FaultHandlingDocSpec:173`); a matched cause; `makeDecider(list)` maps the listed causes to Restart and the rest to Escalate (`:260-262`); the decider sees the failing child (`SupervisorMiscSpec:165`) |
+| A2 | `Directive` constants start at 1; **the zero value is invalid** (not Escalate). A directive returned with `ok == true` that is not one of the four is rejected by a **Go-specific validation**: the parent fails with a descriptive error whose name U1's RULEBOOK fixes | `Directive` is a **sealed** trait with exactly `Resume`, `Restart`, `Stop` and `Escalate` (`FaultHandling.scala:118-161`†): user code cannot create an invalid directive. The only out-of-domain value on the JVM is `null`. **[Run]** (`A2A4Probe`, `a2a4-sbt.out`): a decider returning `null` makes the parent fail with `scala.MatchError: null` (`directive match`, `:373-389`†); the parent's `preRestart` received that reason and `Some(Failed)` as the message (the same `Failed` case as S8). A decider that throws also fails the parent (`ActorCell.scala:533-534`†, `SupervisorSpec:460-506`) | **No upstream equivalent is claimed.** For the four valid values the behavior is identical. For an invalid value the Go validation is a Go-only rule; its outcome (the parent fails) coincides with what upstream does for the JVM type violation `null`, which is an observation, not an equivalence | the cause is a Go descriptive error, not `MatchError`; Go can express a value Scala cannot; the validation exists only in Go | each of the four; the zero value with `ok == true` fails the parent with that error; a value above the four with `ok == true` likewise; `ok == false` with any directive is Escalate; a throwing decider fails the parent (the upstream test) |
+| A3 | a parent that does not implement `Supervisor[T]` uses `DefaultStrategy`; a zero `Strategy[T]` returned by `SupervisorStrategy()` is treated as absent | `Actor.supervisorStrategy = defaultStrategy` (`Actor.scala:588`†); `defaultStrategy = OneForOneStrategy()(defaultDecider)` (`FaultHandling.scala:230`†) | an absent strategy is the Classic default (Restart on an ordinary failure, Stop on init failure/kill/death pact), **never** Escalate | an optional Go interface replaces the overridable `val`; Pekko has no "zero strategy": treating it as absent is defensive | judge S13 and S14 with a parent that declares nothing; a parent returning `Strategy[T]{}` behaves as the default; a parent with `Supervisor` and its own strategy |
+| A4 | `Budget{MaxRetries int32; Within time.Duration}`; the whole matrix of S4 is preserved: `MaxRetries < 0` is "no count" (**not** "unlimited" when a window exists: with a window it is one restart per window), `0` denies, `> 0` counts; `Within < 0` is no window, `Within == 0` a zero-length window, a finite window is truncated to whole milliseconds and wraps modulo 2^32 | `maxNrOfRetriesOption`, `withinTimeRangeOption` (`FaultHandling.scala:303-307`†); `(Option[Int], Option[Int])` stored (`:550,662`†); `requestRestartPermission` (`:58-88`†). **[Run]** all 24 cells of the matrix on the real class (`a2a4-sbt.out`) | every `(retries, window)` cell gives upstream's decisions (the 4×4 table of S4, plus the equivalent negative-window and `2^32 ms` columns); the transcription reproduces 24 of 24 (`a5-edge/matrix_check.out`) | Go has no `Duration.Inf`: a negative `Within` stands for it and for negative durations; the zero `Budget{}` denies every restart and is never presented as a default | the 24 cells as a table-driven test; the conversion table (13 inputs, `winconv/main.go`); `SupervisorSpec:572,589,601,232`, `RestartStrategySpec:43,91,115,173,224`; overflow cells (`2^31 ms`, `2^32 ms`, `2^32+5 ms`) |
+| A5 | the window is measured with an **injected monotonic clock that yields `int64` nanoseconds**; the value `0` of the stored window start means "not started", **exactly as upstream** | `System.nanoTime` (`FaultHandling.scala:73`†); `restartTimeWindowStartNanos == 0` as "not started" (`:75`†), stored by both the first request and the reset (`:75-86`†) | identical algorithm for every reading, **including a reading of exactly zero** (owner decision, 2026-10-14: no explicit flag) | **the clock source only**: an injected clock instead of `System.nanoTime`, so a test can choose the readings; Go readings may be `0` or negative as `nanoTime` may | `a5-edge/oracle.out`: readings `0,100 ms,1050 ms` → `allow,allow,deny`; `-2000 ms,0,1050 ms` → `allow,allow,deny`; controls without a zero reading and at the window edge (`diff == w` inside, `w + 1ns` outside); the expectations are derived from the source (the real class cannot be driven to a chosen reading) |
+| A6 | `MaxRetries`, the restart counter and the window in milliseconds are `int32` | Scala `Int` (`maxNrOfRetriesCount: Int`, `.toInt`) | the same range and wraparound, independent of the platform `int` | none observable; the conversions are explicit (`windowMillis`, `windowNanos`, `retriesOption`, S4) | `MaxRetries = 2^31-1`; the counter wraps like `Int`; the conversion table of S4 (13 inputs checked in `winconv/main.go`) |
+| A7 | the provided constructors `OneForOne`, `AllForOne`, `DefaultStrategy`, `StoppingStrategy` give the **built-in** strategies only. **They do not replace user-defined strategies**, which are a **missing capability** registered in #450 (item 1) with a concrete task and dependencies (U1, U2, U6, U9 and the decider-context capability) | `OneForOneStrategy`, `AllForOneStrategy`, `defaultStrategy`, `stoppingStrategy` (`FaultHandling.scala:230,238-243,468-568,582-678`); `abstract class SupervisorStrategy` with overridable `decider`, `handleChildTerminated`, `processFailure`, `handleFailure`, `loggingEnabled`, `logFailure` (`:323-424`†) | each built-in behaves as its upstream namesake. For a user-defined strategy there is **no equivalent**: it is not possible, not approximated | no extensibility until #450 item 1 lands; no overridable hooks | `stoppingStrategy` stops on any `Exception` (`:238-243`); `AllForOne` stops all children on a denied restart (`SupervisorSpec:292-402`); when #450 item 1 lands: `SupervisorMiscSpec:144`, `DeathWatchSpec:216` (with the subclass), part of `UidClashTest:104` |
+| A8 | the factory is retained by the cell and runs once per restart, in the restarting activation | `newActor()` in `finishRecreate` (`dungeon/FaultHandling.scala:286`†) | a new instance per restart, built once, with fresh state | a Go `func() Actor[T]` instead of `Props.newActor()`; the construction runs in the cell's activation, not on the thread that handles the system message | `SupervisorSpec:240`, `ActorLifeCycleSpec:49,142` (state is reset) |
+| A9 | causes are Go values: `PanicError`, `InitializationError{Err, InRestart, OriginalCause}` (amendment 2026-10-28, SUP-10 #781: `OriginalCause` is the failure that began the restart whose new instance failed, nil when `InRestart` is false; `Unwrap` returns `Err` only; an Owner-approved Go adaptation, no Pekko scenario executed), `ErrDeathPact`, `ErrWatchConflict`, `ErrInvalidHandle`, `ErrGoexit`. The classification is **split in three groups (A9a, A9b, A9c, below)** and is not one blanket mapping | JVM exception classes and `defaultDecider` (`FaultHandling.scala:218-222`†) | group A9a: each Go cause gets the directive that upstream gives its class. A9b: no JVM equivalent. A9c: not classified | no class hierarchy: classification uses `errors.Is/As`; a Go `error` replaces `Throwable`; there is no `Error`/`Exception` split | a decider test per row of A9a and A9b; A9c rows keep their interim tests |
+| A10 | the failing child is a `Handle`; staleness is judged by the incarnation ID | `ActorRef` and `uid` (`dungeon/FaultHandling.scala:313-323`†) | a `Failed` from a replaced or removed incarnation is dropped and no budget is charged | `Handle` is an identity, not a message target; the incarnation ID plays the role of `uid` | stale after a stop; stale after a respawn under the same name; a grandchild failing while its parent restarts |
+| A11 | **events** (`restart`, `restart-denied`, `decision`, `decider-failed`, `factory-failed`; names and payload fixed by each unit) are an **additional observability channel for the judge and the tests**. **They do not replace `loggingEnabled` and `logFailure`**, which are preserved by their own unit **U9 (#451)**, with `github.com/pablogore/kit-logger` as the sink (owner, 2026-10-14) | `loggingEnabled` (default `true`) and `logFailure` (`FaultHandling.scala:395-423`†: Warning for Resume, Error for Restart and Stop, nothing for Escalate; overridable); the judge records `pre-restart`, `post-restart`, `decided` (`docs/judge.md:30,33`) | events: the same facts are observable (that a restart happened, its cause, the decision and the failing child). Logs: **not provided until U9**, so the capability is a declared gap, not covered by events | an extra channel that upstream does not have; until U9 there are events and no logs | events: judge S13/S16 mirrored on the Go side compare the sequence of hooks and `decided`. Logs (U9): `loggingEnabled = false` suppresses; Warning for Resume, Error for Restart and Stop; Escalate does not log; a logger failure does not break failure handling; the events keep their meaning |
+| A12 | `PreRestart(ctx, cause, FailedMessage)` and `PostRestart(ctx, cause) error` as optional interfaces; `ChildFailure` as the Go value of the escalated `Failed`. **`FailedMessage` keeps presence and value; it says nothing about which messages are admitted** | `preRestart(reason, message: Option[Any])`, `postRestart(reason)` (`Actor.scala:625-645`†); `Failed` (`dungeon/FaultHandling.scala:101,306`†); `Terminated` (`Actor.scala:658`); `watchWith` message (`DeathWatch.scala:81-92`); **[Run]** `preRestart(message=Some(boom))` and, for a failing decider, `Some(Failed)` (`RESULTS.md`, `a2a4-sbt.out`) | **two contracts, kept apart.** (1) *Representation*: `FailedMessage` is `Option[Any]`; for every case Classic can produce (a non-null user message, the escalated `Failed`, a `Terminated`, a `watchWith` message, none) value and presence are identical. (2) *Admission*: Classic **rejects** a `null` message (`InvalidMessageException`, `ActorRefProvider.scala:472`, `ActorRef.scala:685,737`); goPekko today **delivers** a nil message (`docs/actor-core-first-cut.md:25`). That is a divergence with its own issue, **#452**, and **this ADR does not authorize accepting nil messages where Classic rejects them** | a returned `error` from `PostRestart` stands for a throw; `FailedMessage` carries a presence bit; a *present nil* value exists **only while** #452 leaves nil admission as it is: if #452 aligns `Tell` with Classic, that state is unreachable and the type stays valid | the Classic cases of (1); defaults: children stopped and `PostStop` called, `PreStart` called; the present-nil case is a Go-side test labelled "valid only while #452 admits nil" |
+| A13 | the decider's `*Context[T]` is valid only during the decider call and offers what `Context` offers at the unit's time | the decider runs inside the actor with `context` available (`dungeon/FaultHandling.scala:306`†, `UidClashTest.scala:84-86`) | the same observations are possible (self, children, stop, watch); capabilities `Context` lacks are pending (#450), not removed | an explicit parameter instead of the ambient `context`; the context is not usable after the call (ADR 0010 X1: later use is a `ContextMisuse`) | **Go-side tests** (the upstream branch that stops from the decider only runs on the colliding-UID path, `PORT-GAP`): `ctx.StopSelf()` in the decider; `ctx.Children()`; reading the failing child; use of the context after the call |
+
+#### A9 split: demonstrated mappings, the approved Go adaptation, and pending cases
+
+**A9a — mappings with a demonstrated upstream counterpart** (the Go cause is classified like the Pekko class; the default decider is
+`FaultHandling.scala:218-222`†):
+
+| Go cause | Pekko class | Directive | Demonstration |
+|---|---|---|---|
+| error or panic of `Receive` | an `Exception` | Restart | judge S13 (`RuntimeException`, G7); the repository already treats the returned error and the panic as one failure (`cell.go:176-185`) |
+| failure of `PreStart`, first instance | `ActorInitializationException` | Stop | judge S14 (G7.b), `ActorCell.scala:642-683` |
+| failure of the new instance or of `PreStart` after a restart | `PostRestartException` (an `ActorInitializationException`) | Stop | `dungeon/FaultHandling.scala:298-302`†, `SupervisorSpec:419` |
+| factory nil or panic (after U4) | `ActorInitializationException` | Stop | `ActorCell.scala:629,642-683`, `SupervisorHierarchySpec:861` |
+| `ErrDeathPact` | `DeathPactException` | Stop | `Actor.scala:658`, `DeathWatchSpec:216` |
+| `ErrWatchConflict` | `IllegalStateException` | Restart | judge S16 (I6), `DeathWatch.scala:125-131` |
+| `ErrInvalidHandle` from a **nil** handle | `IllegalArgumentException` | Restart in `Receive` (inferred), Stop in `PreStart` (**[Run]**) | `DeathWatch.scala:47-48`, `H5Probe` |
+
+**A9b — approved Go adaptation, no JVM equivalent:** `ErrGoexit` (a handler that ends its goroutine with `runtime.Goexit`, in `Receive`,
+`PreStart`, `PreRestart`, `PostRestart`, the decider or the factory) → **Stop** by default; explicit and tested; it does **not** authorize
+changing the classification of any A9a row (owner, H5c).
+
+**A9c — pending, not classified by this ADR:** `ErrInvalidHandle` for a Go handle without a demonstrable equivalent and for a handle of
+another System (interim unchanged: the watcher stops and the decider is not consulted; divergence #443); For the handle of another System only: Superseded for `Watch`, `WatchWith` and `Unwatch` by the ADR 0010 amendment (accepted on 2026-10-25) once DTH-01 is implemented; until then this text describes the current state. (GOV-15 #1065; DTH-01 #785) a `Goexit` in `PostStop`
+(stays `poststop-panic`, existing contract); `Kill`/`ActorKilledException` (gap, #450 item 3); `InterruptedException` (gap, #450 item 5);
+a JVM `Error` that is not an `Exception` (no Go source).
+
+Decided elsewhere and not part of the list: `ErrGoexit` (H5c, accepted option 1); the `Spawn` reconciliation (H7, S10, U4); the cases of
+`ErrInvalidHandle` (S12, #443); the double `PostStop` (S11, U7).
+
+## Decisions that still need the owner
+
+- **The A-list and the hashes are accepted** (2026-10-14, at `d6c74c2`); see the status line. What stays open is not this contract but its
+  delivery: each unit must show, with concrete upstream tests and a real run of the migration kit, that the declared behavior holds.
+- At each unit's RULEBOOK (not now): the `Spawn` behavior list of S10, the ADR 0014 amendments of U5 (the root owner as an actor and the
+  validation of top-level names), and the edit of `docs/judge.md` G4/G5 in U7.
+
+## Divergences pending correction (not parity)
+
+| # | Divergence | Pekko behavior | goPekko today | Issue | Interim |
+|---|---|---|---|---|---|
+| D-1 | `Watch`, `WatchWith` and `Unwatch` reject a handle of another System with `ErrInvalidHandle` | accepted; `Terminated` is delivered **[Run]** | rejected; the watcher stops | #443 | unchanged; the decider is not consulted; documented as a divergence. Superseded for `Watch`, `WatchWith` and `Unwatch` by the ADR 0010 amendment (accepted on 2026-10-25) once DTH-01 is implemented; until then this row describes the current state. (GOV-15 #1065; DTH-01 #785) |
+| D-2 | a failing actor stops instead of being supervised (ADR 0014 deviation 10, `docs/actor-core-parity.md:67,194`) | restart by default | stops | #168-#174, #446, #448 | unchanged until the units land |
+| D-3 | `Spawn` returns factory failures to the caller | supervised initialization failure | returned | #444 | unchanged until U4 |
+| D-4 | top-level actors are not supervised by guardian actors | `/user` guardian with `defaultStrategy` | stop on failure | #445 | closed in U5b (restart by `/user`); public configuration in U5c |
+| D-5 | judge G5 "`post-stop` runs once per instance" | the default `preRestart` plus a Stop gives two calls **[Run]** | closed in U7: the Go runtime gives two calls with the default hooks; the judge text is corrected (G4/G5, clause G5.f, scenario S22) | #449 | delivered (PR #472, squash `b3275d7`); issue closed; gaps in #461 |
+
+## Explicit gaps
+
+Missing Classic capabilities, each with an issue and none replaced by another behavior (full detail and dependencies in **#450**):
+user-defined `SupervisorStrategy` subclasses (item 1, with a concrete task and dependencies U1, U2, U6, U9 and the decider context; **the
+provided constructors do not replace it**); `Kill` and `ActorKilledException` (item 3; **2026-11-02: the cause `ErrActorKilled` and its Stop mapping exist, #1112/#778; delivery of `Kill` stays a gap, #816**); the context capabilities of the decider that
+`Context` does not offer yet (item 4); `InterruptedException` handling (item 5); remote supervision (item 6); top-level name validation
+(item 7, delivered in U5c; the other items stay open in #450); `nil` messages in `Tell` (#452). Their own units or issues: `loggingEnabled` and `logFailure` (**U9, #451**); the end of the
+system on a guardian failure or an escalation from `/user`, the termination hooks (`System.Shutdown` and `WhenTerminated` exist since U10, #192/#193; the hooks and `CoordinatedShutdown` remain under #67); user `Stash` and its restart behavior (#62/#182/#183); mailbox configuration (#59/#176/#177); dispatcher configuration (#60).
+
+**Typed is a later, independent stage** (epic #66): `Behaviors.supervise`, backoff, `stopChildren`, `stashCapacity` and Typed's default Stop
+are another contract, not a variation of this one. They are not mixed in and they are not implemented in U1-U9; that stage redoes this
+matrix from `actor-typed` and `actor-typed-tests` (`SupervisionSpec`).
+
+## Issue register (existing issues reused; new ones only where nothing existed)
+
+| Item | Issue | Status |
+|---|---|---|
+| U1: `Failed` channel, suspension, `OneForOne`, directive Stop | #168 (existing) | open; implementation integrated in U1, issue left open for the verifications pending at module close (#461) |
+| U1: directives Resume and Escalate | #446 (new) | closed; implementation integrated |
+| U2: finite budget | #169 (existing) | closed; implementation integrated |
+| U2: new instance after the failure | #170 (existing) | closed; implementation integrated |
+| U2: order of the restart hooks | #171 (existing) | closed; implementation integrated |
+| U2: mailbox kept or emptied | #172 (existing) | closed; implementation integrated |
+| U2: children policy on restart | #173 (existing) | open; implementation integrated in U2, with ported cases still pending (#461) |
+| U2: registrations preserved | #174 (existing) | closed; implementation integrated |
+| U3: default strategy and classification (`ErrGoexit`) | #448 (new) | open; implementation integrated in U3, issue left open for the verifications pending at module close (#461) |
+| U4: `Spawn` creation failures, reconciliation of contracts | #444 (new) | closed; implementation integrated (U4 test gaps #459 and #460: covered by the tests of the U4 follow-up, `migration/stage-1/supervision-u4-followup/`; the issues stay open until the Owner closes them) |
+| U5: guardians as actors | #445 | closed; implementation integrated in U5a (#463), U5b (#465) and U5c (#467); mutation and judge campaigns and `-race` pending at module close (#461) |
+| U6: `AllForOne` | #447 | delivered (PR #470, squash `e0d70bb`); issue closed; gaps in #461 |
+| U7: stop during a restart, scope of G5 | #449 | delivered (PR #472, squash `b3275d7`); issue closed; gaps in #461 |
+| U8 and the Go gate for S13/S14/S16 | #175 (existing) | delivered (PR #474, squash `3054971`); issue closed; the Go campaign commit is retained by the tag `evidence/go-campaign-e543c6a`; gaps in #461 |
+| D-1: Watch across Systems | #443 (new) | open |
+| U9: `loggingEnabled` and `logFailure` (kit-logger) | #451 | delivered (PR #477, squash `ced37b9`); issue closed as completed; no independent review of the code; the Go campaign commit is retained by the tag `evidence/go-campaign-50fe7c2`; gaps in #461 (see `supervision-u9/EXECUTION-RECORD.md`) |
+| explicit gaps (user-defined strategies with task and dependencies, `Kill`, decider context, `InterruptedException`, remote, Typed stage) | #450 (new) | open |
+| `Tell` with a nil message: Classic rejects, goPekko delivers | #452 (new) | open, undecided |
+| epics | #56, #57, #58 (existing) | #56 and #58 open, #57 closed |
+
+## Delivery units (each really executes the Anthropic migration kit `cf91c9d`, after this ADR is approved)
