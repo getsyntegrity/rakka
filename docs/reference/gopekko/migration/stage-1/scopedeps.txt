@@ -1,0 +1,19 @@
+OUT-OF-SCOPE FILES REQUIRED BY IN-SCOPE (count per package):
+  util: 20
+  (root): 2
+  japi: 1
+util files: BoundedBlockingQueue.scala, ClassLoaderObjectInputStream.scala, Collections.scala, ConstantFun.scala, Glob.scala, Helpers.scala, ImmutableIntMap.scala, Index.scala, JavaVersion.scala, LockUtil.scala, ManifestInfo.scala, OptionVal.scala, PrettyDuration.scala, Reflect.scala, StablePriorityQueue.scala, SubclassifiedIndex.scala, Timeout.scala, Unused.scala, Version.scala, WildcardIndex.scala
+io files: 
+japi/root files: Done.scala, JavaAPI.scala, PekkoException.scala
+OUT-OF-SCOPE FILES THAT DEPEND ON IN-SCOPE: {'(root)': 1, 'io': 28, 'util': 3}
+CROSS-PACKAGE EDGES INSIDE SCOPE: 331
+  routing -> actor: 63
+  pattern -> actor: 54
+  event -> actor: 47
+  actor -> dispatch: 34
+  dispatch -> actor: 26
+  actor -> event: 20
+  serialization -> actor: 17
+  routing -> dispatch: 15
+  actor -> serialization: 12
+  actor -> routing: 9
