@@ -1,0 +1,15 @@
+# Output of ClockRepro.scala on Pekko v1.7.1 (9a54d1294c3ac7821bbed3c940769c3d5027d1ff), disposable copy, JDK 11 sbt + JDK 8 build, darwin/arm64.
+# Command: JAVA_8_HOME=<jdk8> sbt -batch "judge/runMain ClockRepro" (3 runs, byte-identical OBS lines).
+OBS P1 armed.pending=1
+OBS P1 t0.state=pending
+OBS P1 t999ms.state=pending
+OBS P1 t999ms.pending=1
+OBS P1 t1000ms.state=failure:AskTimeoutException
+OBS P1 t1000ms.pending=0
+OBS P2 armed.pending=1
+OBS P2 afterReply.state=success:reply
+OBS P2 afterReply.pending=0
+OBS P2 afterAdvance1h.state=success:reply
+OBS P2 afterAdvance1h.pending=0
+OBS P3 state=failure:IllegalArgumentException
+OBS P3 pending=0
