@@ -1,0 +1,360 @@
+
+### Slice H: module skeleton and Behavior core
+
+| Story | Issue | Result and contract | Est. | Depends on | Body |
+|---|---|---|---|---|---|
+| H-01 | NEW-12 | `pekko-actor-typed` module: `go.mod` with `replace`, `go.work` entry, one `scripts/deps.allow` line allowing only `pekko-actor`, README meeting the module README contract, `CLAUDE.md:28-34` dependency rule text. Nothing else needs editing; `check_deps.sh` does not run in CI | 100-200 | A-01, A-03 | n/a |
+| H-02 | TYP-02 #847 | Install and replace the receive Behavior; `setup` deferred and resolved by `canonicalize`; `same`/`unhandled` markers; stopped/failed not alive (`Behavior.scala:184,198,264`) | 250-350 | H-01, A-01 | U |
+| H-03 | TYP-03 #925 | `unhandled`, `empty`, `ignore`, `stopped(postStop)` | 200-300 | H-02 | U |
+| H-04 | TYP-04 #954 | Lifecycle and termination signals: `PreRestart`, `PostStop`, `Terminated`, `ChildFailed`(cause), `MessageAdaptionFailure`, `DeathPactException` | 250-350 | H-02, NEW-10 for `ChildFailed` | U |
+| H-05 | TYP-28 #993 | `delegate` to a selected Behavior | ~150 | H-02 | U |
+| H-06a | TYP-17 #978 | `intercept` (`aroundStart/Receive/Signal`, `isSame`) | 150-250 | H-02 | U |
+| H-06b | TYP-18 #988 | `monitor` | ~150 | H-02 | U |
+| H-06c | TYP-21 #928 | Reference narrowing (`narrow`) | ~150 | H-02 | U |
+| H-06d | TYP-31 #967 | Unsafe upcast | ~100 | H-06c | U |
+| H-07 | TYP-19 #989 | `logMessages` and MDC via the D11 logger fake | ~200 | E-04a, E-05 | U |
+| H-08 | TYP-29 #994 | Typed `System` from a guardian Behavior | 200-300 | H-02 | U |
+
+### Slice I: Typed supervision (blocked by A-02)
+
+| Story | Issue | Contract | Est. | Body |
+|---|---|---|---|---|
+| I-01 | TYP-09 #956 | Default Stop with `PostStop`; Resume; most specific strategy wins (`SupervisionSpec:387,502,1640`) | ~250 | V |
+| I-02 | TYP-10 #976 | Restart within limit: `PreRestart` only, state reset, `withLimit(2, 500ms)` third failure stops (`:512,528,550`) | 250-350 | V |
+| I-03 | TYP-11 #986 | Restart backoff and its stop; delay `min(max, min*2^n)*(1+rand*factor)`; `ResetRestartCount(current, owner)`; `ScheduledRestart(owner)` | 300-400 | V |
+| I-04 | TYP-12 #997 | Restart waits for children: `unwatch`, `watch`, `stop` each child (`SupervisionSpec:618-660`) | 250-350 | V |
+| I-05 | TYP-26 #999 | Bounded restart stash; default 1000; overflow `Dropped(... "Stash is full in [RestartSupervisor]")` (`Supervision.scala:120-123`) | 200-300 | V |
+| I-06 | TYP-06 #975 | Supervise a failing adapter transform (`:1575`) | ~150 | V |
+
+Depends on: A-02, H-02, C-06 (timers), D-04/D-06 (stash), E-03b (`Dropped`), E-04a (logger). Order within the slice: I-01 → I-02 → I-03 → I-04 → I-05; I-06 after J-05a.
+
+### Slice J: Typed stash, timers, adapters, context
+
+| Story | Issue | Contract | Est. | Depends on | Body |
+|---|---|---|---|---|---|
+| J-01 | TYP-13 #889 | Bounded `StashBuffer` (FIFO, snapshot at call time, overflow throws, nulls rejected; `StashBufferSpec:60-225`) | 250-350 | D-01, H-02 | U |
+| J-02 | TYP-14 #927 | `unstashAll`/`unstash(n)` into a selected Behavior; failure per strategy (`UnstashException`); remaining messages go to dead letters when the behavior stops, with the sender fixed by J-02a | 250-350 | J-01, J-02a | U |
+| J-02a | NEW-20 (suggested; none published) | Typed contract (Owner resolution O-4): for the Typed stash path that sends unstashed messages to dead letters, record and test Pekko's observed behavior, including `deadLetters` as the sender (`DeadLetter(wrap(msg), deadLetters, self)`). Genuinely absent senders elsewhere stay explicit (ADR 0032 D3) | 100-200 | J-01, D-10 | U |
+| J-03 | TYP-15 #977 | Lifecycle-safe timers: generation filter, cancel on restart/stop (`TimerSchedulerImpl:119,169`; typed `TimerSpec:131,283,308,327,372`) | 250-350 | C-05, C-06, H-02 | U |
+| J-04a | TYP-27 #964 | `scheduleOnce` | ~150 | C-03 | U |
+| J-04b | TYP-16 #987 | `setReceiveTimeout` | ~150 | C-08 | U |
+| J-05a | TYP-05 #888 | `messageAdapter` (one per class, latest first, lazy `adapter` ref; `ActorContextImpl:306,314`) | 200-300 | H-02, `Port` | U |
+| J-05b | TYP-30 #892 | Mailbox selection | ~150 | H-02 | U |
+| J-05c | TYP-20 #890 | Dispatcher selection | ~150 | H-02 | U |
+| J-06a | TYP-07 #926 | `context.ask` and `pipeToSelf` (`ActorContext.scala:317,336`) | 200-300 | ASK-02 #818, H-02 | U |
+| J-06b | TYP-08 #955 | `askWithStatus` (`:326`) | ~150 | ASK-07 #774, J-06a | U |
+| J-07a | TYP-25 #990 | Typed `Extensions` | 200-300 | F-02b, H-02 | U |
+| J-07b | TYP-23 #929 | `SpawnProtocol` (`SpawnProtocolSpec:86-116`) | ~200 | H-02 | U |
+| J-08 | TYP-22 #957 | Serialized typed refs | per Owner | #894, #853, #812 | V |
+| J-09a, J-09b, J-09c | TYP-24 #958, TYP-32 #982, TYP-33 #983 | Adapters; **one ADR each** (D12) | per ADR | adapter ADR | V |
+
+(J-09a, J-09b and J-09c are three separate stories listed together only because they share the same blocker.)
+
+### Slice K: Typed services (local)
+
+| Story | Issue | Contract | Est. | Depends on | Body |
+|---|---|---|---|---|---|
+| K-01 | TSD-01 #959 | Typed `EventStream` commands | ~200 | E-01a..E-03b | U |
+| K-02a | TSD-02 #960 | Receptionist `Register`, `Find` (`LocalReceptionistSpec:58-172`) | 250-350 | F-01, H-02 | U |
+| K-02b | TSD-03 #979 | Listings and dead registrations; `Subscribe` sends the current `Listing` first | 250-350 | K-02a | U |
+| K-03a | TSD-04 #991 | Group router: stash until first `Listing`; `Dropped` when empty | 250-350 | K-02b | U |
+| K-03b | TSD-05 #961 | Pool router: children watched, last child stops the pool, `poolSize<1` rejected | 250-350 | H-02 | U |
+| K-04 | TSD-06 #962 | Local `Topic` (`LocalPubSubSpec`; `Dropped(... "No topic subscribers known")`) | 250-350 | K-02b | U |
+
+Reachability and `preferLocalRoutees` are cluster-bound and excluded.
+
+### Slice L: Typed delivery (local)
+
+| Story | Issue | Contract | Depends on | Body |
+|---|---|---|---|---|
+| L-01 | TSD-07 #810 | Sequence and confirmation contracts (decision) | A-01 | U |
+| L-02a | TSD-08 #963 | Producer and consumer controller handshake | L-01, C-05, J-06a | U |
+| L-02b | TSD-09 #980 | Demand-bound request | L-02a | U |
+| L-02c | TSD-10 #992 | Sequenced message with confirmation ref | L-02a | U |
+| L-02d | TSD-11 #998 | Resend unconfirmed messages | L-02c, C-05 | U |
+| L-02e | TSD-12 #1000 | Chunking (point-to-point only; needs serialization) | L-02c | U |
+| L-02f | TSD-13 #1001 | Work-pulling to a demanding worker | L-02a, K-02b | U |
+| L-02g | TSD-14 #1003 | Reassign after worker loss | L-02f | V |
+| L-03 | TSD-15 #1002 | Producer queue as a port only (RE-SCOPE, 2.3) | L-01, #998 | V |
+| L-04 | TSD-16 #1004 | RE-SCOPE/SPLIT: protocol-level recovery with an in-memory double; durable backend excluded (D9) | L-03 | V |
+
+### Slice M: Typed testkit (D10)
+
+| Story | Issue | Result | Est. | Depends on |
+|---|---|---|---|---|
+| M-01 | NEW-13 | `TestProbe`: `expectMessage`, `expectNoMessage`, `receiveMessage(s)`, `fishForMessage`, `expectTerminated`, `awaitAssert`, `within`, `stop` | 250-350 | H-01 |
+| M-02 | NEW-14 | `TestInbox`, `ReplyInbox`, `StatusReplyInbox`, `BehaviorTestKit`, `Effects`; no timer or supervision support (as upstream) | 300-400, split if over | H-02 |
+| M-03 | NEW-15 | `ActorTestKit`: `spawn`, `stop`, `createTestProbe`, `createUnhandledMessageProbe`, `createDeadLetterProbe`, `createDroppedMessageProbe` | 200-300 | E-01a..E-03b |
+| M-04 | NEW-16 | `ManualTime` | 150-200 | C-01 |
+
+Excluded: logback tools, JUnit resources, javadsl, `SerializationTestKit` pending TY-15.
+
+### Slice P: judge execution and module close
+
+P-01 judge execution for the Classic additions; P-02 Typed harness; P-03 `-race` and mutation campaigns at module close; P-04 closure audit and README statements (local frontier, exclusions). Each requires an authorized story and the layer to exist.
+
+## 5. Validation and contracts
+
+### 5.1 Validation scale
+
+ADR 0033 D13 (accepted) is the only binding rule: **V3 requires a differential scenario against Pekko whenever an applicable oracle exists; rows that can only be validated in Go carry documented alternative evidence and explicit Owner approval; until approved they are `pending approval`; they are never marked V3 by default and never lowered silently.**
+
+The V0 to V3 labels are this plan's working scale (the dossier's 7.2 defined them differently). The dossier's definition made V2 an unconditional "differential judge scenario", which V3 then inherited, so a Go-only row could never reach V3 without contradicting D13. This plan restates them so that the oracle condition lives only in V3:
+
+| Level | Definition (restated) |
+|---|---|
+| V0 | Public-API Go test asserting every observable effect |
+| V1 | V0 plus a ported or adapted upstream spec cited by name and line, with PORT-GAPs listed |
+| V2 | V1 plus a Go-side scenario with a detecting mutation (no Pekko run required) |
+| V3 | V2 plus `-race` and the module-close mutation campaign, **and** either (a) a passing differential scenario on Pekko and Go, when an applicable oracle exists, or (b) documented alternative evidence with explicit Owner approval, when none exists; (b) without approval is recorded as `pending approval`, not V3 |
+
+**Revision 5 (2026-11-07): O-1 is resolved.** The Owner approved the scale on [#1467](https://github.com/getsyntegrity/gopekko/issues/1467) and it is recorded in the amendment "the V scale and what V2 and V3 require per row" of [ADR 0033](adr/0033-actor-typed-scope-and-architecture.md): the scale is cumulative (V2 requires V1, V1 requires V0, V3 requires V2): V0 and V1 are unchanged, V2 adds the coverage of every Pekko contract of the row, and V3 is superseded by the amendment (a passing differential scenario on Pekko with CURRENT evidence). The next paragraph is kept as the text of revisions 3 and 4.
+
+This restatement is a proposal. Owner resolution O-1: V0 to V3 are descriptive planning labels, not implementation gates, until the Owner separately approves the proposed scale. The accepted ADR 0033 D13 rule still applies: when a Pekko oracle exists, V3 requires a differential scenario; when no applicable oracle exists, alternative evidence must be documented and explicitly approved by the Owner, and such rows remain `pending approval` until then. Existing repository gates and each story's accepted criteria still apply. Inventory rows record the evidence kinds (public-API test, ported spec, Go-side scenario, differential scenario, alternative evidence, approval reference) next to the descriptive label.
+
+### 5.2 Oracle availability
+
+| Group | Pekko oracle? | Consequence |
+|---|---|---|
+| Lifecycle, supervision, deathwatch, dead letters, ask (already in judge) | yes | V3 eligible |
+| Timers, stash, scheduler, `ReceiveTimeout`, `PoisonPill`, `Kill`, backoff, circuit breaker, routing (classic) | yes in Pekko; judge harness does not yet drive them | V3 needs B-02 first |
+| Typed rows | yes in Pekko Typed; no typed harness exists | V3 needs B-03 first |
+| `Port`, `OrdinaryFailure`, `ResumeWith`, `Config` seams, `kit-logger` mapping, `pekko-serialization` registry, Go idioms replacing futures | **no** | alternative evidence, `pending approval` |
+| S-tier relations (envelope/provenance) | no (goPekko-only spec) | already mutation-backed; still needs approval wording |
+
+### 5.3 Typed supervision contracts (inputs for A-02; from `SupervisionSpec` and `internal/Supervision.scala`)
+
+Default Stop with `PostStop` (l.387, 502); restart sends `PreRestart` only, resets state (l.512), returned behavior ignored; `withLimit` window from the first failure, expired window resets to 1 (`updateRestartCount`); backoff delay and `resetBackoffAfter`; restart stashes messages and signals (`StashBuffer[Any]`, default `restart-stash-capacity=1000`), overflow publishes `Dropped(msg, "Stash is full in [RestartSupervisor]", self)`; restart with start failure: unlimited retries rethrows, limited rethrows only when `(restartCount+1) >= maxRestarts` and the deadline has time left (`Supervision.scala:300-302`); `stopChildren=true` replaces `watchWith` by `watch`; `ScheduledRestart(owner)` is ignored by non-owner supervisors; supervision wraps the adapter function (l.1575); `DeathPactException` supervisable (l.1408); strategy matrix at l.1659-1695. `Supervisor.apply` rejects an `AbstractBehavior` outside `setup`.
+
+## 6. Hazards for implementers
+
+- `kit-logger` mock: drops `With` arguments, `SetLevel` no-op, `Entries` unsynchronized; real `Sampling`/`RateLimit` can silently drop entries. `Config.Logger` is nil-silent. `With` per actor allocates a logger: not per message.
+- `golang.org/x/time` in `pekko-actor/go.mod` is indirect via kit-logger; do not use it in actor code.
+- CI test filter skips tests whose file or function names match `(integration|architecture|guard|judge|benchmark|testdata|fixture|e2e|system_test|timing|stress|subprocess|realprocess|allocation_contract)` or that use `time.Sleep`, `time.After`, `testing.Short` (`ci-fast.go:36,116-120`). Timer tests must use the manual clock and avoid these names, or they silently stop running in CI.
+- gocyclo counts per function literal; split large interpreters.
+- Stash replay: upstream drains in one turn ahead of new messages; Go has no head insert (NEW-08).
+- `DeadLetter` shape: upstream asserts `DeadLetter(msg, sender, recipient)`; Go has `{Msg, To}`; sender assertions use ADR 0032 D3, D4 and D6 (accepted) with an explicit sender; ADR 0032 D5 does not apply to them.
+
+## 7. Story template, labels and rules
+
+### 7.1 Story format: normative versus inferred
+
+> **Note (2026-10-27).** The external skills cited in this section (`spec-*`, `issue-creation`) and the repository skills `gopekko-chained-pr` and `gopekko-branch-pr` were retired by #1222. The table below records what was normative when revision 2 was written; the rules in force are in `AGENTS.md`, sections "Superseded" and "PR budget and commits".
+
+External instructions read in full in revision 2: `~/.claude/skills/spec-governance`, `spec-authoring`, `spec-splitting`, `spec-evidence` (all drafts, v0.1 to v0.2) and `issue-creation` (v1.4), plus the repository `AGENTS.md`. They are normative for the points below. They define **no** story or issue template, language, label rule or line budget for stories. The ACT2 template is therefore not validated by them. Copies of the spec skills also exist in `/Users/pablogore/workspace/syntegrity/spec-governance-pack/skills/` and were not diffed against the installed ones.
+
+| Aspect | Source | Status |
+|---|---|---|
+| One verifiable outcome per spec; verdicts `ATOMIC`, `SPLIT_REQUIRED`, `REVIEW_REQUIRED`; instrumental work allowed only without its own acceptance criterion | `spec-governance` §5, §9 | Normative |
+| Size is only a warning, never a split rule; mechanical revertibility is not a split trigger | `spec-governance` §12, `spec-splitting` §1 | Normative |
+| Human gates: architecture, security, public API, data migrations, irreversible operations | `spec-governance` §10 | Normative |
+| Dependencies as explicit contracts ("produces X / consumes X"), classified `independent`, `depends_on`, `enables`; ordering must not be invented | `spec-governance` §13, `spec-splitting` §16-17 | Normative |
+| Required spec sections (Outcome, Context, Scope, Out of Scope, Requirements, Acceptance Criteria, Constraints, Contracts, Design, Tasks, Risks), stable id, metadata, each requirement with at least one verifiable acceptance criterion | `spec-authoring` §3-§5 | Normative (names may be adapted) |
+| Evidence for DONE per acceptance criterion; revision identifier as provenance | `spec-evidence` §1, §10, §15 | Normative |
+| Issue creation from YAML Issue Forms only; duplicate search over open and closed issues; protected labels | `issue-creation` | Normative for creating issues (outside this plan) |
+| Canonical spec location `openspec/specs/` | `AGENTS.md` line 13 | Declared; the directory does not exist |
+| ACT2 sections (user story, behavior diagram, Architect handoff, baseline and decision status), unnumbered `- [ ]` criteria, the `actor-parity-atomic-v2` closing marker, stable key and accountable role | published ACT2 issue bodies and #746 | **Inferred repository convention** |
+| About 400 authored changed lines per PR; estimate inside the handoff | `skills/gopekko-chained-pr`, `skills/gopekko-branch-pr` (now `AGENTS.md`, "PR budget and commits") | Normative for PRs; for stories it is an estimate convention only |
+| English language for stories | #746 text | Stated by #746 only |
+
+Gaps between the ACT2 template and the skills that the Owner should decide (8.7 O-10): requirement and acceptance-criterion ids, an explicit `independent`/`depends_on`/`enables` classification, a requirement-to-task trace, and whether a story needs a `SPLIT_REQUIRED` check before publication.
+
+### 7.2 Labels and project fields
+
+The complete label inventory (84 labels) and the project fields were read in revision 2. Existing labels that are **candidates** for ACT2 (Owner resolution O-8 approves `prio:P0` to `prio:P3`, `status:ready` and `status:blocked`; nothing is applied to GitHub in this phase, and `type:*`, `kind:decision` stay unapplied):
+
+| Dimension | Existing candidate | Verdict |
+|---|---|---|
+| Readiness | `status:ready`, `status:blocked` (used on 214 of 262 ACT2-titled issues) | Valid and in use. `status:ready` is not reliable evidence of readiness (2.2) |
+| Priority | `prio:P0`, `prio:P1`, `prio:P2`, `prio:P3` (and off-scale `prio:continuo`), no descriptions; project 20 field **Priority** (P0-P3) | Valid dimension. A mapping of P0-P3 to the critical path is a proposal, because the labels carry no definition. ACT2 issues are not in any project, so the project field is unused |
+| Story type | `type:epic`, `type:task`; `kind:decision` ("Decision/ADR: delivery is proposed, not an accepted decision") | Could mark epics and decision stories (A-01 to A-08, L-01). Not used by ACT2 today |
+| Module | `mod:act`, `t:actor` (the latter is applied to PRs by `labeler.yml` from `pekko-actor/**`) | Valid for the module, not for lanes. No label exists for `pekko-actor-typed` or its `t:` path label; a path label would need a `labeler.yml` change, so none is proposed |
+| Parallelization / lane / wave | none | **No valid existing label or project field.** Grouping is available only through epic and parent-issue links and the project field **Orden** (ACT2 issues are not in the project). This plan therefore keeps lanes (8.4) and the `independent`/`depends_on`/`enables` classification in the plan and in story bodies |
+| MVP constructs | `block:*`, `sprint:1`, `roadmap:M1..M4`, `mvp:v0.1.0`, project 20 fields Block, Sprint, Release | Belong to the MVP v0.1.0 Verimand project; not used for ACT2 |
+
+No new label is proposed. Native sub-issues, dependencies, milestones and project items are not used by ACT2, and the connected tooling does not mutate them (#746).
+
+### 7.3 Ownership
+
+The Architect decomposes and reviews; the Owner accepts ADRs and approves alternative evidence. No person is assigned.
+
+### 7.4 Proposed priority and readiness per story (Owner resolution O-8)
+
+Only existing labels are used: `prio:P0`, `prio:P1`, `prio:P2`, `prio:P3`, `status:ready`, `status:blocked`. This is an Architect proposal for the stories of slices A to P; nothing is applied to GitHub. The existing labels carry no definition, so the mapping is a convention proposed here: **P0** the critical path of 8.1 (decisions A-01 to A-04, the clock, scheduler, stash and event-stream foundations, `ActorKilledException` contract and SUP-02, module skeleton, Behavior core, Typed supervision); **P1** the remaining foundations, judge and testkit work, and Typed core; **P2** completeness work off the critical path; **P3** stories whose scope is per Owner decision. `status:ready` is proposed only where the story has no dependency (`none`) and is not flagged NOT STARTABLE or conditional in 2.2; everything else is `status:blocked`. Stories in flight (PR #1011, PR #1013) get no readiness proposal. The stories under Owner exclusion decisions (IO, SYS-14 to SYS-16, TSD-15, TSD-16) get no priority until the Owner decides (O-6).
+
+| Proposed priority | Proposed readiness | Stories |
+|---|---|---|
+| `prio:P0` | `status:blocked` | A-02, C-01, C-02, C-03, C-04a, C-04b, C-05, C-06, D-01, D-03, D-04, D-05, D-06, D-08a, E-01a, E-01b, E-01c, E-02, E-03a, E-03b, H-01, H-02, I-01, I-02, I-03, I-04, I-05 |
+| `prio:P0` | `status:ready` | A-01, A-03, A-04 |
+| `prio:P1` | `status:blocked` | A-06, A-07, B-01, B-02, B-03, B-04, C-07a, C-07b, C-08, C-09, D-02, D-07, D-09a, D-09b, D-09c, D-10, D-11a, D-11b, E-04a, E-04b, E-04c, F-01, H-03, H-04, H-05, H-06a, H-06b, H-06c, H-06d, H-07, H-08, I-06, J-01, J-02, K-02a, K-02b, L-02a, L-02b, L-02c, L-02d, L-02e, L-02f, L-02g, M-01, M-02, M-03, M-04 |
+| `prio:P1` | `status:ready` | A-05, A-08, E-05 |
+| `prio:P2` | `status:blocked` | F-02a, F-02b, F-04a, F-04c, F-04d, F-04e, F-04f, F-04g, F-04h, F-04i, F-04j, J-03, J-04a, J-04b, J-05a, J-05b, J-05c, J-06a, J-06b, J-07a, J-07b, K-01, K-03a, K-03b, K-04, L-01, L-03, L-04 |
+| `prio:P2` | no change (in flight) | F-03 |
+| `prio:P2` | `status:ready` | F-04b |
+| `prio:P3` | `status:blocked` | E-06, F-05, J-08 |
+
+No label or project field expresses parallelization. Parallel lanes stay in 8.4 and in the diagrams of 9.2 and 9.3, where green boxes are the stories that can proceed alongside the critical path (red). No label is created for it.
+
+## 8. Order, critical path and parallelization
+
+### 8.1 Critical path (estimate)
+
+`A-03` (export justifications) → `C-01` clock seam → `C-02..C-05` scheduler and keyed timers → `D-01` head insert and stash (`D-03..D-06`) ∥ `E-01..E-03` event stream with `Dropped` → `H-01` module skeleton (needs A-01) → `H-02` Behavior core → `I-01..I-05` Typed supervision (needs A-02) → `K-02..K-04` services (needs `F-01`) → `L-02` delivery → `P-03` close. `A-02` (Typed supervision ADR) and `A-01` (Behavior boundary ADR) gate the typed lane in parallel with the classic foundations.
+
+### 8.2 What can start now
+
+Only what the verified bodies support (2.2). Each can start only after the ADR 0033 D5 impact list of its slice is completed and recorded.
+
+- Slice B (all DOC stories) and the drafting of A-01 to A-06 (acceptance is Owner work).
+- Startable after that check: #774 ASK-07, #775 ASK-11, #780 SUP-07, #781 SUP-10, #782 SUP-11, #783 SUP-12 (sender assertions excluded), #788 DTH-07, #791 MBX-13, #800 SYS-06, #804 SER-01, #806 SER-04, #811 SER-09.
+- Conditionally startable: #778 SUP-02 (after D-08a, the `ActorKilledException` contract), #785 DTH-01 (after its ADR-impact list and lock-order design), #795 PAT-09 (after the breaker type and predicate are located), #799 SYS-05 (after the Go form note).
+- Not startable: #770 MSG-06, #771 BHV-01, #786 DTH-03, #794 EVT-11 as written.
+- In flight, do not duplicate: #1008 (PR #1011), #842 (PR #1013).
+- Everything else: bodies not read; reconcile first.
+
+### 8.3 Blocked, and by what
+
+| Blocker | Stories |
+|---|---|
+| ADR 0032 D5 / #814 open | MSG-02 #814, DTH-03 #786, the runtime-delivery part of MSG-03 #854, assertions about the sender of `Terminated` or `WatchWith`. Not blocked by it: `DeadLetter` and `Dropped` sender assertions (C-10, E-03b, D-06), which use ADR 0032 D3, D4 and D6 with an explicit sender, and: the Typed stash dead-letter path (J-02a, O-4) and Typed work in general, unless a story demonstrates the dependency (ADR 0033 D6) |
+| A-01 (#809) | all TYP implementation, merging H-02 onward |
+| A-02 (Typed supervision ADR; the story creating it is missing) | TYP-09..12, TYP-26, TYP-06, I-01..I-06 |
+| A-03 (individual export justifications) | C-01, D-01, E-04a, F-01 and every typed story consuming those exports |
+| A-04 (ADR 0010 exclusions, D4) | #770, #771, D-08, D-09a..c, C-08, F-02, F-05, FSM, mailbox variants |
+| Adapter ADRs (D12) | TYP-24, TYP-32, TYP-33 |
+| #894, #853, #812 | TYP-22, TY-15 |
+| Owner exclusion decisions | IO-01..IO-19, SYS-14..16, TSD-15, TSD-16 |
+| Pekko-oracle judge extension (B-02, B-03) | V3 for the corresponding rows |
+
+### 8.4 Parallel groups (suggested owners are roles, not people)
+
+| Group | Stories | Shared files / contracts to watch |
+|---|---|---|
+| G1 Governance | A-01..A-06 | ADR numbering (0034+ after 0033); contradictions per ADR 0033 D5 |
+| G2 Judge/inventory design | B-01..B-04 | single owner for `judge/comparator.py` tables and `milestone-1.md` rows |
+| G3 Time | C-01..C-09 | `clock.go`, `executor.go`; touches `supervision_restart.go` in C-06 |
+| G4 Mailbox/stash/messages | D-01..D-11 | `internal/mailbox/queue.go`, `cell.go`, `stop.go`, `supervision_restart.go` |
+| G5 Events/logging | E-01..E-06 | `deadletter.go`, `internal/deadletter/hub.go`, `system.go` |
+| G6 System | F-01..F-05 | `system.go`, `guardian.go`, `system_shutdown.go` |
+| G7 Classic completeness | supervision, deathwatch, ask/patterns, routing, serialization | `supervision_*.go`, `watch.go`, `ask*.go`; `pekko-serialization` is a separate module |
+| G8 Typed core | H-01..H-08 | new module only |
+| G9 Typed testkit | M-01..M-04 | new module only |
+
+### 8.5 Likely same-file or same-contract overlaps
+
+| Overlap | Stories | Mitigation |
+|---|---|---|
+| `cell.go` | D-03/D-07/D-08 (stash, PoisonPill, Kill), C-08 (ReceiveTimeout), H-04 signals | one owner at a time; sequence by dependency |
+| `internal/mailbox/queue.go` | D-01 head insert, MBX variants | land D-01 before any MBX story |
+| `supervision_restart.go` | C-06, D-06, SUP-13/14 #784 #826, I-04 | sequence C-06 → D-06 → SUP → I |
+| `watch.go` | DTH-*, H-04 `Terminated` signals, TYP watch contracts | DTH first |
+| `deadletter.go` and the hub | E-03, D-10, sender work (ADR 0032 D4, D6) | E-03 before D-10; sender-bearing assertions after the `TellFrom` surface of D-11a |
+| `system.go`/`guardian.go` | F-01, F-03 (PR #1013), SYS-04 | F-03 first (in flight) |
+| Judge tables | B-02, B-03 | single owner |
+| Timers vs FSM/TYP/TSD duplicates | TIM-05/06, FSM-05 #970, TYP-15 #977 | typed and FSM stories depend explicitly on TIM |
+
+### 8.6 Exit conditions
+
+- **Story:** acceptance criteria met with focused public-API tests; tested SHA recorded; local gates (gofmt, vet, golangci-lint v2.14.0, gocyclo ≤ 10, ≥ 85% module coverage, `check_deps.sh`, ci-fast; `-race` where concurrency is touched); README/docs updated; validation level recorded with the D13 rule; no claim of sibling or full parity.
+- **Slice:** all its stories closed or recorded as excluded; contradictions of affected ADRs presented and resolved (ADR 0033 D5); inventory rows updated with evidence.
+- **`actor` module:** every inventory row is `implemented`, `adapted` (with an accepted decision) or `excluded` (with source and reason); none `absent`, `divergent` or `undetermined` unless recorded as pending approval; required rows at their validation level; module-close campaigns pass; README states the local frontier ("100%" per ADR 0033 D7 is not total Pekko parity).
+- **`actor-typed` module:** same for typed rows and the testkit subset.
+
+### 8.7 Dependency review: contradictions and points for the Owner
+
+Owner resolutions O-1, O-3, O-4 and O-8 are recorded below (revision 3). They change the plan only; no issue, label or ADR was changed.
+
+Reviewed for cycles and contradictions between slices. No dependency cycle exists inside the graph of section 9 itself; the items below are cycles, contradictions or hidden dependencies **between the plan and the accepted documents**, and each needs an Owner or Architect decision.
+
+| Id | Finding | Why it matters |
+|---|---|---|
+| O-1 | **Resolved by the Owner (labels only).** V0 to V3 are descriptive planning labels, not gates, until the Owner separately approves the scale. ADR 0033 D13 applies unchanged; Go-only rows stay `pending approval` until the Owner approves their alternative evidence | Repository gates and each story's accepted criteria are unchanged |
+| O-2 | ADR 0033 D3 requires each exported API to be justified individually under ADR 0011; the plan's A-03 could be read as a single blanket ADR | Decide the form: one ADR per export, or a record inside each story's "Open API choices". A-03 is an index until then |
+| O-3 | **Resolved by the Owner.** SUP-02 #778 and `Kill` #816 were circular. `ActorKilledException` is now an independent prerequisite contract (D-08a). SUP-02 (D-08b) and `Kill` (D-08) both depend on it; the end-to-end default-stop validation (D-08c) depends on both | The order no longer contains the cycle: D-08a → D-08b and D-08a → D-08 → D-08c, with D-08b → D-08c. No issue is edited or published |
+| O-4 | **Resolved by the Owner.** This finding does not change ADR 0033 D6 and does not resolve or close ADR 0032 D5, which stays open for the Classic sender contract of `Terminated`/`WatchWith`. For the Typed stash path to dead letters, record and test Pekko's observed behavior, including `deadLetters` as sender (upstream `DeadLetter(wrap(msg), deadLetters, self)`). Genuinely absent senders stay explicit in other cases (ADR 0032 D3) | Tracked as the Typed contract J-02a (depends on J-01 and D-10), a dependency of J-02. ADR 0032 D5 is not a blocker for all Typed work |
+| O-5 | DTH-01 #785 reverses the documented `ErrInvalidHandle` rule and touches ADR 0014 and 0024 | ADR 0033 D5 contradiction list before coding |
+| O-6 | Exclusion and re-scope proposals of 2.3 (IO-01..19, SYS-14..16, TSD-15/16, TYP-24/32/33) | Each needs an explicit Owner decision and a recorded source and reason |
+| O-7 | SYS-03 #842 criterion 1 contradicts accepted ADR 0031 O3a/O3b; the narrowing is proposed in a comment and not accepted | Issue stays open; label `status:ready` is stale |
+| O-8 | **Resolved by the Owner.** Use the existing labels `prio:P0`, `prio:P1`, `prio:P2`, `prio:P3`, `status:ready` and `status:blocked` where applicable. The Architect proposes a priority per story (7.4). No parallelization label exists, so parallelization is recorded in the plan (8.4) and in the dependency diagrams; no label is created | `type:*` and `kind:decision` are not part of the resolution and stay unapplied. Nothing is applied to GitHub in this phase |
+| O-9 | No story creates the Typed supervision ADR that ADR 0033 D2 requires and that TYP-09..12/26/06 lack as a dependency | NEW-02 |
+| O-10 | Gaps between the ACT2 template and the `spec-*` skills (7.1) | Owner decides whether ids, a dependency classification and a `SPLIT_REQUIRED` check are required |
+| O-11 | The module skeleton H-01 may merge early, but ADR 0033 D3 says Typed implementation follows published foundations | Plan keeps H-02 onward blocked on the specific foundation; confirm that reading |
+| O-12 | `Dropped` carries a sender and recipient (`ActorRef.scala:622`); router overflow events use `self` as recipient | The sender of `Dropped` and `DeadLetter` follows ADR 0032 D3, D4 and D6 (accepted), tested with an explicit sender. E-03b has a sender-free part and a sender-bearing part; the latter needs the `TellFrom` surface of D-11a, not the resolution of ADR 0032 D5 (sender of `Terminated` and `WatchWith`). The Typed stash dead-letter path is covered by J-02a |
+
+Atomicity review: stories that earlier rows grouped (TIM-03/04, TIM-07/08, BHV-01/02/03, EVT-01/02/03, EVT-05/06, EVT-11/13/14, SYS-05/06/07..13, TYP-17/18/21/31, TYP-27/16, TYP-05/30/20, TYP-07/08, TYP-25/23, TSD-02/03, TSD-04/05, TSD-08..14, TYP-24/32/33) are now separate rows with their own dependencies. The J-09 rows share only a blocker.
+
+## 9. Diagrams
+
+### 9.1 Hierarchy
+
+```mermaid
+mindmap
+  root((ACT2 completion plan))
+    Governance
+      Behavior boundary decision
+      Typed supervision decision
+      Extension surface decision
+      Exclusions review and register
+      ADR 0032 D5 open, Terminated and WatchWith sender only
+    Inventory and judge design
+      Actor and Typed inventory
+      Classic judge additions
+      Typed judge harness
+      Oracle register
+    Classic foundations
+      Time
+        Clock seam
+        Scheduler
+        Keyed timers
+        Receive timeout
+      Mailbox and stash
+        Head insert
+        Stash
+        PoisonPill and Kill
+      Events and logging
+        Event stream
+        Dropped and Unhandled
+        Context log
+        Logger test fake
+      System
+        System actors
+        Extensions
+        Coordinated shutdown
+    Classic completeness
+      Supervision
+      Deathwatch
+      Ask and patterns
+      Routing subset
+      Serialization primitives
+      Identity and paths
+    Typed
+      Module skeleton
+      Behavior core
+      Typed supervision
+      Stash and timers
+      Adapters and context
+      Services
+        Receptionist
+        Routers
+        Topic
+        SpawnProtocol
+      Delivery local
+      Testkit subset
+    Closure
+      Judge execution
+      Module close campaigns
+```
+
+### 9.2 Critical path and parallel branches
+
+```mermaid
+flowchart LR
+  classDef crit fill:#f8d7da,stroke:#842029,color:#000
+  classDef par fill:#d1e7dd,stroke:#0f5132,color:#000
+  classDef dec fill:#fff3cd,stroke:#664d03,color:#000
+
+  A3[A-03 export justifications]:::dec
+  A1[A-01 Behavior boundary ADR]:::dec
+  A2[A-02 Typed supervision ADR]:::dec
+  C1[C-01 clock seam]:::crit
+  C2[C-02..C-04 scheduler]:::crit
