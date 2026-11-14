@@ -1,0 +1,78 @@
+  C5[C-05 C-06 keyed timers]:::crit
+  D1[D-01 head insert]:::crit
+  D3[D-03..D-06 stash]:::crit
+  E1[E-01..E-03 event stream and Dropped]:::crit
+  F1[F-01 system actors]:::par
+  H1[H-01 module skeleton]:::crit
+  H2[H-02 Behavior core]:::crit
+  I[I-01..I-05 Typed supervision]:::crit
+  K2[K-02 Receptionist]:::par
+  K3[K-03 K-04 routers and Topic]:::par
+  L[L-02 delivery]:::crit
+  P3[P-03 module close]:::crit
+  A4[A-04 ADR 0010 exclusions]:::dec
+  D8a[D-08a ActorKilledException contract]:::crit
+  D8b[D-08b SUP-02 classify as Stop]:::par
+  D8[D-08 Kill]:::par
+  D8c[D-08c Kill default-stop validation]:::par
+  D10[D-10 deadLetters]:::par
+  J2a[J-02a Typed unstash dead-letter sender]:::par
+
+  A3 --> C1 --> C2 --> C5
+  A3 --> D1 --> D3
+  A3 --> E1
+  A3 --> F1
+  A1 --> H1 --> H2
+  A3 --> H1
+  C5 --> I
+  D3 --> I
+  E1 --> I
+  A2 --> I
+  H2 --> I
+  F1 --> K2 --> K3
+  H2 --> K2
+  I --> L
+  K2 --> L
+  K3 --> P3
+  A3 --> D8a
+  D8a --> D8b
+  D8a --> D8
+  A4 --> D8
+  D8b --> D8c
+  D8 --> D8c
+  D10 --> J2a
+  D3 --> J2a
+  H2 --> J2a
+  L --> P3
+```
+
+### 9.3 Parallel branches (judge and testkit)
+
+```mermaid
+flowchart LR
+  B[B-01..B-04 inventory and judge design]
+  M[M-01..M-04 Typed testkit]
+  H1[H-01 module skeleton]
+  C1[C-01 clock seam]
+  E1[E-01..E-03 event stream]
+  P1[P-01 P-02 judge execution]
+  B --> P1
+  H1 --> M
+  C1 --> M
+  E1 --> M
+  M --> P1
+```
+
+## 10. Open points for the Owner (not decisions)
+
+1. Decide the single-vs-individual form of export justification (O-2).
+2. O-3 and O-4 are resolved (D-08a to D-08c, J-02a). Decide the cross-System watch contradictions O-5; ADR 0032 D5 stays open.
+3. Classify the proposals of 2.3 (exclude, re-scope, keep) one by one (O-6), and the SYS-03 criterion (O-7).
+4. O-8 is resolved for `prio:*` and `status:*`; decide whether `type:*` and `kind:decision` are also adopted. No parallelization label exists; lanes live in the plan.
+5. Decide whether the ACT2 template needs the `spec-*` requirements (O-10).
+6. Decide the per-item fate of the ADR 0010 exclusions (A-04) and the OD rows in 1.2.
+7. Legacy `[ACT-xxx]` #159 to #175 and #192: delivered or superseded is pending (2.5).
+
+Already resolved, listed only for traceability (no decision requested): O-1 (V0 to V3 are descriptive labels; approving the scale as gates would be a separate future approval), O-3, O-4 and O-8. The approval of Go-only alternative evidence belongs to the Owner under ADR 0033 D13; each such row stays `pending approval` until then.
+
+This document is proposed for review in PR #1015. No issue was created, edited or closed, and none of its stories has been implemented.
