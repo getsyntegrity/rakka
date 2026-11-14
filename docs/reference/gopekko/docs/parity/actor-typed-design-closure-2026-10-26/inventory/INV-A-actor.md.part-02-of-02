@@ -1,0 +1,38 @@
+
+1. `actor.io`: ADR 0033 D8 (accepted) excludes network-bound `io`, yet epic #762 holds implementation stories for TCP (#921 #922 #952 #972 #984 #996 #995), UDP (#923 #973 #966), socket options (#985) and DNS (#924 #953 #974), all `status:blocked`, while GOV #1069-#1072 and #1088 propose the exclusion records. Open question: are these stories superseded by D8 or kept as an `unless the inventory identifies a concrete local capability` path? Evidence missing: the per-capability exclusion or justification D8 requires.
+2. Story titles versus epic table text: ACTINV-100 reads "Decide Java Scala reflection and DSL compatibility boundaries" but its story #802 is titled "Decide the actor construction mapping to the existing Spawn factory"; ACTINV-101 reads "Decide process hooks fatal exit and JVM tooling adaptations" but #803 is "Decide JVM hooks, JFR and virtual-thread pools as jvm-only". The epic table text and the issue titles describe different decisions.
+3. `PoisonPill`: dossier row C-30 says it is "a deliberate exclusion with no tracked story", while dossier row C-21 and the epic table (ACTINV-014) track it with #770 (`ACT2-MSG-06`, `status:blocked`). The ADR 0010 exclusion at `:225` is proposed, not accepted.
+4. ACTINV-003 ("Address and ActorPath"): epic text says contract accepted by ADR 0031 and implementation planned; `address.go:34` implements `Address` (local) but no `ActorPath` exists (IDN-14 #1008 open). Consistent, but the epic says "no JVM evidence", so D13 evidence status is open for `Address`.
+5. Dossier C-26/E-02/U-01/U-03/J-01 propose exclusions (JUL, adapter hierarchy, reflection, `japi`, `Timeout`, JVM utils) that no accepted ADR records; ADR 0033 D13 requires "documented JVM-only APIs". These rows are `unclassified` here, not `excluded-recorded`.
+6. ADR 0010 `:225` ("Excluded for now") is cited in stories (GOV #1022, #1035-#1043) as an exclusion; ADR 0010 is `Status: proposed` in develop, and ADR 0033 D4 states the items "are not made mandatory in block; each is reviewed individually". Stories treat them as open decisions; consistent with D4, but no record classifies them either way.
+
+## 4. Count summary
+
+Rows are counted by the first token of the Scope column; mixed rows ("inc-ns ...; inc ...") count under the first token. Totals include the 2 addenda rows (both `uncl`).
+
+| Package / section | Rows | inc | inc-ns | exc-rec | exc-prop | uncl | other |
+|---|---|---|---|---|---|---|---|
+| top-level files (2.1) | 5 | 0 | 0 | 0 | 0 | 5 | 0 |
+| `actor` (2.2 + 2.14) | 54 | 21 | 17 | 0 | 4 | 12 | 0 |
+| `actor.dungeon`, `actor.setup` (2.3) | 7 | 2 | 4 | 0 | 0 | 1 | 0 |
+| `dispatch` (+sysmsg, affinity, java) (2.4) | 24 | 11 | 4 | 0 | 2 | 7 | 0 |
+| `event` (+jul, japi) (2.5) | 16 | 9 | 1 | 0 | 0 | 6 | 0 |
+| `pattern` (2.6) | 19 | 14 | 2 | 0 | 0 | 3 | 0 |
+| `routing` (2.7) | 18 | 18 | 0 | 0 | 0 | 0 | 0 |
+| `serialization` (2.8) | 14 | 8 | 1 | 2 | 0 | 3 | 0 |
+| `util` (2.9) | 18 | 2 | 0 | 0 | 0 | 15 | 1 (INTERNAL, n/a) |
+| `io` (2.10) | 16 | 0 | 0 | 9 | 2 | 5 | 0 |
+| `japi` (+function, pf, Java, annotations) (2.11) | 6 | 0 | 0 | 0 | 0 | 6 | 0 |
+| `reference.conf` key groups (2.12) | 14 | 8 | 0 | 1 | 1 | 4 | 0 |
+| classic `testkit` (2.13) | 1 (text only, not a table row) | | | | | uncl | |
+| Total | 211 table rows (+ testkit) | 93 | 29 | 12 | 9 | 67 | 1 |
+
+Sections written: 2.1-2.14, 3, 4, 5. Not enumerated: version-specific duplicate sources under `scala-2.12`, `scala-3` (same public surface as `scala-2.13`; only `scala-2.13` and `scala-2.13+` cited); `mima-filters`; public methods of `ByteString`/`ByteIterator`/`LoggingAdapter` (one row each); individual `Logging` event subclasses beyond the groups named; per-method rows of `Scheduler`/`CircuitBreaker`/`CoordinatedShutdown`; assertion bodies of all specs. Specs of the `actor-tests` tree not cited because no capability row maps to them: `ConsistencySpec.scala:22`, `ActorCreationPerfSpec.scala:27`, `UidClashTest.scala`, `Future2Actor.scala` (dataflow), `ConfigSpec.scala:30` (cited only for key groups), `AsciiStringCopySpec.scala:20`.
+
+## 5. Key Learnings
+
+1. The ACT2 stories in classic areas cite inventory rows in four different forms (ACTINV ids, digest gaps, plan rows and splits), and 25 of 253 have no inventory line, so inventory-to-story traceability is not uniform.
+2. ADR 0010's "Excluded for now" list is proposed, not accepted, so none of become, stash, timers, routers, selection, PoisonPill, Kill or dispatcher configuration is an accepted exclusion.
+3. ADR 0033 D8 already excludes network-bound `actor.io` as a category, while ACT2 epic #762 still holds blocked implementation stories for TCP, UDP and DNS.
+4. About 31 percent of enumerated Pekko `actor` capabilities (67 of 211 rows) are unclassified by any accepted record, concentrated in `util`, `japi`, JVM executor plumbing, Java facades and reference.conf keys.
+5. Pekko marks many helpers `private[pekko]`, so the public surface of `util`, `io` internals and `dispatch` is far smaller than the file counts suggest.
