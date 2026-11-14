@@ -1,0 +1,26 @@
+{
+ "scenario": "S08",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "post-stop",
+   "a": "c"
+  },
+  {
+   "e": "received",
+   "a": "w",
+   "m": "fin"
+  }
+ ],
+ "rules": [
+  {
+   "id": "G6.b",
+   "watcher": "w",
+   "subject": "c"
+  }
+ ]
+}

@@ -1,0 +1,40 @@
+{
+ "scenario": "S07",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "terminated",
+   "a": "w",
+   "subj": "c"
+  }
+ ],
+ "rules": [
+  {
+   "id": "G6.a",
+   "watcher": "w",
+   "subject": "c"
+  },
+  {
+   "id": "I1.a",
+   "watcher": "w",
+   "subject": "c",
+   "msgs": [
+    "X"
+   ]
+  },
+  {
+   "id": "I1.b",
+   "watcher": "w",
+   "subject": "c"
+  },
+  {
+   "id": "I2.a",
+   "watcher": "w",
+   "subject": "c"
+  }
+ ]
+}

@@ -1,0 +1,45 @@
+the runtime stops a suspended actor at once, as Pekko does (its mailbox processes system messages, among them the
+termination, before and regardless of the suspension that only holds back user messages: `Mailbox.scala:223-233` and `:269`). In S22 the default `PreRestart` stops the suspended children of the failing actor, so
+they never begin `PostStop` and the restart waits for them forever; S22 can report that only as a hang (the guard), not as a clause verdict.
+GMstop is still detected by its designed clause (S19 `G5.b`).
+
+**Waivers and known divergences are different things.** A waiver (`waivers` in `go-scope.json`) removes one clause of one
+scenario because the Go contract differs by design; the scenario still runs in the gate with the
+remaining clauses. None exists today: the only one, S10 G5.c (no hierarchy), was removed in ADR 0014 slice 3c, when the Go S10
+began to spawn two real children (`judge_internal_test.go`, `judgeS10`). S10 controlled runs its activations newest first
+(`ctlExec.RunNewest`), an adversarial schedule on which a parent that finalizes before its children is caught
+deterministically; the Go mutants GMearly and GMnopropagate target G5.c. A *known divergence* (`diagnostics` in `go-scope.json`; none today: S20 = D2 was the only one and ADR 0012 resolved it) is a scenario whose clauses
+are all kept and which is deliberately outside the approved-parity scenarios, because Go is known to fail it and the
+failure must stay visible. `judge/diagnose_go.py` judges it with the same comparator and requires it to fail with exactly the
+clauses recorded in the scope file: a different clause, a harness error, a timeout or a pass (the divergence is gone) is a
+non-zero exit, so a new defect cannot hide behind a known one and a fixed divergence cannot stay recorded as open. Nothing
+waives G5.e, and no threshold was changed for it. A passing gate with an open diagnostic is not parity.
+
+**Contract of `diagnose_go.py` when the list is empty or invalid.** "No known divergence" and "a broken scope file" are
+different states and have different exits:
+
+| State | Exit | Why |
+|---|---|---|
+| every recorded diagnostic is `divergence-confirmed` | 0 | the divergence still shows exactly as recorded |
+| `"diagnostics": {}` (present, empty) | 0, prints that nothing was checked | a valid scope with no known divergence, this is today's state: D2 was fixed and S20 moved into `scenarios` |
+| a diagnostic is `resolved` or `unexpected` | 1 | a fixed divergence cannot stay recorded as open, and a new failure cannot hide behind a known one |
+| a recorded diagnostic whose spec declares neither mode | 1 | it cannot be judged, and it must not vanish from the result |
+| `diagnostics` absent or not an object, malformed JSON, an unknown scenario, a missing reason, a clause the spec does not list, or a diagnostic that is also an approved-parity scenario | 2 | invalid input; an absent key is never read as "none" |
+
+Emptying `diagnostics` is therefore a visible, reviewable edit and not something an error path can do silently:
+`judge/selftest_diagnose_go.py` pins the real scope to `{}`, and `selftest_go_scope.py` pins S20 in `scenarios`, waived by nothing. Once
+retired from the diagnostics, S20 is validated by the gate (all four clauses); `diagnose_go.py` no longer reports it, resolved or otherwise.
+
+A known divergence is also kept out of the two other places where it could be mistaken for parity: it is in no relation row of
+the milestone matrix (`scripts/check-judge-matrix.py` rejects it), and it is never calibrated on the Go side
+(`judge/selftest_calibrate.py` and `judge/selftest_backfill.py` fail if a recorded divergence appears in `go-scope.json` `scenarios`,
+in a relation row, in the Go calibration rows or as the designed detector of a Go mutation). S20 is no longer a divergence, but it is
+still not calibrated: the Go calibration scope and the checker reject an S20 row until a Go mutant is designed for it and measured.
+
+## 8. Decisions for the owner
+
+1. **Assert tier I.** Recommended: yes. Alternative: assert only G, which lets goPekko silently differ on dead letters and Terminated ordering, both of which applications rely on in practice.
+2. **Scenario format.** Recommended: declarative data (one file per scenario) read by an interpreter in each harness, so a scenario cannot differ between sides. Alternative: one hand-written test per language, cheaper at first, but each pair can drift and the reviewers in `00b` must check both.
+3. **Run counts.** Recommended: the rule in section 5 (floor 300, raised from a measured mutant, cap 5000 on pull requests). Alternative: a fixed number for every scenario, simpler, but it cannot tell a scenario that sees a rare defect from one that does not.
+
+Go detections: `judge/go-mutation-report.tsv` (written by `judge/mutate_go.py --report`, validated by `scripts/check-judge-matrix.py`, tested by `judge/selftest_mutate_go.py` and `judge/selftest_go_report.py`). Each mutation edits the Go core through text anchors; `scripts/check-judge-matrix.py` fails when an anchor of any Go mutation (judge or unit) does not occur exactly once in `pekko-actor/actor`, so a refactor that breaks one is caught by the checker and not when the campaign aborts (#1463). See `docs/actor-core-parity.md`, section "Go detections recorded in the repository".

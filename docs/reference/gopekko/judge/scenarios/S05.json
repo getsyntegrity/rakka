@@ -1,0 +1,41 @@
+{
+ "scenario": "S05",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "received",
+   "a": "child-1",
+   "m": "R",
+   "count": 1
+  }
+ ],
+ "rules": [
+  {
+   "id": "G7.a",
+   "actor": "child-1"
+  },
+  {
+   "id": "G4.a",
+   "actor": "child-1"
+  },
+  {
+   "id": "G4.b",
+   "actor": "child-1",
+   "failed": "M2"
+  },
+  {
+   "id": "G4.c",
+   "actor": "child-1",
+   "inst": 2,
+   "expect": [
+    "M3",
+    "M4",
+    "R"
+   ]
+  }
+ ]
+}

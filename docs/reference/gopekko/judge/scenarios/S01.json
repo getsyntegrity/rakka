@@ -1,0 +1,53 @@
+{
+ "scenario": "S01",
+ "modes": [
+  "controlled",
+  "concurrent"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "received",
+   "a": "child-1",
+   "m": "M1",
+   "count": 1
+  },
+  {
+   "e": "received",
+   "a": "child-1",
+   "m": "M2",
+   "count": 1
+  },
+  {
+   "e": "received",
+   "a": "child-1",
+   "m": "M3",
+   "count": 1
+  }
+ ],
+ "rules": [
+  {
+   "id": "G2.a",
+   "actor": "child-1"
+  },
+  {
+   "id": "G3.a",
+   "actor": "child-1"
+  },
+  {
+   "id": "G3.b",
+   "actor": "child-1"
+  },
+  {
+   "id": "G1.a",
+   "actor": "child-1",
+   "sent": {
+    "parent": [
+     "M1",
+     "M2",
+     "M3"
+    ]
+   }
+  }
+ ]
+}

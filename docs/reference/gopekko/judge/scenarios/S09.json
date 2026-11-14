@@ -1,0 +1,32 @@
+{
+ "scenario": "S09",
+ "modes": [
+  "controlled"
+ ],
+ "deadline_ms": 10000,
+ "required": [
+  {
+   "e": "post-stop",
+   "a": "c"
+  },
+  {
+   "e": "received",
+   "a": "w",
+   "m": "unwatch",
+   "count": 1
+  },
+  {
+   "e": "received",
+   "a": "w",
+   "m": "after",
+   "count": 1
+  }
+ ],
+ "rules": [
+  {
+   "id": "G6.c",
+   "watcher": "w",
+   "subject": "c"
+  }
+ ]
+}
