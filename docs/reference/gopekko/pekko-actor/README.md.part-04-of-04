@@ -1,0 +1,92 @@
+- After `StopSelf` the in-flight message finishes, `PostStop` runs once, and queued messages are
+  never received (S10).
+- With two real children, each child's `PostStop` is recorded before the parent's (S10, clause G5.c). Controlled mode
+  runs S10 in the adversarial newest-first order, so a parent that finalized before its children would be caught. Names,
+  `Done` of a subtree, exactly-once finalization and stale or duplicate signals are covered by Go unit tests only, not by
+  the judge.
+- The same holds for a stop requested from outside with `System.Stop` (S19).
+- Queued messages at a stop, and messages sent to a stopped actor, are dead-lettered once and
+  never also received (S10, S11, S19; exactly-once for pending messages checked in controlled mode).
+- The `Receive` calls of one actor did not overlap in any run of S21 (three senders, handlers that
+  yield the processor). This is evidence over many runs, not a proof.
+
+- A watcher is told once when a watched actor stops, after that actor's `PostStop` and behind the messages queued
+  before; nothing is delivered after `Unwatch`; watching a stopped actor delivers (S07, S08, S09, S18; S18 holds the
+  watched actor in `PostStop` while a message chain runs through the watcher). **S16** (conflicting registrations) is
+  in the Go gate since U8 (#175): a supervisor node records `decided`, restarts the failed watcher, and the queued `ack` is
+  received by the new instance; the watchers use a message type that is comparable, because the runtime tells a repeated
+  `WatchWith` from a conflicting one with `==` and the judge's own message type holds functions. `ErrWatchConflict` is
+  also tested by unit tests. S13 (a restart delivers no `Terminated`) and S14 (an initialization failure stops the child
+  and the watcher is told) are in the Go gate too.
+
+- A stop accepted before the actor's first activation runs `PreStart` once and then `PostStop` once, and
+  dead-letters what waited, as Pekko does (S20, divergence D2 resolved by
+  [ADR 0012](../docs/adr/0012-stop-before-first-activation.md), approved for this case only). It says nothing
+  about restart (see "Supervision (units U1 to U5)") or the System's termination (see "Termination of the System"), and `PreStart` does not yet receive the cancelled
+  context that ADR 0008 (K1) will require: that cancellation is **not implemented**.
+
+
+
+Number of concurrent runs: for S19 and S21 the Go-side calibration measured 200 of 200 detections of
+their deliberate defects under `go test -race`, which gives `N = 300` (the floor), recorded in
+`judge/calibration.macos.tsv` (macOS arm64, 16 CPUs) and, measured separately on a GitHub-hosted Linux
+runner (Ubuntu 24.04, x86_64, 2 CPUs), `judge/calibration.tsv`. Both give 200 of 200 and `N = 300`, which is
+the floor, not evidence that a rarer interleaving would be caught. S01, S02, S10 and S11 have no Go
+calibration; their 300 runs are the floor, not a calibrated number. S20 is in the approved gate but not calibrated: no Go mutant is designed for it yet. S07, S08 and S18 are in the gate with 300 concurrent runs (the floor) and S09 with its one controlled run (the spec declares no concurrent mode); none has a Go mutant or a calibration. The Go mutation campaign for the present gate is recorded in `judge/go-mutation-report.tsv`; its result, its validity and what it does not cover are stated in [docs/actor-core-parity.md](../docs/actor-core-parity.md), section 10 (they are kept out of this file because the checker ties the evidence to the exact bytes of this module).
+
+Not demonstrated: `Done` against a Pekko oracle, name reservation and the supervised factory failures of U4 (Go unit
+tests only, no judge scenario and no parity claim), and a
+calibrated number of concurrent runs for S01, S02, S10 and S11.
+
+Reproduce: `judge/run-go.sh <dir>` (Go side, gate and diagnostics) and
+`python3 -I judge/mutate_go.py <dir>` (defects the judge must catch).
+
+## Layout
+
+The module root holds only `README.md`, `go.mod` and `go.sum`; there are no `.go`
+files in it.
+
+| Package | Responsibility |
+|---|---|
+| `actor/` | The public API (`System`, `Spawn`, `Ref`, `Context`, `Actor` and the lifecycle hooks, dead letters) and the behavior behind it: the per-actor cell with its state machine, the serial activation, stop and finish. Public API types and functions stay exported; the cell and registry implementation remain unexported. Queue operations and cell counters share the cell lock. |
+| `internal/mailbox/` | `Queue[T]`, the circular buffer that stores an actor's pending messages. No locking and no knowledge of actors; the cell owns the lock and the counters. |
+| `internal/deadletter/` | `Hub[E]`, the dead-letter publication path: subscribers and the in-flight barrier. Generic over the event; knows nothing about actors. `actor/` keeps `DeadLetter` and `SubscribeDeadLetters` as the public face. |
+| `internal/classification/` | `Index[K, V]` (port of `SubclassifiedIndex`) and `Channels`, the relation on `reflect.Type` for the event stream; knows nothing about actors. |
+
+There is no `spi/` package yet. Ports for adapters and other goPekko modules
+will live in `spi/`, created together with the first real port that ADR 0008
+requires.
+
+`actor/` is one cohesive package whose files are organized by responsibility
+([ADR 0011](../docs/adr/0011-pekko-actor-layout.md)). `id.go` holds `ID` and
+`Handle`; `errors.go` holds the sentinel errors and `FactoryPanicValue`;
+`hierarchy.go` holds `Spawner`, the owner nodes (spawn gate and name table), the reservation and commit steps and `Parent`, `Child`, `Children`; `names.go` holds the child-name validator; `address.go` holds the immutable local `Address` value (ADR 0031); `actor_path.go` holds the immutable local `ActorPath` value (ADR 0031) and `names.go` the element rules it shares with `Spawn`;
+`registry.go` holds the ID registry methods of `System` with `record`
+and `stats`; `watch.go` holds local deathwatch (`Watch`, `WatchWith`, `Unwatch`, `Terminated`); `spawn.go` holds `Spawn` (reserve, commit, hand over the first activation) and the factory guard that the start step uses; `executor.go`
+holds the `executor` interface and its default; `clock.go` holds the exported `Clock` and `Timer` interfaces (#1129; the unexported `clock` and `timer` are aliases of them) and the unexported wall clock `realClock`, the default, which the unexported `ask` reads to judge a context deadline and to arm its timer ([ADR 0015](../docs/adr/0015-ask-and-reply.md) D9, increments I-1 and #164); `ask_endpoint.go` holds the unexported per-request reply endpoint and the target validation of Ask (ADR 0015 D6 and D8, increment I-2, #161): an `ask-<n>` identity per request, one terminal transition, a losing reply dead-lettered through the owner System, no entry in `System.byID` or in any name table, and not a watchable actor handle. `ask.go` holds the exported `Ask` (#441), a thin wrapper over the unexported `ask` (#162): it sends a request carrying its own endpoint, returns the first reply and leaves the result unchanged when a later reply arrives (that one is dead-lettered). Since #164 it resolves by timeout: when the context carries a deadline, `ask` judges it with the System's injected clock. A deadline that is expired or equal to now returns `ErrAskTimeout` without calling `build` and without sending. Otherwise the time left is measured after `build`, a timer is armed on the clock right after that and before the send, and the reply and the timer compete for one terminal transition: the loser is dead-lettered and the timer is stopped when the reply wins. `errors.Is(err, context.DeadlineExceeded)` holds for `ErrAskTimeout`, which is the only exported identifier of this increment. Since #165 the deadline is mandatory and the context is observed: an already ended context returns `ErrAskCanceled` (or `ErrAskTimeout` if it reports `context.DeadlineExceeded`), judged before the deadline; a live context without a deadline returns `ErrAskNoDeadline`; none of these checks creates an endpoint, calls `build` or sends. The context is read again after `build`: if it ended, nothing is sent and no timer is armed. While waiting, `ask` selects on the reply and on `ctx.Done()`; reply, timeout and cancellation compete for one terminal transition and a losing reply is dead-lettered. `ask` starts no goroutine and stops its timer before returning; the reply endpoint is never registered in `System.byID` or a name table (this shows the absence of a registry entry and the release of the timer, not that every reference is released). `errors.Is(err, context.Canceled)` holds for `ErrAskCanceled`. These cancellation rows are Go-specific: Pekko has no context cancellation, so no Pekko parity is claimed. Since #166 a target whose termination has completed (its `Done` channel is closed) returns `ErrRecipientTerminated`: `ask` creates the endpoint, rejects it, calls `build` once and sends the request with `Tell`, which dead-letters it exactly once; no timer is armed and nothing waits. A target that only accepted a `Stop` is not terminated: the Ask stays pending until its deadline or its context ends. The check is a point-in-time read, so a target that terminates after it does not end the Ask. `ErrRecipientTerminated` has no cause (it is neither `context.Canceled` nor `context.DeadlineExceeded`); AK18, AK19a and AK19b are Go-specific rows and the Pekko text of that error is not ported. `Ask` is the exported wrapper over it (see "Ask: request and reply" above). Pekko parity is not claimed: the error text is not ported (`PORT-GAP(timeout-message-info)`). `ErrInvalidHandle` is shared with Watch and its text no longer mentions Watch. `system.go` keeps `System`,
+`Config` and `NewSystem`. `actor.go` holds the contracts users implement and
+use (`Actor`, `PreStarter`, `PostStopper`, `Context`), and `OrdinaryFailure` in `start_failure.go`; `cell.go` keeps the cell
+machinery. The reorganization described in the ADR is complete.
+
+Executable examples are in `actor/example_test.go`. Tests sit next to the
+behavior they verify: black-box tests (`actor_test`) use the public API only;
+white-box tests (`package actor`) keep the internal seams (`options`,
+`eventSink`, `executor`) unexported; the clock is public through `Config.Clock`.
+
+## Import path
+
+The package moved from the module root to a subpackage to follow this project's
+layout rule: no Go files at a module root. Consumers must change their import:
+
+```go
+// before
+import actor "github.com/getsyntegrity/gopekko/pekko-actor"
+
+// after
+import "github.com/getsyntegrity/gopekko/pekko-actor/actor"
+```
+
+The package name is still `actor`, so call sites (`actor.Spawn`, `actor.NewSystem`)
+do not change. The module path in `go.mod` and the `require` lines of consumers do
+not change either. Exported symbols and behavior are unchanged; the import path
+change is breaking for consumers using the previous path.
