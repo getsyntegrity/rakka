@@ -1,0 +1,92 @@
+
+Each unit runs the kit with its own manifest, RULEBOOK and RUNBOOK naming the upstream sources and the upstream tests ported, adapted or
+recorded as `PORT-GAP`; the execution record states the commands, the kit version, the models, the inputs, the outputs and every manual
+change. Tests are derived from the upstream tests, and the comparison with Pekko is the judge scenarios (S13, S14, S16 and new ones
+mirrored in `Judge.scala`) and, for S11, the reproduction. Go tests alone are not parity. The Go campaign is renewed with the next
+functional change in `pekko-actor`, over its final code, and its commit is preserved with the authorized `evidence/*` tag; this ADR
+does not renew it.
+
+A test belongs to the earliest unit that delivers every capability it needs; a RULEBOOK may move a row to a later unit or to
+`PORT-GAP` after reading the body, never to an earlier one, and a test is never dropped silently. Restart, the overridable hooks and the
+finite budget are one unit (U2) because nearly every upstream restart test needs all three.
+
+| Unit | Delivers (faithful semantics) | Interim observable for what is not delivered | Upstream sources |
+|---|---|---|---|
+| U1 (#168, #446) | The `Failed` channel, counted and recursive suspension, `OneForOne` with `Stop`, `Resume` and `Escalate` for a parent that **declares** a strategy; `PanicError` causes; the decider with context and failing child; the `makeDecider` helpers (S13); a decider panic fails the parent | A parent that declares none: the child **stops directly**, including on an Escalate into it (the stop-on-failure divergence); a `Resume` of an initialization failure is not delivered (its Pekko conversions to `Create`/`Restart`, `dungeon/FaultHandling.scala:137-144`, need the retained factory and the restart: U2); no parity claimed for those paths, no judge parity before U3 | `dungeon/FaultHandling.scala` (`handleInvokeFailure`, `handleFailure`), `FaultHandling.scala` (`handleFailure`, `processFailure`, `resumeChild`), `../dispatch/sysmsg/SystemMessage.scala`, `../dispatch/Mailbox.scala` |
+| U2 (#169-#174) | `Restart`: the retained factory, the new instance, the overridable `PreRestart`/`PostRestart` with the default hooks, `FailedMessage`, the restart of surviving children, mailbox and watches kept, `InitializationError` causes, the `faultResume` conversions (a `Resume` of a never-initialized actor becomes `Create`; a `Resume` after a `PostRestartException` becomes `Restart`, `:137-144`), and the **finite `Budget`** with the explicit conversions (S4) | A parent that declares none still stops its child directly; top-level actors still stop; a Stop during a restart's wait was handled by the per-cell `PostStop` guard (one call): an explicit gap against the observed two calls, closed by U7 (PR #472) | `dungeon/FaultHandling.scala` (`faultRecreate`, `finishRecreate`, `faultCreate`), `Actor.scala` (hooks), `Children*.scala`, `ActorCell.scala`, `FaultHandling.scala:58-88,303-307,550,662` |
+| U3 (#448) | The default strategy and the default decider (S2, S12) for every parent that declares none; the `ErrGoexit` mapping (default Stop) | Top-level actors still stop | `FaultHandling.scala:218-232`, `ActorCell.scala:642-683` |
+| U4 (#444) | `Spawn` creation failures per R1 (H7, direction approved): the factory in the start step, `InitializationError`, and the **express reconciliation of every row of the table in S10** (the `Spawn` contract, `spawn_errors_test.go` and the other tests, ADR 0011/0012/0014, the module README, the parity and first-cut docs), with the behavior list of "No silent API change" presented in its RULEBOOK; no two contradictory contracts may remain | Top-level factory failures stop the child until U5 | `ActorCell.scala:622-683`, `dungeon/Dispatch.scala:79-111`, `dungeon/Children.scala:271-345` |
+| U5 (#445) | Guardians as actors per H1(a): root, `/user` and `/system`, the guardian strategies and their configuration, top-level `Spawn` as child creation under `/user`, the Watch chain; amends ADR 0014's "the root owner is not an actor" **and** its D4 "top-level names: any string is accepted" (Pekko validates top-level names with `checkName`, `dungeon/Children.scala:64-65`): both amendments need the owner's approval when U5's RULEBOOK is presented | the end of the system and `whenTerminated` until `System.Shutdown` | `ActorRefProvider.scala:315-374,476-485,518-533,538-618`, `ActorSystem.scala:927-944` |
+| U6 (#447) | `AllForOne`: delivered (PR #470, squash `e0d70bb`; issue closed) | the order of evaluation is the observed `TreeMap` order of v1.7.1, not a public guarantee; gaps in #461 | `FaultHandling.scala:468-568` |
+| U7 (#449) | The stop concurrent with a restart as observed and **accepted by the owner** (S11): the restart is abandoned, `PostStop(old)` runs as many times as it is called (twice with the default `PreRestart`), one `Terminated`; the termination path calls `PostStop` once on the current instance; the **correction of the scope of G4/G5 in `docs/judge.md`** (so G5 does not reject this valid Pekko behavior); the Pekko-side scenario and its Go mirror | delivered in PR #472 (squash `b3275d7`): scenario **S22** (judge numbering; the ADR's S11 is the H4 reproduction), concurrent mode only; the Go mirror is Go unit tests, not the Go judge gate (U8); `G5.f` has no Pekko mutation campaign (#461). Follow-up (#173): S22 entered the Go gate: `defaultPreRestart` emits the unexported event `prerestart-default`, the harness maps it to `pre-restart` for default-hook nodes, and the directed mutant `GMdefaultps` (the pre-U7 `beginPostStop` guard) must fail S22 by `G5.f`. Before U7 Go ran one `PostStop` here; the double call is Pekko's and Go has it since U7 | `dungeon/FaultHandling.scala:180-212,327-351`, `h4-repro/H4Repro.scala` |
+| U8 (#175) | Judge S16 (`decided`, a watcher restarted after `ErrWatchConflict`), and the Go gate for S13/S14/S16 | delivered in PR #474 (squash `3054971`): events `pre-restart`, `post-restart`, `decided` with instance numbers in the Go judge; four directed Go mutants; S22 stays Pekko only (a custom `PreRestart` would pass on pre-U7 code); S14 fails in the factory (see `docs/judge.md`); gaps in #461 | `dungeon/DeathWatch.scala:125-131` |
+| U9 (#451) | `loggingEnabled` and `logFailure` of the strategies, **not substituted by events**: the Warning/Error/none rule per directive, `loggingEnabled = false`, a logger failure ignored; the sink is `github.com/pablogore/kit-logger` (`pkg/logger`), added to `pekko-actor/go.mod` only when the package imports it; how the `Logger` is injected is fixed in its RULEBOOK for the owner's approval | delivered in PR #477 (squash `ced37b9`): `Config.Logger`, `Strategy.WithLogging` and `GuardianStrategy.WithLogging`; a nil Logger is silent (a declared divergence); the whole log is protected; no independent review of the code; the Go campaign after U9 is complete and retained by the tag `evidence/go-campaign-50fe7c2` (matrix exit 0, Go CURRENT 17/17); gaps in #461 | `FaultHandling.scala:395-423`, `:468-471,582-586` |
+
+Judge S13, S14 and S16 run on both sides since U8 (#175).
+
+Test adaptations common to the units: `Kill` is excluded by ADR 0010 (`:216`), **[Note 2026-11-04: superseded for `Kill` and `PoisonPill` by the ADR 0010 amendment 2026-11-04; the original text is kept.]** so tests that use it fail the actor with a `Receive` error
+and the `ActorKilledException` classification stays a gap; the implicit `sender()` (ADR 0010 D2) becomes an explicit reply address.
+
+### Test dependency map
+
+| Upstream test | Needs | Unit | Adaptation or `PORT-GAP` |
+|---|---|---|---|
+| `SupervisorHierarchySpec:832`, `:815` | Resume by an explicit decider, suspension | U1 | — |
+| `SupervisorMiscSpec:165` | the decider sees the failing child | U1 | — |
+| `UidClashTest:104` (the decider calls `context.stop(self)`; a stale `Terminated` after a restart) | the decider's context (A13), restart, children | U2 | ported in `supervision_ticket669_internal_test.go` (the unwatch-in-`PreRestart` half); the colliding path (UID) and `loggingEnabled = false` stay `PORT-GAP` |
+| `SupervisorMiscSpec:144` | `context.actorOf` inside `handleChildTerminated` of a custom strategy subclass | — | `PORT-GAP` (custom strategy subclass, A7) |
+| `SupervisorSpec:460` | Restart, a top-level parent restarted by the guardian, a throwing decider | U5 | U1 covers "a decider panic fails the parent" with a Go-side test |
+| `FaultHandlingDocSpec:139` | Resume, Restart, Stop with a finite budget (10 per minute); Escalate needs a top-level supervisor restarted by the guardian | Resume/Restart/Stop: U2; Escalate: U5 | split |
+| `ActorLifeCycleSpec:49`, `:84`, `:116` | restart, hooks, finite budget (3); `:49` and `:84` use `Kill` | U2 | `Kill` becomes a `Receive` error |
+| `ActorLifeCycleSpec:165` | a `PreStart` failure, a custom Restart decider, finite budget | U2 | — |
+| `ActorLifeCycleSpec:142` | a top-level default restart; uses `become` | U5 | `become`: `PORT-GAP` |
+| `ActorLifeCycleSpec:132` | a `PostStop` failure is logged | existing `poststop-panic` contract | no supervision work |
+| `SupervisorSpec:232,240,419,546,572,589,601` and the OneForOne tests `:306,311,330,335,340,382,389` | restart, hooks, finite budgets (0, 3, `-1` with a window, `Inf`) | U2 | `:419` also needs a constructor failure on a restart (supervised) |
+| `SupervisorSpec:292,318,323,354,364,401` | `AllForOne` with finite budgets | U6: AF1-AF6, adapted (`supervision_allforone_internal_test.go`; mapping in `migration/stage-1/supervision-u6/RULEBOOK.md` 9.1) | — |
+| `SupervisorSpec:510` | a top-level creation failure is stopped; **the test itself fails through `error-mailbox`, a mailbox whose creation throws** (`:108-123`), and its sub-cases `:516,527,533` | U5 | mailbox configuration is excluded: the whole test is `PORT-GAP`; a Go-side test covers "a top-level creation failure is stopped" |
+| `RestartStrategySpec:43,91,115,173,224` | restart, `postRestart`, finite or unlimited budgets | U2 | — |
+| `ActorRefSpec:441`, `SupervisorTreeSpec:27` | restart, hooks, survivors; finite budget never reached | U2 | `Kill` becomes a `Receive` error |
+| `DeathWatchSpec:195` | finite budget (2), `Terminated` once at the stop, not on restart | U2 | `Kill` becomes a `Receive` error |
+| `DeathWatchSpec:216` | a death pact stops the watcher by the default decider; the test spies with a strategy subclass | U3 | adapted: observe the stop through `Terminated`, without the subclass |
+| `SupervisorHierarchySpec:790` | finite budget (1 per 5 s), `Terminated` at the watcher | U2 | — |
+| `SupervisorHierarchySpec:861` | a constructor failure at creation, a Resume/Restart alternation | U4 | — |
+| `SupervisorHierarchySpec:767` | an `AllForOne(Nil)` that escalates (so `AllForOne`'s own `processFailure` never runs), `defaultStrategy` for the workers, a custom `preRestart` that keeps the children, survivors restarted in turn | U2 with an escalating `OneForOne` in place of `AllForOne` and an explicit default decider; the `AllForOne` construction itself in U6, delivered: W4 builds the manager with `AllForOne` and an empty decider (PR #470; `defaultStrategy` for the workers came with U3) | the substitution is observably equivalent because Escalate returns before `processFailure` (`FaultHandling.scala:386-388`) |
+| `Ticket669Spec:37` | `preRestart` hook, explicit reply address | U2 | ported in `supervision_ticket669_internal_test.go` (#173) |
+| `Ticket669Spec:49` | `sender()` inside `postStop`, `AllForOne(0)` | — | `PORT-GAP`: `PostStop` has no message |
+| `SupervisorMiscSpec:46` | restart; uses `Kill` and runs "for any dispatcher" (`pinned-dispatcher` configuration, `:46-57`) | U2 | `Kill` becomes a `Receive` error; the dispatcher variants are `PORT-GAP` (dispatcher configuration is excluded by ADR 0010 `:216`) |
+| `SupervisorMiscSpec:102,126` | restart; name reuse after the old child is removed | U2 | — |
+| `SupervisorMiscSpec:87` | a top-level default restart | U5 | — |
+| `ActorSystemSpec:336` | a configurable guardian strategy | U5 | — |
+| `ActorSystemSpec:328,359` | an addressable `/user`, the end of the system, `whenTerminated` | U5 | adapted since U10: `WhenTerminated` and the Go tests of the order (SH1 to SH11); `PORT-GAP` for the addressable `/user` and the termination hooks; no parity claim |
+| the H4 reproduction (no upstream test) | restart, held children, Stop | U7: S22 on Pekko, `TestSupStopDuringRestart` T1-T3 in Go | the Go mirror asserts the counts and order of `RESULTS.md` |
+| the A5 zero-reading edge (no upstream test can drive `System.nanoTime`) | the finite budget on an injected clock | U2 | Go tests from `a5-edge/oracle.out`; expectations derived from the source, not from a Pekko run |
+| `ErrGoexit` in `Receive`, `PreStart`, `PreRestart`, `PostRestart`, the decider and the factory (no upstream test; H5c) | default decider; restart for the hooks; the factory in the start step | U3 (the factory case after U4) | Go-side tests listed in S12 |
+| `loggingEnabled = false`, level per directive, Escalate not logged (U9; upstream only `UidClashTest:84`, which is `PORT-GAP` for its UID part) | U1, U2 | U9 | Go-side tests against `kit-logger`; events checked separately |
+| the 24-cell budget matrix (no single upstream test; measured on the real class) | the finite budget | U2 | table-driven test from `a2a4-sbt.out` and `a5-edge/matrix_check.out` |
+| a decider returning an invalid directive (A2) | decider with context | U1 | Go-specific validation test; the upstream observation is `MatchError` for `null` (`a2a4-sbt.out`) |
+| watch of a ref of another System (no upstream test; D-1) | a design for cross-System identity | #443, no unit | new Pekko-side scenario and Go mirror; the divergence stays registered until then |
+
+## Proposed API (stubs in `docs/adr/signatures/supervision.go`) **[Go, for approval]**
+
+`Directive` (the four constants, the zero value invalid), `Budget` (`int32`, `time.Duration`), `Decider[T]`, an opaque `Strategy[T]` with
+`OneForOne`, `AllForOne`, `DefaultStrategy` and `StoppingStrategy`, the optional `Supervisor[T]` interface, `InitializationError`,
+`PanicError`, `FailedMessage`, `ChildFailure`, the optional hooks `PreRestarter[T]` and `PostRestarter[T]`, `ErrGoexit` (accepted, H5c
+option 1), and the unexported conversions of S4. The stubs show that the signatures are well formed under the minimum Go; they show no behavior.
+
+## Withdrawn from the earlier drafts
+
+Default Stop for a parent without a strategy; top-level actors fixed to Stop; only Stop and Restart; `Within = 0` as "no window"; no
+unlimited budget; a zero `Budget` as the only default; the zero `Directive` as Escalate; a decider without the context and the failing
+child; `*T` for the failed message; `PostStop(old)` after the children completed; the choice of one or two `PostStop` calls by
+preference; the factory failure asymmetry as an accepted state; an internal supervisor in place of the guardians; the Verimand-driven
+question about top-level restarts; `ErrInvalidHandle` of the watch calls as an ordinary supervised failure and the rejection of refs of
+another System as parity (H5b); an explicit "window started" flag instead of the value `0` (A5); the `Goexit` option 2 (H5c); the claim
+that the double `PostStop` contradicts the Pekko documentation (it contradicts only the judge's wording).
+
+## Verification plan
+
+For each unit: tests derived from the listed upstream tests; the comparison with Pekko through the judge where a scenario exists (S13,
+S14, S16) or is added (restart order, budget, stop during restart), run on both sides with the same scenario; mutations that the scenarios
+must catch (for example: a restart past the budget, a restart that does not wait for the children, the failed message redelivered, the
+final `Terminated` sent on restart, a restart that finalizes, a window computed with a platform `int`, a zero `Directive` treated as a
+decision). Reproductions are repeated against the pinned runtime when a unit's RULEBOOK needs a behavior no test shows.
