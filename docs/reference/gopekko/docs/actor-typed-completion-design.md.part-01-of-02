@@ -1,0 +1,360 @@
+# Completing Pekko `actor` and `actor-typed` in goPekko: design dossier
+
+- Status: supporting evidence for ADR 0033, accepted by the Owner on 2026-10-24. Only the decisions recorded in ADR 0033 are accepted; inventory rows, slice plan, judge plan and the validation scale labels are proposals for the Architect. No other ADR is accepted or modified. It is not a parity claim and not a statement that any module is complete. ADR 0032 D5 stays open.
+- Date: 2026-10-24 (revision 5: D-01 to D-14 accepted by the Owner through ADR 0033 on 2026-10-24, with the D-10 interpretation in 7.2; pending reads completed in section 11; companion ADR (accepted): `docs/adr/0033-actor-typed-scope-and-architecture.md`)
+- Baseline: goPekko `develop` at `a3aa35d039a9b79d3d8ffe31d237cb02923af3ca`; Apache Pekko `upstream/pekko` at `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (`v1.7.1`, read-only); `reference/goakt` at `00da8115aa`; `migration-kit` at `cf91c9d`.
+- Authority: ADRs and `docs/design.md` govern the design; `migration-kit/` is process support only (`CLAUDE.md:9-12`). `docs/design.md` is a 33-line skeleton (`docs/design.md:3`) and constrains nothing today.
+- Audience: the Owner (decisions in section 10), then the Architect (slices in section 9).
+
+## 0. Baseline and what was and was not read
+
+### 0.1 Repository state
+
+- Branch `develop`, HEAD `a3aa35d` (feat(actor): name systems and expose their local address, #1012).
+- Working tree: the only changes are this document and the proposed ADR 0033. The `migration/cost-log.tsv` row appended during the earlier prompt-00 pass carried no measured values (`unknown` for wall clock, tokens and subagents); it was restored to HEAD following the D-14 text received in the session (the Owner has not confirmed D-14 as a decision; the restore is trivially reversible).
+- Submodules clean at their pins (`git submodule status`).
+- ADR 0032 exists only on branch `origin/docs/msg-01-sender-envelope-adr-0032` (PR #1014), not in the local tree.
+
+### 0.2 How the evidence was gathered
+
+Inventory and ADR reading were done by read-only exploration passes (file listings, `wc`, targeted reads) and then reconciled here. No test, build, mutation or judge run was executed for this document. A tool bug during the earlier feasibility pass produced an invalid cold-build baseline; no timing is claimed here.
+
+### 0.3 Not read, or read only partly (pending verification)
+
+**Revision 2 update.** Since revision 1 these were read and their findings are in section 11: every `absent`/`partial`/`adapted` row re-verified against the Go source (all non-test files of `pekko-actor/actor`, `internal/mailbox/queue.go`, `internal/deadletter/hub.go`, README in full); ADRs 0016, 0018, 0019, 0021, 0022, 0023, 0025 to 0029 (headers, status blocks and targeted greps, not line by line); `docs/judge.md` and both parity audits in full; `docs/actor-core-parity.md` sections 5 to 7 and 10; upstream typed and classic spec bodies in part (SupervisionSpec, TimerSpec, StashBufferSpec, StashSpec, MessageAdapterSpec, WatchSpec, ActorContextSpec, LocalReceptionistSpec, SpawnProtocolSpec, PoolRouterSpec, LocalPubSubSpec, ActorWithStashSpec, CoordinatedShutdownSpec) and the typed `reference.conf`; `pekko-serialization`, `pekko-observability`, `kit-logger` v0.2.0 and `go-specs` v0.4.0 APIs. Still unread or partial after revision 2 is listed in 11.6. The list below is the revision-1 list, kept for the record.
+
+- ADR bodies not read in full: 0016, 0018, 0019, 0021, 0022, 0023, 0025 to 0029 (status lines only). `docs/adr/signatures/*` and `docs/adr/0030-pekko-repro/*` not read.
+- `docs/judge.md` was read for the contract and tiers; its later sections (mutation rules, owner decisions) and `docs/actor-core-parity.md` were only partly read.
+- `migration/stage-1/feasibility.md` and `milestone-1.md`: keyword reads only.
+- `pekko-actor/README.md` tail beyond "Current scope"; the two parity audits were read at header, matrix and verdict level.
+- Upstream: no spec body was opened. Spec-to-capability mapping in section 4 comes from file names and directory structure. The Pekko paradox documentation (`upstream/pekko/docs/src/main/paradox`) was not read. Counts of test cases (as opposed to spec files) are unknown.
+- Upstream `actor/src/main/resources/reference.conf` lines 1-107 and the TCP/UDP/DNS settings were not read.
+- GitHub issue bodies were not read, only titles and numbers (568 open at the time).
+- A pasted text file mentioned in the request (`Texto pegado(20261024-175045).txt`) was not available in the repository or the session; its content is unknown.
+- Whether `pekko-persistence*`, `pekko-observability` or `pekko-serialization` already provide primitives that typed would reuse (for example primitive serializers) was not checked.
+
+## 1. Corrections to the previous reports
+
+1. The earlier feasibility report said typed was not planned and that A2 had been "discarded". Both are wrong. ADR 0010 recommends A3 and keeps A2 as an alternative that it judged costly (`docs/adr/0010-actor-api.md:54-60`); it never decided Typed semantics. A program already exists: epic #746 (ACT2-PROGRAM), Typed sub-epic #763 (TYP-01 #809 "Specify the Typed Behavior boundary on the shared runtime" through TYP-33) and typed services #764. The recommendation to "postpone typed" is withdrawn.
+2. A3 does not prevent porting Typed semantics. A3 fixes the shape of the Go API (`Ref[T]`, `Actor[T]`, `Context[T]`). Typed semantics (default Stop, signals, per-behavior supervision, stash, timers, adapters) are runtime contracts. A `Behavior[T]` API can be a thin layer implemented as an `Actor[T]` over the same runtime, which is what TYP-01 #809 already assumes.
+3. Cell counts in the earlier report conflated test and production lines in places; this document uses the per-package counts from section 4.
+
+## 2. What the existing ADRs bind
+
+| ADR | Status (exact) | Binds for this program |
+|---|---|---|
+| 0008 envelope and metadata | `proposed`; "Nothing is accepted here yet" (l.3), although D6-D8 are marked "Decided by the owner" in the table (l.229-231) | Provenance of runtime deliveries; the watch lane has no envelope (l.209-211). Blocks any final contract for `Terminated` provenance. |
+| 0010 actor API | `proposed`; partly accepted: local watch increment, `Terminated` placement amendment (2026-10-22), and Classic **supervision** (D3) | API style A3 is recommended, not accepted as a whole. Semantic oracle is Classic only for supervision, lifecycle, deathwatch, FIFO, dead letters. "Excluded for now" (l.225): `become`/`unbecome`, stash, timers and receive timeout, routers, actor selection, `PoisonPill`/`Kill`, dispatcher and mailbox configuration (cites missing ADR 0001). |
+| 0011 layout | accepted | `actor` stays one cohesive package (`Ref`, `Context`, cell mutually generic); `spi/` only when a real port exists; splitting needs exported hooks and a concrete benefit (l.94-98, 251-256, 275-279). |
+| 0012 stop before first activation | accepted for the bounded case, #690 correction accepted | Start step runs on early stop; failed `PreStart` gets no `PostStop`. |
+| 0014 (+ implementation decisions) | D1-D7 accepted (D4 replaced); O1-O3 accepted; **P1-P7 proposals pending** | Hierarchy, recursive stop, `Handle` identity. |
+| 0015 Ask | `proposed`; [Owner] items Q1-Q6, R1, R2 closed; **D3, D4, D7, D8, D9 still [Proposal]** | Ask contract; `AskFrom`, `StatusReply` not delivered. |
+| 0017 supervision | accepted 2026-10-14 | Classic model (M0). Typed is a "later, independent stage (epic #66)" and "not mixed in" (l.89-117, 635-637). |
+| 0024 registry retention | accepted D1-D5 | Retire `byID` at completion. |
+| 0030 bounded mailbox | accepted D1-D8 | Classic `BoundedMailbox(n, 0)` equivalent; D8 changes `Terminated` placement for all actors. |
+| 0031 Address / ActorPath values | accepted (O1, O2, O3a-c, O4, O5) | Local-only values. Its text says no code implements it; HEAD has `pekko-actor/actor/address.go` (#1010/#1012). `ActorPath` (#1008) not found in code. |
+| 0032 local sender envelope | partly accepted: D1, D2, D3, D4, D6, D7; **D5 open, resolved with #814** | Explicit optional sender (`TellFrom`), `Handle` type, sender kept in dead letters. D5: sender of `Terminated` and `WatchWith` messages. |
+
+### 2.1 Contradictions and dangling references
+
+1. Sender: ADR 0010 D2 ("no implicit sender"), ADR 0017:691 and ADR 0030 P-1 ("`DeadLetter` carries no sender") coexist unreconciled with accepted ADR 0032 D1/D4/D6, which add an explicit sender and keep it in dead letters. ADR 0032:143 says 0010 "stays as written".
+2. `AskFrom`: ADR 0010 D4 decides non-blocking `AskFrom` only and puts it in milestone 1; ADR 0015 D1/D7 let `Ask` block and defer `AskFrom`; `pekko-actor/README.md` lists `AskFrom` as not implemented.
+3. ADR 0008 states nothing is accepted yet marks D6-D8 "Decided"; ADR 0010 relies on D6.
+4. ADR 0017 M0 says the repository ports Classic where a runtime contract exists, while ADR 0010 accepts Classic only for supervision.
+5. Module boundary: ADR 0011 rejects splitting the `actor` package and requires a concrete benefit for exported internals. A separate `pekko-actor-typed` module that depends on `pekko-actor` is a new module-boundary decision, not a split of `pekko-actor`; the concrete tension is limited to whichever unexported `pekko-actor` API the new module needs (11.2).
+6. Stale text: ADR 0012:81-82 (restarts "do not exist"), ADR 0014 deviation 10, ADR 0011 `pekko-tenancy` listing, ADR 0031 "no code implements it", the sha256 pin of ADR 0010 inside ADR 0017 (stale after the 2026-10-22 amendment).
+7. Dangling references: ADR 0001 (cited by ADR 0010:225), ADR 0002 (ADR 0008:218), ADR 0013 (reserved, no file), ADR 0020, `ACTINV-011` (ADR 0032:10, "not in the repository"). Numbers 0001-0007, 0009, 0013, 0020 have no file; 0014 and 0030 are duplicated. The next free ADR number is **0033** (0032 is on an open branch).
+
+### 2.2 What ADR 0010 decides, split into API shape and semantics
+
+- Shape (a): A1 classic-untyped, A2 typed `Behavior[T]`, A3 typed refs with struct actors. A3 is recommended (l.52, 215); A2's costs are stated as "closures returning closures; allocation per message" and highest runtime complexity (l.56-60). The decision is "Proposed, pending the owner".
+- Semantics (b): Classic for supervision and lifecycle hooks, typed messaging, explicit reply address. Accepted for supervision only (2026-10-14).
+- Nothing in ADR 0010 forbids a Typed semantic profile or a `Behavior[T]` layer; it lists `become`/`unbecome` as "excluded for now" because "state lives in the struct", which is a statement about A3 struct actors, and l.226 sets a revisit point after milestone 1.
+
+### 2.3 ADR 0032 D5
+
+D5 ("None; the watched actor as sender (P8)", "Open, decided with MSG-02") is open until #814 (ADR 0032:153). Effect by slice:
+
+| Slice | Effect of D5 |
+|---|---|
+| Classic `sender` inside `Receive` for `Terminated`/`WatchWith` (#814) | **Blocked** until D5 is decided |
+| `Forward` preserving sender (#854) | Not blocked (can be specified against D1/D2/D4); runtime-delivery case conditioned |
+| Typed `Terminated` signal, typed `watchWith` | **Not blocked by D5 directly.** ADR 0032 names Classic as its sole reference and never mentions Typed; Typed has no sender concept for signals. They are conditioned by ADR 0008 provenance and ADR 0010's `OnTerminated`/`WatchWith` mapping. (This is an inference, not stated in an ADR.) |
+| Typed layer on its own runtime lane | Not blocked if it reuses the existing watch lane and defers provenance |
+
+## 3. Current goPekko state (summary)
+
+`pekko-actor`: 33 production files / 4,920 lines (`actor/` 31 files, `internal/mailbox`, `internal/deadletter`), 93 test files / 28,415 lines, about 521 `Test*` functions of which about 123 are in public-surface `actor_test` files (`ref.go:18`, `actor.go:19`, `spawn.go:85,98`, `ask.go:104`, `address.go`). The module has no `spi/` directory (README). Implemented or adapted: lifecycle hooks, spawn and names, hierarchy and recursive stop, Classic supervision (OneForOne/AllForOne, `Budget`, deciders, logging), local deathwatch, dead letters, FIFO and bounded mailbox, Ask with mandatory deadline, local `Address`, system naming, `Terminate`/`WhenTerminated`/`Shutdown`, Go-only `Port`. Everything else in section 4 is absent in code, with tracked stories in the ACT2 program. The closure audit (`docs/parity/actor-local-closure-audit-2026-10-23.md`) declares lifecycle, hierarchy, supervision, restart and deathwatch "equivalent in scope" and states "None of these is declared as complete Pekko parity".
+
+## 4. Capability inventory
+
+Legend. State: `implemented`, `adapted`, `absent`, `divergent`, `undetermined`. Proposed scope: `required` (R), `excluded` (X, needs a recorded reason), `owner decision` (OD). Paths: upstream relative to `upstream/pekko/`; Go relative to `pekko-actor/actor/` unless noted. "Judge" means a differential scenario in `judge/`; "SP" means a ported upstream spec as a public-surface Go test; "U" means a Go unit test through the public API. Every row also passes the repository gates in section 6.4.
+
+State and evidence for `absent` rows come from reading the Go exports, README and docs, not from a name grep alone; that reading was bounded (section 0.3), so an `absent` row is "no evidence of implementation found", and the first task of the inventory slice is to re-verify each by reading code.
+
+### 4.1 Production sizes
+
+| Source package | Files / lines |
+|---|---|
+| `actor/src/main/scala/.../actor` | 29 / 13,483 |
+| `.../actor/dungeon` | 7 / 1,675 |
+| `.../actor/setup` | 1 / 97 |
+| `.../dispatch` (+ `sysmsg`, `affinity`, java) | 16+1+1+4+1 / ~5,800 |
+| `.../event` | 11 / 3,692 |
+| `.../pattern` | 21 / 6,603 |
+| `.../routing` | 17 / 3,903 |
+| `.../io` | 45 / 7,251 |
+| `.../serialization` | 9 / 1,710 |
+| `.../japi` | 17 / 2,343 |
+| `.../util` | 37 / 5,303 |
+| top-level files + `resources/reference.conf` | 5 / 264 + 1,443 lines |
+| `actor-typed/src/main` | 91 / 16,739 |
+| `actor-testkit-typed/src/main` | 45 / 6,575 |
+| Tests: `actor-tests` 198 files, `actor-typed-tests` 141, `actor-testkit-typed/src/test` 26 | |
+
+### 4.2 `actor`: core (classic API surface)
+
+| ID | Capability | Upstream source | Upstream tests | goPekko state | Evidence | Scope | Validation |
+|---|---|---|---|---|---|---|---|
+| C-01 | Lifecycle hooks `preStart`/`postStop` | `actor/Actor.scala:588-656` | `ActorLifeCycleSpec` | implemented (optional interfaces) | `actor.go:27,38`; audit matrix | R | Judge G2/G5; SP |
+| C-02 | `preRestart`/`postRestart`, default behavior | `Actor.scala:625,643`; `dungeon/FaultHandling.scala:92-118,278-303` | `ActorLifeCycleSpec`, `RestartStrategySpec` | implemented | `supervision_hooks.go:60,67`; `supervision_restart.go` | R | Judge G4; SP |
+| C-03 | `Props`/`Deploy`/`IndirectActorProducer` | `Props.scala:124`, `IndirectActorProducer.scala:30` | `PropsCreationSpec` (reflection) | adapted (factory + `SpawnOption`) | `spawn.go:34-85`; only `WithMailboxCapacity` | R for options; X for reflection | U/API |
+| C-04 | Spawn, names, anonymous names | `ActorRefProvider.scala:189`, `Children.scala:269-276` | `ActorRefSpec` | implemented | `spawn.go:85,98`; `names.go`; #1005 | R | API; SP |
+| C-05 | Hierarchy, children, recursive stop | `dungeon/Children.scala`, `ChildrenContainer.scala` | `SupervisorHierarchySpec` | implemented/adapted | `hierarchy.go`; ADR 0014 | R | Judge S10; SP |
+| C-06 | Supervision `OneForOne`/`AllForOne`, directives, budget | `FaultHandling.scala:117-582` | `SupervisorSpec`, `SupervisorHierarchySpec`, `SupervisorMiscSpec`, `SupervisorTreeSpec`, `RestartStrategySpec` | implemented | `supervision*.go`; ADR 0017 | R | SP; judge G7 |
+| C-07 | User-defined strategies, `Kill`/`ActorKilledException`, decider context | `FaultHandling.scala:218-224` | `SupervisorSpec` | absent/partial | ADR 0017 gaps; SUP-* issues | R | SP |
+| C-08 | Deathwatch `watch`/`unwatch`/`watchWith`, death pact | `dungeon/DeathWatch.scala:35-152`, `Actor.scala:123,652` | `DeathWatchSpec` | implemented (local) | `watch.go`; audit matrix | R | Judge G6/I1/I2/I6; SP |
+| C-09 | `existenceConfirmed`/`addressTerminated`; pending `Terminated` at watcher stop | `ActorRef.scala:690-697`; `Mailbox.scala:340-353` | `DeathWatchSpec` | absent/divergent | audit: #683, #693 | OD (remote part X) | SP |
+| C-10 | Dead letters, suppression, `DeadLetterListener` | `ActorRef.scala:592`; `event/DeadLetterListener.scala:33` | `DeadLetterSupressionSpec` | adapted (no sender, no suppression) | `deadletter.go:22`; ADR 0030 P-1 | R | Judge I3 |
+| C-11 | `ActorRef` identity, `LocalActorRef`, `RepointableActorRef` | `ActorRef.scala:118,350`; `RepointableActorRef.scala:40` | `ActorRefSpec` | adapted | `ref.go`; factory runs at first activation | R (adapted) / X (repointable) | API |
+| C-12 | `ActorPath`, parsing, navigation, incarnation (uid) | `ActorPath.scala:172` | `ActorPathSpec` | absent (Address done) | ADR 0031; IDN-03/04/05/14 #812 #852 #853 #1008 | R | API; SP |
+| C-13 | `Address` | `Address.scala:37` | `AddressTest` | partial (local only) | `address.go` | R (local) | API |
+| C-14 | `ActorSelection`, wildcards, `resolveOne`, `Identify` | `ActorSelection.scala:43`; `Actor.scala:81,91` | `ActorSelectionSpec` | absent | IDN-06/07/08 #893 #933 #934 | OD | SP |
+| C-15 | Sender / `forward`, `sender()` | `ActorRef.scala:164` | many | absent (explicit `TellFrom` accepted in ADR 0032) | MSG-01..03 #768 #814 #854 | R | Judge + API |
+| C-16 | `become`/`unbecome`, `unhandled` | `ActorCell.scala:129-137` | `HotSwapSpec` | absent | BHV-02/03 #817 #897 | OD (ADR 0010:225) | SP |
+| C-17 | Stash, `UnrestrictedStash`, bounded stash | `Stash.scala:71,82` | `ActorWithStashSpec`, `ActorWithBoundedStashSpec` | absent | BHV-04/07 #772 #899 | R | Judge + SP |
+| C-18 | Timers (`Timers`, keyed, fixed delay/rate) | `Timers.scala:31,78`; `dungeon/TimerSchedulerImpl.scala` | `TimerSpec` | absent | TIM-05/06 #860 #900 | R | Judge (ManualTime) |
+| C-19 | `ReceiveTimeout` | `dungeon/ReceiveTimeout.scala:28` | `ReceiveTimeoutSpec` | absent | TIM-09 #861 | R | SP |
+| C-20 | `Scheduler`, `Cancellable`, `LightArrayRevolverScheduler` | `Scheduler.scala:61,525` | `SchedulerSpec` | absent (clock is internal) | `clock.go`; TIM-02..04 | R | SP + judge |
+| C-21 | `PoisonPill` | `Actor.scala:46` | `ActorRefSpec` | absent (`Stop` differs: drops queue) | MSG-06 #770 | R | Judge |
+| C-22 | FSM (`FSM`, `AbstractFSM`, `LoggingFSM`) | `FSM.scala:432`, `AbstractFSM.scala:45` | `FSMActorSpec`, `FSMTimingSpec`, `FSMTransitionSpec` | absent | FSM-01..09 | OD | SP |
+| C-23 | Extensions | `Extension.scala:74,81` | `ExtensionSpec` | absent | SYS-* | R | API |
+| C-24 | `CoordinatedShutdown` | `CoordinatedShutdown.scala:386` | `CoordinatedShutdownSpec` | absent (basic `Shutdown` only) | `system_shutdown.go`; SYS-* | R (local phases) | SP |
+| C-25 | `ActorSystem`, settings, guardians | `ActorSystem.scala:530`, `ActorRefProvider.scala:385` | `ActorSystemSpec` | adapted/partial | `system.go`, `guardian.go` (root, `/user` and `/system` guardians exist and are wired; only `/user` is spawnable through the public API); no settings or extension registry (corrected in revision 2) | R | API |
+| C-26 | `Deployer`, `DynamicAccess`, `ActorSystemSetup` | `Deployer.scala:225`, `setup/ActorSystemSetup.scala:64` | `DeployerSpec`, `DynamicAccessSpec` | adapted (`Config`) | `system.go` `Config` | X for reflection; OD for deploy config | n/a |
+| C-27 | Classic `TypedActor` proxy, Java API (`AbstractActor`, `UntypedAbstractActor`) | `TypedActor.scala:119`, `AbstractActor.scala:229` | `TypedActorSpec` + Java tests | absent | #801, #802 are decision issues | X recommended | n/a |
+| C-28 | `Status.Success`/`Failure`, `StatusReply` | `Actor.scala:311`, `pattern/StatusReply` | `StatusReplySpec` | absent | ASK-07 #774 | R (as `(R, error)`) | API |
+| C-29 | Go-only adaptation APIs: `OrdinaryFailure`, `ResumeWith`, `FactoryPanicValue`, `Port`/`PortHandler` | none (not Pekko APIs) | none | implemented | `start_failure.go`, `port.go`; README says no independent review | R as recorded adaptations | U; record in ADR |
+| C-30 | `Kill`, `ActorKilledException`; `PoisonPill` tracked separately | `Actor.scala:46,60` | `SupervisorSpec` | absent | `Kill` excluded by ADR 0010:216 and tracked in #450 / MSG-07 #816; `PoisonPill` is a deliberate exclusion with no tracked story (fidelity audit lines 273-274); no upstream spec file was located | OD (individual review per D-06) | Judge |
+
+### 4.3 `actor`: dispatch, event, pattern, routing, io, serialization, japi, util
+
+| ID | Capability | Upstream | Tests | State | Evidence | Scope | Validation |
+|---|---|---|---|---|---|---|---|
+| D-01 | Mailbox FIFO + bounded | `dispatch/Mailbox.scala:65,362,644` | `MailboxConfigSpec`, `ActorMailboxSpec` | implemented | ADR 0030 | R | Judge + SP |
+| D-02 | Priority, deque, control-aware, non-blocking and blocking bounded mailboxes | `Mailboxes.scala:46` | `PriorityDispatcherSpec`, `ControlAwareDispatcherSpec` | absent | #685 #688 #182, MBX-* | OD | SP |
+| D-03 | Dispatcher selection and config (throughput, pinned, balancing) | `Dispatchers.scala:112`, `Dispatcher.scala:42` | `DispatchersSpec`, `ActorModelSpec`, `PinnedActorSpec` | adapted (goroutine executor, `Config.Throughput`) | `executor.go`; DSP-* | OD | API |
+| D-04 | JVM executor plumbing: ForkJoin, virtual threads, affinity, batching | `dispatch/*` | `ForkJoinPoolVirtualThreadSpec` etc. | N/A | JVM-only | X | n/a |
+| E-01 | `EventStream`, `EventBus` family, `LoggingBus` | `event/EventStream.scala:34`, `EventBus.scala` | `EventStreamSpec`, `EventBusSpec` | partial (dead-letter hub only) | `internal/deadletter`; EVT-* | R (typed pub/sub) | API |
+| E-02 | `Logging`, `LoggingAdapter`, `ActorLogging`, `LoggingReceive`, JUL | `event/Logging.scala:44,438,1192` | `LoggerSpec`, `LoggingReceiveSpec`, `JavaLoggerSpec` | adapted | `Config.Logger` (kit-logger, `supervision_logging.go`); nil logger silent | R via kit-logger; X for JUL/adapter hierarchy | U/API |
+| E-03 | `Dropped`/`UnhandledMessage` events | `event/*` | `UnhandledMessageSpec` (if present) | absent (resolved in revision 2) | the only drop signal is `DeadLetter{Msg, To}` (`deadletter.go`); bounded overflow is a plain `DeadLetter` | R (typed supervision stash overflow publishes `Dropped`) | API |
+| P-01 | Ask | `pattern/AskSupport` | `AskSpec`, `ExplicitAskSpec`, `PromiseRefSpec` | adapted | `ask.go:104`; ADR 0015 | R | Judge G8/I4/I5; SP |
+| P-02 | `AskFrom`, `PromiseRef` wrappers, `pipeTo`, `gracefulStop`, `after`, `retry` | `pattern/Patterns.scala:78` | `PipeToSpec`, `RetrySpec` | absent | ASK-*, PAT-* | R (as Go idioms) | API |
+| P-03 | `CircuitBreaker` | `pattern/CircuitBreaker.scala:40,151` | `CircuitBreakerSpec` | absent | PAT-* | R | SP |
+| P-04 | `Backoff`, `BackoffSupervisor`, `BackoffOnRestartSupervisor` | `pattern/Backoff.scala:30` | `BackoffSupervisorSpec`, `BackoffOnRestartSupervisorSpec` | absent | `doc.go:9` | R | SP + judge |
+| R-01 | Routers/pools: RoundRobin, Random, Broadcast, ConsistentHashing | `routing/RoundRobin.scala:83` etc. | `RoutingSpec`, `RoundRobinSpec`, `ConsistentHashingRouterSpec` | absent | `README:574` | R (subset) | SP |
+| R-02 | Resizers, TailChopping, ScatterGather, Balancing, remote pools | `routing/Resizer.scala:139` | `ResizerSpec`, `TailChoppingSpec`, `BalancingSpec` | absent | RTE-* | OD (recommend X first release) | n/a |
+| S-01 | `Serialization` extension, `Serializer`, `AsyncSerializer`, primitives | `serialization/Serialization.scala:149` | `SerializeSpec`, `PrimitivesSerializationSpec` | replaced by module `pekko-serialization` | ADR 0021 accepted | R for capabilities with an applicable local Go contract (for example primitive serializers in `pekko-serialization`, which has none today); the Pekko `Serialization` extension itself stays replaced; reference string forms wait on #894, #853, #812 (input D-04) | module tests |
+| I-01 | `Tcp`, `Udp`, `UdpConnected`, `Dns`, `Inet` | `io/Tcp.scala:50` etc. | ~25 io specs | absent | IO-* | X where network-bound (sockets, protocols, transport); no adapter over `net` unless the inventory identifies a concrete local capability that justifies it; each exclusion recorded with source and reason (input D-04) | n/a |
+| J-01 | `japi` (function, pf builders, tuples) | `japi/*` | `PFBuilderTest` etc. | N/A | Java interop only | X | n/a |
+| U-01 | `ByteString`, `Timeout`, `Helpers`, `Duration`, `Glob`, `PrettyDuration` | `util/*` | `ByteStringSpec`, `DurationSpec` | replaced by `[]byte`, `context`, `time` | Ask uses `context` deadlines | X | n/a |
+| U-02 | `WildcardIndex`, `SubclassifiedIndex`, `MessageBuffer`, `TokenBucket`, `BoundedBlockingQueue` | `util/*` | `IndexSpec` | absent | on demand | R when a required row needs it | U |
+| U-03 | JVM-only util (`Unsafe`, `Reflect`, `LineNumbers`, `OptionVal`, `ManifestInfo`, `Version`) | `util/*` | `ReflectSpec`, `LineNumberSpec` | N/A | | X | n/a |
+| T-00 | Top-level `Done`, `NotUsed`, `Main`, `PekkoException`, `PekkoVersion` | `*.scala` (264 lines) | `PekkoVersionSpec` | replaced by Go idioms | `errors.go` sentinels | X | n/a |
+| T-01 | `reference.conf` (1,443 lines): dispatchers, mailboxes, scheduler, io, coordinated-shutdown, circuit-breaker, debug logging | `actor/src/main/resources/reference.conf` | `ConfigSpec` | adapted (typed `Config`/options, no HOCON) | `system.go` | OD per key | API |
+
+### 4.4 `actor-typed`
+
+Under "A3 fit", **layer** means buildable as a library layer over the public runtime; **runtime** means the shared runtime in `pekko-actor` must first provide a mechanism; **shape** means it is naturally expressed through a `Behavior[T]` return value but can be emulated by a layer with actor-local state.
+
+| ID | Capability | Upstream | Tests | State | A3 fit | Scope | Validation |
+|---|---|---|---|---|---|---|---|
+| TY-01 | `Behavior[T]`, `Behaviors.setup/receive/receiveMessage/receivePartial/same/unhandled/stopped/empty/ignore`, `orElse` | `typed/Behavior.scala`, `scaladsl/Behaviors.scala:39-176` | `BehaviorSpec`, `DeferredSpec`, `OrElseSpec`, `ReceivePartialSpec` | absent | layer (shape) | R | Judge + SP |
+| TY-02 | Signals: `PreRestart`, `PostStop`, `Terminated`, `ChildFailed`, `MessageAdaptionFailure`, `receiveSignal` | `MessageAndSignals.scala:22-90` | `OnSignalSpec`, `TerminatedSpec`, `StopSpec`, `GracefulStopSpec` | absent (hooks exist as interfaces) | layer on hooks | R | Judge |
+| TY-03 | `AbstractBehavior` | `scaladsl/AbstractBehavior.scala:46` | `AbstractBehaviorSpec` (if present) | A3 itself | n/a | R | API |
+| TY-04 | `Behaviors.supervise` with per-exception-class restart/resume/stop, default Stop, `withLimit`, `withStopChildren`, `withStashCapacity`, backoff | `SupervisorStrategy.scala:26-300`, `internal/Supervision.scala` (443) | `SupervisionSpec`, `ClassicSupervisingTypedSpec`, `TypedSupervisingClassicSpec` | absent (parent-owned Classic model exists) | runtime + layer | R | Judge |
+| TY-05 | `StashBuffer`, `withStash`, `unstashAll(behavior)` | `scaladsl/StashBuffer.scala:52-165`, `internal/StashBufferImpl.scala` | `StashSpec`, `StashBufferSpec` | absent | runtime (shared with C-17) | R | Judge |
+| TY-06 | `TimerScheduler`, `withTimers` | `scaladsl/TimerScheduler.scala:50-274` | `TimerSpec` | absent | runtime (shared with C-18) | R | Judge (ManualTime) |
+| TY-07 | `BehaviorInterceptor`, `intercept`, `monitor`, `logMessages`, `withMdc`, `narrow`, `transformMessages` | `BehaviorInterceptor.scala:44-179`, `Behaviors.scala:190-320` | `InterceptSpec`, `MonitorSpec`, `TransformMessagesSpec`, `LogMessagesSpec` | absent | layer (shape for different inner type) | R | SP |
+| TY-08 | `messageAdapter`, `spawnMessageAdapter`, `AdaptMessage` | `scaladsl/ActorContext.scala:292` | `MessageAdapterSpec`, `AdaptationFailureSpec` | absent (`Port.Post` is a base) | layer | R | Judge |
+| TY-09 | `context.ask`, `askWithStatus`, `pipeToSelf`, `AskPattern` | `ActorContext.scala:317-336`, `AskPattern.scala:84-135` | `ActorContextAskSpec`, `ActorContextPipeToSelfSpec`, `AskSpec` | partial (Ask done) | layer | R | Judge + SP |
+| TY-10 | Context: spawn, stop child, `watch`/`watchWith`, `setReceiveTimeout`, `scheduleOnce`, `delegate`, `self`, `log` | `ActorContext.scala:132-230` | `ActorContextSpec`, `ActorContextDelegateSpec`, `WatchSpec` | partial | layer + runtime | R | Judge |
+| TY-11 | `Props`, `DispatcherSelector`, `MailboxSelector`, tags | `Props.scala`, `Dispatchers.scala` | `PropsSpec`, `DispatcherSelectorSpec`, `MailboxSelectorSpec` | partial | layer | R (what goPekko supports) | API |
+| TY-12 | Typed `ActorSystem` from a guardian behavior, `Scheduler`, `whenTerminated` | `ActorSystem.scala` | `ActorSystemSpec`, `GuardianStartupSpec` | partial | layer | R | API |
+| TY-13 | `SpawnProtocol` | `SpawnProtocol.scala:36-89` | `SpawnProtocolSpec` | absent | layer | R | Judge |
+| TY-14 | Typed `Extensions` / `ExtensionId` | `Extensions.scala:118-187` | `ExtensionsSpec` | absent | runtime (shared with C-23) | R | API |
+| TY-15 | `ActorRefResolver`, `MiscMessageSerializer` | `ActorRefResolver.scala` | `ActorRefResolverSpec` | absent | depends on ADR 0031 + 0021 | OD (local string form only) | API |
+| TY-16 | Typed `EventStream` | `eventstream/EventStream.scala` (75) | `EventStreamSpec` | partial | layer over E-01 | R | API |
+| TY-17 | `Receptionist`, `ServiceKey` (local) | `receptionist/Receptionist.scala` (477), `internal/receptionist/LocalReceptionist.scala` | `LocalReceptionistSpec`, `ReceptionistApiSpec` | absent | layer | R (local) | Judge |
+| TY-18 | `Routers.pool`/`group` + routing logic | `scaladsl/Routers.scala:37-192`, `internal/routing/*` | `RoutersSpec`, `PoolRouterSpec`, `RoutingLogicSpec` | absent | layer over TY-17 | R (local) | SP |
+| TY-19 | `Topic` (pubsub), local | `pubsub/Topic.scala` (140) | `LocalPubSubSpec` | absent | layer over TY-17 | R (local) | Judge |
+| TY-20 | Reliable delivery: Producer/Consumer/WorkPulling controllers, `DurableProducerQueue` SPI | `delivery/*` (3,519 lines) | 8 specs (`ReliableDeliverySpec`, `WorkPullingSpec`, ...) | absent | layer over TY-05/06/17; durable queue implementation is in persistence-typed (out) | R (local); durable queue implementations that depend on persistence are excluded (input D-05) | Judge |
+| TY-21 | Classic↔typed adapters | `internal/adapter/*` (1,129), `scaladsl/adapter` | `AdapterSpec`, coexistence specs | N/A (one runtime) | n/a | one ADR per adapter, each with a local contract, tests and justification; no block port of `internal/adapter` (input D-09) | n/a |
+| TY-22 | JFR flight recorder, `ActorMdc` internals, `LoggerClass` | `internal/ActorFlightRecorder`, `jfr/*` | n/a | N/A | n/a | X (JVM) / OD for MDC | n/a |
+| TY-23 | `javadsl` (12 files, 2,353 lines) | `typed/javadsl/*` | ~37 Java tests | N/A | n/a | X | n/a |
+| TY-24 | `reference.conf` typed (131 lines): `extensions`, `library-extensions`, `restart-stash-capacity=1000`, `default-mailbox`, serializers; `pekko.reliable-delivery.*` | `actor-typed/src/main/resources/reference.conf` | | adapted | | OD per key | API |
+
+### 4.5 `actor-testkit-typed` (separate scope decision)
+
+| ID | Piece | Upstream (lines) | Used by `actor-typed-tests`? | Go today | Recommendation |
+|---|---|---|---|---|---|
+| K-01 | `ActorTestKit`, `ScalaTestWithActorTestKit` | 337 / 138 | Yes (heavily; Scala specs use wildcard imports so import counts under-report) | none exported | needed subset |
+| K-02 | `TestProbe` | 273 + impl 426 | Yes (12 import lines in Java) | none exported (tests build probes inline) | needed subset |
+| K-03 | `BehaviorTestKit`, `TestInbox`, `Effects`, stubs | 187 + 313 + 170 + impl | Yes (for synchronous behavior specs; `StubbedActorContext` imported once) | none | needed subset (synchronous behavior testing is a differentiator of the Behavior layer) |
+| K-04 | `ManualTime` / `ExplicitlyTriggeredScheduler` | 81 | Not used in `actor-typed-tests` specs; only in testkit docs | `clock.go` injectable clock (internal) | needed for timers judge |
+| K-05 | `LoggingTestKit`, `LogCapturing`, `CapturingAppender` | 225, 96 | `LogCapturing` 16+ imports; logback-bound | none | replace by a purpose-built test fake of the `kit-logger` `Logger` that captures `With` fields, honors `SetLevel` and guards `Entries` against concurrent access (input D-08; the shipped mock does none of these); do not port logback tooling |
+| K-06 | `SerializationTestKit` | 70 | not seen | none | follows decision on TY-15 |
+| K-07 | JUnit / JUnit5 resources | several | `TestKitJunitResource` 15 | N/A | X |
+| K-08 | Classic `testkit` pieces used by `actor-tests` (`PekkoSpec`, `TestProbe`, `ImplicitSender`, `EventFilter`, `TestActorRef`, `CallingThreadDispatcher`) | `upstream/pekko/testkit` (4,301 lines) | `actor-tests` | none | OD; only what ported specs need |
+
+### 4.6 Dependency facts (confirmed in `upstream/pekko/build.sbt`)
+
+Production:
+- `actor` (`build.sbt:117`): no project dependencies. External: `config` 1.4.9 (`project/Dependencies.scala:217-223`; `scala-java8-compat` only on Scala 2.12).
+- `actorTyped` (`:481`): `.dependsOn(actor, slf4j)`. External: `slf4j-api` 2.0.17.
+- `slf4j` (`:430`): depends on `actor` and, for tests, on `testkit`.
+
+Tests and tooling:
+- `testkit` (`:473`): depends on `actor`; junit 4.13.2, scalatest, metrics libraries.
+- `actorTests` (`:126`): `testkit` (compile and test) and `actor`; junit, scalatest(+JUnit/ScalaCheck), commons-codec, jimfs, jackson, docker-client.
+- `actorTestkitTyped` (`:579`): `actorTyped`, `slf4j`, `testkit`; `Provided` logback 1.3.15, junit, junit5, scalatest. This is a compile-scope module for other test code, not a production dependency of `actor-typed`.
+- `actorTypedTests` (`:584`): `actorTyped`, `actorTestkitTyped`, `actor`; no own library list.
+
+No source file in `actor-typed`, `actor-testkit-typed`, `actor-tests` or `actor-typed-tests` imports `org.apache.pekko.cluster` or `org.apache.pekko.remote`. Remote appears as config strings (`pekko.remote.*` ports, `internal/ActorRefSerializationSpec`) and as comments; `DeliverySerializable`, `Topic` internals and `ServiceKeySerializer` assume serializers that live in cluster modules.
+
+### 4.7 Upstream test families (for the judge and ported-spec backlog)
+
+Counts are spec or test files, not cases. `actor-tests`: about 50 core classic, 24 util, 21 io, 14 routing, 12 pattern, 10 dispatch, 7 serialization, 7 event, 11 Java API. `actor-typed-tests`: 34 under `scala/typed` (behaviors, context, supervision, watch, stash, timers, adapters, ask, routers, spawn protocol, extensions, logging), 8 delivery, 4 receptionist, 1 pubsub, 5 eventstream, 6 coexistence/adapter. `actor-testkit-typed`: 6 Scala + 6 Java tests. JVM-only or environment-bound specs (to be excluded explicitly): the two `scala-jdk21-only` virtual-thread specs, ForkJoin specs, `JavaSerializer` and reflection specs, `AsyncDnsResolverIntegrationSpec` (Docker), all 21 `io` specs (NIO sockets). Go has ported or adapted 14 distinct upstream specs by name (SupervisorSpec, AskSpec, SupervisorHierarchySpec, DeathWatchSpec, ActorLifeCycleSpec, SupervisorMiscSpec, PromiseRefSpec, Ticket669Spec, RestartStrategySpec, FaultHandlingDocSpec, ActorSystemSpec, SupervisorTreeSpec, ActorRefSpec, MailboxSelectorSpec); a citation is not a full port.
+
+## 5. Alternatives
+
+### 5.1 Go API
+
+| Option | Pro | Con |
+|---|---|---|
+| A. A3 only | Already built; no new surface | Typed semantics reachable only through struct actors; no `Behaviors`, `StashBuffer.unstashAll(behavior)` or `BehaviorInterceptor` shape; cannot port typed specs literally |
+| B. A3 runtime + `Behavior[T]` layer implemented as an `Actor[T]` | One runtime, one mailbox, one delivery path (consistent with TYP-01 #809); typed specs port nearly one-to-one; A3 users unaffected | Larger public surface to maintain and judge; layer must not leak runtime internals; allocation per message in closures (ADR 0010:56) |
+| C. Typed primary (A2) | Closest to Pekko Typed | Contradicts ADR 0010's recommendation and the shipped A3 code; large rewrite risk |
+
+Recommended: **B**.
+
+### 5.2 Semantic profile
+
+| Option | Consequence |
+|---|---|
+| Classic only | Typed behaviors would run with Classic defaults; Typed specs that assert default Stop, `Behaviors.supervise` or signals cannot be ported faithfully |
+| Two profiles over one runtime (Classic keeps ADR 0017 defaults; Typed has its own: default Stop, signals, per-behavior supervision) | Needs a new decision set; ADR 0017 explicitly defers Typed (l.89-117, 635-637); isolation rule needed so a Typed behavior's default never changes a Classic actor |
+| One merged profile | Breaks accepted ADR 0017 defaults; not recommended |
+
+Recommended: **two profiles, chosen per spawned actor, with the profile defined by the API that created it** (`actor.Spawn` is Classic; the typed constructor is Typed).
+
+### 5.3 Module and package boundary
+
+| Option | Pro | Con |
+|---|---|---|
+| Package `typed` inside `pekko-actor` | Access to unexported runtime; no `deps.allow` edit; ADR 0011 consistent | `actor` module grows; `typed` imports are not module-isolated; dependency direction only by convention |
+| Separate module `pekko-actor-typed` depending on `pekko-actor` | Enforces direction at module level (`scripts/deps.allow`); keeps `actor` small; allows separate versioning | Needs a public extension surface in `pekko-actor` (timers, stash, scheduler, props, signals/hook points), which ADR 0011 owner decision 2 allows only "with a concrete benefit"; `deps.allow`, `go.work`, `go.mod` `replace`, `CLAUDE.md:28-34` edits |
+| Several modules (`-routing`, `-delivery`, `-testkit`) | Isolation | Maintenance cost; premature |
+
+Recommended: **separate module `pekko-actor-typed`, with the shared foundations (timers, scheduler, stash, event stream, props options, extensions, signals/hook points) delivered publicly in `pekko-actor` first.** The Behavior layer needs only public API (spawn, `Context[T]`, hooks, watch, ask). The cost is the public-surface work, which is useful to Classic users too. Package-in-module remains the fallback if the Owner rejects the extra public surface. Mechanical steps for a new module are in section 6.4.
+
+### 5.4 Testkit
+
+| Option | Consequence |
+|---|---|
+| Out of scope | Typed behavior specs have no `TestProbe`/`BehaviorTestKit`; each ported test re-invents probes |
+| Needed subset: `TestProbe`, `BehaviorTestKit`/`TestInbox`, `ActorTestKit`, `ManualTime` equivalent | Matches what `actor-typed-tests` actually imports; logback tools excluded |
+| Full port | Includes JUnit resources and logback appenders with no Go meaning |
+
+Recommended: **needed subset, as a package of `pekko-actor-typed` (or a `testkit` package) with no dependency from production code on it.**
+
+### 5.5 Logging and `pekko-slf4j`
+
+`CLAUDE.md` already mandates `kit-logger` for all logging and forbids `fmt.Print*`/`log`. `slf4j` is a production dependency of `actor-typed` only as a logging bridge. Binding source: `CLAUDE.md:42-46`. Recommended: do not port `pekko-slf4j`; map `ActorContext.log`, `logMessages`, `withMdc` to `kit-logger` and its mock. This does not need an Owner decision; the Owner decision is only how MDC maps (global fields in `logger.Config`).
+
+### 5.6 Classic↔Typed compatibility
+
+Options: no adapters in the first delivery (recommended); explicit per-adapter ADR; full `internal/adapter` port. Because goPekko has one runtime, most upstream adapter code (`ActorAdapter`, `ActorSystemAdapter`) has no meaning. Individual conveniences (for example watching a typed ref from a Classic actor, `ClassicWatchingTypedSpec`) become explicit slices only if the Owner wants them.
+
+## 6. Recommended design
+
+### 6.1 Shape
+
+```mermaid
+flowchart TD
+  subgraph pekko-actor
+    A[actor package: Ref, Context, Spawn, supervision, watch, mailbox]
+    F[shared foundations: Scheduler/timers, stash, EventStream, Props options, Extensions, signal hook points]
+  end
+  T[pekko-actor-typed: Behavior layer, Behaviors, supervise, adapters, receptionist, routers, topic, delivery, spawn protocol]
+  K[typed testkit subset]
+  P[pekko-serialization]
+  T --> A
+  T --> F
+  K --> T
+  T -.-> P
+```
+
+`pekko-actor-typed` imports only `pekko-actor` (and, for ref string forms, possibly `pekko-serialization` if the Owner allows it; this is an open edit to `scripts/deps.allow`). `pekko-actor` imports no other goPekko module (`CLAUDE.md:28-29`).
+
+### 6.2 Consequences and observable differences
+
+Differences that must be recorded in an ADR and in the module README, each with a test:
+
+1. Supervision default: Classic restarts on ordinary errors; Typed stops. Profile is chosen by the spawning API.
+2. `Receive` returns `error`; panics are failures. Pekko uses exceptions.
+3. Replies use explicit `Ref[R]`; sender is explicit (`TellFrom`, ADR 0032), never implicit `sender()`.
+4. `Terminated` is a hook/message in Classic; in Typed it is a signal delivered to `receiveSignal`.
+5. No `ActorSelection` by path strings until accepted.
+6. `Behavior[T]` identity equality and `same`/`unhandled` are sentinel values, not object identity.
+7. Futures become `context.Context` deadlines and `(R, error)`.
+8. No HOCON; options are typed Go values.
+9. Local-only `Address`/`ActorPath`; no remote or cluster semantics.
+10. Dead letters are a typed hub, not an `EventStream` of arbitrary classifier hierarchy (unless E-01 is accepted in full).
+
+### 6.3 What is not claimed
+
+A green row means that the listed validation ran for the listed scope. It never means module parity. Cluster, remoting, persistence, streams, `actor-cluster-typed`, `persistence-typed` and the durable queue implementations are out of scope.
+
+### 6.4 Gates for any new Go (binding, from `CLAUDE.md`, `docs/quality-gates.md`, `scripts/*`)
+
+- GitHub Actions runs only: gofmt, `go build` and AST-filtered fast unit tests (`.github/scripts/ci-fast.go:279-316`). Everything else is local: `golangci-lint` v2.14.0 with gocyclo at most 10 and no `//nolint`; at least 85% statement coverage per module (`scripts/check_coverage.sh:36-37,98-104`); vet; `go mod tidy -diff`; deps allow-list (`scripts/check_deps.sh`, not called by `ci.yml` despite `docs/ci.md:34`); license header on ported files (`.github/scripts/check-headers.sh`); `-race`, mutation and the judge at module close.
+- A new module requires: `go.mod` (module path `github.com/getsyntegrity/gopekko/pekko-actor-typed`, Go and toolchain lines equal to `.go-version`, `replace` to `../pekko-actor`), one `use` entry in `go.work`, one line in `scripts/deps.allow`, a README satisfying the README contract (`CLAUDE.md:75-84`), and an update of the dependency-direction text in `CLAUDE.md:28-34`. All other gates enumerate modules from `go.work`.
+- Known gate weaknesses to design around: `deps.allow` is module-granular (no package layering inside a module); coverage is per module, so a weak package can hide behind a strong one; the CI test filter silently skips tests whose file or function names match `(integration|architecture|guard|judge|benchmark|testdata|fixture|e2e|system_test|timing|stress|subprocess|realprocess|allocation_contract)` or that use `time.Sleep`/`time.After`/`testing.Short` (`ci-fast.go:36,116-120`); gocyclo applies per function literal, so large `switch` interpreters must be split.
+- SQLite parity rule applies only to `pekko-persistence*` modules, not here.
+
+## 7. Definition of 100% (proposal)
+
+### 7.1 Classes
+
+- **Required (R):** implemented, or adapted with a registered adaptation; validated at the level in 7.2.
+- **Adapted:** observable difference from Pekko, recorded in an accepted ADR and pinned by a test that states the Pekko behavior and the Go behavior.
+- **Excluded (X):** a recorded reason from a closed list: `jvm-only`, `java-api`, `replaced-by-go-stdlib`, `replaced-by-goPekko-module`, `cluster-or-remote`, `network-io`, `owner-excluded`. Each exclusion cites an ADR.
+- **Owner decision (OD):** unresolved; it blocks closure until classified.
+
+### 7.2 Validation levels (proposal; replaces the persistence-specific L0-L4 vocabulary of `docs/parity/proposal.md` for actors)
+
+| Level | Meaning |
+|---|---|
+| V0 | Go unit test through the public API (`actor_test` package style), asserting every observable effect |
+| V1 | V0 plus a ported or adapted upstream spec, cited by name and line, with PORT-GAPs listed |
+| V2 | V1 plus a differential judge scenario passing on both Pekko and Go with the relation id and a detecting mutation |
+| V3 | V2 plus `-race` and a module-close mutation campaign |
+
+Accepted D-10 (ADR 0033 D13, Owner interpretation): V3 requires a differential scenario against Pekko whenever an applicable oracle exists. Rows that can only be validated in Go (Go-only adaptations such as C-29, S-tier relations without a Pekko oracle, `docs/judge.md:64-102`) carry documented alternative evidence and an explicit Owner approval. They are never marked V3 by default and their level is never lowered silently; a row awaiting approval is recorded as pending approval, not as V3. ADR 0033 accepts this rule; the V0 to V3 labels remain this dossier's working scale.
+
+### 7.3 Closure of each module
+
+"100% of `actor`" means: for the frontier of section 7.4, every inventory row is `implemented` or `adapted` (with ADR) or `excluded` (with ADR); zero rows `absent`, `divergent` (unregistered) or `undetermined`; every required row at its validation level; the gates of 6.4 and the module-close campaigns pass. "100% of `actor-typed`" is the same for the typed rows plus the testkit subset decision. Neither includes cluster, remoting or persistence-typed.
+
+### 7.4 Frontier and declared exclusions
