@@ -1,0 +1,7 @@
+step	timestamp	wall_clock_min	tokens	subagents	model
+act-017-design-review	2026-10-14T10:58Z	1.3	44479	1	claude-opus-5-5
+act-017-implement	2026-10-14T11:00Z	1.4	51208	1	claude-sonnet-5-5
+act-017-review-architect	2026-10-14T11:03Z	1.6	46508	1	claude-opus-5-5
+act-017-review-second	2026-10-14T11:03Z	1.2	42186	1	claude-sonnet-5-5
+act-017-fix	2026-10-14T11:07Z	0.6	24598	1	claude-sonnet-5-5
+act-017-review-delta	2026-10-14T11:08Z	0.5	17114	1	claude-opus-5-5
