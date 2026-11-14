@@ -1,0 +1,125 @@
+- Findings:
+  - F1 (medium) Statement in the story: "upstream schedules any defined map value (FSM.scala:905-906) and guards only the transition timeout with length >= 0 (line 903)": verified. Correction on precision: `stateTimeouts(state)` is `Option[FiniteDuration]` (type `Timeout`), the map is read with `stateTimeouts(currentState.stateName)` (:905), so a value set for a state NOT registered via `when` is stored but its use requires the state to exist in `stateFunctions` (else :882 terminates).
+  - F2 (medium) Evidence text for each AC says "V3 needs B-02 for the FSM oracle, else alternative evidence recorded `pending approval` (ADR 0033 D13)". Same D13 misuse as in #1059: replace with "no upstream spec calls `setStateTimeout`; oracle applicability pending determination (applicability pending determination; the method is public API)".
+  - F3 (low) `setStateTimeout` interacts with `when(state, timeout)`: `register` merges `timeout.orElse(stateTimeouts(name))` when a state is registered twice (FSM.scala:774-777); the story's "Replace" semantics (AC-R2-1) is only for the setter.
+  - F4 (low) Atomicity: R1/R2 are one outcome (set/replace); R3 (no retroactive effect, precedence) is two further observable rules but all about the same operation; acceptable.
+  - F5 (low) Dependency #947 FSM-04 -> #1062 and #776/#821: consistent with the code (FSM.scala:898, 845-847). Status check: #1062 `prio:P3` with prerequisites P0 (blocked): consistent.
+- Dependencies: right as written. #1043 GOV-14 is transitive (not listed in this body, listed by the family): flag as implicit only.
+- Oracle (D13): applicability pending determination (no spec; operation is public API; applicability pending determination).
+
+---
+
+### #765 IDN-01 — Generate anonymous child names
+- Depth: DEEP (Go side: `names.go` generator and `anonymous_name_internal_test.go` read in the develop snapshot; `spawn.go:89-98` located)
+- Labels now: none (CLOSED)
+- Verdict: OK (two documentation corrections, F1-F2)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 concurrent anonymous spawns under one owner give distinct valid names | `randomName()` = `getAndAddLong(nextName, 1)` then `Helpers.base64`: `$` + alphabet chars, low 6 bits first (A/actor/dungeon/Children.scala:123-131; A/util/Helpers.scala:115-123); `actorOf(props)` uses it with no name validation (Children.scala:58-59) | no Pekko spec for concurrent anonymous uniqueness (searched `\$a`, `randomName` in actor-tests: none). Closest: T/routing/ConfiguredLocalRoutingSpec.scala:181-188 creates three anonymous routees and asserts the paths `/user/weird/$a`, `$b`, `$c`; T/routing/BalancingSpec.scala:167-171 anonymous names work (but under `pending`) | develop `pekko-actor/actor/names.go` `generateName` (same algorithm, atomic counter per owner); `anonymous_name_internal_test.go`: sequence `$a,$b,$A,$+,$~,$ab,$bb`, 200 concurrent spawns give 200 distinct names | yes (algorithm; sequence confirmed by ConfiguredLocalRoutingSpec:185) |
+| AC2 explicit-name validation and duplicate rejection unchanged | `checkName` rejects null, empty, invalid elements (Children.scala:269-277; ActorPath.scala:97-113); a name starting with `$` is rejected, message contains "not start with `$`" (ActorPath.scala:112,122) | T/actor/LocalActorRefProviderSpec.scala:134-154 (4 concurrent `actorOf` with one explicit name: exactly one succeeds, others InvalidActorNameException), :156-166 (duplicate in one message), :168-196 (malformed names incl. `$hallo`) | Go test "rejects a generated-looking name, an empty name and a duplicate" (`ErrInvalidName`, `ErrNameTaken`) | yes |
+| AC3 a stopped actor name is not reused by the generator | counter only increases (Children.scala:125-126); no reuse rule exists in Pekko beyond that | no Pekko spec | Go test `TestSpawnAnonymousNeverReusesAStoppedName` ($a then $b after stopping $a) | yes (code; no upstream spec) |
+| AC4 focused tests incl. the race boundary; AC5 contract and traceability | n/a | n/a | tests exist; README/traceability not re-checked in this pass | not re-verified |
+
+- Findings:
+  - F1 (low) Namespace separation is the reason generated names cannot collide with explicit ones: explicit names may not start with `$` (ActorPath.scala:112,122; LocalActorRefProviderSpec:171) and generated names always start with `$`. The AC text "valid" is satisfied by this reservation; generated names bypass `checkName` in Pekko (Children.scala:59,63). Worth recording in the contract.
+  - F2 (low) In Pekko the owner counter is shared with `addFunctionRef` names (`$$` prefix, Children.scala:80-83 uses the same `randomName(sb)`), so child names skip values consumed by function refs. Whether the Go owner counter is shared with any other generated name is not stated; open question only if Go has an equivalent facility (`unsupported` otherwise).
+  - F3 (low) The story is CLOSED; reconciliation outcome none. The "Inventory ACTINV-002" and "no Pekko spec" are consistent with the prior audit (idn-msg-ask.md row 15, row 76).
+- Dependencies: none declared; none missing.
+- Oracle (D13): ConfiguredLocalRoutingSpec:181-188 observes the first three generated names `$a,$b,$c` for children created in order; therefore an oracle exists for the sequence. Whether a differential scenario was run for the closed story: no evidence in the repository snapshot (judge not searched in this pass): applicability pending determination for the concurrency AC (no upstream spec).
+
+---
+
+### #767 IDN-10 — Define immutable spawn descriptors
+- Depth: PARTIAL (missing: Deploy method bodies `withFallback`/`withTags`, and the dispatcher/mailbox specs ActorMailboxSpec and ActorSystemDispatcherSpec were not opened; Props.scala 60-238, Deploy declaration, PropsCreationSpec and ADR 0010/0033 were read)
+- Labels now: prio:P2, status:blocked
+- Verdict: ADR (the Go shape is an open decision; ADR 0033 D4 requires per-item classification) + CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 separate factory, mailbox, dispatcher, router settings, deployment metadata | `Props(deploy, clazz, args)` (Props.scala:124): factory = `clazz` + `args`; dispatcher, mailbox, router config, scope, config, path, tags are fields of `Deploy` (Deployer.scala:68-76; Props.scala:160-178 read them from `deploy`) | none observes the grouping | develop: `SpawnOption` functions (`spawn.go:34` per reconciliation), no Props type | the grouping in AC1 matches Pekko's data model; whether Go exposes the three excluded items is not decided (ADR 0010:225, ADR 0033:38) |
+| AC2 construction does not invoke the factory or change activation timing | `Props.apply(creator: => T)` wraps the by-name thunk (Props.scala:87-91); construction validates the class (`Props.validate`, :126) and resolves the producer (`producer`, :154) but the thunk runs only in `newActor()` (:235-237) | T/actor/PropsCreationSpec.scala:54-69 (Props with creator and with `classOf` + `null` args can be spawned); no assertion that construction does not run the creator | none | partly: code yes; spec-does-not-observe |
+| AC3 record which upstream Props features are adapted or deferred | Props members: `withDispatcher:183`, `withMailbox:191`, `withRouter:199`, `withDeploy:204` (merges with `d.withFallback(deploy)`), `withActorTags:210/216`, `actorClass:226` | n/a (documentation) | none | n/a |
+| AC4 ADR with alternatives; not Accepted without Owner decision | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (medium) The reconciliation's RESCOPE ("AC1 bundles ... ADR 0010 excludes dispatcher/mailbox configuration, routers ... 'for now'") is accurate in substance but the text "ADR 0010 D4" is not the right pointer: the exclusion is the Consequences bullet at ADR 0010:225; ADR 0033 D4 (0033:38) is the binding rule; ADR 0010 status is proposed (0010:3). Replacement for any text that says "ADR 0010 D4": "ADR 0010:225 (proposed) and ADR 0033 D4 (accepted)".
+  - F2 (medium) Atomicity: the body mixes (a) the descriptor shape (factory + option value) with (b) four separate Owner classifications (dispatcher #1040, mailbox #1041, router #1042, deploy metadata). Reconciliation already proposes keeping only (a); confirmed by Props.scala structure (dispatcher/mailbox/router are `Deploy` fields).
+  - F3 (low) `Props.withDeploy` merges (`d.withFallback(deploy)`), `withDispatcher/withMailbox` replace when different: "immutable" is satisfied by the case-class `copy` semantics (Props.scala:123-124,183-199); the AC "without mutating a shared factory" has no Pekko counterpart beyond that.
+  - F4 (low) `Props.validate(clazz)` and `producer` throw IllegalArgumentException at construction for an invalid class or constructor signature (Props.scala:126,153-154): "Descriptor valid? / invalid option combination" in the diagram has a Pekko counterpart only for the class/constructor check, not for option combinations (searched Props.scala whole region 60-238: no combination checks; combination checks live in the router/dispatcher verification, e.g. T/actor/ActorConfigurationVerificationSpec.scala:57-85, which is the RTE-10 topic).
+  - F5 (low) Priority/status: P2 with prerequisites GOV-02 P0 ready and GOV-10/11/12 P1 ready: no incompatibility; consumers #813 IDN-11 (P2), #843 SYS-04 (P3), #829 MBX-02 (P3), #878 RTE-07 (P3).
+- Dependencies: as reconciled, consistent with the Props structure. #767 -> #878 RTE-07 `enables` (listed in #878 as depends_on): same edge, consistent. No cycle found among IDN-10, IDN-11, RTE-07, SYS-04, MBX-02.
+- Oracle (D13): n/a for the ADR content; for AC2 a Pekko scenario (Props creator not run on construction) is writable: applicability pending determination.
+
+---
+
+### #894 IDN-09 — Encode and resolve exact local reference strings
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: SPLIT (as reconciled; confirmed) + ADR (incarnation token form, GOV-41 #1186)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 encoding carries address/path/incarnation | `toSerializationFormat`: `ChildActorPath` appends `#uid` unless undefined (A/actor/ActorPath.scala:236-242 doc, 374-378, 449-452); `RootActorPath.toSerializationFormat = toString`, no uid (ADR 0031 P4/P7 at 0031:52,55) | T/actor/ActorSelectionSpec.scala:344-348 asserts the selection `toString` shows `Anchor(...c21#<uid>)`, while :350-357 asserts that the selection `toSerializationFormat` has NO uid (e.g. `pekko://ActorSelectionSpec/user/c2`); ActorPathSpec read for 60-100 (toString/elements/toStringWithAddress) and `grep -c uid` returns 0: no spec asserts `ActorPath.toSerializationFormat` with a uid | ADR 0031 P-7 (0031:87): the path value carries no uid; the uid-bearing form is "a separate function owned by #853 and #894"; no such function exists | encode: no contract (undecided) |
+| AC2 valid local round trip resolves the same cell | `resolveActorRef(path: String)` splits the fragment into the last element (A/actor/Address.scala:221-232 `split(path, rawFragment)`), descends with `getChild` and `getSingleChild` which honors `uid == crs.uid` (A/actor/dungeon/Children.scala:231-241; ActorCell.scala:400-404) | T/actor/ActorRefSpec.scala:296-317 (serialize/deserialize a local ref: `readA eq a`); LocalActorRefProviderSpec.scala:44-66 (resolveActorRef(child.path) of a child with an URL-encoded name returns a live ref with that name) | none | yes (observed; belongs to #1092) |
+| AC3 name reuse cannot make an old encoded reference resolve to the new actor | stale uid: `getSingleChild` falls to `Nobody` and the provider returns `EmptyLocalActorRef(path)` (ActorRefProvider.scala:643-657); but `resolveActorRef(path: ActorPath)` uses `path.elements` (names only) and therefore does NOT carry the uid (ActorRefProvider.scala:629-632) | ActorRefSpec.scala:341-365 (stopped actor, serialized form read back: `EmptyLocalActorRef` with the same path). ActorSelectionSpec.scala:123-146 (name reuse: a2 has the same path as a1, `a2 should not be a1`, `resolveActorRef(a1.path) != a1`). **No spec resolves a string with a stale `#uid` while a new actor holds the name**; searched resolveActorRef/`#` uses | none | spec-does-not-observe (string with stale uid) |
+
+- Findings:
+  - F1 (high) Pekko distinguishes two resolve entry points and only the String form (with `#uid`) is incarnation-exact; resolving an `ActorPath` value returns whatever lives at the names (ActorRefProvider.scala:629-632 vs :622-627; Address.scala:227). Replacement for the contract text of #894/#1092: "Pekko: a string with `#uid` resolves only to the matching incarnation, otherwise to an EmptyLocalActorRef; resolving a path value ignores the uid (code; no upstream spec for the stale-uid case)."
+  - F2 (medium) Split confirmed: encode (this story) vs resolve (#1092). The body's AC2/AC3 are resolve criteria and must move (reconciliation).
+  - F3 (medium) The reconciliation's statement "ADR 0031 P-7 leaves the uid-bearing form to this story and #853": confirmed by 0031:87. ADR 0024:203 (a reused name is a different identity; in Go identity is the ID) confirmed at the line `A reused name is a different identity | Pekko (...); in Go identity is the ID, not path plus uid (adaptation)`.
+  - F4 (medium) No upstream spec asserts `ActorPath.toSerializationFormat` output with a uid (ActorPathSpec has no uid assertion; ActorSelectionSpec:350-357 asserts a uid-less selection format). The encode AC has therefore no spec: only the code at ActorPath.scala:374-378 and the round trip of ActorRefSpec:296-317 (Java serialization, which serializes a `SerializedActorRef` built from the ref path; the exact string used was not read).
+- Dependencies: #853 IDN-05 (P2) and #812 IDN-03 (P2) -> #894 (P3) and #1186 GOV-41 (P1 ready) -> #894: consistent. #894 -> #1092, #1073 GOV-24: right direction. Status check: `status:blocked` is justified by the undecided token form (GOV-41 ready is a proposal, not an accepted ADR).
+- Oracle (D13): oracle exists for the round trip and for the stale ref after stop (ActorRefSpec:296,341); for the Go incarnation token itself there is no Pekko counterpart (identity is the ID, ADR 0024:203): whether D13's "no applicable oracle" applies to the token text: applicability pending determination.
+
+---
+
+### #1092 IDN-21 — Resolve an exact local reference string to the same live actor or a stale outcome
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (text corrections F1-F3) + ADR (token and stale outcome undecided)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 encoded ref of a live actor resolves, messages reach it | ActorRefProvider.scala:622-627 (+ Address.scala:221-232, Children.scala:231-241) | ActorRefSpec.scala:296-317 (`readA eq a` after local round trip); LocalActorRefProviderSpec.scala:44-66 | none | yes (observed for the same instance; "messages reach it" is not asserted) |
+| AC-R2-1 stopped actor, name reused, resolve gives stale outcome, not the new actor | stale uid: `EmptyLocalActorRef` (ActorRefProvider.scala:643-657); EmptyLocalActorRef is a ref that publishes to dead letters | ActorRefSpec.scala:341-365 observes `EmptyLocalActorRef` for a stopped (not reused) actor. Name reuse with a stale uid string: no spec found; ActorSelectionSpec.scala:123-146 covers reuse via `ActorPath` (uid-less) | none | spec-does-not-observe (reuse + stale string) |
+| AC-R3-1 empty text, foreign System name, corrupted token each rejected with a distinguishable error | Pekko does not reject: unparsable or foreign string -> `deadLetters` + debug log (ActorRefProvider.scala:622-627, "using deadLetters"); empty element list -> `deadLetters` (:644-646); typed errors exist only in `ActorPath.fromString` (MalformedURLException, ActorPath.scala:72-75) and `AddressFromURIString.apply` (Address.scala:207-210). A corrupted `#uid` that is not an integer: `Integer.valueOf` throws NumberFormatException inside `splitNameAndUid` (ActorCell.scala:400-404) (code reading; not executed) | no spec found for any of the three; searched resolveActorRef over actor-tests (LocalActorRefProviderSpec:56, ActorSelectionSpec:136, AskSpec:52 only) | none | unsupported: Pekko returns a dead-letter ref instead of an error |
+
+- Findings:
+  - F1 (high) R3 text "A malformed string, or one for another System, MUST be rejected with a typed error" and the diagram "Typed error" contradict the Pekko local provider, which resolves both to `deadLetters` (ActorRefProvider.scala:622-627). A deliberate difference needs an explicit Owner decision (D13 does not authorize it). Replacement: "Pekko: a string that does not parse as a path, or names another System, resolves to deadLetters with a debug log (ActorRefProvider.scala:622-627); a string whose `#uid` is not an integer throws NumberFormatException (ActorCell.scala:403, code reading, not executed). Open question: whether goPekko returns an error or a dead-letter reference; no accepted decision exists."
+  - F2 (medium) R2 "yield the accepted stale outcome" / "(error or dead letter)": Pekko's stale outcome is a ref to the same path that delivers to dead letters (`EmptyLocalActorRef`, ActorRefProvider.scala:640-645; observed in ActorRefSpec:363). The Context's statement that the stale outcome is undecided is therefore not "no Pekko answer": the Pekko answer exists, the Go choice is the open Owner decision.
+  - F3 (medium) Evidence line "Go-only adaptation without Pekko oracle ... `pending approval` (ADR 0033 D13)" for AC-R1-1 and the Traceability line "so those parts use alternative evidence `pending approval`": two applicable Pekko oracles exist for the round trip and the stale case (ActorRefSpec:296-317, 341-365), so D13 requires differential scenarios there; `pending approval` is not the default. Replacement: "Oracle applicability: round trip and stale-after-stop observed upstream (ActorRefSpec:296,341); stale string with name reuse: no upstream spec, applicability pending determination."
+  - F4 (medium) Traceability cites `LocalActorRefProviderSpec.scala:56` and `ActorSelectionSpec.scala:136` as verifying specs: LocalActorRefProviderSpec:56 resolves a live child path (observes R1 only); ActorSelectionSpec:136 asserts only `resolveActorRef(a1.path) != a1` after the path is freed (uid-less). The body says "neither covers uid or stale outcomes": confirmed. ActorRefSpec:296-317 and :341-365 are missing from the list.
+  - F5 (medium) Pekko's `resolveActorRef(ActorPath)` ignores the uid (see #894 F1); the story's R1-R2 only hold for the string form.
+  - F6 (low) Dependencies: #894 -> #1092 depends_on right; #812 and #893 right (`getChild` descent). The reconciliation of #894 adds #1186 GOV-41 as prerequisite of #894 only; #1092 inherits it transitively (not listed): flag as implicit. #893 IDN-06 is gated by GOV-09 alternative (prior audit F-22); not re-verified.
+- Oracle (D13): oracle exists for R1 (live, same instance) and for stale-after-stop; R2 with name reuse and a stale string: applicability pending determination; R3: Pekko behavior is dead-letter resolution, so a differential scenario for "typed error" cannot match without an Owner decision.
+
+---
+
+## Summary
+
+Counts: 20 stories: DEEP 14, PARTIAL 6.
+- DEEP (14): #765, #877, #878, #880, #894, #912, #913, #944, #947, #949, #970, #1059, #1062, #1092.
+- PARTIAL (6): #767 (Deploy bodies, dispatcher/mailbox specs unopened), #797 (sibling FSM story bodies not re-read), #915 (BalancingDispatcher body not read), #946 (#789 body not re-read), #969 (parts of OptimalSizeExploringResizer.scala unread), #1109 (parameters of six wrapper families unread).
+
+Corrections to the prior audit found in this pass:
+- Prior F20 (resizer shrink does not use AdjustPoolSize) is confirmed (Resizer.scala:303-307).
+- Prior note "FSM-11: AbstractFSMWithStashActorTest is compile smoke only" is incomplete: it asserts the replay (`probe.expectMsg("work")`).
+- Prior "BalancingSpec titles only": the behavioral tests sit under a `pending` marker with a FIXME (BalancingSpec.scala:135-136), which changes the oracle assessment.
+- Prior RTE-18 count "nine wrapper pairs" confirmed wrong (14 types, 8 families).
+- New (not in the prior audit): unknown FSM next state has no `context.stop(self)` in `makeTransition` (FSM.scala:881-884); `resolveActorRef(ActorPath)` ignores uid while the String form honors it; Pekko resolves malformed/foreign strings to deadLetters rather than an error; a negative ConsistentHashingRoutingLogic virtualNodesFactor fails lazily: the router logs a warning and returns NoRoutee per message (ConsistentHashing.scala:226-242); BroadcastSpec does not test the `Broadcast` envelope.
+- Recurrent text defect: stories use `pending approval` as the default for D13 (#970 criterion 4, #1059, #1062, #1092); ADR 0033 D13 (0033:47) requires a differential scenario where an applicable oracle exists and does not make `pending approval` a default.
+
+Stories the Architect should re-read: #1092 (R3 contradicts Pekko), #913 (spec citation and atomicity), #878 (AC3 and pool-size validation), #947 (re-arm semantics and forMax details), #970 (criterion 4 wording), #915 (pending upstream spec), #880 (ring has no spec; lazy vnodes failure), #797 (unknown-state liveness).
+
+## Key Learnings
+
+1. The Pekko FSM re-arms the state timeout after every processed message, including stay(), because makeTransition always schedules the state default when the transition carries no timeout (FSM.scala:844-850, 901-907).
+2. BalancingSpec places a pending marker with a flakiness FIXME before its behavioral tests, so the only upstream oracle for the balancing pool is not clearly runnable in v1.7.1 (BalancingSpec.scala:135-136).
+3. Pekko's local resolveActorRef maps malformed, foreign or empty-path strings to deadLetters or an EmptyLocalActorRef instead of raising an error, and only the String form honors the uid (ActorRefProvider.scala:622-657).
+4. The Broadcast envelope is exercised by RoundRobinSpec and RandomSpec, not by BroadcastSpec, which tests BroadcastGroup with plain messages (BroadcastSpec.scala:35-95).
+5. No upstream spec in actor-tests covers ring validation or add/remove, nor exists for fixed-rate FSM timers, for setStateTimeout, or for FSM behavior after an unknown next state.
