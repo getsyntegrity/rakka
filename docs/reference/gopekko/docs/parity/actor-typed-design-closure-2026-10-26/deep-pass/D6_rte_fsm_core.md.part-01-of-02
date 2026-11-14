@@ -1,0 +1,360 @@
+# D6 deep second pass: routing, FSM, core identity (20 stories)
+
+> Verification status (2026-10-26): checked by V5_D6_D7a.md: 40 findings checked in full, 13 partially, 2 not verified. Corrections from the verification are applied in this file. Stories not covered by the verification keep the producer's wording unverified.
+
+Paths: `P/` = `upstream/pekko`; `A/` = `P/actor/src/main/scala/org/apache/pekko/`; `T/` = `P/actor-tests/src/test/scala/org/apache/pekko/`. ADRs are read from `tmp/develop/docs/adr/`. Findings of the prior audit (`rte-fsm-io.md`, `idn-msg-ask.md`) were re-checked against the sources; corrections to the prior audit are stated where found.
+
+Common facts used by the RTE stories:
+- (a) ADR 0010:225 lists "routers, ... PoisonPill/Kill, dispatcher and mailbox configuration" under "Excluded for now"; ADR 0010 Status is proposed (0010:3). ADR 0033 D4 (0033:38) classifies those items individually. GOV-12 #1042, GOV-10 #1040, GOV-14 #1043 are `prio:P1 status:ready` (Owner decision pending). Stories citing "ADR 0010 D4" for the router exclusion mis-cite the location (the exclusion is the Consequences bullet at 0010:225; binding rule is ADR 0033 D4).
+- Router.route sends with an explicit sender: `ref.tell(message, sender)` (A/routing/Router.scala:58-60, 134-139). No `forward` is involved.
+- The judge harness does not drive routers or FSM (delivery plan 5.2, as read in the prior audit). D13 applicability is stated per AC.
+
+---
+
+### #912 RTE-04 — Select routees in round-robin order
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 fixed set receives repeated cycle, no omitted index | RoundRobin.scala:39-47 `next.getAndIncrement % size`, negative index folded `size + index` | T/routing/RoundRobinSpec.scala:61-88: pool of 10, 100 ask `"hit"` calls, each reply carries the routee id; asserts `counter.get == 10` and every routee id received exactly 10 replies. :163-209 same with a hand-built `Router(RoundRobinRoutingLogic())`, `addRoutee`, `Terminated -> removeRoutee` | no router code in develop `pekko-actor` | yes (observed) |
+| AC2 add/remove uses documented next-index rule | counter lives in the logic instance (RoundRobin.scala:40); `Router.addRoutee/removeRoutee` are `copy(routees=...)` and keep the same logic instance (Router.scala:149-171); counter never reset; index = counter mod CURRENT size | no spec found. Read: RoundRobinSpec whole file; membership changes appear at :111-127 (only `GetRoutees` size after AdjustPoolSize/AddRoutee/RemoveRoutee, no selection order) and :180-184 (Terminated removal while all children reply) | none | spec-does-not-observe |
+| AC3 sender preserved | Router.scala:58-60,134-139 | RoundRobinSpec.scala:69-80: routee replies `sender() ! id`, the asking temp ref receives it (implicit, no direct sender assertion) | none | yes (implicit) |
+| empty set (diagram) | RoundRobin.scala:47 `NoRoutee`; Router.scala:135-136 dead letter only if `sender.isInstanceOf[InternalActorRef]`, else dropped | no spec found; searched `NoRoutee` and empty pools in T/routing/*.scala | none | no spec |
+
+- Findings:
+  - F1 (medium) Current text: "Add/remove transitions use the documented next-index rule." Evidence: counter monotonic, modulo current size, never reset (RoundRobin.scala:40-46); no spec asserts post-change order. Replacement: "After add or remove, selection continues from the same counter taken modulo the new routee count (RoundRobin.scala:40-46); no upstream spec asserts the resulting order."
+  - F2 (low) Upstream source list still cites Random.scala; replace with RoundRobin.scala:39-47.
+  - F3 (low) Empty set outcome depends on sender type (dead letter vs silent drop): the diagram's "empty-route outcome" must state both (Router.scala:135-138).
+  - F4 (low) Pekko documents round robin as "just a best effort" for concurrent calls (RoundRobin.scala:34-36); an AC of "no omitted index" under concurrency has no Pekko basis.
+- Dependencies: #854 MSG-03 -> #912 declared in body: wrong (explicit sender; the reconciliation is right). #796 RTE-01 -> #912 depends_on: right (missing in body). #839 RTE-02 -> #912: needed only for AC2 (membership change); redundant for AC1/AC3. #1042 GOV-12 -> #912 depends_on: right; P1 ready vs P3 blocked: no incompatibility.
+- Oracle (D13): oracle exists for AC1 (RoundRobinSpec:61) and can host a differential scenario. AC2: applicability pending determination (no upstream spec; the harness does not drive routers).
+
+---
+
+### #877 RTE-05 — Select routees using injected randomness
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 injected random source makes tests reproducible | Pekko uses `ThreadLocalRandom.current.nextInt(routees.size)` (Random.scala:39-41); no injection point | T/routing/RandomSpec.scala:57-90 is statistical: 10 routees, 1000 asks, asserts every routee count `> 0` and the sum equals 1000 | none | unsupported (not a Pekko behavior) |
+| AC2 only current routees selectable | Random.scala:40-41 indexes the `routees` argument | no spec found; RandomSpec (113 lines read in full) never changes membership | none | spec-does-not-observe |
+| AC3 one route selects one destination, sender preserved | Random.scala:40-41; Router.scala:134-139 | RandomSpec.scala:68-81: routee replies `sender() ! id`, asker gets it; replies sum equals sends | none | yes (implicit) |
+| empty set | Random.scala:40 `NoRoutee` | no spec found | none | no spec |
+
+- Findings:
+  - F1 (medium) Current text: "Random source injection makes selection tests reproducible." Evidence: Pekko has none (Random.scala:39-41). No accepted ADR or Owner instruction records this adaptation (the reconciliation's "Go adaptation to record" is an Architect statement). Replacement: "Open question: whether and how the random source is injectable in Go. Missing evidence: Owner/ADR decision (ADR 0033 D13). Pekko behavior: uniform random choice per message among current routees (Random.scala:39-41), observed only statistically (RandomSpec.scala:88-89)."
+  - F2 (low) Remove RoundRobin.scala from the upstream source list.
+- Dependencies: #839 RTE-02 -> #877: not needed (select receives `routees`, Random.scala:39). #796 RTE-01 -> #877 depends_on: add. #1042 add.
+- Oracle (D13): the statistical oracle exists (RandomSpec:57). A deterministic injected-source scenario has no Pekko counterpart; whether D13 treats it as "no applicable oracle" is applicability pending determination.
+
+---
+
+### #913 RTE-06 — Broadcast an envelope to all current routees
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 wrappers removed before user delivery | Router.scala:128-130 `case Broadcast(msg) => SeveralRoutees(routees).send(msg, sender)`; inner msg sent as-is; `Broadcast(null)` throws InvalidMessageException (Router.scala:193-195) | T/routing/RoundRobinSpec.scala:84-85,104-105 and RandomSpec.scala:85-86,106-107: pool receives `Broadcast("end"/"hello")`; routee handlers match the plain string and a TestLatch of 5/6/10 completes, possible only if the wrapper was removed and every routee received it | none | yes (observed). NOT by BroadcastSpec |
+| AC2 every routee in the snapshot gets one attempt | SeveralRoutees.send = `routees.foreach(_.send(...))` (Router.scala:98-99) | same latches (count equals routee count); "exactly once" not asserted beyond the latch | none | yes (counts) |
+| AC3 empty-route and sender explicit | empty router + `Broadcast`: nothing sent, no dead letter (Router.scala:128-130 + :98 empty foreach). Empty router + ordinary message: `NoRoutee` -> dead letter only if sender is InternalActorRef (:135-136). `BroadcastRoutingLogic.select`: empty -> `NoRoutee`, else `SeveralRoutees` (Broadcast.scala:36-40) | no spec found; searched `Broadcast(` and empty pools in T/routing/*.scala | none | no spec |
+
+- Findings:
+  - F1 (medium) Reconciliation says "Cite BroadcastSpec". Evidence: BroadcastSpec.scala:33-95 tests `BroadcastGroup(paths).props()` with plain `1` and `"end"` (so `BroadcastRoutingLogic`, Broadcast.scala:36-40), never the `Broadcast(...)` envelope; its `?` test (:65-95) ignores the ask result, so sender preservation is not asserted there. Replacement: cite RoundRobinSpec:84,104 and RandomSpec:85,106 for the envelope (also used in TailChoppingSpec and ScatterGatherFirstCompletedSpec, not read), BroadcastSpec:35-95 for the logic.
+  - F2 (medium) Atomicity: two outcomes: the `Broadcast` envelope understood by any router (Router.scala:130) and `BroadcastRoutingLogic` (Broadcast.scala:36-40, every message to all routees). Open question for the Architect: which one this story owns.
+  - F3 (low) Add: `Broadcast(null)` is rejected (Router.scala:194-195); a nested envelope is delivered unmodified (code only).
+- Dependencies: #854 -> #913 wrong (explicit sender). #796 right. #839 not needed to broadcast to routees held by a Router (constructor takes routees, Router.scala:110); keep only if membership change is in scope. #1042 right.
+- Oracle (D13): oracle exists for AC1/AC2 (RoundRobinSpec:84, RandomSpec:85, BroadcastSpec:35). AC3 empty cases: applicability pending determination (no spec).
+
+---
+
+### #878 RTE-07 — Create a fixed pool of owned child routees
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (optional SPLIT of AC3)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 initial pool commits N routees | RoutedActorCell.start 116-132: `nrOfInstances > 0` then `addRoutees(Vector.fill(n)(pool.newRoutee(...)))` before the router actor starts; `newRoutee = ActorRefRoutee(context.actorOf(...))` (RouterConfig.scala:213-214) | T/routing/RouteeCreationSpec.scala:29-42: `RoundRobinPool(100)`, each routee constructor sends `Identify` to its own path; asserts 100 `ActorIdentity(_, Some(_))`. RoutingSpec.scala:112-125: `GetRoutees` size 3 from config while the constructor says 2 | none | yes (observed) |
+| AC2 router stop stops every owned routee | routees are children (RouterConfig.scala:193-194; RoutedActorCell.scala:123) | RoundRobinSpec.scala:36-59: 5 routees with postStop latch, `system.stop(actor)`, asserts the 5-count latch completes | none | yes (observed) |
+| AC3 init failure uses accepted router supervision policy | Pool default `OneForOneStrategy { case _ => Escalate }` (RouterConfig.scala:181-185); `Pool.supervisorStrategy` (:238); `RouterPoolActor(override val supervisorStrategy)` (RoutedActorCell.scala:197) | RoutingSpec.scala:147-170 (`Kill` to routee -> strategy sees ActorKilledException); :185-204 (routee throws in receive, escalation restarts the router, all 3 routees restart). No spec fails a routee in its constructor (RouteeCreationSpec:44-59 only sends to `context.parent`) | none; no accepted router policy exists (ADR 0010:3 accepts only general Classic supervision, ADR 0017) | spec-does-not-observe (init failure); unsupported ("accepted router policy") |
+| diagram "pool size valid? / reject invalid" | no validation: only the `nrOfRoutees > 0` guard; 0 or negative gives no routees (RoutedActorCell.scala:121-123); no `require` on nrOfInstances in A/routing (grep) | RoutingSpec.scala:41-44,90-110 pool of 0 plus resizer | none | unsupported |
+
+- Findings:
+  - F1 (medium) Current text: "A routee initialization failure uses the accepted router supervision policy." Replacement: "Pekko: a failing routee is handled by Pool.supervisorStrategy, default OneForOne Escalate (RouterConfig.scala:182-184,238); upstream specs observe runtime failure (RoutingSpec:147-204), not constructor failure. Open question: router supervision policy and initialization-failure behavior in goPekko (ADR 0017 interaction). Missing evidence: a Pekko scenario for constructor failure."
+  - F2 (medium) The diagram's "Reject invalid pool configuration" has no Pekko behavior (RoutedActorCell.scala:121-123). State Pekko's behavior or mark as an open decision.
+  - F3 (low) Reconciliation anchor: "RouterPoolActor :159" is wrong: RouterActor is :159, RouterPoolActor is :197.
+  - F4 (low) Three outcomes (creation, recursive stop, failure policy); creation+stop are one lifecycle outcome, supervision policy is a separate decision.
+- Dependencies: #796, #839, #767 IDN-10 (routeeProps), #777 SUP-01, #1042 as in the reconciliation: consistent with RoutedActorCell.scala:55 and RouterConfig.scala:238. Note #767 enables #878 while #767 AC1 defers router settings to GOV-12: #767 must supply routeeProps only.
+- Oracle (D13): oracle exists for AC1/AC2 (RouteeCreationSpec:29, RoundRobinSpec:36). AC3: applicability pending determination (runtime-failure specs exist, init-failure none).
+
+---
+
+### #944 RTE-03 — Build a group router over external routees
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 group setup does not spawn/stop external routees | RoutedActorCell.start 124-128 uses `group.routeeFor(path, this)` = `ActorSelectionRoutee(context.actorSelection(path))` (RouterConfig.scala:172-173); no child created | T/routing/RoundRobinSpec.scala:130-160: 10 external actors, `RoundRobinGroup(paths).props()`, 100 asks answered round robin (each name 10 times). No spawn/stop assertion | none | spec-does-not-observe |
+| AC2 selection routees use accepted anchor/path semantics | `ActorSelectionRoutee` sends via `selection.tell` (Router.scala:66-69) | RoundRobinSpec:139-147 (`toStringWithoutAddress` paths); BroadcastSpec:54 (`path.toString`); ConfiguredLocalRoutingSpec.scala:153-157 asserts only `routerConfig == RandomGroup(List("/user/service1","/user/service2"))` | none | partially observed |
+| AC3 stopping group leaves external routees alive | group routees are not watched (RoutedActorCell.scala:93-96 watches only `ActorRefRoutee`; RouterConfig.scala:155-158 "without watching for termination") | no spec found; searched `Group(` over T/routing: hits in BroadcastSpec, ConfiguredLocalRoutingSpec, RoundRobinSpec, ScatterGather, TailChopping specs; none stops the router and probes routees | none | spec-does-not-observe |
+
+- Findings:
+  - F1 (low) Reconciliation anchor "paths :150" is `GroupBase.paths` (Java API base, RouterConfig.scala:146-152). Group contract is `paths(system)` at :161 and `routeeFor` at :172-173.
+  - F2 (low) ConfiguredLocalRoutingSpec group test checks config only; RoundRobinSpec:130-160 is the behavioral spec.
+- Dependencies: #796 add (right). #893 IDN-06 -> #944 depends_on right (selection). #933 IDN-07 independent right. #839 kept. #1042 right.
+- Oracle (D13): oracle exists for the routing behavior (RoundRobinSpec:130). AC1/AC3: applicability pending determination.
+
+---
+
+### #880 RTE-11 — Map a key to a routee through a consistent-hash ring value
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: SPLIT (as reconciled; confirmed) + CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 key extraction and hashing envelopes | NOT in the ring value: in `ConsistentHashingRoutingLogic.select` (ConsistentHashing.scala:205-255): hashMapping first, then `ConsistentHashable`, else warn + `NoRoutee`; envelope at :67-75 | T/routing/ConsistentHashingRouterSpec.scala:81-96: `Msg("a")` and `ConsistentHashableEnvelope("AA", hashKey="a")` reach the same routee (also keys `17`, `MsgKey("c")`); :98-121 with hashMapping; Echo fails if it sees an envelope (:52) | none | yes (observed); belongs to #1107 |
+| AC2 vnodes validated, stable for fixed set | `virtualNodesFactor < 1` throws IllegalArgumentException (ConsistentHash.scala:34); node hash = MurmurHash of `node.toString` + vnode index (:49-54,122-132,142-151) | no ring-level spec found; searched `find -iname '*ConsistentHash*'` and `grep 'ConsistentHash(' ` over upstream tests: only router-level ConsistentHashingRouterSpec, RemoteConsistentHashingRouterSpec, docs specs | none | spec-does-not-observe |
+| AC3 add/remove only changes dictated mappings | `:+`/`:-` add/remove `virtualNodesFactor` entries; `nodeFor` binary search, wraps to first, empty ring throws IllegalStateException (ConsistentHash.scala:49-113) | no spec found (same search) | none | no spec |
+
+- Findings:
+  - F1 (medium) AC1 belongs to #1107 (confirmed): extraction is in the logic, not in ConsistentHash.scala.
+  - F2 (medium) Reconciliation says "Cite ConsistentHashingRouterSpec" for the ring; the spec observes the router, not the ring. Replacement: "the only upstream spec that builds a `ConsistentHash` directly is RemoteConsistentHashingRouterSpec.scala:28-46 (same ring regardless of selfAddress); no spec covers `virtualNodesFactor < 1`, `:+`/`:-` or wrap-around".
+  - F3 (medium) Validation nuance (new): the logic maps `virtualNodesFactor == 0` to the system default (ConsistentHashing.scala:184-186) and builds the ring inside `select`'s try; a thrown IllegalArgumentException is caught as NonFatal, logged as warning, and `NoRoutee` returned (:226-242). A negative factor given to a router therefore fails lazily: the router logs a warning and returns NoRoutee per message (ConsistentHashing.scala:226-242); the strict `< 1` rejection exists only at the ring value. Relevant to AC2 and #1107.
+  - F4 (medium) Node identity: router nodes are `ConsistentRoutee(routee, selfAddress)` whose `toString` is the full-address path string (ConsistentHashing.scala:443-456); the ring hashes `toString` (ConsistentHash.scala:27-28,50,128) with MurmurHash 3 (MurmurHash.scala:23-25,50+). Whether goPekko must reproduce Pekko mappings is an open Owner question; ADR 0031 (accepted) defines only local path text (P-7/P-8, 0031:87-88).
+- Dependencies: #839 not needed (pure value). #880 -> #1107 enables: right. ADR 0031 (path text) is an input if routee identity is keyed by path text. #1042 right.
+- Oracle (D13): router-level oracle exists (ConsistentHashingRouterSpec:81) for AC1; ring-level AC2/AC3: applicability pending determination (no spec; `ConsistentHash` is a public class so a purpose-written scenario may exist, not shown).
+
+---
+
+### #946 RTE-14 — Resize a pool using the default resizer policy
+- Depth: PARTIAL (MBX-01 #789 body not re-read to confirm whether it exposes the mailbox inspection that `pressure` needs; prior audit F8 says it does not; everything else DEEP)
+- Labels now: prio:P3, status:blocked
+- Verdict: SPLIT (policy vs pool mechanics) + CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 min/max bounds and resize sampling use the DefaultResizer rule | `capacity` clamps to `[lowerBound, upperBound]` (A/routing/Resizer.scala:178-187); `isTimeForResize = counter % messagesPerResize == 0` (:166); `filter = rampup + backoff` (:236-258); constructor validation (:154-164) | T/routing/ResizerSpec.scala:106-116 (`capacity(empty)==2`, two routees -> 0), :118-136 (`rampup`/`backoff` numeric cases), :138-152 (3 messages, lower 2, `messagesPerResize` 10, size stays 2), :168-213 (starts at lowerBound 3 after the first message; max out at upperBound 5 under 20 slow messages). No spec found for the constructor validation (read ResizerSpec lines 30-254 whole) | none | yes (bounds, rampup, backoff); spec-does-not-observe (validation) |
+| AC2 shrink removes targets from routing before accepted termination handling | shrink: `ResizablePoolCell.resize` calls `removeRoutees(abandon, stopChild = true)` directly (Resizer.scala:303-307); `removeRoutees` updates `_router` first, then `stopIfChild` schedules `PoisonPill` after 100 ms via `scheduler.scheduleOnce` (RoutedActorCell.scala:84-91,103-110) | ResizerSpec.scala:215-250 "backoff": asserts only that `routeeSize(router) < z` eventually; the order (removal from routing before stop) is not asserted. RoutingSpec.scala:90-110 shows a resizer pool is not stopped when all routees die | none | spec-does-not-observe (ordering) |
+| AC3 concurrent resize decisions do not duplicate children or exceed bounds | `resizeInProgress` AtomicBoolean compare-and-set before a `Resize` message is sent to the router mailbox (Resizer.scala:276,286-293); resize runs inside the router actor (ResizablePoolActor, :333-348) | none: ResizerSpec.scala:198 comment "sending in too quickly will result in skipped resize due to many resizeInProgress conflicts" and the test sleeps 20 ms to avoid it; no concurrent-resize assertion. Searched ResizerSpec and RoutingSpec | none | spec-does-not-observe |
+| (reconciliation) resizer invoked once at creation, before any message | `preSuperStart` initial `resize(initial = true)` (Resizer.scala:279-284); doc RouterConfig.scala:227-232 | RoutingSpec.scala:90-110 and :128-145: pool of 0 plus resizer reaches the resizer's size (2, 3) with no messages sent first (latch from `resize`); ResizerSpec:138-152 | none | yes (observed) |
+
+- Findings:
+  - F1 (medium) Reconciliation anchor "AdjustPoolSize grow and shrink :206-214" and prior audit F20 re-checked: the resizer shrink path does not use AdjustPoolSize (RoutedActorCell.scala:207-214 is the management message of RouterPoolActor); it uses `removeRoutees(..., stopChild = true)` (Resizer.scala:303-307). The reconciled AC text "shrink removes routees from the routing set then stops them with a delayed PoisonPill (RoutedActorCell.scala:84-91,103-110)" is correct; the source anchor for grow/shrink should be Resizer.scala:295-309.
+  - F2 (medium) Atomicity: AC1 is a pure policy (DefaultResizer numbers, observable without a pool); AC2/AC3 are pool mechanics (ResizablePoolCell, shared with RTE-15 and AdjustPoolSize in RTE-17). Open question for the Architect: one outcome or two.
+  - F3 (low) The "Add bounded child count" (diagram) is not what Pekko does when the resizer is custom: bounds are enforced inside `DefaultResizer.capacity` only; RoutingSpec:92-98 uses a custom Resizer returning 2 with no bounds (code Resizer.scala:295-309 applies whatever the resizer returns).
+  - F4 (low) Pressure inputs: `pressureThreshold` 1 reads `mailbox.isScheduled && hasMessages`; < 1 reads `isScheduled && currentMessage != null`; > 1 reads `numberOfMessages >= threshold` (Resizer.scala:206-226). The AC says only "documented DefaultResizer rule": the inputs are cell/mailbox internals.
+- Dependencies: #878 RTE-07, #839 RTE-02, #914 RTE-08, #789 MBX-01, #770 MSG-06, #821 TIM-02, #1042: consistent with code (Resizer.scala:301-306 uses `newRoutee`, `addRoutees`, `removeRoutees`; RoutedActorCell.scala:110 uses scheduleOnce and PoisonPill). Status check: #770 and #821 are `prio:P1/P0 blocked` and PoisonPill is itself under Owner decision GOV-07 #1038 (P1 ready): the P3 here is consistent. #914 RTE-08 -> #946: the dependency reason ("capacity computed from live routees") is not shown by the code: `capacity` takes `router.routees` (Resizer.scala:299) and the removal of terminated routees is RouterActor's Terminated case (RoutedActorCell.scala:178-180); the link is plausible but the evidence is indirect (flag, no change proposed).
+- Oracle (D13): oracle exists for AC1 (ResizerSpec:106-213) and for the creation resize (RoutingSpec:90,128). AC2/AC3: applicability pending determination (no spec asserts ordering or concurrency).
+
+---
+
+### #969 RTE-15 — Offer the optimal-size exploring resizer separately
+- Depth: PARTIAL (missing: OptimalSizeExploringResizer.scala lines 220-316 and 1-100 not read; the 28 test titles and the tests at MetricsBasedResizerSpec 86-185, 305-386 were read)
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 exploring policy is a distinct opt-in | separate class `DefaultOptimalSizeExploringResizer` (OptimalSizeExploringResizer.scala:129-140); selected from config only when `optimal-size-exploring-resizer.enabled`; both enabled throws `ResizerInitializationException` | T/routing/ResizerSpec.scala:76-83 (config enables -> `DefaultOptimalSizeExploringResizer`), :85-97 (both enabled -> `ResizerInitializationException`), :99-101 (default none) | none | yes (observed, via config) |
+| AC2 injected load/time samples exercise exploration and bounds | exploration uses `ThreadLocalRandom` (:166), time uses `System.nanoTime` (:201) and `LocalDateTime.now` (:214); samples are set through `private[routing]` vars `performanceLog`, `record` (:147-156, @InternalApi) | T/routing/MetricsBasedResizerSpec.scala: resize at :312-345 (underutilization downsize `4-20`, empty history 0, lowerBound `+30`, upperBound `-30`, exploration with probability 1 within `exploreStepSize` 0.3 of 10 routees: every change has abs in [1,3]), optimize :347-364 (probability 0 gives +1/-1/+2 toward fastest size), :372-382 (starts at lowerBound 2). Tests set internal state directly and use the real clock | none | partially observed; the injection mechanism is Pekko-internal test access, not a public seam |
+| AC3 metrics do not claim universal throughput improvement | Pekko doc says it "will eventually walk to the optimal size and remain nearby" (:115-118) | no spec (documentation rule) | none | not a behavior |
+
+- Findings:
+  - F1 (low) Reconciliation already cites MetricsBasedResizerSpec; confirmed, 28 tests exist (listing at lines 89-382). Citation should say these are white-box tests using `private[routing]` state.
+  - F2 (medium) AC2 "Injected load/time samples": Pekko injects nothing publicly; clock and RNG are not injectable (:166,201,214). This is a Go test seam that is not a Pekko behavior; no accepted ADR records it. Open question: public seam vs internal test access; missing evidence: Owner decision.
+  - F3 (low) Defaults to cite: `explorationProbability = 0.4`, `exploreStepSize = 0.1`, `actionInterval = 5 s`, `downsizeAfterUnderutilizedFor = 72 h`, bounds 1..30 (OptimalSizeExploringResizer.scala:129-139), and the validation rules (:168-196), none of which are in the ACs.
+- Dependencies: #946 RTE-14 -> #969 right: `ResizablePoolCell` handles both resizers (Resizer.scala:314-319, `case r: OptimalSizeExploringResizer => r.reportMessageCount`). #789 MBX-01 right (utilisation reads actor cells, :217-219 via `ActorRefWithCell`), subject to the F8 caveat noted under #946. #1042 right.
+- Oracle (D13): oracle exists (MetricsBasedResizerSpec) but is white-box; whether it can host a differential scenario is applicability pending determination.
+
+---
+---
+
+### #915 RTE-10 — Provide a balancing pool with its queue restrictions
+- Depth: PARTIAL (missing: A/dispatch/BalancingDispatcher.scala body and the MultipleConsumerSemantics enforcement were located by grep only; Balancing.scala, BalancingSpec and ActorConfigurationVerificationSpec 28-110 were read)
+- Labels now: prio:P3, status:blocked
+- Verdict: ADR (needs the dispatcher/mailbox decisions GOV-10 #1040, GOV-11 #1041, GOV-12 #1042) + CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 queue ownership differs from per-routee mailboxes | "All routees share the same mailbox" (A/routing/Balancing.scala:49-51); each routee gets a pool-specific dispatcher `BalancingPool-<deployPath>` registered on demand (:116-143); logic selects `routees.head`, "balancing will be done by the dispatcher" (:37-47); `BalancingRoutingLogic` is `private[pekko]` (INTERNAL) | T/routing/BalancingSpec.scala:99-131 `test`: 100 messages to 5 workers, all but worker 1 are blocked; asserts the first 96 replies all come from worker 1 and then, after unblocking, replies from workers 2..5. **The behavioral tests at :138-165 sit in a block that contains `pending` at :136 with the comment "FIXME flaky, https://github.com/akka/akka/issues/30860"**; I cannot execute, so whether they run in v1.7.1 is not verified (ScalaTest semantics of `pending` there not tested). The tests at :167-178 (anonymous / URL-encoded names produce a working pool, reply received) follow the same `pending` at :136; whether any test in the block runs in v1.7.1 was not verified | none | spec exists but is marked pending/flaky upstream (code-level fact) |
+| AC2 incompatible routee or mailbox selections rejected | Balancing pool dispatcher config adds `mailbox-requirement = org.apache.pekko.dispatch.MultipleConsumerSemantics` (Dispatchers.scala:319, by grep); `BalancingPool.resizer` is fixed `None` ("Resizer cannot be used together", Balancing.scala:165-168); legacy `type = BalancingDispatcher` config throws IllegalArgumentException "use a BalancingPool instead" (Dispatchers.scala:268-271) | BalancingSpec (181 lines) has no rejection test. A related oracle exists elsewhere: T/actor/ActorConfigurationVerificationSpec.scala:57-85 asserts `ConfigurationException` when a RoundRobin/Broadcast/Random/SmallestMailbox/ScatterGatherFirstCompleted pool is given `withDispatcher("balancing-dispatcher")` (the reverse combination: a balancing dispatcher on a non-balancing router head), and :86-88 that a plain actor on that dispatcher is accepted. It does not test a BalancingPool with an incompatible mailbox or routee | none | partially observed (reverse direction only) |
+| AC3 stop/cleanup does not lose or deliver a shared pending envelope twice | not located in the router code; shared-queue cleanup is dispatcher/mailbox behavior (`BalancingDispatcher.teamWork` :104-112, not read) | `test` cleanup (:121-130) stops the pool with PoisonPill and expects Terminated, no assertion about pending envelopes | none | spec-does-not-observe |
+
+- Findings:
+  - F1 (high for evidence quality) The only upstream behavioral oracle for balancing (BalancingSpec:138-165) is marked `pending` with a FIXME about flakiness in the v1.7.1 checkout (BalancingSpec.scala:135-136). Any V3 claim that relies on it is open: oracle applicability pending determination; whether the tests run in the Pekko build was not verified.
+  - F2 (medium) Reconciliation "Pekko dispatcher is deprecated in favor of the pool (BalancingDispatcher.scala:45)" confirmed. Also add Dispatchers.scala:268-271.
+  - F3 (medium) Atomicity/scope: AC1-AC3 rest on a shared-queue dispatcher plus a mailbox restriction; ADR 0033 D4 (0033:38) leaves dispatcher/mailbox configuration unclassified. Open question: whether balancing is in local scope (reconciliation already asks the Owner).
+  - F4 (low) BalancingRoutingLogic is internal API in Pekko (Balancing.scala:33,43), i.e. a user cannot build a balancing `Router` by hand, only via `BalancingPool`.
+  - F5 (low) `BalancingPool` merges only supervisorStrategy in `withFallback`, no resizer (Balancing.scala:150-168).
+- Dependencies: #878 RTE-07 -> #915 right (Pool, newRoutee override :116). #835 DSP-02 and #789 MBX-01 and GOV-10/GOV-12 as in the reconciliation: consistent with the shared dispatcher/mailbox (Balancing.scala:49-51,116-143); #1041 GOV-11 (mailbox decision) is not listed although AC2 is about mailbox selection: missing candidate edge (the reconciliation lists #789 instead).
+- Oracle (D13): applicability pending determination (BalancingSpec exists but its behavioral tests are under a `pending` marker).
+
+---
+
+### #1109 RTE-18 — Provide Pool and Group wrappers around each routing logic
+- Depth: PARTIAL (missing: the parameters of Random, Broadcast, ConsistentHashing, TailChopping, ScatterGather and SmallestMailbox wrappers were not read; locations by grep of declarations, RoundRobin and Balancing wrappers read, specs per wrapper by grep)
+- Labels now: prio:P3, status:blocked
+- Verdict: SPLIT (as the story itself anticipates: "split by logic family") + CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 Pool and Group for each approved logic route by that logic and the pool has nrOfInstances children | Wrapper case classes (grep `^final case class .*(Pool\|Group)\(`): RoundRobin 83/148, Random 75/139, Broadcast 73/137, ConsistentHashing 296/385, TailChopping 163/261, ScatterGatherFirstCompleted 114/194, SmallestMailboxPool 196 (no group), BalancingPool Balancing.scala:83 (no group). Pools: `nrOfInstances` created by RoutedActorCell.scala:116-132 | RouteeCreationSpec.scala:29-42 (RoundRobinPool only, 100 children). Per-wrapper evidence found: RoundRobinPool RoundRobinSpec:61; RoundRobinGroup :130-160; RandomPool RandomSpec:57-90 (`counter.get == 10`); BroadcastGroup BroadcastSpec:35-95; ConsistentHashingPool ConsistentHashingRouterSpec:76-79 (3 routees from config); ScatterGatherFirstCompletedGroup spec :82,97; TailChoppingGroup spec :80-129. **No behavioral spec found for** ConsistentHashingGroup, BroadcastPool, and RandomGroup: grep over all of actor-tests finds RandomGroup only in ConfiguredLocalRoutingSpec.scala:155 (config equality), BroadcastPool only in ActorConfigurationVerificationSpec.scala:63-67 (ConfigurationException with a balancing dispatcher) and DeployerSpec.scala:240 (config name mapping), ConsistentHashingGroup only in DeployerSpec.scala:245 (mapping) | none | partial |
+| AC2 README lists each upstream wrapper as provided or excluded with a source line | not a Pekko behavior (documentation rule, ADR 0033 D8 "every exclusion is recorded with its source and reason", 0033:42) | n/a | none | n/a |
+
+- Findings:
+  - F1 (medium) Body text "Which of the nine wrapper pairs are in scope" is wrong: Pekko has 14 wrapper types in 8 families: six Pool+Group pairs (RoundRobin, Random, Broadcast, ConsistentHashing, TailChopping, ScatterGatherFirstCompleted) plus two pool-only families (SmallestMailboxPool, BalancingPool). Replacement: "Which of the 14 upstream wrapper types (8 families: 6 pairs and 2 pool-only) are in scope: Owner classification."
+  - F2 (medium) Context text lists BalancingPool as an upstream wrapper "owned by #915" and says SmallestMailboxPool has "no group": both confirmed. #915 owns the pool; this story must not also provide it (overlap to state).
+  - F3 (medium) Knobs per wrapper not mentioned: `resizer`, `supervisorStrategy`, `routerDispatcher`, `usePoolDispatcher`, `withFallback` merge, config constructor (RoundRobin.scala:83-131, `PoolOverrideUnsetConfig` RouterConfig.scala:116-141; BalancingPool merges supervisor only, Balancing.scala:150-168). "that logic's parameters" is therefore open: which knobs are per-logic and which are shared pool/group mechanics (#878/#944).
+  - F4 (low) AC1 evidence "RouteeCreationSpec:29 ... verified" is true but covers only RoundRobinPool; do not present it as per-wrapper evidence.
+  - F5 (low) The Dependencies table omits #944 RTE-03 and the logic stories that the Contracts section lists as consumed (body lines "Consumed: Routing logics ... group #944"). Missing edges: #944 -> #1109 depends_on, #912/#877/#913/#879/#945/#916/#1107 -> #1109 (per in-scope logic).
+- Dependencies: #1042 -> #1109 and #878 -> #1109: right. Add #944 -> #1109 depends_on (Group mechanics, Group.routeeFor RouterConfig.scala:172) and per-logic edges as above. #913 RTE-06 reconciliation says BroadcastPool/Group go to this story: consistent with Broadcast.scala:73,137.
+- Oracle (D13): per-wrapper oracles exist where the specs above exist; ConsistentHashingGroup, BroadcastPool: applicability pending determination (no spec).
+
+---
+
+### #797 FSM-01 — Define the finite-state actor API boundary
+- Depth: PARTIAL (ADR-side: ADR 0010 and ADR 0033 read; the bodies of the sibling FSM stories #840/#1058 were not re-read; ACs checked against FSM.scala and the FSM specs in full for the points below)
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 startWith/when/goto/stay/using/replying/stop and state/data ownership | `when` registers/merges per state, timeout `orElse` (A/actor/FSM.scala:475-476, 774-782); `startWith` sets `currentState` (:487-488); `goto` always notifies, `stay` is a `SilentState` (:500, 511-513, 329-334); `using` (:315); `replying` prepends, applied in reverse = send order (:306-308, 885-887); `stop(reason[, data])` = `stay().using(data).withStopReason` (:518-528); `forMax` (:282-287); `initialize` = `makeTransition(currentState)` or IllegalStateException if no `startWith` (:719-721) | T/actor/FSMActorSpec.scala:119-168 (lock FSM: `goto(Open).using(...).forMax(timeout)`, `stay().using`, `stay().replying("world")`, `stop(FSM.Shutdown)`, onTransition, onTermination all observed through latches); :208-221 `stop(FSM.Normal, expected)` runs onTermination with the updated data; FSMTransitionSpec.scala:28-66,80-87 (Transition notifications, initialize) | none | yes (observed) |
+| AC2 unknown-state and unhandled-event behavior | unhandled: default handler logs warning `"unhandled event <v> in state <s>"` and `stay()` (FSM.scala:787-791); `whenUnhandled` replaces and falls back with `orElse` (:707-708). Unknown NEXT state: `makeTransition` calls `terminate(stay().withStopReason(Failure("Next state %s does not exist")))` (:882-883) and, unlike the stop path in `applyState` (:870-878), has no `context.stop(self)` in that branch. No `startWith`: `initialize`/`stateName` throw IllegalStateException (:721, :728) | FSMActorSpec.scala:170-186 asserts only that an Error log "Next state 2 does not exist" is published; FSMActorSpec.scala:150-153 asserts the warning "unhandled event" once; FSMTimingSpec.scala:140-158 asserts the warnings and `whenUnhandled` replacement. **No spec asserts whether the actor stops after an unknown next state**; no spec for a missing `startWith` | none | partial; actor liveness after unknown state: spec-does-not-observe |
+| AC3 PersistentFSM and persistence imports stay outside actor core | `PersistentFSMBase` lives in `persistence/fsm/PersistentFSMBase.scala` (a separate module; contains its own `setStateTimeout` copy at :327 per the story FSM-14 text) | not a behavior | develop `pekko-actor` has no FSM and imports no persistence (prior audit section 0) | n/a |
+
+- Findings:
+  - F1 (medium) New: unknown next state. Evidence: FSM.scala:881-884 vs :870-878. Neutral text for AC2: "Pekko: an unknown next state terminates the FSM state machine with Failure('Next state X does not exist'), runs onTermination and logs an error (FSM.scala:882-883, spec FSMActorSpec:170-186 observes the log only). Whether the actor instance stops is not shown by any spec and the code path in makeTransition has no context.stop(self). Open question: observable behavior to run against Pekko." (code reading only; not executed)
+  - F2 (low) Reconciliation anchors verified against code: when:475, startWith:487, goto:500, stay:511, stop:518-528, replying:306, using:315, forMax:282, whenUnhandled:707, initialize:719. onTransition is at :682, onTermination at :698 (matches).
+  - F3 (low) Reconciliation "retag AbstractFSM.scala as java-api" confirmed: AbstractFSM.scala:36-65 is the Java-lambda wrapper (`getContext`, `getSelf`, `matchEvent` etc.).
+  - F4 (low) Dependencies: body has "No new-story prerequisite"; reconciliation adds #1043 GOV-14 (P1 ready, Owner decision pending) and #768 MSG-01 (no priority label in index, OPEN). Reason for #768: `replying` sends to `sender()` (FSM.scala:874,886), so the sender contract is an input. Consistent.
+  - F5 (medium) Prior audit F3 stands (untyped `Any` protocol messages vs `Ref[T]`): FSM `Event(value: Any, data)`, `CurrentState`, `Transition`, `StateTimeout` (FSM.scala:97,830-843) are all untyped; not reflected in the ACs. Open question for the ADR; no recommendation.
+- Dependencies: #1043 -> #797 depends_on and #768 -> #797 depends_on: right. Status: prio:P3 vs #1043 P1 ready: consistent (gate P1, consumer P3).
+- Oracle (D13): oracle exists (FSMActorSpec, FSMTransitionSpec) for AC1; AC2 actor-liveness after unknown state: applicability pending determination (needs a harness scenario; none upstream).
+
+---
+
+### #947 FSM-04 — Deliver and cancel FSM state timeouts
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 entering a state applies its configured timeout | `makeTransition` ends with: `timeout = Some(max)` -> none; `Some(d) if d.length >= 0` -> `scheduleOnce(d, self, TimeoutMarker(generation))`; otherwise the state's registered timeout (FSM.scala:896-907); `when(state, stateTimeout)` registers (:475-476, 774-781) | T/actor/FSMTimingSpec.scala:33-41: `TestStateTimeout` has `stateTimeout = 800ms`; asserts `Transition(fsm, TestStateTimeout, Initial)` arrives within 500 ms..2 s of the request and nothing more in the window | none | yes (observed, coarse window) |
+| AC2 transition or explicit override invalidates the old timer | NOT only transitions: every non-internal message cancels `timeoutFuture` and increments `generation` (FSM.scala:844-850); a fired named timer does the same (:818-824); `TimeoutMarker(gen)` is processed only if `generation == gen` (:814-817); after processing, `makeTransition` re-arms the state's default (or `forMax`) timeout again, also for `stay()` whose `timeout` is None (:511-513, 901-907) | FSMTimingSpec.scala:43-51 (message `Cancel` after entering the timed state: transition to Initial, then no further message in 1 s: the old timer did not fire); :113-127 (a StateTimeout already queued while the actor is suspended is discarded when a named-timer message is processed first; asserts that `Cancel` is received, i.e. the stale StateTimeout was dropped); :62-73 override with `forMax(Duration.Inf)`: no message for 400 ms, then `Cancel` leads to Initial (the window checked is 400 ms of an 800 ms default). **No spec asserts re-arm after `stay()`**; none asserts the exact-generation drop for ordinary messages | none | partial: cancel/stale-drop observed; re-arm-on-stay: spec-does-not-observe |
+| AC3 timeout delivered in the FSM event path, never from an external callback mutating state | the timer posts a message to self via the scheduler (`scheduleOnce(d, self, TimeoutMarker(...))`, FSM.scala:898) and the state function runs in `receive` -> `processMsg(StateTimeout, "state timeout")` (:814-817) | FSMTimingSpec.scala:33-41 (the observable effect is a Transition produced by the handler) | none | yes (code) |
+
+- Findings:
+  - F1 (medium) Current AC2: "A transition or explicit timeout override invalidates the old state timer." Evidence above: invalidation happens on every processed message and on every fired named timer, and the state timeout is re-armed after each (inactivity semantics) (FSM.scala:818-850, 901-907). Replacement: "In Pekko any message processed by the FSM (and any fired named timer) invalidates the pending state timeout by generation; after processing, the timeout of the resulting state (forMax value or the state's registered default) is armed again, including for stay() (FSM.scala:818-850,901-907). Upstream specs observe cancel and stale-drop (FSMTimingSpec:43-51,113-127); none asserts re-arm on stay()."
+  - F2 (medium) Reconciliation text "a length below 0 is ignored and the maximum finite duration disables it (FSM.scala:900-907)": precise form: `forMax(Duration.Inf)` maps to the marker `Some(Long.MaxValue.nanos)` which schedules nothing (FSM.scala:172,284,902); a negative finite duration, and `forMax` of a non-finite non-Inf duration (maps to `None`, :285), fall through to the state's registered timeout (:904-906), they do not cancel it.
+  - F3 (low) Reconciliation anchors checked: StateTimeout:97, TimeoutMarker:102, setStateTimeout:650, scheduling:896-908 correct. Cancellation in terminate(): `timeoutFuture.foreach(_.cancel())` at :934 (reconciliation says :931-934, fine).
+  - F4 (low) Observed timing windows in FSMTimingSpec are tagged `TimingTest`; Test-design suggestion, not a finding: an oracle scenario would need a manual clock on both sides (the Pekko test uses real time `.dilated`).
+- Dependencies: #881 FSM-03 -> #947: transition commit; evidence: scheduling lives in `makeTransition` (FSM.scala:881-909), FSM-03 is titled "Apply goto stay and state-data updates" (title only, body not re-read): plausible. #821 TIM-02 and #776 TIM-01: Pekko uses `context.system.scheduler.scheduleOnce` and `Cancellable.cancel` directly (FSM.scala:898,845-847): right. #900 TIM-06 removal: right (no actor `Timers` usage in FSM). Status check: TIM-01/02 are `prio:P0 blocked`; FSM-04 is P3: consistent.
+- Oracle (D13): oracle exists and can host a scenario for AC1/AC2 (FSMTimingSpec:33,43,62,113). Re-arm after `stay()`: applicability pending determination (no spec).
+
+---
+
+### #949 FSM-08 — Retain bounded FSM transition diagnostics
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 configured depth bounds retained entries | `logDepth: Int = 0` (FSM.scala:962), arrays of `logDepth` (:966-967), `advance()` wraps and sets `full` (:971-979), recording guarded by `logDepth > 0` (:992-996), `getLog` oldest-first (:1011-1018) | T/actor/FSMActorSpec.scala:314-332: `logDepth = 3`; after 1 event the log is `[LogEntry(1,0,"log")]`; after 3 events `[log, count, log]`; after 5 events exactly the last 3 `[(1,1,"log"),(1,1,"count"),(1,2,"log")]` (oldest evicted) | none | yes (observed) |
+| AC2 entry contains state/data/event snapshot policy | the entry is written BEFORE the state function runs: `states(pos) = stateName`, `events(pos) = event` where `Event(value, stateData)` already carries the pre-processing data (FSM.scala:992-996, 854); the current event itself appears in the log it requests (`getLog` doc :1007-1010) | same test: the entry for `"log"` is present in its own reply and data is the data before the event (`LogEntry(1,0,"count")` then `(1,1,"log")`) | none | yes (observed) |
+| AC3 retention does not change transition ordering or keep terminated instances alive | ordering: LoggingFSM wraps `processEvent` and calls `super.processEvent` unchanged (FSM.scala:981-1004); entries are lost on restart (doc :1009-1010) | no spec found for either claim; searched FSMActorSpec (whole 262-389 region), TimerSpec FSM variants | none | spec-does-not-observe |
+| (debug log, reconciliation open question) | debug lines under `pekko.actor.debug.fsm`: "processing {} from {} in state {}", "transition a -> b" (:982-1003), plus "setting timer"/"canceling timer" from the base FSM when `debugEvent` (:616-617, :631) | FSMActorSpec.scala:262-312: with the flag on, expects 5 debug messages including `processing Event(go,null) from Actor[...`, `setting timer 't'/1500 milliseconds: Shutdown`, `transition 1 -> 2`, `canceling timer 't'` | none | yes (observed) |
+
+- Findings:
+  - F1 (medium) Reconciliation dependency removal of #917 confirmed (LoggingFSM overrides `processEvent`, FSM.scala:981, not `onTransition`). Its replacement edge #881 FSM-03 is questionable by title: `processEvent` (state function lookup and unhandled fallback, :858-867) is event dispatch (#840 FSM-02 "Initialize and dispatch"), while `applyState`/`makeTransition` (:869-909) is FSM-03. LoggingFSM wraps both. I did not re-read #840/#881 bodies, so this is a flag, not a correction.
+  - F2 (low) Add the default and edge: `logDepth = 0` disables history (FSM.scala:962,992); the arrays are allocated from `logDepth`, so a negative depth fails at construction (`new Array[Event](logDepth)`, :966; Scala semantics, not executed).
+  - F3 (low) AC3 "keep terminated actor instances alive" has no Pekko statement; the entries hold `Event` objects referencing user data. Open question: what retention rule is intended; missing evidence: none upstream.
+  - F4 (low) The debug-log part is partly in FSM base (timer lines) not LoggingFSM; scope question belongs to the Owner/Architect (#794 EVT-11 independent per reconciliation).
+- Dependencies: #917 -> #949 declared: wrong (confirmed). #794 EVT-11 independent: fine.
+- Oracle (D13): oracle exists (FSMActorSpec:262-332); AC3: applicability pending determination.
+
+---
+
+### #970 FSM-05 — Expose keyed FSM timers
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (plus a wording defect in the criterion 4 text, F1)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 single, fixed-delay, fixed-rate select timing mode | `startSingleTimer`/`startTimerWithFixedDelay`/`startTimerAtFixedRate` -> `Timer` with mode and scheduler call `scheduleOnce` / `scheduleWithFixedDelay` / `scheduleAtFixedRate` (FSM.scala:132-149, 553-594); deprecated `setTimer` maps `repeat=true` to FixedRate (:605-613) | T/actor/TimerSpec.scala:179-187 `FsmTimerSpec` runs the abstract spec with an FSM: :200-209 single (`Tock(1)` once, then no message 100 ms), :211-222 fixed delay (three `Tock` within 4 intervals); FSMTimingSpec.scala:75-84 single, :129-138 fixed-delay repeated 5 times then cancelled. **Fixed-rate: no spec found**; searched `startTimerAtFixedRate` over all of actor-tests: no hit | none | single, fixed-delay: yes; fixed-rate: no spec |
+| AC2 cancel and replace preserve generation protection | `startTimer` cancels an existing timer with that name and stores a new `Timer` with `timerGen.next()` (FSM.scala:615-624); `receive` delivers only if `(owner eq this) && timers.contains(name) && timers(name).generation == gen` (:818-819); `cancelTimer` removes (:630-637) | TimerSpec FsmTimerSpec :224-237 "replace timer" (a queued old tick is discarded: no message for interval+100 ms, then `Tock(2)`), :239-248 "cancel timer"; :260-299 discard timers from old incarnation after restart; FSMTimingSpec.scala:100-111 cancel a named timer whose message is already in the mailbox; :86-98 resubmit under the same name | none | yes (observed) |
+| AC3 FSM termination cancels timers without extra transitions | `terminate` cancels all timers, clears them and cancels the state timeout (FSM.scala:928-935); it calls no `makeTransition` | FSMActorSpec.scala:223-260 "cancel all timers when terminated": three named timers + state timeout active after start, all inactive inside `onTermination` after `stop()`; FsmTimerSpec :250-258, :301-306 (`isTimerActive` false at pre-restart / post-stop). "Without extra transitions" is not asserted by any spec | none | cancel: yes; "no extra transitions": spec-does-not-observe (code only) |
+| criterion 4 (added by reconciliation) PoisonPill payload | `Timer.schedule`: an `AutoReceivedMessage` payload is scheduled raw instead of the `Timer` wrapper (FSM.scala:139-143), so the `Timer` case of `receive` (:818-829) is never reached | TimerSpec.scala:124-130 (`autoReceive()` starts a timer with payload `PoisonPill`) + :308-314: after `AutoReceive` the actor terminates (`expectTerminated`), run for the FSM variant by FsmTimerSpec (:179). The FSM has no handler for PoisonPill, so termination shows it was auto-received | none | yes (PoisonPill, single-shot and `repeat=false` only: the test uses `target(..., repeat = false)`) |
+
+- Findings:
+  - F1 (medium) Criterion 4 text says: "any criterion about Kill or cancellation is Go-side evidence recorded as `pending approval` under ADR 0033 D13". D13 (0033:47) requires a differential scenario whenever an applicable oracle exists and does not make a row `pending approval` by default; no evidence shows that no Pekko oracle applies to a Kill payload: the same code path serves Kill (`Kill extends AutoReceivedMessage`, Actor.scala:60; FSM.scala:141), and a missing dedicated spec does not show that no oracle applies (applicability pending determination). Replacement: "No upstream spec starts an FSM timer with a Kill payload or cancels a PoisonPill timer already scheduled; for those cases the oracle applicability is pending determination (ADR 0033 D13)."
+  - F2 (medium) Evidence line "detecting mutation: deliver the payload to the event handler" and "(V1)" are Architect proposals, not Pekko facts: keep, but mark as test design.
+  - F3 (low) Add `isTimerActive` (FSM.scala:644) decision, already in the reconciliation. Observed in FSMActorSpec:247-250 and TimerSpec :104 (`GotPreRestart(isTimerActive("T"))`).
+  - F4 (low) Fixed-rate has no oracle spec; story AC1 asks "select their explicit timing mode" which for rate vs delay is only visible under scheduler stalls (FSM.scala:556-574 docs: burst after pauses). Test-design suggestion, not a finding: under a manual clock the observable difference would be the catch-up burst; whether to test it is an open question.
+  - F5 (low) FSM-13 / #1061 owns restart cleanup (FsmTimerSpec :250-299); #930 FSM-09 owns terminate; reconciliation edge #930 -> #970 matches AC3 code.
+- Dependencies: #938 TIM-08 removal: right (FSM calls the scheduler directly, FSM.scala:145-147). #821/#822/#823 right per mode. #881 FSM-03, #930 FSM-09, #1043: consistent. #770 MSG-06 and #1038 GOV-07 (PoisonPill) for criterion 4: right; #1191 TIM-17 boundary: right (ordinary actor timers are Timers.scala, not read in this pass).
+- Oracle (D13): oracle exists for single, fixed-delay, replace/cancel, terminate, PoisonPill payload (specs above); fixed-rate and "no extra transitions": applicability pending determination.
+
+---
+
+### #1059 FSM-11 — Provide the stash variant of the FSM
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 stash in 'start', unstash all and goto 'next' on 'go', 'next' receives 'work' | `AbstractFSMWithStash extends AbstractFSM with Stash` plus a `postStop` override only for javac (A/actor/AbstractFSM.scala:575-585). The behavior is that of `Stash` mixed into an FSM; no FSM code references stash | T/actor-tests/src/test/java/.../AbstractFSMWithStashActorTest.java:34-81: FSM with `start` (stash everything but "go"; on "go" `unstashAll(); goTo("next")`) and `next` (forwards event to the probe); sends "work" then "go"; asserts `probe.expectMsg("work")`. This is NOT only a compile test: it observes the replay in the later state (class comment :27-31 states the compile motive) | none | yes (observed, one stashed event) |
+| AC-R2-1 replay in 'next' in order; unmatched event reaches unhandled | not stated by FSM code; replay goes through the actor mailbox so FSM `receive` handles it (FSM.scala:813-851) | no spec found: the Java test stashes exactly one event, has no unmatched event and no ordering assertion; searched actor-tests, actor-typed-tests, actor-testkit-typed for FSM+Stash (only the Java file and TimerSpec's TimersAndStashSpec, which is Timers+Stash) | none | spec-does-not-observe |
+| R1 "without changing the state data" | no statement | Java test: data stays "data", not asserted | none | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium) Story Context says "The only upstream test is a Java compile-and-smoke test ... not a Scala spec": the test does observe behavior (replay via `probe.expectMsg("work")`); ordering and unhandled replay are not observed. Replacement: "Upstream observes one stashed event delivered to the later state's handler (AbstractFSMWithStashActorTest.java:72-81); ordering of several events and unhandled replay have no upstream spec."
+  - F2 (medium) Evidence text for AC-R2-1 says "Pekko oracle exists for FSM but the judge harness does not drive it yet (plan 5.2); V3 needs B-02, else alternative evidence recorded `pending approval`". D13 says the opposite default: leave applicability pending determination; `pending approval` only after an oracle is shown not to apply. Replace with "oracle applicability pending determination (no upstream Scala spec; one Java test, AbstractFSMWithStashActorTest.java:72-81)".
+  - F3 (low) Dependency table omits #840 FSM-02 (listed under "Consumed"). Missing edge: #840 -> #1059 depends_on (not independently verified).
+  - F4 (low) Scala-visible form: `FSM with Stash` mixes in Scala; whether it works in the Scala build is not shown by any Scala test (only Java); `UnrestrictedStash` overrides `preRestart/postStop` which FSM also defines (the reason for the override at AbstractFSM.scala:577-585). Restart/stash interplay is #1061/#935.
+- Dependencies: #797 -> #1059 and #898 BHV-06 -> #1059: right; add #840 -> #1059; BHV-05 #855 (stash the envelope) is "out of scope" in the body but needed for `stash()`: candidate missing edge (the body lists #855 under out-of-scope mechanism, not as a prerequisite). Status: #898 is `prio:P0 blocked`, FSM-11 P3: consistent.
+- Oracle (D13): applicability pending determination (no Scala spec; one Java test exists and can be hosted as a scenario).
+
+---
+
+### #1062 FSM-14 — Set and replace the FSM state timeout
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 set timeout d for S, then entering S gives StateTimeout once after d | `setStateTimeout(state, timeout) = stateTimeouts(state) = timeout` (FSM.scala:650); read at the end of `makeTransition` when the transition's timeout is None/negative (:901-906) | no spec calls `setStateTimeout`: grep over upstream `*.scala`, `*.java`, `*.md` finds only FSM.scala:650, persistence PersistentFSMBase.scala:327 and the doc docs/src/main/paradox/fsm.md:216; FSMTimingSpec read in full; related: FSMTimingSpec.scala:33-41 (registered timeout via `when(state, stateTimeout)`) | none | no spec |
+| AC-R2-1 second set replaces the first | map assignment (FSM.scala:650) | no spec | none | no spec |
+| AC-R3-1 set does not change an already armed deadline | scheduling happens only in `makeTransition` (FSM.scala:896-907); `setStateTimeout` does not touch `timeoutFuture` (:650) | no spec | none | no spec |
+| AC-R3-2 explicit transition timeout wins | `Some(d)` with `d.length >= 0` is scheduled before the map is consulted (:901-906) | FSMTimingSpec.scala:62-73 (`forMax(Duration.Inf)` overrides the registered 800 ms: no message in the first 400 ms) | none | partial (only the Inf override, 400 ms window) |
+
