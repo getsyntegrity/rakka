@@ -1,0 +1,4 @@
+source	target
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala	pekko-actor/actor/actorsystem_deadletters_spec_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala	pekko-actor/actor/actormodel_one_at_a_time_spec_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala	pekko-actor/actor/deathwatch_restart_spec_test.go

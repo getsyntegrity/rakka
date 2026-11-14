@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git rebase:*)",
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "Bash(git switch:*)",
+      "Bash(git restore:*)",
+      "Bash(git clean:*)",
+      "Bash(sbt:*)",
+      "Bash(go test:*)"
+    ],
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(rg:*)",
+      "Bash(wc:*)",
+      "Bash(go build:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt:*)",
+      "Bash(eza:*)",
+      "Read(//Users/pablogore/workspace/pablogore/goPekko-worktrees/public-ports-1475/**)",
+      "Edit(//Users/pablogore/workspace/pablogore/goPekko-worktrees/public-ports-1475/pekko-actor/actor/actorsystem_deadletters_spec_test.go)",
+      "Edit(//Users/pablogore/workspace/pablogore/goPekko-worktrees/public-ports-1475/pekko-actor/actor/actormodel_one_at_a_time_spec_test.go)",
+      "Edit(//Users/pablogore/workspace/pablogore/goPekko-worktrees/public-ports-1475/pekko-actor/actor/deathwatch_restart_spec_test.go)"
+    ],
+    "additionalDirectories": [
+      "/Users/pablogore/workspace/pablogore/goPekko-worktrees/public-ports-1475"
+    ]
+  }
+}

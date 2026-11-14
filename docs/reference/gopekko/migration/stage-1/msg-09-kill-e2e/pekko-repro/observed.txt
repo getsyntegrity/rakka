@@ -1,0 +1,7 @@
+OBS A-default terminated received
+OBS A-default final made=1 postStops=1 preRestarts=0 postRestarts=0 terminated=1 childReceives=0
+OBS B-restart decider-cause ActorKilledException(Kill) isActorKilled=true
+OBS B-restart preRestart cause=ActorKilledException(Kill) message=Some(Kill)
+OBS B-restart child-receive ping
+OBS B-restart ping-reply-after-restart ping
+OBS B-restart final made=2 postStops=2 preRestarts=1 postRestarts=1 terminated=0 childReceives=1
