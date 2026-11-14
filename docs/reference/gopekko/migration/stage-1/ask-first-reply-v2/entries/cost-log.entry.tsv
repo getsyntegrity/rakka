@@ -1,0 +1,7 @@
+step	timestamp	wall_clock_min	tokens	subagents	model
+act-016-v2-implement	2026-10-14T04:16Z	1.4	93348	1	claude-sonnet-5-5
+act-016-v2-implement-aborted	2026-10-14T04:13Z	unknown	unknown	1	opus (killed after about 2 minutes; no JSON; draft not reused)
+act-016-v2-review-architect	2026-10-14T04:17Z	0.9	32266	1	claude-opus-5-5
+act-016-v2-review-second	2026-10-14T04:17Z	0.5	22435	1	claude-sonnet-5-5
+act-016-v2-fix	2026-10-14T04:18Z	0.6	28815	1	claude-sonnet-5-5
+act-016-v2-review-delta	2026-10-14T04:21Z	1.0	25635	1	claude-opus-5-5

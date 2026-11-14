@@ -1,0 +1,3 @@
+source	target
+upstream/pekko/actor/src/main/scala/org/apache/pekko/pattern/AskSupport.scala	pekko-actor/actor/ask.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala	pekko-actor/actor/ask_firstreply_internal_test.go
