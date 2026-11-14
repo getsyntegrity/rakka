@@ -1,0 +1,67 @@
+- Verdict: OK (with one correction below).
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 six sections | n/a (document structure) | n/a | n/a | n/a |
+| AC-R2-1 status `proposed`, Owner decision `pending` | n/a | n/a | n/a | n/a |
+| AC-R3-1 cites `DynamicAccess.scala:33`, `ReflectiveDynamicAccess.scala:35` | `abstract class DynamicAccess` at :33 (`@DoNotInherit`); `class ReflectiveDynamicAccess(val classLoader: ClassLoader)` at :35: both lines verified. It loads classes and constructs by fully qualified name (`DynamicAccess.scala:25-33` doc). | no spec by that name found. | `Spawn(owner, name, factory func() Actor[T])` (`spawn.go:85`); no reflective symbol. | yes |
+
+- Findings:
+  - F1 (medium). The body says the likely outcome is `jvm-only`, "but exclusions are Owner decisions (plan 2.3, 8.7)". Consistent with the delivery plan's open O-6. However `DynamicAccess` is also the loading mechanism for non-reflection user-visible features that have Go counterparts decided elsewhere (provider by name `ActorSystem.scala:975`, router by name `Deployer.scala:300-310`, mailbox types `Mailboxes.scala:86-98`); the proposal's "observable differences" section should list those users or state they are excluded with HOCON (ADR 0033 D8). Not a text error; a coverage note.
+  - F2 (low). R1 requires a section "How GoAkt solves it": GoAkt is consulted only from an ADR showing it solved a feature better (project rule); an ADR section about GoAkt is permitted by that rule. No issue.
+- Dependencies: `independent`; no producer. Correct: nothing in the sources read requires another story. The title says "ready" while the `Contracts` note says the output feeds the exclusion register #1044 (`prio:P1 status:blocked`) as a consumer; consumer edge not declared in the dependency table (`#1125 -> #1044` is not listed). Missing consumer edge only.
+- Oracle (D13): does not apply (documentation of an exclusion; no behavior claimed).
+
+### #1126 SYS-26 — Decide the AbstractActor and Java overload boundary as java-api
+- Depth: DEEP for Pekko anchors (documentation story).
+- Labels now: `prio:P3`, `status:ready`.
+- Verdict: OK (with one note).
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 six sections | n/a | n/a | n/a | n/a |
+| AC-R2-1 `proposed`, Owner decision pending | n/a | n/a | n/a | n/a |
+| AC-R3-1 every AbstractActor outcome mapped to a Go counterpart or `java-api` with `AbstractActor.scala:229` cited | `abstract class AbstractActor extends Actor` at :229 (verified); `abstract class AbstractActorWithStash extends AbstractActor with Stash` at :410 (verified). The user outcomes are the Actor behavior itself (receive, context, lifecycle hooks, supervisor strategy). | no spec reviewed for AbstractActor in this pass (`actor-tests` has Java specs not opened). | `Actor[T]` with `Receive` (`actor.go:19`, as cited by the story). | partly unverified |
+
+- Findings:
+  - F1 (medium). The story calls the whole `AbstractActor` surface `java-api`. `AbstractActor` is the Java-facing *base class*, but the user outcomes it carries (receive builders, `AbstractActorWithStash`, `createReceive`) correspond to Classic Actor behavior that Go already covers or has gaps on (e.g. stash: ADR 0017's gap list mentions "user `Stash` and its restart behavior (#62/#182/#183)"). So a blanket `java-api` classification of `AbstractActorWithStash` could hide the stash capability from the inventory; AC-R3-1 ("every AbstractActor outcome has a Go counterpart or the reason `java-api`") protects against that only if the table lists stash. Neutral replacement of the risk note: "`AbstractActorWithStash` (`AbstractActor.scala:410`) carries the Stash capability; classify the capability under its own story, not the Java wrapper." I did not verify `Stash` stories in the group (#62/#182/#183 belong to other epics).
+  - F2 (low). The out-of-scope note ties Typed `AbstractBehavior` to #1086 (GOV-37, `prio:P1 status:blocked`): consistent.
+- Dependencies: `independent`; the same consumer edge to #1044 is not declared (see #1125).
+- Oracle (D13): does not apply (exclusion record).
+
+### #1127 SYS-27 — Decide whether an optional Go signal and exit integration is adopted
+- Depth: DEEP for Pekko anchors; the Pekko JVM-hook specs were opened only for their helper (`JvmHookTest` at :757-797) and sampled (:584-646).
+- Labels now: `prio:P3`, `status:ready`.
+- Verdict: OK (with one correction below).
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 six sections | n/a | n/a | n/a | n/a |
+| AC-R2-1 `proposed`, decision pending | n/a | n/a | n/a | n/a |
+| AC-R3-1 each alternative has an owner of signal handling, a global effect and default `off`, citing `CoordinatedShutdown.scala:246` and `:830` | `:246` is `val exitJvm = confForReason.getBoolean("exit-jvm")` in the `terminate-system` task; `System.exit` at :258, :268, :272 (verified); `exit-jvm = off` and `run-by-jvm-shutdown-hook = on` in `reference.conf` (:1263 per story; the grep found `jvm-shutdown-hooks on` at :98). `:830` is `def addJvmShutdownHook`. | `AT/CoordinatedShutdownSpec.scala:584-646` four `JvmHookTest` cases using a mock `JVMShutdownHooks` (`:766-791`) to count hooks; they do not call `System.exit` and do not run a real signal. | none | yes (anchors) |
+
+- Findings:
+  - F1 (medium). In Pekko the JVM shutdown hook is **on by default** (`run-by-jvm-shutdown-hook = on`, `reference.conf` near :1270, and `jvm-shutdown-hooks on` at :98): by default a SIGTERM runs coordinated shutdown. Only `exit-jvm` is off by default. The story's R3 says "no process-level behavior is enabled by default" and AC-R3-1 requires each alternative's default to be `off`; that is a goPekko position, not Pekko's default for the hook. Current text: "default of `off`, citing CoordinatedShutdown.scala:246 and :830". Neutral replacement: "Pekko defaults: `exit-jvm = off` (process exit) but the JVM shutdown hook that starts coordinated shutdown is on by default (`reference.conf:98,1270`; `CoordinatedShutdown.scala:278-296`). A goPekko default of 'off' for signal handling would differ from Pekko's default (hook on); that difference needs an explicit Owner decision; evidence missing: explicit Owner decision."
+  - F2 (low). The traceability cell cites the spec as "(jvm-only)" and lines 584-646 correctly.
+  - F3 (low). The alternative "helper that only reports an exit code without calling os.Exit" has no Pekko counterpart (Pekko calls `System.exit` or does not); it is a proposal, which the story presents as an alternative to be evaluated. Fine, no Pekko claim made.
+- Dependencies: `independent`; `#803` child relation consistent. #1121 refers to this story for exit settings in its out-of-scope list, but #1121's dependency table has no edge to #1127 (the consumed settings belong to it); only a textual reference.
+- Oracle (D13): does not apply to the decision; if a Go signal integration is adopted, an oracle exists only for hook registration (`CoordinatedShutdownSpec.scala:584-646`), not for a real signal.
+
+---
+
+## Summary
+
+Counts: DEEP 13 (#782, #783, #826, #863, #883, #919, #1116, #1121, #1122, #1123, #1125, #1126, #1127). PARTIAL 7 (#842: PR #1013 not read; #843: Go and ADR 0010 items not read in full; #801, #802, #803: parts of the Pekko source not opened; #1117, #1118: built-in Stop spec and DeathWatch source not opened). Total 20.
+
+Stories to re-read first: #782 and #783 (three distinct Pekko dispositions, one a silent drop), #883 (repeated cancel returns true, contrary to the trait doc), #843 (precedence oracle exists: deployment trumps code; ActorSystemSetup is not a defaults source), #842 (reconciliation misstates the ADR 0031 contradiction), #1123 (the claimed spec cannot observe concurrent start), #1116/#1117/#1118/#863 (Pekko's Decider has no context parameter), #1127 (Pekko's JVM hook is on by default).
+
+## Key Learnings
+
+1. In Pekko 1.7.1 a Failed system message that loses to a parent stop has three different outcomes by parent state: a dead letter via the closed mailbox, a dead letter via ActorCell sendAllToDeadLetters with different sender and recipient, or a silent drop when stashed during termination (ActorCell.scala:721-725).
+2. CoordinatedShutdown TaskDefinition.cancel returns true on every repeated cancel and false once the task is running, while the Cancellable trait documents false on repeat, and CoordinatedShutdownSpec.scala:343 asserts the true result.
+3. Pekko resolves dispatcher and mailbox with deployment config over Props over defaults, observed by DispatchersSpec.scala:270-273, and ActorSystemSetup is only a typed bag of bootstrap Setup objects.
+4. Pekko's SupervisorStrategy.Decider is a PartialFunction[Throwable, Directive] without a context; the ActorContext reaches only handleFailure, processFailure and handleChildTerminated, so the Go decider-with-context has no direct Pekko analog.
+5. CoordinatedShutdownSpec "run ordered phases" cannot observe concurrent task start because both phase-b tasks send the identical string and one is synchronous.
