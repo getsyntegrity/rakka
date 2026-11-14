@@ -1,0 +1,360 @@
+  factory fails, no instance exists, no hook runs and the stop completes; if the first `PreStart` fails (an error, a panic
+  or a `runtime.Goexit`, not an `OrdinaryFailure`), `PreStart` ran once and no `PostStop` runs, as in Pekko Classic
+  ([ADR 0012](../docs/adr/0012-stop-before-first-activation.md), "Correction (#690)", accepted by the Owner on 2026-10-22). **A resource that
+  `PreStart` acquired before it failed must be released on that failure path of `PreStart` itself; do not rely on
+  `PostStop`.** The new instance of a restart is a different case: if its `PostRestart`, or the `PreStart` that the default
+  `PostRestart` runs, fails, `PostStop` still runs when the supervisor stops it. The `/user` guardian has the same gate. It closes when `/user` is stopped (through the handle that `Parent()` returns
+  to a top-level actor), and then `Spawn` through the `*System` fails with `ErrSystemStopping`, which satisfies `errors.Is(err, ErrParentStopping)` (see "Termination of the System").
+- A `Watch`, `WatchWith` or `Unwatch` made after the actor's stop was accepted does nothing, even with a valid handle:
+  no registration is kept and no link is left at the subject.
+- A `Context` is valid only during the handler call of its own actor; this is not enforced yet (ADR 0010 X1 is not
+  claimed).
+- **`Context.System() *System`** (#1182 slice B, ADR 0011 EXP-1) is Pekko's `context.system` (`ActorCell.scala:187`): it returns the
+  `System` that spawned the actor, so a handler reaches `DeadLetters()`, `Terminate()` and the rest of what `*System` exposes. Pekko
+  denies none of that to a Classic actor, and `Context` already carries `Kill`, `PoisonPill` and `Stop`. Its first consumer is
+  `pekko-actor-typed`, which publishes the inputs a restart held as dead letters when the replay meets a `Stopped`; the typed `Context`
+  does not re-export it. Test: [`context_system_test.go`](actor/context_system_test.go). Read against Pekko, not run.
+
+```mermaid
+flowchart TD
+    V["validate child name"] --> R{"owner gate open?"}
+    R -->|No| E["ErrParentStopping"]
+    R -->|Yes| K["reserve (owner, name) with a token"]
+    K --> C["one step: token -> record, ID, byID (no factory yet)"]
+    C -->|token lost| T["ErrNameTaken, nothing committed"]
+    C -->|gate closed meanwhile| S["accept stop, then first Execute"]
+    C -->|gate open| X["first Execute, return the Ref"]
+    X --> F["first activation: factory, then PreStart"]
+    S --> F
+    F -->|nil, panic, Goexit| B["InitializationError to the parent (default Stop), factory-failed"]
+```
+
+### Recursive stop and hierarchical finalization (implemented)
+
+Stopping an actor stops its whole subtree, and `Done` of an actor means its subtree is finished.
+
+- **What happens.** Accepting the stop of an actor closes its spawn gate and returns. After the in-flight call and
+  the start step, the actor asks every child it has committed to stop (outside every lock, each child through its own
+  activation) and gives up its activation. It then waits for its **outstanding set**: the incarnation IDs of its
+  committed children that have not signalled completion (a child still running its factory is committed, so it is
+  counted), plus a reservation only between the reserve and the commit of one `Spawn` call. When
+  the set is empty and the gate is closed, its finalization is scheduled once through the executor: `PostStop`, then
+  the pending messages are dead-lettered (once per mailbox, FIFO), the name is released, the dead letters are
+  published, the watchers are told, `Done` closes, and finally the actor signals its owner.
+- **Guarantees.** Every descendant finalizes before its ancestor's `PostStop`; `Done(parent)` closed implies `Done`
+  closed for every descendant; `PostStop` never overlaps an in-flight `Receive`; the name and the entry in the
+  parent's `Child`/`Children` are gone before the watchers are told and before `Done` closes (goPekko's own contract,
+  ADR D2); a child signals its owner only after `close(done)`. The order among siblings is unspecified.
+- **Completion contract.** A child leaves the owner's outstanding set only through its own post-`Done` signal, by
+  membership of its incarnation ID: a duplicate, stale (a respawned name), unknown or foreign signal changes nothing.
+  Releasing the name does not count as completion. An owner with nothing outstanding (a leaf, or one whose children
+  all finished earlier) finalizes at once, without waiting for any signal. A child committed while the owner is
+  stopping is stopped by the owner's termination and awaited, whether its factory works or fails. Top-level actors signal `/user`, whose set returns to baseline; stopping `/user` stops them first, then `/system` and the root
+  guardian follow (units U5a to U5c; `Terminate`, `WhenTerminated` and `Shutdown` are in "Termination of the System").
+- **Stopping from inside.** `ctx.Stop` on a child, a sibling or the parent works as for any handle. A child that stops
+  its parent finishes first, then the parent finalizes exactly once. Stopping a sibling only affects that sibling's
+  subtree.
+
+```mermaid
+flowchart TD
+    A["stop accepted: gate closed"] --> B["in-flight call, start step"]
+    B --> C["request the stop of every committed child"]
+    C --> D{"children outstanding?"}
+    D -->|none| F["finalization scheduled once"]
+    D -->|some| W["wait"]
+    W -->|"child signal after its Done"| D
+    F --> G["PostStop, dead letters, name release, watchers, close Done"]
+    G --> H["signal the owner"]
+```
+
+Limitations, stated without hiding them:
+
+- A **factory that never returns** keeps its child's start and completion pending and blocks the owner's finalization,
+  and so every ancestor's `Done`, forever; with an inline executor it also blocks `Spawn`, with the default executor
+  it does not. A **handler that never returns** (a `Receive`, `PreStart`, or `PostStop` blocked on a
+  channel) blocks the completion of its actor in the same way. Neither is solved; `Done` does not pretend otherwise.
+- `byID` holds the live actors and the three guardians. An entry is retired when the owner counts the completion of the
+  actor, after `Done` closed and the watchers were told (ADR 0024, decisions D1-D5; the unit is tracked in #541).
+  Repeated create and stop returns the name tables, the outstanding sets and `byID` to baseline. A `Ref`, and the handles
+  from `Child`, `Children` and `Parent`, keep their result after the retirement: `Tell` is a dead letter, `Ask` is
+  `ErrRecipientTerminated`, `Done` is the same closed channel, `Watch` delivers `Terminated`. `ChildFailure.Child` carries
+  that state only when the child was still registered when its failure was decided; for a child the registry had already
+  retired it is a bare identity handle. A handle that carries only an ID (a user-implemented `Handle`, or that bare
+  handle) gets a closed channel and `ErrUnknownHandle` from `Done` once the actor is retired. Retirement ends the System's reference to the actor; a `Ref` the application keeps still holds the
+  cell. T6 is integrated: the release (#739, squash `a807fed2`, after #738) and its additional tests and evidence (#743, squash `d2a85040`). Issue #563 is closed with an evidence comment; #461 stays open for the consolidated actor closure. Evidence is in `migration/stage-1/cell-release-563/EXECUTION-RECORD.md` (sections 16 to 18): the historical author-run campaign detected 22 of 24 directed mutants, and M5 and M11 were later detected separately by one test (T04b), with no new full campaign and no total claimed; an independent review of that test (PASS_WITH_MINORS, at `177ed4c`); final gates run on `23771e9`, whose Go content is identical to the integrated head. The earlier independent read-only reviews found no blocker but ran no tests. The change releases the user instance, the factory and the failure and restart state of a finalized cell (`releaseTerminated`, after the watchers are told and before `Done` closes; that the call is adjacent to `close(c.done)` rests on inspection; T04b pins that the release runs under `c.mu` before `Done` closes, polling with a 1 ms cadence and a 10 s bound that only limits a failure); identity, the hierarchy node, `ctx`, `self`, `owner` and the counters stay, so a held `Ref` still pins that shell and, through `owner`, the parent's node. One heap measurement exists, for one scenario (200 actors stopped, every `Ref` held): reachable heap after GC about 0.4 to 0.8 MiB with the release against about 200 MiB without it. It measures reachability after GC, not memory returned to the operating system, and says nothing general. `-race` on Linux was not run, and the GitHub Actions jobs of #743 did not start because of billing, so there is no CI result. No Pekko parity is claimed.
+- The default strategy exists for a child of an actor (see "Supervision (units U1 to U5)"); the guardians are actors (units U5a to U5c) and the System can be terminated with `Terminate` and `Shutdown` (U10). The unexported completion seam (`completionPoint`) exists for tests only.
+  So does the root gate closer, the unexported `System.closeGate(root)`; there is no public closer. Behavioral
+  parity with Pekko of the hierarchical termination is not claimed: see the parity statement below and
+  [actor-core-parity.md](../docs/actor-core-parity.md).
+- Decisions P1-P7 of the recursive stop (finalization through the executor, the `terminating` flag, where a `PostStop` that
+  ends with `Goexit` resumes, the completion seam, and others) are implemented but were taken by the writer of the slice,
+  **not accepted by the owner yet**. They are listed with the tests that exercise each one in
+  [ADR 0014 implementation decisions](../docs/adr/0014-implementation-decisions.md).
+
+## Supervision (units U1 to U5)
+
+Purpose: a parent decides what happens to a child whose `Receive` or start fails: its own strategy if it declares one,
+and `DefaultStrategy` (U3) otherwise.
+Implemented in U1: the `Failed` channel from child to parent, counted recursive suspension, and `OneForOne` with
+`Resume`, `Stop` and `Escalate` ([ADR 0017](../docs/adr/0017-supervision.md)). Implemented in U2: `Restart`, the
+`Budget` (max retries and window, per child) it consults, the hooks `PreRestarter` and `PostRestarter`, the
+`FailedMessage` given to `PreRestart`, and `*InitializationError` for a failed start. Implemented in U3: the exported
+`DefaultStrategy` (`OneForOne`, unlimited budget; Stop for an `*InitializationError`, `ErrActorKilled`, `ErrDeathPact` and `ErrGoexit`,
+Restart for any other cause, never Escalate), applied to a parent that declares no strategy or returns a zero
+`Strategy`; the exported `ErrGoexit` (a `runtime.Goexit` in `Receive`, `PreStart`, `PreRestart`, `PostRestart` or the
+decider is a failure that reaches the decider, and a Restart or Resume continues the activation on a fresh goroutine
+with no message lost; a Goexit inside the decider is final and the decider is not asked again); and the death pact and
+`OnTerminated` failures reported to the decider. Implemented in U4 (#444): a creation failure is supervised like any
+other start failure. `Spawn` commits the child and returns its `Ref`; the child's first activation runs the factory
+before `PreStart`, and a nil actor, a panic or a `runtime.Goexit` of the factory is an `*InitializationError`
+(`InRestart` false) decided by the parent, with the event `factory-failed`; the Goexit of the factory of a **restart**
+is classified too (`InRestart` true). A Restart or Resume choice re-creates through the same path with no queued
+message lost; a stop accepted before the first activation with a failing factory runs no hook. See "Children, names
+and recursive stop" for the name and `Spawn` contract. **Not implemented (planned):** `CoordinatedShutdown`
+and user-defined strategies. Supervision logs are in "Supervision logs (U9, #451)" below.
+
+### AllForOne (U6, #447)
+
+`AllForOne(budget, decide)` is the strategy of Pekko's `AllForOneStrategy`. It takes the same `Budget` and `Decider` as `OneForOne`; only a `Restart` or a `Stop` decision differs. Implemented behavior (scenarios AF1-AF18 in `supervision_allforone_internal_test.go`, executable example `ExampleAllForOne`):
+
+- `Resume` applies to the failing child only. `Escalate`, `ok == false`, a nil decider, a panicking decider and a Goexit do not run the strategy: no counter is charged and no sibling is restarted or stopped by `AllForOne`. When the parent itself fails, its own failure suspends its other children as it does under any strategy.
+- `Stop` stops every child, the failing one included.
+- `Restart`: the parent captures its children once, with their restart statistics, **before** the decider runs. It then asks the permission of each child in ascending name order and stops at the first denial. If all permit, every child is restarted with the cause of the failing child (the siblings are suspended first). If one denies, **every** captured child is stopped and one `restart-denied` event names the denier. Children that were never reached keep their counters; those before the denier stay charged.
+- A child created by the decider is outside the round. A captured child that ends before its turn still counts with the counters captured with it.
+- `FailedMessage` is what each cell holds: absent for a healthy sibling, kept by a sibling whose own failure is pending.
+
+```mermaid
+flowchart TD
+  F[child fails] --> C[capture children and their counters]
+  C --> D{decider}
+  D -- Resume --> R[resume the failing child only]
+  D -- Escalate / ok false / panic --> E[parent fails, no AllForOne action]
+  D -- Stop --> S[stop every captured child]
+  D -- Restart --> P{every child permits, in name order?}
+  P -- yes --> A[suspend siblings, restart all with the cause]
+  P -- first denial --> X[restart-denied, stop every captured child]
+```
+
+Limits. The ascending-name order is the behavior observed in Pekko v1.7.1 (a `TreeMap` by name), not a documented guarantee of Pekko or of this module. The Java-API overloads, and strategy equality do not exist (`loggingEnabled` is `WithLogging`, see below). Parity with Pekko is not claimed; the mutation campaigns beyond the three mutants of #447, the judge campaign and the repeated `-race` runs stay pending until the module closes (#461).
+
+```go
+type Parent struct{}
+
+func (Parent) Receive(ctx *actor.Context[Cmd], m Cmd) error { /* spawn children, handle m */ return nil }
+
+// SupervisorStrategy makes Parent an actor.Supervisor[Cmd].
+func (Parent) SupervisorStrategy() actor.Strategy[Cmd] {
+	return actor.OneForOne(actor.Budget{}, actor.MakeDecider[Cmd](
+		actor.CauseDirective{Cause: ErrTransient, Directive: actor.Resume},
+		actor.CauseDirective{Cause: ErrFatal, Directive: actor.Stop},
+	)) // any other cause: (0, false), which escalates
+}
+```
+
+`DeciderFunc` adapts a `func(ctx *Context[T], child Handle, cause error) (Directive, bool)`; `MakeDecider` matches
+with `errors.Is` only, in declaration order (Pekko sorts by class specificity; Go has no class hierarchy).
+
+Observable behavior:
+
+- The cause is the error `Receive` returned, or `*PanicError` for a panic.
+- A failing child and all its descendants are suspended (counted, recursive) before the parent decides; a suspended
+  cell processes no user message but still accepts a stop. Siblings keep running.
+- `Resume` resumes only the failing child and its subtree. `Stop` accepts the stop of the failing child.
+- `Escalate` fails the parent with the identical cause; the parent's own parent then decides about the parent.
+- A decider that returns `ok == false` for a cause escalates it, whatever directive it returns.
+- `Restart` replaces the instance of the failing child, keeping its mailbox, identity and watches. The old instance
+  gets `PreRestart(ctx, cause, FailedMessage)` (default: stop the children and run `PostStop`); the factory builds
+  the new one, whose `PostRestart(ctx, cause)` runs (default: `PreStart`); children kept by a custom `PreRestart` are restarted too. A panic in
+  `PreRestart` is swallowed. If the `Budget` denies the restart, the child stops. The window boundary (a reading exactly at the end of
+  the window is inside, one nanosecond later is outside), the zero, finite and unlimited cells and the per-child counters under
+  `AllForOne` are mapped to their Go tests and Pekko source lines in [`docs/parity/sup-06/`](../docs/parity/sup-06/README.md) (story #825);
+  the clock that drives the window is a test seam, not public API, and `Config.Clock` does not drive it.
+  `Budget{}` is the literal pair `{MaxRetries: 0, Within: 0}`: it denies every restart and is **not** a default. The default is
+  `DefaultStrategy`, which is `OneForOne` with `Budget{MaxRetries: -1, Within: -1}` (unlimited), the spelling of Pekko's constructor defaults.
+  `MaxRetries < 0` is "no count": unlimited only with `Within < 0`, one restart per window otherwise. The full matrix, the alternatives
+  considered for the zero value and the evidence for each criterion are in ADR 0017 S4/A4 ([ADR](../docs/adr/0017-supervision.md)) and
+  [`docs/parity/sup-05/`](../docs/parity/sup-05/README.md) (story #779).
+- `OrdinaryFailure(err)` (`start_failure.go`): a `PreStart` (or `PostRestart`) that returns an error marked with it completes its start
+  step and, before any message is taken, fails like a `Receive` that returned `err`: the decider gets `err` as returned (not an
+  `*InitializationError`), the default strategy restarts, and no message is consumed or reordered. It exists for work that Pekko does
+  by processing a message (the persistent actor's `RecoveryCompleted`) but that runs here in `PreStart`; nothing else about `PreStart` errors
+  changes. Event `start-failure`. Tests: `actor/ordinary_failure_test.go` and, for a parent that is already stopping, `actor/start_failure_internal_test.go`.
+  **It is a new adaptation API of this port, not a Pekko API, and it has had no independent review.**
+  **Adaptation of this port (no Pekko counterpart):** a start failure is reported even if no message is ever told to the actor; before, with `Throughput` 1 the start step used the whole activation and the report waited for the next message. Test without messages: `TestAnOrdinaryStartFailureIsDecidedWithoutAnyMessage`.
+- `ResumeWith[T](err, f func(*Context[T]) error)` (`start_failure.go`): `OrdinaryFailure(err)` plus a continuation for work the instance still owes
+  (the persistent actor's confirmations of events persisted by a failing `RecoveryCompleted`). `f` runs only if the parent decides **Resume** for
+  this failure, on the same instance, once, before any user message, runtime delivery or later child failure and with no message needed, in the
+  cell's own activation outside every lock (never overlapping `Receive`, `PreStart`, `PostStop`). **Restart and Stop discard it and drop the reference**;
+  a stop accepted before the Resume wins and `f` never begins. A failure of `f` (error, panic, `runtime.Goexit`) is an ordinary failure again (event
+  `start-failure`, no `FailedMessage`, no message consumed); `f` is not rerun, and the continuation carried by the error it returned, if any, is the
+  one a second Resume runs. A continuation for another message type is never run. `ResumeWith(nil, f)` is nil and `ResumeWith(err, nil)` is
+  `OrdinaryFailure(err)`; `OrdinaryFailure` itself did not change.
+  *Linearization points.* The Resume is decided at `markResume` (under the cell lock, when the parent's decision reaches the failing cell with its
+  cause); the continuation **begins** when the drain takes it (`takeRuntimeLocked`, under the same lock, which also clears it). A Stop accepted
+  before that point wins: the drain checks the pending stop before every step, `terminate` drops the continuation and it never begins. A Stop
+  (or `StopSelf`) accepted **after** it does not interrupt the continuation: it runs to its end and the stop takes effect at the next step, before any
+  message (`TestAStopRequestedInsideTheContinuationDoesNotInterruptIt`). Restart discards it at `runRecreate`.
+  *Ordering.* The continuation runs after the system items and the decisions about child failures, and before runtime deliveries of `Terminated` and before user messages. What was
+verified in Pekko, and no more: the journal's confirmation is an ordinary message (`AsyncWriteJournal.scala:128`); the death of a watched actor reaches the watcher as the
+system message `DeathWatchNotification` (`ActorCell.scala:522`), and it is `watchedActorTerminated` that tells the `Terminated` to the actor itself as an **ordinary** message
+(`DeathWatch.scala:110`, `self.tell(Terminated(...))`); and the persistent actor stashes every non-confirmation message, `Terminated` included, while its confirmations are
+pending (`Eventsourced.scala:958-962`). So the system message and the `Terminated` that the actor receives are different messages, no priority of `Terminated` is assumed, and
+"continuation first" agrees with that path for the pending-confirmation case; this is not a claim of full parity, and the lane order among posted messages and
+user messages is this runtime's own (by arrival); a `Terminated` is enqueued at the tail when its death notification is processed. Tests: `actor/resume_with_test.go`, `actor/resume_with_internal_test.go`.
+  **A new adaptation API of this port (Owner-authorized 2026-10-18), not a Pekko API, with no independent review.** The judge matrix `CURRENT` depends on this tree and must be re-evaluated.
+- `Port` and `PortHandler[T]` (`port.go`): the way back into one cell for work that runs outside its turn (the persistence module returns the answers of the
+  snapshot store through it). **An adaptation API of this port, not a Pekko API, Owner-approved 2026-10-18, with no independent review yet**; an integration surface
+  for framework modules, not for application code (that uses `Tell` and `Ask`). The `Port` belongs to the cell: it is given by `AttachPort` once for each
+  instance, right after the factory and before `PreStart`/`PostRestart`, inside the protection of the initialization (a panic is an initialization failure, with
+  `InRestart` after a restart), it is the same value for every instance and it never reaches another cell.
+  `Post(msg) bool`: the admission point is the cell's lock. After a stop was accepted, or once the cell is closed, it returns `false` and publishes exactly one
+  `DeadLetter` from the caller's goroutine, as `Tell` does; otherwise it queues and returns `true`, which means admitted, not delivered: an admitted message is
+  given to `ReceivePort` once or, if the cell stops first, dead-lettered once when it finalizes (after the user messages that were pending), never both. `Post` does
+  not wait for the actor, but it is **not** promised never to block: it takes the cell's lock, calls the executor and, when it rejects, publishes synchronously to
+  the dead-letter subscribers. Messages are ordered by arrival with the user messages (they use the runtime lane, so one queued before a `Post` is handled
+  before it, and a `Terminated` whose notification is processed after a `Post` is handled after it); a suspended or restarting cell keeps them; the instance current when one is taken receives it, and an instance that is not a `PortHandler` makes it a
+  dead letter. `ReceivePort(ctx, msg)` runs as a step of the cell's activation, outside every lock, never overlapping another callback of the cell and not before
+  the instance's start step has finished; an error, panic or `Goexit` is an ordinary failure (event `receive-failed`, `FailedMessage` = the posted message) and
+  the queued messages wait for the decision. A `Terminated` or `WatchWith` delivery is not touched: it is still dropped silently when the cell stops.
+  The counters `told`, `received`, `deadLettered` and `depth` stay counters of `T` messages: posted messages are in none of them (their dead letters are real
+publications of the hub, not counted there). When the cell finalizes, the user messages that were pending are dead-lettered first and then the posted ones that were
+still queued, each group in its own order; no order among the two groups is promised, and no global order of arrival. An `AttachPort` that panics or ends with
+`Goexit` is classified as before, as an initialization failure with the event `factory-failed` (not renamed), `InRestart` after a restart. An instance that never
+became current may still hold the Port; what it posts goes to the current instance or to the dead letters. These corrections had no second independent review.
+Tests: `actor/port_test.go`, `actor/port_internal_test.go`. The judge matrix `CURRENT` depends on this tree and must be re-evaluated.
+- A failed start (`PreStart` of the first start) reaches the decider as `*InitializationError` with `InRestart`
+  false; a factory panic, a nil actor or a failing `PostRestart` of a restart gives `InRestart` true. `Resume` of an
+  init-failed child creates a new instance and runs `PreStart` only, without consulting the budget.
+- `InitializationError.OriginalCause` is the failure that began the restart whose new instance failed (a factory panic,
+  a nil actor, a failing `PostRestart`, or a `Goexit` of the factory, of `PostRestart` or of `PreRestart`); it is nil when
+  `InRestart` is false. `Unwrap` still returns `Err` only, so `errors.Is/As` on the container reach `Err` and the
+  original cause is read on the field. That access is an Owner-approved Go adaptation with no Pekko counterpart
+  (Pekko's `PostRestartException` has `originalCause`); no Pekko scenario was executed. Test:
+  [`supervision_restart_origcause_internal_test.go`](actor/supervision_restart_origcause_internal_test.go).
+- `ErrActorKilled` (text `Kill`, match with `errors.Is`) is the cause that the Pekko `Kill` message produces
+  (`ActorKilledException("Kill")`, `Actor.scala:174-177`). The default decider maps it to **Stop**, as Pekko's
+  `defaultDecider` does (`FaultHandling.scala:218-223`, #778): a child that fails with it, also wrapped or inside an
+  `*InitializationError`, is stopped (PostStop once, no restart) under a parent that declares no strategy; an explicit
+  strategy decides for itself. Pekko's constructor is `private[pekko]`; a Go sentinel cannot be sealed, so user code
+  can return it from `Receive` and the runtime treats it as any other cause. Tests:
+  [`err_actor_killed_test.go`](actor/err_actor_killed_test.go), `TestDefaultDecider`.
+- **`Kill` (MSG-07, #816).** `System.Kill(h)` and `Context.Kill(h)` post Kill to `h` at the end of the messages already
+  queued (Pekko `h ! Kill`; `Ref[T]` and `Handle` gain no method). When the actor reaches it, `Receive` is **not** called:
+  the actor fails with `ErrActorKilled` exactly as a failed `Receive` does, so the parent's decider chooses and the usual
+  budget, events and restart apply (`ActorCell.scala:575`). Messages queued before Kill are processed; those after it are
+  dead-lettered when the default decider stops the actor. While the actor is suspended awaiting its supervisor, Kill waits
+  its turn. `PreRestart` receives the `FailedMessage` whose value is the marker `actor.Kill` (Pekko `Some(Kill)`). Kill
+  sent to a stopped or stopping actor, or to a full bounded mailbox, is an ordinary `DeadLetter` whose `Msg` is `actor.Kill`
+  (Kill is not `DeadLetterSuppression`, `Actor.scala:60`). It takes a bounded-mailbox slot while queued and is not counted
+  in the message counters. Differences: Kill is not a message value of `Ref[T]` (`Tell(Kill)` is not recognized); Kill carries no sender, so the `Sender` of its dead letter is `System.DeadLetters()`;
+  the log text is Go's, not Pekko's `Error(ActorKilledException, ..., "Kill")`; a Kill on `/user` and a router's
+  escalation of it are not verified. **Kill is not claimed to be at parity in general.** Two scenarios have Go
+  end-to-end tests (#1031) and one executed Pekko JVM observation: default Stop and a Restart decider
+  ([`kill_e2e_test.go`](actor/kill_e2e_test.go), [`kill_path_internal_test.go`](actor/kill_path_internal_test.go),
+  [`RUN.md`](../migration/stage-1/msg-09-kill-e2e/pekko-repro/RUN.md)); no logging, `/user` or router comparison.
+  Tests: [`kill_test.go`](actor/kill_test.go).
+- **`PoisonPill` (MSG-06, #770; ADR 0010, amendment 2026-11-04).** Form: a function, `System.PoisonPill(h)` or
+  `Context.PoisonPill(h)`, not `Tell(PoisonPill)` (Pekko: `ref ! PoisonPill`). It is posted at the end of the messages already
+  queued, through the same ordered lane as Kill. When the actor reaches it, `Receive` is not called and nothing fails (no
+  `ErrActorKilled`, no restart): the stop is accepted as `Stop` accepts it, so earlier messages have run and later ones are
+  dead-lettered. `System.Stop` is unchanged and still discards the queue. While suspended, PoisonPill waits its turn. Pekko
+  observation (in the stacked evidence PR #1319, not in this tree until it merges; merge both together): `migration/stage-1/msg-06-poisonpill/pekko-repro/RUN.md`. **Divergence 5a is delivered** (#871, slice 2): a PoisonPill that finds no live actor to process it (stopped actor, stop
+  accepted, full bounded mailbox, queued when the stop is accepted) publishes a `SuppressedDeadLetter`, as Pekko does (see "Suppressed
+  dead letters" below). **Open divergences (behavior, not accepted):** **5b** (#1320) `Tell(actor.PoisonPill)` on a
+  `Ref[any]` is not Pekko's `ref ! PoisonPill`; **5c** (#1321) a stopped actor's dead letters are not published in mailbox order when
+  Kill is queued between user messages (Go: `2, 3, 4, Kill`; Pekko: `2, Kill, 3, 4`). Each of those two is pinned by a test with a `TODO`.
+  Not claimed: full parity, `gracefulStop` (#873), timers with a PoisonPill payload (#1191), Typed. Tests:
+  [`poison_pill_test.go`](actor/poison_pill_test.go).
+- **JVM `Error` and `InterruptedException` have no direct Go equivalent.** Pekko's default decider does not match a
+  non-`Exception` `Throwable` (it is escalated, `FaultHandling.scala:210-217`) and handles `InterruptedException` apart
+  (#450 item 5). The Go default decider (`DefaultStrategy`) is defined for every cause and **never returns Escalate**:
+  a panic is a failure like any returned error (Restart), and `ErrGoexit` is a Go-only adaptation (Stop). A parent
+  reaches Escalate only through its own decider. See [ADR 0017](../docs/adr/0017-supervision.md) S12.
+- A directive outside `Resume`, `Restart`, `Stop` and `Escalate` fails the parent with `ErrInvalidDirective`; a
+  decider panic fails the parent with `*PanicError`.
+- A `Failed` is decided before user messages queued at the parent, one at a time, and is held while the parent is suspended.
+
+```mermaid
+flowchart TD
+    A["child Receive fails"] --> B{"parent declares a strategy?"}
+    B -->|No| C["child stops"]
+    B -->|Yes| D["child and its children suspended; Failed queued at the parent"]
+    D --> E["decider(ctx, child, cause)"]
+    E -->|Resume| F["child and subtree resumed"]
+    E -->|Restart| J{"Budget allows?"}
+    J -->|Yes| K["PreRestart(old), new instance, PostRestart"]
+    J -->|No| G
+    E -->|Stop| G["child stop accepted"]
+    E -->|"Escalate or ok == false"| H["parent fails with the same cause"]
+    E -->|"invalid directive or decider panic"| I["parent fails with ErrInvalidDirective or *PanicError"]
+```
+
+Responsibilities: [`supervision.go`](actor/supervision.go) holds the public types (`Directive`, `Budget`, `Decider`,
+`Strategy`, `OneForOne`, `Supervisor`, `PanicError`); [`supervision_failure.go`](actor/supervision_failure.go) the
+`Failed` channel, the suspension counter and the handling; [`supervision_decider.go`](actor/supervision_decider.go)
+`MakeDecider`, `CauseDirective` and `DeciderFunc`; U2 adds [`supervision_restart.go`](actor/supervision_restart.go) (the
+restart sequence) and [`supervision_hooks.go`](actor/supervision_hooks.go) (`PreRestarter`, `PostRestarter`,
+`InitializationError`, `FailedMessage`). U2 tests are `supervision_restart_internal_test.go`,
+`supervision_restart_goside_internal_test.go` and `supervision_budget_internal_test.go` (adapted from
+SupervisorSpec, SupervisorMiscSpec, ActorLifeCycleSpec, RestartStrategySpec and others; gaps are declared as
+`PORT-GAP` in their headers). Tests, each ported or adapted from Pekko or stated as Go-side:
+[`supervision_resume_internal_test.go`](actor/supervision_resume_internal_test.go) (SupervisorHierarchySpec, adapted),
+[`supervision_decider_child_internal_test.go`](actor/supervision_decider_child_internal_test.go) (SupervisorMiscSpec,
+adapted), [`supervision_goside_internal_test.go`](actor/supervision_goside_internal_test.go) (Go-side, no Pekko case).
+
+Limitations and interim behavior (transitional, not Classic parity):
+
+- U3 tests are [`supervision_default_internal_test.go`](actor/supervision_default_internal_test.go) (the adapted
+  DeathWatchSpec case at :216, and Go-side scenarios) and
+  [`supervision_default_goside_internal_test.go`](actor/supervision_default_goside_internal_test.go) (Goexit rows);
+  `PORT-GAP(top-level-default-U5)` is closed by U5b (SupervisorMiscSpec and ActorLifeCycleSpec:142 are adapted), and
+  the Goexit of a factory is classified since U4 (`PORT-GAP(factory-goexit-U4)` is closed). `ErrGoexit` has no JVM
+  counterpart: Stop by default is a Go adaptation accepted by the owner, not Classic parity.
+- U4 tests are [`spawn_supervised_internal_test.go`](actor/spawn_supervised_internal_test.go) (adapted from
+  `SupervisorHierarchySpec:861-912`, and `ActorLifeCycleSpec:165-190`, which is a `PreStart` failure and so only a
+  partial adaptation) and [`spawn_supervised_goside_internal_test.go`](actor/spawn_supervised_goside_internal_test.go)
+  (Go-side). `PORT-GAP(factory-context)`: the `workingChild` step of the upstream test is dropped because the Go factory
+  has no `Context`. Known follow-up, not done: the `stopping` branch of `Spawn` (`spawn.go:78-80`, a root gate that
+  closes between reserve and commit) has no end-to-end test; only `System.commit` is checked directly.
+- A `PostStop` failure stops the actor under every parent; a Goexit or panic in the `PostStop` of a restart is reported
+  as `poststop-panic` and the restart goes on. `Spawn` creation failures are untouched.
+  Escalation that kills
+  (`Shutdown` exists since U10 but escalation that kills is not a feature of it) and user-defined strategies are not implemented, and the dispatcher configuration of
+  some upstream tests is out of scope. The hierarchy test `SupervisorHierarchySpec:767-788` uses `AllForOne` since U6 (its decider escalates, so it
+  does not exercise the strategy's own restart rule); `Ticket669Spec:49` stays a `PORT-GAP`.
+- If the parent has accepted a stop or finished, the child stops directly and no `Failed` is delivered. Equivalence with
+  Pekko, which routes undeliverable system messages to dead letters, is **unknown** (`PORT-GAP(failed-to-dead-letters)`).
+- The use of a captured `*Context` after the decider returned is not detected (`PORT-GAP(context-expiry)`).
+- `DefaultStrategy` restarts on any ordinary error with an unlimited `Budget` and no backoff; the decision is logged
+  only when `Config.Logger` is set (U9, [#451](https://github.com/getsyntegrity/gopekko/issues/451)). A child that fails on
+  every message therefore restarts for as long as the condition lasts, and with no Logger only the internal events record it.
+- A child of an actor stays suspended after a failure until its parent handles the `Failed` item, also when the parent
+  declares no strategy. A parent blocked in a synchronous `Ask` to its own child sees the failure only at the `Ask`
+  deadline, not at once as before U3.
+- Top-level actors are children of `/user` (U5b) and `Parent()` returns its handle; `Stop` of that handle ends the system. The public
+  guardian strategy (`Config.GuardianStrategy`, `GuardianOneForOne`, `StoppingGuardianStrategy`; U5c) configures `/user`'s decider (its decider
+  receives no `Context`, #450 item 4); top-level names are validated (U5c). `Terminate`, `WhenTerminated` and `Shutdown` exist (U10); the termination hooks are
+  not implemented.
+- No judge parity is claimed. Since U8 (#175) the Go judge runs the restart scenarios S13, S14 and S16 with the same specs as the Pekko
+  side (`judge/go-scope.json`; events `pre-restart`, `post-restart` and `decided`, with instance numbers, in
+  `actor/judge_internal_test.go`), and four directed mutants (`GMrestartnotify`, `GMinitrestart`, `GMwatchoverwrite`,
+  `GMwatchsamefail`) show that each can fail. **S22** (a Stop during the wait of a restart, U7) is also in the Go gate (#173), with the
+  directed mutant `GMdefaultps`: see `docs/judge.md`. Calibration of the three new scenarios, the Pekko mutations without a Go analog and the module-close
+  campaigns, the complete `-race` and the integral review of U3 are pending. Passing the test files above does not
+  establish parity with Pekko.
+
+### Supervision logs (U9, #451)
+
+`Config.Logger` (a `github.com/pablogore/kit-logger/pkg/logger.Logger`) receives one entry for each supervision decision that is `Resume`, `Restart` or `Stop`, written **before** the decision is applied (Pekko's `logFailure`): `Resume` at Warn, `Restart` and `Stop` at Error; `Escalate` (and a missing or failed decision) writes nothing. The message is the text of the cause; for an `*InitializationError` it is the text of the underlying error. The attributes are `child` (the failing child's ID), `directive` (`resume`, `restart`, `stop`) and, at Error only, `error` (the cause). Under `AllForOne` there is one entry per decision, not one per child. When a failure reaches the root guardian (for example `/user` after a `GuardianStrategy` escalates), the root writes first one Error entry with the message `guardian failed, shutting down system` (DTH-07, `ActorRefProvider.scala:518-522`) and the same attributes (`child` the failing guardian, `directive` `stop`, `error` the cause), then the generic entry of the `Stop`, then applies the `Stop` once. The specific entry is added to the generic one, not instead of it; each emission is protected against a panic or `runtime.Goexit` of the Logger. A nil Logger and a user-requested shutdown write nothing. Not implemented: the second site of Pekko (`ActorRefProvider.scala:479`, the bubble-walker of the root-of-roots), which has no counterpart here. Test: [`guardian_failed_log_internal_test.go`](actor/guardian_failed_log_internal_test.go).
+
+`Strategy.WithLogging(false)` and `GuardianStrategy.WithLogging(false)` turn the entries off (Pekko's `loggingEnabled = false`). The flag is independent of the kind: on the zero `Strategy` (which means `DefaultStrategy`), on `DefaultStrategy()` and on a zero guardian strategy it silences the effective default; an explicit constructor and `WithLogging(true)` log. The log never changes a decision, the budget, a suspension count, the activation or an event; the order is snapshot (AllForOne), decider, log, apply, and `cause.Error()` is evaluated only for a logged decision, after the decider.
+
+```mermaid
+flowchart LR
+  F[child fails] --> D[decider]
+  D -->|Escalate or no decision| A[apply]
+  D -->|Resume, Restart, Stop| L{Logger set and logging on?}
+  L -->|yes| W[write entry, protected] --> A
+  L -->|no| A
+```
+
