@@ -1,0 +1,223 @@
+
+Local-only: one `System` in one process. Excluded as a class: remote and cluster watch (#443), `addressTerminated`, remote deployment, cluster receptionist and sharded pubsub, durable delivery queue implementations, `io` over real sockets (replaced by `net`), Java/Scala APIs, JVM executors and JFR. This must be stated in the README of every affected module so the result cannot be read as complete Apache Pekko parity.
+
+**Accepted statement (ADR 0033 D7, 2026-10-24).** "100%" means coverage of the local capabilities included in the inventory matrix, with the distributed-systems exclusions and the JVM-only exclusions enumerated explicitly. It is not total parity with Apache Pekko, which includes cluster and remoting. Every module README and every closure report must say so.
+
+## 8. Parity judge
+
+### 8.1 What exists
+
+The judge checks one JSON event log per run against named clauses (`docs/judge.md:11-23`; `judge/comparator.py` `EVENTS`, `PARAMS`, `RULES`). Tiers: G (documented guarantee), I (verified in source), S (goPekko-only spec), N (never asserted). Modes: controlled (CallingThreadDispatcher + ExplicitlyTriggeredScheduler on Pekko, injected executor and clock on Go) and concurrent (300 runs minimum, calibrated N only for S19/GMstop and S21/GMoverlap). 22 scenarios, 15 in `judge/go-scope.json`; Pekko mutations M1-M67, Go mutations GM*. Both sides use the same `comparator.py` and `evaluate.py`. The Pekko harness `judge/pekko-harness/Judge.scala` (572 lines) is classic-only; the Go harness is `pekko-actor/actor/judge_internal_test.go` (1,184 lines, an internal test). It asserts nothing about stash, timers, FSM, routing, scheduler, dispatchers, event stream, io, serialization or Typed.
+
+### 8.2 What Typed requires (design only, no execution)
+
+1. A second Pekko harness (`JudgeTyped.scala`) with its own `runMain`, `judge.sbt` also depending on `actor-typed` and `actor-testkit-typed` (project names to be confirmed in `build.sbt`), and a harness-name argument in `run-pekko.sh` (it hard-codes `Judge.scala`).
+2. Event recording through `Behaviors.receiveSignal` and `setup`. There is no `PreStart` hook in Typed (record at `setup`); no `post-restart` signal (a restart re-runs `setup`); no decider callback, so the `decided` event cannot be written as in Classic (assert lifecycle outcomes instead, as G7 does).
+3. New event kinds, each in all three comparator tables: `signal`, `timer-started/cancelled/fired` (key, generation), `stashed/unstashed`, `adapted`, `registered/listing`, `routed`, `published/topic-delivered`, `delivery-ack`, `spawned-via`.
+4. New relation rows, scenarios (numbered after S22) and mutation rows in `migration/stage-1/milestone-1.md`, since `scripts/check-judge-matrix.py` fails on a relation without a scenario and a mutation.
+5. A Go typed surface to drive (needs the Behavior layer to exist). Judge design can proceed before; judge execution cannot.
+
+### 8.3 Candidate scenario families and mutations
+
+| Family | Oracle | Candidate mutation |
+|---|---|---|
+| Typed default Stop on failure | `Behaviors.supervise` source | default restarts instead of stops |
+| Signals ordering vs messages (`PreRestart`, `PostStop`, `Terminated`, `ChildFailed`) | typed source, docs | skip `PostStop` signal; signal before in-flight message ends |
+| Timers with ManualTime: fire, cancel, generation filter | `TimerScheduler` | timer fires after cancel; late timer message not filtered |
+| Stash: replay order, capacity, behavior change | `StashBuffer` | replay out of order; capacity ignored |
+| Message adapter and `context.ask`: failure, timeout, exactly-once | `ActorContext` | adapter applied twice; ask completes twice |
+| Receptionist (local): register, find, subscribe, deregister on stop | `LocalReceptionist` | no deregistration on stop |
+| Routers: round-robin, routee termination (random is N-tier) | `PoolRouterImpl`, `RoutingLogic` | stopped routee still routed |
+| `Topic`: subscribe, publish, unsubscribe on stop | `TopicImpl` | delivers to stopped subscriber |
+| Delivery controllers (local): ordering, ack, redelivery, flow control | `delivery/*` | skip an ack |
+| `SpawnProtocol` | `SpawnProtocol.scala` | name collision accepted |
+
+Random routing, timer concurrency and delivery redelivery are timing-dependent; assert only relations that hold for every allowed order.
+
+For Classic additions (stash, timers, scheduler, `PoisonPill`, `become`, receive timeout, routing, circuit breaker, backoff) the same extension applies to `Judge.scala`.
+
+### 8.4 Inventory plumbing
+
+`docs/parity/capabilities.json` is `inventory_status: "bootstrap"` with `"capabilities": []` and only persistence adapters; `-strict` and `-closing` exit 1 on it, and only Slice A of `docs/parity/proposal.md` is integrated (B to E not started). Extending the M/O/E and L0-L4 schema and the `pekko-persistence-*` module discovery to actors is **unapproved design work**. Until the Owner approves it, this document's section 4 is the working inventory, kept as prose. The manifest has no field for judge scenario or spec references (the proposal defers it to Slice C).
+
+### 8.5 Design versus execution
+
+Design (documents, specs, matrix rows, inventory schema): can start now. Execution (writing `JudgeTyped.scala`, Go typed scenarios, running sbt or `go test`, calibration, mutation reports): needs an authorized story and the Behavior layer for the Go side. The repository's checkers already treat unexecuted work as `written` or `designed`.
+
+## 9. Order of work and parallelization
+
+### 9.1 Slices
+
+| Slice | Content | Depends on | Can start now? |
+|---|---|---|---|
+| S0 | Scope ADR (0033) recording the Owner's decisions; reconcile ADR 0010/0008/0015/0014 statuses | Owner answers D-01..D-12 | Draft now; accept after Owner |
+| S1 | Capability inventory (Slice B-style, actor + typed), re-verifying every `absent` row by reading code | none | **Yes** |
+| S2 | Judge design: contract additions, typed harness design, relation and mutation matrix rows (docs only) | S1 partially | **Yes (design only)** |
+| S3 | Classic foundation: identity and paths (IDN), messages and sender (MSG-01..03), `ActorPath` | ADR 0032 D5 only for runtime-delivery sender | Mostly yes; #814 waits for D5 |
+| S4 | Shared runtime foundations: scheduler and timers (TIM), stash (BHV), event stream (EVT), props options, extensions (SYS) | S0 for scope of Classic exclusions in ADR 0010:225 | Blocked on D-06 (exclusions) |
+| S5 | Classic completeness: supervision gaps (SUP/#450), deathwatch gaps, mailbox variants, dispatch config, patterns (PAT), routing subset (RTE), `CoordinatedShutdown` | S4 for timers and stash users | Partly; each per Owner scope |
+| S6 | Typed boundary ADR (TYP-01 #809) and `pekko-actor-typed` module skeleton (go.work, deps.allow, README, gates) | D-01, D-02, D-03 | Blocked on Owner |
+| S7 | Typed core: `Behavior[T]`, `Behaviors`, signals, `AbstractBehavior`, context | S4 (hooks), S6 | Blocked |
+| S8 | Typed supervision profile (needs new ADR extending 0017) | S7, D-02 | Blocked |
+| S9 | Typed stash, timers, adapters, `context.ask`, `SpawnProtocol`, extensions | S4, S7 | Blocked |
+| S10 | Typed testkit subset | S7 (can start after the `Behavior` type exists) | Blocked |
+| S11 | Receptionist, routers, pubsub `Topic` (local) | S7, S9 | Blocked |
+| S12 | Reliable delivery (local) | S9, S11 | Blocked |
+| S13 | Judge execution for Classic additions | S2, S4/S5 slices | After the corresponding foundations |
+| S14 | Judge execution for Typed | S2, S7+ | Blocked |
+| S15 | Module-close campaigns (`-race`, mutation, integral review), README parity statement | all | Last |
+
+### 9.2 Parallel lanes (disjoint edit surfaces)
+
+Lane A: S3 (identity, sender). Lane B: S4 (timers/scheduler), S4 (stash), S4 (event stream) as separate stories with disjoint files. Lane C: S1 and S2 documents. Lane D (after S6): typed skeleton and testkit. Within S7 onward, one story per capability row of section 4.4. Any story touching the shared files `cell.go`, `supervision_restart.go`, `watch.go` or `system.go` has a single owner at a time.
+
+### 9.3 How to split into stories (for the Architect, not done here)
+
+One story is one observable capability: its code, tests and docs together (`work-unit-commits` and `chained-pr` apply at 400 changed lines). Stories are in English, cite the inventory row id, the upstream path and symbol, the upstream spec(s), the validation level, the judge scenario if any, and the ADR that governs. The ACT2 program (epic #746, sub-epics #747 to #764, stories #767 to #1008) already holds most Classic stories; new stories are created only for rows without an existing issue, and existing issues are re-linked to inventory ids rather than duplicated. Issue creation is not part of this document.
+
+### 9.4 Open and close conditions
+
+A story opens when its governing ADR is accepted, its dependencies are merged, and its inventory row has a validation plan. A module closes when section 7.3 holds, the 6.4 gates pass, and the Owner signs the exclusion list.
+
+## 10. Decisions
+
+Binding items first (no Owner decision needed):
+
+| Item | Binding source | Who executes |
+|---|---|---|
+| Logging via `kit-logger`; no `pekko-slf4j` module | `CLAUDE.md:42-46` | Architect |
+| Serialization is not ported into `actor`; `pekko-serialization` owns it | ADR 0021 (accepted) | Architect |
+| License header on ported files; README contract; gates | `CLAUDE.md:50-84`, `docs/quality-gates.md` | implementers |
+| GoAkt only through an ADR that shows it solved a feature better | `CLAUDE.md:18-20` | Architect |
+| Supervision profile for Classic = ADR 0017 | ADR 0017 (accepted) | Architect |
+| Bounded mailbox, Address/ActorPath value contract, sender envelope D1-D4, D6, D7 | ADR 0030, 0031, 0032 (accepted parts) | Architect |
+| Mechanical edits for a new module (`go.work`, `deps.allow`, `go.mod`) once the module is approved | `scripts/check_deps.sh`, `scripts/list_modules.sh` | Architect |
+| Allocating ADR number 0033 for the scope ADR | `docs/adr/` numbering; 0032 is on a branch | Architect (verify at PR time) |
+
+### 10.1 Owner inputs, accepted through ADR 0033 (2026-10-24)
+
+Attribution correction (revision 3): revision 2 recorded these items as Owner answers. The text was supplied as pasted review material and the Owner has not confirmed it, so it is a proposal, not a decision. Resolved: on 2026-10-24 the Owner accepted ADR 0033, which confirms the items below, with the D-10 interpretation recorded in 7.2. The acceptance does not accept or modify any other ADR, declares no parity, keeps ADR 0032 D5 open, and does not authorize GitHub changes or opening stories.
+
+| Id | Input (accepted via ADR 0033) | Consequence |
+|---|---|---|
+| D-01 | A3 as the runtime and a public `Behavior[T]` layer for Typed | Option B of 5.1. Layer shape needs its own ADR (TYP-01 #809). |
+| D-02 | Classic and Typed coexist as profiles on the shared runtime. Classic keeps the ADR 0017 defaults; Typed uses Stop by default on failure. Each profile is selected when the actor is created and does not change the other's behavior. | ADR 0033 records the profile decision. The Typed supervision contract (per-behavior `supervise`, limits, backoff, stash during backoff) needs a separate ADR that extends ADR 0017, which today defers Typed (l.89-117, 635-637). Profile isolation needs a test that a Typed default never reaches a Classic actor and the reverse. |
+| D-03 | Separate module `pekko-actor-typed`, after its shared dependencies are defined and published in `pekko-actor`. The Architect must justify each internal API that has to be exported, per ADR 0011. | Candidate exports are listed in 11.2. ADR 0011 owner decision 2 is the test applied to each. |
+| D-06 | Stash and timers are mandatory for completing Typed. The other ADR 0010 exclusions are reviewed one by one against the inventory, not made mandatory as a block. | C-17, C-18, TY-05 and TY-06 are `required`. `become`/`unbecome`, `ReceiveTimeout`, routers, actor selection, `PoisonPill`, `Kill`, dispatcher and mailbox configuration stay `owner decision` until the per-item review. |
+| D-11 | Pending ADRs are not accepted in block. Before each slice, the Architect identifies the ADRs that affect its contract and presents their contradictions for resolution. | Section 2.1 and 11.4 are the starting list of contradictions. Each slice's story must carry its own ADR-impact list. |
+| D-12 | D5 stays open until its alternatives and evidence are reviewed. It blocks the Classic sender contract for `Terminated`/`WatchWith`. It is not treated as blocking Typed unless that dependency is demonstrated. | Section 2.3 holds; any slice that claims a Typed dependency on D5 must show it. |
+| D-04 | Port or adapt the local public capabilities of `actor`; do not limit to the core. Review every subpackage of the inventory. Include the `serialization` capabilities that have an applicable local Go contract. Exclude `actor.io` where it depends on sockets, protocols or network transport (outside the local scope). No adapter over `net` unless the inventory identifies a concrete local capability that justifies it. Record every exclusion with source and reason. | Rows S-01 and I-01 updated. Every exclusion in section 4 needs an ADR-backed source and reason. Serialization work in `pekko-serialization` (primitive serializers, none today) is in scope; reference string forms wait on #894, #853, #812 (11.4). |
+| D-05 | Include Receptionist, routers, pubsub/Topic, `SpawnProtocol` and delivery in their local modes. Exclude the distributed parts and the durable queue implementations that depend on persistence. | TY-17 to TY-20 and TY-13 required (local); durable queues and cluster parts excluded. |
+| D-07 | Port the needed testkit subset: `TestProbe`, `BehaviorTestKit`/`TestInbox`, `ActorTestKit` and manual time. Exclude tools tied to JUnit, logback and JVM-specific APIs. | K-01 to K-04 required; K-05 (logback), K-07 excluded. |
+| D-08 | Use `With` per actor for logging context; do not depend on global fields. The test fake must capture `With` fields, honor `SetLevel` and protect `Entries` against concurrency. | The shipped `kit-logger` mock does none of these three (11.3), so a purpose-built fake is part of the testkit work. K-05 updated. |
+| D-09 | Resolve Classic↔Typed adapters one by one, with one ADR per adapter. No block port of `internal/adapter`. Each included adapter needs a local contract, tests and a justification. | TY-21 updated. |
+| D-10 | Keep a closed exclusion list limited to the agreed local frontier and documented JVM-only APIs. Require V3 for every mandatory capability if the dossier confirms V3 is the highest level and includes observable parity evidence; if not, do not register the level until the scale is clarified. | Owner interpretation accepted: V3 needs a differential scenario against Pekko when an applicable oracle exists; Go-only adaptations need documented alternative evidence and explicit approval, never V3 by default and never lowered silently (7.2). |
+| D-13 | Create an actor-specific inventory and judge first; do not reuse the persistence parity schema. Extend shared tooling afterwards only if the design shows it can represent both domains without distorting either. | Section 8.4 stands: this document's section 4 is the working inventory. |
+| D-14 | Not an architecture decision. The incidental `migration/cost-log.tsv` row was already restored; it needs no Owner answer. | Done; no further action. |
+
+Inputs for D-04, D-05, D-07 to D-10 and D-13 arrived in a later message that completed the block (the first copy was truncated and was not used). All of D-01 to D-14 are accepted through ADR 0033 (2026-10-24). The Owner clarified D-10 at acceptance; see 7.2.
+
+### 10.2 Owner decisions table (revision 1 text; rows covered in 10.1 now also carry a proposed input, which is not a confirmed decision)
+
+Owner decisions (answers are not assumed):
+
+| # | Question | Alternatives | Recommendation | Consequence of each | Blocks | Evidence |
+|---|---|---|---|---|---|---|
+| D-01 | Public API: A3 only, A3 + `Behavior[T]` layer, or Typed primary? | A / B / C of 5.1 | B | A: no Typed specs can be ported literally; B: one runtime, larger surface; C: rewrite risk, contradicts ADR 0010 recommendation | ADR 0010 acceptance; S6-S12 | ADR 0010:54-60,215; TYP-01 #809 |
+| D-02 | Semantics: Classic only, two profiles on one runtime (per spawning API), or merged? Typed default Stop? | 5.2 | Two profiles; default chosen by constructor | Merged breaks ADR 0017; Classic only blocks Typed supervision specs | New ADR extending 0017; S8 | ADR 0017:89-117,635-637; ADR 0010:20-28 |
+| D-03 | Typed as package in `pekko-actor`, or module `pekko-actor-typed`, or several modules? | 5.3 | Separate module `pekko-actor-typed`, after shared foundations are public; package is the fallback | Module needs a public extension surface and edits to `CLAUDE.md`, `deps.allow`; package keeps `actor` growing | ADR 0011 revisit; S6 | ADR 0011:94-98,251-256; `scripts/deps.allow` |
+| D-04 | Scope of `actor` per subpackage (`event`, `pattern`, `routing`, `io`, `serialization`, `japi`, `util`, top-level, `reference.conf`) | Section 4.3 classification | As in section 4.3: port `pattern` (CircuitBreaker, Backoff, ask), a `routing` subset, an `event` adaptation; replace `io`, `serialization`, `util` mostly by Go and existing modules; exclude `japi`, JVM util, top-level | Each exclusion must be an ADR-recorded reason; including `io` adds ~7k lines and a Go adapter design | S0, S5 | Section 4.3 |
+| D-05 | Local Receptionist, routers, pubsub Topic, delivery, SpawnProtocol: in the closure? | in / defer / out | In (local only), delivery last | Out would leave typed services uncovered; delivery adds 3.5k upstream lines and a durable queue SPI question | S11, S12 | `TY-17..TY-20`; `DeliverySerializable` |
+| D-06 | Do the ADR 0010 "Excluded for now" items (`become`, stash, timers, receive timeout, routers, selection, `PoisonPill`, `Kill`, dispatcher and mailbox config) become required? | each: required / excluded with reason | Required for stash, timers, `PoisonPill`, `Kill`, receive timeout, routers (needed by Typed); `become`, selection, dispatcher config decide individually | Leaving them excluded makes Typed stash and timers impossible | S4, S5 | ADR 0010:225; ADR 0001 is missing |
+| D-07 | Testkit: out, needed subset, or full? | 5.4 | Needed subset (K-01..K-04); logback/JUnit tools excluded; classic testkit pieces only as ported specs require | Out forces ad-hoc probes in every test | S10; testkit module placement | `build.sbt:579,584`; K-01..K-08 |
+| D-08 | Logging mapping: how MDC and `LoggingTestKit` map onto `kit-logger` | global fields / per-call fields / mock logger | Per-actor logger with global fields and the kit mock | Affects `withMdc`, `logMessages` rows | TY-07 | `CLAUDE.md:42-46` |
+| D-09 | Classic↔Typed adapters and coexistence | none first / per-adapter ADR / full | None in first delivery; list each wanted adapter explicitly | Full port brings 1.1k lines for a runtime that has no classic layer | TY-21 | `internal/adapter` |
+| D-10 | Which exclusions are acceptable under "100%", and the minimum validation level per class | closed list in 7.1; V1 / V2 | Closed list as in 7.1 and 7.4; V1 minimum, V2 for concurrent or ordering rows | A weaker bar lets rows go green on unit tests alone | S0, inventory | `docs/judge.md`, `docs/parity/proposal.md` |
+| D-11 | Which pending ADR statuses must be resolved before implementation? | ADR 0010 (A3 as a whole), 0008 (provenance), 0015 D3/D4/D7/D8/D9, 0014 P1-P7, and the sender/Ask contradictions (section 2.1 items 1-3) | Accept or amend 0010, 0015 and 0014 P1-P7 before typed slices; 0008 only if provenance is needed | Leaving them proposed keeps contracts that are already implemented formally unaccepted | S0, S3, S4 | Section 2 |
+| D-12 | ADR 0032 D5: sender of `Terminated` and `WatchWith` | none / watched actor as sender / defer with #814 | Defer with #814 (as the ADR says); Typed signals are not blocked | A decision now fixes Classic `sender()` for runtime deliveries and ADR 0008 provenance | #814; Classic sender slices only | ADR 0032:153; section 2.3 |
+| D-13 | Extend the parity inventory tooling (`capabilities.json`, `parityguard`) to actors, or keep the actor inventory as a separate document? | extend / separate | Separate document first, extend only after Slice B for persistence | Extending now touches unapproved tool design | S1 format | `docs/parity/proposal.md` |
+| D-14 | Keep or discard the `migration/cost-log.tsv` row left by the earlier feasibility pass | keep / discard | Owner's call | none | none | `git status` |
+
+## 11. Evidence added in revision 2
+
+### 11.1 Typed contracts extracted from upstream spec bodies
+
+Partial reads (see 11.6). Paths under `upstream/pekko/actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/` unless noted; line numbers are as reported by the read.
+
+| Area | Contract | Source | Go implication |
+|---|---|---|---|
+| Supervision | With no strategy, an exception logs an error, delivers `PostStop` and stops the actor; an exception outside the strategy's type also stops it | `SupervisionSpec` l.387, 502; `docs/.../typed/fault-tolerance.md` l.33 | Typed profile default is Stop (D-02) |
+| Supervision | Restart delivers `PreRestart`, not `PostStop`; behavior is recreated and state resets; the behavior returned by `PreRestart` is ignored | `SupervisionSpec` l.512; docs l.137, 145 | Profile-specific restart semantics, distinct from ADR 0017 S6/S8 |
+| Supervision | `restart.withLimit(2, 500ms)`: third failure inside the window stops with `PostStop`; the count resets after the window | `SupervisionSpec` l.528, 550 | Reuses the `Budget` idea (ADR 0017 S4) with a Typed API |
+| Supervision | `restartWithBackoff(...).withStashCapacity(2)` buffers messages during backoff; overflow publishes `Dropped(msg, "Stash is full in [RestartSupervisor]", ref)`; default `restart-stash-capacity = 1000` | `SupervisionSpec` l.882; typed `reference.conf` | Needs stash (D-06), an event for drops (E-03) and backoff (P-04) |
+| Supervision | Unhandled `Terminated` fails the watcher with `DeathPactException`, itself supervisable; most specific matching strategy wins when wrapped or nested | `SupervisionSpec` l.1408, 1640; `WatchSpec` l.165 | Maps to `ErrDeathPact`; per-class matching needs a Typed decider |
+| Supervision | An exception thrown inside a message adapter function is supervised like a message failure | `SupervisionSpec` l.1575; `MessageAdapterSpec` | Adapter registry runs in the receiving actor |
+| Timers | Starting a timer with an existing key cancels the old one and discards a message from it that is already queued; a restart discards all timer messages of the old incarnation; stop cancels timers; timers survive behavior changes | `TimerSpec` l.131, 283, 308, 327, 372; docs `interaction-patterns` l.484-490 | A generation stamp checked at dequeue is required; cancelling the scheduled task is not enough |
+| Stash | Bounded; overflow throws `StashOverflowException`; FIFO; `unstashAll`/`unstash(n)` process a snapshot taken at call time; messages stashed during unstash stay; the actor processes nothing else until the drain ends; `unstashAll` returns the resulting `Behavior` | `StashBufferSpec` l.60-225; `StashSpec` l.221-260, 477-731 | `Behavior[T]` return-value dependency; replay ahead of queued messages needs a runtime primitive (11.2) |
+| Stash | Failure while unstashing: stop gives `PostStop` to the latest behavior; restart gives `PreRestart` and drops the remaining stash; resume drops only the failing message | `StashSpec` | Explicit per-strategy handling |
+| Stash (classic) | Stashing the same message twice throws; stashed messages survive a restart; unstashed `Terminated` is re-received | `ActorWithStashSpec` l.141-192 | Classic stash row C-17 |
+| Watch | `watchWith` is idempotent for the same message; a different message, or mixing `watch` and `watchWith`, throws `IllegalStateException`; `stop` of a non-child throws `IllegalArgumentException`; null message throws | `WatchSpec` l.252, 282; `ActorContextSpec` l.670 | Matches ADR 0010 `ErrWatchConflict`/`ErrInvalidHandle`; nil messages are #452 |
+| Message adapter | A reply of an unregistered type goes to the unhandled stream; one adapter per class, latest registration wins, matching tries most recent first; replies after termination go to dead letters | `MessageAdapterSpec` l.33-336 | Type-keyed registry in the layer |
+| Receptionist (local) | Deregistration on termination, per key; `Subscribe` sends the current `Listing` immediately; `Register` replies `Registered(key, ref)`, `Find` replies `Listing` | `LocalReceptionistSpec` l.58-172 | No cluster needed |
+| Pubsub (local) | Same-named topics share subscribers; no delivery after unsubscribe | `LocalPubSubSpec` l.28-58 | No cluster needed |
+| `SpawnProtocol` | Children named `child-0`, `child-1`, ...; a taken name falls back to a unique name | `SpawnProtocolSpec` l.86-116 | Reuse `SpawnAnonymous` naming (#1005) |
+| Classic coordinated shutdown | Phases run in topological order of `dependsOn`; a failed or timed-out task logs and continues when `recover=true`; `run` executes once | `CoordinatedShutdownSpec` l.38-70, 141-168, 402-462 (actor-tests) | C-24; HOCON replaced by a Go config |
+| Classic scheduler | Cancel semantics, rejected non-positive intervals, rejected far-future tasks, periodic tasks stop with a terminated target, fixed-delay vs fixed-rate | `SchedulerSpec` (names only) | Wheel internals (`ticks-per-wheel`, `tick-duration`) need not be ported |
+
+Specs that depend on `Behavior` value identity or return-value shape: `BehaviorSpec` (Lifecycle, Becoming, Reuse, `canonicalize`), the unstash-failure cases, and `unstashAll(behavior)`. They are portable with an explicit "current handler" in the layer. Specs that depend on `LoggingTestKit.error[...]`, `TimingTest` sleeps, thread names (`DispatcherSelector.blocking()`), HOCON strings or the Java DSL need adaptation or are excluded.
+
+### 11.2 Runtime gaps the Typed layer would hit, and candidate exports (D-03)
+
+From reading `pekko-actor` (non-test files, README). `Spawn(ctx, ...)`, `Watch`, `WatchWith`, `Unwatch`, `Stop`, `Parent`, `Child`, `Children`, the lifecycle interfaces and `OnTerminated` are already public and suffice for spawning, watching and lifecycle signals from a separate module.
+
+| Mechanism | Where it lives today | Does the public API suffice? | Candidate export (to be justified per ADR 0011) |
+|---|---|---|---|
+| Clock / scheduler | `clock.go` unexported `clock{Now, AfterFunc}`, `timer{Stop}`; reachable only through unexported `options.clock`; only `Ask` (`ask.go:176`) uses it | Real-time timers: yes, via `time.AfterFunc` and `Ref.Tell`. A manual clock for the judge and testkit (`ManualTime`): no | An injectable clock/scheduler seam (for example a `Config` field) |
+| Stash replay | Cell queue is `internal/mailbox.Queue` with Push, Pop, TakePending, Len; no front insertion | A layer-owned slice works, but replay ahead of already-queued messages (Typed `unstashAll`) cannot be reproduced exactly | A head-insert or "drain before next message" primitive, or a layer-level drain loop inside one `Receive` turn (to be evaluated) |
+| Timer generation filter | None | Yes, a generation stamped in the layer's own message wrapper | none |
+| Per-behavior supervision | Decider is parent-side (`Supervisor[T]`, `Decider`); `protect` in `cell.go` catches panics and errors; `ResumeWith` returns a continuation run only on a Resume decision (`start_failure.go`) | Mostly: the layer's `Receive` can recover, restart, resume or stop in-process; Typed default Stop is a `StopSelf` or an error the parent decider stops. `ChildFailed` needs the parent to capture the cause | none strictly required |
+| Signals | `PreStarter`, `PostStopper`, `PreRestarter`, `PostRestarter`, `OnTerminated` | Yes for `PostStop`, `PreRestart`, `Terminated`; no `ChildFailed`, no `MessageAdaptionFailure`, no post-restart signal (the layer synthesizes them) | none |
+| Message injection | `Port.Post(any)` / `PortHandler` | Yes for adapters and timer firings, ordered with the mailbox; bypasses `T` | none |
+| `/system` spawn | `guardian.go` has the `/system` guardian; `spawnTarget` always uses `/user` | No | A way to spawn system actors (receptionist, topic), if the Architect needs them |
+| Logging | `Config.Logger` is written only by supervision logging; no `Context.Log` | No | `Context.Log` (kit-logger) |
+| Event stream | `SubscribeDeadLetters` only | No | An event bus with `Dropped`/`UnhandledMessage` types (E-01, E-03) |
+
+### 11.3 Reuse and hazards
+
+- `pekko-serialization` provides the registry, manifests, ids (user ids from 41), and the error taxonomy (`spi/serializer.go`, `serialization/registry.go`). It has no primitive serializers (README says so); adding int32/int64/string/bool/bytes serializers is the concrete piece Typed would need there. It has no `serialize-messages` check mode.
+- `pekko-observability` is an empty scaffold (`go.mod` without requires, `spi/doc.go`, `internal/doc.go`). Instrumentation hooks must be defined in `pekko-actor`.
+- `kit-logger` v0.2.0: `Logger` has `With`, `WithContext`, `SetLevel`; `Config.GlobalFields` are static; dynamic fields need `SetContextFieldExtractor`. Its mock (`kitlogtest.MockLogger`) drops the arguments of `With`/`WithContext`, makes `SetLevel` a no-op and exposes `Entries` without a lock. A per-actor logger and MDC mapping (`withMdc`, `logMessages`) cannot be asserted with it as is; a purpose-built fake or adapter is needed. `Config.Logger` is nil-silent. Real `Sampling` and `RateLimit` can drop entries silently, so tests must use the mock. `golang.org/x/time` in `pekko-actor/go.mod` is an indirect dependency of kit-logger, not used by actor code.
+- `go-specs` v0.4.0 offers `Eventually`/`Consistently`, `mock.Spy`, `mock.Controller` and `Captor`, but nothing actor-specific: `TestProbe`, `TestInbox` and `BehaviorTestKit` must be built in goPekko, and only in test-support code.
+
+### 11.4 ADR and documentation findings added
+
+1. Classic is the only normative model in the repository (ADR 0010 D3; `migration/stage-1/feasibility.md:37,227,266`; fidelity audit line 9: "Typed is not a normative source here"). A Typed judge and a Typed profile need an explicit decision that Typed is a source; ADR 0033 proposes it.
+2. Serialization of `ActorRef`, `ActorPath` and the envelope is undecided: ADR 0021 D5 defers the envelope, ADR 0018 M10 keeps references out of the journal, ADR 0031 excludes reference strings (#894), incarnation (#853), parsing (#812), navigation (#852). Typed `ActorRefResolver`, `EntityRef`, persisted `ReplyTo` and the Receptionist's reference handling depend on them.
+3. ADR 0011:66,157 says `pekko-serialization` will import `pekko-actor`; ADR 0021:92-93 says it imports the standard library only, and `scripts/deps.allow` allows the import. The ADR 0011 text is stale.
+4. `docs/actor-core-first-cut.md` is stale (children, supervision, watch and ask are shipped; cells are released since T6). The fidelity audit matrix was audited at `590e86b7` and not repeated after #695 and #686. `docs/judge.md:6` still says "proposed, for owner review"; its Owner decisions 1 to 3 (section 8, lines 390-394: assert tier I, declarative scenario format, run counts) are not recorded as accepted there. Gate A of the Pekko-side judge is still proposed (`gate-a-closure-plan.md:4`).
+5. `docs/actor-core-first-cut.md:26` says a nil message for an interface `T` is delivered as the zero `T`; Pekko throws `InvalidMessageException` (#452, open).
+6. Dangling ADR numbers, by history: ADR 0013 was renumbered to 0015 (commits `c8ba07b`, `7901755`); ADR 0020 was proposed in PR #488, closed unmerged; ADRs 0001 to 0007 and 0009 were cited (ADR 0001 first at `docs/adr/0010-actor-api.md:225`, commit `e96df80`) but no file ever existed on any branch. ADR 0002 is cited by `docs/adr/0008:218` and `docs/judge.md:265` for key serialization; the live serialization contract is ADR 0021.
+7. ADR 0032 is not in the local tree; it is on `origin/docs/msg-01-sender-envelope-adr-0032` (PR #1014).
+
+### 11.5 Open divergences and gaps in the two audits (complete list from the audits)
+
+Closure audit (2026-10-23): #450 user-defined strategies and `Kill`; #448 default-decider classification (no `ActorKilledException` case, never escalates, `ErrGoexit` stops); stash #62, #182, #183; root "guardian failed" log missing; #683 `existenceConfirmed`/`addressTerminated`; #693 pending `Terminated` at watcher stop (Owner decision open); #443 cross-System watch; #692 `recreate-dead-letter`; #691 `failed-to-dead-letters`; #461 consolidated actor closure; survivor restart order not validated against Pekko; `PostStop(old)` can run twice (ADR 0017 S11); `Budget{}` zero denies every restart while Pekko's default is unlimited; Ask: #744, #675, #674, #745, #682. Not audited: Ask, bounded mailbox, `CoordinatedShutdown`, stash, remoting, clustering. Not run: `-race` on Linux, remote CI, mutation campaigns beyond a few, judge campaigns, heap measurements beyond one scenario. Mutants: 22 of 24 detected in the author-run campaign (M5 and M11 survived and T04b later detected each alone); 24 of 24 is not claimed.
+
+Fidelity audit (2026-10-22): #452 nil `Tell`; #443; #693; #691/#692 PORT-GAPs (`supervision_failure.go:101-103`, `supervision_restart.go:88-90`); #450; #62; #448; #683 (`ActorSelection`/`Identify`); #67 `CoordinatedShutdown`; #177 remaining bounded mailbox work; #685 blocking push timeout (Owner decision); #689 whether `Port` posts are bounded (Owner decision); #694 synchronous journal results; #677 no suppressed dead-letter channel; #676/#682 reclassified P3. Missing helpers: `DeadLetterSuppression`, `UnhandledMessage`, `Dropped`, `log-dead-letters` and suspension, `StatusReply`, ask plus `pipeTo` helper, temp actors, `deadLetters` actor, `systemActorOf`, receive timeout, a separate system message queue, a `Ref`/`Handle` equality helper. Deliberate exclusion versus missing: `Kill` deliberate and tracked (#450); `PoisonPill` deliberate with no tracked story; `Identify` missing, dependent on #683. Adaptations that are not gaps: blocking `Ask`, no implicit sender, `Shutdown(ctx)`, panics for watch misuse, `MakeDecider` declaration order, factory runs in the first activation, name freed before watchers are told, Go zero `Budget`.
+
+### 11.6 Still unread or partial after revision 2
+
+- ADR bodies line by line: 0016, 0018, 0019, 0021, 0022, 0023, 0025 to 0029 (headers, statuses and greps only; 0023 and 0025 showed no actor or Typed content); ADR 0031 body tables (tool output compressed); `docs/adr/signatures/api.go`, `hierarchy.go`, `supervision.go`.
+- `docs/actor-core-parity.md` sections 8, 9, 11; `milestone-1.md` and `gate-a-closure-plan.md` by grep; `feasibility.md` lines 216-273 and grep.
+- Upstream: paradox typed docs `actors`, `style-guide`, `testing-async`, `testing-sync`, `routers`, `actor-discovery`, `distributed-pub-sub`, `reliable-delivery`, `from-classic`, `coexisting`; classic docs `actors`, `fsm`, `routing`, `scheduler`, `mailboxes`, `dispatchers`, `coordinated-shutdown`, `extending-pekko`; `BehaviorSpec` bodies; `SupervisionSpec` backoff and children sections; second half of `WatchSpec`; `TimerSpec`/`ReceiveTimeoutSpec`/`SchedulerSpec` (classic) bodies; any `PoisonPill`/`Kill` spec (the lookup failed); `reference.conf` lines 110-880 including coordinated-shutdown phases and dispatcher defaults; `Serializer.scala` primitive ids and manifests.
+- `Texto pegado(20261024-175045).txt` was never available.
+- Exact line numbers in `project/Dependencies.scala` are approximate.
+- Whether the kit-logger mock is race-safe through `Entries`, and how `ContextFields` interacts with the extractor, were not confirmed.
+
+Nothing in 11.1 to 11.5 is accepted by the Owner; it is evidence for the Architect's slices.
+
+## 12. What would change this
+
+- If the Owner rejects any public extension surface in `pekko-actor` (D-03), the layer must live inside the module and ADR 0011 stays as is.
+- If D-02 chooses Classic only, TY-04, TY-02 and the Typed default Stop become excluded and "100% of `actor-typed`" cannot be claimed.
+- If a deeper read of Go code finds items marked `absent` here already implemented (the inventory is based on bounded reads), the corresponding rows move to `implemented` with the evidence recorded in S1.
