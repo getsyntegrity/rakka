@@ -1,0 +1,21 @@
+
+## Counts
+- DEEP: 14 (#848, #849, #837, #872, #795, #838, #875, #811, #805, #806, #807, #845, #850, #851)
+- PARTIAL: 1 (#794: `LoggerSpec.scala` and `LoggingReceiveSpec.scala` bodies read only for the MDC cases; no spec found for ACs 2-3 by grep)
+- Several line anchors in my tables are marked `~` where I read the range but did not number the exact line (CircuitBreaker `Closed` object, `ByteArraySerializer` bodies, `NestedDeserialization` bodies).
+
+## Stories the Architect should re-read
+- #795 PAT-09 (success resets the failure count; reconciliation omits it; #1020 edge not covered by #1020's listed candidates; timer prerequisite).
+- #875 PAT-05 (delay is not bounded by `maxBackoff` under jitter; #821 is the wrong primitive for `after`).
+- #811 SER-09 (ACs 2-3 contradict Pekko's no-copy `ByteArraySerializer` and need an Owner decision).
+- #806 SER-04 (a Pekko oracle spec exists in `remote`; D13 "no oracle" claim not shown).
+- #851 SER-11 and #845 SER-07 (D13 `pending approval` wording; AC3 text vs recorded decision A).
+- #848 EVT-13 (per-turn derived With logger is not ADR text; no receive hook exists in Go).
+- #837/#872 (recon cites `:159` for Lookup subscribe, which is Subchannel; #793 and #1020 edges not supported by Pekko code or by #1020's scope).
+
+## Key Learnings
+1. Pekko's CircuitBreaker Closed state resets its failure count to zero on every success, so it trips on consecutive failures, which the reconciliation text for PAT-09 omits.
+2. RetrySupport.calculateDelay applies the jitter factor after capping at maxBackoff, so with a nonzero random factor the delay can exceed maxBackoff, and no actor-tests spec tests jitter.
+3. Pekko's ByteArraySerializer returns the same array uncopied and SerializeSpec asserts same-instance identity, which contradicts the copy semantics in the SER-09 acceptance criteria.
+4. The nested-deserialization depth limit has an oracle spec only in the remote module, so claiming that no applicable oracle exists conflicts with the literal wording of ADR 0033 D13.
+5. Neither LookupClassification nor ScanningClassification depends on EventStream or on each other in Pekko, and EventBusSpec observes duplicates and unsubscribe results but never publish ordering.
