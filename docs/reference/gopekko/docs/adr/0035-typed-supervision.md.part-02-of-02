@@ -1,0 +1,101 @@
+- a `setup` that creates children before failing, with the default `stopChildren = true`: reading the code, the restart waits for the children to terminate and the loop is
+  asynchronous, so no stack overflow is expected (Pekko would restart without end); not verified;
+- `withStopChildren(false)` with children: reading the code, `childrenToStop` is empty, so the recursion would still be synchronous; not verified.
+Until then, ADR 0035 does not say what goPekko does in those variants.
+
+D15.4: if the upstream fix is reverted or changed, this decision is revisited.
+
+### S-4: unowned `ResetRestartCount`
+
+The behavior of Pekko Typed is adopted. An unowned `ResetRestartCount` reaches the user behavior as an opaque signal and is ignored when
+unhandled (`SS:1049-1051`). Contract 8 follows Pekko and **D-f is withdrawn**.
+
+### S-5: cause visible with Resume and a failing `setup`
+
+The behavior of Pekko Typed is adopted. Resume on a failing deferred factory fails the actor. The parent sees an initialization error that
+wraps the validation error (`S:151-152, 169-177`; `SS:1107`), not the user's error.
+
+### Consequences
+
+- Stories #976, #986, #1183 and #1184 are restated against S-2 to S-5. Their criteria for D-f are withdrawn; those for D-a follow the decision above.
+- Each rule without an executed oracle (S-2) needs a differential scenario before V3. D-a has its oracle (1.7.1 and the 1.8.x fixed build).
+- No change to code or ADR 0017. No parity claim.
+
+## Amendment (2026-11-05): D-a precondition (synchronous restart) and sub-case C1
+
+- Status: **Accepted** by the Owner on 2026-11-05 (text: "ok", accepting the proposal recorded here). Additive: the text above is unchanged; the phrases marked "Superseded by Amendment (2026-11-05)" are replaced by it.
+- Principle applied: ADR 0033 D14. Oracle: [`d-a-with-children-2026-11-05.md`](../parity/oracles/d-a-with-children-2026-11-05.md), Pekko 1.7.1 and, where noted, the fixed build of the first oracle. `S` = `Supervision.scala` (1.7.1). Scenario names (CTRL, C1, C2, C3) are those of that oracle.
+- Pekko documentation: [fault tolerance](https://pekko.apache.org/docs/pekko/current/typed/fault-tolerance.html) (section "Child actors are stopped when parent is restarting").
+
+**New precondition of D-a (replaces "when the actor has no children at restart time").** D-a applies to an unbounded `restart` whose `setup` fails on every restart **when the restart does not wait for children to stop**: there are no children to stop, or `withStopChildren(false)`. Evidence: CTRL, C2 and C3 (`StackOverflowError` in 3 of 3 runs each; `on` exits with 255; `off` hangs on 1.7.1 and terminates on the fixed build), `S:362` and `S:384-388`. The decision of D-a (fatal-error path, `on`/`off` behavior) is unchanged for this case.
+
+**Case (c), refined.**
+
+| Sub-case | When | Pekko 1.7.1 | goPekko (D14) |
+|---|---|---|---|
+| **(c-sync)** | the restart does not wait for children (no children to stop, or `withStopChildren(false)`) | recursive restart, `StackOverflowError` after about 2,000 nested runs; fatal error | fatal-error path, as in D-a |
+| **(c-async), scenario C1** | the restart waits for children to stop (for example, `setup` creates a child before failing, with the default `stopChildren = true`) | asynchronous, unbounded loop; no fatal error; the ActorSystem stays alive; about 80,000 to 87,000 restarts per second, steady, in 6 of 6 runs (`on` and `off`); at most 1 live child; heap sampled without a forced GC under `-Xmx512m`, no leak conclusion | the same: an unbounded asynchronous loop, no fatal error, the system stays alive |
+
+For C1: no upstream issue was found for this loop (the search for the first oracle found only apache/pekko#3613 and #3620, which are about other defects). The Pekko documentation page on fault tolerance describes that child actors are stopped when the parent restarts; it does **not** mention backoff for failures in `setup` (checked in the 1.7.1 documentation source), so no such recommendation is recorded here. The only related statement in the code is the comment at `S:301`: with unlimited restarts a failed initial start is not retried "as it would likely be an infinite restart loop".
+
+**Not part of the contract.** The number of nested runs before the fatal error (about 2,000 on the JVM of the oracles: 2,037 to 2,090 over the runs of both oracles) depends on the stack size and is not part of the contract. Requirement for the implementation: only synchronous restarts count toward the fatal path, and a restart that waits for children resets that count. The concrete mechanism stays out of this ADR.
+
+**Coherence with rule 5 and the "Rejected alternative" of S-3.** They are limited to cases (a) and (b), and to sub-case C1 of (c), where no fatal error occurs: C1 follows the general rule 5. The one exception of rule 5 is (c-sync).
+
+**Still To be verified.** Children created by timers or message adapters: in Pekko they are not child actors of the supervised actor, so they should not change the criterion. Low priority; no oracle is planned.
+
+## Amendment (2026-11-05, c): S-2.6 rewritten, S-3 case (b) with a limit corrected, S-2.3c qualified, verification of S-2 closed
+
+- Status: **Accepted** by the Owner on 2026-11-05 (text: "si dale", accepting the proposal recorded here). Additive: the text above is unchanged; the phrases marked "Superseded by Amendment (2026-11-05, c)" are replaced by it. The correction of S-3 case (b) and the rule of S-2.6 (cases 1 and 2) were added on an Owner instruction of 2026-11-05 and **accepted** by the Owner the same day (text: "si — apruebo S-3 (b) y la regla revisada de S-2.6"); see the Owner table.
+- Principle applied: ADR 0033 D14. Oracle: [`s-2-supervision-2026-11-05.md`](../parity/oracles/s-2-supervision-2026-11-05.md) (its section 6 holds L, LT, P4c and the trace of P4b), Pekko 1.7.1. Claim ids S-2.1 to S-2.6 and scenarios P1 to P5 are those of its sections 1 and 3; L, LT and P4c are those of section 6. `S` = `Supervision.scala`.
+- Pekko documentation: [fault tolerance](https://pekko.apache.org/docs/pekko/current/typed/fault-tolerance.html), section "Child actors are stopped when parent is restarting".
+
+**S-3 case (b) with a limit, corrected** (replaces "the first start and then up to `n` restarts"). With `restart.withLimit(n, t)`: for **n ≤ 1 the initial start is not retried** (`S:302`: `(restartCount + 1) >= maxRestarts` rethrows on the first failure; `setup` ran once, oracle section 6.1, L and LT with n = 0 and 1); for **n ≥ 2 it is retried n times** (n restarts, n + 1 runs of `setup`; scenario 3 of the first oracle, n = 3: 4 runs; P4a, n = 2: 3 runs; L and LT with n = 2). The actor then stops; a Classic parent receives `Terminated(child)`, a Typed parent that watches receives `ChildFailed` with an `ActorInitializationException` (LT). The case without a limit is unchanged in S-3.
+
+**S-2.6 rewritten** (replaces "A start failure always stops it"). The supervisor rethrows when the limit is exceeded (`S:335-337`) or when the initial start is not retried (`S:302-304`). Where the rethrow lands depends on whether it happens while the supervisor's `aroundStart` is still running, because during the start the default stop wrapper is still outermost and is dropped only when the start returns (`InterceptorImpl.scala:82-85, 106-122`; `S:78-83`):
+1. **Rethrow inside the start.** `StopSupervisor` catches it, logs it and returns `failed(t)` (`S:162-166`): the actor stops and the parent's decider is **not** consulted. This is the case when the start is not retried (n ≤ 1, `S:302`) or when the whole retry sequence runs synchronously in the start, that is, when there are no children to wait for at the restart (`S:385-386`). Observed: P4a (3 runs with n = 2), L and LT, and the second round of P4b (runs 7 to 9).
+2. **Rethrow after the start returned.** When the restart waits for children, the start returns `Behaviors.empty` (`S:388`) and the outer wrapper is dropped (this last step is **inferred** from `deduplicate`, `InterceptorImpl.scala:106-122`, and from the stack frames of the logs; no run instruments it, and it is consistent with P4b round 1 and the control P4c). The later rethrow comes from `aroundSignal` (`S:256-259, 335-337`) and reaches the parent's decider, which decides as in S-2 (the default strategy gives Restart for an `Exception`). Observed: the first round of P4b (runs 4 to 6: `setup-boom -> Restart`).
+
+For a restart by the Classic parent (S-2.3), each new instance starts with `restartCount = 0` (`ActorAdapter.scala:317-322`; `S:211`). The exact sequence is the trace of section 6.2 of the oracle (P4b: 9 runs, 2 consultations of the decider; P4c without children: 6 runs, 1 consultation). Which of the two cases occurs depends on the children present at the restart, which the Classic restart keeps (S-2.3c).
+
+**S-2.3c qualified** (the children after a restart by the parent). When the parent restarts the actor, the existing children are kept and restarted and the new `setup` creates its children again, so after the restart the actor has **two** children, the old one (restarted, with its old name) and the new one; at the next restart both are stopped (P1). goPekko copies this (D14). The Pekko documentation describes the pattern for keeping children across a Typed restart (`supervise` inside `setup` with `withStopChildren(false)`, so that `setup` runs only at the first start); it does not describe the two-children outcome of a restart by a Classic parent, so the evidence for it is P1 only.
+
+**Verification of S-2 closed.** S-2.1 to S-2.5 are confirmed (oracle, section 4, which holds the table); S-2.6 is rewritten above. The differential scenario that S-2 required before V3 (ADR 0033 D13) exists, so the "To be verified" of S-2 is closed. Detail added for S-2.5: after the escalation of a non-fatal `Error` the parent was restarted by the Typed guardian and its child came up again (P3). Not covered by the oracle: a time window that expires, fatal `Error` subclasses (`VirtualMachineError`) and parents with a non-default strategy.
+
+**Coherence.** S-2.6, S-3 case (b) and contract 6 (row 6 of the contract table) now say the same: unlimited `restart` does not retry the initial start; with a limit n ≤ 1 it does not, with n ≥ 2 it retries n times; the actor ends stopped, and whether the parent's decider is consulted follows the two cases of S-2.6. Rule 5, the "Rejected alternative" and the case (c) cells of S-3 do not mention start failures and are unchanged.
+
+## Amendment (2026-11-06): the deduplication of equal supervisors happens once a stack has started
+
+- Status: **Accepted** by the Owner on 2026-11-06 (text: "si — apruebo el scope de #1184 (G2) ... D-5: enmienda a ADR 0035 en una PR aparte", accepting the proposal recorded here). Additive: the text above is unchanged; the phrase marked "Superseded by Amendment (2026-11-06)" is replaced by it.
+- Principle applied: ADR 0033 D14. Oracle: [`typed-nested-supervision-2026-11-06.md`](../parity/oracles/typed-nested-supervision-2026-11-06.md), Pekko 1.7.1 (`InterceptorImpl.scala` is `I`, `Supervision.scala` is `S`). Scenarios N1, N7 and N6c (the initial start), N9 (a stack returned by a handler), N10 (a stack rebuilt by a restart) and N8 (a failing start).
+
+**Replaces** "makes the enclosing one disappear, at start and after every turn" in "Additional guarantees used below":
+
+> A `supervise` whose class is exactly equal to an enclosing one's makes the enclosing one disappear **once a stack has started**: after the initial start, after a stack returned by a handler has started, and after a restart has rebuilt the stack (`InterceptorImpl.preStart` runs `aroundStart` and then `deduplicate`, `InterceptorImpl.scala:82-85`, `106-122`). **While the start is failing, the enclosing supervisor still receives what an inner one rethrows**: a Restart that rethrows at the start (an unlimited restart, or an exhausted limit, `S:294-306`) is caught by the enclosing supervisor if the class of the enclosing supervisor matches the exception, whether or not the two supervisors have the same class.
+
+**Evidence.** With an inner `restart.withLimit(1)` and an outer supervisor of the same class, the second failure stops the actor (N1, N7: the outer `resume` or `restart` did not take the rethrow; N6c: the outer `restart` did not restart); the same with a stack returned by a handler (N9) and with a stack rebuilt by a restart (N10, where the second failure restarts the actor from the outer `restart[Exception]`). With a failing first `Setup` the outer limit counts the retries whether the classes are equal or not: four executions of `Setup` under `withLimit(3)` (N8, N8d: two layers, an unlimited inner restart). That the enclosing supervisor receives the inner rethrow only when its class matches, and the cases with more than two layers, are read from `S:294-306` and `S:335-337`; no scenario ran them. The deduplication itself is inferred from these effects, as the oracle states.
+
+**Consequence for goPekko.** Until this amendment goPekko removed from the layers in force those that an added layer equals, but never an equal layer among the layers that had just started, and the initial start did not deduplicate at all. The unit of #1184 (slice 1a) deduplicates at the three sites. Two tests of #976 asserted the previous behavior with two equal `AnyError()` layers (`TestRestartStopChildren_Nested`, case 3; `TestRestartLimit`, "a rethrown failure reaches the enclosing supervisor"); the Owner approved on 2026-11-06 that the unit adapts them (the scenario with different matchers kept, the equal-matcher form that does what Pekko does added).
+
+## Amendment (2026-11-10): language adaptations of the Typed StashBuffer (#889)
+
+- Status: **Accepted** by the Owner on 2026-11-10 (G2 of the scope `docs/scopes/889-typed-stash-buffer.md`; decision on its open point 1: the adaptations go in a dated amendment to this ADR, with the precedent of D-c and D-e, plus the module README and the kit manifest). Additive: the text above is unchanged.
+- Principle applied: ADR 0033 D14.3 (a deviation from Pekko needs its own record). `SBI` = `StashBufferImpl.scala`, `SB` = `scaladsl/StashBuffer.scala`; both read at the pin `9a54d12`. No Pekko oracle was run for these rows: the Owner approved alternative evidence on 2026-11-10 (ADR 0033 D13) for the capacity rule, the zero value and the supervision test of the overflow error.
+
+**Adaptations** (each is a language adaptation, in the sense of D-c and D-e, not a change of observable behavior):
+
+1. **Capacity is not validated.** As Pekko (`SBI:42-43`, `isFull = size == capacity`, `:69`): capacity 0 is always full and a negative capacity is never full.
+2. **No rejection of the zero value of `T`.** Pekko's `NullPointerException` for a null message (`SBI:72`) is a JVM protection; Go stores the zero value as a message.
+3. **`ErrStashOverflow`** (wrapped with the capacity) is returned by `Stash` instead of throwing `StashOverflowException` (`SB:172`, a `RuntimeException`); the buffer is intact (`StashBufferSpec.scala:65-78`). Under `Supervise` it is matched with `ErrorIs(ErrStashOverflow)`; with no match the actor takes the default Stop.
+4. **`ErrStashEmpty`** is returned by `Head` on an empty buffer instead of `NoSuchElementException`.
+5. **`Contains` is a package-level function** `Contains[T comparable]`, free of the buffer's type constraint (a method cannot add a constraint in Go).
+6. **`WithStash(n, factory)` captures the context of `Setup`** in the internal buffer, as `Behaviors.withStash` does over `setup` (`Behaviors.scala:45-49`). The internal `actor.Context` is one value per cell (`spawn.go:156`); a test in slice A pins that. The rule for using the captured context belongs to #927.
+
+Owner decision line: "Owner, 2026-11-10: D14.3, the adaptations go in a dated amendment to ADR 0035, with the precedent of D-c and D-e, plus README and manifest."
+
+## Amendment (2026-11-11): `UnstashException` as an unexported error (#927, slice B)
+
+- Status: **Accepted** by the Owner on 2026-11-10 (G2 of `docs/scopes/927-typed-unstash.md`, D-4 and point 6; the dated amendment is the one the scope promised). Additive: nothing above changes. Principle applied: ADR 0033 D14.3. Read at the pin `9a54d12`, not run (D13).
+- **Shape.** A failure (error or panic) of a replayed message handler is returned by `Unstash` wrapped in the unexported `unstashError`, which carries the behavior that threw and the `Supervise` layers the replay crossed and unwraps to the cause. Pekko: `UnstashException` (`StashBufferImpl.scala:204-207, 271-286`, `private[pekko]`).
+- **Supervision.** Matching uses the cause (`Supervision.scala:74-76, 98-102`), so `ErrorIs` and `ErrorAs` need no change. Before a supervisor acts, `fail` installs the behavior that threw and the layers it carried: Resume continues with it (`Supervision.scala:174`), Restart gives it `PreRestart` (`:318, 327, 416`), the default Stop gives it `PostStop` (`ActorAdapter.scala:152-160`). A failure of a start is not wrapped (`StashBufferImpl.scala:193`).
+- **Not covered:** the `Stop` strategy and Backoff cases of `StashSpec.scala:483-564` (`PORT-GAP(TYP-14-stop-strategy-1063)`, `PORT-GAP(TYP-14-backoff-1063)`).
