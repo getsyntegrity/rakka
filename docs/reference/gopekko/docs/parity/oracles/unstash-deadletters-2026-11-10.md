@@ -1,0 +1,70 @@
+# Oracle: dead letters of a Typed `unstashAll` interrupted by `Stopped`, and of a `Terminated` retained when a Typed actor stops (Pekko v1.7.1)
+
+- Date: 2026-11-10. Evidence only; this document recommends nothing and changes no ADR or scope.
+- Pekko `actor-typed` 1.7.1 (tag `v1.7.1`, `upstream/pekko` at `9a54d1294c3ac7821bbed3c940769c3d5027d1ff`), Scala 2.13.18, **JDK Zulu 1.8.0_504**: every sbt run was started with `-java-home` of that JDK and its first line says `Java 1.8.0_504`; every harness log starts with `java.version=1.8.0_504 java.home=.../8.0.504+1-zulu/jre` and ends with `exit=<code>`; see `env.txt`. Default fork-join dispatcher (`parallelism-max = 4`). A Typed actor is spawned on a Classic `ActorSystem` through `pekko.actor.typed.scaladsl.adapter._` (`system.spawn`), so the Classic `deadLetters` and the event stream are the ones the previous oracle observed.
+- Purpose: Owner decision of 2026-11-10 on the scopes of #1182 and #927 (PR #1524), points 3: replace the inferred values of AC-R2-2 of #1169 and of the retained `Terminated` by observations: (a) the sender and recipient of the dead letters published when the behavior becomes `Stopped` during `unstashAll`; (b) what becomes of a `Terminated` that is still queued when a Typed actor stops (`DeadLetter`, `SuppressedDeadLetter` or discarded).
+- Method: code reading (section 1); Option 1, the shipped spec `org.apache.pekko.actor.typed.scaladsl.UnstashingSpec` (the `actor-typed-tests` project of a `git archive v1.7.1` copy, three runs, section 2); Option 2, new scenarios `US1` to `US4` and `US6` in `docs/parity/harness/src/main/scala/unstash/Run.scala` (sha256 `ea00b2d93d83fa01fb09f0079e5a44f495f870f74952defa19dc20fc474d003a`, git blob `37a4e111fbb17730d1b0223c387a6f099344ae85`, listed in `harness-files.sha256`), each in its own JVM, three runs, with three collectors on the event stream (`DeadLetter`, `SuppressedDeadLetter`, `AllDeadLetters`) printing class, message, sender and recipient (section 3). Raw logs are complete and untrimmed in [`unstash-deadletters-2026-11-10.logs/`](unstash-deadletters-2026-11-10.logs/README.md). Citations `[nnn]` are lines of run 1 of the named file; runs 2 and 3 are compared as sets of lines. Anything not shown by a log line is marked *inferred*.
+- Rule "claims against evidence": a statement in an Observed column names the log line; what the code reading predicts is in the Predicted column and compared in section 4.
+- The harness build now also depends on `pekko-actor-typed` 1.7.1 (`docs/parity/harness/build.sbt`); the other harness packages do not use it.
+
+## 1. What the source says (code reading, Pekko 1.7.1)
+
+`SB` = `actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala`, `R` = `actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala`, `DW` = `.../actor/dungeon/DeathWatch.scala`, `AC` = `.../actor/ActorCell.scala`, `SM` = `.../dispatch/sysmsg/SystemMessage.scala`, `M` = `.../dispatch/Mailbox.scala`.
+
+| # | Claim | Location |
+|---|---|---|
+| T1 | When a replayed behavior is not alive, `unstashRestToDeadLetters` tells the Typed `system.deadLetters` a `DeadLetter(wrap(node.message), classicDeadLetters, self.toClassic)` for each message still in the replay iterator (the `take(min(n, size))` prefix not yet interpreted). The same happens when the initial behavior is not alive | `SB:221` (behavior dies mid-replay), `SB:241` (initial behavior not alive), `SB:246-251` |
+| T2 | `unstashAll(b)` is `unstash(b, size, identity)` followed by `stashCleared`. `unstash` replays only the first `min(n, size)` messages: the rest stays in the buffer | `SB:156-160`, `SB:162-185` |
+| T3 | `DeadLetterActorRef.!` : a `DeadLetter` goes to `specialHandle(d.message, d.sender)`; if that returns `false` the `DeadLetter` is published as is, otherwise a `DeadLetterSuppression` message is published as `SuppressedDeadLetter(msg, <sender>, this)` with `this` the dead-letter ref | `R:693-724`, `R:736-743` |
+| T4 | When a watched actor terminates, a non-terminating watcher tells itself `Terminated(actor)` with `actor` as the sender (a user message, queued behind the user messages already there); a terminating watcher drops it | `DW:99-114` (the `self.tell` at `DW:111`), `AC:522` |
+| T5 | `Mailbox.cleanUp` of a stopped actor moves the remaining user envelopes to `deadLetters` (`DeadLetter(msg, envelope.sender, receiver)`), as in the previous oracle | `M:340-354`, see `suppressed-dead-letters-2026-11-10.md` S6 |
+| T6 | `Terminated` and the system message `DeathWatchNotification` extend `DeadLetterSuppression` | `Actor.scala:123` (`Terminated`, see `suppressed-dead-letters-2026-11-10.md` S2), `SM:285` (`DeathWatchNotification`) |
+
+## 2. Option 1: the shipped spec `UnstashingSpec`
+
+Command (three times, in the copy; identity: the `git archive v1.7.1` stream has sha256 `99f20bbf1b65477080d0b8a05dc10878c453d5f7d48428a1b0df4c055c8c3831`, the same as in the previous oracle, git tree `6b214fa85b0b2038e38d3fb201ee91d4ae123b7f`; the copy was not re-compared file by file after the runs): `sbt -batch -java-home "$J8" 'actor-typed-tests/testOnly org.apache.pekko.actor.typed.scaladsl.UnstashingSpec'` with `JAVA_8_HOME="$J8"`.
+
+| Run | First line | Result |
+|---|---|---|
+| 1 | `welcome to sbt 1.12.14 (Azul Systems, Inc. Java 1.8.0_504)` | `Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0`, exit 0 (report `tests="17" errors="0" failures="0"`) |
+| 2 | same | `succeeded 17, failed 0`, exit 0 |
+| 3 | same | `succeeded 17, failed 0`, exit 0 |
+
+The tests that matter here are `Unstashing must deal with initial stop` and `Unstashing must deal with stop` (`UnstashingSpec`, `StashSpec.scala:673-709`): the second stashes `"one"` and `"two"`, unstashes into a behavior that forwards the first message and returns `Behaviors.stopped`, and expects `"two"` in a dead-letter probe (`deadLetterProbe.receiveMessage().message should equal("two")`). **The spec checks the message only, not the sender or the recipient**; section 3 supplies them. (A first attempt named the class `StashSpec`: no such class exists, sbt ran no tests, and that attempt is not evidence; it was replaced by these three runs.)
+
+## 3. Option 2: scenarios `US1` to `US4`, `US6`
+
+Common method: `withStash(10)` actor spawned as `stasher-<scenario>` receives `m1 m2 [SuppMsg] m3 m4` and then `"Go"` from the main thread (a Typed `!` has no sender); on `"Go"` it calls `unstashAll` or `unstash` into the replay behavior; the harness waits until `unstash` returned and the actor is terminated (a classic watcher), then fences all three collectors (a direct message from the publishing thread, queued behind the earlier deliveries; the dead letters are published synchronously from the actor thread before the actor terminates), so "nothing else arrived" is shown by a fence, not a sleep. `D` = `DeadLetter`, `P` = `SuppressedDeadLetter`; `dls` = `Actor[pekko://uns/deadLetters]`; `stasher` = `Actor[pekko://uns/user/stasher-<scenario>#uid]`. `SuppMsg` is `case object SuppMsg extends DeadLetterSuppression`.
+
+All 15 runs ended with `exit=0` (`exitcodes.txt`) and every log starts with `java.version=1.8.0_504`. Runs 2 and 3 equal run 1 as a set of lines (after dropping `[nnn +ms]` and the `#uid` of paths) in all 5 scenarios (checked with a script).
+
+| Scenario | Predicted (T1) | Observed, run 1 (`<scenario>.1.txt`) | Runs 2, 3 | Matches |
+|---|---|---|---|---|
+| `US1` `unstashAll` into a behavior that stops on `m2`; stash `m1 m2 m3 m4` | `D(m3, dls, stasher)`, `D(m4, dls, stasher)` | replay saw `m1`, `m2` [004, 005]; `dl recv DeadLetter(message=m3, sender=Actor[pekko://uns/deadLetters], recipient=Actor[pekko://uns/user/stasher-US1#...]) [sender eq deadLetters = true, recipient eq deadLetters = false]` [007] and the same for `m4` [009], each also on `all` [008, 010]; no `sd recv`; stash size 0 afterwards [006] | same | yes |
+| `US2` `unstash(b, 3, wrap = "w:" + _)` into a behavior that stops on the first replayed message; stash `m1 m2 SuppMsg m3 m4` | the two messages left in the 3-message prefix, wrapped | replay saw `w:m1` [004]; `DeadLetter(message=w:m2 [String], sender=dls, recipient=stasher)` [006] and `DeadLetter(message=w:SuppMsg [java.lang.String], sender=dls, recipient=stasher)` [007] (also on `all`); no `sd recv`; `m3` and `m4` are not published and stay in the buffer (`stash size now 2` [005]). The `SuppMsg` is wrapped by the function into a plain `String`, so it is a `DeadLetter`, not suppressed | same | yes |
+| `US3` `unstashAll(Behaviors.stopped)`; stash `m1 m2 m3 m4` (the initial behavior is not alive) | all four, in order | `DeadLetter(m1)`, `m2`, `m3`, `m4`, each with `sender=dls`, `recipient=stasher` [005, 007, 009, 011]; no replay line; stash size 0 [004]; no `sd recv` | same | yes |
+| `US4` `unstashAll` stopping on `m1`, identity wrap, stash `m1 m2 SuppMsg m3 m4` | `m2 m3 m4` as `D`; `SuppMsg` suppressed | `DeadLetter(m2, dls, stasher)` [005, 006], `DeadLetter(m3, dls, stasher)` [009], `DeadLetter(m4, dls, stasher)` [011]; `sd recv SuppressedDeadLetter(message=SuppMsg [unstash.SuppMsg$], sender=Actor[pekko://uns/deadLetters], recipient=Actor[pekko://uns/deadLetters]) [sender eq deadLetters = true, recipient eq deadLetters = true]` [008], also on `all` [010] | same | yes (T3: a suppressed message keeps the sender, `dls` here, and its recipient becomes `deadLetters`) |
+| `US6` a `Terminated` retained when a Typed actor stops: `A` watches `B`; `A` is blocked in `"go"`; `B` stops (`"bye"`); the harness waits (polling `Mailbox.hasSystemMessages`, no sleep) until the death-watch notification is in `A`'s system queue; `"stop"` is queued; the gate opens | `Terminated(B)` queued in the user queue behind `"stop"`, then dead-lettered at the cleanup | `A` leaves `go` [009]; while handling `"stop"` the harness polls `numberOfMessages(A) == 1` and sees it [010], i.e. `Terminated(B)` is in the user queue; `A` returns `Behaviors.stopped` [011], gets `PostStop` [012] and never logs a `Terminated` signal; then `sd recv SuppressedDeadLetter(message=Terminated(Actor[pekko://uns/user/B#...]) [org.apache.pekko.actor.Terminated], sender=Actor[pekko://uns/user/B#...], recipient=Actor[pekko://uns/deadLetters]) [sender eq deadLetters = false, recipient eq deadLetters = true]` [013], also on `all` [014]; no `dl recv` | same | yes |
+
+## 4. Findings
+
+- **(a) The dead letters of the stash are `DeadLetter(wrap(msg), deadLetters, self)`** (`US1` [007], `US3` [005]): sender = the Classic `deadLetters` (`sender eq deadLetters = true`), recipient = the stopping actor itself (`recipient eq deadLetters = false`), message = the wrapped message. Confirmed with the identity wrap and with a non-identity `wrap` (`US2` [006, 007]: `w:m2`, `w:SuppMsg`).
+- **The wrap decides the class.** A message that is a `DeadLetterSuppression` goes out as `SuppressedDeadLetter(msg, deadLetters, deadLetters)` when the wrap leaves it unchanged (`US4` [008]), and as an ordinary `DeadLetter` when the wrap turns it into something else (`US2` [007]).
+- **Only the replay prefix is dead-lettered.** With `unstash(b, n, wrap)` the messages beyond the `n`-prefix stay in the buffer and are not published (`US2` [005]: size 2 left). With `unstashAll` the buffer is empty afterwards (`US1` [006], `US3` [004], `US4` [007]).
+- **The initial-behavior-not-alive branch dead-letters every message, including the first** (`US3`), with no replay of any message.
+- **(b) A retained `Terminated` is a `SuppressedDeadLetter`, not a `DeadLetter` and not discarded** (`US6` [013]): `message = Terminated(B)`, `sender = B` (not `deadLetters`: the watcher told itself with the terminated actor as the sender, T4), `recipient = deadLetters`. This confirms the `Terminated → SuppressedDeadLetter` mechanism of `DL3` of the previous oracle and adds the sender: in `DL3` the `Terminated` was told by hand with no sender (sender `deadLetters`); here it is the runtime-built one and the sender is the terminated actor.
+- It does not appear as a signal to the stopping actor: `A` logged no `Terminated` signal in any of the 3 runs.
+
+## 5. Differences from the inferred expectations
+
+None. Each expectation of T1, T3 and T4 matched. One qualification about the question as posed: the previous oracle's `DL3` shows the `Terminated` told to an already-dead actor with no sender; `US6` is the case "retained in the queue when the actor stops", in which the sender is the watched actor. The two differ only in the sender.
+
+## 6. Limits of this evidence
+
+- Local, Classic `ActorSystem` hosting Typed actors, default dispatcher, one JVM per run, Java 1.8.0_504 only; no remote, no cluster.
+- Messages were told from the main thread (no sender is possible with a Typed `!`); the dead-letter sender is therefore always `deadLetters` for the stash (T1 sets it explicitly), and the stash never carries the original sender.
+- The replay behaviors are `receiveMessage`; `Behaviors.same`, `unhandled`, `setup` in the replay chain and a failure (`UnstashException`) during the replay were not run here (the shipped spec covers failures with supervision, section 2).
+- `US6` retains the `Terminated` by blocking the actor inside a handler. The other ordering, a `DeathWatchNotification` still in the **system** queue when the actor stops (so a terminating actor drops it, `DW:110`), was not run: the harness did not find a way to fix that ordering without a race, so no value is claimed for it.
+- A `Terminated` made by `watchWith` (a custom message) was not run; nor was a `ChildFailed` signal.
+- The harness for `US1` to `US4` and `US6` is new; unlike the previous oracle's it needs `pekko-actor-typed` on the classpath (it comes from Maven Central, not from the `git archive` copy). Option 1 used the build of the copy; Option 2 used the published `pekko-actor-typed_2.13-1.7.1.jar` and `pekko-actor_2.13-1.7.1.jar`.
+- Timing: Option 1 took 9 s, 9 s and 7 s by the sbt `Total time` lines of the three runs (the compile of the copy was done earlier by a first, empty attempt of 45 s); the duration of the 15 JVM runs of Option 2 was not measured.
