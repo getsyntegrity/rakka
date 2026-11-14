@@ -1,0 +1,360 @@
+# D3 deep second pass: Typed services / reliable delivery (15 stories)
+
+> Verification status (2026-10-26): checked by V3_D3_D4.md: 31 findings checked in full, 24 partially, 8 not verified (counts cover D3 and D4 together). Corrections from the verification are applied in this file. Stories not covered by the verification keep the producer's wording unverified.
+
+Baselines: Pekko v1.7.1 `9a54d12...` (paths relative to `upstream/pekko`; `T/` = `actor-typed/src/main/scala/org/apache/pekko/actor/typed/delivery/`, `TI/` = `T/internal/`, `TT/` = `actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/delivery/`). goPekko develop `9abfb40` snapshot. Accepted ADR text: ADR 0033 (D3 line 37, D8 line 42, D9 line 43, D13 line 47 of `develop/docs/adr/0033-...md`). ADR 0032 is not in develop (PR #1014 open).
+Go state for every story: absent (no `pekko-actor-typed` in `go.work`, no delivery symbol).
+
+Spec bodies opened in full this pass: `TT/ProducerControllerSpec` (391 lines), `TT/ConsumerControllerSpec` (706), `TT/ReliableDeliverySpec` (222), `TT/WorkPullingSpec` (289), `TT/DurableProducerControllerSpec` (327), `TT/DurableWorkPullingSpec` (407), `TT/DurableProducerQueueSpec` (103), `TT/ReliableDeliveryRandomSpec` (228), `TT/TestDurableProducerQueue`. Source opened in full: `T/ProducerController`, `T/ConsumerController`, `T/WorkPullingProducerController`, `T/DurableProducerQueue`, `TI/ConsumerControllerImpl`, `TI/ProducerControllerImpl`, `TI/WorkPullingProducerControllerImpl` (all of it), `TI/ChunkedMessage`, `actor-typed/src/main/resources/reference.conf:70-131`.
+
+## Cross-cutting facts verified (used by several stories)
+
+- X1. First message needs no demand. `TI/ProducerControllerImpl.scala:56-66` (design note), `createState` sets `requestedSeqNr = loadedState.currentSeqNr` (:254), `becomeActive` sends `RequestNext` at start (:331-335). Spec `TT/ProducerControllerSpec.scala:47-72` observes `SequencedMessage(1)` at the consumer probe before any `Request` is sent.
+- X2. The producer controller DOES push a resend without being asked: `ResendFirst` timer started whenever `currentSeqNr == firstSeqNr` (`TI/ProducerControllerImpl.scala:422-423`, not conditional on a durable queue), handler :675-685, cancelled on ack of `firstSeqNr` (:548-549), restarted on `RegisterConsumer` with unconfirmed (:706-709). `reference.conf:91-93`: "retries sending the first message with this interval until it has been confirmed". This contradicts the Scaladoc `T/ProducerController.scala:62-64` ("will not push resends unless requested") and the reconciliation texts of #810, #998 and #1165 that tie `ResendFirst` to the durable queue. Spec: `TT/ProducerControllerSpec.scala:47-72` (non-durable; second identical `SequencedMessage(1)` arrives, then `expectNoMessage(1100.millis)` after `Request(1,10,..)`) and :149-185.
+- X3. Producer-side resend also triggered by `Request`: `(viaTimeout || newConfirmedSeqNr == s.firstSeqNr) && supportResend` resends all unconfirmed (`TI/ProducerControllerImpl.scala:482-485`). Spec :111-147 (viaTimeout) and :177-179 (`Request(2L,..)` with firstSeqNr 2 resends 3). So a repeated `Request` is idempotent for the window (`requestedSeqNr` only grows, :500) but not free of side effects.
+- X4. Sequence scope = (ProducerController ref, seqNr). `producerId` is only a log/MDC label (`T/ProducerController.scala:89-91`) and is overwritten from the latest accepted message (`TI/ConsumerControllerImpl.scala:386`); producer change is detected by `seqMsg.producerController != producerController || receivedSeqNr == 0` (:108-109). `Request`/`Ack`/`Resend` carry no consumer identity (`TI/ProducerControllerImpl.scala:102-114`).
+- X5. No delivery spec uses injected time. grep `ManualTime|ManualClock` in `TT/`: none. Timing is real (test config overrides `resend-interval-min` to 1s, `reference.conf` default is 2s with max 30s; `expectNoMessage(1.1.second)`: `TT/ConsumerControllerSpec.scala:30-34,213`).
+- X6. D13 for all delivery stories: a Pekko oracle exists (the specs above exercise controller behavior through public commands plus the internal messages `Request/Resend/Ack`). Whether it is applicable as a Go differential scenario is pending determination; missing evidence: how a differential scenario drives the JVM side with internal protocol messages, and which harness hosts `pekko-actor-typed` (judge scope for typed is not established in develop). Never `pending approval` by default.
+
+---
+
+### #810 TSD-07 — Specify reliable-delivery sequence and confirmation contracts
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT (reconciliation text contradicts Pekko code on ResendFirst; ACs omit first-message, producer-identity and WorkPulling rules)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 handshake, sequence scope, duplicate suppression boundary | Start/RegisterConsumer in any order, both needed before active (`TI/ProducerControllerImpl.scala:265-300`); first msg without demand (:56-66); seq starts 1, no gaps (:71-72); consumer dedup `seqNr < expected` dropped (`TI/ConsumerControllerImpl.scala:338-345`, :610-612); scope = producerController ref (X4, :108-109) | `TT/ConsumerControllerSpec.scala:380-408` repeats seq 1 (second dropped, `expectNoMessage`), then seq 1 from a different producer controller IS delivered; :219-270 duplicates 5,6,7 while stashed are delivered once | absent | yes for dedup; spec does not observe the stale-producer discard branch (:403-410) |
+| AC2 demand window and resend ownership independent of mailbox bounds | window = `flowControlWindow` (`T/ConsumerController.scala:237-241`, ref.conf:101); consumer stash capacity = window (`TI/ConsumerControllerImpl.scala:128`); Request at half window (:575-584); resend: consumer `Resend` (:331,:399,:471) AND producer `ResendFirst` (X2) AND Request-triggered resend (X3) | `TT/ConsumerControllerSpec.scala:111-145` (Request(0,20), then Request(10,30) only after seq 10 confirmed); `TT/ProducerControllerSpec.scala:47-72,111-147` | absent | Pekko ownership is mixed, not purely consumer-driven |
+| AC3 in-memory controller vs optional durable queue protocol/backend | `DurableProducerQueue` protocol in actor-typed (`T/DurableProducerQueue.scala:33-100`); queue spawned as child, `sameAsParent` dispatcher (`TI/ProducerControllerImpl.scala:213-217`); implementation lives in persistence-typed (`T/ProducerController.scala:68-71`) | `TT/DurableProducerControllerSpec.scala:54,91` use in-memory `TestDurableProducerQueue` | absent | yes |
+| AC4 ADR with alternatives, open Owner decisions | ADR 0033 D9 (l.43): delivery in, persistence-dependent durable queue implementations out; D13 (l.47) | n/a | no delivery ADR in develop | n/a |
+| AC5 public contract/traceability | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) Current reconciliation text: "the producer resends only via ResendFirst for durable state (ProducerController.scala:62-64; ProducerControllerImpl.scala:117)". Evidence X2: `ResendFirst` is armed for every first message (`TI/ProducerControllerImpl.scala:422-423`); `reference.conf:91-93` has no durable condition; `ProducerControllerSpec.scala:47-72` is non-durable. Neutral replacement: "Pekko code re-sends the first unconfirmed message from the producer on a timer (ResendFirst, durableQueueResendFirstInterval, default 1s) in addition to consumer-requested Resend; the Scaladoc at ProducerController.scala:62-64 states the opposite. Which one is the contract to port is an open question for the Architect/Owner."
+  - F2 (high) AC2 "Define demand window and resend ownership independently from actor mailbox bounds" is incomplete: ownership has three sources (X2, X3, consumer Resend). Add them.
+  - F3 (medium) Missing from ACs and reconciliation: first message without demand (X1); producer identity for sequence scope (X4: producerId is a label, the ProducerController ref decides dedup); newest first-marked producer replaces the current one (`TI/ConsumerControllerImpl.scala:373-391`); `Resend(0)` for a non-first message from an unknown producer (:392-402; spec `TT/ConsumerControllerSpec.scala:438-483` observes `Resend(0)` and the stash being cleared); local-only runtime checks (`enforceLocalConsumer` `TI/ConsumerControllerImpl.scala:228-231`, `enforceLocalProducer` `TI/ProducerControllerImpl.scala:347-350`, which throws the same text `s"Consumer [$ref] should be local."` (:349, copy-paste in Pekko); no spec found, searched actor-typed-tests and persistence-typed tests for `enforceLocal` / "should be local"). Neutral text: list as Pekko behaviors the ADR adopts or records as differences with an Owner decision.
+  - F4 (medium) Chunking item: `ChunkedMessage(serialized, firstChunk, lastChunk, serializerId, manifest)` (`TI/ChunkedMessage.scala:23-29`), serialization through `SerializationExtension` (`TI/ProducerControllerImpl.scala:38-40,355-358`; `TI/ConsumerControllerImpl.scala:291,546`). ADR 0033 D8 (l.42): the Pekko `Serialization` extension stays replaced by `pekko-serialization`; D3 (l.37): typed depends on `pekko-actor`. Whether typed may import `pekko-serialization` is not decided by any accepted ADR (open question; no Owner decision found).
+  - F5 (low) WorkPullingProducerController scope (recon) is right (`T/WorkPullingProducerController.scala:110-258`) but its ack tracking differs from the point-to-point controller (see #1001).
+  - F6 (info) ADR 0032 D5 item: `watchWith(..., ConsumerTerminated(...))` at `TI/ConsumerControllerImpl.scala:148,678`; plain case class, no sender; consistent with "only if a sender assertion is added".
+- Dependencies: #809 -> #810 `depends_on` correct. Body "No new-story prerequisite" is superseded by the reconciliation. Status `blocked` consistent (#809 is `ready` but undelivered). P1 vs plan 7.4 P2 is explained in the recon.
+- Oracle (D13): X6, applicability pending determination.
+
+---
+
+### #963 TSD-08 — Handshake a producer and consumer controller
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT (AC2 and AC3 contradict Pekko observed behavior) + DEP (missing edge, priority inversion)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 Start/register bind exact controller/session identities | `Start` (`T/ProducerController.scala:111`, `T/ConsumerController.scala:74`); `RegisterConsumer` (`T/ProducerController.scala:150`) replaces `send` and sets `firstSeqNr` (`TI/ProducerControllerImpl.scala:697-713`); `RegisterToProducerController` (`TI/ConsumerControllerImpl.scala:142-144,683-698`, retried by `Retry` :660-665). Binding = ActorRef; no session id exists | `TT/ConsumerControllerSpec.scala:53-65` (RegisterConsumer sent, then re-sent), :67-88 (re-register to a second producer controller); `TT/ProducerControllerSpec.scala:149-185` (new consumer gets seq 2 `asFirst`, re-sent once, rest after `Request(2,..)`) | absent | yes for ActorRef binding; "session" has no Pekko counterpart |
+| AC2 stale registration cannot hijack a later session | Opposite: any message from another producer controller marked first (or any, if `onlyFlowControl`) replaces the current producer (`TI/ConsumerControllerImpl.scala:373-391`); non-first from another producer when seq>0 is discarded with a warn (:403-410); while `registering`, messages from other controllers are discarded (:314-318) but `isProducerChanged` is evaluated first (:310) | `TT/ConsumerControllerSpec.scala:410-436` observes switching to producer 2 and 3 (`asFirst`, Request(0, 23+window-1)); no spec observes the discard branch (searched ConsumerControllerSpec for a non-first message from a second controller: none) | absent | no (Pekko: newest first-marked producer wins) |
+| AC3 setup sends no user messages before accepted demand | First message is sent without demand (X1); later ones obey `requestedSeqNr`; sending without `RequestNext` throws `IllegalStateException` (`TI/ProducerControllerImpl.scala:450-456`) | `TT/ProducerControllerSpec.scala:47-72` (msg-1 observed with no Request); `TT/DurableProducerControllerSpec.scala:54-89` (4 only after `Request(3,13)`) | absent | no for the first message |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) AC3 "Connection setup does not send user messages before accepted demand." Neutral replacement: "The first message is sent to the registered ConsumerController without waiting for a Request; later messages are limited by requestUpToSeqNr (TI/ProducerControllerImpl.scala:56-66; spec TT/ProducerControllerSpec.scala:47-72)."
+  - F2 (high) AC2 "A stale controller registration cannot hijack a later session." Not a Pekko rule (AC2 row). A Go session guard would be a deliberate difference needing an explicit Owner decision (D13 does not authorize it). Missing evidence: Owner decision; no Pekko behavior found.
+  - F3 (medium) Missing handshake pieces: consumer `Start` is required before delivery; `SequencedMessage` before `Start` is stashed (capacity = window) and discarded when full (`TI/ConsumerControllerImpl.scala:138,158-171`; spec :90-109 and :438-483); initial `Request(0, seq-1+window)` on the first message (:379-381) and `Request(confirmedSeqNr=seq, ..)` after the first Confirmed (:565-574) (spec :90-109, :147-183, :410-436); consumer `Retry` re-sends `RegisterConsumer` (spec :53-65).
+  - F4 (low) Recon "ProducerController stashes is WRONG": confirmed, `TI/ProducerControllerImpl.scala` has no stash; before activation it uses `receiveMessagePartial` (:275).
+- Dependencies: reconciled list verified as needed: #810, #847, #977 (`withTimers` `TI/ConsumerControllerImpl.scala:137`, `TI/ProducerControllerImpl.scala:329`), #889 (StashBuffer :128), #954 (watch :148). Missing: #888 (TYP-05 message adapter; `context.messageAdapter` `TI/ProducerControllerImpl.scala:330`). Priority inversion: #977 (P2) and #888 (P2) gate this P1 story (flag only). Removal of #928 consistent (`.narrow` is internal, :171, `TI/ConsumerControllerImpl.scala:201`).
+- Oracle (D13): X6; a Go-only stale-registration guard has no Pekko oracle (applicability of any oracle to that rule: pending determination).
+
+---
+
+### #980 TSD-09 — Request the next message only within delivery demand
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT (AC2 premise; OnlyFlowControl atomicity) + DEP (missing #1162 edge)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 window counts unconfirmed entries per accepted rules | Consumer requests more when `requestedSeqNr - seqNr == flowControlWindow/2` at Confirmed (`TI/ConsumerControllerImpl.scala:575-584`, integer division), also while collecting chunks (:508-523); after the first Confirmed a Request is sent immediately (:565-574; spec :111-145 line 131); first Request = `seq-1+window` (:379). Producer: `RequestNext` when `requestedSeqNr - currentSeqNr > 0 && !requested` (`TI/ProducerControllerImpl.scala:500-513`) | `TT/ConsumerControllerSpec.scala:111-145` asserts Request(0,20), none until seq 10 confirmed, then Request(10,30); :616-667 chunks | absent | yes (window is driven by consumer-confirmed seqNr) |
+| AC2 producer cannot exceed window by duplicate RequestNext handling | `requestedSeqNr` only grows (:500); `requested` flag guards a second `RequestNext` (:507); exceeding demand throws (:450-456); a repeated Request with `confirmedSeqNr == firstSeqNr` also re-sends unconfirmed (X3) | no spec found; searched ProducerControllerSpec (all), DurableProducerControllerSpec, ReliableDelivery*Spec for a repeated Request asserting one RequestNext: none. `ReliableDeliveryRandomSpec` drops/retries Requests but asserts only completion | absent | spec-does-not-observe |
+| AC3 OnlyFlowControl explicit, no resend promise | `onlyFlowControl` (`T/ConsumerController.scala:240,276`); consumer accepts gaps (`TI/ConsumerControllerImpl.scala:335-337`); Request carries `supportResend=false` (:726,732); producer keeps no unconfirmed (`TI/ProducerControllerImpl.scala:419-420,478-480`), widens window if all were lost (:487-499) | `TT/ConsumerControllerSpec.scala:670-704` (3 and 35 delivered after skips); `TT/ProducerControllerSpec.scala:309-346` (`expectNoMessage` after `Request(2,10,false,true)`), :348-388 | absent | yes |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (medium) AC2 "The producer cannot exceed the window by duplicate RequestNext handling." `RequestNext` goes producer-ward; the duplicate is the consumer's `Request`. Neutral replacement: "A repeated or reordered Request (absolute requestUpToSeqNr, TI/ProducerControllerImpl.scala:500) never lowers the window nor produces a second RequestNext while one is outstanding (:507); no Pekko spec observes this. A Request with confirmedSeqNr == firstSeqNr or viaTimeout also re-sends unconfirmed messages (:482-485)."
+  - F2 (medium) Atomicity: AC3 (OnlyFlowControl) changes consumer gap handling, producer retention and window widening, observed by separate spec groups ("without resending": `TT/ConsumerControllerSpec.scala:670`, `TT/ProducerControllerSpec.scala:309`). Different observable outcome from the half-window Request; SPLIT candidate (the recon already suggests it).
+  - F3 (medium) Window/OnlyFlowControl settings are defined by #1162 (`T/ConsumerController.scala:237-241`), whose body says "**Produced:** #980 (TSD-09), #1158 (TSD-20), #1165 onlyFlowControl without HOCON"; #980 does not list #1162 as `depends_on`; #1162 is P2 and `depends_on #963` (no cycle). Missing edge #1162 -> #980.
+  - F4 (low) `flowControlWindow/2` is integer division; for window 1 the half-window test is `requestedSeqNr - seqNr == 0` (inference from :575, no spec).
+- Dependencies: #963 -> #980 plausible (same state machine). Add #1162 -> #980. Priority: #1162 is P2 and gates this P1 story (flag).
+- Oracle (D13): X6.
+
+---
+
+### #992 TSD-10 — Deliver a sequenced message with an explicit confirmation reference
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT (add gap/first/Ack statements) + DEP (edge reason)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 consumer receives payload plus sequence/producer info | `Delivery(message, confirmTo, producerId, seqNr)` (`T/ConsumerController.scala:89-95`), built at `TI/ConsumerControllerImpl.scala:504` (`confirmTo` = the ConsumerController itself); `Delivery.unapply` exposes only (message, confirmTo) (:80-81) | `TT/ConsumerControllerSpec.scala:147-183` asserts `.seqNr` 3,4,5; :310-346 asserts `.seqNr` 3 re-delivered to a restarted consumer (`Start` while waiting re-sends the unconfirmed delivery, impl :635-637) | absent | yes |
+| AC2 confirmation separate from mailbox admission | Next message is not delivered until `Confirmed`; later ones stashed, capacity = window, dropped when full (`TI/ConsumerControllerImpl.scala:553-629`, :613-619); unexpected `Confirmed` warns and is unhandled (:716-719) | `TT/ConsumerControllerSpec.scala:219-270` (`expectNoMessage` while unconfirmed at :240; order 3,4 then 5..8 after resends). No spec for unexpected Confirmed (searched ConsumerControllerSpec) | absent | yes; unexpected-Confirmed branch unobserved |
+| AC3 duplicate sequences do not produce duplicate deliveries | seqNr < expected dropped (:338-345; while waiting :610-612 only if same producer controller); a duplicate flagged `first` triggers `retryRequest` (:341-342) | `TT/ConsumerControllerSpec.scala:380-408` (dup seq 1 before confirm, after confirm; `expectNoMessage`), different producer controller NOT deduplicated; :219-270 | absent | yes |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (medium) The diagram branch "Handle duplicate or gap" has gap handling in #1165 (see its AC table); state it in this story as excluded. Evidence `TI/ConsumerControllerImpl.scala:323-337`. With `onlyFlowControl` a gap is delivered, not requested (:335-337; spec `TT/ConsumerControllerSpec.scala:670-704`).
+  - F2 (medium) Missing in ACs: the `Ack` back to the producer, sent only when `seqMsg.ack` is set (MessageWithConfirmation) and the Confirmed did not coincide with a Request (`TI/ConsumerControllerImpl.scala:585-590`; spec `TT/ConsumerControllerSpec.scala:272-308` shows Ack(2), Ack(3), none for 4 (ack=false), Ack(5)); `Ack(confirmedSeqNr)` also on stop (:594-599, :737-741; spec :485-513). Assign to this story or to #1160/#1161; currently unassigned.
+  - F3 (low) `confirmTo` is `ActorRef[Confirmed]` where `Confirmed` is a `@DoNotInherit` trait with the single case object (`T/ConsumerController.scala:109-116`).
+- Dependencies: #980 -> #992 `depends_on` "demand window": delivery (:498-505) does not need the window; the Request emission is in the Confirmed handler (:556-592) of this same state. Direction defensible only for the first-message `Request` coupling; flag as weak (no evidence of wrong direction). #810 -> #992 present. Status consistent.
+- Oracle (D13): X6.
+
+---
+
+### #998 TSD-11 — Resend unconfirmed reliable-delivery messages
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT (rescope text still wrong on ResendFirst; AC2 has no Pekko basis) + DEP
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 injected timers exercise initial resend and subsequent interval bounds | Consumer `RetryTimer` min..max, x1.5 per `Retry`, restarted on each sent Request, reset on receive (`TI/ConsumerControllerImpl.scala:233-267,293,308,347-348,656-666`); `Retry` while resending sends `Resend(receivedSeqNr+1)` (:465-473); producer `ResendFirst` fixed delay 1s default (`TI/ProducerControllerImpl.scala:422-423`) | `TT/ConsumerControllerSpec.scala:185-217` (Request(2,20,true,true) after Confirmed, then silence >1s, i.e. backoff, then another); :90-109 (`Request(1,20,..,true)` after resend interval); `TT/ProducerControllerSpec.scala:47-72`. Real clock only (X5). The max cap (30s default) is not asserted by any spec | absent | partial: min and growth observed; max bound not observed; "injected timers" not how Pekko tests |
+| AC2 late/duplicate confirmations retire only matching sequence/session | `onAck`: drops `unconfirmed` with `seqNr <= confirmed`, `confirmedSeqNr = max(...)` (`TI/ProducerControllerImpl.scala:536-561`); no session or consumer identity in `Request/Ack` (X4); WorkPulling `onAck` same `<=` rule (`TI/WorkPullingProducerControllerImpl.scala:503-527`) | `TT/ProducerControllerSpec.scala:187-227` (lost Ack(3), Ack(4) replies for 3 and 4). No spec for a late lower confirmation after a higher one (searched ProducerControllerSpec/WorkPullingSpec) | absent | no for "matching session"; spec-does-not-observe "late" |
+| AC3 at-least-once documented, no exactly-once promise | Source statement only for work pulling: unconfirmed work "may result in that some messages may be processed more than once" (`T/WorkPullingProducerController.scala:77-79`); paradox pages not opened | none | absent | unsupported by controller Scaladoc for point-to-point (paradox not read) |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) Reconciliation text: "ResendFirst belongs to the durable path (#1002 (TSD-15))". Evidence X2: it is armed for non-durable controllers, so it belongs to the resend story, not the durable queue. Neutral replacement: "The producer controller re-sends its first unconfirmed message every durableQueueResendFirstInterval until confirmed (TI/ProducerControllerImpl.scala:422-423,675-685); it is not conditional on a durable queue (reference.conf:91-93; the setting name `durableQueueResendFirstInterval` and its place under `durable-queue {}` suggest a durable link although the timer is not conditional)."
+  - F2 (high) Reconciliation says "Timers are fixed-delay (ProducerControllerImpl.scala:423,707)". Verified for `ResendFirst`. The consumer side uses `startTimerWithFixedDelay` but re-arms with a x1.5 interval up to `resendIntervalMax` (`TI/ConsumerControllerImpl.scala:242-260`), so "backoff" is observable (spec :185-217); state both.
+  - F3 (medium) Ownership gap: the producer-side reaction to `Request(viaTimeout=true)` or `confirmedSeqNr == firstSeqNr` (re-send all unconfirmed, X3; spec `TT/ProducerControllerSpec.scala:111-147,177-179`) is assigned to no story ( #1165 R3 covers `Resend` only). Open question for the Architect: which story owns it.
+  - F4 (medium) AC2 "matching sequence/session": no session notion in Pekko (X4). Neutral text: "A confirmation up to N retires every unconfirmed entry with seqNr <= N and never lowers confirmedSeqNr (TI/ProducerControllerImpl.scala:545,551); no spec observes a late lower confirmation." A session-scoped rule would be a deliberate difference (Owner decision).
+  - F5 (low) Recon "Late/duplicate confirmations: unverified at line level": now verified as above.
+- Dependencies: #992 -> #998, #810 -> #998 fine. #821 (TIM-02, one-shot) removal correct; add #977 and #937 (TIM-07 fixed-delay) as in recon: confirmed by `startTimerWithFixedDelay` at `TI/ConsumerControllerImpl.scala:195,244,258` and `TI/ProducerControllerImpl.scala:423,707`. #977 is P2 and #937 P1; #977 (P2) gates P1 (flag). Wait-state check: #998 also needs the Request semantics of #980 (viaTimeout is a Request field); not listed (weak).
+- Oracle (D13): X6.
+
+---
+
+### #1000 TSD-12 — Chunk and reassemble large reliable-delivery messages
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: ADR (serialization dependency undecided) + CORRECT (AC2 has no Pekko basis; dependency #951 mismatched)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 chunks preserve message/session/sequence identity | Each chunk is its own `SequencedMessage` with its own seqNr; `first` set only on the chunk with `seqNr == firstSeqNr`, `ack` only on the last chunk (`TI/ProducerControllerImpl.scala:735-765`); chunking via `createChunks` (:352-375); reassembled delivery carries the LAST chunk's seqNr and producerId, `first` of the first chunk (`TI/ConsumerControllerImpl.scala:535-549,504`); remaining chunks are sent only within `requestedSeqNr` (`TI/ProducerControllerImpl.scala:716-717`) | `TT/ProducerControllerSpec.scala:263-305` ("abc", chunk 1 byte: seq 1 first-not-last, seq 2 middle, seq 3 last, then "d" seq 4 first+last; chunks 2,3 only after `Request(0,10)`); `TT/ConsumerControllerSpec.scala:563-614` (no delivery until all 3 chunks, then payload "123", Request(3,22); second message ack=true -> Ack(5)); reruns of all point-to-point specs with `chunk-large-messages = 1b`: `TT/ReliableDeliverySpec.scala:217-222`, `TT/ReliableDeliveryRandomSpec.scala:222-228` | absent | yes |
+| AC2 incomplete or stale assemblies have bounded lifetime and cleanup | None found. `collectedChunks` (`TI/ConsumerControllerImpl.scala:101`) is replaced when a first chunk arrives (:499) and cleared after delivery (:505); no timer, no size bound beyond what the producer sends. Split chunks are not bounded by the window (:508-526 only requests more) | no spec found; searched `TT/` for stale/timeout/collectedChunks: none | absent | unsupported (Go-only requirement) |
+| AC3 consumer never receives an incomplete payload | Delivery only on `isLastChunk` (:500); `assembleChunks` concatenates the collected list and throws on deserialization failure (:544-546) | `TT/ConsumerControllerSpec.scala:586-591` (`expectNoMessage` before the last chunk; delivery after), :661-664 (25 chunks) | absent | yes for normal flow; with `onlyFlowControl` a lost middle chunk is accepted (:335-337) and the list is assembled without it (code path inference, no spec) |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) Serialization dependency (ADR): `ChunkedMessage` carries `serializerId` and `manifest` (`TI/ChunkedMessage.scala:23-29`); producer and consumer serialize/deserialize with the system `Serialization` (see #810 F4). ADR 0033 D3 (l.37) and D8 (l.42) do not decide whether pekko-actor-typed may depend on pekko-serialization. Open question + missing evidence: Owner decision; no recommendation here.
+  - F2 (high) AC2 text: "Incomplete or stale assemblies have bounded lifetime and cleanup." Pekko has no lifetime or bound (AC2 row). Adding one is a deliberate difference from Pekko needing an explicit Owner decision (D13 does not authorize it). Neutral replacement: "Pekko keeps partial chunks until the last chunk arrives or a new first chunk replaces them (TI/ConsumerControllerImpl.scala:499,505); whether Go adds a lifetime is an open Owner question."
+  - F3 (medium) Dependency #951 (SER-02) is titled "Serialize exact actor references" in the issue index; recon labels it "serializer ports for chunk metadata". The title does not match that purpose; the serializer story that supplies id/manifest lookup is not identified (missing evidence).
+  - F4 (medium) Pekko facts missing from ACs: work pulling rejects chunking at construction (`T/WorkPullingProducerController.scala:191-192`; no spec found for the rejection, searched tests for "Chunked messages not implemented": none); chunk size > Int.MaxValue rejected (`T/ProducerController.scala:171`); first chunk is sent without demand (X1); with a durable queue partially stored chunk groups are re-stored whole on failure (`TI/ProducerControllerImpl.scala:603-632`) and cleaned on load by `State.cleanupPartialChunkedMessages` (`T/DurableProducerQueue.scala:107-133`; specs `TT/DurableProducerQueueSpec.scala:51-101`, `TT/DurableProducerControllerSpec.scala:175,228`).
+  - F5 (low) Atomicity: producer chunking and consumer reassembly are separately observable (spec files above); the recon already suggests a split.
+- Dependencies: #886 (IO-03) removal correct (no byte-slicing contract needed from IO; chunking uses `ByteString.grouped`, `TI/ProducerControllerImpl.scala:364`). #951 mismatch per F3. #998 -> #1000: chunk resend uses ordinary resend; fine. Add the open Owner decision as a blocker (recon already).
+- Oracle (D13): exists for the normal chunk flow (specs above, plus `ReliableDeliveryChunkedSpec`); applicability pending determination (X6). For a stale-assembly lifetime there is no Pekko behavior to compare: not applicable as a parity row, it is a difference needing an Owner decision.
+
+---
+
+### #1001 TSD-13 — Assign work to a demanding registered worker
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: DEP (several prerequisite edges missing; P2 stories gate P1) + CORRECT (AC2 premise)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 worker discovery uses accepted ServiceKey and current listing | `Receptionist.Subscribe(workerServiceKey, adapter)` at start, Listing mapped to `allServiceInstances(key)` (`TI/WorkPullingProducerControllerImpl.scala:135-137`); added workers get a child `ProducerController(outKey = producerId-uuid)` + `Start` + `RegisterConsumer(c)` (:573-584); workers = last Listing (:613); worker side registers with `Receptionist.Register` (`TI/ConsumerControllerImpl.scala:134-136`) | `TT/WorkPullingSpec.scala:60-91` (two `ConsumerController(workerServiceKey)` workers; both reach 42 deliveries), `awaitWorkersRegistered` via `GetWorkerStats` (:46-54, counts `s.workers.size` impl :655-657), :93-145 | absent | yes |
+| AC2 one work assignment consumes accepted worker demand | Demand of a worker = `askNextTo.isDefined` (:305,:399); assignment sets it to `None` (:344-345) and the message is sent as `ProducerController.MessageWithConfirmation` by `context.ask` (:347-352); demand returns with that worker's `RequestNext` (`receiveWorkerRequestNext` :529-560). A newly registered worker has demand for ONE message before any consumer Request (first message needs no demand, X1; `becomeActive` sends RequestNext `TI/ProducerControllerImpl.scala:331-335`). Choice among workers with demand: uniform random, excluding preselected (:401-412) | `TT/WorkPullingSpec.scala:93-145`: msg-1 is received by worker 1 BEFORE the probe sends `Request(1L,10L,..)` (lines 106-109); msg-2/3 follow after it | absent | yes, but "demand" is not the consumer's Request for the first message |
+| AC3 no-worker / buffer-full behavior explicit, not unlimited | Stash with `bufferSize`; see #1158 | none | absent | see #1158 |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) Hidden prerequisites. The work-pulling controller is built from the point-to-point units: it spawns `ProducerController[A](outKey, durableQueueBehavior = None, producerControllerSettings)` (:577-581), sends every user message to the worker's controller as `MessageWithConfirmation` and tracks confirmations from its reply and from `RequestNext.confirmedSeqNr` (:347-352, :503-527), and relies on the worker-side `ConsumerController(serviceKey)` registering through the Receptionist (every `WorkPullingSpec` worker, :70-71,:77-78). Neither the point-to-point handshake/sequencing stories (#963, #992), nor point-to-point `MessageWithConfirmation` (#1160, P2), nor #1163 (worker registration, P2), nor #888 (`messageAdapter` :135,:176,:299) nor #926 (`context.ask` :347) is a `depends_on` of this story. #998 (resend) is listed; no evidence that the work-pulling controller itself needs consumer-driven resend beyond what its per-worker controller provides.
+  - F2 (medium) Cycle risk: if #1160 (askNextTo/Ack) becomes a prerequisite of #1001 while #1160 AC-R3 is "evidenced only after #1003" (which depends on #1001), a literal dependency graph at story level is cyclic. Evidence: #1160 body AC-R3 and this story. Open question for the Architect: split #1160 into the point-to-point reply (prerequisite) and the work-pulling reply (after #1003).
+  - F3 (medium) Settings coupling: `bufferSize`, `internalAskTimeout` (ask timeout to the worker, default 60s; `AskTimeout` is only logged, "It will be redelivered", :665-670) and chunking rejection (`T/WorkPullingProducerController.scala:191-192`) belong to #1162/#1158; not stated here.
+  - F4 (low) Before `Start`, every message (including Listing updates) is stashed in the same `bufferSize` stash (:229-232).
+- Dependencies: as F1. Priority inversions (flag only): #889 (P1 ok), #977 (P2), #1163 (P2), #960/#979 (P1 ok), #1160 (P2).
+- Oracle (D13): `TT/WorkPullingSpec` and `TT/DurableWorkPullingSpec` exist; applicability pending determination (X6; additionally the oracle needs the Receptionist, absent in Go).
+
+---
+
+### #1003 TSD-14 — Reassign unconfirmed work after worker loss
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT (AC1/AC2 wording) + DEP
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 exact lost worker incarnation removed | Removal = `s.workers.diff(curr.workers)` from the new Listing; the matching `OutState` is found by `outState.consumerController == c` (`TI/WorkPullingProducerControllerImpl.scala:568-611`), Pekko `ActorRef` equality = path + uid (`actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:183-185`, classic ActorRef; typed refs wrap it); its ProducerController child is stopped (:590); the replacement worker gets a NEW outKey/child and seqNr restarts at 1 | `TT/WorkPullingSpec.scala:93-145`: worker 1 probe stopped; `awaitWorkersRegistered(1)`; worker 2 receives msg-2 with `seqNr` 1 (:128-130). No spec distinguishes two incarnations with the same path (searched WorkPullingSpec, DurableWorkPullingSpec) | absent | yes for removal by Listing; incarnation rule is code only |
+| AC2 confirmed work not reassigned because of a stale death notification | There is no death notification in this controller; the trigger is a Listing diff. Only entries still in `OutState.unconfirmed` are re-sent; confirmed ones were already dropped by `onAck` (:503-527). A late `Ack` for a removed worker is `unhandled` (:497-499) | `TT/WorkPullingSpec.scala:93-145` (msg-1 confirmed by `Request(1,10)`, never re-sent; msg-2, msg-3 re-sent), :189-242 (msg-1, msg-2 confirmed, msg-3, msg-4 re-sent) | absent | yes for confirmed vs unconfirmed; "stale death notification" has no Pekko counterpart |
+| AC3 uncertain work may be repeated under at-least-once; idempotency is consumer's | `T/WorkPullingProducerController.scala:77-79`: unconfirmed messages are routed to other workers and "may be processed more than once" | none observes duplicate processing | absent | yes (doc) |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (medium) AC2 text: "Confirmed work is not reassigned because of a stale death notification." Neutral replacement: "Work is reassigned when its worker disappears from the Receptionist Listing; only unconfirmed entries are re-sent, to workers chosen like new messages (uniform random, TI/WorkPullingProducerControllerImpl.scala:586-611, :401-412); confirmed entries are not (spec TT/WorkPullingSpec.scala:93-145,:189-242)."
+  - F2 (medium) Missing observable: the `replyTo` of a `MessageWithConfirmation` travels with the unconfirmed entry and is answered `Done` only after the re-sent message is confirmed; no `Done` at worker death (spec :224 `replyProbe.expectNoMessage()`, :231 reply after reassigned `Request`). This is what #1160 AC-R3 cites.
+  - F3 (medium) Reassigned messages are sent to `self` as `Msg(wasStashed = true)` (:598-604) and stashed when no worker has demand (`checkStashFull`, :334-336): with a small `bufferSize` a worker removal can overflow the buffer (see #1158 F1). No spec.
+  - F4 (low) Reconciliation cites `WorkPullingProducerController.scala:76-78`; the sentence is at :77-79.
+- Dependencies: #1001 -> #1003 correct. #979 (listing) correct. #998 -> #1003 "unconfirmed tracking and resend": the reassignment path uses the work-pulling controller's own `OutState.unconfirmed` and does not use consumer-driven resend; edge not evidenced. Unconfirmed tracking comes from the per-worker controller's ack/RequestNext (see #1001 F1); #1157 (per-worker state) is the closer prerequisite and is not listed.
+- Oracle (D13): same as #1001.
+
+---
+
+### #1157 TSD-19 — Assign work only to a worker that has demanded it
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT (R1 premise, "weighted", mis-cited specs) + DEP
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 two workers, only A requested; 3 messages; B receives none | Producer may send one message per `RequestNext` only (`TI/WorkPullingProducerControllerImpl.scala:313-314` throws otherwise); a registered worker has demand for its first message without any consumer Request (X1, #1001 AC2) | `TT/WorkPullingSpec.scala:93-145` (first message delivered before any Request); no spec with two workers where one has not requested; the specs cited by the story, `work with slow producer and fast consumer` and `allow replacement of destination`, are at `TT/ReliableDeliverySpec.scala:124,136` (point-to-point), not WorkPullingSpec | absent | no (premise "B has not requested -> receives none" is contrary for the first message) |
+| AC-R2-1 demand 1, two messages: second waits for new request | Per worker, after the first message later ones are bounded by the consumer's `requestUpToSeqNr` (`TI/ProducerControllerImpl.scala:500-513`); work-pulling asks the worker controller one message at a time (:344-352) | non-durable: no spec; durable variant `TT/DurableWorkPullingSpec.scala` "store confirmations" (after `Request(1L,5L)` msgs 2..5 flow, then `producerProbe.expectNoMessage()` "no more demand") | absent | spec-does-not-observe (non-durable) |
+| AC-R3-1 no worker with demand: no RequestNext until a worker requests | `RequestNext` to the producer only after a worker's `RequestNext` (:549-560) or when more demand exists after an assignment (:360-389); a message sent just before demand vanishes is stashed and `requested` becomes false (:333-338) | none observes the stash path (searched WorkPullingSpec) | absent | partial |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) Current text: "Open choices ... upstream uses a weighted pick". Evidence: `ThreadLocalRandom.current().nextInt(workers.size)` over workers with demand excluding preselected ones (:401-412). Neutral replacement: "Pekko selects uniformly at random among workers with demand (TI/WorkPullingProducerControllerImpl.scala:401-412); the controller documents that message order does not matter (T/WorkPullingProducerController.scala:43-45). No spec observes the distribution except that two workers both receive work (TT/WorkPullingSpec.scala:60-91). How Go tests a random choice is an open question."
+  - F2 (high) R1/AC-R1-1: "B receives none" because B has not requested is false for the first message of a newly registered worker (X1, spec lines above). Neutral replacement: "A worker's controller offers the first message without a consumer Request; later messages are limited by the consumer's requested sequence number."
+  - F3 (medium) Mis-cited evidence: `WorkPullingSpec` has 5 tests (:60,:93,:147,:189,:244); the story's `:124`, `:128`, `:136` belong to `ReliableDeliverySpec`. Replace by `WorkPullingSpec.scala:60-91,:93-145`.
+  - F4 (medium) The story's Contracts consume "Consumer-side Request protocol (#963, #980)" but its dependency table lists only #1001; same prerequisite set as #1001 F1.
+- Dependencies: add #963, #980/#992 (per-worker controller), #1160 (ask path) as in #1001 F1; #1001 -> #1157 correct. Produced contract used by #1003 and #1164: #1003 -> needs this one (not listed).
+- Oracle (D13): the story's "Evidence" says ported spec by name; the named specs are not work-pulling specs. Oracle exists only through WorkPullingSpec:60-145 (applicability pending determination, X6).
+
+---
+
+### #1158 TSD-20 — Bound the buffer of work awaiting a demanding worker
+- Depth: DEEP
+- Labels now: prio:P1, status:blocked
+- Verdict: CORRECT (ACs not reachable as written) + ADR (failure surface depends on the Typed supervision ADR)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 buffer 2, no demand, 2 messages sent: both held, delivered in order | `Behaviors.withStash(settings.bufferSize)` (`TI/WorkPullingProducerControllerImpl.scala:131`); a user message with no worker is stashed and `requested` becomes false (:333-338); a second user message without a new `RequestNext` throws `IllegalStateException("Unexpected message ..., wasn't requested nor unstashed.")` (:313-314) in non-durable mode, so a correct producer buffers at most one user message. Larger buffers occur for reassigned messages (`wasStashed=true`, :598-604), messages before `Start` (:229-232, shared with internal commands) and durable mode (:435-441, :460-466) | no spec found; searched actor-typed-tests, persistence-typed tests, cluster-sharding-typed tests for `Buffer is full`, `buffer-size`, `withBufferSize`: none | absent | unsupported as an end-to-end scenario for plain producers |
+| AC-R2-1 third message to a full buffer: documented error naming size 2 | `checkStashFull`: `throw new IllegalArgumentException(s"Buffer is full, size [${stashBuffer.size}].")` (:236-238), called before every stash (:230,:334,:436,:461) | none | absent | spec-does-not-observe; the thrown exception fails the actor (supervision: ADR 0033 D2 / plan O-9) |
+| AC-R3-1 buffered m1,m2 delivered in order when demand arrives | `stashBuffer.unstashAll` on the next `RequestNext` from a worker (:549-551) preserves stash order, but each unstashed message picks a worker at random (:401-412), so order is not preserved across workers (doc :43-45) | none | absent | spec-does-not-observe |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) AC-R1/AC-R2 scenario "2 messages sent with no worker demand" is not producible through the public protocol in non-durable mode: the second send throws a different exception (:313-314) before the buffer check. Evidence above. Neutral replacement: state the reachable cases (reassigned unconfirmed messages exceeding `bufferSize`, durable mode, pre-`Start` stash) or record as open question which cases Go supports.
+  - F2 (high) Mis-cited evidence: "port of WorkPullingSpec 'work with fast producer and slow consumer' (:128)" is `TT/ReliableDeliverySpec.scala:128` (point-to-point, delays only). No work-pulling spec covers the buffer.
+  - F3 (medium) Failure surface: Pekko throws inside the actor; the controller stops under Typed default supervision and loses unconfirmed state. A returned error / `Dropped` would be a deliberate difference (Owner decision); the story already marks the surface as depending on GOV-01 (Typed supervision ADR, not in develop).
+  - F4 (low) The error text reports `stashBuffer.size` (current size) at the time of the check; equal to the capacity when the stash is full.
+- Dependencies: #1001 -> #1158 `depends_on` correct; #889 (StashBuffer) missing from this story's table although Context cites it ("depends on typed StashBuffer (TYP-13)"); #1162 (bufferSize option) is a consumer of this story's bound, no cycle. Missing: the Typed supervision ADR as a prerequisite (plan O-9).
+- Oracle (D13): no Pekko spec observes the buffer bound (searched). That absence does not show that no oracle can apply; applicability pending determination (missing: a scenario with reassigned unconfirmed messages exceeding `bufferSize`).
+
+---
+
+### #1002 TSD-15 — Load and store producer-queue sent state through a port
+- Depth: DEEP
+- Labels now: status:blocked (no priority label)
+- Verdict: CORRECT (ACs omit timeout/retry/termination; recon dependency on #998 needs refinement) + ADR (Owner O-6 is a proposal, not a decision)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 LoadState and StoreMessageSent use request/reply messages and sequence identity | `LoadState(replyTo: ActorRef[State])`, `StoreMessageSent(sent, replyTo)`, `StoreMessageSentAck(storedSeqNr)` (`T/DurableProducerQueue.scala:48-59`); `StoreMessageConfirmed` has no reply (:67-71); controller uses `context.ask` (`TI/ProducerControllerImpl.scala:221-235,847-853`). Doc: store commands "may be retried and the implementation should be idempotent" (:54-56) | `TT/DurableProducerControllerSpec.scala:54-89,91-144` against the in-memory `TT/TestDurableProducerQueue`: store acked if `seqNr == currentSeqNr`, duplicate acked if `seqNr == currentSeqNr-1`, else no reply (request times out) | absent | yes (the idempotency rule is implemented by the test double, not asserted as a contract) |
+| AC2 no durable acceptance claimed before store ack | Message goes to the consumer only after `StoreMessageSentCompleted` (`TI/ProducerControllerImpl.scala:563-587`, `onMsg` at :578); `MessageWithConfirmation` reply on store (:571-575; `T/ProducerController.scala:73-77,131-139`) | `TT/DurableProducerControllerSpec.scala:146-173` (reply 1L arrives before the consumer confirms); no spec with a delayed double asserting "not sent before ack" (all use `Duration.Zero`; `ReliableDeliveryRandomSpec` uses random delays but asserts only completion) | absent | partial: reply-on-store observed; send-after-store is code only |
+| AC3 no database adapter or persistence import in actor core | Protocol lives in actor-typed; the implementation `EventSourcedProducerQueue` is in persistence-typed (`T/ProducerController.scala:68-71`, `T/DurableProducerQueue.scala:30`); ADR 0033 D9 (l.43) excludes persistence-dependent implementations | n/a | n/a | yes |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (medium) Missing in ACs (recon asked for it): `durableQueueRequestTimeout` (3s) and `durableQueueRetryAttempts` (10) (`T/ProducerController.scala:195-199`, ref.conf:81-94): `LoadState` timeout -> retry up to attempts, then `TimeoutException("LoadState failed after [n] attempts, giving up.")` thrown in the actor (`TI/ProducerControllerImpl.scala:301-314`); same for `StoreMessageSent` (:589-644, text `"StoreMessageSentFailed seqNr [..] failed after [..] attempts, giving up."`); queue stopped -> `IllegalStateException("DurableQueue was unexpectedly terminated.")` (:315-316,:839-840); the queue is a child spawned with the parent's dispatcher (:213-217). No spec asserts exhaustion (searched actor-typed-tests and persistence-typed tests for `giving up`, `LoadStateFailed`: none); retries are exercised only implicitly by `ReliableDeliveryRandomSpec` "work with flaky DurableProducerQueue" (queue throws and is restarted with backoff, `TT/TestDurableProducerQueue.scala` supervision; completion asserted).
+  - F2 (medium) Recon claim "(no priority) Pending Owner O-6": the plan (`develop/docs/actor-typed-delivery-plan.md:203,582,632`) lists TSD-15/16 as an Architect re-scope proposal needing an Owner decision; no Owner instruction was found. ADR 0033 D9 excludes durable queue implementations that depend on persistence; whether the protocol alone stays in scope is not decided by D9's text (it says delivery is included). Neutral text: "protocol-only scope is an Architect proposal; Owner decision O-6 pending."
+  - F3 (medium) Dependency removal "#998: resend is not what the queue needs" needs refinement: on load with unconfirmed messages the controller schedules `ResendFirst` itself (`TI/ProducerControllerImpl.scala:337-339`, handler :675-685), i.e. recovery uses the first-message resend machinery that belongs to the resend story (X2). True for the protocol-only part of this story; false for #1159 recovery.
+  - F4 (low) `DurableProducerQueue.State`, `MessageSent` and the events extend `DeliverySerializable` (`T/DurableProducerQueue.scala:81,139`): marker for serialization; not required by the in-memory double.
+- Dependencies: #810, #992 as recon. #926 (ask) correct (`:228`). Priority inversion not applicable (no priority). Plan table says P2, plan text says none until O-6 (recon follows the text).
+- Oracle (D13): `TT/DurableProducerControllerSpec.scala` + `TT/TestDurableProducerQueue.scala` exist and are local, in-memory; applicability pending determination (X6). The recon note "n/a" for Spec on this story is therefore not accurate: specs exist for the protocol.
+
+---
+
+### #1004 TSD-16 — Store confirmations and recover producer-queue state
+- Depth: DEEP
+- Labels now: status:blocked (no priority label)
+- Verdict: CORRECT (D13 claim; WP durable seqNr change; AC1 spec coverage)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 qualifiers, timestamps, cleanup follow queue protocol | `StoreMessageConfirmed(seqNr, qualifier, timestamp)` sent when the max confirmed seqNr changes: point-to-point `NoQualifier` + wall clock (`TI/ProducerControllerImpl.scala:553-558`); work pulling: qualifier = worker ProducerController name, seqNr = total seqNr (`TI/WorkPullingProducerControllerImpl.scala:86,517-523`). `State.confirmed` removes unconfirmed with same qualifier and `seqNr <=`, `highestConfirmedSeqNr = max`, map overwritten (`T/DurableProducerQueue.scala:87-98`); `cleanup` removes qualifiers (:100-102; event `Cleanup` internal :244) | `TT/DurableProducerQueueSpec.scala:41-49` asserts only `unconfirmed` and `currentSeqNr` after `confirmed`; `TT/DurableProducerControllerSpec.scala:91-144` asserts full State incl. `NoQualifier -> (1L -> TestTimestamp)` but the double replaces timestamps with a fixed value (`TestDurableProducerQueue.scala` comment), so timestamps are not observed; `TT/DurableWorkPullingSpec.scala:161-282` strips qualifiers (`assertState` clears `confirmedSeqNr` and rewrites qualifiers) so they are not observed. `State.cleanup` is observed only through `EventSourcedProducerQueueSpec.scala:235-290` (persistence-typed, outside D9 scope); no actor-typed-tests spec calls it | absent | partial |
+| AC2 load-state recovery preserves next sequence and retained message identity | Point-to-point: `createState` keeps `currentSeqNr`, `firstSeqNr = highestConfirmed+1`, unconfirmed with original seqNr and `ack` (`TI/ProducerControllerImpl.scala:241-263`). Work pulling: unconfirmed are re-stored under a NEW total seqNr with a hand-over confirmation of the old one (`TI/WorkPullingProducerControllerImpl.scala:445-459,477-483`) | `TT/DurableProducerControllerSpec.scala:54-89,293-326`; `TT/DurableWorkPullingSpec.scala:284-...` ("note that it has a different seqNr than before": `MessageSent(10, msg-5)`) | absent | yes for point-to-point; no for "retained identity" in work pulling |
+| AC3 protocol-only not reported as durable backend or power-loss validation | No Pekko spec simulates power loss; persistence-bound restart specs live in persistence-typed (`ReliableDeliveryWithEventSourcedProducerQueueSpec` "deliver messages after full producer and consumer restart", `EventSourcedProducerQueueSpec`) | n/a | n/a | n/a |
+| AC4, AC5 | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) Recon text "Power-loss validation has no Pekko oracle (D13)" plus bodies' "no Pekko oracle" for protocol recovery: an oracle for the protocol exists (specs above, in-memory double). Per ADR 0033 D13 (l.47) a differential scenario is required where an applicable oracle exists; absence of a power-loss spec does not show that no oracle applies to the protocol. Neutral text: "Oracle exists for protocol-level store/recovery with an in-memory queue (TT/DurableProducerControllerSpec, TT/DurableWorkPullingSpec); no Pekko spec simulates power loss. Applicability pending determination."
+  - F2 (high) "retained message identity" is not true for work pulling (see AC2 row). State both behaviors.
+  - F3 (medium) Timestamps: the controller passes `System.currentTimeMillis()` (:557, :481) but the double and the specs discard it; if the port exposes timestamps, no Pekko spec observes their values. Open question: what the Go port must guarantee.
+  - F4 (medium) Chunk cleanup (`State.cleanupPartialChunkedMessages`, `T/DurableProducerQueue.scala:107-133`; specs `TT/DurableProducerQueueSpec.scala:51-101`, `TT/DurableProducerControllerSpec.scala:228-291`) is not mentioned; it depends on chunking (#1000, Owner-blocked). Not in any AC of #1002/#1004/#1159.
+- Dependencies: #1002 -> #1004, #992 -> #1004 fine. After the split the recon moves recovery ACs to #1159; this story then keeps AC1 only; AC2 text above must move. No priority label while its child #1159 has P3 (flag).
+- Oracle (D13): exists for protocol (see F1); applicability pending determination (X6). Power-loss: no Pekko spec found that simulates power loss (searched persistence-typed delivery specs by name only); applicability pending determination, a difference-free claim cannot be made either way.
+
+---
+
+### #1159 TSD-21 — Recover producer-queue state from stored confirmations with an in-memory double
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (D13 claim false; AC-R3 target; label mismatch)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 State(currentSeqNr=5, unconfirmed=[m3,m4]) -> next seq 5, m3 and m4 delivered | `askLoadState` at construction (`TI/ProducerControllerImpl.scala:154,208-235`); `LoadStateReply` + `Start` + `RegisterConsumer` -> active (:275-300); no `RequestNext` while unconfirmed exist, `ResendFirst` to self (:331-340); `firstSeqNr = highestConfirmed+1` (:260) | `TT/DurableProducerControllerSpec.scala:54-89`: State(5, highestConfirmed 2, unconfirmed 3,4): `producerProbe.expectNoMessage()`, then msg 3 `asFirst`, nothing for 50ms, after `Request(3,13)` msg 4, then `RequestNext` and msg-5 gets seq 5; WP: `TT/DurableWorkPullingSpec.scala:77-116` | absent | yes |
+| AC-R2-1 double never replies; attempts exhausted: documented error | `TimeoutException("LoadState failed after [n] attempts, giving up.")` after `durableQueueRetryAttempts` asks of `durableQueueRequestTimeout` each (`TI/ProducerControllerImpl.scala:301-314`; WP :211-224) | no spec found; searched actor-typed-tests and persistence-typed tests for `giving up`, `LoadStateFailed`, `DurableQueueRetryAttempts`: none | absent | spec-does-not-observe |
+| AC-R3-1 double replies late; earlier messages processed only after State reply | Point-to-point: no user message can arrive earlier (no `RequestNext` yet; unhandled messages are not stashed, :275). Work pulling: all other commands are stashed until `Start` and `LoadStateReply` (`TI/WorkPullingProducerControllerImpl.scala:184-233`) and unstashed on activation (:181) | none: every durable spec uses `Duration.Zero` (`TestDurableProducerQueue` supports a delay but is never given one in these specs) | absent | spec-does-not-observe |
+| Evidence note | The story states "no Pekko oracle without persistence ... alternative evidence, pending approval (D13)" | In-memory oracle exists: `TT/TestDurableProducerQueue.scala`, `TT/DurableProducerControllerSpec`, `TT/DurableWorkPullingSpec`, `TT/ReliableDeliveryRandomSpec` | | contradicts the story |
+
+- Findings:
+  - F1 (high) Current text: "No Pekko oracle without persistence: D13 requires alternative evidence and Owner approval, recorded pending approval." Evidence above: Pekko's own actor-typed-tests use an in-memory queue. Neutral replacement: "Pekko specs for load/recovery with an in-memory DurableProducerQueue exist (TT/DurableProducerControllerSpec.scala:54,293; TT/DurableWorkPullingSpec.scala:77); oracle applicability to a Go differential scenario is pending determination (missing: how the scenario seeds State and drives Request/Resend on the JVM side)." Never `pending approval` as default.
+  - F2 (medium) The R/AC labels are crossed (AC-R1-1 tests recovery, AC-R2-1 tests retry (R3), AC-R3-1 tests R1). Renumber.
+  - F3 (medium) AC-R3-1 applies to work pulling only (see AC table); for the point-to-point controller there is no earlier message to process (prior audit finding confirmed with line evidence).
+  - F4 (medium) Dependency missing: recovery depends on the first-message resend (`ResendFirst`, X2) owned by the resend story, and on `context.ask` (#926, :228). The story lists only #1004 in the table (the body also "consumes" #1002 and #992).
+  - F5 (low) Priority P3 with parents #1002/#1004 unprioritized: flag.
+- Dependencies: #1004 -> #1159 stated; add #998 (ResendFirst), #926; #1002/#992 transitively.
+- Oracle (D13): exists (F1), applicability pending determination.
+
+---
+
+### #1160 TSD-22 — Request a confirmation for a message with MessageWithConfirmation and askNextTo
+- Depth: DEEP
+- Labels now: prio:P2, status:blocked
+- Verdict: SPLIT (point-to-point vs work-pulling reply; the latter depends on #1003) + DEP
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 consumer confirms seq 1 -> replyTo receives 1 | `MessageWithConfirmation(message, replyTo: ActorRef[SeqNr])` (`T/ProducerController.scala:140`); `onAck` answers every pending `seqNr <= confirmed` from `Request` or `Ack` (`TI/ProducerControllerImpl.scala:536-542`); entry keyed by the LAST chunk's seqNr (:778) | `TT/ProducerControllerSpec.scala:187-227`: reply 1 after `Request(1,10,..)`, reply 2 after `Ack(2)`, replies 3 and 4 after `Ack(4)` (Ack(3) "lost"), reply 5 after `Request(5,15)`; same in "without resends" :348-388 | absent | yes |
+| AC-R2-1 no reply before confirmation | Reply only from `onAck` (non-durable) | Work pulling: `TT/WorkPullingSpec.scala:173-175` (`replyProbe.expectNoMessage()` before `Ack(2)`), :224. Point-to-point spec does not assert absence (`expectMessage` would also pass for an early reply) | absent | partial |
+| AC-R3-1 worker dies after receiving; reassigned and confirmed -> Done once | `replyTo: ActorRef[Done]` (`T/WorkPullingProducerController.scala:142`); entry travels with `Unconfirmed` and is re-sent to self (`TI/WorkPullingProducerControllerImpl.scala:598-601`); `Done` on ack (:511-515) | `TT/WorkPullingSpec.scala:189-242`: no reply at worker death (:224), `Done` after the second worker's `Request` (msg-3, :230-231) and `Ack(2)` (msg-4, :236-237); "once" is not asserted explicitly | absent | yes |
+
+- Findings:
+  - F1 (high) Scope text: "replyTo receives its SeqNr when the consumer confirms it" holds only without a `DurableProducerQueue`; with one, the reply is sent on store (`T/ProducerController.scala:73-77,131-139`, `T/WorkPullingProducerController.scala:88-92`; specs `TT/DurableProducerControllerSpec.scala:146-173`, `TT/DurableWorkPullingSpec.scala:118-159`). Add "no durable queue" to R1/R3 or record the durable reply as excluded with the O-6 decision.
+  - F2 (medium) Atomicity: two controllers, two reply types and two spec files; AC-R3 is evidenced only after #1003 (the story says so), which creates the cycle risk described in #1001 F2 (the work-pulling controller itself sends every message through point-to-point `MessageWithConfirmation`, `TI/WorkPullingProducerControllerImpl.scala:347-349`). Open question: split point-to-point (prerequisite of #1001) from work-pulling reply (after #1003).
+  - F3 (low) Reply order for several confirmed entries comes from iterating a `Map` (`TI/ProducerControllerImpl.scala:537-542`); the spec expects 3 then 4; ordering is not stated as a contract.
+- Dependencies: #992 -> #1160 ok; #1001 -> #1160 ok for AC-R3; missing #1003 -> #1160 (AC-level); possible reverse edge #1160(p2p) -> #1001 (F2).
+- Oracle (D13): exists for all three ACs (specs above); applicability pending determination (X6).
+
+---
+
+### #1165 TSD-27 — Detect a sequence gap at the consumer and request a resend
+- Depth: DEEP
+- Labels now: prio:P2, status:blocked
+- Verdict: CORRECT (text fixes) + DEP (missing #1165 -> #998 edge, priority inversion)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 expected 3, received 4 -> Resend(3) | `seqNr > expectedSeqNr` and `resendLost` -> `Resend(fromSeqNr = expectedSeqNr)`, `stashBuffer.clear()`, `retryTimer.start()`, state `resending` (`TI/ConsumerControllerImpl.scala:323-334`) | `TT/ConsumerControllerSpec.scala:147-183`: after 1,2 confirmed, seq 5 arrives -> `Resend(3)` (the spec uses 5, not 4); then 3,4,5 delivered in order | absent | yes (example differs) |
+| AC-R2-1 pending Resend; 5 and 6 arrive; neither delivered until 3 | In `resending`, any message other than the expected one is DISCARDED (not buffered); a discarded `first` message triggers a `retryRequest` side effect (`TI/ConsumerControllerImpl.scala:455-462`) | `TT/ConsumerControllerSpec.scala:147-183` never sends out-of-order messages while resending; :438-483 observes unstash/clear on `Resend(0)`. No spec asserts the discard of 5 and 6 (searched ConsumerControllerSpec) | absent | spec-does-not-observe |
+| AC-R3-1 unconfirmed 3-5, Resend(3) -> 3,4,5 sent again in order | `resendUnconfirmed(unconfirmed.dropWhile(_.seqNr < from))` (`TI/ProducerControllerImpl.scala:646-664`); empty when `supportResend=false` | `TT/ProducerControllerSpec.scala:74-109` (sent 1..4, `Resend(3)` -> 3 then 4, then msg-5 as seq 5) | absent | yes |
+| AC-R4-1 non-first message from unknown producer -> Resend(0) | `receivedSeqNr == 0` and not first and `resendLost` -> `Resend(0)`, clear stash, `resending` (`TI/ConsumerControllerImpl.scala:392-402`); on `Resend(0)` the producer re-sends all unconfirmed messages as stored, then replaces its stored head by the `asFirst` version for later resends (`TI/ProducerControllerImpl.scala:646-654`) | `TT/ConsumerControllerSpec.scala:438-483` (44 non-first -> `expectMessage(Resend(0))`, then 41..45 delivered; Request(0,60)); producer reaction to `Resend(0)`: no spec found (searched `Resend(0)` in actor-typed-tests: only the consumer spec :455) | absent | partial |
+
+- Findings:
+  - F1 (medium) Current text: "ResendFirst for the durable path: #1159 (TSD-21)" (Out of scope) is wrong: `ResendFirst` is the producer's non-durable first-message timer (X2). Neutral replacement: "Producer-initiated first-message resend (ResendFirst) is owned by the resend story #998 / is an open ownership question (TI/ProducerControllerImpl.scala:422-423)."
