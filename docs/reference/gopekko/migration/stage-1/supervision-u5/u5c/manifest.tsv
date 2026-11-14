@@ -1,0 +1,5 @@
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala	pekko-actor/actor/guardian_config_internal_test.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala	pekko-actor/actor/guardian_api_test.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala	pekko-actor/actor/names_test.go
+upstream/pekko/actor/src/main/resources/reference.conf	pekko-actor/actor/guardian_config_internal_test.go
+docs/adr/0014-actor-children-and-hierarchical-termination.md	pekko-actor/actor/names_test.go
