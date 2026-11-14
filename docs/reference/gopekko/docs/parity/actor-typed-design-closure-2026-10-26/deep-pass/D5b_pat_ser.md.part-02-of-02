@@ -1,0 +1,19 @@
+
+## Counts
+- DEEP: 16 (876, 884, 885, 891, 908, 910, 911, 940, 942, 943, 951, 965, 981, 1054, 1101, 1106)
+- PARTIAL: 0. Limits that remain: `EventStreamSpec.scala:199-296` was read by title and first lines only (#891 AC2); `CircuitBreakerDocSpec` and docs tests were not opened; the goPekko `develop` snapshot was checked only for the absence of pattern/event code and for `pekko-serialization` module facts.
+
+## Stories the Architect should re-read
+- #1101 (R2 and AC-R2-2 contradict Pekko; the cited ADR 0010 text does not exist)
+- #908 (AC3 contradicts Pekko's `timeoutCompletionStage` (and a guarded branch of `timeout`))
+- #965 (AC1 "once" fails for custom failure classification)
+- #884 (the earlier "no spec" claim is wrong; specs exist)
+- #911 (the diagram "clamp" contradicts the code)
+- #1106 (ADR 0032 cited as accepted), #981 (incarnation claim), #1054 (wrong GOV-04 edge; ordering anchor)
+
+## Key Learnings
+1. In Pekko `RetrySupport.retry` treats a delay function returning None as an immediate retry, never as a stop signal, and RetrySpec lines 120-140 observes it.
+2. Pekko `FutureTimeoutSupport.timeoutCompletionStage` cancels the CompletableFuture on timeout, while `timeout` has only a branch guarded by an isInstanceOf CompletableFuture check, so a no-cancel acceptance criterion needs that distinction.
+3. Pekko circuit breaker call listeners can fire both failure and success for one call when a custom failure function classifies a failed future as non-failure.
+4. The serialize-messages check has real actor-tests specs (SerializeSpec, DispatchSpec, FunctionRefSpec), contradicting the earlier claim that none exists.
+5. DeadLetterListener resumes logging lazily on the next dead letter after the deadline using Deadline.now, with no scheduler, so a scheduler dependency edge is wrong.

@@ -1,0 +1,360 @@
+# D5b deep second pass: pattern and serialization stories (16)
+
+> Verification status (2026-10-26): checked by V4_D5.md: 75 findings checked in full, 6 partially, 0 not verified. Corrections from the verification are applied in this file. Stories not covered by the verification keep the producer's wording unverified.
+
+Baselines: Pekko `upstream/pekko` pinned `9a54d1294c3a` (read directly, no git); goPekko `origin/develop` `9abfb40` snapshot. ADR 0032 not used as authority. Paths below are relative to `upstream/pekko/` unless stated. `CB` = `actor/src/main/scala/org/apache/pekko/pattern/CircuitBreaker.scala`; `CBSpec` = `actor-tests/src/test/scala/org/apache/pekko/pattern/CircuitBreakerSpec.scala` (801 lines, opened in full). ADR lines are from `tmp/develop/docs/adr/`: ADR 0033 D3 line 37, D4 line 38, D8 line 42, D13 line 47, consequences line 72-73; ADR 0010 line 225 (Excluded for now); ADR 0021 line 8 (deferred O1, O7, O8-O11), 79/277/376 (O6 decided: no context, no I/O).
+
+Common facts about the Pekko breaker used by several stories (all read in `CB`):
+- Transitions are `compareAndSwap` on the state object (700-704); only the thread that wins runs `enter()`. Listeners are notified after `_enter` (950-953) by `executor.execute(listener)` (844), i.e. asynchronously on the constructor ExecutionContext, with no ordering guarantee between listeners or against the caller's future.
+- `callThrough` (857-908) has two paths. `callTimeout == Duration.Zero` (863-875): no timer, `defineFailureFn` and the allowlist are NOT consulted, any `Failure` is a failure. Otherwise (877-906) a `Promise` `p` is completed once by whichever of body or timer wins; failure counting is decided once in `p.future.onComplete` (881-888) by `defineFailureFn`.
+- All CBSpec tests that exercise time are tagged `TimingTest` and use the real scheduler and sleeps. No spec drives the breaker with a manual scheduler.
+
+---
+
+### #876 PAT-10 — Probe a circuit breaker after reset timeout
+- Depth: DEEP
+- Labels now: prio:P2, status:blocked
+- Verdict: CORRECT (AC wording about a "documented probe limit" and a "controlled timer"; add remainingDuration=0 detail)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 controlled reset timer moves Open to HalfOpen | `CB:1105-1109` Open._enter stamps time and `scheduler.scheduleOnce(currentResetTimeout){attemptReset()}`; `CB:780` attemptReset = `transition(Open, HalfOpen)`; timer is the constructor `Scheduler` (`CB:152`) | `CBSpec:148-152` (sync) and `CBSpec:474-478` (async): trip the breaker, then `checkLatch(halfOpenLatch)` (listener fired within 2s dilated). Observes only that the onHalfOpen listener ran; no `isHalfOpen` assertion, no timing bound | absent (no pattern package in pekko-actor) | spec-does-not-observe the state, only the listener; "controlled" timer is not exercised by any spec |
+| AC2 concurrent HalfOpen requests follow probe limit | `CB:1011` `HalfOpen extends AtomicBoolean(true)`; `CB:1021` `compareAndSet(true,false)` lets one call in; others get `CircuitBreakerOpenException(0.seconds)` and `notifyCallBreakerOpenListeners` (`CB:1024-1025`); guard re-armed on each HalfOpen entry (`CB:1047`). Limit is exactly one, not configurable | `CBSpec:299-309` (sync): a probe is in flight (`withCircuitBreaker(Future(sleep 250ms))`), the next `withSyncCircuitBreaker(sayHi)` throws `CircuitBreakerOpenException`, `callBreakerOpenLatch` fires; remainingDuration NOT asserted. `CBSpec:625-634` (async): same but only the latch. `CircuitBreakerMTSpec.scala:75-95` (100 concurrent calls, 5-latch): asserts `result.toSet == Set("succeed","CBO")`, i.e. at least one passes and at least one is rejected; it does NOT assert that exactly one passes | absent | spec-does-not-observe "exactly one" (set equality only) |
+| AC3 probe success closes, failure reopens | success `CB:1033` resetBreaker (`CB:716` HalfOpen->Closed); failure `CB:1040` tripBreaker(HalfOpen); classification in callThrough `CB:881-894`: failure if `defineFailureFn` true or call timeout fires; an exception that `defineFailureFn`/allowlist treats as non-failure CLOSES the breaker | `CBSpec:531-537` closedLatch after success; `CBSpec:539-547` exception with `_ => false` closes (closedLatch); `CBSpec:550-557` and `570-578` openLatch after failing probe; `CBSpec:559-568` even number as failure reopens; sync `196-202, 204-214, 217-224, 226-235`; manual `CBSpec:237-252` (`fail()`/`succeed()` in HalfOpen). Timeout as probe failure: `CBSpec:285-297`, `611-623` assert only the onCallTimeout listener, not the reopen | absent | yes for success/failure; timeout-reopen spec-does-not-observe |
+| AC4, AC5 boilerplate | n/a | n/a | n/a | not a behavior AC |
+
+- Findings:
+  - F1 (medium). Current text: "Concurrent HalfOpen requests follow the documented probe limit." Evidence: `CB:1021`, `CB:1047`; nothing configurable. Neutral replacement: "While one call is in flight after entering HalfOpen, every other call fails immediately with `CircuitBreakerOpenException` carrying `remainingDuration` 0 (`CB:1025`) and fires the open-call listener (`CB:1024`). Pekko has one probe per HalfOpen entry; whether Go keeps a fixed single probe is not decided by any ADR."
+  - F2 (medium). Current text: "A controlled reset timer". Pekko's timer is its injected `Scheduler` (`CB:152, 1107`); every spec uses the real one. Whether a manual-scheduler scenario can be run on the Pekko side is not shown by any spec: oracle applicability pending determination (see Oracle).
+  - F3 (low). The recon says the MT spec "not verified"; verified now: `CircuitBreakerMTSpec.scala:75-95` does not pin exactly one probe. Do not cite it as evidence for the single-probe rule.
+  - F4 (low). Diagram branch "No: Keep failing fast": Open rejects with `remainingDuration` (`CB:1068-1083`), asserted `> Zero` and `<= resetTimeout` at `CBSpec:136-146` (sync). The recon cites only the async test at `465-473`, which asserts the exception type only.
+- Dependencies: #795 depends_on (breaker, Open) OK; #821 TIM-02 depends_on (scheduleOnce) OK; both are `status:blocked`, so the label is consistent. No cycle. #911 and #965 (after correction) consume this story.
+- Oracle (D13): oracle exists (CBSpec timing specs observe HalfOpen entry, rejection and probe outcome) and can host a differential scenario for AC1 (listener), AC2 (rejection, not exactly-one) and AC3. Exactly-one under concurrency and timeout-as-probe-failure: applicability pending determination (no spec asserts them; a missing spec does not show that no oracle applies).
+
+---
+
+### #884 SER-06 — Verify selected actor messages through serialization
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (the "no spec" statement is wrong; ADR citation) and DEP (SYS-04 edge not evidenced)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 explicit failure timing and skip-marker/prefix policy | `actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:171-178` sendMessage calls `serializeAndDeserialize` only if `SerializeAllMessages` (`ActorSystem.scala:429`), before `dispatcher.dispatch`; `Dispatch.scala:180-205` unwraps `DeadLetter`, skips `NoSerializationVerificationNeeded` (189) and class names starting with `NoSerializationVerificationNeededClassPrefix` (191; default `["org.apache.pekko."]`, `reference.conf:138-140`); failure throws `SerializationCheckFailedException` (`Dispatch.scala:37`) INSIDE the `try`, so `catch handleException` (`Dispatch.scala:137-147`) swallows it and publishes an `Error` event: the sender does not see the exception and the message is not delivered; on success the receiver gets the DESERIALIZED copy (`Dispatch.scala:199-203`); `DisabledJavaSerializer` classes are skipped (`Dispatch.scala:211-213`) | `SerializeSpec.scala:339-348` ("verify messages"): `EventFilter[SerializationCheckFailedException](start="Failed to serialize and deserialize message of type java.lang.Object", occurrences=1)` around `a ! new AnyRef`; `SerializeSpec.scala:351-358` ("not verify akka messages"): a `pekko.*` message passes with nothing logged; `actor-tests/.../actor/dungeon/DispatchSpec.scala:30-36`: with `no-serialization-verification-needed-class-prefix = []` an unserializable message logs an error matching `.*NoSerializationVerificationNeeded.*`; `actor/FunctionRefSpec.scala:109-120`: `SerializationCheckFailedException` logged and `expectNoMessage()` (not delivered, deserialized form differs) | absent | spec exists and observes timing (at send), failure channel (error event, no exception to sender), non-delivery and the prefix skip |
+| AC2 no new serializer dependency in actor core by default | Pekko core itself depends on `SerializationExtension` (`Dispatch.scala:33-35`); default off (`reference.conf:131`) | no spec (a dependency rule is not a behavior) | `pekko-actor` imports no goPekko module (CLAUDE.md dependency direction, `scripts/deps.allow`) | n/a to Pekko; Go-side rule |
+| AC3 creator verification separate | separate flag `SerializeAllCreators` (`ActorSystem.scala:430`, `reference.conf:136`), local-scope deployments exempt (`reference.conf:135`); shares the prefix list (`reference.conf:138-140`) | `SerializeSpec.scala:316-328` ("verify creators": `IllegalArgumentException` for a non-serializable creator); `actor/PropsCreationSpec.scala:43-49` enables only creators; `DispatchSpec`/`DisabledJavaSerializerWarningSpec:28-36` enable only messages | absent | yes (independent flags); both flags share one prefix setting |
+| AC4/AC5 | boilerplate | | | |
+
+- Findings:
+  - F1 (high). The recon "Spec: n/a" and the prior audit (`evt-pat-ser.md` line 107, "none in actor-tests") are wrong. Specs: `SerializeSpec.scala:308-358` (VerifySerializabilitySpec), `DispatchSpec.scala:30-36`, `FunctionRefSpec.scala:49-55,109-120`, `DisabledJavaSerializerWarningSpec.scala:28-36`, `LoggerSpec.scala:79` (config), `LoggerSpec.scala:347-`. Replacement: cite them as the Pekko oracle; D13 requires a differential scenario where applicable.
+  - F2 (medium). AC1 says "failure timing" without stating Pekko's: the failure is detected on the sender's thread at send time, is reported as an `Error` event and the message is dropped silently from the sender's point of view (`Dispatch.scala:171-178, 137-147`). Open question for Go: failure channel (not decided by any ADR); missing evidence: none needed to state Pekko behavior.
+  - F3 (medium). The recon ADR impact line "ADR 0033 D3: actor imports no serialization module" mis-cites: D3 (ADR 0033 line 37) defines the Typed module. The import rule is CLAUDE.md "Dependency direction" and `scripts/deps.allow`; ADR 0033 line 73 notes the ADR 0011 versus ADR 0021 import contradiction as unresolved.
+  - F4 (low). Not in any AC: DeadLetter unwrapping and re-wrapping (`Dispatch.scala:181-203`) and the receiver getting the round-tripped copy. State as Pekko behavior or leave to the story author.
+- Dependencies: #843 SYS-04 `depends_on` ("Opt-in is a System setup option"): the title of #843 is "Resolve System defaults against spawn descriptors consistently" and its body (searched `serializ`, `serialize-messages`) never mentions a serialization option, so the stated reason is not evidenced by the producer; the Pekko flag lives in `ActorSystem.Settings` (`ActorSystem.scala:429`). Missing evidence: which story defines System-level settings. #1021 GOV-03 is a proposal of the form of the per-export justification (not a justification of this hook); recon uses it as the producer of "ADR 0011 justification of the hook port": reason mismatch, and prior audit F-16 notes the hook is not in #1020's candidate list. #1081 GOV-32 `independent` OK (it is `status:ready`, a decision proposal). Removing #804 is correct: `serializeAndDeserialize` takes any serializer found by `findSerializerFor` (`Dispatch.scala:208-210`), no primitive serializer needed.
+- Oracle (D13): oracle exists (specs above) and can host a differential scenario for timing, non-delivery, error event, marker/prefix skip and creators.
+
+---
+
+### #885 SER-08 — Adapt asynchronous serializers to synchronous callers explicitly
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (AC text states Go-only rules; decision (a) recorded in the issue body only) and STATUS note (not ready, correct as labeled)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 explicit unbounded/bounded wait rule | `serialization/AsyncSerializer.scala:58-63` `toBinary` and `65-71` `fromBinary` are `final` and do `Await.result(async, Duration.Inf)`: unbounded | `AsyncSerializeSpec.scala:121-125`: `EventFilter.warning(start="Async serializer called synchronously", occurrences=1)` around `ser.serialize(Message1(...))`. The wait duration is not observed | absent; ADR 0021 O6 (line 79, 277, 376): a serializer takes no `context.Context` and does no I/O | unbounded = yes (code); bounded = no Pekko basis |
+| AC2 warning identifies async serializer called synchronously | `AsyncSerializer.scala:59-61` (toBinary, class in message) and `66-68` (fromBinary, manifest); logger `Logging(system, classOf[AsyncSerializerWithStringManifest])` (56); emitted on every call, no dedup; texts differ ("pekko" vs "Pekko") | `AsyncSerializeSpec.scala:121-125` (1 warning for serialize) and `127-137` (2 warnings for serialize+deserialize via the CS variant) | absent | yes (count and prefix `start=`); full text not asserted |
+| AC3 caller cancellation does not claim cancel | none: `Await.result` cannot be cancelled by the caller | none | n/a | no Pekko basis |
+
+- Findings:
+  - F1 (medium). Current text AC1 "unbounded/bounded wait rule derived from its accepted contract" and AC3. The #885 body records "Owner decision recorded on 2026-10-25: option (a)" (#1194, OPEN) without a quoted Owner instruction or accepted ADR; it says the Pekko rule only: unbounded wait, warning per synchronous call, criterion 3 dropped. Per the brief this is an explicit Owner instruction only if it exists as such; the issue body records it as "Owner decision recorded on 2026-10-25"; I treat it as recorded in the body, not independently verified (#1194 is still open and `status:ready`). Keep the AC text unchanged until the Architect applies the decision.
+  - F2 (medium). The recon says the evidence stays "`pending approval` where Pekko has no oracle". Wrong default for AC1 unbounded and AC2: the oracle exists (`AsyncSerializeSpec:121-137`). Only bounded wait / cancellation have no Pekko counterpart, and under decision (a) they are removed.
+  - F3 (low). Warning channel in Go and the ADR 0021 O6 relationship (a serializer has no context and no logger) remain open (#885 body says so); missing evidence: no ADR names a logger for the registry.
+- Dependencies: #845 SER-07 depends_on OK (adapter wraps the async port); #1194 GOV-47 depends_on OK. #845 is blocked (depends on #773 ASK-01), so `status:blocked` is consistent.
+- Oracle (D13): oracle exists and can host a differential scenario for the warning-and-block behavior. Bounded wait/cancellation: does not apply (Pekko has neither a timeout nor a cancellation: `AsyncSerializer.scala:62,69`).
+
+---
+
+### #891 EVT-12 — Expose subclassified EventBus subscriptions
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (spec reference) and DEP (the body lists #837; recon removes it, consistent with source)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 subclass relation explicit and transitive | `actor/src/main/scala/org/apache/pekko/event/EventBus.scala:136-160` `SubchannelClassification` with implicit `Subclassification` (`util/SubclassifiedIndex.scala:21-33` `isEqual`, `isSubclass`; index nodes `116-140`) | `actor-tests/.../event/EventStreamSpec.scala:150-174` (classes), `176-197` (classes+traits, update on subscribe) assert delivery to superclass/trait subscribers and `subscribe`/`unsubscribe` return `true`. `EventBusSpec.scala` has NO subchannel subclass (only Actor 180, Scanning 317, Lookup 353) | absent | spec exists only through EventStream, not EventBusSpec |
+| AC2 add/remove updates cached inherited sets | `EventBus.scala:159-175` subscribe/unsubscribe under `subscriptions.synchronized`, `cache` updated by diff; publish fills cache for unseen classifier (`177-190`, `206-209`) | `EventStreamSpec.scala:199-219` (update on unsubscribe), `221-241` (unsubscribe all), `243-257` (update on publish), `259-279`, `281-296` (subscribe after publish) | absent | spec exists (bodies of 150-200 read; later cases by title and first lines only) |
+| AC3 once per subscriber through overlapping paths | cache values are `Set[Subscriber]` (union in `addToCache`, `EventBus.scala:206-209`), so a subscriber appears once per publish | `EventStreamSpec.scala:176-197`: `a3.expectMsgType[CC]` receives tm1 then tm2 once each with subscriptions on overlapping trait/class | absent | yes (set semantics); exact once-under-overlap is only implied |
+
+- Findings:
+  - F1 (medium). Recon names "EventBusSpec" as the spec. `EventBusSpec` contains no Subchannel bus; the oracle is `EventStreamSpec.scala:150-296` (EventStream extends SubchannelClassification). Replacement text for the Spec column: `EventStreamSpec.scala:150-296`.
+  - F2 (medium). The subclass relation is JVM class/trait inheritance. Which Go relation replaces it is the open decision of #793 (not an ADR); missing evidence: an accepted ADR. Do not say "transitive where upstream requires it" without naming the relation.
+  - F3 (low). Story has no "once through overlapping" Pekko spec that names both paths explicitly; see AC3 row.
+- Dependencies: #837 (Lookup bus) correctly removed: `SubchannelClassification` is an independent trait (`EventBus.scala:136`), `LookupClassification` is another (`EventBus.scala:93`). #793 depends_on and #1020 depends_on per recon; #1020's scope (index of exports needed by Typed) does not obviously include a new public bus type (title of #1020): reason not evidenced. #836 independent OK (shares the subchannel rule through #793).
+- Oracle (D13): oracle exists (EventStreamSpec) and can host a differential scenario for the class-hierarchy ACs through the EventStream; applicability to a standalone EventBus: pending determination (no EventBusSpec case uses a Subchannel bus).
+
+---
+
+### #908 PAT-03 — Race a result against a timeout
+- Depth: DEEP
+- Labels now: prio:P2, status:blocked
+- Verdict: CORRECT (AC3 contradicts a Pekko detail) and DEP (agree with recon)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 only one completion wins | `pattern/FutureTimeoutSupport.scala:97-120` `timeout`: `Promise p`; timer does `p.tryFailure(TimeoutException("Timeout of ... expired"))` (109); source does `timeout.cancel(); p.tryComplete(result)` (117-118). If the future is already completed it is returned as is (`105`) | `PatternSpec.scala:79-96`: success within 100ms -> value; failure -> same exception message "ABC"; `Future.never` -> `TimeoutException` | absent | yes |
+| AC2 loser cannot change result | `p` is completed once (`tryFailure`/`tryComplete`) | no spec completes the source after the timeout and re-reads the result | absent | spec-does-not-observe |
+| AC3 timeout does not cancel recipient work unless explicit API | Pekko's `timeoutCompletionStage` cancels the CompletableFuture on timeout (`FutureTimeoutSupport.scala:143-144`); the Future overload contains a cancel branch guarded by `isInstanceOf[CompletableFuture]` (`:110-114`) that applies only to an instance that is also a CompletableFuture | none (no spec asserts cancellation) | absent | no: contradicts Pekko's `timeoutCompletionStage` (and a guarded branch of `timeout`) |
+
+- Findings:
+  - F1 (high). Current text: "Timeout does not cancel recipient work unless a separate explicit cancellation API owns it." Pekko: `FutureTimeoutSupport.scala:110-114` cancels a `CompletableFuture` source and `:143-144` cancels the CompletionStage on timeout; a plain Scala `Future` is not cancellable so nothing is cancelled. Neutral replacement: "For a Scala Future source the timeout leaves the source running (`FutureTimeoutSupport.scala:97-120`); Pekko's timeoutCompletionStage cancels the CompletableFuture on timeout (FutureTimeoutSupport.scala:143-144); the Future overload contains a cancel branch guarded by isInstanceOf[CompletableFuture] (:110-114) that applies only to an instance that is also a CompletableFuture. Which of these Go follows is an open question; missing evidence: an accepted decision on cancellation of the source (the story's own wording is an Architect proposal)." No spec observes either.
+  - F2 (medium). The recon cites spec `FutureTimeoutSupportSpec`, which does not exist; the oracle is `PatternSpec.scala:78-96` ("pattern.timeout" must, lines 78-96).
+  - F3 (low). Source anchors: `timeout` is lines 97-120 (recon: 97-110).
+- Dependencies: #874 (PAT-02) removal is correct: `timeout` uses `scheduleOnce` directly (`FutureTimeoutSupport.scala:108`), not `after`. #821 depends_on OK. #773 ASK-01 depends_on: the AC has no ask; the "asynchronous result contract" reason is not evidenced by any Pekko fact (Pekko has Scala `Future`); keep as a Go prerequisite only if the Architect states the reason. All prerequisites blocked, status consistent.
+- Oracle (D13): oracle exists (PatternSpec:78-96) and can host a differential for AC1; AC2 and the cancellation point: applicability pending determination.
+
+---
+
+### #910 PAT-11 — Timeout protected circuit-breaker calls
+- Depth: DEEP
+- Labels now: prio:P2, status:blocked
+- Verdict: DEP (#876 not needed; #795 is) and CORRECT (AC3, zero callTimeout)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 timeout counted once | `CB:877-894`: timer `scheduleOnce(callTimeout)` calls `p.tryFailure(timeoutEx)`; counting happens once in `p.future.onComplete` via `defineFailureFn(Failure(timeoutEx))` -> `callFails()` (`CB:881-884`). A user `defineFailureFn` can classify the timeout as non-failure. Zero `callTimeout` means no timer (`CB:863`) | `CBSpec:404-412` (sync): body sleeps 200ms with callTimeout 50ms; `TimeoutException` thrown and `currentFailureCount == 1` after the call returns (so the late success did not reset or add). `CBSpec:414-424`: count reaches 1 while the body (1s) still runs. `CBSpec:706-721` (async): after the timeout `openLatch`, `currentFailureCount == 1`, future fails with `TimeoutException` not `TestException` (count is read before the late exception happens) | absent | yes for once; late FAILURE double-count spec-does-not-observe |
+| AC2 late result does not double-count nor change result | `CB:896-905`: `p.trySuccess`/`p.tryFailure` no-ops after completion; `timeout.cancel()`; failure listener only if `tryFailure` won (`CB:901-902`) | `CBSpec:404-412` shows the returned result is the TimeoutException and the count stays 1 after a late success; `CBSpec:706-721` shows the returned result is the timeout | absent | yes for late success; late failure after timeout: spec-does-not-observe |
+| AC3 sync and async entry points document blocking differences | async `withCircuitBreaker` `CB:358-369`; sync `withSyncCircuitBreaker` `CB:436-458`: body runs on the caller thread inside `Await.result(withCircuitBreaker(Future.successful(body)), callTimeout)`; the timer still fires during the body (failure counted early) but `TimeoutException` is thrown only after the body returns (scaladoc `CB:427-431`) | `CBSpec:414-424` (count 1 within 900ms while the sync body runs 1s) and `CBSpec:404-412` | absent | yes |
+
+- Findings:
+  - F1 (medium). Current text AC3: "Both accepted synchronous and asynchronous entry points document blocking differences." The recon proposes replacing it by "Go likely has one context-based entry". The first part is Pekko fact (two entries, `CB:358,436`); "Go likely has one" is a guess. Replacement: "Pekko has an asynchronous entry that returns a Future completed with `TimeoutException` at the timeout, and a synchronous entry that blocks the caller thread and throws `TimeoutException` only after the body returns while counting the failure at the timeout (`CB:358-369, 436-458`; `CBSpec:414-424`). The Go entry points are an open question (ADR 0033 line 72 records futures replaced by context deadlines as an observable difference to record)."
+  - F2 (medium). Not stated in any AC: `callTimeout == Duration.Zero` disables the timeout (`CB:863-875`) and in that path `defineFailureFn` and the allowlist are ignored. No spec covers zero (all CBSpec breakers use non-zero callTimeout).
+  - F3 (low). Whether the timeout `TimeoutException` can be matched by the allowlist: `timeoutEx` is an anonymous subclass (`CB:782`), so its class name is not `java.util.concurrent.TimeoutException`; reading of code only, no spec.
+- Dependencies: the reconciliation already removes #876 and adds #795; the live body list still shows #876. Remove #876 (Closed-state timeout needs no HalfOpen); add #795 (`callTimeout` constructor arg `CB:154`, `callThrough` shared by all states `CB:857`). If half-open timeout stays in scope it is observed at `CBSpec:285-297` and `611-623` (listeners only). Status: #795 blocked, consistent.
+- Oracle (D13): oracle exists (CBSpec timeout cases) and can host a differential for AC1 and the sync/async entries; late-failure case: applicability pending determination.
+
+---
+
+### #911 PAT-13 — Increase breaker reset delay with bounded jittered backoff
+- Depth: DEEP
+- Labels now: prio:P2, status:blocked
+- Verdict: CORRECT (diagram "clamp", validation scope, evidence label)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 repeated reopen cycles increase only the reset-delay state | `CB:301-306` separate volatile `currentResetTimeout`, changed only by CAS `swapResetTimeout` (`CB:336-341`); on each Open entry the timer uses the current delay, then `next = current * exponentialBackoffFactor * (1 + U[0,1) * randomFactor)` and the swap happens only if `next < maxResetTimeout` (`CB:1105-1118`) | `CBSpec:480-500`: breaker built with the 7-arg constructor (factor 5, randomFactor 0, max 1 day, reset 1000ms; `CBSpec:80-81`); after the second Open `e2.remainingDuration > e1.remainingDuration` (only an order assertion) | absent | partial: growth observed, magnitude not (spec half grep-only for the builders: `CBSpec:480-500` not opened by the verification) |
+| AC2 random factor and maximum validated without changing callTimeout | validation: only `exponentialBackoffFactor >= 1.0` and `0.0 <= randomFactor <= 1.0` (`CB:163-164`, `require`, run at every construction including the builders); `maxResetTimeout` is NOT validated; builders `withExponentialBackoff(max)` (factor fixed 2.0, `CB:252-263`) and `withRandomFactor` (`CB:281-292`) build a NEW breaker copying scheduler, maxFailures, callTimeout, resetTimeout, allowlist, telemetry; callTimeout is a constructor `val` | none: grep `withExponentialBackoff\|withRandomFactor\|maxResetTimeout\|randomFactor` over the repo finds only stream/typed supervision code, no breaker spec | absent | no spec found |
+| AC3 recovery resets the delay | `Closed._enter` (`CB:995-998`): count 0 and `swapResetTimeout(currentResetTimeout, resetTimeout)` | `CBSpec:531-537` closes the breaker but asserts only `closedLatch`; delay after close is not observed | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (high). Diagram node "Clamp at configured maximum" and decision "Next delay below maximum? / No: Clamp". Evidence: `CB:1116-1117`: when `next >= maxResetTimeout` the swap is skipped and the delay stays at its previous value; it is never set to the maximum. Neutral replacement for the No branch: "Keep the previous delay (no growth)".
+  - F2 (medium). AC2 "maximum timeout validated": Pekko does not validate `maxResetTimeout` (a max below `resetTimeout` simply disables growth; legacy constructors use 36500 days, `CB:198,214,228`). Current text should either drop it or mark it Go-only; "without changing callTimeout" has no Pekko basis (builders just copy it).
+  - F3 (medium). The jitter is one-sided and multiplicative and affects the NEXT delay, not the timer being scheduled (`CB:1107` uses the value before the update). The story title says "bounded jittered backoff".
+  - F4 (low). `withExponentialBackoff` fixes factor 2.0; a custom factor is reachable only through the constructors (`CB:166-184`, `CB:234-244`); builders drop registered listeners (listener lists are per instance, `CB:784-790`).
+  - F5 (medium). The recon says without a Pekko oracle "any alternative evidence is `pending approval`". Pekko code for cap, jitter and validation exists (`CB:163-164, 1105-1118`); only a dedicated spec is missing. Replace by "oracle applicability pending determination".
+- Dependencies: #876 depends_on OK (growth is observable across HalfOpen->Open; the first Open entry grows the delay too, `CB:1105-1118`, so #795 is the strict minimum for the first step). Status blocked consistent.
+- Oracle (D13): growth: oracle exists (CBSpec:480-500). Cap, jitter, validation, reset-on-close: applicability pending determination (Pekko code exists, no spec; a differential scenario against the Pekko constructor is not shown impossible).
+
+---
+
+### #942 PAT-12 — Notify circuit-breaker state listeners
+- Depth: DEEP
+- Labels now: prio:P2, status:blocked
+- Verdict: DEP (#910 -> #876, agree) and CORRECT (diagram text, delivery context unspecified)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 each listener observes only its named transition | one listener list per state (`CB:817-825`); `onOpen/onHalfOpen/onClose` add to Open/HalfOpen/Closed (`CB:539-591`); notified after `_enter` on the executor (`CB:950-953, 844`); listeners are `Runnable` with no argument | `CBSpec:57-61` wires latches to the three; positive cases `148-152`, `474-478`, `531-537`, `550-557`. No spec asserts that a listener does NOT fire on another transition | absent | positive only; negative spec-does-not-observe |
+| AC2 repeated failure in Open does not emit another Open | `Open.callFails` no-op (`CB:1097`), `Open.invoke` rejects without running the body (`CB:1068-1071`); `transition` is a CAS from the expected state, so a second `tripBreaker(Closed)` after the state changed does not run `enter()` (`CB:700-704`); Closed uses `incrementAndGet() == maxFailures` (`CB:988`), so late failures past the threshold do not re-trip (code reading) | `CBSpec:162-168` (`fail()` in Open leaves `isOpen == true`) and `154-160`; it does not count the Open listener invocations | absent | spec-does-not-observe the count |
+| AC3 listener failure cannot apply a transition twice | transition is already done before listeners run (`CB:701-702, 950-953`); an exception in a listener runs in `executor.execute` | none: every CBSpec listener only counts down a latch | absent | no spec found; searched: `onOpen|onHalfOpen|onClose` in `actor-tests/.../pattern/*Spec.scala` (only the CBSpec helper) |
+| AC4 concurrent transition and listener-failure cases | `CircuitBreakerMTSpec` and `CircuitBreakerStressSpec.scala:62-78` exercise concurrent calls, not listeners | MT: set of results only; Stress: `failCount == 0` | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium). Diagram title "Notify circuit-breaker state and call listeners" and nodes "Relevant transition or result occurred?" describe call listeners, which belong to #965; the boundary says "State-transition listeners only." Replace with a state-transition-only diagram.
+  - F2 (medium). No AC states the delivery context and ordering: Pekko runs each listener through `executor.execute` (`CB:844`), so listeners of different transitions and the caller's own future callbacks have no guaranteed order. Open question for Go; missing evidence: an ADR on listener execution context.
+  - F3 (low). The AC wording "Open HalfOpen and Closed transitions" in the user story: the initial Closed state is not an entered transition in Pekko (`Closed._enter` only runs on HalfOpen->Closed, `CB:716`).
+- Dependencies: remove #910 and re-point to #876 (recon): consistent with `CB:539,559,580`; #910 only adds call timeouts. Open and Closed listeners need #795 (reachable through #876). Status blocked consistent.
+- Oracle (D13): oracle exists for positive transition notification; negative notification, repeated-failure count and listener failure: applicability pending determination.
+
+---
+
+### #943 PAT-14 — Look up configured circuit breakers by ID
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (public entry; unknown-ID behavior) and DEP (#1020 scope)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 same ID returns same instance under concurrent lookup | `pattern/CircuitBreakersRegistry.scala:97-98` `breakers.computeIfAbsent(id, createCircuitBreaker)` on a `ConcurrentHashMap` (`:65`); public entry `CB:67-68` `CircuitBreaker.apply(id)(system)` and `CB:115-116` `lookup(id, system)` | none for identity: `CBSpec:763` builds one `Breaker(CircuitBreaker("identified")(system))` once; searched `CircuitBreakersRegistry|CircuitBreaker("` over the repo: only CBSpec, registry, CircuitBreaker.scala | absent | no spec found |
+| AC2 unknown IDs use defaults or classified failure | `CircuitBreakersRegistry.scala:69-72` section `pekko.circuit-breaker.<id>` with fallback key by key to `default`; unknown id -> `default` (`reference.conf:1412-1439`: max-failures 10, call-timeout 10s, reset-timeout 15s, max-reset-timeout 36500d, exponential-backoff 1.0, random-factor 0.0, exception-allowlist []). No error for an unknown id; malformed values raise at lookup | `CBSpec:94-104` defines section `identified` (max-failures 1, call-timeout 100ms, reset 200ms, allowlist); `CBSpec:766-791` observe it applied (allowlisted exception reports success, trip, half-open after 250ms, close). The default section path is not exercised | absent | section path yes; default path spec-does-not-observe |
+| AC3 ownership and cleanup scoped to System/extension | registry is an `Extension` per ActorSystem (`CircuitBreakersRegistry.scala:34-60`); map has no removal; breaker uses `system.scheduler` and `system.dispatcher` (`:86,94`) and per-id telemetry (`:84`) | none | absent | no spec found |
+
+- Findings:
+  - F1 (medium, recon claim verified). The public lookup exists: `CB:67-68, 115-116`; the registry `get` is `private[pekko]` (`CircuitBreakersRegistry.scala:97`). Replacement: "Public lookup mirrors `CircuitBreaker.apply(id)`".
+  - F2 (medium). AC2 "Unknown IDs use the documented defaults or classified configuration failure": Pekko = defaults only (above). The "classified configuration failure" alternative has no Pekko basis; the Go configuration form is an Owner decision per the recon (not verified as an explicit Owner instruction).
+  - F3 (low). `config.hasPath(id)` treats dots in an id as a path (`CircuitBreakersRegistry.scala:72`); no spec; an ids-with-dots rule is an open question.
+  - F4 (low). Telemetry (`CircuitBreakerTelemetryProvider.start`, internal) is created per id; not in any AC.
+- Dependencies: #911, #841 (extension), #1100 (allowlist: registry reads `exception-allowlist`, `:82`), #1074 (key classification): consistent with source. #1020 GOV-02: its title is "Index the individual ADR 0011 justification of each export needed by Typed"; a breaker registry is not shown to be Typed-needed, so the edge reason (ADR 0011 justification for the exported registry) is not supported by #1020's scope; the justification itself is a per-export duty (ADR 0033 D3 line 37). Status: #1074 ready, others blocked; consistent.
+- Oracle (D13): oracle exists for configured-section behavior (CBSpec:761-800). Same-instance under concurrency, default section, scope: applicability pending determination (Pekko code is `computeIfAbsent`; no spec).
+
+---
+
+### #940 EVT-08 — Suspend and resume dead-letter logging
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (AC1 wording about clock and resume; AC2 source; AC3 reword) and DEP (agree: #821 not used by Pekko)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 injected-clock tests distinguish enabled, suspended, resumed | `event/DeadLetterListener.scala:94-105` `receiveWithSuspendLogging`: when `count == maxCount` the message is logged with `", no more dead letters will be logged in next [d]"` and the actor `become`s `receiveWhenSuspended(d, Deadline.now + d)`; `:107-118` while suspended every dead letter is counted but NOT logged until one arrives after `suspendDeadline.isOverdue()`; that one is logged with `", of which N were not logged. The counter will be reset now"` (N = count - maxCount - 1), `count = 0`, state back to enabled. There is no timer and no scheduler: resume is lazy, on the next dead letter. Clock = `Deadline.now` (no injection point). Dropped and UnhandledMessage share the counter (`:40-44`). Suspend duration "infinite" -> `receiveWithMaxCountLogging` (`:81-92`): the listener stops after maxCount (`:65-71`) | `actor-tests/.../actor/DeadLetterSuspensionSpec.scala:70-100` (log-dead-letters=4, suspend 2s): asserts info logs for letters 1-3 (DeadLetter, Dropped, Unhandled), letter 4 with `", no more dead letters will be logged in next"`, letters 5-6 not logged, `Thread.sleep(2050)` (real time, line 89), letter 7 logged with `", of which 2 were not logged"`, letter 8 logged as `[1] dead letters encountered` | absent (`Config.Logger` exists only for supervision, see prior audit) | yes for the three states observed in real time; injected clock is a Go-side seam, not a Pekko one |
+| AC2 shutdown flag independent of normal suspension | `actor/ActorSystem.scala:446` `LogDeadLettersDuringShutdown` (default off, `reference.conf:63`); read only at `ActorSystem.scala:1115` (`finalTerminate`: `if (!flag) logDeadLetterListener.foreach(stop)`); the listener exists only if `LogDeadLetters > 0` (`:1068-1069`) | no behavior spec in actor-tests; `config/ConfigSpec.scala:80-87` asserts defaults only (10, false, 5 minutes). Searched `log-dead-letters-during-shutdown` over the repo: only cluster/ddata multi-jvm configs, docs, ActorSystem.scala | absent | independent by code; spec-does-not-observe |
+| AC3 no missing remote CI reported as successful validation | not a Pekko behavior | n/a | n/a | boilerplate |
+
+- Findings:
+  - F1 (medium). Diagram: "Suspension interval elapsed? Yes -> Resume accepted log budget". Evidence `DeadLetterListener.scala:107-118`: elapse alone resumes nothing; the first dead letter after the deadline is logged and resets the counter, and suspended letters are still counted (`incrementCount`, `:109-111`). Replacement: "Elapse is detected on the next dead letter, which is logged together with the number of letters not logged."
+  - F2 (low). Settings grammar not in any AC: `log-dead-letters` `off|on|N` and `log-dead-letters-suspend-duration` `infinite|duration` (`ActorSystem.scala:441-452`); default 10 and 5 minutes (`reference.conf:58,68`). Whether Go keeps these is an open question.
+  - F3 (low). Recon reword of AC3 to "validated locally per docs/ci-economy.md" is consistent with `CLAUDE.md` project rules; no Pekko evidence involved.
+- Dependencies: #907 depends_on OK (count and maxCount logic is the same listener). Replace #821 by a clock seam (#1129 TIM-11): evidence that Pekko uses no scheduler here is `DeadLetterListener.scala:107-118`; however Pekko has no clock seam either (`Deadline.now`), so #1129 is a Go-side prerequisite for AC1 only. #1129 is P0 blocked; the status of #940 is consistent.
+- Oracle (D13): oracle exists (DeadLetterSuspensionSpec, real time) and can host a differential scenario for the three states; injected-clock tests: applicability pending determination; shutdown flag: pending determination (code exists, no actor-tests spec).
+
+---
+
+### #951 SER-02 — Serialize exact actor references
+- Depth: DEEP
+- Labels now: prio:P2, status:blocked
+- Verdict: CORRECT (sources; "classified stale/invalid failure"; priorities) and DEP (edge types)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 IDN-09 encoding, exact System/incarnation semantics | string = path plus address plus `#uid` (uid omitted when undefined): `actor/ActorPath.scala:374-378` `toSerializationFormat`, `398-407` `toSerializationFormatWithAddress`, `449-452` `appendUidFragment`; address chosen by `serialization/Serialization.scala:72-100` `serializedActorPath` (uses `currentTransportInformation`, `Serialization.scala:51`); wire form for Java serialization is `SerializedActorRef(path: String)` (`actor/ActorRef.scala:471-495`, `writeReplace` at 463) | `actor/ActorRefSpec.scala:300-317` (round trip returns the same local ref `eq`); `ActorSelectionSpec.scala:124-148` (incarnation-aware equality: `a2.path == a1.path` but `a2 != a1`) - equality, not serialization; no spec asserts the serialized string contains the uid | `pekko-serialization/go.mod` requires only go-specs v0.4.0 (verified); `scripts/deps.allow` line 6 allows `pekko-serialization -> pekko-actor` | partial: round trip observed; string contents spec-does-not-observe |
+| AC2 no actor-to-serialization import | n/a (Pekko is one module: `Dispatch.scala:33` imports serialization) | n/a | CLAUDE.md dependency direction | Go-side rule |
+| AC3 stale references never resolve to same-path replacement | `actor/ActorRefProvider.scala:622-627` `resolveActorRef(String)`: foreign address/invalid -> `deadLetters` + debug log; `:643-657` missing child -> `EmptyLocalActorRef`; the uid is checked in `actor/dungeon/Children.scala:230-244` `getSingleChild` (name#uid with a different uid -> `Nobody`) | `ActorRefSpec.scala:341-365`: serialize a ref, stop the actor, deserialize -> `EmptyLocalActorRef` equal to `new EmptyLocalActorRef(provider, ref.path, eventStream)`. No replacement actor is created under the same path in that test, so the uid-mismatch case is not observed | absent | spec-does-not-observe the replacement case |
+
+- Findings:
+  - F1 (medium). The diagram says "Return classified stale/invalid failure". Pekko returns no error for a stale or invalid string: it returns `deadLetters` (foreign/invalid, `ActorRefProvider.scala:622-627`) or an `EmptyLocalActorRef` (stale/missing, `:643-657`); the only exception is a missing system in scope (`ActorRef.scala:478-486`, asserted `ActorRefSpec.scala:319-339`). Open question for Go (classification): missing evidence, an accepted error taxonomy for resolution.
+  - F2 (medium). Recon says `Serializer.scala` is irrelevant. Partly wrong: `JavaSerializer.currentSystem` (`serialization/Serializer.scala:315-323, 350`) is what `SerializedActorRef.readResolve` consults (`ActorRef.scala:478-486`). `PrimitiveSerializers.scala` is irrelevant (confirmed).
+  - F3 (low). Current citation `ActorRef.scala` (no line): replace with `ActorRef.scala:463-495` and `Serialization.scala:72-100`.
+- Dependencies: #894 and #853 depends_on consistent with source (string encoding and uid binding); #1083 GOV-34 depends_on (transport information scope, `Serialization.scala:72-100`); #1073 independent OK. Priority inversion: #951 is P2 and depends on P3 #894 and #1083 (informative; no label change proposed). Status blocked consistent.
+- Oracle (D13): oracle exists for the stale-after-stop case (ActorRefSpec:341-365); exact-incarnation with a replacement actor: applicability pending determination (Pekko code checks the uid, no spec exercises it).
+
+---
+
+### #965 PAT-16 — Notify circuit-breaker call-result listeners
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (AC1 "once" is not Pekko behavior in two cases) and DEP (redundant/missing edges)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 each call produces the accepted category notification once | four families (`CB:601,625,649,673`), success/failure/timeout receive elapsed ns (`System.nanoTime() - start`, `CB:723-764`), open-call none (`CB:769-775`). Emission points: zero callTimeout `CB:863-875` (success on `Success`, failure on any `Failure`); otherwise success from `p.future.onComplete` when `defineFailureFn` is false (`CB:885`) INCLUDING a failed future classified as non-failure; failure listener from the body branch when `p.tryFailure(ex)` wins and the exception is not allowlisted (`CB:900-902`), independent of `defineFailureFn`; timeout listener when the timer's `tryFailure` wins (`CB:890-893`); open-call from `Open.invoke` (`CB:1069`) and from HalfOpen rejection (`CB:1024`). Consequences (code reading): (a) a failed call whose exception is not allow-listed but which a custom `defineFailureFn` classifies as non-failure fires BOTH failure and success listeners (CB:902 and CB:885); with the default function and an allow-listed exception only the success listener fires; (b) a successful result classified as failure (e.g. even number) increments the breaker but fires NO failure listener; (c) a timeout fires only the timeout listener, not the failure listener | `CBSpec:184-192`, `446-454`, `519-527`, `743-751` (failure, duration > 0 and < bound); `254-266`, `426-434`, `580-592`, `723-731` (success); `285-297`, `436-444`, `611-623`, `733-741` (timeout: CBFailure then CBTimeout on the probe, duration bound only); `176-182`, `299-309`, `509-517`, `625-634` (open-call latch). `CBSpec:772-776`: allowlisted exception -> `callSuccessLatch`. No spec asserts case (a), (b) or that no second notification occurs | absent | partial; cases (a)-(c) spec-does-not-observe |
+| AC2 late completion after timeout creates no second terminal outcome | `CB:896-905`: `p.trySuccess`/`p.tryFailure` lose; failure listener guarded by `tryFailure` result (`CB:901-902`); success listener only from `p.future.onComplete` once | none asserts it after the late completion (`CBSpec:706-721` reads before the late exception) | absent | yes by code; spec-does-not-observe |
+| AC3 listener failure does not change the call result | listeners run via `executor.execute` (`CB:729,745,761,773`), exceptions stay in the executor | none (every CBSpec listener only counts down or sends to a probe) | absent | no spec found; searched `onCallSuccess|onCallFailure|onCallTimeout|onCallBreakerOpen` in actor-tests |
+
+- Findings:
+  - F1 (high). Current text: "Each call produces the accepted category notification once." Pekko can emit two notifications for one call (case (a)) and none for a failure-classified success (case (b)); the "accepted category" is therefore undefined for custom `defineFailureFn`. Neutral replacement: state the Pekko emission points above and leave open the Go categories for non-default failure classification; missing evidence: Owner/ADR statement of the Go categories.
+  - F2 (medium). Recon addition "listener ordering relative to the returned result": Pekko gives none (asynchronous `executor.execute`, `CB:729`); the addition would be a Go-only statement and must be marked as such.
+  - F3 (medium). The `callTimeout == Zero` path ignores `defineFailureFn` and the allowlist (`CB:863-875`); no AC mentions it.
+  - F4 (low). Recon "success, failure and timeout listeners receive the elapsed duration; open-call none": verified (`CB:601,625,649,673`); the unit is nanoseconds from the start of `callThrough`, i.e. before the body is evaluated (`CB:864,878`).
+- Dependencies: #910 depends_on OK (timeout). Recon adds #795: redundant if #910 depends on #795 (transitive). The open-call notification in HalfOpen (`CB:1024`) needs #876, which is no longer reachable once #910 drops #876 (recon of #910): missing edge #876 -> #965 for the HalfOpen rejection, or restrict the AC. Status blocked consistent.
+- Oracle (D13): oracle exists for each family (CBSpec cases above) and can host a differential scenario; non-default `defineFailureFn`, zero timeout, late completion: applicability pending determination (Pekko code exists, no spec).
+
+---
+
+### #981 PAT-15 — Inspect a backoff supervisor current child and retry count
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (AC2 / D13 statement)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC1 queries use the documented reply messages | `pattern/BackoffSupervisor.scala:257` `GetCurrentChild` -> `:269` `CurrentChild(ref: Option[ActorRef])`; `:293` `GetRestartCount` -> `:301` `RestartCount(count: Int)`; handled for BOTH variants in `pattern/HandleBackoff.scala:66-70` (reply to `sender()`) | `BackoffSupervisorSpec.scala:71-79` (CurrentChild, new instance `!==`), `122-136` (`RestartCount(0)` then `RestartCount(1)` after the child stops), `144-169` (manual reset: `RestartCount(1)` then `(0)`), `195-206`, `227-262`, `297-312`; `BackoffOnRestartSupervisorSpec.scala:175-200` | absent (no backoff supervisor in pekko-actor) | yes |
+| AC2 snapshot identifies exact child incarnation during replacement | `CurrentChild` carries the `ActorRef`; the child name is fixed (`"c1"`), so a new incarnation has the same path and a different uid. On-stop variant: `child = None` at `Terminated` (`internal/BackoffOnStopSupervisor.scala:72-75`), so `CurrentChild(None)` until `StartChild`; on-failure variant: the old child stays reported until its `Terminated` is processed, `restartCount` incremented only then (`internal/BackoffOnRestartSupervisor.scala:95-101`) | `BackoffSupervisorSpec.scala:77-79,100-102,131-133` assert `ref.get should !==(c1)` for the same-named replacement (refs differ by incarnation); `BackoffOnRestartSupervisorSpec.scala:185-201`: while the old child is still terminating, `CurrentChild == Some(child)` and `RestartCount(0)`; after it terminates a new ref. No spec asserts `CurrentChild(None)` (searched `CurrentChild` in both specs) | absent | yes for incarnation distinguishability by ref identity; absent-child spec-does-not-observe |
+| AC3 inspection does not reset or consume an attempt | both handlers only reply (`HandleBackoff.scala:66-70`); reset is the separate `Reset` message (`:55-59`) | queries are interleaved with counted restarts in the specs above (e.g. `122-136`), never asserted as a standalone property | absent | yes by code |
+
+- Findings:
+  - F1 (medium). Recon: "Upstream CurrentChild carries only Option[ActorRef]; the exact incarnation of AC 2 is a Go adaptation (D13 pending approval)". Not supported: the Pekko `ActorRef` comparison distinguishes incarnations (`actor/ActorRef.scala:129-133` compares path then uid) and the specs observe it (`BackoffSupervisorSpec.scala:77-79`). The open point is how the Go reference exposes incarnation (identity stories), not a missing Pekko oracle. Replacement: "Pekko reports the current child ref; a replacement with the same name is a different ref. Oracle applicability for the Go representation: pending determination." Do not write `pending approval`.
+  - F2 (medium). "During replacement" is two different states by variant (above); the AC does not say which. Add the per-variant observation.
+  - F3 (low). Absent child state: `CurrentChild(None)` in the on-stop delay window; the Go "accepted absent-child state" is an open question.
+- Dependencies: #941 and #909 depends_on consistent (the queries live in the shared base `HandleBackoff.scala:66-70`; the on-stop and on-failure variants come from #941 and #909). Status blocked consistent.
+- Oracle (D13): oracle exists and can host a differential scenario for AC1/AC2 (same-name replacement distinguishable, count 0/1, old child reported while terminating); `CurrentChild(None)` and standalone non-consumption: applicability pending determination.
+
+---
+
+### #1054 EVT-16 — Classify and subscribe by actor with ActorEventBus and ManagedActorClassification
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (ordering anchor; scope vs Pekko's unsubscriber) and DEP (wrong GOV-04 edge)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 only the subscriber of the classifier receives | `event/EventBus.scala:277` `ManagedActorClassification`; `publish` `:400-406` looks up `mappings.backing.get(classify(event))` and sends `refs.foreach(_ ! event)` | shared `EventBusSpec.scala:104-110` (one subscriber, `expectMsg` then `expectNoMessage`), `124-137` (10 subscribers), `139-149` ("not publish ... to any other subscribers than the intended ones": other classifier gets nothing); `ActorEventBusSpec` classifier is `event.ref` (`:164-198`) | absent (no EventBus; only `System.SubscribeDeadLetters`) | yes |
+| AC-R2-1 unsubscribe one keeps others; unsubscribe all removes all | `unsubscribe(sub, from)` -> `dissociate(monitored, monitor)` (`:372-388`); `unsubscribe(sub)` -> `dissociate(actor)` (`:337-370`) which ALSO drops every mapping whose classifier is that same actor (`dissociateAsMonitored`, `:339-345`) | `EventBusSpec.scala:249-281` (unsubscribe from a1 then a2; events for a2 still arrive until a2 removed); shared `66-86` (unsubscribe results true/false). The `unsubscribe(sub)` all-form is not exercised in the managed spec | absent | partial; the side effect on subscribers of the unsubscribed actor (code reading) is not observed by a spec |
+| AC-R3-1 delivery follows the actor comparison | subscribers per classifier are an `immutable.TreeSet[ActorRef]` (`:282-296`) ordered by `ActorRef.compareTo` (`actor/ActorRef.scala:129-133`: path, then uid); `ActorEventBus.compareSubscribers` (`EventBus.scala:70`) is NOT referenced by `ManagedActorClassification` (it feeds `LookupClassification`, `:93-97`) | none: `EventBusSpec.scala:124-137` receives the same event 10 times with no order assertion | absent | spec-does-not-observe order; the anchor `:70` is not the call site of the ordering used by the managed bus |
+
+- Findings:
+  - F1 (medium). Current text: "upstream order is ActorEventBus.compareSubscribers at EventBus.scala:70". Evidence: managed ordering comes from the `TreeSet[ActorRef]` natural ordering (`EventBus.scala:282-296`, `ActorRef.scala:129-133`); `compareSubscribers` has the same value (`a.compareTo(b)`) but is not the call site. No spec observes order, so the AC-R3-1 evidence "Go-side scenario with a detecting mutation" is a Go-side test with a Pekko code anchor, not a Pekko oracle: oracle applicability pending determination (a differential scenario on delivery order can be written against the Pekko bus; absence of a spec is not absence of the behavior).
+  - F2 (medium). Scope: in Pekko `subscribe` always registers the subscriber with `ActorClassificationUnsubscriber` (`EventBus.scala:321,331,424-427`), and `EventBusSpec.scala:202-223` ("must unsubscribe subscriber when it terminates") is part of the same `ActorEventBusSpec`. The story excludes this on purpose ("Not included: automatic removal of terminated subscribers"); that is a scope statement, not a Pekko property of the bus. No Owner decision found for the exclusion (ADR 0033 D4 line 38 does not list it; D8 line 42 requires a recorded source and reason per exclusion).
+  - F3 (low). Evidence cite for AC-R2-1 "EventBus.scala shared cases for subscribe/unsubscribe": exact lines `EventBusSpec.scala:62-98`.
+  - F4 (low). `ManagedActorClassification.subscribe`/`unsubscribe` throw `IllegalArgumentException` for a null subscriber or classifier (`EventBus.scala:407-419`); not in any AC.
+- Dependencies: #1035 GOV-04 (become/unbecome decision) depends_on: no evidence ties it to EventBus (ADR 0010 line 225 lists become/unbecome among excluded items; no Pekko fact connects them; the body only says "master dependency kept"): wrong edge, remove or justify. #793 (subscription semantics) and #1053 (order) consistent. #1020 edge absent while sibling bus stories carry it (inconsistent; the scope of #1020 is Typed-needed exports, so its relevance is itself unevidenced).
+- Oracle (D13): oracle exists for R1 and partly R2 (EventBusSpec/ActorEventBusSpec); R3 order: applicability pending determination.
+
+---
+
+### #1101 PAT-18 — Retry with a fixed delay or a delay function
+- Depth: DEEP
+- Labels now: prio:P2, status:blocked
+- Verdict: CORRECT (R2 and AC-R2-2 contradict Pekko; cited "accepted decision" is not in ADR 0010)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 fixed delay D between failed attempts, manual clock t=0,2s,4s | `pattern/RetrySupport.scala:211-214` `retry(attempt, attempts, delay)` = `retry(attempt, attempts, _ => Some(delay))`; loop `RetrySupport.scala:349-396`: `attempts` = maximum RETRIES after the first call (`maxAttempts - attempted > 0`); each retry waits via `after(delay, scheduler)` (`:363-369`), delay `< 1` retries immediately | `RetrySpec.scala:62-77` (succeeds eventually, 100ms, asserts the result within 3s only), `79-95` (attempts=5: failure message `"6"`, `failCount == 6`, i.e. 1 + 5 calls). The wait instants are not asserted | absent (no retry in pekko-actor) | partial: attempt count observed, instants spec-does-not-observe |
+| AC-R2-1 delay function, waits 2s,4s,6s | `RetrySupport.scala:287-291`; `delayFunction(nextAttempt)` with `nextAttempt` = retries so far + 1 (first retry gets 1) (`:363`) | `RetrySpec.scala:97-118`: function `100ms * attempted`, asserts failure `"6"`, `failCount == 6`, last argument seen `attemptedCount == 5`; the returned delays are not measured | absent | partial |
+| AC-R2-2 function reports no delay after attempt 2 -> retry stops with last failure after 2 attempts | NOT Pekko: `case None =>` immediately retries (`RetrySupport.scala:371-372`) until `attempts` is exhausted; `retry(attempt, attempts)` uses `ConstantFun.scalaAnyToNone` (`RetrySupport.scala:345-347`) so every retry has `None` | `RetrySpec.scala:120-140` ("retry can be attempted without any delay"): 999 retries with `None`, `failCount == 1000`, elapsed <= 100ms | absent | no: contradicts Pekko and its spec |
+
+- Findings:
+  - F1 (high). Current text (boundary): "stops early when the function reports no further delay"; R2: "when it reports no delay the retry MUST stop and return the last failure"; AC-R2-2 and the diagram node "Delay available? no -> Return last failure". Evidence: `RetrySupport.scala:371-372` (None = retry immediately), `RetrySpec.scala:120-140`. Neutral replacement: "When the delay function returns no value, Pekko retries immediately (no wait) until the attempt limit is exhausted (`RetrySupport.scala:371`, `RetrySpec.scala:120-140`). A stop-on-none rule has no Pekko basis; if Go wants it, that is a deliberate difference that needs an explicit Owner decision."
+  - F2 (medium). "Accepted decisions (binding): ADR 0010 / plan P-02: after and retry are Go idioms". ADR 0010 has no text on `retry`, `after`, `pipeTo` or `gracefulStop` (searched case-insensitively); P-02 is a row of `actor-typed-delivery-plan.md` (line 100), which describes itself as an Architect proposal (plan lines 3 and 539). So no accepted ADR is cited. Replacement: state that placement and idiom are undecided (open).
+  - F3 (medium). Attempt-limit semantics are not stated: Pekko's `attempts` counts retries after the first call (`RetrySpec.scala:79-95`). R1 says "up to the attempt limit" without defining it.
+  - F4 (low). Delay-function results below one tick: `delay.length < 1` retries without scheduling (`RetrySupport.scala:365-367`); a null result fails with `IllegalArgumentException` (`:373-374`).
+- Dependencies: #838 depends_on OK (attempt loop is the same method); #874 depends_on OK (`after`, `RetrySupport.scala:368`); #875 independent OK (`calculateDelay`, `RetrySupport.scala:404`, is separate from the loop). Status blocked consistent (both producers blocked).
+- Oracle (D13): oracle exists (RetrySpec) and can host a differential scenario for the attempt count and the None case; exact wait instants: applicability pending determination.
+
+---
+
+### #1106 PAT-23 — Send the final stop message when a stop-backoff child is asked to stop
+- Depth: DEEP
+- Labels now: prio:P3, status:blocked
+- Verdict: CORRECT (ADR 0032 cited as accepted; timing detail in AC-R2-1)
+- AC table:
+
+| AC | Pekko contract | Spec body | goPekko state | Match? |
+|---|---|---|---|---|
+| AC-R1-1 running child: message forwarded, child terminates, supervisor stops, no restart | `pattern/internal/BackoffOnStopSupervisor.scala:101-107`: `c.forward(msg)` THEN, only `if (!finalStopMessageReceived)`, `finalStopMessageReceived = fsm(msg)` (the flag is sticky); `:72-76` on `Terminated`, `child = None` and `context.stop(self)` if the flag is set, otherwise restart logic (`:77-95`) | `BackoffSupervisorSpec.scala:394-408`: `supervisor ! "stop"; expectMsg("stop")` (child got it), `c1 ! PoisonPill`, `expectTerminated(c1)`, `supervisorWatcher.expectTerminated(supervisor)` (maxNrOfRetries = 100) | absent | yes |
+| AC-R2-1 no child: message stops supervisor at once | `BackoffOnStopSupervisor.scala:108-110` `case Some(fsm) if fsm(msg) => context.stop(self)` (the message is NOT forwarded to deadLetters or the handler in that case) | `BackoffSupervisorSpec.scala:410-429`: after `expectTerminated(c1)`, `"ping"` does not terminate the supervisor (`expectNoMessage(20.millis)`), then `"stop"` terminates it; one dead-letter warning matching `(ping|stop)` is expected (the "ping"). The restart delay (100ms, real time) is not controlled: the test relies on both messages arriving before the new child starts | absent | yes, timing-dependent |
+| AC-R3-1 non-matching message: supervisor stays and restarts | `BackoffOnStopSupervisor.scala:77-94` restart scheduled with `calculateDelay`; the supervisor stops instead when `maxNrOfRetries` is exceeded (`:88-93`) | `BackoffSupervisorSpec.scala:410-429` first part ("ping" then supervisor alive); the restart after the delay is not asserted in this test | absent | partial: "stays alive" observed, "restarts after the delay" spec-does-not-observe here |
+
+- Findings:
+  - F1 (high). Design/ADR impact: "ADR 0032 D3/D4/D6 (accepted): explicit sender". ADR 0032 is not in develop; it exists only as open PR #1014 whose status line says "partly accepted ... D5 stays open" (`tmp/ctx/ADR-0032-from-PR1014.md:3`). Replacement: "ADR 0032 is not integrated: it exists only in open PR #1014 (not merged), whose status line records D1-D4, D6, D7 as accepted by the Owner on 2026-10-24 and D5 as open; this story relies on Pekko forwarding with the original sender (`c.forward(msg)`, `BackoffOnStopSupervisor.scala:103`), not on a delivered sender decision."
+  - F2 (medium). R3 says the supervisor "MUST continue to restart the child" without the limit: it stops itself when the retry limit is exceeded (`BackoffOnStopSupervisor.scala:88-93`, owned by #1102). Add "while retries remain".
+  - F3 (low). The predicate is evaluated after the forward and only until the first match (sticky, `:104-107`); messages handled earlier (`StartChild`, `Reset`, `GetRestartCount`, `GetCurrentChild`, messages from the child) never reach the predicate (`HandleBackoff.scala:45-77`). Not in any AC.
+  - F4 (low). Anchors verified: `withFinalStopMessage` at `BackoffOptions.scala:343,378` and `Backoff.scala:565,599`; `finalStopMessageReceived` at `HandleBackoff.scala:34`.
+- Dependencies: #941 depends_on OK. Status blocked consistent.
+- Oracle (D13): oracle exists (BackoffSupervisorSpec:394-429) and can host a differential scenario for R1 and R2; R3 restart-after-delay: applicability pending determination. The story text "V3 differential scenario needs B-02, else alternative evidence recorded `pending approval`" should read "oracle applicability pending determination".
+
+---
