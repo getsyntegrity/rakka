@@ -1,0 +1,360 @@
+# D7a — actor.io (17 stories), deep second pass
+
+> Verification status (2026-10-26): checked by V5_D6_D7a.md: 40 findings checked in full, 13 partially, 2 not verified. Corrections from the verification are applied in this file. Stories not covered by the verification keep the producer's wording unverified.
+
+Baseline: Pekko v1.7.1 (`9a54d12`), checkout read directly. ADR 0033 D8 (0033:42) and D13 (0033:47) read in the `develop` snapshot. Prior audit `rte-fsm-io.md` verified first (see below).
+
+Honesty note. I read the bodies of: ByteStringSpec (take/drop/slice/size/recombine/builder sections), ByteIteratorSpec, ByteStringBuilderSpec, TcpListenerSpec, TcpConnectionSpec (outgoing, close, abort, suspend/resume, timeout, ResumeWriting), TcpIntegrationSpec (head), CapacityLimitSpec, UdpIntegrationSpec, UdpConnectedIntegrationSpec, SimpleDnsCacheSpec. Titles only: InetAddressDnsResolverSpec, DnsSettingsSpec, dns/internal specs, parts of TcpConnectionSpec (ConfirmedClose, peer-closed, write variants). I did NOT read TcpConnection / TcpOutgoingConnection / TcpListener / UdpListener / UdpConnection / AsyncDnsResolver / SimpleDnsCache line by line, so lifecycle ACs (stop, leak, one terminal outcome) are PARTIAL. Only #886 meets all five DEEP conditions. goPekko state for every story is "absent" (no `io` package; taken from the prior audit matrix, not re-derived).
+
+## Verification of prior findings (rte-fsm-io.md)
+- F17 (copying `apply` scala-2.13/ByteString.scala:36 vs sharing `fromArrayUnsafe` :94): CONFIRMED; ByteStringSpec.scala:1402-1411 asserts `toArrayUnsafe` returns the same array instance.
+- F18 (`useResumeWriting` defaults to true): CONFIRMED, Tcp.scala:187.
+- F11 (files with neither story nor record): CONFIRMED by name search over `issues_all2.json` (substring counts, 0 hits): DirectByteBufferPool, ByteBufferCleaner, UnsynchronizedByteArrayInputStream, SelectionHandler, WithUdpSend, SimpleDnsManager, ResolvConfParser, DomainName, DnsProvider, InetAddressDnsProvider, UdpSender, UdpListener, UdpManager, UdpConnection, UdpConnectedManager, TcpManager, TcpIncomingConnection, TcpOutgoingConnection, AsyncDnsManager, AsyncDnsProvider, IdGenerator, RecordType, DnsResourceRecords, RecordClassSerializer. This list adds files the prior F11 did not name (Udp*/Tcp* helper actors, DnsProvider, AsyncDns*, IdGenerator, RecordType, DnsResourceRecords, serializers). Hits exist only for DnsSettings (6), SimpleDnsCache (7), CachePolicy (8), DnsClient (2), TcpDnsClient (1), DnsMessage (1), InetAddressDnsResolver (1). A hit is not proof of a recorded exclusion. Open question for the Owner: whether implementation-detail files need their own D8 record or are covered by the capability record (not decided here).
+- Recon claim "ResumeAccepting carried by #1088": CONFIRMED (GOV-39 #1088 title and body contain ResumeAccepting, SimpleSender, WritePath).
+- F10, F12: outside these stories, not re-verified.
+
+## Pekko `io` file coverage (ADR 0033 D8) (the "no story or record" claims below: not independently verified)
+Story = cited in a story body or recon. Record = cited by GOV-20..23/39 (#1069-#1072, #1088) per prior audit.
+| File | Story | Record |
+|---|---|---|
+| io/IO.scala | #887 | none dedicated |
+| io/Inet.scala | #887, #985 (recon) | none dedicated |
+| io/Tcp.scala, TcpConnection.scala | #921 #922 #952 #972 #984 #995 #996 | GOV-20, GOV-39 |
+| io/TcpListener, TcpManager, TcpIncomingConnection, TcpOutgoingConnection, SelectionHandler | none | none |
+| io/DirectByteBufferPool.scala, io/ByteBufferCleaner.java, UnsynchronizedByteArrayInputStream.java | none | none |
+| io/Udp.scala, UdpConnected.scala | #923 #966 #973 #985 | GOV-21, GOV-22, GOV-39 |
+| io/UdpListener, UdpSender, UdpManager, UdpConnection, UdpConnectedManager, WithUdpSend | none | none |
+| io/Dns.scala | #924 #953 #974 | GOV-23 |
+| io/DnsProvider, InetAddressDnsProvider, SimpleDnsManager | none | none |
+| io/InetAddressDnsResolver.scala | none | GOV-23 (1 hit) |
+| io/SimpleDnsCache.scala, dns/CachePolicy.scala | #953 recon only | GOV-23 |
+| dns/DnsProtocol.scala, DnsSettings.scala | #924 #953 #974 | GOV-23 |
+| dns/internal AsyncDnsResolver, DnsClient, TcpDnsClient, DnsMessage | #974 recon only | GOV-23 |
+| dns/internal AsyncDnsManager, AsyncDnsProvider, ResolvConfParser, DomainName, Question, serializers, package; dns/IdGenerator, RecordClass, RecordType, DnsResourceRecords | none | none |
+| util/ByteString.scala, ByteIterator.scala (scala-2.13) | #886 #920 (#808 #846) | GOV-43 (disposition) |
+
+---
+
+### #886 IO-03 — Slice and concatenate immutable byte values
+- Depth: DEEP
+- Labels now: status:blocked
+- Verdict: CORRECT (diagram contradicts Pekko)
+- AC table:
+
+| AC | Pekko contract (path:line) | Spec body that observes it | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 slice/take/drop preserve contents, do not mutate source | ByteString.scala:900-923 (`take/drop/slice/splitAt` return a new ByteString); ByteString1C :223-235,:273; ByteString1 :355-395; ByteStrings :653-725 | ByteStringSpec.scala:361-407 (`drop(-1)` returns whole, `drop(len+1)` empty, chained drop/take); :583-645 (ByteStrings slice/take: every out-of-range pair returns empty or clamped content); :1125-1126 (`(a++b).take(a.size)==a`, `.drop(a.size)==b`) | absent | yes for contents; "source not mutated" has no dedicated assertion (immutable type) |
+| AC2 concatenation order for empty/nonempty | ByteString.scala:217, :437, :597 | ByteStringSpec.scala:1114 (size), :1125-1126 (order), :1135-1162 (recombine `a++b++c==xs` incl. empty and extreme-index edge cases :1149-1161) | absent | yes |
+| AC3 sharing vs copying documented | `apply` copies :36; `fromArrayUnsafe` shares :94; ByteString1 is array+startIndex+length :315-318 | :1402-1411 (shares for fromArrayUnsafe); :1172-1176 (`take(length) eq b`, same instance) | absent | yes |
+| AC4 tests incl. "ordering or race boundary" | ByteString is immutable, no race in the type | n/a | absent | spec-does-not-observe: phrase has no Pekko counterpart |
+| AC5 docs/traceability | n/a | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) Current text: `G -->|No| N["Return documented range failure"]`. Pekko never fails on out-of-range arguments; negative or oversized `take/drop/slice` clamp (ByteStringSpec.scala:361-374, :586-594, :622-627). Replacement: "Out-of-range indexes are clamped; from >= until yields an empty value (ByteStringSpec.scala:583-631). Whether goPekko clamps or reports a range error is an open question; a deliberate difference needs an explicit Owner decision (D13 does not authorize it)."
+  - F2 (medium) AC1 names slice/take/drop; the same source also defines dropRight, takeRight, splitAt, span, takeWhile, dropWhile (ByteString.scala:902-923); dropRight is spec'd (:378-394, :537). Open question: scope of the family.
+  - F3 (low) "Probable replaced-by-go-stdlib": Go slicing shares the backing array and append may alias, while Pekko `take(length) eq b` returns the same immutable value. This is the O-5 byte-value decision, undecided.
+  - F4 (low) AC4 wording "named ordering or race boundary" is boilerplate; no race exists in Pekko ByteString.
+- Dependencies: #808 -> #886 depends_on OK; #846 -> #886 depends_on OK; no cycle; blocked status consistent with #808/#846 blocked.
+- Oracle (D13): oracle exists and can host a differential scenario (ByteStringSpec take/drop/slice/concat properties are pure and deterministic), subject to O-5 (whether a type exists at all).
+
+### #920 IO-04 — Build and iterate immutable byte values
+- Depth: PARTIAL (builder code read only at result()/clear(); ByteIterator get* methods not individually checked; builder encode specs read for structure)
+- Labels now: status:blocked
+- Verdict: SPLIT (builder vs iterator, as recon says) + CORRECT (diagram, AC1)
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 finalization does not let later builder mutation change the value | ByteString.scala:1566-1575 `result()` builds from the immutable Vector of ByteString1 (`bytestrings.head` or `ByteStrings(bytestrings,_length)`); `clear()` :1560 resets; no sealed state, builder reusable after result | no spec found; searched ByteStringSpec, ByteStringBuilderSpec, ByteStringBuilderScala213PlusSpec for use of the builder after `result()` (only single-shot `result()` comparisons: ByteStringSpec.scala:1708,1720; ByteStringBuilderSpec.scala:17-34) | absent | spec-does-not-observe |
+| AC2 iterator end/boundary and byte order | `next()` on empty throws `NoSuchElementException("next on empty iterator")` scala-2.13/ByteIterator.scala:48-49 (next on empty) and :136-140 (getBytes); `getInt(implicit byteOrder)` :548 | ByteIteratorSpec.scala (whole file): only `indexOf`, comment "the 'indexOf' operator invalidates the iterator"; ByteStringSpec.scala:1416-1470 compares head/next/hasNext/span/takeWhile with a Vector iterator (`likeVecIt`) | absent | partial (exception type not asserted by name; byte order asserted in builder encode specs) |
+| AC3 numeric/string conversions round trip | `putShort/Int/Long/Float/Double(...)(byteOrder)`, `decodeString` | ByteStringSpec.scala builder section (from :1681): "encode data correctly" in big and little endian vs a reference encoding; :1166-1170 String round trip; :1178-1184 Base64 | absent | yes |
+| AC4/AC5 | boilerplate | n/a | n/a | n/a |
+
+- Findings:
+  - F1 (high) Current text: `N["Return exhausted/finalized outcome"]`. Pekko has no finalized builder state (ByteString.scala:1560-1575) and iterator exhaustion is an exception, not an outcome (ByteIterator.scala:48-49). Replacement: "Pekko has no sealed or finalized builder state (ByteString.scala:1560-1575); behavior of appending after `result()` was not probed; next() on an empty iterator throws NoSuchElementException. Whether goPekko adopts this or another contract is an open question (explicit Owner decision for a deliberate difference)."
+  - F2 (medium) AC1 has no Pekko spec; absence of a spec is not absence of behavior (code shows the value is built from an immutable snapshot). Missing evidence: a scratch probe mutating the builder after result().
+  - F3 (medium) AC3 "supported numeric/string conversions" is undefined; Pekko supports Short, Int, Long, LongPart, Float, Double in both orders.
+  - F4 (low) ByteIterator is mutable and consumed by reads (ByteIteratorSpec comment); AC title "immutable byte values" does not apply to the iterator.
+- Dependencies: #808 depends_on OK. #886 -> #920 depends_on: no evidence in the sources that building needs slicing (the builder does not use take/drop); weak edge, open question.
+- Oracle (D13): oracle exists (ByteStringSpec builder/iterator properties); applicability pending determination for AC1 (no dedicated spec).
+
+### #887 IO-05 — Create one actor I/O manager per System
+- Depth: PARTIAL (the Extension registry that guarantees once-per-system was not read; per-manager postStop not read)
+- Labels now: status:blocked
+- Verdict: CORRECT (recon source attribution) + DEP question
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 concurrent lookup creates one manager | `IO.apply(key)(system) = key(system).manager` IO.scala:34-36; each extension creates its manager as a `val` via `system.systemActorOf(Props(classOf[TcpManager], this)..., "IO-TCP")` Tcp.scala:654-659 (same shape Udp.scala:236, UdpConnected.scala:174, Dns.scala:242) | no spec found; searched `actor-tests/.../io/*.scala` for tests of the accessor (only usage `IO(Tcp)`, `IO(Udp)`, `IO(Dns)`) | absent | spec-does-not-observe (once-per-system comes from ExtensionId, not read) |
+| AC2 construction failure observable, no half-initialized extension | not in IO.scala | no spec found (same search) | absent | spec-does-not-observe |
+| AC3 system stop closes manager-owned resources | manager is a system actor; manager postStop not read | no spec found | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium) Current text (recon): "the IO manager extension creates the Tcp, Udp, UdpConnected and Dns managers (IO.scala:24)". IO.scala:24-37 contains only `trait Extension { def manager }` and `apply`. Replacement: "IO.scala is a 3-member accessor (IO.scala:24-37); each protocol extension creates its own manager (Tcp.scala:654, Udp.scala:236, UdpConnected.scala:174, Dns.scala:242)."
+  - F2 (medium) All three ACs describe Extension-registry behavior (SYS-02 #841), not anything in the IO package. Open question: what behavior remains for this story if managers are excluded (prior F18).
+  - F3 (low) Body lists #841 as dependency and recon says "only matters if the story is ever kept": contradictory for a story whose ACs are all registry behaviors.
+- Dependencies: #808 depends_on OK; #841 depends_on keep (ACs are registry semantics); the four exclusion records (#1069-#1072) as prerequisites for a protocol-neutral accessor: open question, no change proposed.
+- Oracle (D13): applicability pending determination (no io spec; ExtensionId specs belong to #841).
+
+### #921 IO-06 — Bind and unbind a TCP listener through actor messages
+- Depth: PARTIAL (TcpListener.scala source not opened; spec bodies read)
+- Labels now: status:blocked
+- Verdict: CORRECT + SPLIT (recon: three outcomes) + DEP
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 bind success/failure carries address and request correlation | `Bind` Tcp.scala:161; `Bound(localAddress)`; `CommandFailed(cmd)` carries the failed command (Tcp.scala:119) | CapacityLimitSpec.scala:27-45: `expectMsg(Bound(addresses(0)))`; failing Bind: `expectMsgType[CommandFailed].cmd` is the same instance (`theSameInstanceAs`) | absent | yes ("correlation" = the command inside CommandFailed; Bound carries only the address) |
+| AC2 accepted connections become owned resources | listener registers accepted channels with parent/selector | TcpListenerSpec "accept acceptable connections and register them with its parent": batch-accept-limit 2 gives exactly 2 worker commands then `selectorRouter.expectNoMessage`; the third on the next ChannelAcceptable. "drop an incoming connection if it cannot be registered": channel closed after FailedRegisterIncoming | absent | yes (via internal messages, not user-visible ownership) |
+| AC3 unbind prevents later accepts, reports completion, no leak | `Unbind` :195, `Unbound` :532 | TcpListenerSpec "react to Unbind commands by replying with Unbound and stopping itself": `expectMsg(Unbound)`, `parent.expectTerminated(listener)` | absent | partial: socket closure not asserted; "prevents later accepts" no spec found |
+
+- Findings:
+  - F1 (medium) Recon: ResumeAccepting (Tcp.scala:449, not independently verified) "carried by #1088". It belongs to `Bind(pullMode=true)` (Tcp.scala:161); TcpListenerSpec "not accept connections after a previous accept until read is reenabled" (pullMode, `ResumeAccepting(batchSize=1)`, asserts no further OP_ACCEPT until the next ResumeAccepting) is its oracle. Keep recorded in #1088, not in this story's ACs.
+  - F2 (low) `Bind` also has `backlog` (default 100) and `options`/`pullMode` (Tcp.scala:161-167), not mentioned.
+  - F3 (medium) Dependency #846 (byte values): Bind/Unbind carry no ByteString (Tcp.scala:161,195); edge has no evidence.
+- Dependencies: #887 -> #921 OK; #846 -> #921 no evidence (F3); #1069, #1088 per recon.
+- Oracle (D13): oracle exists (TcpListenerSpec is actor-level with probes; CapacityLimitSpec uses real sockets); applicability pending determination for each.
+
+### #922 IO-07 — Connect an outgoing TCP actor connection
+- Depth: PARTIAL (TcpOutgoingConnection.scala not opened)
+- Labels now: status:blocked
+- Verdict: CORRECT (AC3 unsupported)
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 success/failure via mailbox | `Connect` :133 -> `Connected` :469 / `CommandFailed(Connect)` :475 | TcpConnectionSpec.scala:662-673: `userHandler.expectMsg(CommandFailed(Connect(UnboundAddress, timeout=Some(100.millis))))` then the connection actor terminates; titles :630,:652 (unreachable, unresolved) | absent | yes |
+| AC2 timeout and caller/manager stop give one terminal outcome | `Connect.timeout` Tcp.scala:133-139 | timeout: above. :674-686 `Connected` then actor terminates when no Register arrives. :687-696 user handler dies while connecting: `DeathPactException` logged once, actor terminated. Manager stop: no spec found | absent | partial |
+| AC3 late connection cannot leak socket | no behavior statement found | no spec found; searched TcpConnectionSpec and TcpIntegrationSpec for "late"/"leak" | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium) AC3 has no Pekko spec or documented behavior. Replacement: "Open question: expected behavior for a connect completing after the timeout. Missing evidence: TcpOutgoingConnection.scala read and a probe."
+  - F2 (low) `Connect` also carries `localAddress`, `options`, `pullMode`; `ReuseAddress(true)` set before connect is asserted at TcpConnectionSpec.scala:101-107. Options belong to #985.
+  - F3 (low) #821 TIM-02 dependency (scheduler for the timeout) not verified in this pass.
+- Dependencies: #887 OK; #821 unverified; #1069 per recon.
+- Oracle (D13): oracle exists (TcpConnectionSpec); applicability pending determination.
+
+### #923 IO-12 — Bind and unbind an unconnected UDP endpoint
+- Depth: PARTIAL (UdpListener.scala only grep'd: Unbind :89, postStop :126)
+- Labels now: status:blocked
+- Verdict: CORRECT + DEP
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 bind returns accepted local endpoint and handler relation | `Bind(handler, localAddress, options)` Udp.scala:114; `Bound` reply | UdpIntegrationSpec.scala:108-114 `expectMsgType[Bound]` (type only); :75-106 two bound endpoints exchange packets and the handler receives `Received` | absent | yes (address value in Bound not asserted) |
+| AC2 bind failure sends one classified command failure | `CommandFailed(Bind)` (Udp.scala:65) | no spec found for a failed UDP Bind; searched UdpIntegrationSpec and UdpConnectedIntegrationSpec for `CommandFailed` (only Send-resolve failure UdpIntegrationSpec.scala:62-72) | absent | spec-does-not-observe |
+| AC3 unbind closes socket once, prevents future reads | `Unbind` :125, `Unbound` :190 | UdpConnectedIntegrationSpec.scala:116-136: `server1 ! Udp.Unbind; expectMsg(Udp.Unbound)`, then rebinding the same address succeeds | absent | partial |
+
+- Findings:
+  - F1 (medium) "classified command failure": Pekko `CommandFailed` carries only the command (Udp.scala:65). Replacement: "Bind failure is CommandFailed(cmd); any classification beyond that is not in Pekko (open question)."
+  - F2 (medium) Diagram title "Bind send and receive unconnected UDP datagrams" is copied from IO-19 and does not match this story.
+  - F3 (low) Body cites UdpConnected.scala as source, which is a separate manager.
+  - F4 (medium) #886 (byte values): bind needs no payload; edge has no evidence.
+  - F5 (low) `DatagramChannelCreator` (Inet.scala:86) is a bind-time option; UdpIntegrationSpec.scala:124-130 asserts `create` called once. Not in any story.
+- Dependencies: #887 OK; #886 no evidence; #1070, #1088 per recon.
+- Oracle (D13): oracle exists (UdpIntegrationSpec, real sockets); applicability pending determination.
+
+### #924 IO-15 — Resolve hostnames through an actor DNS manager
+- Depth: PARTIAL (InetAddressDnsResolver.scala:126-174 skimmed; AsyncDnsManager not read)
+- Labels now: status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 lookup outside requesting turn, reply via mailbox | `IO(Dns) ? DnsProtocol.Resolve(name, Ip())` -> `Resolved` (DnsProtocol.scala:63,86); `Dns.cached` is a non-blocking peek returning None by default and forwarding to the manager by `tell` (Dns.scala:62-72); resolver calls `InetAddress.getAllByName` in the resolver actor and replies `sender() ! answer` (InetAddressDnsResolver.scala:137,151,158,174) | internal/AsyncDnsManagerSpec.scala:42 (title: adapt reply to old protocol); AsyncDnsResolverIntegrationSpec uses Docker | absent | partial: "outside the turn" asserted by no spec found |
+| AC2 concurrent requests preserve correlation | replies go to `sender()`; `Resolve` is ConsistentHashable by name (DnsProtocol.scala:63) | no spec found | absent | spec-does-not-observe |
+| AC3 shutdown has explicit pending-request result | SimpleDnsManager.postStop only cancels the cleanup timer (SimpleDnsManager.scala:68-70) | no spec found | absent | unsupported |
+
+- Findings:
+  - F1 (high) AC3 states behavior Pekko does not have (SimpleDnsManager.scala:68-70). Replacement: "Pekko defines no pending-request result on DNS manager stop (SimpleDnsManager.scala:68-70; AsyncDnsManager.scala has no postStop); resolver actor stop was not read. Expected goPekko behavior is an open question; a difference needs an explicit Owner decision."
+  - F2 (medium) Failure shape: for UnknownHostException the code has catch branches at InetAddressDnsResolver.scala:144,167; SRV on the OS resolver replies `Status.Failure` (:126-127). Body says "classified failure". Missing evidence: lines 140-175 read in full.
+  - F3 (low) Body cites DnsSettings.scala though the ACs are manager behavior.
+- Dependencies: #1072 per recon; #887 OK.
+- Oracle (D13): applicability pending determination (no spec for AC2/AC3; remote-tests DnsSpec is multi-jvm).
+
+### #952 IO-08 — Register a TCP handler and deliver received bytes
+- Depth: PARTIAL (TcpConnection.scala not opened)
+- Labels now: status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 registration establishes ownership/watch | `Register(handler, keepOpenOnPeerClosed=false, useResumeWriting=true)` Tcp.scala:187 | TcpConnectionSpec.scala:698-708: `system.stop(handler)`; both handler and connection actor `Terminated`, `DeathPactException` logged once | absent | yes |
+| AC2 received data immutable, chunk boundary | `Received(data: ByteString)` :461 | :122-134: two writes in flight arrive as ONE `Received("testdata2testdata3")`; :136 title "forward incoming data as Received instantly as long as more data is available" | absent | yes (coalescing observed; no boundary contract asserted) |
+| AC3 handler termination follows cleanup | as AC1 | :687-696, :698-708 | absent | yes |
+
+- Findings:
+  - F1 (medium) AC2 "accepted packet/chunk boundary contract". Pekko contract: two writes pending at one selector wake-up arrive as one Received (TcpConnectionSpec.scala:122-134); no documented boundary guarantee was found. Use this as the replacement text.
+  - F2 (medium) `keepOpenOnPeerClosed` and `useResumeWriting` are not in the ACs; peer-closed specs :564-599 depend on keepOpen. Open question: which story owns them.
+  - F3 (low) Recon cites ADR 0032 D5, which is only in open PR #1014, not integrated authority.
+  - F4 (low) Edge #921/#922 both as prerequisites: Register applies to any Connected; unverified whether both are needed.
+- Dependencies: as recon; #886 depends_on OK.
+- Oracle (D13): oracle exists (TcpConnectionSpec); applicability pending determination.
+
+### #953 IO-16 — Cache DNS results using explicit TTL policies
+- Depth: PARTIAL (SimpleDnsCache.scala read at :88-130; settings specs titles only)
+- Labels now: status:blocked
+- Verdict: CORRECT (sources) + DEP
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 positive/negative policies distinct and configurable | `CachePolicy` = Never, Forever, Ttl (dns/CachePolicy.scala:22,28); `Ttl.fromPositive` rejects <= 0 with IllegalArgumentException | InetAddressDnsResolverSpec.scala:31-100 (titles: default positive/negative, security property, system property, Forever when < 0, Never when 0); DnsSettingsSpec.scala:125 "parse ttl" (title) | absent | partial (titles) |
+| AC2 injected-clock exact expiry and refresh races | `clock()` overridable; `put` computes `until = clock() + ttl` (SimpleDnsCache.scala:119-123) | SimpleDnsCacheSpec.scala:33-49: ttl 5000ms, at 4999 `Some`, at 5000 `None` (expiry exclusive at exactly ttl); :51-70: expired but unswept entries are not returned; `cleanup()` removes them | absent | yes for expiry and sweep; refresh races: no spec |
+| AC3 keys include record/query distinctions | key is `(name, RequestType)` (SimpleDnsCache.scala:88) | specs use only `("test.local", Ip())` | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium) "refresh races": no Pekko spec; only CAS retry loops in `put`/`cleanup` (SimpleDnsCache.scala:88-98). State as open question.
+  - F2 (medium) Body omits SimpleDnsCache.scala and CachePolicy.scala; add both as sources (recon).
+  - F3 (medium) #821 replaced by #1129 (P0, blocked) per recon: consistent with `clock()` being a method on the cache, not a scheduler. Status blocked consistent.
+  - F4 (low) The cache is pure in-memory logic with its own deterministic spec; exclusion reason is an Owner decision (D8 excludes `net` adapters, not pure caches); open question, undecided.
+- Dependencies: #924 -> #953: SimpleDnsCache is exercised standalone in its spec, so "cache sits in front of the resolver" is not required by Pekko's test; weak edge. #1129 -> #953 OK; #1072 per recon.
+- Oracle (D13): oracle exists and can host a differential scenario (SimpleDnsCacheSpec with an overridable clock).
+
+### #966 IO-19 — Exchange unconnected UDP datagrams
+- Depth: PARTIAL (UdpSender/UdpListener sources not opened)
+- Labels now: status:blocked
+- Verdict: CORRECT + DEP question
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 Received preserves contents and sender | `Received(data, sender)` Udp.scala:164 | UdpIntegrationSpec.scala:75-106: `Received(d,a)` with `d===data`, `a===serverAddress`/`clientAddress`, 20+20+20 alternating packets | absent | yes |
+| AC2 ack means documented local send outcome | Udp.scala:82-96: ack sent "as soon as the datagram has been successfully enqueued to the O/S kernel"; `CommandFailed` if the send buffer is full | no spec found for Udp `Send` with a non-NoAck ack (the ack test is UdpConnected: UdpConnectedIntegrationSpec.scala:138-160, `Send(data, 1)` then `expectMsg(1)`) | absent | spec-does-not-observe |
+| AC3 truncation/oversize explicit | no contract in Udp.scala | no spec found; searched Udp specs for oversize/truncate | absent | unsupported |
+
+- Findings:
+  - F1 (medium) AC3 has no Pekko counterpart found. Replacement: "Pekko Udp.scala defines no truncation/oversize contract; open question, no evidence."
+  - F2 (low) Body cites UdpConnected.scala as source; separate protocol.
+  - F3 (low) Unresolvable target gives `CommandFailed(cmd)` and later sends still work (UdpIntegrationSpec.scala:62-72); not in ACs.
+  - F4 (medium) Udp.scala:82-96 says `Send` is understood by the SimpleSender as well as by bound listeners, so #923 is not strictly required for `Send`; the edge holds only while SimpleSender stays out (#1088).
+- Dependencies: #923 -> #966 plausible with F4; #1070 per recon.
+- Oracle (D13): oracle exists (UdpIntegrationSpec); applicability pending determination.
+
+### #972 IO-09 — Write TCP bytes with optional acknowledgements
+- Depth: PARTIAL
+- Labels now: status:blocked
+- Verdict: CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 partial OS writes preserve order | `Write` Tcp.scala:351 | TcpConnectionSpec.scala:205-226 "send big buffers" (512 KiB random bytes with Ack; assertion body not fully read) | absent | partial |
+| AC2 ack means socket-write event | Tcp.scala:338-350: ack sent once the write is enqueued to the O/S kernel; "does not in any way guarantee that the data will be or have been sent" | :179-203: `Write("testdata", Ack)` -> `expectMsg(Ack)` before the server side pulls; no-ack write -> `expectNoMessage(500.millis)` | absent | yes |
+| AC3 concurrent admission preserves one write order | single connection actor, serial mailbox | :227 "write data after not acknowledged data" (title only) | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium) Replace "documented socket-write event" with "enqueued to the O/S kernel (Tcp.scala:343-349)".
+  - F2 (medium) Empty-write cases not in ACs: ACKed empty write acknowledged, NACKed empty write not (TcpConnectionSpec.scala:235-252 titles; `Write.empty` Tcp.scala:360).
+  - F3 (medium) WriteFile, WritePath, CompoundWrite carried by #1088; TcpConnectionSpec has specs :253-310.
+  - F4 (low) "Concurrent admission" is mailbox serialization, not a Pekko-specified property.
+- Dependencies: #952 -> #972 OK. #1088 -> #972 depends_on: a pending P3 record for variants does not obviously gate plain Write (open question).
+- Oracle (D13): oracle exists; applicability pending determination.
+
+### #973 IO-13 — Connect a UDP endpoint to one peer
+- Depth: PARTIAL
+- Labels now: status:blocked
+- Verdict: DEP (wrong edge #966) + CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 distinct command/result API | UdpConnected.{Send :89, Connect :108, Disconnect :120, Received :145, CommandFailed :151, Disconnected :166}, own NoAck :73 | UdpConnectedIntegrationSpec.scala:79-95 uses `UdpConnected.Send`, receives `UdpConnected.Received` | absent | yes |
+| AC2 only the configured peer is used | connected datagram channel | :79-114: client sends, Udp server replies, client receives; no negative (other-peer) test | absent | spec-does-not-observe |
+| AC3 disconnect/stop closes resource | `Disconnect` :120 -> `Disconnected` :166 | no spec found for Disconnect (only server `Udp.Unbind` in :116-136) | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (high) Dependency #966 is wrong (confirmed). UdpConnected.scala is an independent manager (UdpConnected.scala:174 manager, :89 Send, :108 Connect), not built on Udp. Fix: remove #966 -> #973; keep #887 and #886 (the body's Dependencies section lists only #966; #887 and #886 come from the recon text, not from the body).
+  - F2 (medium) Unresolvable remote gives `CommandFailed(Connect)` (UdpConnectedIntegrationSpec.scala:61-68); not in ACs.
+  - F3 (medium) Spec "send and receive when server goes away (and comes back)" (:138-160, bug #26903): after the server unbinds, `Send(data, 1)` is still acked (`expectMsg(1)`). Candidate behavior for AC3, not stated in the story.
+- Dependencies: remove #966; #887, #886, #1071 per recon. Status is blocked via #966/#923 chain; after removing #966 it depends on #887/#808 only.
+- Oracle (D13): oracle exists (UdpConnectedIntegrationSpec); applicability pending determination.
+
+### #974 IO-17 — Expose supported asynchronous DNS record queries
+- Depth: PARTIAL (AsyncDnsResolver.scala skimmed: ask timeout :85, next server on timeout :145-146, failure :161; DnsClient/TcpDnsClient sources not read)
+- Labels now: status:blocked
+- Verdict: SPLIT + CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 record types, parse failures, truncation/fallback | `Resolve(name, requestType)` DnsProtocol.scala:63; UDP truncation falls back to TCP | AsyncDnsResolverIntegrationSpec.scala:73-150 (A, AAAA, mixed, CNAME, SRV via Docker bind server), :164 "queries too big for UDP"; DnsClientSpec.scala:62 "Fall back to TCP when the UDP response is truncated" (title) | absent | partial (titles) |
+| AC2 NXDOMAIN/no-data never confused with timeout | nonexistent domain returns `Resolved` with no records; all clients timing out or failing is a failure; next name server tried after a timeout (AsyncDnsResolver.scala:145-146) | AsyncDnsResolverIntegrationSpec.scala:159-162: `answer.records shouldEqual List.empty`; AsyncDnsResolverSpec.scala:132,139 "fails if all dns clients timeout/fail" (titles) | absent | partial |
+| AC3 client lifecycle and bounded retries with controlled DNS endpoint | DnsClientSpec.scala:36 "not connect to the DNS server over TCP eagerly"; TcpDnsClientSpec.scala:38 "reconnect when the server closes the connection" (titles) | unit specs use mock clients; integration uses Docker (DockerBindDnsService) | absent | partial |
+
+- Findings:
+  - F1 (high) Current text: `N["Return unsupported-query failure"]`. No "unsupported query" outcome was found in the sources read. Pekko: NXDOMAIN gives `Resolved` with empty records (AsyncDnsResolverIntegrationSpec.scala:159-162); all servers timing out or failing gives a failure (AsyncDnsResolverSpec.scala:132-147). Replacement: use these two outcomes.
+  - F2 (medium) SPLIT confirmed: record types, truncation/fallback, client lifecycle.
+  - F3 (medium) "Bounded retries": Pekko tries each configured name server in order with an ask timeout (AsyncDnsResolver.scala:85,:145); the term "bounded retries" is not defined in Pekko.
+  - F4 (medium) The integration oracle needs Docker; D13 applicability depends on that.
+- Dependencies: #953 -> #974 plausible (AsyncDnsResolverSpec cache tests :227,:272, titles); #924, #1072 per recon.
+- Oracle (D13): applicability pending determination (Docker-backed integration spec; unit specs with mocked clients exist).
+
+### #984 IO-10 — Suspend and resume TCP reads
+- Depth: PARTIAL (TcpConnection source not opened)
+- Labels now: status:blocked
+- Verdict: DEP (#972 not justified) + CORRECT (diagram)
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 suspend/resume changes future Received at documented boundary | `SuspendReading` :432, `ResumeReading` :442 | TcpConnectionSpec.scala:362-384: server writes "testdata"; `SuspendReading` -> `interestCallReceiver.expectMsg(-OP_READ)`; a late `ChannelReadable` is ignored (no data to handler); `ResumeReading` -> `expectMsg(OP_READ)`; then `expectReceivedString("testdata")` | absent | yes |
+| AC2 already-admitted messages follow mailbox contract | no Pekko statement | no spec found | absent | unsupported |
+| AC3 suspended reader subject to stop cleanup | no spec | no spec found for stop while suspended; searched TcpConnectionSpec for SuspendReading (only :362 and pull mode :386) | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (medium) Diagram title "Suspend and resume TCP reads and writes" but the story is reads only; writes resume through ResumeWriting (#995).
+  - F2 (medium) The tested boundary is the race "ChannelReadable already underway while processing SuspendReading" (:370-376); AC1 should name it.
+  - F3 (low) Pull mode (`Connect/Bind pullMode`, TcpConnectionSpec.scala:386-421 "respect pull mode") is a separate read-throttling mechanism not in any story; whether #1088 covers it (it lists only ResumeAccepting) is an open question.
+- Dependencies: remove #972 (confirmed; Tcp.scala:432-442 does not involve writes); #952 supported by the Register doc "The connection will not read any data from the socket until this message is received" (Tcp.scala:179-186); #1069 per recon.
+- Oracle (D13): oracle exists (TcpConnectionSpec:362-384); applicability pending determination.
+
+### #985 IO-14 — Apply explicit socket options during actor I/O setup
+- Depth: PARTIAL (Tcp.SO options beyond Inet.SO not read)
+- Labels now: status:blocked
+- Verdict: SPLIT + CORRECT
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 enumerate supported portable options | Inet.SO: ReceiveBufferSize, ReuseAddress, SendBufferSize, TrafficClass (Inet.scala:110,124,135,147); Tcp.SO extras not read | n/a | absent | partial |
+| AC2 bind/connect options at source-backed phases | hooks `beforeDatagramBind`, `beforeServerSocketBind`, `beforeConnect`, `afterConnect` (Inet.scala:30-50); V2 adds `afterBind` and `afterConnect(DatagramSocket)` (:59-74) | UdpIntegrationSpec.scala:108-122: `beforeCalled === 1`, `afterCalled === 1` on Bind; TcpConnectionSpec.scala:101-107 `ReuseAddress(true)` set before connect (`getReuseAddress`); :109 "set socket options after connecting" is `ignore` (disabled) | absent | partial |
+| AC3 unsupported options fail explicitly | argument validation: `require(size > 0)` (Inet.scala:111,136), TrafficClass 0..255 (:148) | no spec found for these `require` failures | absent | spec-does-not-observe |
+
+- Findings:
+  - F1 (high) Current text: "Unsupported options fail explicitly without silently changing platform defaults". Pekko has no notion of an unsupported option; options are user classes with hooks (Inet.scala:30) and some validate arguments with `require`. Replacement: "Pekko validates option arguments (Inet.scala:111,136,148) and accepts any user SocketOption implementation; no unsupported-option error exists. goPekko behavior is an open question."
+  - F2 (medium) Body source list omits Inet.scala (the primary source); only recon names it.
+  - F3 (medium) The TCP after-connect phase is `ignore`d in Pekko (TcpConnectionSpec.scala:109); the AC cannot cite an active oracle.
+  - F4 (low) `DatagramChannelCreator` (Inet.scala:86) is a SocketOption with `create()`; UdpIntegrationSpec.scala:124-130 asserts one call.
+  - F5 (medium) SPLIT confirmed (four setups).
+- Dependencies: recon additions #922, #923 fine; #973 OK.
+- Oracle (D13): oracle exists for UDP bind phases and TCP before-connect; TCP after-connect applicability pending determination (Pekko spec ignored).
+
+### #995 IO-18 — Resume TCP writes after explicit backpressure
+- Depth: PARTIAL
+- Labels now: status:blocked
+- Verdict: CORRECT + DEP (#952)
+- AC table:
+
+| AC | Pekko contract | Spec | goPekko | Match? |
+|---|---|---|---|---|
+| AC1 refused write has explicit CommandFailed | Tcp.scala:343-347 | TcpConnectionSpec.scala:710-747: write until NACK; later write and `Write.empty` both give `CommandFailed`; `ResumeWriting` while queue still full -> `expectNoMessage(1.second)` | absent | yes |
+| AC2 ResumeWriting follows writable boundary | `ResumeWriting` :425 -> `WritingResumed` | same test: after draining `expectMsg(Duration.Zero, WritingResumed)`, then `writeCmd(works)` acked; :748-783: resume after flush works immediately (`expectMsg(1.second, WritingResumed)`) | absent | yes |
+| AC3 no ack for bytes not accepted | useResumeWriting=false tests :784-842 (titles) | titles only | absent | partial |
+
+- Findings:
+  - F1 (medium) All writes (including `Write.empty`) between the first CommandFailed and ResumeWriting are rejected (Tcp.scala:405-410 doc; spec :726-728). Not in ACs.
+  - F2 (medium) `useResumeWriting=false` (default is true) is spec'd (:784-842) and absent from the ACs. Open question whether in scope.
+  - F3 (low) Recon claim that #952 is a prerequisite is confirmed (Tcp.scala:187 and doc :179-186).
+- Dependencies: #972 -> #995 OK; add #952 -> #995 (recon).
+- Oracle (D13): oracle exists; applicability pending determination.
+
+### #996 IO-11 — Close and abort TCP connections observably
+- Depth: PARTIAL
+- Labels now: status:blocked
+- Verdict: DEP (remove #984/#995, add #972) + CORRECT
+- AC table:
