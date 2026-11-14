@@ -1,0 +1,6 @@
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala	pekko-actor/actor/supervision.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala	pekko-actor/actor/supervision_failure.go
+upstream/pekko/actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala	pekko-actor/actor/supervision_restart.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala	pekko-actor/actor/supervision_allforone_internal_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala	pekko-actor/actor/supervision_allforone_example_test.go
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala	pekko-actor/actor/supervision_restart_internal_test.go
