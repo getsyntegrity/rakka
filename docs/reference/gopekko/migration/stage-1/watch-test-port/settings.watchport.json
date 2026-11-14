@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git rebase:*)",
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "Bash(git switch:*)",
+      "Bash(git restore:*)",
+      "Bash(git clean:*)",
+      "Bash(sbt:*)",
+      "Bash(go test:*)"
+    ],
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(rg:*)",
+      "Bash(wc:*)",
+      "Bash(go build:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt:*)",
+      "Bash(eza:*)",
+      "Read(//Users/pablogore/workspace/pablogore/goPekko-worktrees/local-watch/**)",
+      "Edit(//Users/pablogore/workspace/pablogore/goPekko-worktrees/local-watch/pekko-actor/actor/watch_test.go)"
+    ],
+    "additionalDirectories": [
+      "/Users/pablogore/workspace/pablogore/goPekko-worktrees/local-watch"
+    ]
+  }
+}
