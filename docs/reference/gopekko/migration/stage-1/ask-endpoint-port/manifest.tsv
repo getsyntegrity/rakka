@@ -1,0 +1,2 @@
+source	target
+upstream/pekko/actor-tests/src/test/scala/org/apache/pekko/pattern/PromiseRefSpec.scala	pekko-actor/actor/ask_endpoint_promiseref_internal_test.go
