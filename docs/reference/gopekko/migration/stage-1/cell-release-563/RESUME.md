@@ -1,0 +1,13 @@
+# RESUME: T6, release of the fields of a terminated cell (ADR 0024 D5; #563)
+
+Status (updated after integration): **INTEGRATED (#738, then #739 as `a807fed22327dfd3a02587528ce13a85661ddbab`; tests and evidence by #743 as `d2a850400ae36bf2010ab4ca2ea832f07c31bd45`); #563 CLOSED WITH AN EVIDENCE COMMENT; #461 STAYS OPEN.** Current evidence and limits are in `EXECUTION-RECORD.md` sections 16 to 18 (summary at the top of that record); no Pekko parity is claimed. The paragraph below is the status as of the candidate (historical); "NOT MERGED", "NOT CLOSED" and "Nothing is declared integrable" there no longer hold, and its "M5, M11 survive" is the result of that run (M5 and M11 were later detected by T04b); the other limits stand.
+
+Status as of the candidate (historical): **CANDIDATE EXECUTED; REVIEWED TWICE, READ-ONLY (THE FIRST INCOMPLETE); NOT MERGED; NOT CLOSED.** O0 was given by the Owner for this unit (package commit `550bfa16b3d82fe66ff4cf07560e30e190a27837`). One implementer ran, the gates and the directed mutants ran, and one independent read-only review ran on `dcb9c298b01d985db1390f556d1d6e3287304e29` (production and tests identical to `e4a378e82e50be1bd1c0b23bd97cb5cbc3af53c9`): **no blocker, one documentary defect (corrected), incomplete because part of the reviewer's commands were denied** (`EXECUTION-RECORD.md` section 12). Two mutants survive (M5, M11); M4 was detected after a test-only correction. T6 is not closed; #563 and #461 stay open. Nothing is declared integrable.
+
+Read in this order: `EXECUTION-RECORD.md` (sections 5, 10, 11 and 12), `PROPOSAL.md`, `RULEBOOK.md`, `RUNBOOK.md`, `manifest.tsv`.
+
+Kit `cf91c9d5068d9aaf95a36164169f08c3e636c909`; Pekko `9a54d1294c3ac7821bbed3c940769c3d5027d1ff`. Base of the analysis: `develop` `f23a215f9701dd7b5046dada0150ba75dfbe61c1`.
+
+`RUNBOOK.md` sha256 (algorithm `shasum -a 256`) (amended after the run, see `RUNBOOK.md` section 9 and `EXECUTION-RECORD.md` section 13; it was `c6415d55…` at the package commit `550bfa1`): `49a11821deb7fa489f85ac3bed6c44808c3aaed496727dc6070c5dbd814fd2d8`. The hashes of `RUNBOOK.md` section 9 describe the package as approved at `550bfa1`; `RESUME.md`, `EXECUTION-RECORD.md` and `review-prompt-exception.md` are not hashed there.
+
+Open for the Owner: whether the partial coverage of the review (the bodies of most structural tests and the README and ADR text were not read) needs more, which is not authorized today; the merge order of #738 and #739; and the acceptance of M5 and M11 as undemonstrated by tests (the review reads the lock as redundant today and the order as correct, both by reading only).
