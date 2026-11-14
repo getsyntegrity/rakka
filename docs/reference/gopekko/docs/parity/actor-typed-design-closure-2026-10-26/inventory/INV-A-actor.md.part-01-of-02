@@ -1,0 +1,360 @@
+# INV-A: Pekko `actor` module capability inventory (v1.7.1, 9a54d12)
+
+> Currency note (2026-10-26): this inventory reads goPekko `develop` at `9abfb40`. Since then `develop` integrated the local `ActorPath` value (PR #1011, `13fb995`, `pekko-actor/actor/actor_path.go`) and the cross-System watch (PR #1207, `cad059c`). The rows below that say `ActorPath` is absent, or that cross-System watch is rejected, describe `9abfb40` and are not updated here. Counts per scope class are those of the files as produced.
+
+Sections are appended package by package; the final "Sections written" line in section 1 lists what is present.
+
+## 1. Method and search limits
+
+- Pekko source root: `upstream/pekko/actor/src/main/` (`scala/org/apache/pekko/**`, `java/**`, `resources/reference.conf`, plus version dirs `scala-2.12`, `scala-2.13`, `scala-2.13+`, `scala-3`, `scala-jdk-9`, `boilerplate`). Paths are relative to `actor/src/main/scala/org/apache/pekko/` unless they start with `java/`, `scala-2.13/` or `resources/`. Specs live in `actor-tests/src/test/scala/org/apache/pekko/`.
+- Enumerated by grep of top-level `class|trait|object` per file and by reading `reference.conf` key groups. `private[pekko]`/`private[io]` definitions are marked INTERNAL (not Pekko public API); listed only when a public capability depends on them.
+- One row per capability, not per method. Line numbers are those of the defining class/object/method at this commit.
+- "Specs observing it" cites the spec file and the line of the test titles I read (titles only; I did not run specs and did not read assertion bodies). "none found" names the search: file-name listing of `actor-tests/src/test` plus grep of the symbol.
+- goPekko state: read from `develop/pekko-actor/**/*.go` (33 production files, 4,920 lines) by grep of exported identifiers. "absent" = no exported identifier or file implements it.
+- Scope classes use only ADR 0033 (accepted 2026-10-24), the accepted ADRs (0011, 0012, 0014, 0017, 0021, 0024, 0030, 0031) and the epic #746 ACTINV table. ADR 0010 (including its "Excluded for now" list, `:225`), ADR 0008 and ADR 0015 are `proposed` in develop, so that list is NOT an accepted exclusion record. ADR 0033 D8 is an accepted category exclusion for network-bound `actor.io`; D13 limits exclusions to the agreed local frontier and documented JVM-only APIs, but no accepted record enumerates the JVM-only list yet.
+- Evidence/oracle status: ADR 0033 D13. I did not determine oracle applicability. Default: `pend-det` = oracle applicability pending determination (register is #1034 JDG-04). I did not read `judge/`, so judge-coverage claims are the dossier's and unverified by me.
+- Limits: assertion bodies of most specs not read; ByteString/ByteIterator internals not read; `mima-filters` not read; classic `testkit` source not read (only ADR text, section 8); stories matched from `epic746.md` (ACTINV table) and `act2_index.tsv` titles, not each issue body.
+
+Legend, Scope: `inc` included (story exists); `inc-ns` included-no-story; `exc-rec` excluded-recorded; `exc-prop` excluded-proposed (a GOV/decision story title proposes it; not decided); `uncl` unclassified. `ACTINV-n` rows marked "retained" are implemented with no open story.
+
+## 2. Inventory tables
+
+### 2.1 Top-level files (`org/apache/pekko/*.scala`)
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| top | `Done` singleton | Done.scala:25,27 | none found (grep `Done` incidental) | uncl | absent (Go uses `error`/channels) | none | none | n/a |
+| top | `NotUsed` singleton | NotUsed.scala:22,24 | none found | uncl | absent | none | none | n/a |
+| top | `PekkoException`, `ConfigurationException`, `OnlyCauseStackTrace` | PekkoException.scala:20,28,41 | PekkoExceptionSpec.scala:26 (2 tests) | uncl | absent (`errors.go` sentinels) | none | none | n/a |
+| top | `PekkoVersion.require`, `UnsupportedPekkoVersion` | PekkoVersion.scala:18,20 | PekkoVersionSpec.scala:19 (version comparison) | uncl | absent | none | none | n/a |
+| top | `Main` (start a system, run a class, terminator) | Main.scala:33 | none found | uncl | absent | none | none | n/a |
+
+### 2.2 Package `actor`
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| actor | `Actor` trait: `receive`, `self`, `sender()` | Actor.scala:481,516,526,533 | ActorLifeCycleSpec.scala:47-193; ActorRefSpec.scala:390 (reply via sender) | inc-ns receive/self (ACTINV-001/010 retained); inc sender | `actor.go:19` `Actor[T]`, `Context.Self actor.go:50`; no sender | 0010 (proposed), 0033 D1 | sender: #768 #814 #854 | pend-det |
+| actor | Lifecycle hooks `preStart`/`postStop` | Actor.scala:599,611 | ActorLifeCycleSpec.scala:49,84,116,132 | inc-ns (ACTINV-037 retained) | `actor.go:27,38` `PreStarter`, `PostStopper` | 0012, 0017 | none open | pend-det |
+| actor | `preRestart`/`postRestart` and defaults | Actor.scala:625,643; dungeon/FaultHandling.scala:92-118 | ActorLifeCycleSpec.scala:49,84,142,165; Ticket669Spec.scala:37,49 | inc-ns (ACTINV-037/038); inc for logging of hook failure | `supervision_hooks.go:60,67` | 0017 | #780 #781 #862 #902 | pend-det |
+| actor | `unhandled` hook + `UnhandledMessage` | Actor.scala:656,297 | EventStreamSpec.scala:115 (log unhandled) | inc | absent | 0010 proposed | #897 (ACTINV-017), GOV #1036 | pend-det |
+| actor | `become`/`unbecome` (stack, discardOld) | ActorCell.scala:113,129,137,602,610 | HotSwapSpec.scala:25-109 (ctor become, stacking, unbecome, revert on restart) | inc | absent | 0010 proposed (:225) | #771 #817 (ACTINV-016), GOV #1035, #1196 | pend-det |
+| actor | `ActorContext`: `parent,children,child,stop` | ActorCell.scala:58,161,169,195,292 | ActorRefSpec.scala:367,465 | inc-ns (ACTINV-008 retained) | `hierarchy.go:409-422`, `stop.go:31` | 0014 | #1090 (IDN-19 lookup/list) | pend-det |
+| actor | `ActorContext`: `props`, `dispatcher`, `system`, `actorSelection` | ActorCell.scala:74,178,187 | none found (grep `context.props` incidental) | inc (props via spawn descriptors) / uncl for `dispatcher` execution context | no `props`; no `dispatcher` | none | #767 #843 | pend-det |
+| actor | `actorOf` (named, anonymous) | ActorRefProvider.scala:189,131 | ActorRefSpec.scala:148,367,379; LocalActorRefProviderSpec.scala:49,134,156 | inc-ns named (ACTINV-001 retained); inc anonymous | `spawn.go:85,98` | 0011, 0014 | #765 (closed) | pend-det |
+| actor | Name validation, `InvalidActorNameException` | Actor.scala:184 | ActorSystemSpec.scala:135,152,160; ActorPathSpec.scala:79 | inc-ns | `names.go`; `ErrInvalidName errors.go:25` | 0014 | #765 | pend-det |
+| actor | `ActorRef` (tell, forward, compare, path, equality) | ActorRef.scala:118 | ActorRefSpec.scala:146-465; ForwardActorSpec.scala:43,56 | inc-ns tell (ACTINV-010); inc forward/path | `ref.go:18` `Ref[T]`; no forward, no path | 0010 | #854 #853 | pend-det |
+| actor | `LocalActorRef`, `RepointableActorRef`, `UnstartedCell` (INTERNAL) | ActorRef.scala:350; RepointableActorRef.scala:40,204 | LocalActorRefProviderSpec.scala:110 | uncl | adapted in `cell.go` | 0012 | none | n/a |
+| actor | `PoisonPill` | Actor.scala:46,52 | ActorRefSpec.scala:422 (stop when sent a poison pill) | inc | absent | 0010 proposed | #770 (ACTINV-014), GOV #1038 | pend-det |
+| actor | `Kill`, `ActorKilledException` | Actor.scala:60,67,177 | ActorRefSpec.scala:442 (restart when Kill:ed); SupervisorMiscSpec.scala:46 | inc | absent | 0017 (`:495` Kill tagged G #450) | #816 #1031 #1112 GOV #1039 | pend-det |
+| actor | `Identify`, `ActorIdentity` | Actor.scala:81,91 | ActorSelectionSpec.scala:179 | inc | absent | none accepted | #934 (ACTINV-005), GOV #1022 | pend-det |
+| actor | `Terminated` message (existenceConfirmed, addressTerminated) | Actor.scala:123,141 | DeathWatchSpec.scala:135-305 | inc-ns basic; inc metadata | `watch.go:22` `Terminated{who}`; no address metadata | 0010, 0032 D5 (open, PR #1014) | #786 #814 | pend-det |
+| actor | Deathwatch `watch/unwatch/watchWith`, death pact | ActorCell.scala:212,229,238; dungeon/DeathWatch.scala:35 | DeathWatchSpec.scala:129-305 (one Terminated, already dead, unwatched, watchWith, stash) | inc-ns local (ACTINV-048); inc variants | `watch.go:98-110`; `ErrDeathPact errors.go:54` | 0010 (watch increment accepted), 0014 | #785 #787 #827 #828 #903 #1051 #1065 #1195 | pend-det |
+| actor | `ReceiveTimeout`, `NotInfluenceReceiveTimeout`, `setReceiveTimeout` | Actor.scala:146,153,164; ActorCell.scala:83,104; dungeon/ReceiveTimeout.scala:28 | ReceiveTimeoutSpec.scala:80-313 | inc | absent | 0010 proposed | #861 #901 #1133 #987 GOV #1037 | pend-det |
+| actor | Exceptions `ActorInitializationException`, `PreRestartException`, `PostRestartException`, `InvalidMessageException`, `DeathPactException`, `IllegalActorStateException`, `ActorInterruptedException` | Actor.scala:171-291 | ActorLifeCycleSpec.scala:165; DeathWatchSpec.scala:216 | inc-ns partial (ACTINV-038) | `InitializationError supervision_hooks.go:22`; `PanicError supervision.go:118`; rest absent | 0017 | #778 #1112 | pend-det |
+| actor | `Status.Success`/`Status.Failure` | Actor.scala:311 | AskSpec.scala (grep `Status.Failure`) | inc | absent | none accepted | #858 (ACTINV-023) | pend-det |
+| actor | `ActorLogging`, `DiagnosticActorLogging` | Actor.scala:340,370 | LoggerSpec.scala:242; LoggingReceiveSpec.scala:147 | inc | absent (`Config.Logger`, `supervision_logging.go`) | 0033 D11 | #794 #848 #849 | pend-det |
+| actor | `Props` (dispatcher, mailbox, router, deploy) | Props.scala:32,124 | PropsCreationSpec.scala:54-80 (reflection-based creators) | inc for descriptor; reflection part uncl | `SpawnOption spawn.go:34`, `WithMailboxCapacity :56` | 0033 D1 | #767 #813 #843 (ACTINV-007) #802 | pend-det |
+| actor | `IndirectActorProducer` (INTERNAL creators) | IndirectActorProducer.scala:30 | PropsCreationSpec.scala:54 | uncl | absent (factory func) | none | #802 (decision) | n/a |
+| actor | `Deploy`, `Scope`, `LocalScope`, `NoScopeGiven`, `Deployer` | Deployer.scala:28,68,173,187,211,225 | DeployerSpec.scala:93-184 | uncl | absent | none | #1074 (GOV-25 classic keys) | n/a |
+| actor | `DynamicAccess`, `ReflectiveDynamicAccess` | DynamicAccess.scala:33; ReflectiveDynamicAccess.scala:35 | DynamicAccessSpec.scala:34 | exc-prop | absent | none | #1125 (SYS-25 jvm-only decision) | n/a |
+| actor | `ActorSelection`: path, wildcard, `resolveOne`, `ActorNotFound` | ActorSelection.scala:43,201,387 | ActorSelectionSpec.scala:100-179 | inc | absent | none accepted | #893 #933 #1023 #1091 #1093 #936 GOV #1022 | pend-det |
+| actor | `ActorPath` (`RootActorPath`, `ChildActorPath`, uid, compare, `ActorPaths`) | ActorPath.scala:29,67,172,279,328 | ActorPathSpec.scala:23-136; AddressSpec.scala:23 | inc | absent (IDN-14 #1008 open) | 0031 (accepted) | #812 #852 #853 #1008 #1053 #1089 #1187 | pend-det |
+| actor | `RelativeActorPath`, `AddressFromURIString`, `ActorPathExtractor` | Address.scala:170,185,221 | RelativeActorPathSpec.scala:27-38; ActorPathSpec.scala:40,45 | inc | absent | 0031 O2 (parsing excluded from first impl) | #812 #1089 #1187 | pend-det |
+| actor | `Address` | Address.scala:37,119 | AddressSpec.scala:23-25 (ordering of mixed protocols) | inc-ns local (#1007, #1009 closed) | `address.go:34`, `Compare :77`; local only | 0031 | #1007 #1009 | pend-det; epic says "no JVM evidence" |
+| actor | `ActorCell` mailbox processing and sysmsg handling (INTERNAL) | ActorCell.scala:251,374,420 | ActorModelSpec.scala:283-383 | inc-ns (ACTINV-010) | `cell.go` | 0030 | none | pend-det |
+| actor | Children container, name reservation (INTERNAL) | dungeon/Children.scala; dungeon/ChildrenContainer.scala | SupervisorMiscSpec.scala:87-126; DeathWatchSpec.scala:248 | inc-ns (ACTINV-008, 009) | `hierarchy.go` | 0014, 0024 | #895 #1188 | pend-det |
+| actor | `SupervisorStrategy`: `OneForOne`, `AllForOne`, directives, `makeDecider`, `defaultStrategy`, `stoppingStrategy`, `ChildRestartStats` | FaultHandling.scala:49,117,323,468,582 | SupervisorSpec.scala:232-318; RestartStrategySpec.scala:43-224; SupervisorHierarchySpec.scala:767-914; SupervisorMiscSpec.scala:46-165 | inc-ns built-ins (ACTINV-038); inc extensions | `supervision.go:20-126`; `supervision_decider.go:27-67` | 0017 (accepted) | #777 #824 #939 #779 #825 #826 #863 #1114-#1118 | pend-det |
+| actor | `SupervisorStrategyConfigurator`, `DefaultSupervisorStrategy`, `StoppingSupervisorStrategy` | FaultHandling.scala:96,100,104 | ActorConfigurationVerificationSpec.scala:27 | uncl | `GuardianStrategy guardian.go:41` (adaptation) | 0017 | #1114 (stopping strategy public) | pend-det |
+| actor | Guardians `/`, `/user`, `/system`; `SystemGuardian` (INTERNAL) | ActorRefProvider.scala:295,385 | ActorSystemSpec.scala; LocalActorRefProviderSpec.scala | inc-ns (ACTINV-053) | `guardian.go:41-184` | 0017 | #788 #1055 | pend-det |
+| actor | `Stash`, `UnboundedStash`, `UnrestrictedStash`, `StashOverflowException` | Stash.scala:71,76,82,283 | ActorWithStashSpec.scala:119-186; ActorWithBoundedStashSpec.scala:149-171 | inc | absent | none | #772 #855 #898 #899 #935 #1025 | pend-det |
+| actor | `Timers` / `TimerScheduler` (single, fixed delay, fixed rate, cancel, isTimerActive) | Timers.scala:31,113; dungeon/TimerSchedulerImpl.scala | TimerSpec.scala:200-344 | inc | absent | none | #860 #900 #937 #938 #1130 #1134 #1191 | pend-det |
+| actor | `Scheduler` (`scheduleOnce`, `scheduleWithFixedDelay`, `scheduleAtFixedRate`, `schedule`, `maxFrequency`), `Cancellable`, `SchedulerTask` | Scheduler.scala:61,511,525,544 | SchedulerSpec.scala:97-178 | inc | absent (`clock.go:26` internal seam) | none | #776 #821 #822 #823 #1129 #1131 #1132 GOV #1077 | pend-det |
+| actor | `LightArrayRevolverScheduler` | LightArrayRevolverScheduler.scala:50 | SchedulerSpec.scala:36 | uncl | absent | none | none (context #776) | n/a |
+| actor | `FSM`, `LoggingFSM`, `Listen`/`Deafen` | FSM.scala:30,432,958; routing/Listeners.scala:20-36 | FSMActorSpec.scala:119-314; FSMTimingSpec.scala:33-100; FSMTransitionSpec.scala:80-156; actor/routing/ListenerSpec.scala:25 | inc | absent | none | #797 #840 #881 #947 #970 #917 #948 #949 #930 #1058-#1062 GOV #1043 | pend-det |
+| actor | `AbstractFSM`, `AbstractLoggingFSM`, `AbstractFSMWithStash` (Java) | AbstractFSM.scala:45,568,575 | AbstractFSMActorTest.java; AbstractFSMWithStashActorTest.java | uncl | absent | none | none (#1059 is Go stash variant of FSM) | n/a |
+| actor | `Extension`, `ExtensionId`, `ExtensionIdProvider`, config-listed and library extensions | Extension.scala:74,81,130,137 | ExtensionSpec.scala:70-153 | inc | absent | none | #798 #841 #990 GOV #1080 | pend-det |
+| actor | `ActorSystem` create/name/startTime/uptime/settings/terminate/whenTerminated | ActorSystem.scala:182,530,755 | ActorSystemSpec.scala:135-234 | inc-ns Terminate/WhenTerminated (ACTINV-085); inc metadata | `system.go:118,121,125`; `system_shutdown.go:30-54` | 0031, 0017 | #842 #843 #799 #1176 | pend-det |
+| actor | `BootstrapSetup`, `ProviderSelection`, `ActorSystemSetup` | ActorSystem.scala:49,107,161; setup/ActorSystemSetup.scala:64 | ActorSystemSetupSpec.scala:27; ProviderSelectionSpec.scala:38-61 | uncl | `Config system.go:69` (adaptation) | none | #1122 (reject unknown deployment options) | n/a |
+| actor | `ClassicActorSystemProvider`, `ClassicActorContextProvider` | ClassicActorSystemProvider.scala:26,40 | none found | uncl | absent | none | #982 #983 (Typed bridges) | n/a |
+| actor | `CoordinatedShutdown`: phases DAG, `addTask`, `addCancellableTask`, `run`, `Reason`s, timeouts | CoordinatedShutdown.scala:42,117-182,386,606,698 | CoordinatedShutdownSpec.scala:71-238 | inc | absent (basic `Shutdown system_shutdown.go:54`) | none | #800 #844 #882 #918 #883 #950 #919 #971 #932 #1119-#1124 #1128 | pend-det |
+| actor | JVM shutdown hook, `exit-jvm` | CoordinatedShutdown.scala:372,381 | CoordinatedShutdownSpec.scala (grep `jvm`) | exc-prop | absent | none | #803 #1127 | n/a |
+| actor | `TypedActor` proxy, `TypedProps`, `TypedActorExtension` | TypedActor.scala:44,119,530,595,703 | TypedActorSpec.scala:36 | exc-prop | absent | none | #801 (ACTINV-099 decision) | n/a |
+| actor | `AbstractActor` Java API family, `UntypedAbstractActor`, `AbstractActorWithStash/Timers` | AbstractActor.scala:229,336,365,410-427; Timers.scala:78,94; java/org/apache/pekko/actor/AbstractActorRef.java, dungeon/AbstractActorCell.java | ActorCreationTest.java; StashJavaAPI.java; JavaAPI.java | exc-prop | absent | none | #1126 (SYS-26 java-api decision) | n/a |
+| actor | `ActorLogMarker` | ActorLogMarker.scala:26 | MarkerLoggingSpec.scala:28 | inc | absent | none | #849 | pend-det |
+| actor | `FunctionRef` (INTERNAL) | ActorRef.scala:861,886 | FunctionRefSpec.scala:62-108 | uncl | absent | none | none | n/a |
+| actor | Dead letters: `DeadLetter`, `SuppressedDeadLetter`, `Dropped`, `AllDeadLetters`, `DeadLetterSuppression`, `WrappedMessage`, `deadLetters` ref | ActorRef.scala:579,592,601,610,622,633,733 | DeadLetterSupressionSpec.scala:25; DeadLetterSuspensionSpec.scala:70; ActorSystemSpec.scala:164,188 | inc-ns basic `DeadLetter`; inc rest | `deadletter.go:22` `DeadLetter{Msg,To}`; `SubscribeDeadLetters :40` | 0030 P-1, 0024 | #871 #906 #907 #940 #1057 #1099 #896 #905 | pend-det |
+| actor | Ignore reference (`IgnoreActorRef`, INTERNAL in Classic) | ActorRef.scala:529,541 | none found | inc | absent | none | #896 #1087 #1175 | pend-det |
+| actor | `Nobody`, `EmptyLocalActorRef`, `VirtualPathContainer`, `SerializedActorRef` (INTERNAL) | ActorRef.scala:327,671,763,471 | ActorRefSpec.scala:288,319,341 (Java-serialized refs) | uncl | absent | 0031/#894 | #894 #1092 #1073 | n/a |
+
+### 2.3 Package `actor.dungeon`, `actor.setup` (INTERNAL implementation files)
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| dungeon | `Children`, `ChildrenContainer` (name reservation, stop bookkeeping) | actor/dungeon/Children.scala:1-347; ChildrenContainer.scala:1-226 | SupervisorMiscSpec.scala:87-126; DeathWatchSpec.scala:248 | inc-ns (ACTINV-008) | `hierarchy.go` | 0014, 0024 | #895 #1188 | pend-det |
+| dungeon | `DeathWatch` (watch/unwatch/watchedBy, `Terminated` delivery) | actor/dungeon/DeathWatch.scala:1-265 | DeathWatchSpec.scala:129-305 | inc-ns (ACTINV-048) | `watch.go` | 0010 watch increment | #785 #903 #1051 | pend-det |
+| dungeon | `FaultHandling` (suspend/resume/recreate/terminate state machine) | actor/dungeon/FaultHandling.scala:1-360 | RestartStrategySpec.scala:43-224; SupervisorHierarchySpec.scala:767-914 | inc-ns (ACTINV-038) | `supervision_*.go` | 0017 | #782 #783 #784 | pend-det |
+| dungeon | `Dispatch` (system message send, `sendMessage`, `sendSystemMessage`) | actor/dungeon/Dispatch.scala:1-229 | dungeon/DispatchSpec.scala:21 (2 tests) | inc-ns | `cell.go` | 0030 | none | pend-det |
+| dungeon | `ReceiveTimeout` support | actor/dungeon/ReceiveTimeout.scala:28 | ReceiveTimeoutSpec.scala:80-313 | inc | absent | none | #861 #901 #1133 | pend-det |
+| dungeon | `TimerSchedulerImpl` | actor/dungeon/TimerSchedulerImpl.scala:1-164 | TimerSpec.scala:200-344 | inc | absent | none | #860 #900 | pend-det |
+| setup | `ActorSystemSetup`, `Setup` | actor/setup/ActorSystemSetup.scala:64 | ActorSystemSetupSpec.scala:27 (6 tests); ActorSystemSetupTest.java | uncl | absent | none | none | n/a |
+
+### 2.4 Package `dispatch` (+ `dispatch.sysmsg`, `dispatch.affinity`, `java/.../dispatch`)
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| dispatch | `Envelope` (message + sender) | dispatch/AbstractDispatcher.scala:35,43 | PriorityDispatcherSpec.scala:58 uses it in comparator | inc (sender contract) | absent (no sender) | 0008 proposed, 0010 D2 proposed, 0032 | #768 #814 | pend-det |
+| dispatch | `MessageDispatcher` (throughput, attach/detach, register, shutdown timeout) | dispatch/AbstractDispatcher.scala:107 | ActorModelSpec.scala:283-383 (life cycle, one at a time, multi-thread queueing, suspended); DispatcherShutdownSpec.scala:28 | inc-ns for throughput (`Config.Throughput system.go:77`) | `cell.go:114` drain, `executor.go:22` | 0030 | #868 #904 | pend-det |
+| dispatch | `Dispatcher` (event-based) | dispatch/Dispatcher.scala:42 | DispatcherActorSpec.scala:28 (5 tests); DispatcherActorsSpec.scala:25 | inc | goroutine executor (unexported) | none | #792 #835 | pend-det |
+| dispatch | `Dispatchers` registry, `DispatcherPrerequisites`, `DispatcherConfigurator`, lookup by id | dispatch/Dispatchers.scala:32,56,112,297 | DispatchersSpec.scala:155-177 (defined props, specific id, missing config, one default) ; ActorSystemDispatcherSpec.scala:27 | inc | absent | none | #835 #890 GOV #1040 | pend-det |
+| dispatch | `PinnedDispatcher` | dispatch/PinnedDispatcher.scala:28; Dispatchers.scala:381 | PinnedActorSpec.scala:49,58 | uncl (dossier D-03 lists as OD) | absent | none | GOV #1040 (decision on dispatcher configuration) | pend-det |
+| dispatch | `BalancingDispatcher`, `BalancingDispatcherConfigurator` | dispatch/BalancingDispatcher.scala:46; Dispatchers.scala:317,331 | BalancingDispatcherSpec.scala:63 (work stealing) | inc (as `BalancingPool` queue restrictions #915) | absent | none | #915 GOV #1040 #1064 | pend-det |
+| dispatch | Executor configurators: `ThreadPoolExecutorConfigurator`, `DefaultExecutorServiceConfigurator`, `ExecutorServiceConfigurator`, `ForkJoinExecutorConfigurator`, `VirtualThreadExecutorConfigurator` | dispatch/AbstractDispatcher.scala:353,412,467,513; ForkJoinExecutorConfigurator.scala:26,102 | ForkJoinExecutorConfiguratorSpec.scala:28; ForkJoinPoolStarvationSpec.scala:23; scala-jdk21-only/ForkJoinPoolVirtualThreadSpec.scala; VirtualThreadPoolDispatcherSpec.scala | exc-prop | absent | none | #803 (SYS-16 jvm-only decision incl. virtual-thread pools); #869 (DSP-05 isolate blocking work) is related | n/a |
+| dispatch | `ThreadPoolConfig`, `ThreadPoolConfigBuilder`, `MonitorableThreadFactory`, `ExecutorServiceFactory`, `SaneRejectedExecutionHandler` | dispatch/ThreadPoolBuilder.scala:40,69,76,86,137,191,216,244,259,297 | none found (grep `ThreadPoolConfig` in specs hits only configurator use) | uncl | absent | none | none | n/a |
+| dispatch | `VirtualizedExecutorService`, `VirtualThreadSupport`, `PekkoJdk9ForkJoinPool` | dispatch/VirtualizedExecutorService.scala:32; VirtualThreadSupport.scala:29; scala-jdk-9/dispatch/PekkoJdk9ForkJoinPool.scala | scala-jdk21-only specs | exc-prop | absent | none | #803 | n/a |
+| dispatch | `AffinityPool` and configurator, `QueueSelector`, `RejectionHandler` | dispatch/affinity/AffinityPool.scala:123,310,367-409; java/.../affinity/OnSpinWait.java | none found (grep `affinity` in actor-tests) | uncl | absent | none | none | n/a |
+| dispatch | `BatchingExecutor`, `Batchable`, `TaskInvocation`, `CachingConfig`, `ForkJoinPoolConstants` (INTERNAL) | dispatch/BatchingExecutor.scala:29,64; AbstractDispatcher.scala:55; CachingConfig.scala:27,52 | ExecutionContextSpec.scala:55,85 (batching) | uncl | absent | none | none | n/a |
+| dispatch | `ExecutionContexts`, `Futures` helpers, Java `OnSuccess/OnFailure/OnComplete/Recover/Filter/Foreach/Mapper`, `CompletionStages` | dispatch/Future.scala:39,123,254-439; CompletionStages.scala:31 | ExecutionContextSpec.scala:36-137; SameThreadExecutionContextSpec.scala:26; JavaFutureTests.java; CompletionStagesTests.java | uncl (dossier U-01 proposes X; no record) | absent (Go uses goroutines/`context`) | none | none | n/a |
+| mailbox | `MessageQueue` and FIFO unbounded `UnboundedMailbox`, `SingleConsumerOnlyUnboundedMailbox` | dispatch/Mailbox.scala:362,653,675 | MailboxConfigSpec.scala:42-77; ActorMailboxSpec.scala:255 | inc-ns (ACTINV-055 retained) | `mailbox.go`, `internal/mailbox/queue.go` | 0030 | none | pend-det |
+| mailbox | `BoundedMailbox` (capacity + push timeout; timeout zero = non-blocking) | dispatch/Mailbox.scala:705,720 | MailboxConfigSpec.scala:52,56 | inc-ns (ACTINV-056, retained) / inc for positive timeout | `WithMailboxCapacity spawn.go:56`, `ErrInvalidMailboxCapacity errors.go:31` | 0030 (accepted) | #791 #790 #830 | pend-det |
+| mailbox | `NonBlockingBoundedMailbox` | dispatch/Mailbox.scala:690 | ActorMailboxSpec.scala:283 (bounded) | inc | absent | 0030 | #831 | pend-det |
+| mailbox | `UnboundedPriorityMailbox`, `BoundedPriorityMailbox`, `PriorityGenerator` | dispatch/Mailbox.scala:732,752; Dispatcher.scala:164,178 | PriorityDispatcherSpec.scala:58,63 | inc | absent | none | #833 #866 | pend-det |
+| mailbox | `UnboundedStablePriorityMailbox`, `BoundedStablePriorityMailbox`, `StablePriorityQueue` | dispatch/Mailbox.scala:780,801; util/StablePriorityQueue.scala:72,83 | StablePriorityDispatcherSpec.scala:60,66 | inc | absent | none | #865 #931 | pend-det |
+| mailbox | `UnboundedDequeBasedMailbox`, `BoundedDequeBasedMailbox`, `DequeBasedMessageQueue` (needed by `Stash`) | dispatch/Mailbox.scala:586,594,604,827,846 | ActorMailboxSpec.scala:259,270 | inc | absent | none | #832 #864 #1098 (insert at head) | pend-det |
+| mailbox | Control-aware mailboxes (`ControlMessage`, `UnboundedControlAwareMailbox`, `BoundedControlAwareMailbox`) | dispatch/Mailbox.scala:904,910,933 | ControlAwareDispatcherSpec.scala:37,42 | inc | absent | none | #834 #867 | pend-det |
+| mailbox | `MailboxType`, `ProducesMessageQueue`, `RequiresMessageQueue`, semantics marker traits | dispatch/Mailbox.scala:509-648 | ActorMailboxSpec.scala:255-283 | inc | absent | none | #789 #829 | pend-det |
+| mailbox | `Mailboxes` selection by name / requirement | dispatch/Mailboxes.scala:40,46 | ActorMailboxSpec.scala:255-283 (34 tests); MailboxConfigSpec.scala:42 | inc | absent | none | #829 #892 GOV #1041 | pend-det |
+| mailbox | Mailbox suspend/resume counter and system-message queue (INTERNAL) | dispatch/Mailbox.scala:35,65,454,473 | ActorModelSpec.scala:359 (suspended actor) | inc-ns | `cell.go` | 0017 | none | pend-det |
+| sysmsg | `SystemMessage` family (`Create,Recreate,Suspend,Resume,Terminate,Supervise,Watch,Unwatch,Failed,DeathWatchNotification`) and lists (INTERNAL) | dispatch/sysmsg/SystemMessage.scala:29-285 | SystemMessageListSpec.scala:28-79 | uncl (internal; Go uses `sysItem`) | `supervision_restart.go:21-70` | 0017 | none | n/a |
+| java | `AbstractNodeQueue`, `AbstractBoundedNodeQueue`, `AbstractMailbox`, `AbstractMessageDispatcher`; `Unsafe` | java/org/apache/pekko/dispatch/*.java; java/org/apache/pekko/util/Unsafe.java | none found | uncl | absent | none | none | n/a |
+
+### 2.5 Package `event` (+ `event.jul`, `event.japi`)
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| event | `EventBus` contract + `ActorEventBus` | event/EventBus.scala:33,68 | EventBusSpec.scala:62-82 (subscribe, unsubscribe twice, duplicate) | inc | absent | none accepted | #793 #837 | pend-det |
+| event | `LookupClassification`, `SubchannelClassification`, `ScanningClassification` | event/EventBus.scala:93,136,219 | EventBusSpec.scala:26 (16 tests) | inc | absent | none | #837 #872 #891 | pend-det |
+| event | `ActorClassifier`, `PredicateClassifier`, `ManagedActorClassification` + unsubscribers | event/EventBus.scala:76,83,277; ActorClassificationUnsubscriber.scala:81 (INTERNAL) | EventBusSpec.scala (managed actor cases) | inc | absent | none | #1054 #1056 | pend-det |
+| event | `EventStream` (subscribe, unsubscribe, publish, `setLogLevel`, dead-letter family) | event/EventStream.scala:34 | EventStreamSpec.scala:86-133 (manage subscriptions, null subscriber, log unhandled, log levels) | inc-ns for dead-letter hub only; inc rest | `SubscribeDeadLetters deadletter.go:40`, `internal/deadletter/hub.go` | 0030 P-1 | #793 #836 #870 #905 #906 #1057 | pend-det |
+| event | `EventStreamUnsubscriber` (INTERNAL) | event/EventStreamUnsubscriber.scala:75 | EventStreamSpec.scala (terminated subscriber cases) | inc | absent | none | #1056 | pend-det |
+| event | `DeadLetterListener` (log dead letters, limit, suspend) | event/DeadLetterListener.scala:33 | DeadLetterSuspensionSpec.scala:70; ActorSystemSpec.scala:164,188 | inc | absent | none | #907 #940 | pend-det |
+| event | `AddressTerminatedTopic` (INTERNAL, remote-related) | event/AddressTerminatedTopic.scala:38,51 | event/AddressTerminatedTopicBenchSpec.scala:25 | uncl | absent | none | #786 context | n/a |
+| event | `LoggingBus`, log events `Error/Warning/Info/Debug` (+ `Error2/3`, `Warning2..4`, `Info2/3`, `Debug2/3`), `LogLevel`, `LogEvent` | event/Logging.scala:44,486,724-946 | LoggerSpec.scala:184-242 (stdout, several loggers, MDC) | inc partial | absent (kit-logger per ADR 0033 D11) | 0033 D11 | #794 #1079 | pend-det |
+| event | `LoggingAdapter`, `DiagnosticLoggingAdapter`, `MarkerLoggingAdapter`, `BusLogging`, `NoLogging`, `NoMarkerLogging`, `LogSource` | event/Logging.scala:317,1192,1623,1742,2006,2017,2049,2073 | MarkerLoggingSpec.scala:28,38; java LoggingAdapterTest.java; ActorWithMDC.java | uncl (dossier E-02 proposes X; no record) | absent (kit-logger) | 0033 D11 (kit-logger) | #849 (markers) | n/a |
+| event | `LoggingFilter`, `DefaultLoggingFilter`, `LoggingFilterWithMarker` | event/Logging.scala:1560,1573,1608 | LoggerSpec.scala:38 (log level filtering) | inc | absent | none | #1079 (GOV-30) | pend-det |
+| event | `Logging.DefaultLogger`, `StandardOutLogger`, `StdOutLogger`, `InitializeLogger`, `LoggerInitialized` and `loggers` config | event/Logging.scala:966,974,993,1114,1143 | LoggerSpec.scala:184,189,211,219 | uncl | absent | none | none | n/a |
+| event | `LogMarker` | event/Logging.scala:1687,1701 | MarkerLoggingSpec.scala:28 | inc | absent | none | #849 | pend-det |
+| event | `LoggingReceive` | event/LoggingReceive.scala:28,80 | LoggingReceiveSpec.scala:74-164 | inc (decision) | absent | none | #1078 (GOV-29) | pend-det |
+| event | `LoggerMailbox`, `LoggerMessageQueueSemantics` (INTERNAL) | event/LoggerMailbox.scala:28,33,46 | LoggerSpec.scala:189 (drain logger queue) | uncl | absent | none | none | n/a |
+| event | `JavaLogger`, `JavaLogging`, `JavaLoggingFilter` (JUL bridge) | event/jul/JavaLogger.scala:33,63,110 | event/jul/JavaLoggerSpec.scala:66,81 | uncl (JVM-only bridge; dossier proposes X; no record) | absent | none | none | n/a |
+| event | Java `EventBus`, `LookupEventBus`, `SubchannelEventBus`, `ScanningEventBus`, `ManagedActorEventBus` | event/japi/EventBusJavaAPI.scala:26,57,108,152,203 | none found | uncl (Java-only API; no accepted exclusion) | absent | none | none | n/a |
+
+### 2.6 Package `pattern` (+ `pattern.extended`, `pattern.internal`, `java/.../pattern`)
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| pattern | `ask` / `?` with timeout, `AskTimeoutException`, `PromiseActorRef` (INTERNAL) | pattern/AskSupport.scala:40,48,95,337,515 | AskSpec.scala:34-72 (answer wrapped in Future, broken promise on DeadLetters/EmptyLocalActorRef/unsupported ref/zero timeout); ActorTimeoutSpec.scala:34,41 | inc-ns (ask with mandatory deadline implemented; ACTINV-020/021/102 have open stories) | `ask.go:104` `Ask[T,R](ctx,...)`, `ErrAskTimeout errors.go:58`, `ErrAskCanceled`, `ErrAskNoDeadline`, `ErrRecipientTerminated` | 0015 (proposed; D3/D4/D7/D8/D9 contradictions per #1068), 0010 D4/D5 | #773 #818 #856 #857 #775 #819 #820 #1068 | pend-det (dossier cites judge G8/I4/I5, unverified by me) |
+| pattern | Ask on `ActorSelection` | pattern/AskSupport.scala:433,473 | ActorSelectionSpec.scala (ask cases); ExplicitAskSpec.scala:46 | inc | absent | none | #936 (ACTINV-022) | pend-det |
+| pattern | Explicit ask (`ExplicitlyAskableActorRef`, `ExplicitAskSupport`) | pattern/AskSupport.scala:171,391; pattern/extended/package.scala | pattern/extended/ExplicitAskSpec.scala:33,46 | inc-ns (Go `Ask` takes a builder `func(Ref[R]) T`) | `ask.go:104` | 0015 | #773 | pend-det |
+| pattern | `pipeTo`, `pipeToSelection` | pattern/PipeToSupport.scala:31,37,57,63,99 | PipeToSpec.scala:29-55 (work, signal failure, implicit sender, Java form) | inc | absent | none | #856 #1024 #1173 | pend-det |
+| pattern | `gracefulStop` | pattern/GracefulStopSupport.scala:59 | PatternSpec.scala:38-50 (future for stopping, already terminated, timeout) | inc | absent | none | #873 (ACTINV-027) | pend-det |
+| pattern | `after` (delayed future / timeout) | pattern/FutureTimeoutSupport.scala:33,50 | PatternSpec.scala:60,68 | inc | absent | none | #874 #908 | pend-det |
+| pattern | `retry` (attempts, delay, delay function, backoff) | pattern/RetrySupport.scala:30,342 | RetrySpec.scala:30-79 | inc | absent | none | #838 #875 #1101 | pend-det |
+| pattern | `StatusReply` (`Success`, `Error`, `Ack`) | pattern/StatusReply.scala:37,72 | StatusReplySpec.scala:31-60 (pattern match success/Ack/error text/exception); StatusReplyTest.java | inc | absent | none | #774 #859 | pend-det |
+| pattern | `askWithStatus` | pattern/AskSupport.scala:105 | StatusReplySpec.scala (askWithStatus cases) | inc | absent | none | #859 | pend-det |
+| pattern | `PromiseRef`, `FutureRef` | pattern/PromiseRef.scala:26,43,66,110 | PromiseRefSpec.scala:37-67 | inc | absent | none | #857 (ACTINV-102) | pend-det |
+| pattern | `Backoff`, `BackoffOpts`, `BackoffOptions`, `BackoffOnFailureOptions`, `BackoffOnStopOptions` (deprecated `Backoff` + new `BackoffOpts`) | pattern/Backoff.scala:30,530; pattern/BackoffOptions.scala:27,329,347 | BackoffSupervisorSpec.scala:69-141; BackoffOnRestartSupervisorSpec.scala:94-164 | inc | absent | none | #909 #941 #968 #981 #1102-#1106 | pend-det |
+| pattern | `BackoffSupervisor` (`props`, `Reset`, `GetCurrentChild`, `GetRestartCount`, `ResetBackoff`) | pattern/BackoffSupervisor.scala:26,257,332 | BackoffSupervisorSpec.scala:69-141 | inc | absent | none | #909 #968 #981 | pend-det |
+| pattern | `BackoffOnRestartSupervisor`, `BackoffOnStopSupervisor`, `HandleBackoff` (INTERNAL) | pattern/internal/BackoffOnRestartSupervisor.scala:40; BackoffOnStopSupervisor.scala:40; pattern/HandleBackoff.scala:25 | BackoffOnRestartSupervisorSpec.scala:94-164 | inc | absent | none | #909 #941 #1103 #1106 | pend-det |
+| pattern | `CircuitBreaker` (closed/open/half-open, `callTimeout`, `resetTimeout`, `maxFailures`, exponential backoff, random factor, listeners, `defineFailureFn`) | pattern/CircuitBreaker.scala:40,151,252,281,358,507-527 | CircuitBreakerSpec.scala:136-170 (78 tests: open before reset timeout, half-open transition, listener invocation); CircuitBreakerMTSpec.scala:23; CircuitBreakerStressSpec.scala:30; CircuitBreakerTest.java | inc | absent | none | #795 #876 #910 #911 #942 #965 #1100 #1104 | pend-det |
+| pattern | `CircuitBreakerOpenException` | pattern/CircuitBreaker.scala:1137 | CircuitBreakerSpec.scala | inc | absent | none | #1104 | pend-det |
+| pattern | `CircuitBreakersRegistry` (config-created breakers by id) | pattern/CircuitBreakersRegistry.scala:33,63 | none found (grep `CircuitBreakersRegistry` in actor-tests) | inc | absent | none | #943 (ACTINV-032) | pend-det |
+| pattern | `CircuitBreakerTelemetry` SPI | pattern/internal/CircuitBreakerTelemetry.scala:34 (public trait), :90,122,143 INTERNAL | none found | uncl | absent | none | none | n/a |
+| pattern | `Patterns` / `PatternsCS` Java facades | pattern/Patterns.scala:31,896 | PatternsTest.java | uncl (Java-only facade; no record) | absent | none | none | n/a |
+| pattern | `AbstractPromiseActorRef`, `AbstractCircuitBreaker` (Java field offsets) | java/org/apache/pekko/pattern/AbstractPromiseActorRef.java:1-34; AbstractCircuitBreaker.java:1-34 | none found | uncl | absent | none | none | n/a |
+
+### 2.7 Package `routing`
+
+All rows: goPekko `absent` (no router code in `develop/pekko-actor`). GOV #1042 (Classic routers) and #1064 (advanced routers) are decision-proposal stories. Epic #758 (ACT2-RTE).
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| routing | `RoutingLogic`, `Routee` (`ActorRefRoutee`, `ActorSelectionRoutee`, `NoRoutee`, `SeveralRoutees`), `Router` value | routing/Router.scala:33,51,58,66,76,83,110 | RoutingSpec.scala:29 (15 tests: routers, routees, dead letters on no routee) | inc | absent | none | #796 #839 #1111 | pend-det |
+| routing | `RouterEnvelope`, `Broadcast` message | routing/Router.scala:193,202 | BroadcastSpec.scala:25 (3 tests) | inc | absent | none | #913 #1108 | pend-det |
+| routing | `RouterConfig`, `Pool`, `Group`, `PoolBase`, `GroupBase`, `CustomRouterConfig` | routing/RouterConfig.scala:54,146,159,190,196,268 | ConfiguredLocalRoutingSpec.scala:35 (10 tests) | inc | absent | none | #878 #914 #944 #1109 | pend-det |
+| routing | `FromConfig`, `NoRouter`, `withFallback` | routing/RouterConfig.scala:283,307,363,365 | ConfiguredLocalRoutingSpec.scala:35 | inc | absent | none | #1110 | pend-det |
+| routing | Management messages `GetRoutees`, `Routees`, `AddRoutee`, `RemoveRoutee`, `AdjustPoolSize` | routing/RouterConfig.scala:391,400,414,430,441,455 | RoutingSpec.scala:29; ResizerSpec.scala:27 | inc | absent | none | #839 #946 #969 #1108 | pend-det |
+| routing | `RoundRobinRoutingLogic`/`Pool`/`Group` | routing/RoundRobin.scala:29,39,83,148 | RoundRobinSpec.scala:29 (9 tests) | inc | absent | none | #912 (ACTINV-075) | pend-det |
+| routing | `RandomRoutingLogic`/`Pool`/`Group` | routing/Random.scala:29,38,75,139 | RandomSpec.scala:26 (4 tests) | inc | absent | none | #877 | pend-det |
+| routing | `BroadcastRoutingLogic`/`Pool`/`Group` | routing/Broadcast.scala:27,36,73,137 | BroadcastSpec.scala:25 | inc | absent | none | #913 (ACTINV-076) | pend-det |
+| routing | `SmallestMailboxRoutingLogic`/`Pool` | routing/SmallestMailbox.scala:31,48,196 | SmallestMailboxSpec.scala:24 (2 tests) | inc | absent | none | #879 (ACTINV-077) | pend-det |
+| routing | `ConsistentHashingRoutingLogic`/`Pool`/`Group`, `ConsistentHashingRouter` envelope/mapping | routing/ConsistentHashing.scala:36,121,158,296,385 | ConsistentHashingRouterSpec.scala:30 (4 tests) | inc | absent | none | #1107 | pend-det |
+| routing | `ConsistentHash` ring value, `MurmurHash` | routing/ConsistentHash.scala:30,122; MurmurHash.scala:50 | ConsistentHashingRouterSpec.scala:30 | inc | absent | none | #880 (ACTINV-078) | pend-det |
+| routing | `ScatterGatherFirstCompletedRoutingLogic`/`Pool`/`Group` | routing/ScatterGatherFirstCompleted.scala:45,114,194 | ScatterGatherFirstCompletedSpec.scala:30 (5 tests) | inc | absent | none | #945 (ACTINV-079) | pend-det |
+| routing | `TailChoppingRoutingLogic`/`Pool`/`Group` | routing/TailChopping.scala:60,163,261 | TailChoppingSpec.scala:27 (5 tests) | inc | absent | none | #916 (ACTINV-080) | pend-det |
+| routing | `BalancingPool`, `BalancingRoutingLogic` | routing/Balancing.scala:43,83 | BalancingSpec.scala:31 (6 tests) | inc | absent | none | #915 | pend-det |
+| routing | `Resizer`, `DefaultResizer` | routing/Resizer.scala:40,68,139 | ResizerSpec.scala:27 (13 tests) | inc | absent | none | #946 | pend-det |
+| routing | `OptimalSizeExploringResizer` | routing/OptimalSizeExploringResizer.scala:30,129 | MetricsBasedResizerSpec.scala:32 (28 tests) | inc | absent | none | #969 | pend-det |
+| routing | `Listeners`, `Listen`, `Deafen`, `WithListeners` | routing/Listeners.scala:20-36 | actor/routing/ListenerSpec.scala:25 | inc (FSM listeners) | absent | none | #1060 | pend-det |
+| routing | `RoutedActorCell`, `RoutedActorRef`, `RouterActor`, `RouterPoolActor`, `ResizablePoolCell` (INTERNAL) | routing/RoutedActorCell.scala:50,159,197; RoutedActorRef.scala:38; Resizer.scala:264 | RouteeCreationSpec.scala:25 | inc (implied by pool stories) | absent | none | #878 #914 | pend-det |
+
+### 2.8 Package `serialization`
+
+Note: ADR 0033 D8 keeps the Pekko `Serialization` extension replaced by the `pekko-serialization` module (ADR 0021, accepted 2026-10-19). That module is not in my `develop/` snapshot (only `pekko-actor/`), so the goPekko column below states the ADR/story text, not code I read. "ADR-replaced" means ADR 0033 D8 names it.
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| serialization | `Serialization` extension: `serialize`, `deserialize` (by id+manifest), `findSerializerFor`, bindings, `serializerOf` | serialization/Serialization.scala:149,183,195,216,314,327,397 | SerializeSpec.scala:163 (51 tests); SerializationSetupSpec.scala:56 | exc-rec (extension replaced by `pekko-serialization`, ADR 0033 D8; registry/manifests/errors = ADR 0021) | not in `pekko-actor`; module `pekko-serialization` (not read) | 0021 accepted, 0033 D8 | ACTINV-091 retained (no story) | pend-det |
+| serialization | `Serializer`, `SerializerWithStringManifest`, `BaseSerializer`, `JSerializer`, `ByteBufferSerializer`, `Serializers.manifestFor` | serialization/Serializer.scala:52,91,128,211,232,292 | SerializeSpec.scala:163 | inc-ns (ADR 0021 covers registry+manifests) | module `pekko-serialization` (not read) | 0021 | ACTINV-091 retained | pend-det |
+| serialization | `AsyncSerializer`, `AsyncSerializerWithStringManifest(CS)` | serialization/AsyncSerializer.scala:33,52,77 | AsyncSerializeSpec.scala:24 (4 tests) | inc | not read | 0021 | #845 #885 #1193 #1194 (ACTINV-103) | pend-det |
+| serialization | Primitive serializers (`Long`, `Int`, `String`, `Boolean`; INTERNAL classes) | serialization/PrimitiveSerializers.scala:27,69,107,166 | PrimitivesSerializationSpec.scala:27 (25 tests) | inc | not read | 0021 O7 (open) | #804 #951 #805 #811 #850 #1190 (ACTINV-092) | pend-det |
+| serialization | `ByteStringSerializer` (id 21) (INTERNAL) | serialization/PrimitiveSerializers.scala:132 | PrimitivesSerializationSpec.scala:27 | inc (decision) | not read | 0021 | GOV #1082 | pend-det |
+| serialization | `ByteArraySerializer`, `NullSerializer`, `JavaSerializer`, `DisabledJavaSerializer` | serialization/Serializer.scala:304,340,367,423,436 | DisabledJavaSerializerWarningSpec.scala:24 (4 tests); SerializeSpec.scala | uncl for Java serializers (JVM) | not read | 0021 | none | n/a |
+| serialization | `SerializationSetup`, `SerializerDetails` | serialization/SerializationSetup.scala:24,48,51,79 | SerializationSetupSpec.scala:56 | uncl | not read | none | none | n/a |
+| serialization | `SerializationExtension` | serialization/SerializationExtension.scala:24 | SerializeSpec.scala | exc-rec (ADR 0033 D8) | replaced | 0033 D8 | none | n/a |
+| serialization | Nested-deserialization depth limit (`serialization-max-nesting-depth`; INTERNAL) | serialization/NestedDeserialization.scala:39; reference.conf:785 | none found (grep `max-nesting` in actor-tests) | inc | not read | 0021 O1/O6 (open) | #806 #807 #884 #851 #1189 | pend-det |
+| serialization | Decompression limit (`max-decompressed-size`; INTERNAL) | serialization/Decompression.scala:35; reference.conf:863 | DecompressionSpec.scala:29 (10 tests) | inc | not read | 0021 | #807 #851 #1192 | pend-det |
+| serialization | `WireConfig` (INTERNAL) | serialization/WireConfig.scala:51 | WireConfigSpec.scala:29 (9 tests) | uncl | n/a | none | none | n/a |
+| serialization | `serializedActorPath`, transport `Information`, `withTransportInformation` | serialization/Serialization.scala:51,72,102,116 | SerializeSpec.scala; ActorRefSpec.scala:288-341 | inc (decision) | not read | 0031 context | #951 #957 #1073 GOV #1083 (GOV-34) | pend-det |
+| serialization | `serialize-creators`, `serialize-messages` verification | reference.conf:131,136; ActorCell/Props verification | ActorConfigurationVerificationSpec.scala:27; SerializeSpec.scala | inc (decision) | absent | none | GOV #1081 (GOV-32) #884 | pend-det |
+| serialization | `SerializationTestKit` (belongs to `actor-testkit-typed`, listed only for the story link) | n/a (outside `actor`) | n/a | inc (decision) | absent | none | GOV #1076 | n/a |
+
+### 2.9 Package `util` (public symbols; INTERNAL ones listed in one row)
+
+Version-specific sources: `scala-2.13/util/ByteString.scala` (1596 lines), `ByteIterator.scala` (712), `scala-2.13/util/FutureConverters.scala`, `OptionConverters.scala`, `JavaDurationConverters`, `scala-2.13+/util/FunctionConverters.scala`, `ccompat` (compat shims for Scala 2.12/2.13/3: `scala-2.12/**`, `scala-3/**`). The 2.12/3 variants duplicate the same public surface.
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| util | `ByteString`, `CompactByteString`, `ByteStringBuilder`, `ByteIterator` (immutable byte sequence) | scala-2.13/util/ByteString.scala:31,867,1164,1254,1264; ByteIterator.scala:26,428 | util/ByteStringSpec.scala:38 (141 tests); ByteStringBuilderSpec.scala:23; ByteIteratorSpec.scala:21; ByteStringInitializationSpec.scala:24; ByteStringInputStreamSpec.scala:29; ByteStringTest.java | inc (decision on value type; dossier U-01 proposes replaced by `[]byte`, not recorded) | absent | none accepted | #808 #846 #886 #920 (ACTINV-094/098), GOV #1082 | pend-det |
+| util | `Timeout` | util/Timeout.scala:23,34 | ActorTimeoutSpec.scala:34 | uncl (dossier proposes `context` replacement; ask uses `context`) | n/a (`context.Context` in `ask.go:104`) | 0015 proposed | none | n/a |
+| util | `Helpers` (`ConfigOps`, `Requiring`, `base64`, `toRootLowerCase`, `isWindows`) | util/Helpers.scala:38 | DurationSpec.scala:20 (5 tests, partial) | uncl | absent | none | none | n/a |
+| util | `Index`, `ConcurrentMultiMap` | util/Index.scala:28,206 | IndexSpec.scala:29 (8 tests) | uncl (dossier U-02: "R when a required row needs it") | absent | none | none | n/a |
+| util | `Subclassification` (public trait), `SubclassifiedIndex` (INTERNAL), `WildcardIndex` (INTERNAL) | util/SubclassifiedIndex.scala:23,92; WildcardIndex.scala:19 | EventBusSpec.scala (subchannel cases); WildcardIndexSpec.scala:19 (9 tests) | uncl; used by event bus stories #872 #891 | absent | none | #891 context | n/a |
+| util | `MessageBuffer`, `MessageBufferMap` | util/MessageBuffer.scala:24,161,184 | MessageBufferSpec.scala:21 (11 tests) | uncl | absent | none | none (Typed buffering stories #1167 #889 do not cite it) | n/a |
+| util | `NanoTimeTokenBucket` (+ INTERNAL `TokenBucket`) | util/TokenBucket.scala:19,96 | TokenBucketSpec.scala:20 (13 tests) | uncl | absent | none | none | n/a |
+| util | `BoundedBlockingQueue` | util/BoundedBlockingQueue.scala:27 | BoundedBlockingQueueSpec.scala:38 (79 tests) | uncl (JVM `BlockingQueue`; bounded blocking mailbox context #790) | absent | none | #790 context | n/a |
+| util | `StablePriorityQueue`, `StablePriorityBlockingQueue`, `PriorityQueueStabilizer` | util/StablePriorityQueue.scala:23,53,72,83 | StablePriorityDispatcherSpec.scala:60,66 | inc (via stable priority mailbox) | absent | none | #865 #931 | pend-det |
+| util | `TypedMultiMap` | util/TypedMultiMap.scala:41,118 | scala-2/util/TypedMultiMapSpec.scala | uncl (used by Typed receptionist; see INV-B) | absent | none | none | n/a |
+| util | `Version` | util/Version.scala:18,45 | VersionSpec.scala:19 (9 tests) | uncl | absent | none | none | n/a |
+| util | `WallClock`, `AlwaysIncreasingClock` | util/WallClock.scala:27,31,44 | none found | uncl; clock seam story #1129 related | `clock.go:24` (unexported) | none | #1129 context | n/a |
+| util | `HashCode` | util/HashCode.scala:34 | none found | uncl | absent | none | none | n/a |
+| util | `UUIDComparator` | util/UUIDComparator.scala:24,73 | none found | uncl | absent | none | none | n/a |
+| util | `ReentrantGuard`, `Switch` | util/LockUtil.scala:20,32 | SwitchSpec.scala:22 (7 tests) | uncl (JVM locks) | absent | none | none | n/a |
+| util | `BoxedType`, `ClassLoaderObjectInputStream`, `LineNumbers`, `ManifestInfo`, `Reflect` (INTERNAL), `JavaVersion` (INTERNAL), `FlightRecorderLoader` (INTERNAL), `Unsafe` (Java) | util/BoxedType.scala:16; ClassLoaderObjectInputStream.scala:25; LineNumbers.scala:31; ManifestInfo.scala:37,110; Reflect.scala:33; JavaVersion.scala:21; FlightRecorderLoader.scala:26; java/org/apache/pekko/util/Unsafe.java | LineNumberSpec (scala-2/ scala-3/); ManifestInfoSpec.scala:18; ReflectSpec.scala:21 | uncl; JVM-only by nature but no accepted record (dossier U-03 proposes X) | absent | none | #803 covers "JVM hooks, JFR and virtual-thread pools" only | n/a |
+| util | INTERNAL helpers: `Collections`, `ConstantFun`, `DoubleLinkedList`, `ErrorMessages`, `FrequencyList`, `FrequencySketch`, `Glob`, `ImmutableIntMap`, `OptionVal`, `PrettyDuration`, `RecencyList`, `SegmentedRecencyList`, `SerializedSuspendableExecutionContext`, `Unused` | util/{Collections:22, ConstantFun:26, DoubleLinkedList:26, ErrorMessages:19, FrequencyList:25, FrequencySketch:44, Glob:38, ImmutableIntMap:24, OptionVal:22, PrettyDuration:21, RecencyList:25, SegmentedRecencyList:25, SerializedSuspendableExecutionContext:24, Unused:37}.scala | DoubleLinkedListSpec.scala:19; FrequencyListSpec.scala:21; FrequencySketchSpec.scala:21; GlobSpec.scala:25; ImmutableIntMapSpec.scala:21; PrettyDurationSpec.scala:19; RecencyListSpec.scala:21; SegmentedRecencyListSpec.scala:21 | n/a (private[pekko]; not Pekko public API) | absent | none | none | n/a |
+| util | Scala/JDK converters and compat: `FutureConverters`, `OptionConverters`, `JavaDurationConverters`, `FunctionConverters`, `ccompat`, `compat.Future/PartialFunction` | scala-2.13/util/FutureConverters.scala; OptionConverters.scala; scala-2/util/JavaDurationConverters.scala; scala-2.13+/util/FunctionConverters.scala; scala-2.13+/util/ccompat/package.scala | util/DurationSpec.scala:20; JavaDuration.java; Scala212CompatTest.scala | uncl (JVM/Scala interop; no record) | absent | none | none | n/a |
+
+### 2.10 Package `io` (+ `io.dns`, `io.dns.internal`, `java/.../io`)
+
+Scope rule that applies to the whole package: ADR 0033 D8 (accepted): "`actor.io` is excluded where it depends on sockets, protocols or network transport, and no adapter over `net` is built unless the inventory identifies a concrete local capability that justifies it. Every exclusion is recorded with its source and reason." The per-capability exclusion records are not written: GOV stories #1069 (Tcp), #1070 (Udp), #1071 (UdpConnected), #1072 (DNS: "exclusion or a local capability"), #1088 (UDP SimpleSender, TCP WriteFile/WritePath/CompoundWrite/ResumeAccepting) propose them. At the same time epic #762 has implementation stories for TCP/UDP/DNS (listed below, all `status:blocked`). I do not resolve this; see gap list (d). goPekko: `absent` for every row (no `io` code in `develop/pekko-actor`).
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| io | `IO` extension entry, `IO.Extension` | io/IO.scala:24 | TcpIntegrationSpec.scala:30 (15 tests, uses `IO(Tcp)`) | exc-rec (category) + stories exist | absent | 0033 D8 | #808 #887 (ACTINV-094) | n/a |
+| io | `Inet` socket options (`SocketOption`, `SO.ReceiveBufferSize` etc.), `SoJavaFactories` | io/Inet.scala:24 | TcpConnectionSpec.scala:46 (36 tests, options cases) | exc-rec (category) + story | absent | 0033 D8 | #985 | n/a |
+| io | `Tcp` messages: `Bind/Unbind/Connect/Register/Write/Close/ConfirmedClose/Abort/ResumeWriting/SuspendReading/ResumeReading/Received/Connected/CommandFailed/Bound/Unbound/ConnectionClosed/NoAck` | io/Tcp.scala:50,133,161,187,195-600 | TcpIntegrationSpec.scala:30; TcpListenerSpec.scala:32 (8 tests); TcpConnectionSpec.scala:46 | exc-rec (category) + stories | absent | 0033 D8 | #921 #922 #952 #972 #984 #996 #995 (ACTINV-095), GOV #1069 | n/a |
+| io | `Tcp` file writes and accept throttling: `WriteFile`, `WritePath`, `CompoundWrite`, `ResumeAccepting` | io/Tcp.scala:373,388,401,449 | TcpConnectionSpec.scala:46 (file write cases) | exc-prop | absent | 0033 D8 | GOV #1088 | n/a |
+| io | `TcpExt`, `TcpSO`, `TcpMessage` (Java factory) | io/Tcp.scala:606,672,702 | TcpIntegrationSpec.scala:30 | exc-rec (category) | absent | 0033 D8 | #921 | n/a |
+| io | `Udp` / `UdpMessage` / `UdpSO` (unconnected) | io/Udp.scala:44,230,257,354 | UdpIntegrationSpec.scala:26 (7 tests) | exc-rec (category) + stories | absent | 0033 D8 | #923 #966 (ACTINV-096), GOV #1070 | n/a |
+| io | `UdpConnected` / `UdpConnectedMessage` | io/UdpConnected.scala:43,170,194 | UdpConnectedIntegrationSpec.scala:29 (7 tests) | exc-rec (category) + story | absent | 0033 D8 | #973, GOV #1071 | n/a |
+| io | UDP `SimpleSender` (`UdpMessage.SimpleSender`) | io/Udp.scala:138 (`SimpleSender`), io/UdpSender.scala:30 (INTERNAL) | UdpIntegrationSpec.scala:26 | exc-prop | absent | 0033 D8 | GOV #1088 | n/a |
+| io | `Dns` extension: `resolve`, `cached`, `Dns.Resolved`, `DnsExt`, `DnsProvider`, `IpVersionSelector` | io/Dns.scala:44,76,162,257; DnsProvider.scala:27 | InetAddressDnsResolverSpec.scala:26 (12 tests); SimpleDnsCacheSpec.scala:31 | uncl pending GOV #1072 (D8 category may or may not apply) | absent | 0033 D8 (category) | #924 #953 (ACTINV-097), GOV #1072 | n/a |
+| io | `InetAddressDnsProvider`, `InetAddressDnsResolver`, `SimpleDnsCache`, `SimpleDnsManager` | io/InetAddressDnsProvider.scala:25; InetAddressDnsResolver.scala:49; SimpleDnsCache.scala:38; SimpleDnsManager.scala:25 | InetAddressDnsResolverSpec.scala:26; SimpleDnsCacheSpec.scala:31 | uncl pending GOV #1072 (JDK `InetAddress` internals) | absent | none | #953 #924 | n/a |
+| io | Async DNS: `DnsProtocol`, `ResourceRecord` family (`ARecord`, `AAAARecord`, `CNameRecord`, `SRVRecord`), `RecordType`, `RecordClass`, `CachePolicy` | io/dns/DnsProtocol.scala:38; DnsResourceRecords.scala:34-178; RecordType.scala:21; RecordClass.scala:16; CachePolicy.scala:22 | io/dns/internal/MessageSpec.scala:23; AsyncDnsResolverSpec.scala:33 (16 tests); AsyncDnsResolverIntegrationSpec.scala:41 (15 tests, docker BIND) | uncl pending GOV #1072 | absent | none | #974 #953 | n/a |
+| io | Async DNS internals (INTERNAL): `AsyncDnsManager`, `AsyncDnsResolver`, `DnsClient`, `TcpDnsClient`, `Message`, `DomainName`, `Question`, `ResolvConfParser`, `DnsSettings`, `IdGenerator` | io/dns/internal/*.scala (see file list); io/dns/DnsSettings.scala:58; IdGenerator.scala:33 | AsyncDnsManagerSpec.scala:32; DnsClientSpec.scala:27; TcpDnsClientSpec.scala:28; DomainNameSpec.scala:26; ResolvConfParserSpec.scala:19; DnsSettingsSpec.scala:26; IdGeneratorSpec.scala:22; NameserverAddressParserSpec.scala:21 | uncl pending GOV #1072 | absent | none | #974 | n/a |
+| io | `BufferPool` (public trait) / `DirectByteBufferPool` (INTERNAL) | io/DirectByteBufferPool.scala:20,38 | CapacityLimitSpec.scala:22 | exc-rec (category) | absent | 0033 D8 | none | n/a |
+| io | `SelectionHandlerSettings` (public abstract class), `SelectionHandler` (INTERNAL NIO selector) | io/SelectionHandler.scala:39,313 | TcpListenerSpec.scala:32 | exc-rec (category) | absent | 0033 D8 | none | n/a |
+| io | `TcpManager`, `TcpListener`, `TcpConnection`, `TcpIncomingConnection`, `TcpOutgoingConnection`, `UdpManager`, `UdpListener`, `UdpSender`, `UdpConnection`, `UdpConnectedManager`, `WithUdpSend` (INTERNAL) | io/Tcp*.scala, io/Udp*.scala | TcpConnectionSpec.scala:46; TcpListenerSpec.scala:32 | exc-rec (category) | absent | 0033 D8 | #921-#923 | n/a |
+| io | `UnsynchronizedByteArrayInputStream`, `ByteBufferCleaner` (Java) | java/org/apache/pekko/io/UnsynchronizedByteArrayInputStream.java; ByteBufferCleaner.java | io/UnsynchronizedByteArrayInputStreamSpec.scala:28; io/ByteBufferCleanerSpec.scala:25 | uncl (JVM) | absent | none | none | n/a |
+
+### 2.11 Package `japi` (+ `japi.function`, `japi.pf`, Java sources, boilerplate)
+
+No accepted record excludes any file in this package. Dossier J-01 proposes exclusion; ADR 0033 D13 only says "documented JVM-only APIs". Decision stories nearby: #802 (SYS-15 construction mapping / Java, Scala reflection, DSL boundaries, ACTINV-100), #1126 (SYS-26 AbstractActor and Java overload boundary as java-api, `status:ready`). goPekko: absent.
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| japi | `Function`, `Function2`, `Procedure`, `Effect`, `Predicate`, `Creator`, `Pair`, `Option`/`Util` helpers | japi/JavaAPI.scala:36,48,60,72,84,95,111 | japi/JavaAPITestBase.java (grep) | uncl | absent | none | #802 #1126 | n/a |
+| japi | `japi.function` (`Function`, `Function2`, `Procedure`, `Effect`, `Predicate`, `Creator`; generated `Functions` / `Tuples` from boilerplate) | japi/function/Function.scala:28-101; boilerplate/org/apache/pekko/japi/function/Functions.scala.template; boilerplate/.../japi/tuple/Tuples.scala.template | none found | uncl | absent | none | #1126 | n/a |
+| japi | `Throwables` (fatal/non-fatal helpers) | japi/Throwables.scala:39 | japi/ThrowablesTest.java | uncl | absent | none | none | n/a |
+| japi | `japi.pf` builders: `ReceiveBuilder`, `UnitPFBuilder`, `PFBuilder`, `Match`, `UnitMatch`, `FI`, `DeciderBuilder`, `FSMStateFunctionBuilder`, `FSMTransitionHandlerBuilder`, `FSMStopBuilder`, `AbstractMatch`, `AbstractPFBuilder`; `CaseStatements` | java/org/apache/pekko/japi/pf/*.java (ReceiveBuilder.java:1-297 etc.); japi/pf/CaseStatements.scala:20,25,33 | japi/pf/PFBuilderTest.java; japi/pf/ReceiveBuilderTest.java; japi/MatchBuilderTest.java | uncl | absent | none | #1126 | n/a |
+| japi | `JAPI` | java/org/apache/pekko/japi/JAPI.java | none found | uncl | absent | none | none | n/a |
+| java | Annotations `ApiMayChange`, `DoNotInherit`, `InternalApi`, `InternalStableApi` | java/org/apache/pekko/annotation/*.java | none found | uncl (documentation annotations) | n/a | none | none | n/a |
+
+### 2.12 `reference.conf` key groups (`resources/reference.conf`, 1,443 lines)
+
+goPekko replaces HOCON with typed `Config` (`system.go:69`: `Name`, `Throughput`, `GuardianStrategy`, `Logger`) and options (`WithMailboxCapacity`). GOV #1074 (GOV-25, `status:ready`) proposes the classification of classic keys; it is not decided. ADR 0033 "Observable differences": "typed Go options instead of HOCON" (a consequence, not a per-key classification).
+
+| Area | Key group | reference.conf | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| conf | `pekko.home`, `loggers`, `logging-filter`, `loggers-dispatcher`, `logger-startup-timeout`, `loglevel`, `stdout-loglevel`, `log-config-on-start` | :15-50 | LoggerSpec.scala:184-242; ConfigSpec.scala:30 | uncl | `Config.Logger` only | 0033 D11 | #1074 #1079 | n/a |
+| conf | `log-dead-letters`, `log-dead-letters-during-shutdown`, `log-dead-letters-suspend-duration` | :58-68 | DeadLetterSuspensionSpec.scala:70 | inc | absent | none | #907 #940 | pend-det |
+| conf | `library-extensions`, `extensions` | :78-83 | ExtensionSpec.scala:122-153 | inc (decision) | absent | none | GOV #1080 #798 | pend-det |
+| conf | `daemonic`, `jvm-exit-on-fatal-error`, `jvm-shutdown-hooks`, `fail-mixed-versions`, `java-flight-recorder` | :86-110 | ConfigSpec.scala:30; PekkoVersionSpec.scala | exc-prop | absent | none | #803 | n/a |
+| conf | `actor.provider`, `guardian-supervisor-strategy`, `creation-timeout`, `serialize-messages`, `serialize-creators`, `no-serialization-verification-needed-class-prefix`, `unstarted-push-timeout`, `actor.typed.timeout` | :118-150 | ActorSystemSpec.scala; ProviderSelectionSpec.scala:38-61; ActorConfigurationVerificationSpec.scala:27 | uncl (`GuardianStrategy` is the Go equivalent of one key) | `GuardianStrategy guardian.go:41` | 0017 | #1074 #1081 | n/a |
+| conf | `actor.router.type-mapping`, `actor.deployment` | :155-366 | DeployerSpec.scala:93-184; ConfiguredLocalRoutingSpec.scala:35 | uncl | absent | none | #1074 #1110 | n/a |
+| conf | `default-dispatcher`, `internal-dispatcher`, `default-blocking-io-dispatcher`, `pinned-dispatcher` | :366-630, :934 | DispatchersSpec.scala:155-177; ActorSystemDispatcherSpec.scala:27 | inc (throughput only is implemented) | `Config.Throughput system.go:77` | none | #792 #835 #868 #869 GOV #1040 | pend-det |
+| conf | `default-mailbox`, `mailbox` (requirements, named mailboxes) | :631-735 | MailboxConfigSpec.scala:42; ActorMailboxSpec.scala:255-283 | inc | `WithMailboxCapacity spawn.go:56` | 0030 | #829 #789 GOV #1041 | pend-det |
+| conf | `actor.debug` (`receive`, `autoreceive`, `lifecycle`, `fsm`, `event-stream`, `unhandled`, `router-misconfiguration`) | :736-777 | LoggingReceiveSpec.scala:74-164 | inc (decision) | absent | none | GOV #1078 | pend-det |
+| conf | `allow-java-serialization`, `serialization-max-nesting-depth`, `warn-about-java-serializer-usage`, `warn-on-no-serialization-verification`, `serializers`, `serialization-bindings`, `serialization-identifiers`, `pekko.serialization.max-decompressed-size`, `serialization.protobuf` | :778-883 | SerializeSpec.scala:163; DecompressionSpec.scala:29; DisabledJavaSerializerWarningSpec.scala:24 | uncl per key (registry and manifests are ADR 0021; the HOCON keys themselves are not classified) | module `pekko-serialization` | 0021, 0033 D8 | #806 #807 #851 #884 | pend-det |
+| conf | `scheduler` (`tick-duration`, `ticks-per-wheel`, `implementation`, `shutdown-timeout`, `error-on-tick-duration-verification-failed`) | :886-927 | SchedulerSpec.scala:36-178 | inc (decision; wheel parameters are JVM implementation) | absent | none | #776 #1131 | pend-det |
+| conf | `io.tcp`, `io.udp`, `io.udp-connected`, `io.dns` | :930-1243 | TcpConnectionSpec.scala:46; DnsSettingsSpec.scala:26 | exc-rec (category, D8) | absent | 0033 D8 | #985 #924 | n/a |
+| conf | `coordinated-shutdown` (`default-phase-timeout`, `terminate-actor-system`, `exit-jvm`, `exit-code`, `run-by-jvm-shutdown-hook`, `run-by-actor-system-terminate`, `reason-overrides`, `phases`: includes cluster phases `before-cluster-shutdown`, `cluster-*`) | :1245-1405 | CoordinatedShutdownSpec.scala:71-238 | inc for local phases (#1120 built-in default phase set); cluster phases follow ADR 0033 "Out of scope: cluster" | absent | 0033 (cluster out) | #1120 #1121 #1119 #1124 #800 | pend-det |
+| conf | `circuit-breaker.default` (and per-id breakers) | :1408-1443 | CircuitBreakerSpec.scala:29; (registry) none found | inc | absent | none | #943 | pend-det |
+
+### 2.13 Classic `testkit` (what ADR 0033 says)
+
+- ADR 0033 Module section lists `actor-testkit-typed` (`build.sbt:579`) and `actor-typed-tests` (`build.sbt:584`) as test infrastructure and nothing else.
+- D10 (accepted): "The testkit subset is `TestProbe`, `BehaviorTestKit`/`TestInbox`, `ActorTestKit` and manual time. Tools tied to JUnit, logback and JVM-specific APIs are excluded." These are the Typed testkit names; D10 does not name the classic `upstream/pekko/testkit`.
+- The ADR does not classify classic `PekkoSpec`, classic `TestProbe`, `ImplicitSender`, `EventFilter`, `TestActorRef`, `CallingThreadDispatcher`. Dossier K-08 (not an accepted decision) says "OD; only what ported specs need". One actor-module spec file, `actor-tests/.../testkit/CallingThreadDispatcherModelSpec.scala:26`, depends on the classic `CallingThreadDispatcher`.
+- Stories: Typed testkit epic #1019 (TKT-01..20: #1135-#1154) and GOV #1085 (TestKitSettings and LoggingTestKit), GOV #1076 (SerializationTestKit). None cites the classic testkit. Scope class of classic testkit: `unclassified`.
+
+### 2.14 Addenda (rows found after the package tables were written)
+
+| Area | Capability | Pekko source | Specs | Scope | goPekko | ADR | Stories | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| actor | `ActorRefProvider` (`@DoNotInherit`), `LocalActorRefProvider` (INTERNAL), `rootPath`, `deadLetters`, `guardian`, `resolveActorRef` | ActorRefProvider.scala:40,385 | LocalActorRefProviderSpec.scala:28 (14 tests: URL-encoded child, messages not acted upon, concurrent creation of one address) | uncl | adapted into `System` (`system.go:93`), no provider seam | none | #894 #1092 touch reference resolution | n/a |
+| actor | `Actor` companion: `emptyBehavior`, `ignoringBehavior`, `noSender`, `Receive` alias | Actor.scala:384 | HotSwapSpec.scala:25 (uses `emptyBehavior`) | uncl | absent | none | none | n/a |
+
+## 3. Gap lists
+
+### (a) `included-no-story` (ADR 0033 puts them in scope, an `ACTINV` row exists, no open story)
+
+These rows are implemented in goPekko and the epic #746 table marks them "Retained existing implementation and scoped evidence" with the text "no duplicate implementation is requested. Evidence obligations remain explicit where a story is listed", but no story is listed for them. Open question per row: what evidence path (D13 differential scenario or alternative evidence) closes it; #1034 (JDG-04) registers oracle availability but I did not read it.
+
+- ACTINV-001 named factory-based actor creation (`actorOf`, row 2.2).
+- ACTINV-008 hierarchy and recursive stop (children container, rows 2.2/2.3).
+- ACTINV-010 serial FIFO tell (ActorCell processing, `Dispatch`, row 2.2/2.3).
+- ACTINV-037 lifecycle hooks (`preStart`/`postStop`/`preRestart`/`postRestart`).
+- ACTINV-038 built-in supervision directives (`OneForOne`/`AllForOne`).
+- ACTINV-048 local deathwatch (basic watch/unwatch/Terminated).
+- ACTINV-053 guardian hierarchy.
+- ACTINV-055 unbounded FIFO mailbox.
+- ACTINV-085 minimal System termination.
+- ACTINV-091 serializer registry and manifests (module `pekko-serialization`, ADR 0021; module not in my snapshot).
+- ACTINV-056 (zero-timeout bounded mailbox) is retained but has #791 (traceability). Not a gap.
+- Rows whose Scope reads `inc-ns` but that are mixed (implemented base + open stories for extensions) are not gaps: 2.2 sender, DeadLetter, ActorSystem; 2.5 EventStream; 2.6 Ask; 2.8 Serializer.
+
+### (b) `unclassified` (no ADR, story or recorded exclusion mentions it)
+
+Grouped; each is a Pekko public symbol or file with no accepted record and no story that names it. Open question for all: is it a "local public capability" under ADR 0033 D8 or a "documented JVM-only API" under D13? Evidence missing: an accepted record that enumerates it.
+
+- Top-level (5 rows, 2.1): `Done`, `NotUsed`, `PekkoException`/`ConfigurationException`, `PekkoVersion`, `Main`. (Dossier T-00 proposes X; not an accepted record.)
+- `actor`: `LocalActorRef`/`RepointableActorRef`/`UnstartedCell`; `IndirectActorProducer`; `Deploy`/`Scope`/`Deployer`; `SupervisorStrategyConfigurator`/`DefaultSupervisorStrategy`/`StoppingSupervisorStrategy`; `LightArrayRevolverScheduler`; `AbstractFSM`/`AbstractLoggingFSM`/`AbstractFSMWithStash`; `BootstrapSetup`/`ProviderSelection`/`ActorSystemSetup`; `ClassicActorSystemProvider`/`ClassicActorContextProvider`; `FunctionRef`; `Nobody`/`EmptyLocalActorRef`/`VirtualPathContainer`/`SerializedActorRef`; `ActorRefProvider`; `Actor` companion behaviors.
+- `actor.setup`: `ActorSystemSetup`.
+- `dispatch`: `PinnedDispatcher`; `ThreadPoolConfig` family; `AffinityPool`; `BatchingExecutor`/`CachingConfig`; `ExecutionContexts`/`Futures`/`CompletionStages`; `SystemMessage` family; Java `AbstractNodeQueue`/`AbstractBoundedNodeQueue`/`Unsafe` (7 rows).
+- `event`: `AddressTerminatedTopic`; `LoggingAdapter`/`BusLogging`/`MarkerLoggingAdapter`/`LogSource`; default/stdout loggers; `LoggerMailbox`; `JavaLogger` (JUL); Java `event.japi` buses (6 rows).
+- `pattern`: `CircuitBreakerTelemetry`; `Patterns`/`PatternsCS` Java facades; Java `AbstractPromiseActorRef`/`AbstractCircuitBreaker`.
+- `serialization`: `JavaSerializer`/`DisabledJavaSerializer`/`ByteArraySerializer`/`NullSerializer`; `SerializationSetup`; `WireConfig`; per-key HOCON.
+- `util` (15 rows): `Timeout`, `Helpers`, `Index`/`ConcurrentMultiMap`, `Subclassification`/`SubclassifiedIndex`/`WildcardIndex`, `MessageBuffer`, `NanoTimeTokenBucket`, `BoundedBlockingQueue`, `TypedMultiMap`, `Version`, `WallClock`, `HashCode`, `UUIDComparator`, `ReentrantGuard`/`Switch`, JVM reflection utilities (`BoxedType`, `LineNumbers`, `ManifestInfo`, `Reflect`, `Unsafe`), Scala/JDK converters and compat shims.
+- `io` (5 rows): `Dns`/`DnsExt`/`DnsProvider`/`IpVersionSelector`, `InetAddressDns*`/`SimpleDns*`, async DNS records and internals (all pending GOV #1072); Java `UnsynchronizedByteArrayInputStream`/`ByteBufferCleaner`.
+- `japi` (6 rows): every file in `japi`, `japi.function`, `japi.pf`, Java `japi/pf/*.java`, `boilerplate` templates, `annotation/*.java`. Related decision stories #802, #1126 do not name `japi` files.
+- `reference.conf` (4 rows): logging keys, actor provider/guardian/creation keys, router type-mapping and deployment keys, serialization keys (per key). GOV #1074 proposes the classification.
+- Classic `testkit` (section 2.13): not named by ADR 0033 D10 or any story.
+
+### (c) Stories without an inventory row, and inventory rows without a story
+
+- ACTINV rows without a story: the ten retained rows listed in (a). All other ACTINV-001..126 rows in the epic table carry at least one story link or an explicit retained disposition.
+- Classic-area stories (IDN, MSG, BHV, ASK, TIM, SUP, DTH, MBX, DSP, EVT, PAT, RTE, FSM, SYS, SER, IO; 253 issues in `issues_all2.json`): 200 cite an `ACTINV-nnn` inventory row; 13 cite "gap g2/g.." (digest), 10 cite "plan row ..", 5 cite other splits ("split of #863", "plan NEW-10", "plan split from row C-05 and A-04"); 25 have no `Inventory row` line at all: #1024, #1053, #1054, #1056, #1057, #1058, #1059, #1060, #1061, #1089, #1090, #1091, #1092, #1100, #1101, #1102, #1103, #1104, #1105, #1106, #1107, #1108, #1109, #1110, #1111.
+- 59 of the 253 are not in the epic #746 ACTINV disposition table (the table predates them); six of those do cite ACTINV rows: #1122, #1123, #1124, #1125, #1126, #1127.
+- Stories whose capability has no Pekko `actor` source row (Go adaptation or test support, so no row in my enumeration): #1052 (kit-logger fake, ADR 0033 D11), #1129 (injectable clock). Open question: where the inventory records Go-only capabilities (dossier C-29 covers `OrdinaryFailure`, `ResumeWith`, `Port`, but not these two).
+
+### (d) Rows whose story or record contradicts what I found
