@@ -1,0 +1,6 @@
+step	timestamp	wall_clock_min	tokens	subagents	model
+act-020-permission-probe	2026-10-14T15:14Z	unknown	42082	1	claude-haiku-5-5
+act-020-design-review	2026-10-14T15:18Z	2.9	48400	1	claude-opus-5-5
+act-020-implement	2026-10-14T15:24Z	2.1	106779	1	claude-sonnet-5-5
+act-020-review-architect	2026-10-14T15:36Z	1.8	56324	1	claude-opus-5-5
+act-020-review-second	2026-10-14T15:34Z	1.0	52323	1	claude-sonnet-5-5
