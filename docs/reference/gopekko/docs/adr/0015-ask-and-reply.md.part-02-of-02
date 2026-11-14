@@ -1,0 +1,86 @@
+|---|---|---|---|---|---|
+| AK01 | normal reply | P | `AskSpec.scala:34` | D1 | S03, S17 / G8.a |
+| AK02 | concurrent asks to one actor, no cross-talk | P | `AS:711-744` | D8 | new |
+| AK03 | immediate reply | P | `AskSpec.scala:34` | D4 | new |
+| AK04 | duplicate reply becomes a dead letter | P | `PromiseRefSpec.scala:54-64` | D8 | new |
+| AK05 | timeout without reply | P | `AS:725-738` | D4, D9 | S04 / G8.b |
+| AK06 | late reply becomes a dead letter | P | `AS:625-627`; typed `AskSpec.scala:132, 164` | D8 | S15 / I5.a |
+| AK07 | completed termination: error plus dead-lettered request | P (adapted: pre-terminal endpoint) | `AskSpec.scala:41, 50`; typed `:71, :109` | D5 | S12 / I4.a |
+| AK08 | expired deadline before send: nothing sent, `build` not called | G | none (Pekko: `AskSpec.scala:72, 83` is a different case) | D5 | new |
+| AK09 | race reply versus timeout: exactly one terminal result | P | `AS:725-738` | D4 | new |
+| AK10 | no endpoint, timer or registry entry retained after any outcome | P | `AS:739-742`; typed `AskSpec.scala:164` | D4, D8 | new |
+| AK11 | business error as payload; `Ask` error is nil | G | none (Pekko: `AS:622`) | D3 | done in #441 (`TestAskAPI_E8_BusinessErrorAsPayload`); Go convention, no Pekko parity |
+| AK12 | `ctx` canceled before send, with and without a deadline: `ErrAskCanceled`, `errors.Is(err, context.Canceled)`, nothing sent, `build` not called | G | none | D5 | new |
+| AK13 | `ctx` canceled during the wait | G | none | D4 | new |
+| AK14 | three-way race reply / deadline / cancel: exactly one terminal result | G | none | D4 | new |
+| AK15 | live `ctx` without a deadline: `ErrAskNoDeadline`, nothing sent, `build` not called | G | none | D2 | new |
+| AK16 | the target still processes after timeout or cancel | G | no cancel mechanism in `AS` **[Unverified]** by test | D4 | new |
+| AK17 | `System` shutdown with a pending Ask | Go test | n/a | D7 | resolved by U10 as "not guaranteed": the Ask ends by its deadline (`TestShutdownDoesNotCancelAPendingAsk`) |
+| AK18 | target stops during the wait: the Ask ends by deadline | G | by reading `AS`/`TA` **[Unverified]** by test | D5 | new |
+| AK19a | (concurrent mode, injected clock) `Receive` blocked, Stop accepted, Ask started: request dead-lettered, no `ErrRecipientTerminated`, Ask pending, then resolved by the deadline (`ErrAskTimeout`) | G | none | D5, R1 | new |
+| AK19b | (concurrent mode) same setup, resolved by cancellation (`ErrAskCanceled`) | G | none | D5, R1 | new |
+| AK20 | invalid target (nil, typed nil, non-native, unregistered cell): `ErrInvalidHandle`, nothing sent | G | none | D6 | new |
+| AK22 | check order: invalid target wins over a canceled `ctx`; a canceled `ctx` without a deadline wins over `ErrAskNoDeadline`; `ErrAskNoDeadline` wins over completed termination | G | none | D5 | new |
+| AK21 | target of another `System`: its clock and dead letters are used; the endpoint belongs to it | G | none | D6 | new |
+| AK23 | `Watch(askRef)`, `WatchWith(askRef, m)` and `Unwatch(askRef)` from a live actor stop the watcher with `ErrInvalidHandle`; `System.Stop` and `Context.Stop` on it are no-ops; `System.Done(askRef)` is `ErrUnknownHandle`; the endpoint is not registered | G | none | D7, D8 | new |
+
+## Scenario determinism
+
+- Controlled mode: an injected `executor` and an injected `clock`; the test fires the deadline explicitly. No sleeps as
+  synchronization. Scenarios that must hold a `Receive` blocked (AK16, AK19a, AK19b) use concurrent mode instead, with
+  only the clock injected (see below).
+- Races (AK09, AK14): a barrier releases the competing actions (reply `Tell`, clock fire, `cancel()`) together. Assert
+  exactly one terminal result, and that the losing reply produced one dead letter. Negative assertions use a completion
+  witness (`docs/judge.md:110-116`).
+- Dead-letter proof: a subscriber barrier plus the `DeadLettersPublished` counter, as in S19 and S21.
+- Resource retention (AK10): the fake clock reports zero pending timers; the endpoint is absent from the `System`
+  registry; goroutine count is stable under `-race` over N=300 repetitions.
+- AK16: the target's `Receive` blocks on a gate and the test observes the message was processed after releasing it.
+- AK19a and AK19b (R1), in this order, with no sleeps. They need **concurrent execution** of the blocked `Receive`: a
+  blocked `Receive` cannot run on the single thread of a controlled executor, because it would hold that thread and the
+  test could never reach the Stop, the Ask or the clock. So the target runs on the default goroutine executor (concurrent
+  mode, as S19's `entered`/`release` gate does), while the **clock** is still injected so the deadline fires without
+  sleeping. These two scenarios are therefore concurrent-mode only; they are not reproducible step by step in controlled
+  mode unless the controlled executor dispatches that one activation on its own goroutine, which this ADR does not
+  design:
+  1. The target's `Receive` blocks on a gate (`entered`/`release`, as in S19). The test waits on `entered`, which proves the
+     activation is running and the cell is neither stopped nor closed.
+  2. `System.Stop(target)` is accepted. `stopRequested` is set; `Receive` has not returned, so `PostStop` has not run and
+     `done` is open. Assert via `System.Done(target)` that the channel is still open (a non-blocking receive).
+  3. `Ask` runs in its own goroutine. The test needs a witness that the request was sent: the dead letter. A subscriber
+     barrier (as in S19 and S21) observes exactly one `DeadLetter{Msg: <request>, To: target.ID()}`. Observing it proves
+     step 5 of D5 ran and `Tell` rejected the request.
+  4. While the Ask is still pending, assert that `Ask` has not returned (completion channel open) and that no
+     `ErrRecipientTerminated` was produced.
+  5. Resolve it, with a separate scenario per path: **AK19a** fires the injected clock to the deadline and expects
+     `ErrAskTimeout`; **AK19b** calls `cancel()` and expects `ErrAskCanceled`.
+  6. Only now release the gate. The target terminates; assert `done` closes and that the Ask's result did not change.
+     The reply endpoint never received a message, so there is no reply dead letter, only the one request dead letter
+     (counted with `DeadLettersPublished`).
+  Negative assertions (no `ErrRecipientTerminated`, no second dead letter) are evaluated at quiescence after the
+  release, per `docs/judge.md:110-116`.
+- AK22 is an in-package table test over the check order, one row per adjacent pair of checks.
+- AK20 and AK21 are in-package tests: they build a `*ref[T]` over a cell that is not registered, and a ref from a second
+  `System`.
+
+## Increment sequence
+
+1. **I-0 (this document).** Q1 to Q6, R1, R2 and the check order are owner decisions. No code.
+2. **I-1 clock seam.** An unexported `clock` beside `executor`, with a production default. No behavior change.
+3. **I-2 core Ask.** `ask.go`, the endpoint, target validation (D6), `ErrAskTimeout`, `ErrAskCanceled`,
+   `ErrAskNoDeadline`, and `ErrInvalidHandle` under the D3 rule (it exists on `develop`: reuse it and neutralize its text
+   in the same commit). Scenarios AK01, AK02, AK03, AK05, AK08, AK12, AK13, AK15, AK20, AK21, AK22, AK23, plus Go judge
+   scenarios.
+4. **I-3 duplicates, late replies and races.** AK04, AK06, AK09, AK14, AK16, AK18. Pekko harness oracles where S04 or S15
+   do not cover them.
+5. **I-4 terminated target.** AK07, AK19a and AK19b (`ErrRecipientTerminated` only for completed termination), reading
+   only the existing cell state; a mutation for the dead-letter path and one that treats an accepted Stop as terminated
+   (AK19 must catch it).
+6. **I-5 resource cleanup.** AK10 plus a mutation (skip the timer stop, or leak the endpoint).
+7. **I-6 business error as payload.** AK11 as a convention test; no new API. Done in #441, together with the export of `Ask` (D1).
+8. **Blocked or deferred:** `AskFrom` (deferred by scope; Watch has landed),
+   `StatusReply[R]` and `AskStatus`, an origin identity for foreign-ref rejection, cross-`System` and remote.
+9. **Last:** benchmarks, then `pekko-examples`.
+
+Each increment registers its scenarios in the milestone table and `judge/go-scope.json`, adds the mutations that
+`scripts/check-judge-matrix.py` requires, and updates the module README (implemented versus planned).
