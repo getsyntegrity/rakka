@@ -1,0 +1,196 @@
+  // EV9: MessageBuffer.drop.
+  def ev9(sys: ActorSystem): Unit = {
+    val es = sys.eventStream
+    val dl = coll(sys, "dl"); es.subscribe(dl, classOf[DeadLetter])
+    val dr = coll(sys, "dr"); es.subscribe(dr, classOf[Dropped])
+    val all = coll(sys, "all"); es.subscribe(all, classOf[AllDeadLetters])
+    val snd = coll(sys, "snd")
+    val buf = new MessageBufferMap[String]
+    buf.append("id1", "m-with-sender", snd)
+    buf.append("id1", "m-no-sender", ActorRef.noSender)
+    log(s"-- buffer: id1 present=${buf.contains("id1")} entries=${buf.getOrEmpty("id1").size}")
+    attempt("drop(id1, reason-x, deadLetters)")(buf.drop("id1", "reason-x", sys.deadLetters))
+    Seq(dl, dr, all).foreach(a => Fences.fence(a, "f-" + a.path.name))
+    log(s"-- deadLetters=${sys.deadLetters} snd=$snd; buffer contains id1 after drop: ${buf.contains("id1")}")
+    attempt("drop(unknown, reason-y, deadLetters) on an id with no entries")(buf.drop("nope", "reason-y", sys.deadLetters))
+  }
+
+  // EV1t: EV1's subclass-unsubscribe quirk with interfaces. I; J extends I; C implements J.
+  // v1 (EV1t): a on I, unsubscribe J. v2 (EV1tv2): a on J, unsubscribe I. v3 (EV1tv3): a on I and J, unsubscribe J.
+  // After the first unsubscribe `then` is unsubscribed too, and a last publish shows what remains.
+  def ev1t(sys: ActorSystem, subscribeTo: Seq[Class[_]], unsubscribeFrom: Class[_], then: Option[Class[_]]): Unit = {
+    val es = new EventStream(sys, false)
+    val a = coll(sys, "a")
+    subscribeTo.foreach(c => attempt(s"subscribe(a, ${c.getSimpleName})")(es.subscribe(a, c)))
+    es.publish(new C("c1")); Fences.fence(a, "t1")
+    log("-- C(c1) published with a subscribed (control)")
+    attempt(s"unsubscribe(a, ${unsubscribeFrom.getSimpleName}) first")(es.unsubscribe(a, unsubscribeFrom))
+    es.publish(new C("c2")); Fences.fence(a, "t2")
+    log("-- C(c2) published after the first unsubscribe")
+    then.foreach(c => attempt(s"unsubscribe(a, ${c.getSimpleName}) second")(es.unsubscribe(a, c)))
+    es.publish(new C("c3")); Fences.fence(a, "t3")
+    log("-- C(c3) published after the second unsubscribe")
+  }
+
+  // EV10: unsubscribe while a publisher thread runs.
+  def ev10(sys: ActorSystem): Unit = {
+    val es = new EventStream(sys, false)
+    val s = sys.actorOf(Props(new Collector("s", quiet = true)), "s")
+    es.subscribe(s, classOf[Base])
+    val n = 20000; val started = new AtomicInteger(-1)
+    val t = new Thread(() => { for (i <- 0 until n) { started.set(i); es.publish(new Base(i.toString)) } })
+    t.start()
+    while (started.get < 1000) Thread.`yield`()
+    es.unsubscribe(s)
+    val sAfter = started.get
+    t.join(30000)
+    Fences.fence(s, "f")
+    val ids = Records.list("s").collect { case b: Base => b.id.toInt }
+    val prefix = ids == (0 until ids.size)
+    log(s"-- publisher started ids up to ${n - 1}; unsubscribe(s) returned when started=$sAfter")
+    log(s"-- delivered=${ids.size} maxId=${ids.maxOption.getOrElse(-1)} contiguousPrefixFrom0=$prefix maxId<=startedAtReturn=${ids.maxOption.getOrElse(-1) <= sAfter}")
+  }
+
+  // EV11: a DeadLetter that cannot be delivered to a subscriber of DeadLetter (bounded mailbox, capacity 1, push timeout 0).
+  // `s` (bounded) subscribes to `channel` and blocks in receive on its first message; `dl2` (unbounded) subscribes to DeadLetter.
+  // n messages go to a stopped actor (so n DeadLetters are published); then the gate opens. v2: n = 1; v3: channel = AllDeadLetters; v4: dl2 subscribes before s (the order of the subscribers of one publication is not fixed, EV3).
+  def ev11(sys: ActorSystem, n: Int, channel: Class[_], dl2First: Boolean = false): Unit = {
+    val es = sys.eventStream
+    val gate = new CountDownLatch(1); val entered = new CountDownLatch(1)
+    val s = sys.actorOf(Props(new Collector("s", Some(gate), Some(entered))).withMailbox("bounded-mb"), "s")
+    val dl2 = sys.actorOf(Props(new Collector("dl2", quiet = true)), "dl2")
+    if (dl2First) attempt("subscribe(dl2, DeadLetter)")(es.subscribe(dl2, classOf[DeadLetter]))
+    attempt(s"subscribe(s, ${channel.getSimpleName})")(es.subscribe(s, channel))
+    if (!dl2First) attempt("subscribe(dl2, DeadLetter)")(es.subscribe(dl2, classOf[DeadLetter]))
+    val victim = coll(sys, "victim")
+    val l = new CountDownLatch(1)
+    sys.actorOf(Props(new Actor { context.watch(victim); def receive = { case Terminated(_) => l.countDown() } }))
+    Thread.sleep(100)
+    victim ! PoisonPill; require(l.await(10, TimeUnit.SECONDS))
+    log("-- victim terminated; every message sent to it from now on is a dead letter")
+    for (i <- 1 to n) {
+      attempt(s"send m$i to the stopped victim")(victim ! new Base("m" + i))
+      if (i == 1) { require(entered.await(10, TimeUnit.SECONDS)); log("-- m1 reached s, which is blocked inside receive; mailbox empty, capacity 1") }
+    }
+    log(s"-- $n sends done")
+    Fences.fence(dl2, "fdl2")
+    def summary(name: String): Unit = {
+      val es = Records.list(name)
+      val nest = es.collect { case d: DeadLetter => nesting(d)._1 }
+      log(s"summary $name: received=${es.size} deadLetters=${nest.size} nested>=1:${nest.count(_ >= 1)} maxNested=${nest.maxOption.getOrElse(-1)} innermost=${es.collect { case d: DeadLetter => nesting(d)._2 }.distinct.mkString(",")}")
+    }
+    summary("dl2")
+    gate.countDown()
+    val deadline = System.nanoTime() + 10000000000L
+    while (Records.list("s").size < 2 && System.nanoTime() < deadline) Thread.sleep(5)
+    Thread.sleep(200)
+    Fences.fence(s, "fs")
+    summary("s")
+  }
+
+  // EV13 (U1b): x on C (C extends J extends I). J is not a node. unsubscribe(b, J) for a b that was never registered.
+  // v3 (EV13v3): J is already a node because y subscribed to J first. Publishes C(c1) before and C(c2) after the unsubscribe.
+  def ev13(sys: ActorSystem, jIsNode: Boolean): Unit = {
+    val es = new EventStream(sys, false)
+    val x = coll(sys, "x"); val b = coll(sys, "b"); val y = coll(sys, "y")
+    if (jIsNode) attempt("subscribe(y, J)")(es.subscribe(y, classOf[J]))
+    attempt("subscribe(x, C)")(es.subscribe(x, classOf[C]))
+    es.publish(new C("c1")); Seq(x, y).foreach(a => Fences.fence(a, "t1-" + a.path.name))
+    log("-- publish C(c1) before the unsubscribe (control)")
+    attempt("unsubscribe(b, J) b never registered")(es.unsubscribe(b, classOf[J]))
+    es.publish(new C("c2")); Seq(x, y).foreach(a => Fences.fence(a, "t2-" + a.path.name))
+    log("-- publish C(c2) after the unsubscribe")
+  }
+
+  // EV13v2 (U3b): a on I only; K is a trait unrelated to I; C2 extends I with K. unsubscribe(a, K).
+  // v4 (EV13v4): no control publish before the unsubscribe, so C2 has never been published (publish adds its class to the index, EventBus.scala:177-187).
+  def ev13v2(sys: ActorSystem, controlFirst: Boolean): Unit = {
+    val es = new EventStream(sys, false)
+    val a = coll(sys, "a")
+    attempt("subscribe(a, I)")(es.subscribe(a, classOf[I]))
+    if (controlFirst) {
+      es.publish(new C2("c1")); Fences.fence(a, "t1")
+      log("-- publish C2(c1) before the unsubscribe (control)")
+    }
+    attempt("unsubscribe(a, K) K unrelated to I")(es.unsubscribe(a, classOf[K]))
+    es.publish(new C2("c2")); Fences.fence(a, "t2")
+    log("-- publish C2(c2) after the unsubscribe")
+  }
+
+  // EV12 (#1056 D-4): subscribe / unsubscribe on sys.eventStream while the System is terminating and after it terminated.
+  // v1 (EV12): terminating = terminate() called and a CoordinatedShutdown task of phase before-service-unbind holds (the user guardian is presumably still alive; not logged).
+  // v2 (EV12v2): terminating = CoordinatedShutdown done and a user child blocks inside postStop (the user guardian is presumably stopping; not logged).
+  // The actors are system actors (children of the system guardian) so that they are not children of the user guardian. `rec` is a ref that records `!` synchronously.
+  def ev12(sys: ActorSystem, holdInPhase: Boolean): Unit = {
+    val es = sys.eventStream; val ext = sys.asInstanceOf[ExtendedActorSystem]
+    def sa(name: String): ActorRef = ext.systemActorOf(Props(new Collector(name)), name)
+    val dl = sa("dl"); val pre = sa("pre"); val late = sa("late"); val probe = sa("probe")
+    val victimA = sa("victimA"); val victimB = sa("victimB")
+    es.subscribe(dl, classOf[DeadLetter]); es.subscribe(pre, classOf[Base]); es.subscribe(victimA, classOf[Base])
+    val unsub = Await.result(sys.actorSelection("/system/eventStreamUnsubscriber-*").resolveOne(5.seconds), 6.seconds)
+    log(s"unsubscriber before terminate: ${unsub.path.name} terminated=${Peek.terminated(unsub)}")
+    val seen = new ConcurrentHashMap[String, CountDownLatch]()
+    seen.put("victimA", new CountDownLatch(1)); seen.put("victimB", new CountDownLatch(1))
+    ext.systemActorOf(Props(new Actor {
+      context.watch(victimA); context.watch(victimB); context.watch(unsub)
+      def receive = { case Terminated(x) => log(s"watcher saw Terminated(${x.path.name})"); Option(seen.get(x.path.name)).foreach(_.countDown()) }
+    }), "watcher")
+    val rec = new RecordingRef("rec", m => { Records.of("rec").add(m); log(s"rec recv $m") })(ext.provider)
+    es.publish(new Base("ctl")); Fences.fence(pre, "fctl")
+    log("-- control publish Base(ctl) before terminate(): pre received it")
+    val held = new CountDownLatch(1); val gate = new CountDownLatch(1)
+    if (holdInPhase)
+      CoordinatedShutdown(sys).addTask(CoordinatedShutdown.PhaseBeforeServiceUnbind, "hold") { () =>
+        Future { held.countDown(); gate.await(25, TimeUnit.SECONDS); Done }(scala.concurrent.ExecutionContext.global) }
+    else
+      sys.actorOf(Props(new Actor { def receive = { case _ => }; override def postStop(): Unit = { held.countDown(); gate.await(25, TimeUnit.SECONDS) } }), "blocker")
+    sys.terminate()
+    require(held.await(10, TimeUnit.SECONDS))
+    log(if (holdInPhase) "-- hold entered: the CoordinatedShutdown task of phase before-service-unbind is running" else "-- hold entered: the user child 'blocker' is inside postStop")
+    def state(tag: String, alive: Boolean): Unit = {
+      log(s"-- state $tag: whenTerminated.isCompleted=${sys.whenTerminated.isCompleted} unsubscriber terminated=${Peek.terminated(unsub)}")
+      if (alive) {
+        sys.actorSelection("/system/eventStreamUnsubscriber-*").tell(Identify(tag), probe)
+        val dl0 = System.nanoTime() + 2000000000L
+        while (!Records.list("probe").exists(_.toString.contains(tag)) && System.nanoTime() < dl0) Thread.sleep(10)
+        log(s"-- $tag identify of the unsubscriber: ${Records.list("probe").filter(_.toString.contains(tag)).mkString(",")}")
+        Records.list("probe").foreach(_ => ())
+      }
+      attempt(s"$tag subscribe(late, Base)")(es.subscribe(late, classOf[Base]))
+      attempt(s"$tag subscribe(rec, Base)")(es.subscribe(rec, classOf[Base]))
+      attempt(s"$tag publish Base(${tag}p1)")(es.publish(new Base(tag + "p1")))
+      if (alive) Fences.fence(late, tag + "f1")
+      log(s"-- $tag: rec received ${count(Records.list("rec"), tag + "p1")} of Base(${tag}p1)")
+      attempt(s"$tag unsubscribe(late, Base)")(es.unsubscribe(late, classOf[Base]))
+      attempt(s"$tag unsubscribe(rec, Base)")(es.unsubscribe(rec, classOf[Base]))
+      attempt(s"$tag unsubscribe(late) all channels")(es.unsubscribe(late))
+      attempt(s"$tag publish Base(${tag}p2)")(es.publish(new Base(tag + "p2")))
+      if (alive) Fences.fence(late, tag + "f2")
+      log(s"-- $tag: rec received ${count(Records.list("rec"), tag + "p2")} of Base(${tag}p2) after unsubscribe(rec, Base)")
+    }
+    state("terminating", alive = true)
+    attempt("terminating subscribe(victimB, Base)")(es.subscribe(victimB, classOf[Base]))
+    victimA ! PoisonPill; victimB ! PoisonPill
+    seen.values.forEach(l => require(l.await(10, TimeUnit.SECONDS)))
+    log("-- victimA (subscribed before terminate()) and victimB (subscribed while terminating) terminated")
+    for (k <- 1 to 20) { es.publish(new Base("w" + k)); Fences.fence(dl, "fw" + k) }
+    def deadFor(n: String) = Records.list("dl").count { case d: DeadLetter => d.recipient.path.name == n && d.message.toString.startsWith("Base(w"); case _ => false }
+    log(s"-- 20 publishes after the two terminated: dead letters for victimA=${deadFor("victimA")} victimB=${deadFor("victimB")}")
+    gate.countDown()
+    Await.result(sys.whenTerminated, 20.seconds)
+    log("-- whenTerminated completed")
+    state("terminated", alive = false)
+  }
+}
+
+}
+
+package org.apache.pekko.actor {
+  // Harness helpers that need pekko-private members: a ref that records `!` synchronously, and the isTerminated of a ref.
+  final class RecordingRef(name: String, sink: Any => Unit)(prov: ActorRefProvider) extends MinimalActorRef {
+    override val provider: ActorRefProvider = prov
+    override val path: ActorPath = RootActorPath(Address("pekko", "evs")) / "recording" / name
+    override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = sink(message)
+  }
+  object Peek { def terminated(r: ActorRef): Boolean = r.asInstanceOf[InternalActorRef].isTerminated }
+}
