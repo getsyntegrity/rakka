@@ -1,0 +1,360 @@
+Divergences and limits. A nil `Config.Logger` is **silent** (Pekko's default logger prints to the standard output). The whole log (the message and the Logger call) is protected, which is stricter than Pekko (it guards only the publish): a panic is absorbed and a `runtime.Goexit` of the Logger still applies the decision exactly once. The entries are not the diagnostic events, which stay a separate channel. A failed `PreRestart` hook (a panic, including one of the `PostStop` of the default hook) also writes one Error entry, `actor: PreRestart failed`, with the attributes `child` (the restarting child's ID), `error` (the hook failure, a `*PanicError`) and `cause` (the failure that caused the restart), as Pekko publishes a `PreRestartException` (`dungeon/FaultHandling.scala:106-107`). It depends only on `Config.Logger`: `Strategy.WithLogging(false)` does not silence it, a nil Logger writes nothing, a panic of the Logger is absorbed and a `runtime.Goexit` of the Logger still completes the restart once. A `runtime.Goexit` of the hook itself writes no hook entry: it fails the cell with `ErrGoexit`, which the strategy log reports. A failed `PostRestart` is an `*InitializationError` reported to the parent and logged by the strategy log, not by this entry. Not implemented: an overridable `logFailure` and user-defined strategies (#450), the `EventFilter` log assertions of the ported Pekko tests, and Typed. Tests: [`supervision_logging_internal_test.go`](actor/supervision_logging_internal_test.go) (L1 to L16), [`supervision_logging_prerestart_internal_test.go`](actor/supervision_logging_prerestart_internal_test.go) (P1 to P11, the hook entry) and [`supervision_logging_api_test.go`](actor/supervision_logging_api_test.go). Parity with Pekko is not claimed.
+
+### Termination of the System (U10, #192, #193)
+
+`System.Terminate()` accepts the stop of the `/user` guardian, exactly as `Stop` does, and returns; `System.WhenTerminated()` returns a channel that is closed once the root guardian finished, which is after every other actor ran its `PostStop`; `System.Shutdown(ctx)` calls `Terminate` and waits for that channel or for `ctx`.
+
+```mermaid
+flowchart LR
+  T[Terminate or Shutdown] --> U[/user and its tree stop]
+  U -->|Terminated| S[/system stops]
+  S -->|Terminated| R[root stops]
+  R --> W[WhenTerminated closes]
+```
+
+What it guarantees, as tested:
+- **Order, as relations and not a total order.** The root finalizes after `/user` and `/system`, and every parent after its descendants, whatever started the termination. When the termination starts at `/user` (`Terminate`, `Stop(/user)`, or the failure or escalation of `/user`) `/system` finalizes after `/user` and the root after `/system`. If a guardian was already stopping for another cause, only the first two relations are promised.
+- **Idempotent and safe from any goroutine.** Any number of `Terminate` or `Shutdown` calls stop each guardian once; `WhenTerminated` returns the same channel every time.
+- **Spawn.** Once the termination started, a top-level `Spawn` returns `ErrSystemStopping` (text `actor: system is stopping`), which also satisfies `errors.Is(err, ErrParentStopping)`; a `Spawn` from a `Context` keeps returning `ErrParentStopping`. A `Spawn` that won the race commits and is stopped.
+- **`Shutdown(ctx)`.** The context bounds only the wait. It always starts the termination; if the channel is closed it returns nil, also with a cancelled context (finalization has priority over cancellation); otherwise it returns `ctx.Err()` itself and does **not** claim the system terminated, and the termination goes on. A handler or hook is never interrupted, so `Shutdown` called from inside one can only end by `ctx`; use `Terminate` there.
+- **Executor.** `Terminate`, `WhenTerminated` and `Shutdown` start no goroutine of their own. The stop is carried out by the System's executor: a `System` built by `NewSystem` runs it on a new goroutine and `Terminate` returns after handing it over; under an inline executor (an internal test seam) `Terminate` runs the cascade, hooks included, in the caller, so a hook that does not return holds it, and `Shutdown`'s context cannot bound that call.
+
+What it does **not** do: it does not drain mailboxes (queued messages become dead letters), does not confirm journal writes, does not cancel pending Asks (they keep their own deadline or context, ADR 0015 D7; AK17 stays "not guaranteed"), does not cancel `PreStart`, handlers or `PostStop` (ADR 0008), and it is not `gracefulStop` of one actor or `CoordinatedShutdown` (no phases, no hooks, no `registerOnTermination`). Differences from Pekko `v1.7.1` (`terminate`, `whenTerminated`) are listed in `migration/stage-1/shutdown-u10/RULEBOOK.md` section 12; whole-system behavior of pending Asks and termination before the first activation of the guardians are *sin verificar* in the pinned Pekko tree. No parity is claimed. Tests: [`system_shutdown_internal_test.go`](actor/system_shutdown_internal_test.go) (SH1 to SH11) and [`system_shutdown_api_test.go`](actor/system_shutdown_api_test.go).
+
+## EventStream: registration, publication, unsubscription and termination (#836, #870, #905, #1056, [ADR 0038](../docs/adr/0038-event-stream-subscription-semantics.md), implemented)
+
+```go
+changed, err := actor.Subscribe[Event, Msg](sys, ref) // ref is an actor.Ref[Msg]
+```
+
+`Subscribe[E, M any](s *System, subscriber Ref[M]) (changed bool, err error)` registers `subscriber` for a **channel**, the Go type `E`.
+The channel matches an event whose dynamic type is `E`, or implements the interface `E`, or when `E` is `any` (ADR 0038 D2). A pointer type `*T` and its value type `T` are different channels (ADR 0038 D2). Registered
+means recorded in the System's index, so a later `Publish` reaches it. Source: [`eventstream.go`](actor/eventstream.go).
+
+| Rule | Behavior | Evidence |
+|---|---|---|
+| `changed` | `true` when the call added something; `false` when the pair was already registered or an existing registration already covers it | oracle [EV1](../docs/parity/oracles/eventstream-spec-2026-11-06.md) [001], [002] (true, then false; [003] is the receive); EV4 [007] (covered by an existing node: false); EV4f [002] (fresh stream, `any` then a new node: true) |
+| Nil subscriber | `ErrNilSubscriber` for an interface nil or a typed nil `Ref`, checked first, nothing registered | oracle EV2 [001] (the `subscribe` rejection; [002] and [003] are `unsubscribe`s); `TestSubscribeRejectsNil` |
+| Channel not accepted | `E` must be assignable to `M`, the Go equivalent of the contravariance of Typed `ActorRef[-T]` ([ADR 0038 Amendment (a)](../docs/adr/0038-event-stream-subscription-semantics.md)); otherwise `ErrChannelNotAccepted`. The check is at run time. A `Ref` whose message type does not accept `E` needs the adapter of #959 | `TestSubscribeRejectsUnacceptableChannel`, `TestSubscribeAcceptsAssignableChannels`; no Pekko analog (scope D-2) |
+| Several channels | one `Ref[M]` may be registered on every channel assignable to `M` | `TestSubscribeSeveralChannels` |
+| Identity | a subscriber is its `Handle.ID()`; any `Ref[M]` implementation is accepted, native or foreign (scope D-4) | `TestSubscribeConcurrentSamePairOneChange` uses foreign refs |
+| Concurrency | the check and the registration run under one lock: of N concurrent calls for the same pair exactly one reports `true` | `TestSubscribeConcurrentSamePairOneChange` (64 goroutines, `-count=100`) |
+
+Tests: [`eventstream_test.go`](actor/eventstream_test.go), [`eventstream_errors_test.go`](actor/eventstream_errors_test.go),
+[`eventstream_internal_test.go`](actor/eventstream_internal_test.go) (the stored delivery closure). Oracle:
+[`eventstream-spec-2026-11-06.md`](../docs/parity/oracles/eventstream-spec-2026-11-06.md). Export justification:
+[scope 836, "Open API choices"](../docs/scopes/836-eventstream-registration.md), indexed by [#1020](https://github.com/getsyntegrity/gopekko/issues/1020).
+Record: [`EXECUTION-RECORD.md`](../migration/stage-1/eventstream-registration/EXECUTION-RECORD.md).
+
+```mermaid
+flowchart TD
+    A["Subscribe[E, M](s, ref)"] --> B{"ref nil?"}
+    B -->|yes| N["ErrNilSubscriber"]
+    B -->|no| C{"E assignable to M?"}
+    C -->|no| X["ErrChannelNotAccepted"]
+    C -->|yes| D["lock; Index.AddValue(E, ref.ID())"]
+    D --> E2{"any change reported?"}
+    E2 -->|yes| T["changed = true"]
+    E2 -->|no| F["changed = false"]
+```
+
+### Publication ([#870](https://github.com/getsyntegrity/gopekko/issues/870), implemented)
+
+```go
+err := actor.Publish(sys, event) // event is any; err is only ErrNilEvent
+```
+
+`Publish(s *System, event any) error` delivers `event` to every subscriber registered for a channel its dynamic type matches, **once per
+subscriber** even when the subscriber is registered on several matching channels (oracle EV3 [002]-[005], EV4 [008]-[010]). Delivery is a
+`Tell` into the subscriber's mailbox, made by the publishing goroutine **outside the stream lock**; it never waits for the subscriber, and a
+blocked subscriber receives everything in publish order once released (EV6 [003], [006]). There is **no order among subscribers** (EV3). Only an
+untyped nil event is `ErrNilEvent`; a typed nil pointer is a valid event. Source: [`eventstream.go`](actor/eventstream.go).
+
+| Rule | Behavior | Evidence |
+|---|---|---|
+| Unmatched event | delivered to nobody and **not** a dead letter | EV3 [033]-[040]; `TestPublishUnmatchedIsNotADeadLetter` |
+| Full or stopped subscriber | the event becomes a `DeadLetter{Msg, Sender, To}` through `Tell`, with `Sender` = `System.DeadLetters()` (see "Dead letters: the sender and `deadLetters`"); `Publish` returns no error. A stopped subscriber stays registered until #1056, so each publication to it is a dead letter | EV8 [006], [008]; EV7 [049], [354]; `TestPublishToAFullOrStoppedSubscriberIsADeadLetter` |
+| Publish cache | a copy-on-write snapshot (Pekko's `EventBus` cache); a cached channel is read without the lock, an uncached one is added under it (`AddKey`); `Subscribe` feeds it. Each changing `Subscribe` copies the outer map, O(channels) (`EventBus.scala:206-209`) | `TestPublishSeesSubscriptionsMadeAfterTheFirstPublication` |
+| Concurrency | a `Subscribe` that completed before a `Publish` started is addressed by it | `TestPublishConcurrentWithSubscribe` (`-count=100`) |
+| Re-entrancy | a delivery may call `Subscribe`, `Publish` or dead-letter again, because delivery runs outside the lock | `TestPublishDeliversOutsideTheStreamLock`, `TestDeadLetterPublishIsReentrantThroughTheStream` |
+
+Tests: [`eventstream_publish_test.go`](actor/eventstream_publish_test.go), [`eventstream_publish_delivery_test.go`](actor/eventstream_publish_delivery_test.go),
+[`eventstream_publish_internal_test.go`](actor/eventstream_publish_internal_test.go), [`eventstream_deadletter_test.go`](actor/eventstream_deadletter_test.go),
+[`eventstream_deadletter_internal_test.go`](actor/eventstream_deadletter_internal_test.go). Record:
+[`EXECUTION-RECORD.md`](../migration/stage-1/eventstream-publish/EXECUTION-RECORD.md).
+
+**`Dropped` events (type only).** `actor.Dropped{Msg any, Reason string, Sender Handle, Recipient ID}` is the event of a message an actor discarded on purpose
+(Pekko `Dropped`, `ActorRef.scala:616-630`). A producer publishes it with `actor.Publish`; `actor.Subscribe[actor.Dropped, M]` receives it once per
+`Publish` with the four fields intact (`TestDroppedReachesItsSubscriberWithAllFields`). A nil `Sender` stays nil, as Pekko's `noSender`; it is not replaced by
+`System.DeadLetters()`. It is **not** a `DeadLetter` and **not** a member of `AllDeadLetters`. Evidence: EV9 and EVT-1 D1 (oracles). **Not implemented here:** any producer
+in `pekko-actor` (the restart-stash producer is in `pekko-actor-typed`, #999 U2), `MessageBuffer.drop`, and `AllDeadLetters` membership (#1057); #906 stays open for them.
+
+**`DeadLetter` events.** Every `DeadLetter` the runtime produces is also published as an event: `actor.Subscribe[actor.DeadLetter, M]` receives it
+(`TestDeadLettersAreEventsOnTheStream`). The hub callbacks run first, then the stream. `System.SubscribeDeadLetters` still works and is
+**deprecated** (ADR 0038 D8); it is replaced in stages by the migration of its users (#1426), and until then staticcheck reports 6 SA1019
+findings in test files of `pekko-actor-typed` and `pekko-persistence`.
+
+```mermaid
+flowchart TD
+    P["Publish(s, event)"] --> N{"event == nil?"}
+    N -->|yes| E["ErrNilEvent"]
+    N -->|no| C{"channel cached?"}
+    C -->|yes| S["snapshot, no lock"]
+    C -->|no| L["lock; re-check; AddKey; add to cache"]
+    L --> S
+    S --> D["for each subscriber ID: closure -> Tell (outside the lock)"]
+    D --> F{"mailbox full or stopped?"}
+    F -->|yes| DL["DeadLetter via Tell; no error to Publish"]
+    F -->|no| Q["enqueued"]
+```
+
+**Known gap: the `DeadLetter` cycle, in two halves ([ADR 0038 Amendment (2026-11-07, b)](../docs/adr/0038-event-stream-subscription-semantics.md)).**
+A `DeadLetter` event that cannot be delivered to a `DeadLetter` subscriber produces another `DeadLetter` whose `Msg` is a `DeadLetter`.
+- *Half 1, a stopped `FunctionRef` subscriber:* Pekko 1.7.1 does not republish (`ActorRef.scala:862-866`, `deadLetterMessageHandler`; **code reading, not run**).
+- *Half 2, a full bounded mailbox:* Pekko **recurses** until a `StackOverflowError` (oracle EV11 [010]; EV11v4 [013]: up to 1001 nested in run 1, 977 in run 2;
+  `Mailbox.scala:560-568` with `ActorRef.scala:739-743`).
+- *goPekko:* a `DeadLetter` whose `Msg` is a `DeadLetter` reaches the hub callbacks and is **not** published to the stream again. This is a
+  **provisional rule and a known gap**, not parity; its owner is [#1345](https://github.com/getsyntegrity/gopekko/issues/1345) (the fatal path, as D-a of
+  ADR 0035). Marker `TODO(EVT-03-deadletter-cycle)` in [`deadletter.go`](actor/deadletter.go). Oracle: EV11 in
+  [`eventstream-spec-2026-11-06.md`](../docs/parity/oracles/eventstream-spec-2026-11-06.md).
+
+### Unsubscription ([#905](https://github.com/getsyntegrity/gopekko/issues/905), implemented)
+
+```go
+changed, err := actor.Unsubscribe[Event](sys, ref) // one channel; ref is any actor.Handle
+err = actor.UnsubscribeAll(sys, ref)               // every registration; reports nothing
+```
+
+`Unsubscribe[E any](s *System, subscriber Handle) (changed bool, err error)` and `UnsubscribeAll(s *System, subscriber Handle) error` take a `Handle`
+(only the identity matters). A nil handle, interface nil or typed nil, is `ErrNilSubscriber`, before anything else (oracle EV2). Source:
+[`eventstream.go`](actor/eventstream.go).
+
+- **The unsubscribe rule of Pekko ([ADR 0038](../docs/adr/0038-event-stream-subscription-semantics.md) O-1).** A removal at `E` removes the subscriber from `E` **and
+  from every sub-channel of `E`, whichever channel supplied the registration**. With `I`, `J` (whose method set includes `I`'s) and `C` implementing `J`:
+  v1, `a` on `I` only: `Unsubscribe[J]` is `true`, `C` no longer reaches `a`, `Unsubscribe[I]` is `true` (EV1t [005], [008]); v2, `a` on `J` only: `Unsubscribe[I]` is
+  `true` and delivery stops, `Unsubscribe[J]` is then `false` (EV1tv2 [005], [008]); v3, `a` on `I` and `J`: `Unsubscribe[J]` is `true` and `C` is not delivered through
+  `I` either, `Unsubscribe[I]` is `true` (EV1tv3 [006], [009]). Registrations at channels that are neither the removed one nor below it survive
+  ([`TestUnsubscribeKeepsOtherChannels`](actor/eventstream_unsubscribe_test.go); [`TestUnsubscribeRuleV1V2V3`](actor/eventstream_unsubscribe_rule_test.go)).
+- **`changed` is Pekko's `diff.nonEmpty` (`EventBus.scala:165-171`), not "the subscriber was removed".** It is `true` for a never-registered subscriber when the
+  channel is not yet a node and a known sub-channel exists (EV13 [006]), `false` when the channel already is a node (EV13v3 [008]), and for an unrelated
+  channel it depends on which event classes the stream has already seen: `false` if the shared sub-class was never published (EV13v4 [002]), `true` if it had
+  been (EV13v2 [005]). In all of these the delivery is **not** stopped (EV13v2 [006]; EV13v4 [003];
+  [`TestUnsubscribeOfAnUnrelatedChannelKeepsASharedSubChannel`](actor/eventstream_unsubscribe_rule_test.go)).
+- **The publish cache follows the removal.** `Unsubscribe` replaces the cache entry of each changed channel with the set the index returns, **copied** (the index returns
+  live views); `UnsubscribeAll` subtracts the removed subscriber (`EventBus.scala:201-204`), so the other subscribers of a shared channel stay
+  ([`TestUnsubscribeUpdatesTheCache`](actor/eventstream_unsubscribe_test.go), [`TestUnsubscribeAllRemovesEveryRegistration`](actor/eventstream_unsubscribe_test.go)).
+- **Timing (ADR 0038 D5).** Deliveries already accepted into a mailbox complete; a publication that starts after the call returned does not address the subscriber
+  (EV5a/EV5b [004]-[010]; [`TestUnsubscribeLinearization`](actor/eventstream_unsubscribe_rule_test.go)). Concurrently with a publisher, the delivered ids are a gap-free
+  prefix and none is above the started count read after the return (EV10 [004]; `TestUnsubscribeConcurrentWithPublish`); nothing is promised about publications already
+  running. There is no public barrier (ADR 0038 O-7).
+- **No stale reference.** With the last registration of a subscriber, its delivery closure is dropped (found by a scan of the cache, Pekko's `hasSubscriptions`,
+  `EventBus.scala:196`, O(channels)). This is Go housekeeping with no Pekko counterpart; the index nodes stay, as in Pekko
+  ([`eventstream_unsubscribe_internal_test.go`](actor/eventstream_unsubscribe_internal_test.go)).
+
+### Termination of a subscriber ([#1056](https://github.com/getsyntegrity/gopekko/issues/1056), implemented)
+
+The stream watches its subscribers. When a subscribed actor stops, the stream removes **every** registration it owns, **asynchronously** (ADR 0038 D6), and drops
+its delivery closure and its entries in the publish cache. No window of dead letters before the removal is promised or asserted (EV7 [049], [351] saw 0 or 1); once the
+removal is observed, further publications neither reach the subscriber nor produce dead letters for it, and the other subscribers keep everything
+(EV7 [045], [047]). The fence in tests is `<-System.Done(ref)`: the stream's callback runs in `finalize` before `Done` closes
+([`TestSubscriberTerminationRemovesItsRegistrations`](actor/eventstream_termination_test.go), [`TestTerminationRemovesOnlyTheTerminatedSubscriber`](actor/eventstream_termination_test.go)).
+
+- **An already stopped subscriber is registered.** `Subscribe` returns `true` and registers it (EV7 [353]); the stream removes it on its own goroutine **after `Subscribe`
+  returned** (EV7 [353] shows `true`; [396] shows the dead letters for it at 1 over 40 publications and [397] a second `subscribe` that returns `true`; that it was removed shortly after is not logged, it is the wording of ADR 0038 D6 and is Inferred from those lines). This holds both when the actor is stopped but its record still exists and when it is
+  retired ([`TestSubscribeAnAlreadyStoppedActor`](actor/eventstream_watch_internal_test.go)).
+- **One watcher per subscriber**, registered at its first registration, not per channel (`EventStreamUnsubscriber.scala:47`); its identity is minted per stream. ([`TestOneWatcherPerSubscriber`](actor/eventstream_watch_internal_test.go)). A `Ref` owned by
+  another System is watched through its owner ([`TestSubscribeALiveRefOfAnotherSystemIsKept`](actor/eventstream_watch_internal_test.go)).
+- **Unwatch.** When `Unsubscribe` or `UnsubscribeAll` leaves a subscriber with no registration, the stream withdraws its watcher; with a registration left in another channel
+  it stays (`EventStreamUnsubscriber.scala:49-57`, calls at `EventStream.scala:67`, `:77`;
+  [`TestUnsubscribeWithdrawsTheWatcherOnlyWhenNoChannelIsLeft`](actor/eventstream_termination_internal_test.go)).
+- **A System that is stopping or stopped does not refuse.** `Subscribe` returns `true`, `Publish` returns nil and reaches a registered subscriber, `Unsubscribe` returns `true`
+  and `UnsubscribeAll` nil, with no error, as in Pekko (EV12 [010], [011], [014]-[016], [019]-[022], [026] while terminating, [075]-[084] once terminated; the owner's decision D-4
+  of 2026-11-07; [`TestSubscribeOnAStoppingSystem`](actor/eventstream_termination_rule_test.go)). The line numbers are those of run 1. The oracle observed a delivery after the termination only through a non-actor harness ref that records synchronously (EV12 [077]); the test uses the same kind of subscriber.
+- **Concurrency.** A termination racing with `Subscribe` and `Unsubscribe` of the same subscriber neither deadlocks nor loses a removal; the lock order is stream lock,
+  registry lock, cell lock, and the callback takes the stream lock with no cell lock held
+  ([`TestTerminationConcurrentWithSubscribe`](actor/eventstream_termination_internal_test.go), probabilistic).
+
+Deviations from Pekko, minor (ADR 0033 D14.3, scope 1056 D-2 and D-3):
+- **No `/system` actor.** Pekko's unsubscriber is an actor under `/system`; goPekko has none (#1055), so the stream's own internal link replaces it. The only visible
+  difference is the absence of that actor in the tree. Do not move the link to an actor unless the move changes something observable.
+- **A foreign `Ref`** (one this runtime did not create, with no cell and no owner System) **cannot be watched and is never retired automatically**: its registrations stay
+  until `Unsubscribe` or `UnsubscribeAll`, so it stays registered and each publication to it is a dead letter after it stopped.
+
+Internal packages ([`internal/classification`](internal/classification/), not importable outside the module):
+- [`index.go`](internal/classification/index.go): `Index[K, V]`, a port of Pekko's `SubclassifiedIndex` (`util/SubclassifiedIndex.scala`): a node per
+  known key with its value set; a new key inherits the values of its most specific known super-key; adding a value applies to the key and its
+  sub-keys; removal by key and by value cascades to sub-keys (EV1t, EV1tv2, EV1tv3). It is not safe for concurrent use: the stream holds its lock.
+- [`channel.go`](internal/classification/channel.go): `Channels`, the relation on `reflect.Type`. It is structural, as Go interfaces are: a type
+  is below an interface it implements; `any` is the root; two interfaces with identical method sets are **unrelated**, and so are `any` and a
+  named empty interface (ADR 0038 D2 and Deviation 1, scope D-3). This only affects what a new node inherits and what removal cascades to, not
+  which subscribers an event reaches.
+- Tests: [`index_test.go`](internal/classification/index_test.go), [`channel_test.go`](internal/classification/channel_test.go).
+
+Limits, all plain:
+- A **foreign `Ref`** is never removed when it stops (above, one line: scope D-3). The `/system` actor of Pekko is #1055 (SYS-18) and is not needed for the observable behavior.
+- The first delivery closure registered for an ID is kept; a later `Subscribe` of the same ID does not replace it. A `Ref[M]` with a given ID has a
+  fixed `M`; a foreign `Ref` that changes `M` under one ID is not supported and could panic at publish time (`eventstream_internal_test.go`).
+- `Dropped` is the event type only (below); it has no producer in this module, `MessageBuffer.drop` and `AllDeadLetters` membership are not implemented (#906 remainder, #1057); `SuppressedDeadLetter` is ("Suppressed dead letters"); the sender of a `DeadLetter` is ("Dead letters: the sender and `deadLetters`"); the Typed `EventStream` commands are #959.
+- The `DeadLetter` cycle is a known gap (above, #1345). The callbacks of `SubscribeDeadLetters` and the dead-letter hub are unchanged and deprecated (#1426).
+- Parity is claimed only for the oracle lines named above; the rest is Go unit evidence, not V3. The unwatch is covered by tests of the watcher entries, and its running under
+  the stream lock by design, not by a test.
+
+## Dead letters: the sender and `deadLetters` ([#896](https://github.com/getsyntegrity/gopekko/issues/896), implemented)
+
+Scope: [`896-deadletters-ref-and-sender.md`](../docs/scopes/896-deadletters-ref-and-sender.md). Kit package and record:
+[`migration/stage-1/deadletters-ref-and-sender/`](../migration/stage-1/deadletters-ref-and-sender/EXECUTION-RECORD.md).
+
+```go
+type DeadLetter struct {
+	Msg    any
+	Sender Handle // never nil in a published DeadLetter
+	To     ID
+}
+func (s *System) DeadLetters() Ref[any] // the local dead-letter sink of the System
+```
+
+- **`DeadLetter.Sender`.** The `Handle` the message was told with (`TellFrom`). When the message was told without one, `System.publish` puts
+  `System.DeadLetters()` there, so a subscriber never sees a nil `Sender` (Pekko `DeadLetter(message, sender, recipient)`, `ActorRef.scala:592-595`;
+  "when this message was sent without a sender, `sender` will be `system.deadLetters`", `ActorRef.scala:589`). Only the dead-letter view substitutes:
+  the envelope and `Context.Sender` stay "absent" (ADR 0032 D3, scope D-2).
+- **Who is the sender, per site** (the eight places that produce a `DeadLetter`; test `TestDeadLetterWithoutSenderIsDeadLetters`,
+  [`deadletters_ref_internal_test.go`](actor/deadletters_ref_internal_test.go)):
+
+| Site | `Sender` |
+|---|---|
+| `Tell`/`TellFrom` to a stopped actor or a full bounded mailbox (`ref.go:79, 85`) | the sender given to `TellFrom`, else the sink |
+| message still queued when the actor stops (`stop.go:123`) | the sender stored in its envelope, else the sink |
+| `Terminated` that finds a full mailbox (`watch.go:308`) | the **watched subject**, as Pekko (ADR 0032 D5a; scope D-5), not the sink |
+| `Port` post refused because the actor is stopping, stopped or full (`postLane`, `port.go:81`); `ReceivePort` without a `PortHandler` (`port.go:118`); posted messages still queued at stop (`port.go:168`) | the sink |
+| late reply to an `Ask` (`ask_endpoint.go:67`) | the sink |
+
+- **`System.DeadLetters()`** (Pekko `provider.deadLetters`, `ActorRefProvider.scala:69`). `Tell(msg)` publishes `DeadLetter{Msg: msg, Sender: DeadLetters(), To: its own ID}`;
+  `TellFrom(..., x)` keeps `x`; a `DeadLetter` told to it is published as it is and not wrapped again, unless Pekko's `specialHandle` consumes it first (`ActorRef.scala:739-743`; that hook only handles `Watch`, `:745-752`, which is not ported, see the limits below)
+  (`TestDeadLettersRefPublishes`, [`deadletters_ref_test.go`](actor/deadletters_ref_test.go)). The ID is stable per `System` and distinct between Systems.
+  Its type is unexported, and so is the sender-aware path `TellFrom` uses to reach it (`senderTeller`, `ref.go:59`): no new method on `Ref` or `Handle`.
+- **Not an application actor.** No cell, no mailbox, not in the registry or in any actor's children: `System.Done` answers `ErrUnknownHandle` and it is
+  unknown to the internal stats (`TestDeadLettersIsNotAnApplicationActor`).
+- **ID and path** (proposed in PR #1517, RULEBOOK D-7). ID `deadletters-<n>`, from its own counter so it cannot collide with `actor-<n>` or
+  `ask-<n>` and creating a `System` does not shift actor numbers; the prefix is not an API promise. Path `pekko://<system>/deadLetters`, the root path
+  plus `deadLetters` (`ActorRefProvider.scala:414-417`), reported by `PathOf`. `ExactRefString` answers `("", false)` for it (depth 1).
+- **Concurrency.** 64 concurrent `TellFrom`s to one stopped actor publish each sender with its own message (`TestDeadLetterSenderUnderConcurrency`).
+- **Cycle rule unchanged.** A `DeadLetter` whose `Msg` is a `DeadLetter` is still not republished to the stream (known gap #1345, above).
+- **Tests of the explicit sender:** [`deadletter_sender_test.go`](actor/deadletter_sender_test.go) (`TestDeadLetterCarriesTheSender`: stopped, full,
+  pending at stop) and `TestActorSystemSpec_LogDeadLetters` in [`actorsystem_deadletters_spec_test.go`](actor/actorsystem_deadletters_spec_test.go)
+  (port of `ActorSystemSpec.scala:164-186`; asserts the sender of "boom" and of the settle letter). `PORT-GAP(dl-sender-896)` is gone from the code.
+
+```mermaid
+flowchart TD
+    T["site produces a DeadLetter"] --> H{"holds a sender?"}
+    H -->|"TellFrom, envelope"| E["Sender = that Handle"]
+    H -->|"Terminated to a full mailbox"| S["Sender = the watched subject"]
+    H -->|"no"| D["publish: Sender = System.DeadLetters()"]
+    E --> P["hub callbacks, then the stream"]
+    S --> P
+    D --> P
+```
+
+**Limits, plain.**
+- **`PORT-GAP(dl-watch-896)`:** `Identify` (answered with an `ActorIdentity`, `ActorRef.scala:738`) and `Watch` (`specialHandle`, `ActorRef.scala:745-752`) on the sink are not ported. Today `Context.Watch(DeadLetters())` panics with a
+  `watchError` wrapping `ErrInvalidHandle` (recorded in `TestDeadLettersIsNotAnApplicationActor`); Pekko answers with a `Terminated`. So AC3 of the issue is partial.
+  `ActorSelectionMessage` unwrapping is not ported either.
+- **The ignore reference** (AC2 of the issue) is not here: it moved to [#1087](https://github.com/getsyntegrity/gopekko/issues/1087)
+  (`ignoreRef` is `@InternalApi` in Classic, `ActorRefProvider.scala:72`).
+- Not implemented: `Dropped` (#906), `UnhandledMessage` (#897), the INFO and WARNING logs of dead letters (#1479),
+  `Forward` (#854), `Context.Sender` substituting `deadLetters`.
+- **Evidence and parity.** The Pekko rows are code reading and spec reading, not run, except the observation `sender=Actor[pekko://evs/deadLetters]` of oracle
+  EV8 [006], [008] ([`eventstream-spec-2026-11-06.md`](../docs/parity/oracles/eventstream-spec-2026-11-06.md)). The Go tests are Go unit evidence: no
+  parity with Pekko is claimed beyond those lines. The Go judge campaign is stale after this unit (see the record).
+
+## Suppressed dead letters (#871, EVT-05)
+
+Unit [`suppressed-dead-letters`](../migration/stage-1/suppressed-dead-letters/EXECUTION-RECORD.md) (scope [`871`](../docs/scopes/871-suppressed-dead-letters.md)); Pekko `ActorRef.scala:579-614, 716-724, 736-743`, `Actor.scala:46, 60, 123-129`.
+
+```go
+type DeadLetterSuppression interface{ DeadLetterSuppression() }                 // an application type opts in by declaring the method
+type SuppressedDeadLetter struct{ Msg DeadLetterSuppression; Sender Handle; To ID } // To is always System.DeadLetters().ID()
+type AllDeadLetters interface{ allDeadLetters() }                                // sealed: DeadLetter and SuppressedDeadLetter
+```
+
+- **Implemented.** A dead letter whose `Msg` implements `DeadLetterSuppression` is published as `SuppressedDeadLetter`, never as `DeadLetter`, in the one
+  funnel `System.publish` (Pekko classifies in the dead-letter ref). It reaches the subscribers of `SuppressedDeadLetter` and of `AllDeadLetters`, and only the
+  stream: the deprecated `SubscribeDeadLetters` hub and its counter see `DeadLetter` alone. `Sender` is never nil (an absent sender is `System.DeadLetters()`);
+  `To` is `System.DeadLetters().ID()`, not the actor that did not take the message, as the oracle observed. A nil `Msg` is an ordinary `DeadLetter`.
+  `PoisonPill` and `Terminated` carry the marker; `Kill` does not.
+- **Divergence 5a, delivered (slice 2).** A `PoisonPill` is now published as `SuppressedDeadLetter(PoisonPill, sender, deadLetters)` when it finds a stopped
+  actor (`postLane`), an actor whose stop was accepted, or a full bounded mailbox, and when it was still queued as the stop was accepted
+  (`takePortDeadLocked`, after the user messages that were dead-lettered). The delivery outcome is unchanged: the `PoisonPill` is still not delivered.
+- **Behavior change:** a `Terminated` that finds a full bounded mailbox is a `SuppressedDeadLetter` (sender: the watched subject, recipient `deadLetters`), no longer a `DeadLetter`.
+
+```mermaid
+flowchart TD
+    A["a site publishes a dead letter"] --> B["System.publish"]
+    B --> C{"Msg implements DeadLetterSuppression?"}
+    C -->|"no"| D["hub callbacks, then the stream: DeadLetter and AllDeadLetters"]
+    C -->|"yes"| E["the stream only: SuppressedDeadLetter and AllDeadLetters, To = deadLetters"]
+```
+
+- **Evidence.** Pekko oracle [`suppressed-dead-letters-2026-11-10.md`](../docs/parity/oracles/suppressed-dead-letters-2026-11-10.md) (Java 1.8.0_504, 3 runs each):
+  DL1, DL1b, DL2, DL3, DL4, DL5, DL7, DL8, DL8c are ported as Go tests
+  ([`suppressed_deadletter_oracle_test.go`](actor/suppressed_deadletter_oracle_test.go), [`suppressed_deadletter_poison_test.go`](actor/suppressed_deadletter_poison_test.go)),
+  and the spec `DeadLetterSupressionSpec.scala:41-72, :74-106` in [`suppressed_deadletter_spec_test.go`](actor/suppressed_deadletter_spec_test.go).
+  The sender = watched subject of a `Terminated` into a full mailbox is **inferred from `DeathWatch.scala:111`**, not observed. Go unit evidence only
+  (mutations in the record): no judge scenario and no differential run, so no V2 or V3 is claimed; the V level of row C-10b is the Owner's.
+- **Not implemented, with markers:** the `ActorSelection` halves of the spec (`PORT-GAP(sel-871)`), `WrappedMessage` and the skip of the default listener (DL6, #1479),
+  `Watch` and `Identify` on the sink (`PORT-GAP(dl-watch-896)`), `Terminate()` as a suppressed system message (no counterpart), `Dropped` (#906), `UnhandledMessage` (#897).
+
+## Current scope
+
+This is an initial local actor core. The exported `Ask` exists for local actors (see "Ask: request and reply");
+`AskFrom`, `StatusReply`, shutdown of pending Asks, `CoordinatedShutdown`,
+routing, remoting, clustering and persistence are not implemented;
+deathwatch is implemented for local actors only (above), and so is hierarchical termination (above).
+The event stream has registration, publication, unsubscription and the removal of a subscriber that stopped ("EventStream: registration, publication, unsubscription and termination").
+The module imports no other goPekko module and has no `spi/` directory: it
+will be created with the first real port that ADR 0008 requires.
+Sender (#814, [ADR 0032](../docs/adr/0032-local-sender-envelope.md), partly accepted by the Owner on 2026-10-24):
+`TellFrom(ctx, ref, msg, sender)` is `Tell` plus an optional sender `Handle`, and the actor reads it with
+`Context.Sender() (Handle, bool)` while its `Receive` handles that message: `(h, true)` with the very `Handle` passed,
+or `(nil, false)` when the message was sent with `Tell` or a nil sender. The sender travels in the queued envelope, so it
+never leaks to another message and concurrent producers do not overwrite each other. `Tell` keeps its signature and
+guarantees. The sender has the lifetime of Pekko's `currentMessage`: set when a `Receive` starts, cleared when it
+succeeds, kept when it fails or is resumed, cleared after `PreRestart` and after `PostStop`. So `PreRestart` sees the
+sender of the failed message, `PostStop` sees it after a failure and none after a successful message, and `PreStart`,
+`PostRestart` and the new instance see none. While a parent handles the failure of a child, the failing child is the
+sender (D5a, accepted by the Owner on 2026-10-28; `FaultHandling.scala:306`): the parent's decider reads it (the same
+identity as the decider's `child` argument, also for a child that is no longer registered, whose failure is then
+dropped), and so do the `PreRestart` that follows an escalation (with a `ChildFailure` as `FailedMessage`) and the
+`PostStop` of a parent stopped after one. It is never the sender of the message the child was processing, nor one the
+parent retained from its own earlier failed message. It lasts like any other current message: the next `Receive`
+replaces it and `PostRestart` and the new instance see none. `OnTerminated`, the death-pact failure and a `WatchWith`
+message run with the observed (terminated) actor as sender (D5b), as in Pekko (`DeathWatch.scala:110, 81-91`): a handle
+that carries the ID of the observed incarnation and its owning System, built by the runtime when the delivery is taken.
+It is not the `Handle` the user passed to `Watch`, which is never retained, and a recreated actor under the same name
+never aliases it. `ReceivePort` starts with none, and the decider keeps the failing child as sender. Limits, all
+recorded and none a parity claim:
+- `(nil, false)` cannot tell a stale `Context` (kept after its hook returned) from an absent sender. The rule that a
+  `Context` is valid only during the hook stays documented and **not enforced**; no enforcement is promised. Using a
+  `Context` outside the authorized call, by retaining it or using it concurrently, is outside the contract of #814, and
+  detecting that use is not promised.
+- The sender of `Terminated` and of the `WatchWith` message has no `Tell` and no promise that it can be replied to;
+  `System.Done(sender)` answers `ErrUnknownHandle` and a closed channel once the registry retired the actor (it carries
+  no done channel). It is held until the next delivery replaces it, a success clears it, and a failure keeps it as
+  Pekko's `currentMessage`.
+- `DeadLetter` carries the sender (#896, "Dead letters: the sender and `deadLetters`"), and `System.DeadLetters()` exists. `Forward` (#854) is
+  not implemented. Pekko's `sender()` returns `deadLetters` where `Context.Sender` returns `(nil, false)`: only the dead-letter view substitutes
+  (ADR 0032 D3 stays; changing it is another decision, not taken).
+- A `Ref` the runtime did not create receives a `TellFrom` through its own `Tell`, without the sender. The sender is
+  not authenticated, not validated and is retained even if it already stopped.
+Tests: [`sender_test.go`](actor/sender_test.go), [`sender_failure_test.go`](actor/sender_failure_test.go).
+Passing Go tests does not establish behavioral parity with Pekko.
+
+## Parity with Pekko v1.7.1 (partial)
+
+The Go core is run through the same judge as Pekko (`judge/`, contract in
+[docs/judge.md](../docs/judge.md)) on the fifteen scenarios of the Go gate (`judge/go-scope.json`). Result and limits are in
+[docs/actor-core-parity.md](../docs/actor-core-parity.md); parity of the module is
+**not** established. What is demonstrated, in both controlled and concurrent mode
+unless noted:
+
+- Messages from one sender are received in send order (S01, S02; S02 concurrent only).
+- A child's `PreStart` runs before its first `Receive`, and `Receive` never overlaps a hook (S01).
