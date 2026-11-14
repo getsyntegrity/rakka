@@ -1,0 +1,360 @@
+# EXECUTION RECORD: release of the fields of a terminated cell (ADR 0024 D5, T6; issue #563)
+
+Status (updated after integration): **T6 is integrated: #738 and #739 were squash-merged into `develop`, #739 as `a807fed22327dfd3a02587528ce13a85661ddbab`. #743 (tests and evidence) was squash-merged as `d2a850400ae36bf2010ab4ca2ea832f07c31bd45`, #563 was closed with an evidence comment (https://github.com/getsyntegrity/gopekko/issues/563#issuecomment-6377285344) and #461 stays open for the consolidated actor closure; no Pekko parity is claimed.** Sections 1 to 15 below, including the status paragraph that follows and the sections that call the PRs drafts or the candidate unmerged, are the historical result record as of the candidate and are not rewritten; sections 16 to 18 record the later evidence.
+
+Current summary. The historical author-run campaign detected 22 of 24 mutants (M5 and M11 survived). M5 and M11 were later detected separately by test T04b (sections 16.2 and 17.3); there was no new full campaign and no 24 of 24 is claimed. The independent review PASS_WITH_MINORS is of `177ed4cac1c61e8aa8e400d992462dacf75a78dd` (section 17). The final gates (section 18) ran on `23771e91cd48de8baa83a63f270d976effb1f4ad`, whose Go content is identical to the authorized head `52ab6f67abfa5600e40ebc33dea4494f5675c8e0`; the tree of the squash `d2a8504` equals the tree of that head, and `CellRelease` passed with `-race` on `develop` after the merge. Limits that stay: the adjacency of `releaseTerminated()` and `close(c.done)` rests on inspection; T04b polls with a 1 ms cadence and a 10 s bound that only limits a failure; the primary approval of O1 was not verified and is not presented as approved; `-race` on Linux was not run; the GitHub Actions jobs of #743 did not start because of billing, so there is no CI result; the heap figures are one reachability scenario after GC, not memory returned to the operating system; recommended additional validations are not requirements. `RUNBOOK.md` section 9 stays as the record of the historical package; the difference in `PROPOSAL.md` is explained in sections 17 and 18.
+
+Status as of the candidate (historical): **candidate delivered as a draft PR, not merged. Two independent read-only reviews ran, neither with a blocker; the first was incomplete (section 12), the second covered what the first left (section 15). Two directed mutants survive (M5, M11); M4 was detected after a test-only correction (section 10). T6 is not closed and #563 stays open.** This record states what was executed and measured, what is an estimate and what was not run. It claims no Pekko parity beyond the cases of `PROPOSAL.md` section 1 and no memory saving: no heap or GC measurement was made.
+
+## 1. Provenance and authority
+- Package commit `550bfa16b3d82fe66ff4cf07560e30e190a27837` (PR #738 branch `docs/t6-cell-field-release-563`), base `develop` `f23a215f9701dd7b5046dada0150ba75dfbe61c1` (unchanged at the check). Kit `cf91c9d5068d9aaf95a36164169f08c3e636c909`, Pekko `9a54d1294c3ac7821bbed3c940769c3d5027d1ff`; both submodules initialized in the worktree at those pins.
+- O0 was given by the Owner in the work thread (an instruction, not a GitHub comment) for this unit only, naming candidate `550bfa1`: O1 no new internal test seam; O2 no judge and no campaign; `owner` out of scope; one Sonnet implementer (4 USD, 20 minutes); one independent Opus review (2 USD, 10 minutes); stop at 350,000 tokens, absolute ceiling 450,000; no paid consultation and no second attempt of an agent; no authorization to cross the stop to start corrections or additional agents.
+- All 9 hashes of `RUNBOOK.md` section 9 and the RUNBOOK hash in `RESUME.md` were recomputed from the files at `550bfa1` before launching: no delta (not only the two the launcher checks). The approved hash files given to the launcher were generated from the same files and matched (`d8fb1d8…`, `bde2f14…`, `3e2da2a…`).
+- Effective limits: the launcher enforces the USD cap and the wall clock (`AGENT_BUDGET_USD=4`, `AGENT_WALL_MIN=20`, through `--max-budget-usd` and `timeout`); it does **not** enforce tokens. Tokens were controlled by reading the agent JSON.
+
+## 2. What the kit executed (measured)
+One `claude -p` process through the unit's own `run-agent.sh`. Figures are read from the agent JSON, kept outside the repository.
+
+| | Implementer |
+|---|---|
+| Model | `sonnet` |
+| Started (UTC) | 2026-10-23 20:48:03 |
+| Wall time (`duration_ms`) | 402,997 ms (6.7 min); limit 20 |
+| Cost (`total_cost_usd`) | 1.4143 USD; cap 4 |
+| Turns | 67 |
+| Input / output / cache-creation tokens | 70 / 49,359 / 155,229 |
+| **Tokens by the RUNBOOK convention** (input + output + cache creation) | **204,658** |
+| Cache-read tokens (apart, not in the convention) | 2,996,837 |
+| Exit | 0, `is_error` false |
+
+- **Not run: the independent review.** The RUNBOOK section 4 gate says the review launches only if the implementer used at most 150,000 tokens; it used 204,658. By the convention (measured agents + reserve of 90,000 coordination, 30,000 gates, 30,000 mutants = 150,000) the estimated total is **about 354,658, above the 350,000 stop**. That is an estimate: the coordinator's own session was **not measured**. The review was therefore not launched and no correction round was started. This was not decided by the Owner; it is the package gate applied as written.
+- No second attempt of any agent. No paid consultation. Cost of the review: none (not run).
+
+## 3. Flow, as run
+1. Baseline at `550bfa1` (clean tree): `go test -count=1 ./pekko-actor/...` ok; `go test -race -count=1 ./pekko-actor/...` ok; coverage 98.5%; `golangci-lint` v2.14.0 `0 issues`. The installed `golangci-lint` 2.13.1 cannot load packages with go1.27.2 (typecheck error), so the pinned v2.14.0 was built outside the repository. Baseline revs and the SHA-256 of each `.go` file of `pekko-actor/actor` were saved outside the repository.
+2. Implementer, one run. Its report: no `BLOCKED` or `NEEDS-DECISION`. **Declared deviations of the agent:** (a) it made the two production edits before writing tests, reverted them with no test run in between, wrote the characterization tests, ran them, and reapplied the change; (b) it ran `gofmt -w` on its own new test file (not on its allowed list); (c) a redirected variant of the wrapper was denied and it ran the wrapper as given.
+3. Scope control: `git status` shows exactly `cell.go`, `stop.go` modified and `cell_release_api_test.go`, `cell_release_internal_test.go` new; the SHA-256 of every other `.go` file of `pekko-actor/actor` equals the baseline; no existing test edited, no exported identifier, no seam or option.
+4. The production diff is 16 lines in `stop.go` (method `releaseTerminated`, one call in `finalize`) and comments in `cell.go`. **M5 inspection:** the call sits after `c.notifyWatchers(watchers)` and before `close(c.done)`, with a comment that fixes the position. This is the only evidence of that order (section 5).
+5. RED/GREEN on the base: `git archive` of `550bfa1` into a directory outside the repository plus the two new test files, `GOWORK=off go test -run CellRelease`.
+
+| Result on the base | Tests |
+|---|---|
+| pass (characterization, as required) | `TestCellReleaseCharacterizationTerminatedRef`, `...RestartKeepsFactoryAndInstance`, `...LateInternalCallers`, `...RetainedContextAndPort` |
+| **fail** (structural, as required) | `TestCellReleaseClassifiesEveryField` (T01), `...ZeroesEachFieldAtTheCompletionSignal` (T02, T05), `...ReachableStates` (T03), `...PostStopSeesTheInstance` (T07), `...ChildrenAreReleasedBeforeTheirParentPostStop` (T08), `...GuardiansAreReleasedAtShutdownAndStayRegistered` (T11) |
+| pass on the base, **by design** | `...NothingReleasedBeforeTheWatchersAreTold` (T04, a negative test: nothing is released early, true when nothing is released at all) and `...RaceDetectorConcurrentOperationsAroundTermination` (T12, a detector) |
+
+6. All of them pass on the candidate.
+
+## 4. Gates on the candidate (run by the coordinator, one command per call)
+| Gate | Result |
+|---|---|
+| `gofmt -l pekko-actor/actor` | clean |
+| `go vet ./pekko-actor/...` | clean |
+| `go mod tidy -diff` in `pekko-actor` | clean |
+| `golangci-lint` v2.14.0 (includes `gocyclo` at 10) | `0 issues` |
+| `go test -count=1 ./...` in `pekko-actor` | ok (3 packages) |
+| coverage of `pekko-actor` | 98.5% (base 98.5%); `releaseTerminated` and `finalize` 100.0% |
+| `scripts/check_deps.sh` | ok |
+| `.github/scripts/check-headers.sh` | exit 1: **6 errors, all in `pekko-persistence`, 0 in `pekko-actor`**; the same 6 existed at the previous base; not caused by this unit and not fixed here |
+| `go test -race -count=1 -run CellRelease ./actor` | ok; also `-count=10` ok |
+| `go test -race -count=1 ./...` in `pekko-actor` | ok (3 packages); `./actor` with `-count=3` ok |
+
+Not run: the Go judge, any campaign, stress runs, `scripts/check_coverage.sh` as a module gate (coverage was read from `go test -cover`), the other modules' tests, any evidence tag.
+
+## 5. Directed mutants (scratch copies outside the repository, not committed)
+24 mutants, each applied alone to the candidate and run against `-run CellRelease`, then against the rest of the `actor` suite if it survived. **First run (candidate `6c60179`): 21 detected, 3 survive (M4, M5, M11).** The first version of this record and of PR #739 said "25 mutants, 22 detected"; that count was wrong (the script defines 24: M1.a-h, M2a, M2b, M3, M4, M5, M6a, M6b, M7, M8a, M8b, M9, M10, M11, M12, M13, M14), corrected here. After the test correction of section 10: 22 detected, 2 survive. Script and outputs are outside the repository.
+
+| Mutant | Result | Detected by (first) |
+|---|---|---|
+| M1.a-h omit one field of the eight | 8 of 8 detected | `TestCellReleaseClassifiesEveryField`, `...ReachableStates`, `...ZeroesEachField...`, `...ChildrenAreReleased...` |
+| M2a release in `acceptStop`; M2b in `terminate` | detected | `...NothingReleasedBeforeTheWatchersAreTold`, `...ChildrenAreReleased...` |
+| M3 release at the start of `finalize` | detected | same two |
+| **M4 release after `signal`** | **SURVIVED** | none (see below) |
+| **M5 release after `close(done)`** | **SURVIVED**, as declared | none: no deterministic coverage |
+| M6a `ctx`, M6b `self` also released | detected | `...ClassifiesEveryField`; M6b also `...RetainedContextAndPort` |
+| M7 `node` also released | detected | `...LateInternalCallers`, `...RetainedContextAndPort` |
+| M8a `origin`, M8b `sys` also released | detected | `...TerminatedRef`; `...LateInternalCallers` |
+| M9 counters reset | detected, **by the rest of the suite** (`TestPortMessagesStayOutOfTheTMessageCounters`, `TestPreStartHooks`), not by a `CellRelease` test |
+| M10 release on restart | detected | `...RestartKeepsFactoryAndInstance` |
+| **M11 release without `c.mu`** | **SURVIVED** (two runs, `-race`) | none |
+| M12 `recreate` stops checking `closed`; M13 `enqueueFailed` stops checking | detected | `...LateInternalCallers` |
+| M14 keep `resumeReady` | detected | `...ZeroesEachField...` |
+
+- **M5 (expected).** The order of the release against `close(done)` is **not asserted by any test**. `-race` does not prove it and does not guarantee the mutant is caught; the run shows it was not. The order rests on the inspection of item 4 of section 3, by the coordinator only, and was not independently reviewed.
+- **M4 in the first run (unexpected; PROPOSAL 8 said T05 detects it); detected after the correction of section 10.** T05 asserts after `finalize` returned (after `signalsOf`). With `completionPoint` capturing the signal, the mutant's release runs right after `signal`, so the fields are zero by the time the test looks. The release set is zero "at the signal" in the sense of this test, not inside it. This is an inference from the test's structure; no corrected test had been run when this sentence was first written; section 10.1 records that it was run later. The fix is a test-only assertion inside the `completionPoint` hook (the hook runs before that release). It was not applied in the first run because it starts a correction round and the estimated usage was above the stop (section 2); it was applied later under the Owner's exception (section 10).
+- **M11 (unexpected; PROPOSAL 8 said "probabilistic").** T12 did not report a race in two runs, so unsynchronized writes to the release set are not detected by it. The synchronization of the release rests on reading (`PROPOSAL.md` 3.3). A deterministic test of the lock is not available without a seam (O1 is "no new seam").
+
+## 6. Review
+**No independent review was run** (section 2). The candidate has been read only by its author (the coordinator) and by the implementing agent. `PROPOSAL.md` 3.3 (no activation runs after `terminate` returns) and 3.4 (the late-caller table) are readings that nobody else has tried to refute. The corrections of confirmed blockers that the procedure foresees do not exist, since there was no review.
+
+## 7. Traceability with Pekko
+Compared by reading the pinned tree (`FaultHandling.scala:247-276`, `ActorCell.scala:716-726`, `LocalActorRefProviderSpec.scala:109-129`, `ActorLifeCycleSpec.scala:193-229`): *coincidencia observada por lectura; validación comparativa pendiente*. No Pekko test was run and no JVM was started. The release of `pendingCause`, `startFailure`, `resumeFn`, `failed` and `sysq` is a Go adaptation with no Pekko source. `owner` is not released (documented limit L2).
+
+## 8. Differences from the procedure and from the package
+- First run: review not run and M4 not corrected, for the budget reasons of section 2 (a package gate, not an Owner decision). Section 10 records the exception round that followed.
+- The RUNBOOK says commits S1 to S4 and a PR "against `develop`". The two test files mix characterization and structural tests, so they are committed with the production change as one unit; the PR is stacked on #738's branch so that it shows only this unit, as `byid-retention` was stacked on #542.
+- Documentation updated by the coordinator: `pekko-actor/README.md` (the T6 statement), ADR 0024 (status line and "Not verified"), this record, `RESUME.md`. The ADR and README say the candidate is a draft with no independent review; they do not say T6 is done.
+
+## 9. Pending and limits (as of the first run; section 10 supersedes the open items)
+- **Open decisions for the Owner:** (1) authorize an independent review although the package gate is not met (the antecedent review cost 0.91 USD and 76,340 tokens; the estimate would reach about 430,000, under the 450,000 ceiling but over the 350,000 stop); (2) authorize one correction batch for M4 (a test-only change in `cell_release_internal_test.go`) and its re-run; (3) accept M11 and M5 as undetectable without a seam, or revisit O1.
+- Not measured: the coordinator's own tokens and cost; heap or memory; any behavior on another platform; the judge.
+- A fast CI check green establishes none of the above.
+
+## 10. Exception round (Owner, after the first run)
+
+The Owner granted an exceptional authorization in the work thread (an instruction, not a GitHub comment) on PR #739 at HEAD `6c60179d53f3efc4c7d540c1f818c8f325f5a6a1`: (1) one bounded test correction to detect M4; (2) complete the pending gates; (3) one single independent review although the implementer exceeded 150,000 tokens; (4) exceed the 350,000 stop **only** for those activities, with the 450,000 ceiling still in force. It authorizes no additional agents, paid consultations, judge, campaigns, new production seams, merge or closing of issues; the review keeps its 2 USD and 10 minutes maximum. **The original limits of sections 1 and 2 are not rewritten**: this is an addition.
+
+### 10.1 M4 correction (done)
+- Test-only commit `4caeb92ecd58439c83ade03885f0681f043ac7ed` on top of `6c60179`: `cell_release_internal_test.go`, +15 lines, no production change, no other assertion changed. T05 wraps the existing `System.completionPoint` seam and snapshots the release set inside `signal`, then asserts it is zero (`cell_release_internal_test.go:292`, `ctx.Expect(insideSignal).ToEqual(crHeld{})`), and that the hook was reached.
+- On the candidate: the test passes, also `-race -count=20`; `gofmt`, `go vet` and `golangci-lint` v2.14.0 clean (`0 issues`).
+- With M4 applied (release moved after `signal`, scratch copy outside the repository): the module compiles (`go vet` ok), no timeout, not a build failure, and the only failing test is `TestCellReleaseZeroesEachFieldAtTheCompletionSignal` at `cell_release_internal_test.go:292`: `expected {true true true true true true true true true} to equal {false false false false false false false false false}`, that is all nine fields still held when `signal` runs. It fails by the intended assertion.
+- Full mutant re-run on the corrected tests: **24 mutants, 22 detected, 2 survive (M5, M11).** M4 is now detected by `TestCellReleaseZeroesEachFieldAtTheCompletionSignal`.
+
+### 10.2 Gates completed (run by the coordinator)
+| Gate | Result |
+|---|---|
+| tests of every workspace module (`scripts/list_modules.sh`, 10 modules, `-covermode=atomic`) | 10 of 10 exit 0. `gopekko-testint` has no test in the default build (its files carry the `integration` build tag): its exit 0 is not a database test |
+| `scripts/check_coverage.sh <profiles> 85` | exit 0. `pekko-actor` 98.49% (1519 statements); `pekko-persistence` 95.32%; `pekko-persistence-postgres` 98.75%; `pekko-persistence-sqlite` 97.18%; `pekko-projection` 98.87%; `pekko-serialization` 100.00%; `pekko-observability` and `gopekko-testint` carry no counted statements as reported by the gate |
+| after the test change: `gofmt`, `go vet`, `golangci-lint` v2.14.0, T05 with `-race` | clean |
+| `check-headers.sh` | not repeated: no file with a header changed since it was measured; the 6 errors in `pekko-persistence` are pre-existing (base evidence in section 4) |
+| other gates of section 4 | not repeated: the delta is 15 test lines |
+
+### 10.3 Review forecast and decision not to launch
+- **Measured:** implementer 204,658 tokens (section 2). Nothing else is measured: the coordinator's own tokens are not.
+- **Conservative estimate:** exhausting every reserve of the package (90,000 coordination + 30,000 gates + 30,000 mutants + 30,000 for the correction round) gives about 384,658 before the review. The review has no token cap, only 2 USD and 10 minutes; the antecedent review measured 76,340 tokens for 0.91 USD, so 2 USD could mean about 168,000 tokens at that ratio. Total: about 461,000 with a review as small as the antecedent, up to about 553,000 at the USD cap. These are estimates; they are not a measured total and the 430,000 mentioned earlier was only a lower reading.
+- **Decision.** The forecast does not allow the 450,000 ceiling to be respected conservatively, and the exception says to stop in that case. **The independent review was not launched.** No second agent exists, nothing was spent on it.
+
+### 10.4 What the review was to check, and what is therefore still unverified
+Nobody but the author has examined: the order `notifyWatchers`, `releaseTerminated`, `close(done)`, `signal` (M5); the need for `c.mu` and the synchronization relations of the release (M11); late callbacks; `Goexit` in `PostStop`; restart; and the limits of M4/M5/M11.
+- **M5 (survivor, by design).** No test asserts that the release is before `close(done)`; `-race` neither proves it nor caught the mutant. The only evidence is the position of the call in `finalize` (`stop.go:117-119`: `notifyWatchers`, `releaseTerminated`, `close(c.done)`) and the position of `signal` after it, read by the coordinator.
+- **M11 (survivor).** The release without `c.mu` was not caught by `-race` in the runs of section 5 (two runs, plus T12 as part of the suite). What remains **undemonstrated**: that the release cannot race with any concurrent reader of the eight fields, and that `c.mu` is necessary and sufficient. The argument for it is `PROPOSAL.md` 3.3 and 3.4 (readings). No race, defect or interleaving was found; none was looked for by an independent reader.
+- **M4** is now covered by the corrected T05, for the position of the release against `signal` only.
+
+### 10.5 Consumption
+Measured: implementer 204,658 tokens, 1.4143 USD, 402,997 ms. Everything else of the coordinator (tool calls, gates, mutants, this round) is **unmeasured**. No agent ran in this round.
+
+## 11. Ceiling extension for the review (Owner, after the exception round)
+
+The Owner granted, in the work thread (an instruction, not a GitHub comment), at HEAD `e4a378e82e50be1bd1c0b23bd97cb5cbc3af53c9`, an exceptional extension of the estimated ceiling of T6 to **600,000 tokens**, only to complete **one** independent review of PR #739 and to record it. It replaces the 450,000 ceiling of section 10 exclusively for that. It keeps: one Opus review, 2 USD and 10 minutes at most; no additional agents, paid consultations, judge or campaigns; no new production seams; no merge, no closing of issues, no deletion of branches; no correction of production or tests in that authorization. The earlier authorizations (O0, section 10) are not rewritten. If the conservative forecast exceeds 600,000 the review is not launched.
+
+### 11.1 State confirmed before launching
+`feat/actor-cell-release-563` at `e4a378e82e50be1bd1c0b23bd97cb5cbc3af53c9`, clean tree (0 changed files), `origin/develop` `f23a215f9701dd7b5046dada0150ba75dfbe61c1` (unchanged), `origin/docs/t6-cell-field-release-563` `550bfa16b3d82fe66ff4cf07560e30e190a27837`. #738 and #739 draft and open; #563 open with 0 comments; #461 open.
+
+### 11.2 Forecast (measured, reserved, estimated)
+| Item | Tokens | Nature |
+|---|---|---|
+| Implementer | 204,658 | **measured** (agent JSON, RUNBOOK convention) |
+| Coordination, gates, mutants, one correction round | 180,000 | **reserve** of the package convention (90,000 + 30,000 + 30,000 + 30,000); the coordinator's real usage is **not measured** |
+| Coordination of this round (forecast, launch, record, PR) | 30,000 | **reserve**, an assumption of this record |
+| **Before the review** | **414,658** | measured plus reserves |
+| Review, reading A: the antecedent review of `byid-retention` (76,340 tokens for 0.9079624 USD, Opus) | 76,340 | **estimate** by analogy; total 490,998 |
+| Review, reading B: the 2 USD cap reached at the antecedent ratio (76,340 / 0.9079624 = about 84,080 tokens per USD, so about 168,160) | 168,160 | **estimate**; total **582,818** |
+
+- **Conservative forecast: 582,818**, which does not exceed 600,000, so the review may be launched. It leaves about 17,000 of margin.
+- **What it does not guarantee.** The 2 USD and 10 minutes are limits the launcher enforces (`--max-budget-usd`, `timeout`); a limit in dollars is **not** a guaranteed limit in tokens. Reading B assumes the review has the token mix and the price of the one data point of the antecedent. A mix with more cheap tokens per dollar (for example less output) would use more tokens for the same 2 USD. Tokens are not enforced by anything; they are read from the agent JSON afterwards. The coordinator's own usage may also exceed its reserve.
+- Nothing here is a measured total. The measured consumption of the review is recorded in section 12 when it exists.
+
+## 12. Independent review (one Opus run; Owner's extension of section 11)
+
+### 12.1 What ran
+- Launched through the unit's `run-agent.sh review opus` with `AGENT_WALL_MIN=10`, `AGENT_BUDGET_USD=2`, the approved RULEBOOK and review-template hashes (`d8fb1d8…`, `3e2da2a…`), no prior `review.lock`. Started 2026-10-23 21:14:51Z. Exit 0, `is_error` false. One run; no second attempt; no other agent.
+- **SHA inspected: `dcb9c298b01d985db1390f556d1d6e3287304e29`**, a documentation-only descendant of the candidate `e4a378e82e50be1bd1c0b23bd97cb5cbc3af53c9`. The reviewer ran `git diff --stat e4a378e HEAD` and reported that only `EXECUTION-RECORD.md` differs (+21 lines): production and tests are byte-identical to `e4a378e`.
+- The prompt was `review-prompt-exception.md` of this directory (the package `review-prompt.md` was not used because it assumes uncommitted work and does not list the items the Owner asked for). SHA-256 of the prompt: `aa995dfa7434bc85e92dbaf63a7940968c7f3ddecbdc2e527720f2fd868f8a84`. It is not one of the hashed files of `RUNBOOK.md` section 9 and the launcher does not check it.
+- The reviewer is read-only and cannot run `go test`: it **ran** only `git rev-parse` and `git diff --stat`; every other conclusion is a **reading**, as the report marks.
+
+### 12.2 Measured consumption of the review
+| | Review |
+|---|---|
+| Model | `opus` |
+| Wall time (`duration_ms`) | 135,133 ms (2.3 min); limit 10 |
+| Cost (`total_cost_usd`) | 0.952899 USD; cap 2 |
+| Turns | 16 |
+| Input / output / cache-creation tokens | 26 / 10,381 / 82,498 |
+| **Tokens by the RUNBOOK convention** | **92,905** |
+| Cache-read tokens (apart) | 425,955 |
+
+Against the forecast of section 11.2: reading A was 76,340 and reading B 168,160; the measured 92,905 is between them. Tokens per dollar in this run: 92,905 / 0.952899 = about 97,500, above the antecedent ratio of about 84,080 that reading B assumed, as section 11.2 warned could happen; it did not matter here.
+
+**Totals, kept apart.** Measured agents: 204,658 (implementer) + 92,905 (review) = **297,563**. Reserves of the package convention: 210,000 (180,000 + 30,000 of section 11.2). **Estimated total by the convention: 507,563**, below the 600,000 ceiling of section 11 and above the earlier 450,000. This is not a measured total: the coordinator's own tokens were not measured and may exceed their reserve.
+
+### 12.3 Findings (severity, location, evidence as reported; my verification added)
+| # | Severity | Location | Finding | Verification |
+|---|---|---|---|---|
+| 1 | **DEFECT (documents only)** | `PROPOSAL.md:235`, `EXECUTION-RECORD.md` section 5 | PROPOSAL 8 says T06 kills M9 (counters reset) and asserts `told` and `deadLettered` keep growing after a late `Tell`; the record says only `TestPortMessagesStayOutOfTheTMessageCounters` and `TestPreStartHooks` (existing tests) detected it. The reviewer did not read T06's body | **Confirmed by the coordinator** with a text search of `cell_release_internal_test.go`: `told` and `deadLettered` appear only in the classification list of T01, in no assertion. PROPOSAL 8 over-assigned M9 to T06; the record is right. M9 is detected, by the existing suite, not by a `CellRelease` test. `PROPOSAL.md` is a hashed file of the approved package; it was **not** edited in that round, and the row was amended later under the Owner's instruction (section 13) |
+| 2 | INFO | `EXECUTION-RECORD.md` section 5 | A sentence said "no corrected test was run" while section 10.1 says it was | Confirmed and fixed in the sentence (section 5) |
+| 3 | INFO | record, PROPOSAL 8 | The mutant list adds up to 24 (8 + 2 + M3 + M4 + M5 + 2 + M7 + 2 + M9 + M10 + M11 + M12 + M13 + M14); 24 − 2 = 22 detected, consistent with the table; the release set has nine fields (M1.a-h plus M14 for `resumeReady`) | none needed |
+| 4 | INFO | `stop.go:117-120`, `stop.go:160-163` | Order `notifyWatchers`, `releaseTerminated`, `close(c.done)`, `signal` is correct **by reading**. After a `Goexit` in `PostStop`, `callPostStop` schedules a fresh `finalize` that skips `PostStop` (`beginPostStop`) and runs the same tail in the same order. No test asserts the order against `close(done)` (M5). With M5 applied a `Done` waiter could briefly see old values, but no released value would be used (no reader after `closed`), so M5 breaking no safety property is itself a reading | M5 stays a declared survivor. READ only |
+| 5 | INFO | `releaseTerminated` and every accessor of the nine fields | **`c.mu` is redundant under the current code (M11), harmless, protective for future readers.** Protection is by lifecycle exclusion: `finalize` is scheduled only after `drained()` sets `terminating` under `System.mu` (`hierarchy.go:179-189`); `drain` returns after `terminate` without clearing `scheduled` (`cell.go:122-123`); every wake path tests `!c.scheduled`; `recreate`, `enqueueFailed` and the hold path return once `closed`/`stopRequested`; `adjustCore` after the stop never reads the released fields. Earlier writers are ordered before the release by `finalize`'s own critical section (`stop.go:104-111`). No interleaving found where a reader dereferences or calls a released value (retained `Context`, late `Tell`, `Watch`, `Stop`, `wakeRestart`, parent `recreate`) | READ only. The reviewer distinguishes exclusion by mutex from exclusion by lifecycle, as asked. This **supports** M11 surviving but does not demonstrate it by execution |
+| 6 | INFO | `cell_release_internal_test.go:280-292` | The M4 correction catches M4 by reading: the wrapper still calls `held(n, id)`; its `crSnapOf` takes `c.mu` while `signal` runs with no lock (`hierarchy.go:336-342`), so no deadlock; later assertions are unaffected; the test makes no claim about `close(done)` | the red/green of M4 is the coordinator's run of section 10.1; the reviewer did not re-run it |
+| 7 | INFO | diff since `550bfa1` | Scope: one unexported method, its call, comments in `cell.go`; `owner` not released; no exported identifier, seam or option | READ from the diff |
+
+**Blockers: none.**
+
+### 12.4 What the review did not cover (recorded as unreviewed, by the reviewer)
+Its later Bash calls were denied. Not read or not run: the text of the README and ADR 0024 diffs (no judgement on their claims); `go vet`; the bodies of T01-T04 and T06-T13; `RULEBOOK.md` J1-J8 and the ADR in full; `PROPOSAL.md` sections 2 and 3; sections 3 and 11 of this record; the PR description. Whether each structural test asserts what its name says is **unverified** except T05 and the header of T12. This is a partial review: the Owner asked for the quality of the tests and for the documents' claims, and those two parts were only partially covered. Nothing here repeats or extends the review; no second review is authorized.
+
+### 12.5 What stays undemonstrated
+- **M5:** the release-before-`close(done)` order is supported by reading `finalize` (the coordinator's and the reviewer's) and by no test and no run.
+- **M11:** the lock is, by the reviewer's reading, redundant today and untested; the absence of a race rests on reading, not on execution. If the lifecycle argument fails in some future change, nothing here would catch it.
+- **M9:** detected only by pre-existing tests, not by a `CellRelease` test.
+- Nothing about the reviewed claims was executed by the reviewer.
+
+### 12.6 State
+- No blocker found within the reviewed scope; one documentary defect (corrected here); the review is partial (12.4).
+- Integrability: the candidate is **not** declared integrable or closed. PR #739 is a draft stacked on #738, which is unmerged; no merge order or merge is authorized; M5 and M11 are undemonstrated by tests; the review did not cover everything asked; no CI result of the candidate is claimed. #563 and #461 stay open.
+- Documents changed after the reviewed SHA: this section only (and the sentence of finding 2, `RESUME.md` and the added prompt copy). Reviewed SHA `dcb9c29`; the final documentary HEAD is given in the PR description.
+
+## 13. Reconciliation with develop, amendments and checks (after the merge of #740)
+
+Instruction of the Owner in the work thread (not a GitHub comment): reconcile #738 with the current `develop`, update #739 without force-push and keep it stacked on #738, do not rewrite history, correct the M9 statement, keep O1 (no new production seam), do not demand that M5 or M11 be killed, do not remove the lock or any limit, record the review as incomplete because commands were denied and do not grant the reviewer write, run the applicable checks and the `-race` tests of `pekko-actor`, and publish. Nothing earlier in this record is rewritten; this section adds.
+
+### 13.1 State found
+- Expected and found: #738 `550bfa16b3d82fe66ff4cf07560e30e190a27837` (draft, open), #739 `93dba7233fb14e525b92eb224a6e9908885a0063` (draft, open, base branch `docs/t6-cell-field-release-563`). `develop` `a2940d416e9ed773a987168ed329aa7ca061c0c8`, the squash of #740 (parent `f23a215`). No HEAD changed by anyone else.
+- A trial merge of #738 onto that `develop` (`git merge-tree --write-tree`) exited 0 with no conflict: #740 changed `README.md`, `docs/actor-core-parity.md`, `docs/adr/0028-...`, `docs/judge.md` and `gopekko-testint/README.md`, none of them in `migration/stage-1/cell-release-563`. The incompatibility the instruction anticipates was therefore not textual.
+- GitHub reports both PRs `MERGEABLE` and `UNSTABLE`. Their checks `go` and `label` ended in `FAILURE` in about 2 seconds with no step run (`steps: []`). The check-run annotations of the #740 run, read earlier, give the cause: "The job was not started because recent account payments have failed or your spending limit needs to be increased". The annotations of the four check runs of #738 (jobs `120646337348`, `120646336317`) and #739 (jobs `120661588532`, `120661587980`) were read in this round and each has exactly one failure annotation with the same message, so the cause is **verified for them too**: the jobs were not started because of billing. The CI executed nothing of this change.
+
+### 13.2 What was done (no force-push, no history rewritten)
+| Branch | Action | Result |
+|---|---|---|
+| `docs/t6-cell-field-release-563` (#738) | merge commit of `develop` `a2940d4` into the branch | `dca23be090462b5df748884a8c69a7739324597e`, parents `550bfa1` and `a2940d4`, pushed as a fast-forward |
+| `feat/actor-cell-release-563` (#739) | merge commit of `dca23be` into the branch, then the corrections below | `d56fbd834642294ab3c69d19e812246475458963` (merge, parents `93dba72` and `dca23be`), then one documentation commit |
+
+The #739 diff against its base branch is unchanged in content (the merge brings only #740's five documentation files, which are already in `develop`). The Go files, the tests and the launch inputs are byte-identical to the reviewed candidate.
+
+### 13.3 Corrections (text only)
+1. **M9.** `PROPOSAL.md` section 8, row M9, said that T06 detects it. It now says that no `CellRelease` test does, that the plan assigned T06 and T06 asserts no counter, and that the existing tests `TestPortMessagesStayOutOfTheTMessageCounters` and `TestPreStartHooks` did. This row of an approved artifact **changed after the approval and after the run**: `PROPOSAL.md` sha256 `48799cbe19f86b213c6034193fe77a1700920302fdf7f2c210974de83abfd444` (approved) became `e3f2a619d7b986bfe419c91269ae8d3c84e3795d4e7944c6a3f62321ab750226`. `RUNBOOK.md` section 9 gives the new value and an amendment note, so the RUNBOOK hash changed from `c6415d55da866f692fed944dd36ef6704456201d3e7a671b95a36251aef71cc1` to `49a11821deb7fa489f85ac3bed6c44808c3aaed496727dc6070c5dbd814fd2d8` (given in `RESUME.md`). The files that the launcher checks (`RULEBOOK.md`, both templates) and the prompts, the wrapper, the launcher copy and the manifest did not change, so no launch input changed and the execution of this record used the approved bytes. No RED/GREEN result changes: no test and no production code were touched.
+2. **Review status in the README and in ADR 0024.** Both said "no independent review". One independent read-only review did run, on `dcb9c29` (section 12). They now say: reviewed once, with no blocker, and **incomplete** because part of the reviewer's commands were denied.
+3. **M5.** README text now says that no test asserts the order of the release against `Done` closing and that it rests on the position of the call and on inspection. O1 is unchanged: no new seam. M5 is not required to be killed to approve this candidate, and its survival alone is not a defect.
+4. **M11.** The mutex of `releaseTerminated` is kept. The review reads the protection as lifecycle exclusion (no activation runs after `terminate`) and the lock as redundant today and protective against future readers. That is not a defect and nothing was removed: not the lock, not a limit, not an assertion. What remains undemonstrated is in section 12.5 and is unchanged.
+
+### 13.4 About the incomplete review
+The review ran under `settings.review.template.json` (read-only: no Edit, no Write; `go test` denied), launched with `AGENT_WALL_MIN=10` and `AGENT_BUDGET_USD=2`. Its later `Bash` calls were denied, so it could not run `go vet` or read everything (section 12.4). The cause of each denial was not diagnosed: the template allows `git diff:*` and `git show:*`, `go vet ./pekko-actor/...`, `git log --oneline -5`, `eza` and `wc`, and not other forms of `git log`. **The template was not widened and the reviewer was not given write access**; no second review was run. If a fuller review is wanted, the template is the thing to decide, not the cap.
+
+### 13.5 Checks run in this round (on the merged #739 tree, by the coordinator)
+| Check | Result |
+|---|---|
+| `go test -race -count=1 ./...` in `pekko-actor` | ok (3 packages) |
+| `go test -race -count=1 -run CellRelease ./actor`; `gofmt -l`; `go vet ./...` | ok; clean; clean |
+| `scripts/check-judge-matrix.py` | exit 0, output **identical** to the output on `develop` `a2940d4`: Pekko 31/31 clauses; Go HISTORICAL 18/18 (475 rows, darwin/arm64); **Go CURRENT 0/18** |
+| `scripts/check-adr-signatures.sh` | exit 0 |
+| `.github/scripts/go-sdk-update.sh --check` | exit 0, 10 modules and `go.work` on go1.27.2 |
+| `scripts/check_deps.sh` | exit 0 |
+| `.github/scripts/check-headers.sh` | exit 1 with 6 errors, all in `pekko-persistence`; **the same six files fail on `develop` `a2940d4`** (run in a real detached checkout of it; none in `pekko-actor`), so they are pre-existing and not caused by T6. A first attempt on a `git archive` copy without `.git` checked 0 files and printed "OK: 0 ported file(s)"; it was discarded as evidence |
+| hashes of `RUNBOOK.md` section 9 against the files, and the RUNBOOK hash against `RESUME.md` | see the commit; recomputed after the last edit |
+
+Not run, as instructed: tests of other modules, `scripts/check_coverage.sh` (no Go changed since it ran), the Go judge, any campaign, mutants, engines. The mutant results of sections 5 and 10 are not repeated and nothing in this round changes them.
+
+### 13.6 Effect on the hash used by `check-judge-matrix.py`
+The Go campaign rows are bound to `tree` = `git rev-parse <commit>:pekko-actor` (the whole directory, `README.md` included). Values: the campaign `f1697b67a11c06d524dac28d80e2aa68ddf63ce3` (commit `6742250`); `develop` `a2940d4` `464a0f268d97f83956f1e4f6194652a91b493579`; this branch's tree at the merge `d56fbd8`, before this round's README sentence, `713d3e6e2336d5153ce6ba0f8b934c08bae5910d`; and at `d88f0fc` (the README sentence of section 13.3 changes it) `8fbe65ba49417859f73a2febde7b3a84c35e70e2`, which stays the same for any later commit of this PR that touches only files outside `pekko-actor/`. The README edit of this PR and the Go changes make the tree differ from `develop`'s, and `develop`'s already differed from the campaign's, so **CURRENT was none before and stays none**; this PR does not change that state, it only changes which tree is current. The campaign evidence is for the tree `f1697b67…`, on darwin/arm64, and is **not** evidence about this candidate. The campaign was not re-run and no record was changed to look current.
+
+### 13.7 State
+Unchanged limits: the independent review is partial; M5 and M11 are undemonstrated by tests; the CI did not run; nothing is measured in memory or heap; no Pekko parity is claimed. T6 is not integrated or closed; #563 and #461 stay open; #738 and #739 stay in draft.
+
+## 14. Preparation of the additional review, and the pending lint (before launching)
+
+Instruction of the Owner in the work thread (not a GitHub comment) after section 13: complete only what is pending to decide the integration of T6. It authorizes **one** additional independent read-only review, at most 2 USD and 10 minutes enforced by the launcher, with a budget separate from and additional to the historical consumption of T6, no second attempt, no additional agent, no paid consultation, no judge, no campaign. It asks to diagnose the denials of the previous review before launching, to adjust only indispensable read permissions (documenting the delta), not to change the approved package or its hashes retroactively, to keep O1 (no new seam), M5 without deterministic coverage, the lock, and to run the pinned lint. It forbids merge, changing the base of #739, closing issues and deleting branches.
+
+### 14.1 State confirmed
+`develop` `a2940d416e9ed773a987168ed329aa7ca061c0c8`; #738 `dca23be090462b5df748884a8c69a7739324597e` (draft, base `develop`); #739 `cc97fba0efe1952c2be2a4ae2dc43d36ab8f6435` (draft, base `docs/t6-cell-field-release-563`); #563 and #461 open. Nothing changed since section 13.
+
+### 14.2 Has the additional review run? No.
+The job directory holds one T6 review output, the first (`dcb9c29`, section 12), with its `review.lock`. No second T6 review output exists, and section 13.4 says no second review was run. The authorization of the previous round was therefore not used in that round. This round runs it once. The partial review of section 12 is the antecedent, not this review.
+
+### 14.3 Diagnosis of the denials of the first review
+The agent JSON of that run records `permission_denials`: exactly **two** `Bash` calls, no file read.
+1. `cd ../..; git diff 550bfa1… HEAD -- pekko-actor/README.md docs/adr/ | grep "^[-+]" ; cd pekko-actor && go vet ./actor/ && echo VET-OK`: a compound command (`cd`, `;`, a pipe to `grep`, `&&`) whose parts are not covered by an allow rule (the template allows `go vet ./pekko-actor/...`, not `go vet ./actor/` after a `cd`).
+2. `git -C <worktree path> diff 550bfa1… HEAD -- pekko-actor/README.md docs/adr/`: it does not begin with `git diff`, so `Bash(git diff:*)` does not match it.
+Both were the diffs of the README and ADR 0024, which is why those texts were left unreviewed. The first review's other `Bash` calls (`git diff --stat`, `git rev-parse`) ran, and `Read` over the worktree was never denied. Cause: the **form** of the commands, not a missing read capability. The same diffs are obtainable with `git diff <rev> HEAD -- <paths>` run from the worktree root, which `Bash(git diff:*)` covers.
+
+### 14.4 Configuration of this review (identified as new where it is new)
+- **Unchanged and still checked by the launcher:** `run-agent.sh` (`d40c5de7…`), `settings.review.template.json` (`3e2da2a0…`), `RULEBOOK.md` (`d8fb1d84…`); all nine hashes of `RUNBOOK.md` section 9 were recomputed and match, and the RUNBOOK hash matches `RESUME.md`. **No permission was added.** The reviewer keeps no `Edit`, no `Write`, no `go test`, no mutation command, no network.
+- **New for this round (not part of the approved package, not hashed there):** the prompt `review-prompt-additional.md` of this directory. It states the exact command forms that the template allows (plain `git diff <rev> HEAD -- <paths>`, `git show <rev>:<path>`, `git diff --stat`, `git log --oneline -5`, `Read`), says not to use `git -C`, `cd`, `;`, `&&` or pipes, and gives the diffs of the README and ADR 0024 inline as well, so that a denial cannot again leave them unread. It asks the reviewer to quote any denial verbatim and to list what it could not cover. Its SHA-256 is recorded in section 15.
+- A fresh output directory outside the repository is used (the launcher creates one `review.lock` per output directory). That is not a way around a restriction: the Owner authorized this review explicitly, and the lock of the first review is untouched.
+- **Limits.** `AGENT_BUDGET_USD=2` (`--max-budget-usd`) and `AGENT_WALL_MIN=10` (`timeout -k 30s 10m`), read in the launcher lines 105-112. They bound dollars and time; **a dollar cap is not a guaranteed token ceiling**. Tokens are read from the agent JSON afterwards. This budget is separate and additional; historical measured consumption of T6 (implementer 204,658 tokens, first review 92,905, section 12.2) is not reused or netted.
+
+### 14.5 Lint (pending item), run before launching
+| Item | Value |
+|---|---|
+| Version pinned by the repository | `.golangci-version` = `v2.14.0` |
+| Binary used | `golangci-lint` 2.14.0 built with go1.27.2 by `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0` into a directory outside the repository (the installed 2.13.1 cannot load packages with go1.27.2: its run ends in a `typecheck` error, as in section 3) |
+| Command | `cd pekko-actor && golangci-lint run --config ../.golangci.yml ./...` |
+| SHA | `cc97fba0efe1952c2be2a4ae2dc43d36ab8f6435`, clean tree; production and tests are byte-identical to the earlier lint run at `4caeb92` |
+| Result | `0 issues.`, exit 0 (this includes `gocyclo` at 10 through `.golangci.yml`) |
+It was not substituted by `go vet`. The suites, mutants and gates already valid were not repeated.
+
+## 15. The additional independent review
+
+### 15.1 What ran
+- The single additional review authorized in section 14, launched with the package launcher (`run-agent.sh review opus`), `AGENT_WALL_MIN=10`, `AGENT_BUDGET_USD=2`, the approved RULEBOOK and review-template hashes, a fresh output directory, started 2026-10-23 21:59:34Z. Exit 0, `is_error` false. One run; no second attempt; no other agent; no paid consultation; no judge, campaign or mutant.
+- **SHA reviewed: `c9249add63292977a84c1b94bd17c08c98281f32`** (the reviewer saw it with `git log --oneline -5`, abbreviated `c9249ad`). It is a documentation-only descendant of `dcb9c298b01d985db1390f556d1d6e3287304e29`, the SHA of the first review: `git diff --stat dcb9c29 HEAD` shows no change to `stop.go`, `cell.go` or either test file (the reviewer ran it).
+- The prompt was `review-prompt-additional.md` of this directory (new; not one of the hashed package files); SHA-256 `0627dc9ae4cfb4236d3096f2a82ac7ca7ccd7fb7eea2d7a453dea217370c51f0`. It carried the README and ADR diffs inline and the command forms the template allows.
+- **No call was denied** (`permission_denials` is empty in the agent JSON). The reviewer ran `git log --oneline -5`, `git diff --stat` forms and `go vet ./pekko-actor/...` (clean); everything else is a reading. It could not run tests or mutants, and says so.
+
+### 15.2 Measured consumption of this review (separate and additional budget)
+| | Additional review |
+|---|---|
+| Model | `opus` |
+| Wall time (`duration_ms`) | 112,140 ms (1.9 min); limit 10 |
+| Cost (`total_cost_usd`) | 0.8926152 USD; cap 2 |
+| Turns | 17 |
+| Input / output / cache-creation tokens | 18 / 11,036 / 73,562 |
+| **Tokens by the RUNBOOK convention** | **84,616** |
+| Cache-read tokens (apart) | 416,636 |
+
+Measured agents of T6 so far, kept apart from the budgets: implementer 204,658 tokens and 1.4143 USD; first review 92,905 and 0.9529 USD; this review 84,616 and 0.8926 USD. **Sum of the three: 382,179 tokens and 3.2598 USD.** The coordinator's own tokens are **not measured**. A dollar cap is not a token ceiling; these are readings of the agent JSON. This review's budget was not netted against the earlier ones, as instructed.
+
+### 15.3 Findings (severity, location, evidence as reported; my verification added)
+No BLOCKER and no DEFECT.
+| # | Severity | Location | Finding | Verification and handling |
+|---|---|---|---|---|
+| 1 | INFO | `RULEBOOK.md:23,26` (J2, J5), `stop.go:75`, `cell_release_internal_test.go:392` | J2 ("no field of the release set is zero before `PostStop` returns") and J5 ("nothing releases in `terminate`") are stated more strongly than the code: `terminate` already calls `dropResume()` (`stop.go:75`), which zeroes `resumeFn` and `resumeReady` before `finalize`. T04 asserts exactly that (they are `false` at the park point; the tests seed them after it with `crSeedResume`). Code and tests agree; only the invariant text overstates | **Confirmed by the coordinator**: `stop.go:75` reads `c.dropResume()`, a call that exists at the base. `RULEBOOK.md` is a hashed, launcher-checked file and is **not** edited. The precise reading is: J2 and J5 hold for the other seven fields (`actor`, `factory`, `failedMsg`, `pendingCause`, `startFailure`, `failed`, `sysq`); `resumeFn` and `resumeReady` are also dropped earlier by the pre-existing `dropResume` of `terminate`, and `finalize` clears whatever a start step set again after it |
+| 2 | INFO | `cell_release_internal_test.go:68-82` (T06) | T06 asserts `rcObserve == rcWant`, the same as the existing `TestRetentionOperationsGiveTheSameResultBeforeAndAfterRetirement`; it adds the non-held variant only. No `CellRelease` test pins the counters (J3 for counters), which confirms the M9 correction | accepted; recorded. No change |
+| 3 | INFO | `cell_release_api_test.go:129-134` (T12) | its assertions hold on the base with or without the release; its only value is as a `-race` probe, which did not catch M11. The file header says this plainly | consistent with sections 5 and 12; no change |
+| 4 | INFO | ADR 0024 status and "Not verified"; `pekko-actor/README.md:252` | both said "reviewed once and incompletely", out of date once this review exists | **Fixed** in this round: both now say two independent read-only reviews, the first incomplete, neither able to run tests |
+| 5 | INFO | `RULEBOOK.md:3` | still says "Status: PROPOSED. O0 pending", a hashed file that was not amended; a reader of the RULEBOOK alone is misled | recorded: the current status is in `RESUME.md` and this record, not in the approved RULEBOOK |
+
+### 15.4 Coverage effectively achieved
+- Items 1 to 5 of the prompt were completed. Read in full: T01, T03, T04, T06 to T13; T02/T05 skimmed (covered by the first review). No helper swallows a failure; no test is vacuous (the preconditions are asserted); T04, T12 and the four characterization tests cannot fail on the base, as the record says.
+- **Not traced by the reviewer:** which call would dereference nil under M7 and M8b, and the `Context.Self` path of M6b; and the "hold path" of J6.
+  - The hold path is `holdLocked` (`supervision_restart.go:75-80`), reached from `adjustCore` (`supervision_failure.go:66`); it returns `false` once `closed || stopRequested`, so nothing is appended to `sysq` after the stop. **This is the coordinator's reading, not the reviewer's.**
+  - The mutant attributions of the record come from the runs of sections 5 and 10 (the first failing tests of each mutant, outputs kept outside the repository), not from reading; the reviewer judged them only by plausibility.
+- The reviewer did not recompute any SHA-256. The coordinator recomputed the nine hashes of `RUNBOOK.md` section 9 and the RUNBOOK hash in `RESUME.md` before launching (section 14.4).
+
+### 15.5 Conclusions of the first review that still apply (reviewer's statement)
+The finalization order `notifyWatchers`, `releaseTerminated`, `close(done)`, `signal` including after a `Goexit` in `PostStop`; the lock redundant today with protection by lifecycle exclusion; the M4 correction in T05; the 24 mutants and 22 detected; the scope. The reviewer confirmed them from the unchanged diff and did **not** re-derive them.
+
+### 15.6 Verdict and limits
+- **The reviewer's verdict:** the chain can be integrated as drafts, #738 then #739; nothing blocks it.
+- **Still not demonstrated:** M5 and M11 have no test (their survival is not by itself a defect; the order against `close(done)` rests on inspection; the lock is kept); M9 and the counters are covered only by pre-existing tests; the CI never ran for this change (billing); there is no heap measurement; no Pekko parity is claimed; neither review could run tests or mutants. Both reviews were run by the same model (Opus) with the same read-only template.
+
+### 15.7 Checks of this round and the effect on the judge hash
+- Pinned lint (section 14.5): `golangci-lint` v2.14.0, `cd pekko-actor && golangci-lint run --config ../.golangci.yml ./...`, SHA `cc97fba` (production and tests identical to `c9249ad` and to this round), `0 issues.`, exit 0.
+- After this round's documentation edits: whitespace check clean; `scripts/check-adr-signatures.sh` exit 0; `scripts/check-judge-matrix.py` exit 0 with output identical to the one on `develop` `a2940d4` (Go HISTORICAL 18/18, **CURRENT 0/18**); the nine hashes of `RUNBOOK.md` section 9 and the RUNBOOK hash in `RESUME.md` recomputed and matching; no hashed package file changed in this round. The package consistency script reports one "placeholder" in `review-prompt-additional.md`, which is a false positive of that script: the three `@@` are hunk headers of the inline diffs.
+- Not repeated, as instructed: tests, `-race`, coverage, mutants and the other gates, since no Go file changed after they ran (a diff of `pekko-actor` from `4caeb92`, excluding the README, lists no file).
+- **Judge hash.** The README edit of this round changes the `pekko-actor` tree again: it was `8fbe65ba49417859f73a2febde7b3a84c35e70e2` at `cc97fba` and is `8a0838725a086df02ef6e788538659a2612c96b9` with this round's README sentence (`develop` `464a0f268d97f83956f1e4f6194652a91b493579`, campaign `f1697b67a11c06d524dac28d80e2aa68ddf63ce3`). CURRENT was none and stays none; the campaign was not run again and its records were not touched.
+
+## 16. M5 and M11 after integration (appended; earlier sections unchanged)
+
+Base: `develop` `a807fed22327dfd3a02587528ce13a85661ddbab` (#739 integrated). The results of sections 5 and 10 (22 of 24 detected, M5 and M11 survive) are the results of that run and stay as recorded. **Provenance.** Everything in this section was produced by the author of these changes, who also wrote the review in 16.4; none of it is an independent review. An independent review of the test at HEAD `177ed4c` was made afterwards and is recorded in section 17; this section stays as written.
+
+### 16.1 Contract and test
+
+- **Contract.** `releaseTerminated` is one critical section on `c.mu` that runs after `notifyWatchers` and before `close(c.done)`. Two properties are observable with no new seam and no public API (O1 unchanged): a watcher notification runs in the finalizer after the watchers are told and before the release, so a test can take `c.mu` there and keep it. A correct finalizer then parks inside the release: `Done` stays open and no field is released.
+- **Test.** `TestCellReleaseDoneClosesOnlyAfterTheReleaseTookTheLock` (`cell_release_internal_test.go`), second version. The first version (HEAD `c2f9845`) waited a fixed 200 ms for `Done` to close; that wait was a negative wait and could only let a mutant pass. The second version has no timer in the assertion path: it polls until the finalizer either returns (`finalized early`, which M11 causes) or a goroutine dump shows a goroutine blocked on a mutex inside `releaseTerminated`, then asserts that `Done` is open and the fields are unreleased, and unlocks. The `time.Sleep(1 ms)` is only the polling cadence and the 10 s limits only bound a failure. `unlock` is idempotent and registered with `Cleanup`, so a failed expectation cannot leave `c.mu` held or the finalizer goroutine blocked.
+- **What it depends on.** It reads the goroutine dump through `runtime.Stack`, so it depends on the function name `releaseTerminated` and on the mutex frames appearing in the dump (`sync.Mutex.Lock` or `SemacquireMutex`); renaming the function or a change in how the runtime names those frames would make the test fail, not pass. It is deterministic in the sense that no verdict depends on a delay; it still depends on the finalizer goroutine reaching the lock within the 10 s bound.
+- **What it does not show.** That `releaseTerminated()` is the statement immediately before `close(c.done)`, with nothing between them. Under O1 there is no observable point between the two statements, so that adjacency rests on inspection of `stop.go:117-119`. No seam is proposed.
+
+### 16.2 Mutants, executed on the second version of the test
+
+Each mutant was applied alone to a scratch copy of `pekko-actor` outside the repository; the copy was compared with the repository tree (`diff -rq`) before the mutant and after restoring it, with no difference. Platform darwin/arm64, go1.27.2.
+
+| Mutant | Command | Result |
+|---|---|---|
+| M5: `close(c.done)` before `c.releaseTerminated()` | `go test -vet=off -race -count=1 -run CellRelease ./actor/`, 3 runs | `TestCellReleaseDoneClosesOnlyAfterTheReleaseTookTheLock` failed 3 of 3, at the check that `Done` is open; no other test failed |
+| M11: `releaseTerminated` without `c.mu` | same without `-race`, 3 runs; same with `-race`, 1 run | the same test failed 4 of 4, at the check that the finalizer had not returned while the lock was held (in the first version of the test, `-race` also reported a data race; that was not seen in the `-race` run of this round) |
+
+The 24-mutant campaign of section 5 was **not** re-run: its definitions exist only as prose, and rebuilding them would not be the original campaign. No new total is claimed and the 22 of 24 of the earlier HEAD is not combined with these two results.
+
+### 16.3 Heap measurement (informative; not a contract and not a test)
+
+- **Scope.** Reachability of the user instance after `runtime.GC()` twice, read as `runtime.MemStats.HeapAlloc`. It separates release of the reference (the cell no longer points at the instance) from collection (what `HeapAlloc` shows after the forced GC). It does not measure what the process returns to the operating system (RSS) and no conclusion is drawn about it.
