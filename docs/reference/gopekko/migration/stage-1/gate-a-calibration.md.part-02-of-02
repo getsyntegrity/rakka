@@ -1,0 +1,136 @@
+## 11. The calibration on GitHub Actions (Linux), a separate calibration
+
+The manual job (`judge-calibration.yml`) was run from this pull request by labeling it `judge-calibration`. Its numbers are a
+**new calibration** on another machine, kept apart from section 10: not averaged with it, not required to equal it. The
+contract says a change of hardware requires re-running the calibration (`docs/judge.md` section 5, item 5), and `q_low`
+depends on it; the `cpus` column of the table is what tells them apart.
+
+| | Run 1 | Run 2 |
+|---|---|---|
+| Run | [37980503821](https://github.com/getsyntegrity/gopekko/actions/runs/37980503821) | [37982617368](https://github.com/getsyntegrity/gopekko/actions/runs/37982617368) |
+| Commit under test (`HEAD` of the checkout, asserted equal to the pull request's head by the job) | `4ea5d3b` | `abddabe` |
+| Result | failed at the S18 witness step | success, every step |
+| Artifact | `judge-calibration-37980503821` (id 11641253763) | `judge-calibration-37982617368` (id 11641687599, 2.4 MB, expires 2027-01-07) |
+| Machine | ubuntu-latest, 2 CPUs, Linux 6.17 azure, `openjdk 11.0.32.1`, `sbt 1.12.14` | the same |
+
+**Run 1 found a defect and was not retried until green.** The witness step failed on 10 of 200 `M9`/`S18` logs: under `M9` the
+`Terminated` reaches `w` while `c` is still held in the gate, and `S18` ended on the `Terminated`, so on a 2-CPU machine the log
+was closed before `c` recorded `post-stop` (it fell into the teardown file). The verdict was not affected (`I1.b` fires without
+the `post-stop` too) but the log was closed with a relevant event pending. The cause was in the scenario's end condition, not in
+the runner; the fix is that `S18` ends only when `post-stop` of `c` is recorded (`09977a4`), with a regression case in
+`selftest_witness.py` for exactly that log, and the report rows of `M9` were re-run. Run 2 is the run of the fixed code.
+
+**Run 2, checked outside the job.** Every `sbt` exited 0 and compiled; 14 campaigns (13 directories), all `failed`, no timeout and
+no harness error, 200 logs with identifiers `r1..r200` each; each `sbt.log` hash equals its manifest; the logs were re-judged with
+the comparator of `abddabe` and the counts equal the manifests' in all 14; `witness_check.py S18 ... early` passes on 200 of 200
+logs; the candidate table has 14 measured rows and every one follows from its manifest and the formula; one configuration for the
+whole run. Digests: 5627 files are listed in `SHA256SUMS`, all 5627 match. The list also listed itself, with a wrong digest (it
+was created before the listing ran): a defect of the digest step, now fixed (the list is written outside the tree and moved in;
+this fix was made after the run and has **not** been exercised on GitHub).
+
+| Scenario | Mutant | `d` / 200 (Linux, 2 CPUs) | `q_low` | `N` | macOS `d` (section 10) | Early (40) / rest (160), p |
+|---|---|---|---|---|---|---|
+| S01 | M1 | 181 | 0.86372 | 300 | 200 | 35/40, 146/160 (0.545) |
+| S02 | M1 | 198 | 0.96886 | 300 | 189 | 39/40, 159/160 (0.361) |
+| S03 | M61 | 200 | 0.98513 | 300 | 200 | 40/40, 160/160 (1.000) |
+| S05 | M3 | 200 | 0.98513 | 300 | 200 | 40/40, 160/160 (1.000) |
+| S06 | M41 | 200 | 0.98513 | 300 | 200 | 40/40, 160/160 (1.000) |
+| S07 | M8 | 87 | 0.37586 | 300 | 22 | 18/40, 69/160 (0.860) |
+| S08 | M11 | 200 | 0.98513 | 300 | 200 | 40/40, 160/160 (1.000) |
+| S10 | M4 | 166 | 0.78020 | 300 | 192 | 32/40, 134/160 (0.638) |
+| S11 | M62 | 200 | 0.98513 | 300 | 200 | 40/40, 160/160 (1.000) |
+| S13 | M12 | 144 | 0.66304 | 300 | 196 | 32/40, 112/160 (0.242) |
+| S14 | M14 | 200 | 0.98513 | 300 | 200 | 40/40, 160/160 (1.000) |
+| S16 | M43 | 200 | 0.98513 | 300 | 200 | 40/40, 160/160 (1.000) |
+| S17 | M37 | 200 | 0.98513 | 300 | 200 | 40/40, 160/160 (1.000) |
+| S18 | M9 | 200 | 0.98513 | 300 | 200 | 40/40, 160/160 (1.000) |
+
+What the comparison shows, without asking for equal numbers: the two machines agree on which defects are detected in every
+run (9 of 14) and differ on the intermittent ones: `S07/M8` 87 against 22, `S13/M12` 144 against 196, `S10/M4` 166 against 192,
+`S01/M1` 181 against 200. That is what the contract expects (`q` depends on the hardware), and it is why the table states the
+machine. Every `N` is 300 in both. `S10` shows no early-run drop on Linux (p = 0.64); its warning in section 10 stays.
+The first Linux run (4ea5d3b, 98 of 200 for `S07/M8`) is kept as evidence of run 1 and is not a second sample of run 2.
+
+Evidence: GitHub keeps the artifact for 90 days; the downloaded copy, the run logs and their digests are in
+`judge-evidence/github-run-37980503821/` and `judge-evidence/github-run-37982617368/` next to the checkout
+(`run.log` SHA-256 `b4f3a9de...ae5a` and `c4a3e169...ccec6`; `out/SHA256SUMS` of run 2 `af2256e9...4209`).
+
+## 12. Where Gate A stands: unmet requirements, accepted limits, later tasks
+
+**Unmet requirements of the contract (`docs/judge.md`): none that this work found.** Checked: every G and I relation has a
+scenario and a mutation, and every clause is observed by a valid campaign (28 of 28, 28 of 28 mutations by their expected
+rule, 14 of 14 relations; `check-judge-matrix.py --clauses`); `calibration.tsv` has a measured row for each of the 14
+concurrent scenarios, each following from its counts and the formula (`calibrate.py check`); the self-tests pass (131, 95, 58,
+47, 15, 10 checks); the calibration job ran on GitHub and its artifact was checked independently. The partial-delivery document
+(`judge-partial-delivery.md`) called Gate A 'open' because of `G8.a`, `I3.b` and the calibration; the first two are observed and
+the third is measured.
+
+**Accepted limits (they bound what the numbers mean; none is a requirement the contract adds):**
+- Independence between executions is **assumed**, as the contract assumes it. Every bound is conditional on it. The one check made
+  (first 40 executions against the rest) can refute a position-free rate and proves nothing when it passes.
+- Every `N` is the contract's floor of 300. It is a valid result. `S07/M8` (22 of 200 on macOS, 87 on Linux) shows an intermittent
+  defect also lands there. A rarer defect than the measured ones is covered by no row, which is true of any finite campaign.
+- `S10` keeps its warning: its first 40 macOS executions detect less in two of three campaigns (pooled 0.89 against 0.97,
+  an unplanned observation, p = 0.0011); on Linux there is no such drop. No campaign was repeated to make it disappear.
+- Two calibrations exist and are kept apart: `judge/calibration.tsv` is the Linux one (GitHub Actions run 37982617368, `abddabe`,
+  2 CPUs), chosen because it is the environment of the manual job and its evidence is a downloadable artifact; the macOS one
+  (`4a30ba4`, 16 CPUs) is `judge/calibration.macos.tsv`, same format, validated in CI. Both give `N = 300` in all 14 rows. That
+  does not make their probabilities interchangeable: `q_low` belongs to the machine named in the `cpus` column, and a change of
+  hardware or runner requires a new calibration (`docs/judge.md` section 5, item 5).
+- Five report rows are `timeout` and not counted: `M13/S05`, `M40/S05`, `M40/S06`, `M2/S10` and `M58/S07`, all concurrent. By
+  reading the end condition of each scenario in `Judge.scala`, the mutant removes the event that ends the run (the same class as
+  `S08`, `S11` and `S14` before this work); only `M58/S07` was confirmed from a log, the other four are not diagnosed by a run.
+  Each of their clauses has another valid detection.
+- `S08` and `S18` rest on Pekko draining the system messages after each user message and converting a notification inside the
+  watcher's system processing. `selftest_pekko_source.py` fails if the pinned source stops saying so (checked with an altered
+  `Mailbox.scala`), and `witness_check.py` checks the order on the campaign logs: `S08` and `S18` baseline, 200 concurrent and 1
+  controlled log each (macOS); `S18` under `M9`, 200 logs on macOS (`4a30ba4`), 30 in the report (`09977a4`) and 200 on Linux
+  (run 2). It is a justification by the source plus a regression check, not a proof.
+- Evidence outside the repository lives on one machine plus the GitHub artifact (90 days).
+
+**Later tasks (none blocks Gate A on the Pekko side):**
+- The Go harness for `S02` and `S11`, and the Go-side calibration (`side = go`), belong to the acceptance of the Go runtime.
+- Give `M13`, `M40` and `M58` completion witnesses like `S08`'s so that the five `timeout` rows become results.
+- Archive the evidence (a release asset, or a store the repository can name) before the artifact expires.
+- Exercise the fixed digest step of the manual job on GitHub (it was run on a test directory with `sha256sum -c`, including a
+  tampered file; see the pull request).
+- A pre-registered stationarity test (a fixed split chosen before the data) for a final calibration.
+- The consultative findings of the native review of the combined #26/#27 candidate that were not fixed (section 13): the code and
+  harness-comment ones are tasks because changing `calibrate.py` or `Judge.scala` after the review would change the reviewed
+  candidate (and `Judge.scala` the calibrated bytes).
+
+**Scope of the approval being asked.** Gate A, **Pekko side**: detection (28 of 28 clauses) and the concurrent run count `N` for the
+14 concurrent scenarios, under the limits above. Not in scope: any goPekko-side observation or calibration, the Go harness, and
+any claim that goPekko matches Pekko. A technical reviewer recommends approving within that scope; the approval itself is
+recorded by a person (the pull request review), not by this document.
+
+## 13. Approval of Gate A, Pekko side, and the native review behind it
+
+**Approved by a person, in the conversation that drove this work, for the Pekko side only.** The approval covers what section 12
+puts to it: detection (28 of 28 clauses, 28 of 28 mutations by their expected rule) and the concurrent run count `N` for the 14
+concurrent scenarios (`judge/calibration.tsv`, the GitHub Actions / Linux calibration of run 37982617368; the macOS one is
+`judge/calibration.macos.tsv`), under the accepted limits of section 12. The size of the pull requests #26 and #27 (906 and 726
+authored lines) was accepted by the same person as a one-off exception.
+
+**Not covered by the approval:** any goPekko-side observation or calibration, the Go harness (`S02`, `S11`), the acceptance of the
+Go runtime, and any claim that goPekko behaves like Pekko. Those keep their own acceptance, which this approval does not anticipate.
+
+**Native review (Gentle AI) of the combined #26/#27 content.** The candidate is the diff from `c81b48d` to `818ceac`: 22 files,
+1715 changed lines, risk high (a process launcher in `judge/calibrate.py`, shell in a workflow). After the squash merges of #24
+and #25 and an update of #26 by a history merge, the content was verified unchanged before the consent given for it was used:
+the tree of `develop` (`f1b6fa4`) equals the tree of `c81b48d` (`85aca6f648ec`), the tree of `5159097` equals the tree of `97e85e1`
+(`272637ff169d`), the diff `c81b48d..818ceac` is byte-identical to the diff `f1b6fa4..818ceac`, and the target identity is the
+same, `sha256:51a177e8e848c25c6d7ae44aa8f4bffc1e62f9036cbb15bebb9cf63bce5dc444`.
+- Lineage `review-1ecba76fbbdd01f5`. Four lenses (risk, resilience, readability, reliability) admitted, **approved, no blocking
+  finding**, acknowledged with the exact invocation (authority burned; it is not reused for any later content).
+- One incident, reported as it happened: the START with `consent granted` ended in the typed failure `candidate_context_unavailable`
+  (cause: `unsupported negotiated START risk reason "dangerous_sink"`, `retry_safe: false`, next action `review.status`). The START
+  was not repeated; the status of the exact lineage showed it `reviewing` with the four lenses to collect, and the review continued
+  from there. Whether that failure is a defect of the tool is not decided here.
+- 11 consultative findings, none blocking. Fixed in the documentation (this commit): the description of `M61` in the contract and
+  the stale sentence in the plan. Left as tasks, because fixing them changes the reviewed code or the calibrated harness bytes:
+  `Judge.scala` comment placement (S08 comment above S18); `calibrate.py` comment of `EXCLUDED` (it also excludes a pair for a
+  detection-rate reason, S07/M9), the unexplained `+ 20` in `stationarity()`, `stationarity()` not skipping `EXCLUDED` pairs
+  and keying a refutation by scenario instead of by pair (a historical replicate given with `--also` could reset a row), the
+  classpath taken from the last line in `per_jvm_runs`, the manifest written non-atomically, `halves_p` and `early_late_p`
+  overlapping, the self-test of `N` not checking that `N` runs reach 99%, and the full submodule fetch in the `judge-selftests` job.
