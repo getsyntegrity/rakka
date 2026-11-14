@@ -1,0 +1,126 @@
+- **Program.** `heap-measure.go.txt` in this directory, copied as `actor/zz_heap_measure_test.go` into a scratch copy and deleted afterwards. 200 actors holding 1 MiB each; every actor reports its first message on a channel, so `alive` is read after all 200 exist; all are stopped, every `Done` is awaited and every `Ref` is kept for `stopped_refs_held`.
+- **Versions of the program.** The first version (in the history of this PR, HEAD `c2f9845`) did not synchronize the activation of the actors, so its `alive` column varied (135.7 to 200.7 MiB in the pre-#739 runs of the review) and is **withdrawn**; its `stopped_refs_held` readings, taken after every `Done`, were not affected. The figures below come from the second version only.
+- **Trees compared.** T6: the repository tree at this HEAD. Pre-#739: `develop` `f23a215f9701dd7b5046dada0150ba75dfbe61c1`, extracted with `git archive`. Between that commit and `a807fed2` the production diff of `pekko-actor/actor` is `cell.go` and `stop.go` only (`git diff --stat`, test files excluded).
+- **Results re-executed for this section, one line per run (MiB of `HeapAlloc`):**
+
+| Platform and Go | Tree | Run | alive | stopped_refs_held | refs_dropped |
+|---|---|---|---|---|---|
+| darwin/arm64, go1.27.2 | T6 | 1 | 200.7 | 0.7 | 0.6 |
+| darwin/arm64, go1.27.2 | T6 | 2 | 200.7 | 0.8 | 0.6 |
+| darwin/arm64, go1.27.2 | T6 | 3 | 200.7 | 0.7 | 0.5 |
+| darwin/arm64, go1.27.2 | pre-#739 | 1, 2, 3 | 200.7 | 200.7 | 0.6 |
+| linux/arm64 (container, go1.27.1) | T6 | 1 | 200.4 | 0.4 | 0.3 |
+| linux/arm64 (container, go1.27.1) | pre-#739 | 1 | 200.4 | 200.4 | 0.3 |
+
+  The three pre-#739 darwin runs were each printed and read; they are shown on one row because they are identical in the three columns. Linux has one run per tree. **Cited from the author's earlier work, not re-executed for this section:** the first version of this section (darwin/arm64, 5 runs, baseline made by neutralizing `releaseTerminated` in a scratch copy) gave about 200.7 MiB without release and 0.7 to 0.8 MiB with T6.
+- **Reading.** In this scenario, with every actor stopped and every `Ref` held, T6 leaves about 0.4 to 0.8 MiB reachable where the pre-#739 code leaves the 200 instances. Once the `Refs` are dropped both trees are equal. This is a reachability result for one scenario and nothing more.
+- **Limits.** One scenario, one instance size, two platforms with different Go patch versions, one Linux run per tree; no restart or failure state in the measured cells; the shell that a held `Ref` still pins is not separated from the residue; the figures vary with the platform and no test asserts them.
+
+### 16.4 Review by the author (not independent) and other checks
+
+- The review of PR #743 at HEAD `c2f9845` was made by the author of the changes. Its findings are the four minors handled in this round: the stale statements about lint and Linux (this section), the unsynchronized `alive` column (16.3), the 200 ms negative wait and the possible leak on a failing path (16.1), and the historical text of `PROPOSAL.md` section 8 (a dated update note).
+- **Executed on this HEAD's Go content:**
+  - `go test -race -count=1 ./pekko-actor/...` on darwin/arm64, go1.27.2: ok (three packages).
+  - The new test, `-race -count=200` and `-count=200 -cpu 1,2,8`, darwin/arm64: ok.
+  - `gofmt -l pekko-actor/actor`: no output; `go vet ./pekko-actor/...`: no output.
+  - `golangci-lint` v2.14.0 (`.golangci-version`), built with `go install` into a scratch directory, `cd pekko-actor && golangci-lint run --config ../.golangci.yml ./...`: `0 issues.` This replaces the earlier statement that lint could not be run (the locally installed v2.13.1 was not used).
+  - Linux/arm64, `golang:1.27-alpine` (go1.27.1, local image, no network, module cache mounted read-only, `GOWORK=off`): `go test -count=1 ./...` ok for the three packages, without `-race`.
+- **Pending.** `-race` on Linux: the image has no C compiler and no network, so cgo is unavailable. Independent review of the test. CI. Re-run of the 24-mutant campaign with its exact definitions. Neither T6 nor #563 is declared closed and no Pekko parity is claimed.
+
+## 17. Independent review of PR #743 at `177ed4c` (appended; earlier sections unchanged)
+
+**Reviewed HEAD:** `177ed4cac1c61e8aa8e400d992462dacf75a78dd`, base `develop` `a807fed22327dfd3a02587528ce13a85661ddbab` (merge-base equal to the base). **Verdict: PASS_WITH_MINORS, no blocker found.** The review applies to that HEAD. Any later commit on top of it is documentation or comments only (section 17.6) and was not reviewed as code; the production code of `pekko-actor` is identical between `a807fed` and `177ed4c`.
+
+### 17.1 Who and how
+
+- A reviewer that did not write these changes (a model session, Sonnet 5.5, run at the Owner's request), in a separate detached worktree and a scratch copy outside the repository; the author's branch was not modified. Platform darwin/arm64, go1.27.2.
+- **Reading limits.** Some tool output was compressed, so the reviewer read the diff, the test, `stop.go:93-136`, `PROPOSAL.md` (O1) and section 16 in full, but only fragments of ADR 0024 and of the body of #563 during the review itself. It did not verify the approval of O1 (section 17.5).
+- **Execution limits.** The review did not run `golangci-lint` v2.14.0 (the installed one is v2.13.1 and was not used to claim anything), coverage, `gocyclo`, `-race` on Linux, CI, or the mutant campaign. These were not run; they are not functional failures.
+
+### 17.2 T04b
+
+- With the correct implementation the test passes with and without `-race`, with default flags, `-gcflags=all=-l` and `-gcflags='all=-N -l'`. `releaseTerminated` is inlinable (`-gcflags=-m`).
+- The test cannot pass without observing the block: `PASS` requires `parked == true`, which only the goroutine dump gives. Renaming `releaseTerminated` in the scratch copy made it fail after about 10 s (line 450), not pass.
+- The verdict comes from two positive events (finalizer returned, or finalizer parked on the mutex inside `releaseTerminated`); the 10 s only bounds a failure. This is a structural argument; repetitions are complementary evidence, not proof of the absence of false positives.
+- Reviewer's repetitions: `-race -count=30 -cpu 1,2,8`: ok. A run under eight busy CPU loops (`-race -count=30 -cpu 1`) also reported ok, but that output was compressed and is read with less certainty.
+- **Distinct from the author's evidence.** The author's `-race -count=200` and `-count=200 -cpu 1,2,8` (section 16.4) are the author's own runs. The reviewer did not repeat them and did not replace them with its 30; they are separate evidence.
+
+### 17.3 M5 and M11, each alone, scratch copy outside the repository
+
+`diff -rq` against the repository tree before and after restoring `stop.go` after each mutant: identical every time.
+
+| Case | Command | Result |
+|---|---|---|
+| Correct | `go test -vet=off -count=1 -run CellRelease ./actor/`, with and without `-race` | ok |
+| M5 (`close(c.done)` before `c.releaseTerminated()`) | `-race`, 3 runs | failed 3 of 3, only T04b, at line 464 (`Done` was already closed) |
+| M11 (`releaseTerminated` without `c.mu`) | no `-race`, 3 runs; `-race`, 1 run | failed 4 of 4, only T04b, at line 449 (the finalizer returned while the test held `c.mu`); no `DATA RACE` seen |
+
+No total of mutants is claimed (no 24 of 24); the original definitions of the campaign of section 5 were not available and it was not re-run.
+
+### 17.4 Heap program, executed by the reviewer on darwin/arm64, go1.27.2
+
+`heap-measure.go.txt` copied into a scratch copy and deleted. Three runs per tree; pre-#739 is `git archive` of `f23a215f9701dd7b5046dada0150ba75dfbe61c1`. The production diff of `pekko-actor/actor` between that commit and `a807fed` is `cell.go` and `stop.go`; between `a807fed` and `177ed4c` there is none.
+
+| Tree | alive | stopped_refs_held | refs_dropped |
+|---|---|---|---|
+| `177ed4c` | 200.7 | 0.7 | 0.5 to 0.6 |
+| pre-#739 | 200.7 | 200.7 | 0.5 to 0.6 |
+
+`alive` is read after 200 `ready` receipts; the `Ref`s are kept alive through `stopped_refs_held`. The figures match section 16.3. The **Linux/arm64 figures (go1.27.1) are the author's and were not reproduced** by the reviewer. Limits are those of section 16.3 (one scenario, one size, reachability only, not RSS, not a contract).
+
+### 17.5 Contract, O1 and checks
+
+- The test shows that, with `c.mu` held, the finalizer parks inside `releaseTerminated` with `Done` open and nothing released, and that it then releases and closes `Done` (covers M5 and M11). `stop.go:117-119` shows `releaseTerminated()` immediately before `close(c.done)`; that adjacency rests on inspection, which is what O1 (no new seam) allows. The review does not treat it as a non-compliance and asks for no seam.
+- **O1 approval could not be verified.** #563 and PR #743 have no comments. The only traces are sections 1 and 13 of this record, which report an Owner instruction given in the work thread, "not a GitHub comment". `PROPOSAL.md` lists O1 as a proposed configuration, not as an approval, and it was not taken as one. This record therefore relies on the author's report of that instruction; the primary source was not seen.
+- Executed by the reviewer on `177ed4c`: `go test -race -count=1 ./...` in `pekko-actor` (three packages ok), `gofmt -l actor` (no output), `go vet ./...` (no output), `git diff --check a807fed..HEAD` (clean), `scripts/check-adr-signatures.sh` (exit 0), `scripts/check_deps.sh` (exit 0). The author's `golangci-lint` v2.14.0 `0 issues` of section 16.4 stands; the reviewer did not repeat it.
+
+### 17.6 Minors and this documentation delta
+
+| Minor | Disposition |
+|---|---|
+| Comment of T02 said that M5 has no test | **Corrected** in this delta (comment only). |
+| The dump matcher is not tied to the finalizer's goroutine | Open; not reachable here, since one cell finalizes. |
+| The 1 MiB `runtime.Stack` buffer could truncate the dump | Open; the effect is a failure after 10 s, not a pass. |
+| `Cleanup(unlock)` does not wait for `finished` after a failed expectation | Open; no hang seen in the mutant runs; whether `ctx.Expect` stops the test was not checked. |
+| Failure by rename reports only `expected false to equal true` after 10 s | Open; informative. |
+
+T04b and all production code are unchanged in this delta; no campaign was repeated.
+
+**Hash of `PROPOSAL.md`.** `RUNBOOK.md` section 9 pins `PROPOSAL.md` at sha256 `e3f2a619…` (the value at `a807fed`). The update note added by #743 at `177ed4c` already changed it (`30cc9299…`), and the sentence added in this delta changes it again: it is `827111e4ae11bca3f37956506d421d3c0e384694d540f2353fa3375f2867412b` now. `RUNBOOK.md` was not edited (outside the scope of this delta); section 9 keeps describing the package as approved at `550bfa1`, as its own amendment note says.
+
+### 17.7 What remains for #563, by source
+
+**Required by the acceptance criteria of #563** (lines "Trabajo y aceptación"):
+1. "gates del candidato final": the quality gates of `CLAUDE.md` (golangci-lint at the pinned version, `gocyclo` at most 10, at least 85% coverage per module, gofmt, vet, tidy, tests) have to be recorded for the candidate that is integrated. The record has them for earlier heads (section 10.2: coverage 98.49%; lint v2.14.0 in 16.4); this review repeated none of lint, `gocyclo` or coverage.
+2. "integración verificada": the merge of #743 and the verification of that integration are the Owner's; not done here.
+3. "Documentar límites" (a held `Ref` keeps the cell; no quantified saving from heap; green CI is not Pekko parity): kept in sections 16.3 and 17.4.
+4. "mutantes dirigidos pertinentes" and "revisión independiente": met for the M5/M11 test by sections 16.2, 17.2 and 17.3; the earlier independent reviews are in sections 12 and 15. The inventory, safe point, preserved contracts and structural tests of the other items are recorded in earlier sections and were not re-verified here.
+
+**Recommended additional validations (not required by #563, ADR 0024 or `CLAUDE.md` for this unit):** `-race` on Linux (`CLAUDE.md` runs the complete race when a module closes); CI fast validation (`docs/ci-economy.md`; it establishes no parity); re-run of the mutant campaign if its exact definitions are recovered (O2 chose no campaign); an independent heap reproduction on Linux; closing the open minors of 17.6; locating the primary source of the O1 instruction. Heap scenarios beyond the one measured (restart, failure) are not requested by the ADR or by #563 and are not listed as required.
+
+Nothing here closes #563 or T6, authorizes a merge, or claims Pekko parity or parity of all actors.
+
+## 18. Gates of the final candidate and `RUNBOOK.md` section 9 (appended; earlier sections unchanged)
+
+### 18.1 Gates run by the independent reviewer
+
+Run on commit `23771e91cd48de8baa83a63f270d976effb1f4ad`, whose Go content differs from `177ed4c` only in one comment line (no production file changed since `a807fed`). darwin/arm64, go1.27.2, workspace mode as in CI, using the repository's own `scripts/each_module.sh` over the 10 modules of `scripts/list_modules.sh`. `golangci-lint` was built with `go install` at the version of `.golangci-version`, v2.14.0, into a scratch directory.
+
+| Gate | Result |
+|---|---|
+| `go mod tidy -diff` in every module | exit 0, no change to the tree |
+| `gofmt -l` in every module | empty |
+| `go vet ./...` in every module | exit 0 |
+| `golangci-lint run --config <repo>/.golangci.yml ./...` v2.14.0 | `0 issues.` in all 10 modules (one module needed the config by absolute path; a command-line path error, not a finding) |
+| `gocyclo` | enabled in `.golangci.yml` with `min-complexity: 10`; covered by the lint run above |
+| `-covermode=atomic` profiles, then `scripts/check_coverage.sh <profiles> 85` | exit 0; `pekko-actor` 98.49% (1519 statements), `pekko-persistence` 95.32%, `pekko-persistence-postgres` 98.75%, `pekko-persistence-sqlite` 97.18%, `pekko-projection` 98.87%, `pekko-serialization` 100.00%; `pekko-observability` and `gopekko-testint` as reported by the gate |
+
+Not run: `-race` on Linux, CI, the mutant campaign, `check-headers.sh`. These are not functional failures. A green result here is not Pekko parity and does not close T6 or #563.
+
+### 18.2 `RUNBOOK.md` section 9
+
+Section 9 is a historical record of the hashes approved at package commit `550bfa1`, with one dated amendment ("not an approved change") for `PROPOSAL.md`. It is not edited here and no provenance is invented for it. Compared with the files at this commit: the eight other hashes match; only `PROPOSAL.md` differs (pinned `e3f2a619…`; the update note of #743 changed it, and the sentence of section 17 changed it again). The drift is recorded in section 17.6. Whether the Owner wants section 9 amended is a decision for the Owner.
+
+### 18.3 O1
+
+The primary source of the Owner's approval of O1 was not located in this step either: #563 and #743 have no comments, and the only traces remain sections 1 and 13 of this record, which report a work-thread instruction. It stays unverified.
