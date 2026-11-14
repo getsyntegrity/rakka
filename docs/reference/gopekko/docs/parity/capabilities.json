@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "inventory_status": "bootstrap",
+  "scope": "BOOTSTRAP, NOT THE INVENTORY. It registers the two current adapters and declares no capability, so a run says nothing about functional coverage and -strict / -closing cannot certify a closure. Slice B replaces it with the production matrix and the Owner marks it complete (docs/parity/proposal.md section 8).",
+  "adapters": [
+    {"id": "sqlite", "module": "pekko-persistence-sqlite", "engine": "sqlite"},
+    {"id": "postgres", "module": "pekko-persistence-postgres", "engine": "postgresql"}
+  ],
+  "capabilities": []
+}
