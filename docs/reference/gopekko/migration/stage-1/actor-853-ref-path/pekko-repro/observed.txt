@@ -1,0 +1,38 @@
+top-level a toString|pekko://sys/user/a
+top-level a elements|n=2 ["user","a"]
+top-level a path.parent|pekko://sys/user
+nested par/b toString|pekko://sys/user/par/b
+nested par/b elements|n=3 ["user","par","b"]
+nested par/b parent == par.path|true
+nested anonymous name starts with $|true
+nested anonymous elements size|3
+nested anonymous parent == par.path|true
+anonymous top-level name starts with $|true
+anonymous top-level elements size|2
+anonymous top-level parent|pekko://sys/user
+restart postRestart reached|true
+restart path before|pekko://sys/user/boss/f
+restart path after|pekko://sys/user/boss/f
+restart path equal|true
+restart ActorRef same instance|true
+restart uid unchanged|true
+stopped before stop isTerminated|false
+stopped gracefulStop|true
+stopped isTerminated|true
+stopped path|pekko://sys/user/s
+stopped path equal to the path before|true
+stopped uid unchanged|true
+incarnations path equal|true
+incarnations uid differ|true
+incarnations ref equal|false
+rootGuardian toString|pekko://sys/
+rootGuardian elements|n=1 [""]
+rootGuardian isRoot|true
+guardian (/user) toString|pekko://sys/user
+guardian (/user) elements|n=1 ["user"]
+systemGuardian (/system) toString|pekko://sys/system
+systemGuardian (/system) elements|n=1 ["system"]
+guardian parent == rootGuardian path|true
+rootPath|pekko://sys/
+rootPath == rootGuardian path|true
+deadLetters path|pekko://sys/deadLetters
