@@ -1,0 +1,28 @@
+  - F2 (medium) Out of scope says "onlyFlowControl option (accept the gap): #1162" while #980 AC3 owns OnlyFlowControl behavior; two stories claim or defer the same behavior. With `onlyFlowControl` a gap is delivered instead (`TI/ConsumerControllerImpl.scala:335-337`, spec :670-704).
+  - F3 (medium) Missing facts: the discarded messages are not retained (producer must resend them); `Resend(fromSeqNr)` is also re-sent on each `Retry` while resending (:465-473, belongs to #998 per the story); a first-marked message during `resending` triggers a Request (:460-461).
+  - F4 (low) The story's example (seq 4 received) differs from the spec (seq 5); behavior identical.
+  - F5 (medium) Contract produced "consumer-driven resend contract that #998 must follow": #998 does not list #1165 as `depends_on` (its reconciled table: #992, #810, #977, #937) and #1165 is P2 while #998 is P1. Missing edge #1165 -> #998 (or the reverse; the story text implies #998 follows).
+- Dependencies: #992 -> #1165 ok. Add #1165 -> #998 (see F5); `stashBuffer.clear()` (`TI/ConsumerControllerImpl.scala:332,400`) requires `clear` in the Typed StashBuffer (#889 body not read this pass).
+- Oracle (D13): exists (specs above); applicability pending determination (X6).
+
+---
+
+## Counts
+
+DEEP 15, PARTIAL 0 (#810, #963, #980, #992, #998, #1000, #1001, #1003, #1157, #1158, #1002, #1004, #1159, #1160, #1165). Limits worth stating: Go-side dependency stories (#889, #977, #937, #1162, #1163, #888, #926) were checked for number, title and priority only, not their bodies; paradox documentation pages were not opened (so "at-least-once" documentation claims are checked against Scaladoc only); `T/` ShardingProducerController is out of scope.
+
+## Stories the Architect should re-read first
+
+#810 (ResendFirst ownership text, producer identity, three resend sources), #963 (AC2, AC3 contradict Pekko), #1157 and #1158 (ACs not producible through the public protocol; mis-cited specs; "weighted" wrong), #1001/#1160/#1003 (hidden dependency of work pulling on point-to-point MessageWithConfirmation and a possible cycle), #1004/#1159 (D13 "no oracle" claim is false for the protocol).
+
+## Verdict summary
+
+OK: none. CORRECT: #810, #963, #980, #992, #998, #1002, #1004, #1157, #1159, #1165. DEP: #1001, #1003 (plus DEP notes in most). SPLIT: #1160 (atomicity), candidates #980 (OnlyFlowControl) and #1000. ADR: #1000 (serialization dependency), #1158 (failure surface). STATUS: none; priority inversions flagged (P2 prerequisites #977, #888, #1162, #1163, #1160 gating P1 stories).
+
+## Key Learnings
+
+1. Pekko's ProducerController arms a ResendFirst timer for every first message regardless of a durable queue, contradicting its own Scaladoc and the reconciliation texts of three stories.
+2. The first SequencedMessage is sent without any consumer Request, so acceptance criteria that forbid sending before demand contradict ProducerControllerImpl and ProducerControllerSpec.
+3. The work-pulling controller sends every user message to its per-worker ProducerController as MessageWithConfirmation, so work pulling depends on the point-to-point ack path.
+4. No Pekko spec covers the work-pulling buffer limit, the LoadState retry exhaustion, or any stale-assembly lifetime, and the buffer overflow is unreachable for a protocol-conforming producer in non-durable mode.
+5. Pekko's own actor-typed-tests ship an in-memory TestDurableProducerQueue with specs, so claims of no oracle for producer-queue protocol recovery are incorrect.
