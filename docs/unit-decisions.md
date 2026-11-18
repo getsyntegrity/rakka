@@ -934,11 +934,12 @@
 
 ## P69 UTIL-UUID-ORDEN
 
-1 filas; 1 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 0 propuestas.
+1 filas; 2 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 0 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-UTIL-11 | accepted_with_changes (2026-11-18): aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y… | 1: AC-UTIL-016.14 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
+| Q-X-18 | accepted (2026-11-18): aceptar: todo el código de rakka derivado de fuentes con licencia no compatible con Apache-2.0, o de procedencia dudosa, se reescribe en sala limpia… | 1: AC-UTIL-016.14 | — | — | `transversal` |
 
 ## P70 UTIL-RELOJ
 
@@ -1020,4 +1021,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 463 (229 respondidas, 0 bloqueantes, 234 propuestas).
+Total de pares unidad–decisión: 464 (230 respondidas, 0 bloqueantes, 234 propuestas).

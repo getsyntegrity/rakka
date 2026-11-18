@@ -277,5 +277,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P68 (2026-11-18): UTIL-PRETTYDURATION (AC-UTIL-016.5)
     PrettyDurationOracle.register();
+
+    // ---- Slice P69 (2026-11-18): UTIL-UUID-ORDEN (AC-UTIL-016.14)
+    UuidOrderOracle.register();
   }
 }

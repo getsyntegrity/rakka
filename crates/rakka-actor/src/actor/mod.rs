@@ -18,7 +18,7 @@ pub use actor_ref::ActorRef;
 pub use address::Address;
 pub use errors::{
     ActorError, ChildError, ErrorClass, FromStringError, IllegalArgumentError, IllegalStateError,
-    InvalidActorNameError, MalformedUrlError, NumberFormatError,
+    InvalidActorNameError, MalformedUrlError, NumberFormatError, UnsupportedOperationError,
 };
 pub use path::{
     ActorPath, is_valid_path_element, relative_actor_path_elements, validate_path_element,

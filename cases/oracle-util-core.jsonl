@@ -186,3 +186,24 @@
 {"name": "uc-0186", "args": ["util-core-case"], "stdin": "PD-17 sweep of 3000 pseudo-random precisions"}
 {"name": "uc-0187", "args": ["util-core-case"], "stdin": "PD-18 sweep of round values"}
 {"name": "uc-0188", "args": ["util-core-case"], "stdin": "PD-19 integral doubles from 2^53"}
+{"name": "uc-0189", "args": ["util-core-case"], "stdin": "UU-01 version of the msb"}
+{"name": "uc-0190", "args": ["util-core-case"], "stdin": "UU-02 timestamp of version 1"}
+{"name": "uc-0191", "args": ["util-core-case"], "stdin": "UU-03 timestamp of other versions"}
+{"name": "uc-0192", "args": ["util-core-case"], "stdin": "UU-04 order by version number"}
+{"name": "uc-0193", "args": ["util-core-case"], "stdin": "UU-05 version before every other bit"}
+{"name": "uc-0194", "args": ["util-core-case"], "stdin": "UU-06 unsigned lsb of version 4"}
+{"name": "uc-0195", "args": ["util-core-case"], "stdin": "UU-07 unsigned msb of version 4"}
+{"name": "uc-0196", "args": ["util-core-case"], "stdin": "UU-08 the two 32-bit halves"}
+{"name": "uc-0197", "args": ["util-core-case"], "stdin": "UU-09 raw magnitudes of the result"}
+{"name": "uc-0198", "args": ["util-core-case"], "stdin": "UU-10 version 1 by timestamp"}
+{"name": "uc-0199", "args": ["util-core-case"], "stdin": "UU-11 version 1 ignores the msb order"}
+{"name": "uc-0200", "args": ["util-core-case"], "stdin": "UU-12 version 1 timestamp ties by unsigned lsb"}
+{"name": "uc-0201", "args": ["util-core-case"], "stdin": "UU-13 version 1 lsb tie-break extremes"}
+{"name": "uc-0202", "args": ["util-core-case"], "stdin": "UU-14 versions 0, 2, 3, 5 to 15 order like version 4"}
+{"name": "uc-0203", "args": ["util-core-case"], "stdin": "UU-15 every version against every version"}
+{"name": "uc-0204", "args": ["util-core-case"], "stdin": "UU-16 reflexive and null-like extremes"}
+{"name": "uc-0205", "args": ["util-core-case"], "stdin": "UU-17 the shared comparator instance"}
+{"name": "uc-0206", "args": ["util-core-case"], "stdin": "UU-18 sorting a mixed list"}
+{"name": "uc-0207", "args": ["util-core-case"], "stdin": "UU-19 sweep of 3000 random pairs"}
+{"name": "uc-0208", "args": ["util-core-case"], "stdin": "UU-20 sweep of 3000 pairs with shared bits"}
+{"name": "uc-0209", "args": ["util-core-case"], "stdin": "UU-21 sweep of 3000 version 1 pairs"}
