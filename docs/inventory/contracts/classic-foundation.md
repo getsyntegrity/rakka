@@ -1341,6 +1341,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Oráculo.** Posible con jar pekko-actor, pero la clase es private[pekko] (accesible vía su API Java `format`); sin escenario aún.
 
+**Actualización P68 (2026-11-18, Pekko 2.0.0).** Q-UTIL-9 (a) aceptada. Medido con el jar 2.0.0 (JDK 17) por `PrettyDurationOracle` (casos PD-01..PD-19 -> uc-0170..uc-0188), no con JDK 11: A1..A5 se confirman sin cambios (`10000 days` -> `1.000e+04 d`, `99999 days` -> `1.000e+05 d`, `Inf` -> `∞ (infinity)`, `MinusInf` -> `-∞ (minus infinity)`, `Undefined` -> `undefined`). Añade lo medido que el contrato no afirmaba: `precision <= 0` falla antes de mirar el valor (también con `Inf`/`MinusInf`/`Undefined`); una duración <= 0 se muestra en ns (`-95.seconds` -> `-9.500e+10 ns`) y cero es `0.000 ns` (`0 ns` con precisión 1); `%g` redondea HALF_UP sobre los dígitos decimales más cortos del `double` (no su expansión binaria); en un entero `double` >= 2^53 (duración negativa en ns) imprime los dígitos del entero exacto menos k dígitos bajos redondeados (k = 0 hasta 2^57, 1 en 2^58..2^60, 2 en 2^61..2^62, 3 en 2^63). Rust: `PekkoDuration::pretty()` y `PekkoDuration::pretty_with(include_nanos, precision) -> Result<String, IllegalArgumentError>` (`crates/rakka-actor/src/util/pretty_duration.rs`).
+
 **Decisiones.** Q-UTIL-9
 
 

@@ -8,7 +8,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 |---|---|---|---|---|---|
 | 01 | [AC-PATH-1](01-ac-path-1.md) | 13 | 3 | sin decisiones abiertas (preliminar) | 02 |
 | 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | sin decisiones abiertas (preliminar) | 04, 03, 22, 10, 07, 17 |
-| 03 | [AC-UTIL-2](03-ac-util-2.md) | 21 | 4 | pendiente de decisiones | 02, 04, 09 |
+| 03 | [AC-UTIL-2](03-ac-util-2.md) | 20 | 4 | pendiente de decisiones | 02, 09 |
 | 04 | [AC-CFG-1](04-ac-cfg-1.md) | 29 | 5 | sin decisiones abiertas (preliminar) | 10, 17, 14, 21, 05, 15, 22, 02, 20 |
 | 05 | [AC-REF-1](05-ac-ref-1.md) | 30 | 5 | pendiente de decisiones | 01, 07, 12, 04, 18, 10, 14, 13, 22 |
 | 06 | [AC-REF-2](06-ac-ref-2.md) | 1 | 1 | sin decisiones abiertas (preliminar) | 05, 14, 18 |
@@ -58,7 +58,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 
 ## Ciclos y dependencias hacia adelante
 
-El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL, SYS, EVT, SCH, TK se necesitan entre sí), por eso el orden es por unidad. 113 dependencias de spec van hacia una spec posterior. Regla de costura para todas: la spec que consume define un trait con el contrato mínimo que necesita, lo prueba con un doble de prueba que cumple las aserciones del bloque de contrato de la fila, y cuando llega la spec que lo implementa el doble se reemplaza y se re-ejecutan los tests; nada de eso reduce el contrato de la fila posterior. Lista:
+El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL, SYS, EVT, SCH, TK se necesitan entre sí), por eso el orden es por unidad. 112 dependencias de spec van hacia una spec posterior. Regla de costura para todas: la spec que consume define un trait con el contrato mínimo que necesita, lo prueba con un doble de prueba que cumple las aserciones del bloque de contrato de la fila, y cuando llega la spec que lo implementa el doble se reemplaza y se re-ejecutan los tests; nada de eso reduce el contrato de la fila posterior. Lista:
 
 - `AC-PATH-1` necesita `AC-UTIL-1`.
 - `AC-UTIL-1` necesita `AC-CFG-1`.
@@ -67,7 +67,6 @@ El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL,
 - `AC-UTIL-1` necesita `AC-EVT-1`.
 - `AC-UTIL-1` necesita `AC-MBX-1`.
 - `AC-UTIL-1` necesita `AC-EXT-1`.
-- `AC-UTIL-2` necesita `AC-CFG-1`.
 - `AC-UTIL-2` necesita `AC-SCH-1`.
 - `AC-CFG-1` necesita `AC-EVT-1`.
 - `AC-CFG-1` necesita `AC-EXT-1`.

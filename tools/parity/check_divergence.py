@@ -345,6 +345,25 @@ MUTANTS = {
         "let diff = a.saturating_sub(*b);",
         "the difference of two numbers saturates instead of wrapping like Int subtraction: 2147483647.0.0 against -1.0.0 is positive",
     ),
+    # --- slice P68: PrettyDuration ---
+    "pretty-duration-rounds-half-down": (
+        "src/util/pretty_duration.rs",
+        "let round_up = digits[precision] >= 5;",
+        "let round_up = digits[precision] > 5;",
+        "a 5 right after the last kept digit is not rounded up (12.345 us prints 12.34): Java rounds HALF_UP",
+    ),
+    "pretty-duration-no-scientific-at-power": (
+        "src/util/pretty_duration.rs",
+        "if exponent < precision as i32 {",
+        "if exponent <= precision as i32 {",
+        "the rounded value 10^precision stays in decimal notation (10000 days prints 10000.0 d, not 1.000e+04 d)",
+    ),
+    "pretty-duration-shortest-digits-of-big-integers": (
+        "src/util/pretty_duration.rs",
+        "if (9_007_199_254_740_992.0..=9_223_372_036_854_775_808.0).contains(&value) {",
+        "if false {",
+        "a negative duration of 2^53 ns or more uses the shortest digits of the double (what C prints) instead of the integer digits Java prints",
+    ),
     # --- slice P05: Glob ---
     "glob-trailing-star-unmatched": (
         "src/util/glob.rs",

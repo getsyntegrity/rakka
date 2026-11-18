@@ -274,5 +274,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P67 (2026-11-18): UTIL-VERSION (AC-UTIL-005.2)
     VersionOracle.register();
+
+    // ---- Slice P68 (2026-11-18): UTIL-PRETTYDURATION (AC-UTIL-016.5)
+    PrettyDurationOracle.register();
   }
 }
