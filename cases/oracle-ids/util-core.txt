@@ -133,3 +133,17 @@ UN-02 copyUSAsciiStrToBytes of ASCII text
 UN-03 fastHash of non-ASCII text
 MP-EXH makePattern lengths 0-4
 MP-NL makePattern vs Glob with line breaks and astral
+HC-01 boolean
+HC-02 int
+HC-03 char short byte
+HC-04 long
+HC-05 float
+HC-06 double
+HC-07 string
+HC-08 arrays of primitives
+HC-09 arrays of objects
+HC-10 boxed values
+HC-11 chaining example
+HC-12 null
+HC-13 null element in array
+HC-14 SEED constant

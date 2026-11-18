@@ -288,6 +288,25 @@ MUTANTS = {
         "(word.leading_zeros() >> 3) as i32",
         "SWARUtil.getLastIndex returns the first match (counting from the most significant byte) instead of the last",
     ),
+    # --- slice P65: HashCode ---
+    "hash-code-long-no-fold": (
+        "src/util/hash_code.rs",
+        "(*self ^ ((*self as u64) >> 32) as i64) as i32",
+        "*self as i32",
+        "HashCode.hash(seed, Long) drops the high word instead of folding `v ^ (v >>> 32)`",
+    ),
+    "hash-code-nan-payload-kept": (
+        "src/util/hash_code.rs",
+        "        let bits = if self.is_nan() {\n            0x7fc0_0000_u32\n        } else {\n            self.to_bits()\n        };",
+        "        let bits = self.to_bits();",
+        "Float hashing keeps the NaN payload instead of collapsing to the canonical NaN (floatToIntBits vs floatToRawIntBits)",
+    ),
+    "hash-code-string-utf8-units": (
+        "src/util/hash_code.rs",
+        "self.encode_utf16().fold(0_i32, |h, unit| {",
+        "self.bytes().fold(0_i32, |h, unit| {",
+        "a string contributes its UTF-8 bytes instead of UTF-16 units: non-ASCII text hashes differently",
+    ),
     # --- slice P05: Glob ---
     "glob-trailing-star-unmatched": (
         "src/util/glob.rs",

@@ -1,12 +1,12 @@
 # Spec 03 — AC-UTIL (2/2)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 24. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 23. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
+Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-016.15, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
 
 ## Prerrequisitos
 
@@ -29,34 +29,34 @@ casos rust-anything contra Pekko 2.0.0 (JDK 17): `oracle/` (comando `util-core-c
 
 ### Tarea 1: ManifestInfo (versiones de módulos Pekko en el classpath) (+5 filas)
 
-Filas: AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.11, AC-UTIL-016.14, AC-UTIL-016.15, AC-UTIL-016.16. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.11, AC-UTIL-016.14, AC-UTIL-016.16, AC-UTIL-016.17. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 2: ErrorMessages.RemoteDeploymentConfigErrorPrefix (+5 filas)
+### Tarea 2: Unused (marcador para silenciar warnings) (+5 filas)
 
-Filas: AC-UTIL-016.17, AC-UTIL-016.18, AC-UTIL-017.1, AC-UTIL-017.2, AC-UTIL-017.3, AC-UTIL-017.4. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
-
-1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
-2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
-3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
-4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
-
-### Tarea 3: DoubleLinkedList (+5 filas)
-
-Filas: AC-UTIL-017.5, AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3, AC-UTIL-018.4, AC-UTIL-018.5. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-016.18, AC-UTIL-017.1, AC-UTIL-017.2, AC-UTIL-017.3, AC-UTIL-017.4, AC-UTIL-017.5. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 4: Anotaciones ApiMayChange, DoNotInherit, InternalApi, InternalStableApi (+5 filas)
+### Tarea 3: FutureConverters / CompletionStage <-> Future (+5 filas)
 
-Filas: AC-UTIL-019, AC-UTIL-020, AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3, AC-UTIL-018.4, AC-UTIL-018.5, AC-UTIL-019. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 4: Acceso Unsafe y offsets de campos (Unsafe.java, AbstractActorRef, AbstractActorCell,… (+4 filas)
+
+Filas: AC-UTIL-020, AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -71,7 +71,6 @@ Filas: AC-UTIL-019, AC-UTIL-020, AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-
 | AC-UTIL-016.10 | JavaVersion (major de java.specification.version) | n/a: no hay JVM (propuesta de exclusión en Q-UTIL-11) | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
 | AC-UTIL-016.11 | FlightRecorderLoader (carga de JFR vía reflexión) | n/a: `tracing` (Q-CFG-7) | derivada del código (ver bloque de contrato) | Q-CFG-7, Q-UTIL-11 |
 | AC-UTIL-016.14 | UUIDComparator (orden de UUID de 128 bits) | `Ord` sobre `u128` con la regla de signo de Pekko | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
-| AC-UTIL-016.15 | HashCode (hash compuesto SEED=23, 37*) | n/a salvo que Version/Address exijan el mismo hash (Q-PATH-3) | derivada del código (ver bloque de contrato) | Q-UTIL-14, Q-UTIL-8 |
 | AC-UTIL-016.16 | WallClock / AlwaysIncreasingClock (reloj de pared estrictamente creciente) | trait `WallClock` + `AlwaysIncreasingClock` con `AtomicI64` | derivada del código (ver bloque de contrato) | - |
 | AC-UTIL-016.17 | ErrorMessages.RemoteDeploymentConfigErrorPrefix | `const REMOTE_DEPLOYMENT_CONFIG_ERROR_PREFIX: &str` | derivada del código (ver bloque de contrato) | - |
 | AC-UTIL-016.18 | Unused (marcador para silenciar warnings) | n/a: Rust avisa por `_` | derivada del código (ver bloque de contrato) | Q-UTIL-11 |

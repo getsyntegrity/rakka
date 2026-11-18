@@ -1677,6 +1677,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-8 (strings UTF-16), Q-UTIL-14 (hash).
 
+**Actualización P65 (2026-11-18, Pekko 2.0.0).** Los valores medidos arriba se confirman con el oráculo 2.0.0 (casos HC-01..HC-11, uc-0122..uc-0132) y se amplían: `Float`/`Double` usan `floatToIntBits`/`doubleToLongBits` (todo NaN colapsa al NaN canónico), `Short`/`Byte` se ensanchan a `Int`, un `Object[]` encadena sus elementos recursivamente (arreglos anidados incluidos) y un `Integer[]` da lo mismo que un `int[]`. `hash(seed, null)` y un `null` dentro de un `Object[]` lanzan `IllegalArgumentException: Unexpected hash parameter: null` (HC-12, HC-13, sin counterpart en Rust). En Rust: `rakka_actor::util::hash_code::{SEED, HashContribution, hash}`; el hash de otros `AnyRef` (colecciones, Option, tuplas de Scala) no se reproduce (Q-UTIL-14 (b), Q-PATH-3).
+
 
 ---
 

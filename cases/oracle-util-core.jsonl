@@ -119,3 +119,15 @@
 {"name": "uc-0119", "args": ["util-core-case"], "stdin": "UN-01 fastHash of ASCII text"}
 {"name": "uc-0120", "args": ["util-core-case"], "stdin": "UN-02 copyUSAsciiStrToBytes of ASCII text"}
 {"name": "uc-0121", "args": ["util-core-case"], "stdin": "MP-EXH makePattern lengths 0-4"}
+{"name": "uc-0122", "args": ["util-core-case"], "stdin": "HC-01 boolean"}
+{"name": "uc-0123", "args": ["util-core-case"], "stdin": "HC-02 int"}
+{"name": "uc-0124", "args": ["util-core-case"], "stdin": "HC-03 char short byte"}
+{"name": "uc-0125", "args": ["util-core-case"], "stdin": "HC-04 long"}
+{"name": "uc-0126", "args": ["util-core-case"], "stdin": "HC-05 float"}
+{"name": "uc-0127", "args": ["util-core-case"], "stdin": "HC-06 double"}
+{"name": "uc-0128", "args": ["util-core-case"], "stdin": "HC-07 string"}
+{"name": "uc-0129", "args": ["util-core-case"], "stdin": "HC-08 arrays of primitives"}
+{"name": "uc-0130", "args": ["util-core-case"], "stdin": "HC-09 arrays of objects"}
+{"name": "uc-0131", "args": ["util-core-case"], "stdin": "HC-10 boxed values"}
+{"name": "uc-0132", "args": ["util-core-case"], "stdin": "HC-11 chaining example"}
+{"name": "uc-0133", "args": ["util-core-case"], "stdin": "HC-14 SEED constant"}
