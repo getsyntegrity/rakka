@@ -1,17 +1,25 @@
-//! Classic actor types (`org.apache.pekko.actor`).
+//! Classic actors (`org.apache.pekko.actor`): paths and addresses, then the runtime (system, cells with
+//! mailbox and lifecycle, children registry, `Props`/context, supervision).
 
+pub(crate) mod actor_ref;
 mod address;
+pub(crate) mod cell;
+pub(crate) mod children;
 mod errors;
+pub mod fault;
 pub(crate) mod jstring;
-
-pub use address::Address;
-pub use errors::{
-    ArithmeticError, ChildError, FromStringError, IllegalArgumentError, IllegalStateError,
-    InvalidActorNameError, MalformedUrlError, NumberFormatError,
-};
 mod path;
+pub mod props;
+pub mod supervision;
+pub mod system;
 pub(crate) mod uri;
 
+pub use actor_ref::ActorRef;
+pub use address::Address;
+pub use errors::{
+    ActorError, ArithmeticError, ChildError, ErrorClass, FromStringError, IllegalArgumentError,
+    IllegalStateError, InvalidActorNameError, MalformedUrlError, NumberFormatError,
+};
 pub use path::{
     ActorPath, is_valid_path_element, relative_actor_path_elements, validate_path_element,
 };

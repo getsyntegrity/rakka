@@ -83,8 +83,8 @@ fn find_invalid(units: &[u16]) -> Option<Invalid> {
 /// `ActorPath.validatePathElement`. `full_path` is only used in the message.
 ///
 /// The position in the message is a UTF-16 index. When the illegal code unit
-/// is half of a surrogate pair, the message holds U+FFFD where Pekko holds the
-/// lone surrogate (open question Q-PATH-2).
+/// is half of a surrogate pair, `message()` shows U+FFFD and `message_utf16()`
+/// holds the lone surrogate exactly as Pekko does (Q-PATH-2).
 pub fn validate_path_element(
     element: &str,
     full_path: Option<&str>,
@@ -97,11 +97,18 @@ pub fn validate_path_element(
             "Actor path element must not be empty {full_path_msg}"
         ))),
         Some(Invalid::At(at)) => {
-            let illegal = String::from_utf16_lossy(&units[at..=at]);
-            Err(InvalidActorNameError::new(format!(
-                "Invalid actor path element [{element}]{full_path_msg}, illegal character [{illegal}] at position: {at}. \
-                 Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: {VALID_SYMBOLS}."
-            )))
+            // Built from UTF-16 units: when the illegal unit is half of a surrogate pair Pekko's message
+            // holds that lone surrogate, which a Rust `String` cannot (see `message_utf16`).
+            let head = format!(
+                "Invalid actor path element [{element}]{full_path_msg}, illegal character ["
+            );
+            let tail = format!(
+                "] at position: {at}. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: {VALID_SYMBOLS}."
+            );
+            let mut message: Vec<u16> = head.encode_utf16().collect();
+            message.push(units[at]);
+            message.extend(tail.encode_utf16());
+            Err(InvalidActorNameError::from_utf16(message))
         }
     }
 }
@@ -214,7 +221,8 @@ impl ActorPath {
         Ok(self.new_child(name, uid))
     }
 
-    fn new_child(&self, name: &str, uid: i32) -> ActorPath {
+    /// A child with an explicit uid and no name checks (what the runtime does for names it validated itself).
+    pub(crate) fn new_child(&self, name: &str, uid: i32) -> ActorPath {
         ActorPath(Arc::new(Node::Child {
             parent: self.clone(),
             name: name.to_owned(),
@@ -237,7 +245,11 @@ impl ActorPath {
     /// `NumberFormatException`, like in Pekko.
     pub fn from_string(s: &str) -> Result<ActorPath, FromStringError> {
         let malformed = || MalformedUrlError::new(format!("cannot parse as ActorPath: {s}"));
-        let uri = uri::parse(s).map_err(|_| malformed())?;
+        let uri = uri::parse(s).map_err(|error| match error {
+            uri::UriError::Syntax => FromStringError::from(malformed()),
+            // Not a URISyntaxException, so Pekko's `catch` does not swallow it.
+            uri::UriError::NumberFormat(error) => FromStringError::from(error),
+        })?;
         let raw_path = uri.raw_path.as_deref().ok_or_else(malformed)?;
         let address = Address::from_uri(&uri).ok_or_else(malformed)?;
         let elements = split(raw_path, uri.raw_fragment.as_deref());
@@ -1172,15 +1184,37 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Q-PATH-2: Pekko reports the lone high surrogate \\uD83D, which a Rust String cannot hold"]
     fn lone_surrogate_in_message_matches_pekko() {
         let err = validate_path_element("x\u{1F642}", None).unwrap_err();
-        let units: Vec<u16> = err.message().encode_utf16().collect();
+        let units = err.message_utf16();
         let expected: Vec<u16> = "illegal character ["
             .encode_utf16()
             .chain([0xD83D, u16::from(b']')])
             .collect();
         assert!(units.windows(expected.len()).any(|w| w == expected));
+    }
+
+    /// Pekko 2.0.0 runs on JDK 17 (Q-X-16): `URI.scanByte` calls `Integer.parseInt(CharSequence, begin, end, 10)`,
+    /// so an overflowing IPv4 octet escapes `ActorPath.fromString` as a `NumberFormatException`
+    /// with the JDK 17 message (`Error at index N in: "digits"`), not as a `MalformedURLException`.
+    #[test]
+    fn ipv4_octet_overflow_in_ipv6_host_is_number_format_exception_with_jdk17_message() {
+        // Both overflow at the tenth digit, so the JDK reports index 9.
+        for (input, digits) in [
+            ("pekko://sys@[::1.2.3.99999999999]/x", "99999999999"),
+            (
+                "pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1/x",
+                "2147483648",
+            ),
+        ] {
+            let error = ActorPath::from_string(input).unwrap_err();
+            assert_eq!(error.java_class(), "NumberFormatException", "{input}");
+            assert_eq!(
+                error.message(),
+                format!("Error at index 9 in: \"{digits}\""),
+                "{input}"
+            );
+        }
     }
 
     #[test]
