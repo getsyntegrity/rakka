@@ -1,6 +1,6 @@
 // Parsing behavior ported from OpenJDK 21 java.base/java/net/URI.java (Parser, decode) and the
 // malformed-input lengths of java.base/sun/nio/cs/UTF_8.java (Decoder) (GPL-2.0 WITH
-// Classpath-exception-2.0), as used by Apache Pekko 1.7.1
+// Classpath-exception-2.0), as used by Apache Pekko 2.0.0
 // actor/src/main/scala/org/apache/pekko/actor/Address.scala (Apache-2.0).
 // Licensing of this derived file pending Owner decision Q-PATH-6.
 //! The subset of `java.net.URI` that is observable through Pekko's

@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/event/EventStream.scala, actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala and actor/src/main/scala/org/apache/pekko/actor/Actor.scala (Apache-2.0).
 //! The event stream (just what slice 2b needs): dead letters and unhandled messages.
 
 use std::sync::{Arc, Mutex};

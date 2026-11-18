@@ -105,6 +105,21 @@ if os.path.exists("docs/unit-plan.md"):
     for line in unit_plan.stdout.splitlines():
         if line.startswith("FAIL"): fail.append("unit-plan: " + line[5:])
     check(unit_plan.returncode == 0 or any(l.startswith("FAIL") for l in unit_plan.stdout.splitlines()), "unit_plan.py --check crashed: " + unit_plan.stderr[-300:])
+# attribution: every Rust source of crates/ that ports Pekko names its Pekko 2.0.0 source files (Apache-2.0 NOTICE obligations)
+# lib.rs/mod.rs only wire modules. uri.rs and jstring.rs replicate JDK behaviour (their provenance is decision Q-PATH-6): they must say so.
+JDK_SOURCES = {"crates/rakka-actor/src/actor/uri.rs", "crates/rakka-actor/src/actor/jstring.rs"}
+for rs in sorted(glob.glob("crates/*/src/**/*.rs", recursive=True)):
+    if os.path.basename(rs) in ("lib.rs", "mod.rs"): continue
+    head = "".join(open(rs, encoding="utf-8").readlines()[:8])
+    if rs in JDK_SOURCES:
+        check("OpenJDK" in head, f"{rs}: header must state its relation to the JDK (decision Q-PATH-6)")
+        continue
+    m = re.search(r"Derived from Apache Pekko 2\.0\.0 ([^\n]*?) \(Apache-2\.0\)\.", head)
+    check(m is not None, f"{rs}: missing attribution header `// Derived from Apache Pekko 2.0.0 <path> (Apache-2.0).`")
+    if m:
+        paths = re.findall(r"[\w-]+/src/(?:main|test)/[\w/.-]+\.(?:scala|java)", m.group(1))
+        check(bool(paths), f"{rs}: attribution header names no Pekko source file")
+        for p in paths: check(os.path.isfile("upstream/pekko/" + p), f"{rs}: attribution names {p}, which does not exist in upstream/pekko")
 # docs/progress.md is generated: its totals must match the inventory
 prog_path = "docs/progress.md"
 check(os.path.exists(prog_path), "docs/progress.md missing (run tools/package/generate.py)")

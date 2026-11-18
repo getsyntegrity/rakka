@@ -31,7 +31,7 @@ Port a Rust de los módulos de actores de Apache Pekko 2.0.0: `rakka-actor` (Cla
 | Lint | `cargo clippy --workspace --all-targets -- -D warnings` |
 | Formato | `cargo fmt --all --check` |
 | Oráculo | `oracle/run.sh <comando>` (JDK 17) + `rust-anything app record/replay` (Q-X-12); replay: `python3.12 tools/parity/replay.py` |
-| Paquete documental | `python3.12 tools/package/generate.py` y `python3.12 tools/package/check.py` (requieren Python ≥3.12: f-strings anidados) |
+| Paquete documental | `uv run tools/package/generate.py` y `uv run tools/package/check.py` (`.python-version` fija 3.12; el `python3` del sistema, 3.9, no sirve: f-strings anidados). Sin uv: `python3.12 tools/package/check.py`. Tests: `uv run python -m unittest discover -s tools/package/tests`. Replay: `uv run tools/parity/replay.py` |
 
 No usar `-race`/sanitizers ni correr workbench salvo pedido explícito.
 

@@ -1,4 +1,4 @@
-//! Rust port of Apache Pekko 2.0.0 classic actors (`pekko-actor`).
+//! Rust port of Apache Pekko 2.0.0 classic actors (`rakka-actor`).
 //!
 //! Each unit lands here only after its contract is recorded in
 //! `docs/inventory/actor-classic.tsv` and validated by its scenarios.

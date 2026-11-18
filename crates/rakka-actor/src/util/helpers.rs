@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 1.7.1 actor/src/main/scala/org/apache/pekko/util/Helpers.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/Helpers.scala (Apache-2.0).
 //! `Helpers`: name generation, case folding and `requiring`. `ConfigOps` (duration reads,
 //! `renderWithRedactions`) waits for AC-CFG.
 

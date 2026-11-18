@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 1.7.1 actor/src/main/scala/org/apache/pekko/actor/Address.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/Address.scala (Apache-2.0).
 
 use std::cmp::Ordering;
 use std::fmt;

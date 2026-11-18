@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala, actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala, actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala, actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala and actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala (Apache-2.0).
 //! `ActorCell`: the engine behind a local actor — mailbox, system-message processing, children,
 //! death watch and the termination sequence. Follows `ActorCell.scala` and `dungeon/*`.
 
