@@ -19,6 +19,7 @@ use rakka_actor::util::helpers::{
     current_time_millis_to_utc_string, identity_hash_comparator, timestamp_at_utc_offset,
     to_root_lower_case,
 };
+use rakka_actor::util::line_numbers::{LineNumbersResult, closure_origin, pretty_name};
 use rakka_actor::util::swar::{self, ByteOrder};
 use rakka_actor::util::wall_clock::{AlwaysIncreasingClock, WallClock, always_increasing_clock};
 use rakka_actor::util::{JavaUuid, PekkoDuration, TimeUnit, Timeout, Version, pekko_compare_uuid};
@@ -593,6 +594,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
 
     // ---- Slice P70: UTIL-RELOJ (AC-UTIL-016.16)
     for (id, result) in wall_clock_cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+    }
+
+    // ---- Slice P75: UTIL-ORIGEN-CLOSURES (AC-UTIL-016.8)
+    for (id, result) in line_numbers_cases() {
         lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
     }
 
@@ -3106,5 +3112,175 @@ fn wall_clock_cases() -> Vec<(String, String)> {
             format!("{r} state=+{}", c.get() - WC_FUTURE),
         );
     }
+    cases
+}
+
+fn sfl(filename: &str, from: i32, to: i32) -> LineNumbersResult {
+    LineNumbersResult::SourceFileLines {
+        filename: filename.to_owned(),
+        from,
+        to,
+    }
+}
+
+/// A closure site: every call of this function reports the same origin (one source line).
+fn origin_site() -> LineNumbersResult {
+    closure_origin()
+}
+
+fn origin_other_site() -> LineNumbersResult {
+    closure_origin()
+}
+
+/// Shape of a closure origin (no compiler numbers), as `LineNumbersOracle.shape` prints it.
+fn ln_shape(r: &LineNumbersResult) -> String {
+    match r {
+        LineNumbersResult::SourceFileLines { filename, from, to } => format!(
+            "kind=SourceFileLines fileIsBaseName={} linesPositive={} fromLeTo={}",
+            !filename.contains('/') && filename.contains('.'),
+            *from > 0 && *to > 0,
+            from <= to
+        ),
+        LineNumbersResult::NoSourceInfo => "kind=NoSourceInfo".to_owned(),
+        LineNumbersResult::UnknownSourceFormat(_) => "kind=UnknownSourceFormat".to_owned(),
+        LineNumbersResult::SourceFile(_) => "kind=SourceFile".to_owned(),
+    }
+}
+
+/// Does the text end with `:<digits>` or `:<digits>-<digits>`?
+fn has_line_suffix(p: &str) -> bool {
+    let tail = p.rsplit_once(':').map_or("", |(_, t)| t);
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    digits(tail)
+        || tail
+            .split_once('-')
+            .is_some_and(|(a, b)| digits(a) && digits(b))
+}
+
+/// `LineNumbersOracle.pretty`: the pretty name of a closure whose class is `class_name` in package `package`.
+fn ln_pretty(class_name: &str, package: &str, r: &LineNumbersResult) -> String {
+    let p = pretty_name(class_name, package, r);
+    if matches!(r, LineNumbersResult::SourceFileLines { .. }) {
+        format!(
+            "prettyIsPackageSlashResult={}",
+            p == format!("{package}/{r}")
+        )
+    } else {
+        format!(
+            "prettyIsClassName={} prettyHasNoLineSuffix={}",
+            p == class_name,
+            !has_line_suffix(&p)
+        )
+    }
+}
+
+/// The cases of `LineNumbersOracle.java` (slice P75).
+fn line_numbers_cases() -> Vec<(String, String)> {
+    let mut cases: Vec<(String, String)> = Vec::new();
+    let mut add = |id: &str, line: String| cases.push((id.to_owned(), line));
+    add(
+        "LN-01 one line shows file:line",
+        format!("{} {}", sfl("Foo.scala", 22, 22), sfl("a/B.java", 1, 1)),
+    );
+    add(
+        "LN-02 a range shows file:from-to",
+        format!("{} {}", sfl("Foo.scala", 29, 31), sfl("X.java", 40, 45)),
+    );
+    add(
+        "LN-03 unordered or non-positive bounds are printed as given",
+        format!(
+            "{} {} {} {} {}",
+            sfl("F.scala", 9, 5),
+            sfl("F.scala", 0, 0),
+            sfl("F.scala", -1, 3),
+            sfl("", 7, 7),
+            sfl("F.scala", i32::MIN, i32::MAX)
+        ),
+    );
+    add(
+        "LN-04 SourceFile NoSourceInfo and UnknownSourceFormat text",
+        format!(
+            "[{}] [{}] [{}] [{}] [{}]",
+            LineNumbersResult::SourceFile("Foo.scala".to_owned()),
+            LineNumbersResult::SourceFile(String::new()),
+            LineNumbersResult::NoSourceInfo,
+            LineNumbersResult::UnknownSourceFormat("parse error: x".to_owned()),
+            LineNumbersResult::UnknownSourceFormat(String::new())
+        ),
+    );
+    {
+        let state = RandomState::new();
+        let h = |r: &LineNumbersResult| state.hash_one(r);
+        let (a, b, c) = (sfl("F", 1, 2), sfl("F", 1, 2), sfl("F", 1, 3));
+        let sf = LineNumbersResult::SourceFile("F".to_owned());
+        add(
+            "LN-05 equality and hash code of results",
+            format!(
+                "eq={} ne={} hash={} fileEq={} kindsDiffer={}",
+                a == b,
+                a != c,
+                h(&a) == h(&b),
+                sf == LineNumbersResult::SourceFile("F".to_owned()),
+                sf != LineNumbersResult::UnknownSourceFormat("F".to_owned())
+            ),
+        );
+    }
+    let package = module_path!();
+    let one = origin_site();
+    add(
+        "LN-06 a one-line serializable lambda has a source file and lines",
+        format!(
+            "{} {} single={}",
+            ln_shape(&one),
+            ln_pretty("closure", package, &one),
+            matches!(&one, LineNumbersResult::SourceFileLines { from, to, .. } if from == to)
+        ),
+    );
+    // A call that spans several lines still reports one line (Q-UTIL-16: a single number).
+    let many = closure_origin();
+    add(
+        "LN-07 a multi-line serializable lambda has a source file and lines",
+        format!(
+            "{} {}",
+            ln_shape(&many),
+            ln_pretty("closure", package, &many)
+        ),
+    );
+    let anon = origin_other_site();
+    add(
+        "LN-08 an anonymous class has a source file and lines",
+        format!(
+            "{} {}",
+            ln_shape(&anon),
+            ln_pretty("closure", package, &anon)
+        ),
+    );
+    // A closure whose site was not captured has no source info: the pretty name falls back to its type name.
+    let closure = |s: &str| s.to_owned();
+    let none = LineNumbersResult::NoSourceInfo;
+    add(
+        "LN-09 a non-serializable lambda has no source info",
+        format!(
+            "{} {}",
+            ln_shape(&none),
+            ln_pretty(std::any::type_name_of_val(&closure), package, &none)
+        ),
+    );
+    add(
+        "LN-10 the Java API for is the same as apply",
+        format!(
+            "same={} again={}",
+            origin_site() == origin_site(),
+            origin_site() == origin_site()
+        ),
+    );
+    add(
+        "LN-11 two closures of one site report the same origin and two sites differ",
+        format!(
+            "sameSite={} otherSite={}",
+            origin_site() == origin_site(),
+            origin_site() != origin_other_site()
+        ),
+    );
     cases
 }

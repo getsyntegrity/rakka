@@ -238,3 +238,14 @@ WC-11 the shared instance
 WC-12 8 threads of 500 readings on a clock ahead of the wall time
 WC-13 8 threads of 500 readings on a new clock
 WC-14 4 threads of 2000 readings on a clock ahead of the wall time
+LN-01 one line shows file:line
+LN-02 a range shows file:from-to
+LN-03 unordered or non-positive bounds are printed as given
+LN-04 SourceFile NoSourceInfo and UnknownSourceFormat text
+LN-05 equality and hash code of results
+LN-06 a one-line serializable lambda has a source file and lines
+LN-07 a multi-line serializable lambda has a source file and lines
+LN-08 an anonymous class has a source file and lines
+LN-09 a non-serializable lambda has no source info
+LN-10 the Java API for is the same as apply
+LN-11 two closures of one site report the same origin and two sites differ

@@ -1458,6 +1458,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11 (propuesta de equivalente por `track_caller`); la forma del texto debe confirmarla el Owner si algún test de Typed la fija.
 
+**Actualización 2026-11-18 (P75, Pekko 2.0.0).** Q-UTIL-16 aceptada por el Owner: se sigue la opción (a) con retroceso a (b) (un solo número de línea con `#[track_caller]`; `type_name` sin origen). En 2.0.0 `LineNumbers` se reescribió con `MethodHandles` (`writeReplace` por `ClassValue`) y con soporte de constantes Dynamic/Module/Package, pero el texto visible no cambió (medido con el jar 2.0.0: `Raw.java:6`, `Raw.java:8-9`, `NoSourceInfo`; `prettyName` = `<paquete>/<archivo>:<líneas>`). `LineNumbers(obj)` lanza `NullPointerException` para una clase sin classloader (p. ej. `new Object()`): el contrato de "no lanza" no es cierto en ese caso. Implementado: `rakka_actor::util::line_numbers`; oráculo LN-01..LN-11 (uc-0224..uc-0234). Las aserciones A1/A2 (números del compilador) quedan excluidas por la decisión.
+
 
 ---
 

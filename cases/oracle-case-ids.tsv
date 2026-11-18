@@ -620,3 +620,14 @@ uc-0220	util-core	WC-11 the shared instance
 uc-0221	util-core	WC-12 8 threads of 500 readings on a clock ahead of the wall time
 uc-0222	util-core	WC-13 8 threads of 500 readings on a new clock
 uc-0223	util-core	WC-14 4 threads of 2000 readings on a clock ahead of the wall time
+uc-0224	util-core	LN-01 one line shows file:line
+uc-0225	util-core	LN-02 a range shows file:from-to
+uc-0226	util-core	LN-03 unordered or non-positive bounds are printed as given
+uc-0227	util-core	LN-04 SourceFile NoSourceInfo and UnknownSourceFormat text
+uc-0228	util-core	LN-05 equality and hash code of results
+uc-0229	util-core	LN-06 a one-line serializable lambda has a source file and lines
+uc-0230	util-core	LN-07 a multi-line serializable lambda has a source file and lines
+uc-0231	util-core	LN-08 an anonymous class has a source file and lines
+uc-0232	util-core	LN-09 a non-serializable lambda has no source info
+uc-0233	util-core	LN-10 the Java API for is the same as apply
+uc-0234	util-core	LN-11 two closures of one site report the same origin and two sites differ

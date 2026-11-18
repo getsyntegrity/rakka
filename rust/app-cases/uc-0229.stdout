@@ -1,0 +1,1 @@
+LN-06 a one-line serializable lambda has a source file and lines -> ok kind=SourceFileLines fileIsBaseName=true linesPositive=true fromLeTo=true prettyIsPackageSlashResult=true single=true

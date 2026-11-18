@@ -6,7 +6,7 @@
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-005.1, AC-UTIL-005.2, AC-UTIL-016.5, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-016.14, AC-UTIL-016.15, AC-UTIL-016.16, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
+Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-005.1, AC-UTIL-005.2, AC-UTIL-016.5, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.8, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-016.14, AC-UTIL-016.15, AC-UTIL-016.16, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
 
 ## Prerrequisitos
 
@@ -67,7 +67,7 @@ Filas: AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.1, AC
 
 ### Tarea 5: Collections (EmptyImmutableSeq, PartialImmutableValuesIterable) (+5 filas)
 
-Filas: AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.8, AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.11. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.11, AC-UTIL-016.17. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -104,10 +104,10 @@ Filas: AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.8, AC-UTIL-016.9, AC-UTIL-016.1
 | AC-UTIL-016.2 | ConstantFun (funciones constantes/identidad Scala y Java) | closures `const`/`identity` donde se necesiten | actor-tests/src/test/java/org/apache/pekko/util/ConstantFunJavaTest.java:26-48 | Q-UTIL-11 |
 | AC-UTIL-016.3 | Collections (EmptyImmutableSeq, PartialImmutableValuesIterable) | `Vec`/iteradores nativos | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
 | AC-UTIL-016.4 | ImmutableIntMap (mapa Int->Int inmutable) | `BTreeMap<i32,i32>` persistente | actor-tests/src/test/scala/org/apache/pekko/util/ImmutableIntMapSpec.scala:25-156 | Q-UTIL-11, Q-UTIL-14 |
-| AC-UTIL-016.8 | LineNumbers (extracción de nombre de archivo/línea desde bytecode de lambdas) | n/a: depende de bytecode JVM; propuesta: `std::panic::Location` donde se use | actor-tests/src/test/scala-2/org/apache/pekko/util/LineNumberSpec.scala:22-66 ;… | Q-UTIL-11, Q-UTIL-16 |
 | AC-UTIL-016.9 | ManifestInfo (versiones de módulos Pekko en el classpath) | constante de versión del crate; chequeo mixto n/a | actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:26-46 | Q-CFG-5, Q-UTIL-11, Q-UTIL-6 |
 | AC-UTIL-016.10 | JavaVersion (major de java.specification.version) | n/a: no hay JVM (propuesta de exclusión en Q-UTIL-11) | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
 | AC-UTIL-016.11 | FlightRecorderLoader (carga de JFR vía reflexión) | n/a: `tracing` (Q-CFG-7) | derivada del código (ver bloque de contrato) | Q-CFG-7, Q-UTIL-11 |
+| AC-UTIL-016.17 | ErrorMessages.RemoteDeploymentConfigErrorPrefix | `const REMOTE_DEPLOYMENT_CONFIG_ERROR_PREFIX: &str` | derivada del código (ver bloque de contrato) | - |
 
 ## Gates y criterio de cierre
 

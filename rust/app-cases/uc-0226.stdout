@@ -1,0 +1,1 @@
+LN-03 unordered or non-positive bounds are printed as given -> ok F.scala:9-5 F.scala:0 F.scala:-1-3 :7 F.scala:-2147483648-2147483647
