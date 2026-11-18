@@ -1,0 +1,1 @@
+DL-13 a removed node can be linked again -> ok a b c ok empty=f first=a last=c fwd=[a,c] backReversed=[a,c] b empty=f first=b last=c fwd=[b,a,c] backReversed=[b,a,c] ok a empty=f first=b last=a fwd=[b,c,a] backReversed=[b,c,a] ok ok ok empty=t first=null last=null fwd=[] backReversed=[]

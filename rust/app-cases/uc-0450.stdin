@@ -1,0 +1,1 @@
+BQ-C6 poll with a timeout returns null on an empty queue and the element when one arrives

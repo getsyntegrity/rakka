@@ -1,0 +1,1 @@
+MB-09 the map: contains, add, append, remove -> ok f [] 0 ok t [] 0 ok t [m1->s1] 1 ok f [] 0 ok 0tf

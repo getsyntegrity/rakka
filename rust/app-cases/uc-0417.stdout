@@ -1,0 +1,1 @@
+SR-01 two segments -> ok ok size=6 [a,b,c,d,e,f]/[] [a] [b,c,d,e,f]/[] size=6 [e,f,a]/[b,c,d] [e] [f,a]/[b,c,d] size=6 [a,e,b]/[c,d,f] [a] [e,b]/[c,d,f] 5 2 3 some(e)

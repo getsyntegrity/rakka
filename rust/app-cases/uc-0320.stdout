@@ -1,0 +1,1 @@
+SC-07 locked returns the value and the lock is re-entrant -> ok locked inner=ttt t inner=ftt [y,nested,nested] ok inner=ftt t

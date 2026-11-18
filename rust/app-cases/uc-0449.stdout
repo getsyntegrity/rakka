@@ -1,0 +1,1 @@
+BQ-C5 offer with a timeout gives up on a full queue and succeeds when room appears -> ok gaveUp=t later=t content=[c]

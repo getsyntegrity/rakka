@@ -1,0 +1,1 @@
+IX-05 foreach visits every pair and findValue finds each value -> ok t t t t t t {s1=[1,2,3] s2=[1,2] s3=[2]} some(1) some(3) none some(2) some(2) none

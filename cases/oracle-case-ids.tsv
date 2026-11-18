@@ -631,3 +631,221 @@ uc-0231	util-core	LN-08 an anonymous class has a source file and lines
 uc-0232	util-core	LN-09 a non-serializable lambda has no source info
 uc-0233	util-core	LN-10 the Java API for is the same as apply
 uc-0234	util-core	LN-11 two closures of one site report the same origin and two sites differ
+uc-0235	util-core	IX-01 take and return a value
+uc-0236	util-core	IX-02 put reports whether the value was new
+uc-0237	util-core	IX-03 remove one value, remove a key
+uc-0238	util-core	IX-04 removeValue from every key
+uc-0239	util-core	IX-05 foreach visits every pair and findValue finds each value
+uc-0240	util-core	IX-06 clear
+uc-0241	util-core	IX-07 a key that loses its last value disappears
+uc-0242	util-core	IX-08 the comparator orders values, equal values collapse
+uc-0243	util-core	IX-09 values are the union over all keys
+uc-0244	util-core	IX-11 random sequence seed 11
+uc-0245	util-core	IX-12 random sequence seed 12
+uc-0246	util-core	IX-13 random sequence seed 13
+uc-0247	util-core	IX-14 random sequence, reversed comparator
+uc-0248	util-core	IM-01 empty map
+uc-0249	util-core	IM-02 updated keeps the keys ordered
+uc-0250	util-core	IM-03 hashCode is Arrays.hashCode of the key/value array
+uc-0251	util-core	IM-04 replace values
+uc-0252	util-core	IM-05 updateIfAbsent evaluates the value only for a new key
+uc-0253	util-core	IM-06 equals and hashCode
+uc-0254	util-core	IM-07 remove first, middle, last, absent and until empty
+uc-0255	util-core	IM-08 get of an absent key is Int.MinValue
+uc-0256	util-core	IM-09 extreme keys and values
+uc-0257	util-core	IM-21 random sequence seed 21
+uc-0258	util-core	IM-22 random sequence seed 22
+uc-0259	util-core	IM-23 random sequence seed 23
+uc-0260	util-core	TM-01 retain and remove values for the same key
+uc-0261	util-core	TM-02 retain and remove values for multiple keys
+uc-0262	util-core	TM-03 valueRemoved takes the value from every key and drops the emptied ones
+uc-0263	util-core	TM-04 keyRemoved removes every value of a key
+uc-0264	util-core	TM-05 setAll with an empty set keeps the key, valueRemoved only drops sets equal to the value
+uc-0265	util-core	TM-06 plus overwrites by key without merging
+uc-0266	util-core	TM-07 removing an absent pair leaves the map equal
+uc-0267	util-core	TM-31 random sequence seed 31
+uc-0268	util-core	TM-32 random sequence seed 32
+uc-0269	util-core	TM-33 random sequence seed 33
+uc-0270	util-core	WI-01 insert and find
+uc-0271	util-core	WI-02 insert and find (spec)
+uc-0272	util-core	WI-03 a single wildcard matches one element
+uc-0273	util-core	WI-04 wildcard in the middle
+uc-0274	util-core	WI-05 wildcard suffix
+uc-0275	util-core	WI-06 wildcard suffix in the second position
+uc-0276	util-core	WI-07 a double wildcard cannot be a suffix
+uc-0277	util-core	WI-08 nothing found in an empty index
+uc-0278	util-core	WI-09 terminal double wildcard
+uc-0279	util-core	WI-10 a lone double wildcard matches everything, even nothing
+uc-0280	util-core	WI-11 non-terminal double wildcards are ignored
+uc-0281	util-core	WI-12 exact elements win over wildcards, single over double
+uc-0282	util-core	WI-13 non-ASCII and astral elements, suffix compared by prefix
+uc-0283	util-core	WI-14 an empty element and repeated insertion
+uc-0284	util-core	WI-15 only prefix* entries: the index reports empty and finds nothing
+uc-0285	util-core	WI-16 inserting prefix* again replaces the subtree of that prefix
+uc-0286	util-core	WI-41 random sequence seed 41
+uc-0287	util-core	WI-42 random sequence seed 42
+uc-0288	util-core	WI-43 random sequence seed 43
+uc-0289	util-core	SI-01 a key inherits the values of its superclass
+uc-0290	util-core	SI-02 adding a value reaches every subclass
+uc-0291	util-core	SI-03 multiple inheritance: 12 is below 4 and 6
+uc-0292	util-core	SI-04 removeValue by key and by value
+uc-0293	util-core	SI-05 a new key slots between existing ones
+uc-0294	util-core	SI-06 a value added under an unknown key creates it
+uc-0295	util-core	SI-51 random sequence seed 51
+uc-0296	util-core	SI-52 random sequence seed 52
+uc-0297	util-core	SI-53 random sequence seed 53
+uc-0298	util-core	SI-54 random sequence seed 54
+uc-0299	util-core	MB-01 empty and nonEmpty
+uc-0300	util-core	MB-02 append and dropHead
+uc-0301	util-core	MB-03 foreach keeps insertion order
+uc-0302	util-core	MB-04 filterNot of the first element
+uc-0303	util-core	MB-05 filterNot of the last element
+uc-0304	util-core	MB-06 filterNot of single entries among six
+uc-0305	util-core	MB-07 filterNot of several entries
+uc-0306	util-core	MB-08 filterNot of nothing and of everything
+uc-0307	util-core	MB-09 the map: contains, add, append, remove
+uc-0308	util-core	MB-10 the map keeps one buffer per id
+uc-0309	util-core	MB-11 drop publishes Dropped for each buffered message, in order
+uc-0310	util-core	MB-12 the map after removing and re-adding ids
+uc-0311	util-core	MB-61 random sequence seed 61
+uc-0312	util-core	MB-62 random sequence seed 62
+uc-0313	util-core	MB-63 random sequence seed 63
+uc-0314	util-core	SC-01 on and off
+uc-0315	util-core	SC-02 switchOn/switchOff with an action
+uc-0316	util-core	SC-03 an exception in the action reverts the switch
+uc-0317	util-core	SC-04 ifOn/ifOff run the action without locking
+uc-0318	util-core	SC-05 whileOn/whileOff run the action under the lock
+uc-0319	util-core	SC-06 fold picks a callback by state
+uc-0320	util-core	SC-07 locked returns the value and the lock is re-entrant
+uc-0321	util-core	SC-08 a switch can start on
+uc-0322	util-core	SC-09 failed actions leave no trace of success
+uc-0323	util-core	SC-71 random sequence seed 71
+uc-0324	util-core	SC-72 random sequence seed 72
+uc-0325	util-core	SC-73 random sequence seed 73
+uc-0326	util-core	TB-01 starts full
+uc-0327	util-core	TB-02 different rates and capacities
+uc-0328	util-core	TB-03 elements larger than the capacity
+uc-0329	util-core	TB-04 capacity zero
+uc-0330	util-core	TB-05 arrival rate below the production rate
+uc-0331	util-core	TB-06 the capacity is kept
+uc-0332	util-core	TB-07 negative time
+uc-0333	util-core	TB-08 time that wraps over
+uc-0334	util-core	TB-09 equal intervals between tokens
+uc-0335	util-core	TB-10 cost zero
+uc-0336	util-core	TB-11 very slow rates
+uc-0337	util-core	TB-12 invalid arguments
+uc-0338	util-core	TB-81 random sequence seed 81
+uc-0339	util-core	TB-82 random sequence seed 82
+uc-0340	util-core	TB-83 random sequence seed 83
+uc-0341	util-core	TB-84 random sequence seed 84
+uc-0342	util-core	SQ-01 FIFO among equal priorities
+uc-0343	util-core	SQ-02 lower priority first, FIFO for ties (blocking queue)
+uc-0344	util-core	SQ-03 many equal priorities keep the order of arrival
+uc-0345	util-core	SQ-04 iterator remove
+uc-0346	util-core	SQ-92 random sequence seed 92
+uc-0347	util-core	SQ-93 random sequence seed 93
+uc-0348	util-core	SQ-94 random sequence on the blocking queue
+uc-0349	util-core	BQ-01 constructor
+uc-0350	util-core	BQ-02 remainingCapacity follows the size
+uc-0351	util-core	BQ-03 put and offer on a queue with room
+uc-0352	util-core	BQ-04 offer on a full queue returns false
+uc-0353	util-core	BQ-05 offer with a timeout
+uc-0354	util-core	BQ-06 poll and take
+uc-0355	util-core	BQ-07 peek does not remove
+uc-0356	util-core	BQ-08 remove and contains
+uc-0357	util-core	BQ-09 clear
+uc-0358	util-core	BQ-10 drainTo
+uc-0359	util-core	BQ-11 containsAll
+uc-0360	util-core	BQ-12 removeAll
+uc-0361	util-core	BQ-13 retainAll
+uc-0362	util-core	BQ-14 iterator
+uc-0363	util-core	BQ-15 iterator remove frees room
+uc-0364	util-core	BQ-16 priority backing queue orders by priority
+uc-0365	util-core	BQ-17 duplicates are kept and removed one at a time
+uc-0366	util-core	BQ-97 random sequence seed 97
+uc-0367	util-core	BQ-98 random sequence seed 98
+uc-0368	util-core	BQ-99 random sequence, priority backing
+uc-0369	util-core	FS-01 MurmurHash3.stringHash with the default seed
+uc-0370	util-core	FS-02 MurmurHash3.stringHash with other seeds
+uc-0371	util-core	FS-03 increment counters
+uc-0372	util-core	FS-04 counters saturate at the maximum
+uc-0373	util-core	FS-05 reset halves the counters
+uc-0374	util-core	FS-06 reset size reached exactly
+uc-0375	util-core	FS-07 counter widths
+uc-0376	util-core	FS-08 depth one and width one collide
+uc-0377	util-core	FS-09 sketch constructor requirements
+uc-0378	util-core	FS-10 width overflow is rejected (2.0.0)
+uc-0379	util-core	FS-11 Bits helpers
+uc-0380	util-core	FS-12 a tiny sketch debug string
+uc-0381	util-core	FS-13 reset size derives from the capacity
+uc-0382	util-core	FS-111 random sequence seed 111
+uc-0383	util-core	FS-112 random sequence seed 112
+uc-0384	util-core	FS-113 random sequence with 2 bit counters
+uc-0385	util-core	FS-114 random sequence with 8 bit counters
+uc-0386	util-core	FS-115 random sequence with 16 bit counters
+uc-0387	util-core	FS-116 random sequence with 64 bit counters
+uc-0388	util-core	FF-01 fast sketch: increment counters
+uc-0389	util-core	FF-02 fast sketch: counters saturate
+uc-0390	util-core	FF-03 fast sketch: integer items hash to themselves
+uc-0391	util-core	FF-04 fast sketch: constructor requirements
+uc-0392	util-core	FF-05 fast sketch: a tiny debug string
+uc-0393	util-core	FF-06 fast sketch: reset size reached exactly
+uc-0394	util-core	FF-122 random sequence seed 122
+uc-0395	util-core	FF-123 random sequence seed 123
+uc-0396	util-core	FF-124 random sequence seed 124
+uc-0397	util-core	FF-125 random sequence, 1 counter column
+uc-0398	util-core	RL-01 recency over a sequence of updates and removals
+uc-0399	util-core	RL-02 least and most recent, single removals
+uc-0400	util-core	RL-03 time based removals
+uc-0401	util-core	RL-04 removals of nothing and of more than there is
+uc-0402	util-core	RL-131 random sequence seed 131
+uc-0403	util-core	RL-132 random sequence seed 132
+uc-0404	util-core	RL-133 random sequence seed 133
+uc-0405	util-core	FL-01 frequency order, least and most
+uc-0406	util-core	FL-02 removeLeastFrequent and removeMostFrequent with skip
+uc-0407	util-core	FL-03 overall recency with a clock
+uc-0408	util-core	FL-04 overall recency not enabled
+uc-0409	util-core	FL-05 plain LFU: removeLeastFrequent does not age
+uc-0410	util-core	FL-06 dynamic aging lets new entries overtake old ones
+uc-0411	util-core	FL-07 dynamic aging with a clock
+uc-0412	util-core	FL-141 random sequence seed 141
+uc-0413	util-core	FL-142 random sequence seed 142
+uc-0414	util-core	FL-143 random sequence, dynamic aging
+uc-0415	util-core	FL-144 random sequence, clock
+uc-0416	util-core	FL-145 random sequence, dynamic aging and clock
+uc-0417	util-core	SR-01 two segments
+uc-0418	util-core	SR-02 four segments
+uc-0419	util-core	SR-03 updating limits
+uc-0420	util-core	SR-04 overall recency with a clock
+uc-0421	util-core	SR-05 overall recency not enabled
+uc-0422	util-core	SR-06 remove and single level
+uc-0423	util-core	SR-151 random sequence seed 151
+uc-0424	util-core	SR-152 random sequence seed 152
+uc-0425	util-core	SR-153 random sequence, three segments with a clock
+uc-0426	util-core	DL-01 prepend and append
+uc-0427	util-core	DL-02 remove first, middle and last
+uc-0428	util-core	DL-03 move to front
+uc-0429	util-core	DL-04 move to back
+uc-0430	util-core	DL-05 first or else prepend
+uc-0431	util-core	DL-06 last or else append
+uc-0432	util-core	DL-07 next or else insert
+uc-0433	util-core	DL-08 previous or else insert
+uc-0434	util-core	DL-09 find next or else insert
+uc-0435	util-core	DL-10 find previous or else insert
+uc-0436	util-core	DL-11 moving a node that is already there changes nothing
+uc-0437	util-core	DL-12 a list of one node
+uc-0438	util-core	DL-13 a removed node can be linked again
+uc-0439	util-core	DL-161 random sequence seed 161
+uc-0440	util-core	DL-162 random sequence seed 162
+uc-0441	util-core	DL-163 random sequence seed 163
+uc-0442	util-core	CC-01 Index in parallel: the upper half is never lost
+uc-0443	util-core	CC-02 Switch: exactly one of 8 racing switchOn wins
+uc-0444	util-core	CC-03 Switch: switchOff waits for locked
+uc-0445	util-core	BQ-C1 one producer, one consumer through capacity 3 keep FIFO
+uc-0446	util-core	BQ-C2 four producers and four consumers lose and duplicate nothing
+uc-0447	util-core	BQ-C3 take blocks on an empty queue until an element arrives
+uc-0448	util-core	BQ-C4 put blocks on a full queue until there is room
+uc-0449	util-core	BQ-C5 offer with a timeout gives up on a full queue and succeeds when room appears
+uc-0450	util-core	BQ-C6 poll with a timeout returns null on an empty queue and the element when one arrives
+uc-0451	util-core	BQ-C7 iterator remove drops the element it returned, by identity
+uc-0452	util-core	BQ-C8 the iterator is a snapshot

@@ -1,0 +1,1 @@
+SR-02 four segments -> ok ok size=10 [] [a,b,c,d,e,f,g,h,i,j]/[]/[]/[] size=10 [h,i,j,a,b,c,d]/[e,f,g]/[]/[] [] [h,i,j,a,b,c,d]/[e,f,g]/[]/[] size=10 [h,i,j,d,e,f,g]/[a,b,c]/[]/[] [] [h,i,j,d,e,f,g]/[a,b,c]/[]/[] size=10 [h,i,j,d,e,f,b]/[c,g,a]/[]/[] [] [h,i,j,d,e,f,b]/[c,g,a]/[]/[] t 10

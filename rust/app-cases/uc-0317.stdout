@@ -1,0 +1,1 @@
+SC-04 ifOn/ifOff run the action without locking -> ok some(yes) none t f t some(yes) none t f [y,ifoff,y,ifon]

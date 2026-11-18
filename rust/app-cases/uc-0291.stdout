@@ -1,0 +1,1 @@
+SI-03 multiple inheritance: 12 is below 4 and 6 -> ok {4:[a]} {6:[b]} {12:[a,b]} [a,b] {12:[c]} [a,b,c] [a] [b]

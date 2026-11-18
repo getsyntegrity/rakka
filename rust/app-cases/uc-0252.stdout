@@ -1,0 +1,1 @@
+IM-05 updateIfAbsent evaluates the value only for a new key -> ok evaluated/new lazy/same evaluated/new lazy/same evaluated/new ImmutableIntMap(5 -> 5, 10 -> 10, 20 -> 20) 10

@@ -1,0 +1,1 @@
+IX-08 the comparator orders values, equal values collapse -> ok t t t f [3,2,1] some(3) some[3,2,1] []

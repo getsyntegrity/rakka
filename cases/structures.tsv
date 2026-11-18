@@ -1,0 +1,207 @@
+IX-01 take and return a value	index	put s1 1;vals s1;vals nope
+IX-02 put reports whether the value was new	index	put s1 1;put s1 1;put s1 2;put s1 3;put s2 4;vals s1;vals s2;allv;keys
+IX-03 remove one value, remove a key	index	put s1 1;put s1 2;put s2 1;put s2 2;rm s1 1;rm s1 1;vals s1;rmk s2;rmk s2;vals s2;rm s2 1;rm nope 1;rmk nope
+IX-04 removeValue from every key	index	put s1 1;put s1 2;put s1 3;put s2 1;put s2 2;put s3 2;rmv 1;vals s1;vals s2;vals s3;rmv 2;keys;empty;rmv 9
+IX-05 foreach visits every pair and findValue finds each value	index	put s1 1;put s1 2;put s1 3;put s2 1;put s2 2;put s3 2;each;find s1 1;find s1 3;find s1 4;find s2 2;find s3 2;find s9 0
+IX-06 clear	index	put s1 1;put s1 2;put s1 3;put s2 1;put s2 2;put s3 2;empty;clear;empty;keys;allv;put s1 5;vals s1
+IX-07 a key that loses its last value disappears	index	put a 1;put a 2;rm a 1;keys;rm a 2;keys;empty;vals a;rmk a;put a 3;keys
+IX-08 the comparator orders values, equal values collapse	index-reversed	put a 1;put a 3;put a 2;put a 3;vals a;find a 2;rmk a;vals a
+IX-09 values are the union over all keys	index	put a 1;put a 2;put b 2;put b 3;put c 3;allv;each
+IX-11 random sequence seed 11	index	rand 11 500
+IX-12 random sequence seed 12	index	rand 12 500
+IX-13 random sequence seed 13	index	rand 13 500
+IX-14 random sequence, reversed comparator	index-reversed	rand 14 500
+IM-01 empty map	int-map	size;keys;str;hash;get 1;has 1
+IM-02 updated keeps the keys ordered	int-map	u 10 10;keys;str;mark 0;u 20 20;keys;mark 1;eqm 0;u 5 5;keys;str;u 15 15;keys;str;size
+IM-03 hashCode is Arrays.hashCode of the key/value array	int-map	u 10 10;hash;u 20 20;hash;u 5 5;hash;rm 10;hash;rm 5;rm 20;hash
+IM-04 replace values	int-map	u 10 10;u 10 11;keys;get 10;u 20 20;u 30 30;u 20 21;u 30 31;str;get 20;get 30
+IM-05 updateIfAbsent evaluates the value only for a new key	int-map	ua 10 10;ua 10 99;ua 20 20;ua 20 98;ua 5 5;str;get 10
+IM-06 equals and hashCode	int-map	u 10 10;u 20 20;mark 0;mark 1;eqm 0;u 20 21;eqm 0;u 20 20;eqm 0;u 30 30;eqm 0;rm 30;eqm 1
+IM-07 remove first, middle, last, absent and until empty	int-map	u 10 10;u 20 20;u 30 30;u 40 40;rm 20;keys;rm 10;keys;rm 40;keys;rm 5;keys;rm 30;size;str;rm 30;mark 0;rm 1;eqm 0
+IM-08 get of an absent key is Int.MinValue	int-map	u 10 10;get 11;get 9;get 10;has 11;has 10;u 7 -2147483648;get 7;has 7
+IM-09 extreme keys and values	int-map	u -2147483648 -2147483648;u 2147483647 2147483647;u 0 0;u -1 1;keys;str;hash;get -2147483648;get 2147483647;rm 0;keys;hash
+IM-21 random sequence seed 21	int-map	rand 21 400
+IM-22 random sequence seed 22	int-map	rand 22 400
+IM-23 random sequence seed 23	int-map	rand 23 400
+TM-01 retain and remove values for the same key	typed-multimap	ins k1 42;get k1;rm k1 42;get k1;ins k1 42;ins k1 43;get k1;rm k1 42;get k1;keys
+TM-02 retain and remove values for multiple keys	typed-multimap	ins k1 42;ins k2 43;get k1;rm k1 42;get k1;get k2;keys
+TM-03 valueRemoved takes the value from every key and drops the emptied ones	typed-multimap	ins k1 42;ins k2 43;ins k2 42;vrm 42;get k1;get k2;keys
+TM-04 keyRemoved removes every value of a key	typed-multimap	ins k1 42;ins k2 43;ins k2 42;krm k1;get k1;get k2;keys;krm nope;keys
+TM-05 setAll with an empty set keeps the key, valueRemoved only drops sets equal to the value	typed-multimap	setall k1 -;keys;get k1;ins k2 5;vrm 5;keys;setall k3 5,6;vrm 5;keys;get k3;vrm 6;keys
+TM-06 plus overwrites by key without merging	typed-multimap	ins k1 1;ins k1 2;ins k2 3;mark;reset;ins k1 9;ins k4 4;plus;get k1;get k2;get k4;keys;eqm
+TM-07 removing an absent pair leaves the map equal	typed-multimap	ins k1 1;mark;rm k1 2;eqm;rm k9 1;eqm;ins k1 1;eqm
+TM-31 random sequence seed 31	typed-multimap	rand 31 400
+TM-32 random sequence seed 32	typed-multimap	rand 32 400
+TM-33 random sequence seed 33	typed-multimap	rand 33 400
+WI-01 insert and find	wildcard	ins a/b 1;ins a 2;ins - 3;find a/b;find a;find x;find -;empty
+WI-02 insert and find (spec)	wildcard	ins a 1;ins a/b 2;ins a/c 3;find a/b;find a;find x;find -;find a/c;find a/d
+WI-03 a single wildcard matches one element	wildcard	ins a 1;ins a/* 1;find z;find a;find a/b;find a/x;find a/b/c
+WI-04 wildcard in the middle	wildcard	ins a/* 1;ins a/*/c 2;find z;find a/b;find a/x;find a/x/c;find a/x/y
+WI-05 wildcard suffix	wildcard	ins a* 1;ins b/c* 2;find z;find a;find aa;find aa/b;find b/c;find b/cc;find b/x
+WI-06 wildcard suffix in the second position	wildcard	ins a/b* 1;ins b/c*/d 2;find z;find a/b;find a/bb;find a/c;find b/c/d;find b/cc/d;find b/c/x;find b/cc/x
+WI-07 a double wildcard cannot be a suffix	wildcard	ins a** 1;empty;ins a/b** 1;empty;ins ** 2;empty;find x/y;ins x/** 3;ins x/yy** 4;find x/z
+WI-08 nothing found in an empty index	wildcard	find a;find a/b;find -;empty
+WI-09 terminal double wildcard	wildcard	ins a/** 1;find z;find a/b;find a/x;find a/x/y;find a
+WI-10 a lone double wildcard matches everything, even nothing	wildcard	ins ** 1;find anything/I/want;find anything;find -
+WI-11 non-terminal double wildcards are ignored	wildcard	ins a/**/c 1;find a/x/y/c;find a/x/y;find a/c;find a/**/c;empty
+WI-12 exact elements win over wildcards, single over double	wildcard	ins a/b 1;ins a/* 2;ins a/** 3;ins ** 4;find a/b;find a/c;find a/c/d;find z;find a
+WI-13 non-ASCII and astral elements, suffix compared by prefix	wildcard	ins é* 1;ins x/😀* 2;ins 😀/é 3;find éa;find é;find x/😀ab;find x/😁;find 😀/é;find 😀/e
+WI-14 an empty element and repeated insertion	wildcard	ins a//b 1;find a//b;find a/b;ins a//b 2;find a//b;ins a/ 3;find a/;find a
+WI-15 only prefix* entries: the index reports empty and finds nothing	wildcard	ins a* 1;empty;find a;find aa;ins b 2;empty;find aa;find b;ins a*/c 3;find aa/c;find a/c
+WI-16 inserting prefix* again replaces the subtree of that prefix	wildcard	ins x/b*/c 1;find x/bb/c;ins x/b*/d 2;find x/bb/c;find x/bb/d;ins x/b* 3;find x/bb;find x/bb/d;ins x/k 0;find x/bb;find x/bb/d
+WI-41 random sequence seed 41	wildcard	rand 41 600
+WI-42 random sequence seed 42	wildcard	rand 42 600
+WI-43 random sequence seed 43	wildcard	rand 43 600
+SI-01 a key inherits the values of its superclass	subclassified	addValue 2 x;addKey 4;find 4;addKey 3;find 3;find 2;find 1
+SI-02 adding a value reaches every subclass	subclassified	addKey 4;addKey 6;addKey 12;addValue 2 x;find 4;find 6;find 12;addValue 3 y;find 6;find 12;find 3;find 2
+SI-03 multiple inheritance: 12 is below 4 and 6	subclassified	addValue 4 a;addValue 6 b;addKey 12;find 12;addValue 12 c;find 12;find 4;find 6
+SI-04 removeValue by key and by value	subclassified	addValue 2 x;addValue 2 y;addKey 4;addKey 6;rmValue 2 x;find 4;find 6;find 2;rmAll y;find 4;find 2;rmValue 8 z;find 8
+SI-05 a new key slots between existing ones	subclassified	addKey 36;addKey 2;addValue 2 x;addKey 6;addKey 12;find 36;find 12;find 6;addKey 4;find 36;addValue 4 y;find 36;find 12
+SI-06 a value added under an unknown key creates it	subclassified	addValue 6 a;find 6;find 12;addKey 12;find 12;addValue 12 b;rmValue 12 a;find 12;find 6
+SI-51 random sequence seed 51	subclassified	rand 51 300
+SI-52 random sequence seed 52	subclassified	rand 52 300
+SI-53 random sequence seed 53	subclassified	rand 53 300
+SI-54 random sequence seed 54	subclassified	rand 54 300
+MB-01 empty and nonEmpty	message-buffer	empty;app m1 s1;empty;size
+MB-02 append and dropHead	message-buffer	size;app m1 s1;size;app m2 s2;size;head;dh;size;head;dh;size;dh;size;head;gethead
+MB-03 foreach keeps insertion order	message-buffer	app m1 s1;app m2 s2;app m3 s3;each;dh;each
+MB-04 filterNot of the first element	message-buffer	app m1 s1;app m2 s2;fn m1;head;size;fn m2;empty;size
+MB-05 filterNot of the last element	message-buffer	app m1 s1;app m2 s2;fn m2;head;size;fn m1;empty
+MB-06 filterNot of single entries among six	message-buffer	app m1 s1;app m2 s2;app m3 s3;app m4 s4;app m5 s5;app m6 s6;head;fn m1;head;size;fn m3;size;fn m4;size;dh;head;size;fn m6;size;app m7 s7;head;size;fn m5;size;fn m7;size;empty
+MB-07 filterNot of several entries	message-buffer	app m1 s1;app m2 s2;app m3 s3;app m4 s4;app m5 s5;app m6 s6;fn m1,m2;head;size;fn m4,m5;size;dh;head;size;each
+MB-08 filterNot of nothing and of everything	message-buffer	app m1 s1;app m2 s2;fn x;each;fn m1,m2;empty;head;fn m1;size;app m9 s9;each
+MB-09 the map: contains, add, append, remove	message-buffer	mc id1;mg id1;mt;ma id1;mc id1;mg id1;mt;mp id1 m1 s1;mc id1;mg id1;mt;mr id1;mc id1;mg id1;mt;mr id1;ms
+MB-10 the map keeps one buffer per id	message-buffer	mp id1 m11 s11;mp id1 m12 s12;mp id2 m21 s21;mp id2 m22 s22;mt;mg id1;mg id2;ms;me
+MB-11 drop publishes Dropped for each buffered message, in order	message-buffer	mp id1 m1 s1;mp id1 m2 s2;mp id2 m3 s3;md id1 stopped;mc id1;mt;md id2 gone;ms;ma id3;md id3 empty;mc id3
+MB-12 the map after removing and re-adding ids	message-buffer	mp a m1 s1;mr a;mp a m2 s2;mg a;ma b;mg b;me;ms
+MB-61 random sequence seed 61	message-buffer	rand 61 400
+MB-62 random sequence seed 62	message-buffer	rand 62 400
+MB-63 random sequence seed 63	message-buffer	rand 63 400
+SC-01 on and off	switch	isoff;ison;on;ison;isoff;on;ison;off;isoff;off;isoff
+SC-02 switchOn/switchOff with an action	switch	onA;ison;onA;offA;isoff;offA;log
+SC-03 an exception in the action reverts the switch	switch	onX;isoff;log;on;offX;ison;log;off;onX;isoff
+SC-04 ifOn/ifOff run the action without locking	switch	ifoffY;ifonY;ifoff;ifon;on;ifonY;ifoffY;ifon;ifoff;log
+SC-05 whileOn/whileOff run the action under the lock	switch	whoffY;whonY;whoff;whon;on;whonY;whoffY;whon;whoff;log
+SC-06 fold picks a callback by state	switch	fold;on;fold;off;fold;log
+SC-07 locked returns the value and the lock is re-entrant	switch	locked;lockedOn;ison;lockedOn;log;start 1;lockedOn;ison
+SC-08 a switch can start on	switch	start 1;ison;on;off;ison;onA;offA;isoff;log
+SC-09 failed actions leave no trace of success	switch	start 1;onX;ison;log;offX;ison;log
+SC-71 random sequence seed 71	switch	rand 71 300
+SC-72 random sequence seed 72	switch	rand 72 300
+SC-73 random sequence seed 73	switch	rand 73 300
+TB-01 starts full	token-bucket	setup 10 1 0;o 1;o 1;o 1;o 7;o 3
+TB-02 different rates and capacities	token-bucket	setup 10 2 0;o 5;o 5;o 5;setup 8 3 0;o 5;o 5;time 6;o 3
+TB-03 elements larger than the capacity	token-bucket	setup 10 2 0;o 5;o 20;time 30;o 1;time 34;o 0;o 2
+TB-04 capacity zero	token-bucket	setup 0 2 0;o 10;time 40;o 10
+TB-05 arrival rate below the production rate	token-bucket	setup 5 2 0;time 2;o 1;time 4;o 1;time 6;o 1;time 8;o 1;o 0
+TB-06 the capacity is kept	token-bucket	setup 10 1 0;time 100000;o 20;o 0
+TB-07 negative time	token-bucket	setup 10 1 -100;o 5;o 10;add 10;o 5
+TB-08 time that wraps over	token-bucket	setup 10 1 9223372036854775802;o 5;o 10;add 10;o 5
+TB-09 equal intervals between tokens	token-bucket	setup 5 3 0;o 10;time 16;o 1;time 19;o 2;setup 10 3 0;time 4;o 6;time 10;o 7
+TB-10 cost zero	token-bucket	setup 10 1 0;o 0;o 0;o 0;o 10;o 0;o 0;o 0;o 1
+TB-11 very slow rates	token-bucket	setup 10 9007199254740991 0;o 20;add 90071992547409910;add 45035996273704955;o 4;o 2
+TB-12 invalid arguments	token-bucket	new -1 1;new 1 0;new 1 -5;new 0 1;setup 3 1 0;o -1;o 3;o 1
+TB-81 random sequence seed 81	token-bucket	rand 81 400
+TB-82 random sequence seed 82	token-bucket	rand 82 400
+TB-83 random sequence seed 83	token-bucket	rand 83 400
+TB-84 random sequence seed 84	token-bucket	rand 84 400
+SQ-01 FIFO among equal priorities	stable-queue	offer 1 a1;offer 2 b1;offer 1 a2;offer 2 b2;offer 1 a3;size;peek;poll;poll;poll;poll;poll;poll;peek;size
+SQ-02 lower priority first, FIFO for ties (blocking queue)	stable-blocking-queue	offer 3 x1;offer 1 y1;offer 3 x2;offer 1 y2;offer 2 z1;drain;size
+SQ-03 many equal priorities keep the order of arrival	stable-queue	rand 91 0;offer 5 e0;offer 5 e1;offer 5 e2;offer 5 e3;offer 5 e4;offer 5 e5;offer 5 e6;offer 5 e7;offer 5 e8;offer 5 e9;offer 5 e10;offer 5 e11;offer 5 e12;drain
+SQ-04 iterator remove	stable-queue	offer 1 a;offer 2 b;offer 3 c;iterall;iterrm 1;size;iterall;drain
+SQ-92 random sequence seed 92	stable-queue	rand 92 600
+SQ-93 random sequence seed 93	stable-queue	rand 93 600
+SQ-94 random sequence on the blocking queue	stable-blocking-queue	rand 94 600
+BQ-01 constructor	bounded-queue	new 10 linked;size;new 0 linked;new -3 linked;new 3 full;new 2 blocking2;new 1 blocking2;size;rc
+BQ-02 remainingCapacity follows the size	bounded-queue	new 3 linked;rc;offer a;rc;offer b;offer c;rc;offer d;rc;size;poll;rc
+BQ-03 put and offer on a queue with room	bounded-queue	new 2 linked;put Hello;put World;array;offer x;size;poll;offer x;array
+BQ-04 offer on a full queue returns false	bounded-queue	new 1 linked;offer Hello;offer World;array
+BQ-05 offer with a timeout	bounded-queue	new 1 linked;offerT Hello;offerT World;array;poll;offerT Z;array
+BQ-06 poll and take	bounded-queue	new 2 linked;poll;put Hello;put World;poll;take;poll;pollT
+BQ-07 peek does not remove	bounded-queue	new 2 linked;peek;offer Hello;peek;size;peek
+BQ-08 remove and contains	bounded-queue	new 2 linked;rem Hello;has Hello;put H3llo;rem Hello;has H3llo;put Hello;has Hello;rem Hello;array;rc
+BQ-09 clear	bounded-queue	new 2 linked;put Hello;clear;size;rc;put a;put b;clear;empty
+BQ-10 drainTo	bounded-queue	new 5 linked;put a;put b;put c;put d;drain 2;array;drain all;rc;drain all;put x;drain 0;drain -1;size
+BQ-11 containsAll	bounded-queue	new 3 linked;put Hello;put World;containsAll Pekko,Hello,World;containsAll Hello,World;put Pekko;containsAll Hello,World;containsAll -;containsAll Hello,Hello
+BQ-12 removeAll	bounded-queue	new 3 linked;put Hello;put World;put Pekko;removeAll Hello,World;rc;poll;removeAll Hello;removeAll -;put Pekko;removeAll Hello,World
+BQ-13 retainAll	bounded-queue	new 3 linked;put Hello;put World;put Pekko;retainAll Hello,World;rc;array;retainAll Hello,World,Pekko;array;retainAll -;array;rc
+BQ-14 iterator	bounded-queue	new 3 linked;itall;put a;put b;itall;itrm 0;itrm 1;itrm2;itnext;array
+BQ-15 iterator remove frees room	bounded-queue	new 2 linked;put a;put b;offer c;itrm 1;rc;offer c;array
+BQ-16 priority backing queue orders by priority	bounded-queue	new 4 priority;put d;put b;put c;put a;offer z;poll;poll;peek;array;itall
+BQ-17 duplicates are kept and removed one at a time	bounded-queue	new 3 linked;put a;put a;put b;rem a;array;rem a;array;rem a
+BQ-97 random sequence seed 97	bounded-queue	new 3 linked;rand 97 600
+BQ-98 random sequence seed 98	bounded-queue	new 3 linked;rand 98 600
+BQ-99 random sequence, priority backing	bounded-queue	new 4 priority;rand 99 600
+FS-01 MurmurHash3.stringHash with the default seed	sketch	murmur -;murmur a;murmur foo;murmur bar;murmur baz;murmur 1;murmur 10;murmur 500;murmur 1000;murmur ab;murmur abc;murmur abcd;murmur é;murmur 😀;murmur 中文
+FS-02 MurmurHash3.stringHash with other seeds	sketch	murmurseed 0 abc;murmurseed 1 abc;murmurseed -1 hello;murmurseed 2147483647 world;murmurseed 135283237 abcdefghijklmnopqrstuvwxyz
+FS-03 increment counters	sketch	fs 100 4 10 4 4;inc foo;inc bar 2;inc baz 3;freq foo;freq bar;freq baz;freq qux;size
+FS-04 counters saturate at the maximum	sketch	fs 100 4 10 4 4;inc foo 20;freq foo;size;inc foo 5;freq foo;size
+FS-05 reset halves the counters	sketch	fs 16 4 10 4 4;rand 101 400
+FS-06 reset size reached exactly	sketch	fs 100 4 10 4 4;rand 102 999;size;inc k1;size;freq k1;freq k2;inc k77 3;size
+FS-07 counter widths	sketch	fs 100 4 1 4 2;inc foo 10;freq foo;size;fs 100 4 1 4 8;inc foo 300;freq foo;size;fs 100 4 1 4 16;inc foo 70000;freq foo;size;fs 100 4 1 4 32;inc foo 40;freq foo;fs 100 4 1 4 64;inc foo 40;freq foo;size
+FS-08 depth one and width one collide	sketch	fs 1 1 10 1 64;inc foo;inc bar;freq foo;freq bar;freq baz;size
+FS-09 sketch constructor requirements	sketch	fsraw 4 6 4 10;fsraw 4 8 3 10;fsraw 4 8 4 10;fsraw 1 1 2 1;fsraw 4 -2147483648 4 10
+FS-10 width overflow is rejected (2.0.0)	sketch	fs 536870913 4 10 4 4;fs 100 2147483647 10 4 4;fs 536870912 4 10 4 4;ffs 536870913 4 10;ffs 100 2147483647 10
+FS-11 Bits helpers	sketch	bits 0;bits 1;bits 2;bits 3;bits 4;bits 5;bits 100;bits 536870912;bits 536870913;bits 1073741824;bits 1073741825;bits 2147483647;bits -1;bits -2147483648
+FS-12 a tiny sketch debug string	sketch	fs 4 1 10 2 4;inc a;inc b 3;inc c 2;inc a;dbg
+FS-13 reset size derives from the capacity	sketch	fs 8 4 0.5 4 4;inc a;inc b;inc c;inc d;size;inc e;size;fs 8 4 -3 4 4;inc a;inc b;size;fs 8 4 1e30 4 4;inc a;size
+FS-111 random sequence seed 111	sketch	fs 64 4 10 4 4;rand 111 1500
+FS-112 random sequence seed 112	sketch	fs 64 4 10 4 4;rand 112 1500
+FS-113 random sequence with 2 bit counters	sketch	fs 64 4 2 3 2;rand 113 1500
+FS-114 random sequence with 8 bit counters	sketch	fs 32 2 3 5 8;rand 114 1500
+FS-115 random sequence with 16 bit counters	sketch	fs 32 8 3 2 16;rand 115 1500
+FS-116 random sequence with 64 bit counters	sketch	fs 32 4 3 4 64;rand 116 1500
+FF-01 fast sketch: increment counters	sketch	ffs 100 4 10;inc foo;inc bar 2;inc baz 3;freq foo;freq bar;freq baz;freq qux;size
+FF-02 fast sketch: counters saturate	sketch	ffs 100 4 10;inc foo 20;freq foo;size
+FF-03 fast sketch: integer items hash to themselves	sketch	ffs 64 4 10;inc #0;inc #1 2;inc #-1 3;inc #2147483647;inc #-2147483648 2;freq #0;freq #1;freq #-1;freq #2147483647;freq #-2147483648;size
+FF-04 fast sketch: constructor requirements	sketch	ffsraw 6 10;ffsraw 8 10;ffsraw 1 1;ffsraw 0 5;ffsraw -2147483648 5
+FF-05 fast sketch: a tiny debug string	sketch	ffs 4 4 10;inc a;inc b 3;inc c 2;dbg
+FF-06 fast sketch: reset size reached exactly	sketch	ffs 100 4 10;rand 121 999;size;inc k1;size;freq k1;freq k2
+FF-122 random sequence seed 122	sketch	ffs 64 4 10;rand 122 1500
+FF-123 random sequence seed 123	sketch	ffs 64 4 10;rand 123 1500
+FF-124 random sequence seed 124	sketch	ffs 64 4 10;rand 124 1500
+FF-125 random sequence, 1 counter column	sketch	ffs 16 1 2;rand 125 1500
+RL-01 recency over a sequence of updates and removals	recency	l;m;size;tick;u a;l;tick;u b,c;l;tick;u a,c;l;tick;u d,e,f,g;l;tick;u c,f;l;tick;rm d,g,b,f;l;tick;u e,h,i,j;l;tick;lr 3;l;tick;u k,l,m,i;l;tick;mr 3;l;tick;u n,o;l;tick;lo 3;l;tick;u p,q,k,r;l;tick;mw 3;l;tick;u s,t,u,v,w,x,y,z;l;tick;lrs 3 3;l;tick;mrs 3 2;l;tick;lr 10;l;tick;u a,b,c;l;tick;mr 10;l
+RL-02 least and most recent, single removals	recency	least;most;lr1;mr1;u a,b,c;least;most;lr1;l;mr1;l;has a;has b;size;lr1;mr1;size
+RL-03 time based removals	recency	u a;tick;u b;tick;tick;u c;tick;tick;tick;lo 2;l;tick;u d;mw 0;l;mw 1;l;lo 100;l
+RL-04 removals of nothing and of more than there is	recency	lr 0;mr 0;lr 5;u a,b;lr 0;mr 0;lrs 0 1;lrs 5 1;lrs 1 5;mrs 5 0;l;mrs 1 5;lr 1;l
+RL-131 random sequence seed 131	recency	rand 131 500
+RL-132 random sequence seed 132	recency	rand 132 500
+RL-133 random sequence seed 133	recency	rand 133 500
+FL-01 frequency order, least and most	frequency	least;most;lf;u a,b,c;lf;mf;u a,c;lf;mf;least;most;u c;lf;has a;has z;size;rm b;lf;least
+FL-02 removeLeastFrequent and removeMostFrequent with skip	frequency	u a,b,c,d,e,f,g,h,i,j;u a,c,e,g,i;u a,e,i;u e;lf;rlf 3;lf;rlfs 1 j;rlfs 2 -;lf;rmf 3;lf;rmfs 1 b;rmfs 2 d;lf;rlf1;rmf1;lf;rlf 0;rmf 0;rlfs 0 a;rlf 9;lf
+FL-03 overall recency with a clock	frequency	new clock;tick;u a;tick;u b;tick;u c;tick;u a;tick;u d,e;tick;u c;tick;u f;oall;omall;olr 1;omr 1;oall;lf;olo 3;oall;omw 2;oall;lf
+FL-04 overall recency not enabled	frequency	u a,b;olr 1;omr 1;olo 1;omw 1;oall;omall;lf
+FL-05 plain LFU: removeLeastFrequent does not age	frequency	new plain;u a,b,c;u a,b;u a;lf;rlf 1;u d;lf;rlf 1;u e,e;lf;rlf 3;lf
+FL-06 dynamic aging lets new entries overtake old ones	frequency	new aging;u a,b,c;u a,b;u a;lf;rlf 1;lf;u d;lf;u d;lf;rlf 1;u e;lf;u e,e;lf;rlf 2;u f,g;lf;rlf 3;lf;least;most
+FL-07 dynamic aging with a clock	frequency	new agingclock;tick;u a,b,c;tick;u a;rlf 1;tick;u z;lf;oall;olo 1;lf;oall;rmf 1;lf
+FL-141 random sequence seed 141	frequency	rand 141 500
+FL-142 random sequence seed 142	frequency	rand 142 500
+FL-143 random sequence, dynamic aging	frequency	new aging;rand 143 500
+FL-144 random sequence, clock	frequency	new clock;rand 144 500
+FL-145 random sequence, dynamic aging and clock	frequency	new agingclock;rand 145 500
+SR-01 two segments	segmented	new 2,3;u a,b,c,d,e,f;levels;rol;levels;u a,b,c,d;levels;rol;levels;u e,f;levels;rol;levels;size;sizeof 0;sizeof 1;least
+SR-02 four segments	segmented	new 4,3,2,1;u a,b,c,d,e,f,g,h,i,j;rol;levels;u a,b,c,d,e,f,g;levels;rol;levels;u a,b,c;levels;rol;levels;u g,a;levels;rol;levels;has a;size
+SR-03 updating limits	segmented	new 2,8;u a,b,c,d,e,f,g,h,i,j,k,l;u a,b,c,d,e,f,g,h;levels;limits 1,4;rol;levels;size;rol;lr;levels
+SR-04 overall recency with a clock	segmented	new 2,3 clock;tick;u a,b;tick;u c,d;tick;u e,f,g;tick;u a;tick;tick;tick;oo 2;levels;oo 0;levels;size
+SR-05 overall recency not enabled	segmented	u a;oo 1;lr;levels
+SR-06 remove and single level	segmented	new 3;u a,b,c,d;levels;rol;levels;u a;rm a;levels;lr;rm zz;rm c;levels;size;has b
+SR-151 random sequence seed 151	segmented	new 2,3;rand 151 500
+SR-152 random sequence seed 152	segmented	new 2,3;rand 152 500
+SR-153 random sequence, three segments with a clock	segmented	new 2,2,2 clock;rand 153 500
+DL-01 prepend and append	double-list	check;pre c;pre b;pre a;check;rm a;rm b;rm c;check;app a;app b;app c;check
+DL-02 remove first, middle and last	double-list	pre a;app b;app c;check;rm b;check;rm c;check;rm a;check
+DL-03 move to front	double-list	pre a;pre b;pre c;check;front c;check;front b;check;front a;check
+DL-04 move to back	double-list	app c;app b;app a;check;back a;check;back b;check;back c;check
+DL-05 first or else prepend	double-list	pre c;pre b;check;gfp b a;check;gfp a a;check
+DL-06 last or else append	double-list	app a;app b;check;glp b c;check;glp c c;check
+DL-07 next or else insert	double-list	pre c;pre a;check;gno a c b;check;gno a b b;check
+DL-08 previous or else insert	double-list	app a;app c;check;gpo c a b;check;gpo c b b;check
+DL-09 find next or else insert	double-list	pre c2;pre c1;pre a2;pre a1;check;fno a1 a c b1;check;fno a1 a b b1;check;fno c1 c d d1;check
+DL-10 find previous or else insert	double-list	app b1;app b2;app d1;app d2;check;fpo d2 d b c1;check;fpo d2 d c c1;check;fpo b2 b a a1;check
+DL-11 moving a node that is already there changes nothing	double-list	pre a;app b;front a;check;back b;check;front b;check;back b;check
+DL-12 a list of one node	double-list	pre a;check;front a;back a;check;gfp a z;glp a z;check;rm a;check
+DL-13 a removed node can be linked again	double-list	app a;app b;app c;rm b;check;pre b;check;rm a;app a;check;rm c;rm b;rm a;check
+DL-161 random sequence seed 161	double-list	rand 161 400
+DL-162 random sequence seed 162	double-list	rand 162 400
+DL-163 random sequence seed 163	double-list	rand 163 400

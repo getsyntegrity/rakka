@@ -1,0 +1,1 @@
+SI-06 a value added under an unknown key creates it -> ok {6:[a]} [a] [] {12:[a]} [a] {12:[b]} {12:[b]} [b] [a]
