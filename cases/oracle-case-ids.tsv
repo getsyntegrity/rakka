@@ -518,3 +518,15 @@ uc-0118	util-core	SW-07 byte-wise getShort getInt getLong
 uc-0119	util-core	UN-01 fastHash of ASCII text
 uc-0120	util-core	UN-02 copyUSAsciiStrToBytes of ASCII text
 uc-0121	util-core	MP-EXH makePattern lengths 0-4
+uc-0122	util-core	HC-01 boolean
+uc-0123	util-core	HC-02 int
+uc-0124	util-core	HC-03 char short byte
+uc-0125	util-core	HC-04 long
+uc-0126	util-core	HC-05 float
+uc-0127	util-core	HC-06 double
+uc-0128	util-core	HC-07 string
+uc-0129	util-core	HC-08 arrays of primitives
+uc-0130	util-core	HC-09 arrays of objects
+uc-0131	util-core	HC-10 boxed values
+uc-0132	util-core	HC-11 chaining example
+uc-0133	util-core	HC-14 SEED constant

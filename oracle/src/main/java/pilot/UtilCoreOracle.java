@@ -265,5 +265,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P06 (2026-11-18): UTIL-PLATAFORMA (AC-UTIL-020, 023..028)
     PlatformOracle.register();
+
+    // ---- Slice P65 (2026-11-18): UTIL-HASHCODE (AC-UTIL-016.15)
+    HashCodeOracle.register();
   }
 }

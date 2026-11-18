@@ -12,6 +12,7 @@ use rakka_actor::util::clock::{
 };
 use rakka_actor::util::fast_hash::fast_hash;
 use rakka_actor::util::glob_matches;
+use rakka_actor::util::hash_code::{self, HashContribution};
 use rakka_actor::util::helpers::{
     IS_WINDOWS, Requiring, base64, base64_append, compare_identity_hash,
     current_time_millis_to_utc_string, identity_hash_comparator, timestamp_at_utc_offset,
@@ -26,6 +27,14 @@ use rakka_actor::{ConfigurationException, Done, NotUsed, PekkoException};
 /// Documented in the tests (`recorded_pekko`), which check that every oracle id is produced or listed here.
 #[allow(dead_code)]
 pub const PENDING: &[(&str, &str)] = &[
+    (
+        "HC-12 null",
+        "no null in Rust: hash(seed, null) throws IllegalArgumentException (AC-UTIL-016.15, Q-UTIL-14 (b))",
+    ),
+    (
+        "HC-13 null element in array",
+        "no null in Rust (AC-UTIL-016.15, Q-UTIL-14 (b))",
+    ),
     ("TO-STR-01 Timeout(100, MILLISECONDS)", "Q-UTIL-2"),
     ("TO-STR-02 Timeout.zero", "Q-UTIL-2"),
     ("TO-STR-03 Timeout(1000, MILLISECONDS)", "Q-UTIL-2"),
@@ -549,6 +558,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
     // ---- Slice P06: UTIL-PLATAFORMA (AC-UTIL-020, 023..028)
     for (id, result) in platform_cases() {
         lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+    }
+
+    // ---- Slice P65: UTIL-HASHCODE (AC-UTIL-016.15)
+    for (id, result) in hash_code_cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {result}"))));
     }
 
     lines
@@ -1144,5 +1158,199 @@ fn platform_cases() -> Vec<(String, String)> {
         }
     }
     cases.push(("MP-EXH makePattern lengths 0-4".to_owned(), bits.join(" ")));
+    cases
+}
+
+fn join<T: ToString>(items: impl IntoIterator<Item = T>) -> String {
+    items
+        .into_iter()
+        .map(|i| i.to_string())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The cases of `HashCodeOracle.java` (slice P65).
+fn hash_code_cases() -> Vec<(String, String)> {
+    use hash_code::hash;
+    let seeds = [23, 0, 1, -1, i32::MAX, i32::MIN, 123_456_789];
+    let ints = [0, 5, -5, i32::MAX, i32::MIN];
+    let mut cases: Vec<(String, String)> = Vec::new();
+    let mut add = |id: &str, line: String| cases.push((id.to_owned(), ok(line)));
+
+    add(
+        "HC-01 boolean",
+        join(
+            seeds
+                .iter()
+                .map(|s| format!("{s}:{}/{}", hash(*s, &true), hash(*s, &false))),
+        ),
+    );
+    add(
+        "HC-02 int",
+        join(seeds.iter().flat_map(|s| ints.map(|v| hash(*s, &v)))),
+    );
+    let chars = [0_u16, u16::from(b'a'), 0x7fff, 0x8000, 0xffff];
+    let shorts = [0_i16, 1, -1, i16::MAX, i16::MIN];
+    let bytes = [0_i8, 1, -1, i8::MAX, i8::MIN];
+    add(
+        "HC-03 char short byte",
+        join(
+            chars
+                .iter()
+                .map(|v| hash(23, v))
+                .chain(shorts.iter().map(|v| hash(23, v)))
+                .chain(bytes.iter().map(|v| hash(23, v))),
+        ),
+    );
+    let longs = [
+        0_i64,
+        1,
+        -1,
+        5_000_000_000,
+        i64::MAX,
+        i64::MIN,
+        0x1_0000_0000,
+        0xFFFF_FFFF,
+    ];
+    add(
+        "HC-04 long",
+        join(
+            longs
+                .iter()
+                .flat_map(|v| [23, i32::MIN].map(|s| hash(s, v))),
+        ),
+    );
+    let floats = [
+        0.0_f32,
+        -0.0,
+        1.5,
+        -1.5,
+        f32::NAN,
+        f32::from_bits(0x7fc0_0001),
+        f32::from_bits(0xffc0_0000),
+        f32::INFINITY,
+        f32::NEG_INFINITY,
+        f32::from_bits(1),
+        f32::MAX,
+        f32::MIN_POSITIVE,
+    ];
+    add("HC-05 float", join(floats.iter().map(|v| hash(23, v))));
+    let doubles = [
+        0.0_f64,
+        -0.0,
+        1.5,
+        -1.5,
+        f64::NAN,
+        f64::from_bits(0x7ff8_0000_0000_0001),
+        f64::from_bits(0xfff8_0000_0000_0000),
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::from_bits(1),
+        f64::MAX,
+        f64::MIN_POSITIVE,
+    ];
+    add("HC-06 double", join(doubles.iter().map(|v| hash(23, v))));
+    let thousand = "x".repeat(1000);
+    let texts = [
+        "",
+        "a",
+        "abc",
+        "Hello, World!",
+        "\u{e9}",
+        "\u{20ac}",
+        "\u{1F600}",
+        "a\u{1F600}b",
+        thousand.as_str(),
+    ];
+    add(
+        "HC-07 string",
+        join(texts.iter().map(|t| {
+            let shown = if t.len() > 40 {
+                format!("{}x", t.len())
+            } else {
+                esc(t)
+            };
+            format!("[{shown}]={}", hash(23, *t))
+        })),
+    );
+    let h = |v: &dyn HashContribution| v.hash_into(23);
+    add(
+        "HC-08 arrays of primitives",
+        [
+            h(&Vec::<bool>::new().as_slice()),
+            h(&[true, false, true].as_slice()),
+            h(&[u16::from(b'a'), 0xffff].as_slice()),
+            h(&[1_i16, -1, i16::MIN].as_slice()),
+            h(&Vec::<i32>::new().as_slice()),
+            h(&[1_i32, 2].as_slice()),
+            h(&[i32::MAX, i32::MIN, -1].as_slice()),
+            h(&[5_000_000_000_i64, -1, i64::MIN].as_slice()),
+            h(&[1.5_f32, f32::NAN, -0.0].as_slice()),
+            h(&[1.5_f64, f64::NAN, -0.0].as_slice()),
+            h(&[1_i8, -1, i8::MIN].as_slice()),
+            hash(i32::MIN, [7_i32, 8, 9].as_slice()),
+            hash(0, Vec::<i8>::new().as_slice()),
+        ]
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(" "),
+    );
+    let two_longs: &[i64] = &[3];
+    let nested: [&dyn HashContribution; 2] = [&"x", &two_longs];
+    let ints12: &[i32] = &[1, 2];
+    let mixed: [&dyn HashContribution; 9] = [
+        &"a",
+        &1_i32,
+        &2_i64,
+        &1.5_f64,
+        &true,
+        &u16::from(b'c'),
+        &1.5_f32,
+        &3_i16,
+        &-4_i8,
+    ];
+    let empty: [&dyn HashContribution; 0] = [];
+    let deep: [&dyn HashContribution; 3] = [&ints12, &nested.as_slice(), &empty.as_slice()];
+    let strings = ["abc", "", "\u{e9}"];
+    let rows: [&[i32]; 3] = [&[1, 2], &[3], &[]];
+    add(
+        "HC-09 arrays of objects",
+        [
+            hash(23, empty.as_slice()),
+            hash(23, mixed.as_slice()),
+            hash(23, deep.as_slice()),
+            hash(23, strings.as_slice()),
+            hash(23, [1_i32, 2, 3].as_slice()),
+            hash(23, rows.as_slice()),
+        ]
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(" "),
+    );
+    add(
+        "HC-10 boxed values",
+        format!(
+            "{} {} {} {} {} {}",
+            hash(23, &5_i32),
+            hash(23, &true),
+            hash(23, &5_000_000_000_i64),
+            hash(23, "abc"),
+            hash(23, &1.5_f64),
+            hash(23, &u16::from(b'a')),
+        ),
+    );
+    let mut result = hash_code::SEED;
+    result = hash(result, &42_i32);
+    result = hash(result, "name");
+    result = hash(result, [1_i32, 2, 3].as_slice());
+    result = hash(result, &3.25_f64);
+    result = hash(result, &true);
+    add(
+        "HC-11 chaining example",
+        format!("{} {result}", hash_code::SEED),
+    );
+    add("HC-14 SEED constant", hash_code::SEED.to_string());
     cases
 }

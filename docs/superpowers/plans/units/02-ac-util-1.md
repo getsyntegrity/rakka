@@ -6,12 +6,12 @@
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
+Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-016.15, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
 
 ## Prerrequisitos
 
 - Spec 04 `AC-CFG-1` (`04-ac-cfg-1.md`), por las filas AC-CFG-001, AC-CFG-012.1, AC-CFG-012.2, AC-CFG-012.3, AC-CFG-012.4, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.6, AC-CFG-017.7. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 03 `AC-UTIL-2` (`03-ac-util-2.md`), por las filas AC-UTIL-016.15, AC-UTIL-022. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 03 `AC-UTIL-2` (`03-ac-util-2.md`), por las filas AC-UTIL-022. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 22 `AC-SER-1` (`22-ac-ser-1.md`), por las filas AC-SER-004.1, AC-SER-004.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 10 `AC-EVT-1` (`10-ac-evt-1.md`), por las filas AC-EVT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 07 `AC-MBX-1` (`07-ac-mbx-1.md`), por las filas AC-MBX-009, AC-MBX-010. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
