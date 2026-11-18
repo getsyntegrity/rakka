@@ -80,6 +80,10 @@ pub const PENDING: &[(&str, &str)] = &[
         "MP-NL makePattern vs Glob with line breaks and astral",
         "Q-UTIL-8 (c): java.util.regex is not reproduced; Glob.matches is the contract",
     ),
+    (
+        "MB-DROP-ABSENT drop of an id that was never added",
+        "Q-UTIL-15 (b), accepted: Pekko 2.0.0 throws NullPointerException; Rust returns 0 (AC-UTIL-010, authorised divergence)",
+    ),
 ];
 
 /// `esc` of the script: every UTF-16 unit outside printable ASCII becomes `\uXXXX`.
@@ -599,6 +603,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
 
     // ---- Slice P75: UTIL-ORIGEN-CLOSURES (AC-UTIL-016.8)
     for (id, result) in line_numbers_cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+    }
+
+    // ---- Slice P03: UTIL-ESTRUCTURAS (AC-UTIL-007..014, 015.1, 016.4, 017.1..017.5)
+    for (id, result) in crate::structures_cases::cases() {
         lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
     }
 

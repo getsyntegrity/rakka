@@ -11,6 +11,8 @@ mod path_address_cases;
 mod path_case;
 #[path = "../examples/classic-parity/scenario.rs"]
 mod scenario;
+#[path = "../examples/classic-parity/structures_cases.rs"]
+mod structures_cases;
 #[path = "../examples/classic-parity/util_core_cases.rs"]
 mod util_core_cases;
 
