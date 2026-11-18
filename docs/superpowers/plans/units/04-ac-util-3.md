@@ -21,7 +21,7 @@ Decisiones:
 
 ## Estrategia de oráculo y procedencia
 
-jars oficiales pekko-actor + scala-library 1.7.1; ya existe tools/oracle/util-core.jsh. Todo golden lleva en su cabecera la fuente exacta (jars con SHA-1 verificado, o commit de Pekko) y el hash del script, como los goldens existentes.
+casos rust-anything contra Pekko 2.0.0 (JDK 17): `oracle/` (comando `util-core-case`) y `cases/oracle-util-core.jsonl`. Todo golden lleva en su cabecera la fuente exacta (jars con SHA-1 verificado, o commit de Pekko) y el hash del script, como los goldens existentes.
 
 ## Tareas
 

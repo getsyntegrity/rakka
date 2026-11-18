@@ -1,0 +1,1 @@
+FS-39 [pekko://sys/a#0] -> ok ChildActorPath str=[pekko://sys/a] ser=[pekko://sys/a] noAddr=[/a] addr=[pekko://sys] name=[a] uid=0 elems=([a])

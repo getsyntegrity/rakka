@@ -19,6 +19,9 @@ import org.apache.pekko.actor.Address;
  *   path-from-string-lines   stdin = one JSON string literal per line -> one JSON result per line
  *   scenario                 stdin = one scenario JSON (see Scenario) -> one JSON trace
  *   scenario-lines           stdin = one scenario JSON per line -> one JSON trace per line
+ *   path-address-case        stdin = one case id of the AC-PATH oracle -> its line (converted from jshell)
+ *   util-core-case           stdin = one case id of the AC-UTIL oracle -> its line (converted from jshell)
+ *   path-address-ids, util-core-ids   list the case ids; path-address-all, util-core-all   print every line
  * </pre>
  *
  * The input travels as a JSON string literal on stdin (not argv) so that any UTF-16 sequence,
@@ -27,6 +30,12 @@ import org.apache.pekko.actor.Address;
  */
 public final class Cli {
   private Cli() {}
+
+  /** The single line on stdin (a case id, ASCII-escaped like the oracle output). */
+  private static String oneLine() throws IOException {
+    String in = new String(readAll(System.in), StandardCharsets.UTF_8);
+    return in.endsWith("\n") ? in.substring(0, in.length() - 1) : in;
+  }
 
   public static void main(String[] args) throws IOException {
     if (args.length != 1) usage();
@@ -45,6 +54,12 @@ public final class Cli {
         }
         System.out.print(out);
       }
+      case "path-address-ids" -> System.out.print(String.join("\n", PathAddressOracle.ids()) + "\n");
+      case "util-core-ids" -> System.out.print(String.join("\n", UtilCoreOracle.ids()) + "\n");
+      case "path-address-all" -> PathAddressOracle.ids().forEach(id -> System.out.println(PathAddressOracle.line(id)));
+      case "util-core-all" -> UtilCoreOracle.ids().forEach(id -> System.out.println(UtilCoreOracle.line(id)));
+      case "path-address-case" -> System.out.println(PathAddressOracle.line(oneLine()));
+      case "util-core-case" -> System.out.println(UtilCoreOracle.line(oneLine()));
       case "scenario" -> {
         String in = new String(readAll(System.in), StandardCharsets.UTF_8);
         System.out.println(Scenario.run(in));

@@ -1,0 +1,1 @@
+STR-04 child#7 strWithAddr(local other) -> ok pekko://other/user/foo

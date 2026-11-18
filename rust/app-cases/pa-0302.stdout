@@ -1,0 +1,1 @@
+DS-08 child.descendant[c,d] -> ok ChildActorPath str=[pekko://mysys/a/c/d] ser=[pekko://mysys/a/c/d] noAddr=[/a/c/d] addr=[pekko://mysys] name=[d] uid=0 elems=([a],[c],[d])

@@ -1,0 +1,1 @@
+CT-14 new('',s) -> ok str=[://s] protocol=[] system=[s] host=none port=none local=true global=false hostPort=[s]

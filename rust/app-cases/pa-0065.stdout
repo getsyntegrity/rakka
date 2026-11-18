@@ -1,0 +1,1 @@
+SPEC-JAPI-62 -> ok ChildActorPath str=[pekko://Sys@localhost:1234/user/abc] ser=[pekko://Sys@localhost:1234/user/abc] noAddr=[/user/abc] addr=[pekko://Sys@localhost:1234] name=[abc] uid=0 elems=([user],[abc])

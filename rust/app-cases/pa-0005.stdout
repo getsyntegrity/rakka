@@ -1,0 +1,1 @@
+SPEC-APS-47 -> ok str=[akka://my_sys@host:1234] protocol=[akka] system=[my_sys] host=[host] port=[1234] local=false global=true hostPort=[my_sys@host:1234] eqExpected=true

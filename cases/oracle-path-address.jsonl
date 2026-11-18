@@ -1,0 +1,398 @@
+{"name": "pa-0001", "args": ["path-address-case"], "stdin": "SPEC-APS-27"}
+{"name": "pa-0002", "args": ["path-address-case"], "stdin": "SPEC-APS-32"}
+{"name": "pa-0003", "args": ["path-address-case"], "stdin": "SPEC-APS-37"}
+{"name": "pa-0004", "args": ["path-address-case"], "stdin": "SPEC-APS-42"}
+{"name": "pa-0005", "args": ["path-address-case"], "stdin": "SPEC-APS-47"}
+{"name": "pa-0006", "args": ["path-address-case"], "stdin": "SPEC-APS-51"}
+{"name": "pa-0007", "args": ["path-address-case"], "stdin": "SPEC-APS-52"}
+{"name": "pa-0008", "args": ["path-address-case"], "stdin": "SPEC-APS-53"}
+{"name": "pa-0009", "args": ["path-address-case"], "stdin": "SPEC-APS-54"}
+{"name": "pa-0010", "args": ["path-address-case"], "stdin": "SPEC-APS-55"}
+{"name": "pa-0011", "args": ["path-address-case"], "stdin": "SPEC-APS-60"}
+{"name": "pa-0012", "args": ["path-address-case"], "stdin": "SPEC-APS-61"}
+{"name": "pa-0013", "args": ["path-address-case"], "stdin": "SPEC-APS-62"}
+{"name": "pa-0014", "args": ["path-address-case"], "stdin": "SPEC-APS-63"}
+{"name": "pa-0015", "args": ["path-address-case"], "stdin": "SPEC-APS-67"}
+{"name": "pa-0016", "args": ["path-address-case"], "stdin": "SPEC-APS-73"}
+{"name": "pa-0017", "args": ["path-address-case"], "stdin": "SPEC-APS-74"}
+{"name": "pa-0018", "args": ["path-address-case"], "stdin": "SPEC-APS-75"}
+{"name": "pa-0019", "args": ["path-address-case"], "stdin": "SPEC-APS-76"}
+{"name": "pa-0020", "args": ["path-address-case"], "stdin": "SPEC-APS-80"}
+{"name": "pa-0021", "args": ["path-address-case"], "stdin": "SPEC-APS-86"}
+{"name": "pa-0022", "args": ["path-address-case"], "stdin": "SPEC-APS-90"}
+{"name": "pa-0023", "args": ["path-address-case"], "stdin": "SPEC-APS-91"}
+{"name": "pa-0024", "args": ["path-address-case"], "stdin": "SPEC-APS-92"}
+{"name": "pa-0025", "args": ["path-address-case"], "stdin": "SPEC-APS-94"}
+{"name": "pa-0026", "args": ["path-address-case"], "stdin": "SPEC-APS-95"}
+{"name": "pa-0027", "args": ["path-address-case"], "stdin": "SPEC-APS-96"}
+{"name": "pa-0028", "args": ["path-address-case"], "stdin": "SPEC-APS-98"}
+{"name": "pa-0029", "args": ["path-address-case"], "stdin": "SPEC-APS-99"}
+{"name": "pa-0030", "args": ["path-address-case"], "stdin": "SPEC-APS-100"}
+{"name": "pa-0031", "args": ["path-address-case"], "stdin": "SPEC-APS-103"}
+{"name": "pa-0032", "args": ["path-address-case"], "stdin": "SPEC-APS-104"}
+{"name": "pa-0033", "args": ["path-address-case"], "stdin": "SPEC-APS-105"}
+{"name": "pa-0034", "args": ["path-address-case"], "stdin": "SPEC-APS-110"}
+{"name": "pa-0035", "args": ["path-address-case"], "stdin": "SPEC-APS-114"}
+{"name": "pa-0036", "args": ["path-address-case"], "stdin": "SPEC-APS-119-124[valid]"}
+{"name": "pa-0037", "args": ["path-address-case"], "stdin": "SPEC-APS-119-124[is_valid.org]"}
+{"name": "pa-0038", "args": ["path-address-case"], "stdin": "SPEC-APS-119-124[fu.is_valid.org]"}
+{"name": "pa-0039", "args": ["path-address-case"], "stdin": "SPEC-APS-119-124[in_valid]"}
+{"name": "pa-0040", "args": ["path-address-case"], "stdin": "SPEC-APS-119-124[invalid._org]"}
+{"name": "pa-0041", "args": ["path-address-case"], "stdin": "SPEC-APS-126"}
+{"name": "pa-0042", "args": ["path-address-case"], "stdin": "SPEC-APS-133-143[localhost]"}
+{"name": "pa-0043", "args": ["path-address-case"], "stdin": "SPEC-APS-133-143[is_valid.org]"}
+{"name": "pa-0044", "args": ["path-address-case"], "stdin": "SPEC-APS-133-143[fu.is_valid.org]"}
+{"name": "pa-0045", "args": ["path-address-case"], "stdin": "SPEC-APS-133-143[in_valid]"}
+{"name": "pa-0046", "args": ["path-address-case"], "stdin": "SPEC-APS-133-143[invalid._org]"}
+{"name": "pa-0047", "args": ["path-address-case"], "stdin": "SPEC-ADS-34"}
+{"name": "pa-0048", "args": ["path-address-case"], "stdin": "SPEC-RAP-29"}
+{"name": "pa-0049", "args": ["path-address-case"], "stdin": "SPEC-RAP-32"}
+{"name": "pa-0050", "args": ["path-address-case"], "stdin": "SPEC-RAP-35"}
+{"name": "pa-0051", "args": ["path-address-case"], "stdin": "SPEC-RAP-39"}
+{"name": "pa-0052", "args": ["path-address-case"], "stdin": "SPEC-LARP-01"}
+{"name": "pa-0053", "args": ["path-address-case"], "stdin": "SPEC-LARP-02"}
+{"name": "pa-0054", "args": ["path-address-case"], "stdin": "SPEC-LARP-03"}
+{"name": "pa-0055", "args": ["path-address-case"], "stdin": "SPEC-LARP-04"}
+{"name": "pa-0056", "args": ["path-address-case"], "stdin": "SPEC-LARP-05"}
+{"name": "pa-0057", "args": ["path-address-case"], "stdin": "SPEC-LARP-06"}
+{"name": "pa-0058", "args": ["path-address-case"], "stdin": "SPEC-LARP-07"}
+{"name": "pa-0059", "args": ["path-address-case"], "stdin": "SPEC-LARP-08"}
+{"name": "pa-0060", "args": ["path-address-case"], "stdin": "SPEC-LARP-09"}
+{"name": "pa-0061", "args": ["path-address-case"], "stdin": "SPEC-LARP-10"}
+{"name": "pa-0062", "args": ["path-address-case"], "stdin": "SPEC-LARP-11"}
+{"name": "pa-0063", "args": ["path-address-case"], "stdin": "SPEC-LARP-12"}
+{"name": "pa-0064", "args": ["path-address-case"], "stdin": "SPEC-LARP-13"}
+{"name": "pa-0065", "args": ["path-address-case"], "stdin": "SPEC-JAPI-62"}
+{"name": "pa-0066", "args": ["path-address-case"], "stdin": "FS-01 [pekko://mysys/user]"}
+{"name": "pa-0067", "args": ["path-address-case"], "stdin": "FS-02 [pekko://sys]"}
+{"name": "pa-0068", "args": ["path-address-case"], "stdin": "FS-03 [pekko://sys/]"}
+{"name": "pa-0069", "args": ["path-address-case"], "stdin": "FS-04 [pekko://sys/user/]"}
+{"name": "pa-0070", "args": ["path-address-case"], "stdin": "FS-05 [pekko://sys/user//x]"}
+{"name": "pa-0071", "args": ["path-address-case"], "stdin": "FS-06 [pekko://sys//a]"}
+{"name": "pa-0072", "args": ["path-address-case"], "stdin": "FS-07 [pekko://sys/./a/../b]"}
+{"name": "pa-0073", "args": ["path-address-case"], "stdin": "FS-08 [pekko://sys/$a]"}
+{"name": "pa-0074", "args": ["path-address-case"], "stdin": "FS-09 [pekko://sys/user/a%20b]"}
+{"name": "pa-0075", "args": ["path-address-case"], "stdin": "FS-10 [pekko://sys/a%2Fb]"}
+{"name": "pa-0076", "args": ["path-address-case"], "stdin": "FS-11 [pekko://sys/a%2]"}
+{"name": "pa-0077", "args": ["path-address-case"], "stdin": "FS-12 [pekko://sys/a%zz]"}
+{"name": "pa-0078", "args": ["path-address-case"], "stdin": "FS-13 [pekko://sys/a b]"}
+{"name": "pa-0079", "args": ["path-address-case"], "stdin": "FS-14 [pekko://sys/\\u00FCser]"}
+{"name": "pa-0080", "args": ["path-address-case"], "stdin": "FS-15 [pekko://sys/user?x=1]"}
+{"name": "pa-0081", "args": ["path-address-case"], "stdin": "FS-16 [pekko://sys/user?x#5]"}
+{"name": "pa-0082", "args": ["path-address-case"], "stdin": "FS-17 [pekko://sys/user#5?x]"}
+{"name": "pa-0083", "args": ["path-address-case"], "stdin": "FS-18 [pekko://sys@in_valid:5001/user]"}
+{"name": "pa-0084", "args": ["path-address-case"], "stdin": "FS-19 [pekko://my_sys/user]"}
+{"name": "pa-0085", "args": ["path-address-case"], "stdin": "FS-20 [pekko://my_sys@host:1/user]"}
+{"name": "pa-0086", "args": ["path-address-case"], "stdin": "FS-21 [pekko:sys]"}
+{"name": "pa-0087", "args": ["path-address-case"], "stdin": "FS-22 [pekko:sys/user]"}
+{"name": "pa-0088", "args": ["path-address-case"], "stdin": "FS-23 [pekko:///user]"}
+{"name": "pa-0089", "args": ["path-address-case"], "stdin": "FS-24 [pekko://@host:1/user]"}
+{"name": "pa-0090", "args": ["path-address-case"], "stdin": "FS-25 [pekko://sys:1234/user]"}
+{"name": "pa-0091", "args": ["path-address-case"], "stdin": "FS-26 [pekko://sys@host/user]"}
+{"name": "pa-0092", "args": ["path-address-case"], "stdin": "FS-27 [pekko://sys@[::1]:2552/user]"}
+{"name": "pa-0093", "args": ["path-address-case"], "stdin": "FS-28 [pekko://sys@127.0.0.1:2552/user]"}
+{"name": "pa-0094", "args": ["path-address-case"], "stdin": "FS-29 [pekko://a%20b@h:1/u]"}
+{"name": "pa-0095", "args": ["path-address-case"], "stdin": "FS-30 [pekko://a:b@h:1/u]"}
+{"name": "pa-0096", "args": ["path-address-case"], "stdin": "FS-31 [PEKKO://Sys@HOST:1/User]"}
+{"name": "pa-0097", "args": ["path-address-case"], "stdin": "FS-32 [/user/a]"}
+{"name": "pa-0098", "args": ["path-address-case"], "stdin": "FS-33 [user/a]"}
+{"name": "pa-0099", "args": ["path-address-case"], "stdin": "FS-34 [pekko://sys@h:70000/u]"}
+{"name": "pa-0100", "args": ["path-address-case"], "stdin": "FS-35 [pekko://sys@h:99999999999/u]"}
+{"name": "pa-0101", "args": ["path-address-case"], "stdin": "FS-36 [pekko://sys/a#5]"}
+{"name": "pa-0102", "args": ["path-address-case"], "stdin": "FS-37 [pekko://sys/a#+5]"}
+{"name": "pa-0103", "args": ["path-address-case"], "stdin": "FS-38 [pekko://sys/a#-5]"}
+{"name": "pa-0104", "args": ["path-address-case"], "stdin": "FS-39 [pekko://sys/a#0]"}
+{"name": "pa-0105", "args": ["path-address-case"], "stdin": "FS-40 [pekko://sys/a#abc]"}
+{"name": "pa-0106", "args": ["path-address-case"], "stdin": "FS-41 [pekko://sys/a#99999999999]"}
+{"name": "pa-0107", "args": ["path-address-case"], "stdin": "FS-42 [pekko://sys/a#2147483647]"}
+{"name": "pa-0108", "args": ["path-address-case"], "stdin": "FS-43 [pekko://sys/a#2147483648]"}
+{"name": "pa-0109", "args": ["path-address-case"], "stdin": "FS-44 [pekko://sys/a#-2147483648]"}
+{"name": "pa-0110", "args": ["path-address-case"], "stdin": "FS-45 [pekko://sys/a#]"}
+{"name": "pa-0111", "args": ["path-address-case"], "stdin": "FS-46 [pekko://sys/a#5#6]"}
+{"name": "pa-0112", "args": ["path-address-case"], "stdin": "FS-47 [pekko://sys/a# 5]"}
+{"name": "pa-0113", "args": ["path-address-case"], "stdin": "FS-48 [pekko://sys#5]"}
+{"name": "pa-0114", "args": ["path-address-case"], "stdin": "FS-49 [pekko://sys/#5]"}
+{"name": "pa-0115", "args": ["path-address-case"], "stdin": "FS-50 [pekko://sys/user/#5]"}
+{"name": "pa-0116", "args": ["path-address-case"], "stdin": "FS-51 [pekko://sys/a/b#7]"}
+{"name": "pa-0117", "args": ["path-address-case"], "stdin": "FS-52 [pekko://sys/a#\\u0665]"}
+{"name": "pa-0118", "args": ["path-address-case"], "stdin": "FS-53 [pekko://sys/a#\\uFF15]"}
+{"name": "pa-0119", "args": ["path-address-case"], "stdin": "FS-54 [pekko://sys/a#+]"}
+{"name": "pa-0120", "args": ["path-address-case"], "stdin": "FS-55 [pekko://sys/a#-]"}
+{"name": "pa-0121", "args": ["path-address-case"], "stdin": "FS-56 [pekko://sys/a#+-5]"}
+{"name": "pa-0122", "args": ["path-address-case"], "stdin": "AD-01 [pekko://my_sys@host:1234]"}
+{"name": "pa-0123", "args": ["path-address-case"], "stdin": "AD-02 [pekko://sys]"}
+{"name": "pa-0124", "args": ["path-address-case"], "stdin": "AD-03 [pekko://sys/]"}
+{"name": "pa-0125", "args": ["path-address-case"], "stdin": "AD-04 [pekko://sys/user/a]"}
+{"name": "pa-0126", "args": ["path-address-case"], "stdin": "AD-05 [pekko://sys?x]"}
+{"name": "pa-0127", "args": ["path-address-case"], "stdin": "AD-06 [pekko://sys#5]"}
+{"name": "pa-0128", "args": ["path-address-case"], "stdin": "AD-07 [pekko://sys@h:1/user#5]"}
+{"name": "pa-0129", "args": ["path-address-case"], "stdin": "AD-08 [pekko://sys@in_valid:5001]"}
+{"name": "pa-0130", "args": ["path-address-case"], "stdin": "AD-09 [pekko://sys:1234]"}
+{"name": "pa-0131", "args": ["path-address-case"], "stdin": "AD-10 [pekko://@host:1]"}
+{"name": "pa-0132", "args": ["path-address-case"], "stdin": "AD-11 [pekko://sys@host]"}
+{"name": "pa-0133", "args": ["path-address-case"], "stdin": "AD-12 [pekko://sys@host:]"}
+{"name": "pa-0134", "args": ["path-address-case"], "stdin": "AD-13 [pekko://sys@host:0]"}
+{"name": "pa-0135", "args": ["path-address-case"], "stdin": "AD-14 [pekko://sys@host:00012]"}
+{"name": "pa-0136", "args": ["path-address-case"], "stdin": "AD-15 [pekko://sys@host:-1]"}
+{"name": "pa-0137", "args": ["path-address-case"], "stdin": "AD-16 [pekko://sys@host:70000]"}
+{"name": "pa-0138", "args": ["path-address-case"], "stdin": "AD-17 [pekko://sys@host:2147483647]"}
+{"name": "pa-0139", "args": ["path-address-case"], "stdin": "AD-18 [pekko://sys@host:2147483648]"}
+{"name": "pa-0140", "args": ["path-address-case"], "stdin": "AD-19 [pekko://sys@host:99999999999]"}
+{"name": "pa-0141", "args": ["path-address-case"], "stdin": "AD-20 [pekko://sys@[::1]:2552]"}
+{"name": "pa-0142", "args": ["path-address-case"], "stdin": "AD-21 [pekko://sys@[::1]]"}
+{"name": "pa-0143", "args": ["path-address-case"], "stdin": "AD-22 [pekko://sys@[::1]"}
+{"name": "pa-0144", "args": ["path-address-case"], "stdin": "AD-23 [pekko://sys@127.0.0.1:2552]"}
+{"name": "pa-0145", "args": ["path-address-case"], "stdin": "AD-24 [pekko://sys@256.1.1.1:1]"}
+{"name": "pa-0146", "args": ["path-address-case"], "stdin": "AD-25 [pekko://my_sys]"}
+{"name": "pa-0147", "args": ["path-address-case"], "stdin": "AD-26 [pekko://my_sys@host:1]"}
+{"name": "pa-0148", "args": ["path-address-case"], "stdin": "AD-27 [pekko://a:b@h:1]"}
+{"name": "pa-0149", "args": ["path-address-case"], "stdin": "AD-28 [pekko://a%20b@h:1]"}
+{"name": "pa-0150", "args": ["path-address-case"], "stdin": "AD-29 [pekko://a%2@h:1]"}
+{"name": "pa-0151", "args": ["path-address-case"], "stdin": "AD-30 [pekko://sys@h\\u00F6:1]"}
+{"name": "pa-0152", "args": ["path-address-case"], "stdin": "AD-31 [pekko://s\\u00FFs@h:1]"}
+{"name": "pa-0153", "args": ["path-address-case"], "stdin": "AD-32 [pekko://s\\u00FFs]"}
+{"name": "pa-0154", "args": ["path-address-case"], "stdin": "AD-33 [pekko:sys]"}
+{"name": "pa-0155", "args": ["path-address-case"], "stdin": "AD-34 [pekko:///]"}
+{"name": "pa-0156", "args": ["path-address-case"], "stdin": "AD-35 [pekko://]"}
+{"name": "pa-0157", "args": ["path-address-case"], "stdin": "AD-36 [PEKKO://Sys@HOST:1]"}
+{"name": "pa-0158", "args": ["path-address-case"], "stdin": "AD-37 [pekko://s y]"}
+{"name": "pa-0159", "args": ["path-address-case"], "stdin": "AD-38 [/user]"}
+{"name": "pa-0160", "args": ["path-address-case"], "stdin": "AD-39 [sys@h:1]"}
+{"name": "pa-0161", "args": ["path-address-case"], "stdin": "AD-40 [1pekko://sys]"}
+{"name": "pa-0162", "args": ["path-address-case"], "stdin": "AD-41 [pekko://sys@h-1.example.com:1]"}
+{"name": "pa-0163", "args": ["path-address-case"], "stdin": "AD-42 [pekko://sys@-h:1]"}
+{"name": "pa-0164", "args": ["path-address-case"], "stdin": "AD-43 [pekko://sys@h.:1]"}
+{"name": "pa-0165", "args": ["path-address-case"], "stdin": "AD-44 [pekko://sys@h_1.example.com:1]"}
+{"name": "pa-0166", "args": ["path-address-case"], "stdin": "AD-45 [pekko://sys@host:1234 ]"}
+{"name": "pa-0167", "args": ["path-address-case"], "stdin": "AD-46 []"}
+{"name": "pa-0168", "args": ["path-address-case"], "stdin": "AD-47 [://hallo]"}
+{"name": "pa-0169", "args": ["path-address-case"], "stdin": "AD-48 [pekko://a%C3%BC@h:1]"}
+{"name": "pa-0170", "args": ["path-address-case"], "stdin": "AD-49 [pekko://a%FF@h:1]"}
+{"name": "pa-0171", "args": ["path-address-case"], "stdin": "AD-50 [pekko://sys@[::FFFF:1.2.3.4]:1]"}
+{"name": "pa-0172", "args": ["path-address-case"], "stdin": "AD-51 [pekko://sys@[fe80::1%25eth0]:1]"}
+{"name": "pa-0173", "args": ["path-address-case"], "stdin": "AD-52 [pekko://sys@[1::2::3]:1]"}
+{"name": "pa-0174", "args": ["path-address-case"], "stdin": "AD-53 [pekko://sys@::1:1]"}
+{"name": "pa-0175", "args": ["path-address-case"], "stdin": "AD-PARSE [pekko://sys@h:1]"}
+{"name": "pa-0176", "args": ["path-address-case"], "stdin": "AD-PARSE [pekko://sys:1]"}
+{"name": "pa-0177", "args": ["path-address-case"], "stdin": "UTF-AD-01 [pekko://a%ED%A0%80b@h:1]"}
+{"name": "pa-0178", "args": ["path-address-case"], "stdin": "UTF-AD-02 [pekko://a%ED%B0%80b@h:1]"}
+{"name": "pa-0179", "args": ["path-address-case"], "stdin": "UTF-AD-03 [pekko://a%ED%A0%80%ED%B0%80b@h:1]"}
+{"name": "pa-0180", "args": ["path-address-case"], "stdin": "UTF-AD-04 [pekko://a%ED%A0%41b@h:1]"}
+{"name": "pa-0181", "args": ["path-address-case"], "stdin": "UTF-AD-05 [pekko://a%ED%A0b@h:1]"}
+{"name": "pa-0182", "args": ["path-address-case"], "stdin": "UTF-AD-06 [pekko://a%C0%80b@h:1]"}
+{"name": "pa-0183", "args": ["path-address-case"], "stdin": "UTF-AD-07 [pekko://a%C1%BFb@h:1]"}
+{"name": "pa-0184", "args": ["path-address-case"], "stdin": "UTF-AD-08 [pekko://a%E0%80%80b@h:1]"}
+{"name": "pa-0185", "args": ["path-address-case"], "stdin": "UTF-AD-09 [pekko://a%E0%9F%BFb@h:1]"}
+{"name": "pa-0186", "args": ["path-address-case"], "stdin": "UTF-AD-10 [pekko://a%E0%80b@h:1]"}
+{"name": "pa-0187", "args": ["path-address-case"], "stdin": "UTF-AD-11 [pekko://a%F0%80%80%80b@h:1]"}
+{"name": "pa-0188", "args": ["path-address-case"], "stdin": "UTF-AD-12 [pekko://a%F0%8F%BF%BFb@h:1]"}
+{"name": "pa-0189", "args": ["path-address-case"], "stdin": "UTF-AD-13 [pekko://a%F4%90%80%80b@h:1]"}
+{"name": "pa-0190", "args": ["path-address-case"], "stdin": "UTF-AD-14 [pekko://a%F5%80%80%80b@h:1]"}
+{"name": "pa-0191", "args": ["path-address-case"], "stdin": "UTF-AD-15 [pekko://a%E2%82b@h:1]"}
+{"name": "pa-0192", "args": ["path-address-case"], "stdin": "UTF-AD-16 [pekko://a%E2%82%41b@h:1]"}
+{"name": "pa-0193", "args": ["path-address-case"], "stdin": "UTF-AD-17 [pekko://a%F0%9F%98b@h:1]"}
+{"name": "pa-0194", "args": ["path-address-case"], "stdin": "UTF-AD-18 [pekko://a%F0%9F%41b@h:1]"}
+{"name": "pa-0195", "args": ["path-address-case"], "stdin": "UTF-AD-19 [pekko://a%F0%90%80%41b@h:1]"}
+{"name": "pa-0196", "args": ["path-address-case"], "stdin": "UTF-AD-20 [pekko://a%80b@h:1]"}
+{"name": "pa-0197", "args": ["path-address-case"], "stdin": "UTF-AD-21 [pekko://a%BF%80b@h:1]"}
+{"name": "pa-0198", "args": ["path-address-case"], "stdin": "UTF-AD-22 [pekko://a%C3b@h:1]"}
+{"name": "pa-0199", "args": ["path-address-case"], "stdin": "UTF-AD-23 [pekko://a%C3%BCx%FF%E2%82%ACb@h:1]"}
+{"name": "pa-0200", "args": ["path-address-case"], "stdin": "UTF-AD-24 [pekko://a%E2%82%AC%ED%A0%E2%82%ACb@h:1]"}
+{"name": "pa-0201", "args": ["path-address-case"], "stdin": "UTF-AD-25 [pekko://a%F8%88%80%80%80b@h:1]"}
+{"name": "pa-0202", "args": ["path-address-case"], "stdin": "UTF-AD-26 [pekko://a%FC%84%80%80%80%80b@h:1]"}
+{"name": "pa-0203", "args": ["path-address-case"], "stdin": "UTF-AD-27 [pekko://a%FEb@h:1]"}
+{"name": "pa-0204", "args": ["path-address-case"], "stdin": "UTF-AD-28 [pekko://a%FFb@h:1]"}
+{"name": "pa-0205", "args": ["path-address-case"], "stdin": "UTF-AD-29 [pekko://a%C2%41b@h:1]"}
+{"name": "pa-0206", "args": ["path-address-case"], "stdin": "UTF-AD-30 [pekko://a%F0%9F%98%80%80b@h:1]"}
+{"name": "pa-0207", "args": ["path-address-case"], "stdin": "UTF-FS-01 [pekko://a%ED%A0%80@h:1/u%ED%A0%80/v%C0%80#5]"}
+{"name": "pa-0208", "args": ["path-address-case"], "stdin": "UTF-FS-02 [pekko://a%ED%A0%80/u]"}
+{"name": "pa-0209", "args": ["path-address-case"], "stdin": "UTF-FS-03 [pekko://a%E2%82@h%E2:1/u]"}
+{"name": "pa-0210", "args": ["path-address-case"], "stdin": "UTF-FS-04 [pekko://a%FF@h:1/u#%FF]"}
+{"name": "pa-0211", "args": ["path-address-case"], "stdin": "DEEP-01 fromString 1e6 levels vs built"}
+{"name": "pa-0212", "args": ["path-address-case"], "stdin": "RP-01 []"}
+{"name": "pa-0213", "args": ["path-address-case"], "stdin": "RP-02 [/user/a]"}
+{"name": "pa-0214", "args": ["path-address-case"], "stdin": "RP-03 [pekko://sys/a]"}
+{"name": "pa-0215", "args": ["path-address-case"], "stdin": "RP-04 [foo:bar]"}
+{"name": "pa-0216", "args": ["path-address-case"], "stdin": "RP-05 [a%2]"}
+{"name": "pa-0217", "args": ["path-address-case"], "stdin": "RP-06 [a b]"}
+{"name": "pa-0218", "args": ["path-address-case"], "stdin": "RP-07 [foo?x]"}
+{"name": "pa-0219", "args": ["path-address-case"], "stdin": "RP-08 [foo#abc]"}
+{"name": "pa-0220", "args": ["path-address-case"], "stdin": "RP-09 [#5]"}
+{"name": "pa-0221", "args": ["path-address-case"], "stdin": "RP-10 [../a]"}
+{"name": "pa-0222", "args": ["path-address-case"], "stdin": "RP-11 [foo//bar]"}
+{"name": "pa-0223", "args": ["path-address-case"], "stdin": "RP-12 [foo/]"}
+{"name": "pa-0224", "args": ["path-address-case"], "stdin": "RP-13 [\\u00FC]"}
+{"name": "pa-0225", "args": ["path-address-case"], "stdin": "RP-14 [a%20b]"}
+{"name": "pa-0226", "args": ["path-address-case"], "stdin": "RP-15 [foo#1#2]"}
+{"name": "pa-0227", "args": ["path-address-case"], "stdin": "CT-01 new(pekko,sys)"}
+{"name": "pa-0228", "args": ["path-address-case"], "stdin": "CT-02 new(pekko,sys,h,1234)"}
+{"name": "pa-0229", "args": ["path-address-case"], "stdin": "CT-03 new(pekko,sys,h,0)"}
+{"name": "pa-0230", "args": ["path-address-case"], "stdin": "CT-04 new(pekko,sys,h,-5)"}
+{"name": "pa-0231", "args": ["path-address-case"], "stdin": "CT-05 new(pekko,sys,h,-1)"}
+{"name": "pa-0232", "args": ["path-address-case"], "stdin": "CT-06 new(pekko,sys,h,70000)"}
+{"name": "pa-0233", "args": ["path-address-case"], "stdin": "CT-07 new(pekko,sys,h,MAX)"}
+{"name": "pa-0234", "args": ["path-address-case"], "stdin": "CT-08 new(pekko,sys,h,MIN)"}
+{"name": "pa-0235", "args": ["path-address-case"], "stdin": "CT-09 new(pekko,sys,null,1)"}
+{"name": "pa-0236", "args": ["path-address-case"], "stdin": "CT-10 new(pekko,sys,'',1)"}
+{"name": "pa-0237", "args": ["path-address-case"], "stdin": "CT-11 copy(host=Some(h),port=None)"}
+{"name": "pa-0238", "args": ["path-address-case"], "stdin": "CT-12 copy(host=Some(''),port=None)"}
+{"name": "pa-0239", "args": ["path-address-case"], "stdin": "CT-13 copy(host=None,port=Some(7))"}
+{"name": "pa-0240", "args": ["path-address-case"], "stdin": "CT-14 new('',s)"}
+{"name": "pa-0241", "args": ["path-address-case"], "stdin": "CT-15 new(p,'')"}
+{"name": "pa-0242", "args": ["path-address-case"], "stdin": "CT-16 new(p,'s@h:1')"}
+{"name": "pa-0243", "args": ["path-address-case"], "stdin": "CT-17 new(p,s,'h:1',2)"}
+{"name": "pa-0244", "args": ["path-address-case"], "stdin": "CT-18 apply(pekko,sys,h,1) eq new"}
+{"name": "pa-0245", "args": ["path-address-case"], "stdin": "CT-19 parsed eq constructed"}
+{"name": "pa-0246", "args": ["path-address-case"], "stdin": "CT-20 roundtrip parse(new(p,s,h,-5).toString)"}
+{"name": "pa-0247", "args": ["path-address-case"], "stdin": "CT-21 roundtrip parse(new(p,s,in_valid,1).toString)"}
+{"name": "pa-0248", "args": ["path-address-case"], "stdin": "HC [_]"}
+{"name": "pa-0249", "args": ["path-address-case"], "stdin": "HC [a_]"}
+{"name": "pa-0250", "args": ["path-address-case"], "stdin": "HC [_a]"}
+{"name": "pa-0251", "args": ["path-address-case"], "stdin": "HC [a_b.c]"}
+{"name": "pa-0252", "args": ["path-address-case"], "stdin": "HC [a.b_c]"}
+{"name": "pa-0253", "args": ["path-address-case"], "stdin": "HC [a_b.c_d]"}
+{"name": "pa-0254", "args": ["path-address-case"], "stdin": "HC [a_.b]"}
+{"name": "pa-0255", "args": ["path-address-case"], "stdin": "HC [a._]"}
+{"name": "pa-0256", "args": ["path-address-case"], "stdin": "HC [\\u00FC_x]"}
+{"name": "pa-0257", "args": ["path-address-case"], "stdin": "HC host=None"}
+{"name": "pa-0258", "args": ["path-address-case"], "stdin": "HC host=Some(a_b) port=None"}
+{"name": "pa-0259", "args": ["path-address-case"], "stdin": "RT [/]"}
+{"name": "pa-0260", "args": ["path-address-case"], "stdin": "RT []"}
+{"name": "pa-0261", "args": ["path-address-case"], "stdin": "RT [user]"}
+{"name": "pa-0262", "args": ["path-address-case"], "stdin": "RT [/a]"}
+{"name": "pa-0263", "args": ["path-address-case"], "stdin": "RT [/a/]"}
+{"name": "pa-0264", "args": ["path-address-case"], "stdin": "RT [//]"}
+{"name": "pa-0265", "args": ["path-address-case"], "stdin": "RT [a/b]"}
+{"name": "pa-0266", "args": ["path-address-case"], "stdin": "RT [#]"}
+{"name": "pa-0267", "args": ["path-address-case"], "stdin": "RT [/a#1]"}
+{"name": "pa-0268", "args": ["path-address-case"], "stdin": "RT [a#b]"}
+{"name": "pa-0269", "args": ["path-address-case"], "stdin": "RT new RootActorPath(addr) default name"}
+{"name": "pa-0270", "args": ["path-address-case"], "stdin": "CH [foo]"}
+{"name": "pa-0271", "args": ["path-address-case"], "stdin": "CH [foo#7]"}
+{"name": "pa-0272", "args": ["path-address-case"], "stdin": "CH [foo#+7]"}
+{"name": "pa-0273", "args": ["path-address-case"], "stdin": "CH [foo#-7]"}
+{"name": "pa-0274", "args": ["path-address-case"], "stdin": "CH [foo#0]"}
+{"name": "pa-0275", "args": ["path-address-case"], "stdin": "CH [foo#abc]"}
+{"name": "pa-0276", "args": ["path-address-case"], "stdin": "CH [foo#]"}
+{"name": "pa-0277", "args": ["path-address-case"], "stdin": "CH [foo#99999999999]"}
+{"name": "pa-0278", "args": ["path-address-case"], "stdin": "CH [foo#1#2]"}
+{"name": "pa-0279", "args": ["path-address-case"], "stdin": "CH [#5]"}
+{"name": "pa-0280", "args": ["path-address-case"], "stdin": "CH []"}
+{"name": "pa-0281", "args": ["path-address-case"], "stdin": "CH [foo#\\u0665]"}
+{"name": "pa-0282", "args": ["path-address-case"], "stdin": "CH [foo#+]"}
+{"name": "pa-0283", "args": ["path-address-case"], "stdin": "CH [a/b]"}
+{"name": "pa-0284", "args": ["path-address-case"], "stdin": "CH [/]"}
+{"name": "pa-0285", "args": ["path-address-case"], "stdin": "CH [a b]"}
+{"name": "pa-0286", "args": ["path-address-case"], "stdin": "CH [\\u00FC]"}
+{"name": "pa-0287", "args": ["path-address-case"], "stdin": "CH [$a]"}
+{"name": "pa-0288", "args": ["path-address-case"], "stdin": "CH [.]"}
+{"name": "pa-0289", "args": ["path-address-case"], "stdin": "CH [..]"}
+{"name": "pa-0290", "args": ["path-address-case"], "stdin": "CH [a?b]"}
+{"name": "pa-0291", "args": ["path-address-case"], "stdin": "CH [a%2]"}
+{"name": "pa-0292", "args": ["path-address-case"], "stdin": "CH root/'foo#7'"}
+{"name": "pa-0293", "args": ["path-address-case"], "stdin": "CH root/'a/b'"}
+{"name": "pa-0294", "args": ["path-address-case"], "stdin": "CH java child('x#3')"}
+{"name": "pa-0295", "args": ["path-address-case"], "stdin": "DS-01 [a,,b]"}
+{"name": "pa-0296", "args": ["path-address-case"], "stdin": "DS-02 []"}
+{"name": "pa-0297", "args": ["path-address-case"], "stdin": "DS-03 [,]"}
+{"name": "pa-0298", "args": ["path-address-case"], "stdin": "DS-04 [a,b#5]"}
+{"name": "pa-0299", "args": ["path-address-case"], "stdin": "DS-05 [a#5,b]"}
+{"name": "pa-0300", "args": ["path-address-case"], "stdin": "DS-06 [a/b]"}
+{"name": "pa-0301", "args": ["path-address-case"], "stdin": "DS-07 [a#x]"}
+{"name": "pa-0302", "args": ["path-address-case"], "stdin": "DS-08 child.descendant[c,d]"}
+{"name": "pa-0303", "args": ["path-address-case"], "stdin": "UID-02 root.withUid(5)"}
+{"name": "pa-0304", "args": ["path-address-case"], "stdin": "UID-03 root.withUid(-1)"}
+{"name": "pa-0305", "args": ["path-address-case"], "stdin": "UID-04 child.withUid(9)"}
+{"name": "pa-0306", "args": ["path-address-case"], "stdin": "UID-05 child#3.withUid(0)"}
+{"name": "pa-0307", "args": ["path-address-case"], "stdin": "UID-07 child.withUid(MIN)"}
+{"name": "pa-0308", "args": ["path-address-case"], "stdin": "NAV-03 remote child address"}
+{"name": "pa-0309", "args": ["path-address-case"], "stdin": "NAV-04 root named elements"}
+{"name": "pa-0310", "args": ["path-address-case"], "stdin": "STR-01 child#7"}
+{"name": "pa-0311", "args": ["path-address-case"], "stdin": "STR-02 child#7 strWithAddr(remote)"}
+{"name": "pa-0312", "args": ["path-address-case"], "stdin": "STR-03 child#7 serWithAddr(remote)"}
+{"name": "pa-0313", "args": ["path-address-case"], "stdin": "STR-04 child#7 strWithAddr(local other)"}
+{"name": "pa-0314", "args": ["path-address-case"], "stdin": "STR-05 child#7 serWithAddr(local other)"}
+{"name": "pa-0315", "args": ["path-address-case"], "stdin": "STR-06 remote child#7 serWithAddr(other remote)"}
+{"name": "pa-0316", "args": ["path-address-case"], "stdin": "STR-07 root serWithAddr(remote)"}
+{"name": "pa-0317", "args": ["path-address-case"], "stdin": "STR-08 root named '/x' strWithAddr(remote)"}
+{"name": "pa-0318", "args": ["path-address-case"], "stdin": "STR-09 root named '/x' child strWithAddr(remote)"}
+{"name": "pa-0319", "args": ["path-address-case"], "stdin": "STR-10 child#-3 ser"}
+{"name": "pa-0320", "args": ["path-address-case"], "stdin": "STR-11 ignore"}
+{"name": "pa-0321", "args": ["path-address-case"], "stdin": "STR-12 ignore strWithAddr(remote)"}
+{"name": "pa-0322", "args": ["path-address-case"], "stdin": "STR-13 ignore serWithAddr(remote)"}
+{"name": "pa-0323", "args": ["path-address-case"], "stdin": "STR-14 user-built pekko://local/ignore#5 strWithAddr"}
+{"name": "pa-0324", "args": ["path-address-case"], "stdin": "STR-15 user-built pekko://local/ignore#5 serWithAddr"}
+{"name": "pa-0325", "args": ["path-address-case"], "stdin": "STR-16 pekko://local/ignore/x strWithAddr"}
+{"name": "pa-0326", "args": ["path-address-case"], "stdin": "STR-17 root pekko://local/ strWithAddr"}
+{"name": "pa-0327", "args": ["path-address-case"], "stdin": "STR-18 akka://local/ignore strWithAddr"}
+{"name": "pa-0328", "args": ["path-address-case"], "stdin": "CMPA-01 same fields"}
+{"name": "pa-0329", "args": ["path-address-case"], "stdin": "CMPA-02 protocol akka<pekko"}
+{"name": "pa-0330", "args": ["path-address-case"], "stdin": "CMPA-03 system"}
+{"name": "pa-0331", "args": ["path-address-case"], "stdin": "CMPA-04 host"}
+{"name": "pa-0332", "args": ["path-address-case"], "stdin": "CMPA-05 port"}
+{"name": "pa-0333", "args": ["path-address-case"], "stdin": "CMPA-06 negative port"}
+{"name": "pa-0334", "args": ["path-address-case"], "stdin": "CMPA-07 local vs remote"}
+{"name": "pa-0335", "args": ["path-address-case"], "stdin": "CMPA-08 host None vs Some('') (same port None)"}
+{"name": "pa-0336", "args": ["path-address-case"], "stdin": "CMPA-09 port None vs Some(0) (same host)"}
+{"name": "pa-0337", "args": ["path-address-case"], "stdin": "CMPA-10 a=(None,1) b=(Some(''),2)"}
+{"name": "pa-0338", "args": ["path-address-case"], "stdin": "CMPA-11 b=(Some(''),2) c=(None,2)"}
+{"name": "pa-0339", "args": ["path-address-case"], "stdin": "CMPA-12 a=(None,1) c=(None,2)"}
+{"name": "pa-0340", "args": ["path-address-case"], "stdin": "CMPA-13 local(None,None) vs (Some(''),Some(5))"}
+{"name": "pa-0341", "args": ["path-address-case"], "stdin": "CMPA-14 UTF-16 order system U+FF61 vs U+10000"}
+{"name": "pa-0342", "args": ["path-address-case"], "stdin": "CMPA-15 uppercase vs lowercase"}
+{"name": "pa-0343", "args": ["path-address-case"], "stdin": "CMPA-16 same toString different fields"}
+{"name": "pa-0344", "args": ["path-address-case"], "stdin": "CMPP-01 root vs equal root"}
+{"name": "pa-0345", "args": ["path-address-case"], "stdin": "CMPP-02 root vs child"}
+{"name": "pa-0346", "args": ["path-address-case"], "stdin": "CMPP-03 /a vs /b"}
+{"name": "pa-0347", "args": ["path-address-case"], "stdin": "CMPP-04 /a/b vs /b"}
+{"name": "pa-0348", "args": ["path-address-case"], "stdin": "CMPP-05 /b/a vs /a/b"}
+{"name": "pa-0349", "args": ["path-address-case"], "stdin": "CMPP-06 /a#1 vs /a#2 (uid ignored)"}
+{"name": "pa-0350", "args": ["path-address-case"], "stdin": "CMPP-07 /a vs /a on other system"}
+{"name": "pa-0351", "args": ["path-address-case"], "stdin": "CMPP-08 /a local vs /a remote"}
+{"name": "pa-0352", "args": ["path-address-case"], "stdin": "CMPP-09 roots same toString, different Address"}
+{"name": "pa-0353", "args": ["path-address-case"], "stdin": "CMPP-10 children of roots with same toString"}
+{"name": "pa-0354", "args": ["path-address-case"], "stdin": "CMPP-11 root(s,'/a') vs root('s/','a')"}
+{"name": "pa-0355", "args": ["path-address-case"], "stdin": "CMPP-12 root(s,'/a') vs child s/a"}
+{"name": "pa-0356", "args": ["path-address-case"], "stdin": "CMPP-13 UTF-16 child names U+FF61 vs U+10000"}
+{"name": "pa-0357", "args": ["path-address-case"], "stdin": "CMPP-14 fromString vs built"}
+{"name": "pa-0358", "args": ["path-address-case"], "stdin": "CMPP-15 ignore vs user-built"}
+{"name": "pa-0359", "args": ["path-address-case"], "stdin": "CMPP-16 empty-name child vs root"}
+{"name": "pa-0360", "args": ["path-address-case"], "stdin": "VAL-01 []"}
+{"name": "pa-0361", "args": ["path-address-case"], "stdin": "VAL-02 [abc]"}
+{"name": "pa-0362", "args": ["path-address-case"], "stdin": "VAL-03 [ABCxyz019]"}
+{"name": "pa-0363", "args": ["path-address-case"], "stdin": "VAL-04 [$abc]"}
+{"name": "pa-0364", "args": ["path-address-case"], "stdin": "VAL-05 [$]"}
+{"name": "pa-0365", "args": ["path-address-case"], "stdin": "VAL-06 [a$b]"}
+{"name": "pa-0366", "args": ["path-address-case"], "stdin": "VAL-07 [a$]"}
+{"name": "pa-0367", "args": ["path-address-case"], "stdin": "VAL-08 [a/b]"}
+{"name": "pa-0368", "args": ["path-address-case"], "stdin": "VAL-09 [a#b]"}
+{"name": "pa-0369", "args": ["path-address-case"], "stdin": "VAL-10 [a%2Fb]"}
+{"name": "pa-0370", "args": ["path-address-case"], "stdin": "VAL-11 [%41]"}
+{"name": "pa-0371", "args": ["path-address-case"], "stdin": "VAL-12 [A%aF]"}
+{"name": "pa-0372", "args": ["path-address-case"], "stdin": "VAL-13 [a%2]"}
+{"name": "pa-0373", "args": ["path-address-case"], "stdin": "VAL-14 [a%]"}
+{"name": "pa-0374", "args": ["path-address-case"], "stdin": "VAL-15 [%]"}
+{"name": "pa-0375", "args": ["path-address-case"], "stdin": "VAL-16 [%g1]"}
+{"name": "pa-0376", "args": ["path-address-case"], "stdin": "VAL-17 [a%%41]"}
+{"name": "pa-0377", "args": ["path-address-case"], "stdin": "VAL-18 [a b]"}
+{"name": "pa-0378", "args": ["path-address-case"], "stdin": "VAL-19 [ ]"}
+{"name": "pa-0379", "args": ["path-address-case"], "stdin": "VAL-20 [\\u0009]"}
+{"name": "pa-0380", "args": ["path-address-case"], "stdin": "VAL-21 [\\u00FC]"}
+{"name": "pa-0381", "args": ["path-address-case"], "stdin": "VAL-22 [\\uD83D\\uDE42]"}
+{"name": "pa-0382", "args": ["path-address-case"], "stdin": "VAL-23 [x\\uD83D\\uDE42]"}
+{"name": "pa-0383", "args": ["path-address-case"], "stdin": "VAL-24 [-_.*$+:@&=,!~';]"}
+{"name": "pa-0384", "args": ["path-address-case"], "stdin": "VAL-25 [-]"}
+{"name": "pa-0385", "args": ["path-address-case"], "stdin": "VAL-26 [.]"}
+{"name": "pa-0386", "args": ["path-address-case"], "stdin": "VAL-27 [..]"}
+{"name": "pa-0387", "args": ["path-address-case"], "stdin": "VAL-28 [a\"b]"}
+{"name": "pa-0388", "args": ["path-address-case"], "stdin": "VAL-29 [a?b]"}
+{"name": "pa-0389", "args": ["path-address-case"], "stdin": "VAL-30 [a\\b]"}
+{"name": "pa-0390", "args": ["path-address-case"], "stdin": "VAL-31 [a(b]"}
+{"name": "pa-0391", "args": ["path-address-case"], "stdin": "VAL-32 [a[b]"}
+{"name": "pa-0392", "args": ["path-address-case"], "stdin": "VAL-FP-01 ['' in /a/b]"}
+{"name": "pa-0393", "args": ["path-address-case"], "stdin": "VAL-FP-02 [$a in /user/$a]"}
+{"name": "pa-0394", "args": ["path-address-case"], "stdin": "VAL-FP-03 [ok in /x]"}
+{"name": "pa-0395", "args": ["path-address-case"], "stdin": "VAL-FP-04 [a b in '']"}
+{"name": "pa-0396", "args": ["path-address-case"], "stdin": "VAL-JAPI-01 ActorPaths.validatePathElement($x)"}
+{"name": "pa-0397", "args": ["path-address-case"], "stdin": "VAL-JAPI-02 ActorPaths.validatePathElement(x, /p)"}
+{"name": "pa-0398", "args": ["path-address-case"], "stdin": "VAL-JAPI-03 ActorPaths.isValidPathElement(a)"}

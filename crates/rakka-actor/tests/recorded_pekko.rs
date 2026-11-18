@@ -5,10 +5,14 @@
 #[path = "../examples/classic-parity/json.rs"]
 #[allow(dead_code)]
 mod json;
+#[path = "../examples/classic-parity/path_address_cases.rs"]
+mod path_address_cases;
 #[path = "../examples/classic-parity/path_case.rs"]
 mod path_case;
 #[path = "../examples/classic-parity/scenario.rs"]
 mod scenario;
+#[path = "../examples/classic-parity/util_core_cases.rs"]
+mod util_core_cases;
 
 use std::fs;
 use std::path::PathBuf;
@@ -84,7 +88,7 @@ fn recorded_path_from_string_cases_match_pekko() {
     for c in &all {
         if out_of_domain.contains(&c.name) {
             // Not skipped: the harness must refuse the input explicitly instead of decoding it lossily.
-            let error = json::parse_str(c.stdin.trim_end()).unwrap_err();
+            let error = json::parse_str(case_id(&c.stdin)).unwrap_err();
             assert_eq!(error, json::OUT_OF_DOMAIN, "case {}", c.name);
             continue;
         }
@@ -120,4 +124,76 @@ fn recorded_scenario_cases_match_pekko() {
         };
         assert_eq!(got, c.stdout, "case {}", c.name);
     }
+}
+
+fn case_id(stdin: &str) -> &str {
+    stdin.strip_suffix('\n').unwrap_or(stdin)
+}
+
+/// One recorded `<family>-case`: stdin is an oracle case id, stdout the line Pekko 2.0.0 printed for it.
+fn oracle_family_matches_pekko(
+    command: &str,
+    ids_file: &str,
+    lines: Vec<(String, String)>,
+    unproduced: Vec<&str>,
+) {
+    let all = cases(&[command]);
+    assert!(!all.is_empty(), "no recorded {command} cases");
+    let produced: std::collections::HashMap<&str, &str> = lines
+        .iter()
+        .map(|(id, line)| (id.as_str(), line.as_str()))
+        .collect();
+    assert_eq!(produced.len(), lines.len(), "duplicate Rust case ids");
+    for c in &all {
+        let id = case_id(&c.stdin);
+        let line = produced
+            .get(id)
+            .unwrap_or_else(|| panic!("no Rust case for {id}"));
+        assert_eq!(format!("{line}\n"), c.stdout, "case {} ({id})", c.name);
+    }
+    // Every id the oracle has is either recorded or explicitly listed as not produced (PENDING / UNIT_TESTED).
+    let oracle_ids = fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../cases/oracle-ids")
+            .join(ids_file),
+    )
+    .unwrap();
+    let recorded: std::collections::HashSet<&str> = all.iter().map(|c| case_id(&c.stdin)).collect();
+    for id in oracle_ids.lines() {
+        assert!(
+            recorded.contains(id) || unproduced.contains(&id),
+            "oracle case {id} is neither recorded nor listed as not produced"
+        );
+    }
+    assert_eq!(
+        recorded.len() + unproduced.len(),
+        oracle_ids.lines().count(),
+        "stale not-produced list for {command}"
+    );
+}
+
+#[test]
+fn recorded_path_address_cases_match_pekko() {
+    let mut unproduced: Vec<&str> = path_address_cases::PENDING
+        .iter()
+        .map(|(id, _)| *id)
+        .collect();
+    unproduced.extend(path_address_cases::UNIT_TESTED);
+    oracle_family_matches_pekko(
+        "path-address-case",
+        "path-address.txt",
+        path_address_cases::rust_lines(),
+        unproduced,
+    );
+}
+
+#[test]
+fn recorded_util_core_cases_match_pekko() {
+    let unproduced = util_core_cases::PENDING.iter().map(|(id, _)| *id).collect();
+    oracle_family_matches_pekko(
+        "util-core-case",
+        "util-core.txt",
+        util_core_cases::rust_lines(),
+        unproduced,
+    );
 }

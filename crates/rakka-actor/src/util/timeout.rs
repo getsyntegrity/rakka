@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use super::TimeUnit;
-use crate::actor::{ArithmeticError, IllegalArgumentError};
+use crate::actor::IllegalArgumentError;
 
 /// A duration that says what it means (`ask`, `resolveOne`).
 ///
@@ -48,15 +48,54 @@ impl Timeout {
     }
 }
 
-/// `Timeout.create(java.time.Duration)` for the non-negative range of
-/// `std::time::Duration`: fails with `ArithmeticException("long overflow")` when the
-/// duration does not fit in `Long` nanoseconds, as `Duration.toNanos` does.
+/// `Timeout.create(java.time.Duration)` for the non-negative range of `std::time::Duration`. Pekko 2.0.0 goes
+/// through `scala.jdk.DurationConverters.toScala` (decision Q-X-16, JDK 17 oracle):
+/// - whole seconds only: `FiniteDuration(seconds, SECONDS)`, which fails its range requirement;
+/// - seconds and nanos: `seconds * 1e9 + nanos` must fit a `Long`, else `IllegalArgumentException`
+///   "Java duration PT…S cannot be expressed as a Scala duration".
 impl TryFrom<Duration> for Timeout {
-    type Error = ArithmeticError;
+    type Error = IllegalArgumentError;
 
-    fn try_from(duration: Duration) -> Result<Timeout, ArithmeticError> {
-        i64::try_from(duration.as_nanos())
+    fn try_from(duration: Duration) -> Result<Timeout, IllegalArgumentError> {
+        let (seconds, nanos) = (duration.as_secs(), duration.subsec_nanos());
+        if nanos == 0 {
+            return i64::try_from(seconds)
+                .map_err(|_| IllegalArgumentError::new(LIMIT_MESSAGE))
+                .and_then(|seconds| Timeout::of(seconds, TimeUnit::Seconds));
+        }
+        if seconds == 0 {
+            return Timeout::new(i64::from(nanos));
+        }
+        i64::try_from(seconds)
+            .ok()
+            .and_then(|seconds| seconds.checked_mul(1_000_000_000))
+            .and_then(|seconds_as_nanos| seconds_as_nanos.checked_add(i64::from(nanos)))
             .map(Timeout)
-            .map_err(|_| ArithmeticError::new("long overflow"))
+            .ok_or_else(|| {
+                IllegalArgumentError::new(format!(
+                    "Java duration {} cannot be expressed as a Scala duration",
+                    java_duration_to_string(seconds, nanos)
+                ))
+            })
     }
+}
+
+/// `java.time.Duration.toString` of a non-negative duration (`PT8H6M12.345S`).
+fn java_duration_to_string(seconds: u64, nanos: u32) -> String {
+    let (hours, minutes, seconds_of_minute) = (seconds / 3600, seconds % 3600 / 60, seconds % 60);
+    let mut text = String::from("PT");
+    if hours != 0 {
+        text += &format!("{hours}H");
+    }
+    if minutes != 0 {
+        text += &format!("{minutes}M");
+    }
+    if seconds_of_minute == 0 && nanos == 0 && text.len() > 2 {
+        return text;
+    }
+    text += &seconds_of_minute.to_string();
+    if nanos > 0 {
+        text += &format!(".{nanos:09}").trim_end_matches('0').to_owned();
+    }
+    text + "S"
 }

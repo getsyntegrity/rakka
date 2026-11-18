@@ -1,0 +1,1 @@
+STR-11 ignore -> ok ChildActorPath str=[pekko://local/ignore] ser=[pekko://local/ignore] noAddr=[/ignore] addr=[pekko://local] name=[ignore] uid=0 elems=([ignore])

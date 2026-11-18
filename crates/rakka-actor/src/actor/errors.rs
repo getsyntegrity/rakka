@@ -66,11 +66,6 @@ java_error!(
     "IllegalArgumentException"
 );
 java_error!(
-    /// `java.lang.ArithmeticException`, from `Math.addExact`/`multiplyExact` overflow.
-    ArithmeticError,
-    "ArithmeticException"
-);
-java_error!(
     /// `java.lang.IllegalStateException`.
     IllegalStateError,
     "IllegalStateException"

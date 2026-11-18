@@ -1,0 +1,1 @@
+CMPP-12 root(s,'/a') vs child s/a -> ok cmp=1 cmpRev=-1 eq=false eqRev=false

@@ -1,0 +1,1 @@
+NAV-03 remote child address -> ok ChildActorPath str=[pekko://mysys@aaa:7355/x] ser=[pekko://mysys@aaa:7355/x] noAddr=[/x] addr=[pekko://mysys@aaa:7355] name=[x] uid=0 elems=([x])

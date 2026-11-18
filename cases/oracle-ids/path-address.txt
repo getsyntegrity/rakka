@@ -1,0 +1,403 @@
+SPEC-APS-27
+SPEC-APS-32
+SPEC-APS-37
+SPEC-APS-42
+SPEC-APS-47
+SPEC-APS-51
+SPEC-APS-52
+SPEC-APS-53
+SPEC-APS-54
+SPEC-APS-55
+SPEC-APS-60
+SPEC-APS-61
+SPEC-APS-62
+SPEC-APS-63
+SPEC-APS-67
+SPEC-APS-73
+SPEC-APS-74
+SPEC-APS-75
+SPEC-APS-76
+SPEC-APS-80
+SPEC-APS-86
+SPEC-APS-90
+SPEC-APS-91
+SPEC-APS-92
+SPEC-APS-94
+SPEC-APS-95
+SPEC-APS-96
+SPEC-APS-98
+SPEC-APS-99
+SPEC-APS-100
+SPEC-APS-103
+SPEC-APS-104
+SPEC-APS-105
+SPEC-APS-110
+SPEC-APS-114
+SPEC-APS-119-124[valid]
+SPEC-APS-119-124[is_valid.org]
+SPEC-APS-119-124[fu.is_valid.org]
+SPEC-APS-119-124[in_valid]
+SPEC-APS-119-124[invalid._org]
+SPEC-APS-126
+SPEC-APS-133-143[localhost]
+SPEC-APS-133-143[is_valid.org]
+SPEC-APS-133-143[fu.is_valid.org]
+SPEC-APS-133-143[in_valid]
+SPEC-APS-133-143[invalid._org]
+SPEC-ADS-34
+SPEC-RAP-29
+SPEC-RAP-32
+SPEC-RAP-35
+SPEC-RAP-39
+SPEC-LARP-01
+SPEC-LARP-02
+SPEC-LARP-03
+SPEC-LARP-04
+SPEC-LARP-05
+SPEC-LARP-06
+SPEC-LARP-07
+SPEC-LARP-08
+SPEC-LARP-09
+SPEC-LARP-10
+SPEC-LARP-11
+SPEC-LARP-12
+SPEC-LARP-13
+SPEC-JAPI-62
+FS-01 [pekko://mysys/user]
+FS-02 [pekko://sys]
+FS-03 [pekko://sys/]
+FS-04 [pekko://sys/user/]
+FS-05 [pekko://sys/user//x]
+FS-06 [pekko://sys//a]
+FS-07 [pekko://sys/./a/../b]
+FS-08 [pekko://sys/$a]
+FS-09 [pekko://sys/user/a%20b]
+FS-10 [pekko://sys/a%2Fb]
+FS-11 [pekko://sys/a%2]
+FS-12 [pekko://sys/a%zz]
+FS-13 [pekko://sys/a b]
+FS-14 [pekko://sys/\u00FCser]
+FS-15 [pekko://sys/user?x=1]
+FS-16 [pekko://sys/user?x#5]
+FS-17 [pekko://sys/user#5?x]
+FS-18 [pekko://sys@in_valid:5001/user]
+FS-19 [pekko://my_sys/user]
+FS-20 [pekko://my_sys@host:1/user]
+FS-21 [pekko:sys]
+FS-22 [pekko:sys/user]
+FS-23 [pekko:///user]
+FS-24 [pekko://@host:1/user]
+FS-25 [pekko://sys:1234/user]
+FS-26 [pekko://sys@host/user]
+FS-27 [pekko://sys@[::1]:2552/user]
+FS-28 [pekko://sys@127.0.0.1:2552/user]
+FS-29 [pekko://a%20b@h:1/u]
+FS-30 [pekko://a:b@h:1/u]
+FS-31 [PEKKO://Sys@HOST:1/User]
+FS-32 [/user/a]
+FS-33 [user/a]
+FS-34 [pekko://sys@h:70000/u]
+FS-35 [pekko://sys@h:99999999999/u]
+FS-36 [pekko://sys/a#5]
+FS-37 [pekko://sys/a#+5]
+FS-38 [pekko://sys/a#-5]
+FS-39 [pekko://sys/a#0]
+FS-40 [pekko://sys/a#abc]
+FS-41 [pekko://sys/a#99999999999]
+FS-42 [pekko://sys/a#2147483647]
+FS-43 [pekko://sys/a#2147483648]
+FS-44 [pekko://sys/a#-2147483648]
+FS-45 [pekko://sys/a#]
+FS-46 [pekko://sys/a#5#6]
+FS-47 [pekko://sys/a# 5]
+FS-48 [pekko://sys#5]
+FS-49 [pekko://sys/#5]
+FS-50 [pekko://sys/user/#5]
+FS-51 [pekko://sys/a/b#7]
+FS-52 [pekko://sys/a#\u0665]
+FS-53 [pekko://sys/a#\uFF15]
+FS-54 [pekko://sys/a#+]
+FS-55 [pekko://sys/a#-]
+FS-56 [pekko://sys/a#+-5]
+AD-01 [pekko://my_sys@host:1234]
+AD-02 [pekko://sys]
+AD-03 [pekko://sys/]
+AD-04 [pekko://sys/user/a]
+AD-05 [pekko://sys?x]
+AD-06 [pekko://sys#5]
+AD-07 [pekko://sys@h:1/user#5]
+AD-08 [pekko://sys@in_valid:5001]
+AD-09 [pekko://sys:1234]
+AD-10 [pekko://@host:1]
+AD-11 [pekko://sys@host]
+AD-12 [pekko://sys@host:]
+AD-13 [pekko://sys@host:0]
+AD-14 [pekko://sys@host:00012]
+AD-15 [pekko://sys@host:-1]
+AD-16 [pekko://sys@host:70000]
+AD-17 [pekko://sys@host:2147483647]
+AD-18 [pekko://sys@host:2147483648]
+AD-19 [pekko://sys@host:99999999999]
+AD-20 [pekko://sys@[::1]:2552]
+AD-21 [pekko://sys@[::1]]
+AD-22 [pekko://sys@[::1]
+AD-23 [pekko://sys@127.0.0.1:2552]
+AD-24 [pekko://sys@256.1.1.1:1]
+AD-25 [pekko://my_sys]
+AD-26 [pekko://my_sys@host:1]
+AD-27 [pekko://a:b@h:1]
+AD-28 [pekko://a%20b@h:1]
+AD-29 [pekko://a%2@h:1]
+AD-30 [pekko://sys@h\u00F6:1]
+AD-31 [pekko://s\u00FFs@h:1]
+AD-32 [pekko://s\u00FFs]
+AD-33 [pekko:sys]
+AD-34 [pekko:///]
+AD-35 [pekko://]
+AD-36 [PEKKO://Sys@HOST:1]
+AD-37 [pekko://s y]
+AD-38 [/user]
+AD-39 [sys@h:1]
+AD-40 [1pekko://sys]
+AD-41 [pekko://sys@h-1.example.com:1]
+AD-42 [pekko://sys@-h:1]
+AD-43 [pekko://sys@h.:1]
+AD-44 [pekko://sys@h_1.example.com:1]
+AD-45 [pekko://sys@host:1234 ]
+AD-46 []
+AD-47 [://hallo]
+AD-48 [pekko://a%C3%BC@h:1]
+AD-49 [pekko://a%FF@h:1]
+AD-50 [pekko://sys@[::FFFF:1.2.3.4]:1]
+AD-51 [pekko://sys@[fe80::1%25eth0]:1]
+AD-52 [pekko://sys@[1::2::3]:1]
+AD-53 [pekko://sys@::1:1]
+AD-PARSE [pekko://sys@h:1]
+AD-PARSE [pekko://sys:1]
+UTF-AD-01 [pekko://a%ED%A0%80b@h:1]
+UTF-AD-02 [pekko://a%ED%B0%80b@h:1]
+UTF-AD-03 [pekko://a%ED%A0%80%ED%B0%80b@h:1]
+UTF-AD-04 [pekko://a%ED%A0%41b@h:1]
+UTF-AD-05 [pekko://a%ED%A0b@h:1]
+UTF-AD-06 [pekko://a%C0%80b@h:1]
+UTF-AD-07 [pekko://a%C1%BFb@h:1]
+UTF-AD-08 [pekko://a%E0%80%80b@h:1]
+UTF-AD-09 [pekko://a%E0%9F%BFb@h:1]
+UTF-AD-10 [pekko://a%E0%80b@h:1]
+UTF-AD-11 [pekko://a%F0%80%80%80b@h:1]
+UTF-AD-12 [pekko://a%F0%8F%BF%BFb@h:1]
+UTF-AD-13 [pekko://a%F4%90%80%80b@h:1]
+UTF-AD-14 [pekko://a%F5%80%80%80b@h:1]
+UTF-AD-15 [pekko://a%E2%82b@h:1]
+UTF-AD-16 [pekko://a%E2%82%41b@h:1]
+UTF-AD-17 [pekko://a%F0%9F%98b@h:1]
+UTF-AD-18 [pekko://a%F0%9F%41b@h:1]
+UTF-AD-19 [pekko://a%F0%90%80%41b@h:1]
+UTF-AD-20 [pekko://a%80b@h:1]
+UTF-AD-21 [pekko://a%BF%80b@h:1]
+UTF-AD-22 [pekko://a%C3b@h:1]
+UTF-AD-23 [pekko://a%C3%BCx%FF%E2%82%ACb@h:1]
+UTF-AD-24 [pekko://a%E2%82%AC%ED%A0%E2%82%ACb@h:1]
+UTF-AD-25 [pekko://a%F8%88%80%80%80b@h:1]
+UTF-AD-26 [pekko://a%FC%84%80%80%80%80b@h:1]
+UTF-AD-27 [pekko://a%FEb@h:1]
+UTF-AD-28 [pekko://a%FFb@h:1]
+UTF-AD-29 [pekko://a%C2%41b@h:1]
+UTF-AD-30 [pekko://a%F0%9F%98%80%80b@h:1]
+UTF-FS-01 [pekko://a%ED%A0%80@h:1/u%ED%A0%80/v%C0%80#5]
+UTF-FS-02 [pekko://a%ED%A0%80/u]
+UTF-FS-03 [pekko://a%E2%82@h%E2:1/u]
+UTF-FS-04 [pekko://a%FF@h:1/u#%FF]
+DEEP-01 fromString 1e6 levels vs built
+RP-01 []
+RP-02 [/user/a]
+RP-03 [pekko://sys/a]
+RP-04 [foo:bar]
+RP-05 [a%2]
+RP-06 [a b]
+RP-07 [foo?x]
+RP-08 [foo#abc]
+RP-09 [#5]
+RP-10 [../a]
+RP-11 [foo//bar]
+RP-12 [foo/]
+RP-13 [\u00FC]
+RP-14 [a%20b]
+RP-15 [foo#1#2]
+CT-01 new(pekko,sys)
+CT-02 new(pekko,sys,h,1234)
+CT-03 new(pekko,sys,h,0)
+CT-04 new(pekko,sys,h,-5)
+CT-05 new(pekko,sys,h,-1)
+CT-06 new(pekko,sys,h,70000)
+CT-07 new(pekko,sys,h,MAX)
+CT-08 new(pekko,sys,h,MIN)
+CT-09 new(pekko,sys,null,1)
+CT-10 new(pekko,sys,'',1)
+CT-11 copy(host=Some(h),port=None)
+CT-12 copy(host=Some(''),port=None)
+CT-13 copy(host=None,port=Some(7))
+CT-14 new('',s)
+CT-15 new(p,'')
+CT-16 new(p,'s@h:1')
+CT-17 new(p,s,'h:1',2)
+CT-18 apply(pekko,sys,h,1) eq new
+CT-19 parsed eq constructed
+CT-20 roundtrip parse(new(p,s,h,-5).toString)
+CT-21 roundtrip parse(new(p,s,in_valid,1).toString)
+HC [_]
+HC [a_]
+HC [_a]
+HC [a_b.c]
+HC [a.b_c]
+HC [a_b.c_d]
+HC [a_.b]
+HC [a._]
+HC [\u00FC_x]
+HC host=None
+HC host=Some(a_b) port=None
+RT [/]
+RT []
+RT [user]
+RT [/a]
+RT [/a/]
+RT [//]
+RT [a/b]
+RT [#]
+RT [/a#1]
+RT [a#b]
+RT new RootActorPath(addr) default name
+CH [foo]
+CH [foo#7]
+CH [foo#+7]
+CH [foo#-7]
+CH [foo#0]
+CH [foo#abc]
+CH [foo#]
+CH [foo#99999999999]
+CH [foo#1#2]
+CH [#5]
+CH []
+CH [foo#\u0665]
+CH [foo#+]
+CH [a/b]
+CH [/]
+CH [a b]
+CH [\u00FC]
+CH [$a]
+CH [.]
+CH [..]
+CH [a?b]
+CH [a%2]
+CH root/'foo#7'
+CH root/'a/b'
+CH java child('x#3')
+DS-01 [a,,b]
+DS-02 []
+DS-03 [,]
+DS-04 [a,b#5]
+DS-05 [a#5,b]
+DS-06 [a/b]
+DS-07 [a#x]
+DS-08 child.descendant[c,d]
+UID-01 root.withUid(0)
+UID-02 root.withUid(5)
+UID-03 root.withUid(-1)
+UID-04 child.withUid(9)
+UID-05 child#3.withUid(0)
+UID-06 child#3.withUid(3) same
+UID-07 child.withUid(MIN)
+NAV-01 root
+NAV-02 child
+NAV-03 remote child address
+NAV-04 root named elements
+STR-01 child#7
+STR-02 child#7 strWithAddr(remote)
+STR-03 child#7 serWithAddr(remote)
+STR-04 child#7 strWithAddr(local other)
+STR-05 child#7 serWithAddr(local other)
+STR-06 remote child#7 serWithAddr(other remote)
+STR-07 root serWithAddr(remote)
+STR-08 root named '/x' strWithAddr(remote)
+STR-09 root named '/x' child strWithAddr(remote)
+STR-10 child#-3 ser
+STR-11 ignore
+STR-12 ignore strWithAddr(remote)
+STR-13 ignore serWithAddr(remote)
+STR-14 user-built pekko://local/ignore#5 strWithAddr
+STR-15 user-built pekko://local/ignore#5 serWithAddr
+STR-16 pekko://local/ignore/x strWithAddr
+STR-17 root pekko://local/ strWithAddr
+STR-18 akka://local/ignore strWithAddr
+CMPA-01 same fields
+CMPA-02 protocol akka<pekko
+CMPA-03 system
+CMPA-04 host
+CMPA-05 port
+CMPA-06 negative port
+CMPA-07 local vs remote
+CMPA-08 host None vs Some('') (same port None)
+CMPA-09 port None vs Some(0) (same host)
+CMPA-10 a=(None,1) b=(Some(''),2)
+CMPA-11 b=(Some(''),2) c=(None,2)
+CMPA-12 a=(None,1) c=(None,2)
+CMPA-13 local(None,None) vs (Some(''),Some(5))
+CMPA-14 UTF-16 order system U+FF61 vs U+10000
+CMPA-15 uppercase vs lowercase
+CMPA-16 same toString different fields
+CMPA-17 sort [pekko://a, akka://a@h:2, akka://a@h:1, pekko://a@:0, pekko://a:3]
+CMPP-01 root vs equal root
+CMPP-02 root vs child
+CMPP-03 /a vs /b
+CMPP-04 /a/b vs /b
+CMPP-05 /b/a vs /a/b
+CMPP-06 /a#1 vs /a#2 (uid ignored)
+CMPP-07 /a vs /a on other system
+CMPP-08 /a local vs /a remote
+CMPP-09 roots same toString, different Address
+CMPP-10 children of roots with same toString
+CMPP-11 root(s,'/a') vs root('s/','a')
+CMPP-12 root(s,'/a') vs child s/a
+CMPP-13 UTF-16 child names U+FF61 vs U+10000
+CMPP-14 fromString vs built
+CMPP-15 ignore vs user-built
+CMPP-16 empty-name child vs root
+VAL-01 []
+VAL-02 [abc]
+VAL-03 [ABCxyz019]
+VAL-04 [$abc]
+VAL-05 [$]
+VAL-06 [a$b]
+VAL-07 [a$]
+VAL-08 [a/b]
+VAL-09 [a#b]
+VAL-10 [a%2Fb]
+VAL-11 [%41]
+VAL-12 [A%aF]
+VAL-13 [a%2]
+VAL-14 [a%]
+VAL-15 [%]
+VAL-16 [%g1]
+VAL-17 [a%%41]
+VAL-18 [a b]
+VAL-19 [ ]
+VAL-20 [\u0009]
+VAL-21 [\u00FC]
+VAL-22 [\uD83D\uDE42]
+VAL-23 [x\uD83D\uDE42]
+VAL-24 [-_.*$+:@&=,!~';]
+VAL-25 [-]
+VAL-26 [.]
+VAL-27 [..]
+VAL-28 [a"b]
+VAL-29 [a?b]
+VAL-30 [a\b]
+VAL-31 [a(b]
+VAL-32 [a[b]
+VAL-FP-01 ['' in /a/b]
+VAL-FP-02 [$a in /user/$a]
+VAL-FP-03 [ok in /x]
+VAL-FP-04 [a b in '']
+VAL-JAPI-01 ActorPaths.validatePathElement($x)
+VAL-JAPI-02 ActorPaths.validatePathElement(x, /p)
+VAL-JAPI-03 ActorPaths.isValidPathElement(a)

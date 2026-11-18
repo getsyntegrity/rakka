@@ -1,0 +1,1 @@
+CH root/'foo#7' -> ok ChildActorPath str=[pekko://mysys/foo] ser=[pekko://mysys/foo#7] noAddr=[/foo] addr=[pekko://mysys] name=[foo] uid=7 elems=([foo])

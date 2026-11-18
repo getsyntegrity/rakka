@@ -1,0 +1,1 @@
+AD-26 [pekko://my_sys@host:1] -> ok str=[pekko://my_sys@host:1] protocol=[pekko] system=[my_sys] host=[host] port=[1] local=false global=true hostPort=[my_sys@host:1]

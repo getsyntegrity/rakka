@@ -1,0 +1,1 @@
+SPEC-APS-27 -> ok eq=true ChildActorPath str=[pekko://mysys/user] ser=[pekko://mysys/user] noAddr=[/user] addr=[pekko://mysys] name=[user] uid=0 elems=([user])

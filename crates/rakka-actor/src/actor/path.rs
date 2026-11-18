@@ -522,11 +522,12 @@ mod tests {
     use Ordering::*;
 
     /// Oracle cases whose output depends on reference identity
-    /// (`same_instance`, test-only), checked here instead of in
-    /// tests/oracle_path_address.rs, which lists them as `UNIT_TESTED`.
+    /// (`same_instance`, test-only), checked here instead of through the
+    /// recorded `path-address-case` replay, which lists them as `UNIT_TESTED`.
+    /// The fixture holds Pekko 2.0.0's output for them (JDK 17).
     #[test]
     fn identity_cases_match_pekko_oracle() {
-        let golden = include_str!("../../tests/oracle/path-address.golden");
+        let golden = include_str!("../../tests/fixtures/pekko-2.0.0-identity-cases.txt");
         let line = |id: &str| {
             golden
                 .lines()

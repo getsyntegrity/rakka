@@ -1,0 +1,1 @@
+VAL-24 [-_.*$+:@&=,!~';] -> ok valid=true validate=ok

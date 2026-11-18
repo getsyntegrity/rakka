@@ -1,0 +1,1 @@
+CH [foo#\u0665] -> ok ChildActorPath str=[pekko://mysys/user/foo] ser=[pekko://mysys/user/foo#5] noAddr=[/user/foo] addr=[pekko://mysys] name=[foo] uid=5 elems=([user],[foo])

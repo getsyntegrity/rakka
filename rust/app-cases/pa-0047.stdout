@@ -1,0 +1,1 @@
+SPEC-ADS-34 -> ok [akka://system@host1:1000, akka://system@host2:1000, pekko://system@host1:1000, pekko://system@host2:1000]

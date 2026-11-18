@@ -54,7 +54,7 @@ TRANSVERSAL = [
  ("Q-X-9", "Agrupación de presentación: Done, Timeout, null y unidades de duración (Q-UTIL-1..5)", "docs/superpowers/plans/2026-10-30-ac-util-core.md, sección Preguntas abiertas. Es sólo un encabezado: no tiene estado ni respuesta propios.", "No aplica: cada miembro tiene sus propias alternativas.", "Sin recomendación propia. Responder cada miembro por separado (Q-UTIL-1, Q-UTIL-2, Q-UTIL-3, Q-UTIL-4, Q-UTIL-5); una respuesta a Q-X-9 se rechaza y ninguna respuesta de un miembro aprueba ni rechaza a los demás.", "(las filas de cada miembro)", "AC-UTIL"),
  ("Q-X-10", "Límites del módulo: remote, cluster, streams, persistence, http", "actor-classic.md sección Límites del módulo; ninguno vive en `pekko-actor`/`pekko-actor-typed`; hay ganchos (AC-SYS-018, AC-DW-010/012, AC-SER-007).", "(A) fuera del alcance; el trait `ActorRefProvider` se deja abierto; (B) incluir alguno.", "(A). Es el límite con que se armó el inventario; no fue autorizado explícitamente.", "AC-SYS-018; AC-CFG-008", "AC-SYS, AC-CFG, AC-DW, AC-SER"),
  ("Q-X-11", "Versión de referencia: Apache Pekko 2.0.0", "upstream/pekko @ v2.0.0 (commit 9fbd2283b1cf701c90a1223bf621942c191db61f); docs/upstream.md. Sustituye a A-1 (1.7.1).", "(a) 2.0.0; (b) mantener 1.7.1.", "(a).", "todas las filas", "todas"),
- ("Q-X-12", "Oráculo oficial: CLI Java del piloto con rust-anything", "migration/pekko-rust-pilot/oracle (Java 17), `rust-anything app record/replay`. El oráculo jshell + goldens de tools/oracle queda deprecado y sus escenarios se convierten a casos rust-anything.", "(a) CLI del piloto + rust-anything; (b) jshell + goldens; (c) ambos.", "(a).", "todas las filas", "todas"),
+ ("Q-X-12", "Oráculo oficial: CLI Java del piloto con rust-anything", "oracle/ (Java 17), `rust-anything app record/replay`. El oráculo jshell + goldens de tools/oracle queda deprecado y sus escenarios se convierten a casos rust-anything.", "(a) CLI del piloto + rust-anything; (b) jshell + goldens; (c) ambos.", "(a).", "todas las filas", "todas"),
  ("Q-X-13", "docs/unit-plan.md aprobado como guía de orden y alcance", "docs/unit-plan.md: 77 unidades, 783 filas, 10 olas. Las filas y las olas valen; los apartados Tests/oráculo de cada unidad se sustituyen por casos rust-anything (Q-X-12). Levanta la nota Este plan no está aprobado para implementar.", "(a) aprobar con ese reemplazo; (b) seguir sin aprobar.", "(a).", "todas las filas", "todas"),
  ("Q-X-14", "Gates de calidad por slice e hito", "Replay completo, tests, Clippy -D warnings, fmt, cobertura de producción >=95 % por crate, mutantes nuevos en cada slice, y regresión completa de mutantes y fuzzers en cada hito. Sustituye a A-3 (cobertura 90 % de líneas nuevas).", "(a) estos gates; (b) mantener el 90 % de líneas nuevas.", "(a).", "todas las filas", "todas"),
  ("Q-X-15", "Nombres de los crates: rakka-actor y rakka-actor-typed", "crates/rakka-actor, crates/rakka-actor-typed; el piloto usaba pekko-actor y pekko-actor-typed.", "(a) rakka-*; (b) pekko-*.", "(a).", "todas las filas", "todas"),
@@ -233,14 +233,15 @@ def specfile(s): return f"docs/superpowers/plans/units/{s['seq']:02d}-{s['id'].l
 def kebab(txt): return re.sub(r'[^a-z0-9]+', '-', txt.lower()).strip('-')[:50]
 
 ORACLE_BY_UNIT = {
- "PATH": "jars oficiales pekko-actor 1.7.1 + JDK (jshell); ya existe tools/oracle/path-address.jsh", "UTIL": "jars oficiales pekko-actor + scala-library 1.7.1; ya existe tools/oracle/util-core.jsh",
- "CFG": "config-1.4.9.jar (Typesafe Config, no es código de Pekko); existe tools/oracle/config-hocon.jsh",
+ "PATH": "casos rust-anything contra Pekko 2.0.0 (JDK 17): `oracle/` (comando `path-address-case`) y `cases/oracle-path-address.jsonl`",
+ "UTIL": "casos rust-anything contra Pekko 2.0.0 (JDK 17): `oracle/` (comando `util-core-case`) y `cases/oracle-util-core.jsonl`",
+ "CFG": "casos rust-anything contra Pekko 2.0.0 (JDK 17) a grabar al tomar la unidad; `crates/rakka-actor/tests/oracle/config-hocon.golden` (Typesafe Config 1.4.9, jshell deprecado) queda como dato hasta convertirlo",
 }
 def oracle_for(s):
     u = s["unit"][1]
     if u in ORACLE_BY_UNIT: return ORACLE_BY_UNIT[u]
-    if s["unit"][0] == "AT" and u == "TK": return "jars pekko-actor-typed; el jar `pekko-actor-testkit-typed` NO está en tools/oracle/fetch-jars.sh: agregarlo con su SHA-1 es parte de la primera tarea"
-    return "valores puros: jars oficiales 1.7.1 vía `ORACLE=jars tools/oracle/run.sh`; comportamiento con actores: Pekko compilado desde upstream/pekko vía `tools/oracle/sbt.sh` (procedencia: commit 9a54d12); donde ningún oráculo es ejecutable, la aserción es el cuerpo del spec de Pekko portado 1:1"
+    if s["unit"][0] == "AT" and u == "TK": return "casos rust-anything contra pekko-actor-testkit-typed 2.0.0: agregar la dependencia a `oracle/pom.xml` es parte de la primera tarea"
+    return "casos rust-anything contra Pekko 2.0.0 (JDK 17) con `oracle/` y `tools/parity/` (decisión Q-X-12); donde ningún oráculo es ejecutable, la aserción es el cuerpo del spec de Pekko portado 1:1"
 
 def cell(txt):
     """A value inside a Markdown table cell: a literal `|` would split the column."""

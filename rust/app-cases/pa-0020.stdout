@@ -1,0 +1,1 @@
+SPEC-APS-80 -> ok valid=false validate=ERR InvalidActorNameException [Actor path element must not be empty ]

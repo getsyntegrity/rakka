@@ -1,0 +1,1 @@
+RQ-02 5.requiring(false, msg) -> ERR IllegalArgumentException [requirement failed: idle-cpu-level must be between 1 and 10]

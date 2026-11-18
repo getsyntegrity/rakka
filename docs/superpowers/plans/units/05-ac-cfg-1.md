@@ -26,7 +26,7 @@ Decisiones:
 
 ## Estrategia de oráculo y procedencia
 
-config-1.4.9.jar (Typesafe Config, no es código de Pekko); existe tools/oracle/config-hocon.jsh. Todo golden lleva en su cabecera la fuente exacta (jars con SHA-1 verificado, o commit de Pekko) y el hash del script, como los goldens existentes.
+casos rust-anything contra Pekko 2.0.0 (JDK 17) a grabar al tomar la unidad; `crates/rakka-actor/tests/oracle/config-hocon.golden` (Typesafe Config 1.4.9, jshell deprecado) queda como dato hasta convertirlo. Todo golden lleva en su cabecera la fuente exacta (jars con SHA-1 verificado, o commit de Pekko) y el hash del script, como los goldens existentes.
 
 ## Tareas
 

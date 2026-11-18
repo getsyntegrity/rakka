@@ -1,0 +1,1 @@
+RQ-06 0.requiring(_ > 0) -> ERR IllegalArgumentException [requirement failed: nr-of-selectors must be > 0]

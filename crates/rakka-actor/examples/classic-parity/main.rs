@@ -8,8 +8,10 @@
 //! ```
 
 mod json;
+mod path_address_cases;
 mod path_case;
 mod scenario;
+mod util_core_cases;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;
@@ -19,9 +21,31 @@ use path_case::path_from_string;
 
 fn usage() -> ExitCode {
     eprintln!(
-        "usage: classic-parity path-from-string | path-from-string-lines | scenario | scenario-lines   (JSON on stdin)"
+        "usage: classic-parity path-from-string | path-from-string-lines | scenario | scenario-lines | path-address-case | util-core-case   (JSON on stdin)"
     );
     ExitCode::from(2)
+}
+
+/// `<family>-case`: stdin is one oracle case id (ASCII-escaped); prints the line Rust produces for it.
+fn oracle_case(out: &mut impl Write, input: &str, lines: Vec<(String, String)>) -> ExitCode {
+    let id = input.strip_suffix('\n').unwrap_or(input);
+    match lines.iter().find(|(case, _)| case == id) {
+        Some((_, line)) => {
+            writeln!(out, "{line}").ok();
+            ExitCode::SUCCESS
+        }
+        None => {
+            eprintln!("no Rust case for id: {id}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+/// `<family>-ids`: the case ids Rust implements (the oracle lists its own with `<family>-ids` too).
+fn print_ids(out: &mut impl Write, lines: Vec<(String, String)>) {
+    for (id, _) in lines {
+        writeln!(out, "{id}").ok();
+    }
 }
 
 fn main() -> ExitCode {
@@ -69,6 +93,12 @@ fn main() -> ExitCode {
                 }
             };
         }
+        "path-address-ids" => print_ids(&mut out, path_address_cases::rust_lines()),
+        "util-core-ids" => print_ids(&mut out, util_core_cases::rust_lines()),
+        "path-address-case" => {
+            return oracle_case(&mut out, &input, path_address_cases::rust_lines());
+        }
+        "util-core-case" => return oracle_case(&mut out, &input, util_core_cases::rust_lines()),
         "path-from-string-lines" => {
             let mut buf = String::new();
             for line in input.split('\n').filter(|l| !l.is_empty()) {

@@ -1,0 +1,1 @@
+STR-09 root named '/x' child strWithAddr(remote) -> ok pekko://mysys@aaa:7355/xy

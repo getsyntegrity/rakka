@@ -222,7 +222,7 @@ Decidirlas primero: desbloquean la mayor parte de las propuestas por unidad.
 ### Q-X-12 — Oráculo oficial: CLI Java del piloto con rust-anything
 
 - **Estado:** aceptada
-- **Evidencia:** migration/pekko-rust-pilot/oracle (Java 17), `rust-anything app record/replay`. El oráculo jshell + goldens de tools/oracle queda deprecado y sus escenarios se convierten a casos rust-anything.
+- **Evidencia:** oracle/ (Java 17), `rust-anything app record/replay`. El oráculo jshell + goldens de tools/oracle queda deprecado y sus escenarios se convierten a casos rust-anything.
 - **Alternativas:** (a) CLI del piloto + rust-anything; (b) jshell + goldens; (c) ambos.
 - **Recomendación:** (a).
 - **Filas afectadas:** todas las filas

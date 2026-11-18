@@ -1,0 +1,1 @@
+VAL-FP-01 ['' in /a/b] -> ok valid=false validate=ERR InvalidActorNameException [Actor path element must not be empty  (in path [/a/b])]

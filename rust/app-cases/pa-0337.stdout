@@ -1,0 +1,1 @@
+CMPA-10 a=(None,1) b=(Some(''),2) -> ok cmp=0 cmpRev=0 eq=false

@@ -17,8 +17,8 @@ pub(crate) mod uri;
 pub use actor_ref::ActorRef;
 pub use address::Address;
 pub use errors::{
-    ActorError, ArithmeticError, ChildError, ErrorClass, FromStringError, IllegalArgumentError,
-    IllegalStateError, InvalidActorNameError, MalformedUrlError, NumberFormatError,
+    ActorError, ChildError, ErrorClass, FromStringError, IllegalArgumentError, IllegalStateError,
+    InvalidActorNameError, MalformedUrlError, NumberFormatError,
 };
 pub use path::{
     ActorPath, is_valid_path_element, relative_actor_path_elements, validate_path_element,

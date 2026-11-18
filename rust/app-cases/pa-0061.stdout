@@ -1,0 +1,1 @@
+SPEC-LARP-10 -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [\u00FC\u00DF], illegal character [\u00FC] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

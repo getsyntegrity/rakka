@@ -1,0 +1,1 @@
+UID-05 child#3.withUid(0) -> ok ChildActorPath str=[pekko://mysys/a] ser=[pekko://mysys/a] noAddr=[/a] addr=[pekko://mysys] name=[a] uid=0 elems=([a])
