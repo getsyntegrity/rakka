@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn", "name": "t", "as": "t", "behavior": {"kind": "log"}}, {"op": "spawn", "name": "s", "as": "s", "behavior": {"kind": "blast", "to": "t", "prefix": "s", "count": 50}}, {"op": "tell", "ref": "s", "msg": "go"}, {"op": "tell", "ref": "s", "msg": "go2"}, {"op": "await-received", "target": "t", "total": 100}]}

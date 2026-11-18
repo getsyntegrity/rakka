@@ -1,0 +1,1 @@
+{"ok":true,"toString":"akka://sys/user/a","name":"a","elements":["user","a"],"uid":0,"toStringWithoutAddress":"/user/a","toSerializationFormat":"akka://sys/user/a","address":{"protocol":"akka","system":"sys","host":null,"port":null,"toString":"akka://sys"}}

@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn", "name": "a", "as": "a"}, {"op": "spawn", "name": "b", "as": "b"}, {"op": "spawn", "name": "c", "as": "c"}, {"op": "stop", "ref": "b"}, {"op": "await-stopped", "ref": "b"}, {"op": "spawn", "name": "d"}]}

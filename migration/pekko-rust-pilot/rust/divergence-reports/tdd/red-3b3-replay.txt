@@ -1,0 +1,19 @@
+529/546 cases passed
+- e01-g-resumes-p: status, stdout
+- e02-g-restarts-p: status, stdout
+- e03-g-stops-p: status, stdout
+- e04-cause-is-kill-resume: status, stdout
+- e05-cause-is-kill-restar: stdout
+- e06-g-default-restarts: stdout
+- e07-g-default-stops-kill: stdout
+- e08-local-and-escalated: stdout
+- e09-only-local-no-escala: stdout
+- e10-escalate-ignores-p-m: status, stdout
+- e11-resume-twice: stdout
+- e12-escalate-after-resta: status, stdout
+- f-restart-healthy-siblin: status, stdout
+- f-resume-healthy-sibling: stdout
+- f-stop-healthy-sibling: status, stdout
+- g01-g-max-zero-stops-p: stdout
+- g02-g-max-one-second-sto: status, stdout
+Report: /Users/pablogore/Projects/pekko-rust-pilot/rust/app-cases/replay-report.md

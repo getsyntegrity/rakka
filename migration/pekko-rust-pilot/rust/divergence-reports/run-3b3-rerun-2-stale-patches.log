@@ -1,0 +1,39 @@
+=== mutant resume-confused-with-restart: the `Resume` directive restarts the child (new instance, state lost) instead of keeping it
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -379,7 +379,7 @@
+         }
+         let strategy = self.current_strategy();
+         match (strategy.decider)(&cause) {
+-            Directive::Resume => child.send_system(SystemMessage::Resume { cause: Some(cause) }),
++            Directive::Resume => child.send_system(SystemMessage::Recreate { cause }),
+             Directive::Restart => {
+                 // `processFailure`: a restart is only granted while the child is within its limit, otherwise it is stopped
+                 let granted = self.st.lock().unwrap().restart_stats.entry(child.clone()).or_default().request_restart_permission(strategy.max_nr_of_retries);
+
+DETECTED  530/546 cases passed
+
+=== mutant restart-confused-with-resume: the `Restart` directive resumes the child (no restart hooks, state kept) instead of replacing it
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -384,7 +384,7 @@
+                 // `processFailure`: a restart is only granted while the child is within its limit, otherwise it is stopped
+                 let granted = self.st.lock().unwrap().restart_stats.entry(child.clone()).or_default().request_restart_permission(strategy.max_nr_of_retries);
+                 if granted {
+-                    child.send_system(SystemMessage::Recreate { cause });
++                    child.send_system(SystemMessage::Resume { cause: Some(cause) });
+                 } else {
+                     self.stop_actor(&child);
+                 }
+
+DETECTED  510/546 cases passed
+
+=== control (unmodified pekko-actor): exit=0  546/546 cases passed
+
+| mutant | outcome | passed/total |
+|---|---|---|
+| resume-confused-with-restart | DETECTED | 530/546 |
+| restart-confused-with-resume | DETECTED | 510/546 |
+| control (unmodified) | CLEAN | 546/546 |
+
+corpus sizes seen: [546]  outcomes: {'DETECTED': 2, 'UNDETECTED': 0, 'PATCH_ERROR': 0, 'BUILD_ERROR': 0, 'HARNESS_ERROR': 0, 'TIMEOUT': 0}  detected 2/2

@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn", "name": "a*b", "as": "x"}]}

@@ -1,0 +1,1 @@
+{"ok":true,"toString":"pekko://10.0.0.1/user","name":"user","elements":["user"],"uid":0,"toStringWithoutAddress":"/user","toSerializationFormat":"pekko://10.0.0.1/user","address":{"protocol":"pekko","system":"10.0.0.1","host":null,"port":null,"toString":"pekko://10.0.0.1"}}

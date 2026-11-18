@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>pilot</groupId>
+  <artifactId>pekko-oracle</artifactId>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
+  <description>Executable reference: drives real Apache Pekko 2.0.0 and prints its observable behaviour as JSON.</description>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <pekko.version>2.0.0</pekko.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.pekko</groupId>
+      <artifactId>pekko-actor_2.13</artifactId>
+      <version>${pekko.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-libs</id>
+            <phase>package</phase>
+            <goals><goal>copy-dependencies</goal></goals>
+            <configuration><outputDirectory>${project.build.directory}/lib</outputDirectory></configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

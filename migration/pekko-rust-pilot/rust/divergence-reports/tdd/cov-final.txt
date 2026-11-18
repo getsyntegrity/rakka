@@ -1,0 +1,170 @@
+info: cargo-llvm-cov currently setting cfg(coverage); you can opt-out it by passing --no-cfg-coverage
+   Compiling pekko-actor v0.1.0 (/Users/pablogore/Projects/pekko-rust-pilot/pekko-actor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.01s
+     Running unittests src/lib.rs (target/llvm-cov-target/debug/build/pekko-actor/55aa1908c2491295/out/pekko_actor-55aa1908c2491295)
+
+running 28 tests
+test actor::supervision::tests::each_child_has_its_own_counter ... ok
+test actor::supervision::tests::the_last_allowed_restart_is_granted_and_the_first_beyond_it_is_refused ... ok
+test actor::supervision::tests::a_negative_limit_is_unlimited ... ok
+test actor::supervision::tests::the_default_strategy_is_unlimited_and_decides_by_class ... ok
+test actor::children::tests::a_terminated_container_refuses_names ... ok
+test actor::children::tests::reserving_a_name_twice_is_rejected_and_unreserve_frees_it ... ok
+test actor::supervision::tests::zero_retries_refuse_the_first_restart ... ok
+test actor::children::tests::unreserve_of_unknown_name_changes_nothing ... ok
+test actor::children::tests::terminating_by_user_request_still_reserves_but_by_termination_does_not ... ok
+test identity::actor_path::tests::bad_uid_is_number_format_exception ... ok
+test identity::actor_path::tests::empty_path_elements_are_skipped ... ok
+test identity::actor_path::tests::host_without_port_is_malformed ... ok
+test identity::actor_path::tests::jdk_utf8_decoder_replaces_encoded_surrogate_once ... ok
+test dispatch::dispatcher::tests::shutdown_is_idempotent ... ok
+test identity::actor_path::tests::local_root_has_single_empty_element_and_slash_name ... ok
+test actor::system::tests::invalid_system_names_are_rejected ... ok
+test identity::actor_path::tests::number_format_exception_escapes_from_ipv6_literal_scan ... ok
+test identity::jdk_int::tests::parse_int_matches_range_on_whole_strings ... ok
+test identity::actor_path::tests::remote_path_with_uid ... ok
+test identity::jdk_int::tests::range_accepts_signs_and_extremes_like_integer_parse_int ... ok
+test actor::system::tests::terminating_an_empty_system_closes_the_guardian_to_new_children ... ok
+test identity::jdk_int::tests::range_errors_use_the_jdk_messages ... ok
+test identity::names::tests::accepts_symbols_and_escapes ... ok
+test identity::names::tests::anonymous_names_follow_helpers_base64 ... ok
+test actor::system::tests::spawn_names_and_duplicates ... ok
+test identity::names::tests::supplementary_chars_are_reported_per_utf16_unit ... ok
+test identity::names::tests::rejects_leading_dollar_and_reports_position ... ok
+test actor::system::tests::stop_and_terminate_complete_the_chain ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/classic_all_for_one.rs (target/llvm-cov-target/debug/build/pekko-actor/de61437ec56782ec/out/classic_all_for_one-de61437ec56782ec)
+
+running 6 tests
+test restart_keeps_the_messages_queued_behind_the_failure ... ok
+test resume_applies_to_the_failed_child_only ... ok
+test stop_terminates_every_child ... ok
+test restart_replaces_every_child ... ok
+test an_exhausted_restart_limit_stops_both_children ... ok
+test resume_does_not_count_and_a_negative_limit_is_unlimited ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/classic_api.rs (target/llvm-cov-target/debug/build/pekko-actor/d5b26324aef0e163/out/classic_api-d5b26324aef0e163)
+
+running 7 tests
+test exceptions_render_like_java_with_their_jvm_class_names ... ok
+test system_exposes_its_name_root_path_settings_and_dead_letters ... ok
+test actor_ref_debug_shows_the_full_path ... ok
+test watching_dead_letters_is_answered_with_an_unconfirmed_terminated ... ok
+test stopping_an_actor_that_is_not_top_level_stops_it_directly ... ok
+test dead_letters_republishes_a_dead_letter_as_is_and_ignores_suppressed_messages ... ok
+test unsubscribed_actors_stop_receiving_events ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/classic_escalate.rs (target/llvm-cov-target/debug/build/pekko-actor/80cfd1bb96cf2f7e/out/classic_escalate-80cfd1bb96cf2f7e)
+
+running 11 tests
+test every_escalation_is_decided_again_by_the_grandparent ... ok
+test grandparent_stop_terminates_the_parent_and_its_child ... ok
+test the_escalated_cause_keeps_its_class_and_message ... ok
+test a_zero_limit_at_the_grandparent_stops_the_parent_at_the_first_escalation ... ok
+test escalated_failure_reaches_the_grandparent_which_resumes_the_parent ... ok
+test grandparent_restart_replaces_the_parent_and_stops_its_child ... ok
+test a_healthy_sibling_is_resumed_with_its_parent ... ok
+test the_grandparent_sees_only_the_failures_the_parent_escalates ... ok
+test the_default_decider_of_the_grandparent_applies_to_the_escalated_cause ... ok
+test the_grandparents_retry_limit_counts_restarts_of_the_parent ... ok
+test a_healthy_sibling_dies_with_its_restarted_or_stopped_parent ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/classic_failures.rs (target/llvm-cov-target/debug/build/pekko-actor/962b7c32e5dcc22e/out/classic_failures-962b7c32e5dcc22e)
+
+running 7 tests
+test a_failing_pre_start_stops_the_actor_and_post_stop_is_not_called ... ok
+test kill_stops_the_actor_without_restart_hooks_and_notifies_watchers ... ok
+test the_failed_message_is_lost_and_the_rest_of_the_mailbox_is_kept_in_order ... ok
+test an_exception_in_receive_restarts_the_actor_with_a_fresh_instance ... ok
+test restart_stops_the_children_and_does_not_recreate_them ... ok
+test an_unhandled_terminated_stops_the_watcher_with_death_pact ... ok
+test restarting_does_not_notify_watchers_and_keeps_the_reference_valid ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/classic_hierarchy.rs (target/llvm-cov-target/debug/build/pekko-actor/afaf7c437743363c/out/classic_hierarchy-afaf7c437743363c)
+
+running 5 tests
+test unwatch_before_stop_means_no_terminated ... ok
+test watching_a_dead_actor_notifies_each_watch_without_confirming_existence ... ok
+test terminated_names_the_watched_instance_when_the_path_is_reused ... ok
+test sibling_collision_and_same_name_under_two_parents ... ok
+test reused_name_has_equal_path_but_is_a_different_reference ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/classic_supervision.rs (target/llvm-cov-target/debug/build/pekko-actor/196ec863e4ed0b44/out/classic_supervision-196ec863e4ed0b44)
+
+running 12 tests
+test restart_replaces_the_instance_and_continues_with_the_queued_messages ... ok
+test a_sequence_of_directives_on_one_child ... ok
+test resume_and_stop_directives_do_not_consume_the_limit ... ok
+test zero_retries_stop_the_child_at_its_first_failure ... ok
+test unmapped_exceptions_use_the_default_decider ... ok
+test a_decider_can_restart_what_the_default_would_stop ... ok
+test resume_keeps_the_instance_and_state_and_drops_only_the_failed_message ... ok
+test a_negative_limit_never_stops_the_child ... ok
+test the_limit_is_counted_per_child ... ok
+test the_last_allowed_restart_runs_and_the_first_beyond_the_limit_stops ... ok
+test stop_stops_the_child_and_dead_letters_what_was_queued ... ok
+test the_healthy_sibling_is_not_affected_by_any_directive ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+     Running tests/classic_suspension.rs (target/llvm-cov-target/debug/build/pekko-actor/ed8820402a30cb5e/out/classic_suspension-ed8820402a30cb5e)
+
+running 5 tests
+test a_restart_stops_the_suspended_child_without_processing_its_mailbox ... ok
+test a_stop_terminates_the_suspended_subtree ... ok
+test the_children_of_an_actor_that_failed_are_suspended_until_its_supervisor_decides ... ok
+test the_suspension_reaches_the_grandchildren ... ok
+test all_children_are_suspended_and_resumed ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+     Running tests/classic_tell.rs (target/llvm-cov-target/debug/build/pekko-actor/e085b8c948f2fced/out/classic_tell-e085b8c948f2fced)
+
+running 5 tests
+test receiver_sees_explicit_sender_or_dead_letters ... ok
+test unhandled_messages_are_published_with_sender_and_recipient ... ok
+test poison_pill_stops_after_earlier_messages_and_later_ones_are_dead_letters ... ok
+test messages_from_one_sender_arrive_in_order ... ok
+test single_thread_dispatcher_runs_throughput_messages_per_turn ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/recorded_pekko.rs (target/llvm-cov-target/debug/build/pekko-actor/0d8d64febd43359f/out/recorded_pekko-0d8d64febd43359f)
+
+running 2 tests
+test recorded_path_from_string_cases_match_pekko ... ok
+test recorded_scenario_cases_match_pekko ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.35s
+
+Filename                      Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover    Branches   Missed Branches     Cover
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+actor/cell.rs                     579                26    95.51%          67                 2    97.01%         496                22    95.56%           0                 0         -
+actor/children.rs                 205                 7    96.59%          22                 0   100.00%         165                 4    97.58%           0                 0         -
+actor/fault.rs                     19                 1    94.74%           4                 0   100.00%          13                 1    92.31%           0                 0         -
+actor/props.rs                     60                 0   100.00%          20                 0   100.00%          54                 0   100.00%           0                 0         -
+actor/supervision.rs              123                 3    97.56%          19                 1    94.74%          79                 3    96.20%           0                 0         -
+actor/system.rs                   337                27    91.99%          47                 6    87.23%         269                23    91.45%           0                 0         -
+dispatch/dispatcher.rs             39                 1    97.44%           5                 0   100.00%          31                 1    96.77%           0                 0         -
+error.rs                           16                 0   100.00%           3                 0   100.00%          12                 0   100.00%           0                 0         -
+event/mod.rs                       39                 2    94.87%          11                 0   100.00%          30                 1    96.67%           0                 0         -
+identity/actor_path.rs            237                 1    99.58%          28                 0   100.00%         166                 0   100.00%           0                 0         -
+identity/actor_ref.rs              35                 0   100.00%           9                 0   100.00%          29                 0   100.00%           0                 0         -
+identity/jdk_int.rs               196                 4    97.96%          14                 0   100.00%         104                 1    99.04%           0                 0         -
+identity/jdk_uri.rs               912                53    94.19%          40                 0   100.00%         560                23    95.89%           0                 0         -
+identity/names.rs                 125                 0   100.00%          11                 0   100.00%          76                 0   100.00%           0                 0         -
+lib.rs                              3                 0   100.00%           1                 0   100.00%           3                 0   100.00%           0                 0         -
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TOTAL                            2925               125    95.73%         301                 9    97.01%        2087                79    96.21%           0                 0         -

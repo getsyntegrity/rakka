@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn", "name": "a", "as": "a", "behavior": {"kind": "log"}}, {"op": "tell", "ref": "a", "msg": "m"}, {"op": "tell", "ref": "a", "msg": "barrier"}, {"op": "await-events", "target": "a", "count": 3}, {"op": "stop", "ref": "a"}, {"op": "await-stopped", "ref": "a"}, {"op": "await-events", "target": "a", "count": 4}]}

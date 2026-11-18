@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "terminate"}, {"op": "await-system-terminated"}]}

@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "subscribe", "channel": "unhandled", "as": "un"}, {"op": "spawn", "name": "h", "as": "h", "behavior": {"kind": "log", "handles": ["ok"]}}, {"op": "spawn", "name": "b", "as": "b", "behavior": {"kind": "log"}}, {"op": "tell", "ref": "h", "msg": "nope", "from": "b"}, {"op": "await-events", "target": "un", "count": 1}]}

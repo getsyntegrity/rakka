@@ -1,0 +1,24 @@
+=== mutant selftest-equivalent-whitespace: self-test of the launcher: an equivalent edit that must NOT be detected
+--- a/pekko-actor/src/actor/supervision.rs
++++ b/pekko-actor/src/actor/supervision.rs
+@@ -75,7 +75,7 @@
+             return false;
+         }
+         self.count += 1;
+-        self.count <= max_nr_of_retries
++        self.count <= max_nr_of_retries /* same */
+     }
+ }
+ 
+
+UNDETECTED  529/529 cases passed
+
+=== control (unmodified pekko-actor): exit=0  529/529 cases passed
+
+| mutant | outcome | passed/total |
+|---|---|---|
+| selftest-equivalent-whitespace | UNDETECTED | 529/529 |
+| control (unmodified) | CLEAN | 529/529 |
+
+corpus sizes seen: [529]  outcomes: {'DETECTED': 0, 'UNDETECTED': 1, 'PATCH_ERROR': 0, 'BUILD_ERROR': 0, 'HARNESS_ERROR': 0, 'TIMEOUT': 0}  detected 0/1
+exit=1

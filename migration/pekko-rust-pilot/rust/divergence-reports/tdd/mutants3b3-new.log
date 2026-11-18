@@ -1,0 +1,53 @@
+=== mutant escalate-resolved-locally: the parent resolves locally (resumes the child) a failure its decider escalated: the grandparent never hears of it
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -390,7 +390,7 @@
+                 }
+             }
+             Directive::Stop => self.stop_actor(&child),
+-            Directive::Escalate => self.escalate(child, cause),
++            Directive::Escalate => child.send_system(SystemMessage::Resume { cause: Some(cause) }),
+         }
+     }
+ 
+
+DETECTED  530/546 cases passed
+
+=== mutant escalate-alters-cause: the escalation rewraps the cause: the grandparent's decider sees another exception class (observable in its `decide` event and in the default decision)
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -412,6 +412,7 @@
+         for k in &others {
+             k.send_system(SystemMessage::Suspend); // suspendChildren
+         }
++        let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", cause.message.as_deref());
+         self.parent.send_system(SystemMessage::Failed { child: self.self_ref(), cause });
+     }
+ 
+
+DETECTED  530/546 cases passed
+
+=== mutant escalate-never-resumes-children: after the grandparent resumes the parent, the child that failed is never resumed (stays suspended)
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -424,7 +424,6 @@
+         self.resume_after_failure(cause.is_some());
+         // `resumeChildren`: the escalated child gets the cause back (it clears its own failure), the others only lose one suspension
+         if let Some(perp) = perp {
+-            perp.send_system(SystemMessage::Resume { cause: cause.clone() });
+         }
+         for k in others {
+             k.send_system(SystemMessage::Resume { cause: None });
+
+DETECTED  540/546 cases passed
+
+=== control (unmodified pekko-actor): exit=0  546/546 cases passed
+
+| mutant | outcome | passed/total |
+|---|---|---|
+| escalate-resolved-locally | DETECTED | 530/546 |
+| escalate-alters-cause | DETECTED | 530/546 |
+| escalate-never-resumes-children | DETECTED | 540/546 |
+| control (unmodified) | CLEAN | 546/546 |
+
+corpus sizes seen: [546]  outcomes: {'DETECTED': 3, 'UNDETECTED': 0, 'PATCH_ERROR': 0, 'BUILD_ERROR': 0, 'HARNESS_ERROR': 0, 'TIMEOUT': 0}  detected 3/3

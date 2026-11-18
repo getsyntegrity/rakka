@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn", "name": "a", "as": "a", "behavior": {"kind": "log", "throw-on": "boom"}}, {"op": "await-events", "target": "a", "count": 1}, {"op": "tell-seq", "ref": "a", "prefix": "q", "count": 3}, {"op": "tell", "ref": "a", "msg": "boom"}, {"op": "tell-seq", "ref": "a", "prefix": "r", "count": 3}, {"op": "await-events", "target": "a", "count": 12}]}

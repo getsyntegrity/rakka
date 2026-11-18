@@ -1,0 +1,1 @@
+{"ok":true,"toString":"a+b-c.d://sys/user","name":"user","elements":["user"],"uid":0,"toStringWithoutAddress":"/user","toSerializationFormat":"a+b-c.d://sys/user","address":{"protocol":"a+b-c.d","system":"sys","host":null,"port":null,"toString":"a+b-c.d://sys"}}

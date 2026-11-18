@@ -1,0 +1,4 @@
+bin.name = "classic-parity"
+args = ["path-from-string"]
+status.code = 0
+fs.sandbox = true

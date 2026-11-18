@@ -1,0 +1,8 @@
+error[E0599]: no variant, associated function, or constant named `Escalate` found for enum `Directive` in the current scope
+  --> pekko-actor/tests/classic_escalate.rs:70:24
+   |
+70 |             Directive::Escalate
+   |                        ^^^^^^^^ variant, associated function, or constant not found in `Directive`
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `pekko-actor` (test "classic_escalate") due to 1 previous error

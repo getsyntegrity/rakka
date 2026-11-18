@@ -1,0 +1,8 @@
+[package]
+name = "pekko-actor-typed"
+version = "0.1.0"
+edition = "2024"
+description = "Rust port of Apache Pekko 2.0.0 pekko-actor-typed (Typed), built on pekko-actor"
+
+[dependencies]
+pekko-actor = { path = "../pekko-actor" }

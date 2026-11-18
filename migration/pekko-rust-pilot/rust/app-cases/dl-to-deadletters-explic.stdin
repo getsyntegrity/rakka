@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn", "name": "b", "as": "b", "behavior": {"kind": "log"}}, {"op": "subscribe", "channel": "dead-letters", "as": "dl"}, {"op": "tell", "ref": "deadLetters", "msg": "m", "from": "b"}, {"op": "await-events", "target": "dl", "count": 1}]}

@@ -1,0 +1,3 @@
+thread 'the_children_of_an_actor_that_failed_are_suspended_until_its_supervisor_decides' (77152266) panicked at pekko-actor/tests/classic_suspension.rs:199:5:
+c must not process anything while its parent waits for the decision: ["pre-start", "m0", "x1", "x2"]
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s

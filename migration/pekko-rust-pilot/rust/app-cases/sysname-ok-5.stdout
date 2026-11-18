@@ -1,0 +1,1 @@
+{"system":{"ok":true,"name":"a_b","toString":"pekko://a_b","root":"pekko://a_b/","user":"pekko://a_b/user","systemGuardian":"pekko://a_b/system","deadLetters":"pekko://a_b/deadLetters"},"steps":[]}

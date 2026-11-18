@@ -1,0 +1,1 @@
+{"ok":true,"toString":"pekko://sys@host:2147483647/user","name":"user","elements":["user"],"uid":0,"toStringWithoutAddress":"/user","toSerializationFormat":"pekko://sys@host:2147483647/user","address":{"protocol":"pekko","system":"sys","host":"host","port":2147483647,"toString":"pekko://sys@host:2147483647"}}

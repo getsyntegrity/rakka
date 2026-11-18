@@ -1,0 +1,437 @@
+=== mutant utf8-lossy-decoder: decode %XX user info with Rust's maximal-subpart UTF-8 replacement instead of the JDK's (the real bug the differential fuzzer found while porting)
+--- a/pekko-actor/src/identity/jdk_uri.rs
++++ b/pekko-actor/src/identity/jdk_uri.rs
+@@ -149,7 +149,7 @@
+                 break;
+             }
+         }
+-        out.extend(decode_utf8_jdk(&bytes));
++        out.extend(String::from_utf8_lossy(&bytes).encode_utf16());
+     }
+     out
+ }
+
+DETECTED  527/529 cases passed
+
+=== mutant no-set-terminated-without-children: an actor without children forgets `setTerminated()`, so its guardian keeps accepting actorOf after termination (found by the oracle replay while building slice 2a)
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -449,7 +449,6 @@
+                 self.mb.lock().unwrap().suspend += 1; // suspendNonRecursive
+             }
+         } else {
+-            *self.children.lock().unwrap() = Children::Terminated; // setTerminated()
+             self.finish_terminate();
+         }
+     }
+
+DETECTED  525/529 cases passed
+
+=== mutant mailbox-is-lifo: the mailbox hands out the newest message first (breaks per-sender ordering)
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -240,7 +240,7 @@
+             }
+             let env = {
+                 let mut mb = cell.mb.lock().unwrap();
+-                if mb.closed || mb.suspend > 0 { None } else { mb.user.pop_front() }
++                if mb.closed || mb.suspend > 0 { None } else { mb.user.pop_back() }
+             };
+             match env {
+                 None => break,
+
+DETECTED  450/529 cases passed
+
+=== mutant receiver-never-sees-sender: `context.sender()` ignores the explicit sender of a message
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -307,7 +307,7 @@
+         {
+             return;
+         }
+-        self.st.lock().unwrap().sender = env.sender.clone();
++        self.st.lock().unwrap().sender = None;
+         let msg = env.message;
+         let mut handled = true;
+         let result = self.with_actor(|a, ctx| handled = a.receive(ctx, &msg));
+
+DETECTED  445/529 cases passed
+
+=== mutant forward-drops-sender: `forward` forgets the original sender
+--- a/pekko-actor/src/actor/props.rs
++++ b/pekko-actor/src/actor/props.rs
+@@ -113,6 +113,6 @@
+ 
+     /// `target.forward(msg)`: sends keeping the original sender.
+     pub fn forward(&self, target: &ActorRef, msg: AnyMessage) {
+-        target.tell_any(msg, self.cell.current_sender());
++        target.tell_any(msg, None);
+     }
+ }
+
+DETECTED  526/529 cases passed
+
+=== mutant throughput-ignored: an actor drains its whole mailbox in one turn instead of `throughput` messages
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -220,7 +220,7 @@
+     /// `Mailbox.run`: all system messages, then user messages up to the throughput limit,
+     /// system messages being drained again after each user message.
+     pub(crate) fn run_mailbox(cell: &Arc<ActorCell>) {
+-        let mut budget = cell.system.settings.throughput.max(1);
++        let mut budget = usize::MAX;
+         loop {
+             loop {
+                 let batch: Vec<SystemMessage> = cell.mb.lock().unwrap().sys.drain(..).collect();
+
+DETECTED  519/529 cases passed
+
+=== mutant pill-not-suppressed-from-dead-letters: a PoisonPill sent to a dead actor is published as DeadLetter (it is DeadLetterSuppression in Pekko)
+--- a/pekko-actor/src/actor/system.rs
++++ b/pekko-actor/src/actor/system.rs
+@@ -80,7 +80,7 @@
+ 
+ /// Messages marked `DeadLetterSuppression` in Pekko (`Terminated`, `PoisonPill`): never published as `DeadLetter`.
+ fn is_dead_letter_suppressed(msg: &AnyMessage) -> bool {
+-    msg.is::<Terminated>() || msg.is::<PoisonPill>()
++    msg.is::<Terminated>()
+ }
+ 
+ impl SystemInner {
+
+DETECTED  528/529 cases passed
+
+=== mutant drop-uid-in-serialization-format: toSerializationFormat forgets the #uid suffix
+--- a/pekko-actor/src/identity/actor_path.rs
++++ b/pekko-actor/src/identity/actor_path.rs
+@@ -180,7 +180,7 @@
+     /// `ActorPath.toSerializationFormat`: like `toString`, plus `#uid` when the uid is defined.
+     pub fn to_serialization_format(&self) -> JStr {
+         let mut s = self.to_jstring();
+-        if self.uid != 0 {
++        if false {
+             s.push('#' as u16);
+             s.extend(jstr(&self.uid.to_string()));
+         }
+
+DETECTED  514/529 cases passed
+
+=== mutant ref-identity-is-path: two references are equal when their paths are equal (the uid is ignored), so a new actor with the old path is taken for the old one
+--- a/pekko-actor/src/identity/actor_ref.rs
++++ b/pekko-actor/src/identity/actor_ref.rs
+@@ -53,7 +53,7 @@
+ impl PartialEq for ActorRef {
+     fn eq(&self, other: &Self) -> bool {
+         let (a, b) = (self.path(), other.path());
+-        a.uid == b.uid && a.address == b.address && a.elements == b.elements
++        a.address == b.address && a.elements == b.elements
+     }
+ }
+ 
+
+DETECTED  509/529 cases passed
+
+=== mutant children-match-by-path: the parent recognises a child by path only: a stale reference is treated as the current child
+--- a/pekko-actor/src/actor/children.rs
++++ b/pekko-actor/src/actor/children.rs
+@@ -57,7 +57,7 @@
+ 
+     pub fn get_by_ref(&self, actor: &ActorRef) -> Option<ActorRef> {
+         match self.map()?.get(actor.path().name_str().as_str()) {
+-            Some(ChildStats::Child(c)) if c == actor => Some(c.clone()),
++            Some(ChildStats::Child(c)) if c.path().elements == actor.path().elements => Some(c.clone()),
+             _ => None,
+         }
+     }
+
+DETECTED  528/529 cases passed
+
+=== mutant watch-self-check-by-path: `watch` ignores a reference with the same path as the watcher (a new actor cannot watch its dead predecessor)
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -557,7 +557,7 @@
+     /// `context.watch(subject)`.
+     pub(crate) fn watch(self: &Arc<Self>, subject: &ActorRef) {
+         let me = self.self_ref();
+-        if *subject == me {
++        if subject.path().elements == me.path().elements {
+             return;
+         }
+         let newly = {
+
+DETECTED  527/529 cases passed
+
+=== mutant unwatch-keeps-queued-terminated: a Terminated already queued is delivered after `unwatch` (Pekko's terminatedQueued is ignored)
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -303,7 +303,7 @@
+         }
+         // `receivedTerminated`: only a Terminated that is still queued for us is delivered (unwatch cancels it)
+         if let Some(t) = env.message.downcast_ref::<Terminated>()
+-            && !self.st.lock().unwrap().terminated_queued.remove(&t.actor)
++            && !self.st.lock().unwrap().terminated_queued.remove(&t.actor) && false
+         {
+             return;
+         }
+
+DETECTED  527/529 cases passed
+
+=== mutant unwatch-is-noop: `unwatch` does not remove the watch, so the watcher still gets Terminated
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -576,7 +576,6 @@
+             let was = {
+                 let mut st = self.st.lock().unwrap();
+                 let before = st.watching.len();
+-                st.watching.retain(|w| w != subject);
+                 st.watching.len() != before
+             };
+             if was {
+
+DETECTED  526/529 cases passed
+
+=== mutant watch-dead-confirms-existence: watching an already terminated actor reports `existenceConfirmed = true`
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -211,7 +211,7 @@
+         if let SystemMessage::Watch { watchee, watcher } = msg {
+             watcher.send_system(SystemMessage::DeathWatchNotification {
+                 actor: watchee,
+-                existence_confirmed: false,
++                existence_confirmed: true,
+                 address_terminated: false,
+             });
+         }
+
+DETECTED  520/529 cases passed
+
+=== mutant kill-restarts-instead-of-stopping: the default decider restarts on `ActorKilledException`, so `Kill` no longer stops the actor
+--- a/pekko-actor/src/actor/supervision.rs
++++ b/pekko-actor/src/actor/supervision.rs
+@@ -26,7 +26,6 @@
+         "org.apache.pekko.actor.ActorInitializationException"
+         | "org.apache.pekko.actor.PostRestartException"
+         | "org.apache.pekko.actor.PreRestartException"
+-        | "org.apache.pekko.actor.ActorKilledException"
+         | "org.apache.pekko.actor.DeathPactException" => Directive::Stop,
+         _ => Directive::Restart,
+     }
+
+DETECTED  522/529 cases passed
+
+=== mutant deathpact-restarts-instead-of-stopping: an unhandled `Terminated` restarts the watcher instead of stopping it
+--- a/pekko-actor/src/actor/supervision.rs
++++ b/pekko-actor/src/actor/supervision.rs
+@@ -26,8 +26,7 @@
+         "org.apache.pekko.actor.ActorInitializationException"
+         | "org.apache.pekko.actor.PostRestartException"
+         | "org.apache.pekko.actor.PreRestartException"
+-        | "org.apache.pekko.actor.ActorKilledException"
+-        | "org.apache.pekko.actor.DeathPactException" => Directive::Stop,
++        | "org.apache.pekko.actor.ActorKilledException" => Directive::Stop,
+         _ => Directive::Restart,
+     }
+ }
+
+DETECTED  525/529 cases passed
+
+=== mutant init-failure-restarts-instead-of-stopping: a `preStart` failure is restarted instead of stopping the actor
+--- a/pekko-actor/src/actor/supervision.rs
++++ b/pekko-actor/src/actor/supervision.rs
+@@ -23,8 +23,7 @@
+ /// `DeathPactException` stop the child; any other exception restarts it.
+ pub fn default_decider(cause: &Throwable) -> Directive {
+     match cause.class.as_str() {
+-        "org.apache.pekko.actor.ActorInitializationException"
+-        | "org.apache.pekko.actor.PostRestartException"
++        "org.apache.pekko.actor.PostRestartException"
+         | "org.apache.pekko.actor.PreRestartException"
+         | "org.apache.pekko.actor.ActorKilledException"
+         | "org.apache.pekko.actor.DeathPactException" => Directive::Stop,
+
+DETECTED  527/529 cases passed
+
+=== mutant exception-stops-instead-of-restarting: every failure stops the child (the old pre-supervision behaviour)
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -374,7 +374,7 @@
+             return; // not (or no longer) our child: the failure is dropped
+         }
+         let strategy = self.current_strategy();
+-        match (strategy.decider)(&cause) {
++        match { let _ = (strategy.decider)(&cause); Directive::Stop } {
+             Directive::Resume => child.send_system(SystemMessage::Resume { cause }),
+             Directive::Restart => {
+                 // `processFailure`: a restart is only granted while the child is within its limit, otherwise it is stopped
+
+DETECTED  494/529 cases passed
+
+=== mutant post-restart-not-called: the fresh instance skips `postRestart` and goes straight to `preStart`
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -426,7 +426,7 @@
+         self.resume_after_failure();
+         let fresh = self.props.new_actor();
+         self.st.lock().unwrap().actor = Some(fresh);
+-        if self.with_actor(|a, ctx| a.post_restart(ctx, &cause)).is_err() {
++        if self.with_actor(|a, ctx| a.pre_start(ctx)).is_err() {
+             self.st.lock().unwrap().actor = None;
+             let e = Throwable::new("org.apache.pekko.actor.PostRestartException", Some("exception post restart"));
+             self.handle_invoke_failure(e, None);
+
+DETECTED  499/529 cases passed
+
+=== mutant pre-restart-without-message: `preRestart` is not told the message that failed
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -402,7 +402,7 @@
+             return;
+         }
+         let message = self.st.lock().unwrap().failed_message.clone();
+-        let _ = self.with_actor(|a, ctx| a.pre_restart(ctx, &cause, message.as_ref())); // failures here are only logged in Pekko
++        let _ = self.with_actor(|a, ctx| a.pre_restart(ctx, &cause, None)); // failures here are only logged in Pekko
+         self.st.lock().unwrap().actor = None;
+         if self.children.lock().unwrap().set_recreation_reason() {
+             self.st.lock().unwrap().recreate_cause = Some(cause);
+
+DETECTED  499/529 cases passed
+
+=== mutant failure-does-not-suspend-mailbox: the failed actor keeps processing its mailbox while its supervisor decides
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -281,7 +281,6 @@
+             st.failed = true;
+             st.failed_message = message;
+         }
+-        self.mb.lock().unwrap().suspend += 1; // suspendNonRecursive
+         self.parent.send_system(SystemMessage::Failed { child: self.self_ref(), cause });
+     }
+ 
+
+DETECTED  500/529 cases passed
+
+=== mutant resume-confused-with-restart: the `Resume` directive restarts the child (new instance, state lost) instead of keeping it
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -375,7 +375,7 @@
+         }
+         let strategy = self.current_strategy();
+         match (strategy.decider)(&cause) {
+-            Directive::Resume => child.send_system(SystemMessage::Resume { cause }),
++            Directive::Resume => child.send_system(SystemMessage::Recreate { cause }),
+             Directive::Restart => {
+                 // `processFailure`: a restart is only granted while the child is within its limit, otherwise it is stopped
+                 let granted = self.st.lock().unwrap().restart_stats.entry(child.clone()).or_default().request_restart_permission(strategy.max_nr_of_retries);
+
+DETECTED  520/529 cases passed
+
+=== mutant restart-confused-with-resume: the `Restart` directive resumes the child (no restart hooks, state kept) instead of replacing it
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -380,7 +380,7 @@
+                 // `processFailure`: a restart is only granted while the child is within its limit, otherwise it is stopped
+                 let granted = self.st.lock().unwrap().restart_stats.entry(child.clone()).or_default().request_restart_permission(strategy.max_nr_of_retries);
+                 if granted {
+-                    child.send_system(SystemMessage::Recreate { cause });
++                    child.send_system(SystemMessage::Resume { cause });
+                 } else {
+                     self.stop_actor(&child);
+                 }
+
+DETECTED  499/529 cases passed
+
+=== mutant restart-limit-allows-one-more: the restart limit is shifted up by one: the first restart beyond `maxNrOfRetries` is still granted
+--- a/pekko-actor/src/actor/supervision.rs
++++ b/pekko-actor/src/actor/supervision.rs
+@@ -75,7 +75,7 @@
+             return false;
+         }
+         self.count += 1;
+-        self.count <= max_nr_of_retries
++        self.count <= max_nr_of_retries + 1
+     }
+ }
+ 
+
+DETECTED  523/529 cases passed
+
+=== mutant restart-limit-allows-one-fewer: the restart limit is shifted down by one: the last allowed restart is refused
+--- a/pekko-actor/src/actor/supervision.rs
++++ b/pekko-actor/src/actor/supervision.rs
+@@ -75,7 +75,7 @@
+             return false;
+         }
+         self.count += 1;
+-        self.count <= max_nr_of_retries
++        self.count < max_nr_of_retries
+     }
+ }
+ 
+
+DETECTED  522/529 cases passed
+
+=== mutant minus-one-is-not-unlimited: `maxNrOfRetries = -1` (unlimited) is treated as a zero limit
+--- a/pekko-actor/src/actor/supervision.rs
++++ b/pekko-actor/src/actor/supervision.rs
+@@ -68,7 +68,7 @@
+     /// `requestRestartPermission`: `max_nr_of_retries < 0` is unlimited, `0` never allows a restart, otherwise the
+     /// first `max_nr_of_retries` requests are granted and every later one is refused.
+     pub fn request_restart_permission(&mut self, max_nr_of_retries: i32) -> bool {
+-        if max_nr_of_retries < 0 {
++        if max_nr_of_retries < -1 {
+             return true; // `maxNrOfRetriesOption`: a negative limit is `None` (unlimited)
+         }
+         if max_nr_of_retries < 1 {
+
+DETECTED  507/529 cases passed
+
+=== mutant restart-counter-shared-by-siblings: all children share one restart counter instead of having one each
+--- a/pekko-actor/src/actor/cell.rs
++++ b/pekko-actor/src/actor/cell.rs
+@@ -378,7 +378,7 @@
+             Directive::Resume => child.send_system(SystemMessage::Resume { cause }),
+             Directive::Restart => {
+                 // `processFailure`: a restart is only granted while the child is within its limit, otherwise it is stopped
+-                let granted = self.st.lock().unwrap().restart_stats.entry(child.clone()).or_default().request_restart_permission(strategy.max_nr_of_retries);
++                let granted = self.st.lock().unwrap().restart_stats.entry(self.self_ref()).or_default().request_restart_permission(strategy.max_nr_of_retries);
+                 if granted {
+                     child.send_system(SystemMessage::Recreate { cause });
+                 } else {
+
+DETECTED  527/529 cases passed
+
+=== control (unmodified pekko-actor): exit=0  529/529 cases passed
+
+| mutant | outcome | passed/total |
+|---|---|---|
+| utf8-lossy-decoder | DETECTED | 527/529 |
+| no-set-terminated-without-children | DETECTED | 525/529 |
+| mailbox-is-lifo | DETECTED | 450/529 |
+| receiver-never-sees-sender | DETECTED | 445/529 |
+| forward-drops-sender | DETECTED | 526/529 |
+| throughput-ignored | DETECTED | 519/529 |
+| pill-not-suppressed-from-dead-letters | DETECTED | 528/529 |
+| drop-uid-in-serialization-format | DETECTED | 514/529 |
+| ref-identity-is-path | DETECTED | 509/529 |
+| children-match-by-path | DETECTED | 528/529 |
+| watch-self-check-by-path | DETECTED | 527/529 |
+| unwatch-keeps-queued-terminated | DETECTED | 527/529 |
+| unwatch-is-noop | DETECTED | 526/529 |
+| watch-dead-confirms-existence | DETECTED | 520/529 |
+| kill-restarts-instead-of-stopping | DETECTED | 522/529 |
+| deathpact-restarts-instead-of-stopping | DETECTED | 525/529 |
+| init-failure-restarts-instead-of-stopping | DETECTED | 527/529 |
+| exception-stops-instead-of-restarting | DETECTED | 494/529 |
+| post-restart-not-called | DETECTED | 499/529 |
+| pre-restart-without-message | DETECTED | 499/529 |
+| failure-does-not-suspend-mailbox | DETECTED | 500/529 |
+| resume-confused-with-restart | DETECTED | 520/529 |
+| restart-confused-with-resume | DETECTED | 499/529 |
+| restart-limit-allows-one-more | DETECTED | 523/529 |
+| restart-limit-allows-one-fewer | DETECTED | 522/529 |
+| minus-one-is-not-unlimited | DETECTED | 507/529 |
+| restart-counter-shared-by-siblings | DETECTED | 527/529 |
+| control (unmodified) | CLEAN | 529/529 |
+
+corpus sizes seen: [529]  outcomes: {'DETECTED': 27, 'UNDETECTED': 0, 'PATCH_ERROR': 0, 'BUILD_ERROR': 0, 'HARNESS_ERROR': 0, 'TIMEOUT': 0}  detected 27/27
+exit=0

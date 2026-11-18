@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn", "name": "p", "as": "p", "behavior": {"kind": "log"}}, {"op": "await-events", "target": "p", "count": 1}, {"op": "do", "ref": "p", "cmd": {"c": "spawn-child", "name": "c", "as": "c1", "behavior": {"kind": "log"}}}, {"op": "compare-refs", "a": "c1", "b": "c1"}, {"op": "compare-refs", "a": "p", "b": "c1"}]}

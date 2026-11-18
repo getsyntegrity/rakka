@@ -1,0 +1,8 @@
+546/552 cases passed
+- s01-resume-subtree: stdout
+- s02-restart-subtree: stdout
+- s03-stop-subtree: stdout
+- s04-two-children-resume: stdout
+- s05-grandchild-resume: stdout
+- s06-grandchild-restart: stdout
+Report: /Users/pablogore/Projects/pekko-rust-pilot/rust/app-cases/replay-report.md

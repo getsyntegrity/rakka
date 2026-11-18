@@ -1,0 +1,9 @@
+## fuzz_diff.py seed 1: seed=1 cases=20000 oracle_ok=3011 oracle_err=16989 divergences=0  exit=0
+## fuzz_scenarios.py seed 1: seed=1 scenarios=1500 steps=19009 divergences=0  exit=0
+## fuzz_tell.py seed 1: seed=1 scenarios=1000 steps=36712 oracle_await_timeouts=0 divergences=0  exit=0
+## fuzz_hier.py seed 1: seed=1 scenarios=1000 steps=29445 oracle_await_timeouts=0 divergences=0  exit=0
+## fuzz_diff.py seed 2: seed=2 cases=20000 oracle_ok=2951 oracle_err=17049 divergences=0  exit=0
+## fuzz_scenarios.py seed 2: seed=2 scenarios=1500 steps=18619 divergences=0  exit=0
+## fuzz_tell.py seed 2: seed=2 scenarios=1000 steps=37855 oracle_await_timeouts=0 divergences=0  exit=0
+## fuzz_hier.py seed 2: seed=2 scenarios=1000 steps=29584 oracle_await_timeouts=0 divergences=0  exit=0
+ALLDONE

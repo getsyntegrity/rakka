@@ -1,0 +1,13 @@
+[package]
+name = "pekko-actor"
+version = "0.1.0"
+edition = "2024"
+description = "Rust port of Apache Pekko 2.0.0 pekko-actor (Classic)"
+
+[dependencies]
+
+# `cargo run --release --example classic-parity -- <command>` is the parity CLI: it mirrors
+# oracle/ (real Pekko 2.0.0) so that `rust-anything app replay` can compare both.
+[[example]]
+name = "classic-parity"
+path = "examples/classic-parity/main.rs"

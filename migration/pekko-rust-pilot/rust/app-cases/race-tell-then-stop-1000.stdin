@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn", "name": "a", "as": "a", "behavior": {"kind": "log"}}, {"op": "subscribe", "channel": "dead-letters", "as": "dl"}, {"op": "tell-seq", "ref": "a", "prefix": "m", "count": 1000}, {"op": "stop", "ref": "a"}, {"op": "tell-seq", "ref": "a", "prefix": "late", "count": 3}, {"op": "await-accounted", "target": "a", "dl": "dl", "total": 1003}]}

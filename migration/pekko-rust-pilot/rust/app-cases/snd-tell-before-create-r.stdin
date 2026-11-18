@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn", "name": "a", "as": "a", "behavior": {"kind": "log"}}, {"op": "tell", "ref": "a", "msg": "early"}, {"op": "tell", "ref": "a", "msg": "early2"}, {"op": "await-events", "target": "a", "count": 3}]}

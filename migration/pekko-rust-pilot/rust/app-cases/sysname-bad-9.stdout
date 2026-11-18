@@ -1,0 +1,1 @@
+{"system":{"ok":false,"exception":"java.lang.IllegalArgumentException","message":"invalid ActorSystem name [a@b], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-' or '_')"},"steps":[]}
