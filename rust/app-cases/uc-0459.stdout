@@ -1,0 +1,1 @@
+BS-06 concatenation: empty sides, lengths and contents -> ok <> <6162> <636465> <6162636465> <6162> <6162> <> 5 2 0 ByteString(97, 98, 99, 100, 101) t f <61626364656162636465> <6162636465> <6162636465> <6162> t t

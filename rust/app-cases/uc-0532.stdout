@@ -1,0 +1,1 @@
+ST-04 UnsynchronizedByteArrayInputStream with offset and length -> ok ok 0 -1 ok 2 2 3 -1 ok 0 ok 3 ok <02> !IllegalArgumentException[offset cannot be negative] !IllegalArgumentException[length cannot be negative] ok 0 ok 0 ok 0 ok 1 ok 0

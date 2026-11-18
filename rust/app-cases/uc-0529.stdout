@@ -1,0 +1,1 @@
+ST-01 ByteString.asInputStream: compact, slice and concatenation -> ok ok -1 n=-1 dest=<00> ok 97 98 99 -1 -1 ok 98 99 100 -1 ok 97 98 99 -1 ok -1 ok n=3 dest=<61626300000000000000> n=-1 dest=<00000000000000000000> ok n=3 dest=<0000616263> ok <626364>

@@ -451,3 +451,86 @@
 {"name": "uc-0451", "args": ["util-core-case"], "stdin": "BQ-C7 iterator remove drops the element it returned, by identity"}
 {"name": "uc-0452", "args": ["util-core-case"], "stdin": "BQ-C8 the iterator is a snapshot"}
 {"name": "uc-0453", "args": ["util-core-case"], "stdin": "RG-01 ReentrantGuard is absent from the 2.0.0 jar"}
+{"name": "uc-0454", "args": ["util-core-case"], "stdin": "BS-01 take drop dropRight on a compact value with extreme arguments"}
+{"name": "uc-0455", "args": ["util-core-case"], "stdin": "BS-02 chained trimming on a compact value"}
+{"name": "uc-0456", "args": ["util-core-case"], "stdin": "BS-03 trimming on a slice of an array (ByteString1)"}
+{"name": "uc-0457", "args": ["util-core-case"], "stdin": "BS-04 trimming on a concatenation (ByteStrings)"}
+{"name": "uc-0458", "args": ["util-core-case"], "stdin": "BS-05 slice patterns on every shape of value"}
+{"name": "uc-0459", "args": ["util-core-case"], "stdin": "BS-06 concatenation: empty sides, lengths and contents"}
+{"name": "uc-0460", "args": ["util-core-case"], "stdin": "BS-07 splitAt and the identity of the reassembled value"}
+{"name": "uc-0461", "args": ["util-core-case"], "stdin": "BS-08 element access on a slice and on a concatenation"}
+{"name": "uc-0462", "args": ["util-core-case"], "stdin": "BS-09 tail and init of a single byte and of the empty value"}
+{"name": "uc-0463", "args": ["util-core-case"], "stdin": "BS-10 grouped"}
+{"name": "uc-0464", "args": ["util-core-case"], "stdin": "BS-11 toString and its cut at 100 bytes"}
+{"name": "uc-0465", "args": ["util-core-case"], "stdin": "BS-12 equality across representations"}
+{"name": "uc-0466", "args": ["util-core-case"], "stdin": "BS-13 mapI, fold and toArray"}
+{"name": "uc-0467", "args": ["util-core-case"], "stdin": "BS-14 span, takeWhile and dropWhile with a signed predicate"}
+{"name": "uc-0468", "args": ["util-core-case"], "stdin": "BS-15 compact keeps the content"}
+{"name": "uc-0469", "args": ["util-core-case"], "stdin": "BS-16 fromArray saturates its offset and length"}
+{"name": "uc-0470", "args": ["util-core-case"], "stdin": "BS-17 fromInts truncates"}
+{"name": "uc-0471", "args": ["util-core-case"], "stdin": "BS-18 strings: UTF-8 and the named charsets"}
+{"name": "uc-0472", "args": ["util-core-case"], "stdin": "BS-19 decoding invalid UTF-8"}
+{"name": "uc-0473", "args": ["util-core-case"], "stdin": "BS-20 decodeString of a range"}
+{"name": "uc-0474", "args": ["util-core-case"], "stdin": "BS-21 Base64 encode"}
+{"name": "uc-0475", "args": ["util-core-case"], "stdin": "BS-22 Base64 decode"}
+{"name": "uc-0476", "args": ["util-core-case"], "stdin": "BS-23 copyToArray"}
+{"name": "uc-0477", "args": ["util-core-case"], "stdin": "BS-24 copyToBuffer"}
+{"name": "uc-0478", "args": ["util-core-case"], "stdin": "BS-25 fromByteBuffer consumes the buffer"}
+{"name": "uc-0479", "args": ["util-core-case"], "stdin": "BS-26 unsafe array and byte buffers"}
+{"name": "uc-0480", "args": ["util-core-case"], "stdin": "BS-27 indexOf on every shape of value"}
+{"name": "uc-0481", "args": ["util-core-case"], "stdin": "BS-28 lastIndexOf and contains"}
+{"name": "uc-0482", "args": ["util-core-case"], "stdin": "BS-29 indexOfSlice and containsSlice"}
+{"name": "uc-0483", "args": ["util-core-case"], "stdin": "BS-30 lastIndexOfSlice, startsWith and endsWith"}
+{"name": "uc-0484", "args": ["util-core-case"], "stdin": "BS-31 UTF-8 decoding of random byte soups"}
+{"name": "uc-0485", "args": ["util-core-case"], "stdin": "BS-32 Base64 decoding of random text soups"}
+{"name": "uc-0486", "args": ["util-core-case"], "stdin": "BS-33 charset names and aliases"}
+{"name": "uc-0487", "args": ["util-core-case"], "stdin": "BS-R1 random trimming and search against three values"}
+{"name": "uc-0488", "args": ["util-core-case"], "stdin": "BS-R2 random trimming and search against three values"}
+{"name": "uc-0489", "args": ["util-core-case"], "stdin": "BS-R3 random trimming and search against three values"}
+{"name": "uc-0490", "args": ["util-core-case"], "stdin": "BS-R7 random trimming and search against three values"}
+{"name": "uc-0491", "args": ["util-core-case"], "stdin": "BS-R11 random trimming and search against three values"}
+{"name": "uc-0492", "args": ["util-core-case"], "stdin": "BS-R42 random trimming and search against three values"}
+{"name": "uc-0493", "args": ["util-core-case"], "stdin": "BS-R99 random trimming and search against three values"}
+{"name": "uc-0494", "args": ["util-core-case"], "stdin": "BS-R12345 random trimming and search against three values"}
+{"name": "uc-0495", "args": ["util-core-case"], "stdin": "BU-01 primitives in both byte orders"}
+{"name": "uc-0496", "args": ["util-core-case"], "stdin": "BU-02 putLongPart for every length"}
+{"name": "uc-0497", "args": ["util-core-case"], "stdin": "BU-03 floats and doubles are written as raw bits"}
+{"name": "uc-0498", "args": ["util-core-case"], "stdin": "BU-04 arrays of primitives"}
+{"name": "uc-0499", "args": ["util-core-case"], "stdin": "BU-05 byte arrays and ranges"}
+{"name": "uc-0500", "args": ["util-core-case"], "stdin": "BU-06 appending ByteStrings and collections"}
+{"name": "uc-0501", "args": ["util-core-case"], "stdin": "BU-07 result does not invalidate the builder"}
+{"name": "uc-0502", "args": ["util-core-case"], "stdin": "BU-08 the output stream adapter"}
+{"name": "uc-0503", "args": ["util-core-case"], "stdin": "BU-R5 random writes"}
+{"name": "uc-0504", "args": ["util-core-case"], "stdin": "BU-R17 random writes"}
+{"name": "uc-0505", "args": ["util-core-case"], "stdin": "BU-R23 random writes"}
+{"name": "uc-0506", "args": ["util-core-case"], "stdin": "IT-01 next, head, hasNext and the exhausted iterator"}
+{"name": "uc-0507", "args": ["util-core-case"], "stdin": "IT-02 size consumes the iterator"}
+{"name": "uc-0508", "args": ["util-core-case"], "stdin": "IT-03 take, drop and slice mutate the iterator"}
+{"name": "uc-0509", "args": ["util-core-case"], "stdin": "IT-04 the same on a view and on a concatenation"}
+{"name": "uc-0510", "args": ["util-core-case"], "stdin": "IT-05 clone is independent and duplicate yields two iterators"}
+{"name": "uc-0511", "args": ["util-core-case"], "stdin": "IT-06 reading primitives in both byte orders"}
+{"name": "uc-0512", "args": ["util-core-case"], "stdin": "IT-07 getLongPart"}
+{"name": "uc-0513", "args": ["util-core-case"], "stdin": "IT-08 floats and doubles"}
+{"name": "uc-0514", "args": ["util-core-case"], "stdin": "IT-09 a short iterator consumes what it has and then fails"}
+{"name": "uc-0515", "args": ["util-core-case"], "stdin": "IT-10 getBytes, getByteString and arrays of primitives"}
+{"name": "uc-0516", "args": ["util-core-case"], "stdin": "IT-11 copyToArray never loops past the destination"}
+{"name": "uc-0517", "args": ["util-core-case"], "stdin": "IT-12 copyToBuffer"}
+{"name": "uc-0518", "args": ["util-core-case"], "stdin": "IT-13 toByteString consumes the iterator"}
+{"name": "uc-0519", "args": ["util-core-case"], "stdin": "IT-14 indexOf consumes the iterator"}
+{"name": "uc-0520", "args": ["util-core-case"], "stdin": "IT-15 takeWhile, dropWhile and span"}
+{"name": "uc-0521", "args": ["util-core-case"], "stdin": "IT-17 asInputStream"}
+{"name": "uc-0522", "args": ["util-core-case"], "stdin": "IT-18 reading after take and drop"}
+{"name": "uc-0523", "args": ["util-core-case"], "stdin": "IT-R4 random reads"}
+{"name": "uc-0524", "args": ["util-core-case"], "stdin": "IT-R8 random reads"}
+{"name": "uc-0525", "args": ["util-core-case"], "stdin": "IT-R15 random reads"}
+{"name": "uc-0526", "args": ["util-core-case"], "stdin": "IT-R16 random reads"}
+{"name": "uc-0527", "args": ["util-core-case"], "stdin": "IT-R23 random reads"}
+{"name": "uc-0528", "args": ["util-core-case"], "stdin": "IT-R42 random reads"}
+{"name": "uc-0529", "args": ["util-core-case"], "stdin": "ST-01 ByteString.asInputStream: compact, slice and concatenation"}
+{"name": "uc-0530", "args": ["util-core-case"], "stdin": "ST-02 UnsynchronizedByteArrayInputStream reads"}
+{"name": "uc-0531", "args": ["util-core-case"], "stdin": "ST-03 UnsynchronizedByteArrayInputStream skip"}
+{"name": "uc-0532", "args": ["util-core-case"], "stdin": "ST-04 UnsynchronizedByteArrayInputStream with offset and length"}
+{"name": "uc-0533", "args": ["util-core-case"], "stdin": "ST-05 readAll on both adapters and reset without a mark"}
+{"name": "uc-0534", "args": ["util-core-case"], "stdin": "ST-R6 random reads"}
+{"name": "uc-0535", "args": ["util-core-case"], "stdin": "ST-R9 random reads"}
+{"name": "uc-0536", "args": ["util-core-case"], "stdin": "ST-06 readNBytes, skipNBytes and transferTo"}

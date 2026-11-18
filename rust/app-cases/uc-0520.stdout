@@ -1,0 +1,1 @@
+IT-15 takeWhile, dropWhile and span -> ok ok len=2 <0102> len=0 ok len=3 <030405> len=0 ok <0102><030405> ok <><0102030405> ok <0102030405><> ok <><> ok len=3 3 ok len=2 2 ok <010203><0405>

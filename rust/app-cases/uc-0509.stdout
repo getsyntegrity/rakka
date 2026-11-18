@@ -1,0 +1,1 @@
+IT-04 the same on a view and on a concatenation -> ok ok len=4 <03040506> len=0 ok len=5 len=4 <02030405> len=0 ok len=4 2 3 2 <0405> len=0 ok len=4 3 len=1 6 1 ok len=3 3 1 2 3 !NoSuchElementException[next on empty iterator]

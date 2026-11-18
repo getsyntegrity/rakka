@@ -1,0 +1,1 @@
+IT-12 copyToBuffer -> ok ok n=2 pos=2 dest=<0102> len=1 n=1 pos=1 dest=<0300000000> len=0 ok n=0 pos=0 dest=<> len=3 3 ok n=3 pos=3 dest=<010203> len=2 2 n=2 pos=2 dest=<04050000000000000000> len=0 0 ok n=0 pos=0 dest=<000000> len=0

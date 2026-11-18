@@ -1,0 +1,1 @@
+BS-25 fromByteBuffer consumes the buffer -> ok <010203> pos=3 <0203> pos=3 <> pos=3 <> pos=0 ByteString(1, 2, 3)

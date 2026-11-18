@@ -1,0 +1,1 @@
+IT-13 toByteString consumes the iterator -> ok ok <010203> len=0 <> len=0 ok <020304> len=0 ok 2 <0304> len=0 ok <010203> len=0 ok <> len=0

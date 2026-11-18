@@ -1,0 +1,1 @@
+IT-17 asInputStream -> ok ok ok 2 99 -1 ok ok !IndexOutOfBoundsException[null] ok ok n=3 dest=<0061626300> n=-1 dest=<0000000000> n=0 dest=<0000000000> n=-1 dest=<0000> ok ok !IndexOutOfBoundsException[null] ok ok !IndexOutOfBoundsException[null] ok ok !IndexOutOfBoundsException[null] ok ok 3 -1 ok ok 0 -2 97 ok ok -1 n=-1 dest=<00> n=0 dest=<00> 0 ok ok 255 128 -1

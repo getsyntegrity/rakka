@@ -1,0 +1,1 @@
+BS-15 compact keeps the content -> ok <0102030405> <0102030405> t ByteString(1, 2, 3, 4, 5) <0102030405> t <020304> <020304> ByteString(2, 3, 4) t <> <> ByteString()
