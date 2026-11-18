@@ -283,5 +283,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P70 (2026-11-18): UTIL-RELOJ (AC-UTIL-016.16)
     WallClockOracle.register();
+
+    // ---- Slice P75 (2026-11-18): UTIL-ORIGEN-CLOSURES (AC-UTIL-016.8)
+    LineNumbersOracle.register();
   }
 }

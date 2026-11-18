@@ -5,6 +5,7 @@ pub mod fast_hash;
 mod glob;
 pub mod hash_code;
 pub mod helpers;
+pub mod line_numbers;
 mod pretty_duration;
 pub mod swar;
 mod time_unit;

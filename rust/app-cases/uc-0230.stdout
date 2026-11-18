@@ -1,0 +1,1 @@
+LN-07 a multi-line serializable lambda has a source file and lines -> ok kind=SourceFileLines fileIsBaseName=true linesPositive=true fromLeTo=true prettyIsPackageSlashResult=true

@@ -1,0 +1,1 @@
+LN-09 a non-serializable lambda has no source info -> ok kind=NoSourceInfo prettyIsClassName=true prettyHasNoLineSuffix=true

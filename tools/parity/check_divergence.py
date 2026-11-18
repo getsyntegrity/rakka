@@ -402,6 +402,25 @@ MUTANTS = {
         "                last.saturating_add(1)",
         "the increment saturates at Long.MAX_VALUE instead of wrapping around to Long.MIN_VALUE like Java",
     ),
+    # --- slice P75: LineNumbers (closure origin) ---
+    "line-numbers-range-always": (
+        "src/util/line_numbers.rs",
+        "Self::SourceFileLines { filename, from, to } if from != to =>",
+        "Self::SourceFileLines { filename, from, to } if true =>",
+        "a one-line origin is shown as a range (`file:22-22`) instead of `file:22`",
+    ),
+    "line-numbers-keeps-directory": (
+        "src/util/line_numbers.rs",
+        "let filename = path.rsplit(['/', '\\\\']).next().unwrap_or(path);",
+        "let filename = path;",
+        "the origin keeps the directory of the source file instead of its bare file name",
+    ),
+    "line-numbers-pretty-without-package": (
+        "src/util/line_numbers.rs",
+        'format!("{package}/{lines}")',
+        'format!("{lines}")',
+        "prettyName omits the `<package>/` prefix of a located closure",
+    ),
     # --- slice P05: Glob ---
     "glob-trailing-star-unmatched": (
         "src/util/glob.rs",

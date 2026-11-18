@@ -221,3 +221,14 @@
 {"name": "uc-0221", "args": ["util-core-case"], "stdin": "WC-12 8 threads of 500 readings on a clock ahead of the wall time"}
 {"name": "uc-0222", "args": ["util-core-case"], "stdin": "WC-13 8 threads of 500 readings on a new clock"}
 {"name": "uc-0223", "args": ["util-core-case"], "stdin": "WC-14 4 threads of 2000 readings on a clock ahead of the wall time"}
+{"name": "uc-0224", "args": ["util-core-case"], "stdin": "LN-01 one line shows file:line"}
+{"name": "uc-0225", "args": ["util-core-case"], "stdin": "LN-02 a range shows file:from-to"}
+{"name": "uc-0226", "args": ["util-core-case"], "stdin": "LN-03 unordered or non-positive bounds are printed as given"}
+{"name": "uc-0227", "args": ["util-core-case"], "stdin": "LN-04 SourceFile NoSourceInfo and UnknownSourceFormat text"}
+{"name": "uc-0228", "args": ["util-core-case"], "stdin": "LN-05 equality and hash code of results"}
+{"name": "uc-0229", "args": ["util-core-case"], "stdin": "LN-06 a one-line serializable lambda has a source file and lines"}
+{"name": "uc-0230", "args": ["util-core-case"], "stdin": "LN-07 a multi-line serializable lambda has a source file and lines"}
+{"name": "uc-0231", "args": ["util-core-case"], "stdin": "LN-08 an anonymous class has a source file and lines"}
+{"name": "uc-0232", "args": ["util-core-case"], "stdin": "LN-09 a non-serializable lambda has no source info"}
+{"name": "uc-0233", "args": ["util-core-case"], "stdin": "LN-10 the Java API for is the same as apply"}
+{"name": "uc-0234", "args": ["util-core-case"], "stdin": "LN-11 two closures of one site report the same origin and two sites differ"}
