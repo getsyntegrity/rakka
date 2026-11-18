@@ -44,13 +44,13 @@ Filas: AT-EXT-003. Contratos y aserciones: `docs/inventory/contracts/typed-exten
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-EXT-001.1 | Extension / ExtensionId: identidad, una instancia por sistema y concurrencia | ExtensionId<T> como valor estatico/Arc con identidad por puntero; registry… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:89-120… | Q-T-EXT-2, Q-X-2 |
-| AT-EXT-001.2 | Extension: fallo de creacion cacheado | Registro con Result<Arc<T>,Arc<Error>> cacheado y clonado en cada acceso. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:136-153 | Q-T-EXT-3 |
-| AT-EXT-001.3 | Extension: extension() sin registro y hasExtension | Result<Arc<T>,ExtensionError::NotRegistered> y has_extension(). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:121-13… | Q-T-EXT-2 |
-| AT-EXT-002.1 | Carga desde configuracion: pekko.actor.typed.library-extensions | Lista de nombres sustituida por registro explicito (Q-X-2):… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:165-193 | Q-X-2 |
-| AT-EXT-002.2 | Carga desde configuracion: pekko.actor.typed.extensions | Registro explicito con politica "skip" solo para errores de resolucion de nombre. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:121-15… | Q-T-EXT-1, Q-X-2 |
-| AT-EXT-002.3 | Carga de extensiones tipadas desde el sistema clasico (LoadTypedExtensions) | n/a si no hay sistema clasico (Q-X-8 b). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:204-234 | Q-X-8 |
-| AT-EXT-003 | ExtensionSetup / AbstractExtensionSetup (override en tests) | Builder del sistema acepta ExtensionOverride(id, factory). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:37-40… | - |
+| AT-EXT-001.1 | Extension / ExtensionId: identidad, una instancia por sistema y concurrencia | ExtensionId<T> como valor estatico/Arc con identidad por puntero; registry… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:90-121… | Q-T-EXT-2, Q-X-2 |
+| AT-EXT-001.2 | Extension: fallo de creacion cacheado | Registro con Result<Arc<T>,Arc<Error>> cacheado y clonado en cada acceso. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:137-154 | Q-T-EXT-3 |
+| AT-EXT-001.3 | Extension: extension() sin registro y hasExtension | Result<Arc<T>,ExtensionError::NotRegistered> y has_extension(). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:122-13… | Q-T-EXT-2 |
+| AT-EXT-002.1 | Carga desde configuracion: pekko.actor.typed.library-extensions | Lista de nombres sustituida por registro explicito (Q-X-2):… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:166-194 | Q-X-2 |
+| AT-EXT-002.2 | Carga desde configuracion: pekko.actor.typed.extensions | Registro explicito con politica "skip" solo para errores de resolucion de nombre. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:122-15… | Q-T-EXT-1, Q-X-2 |
+| AT-EXT-002.3 | Carga de extensiones tipadas desde el sistema clasico (LoadTypedExtensions) | n/a si no hay sistema clasico (Q-X-8 b). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:205-235 | Q-X-8 |
+| AT-EXT-003 | ExtensionSetup / AbstractExtensionSetup (override en tests) | Builder del sistema acepta ExtensionOverride(id, factory). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ExtensionsSpec.scala:38-41… | - |
 
 ## Gates y criterio de cierre
 

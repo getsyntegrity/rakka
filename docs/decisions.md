@@ -2,15 +2,15 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 211 decisiones: 8 bloqueantes, 202 propuestas, 0 aceptadas, 0 aceptadas con cambios, 1 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 216 decisiones: 8 bloqueantes, 202 propuestas, 5 aceptadas, 0 aceptadas con cambios, 1 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
 | ID | Autorización | Alcance |
 |---|---|---|
-| A-1 | Apache Pekko 1.7.1 es la fuente de verdad, fijada en `upstream/pekko` @ `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (= `v1.7.1^{}`, verificado con `git ls-remote` el 2026-10-30). | todo |
+| A-1 | Apache Pekko 2.0.0 es la fuente de verdad, fijada en `upstream/pekko` @ `9fbd2283b1cf701c90a1223bf621942c191db61f` (= `v2.0.0^{}`, verificado con `git ls-remote` el 2026-11-18). Sustituye a la referencia 1.7.1 (decisión Q-X-11). | todo |
 | A-2 | `feat/pekko-rust-pilot-migration` es la rama de integración; `main` y `develop` están discontinuadas (referencia histórica hasta que el Owner decida archivarlas); sin push directo a la rama de integración salvo pedido explícito del Owner, sin force push ni borrado de ramas sin autorización; las ramas salen de `origin/feat/pekko-rust-pilot-migration`. | proceso |
-| A-3 | TDD estricto RED → GREEN → REFACTOR con evidencia real; cobertura mínima 90 % de las líneas de producción nuevas o modificadas; nombres que expresan propósito. | todas las unidades |
+| A-3 | TDD estricto RED → GREEN → REFACTOR con evidencia real; gates de la decisión Q-X-14 (cobertura de producción ≥95 % por crate, que sustituye al 90 % de líneas nuevas anterior); nombres que expresan propósito. | todas las unidades |
 | A-4 | Ninguna diferencia semántica se acepta sin decisión explícita del Owner; una pregunta abierta impide cerrar el comportamiento afectado. | todas las filas con `Q-` |
 | A-5 | Ningún comportamiento se elimina por ser difícil de expresar en Rust; las exclusiones requieren autorización explícita. | todo el inventario |
 | A-6 | Classic y Typed completos, con interoperabilidad y testkits necesarios, están en alcance. | inventario |
@@ -207,6 +207,61 @@ Decidirlas primero: desbloquean la mayor parte de las propuestas por unidad.
 - **Filas afectadas:** AC-SYS-018; AC-CFG-008
 - **Unidades afectadas:** AC-SYS, AC-CFG, AC-DW, AC-SER
 - **Origen:** transversal
+
+### Q-X-11 — Versión de referencia: Apache Pekko 2.0.0
+
+- **Estado:** aceptada
+- **Evidencia:** upstream/pekko @ v2.0.0 (commit 9fbd2283b1cf701c90a1223bf621942c191db61f); docs/upstream.md. Sustituye a A-1 (1.7.1).
+- **Alternativas:** (a) 2.0.0; (b) mantener 1.7.1.
+- **Recomendación:** (a).
+- **Filas afectadas:** todas las filas
+- **Unidades afectadas:** todas
+- **Origen:** transversal
+- **Respuesta del Owner:** aceptar: la referencia es Apache Pekko 2.0.0 (upstream/pekko @ v2.0.0). Sustituye a A-1 (1.7.1). (Owner (instrucción en la sesión), 2026-11-18)
+
+### Q-X-12 — Oráculo oficial: CLI Java del piloto con rust-anything
+
+- **Estado:** aceptada
+- **Evidencia:** migration/pekko-rust-pilot/oracle (Java 17), `rust-anything app record/replay`. El oráculo jshell + goldens de tools/oracle queda deprecado y sus escenarios se convierten a casos rust-anything.
+- **Alternativas:** (a) CLI del piloto + rust-anything; (b) jshell + goldens; (c) ambos.
+- **Recomendación:** (a).
+- **Filas afectadas:** todas las filas
+- **Unidades afectadas:** todas
+- **Origen:** transversal
+- **Respuesta del Owner:** aceptar: el oráculo oficial es el CLI Java del piloto (Java 17) con rust-anything app record/replay. El oráculo jshell + goldens (tools/oracle) queda deprecado y sus escenarios se convierten a casos rust-anything. (Owner (instrucción en la sesión), 2026-11-18)
+
+### Q-X-13 — docs/unit-plan.md aprobado como guía de orden y alcance
+
+- **Estado:** aceptada
+- **Evidencia:** docs/unit-plan.md: 77 unidades, 783 filas, 10 olas. Las filas y las olas valen; los apartados Tests/oráculo de cada unidad se sustituyen por casos rust-anything (Q-X-12). Levanta la nota Este plan no está aprobado para implementar.
+- **Alternativas:** (a) aprobar con ese reemplazo; (b) seguir sin aprobar.
+- **Recomendación:** (a).
+- **Filas afectadas:** todas las filas
+- **Unidades afectadas:** todas
+- **Origen:** transversal
+- **Respuesta del Owner:** aceptar: docs/unit-plan.md queda aprobado como guía de orden y alcance; las filas y las olas valen y los Tests/oráculo genéricos de cada unidad se reemplazan por casos rust-anything. (Owner (instrucción en la sesión), 2026-11-18)
+
+### Q-X-14 — Gates de calidad por slice e hito
+
+- **Estado:** aceptada
+- **Evidencia:** Replay completo, tests, Clippy -D warnings, fmt, cobertura de producción >=95 % por crate, mutantes nuevos en cada slice, y regresión completa de mutantes y fuzzers en cada hito. Sustituye a A-3 (cobertura 90 % de líneas nuevas).
+- **Alternativas:** (a) estos gates; (b) mantener el 90 % de líneas nuevas.
+- **Recomendación:** (a).
+- **Filas afectadas:** todas las filas
+- **Unidades afectadas:** todas
+- **Origen:** transversal
+- **Respuesta del Owner:** aceptar: gates = replay completo, tests, Clippy -D warnings, fmt, cobertura de producción >=95 % por crate, mutantes nuevos en cada slice y regresión completa de mutantes y fuzzers en cada hito. Sustituye a A-3 (90 % de líneas nuevas). (Owner (instrucción en la sesión), 2026-11-18)
+
+### Q-X-15 — Nombres de los crates: rakka-actor y rakka-actor-typed
+
+- **Estado:** aceptada
+- **Evidencia:** crates/rakka-actor, crates/rakka-actor-typed; el piloto usaba pekko-actor y pekko-actor-typed.
+- **Alternativas:** (a) rakka-*; (b) pekko-*.
+- **Recomendación:** (a).
+- **Filas afectadas:** todas las filas
+- **Unidades afectadas:** todas
+- **Origen:** transversal
+- **Respuesta del Owner:** aceptar: los crates son rakka-actor y rakka-actor-typed. (Owner (instrucción en la sesión), 2026-11-18)
 
 Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 

@@ -20,7 +20,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/util/Timeout.scala:22-29 (case class + constructor (Long, TimeUnit))`
 - `actor/src/main/scala/org/apache/pekko/util/Timeout.scala:34-55 (zero, apply, create, durationToTimeout)`
-- `actor/src/main/scala-2/org/apache/pekko/util/JavaDurationConverters.scala:25-35` (`asScala = Duration.fromNanos(self.toNanos)`; `Duration.asJava = JDuration.ofNanos(toNanos)`; el desborde de `toNanos` es el `ArithmeticException` de TO-NEG-04/05; leído en el cierre documental 2026-10-31)
+- `actor/src/main/scala-2/org/apache/pekko/util/JavaDurationConverters.scala:25-35 (1.7.1)` (`asScala = Duration.fromNanos(self.toNanos)`; `Duration.asJava = JDuration.ofNanos(toNanos)`; el desborde de `toNanos` es el `ArithmeticException` de TO-NEG-04/05; leído en el cierre documental 2026-10-31)
 - `reference.conf: n/a (Timeout no lee claves; los consumidores `creation-timeout`, `unstarted-push-timeout`, `logger-startup-timeout` lo construyen en ActorSystem.scala:423-424,439)`
 
 **Condiciones.**
@@ -57,8 +57,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `Helpers.base64(l, sb)` agrega al builder (por defecto `"$"`) un carácter por cada 6 bits de `l`, empezando por los menos significativos, hasta que el resto sea 0; con `l = 0` agrega un solo carácter.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:115-123`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:434-442 (tempPath usa base64 con prefijo)`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:117-125`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:441-449 (tempPath usa base64 con prefijo)`
 - `Children.scala:126,130 (nombres anónimos `$a`)`
 
 **Condiciones.**
@@ -92,8 +92,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Convierte a minúsculas con el locale raíz (sin reglas del locale del sistema, p. ej. turco).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:40`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:441,449 (log-dead-letters y suspend-duration)`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:42`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:440,448 (log-dead-letters y suspend-duration)`
 
 **Condiciones.**
 - Normal: ASCII y Unicode usan el mapeo completo de minúsculas (`İ` -> `i` + U+0307, sigma final contextual).
@@ -123,7 +123,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Extensión de cualquier valor para validar argumentos con `IllegalArgumentException` en lugar de `AssertionError`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:143-168 (usa `require` de Predef)`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:145-170 (usa `require` de Predef)`
 - `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:60 y dispatch/affinity/AffinityPool.scala:321 (consumidores)`
 
 **Condiciones.**
@@ -155,8 +155,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Lectores de duración usados por Settings y por los configuradores (`creation-timeout`, `unstarted-push-timeout`, `logger-startup-timeout`, `log-dead-letters-suspend-duration`, Dispatchers.scala:304-306).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:173-176,194-195`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:423-424,439,451`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:175-178,196-197`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:424-425,438,450`
 - `Dispatchers.scala:304-306 (consumidor; fuera de mi grupo)`
 
 **Condiciones.**
@@ -188,8 +188,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `Settings.toString` = config renderizada con redacciones (PR apache/pekko#771, 1.0.2).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:178-192`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:492`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:180-194`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:491`
 
 **Condiciones.**
 - Normal: render con `ConfigRenderOptions.defaults()` (comentarios, JSON-like, formateado) pero sin valores de entorno.
@@ -219,7 +219,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Valor único `Done` que se usa como resultado de futuros que completan sin valor.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/Done.scala:20-40`
+- `actor/src/main/scala/org/apache/pekko/Done.scala:21-41`
 
 **Condiciones.**
 - Normal: una sola instancia; `toString` = "Done" (case object).
@@ -249,7 +249,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Valor `NotUsed` para tipos genéricos donde el valor materializado no importa (streams, fuera de alcance, pero el tipo está en pekko-actor).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/NotUsed.scala:17-37`
+- `actor/src/main/scala/org/apache/pekko/NotUsed.scala:20-42`
 
 **Condiciones.**
 - Normal: singleton, `toString` = "NotUsed".
@@ -311,7 +311,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/PekkoException.scala:38-43`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:479-487 (usos)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:478-486 (usos)`
 
 **Condiciones.**
 - Mensajes fijados por el código: `pekko.coordinated-shutdown.run-by-actor-system-terminate=on and pekko.coordinated-shutdown.terminate-actor-system=off is not a supported configuration combination.` (ActorSystem.scala:479-481) y `Pekko JAR version [<v>] does not match the provided config version [<c>]` (ActorSystem.scala:486-487).
@@ -369,8 +369,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Los módulos externos llaman `PekkoVersion.require("mi-lib", "1.0.4")` para abortar si el Pekko cargado es más viejo/incompatible.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/PekkoVersion.scala:18-82`
-- `actor/src/main/scala/org/apache/pekko/util/Version.scala:18-45 (Version.current vía Version.scala generado)`
+- `actor/src/main/scala/org/apache/pekko/PekkoVersion.scala:19-83`
+- `actor/src/main/scala/org/apache/pekko/util/Version.scala:19-46 (Version.current vía Version.scala generado)`
 
 **Condiciones.**
 - Normal: igual -> ok (línea 41). Misma mayor y menor: parche actual >= requerido; menor actual > requerido -> ok; mayor distinta -> falla (línea 73).
@@ -407,7 +407,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `Version(String)` convierte una versión en 4 números + resto y es `Comparable`; se usa para chequear versiones de módulos (ManifestInfo) y por Typed/Cluster.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Version.scala:18-201`
+- `actor/src/main/scala/org/apache/pekko/util/Version.scala:19-202`
 
 **Condiciones.**
 - Parseo: 1 segmento -> número simple (o alfanumérico si no es numérico) con los otros 3 números = Undefined(0); 2 segmentos -> `a.b[-rest|+dynver]`; 3 segmentos `a.b.c[...]`; más de 3 -> IllegalArgumentException("Only 3 digits separated with '.' are supported. [<v>]") (línea 146); vacío -> IllegalArgumentException("Empty version not supported.") (línea 114).
@@ -445,9 +445,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ByteString` es una secuencia inmutable de bytes (`IndexedSeq[Byte]`, sellada) con tres representaciones internas: `ByteString1C` (un array completo, compacta), `ByteString1` (un array con `startIndex`/`length`) y `ByteStrings` (rope de 2 o más `ByteString1` no vacíos). Lo observable no es la representación sino: (a) los valores de `length`, `apply`, `head/tail/last/init`, `take/drop/dropRight/takeRight/slice/splitAt/span/takeWhile/dropWhile/grouped/map/foreach/foldLeft` son los de un `Vector[Byte]`; (b) los argumentos fuera de rango en `take/drop/dropRight/slice` se saturan y nunca fallan; (c) igualdad por contenido entre las tres representaciones y `hashCode` consistente con ella; (d) `++` y los recortes no copian el contenido; (e) `toString` y `ByteString.empty`. Las factorías y conversiones están en AC-UTIL-006.6, la búsqueda en AC-UTIL-006.7, la serialización en AC-UTIL-006.8, la compactación en AC-UTIL-006.2.
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:168-307` (ByteString1C), `:312-507` (ByteString1), `:509-826` (ByteStrings y su compañero, `compare`), `:867-1162` (clase base: `head/tail/last/init`, `takeRight`, `span`, `splitAt`, `grouped`, `toString`, `map/mapI`)
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:168-307 (1.7.1)` (ByteString1C), `:312-507` (ByteString1), `:509-826` (ByteStrings y su compañero, `compare`), `:867-1162` (clase base: `head/tail/last/init`, `takeRight`, `span`, `splitAt`, `grouped`, `toString`, `map/mapI`)
 - `actor/src/main/scala-3/org/apache/pekko/util/ByteString.scala` (espejo para Scala 3; el módulo se compila contra 2.13 y 3)
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:360-429` (ByteString1), `:430-493` (ByteString1C), `:494-645` (ByteStrings drop/dropRight/slice/take), `:1112-1372` (propiedades de ByteString), `ByteStringInitializationSpec.scala:25-64`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:372-441` (ByteString1), `:430-493` (ByteString1C), `:494-645` (ByteStrings drop/dropRight/slice/take), `:1112-1372` (propiedades de ByteString), `ByteStringInitializationSpec.scala:25-64`
 
 **Precondiciones.** Ninguna para las operaciones de recorte (todo `Int` es aceptado, incluidos `Int.MinValue` e `Int.MaxValue`). `ByteStrings` exige `bytestrings` no vacío y primer fragmento no vacío (`ByteString.scala:576-577`), pero sólo se construye por `++`/builder, que ya garantizan la invariante.
 
@@ -494,7 +494,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `CompactByteString` es un `ByteString` contiguo en memoria y sin holgura (`isCompact == true`, `compact` devuelve `this`). `ByteString.compact` devuelve un `CompactByteString` con el mismo contenido: O(1) si `isCompact`, copia en caso contrario. `isCompact` es `true` sólo si el valor es un `ByteString1C`, un `ByteString1` cuyo array tiene exactamente su longitud, o un `ByteStrings` con un único fragmento compacto. Las factorías `CompactByteString.apply/fromArray` copian siempre y devuelven `CompactByteString.empty` (singleton) para entrada vacía.
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:1164-1257` (compañero y clase), `:351,396-397` (ByteString1.isCompact/compact), `:610,620-631` (ByteStrings.isCompact/compact)
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:1164-1257 (1.7.1)` (compañero y clase), `:351,396-397` (ByteString1.isCompact/compact), `:610,620-631` (ByteStrings.isCompact/compact)
 - tests: `ByteStringSpec.scala:1129-1134,1193-1202`, `ByteStringInitializationSpec.scala:25-64`
 
 **Precondiciones.** Ninguna.
@@ -531,8 +531,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ByteStringBuilder` es un builder mutable no sincronizado que acumula bytes y produce un `ByteString` con `result()`. Escribe primitivos con el orden de bytes indicado (`BIG_ENDIAN`/`LITTLE_ENDIAN`), arreglos de primitivos y rangos de bytes, y se adapta a `java.io.OutputStream`. El resultado no se compacta automáticamente.
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:1259-1595` (builder completo)
-- tests: `ByteStringSpec.scala:301-358` (helpers `test*Encoding`), `:1681-1801`; `ByteStringBuilderSpec.scala:22-38`; `actor-tests/src/test/scala-2.13+/org/apache/pekko/util/ByteStringBuilderScala213PlusSpec.scala:26-40`, `actor-tests/src/test/java/org/apache/pekko/util/ByteStringTest.java:21-37`
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:1259-1595 (1.7.1)` (builder completo)
+- tests: `ByteStringSpec.scala:301-358` (helpers `test*Encoding`), `:1681-1801`; `ByteStringBuilderSpec.scala:22-38`; `actor-tests/src/test/scala-2.13+/org/apache/pekko/util/ByteStringBuilderScala213PlusSpec.scala:26-40`, `actor-tests/src/test/java/org/apache/pekko/util/ByteStringTest.java:20-36`
 
 **Precondiciones.** `byteOrder` debe ser uno de los dos valores de `java.nio.ByteOrder`; `putBytes(array, start, len)` exige un rango válido del arreglo.
 
@@ -574,7 +574,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ByteIterator` es un `BufferedIterator[Byte]` mutable sobre un `ByteString` (implementado por `ByteArrayIterator` y `MultiByteArrayIterator`). Además de la iteración, lee primitivos con orden de bytes (`getShort/Int/Long/LongPart/Float/Double`), copia a arreglos (`getBytes/getShorts/getInts/getLongs/getFloats/getDoubles`), a `ByteBuffer` (`copyToBuffer`), expone `len`, `clone`, `duplicate`, `toByteString`, `take/drop/slice/takeWhile/dropWhile/span/indexWhere/indexOf` y se adapta a `java.io.InputStream`. Las operaciones de recorte mutan el iterador y devuelven `this`.
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteIterator.scala:26-196` (ByteArrayIterator), `:197-426` (MultiByteArrayIterator), `:428-712` (clase base, `getXxx`)
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteIterator.scala:28-219` (ByteArrayIterator), `:197-426` (MultiByteArrayIterator), `:428-712` (clase base, `getXxx`)
 - tests: `ByteStringSpec.scala:1415-1679` (iterador), `ByteIteratorSpec.scala:22-47`
 
 **Precondiciones.** `byteOrder` estándar; los arreglos destino con espacio para `n` elementos desde `offset`.
@@ -621,7 +621,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ByteString.asInputStream` (desde 1.1.0) expone los bytes como un `InputStream`: `UnsynchronizedByteArrayInputStream` sobre el array (o la franja) para `ByteString1C`/`ByteString1`, y la secuencia de los fragmentos para `ByteStrings` (`SequenceInputStream`). `ByteIterator.asInputStream` (AC-UTIL-006.4) y `ByteStringBuilder.asOutputStream` (AC-UTIL-006.3) completan los adaptadores. La clase `UnsynchronizedByteArrayInputStream` está en AC-UTIL-022.
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:308,505-506,637-638` (`asInputStream`), `:1581-1587` (`asOutputStream`)
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:308,505-506,637-638 (1.7.1)` (`asInputStream`), `:1581-1587` (`asOutputStream`)
 - tests: `actor-tests/src/test/scala/org/apache/pekko/util/ByteStringInputStreamSpec.scala:28-80`
 
 **Precondiciones.** Ninguna.
@@ -656,7 +656,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Construcción y conversión de `ByteString` desde/hacia tipos externos: `ByteString.apply` (arreglo, `Byte*`, `IterableOnce[Byte]`, `Integral*`, `ByteBuffer`, `String` con/sin charset), `fromArray`, `fromArrayUnsafe`, `fromInts`, `fromString`, `fromByteBuffer`, `UTF_8`, `empty`/`emptyByteString`, y salidas `utf8String`, `decodeString(charset)`, `encodeBase64`/`decodeBase64`, `asByteBuffer`/`asByteBuffers`/`getByteBuffers`, `toByteBuffer`, `toArray`/`toArrayUnsafe`, `copyToArray`, `copyToBuffer`, `mapI`.
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:31-161` (compañero), `:201-215,281-308` (ByteString1C), `:384-435,489-506` (ByteString1), `:612-646,808-823` (ByteStrings), `:1010-1160`
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:31-161 (1.7.1)` (compañero), `:201-215,281-308` (ByteString1C), `:384-435,489-506` (ByteString1), `:612-646,808-823` (ByteStrings), `:1010-1160`
 - tests: `ByteStringSpec.scala:408-428,472-492,1004-1025` (copyToArray), `:1166-1184,1204-1221,1402-1412`
 
 **Precondiciones.** Un `Array` mutado después de `fromArrayUnsafe`/`toArrayUnsafe` rompe la inmutabilidad (contrato "Unsafe API" documentado: `:79-118,1035-1052`).
@@ -702,7 +702,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Familia de búsqueda sobre bytes con semántica de `Seq`: `indexOf(elem)`, `indexOf(elem, from)`, `indexOf(elem, from, to)` (`to` exclusivo, desde 1.3.0), `lastIndexOf(elem[, end])`, `contains`, `indexOfSlice(slice[, from])`, `containsSlice`, `startsWith(prefix[, offset])`, con variantes especializadas para `Byte` (sin boxing) y para `Array[Byte]`.
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:236-271` (ByteString1C), `:451-487` (ByteString1), `:730-806` (ByteStrings), `:927-992` (base: `indexOf` sobrecargas, `indexOfSlice`, `contains`)
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:236-271 (1.7.1)` (ByteString1C), `:451-487` (ByteString1), `:730-806` (ByteStrings), `:927-992` (base: `indexOf` sobrecargas, `indexOfSlice`, `contains`)
 - tests: `ByteStringSpec.scala:646-1003,1026-1108`
 - mima: `actor/src/main/mima-filters/1.2.x.backwards.excludes/bytestring-indexOf-overload.excludes`
 
@@ -743,7 +743,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Un `ByteString` serializado con `java.io.ObjectOutputStream` se escribe vía `writeReplace` -> `SerializationProxy`: un byte de identidad de representación seguido del contenido (`ByteString1` = 0, `ByteString1C` = 1, `ByteStrings` = 2) y se reconstruye en `readResolve`, de modo que `deserialize(serialize(x)) == x` para cualquier representación. El formato de `ByteString1C` se mantiene compatible con Akka (comprobado con un hex fijo en Scala 2.12).
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:173-180,278-279,320-324,346-349,498,550-567,648-651,825-856`
+- `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:173-180,278-279,320-324,346-349,498,550-567,648-651,825-856 (1.7.1)`
 - tests: `ByteStringSpec.scala:1374-1400`
 
 **Precondiciones.** Sólo aplica con serialización Java activa (`allow-java-serialization`, AC-SER-004).
@@ -778,8 +778,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Multimapa concurrente clave -> conjunto ordenado de valores (ordenado por `valueComparator`, sin duplicados). Altas/bajas se serializan por clave; las lecturas no bloquean.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Index.scala:23-199`
-- `actor/src/main/scala/org/apache/pekko/util/Index.scala:201-207 (ConcurrentMultiMap)`
+- `actor/src/main/scala/org/apache/pekko/util/Index.scala:22-198`
+- `actor/src/main/scala/org/apache/pekko/util/Index.scala:200-206 (ConcurrentMultiMap)`
 
 **Condiciones.**
 - `put(k, v)` -> true si el valor no estaba asociado a la clave, false si ya estaba (IndexSpec.scala:56-60).
@@ -817,9 +817,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Índice mutable que respeta relaciones de subclase entre claves: al agregar una clave hereda los valores de su superclase más específica; agregar/quitar un valor aplica a todas las subclases. Devuelve los cambios (clave -> conjunto de valores) para actualizar una caché externa.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala:21-34 (Subclassification)`
-- `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala:36-77 (Nonroot)`
-- `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala:80-236 (addKey, addValue, removeValue, findValues, integrate, mergeChangesByKey)`
+- `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala:17-30 (Subclassification)`
+- `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala:32-73 (Nonroot)`
+- `actor/src/main/scala/org/apache/pekko/util/SubclassifiedIndex.scala:76-231 (addKey, addValue, removeValue, findValues, integrate, mergeChangesByKey)`
 
 **Condiciones.**
 - `addKey(k)`: si ninguna clave conocida es igual ni superclase, crea un nodo con los valores de la raíz; si hay una superclase, delega en ella; devuelve el diff para la caché (líneas 111-127).
@@ -894,7 +894,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/util/MessageBuffer.scala:24-176` (MessageBuffer y nodo), `:184-316` (MessageBufferMap)
 - consumidores (fuera del grupo): `cluster-sharding/.../Shard.scala`, `cluster-tools/.../ClusterSingletonProxy.scala`, `PerGroupingBuffer.scala`, `ClusterClient.scala`, `persistence/.../RecoveryPermitter.scala`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/MessageBufferSpec.scala:27-191`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/MessageBufferSpec.scala:28-192`
 
 **Precondiciones.** Ninguna; `message` y `ref` pueden ser `null` (un buffer vacío devuelve `(null, null)` en `head`).
 
@@ -983,7 +983,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/util/BoundedBlockingQueue.scala:27-299`
 - consumidor: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/BoundedBlockingQueueSpec.scala:47-914` (79 casos; 18 marcados `TimingTest`)
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/BoundedBlockingQueueSpec.scala:49-916` (79 casos; 18 marcados `TimingTest`)
 
 **Precondiciones (constructor).** `backing` no nulo (`IllegalArgumentException("Backing Queue may not be null")`); `maxCapacity > 0`; `backing.size() == 0`; si `backing` es `BlockingQueue`, `backing.remainingCapacity >= maxCapacity` (los `require` lanzan `IllegalArgumentException("requirement failed")`).
 
@@ -1068,7 +1068,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/util/TypedMultiMap.scala:41-125`
 - consumidores: `actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/receptionist/LocalReceptionist.scala`, `ServiceKey.scala`
-- tests: `actor-tests/src/test/scala-2/org/apache/pekko/util/TypedMultiMapSpec.scala:32-76`
+- tests: `actor-tests/src/test/scala-2/org/apache/pekko/util/TypedMultiMapSpec.scala:33-77`
 
 **Precondiciones.** Coherencia de tipos clave/valor garantizada por el compilador (los tests `shouldNot compile` fijan que `inserted(Key(1))(MyValue(42L))` no compila).
 
@@ -1110,7 +1110,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `Switch(startAsOn=false)`; `switchOn`/`switchOff` devuelven true si cambió de estado; las variantes con acción la ejecutan bajo lock sólo si cambia y revierten el estado si la acción lanza.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/LockUtil.scala:29-155`
+- `actor/src/main/scala/org/apache/pekko/util/LockUtil.scala:18-144`
 
 **Condiciones.**
 - `switchOn(action)`: si estaba off -> on, ejecuta la acción, true; si ya estaba on -> false sin ejecutar. Si la acción lanza (Throwable) revierte el estado y relanza (líneas 35-45).
@@ -1145,7 +1145,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ReentrantGuard.withGuard(body)` ejecuta `body` bajo el lock reentrante y lo libera siempre.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/LockUtil.scala:19-27`
+- `actor/src/main/scala/org/apache/pekko/util/LockUtil.scala:16`
 
 **Condiciones.**
 - Libera el lock aunque `body` lance. Sin tests propios (SwitchSpec no la usa).
@@ -1173,7 +1173,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `OptionVal[+A]` es un *value class* (`extends AnyVal`) sobre `x: A` con `null` como ausencia, usado en todo el código interno (~cientos de usos, incluyendo Typed) para evitar la asignación de un `Some`. API: `apply`, `OptionVal.Some(x)` (extractor por nombre), `none`/`OptionVal.None`, `isEmpty`, `isDefined`, `getOrElse`, `toOption`, `contains`, `orNull`, `get`, `toString`. Efecto observable a preservar: la semántica de `Option` con `null` como `None`, `toString` y los errores de `get`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/OptionVal.scala:22-93`
+- `actor/src/main/scala/org/apache/pekko/util/OptionVal.scala:23-94`
 
 **Precondiciones.** El valor no debe ser `null` si se quiere `Some`: `OptionVal(null)` **es** `None`.
 
@@ -1205,7 +1205,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/util/ConstantFun.scala:26-91`
-- tests: `actor-tests/src/test/java/org/apache/pekko/util/ConstantFunJavaTest.java:24-46`
+- tests: `actor-tests/src/test/java/org/apache/pekko/util/ConstantFunJavaTest.java:26-48`
 
 **Precondiciones.** Ninguna.
 
@@ -1238,8 +1238,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** (1) `EmptyImmutableSeq` es una `immutable.Seq[Nothing]` vacía cuyo `apply(idx)` lanza `IndexOutOfBoundsException(idx.toString)` y cuyo `iterator.next()` lanza `NoSuchElementException("next on empty iterator")`. (2) `PartialImmutableValuesIterable[From, To]` es una vista inmutable que, dado un `valuesIterator: Iterator[From]`, una función parcial `isDefinedAt`/`apply`, itera sólo los valores para los que la función está definida; `size` y `foreach` se derivan del iterador.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Collections.scala:22-69`
-- consumidores: `ByteIterator.scala:49` (`EmptyImmutableSeq.iterator.next()`), `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:32,512` (argumentos vacíos de `createInstanceFor`), `actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:20,63-86,135` (`PartialImmutableValuesIterable` para `children`/`stats`), `actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:27,288`.
+- `actor/src/main/scala/org/apache/pekko/util/Collections.scala:22-94`
+- consumidores: `ByteIterator.scala:49` (`EmptyImmutableSeq.iterator.next()`), `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:33,519` (argumentos vacíos de `createInstanceFor`), `actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:20,63-86,135` (`PartialImmutableValuesIterable` para `children`/`stats`), `actor/src/main/scala/org/apache/pekko/japi/JavaAPI.scala:23,137`.
 
 **Precondiciones.** `valuesIterator` debe poder recorrerse una vez por llamada a `iterator`.
 
@@ -1270,7 +1270,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Mapa `Int -> Int` inmutable de copia en escritura, almacenado como un `Array[Int]` ordenado por clave con pares consecutivos, pensado para menos de ~1000 elementos. `get` devuelve `Int.MinValue` si la clave no existe. API: `empty`, `size`, `get`, `contains`, `updated`, `updateIfAbsent`, `remove`, `keysIterator`, `toString`, `equals`, `hashCode`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/ImmutableIntMap.scala:24-165`
+- `actor/src/main/scala/org/apache/pekko/util/ImmutableIntMap.scala:26-167`
 - tests: `actor-tests/src/test/scala/org/apache/pekko/util/ImmutableIntMapSpec.scala:25-156`
 
 **Precondiciones.** No almacenar `Int.MinValue` como valor (indistinguible de ausente).
@@ -1281,7 +1281,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Orden / concurrencia / ciclo de vida.** Inmutable; seguro entre hilos.
 
-**Dependencias.** Único consumidor en el árbol fijado: `actor/src/main/scala/org/apache/pekko/dispatch/affinity/AffinityPool.scala:32,419-430` (caché de selección de cola por hash; AC-DSP-*).
+**Dependencias.** Único consumidor en el árbol fijado: `actor/src/main/scala/org/apache/pekko/dispatch/affinity/AffinityPool.scala:29,437-448` (caché de selección de cola por hash; AC-DSP-*).
 
 **Equivalente Rust propuesto y diferencias observables.** `BTreeMap<i32, i32>` (clon en escritura) o un `Vec<(i32, i32)>` ordenado con `binary_search`; `get -> Option<i32>` (el centinela `Int.MinValue` desaparece, diferencia de tipos que se registra; si un test porta `get(5) == Int.MinValue` hay que mantener un `get_or_min`). `toString` y `hashCode` de Pekko sólo se reproducen si algún consumidor los observa (`hashCode` = `Arrays.hashCode`: `31 * h + e`).
 
@@ -1346,7 +1346,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/util/Glob.scala:38-73`
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:44-45 (makePattern, comportamiento que reemplaza)`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:46-47 (makePattern, comportamiento que reemplaza)`
 
 **Condiciones.**
 - Normal: ver aserciones; `**` equivale a `*`.
@@ -1380,8 +1380,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Utilidades de reflexión de la JVM: `findConstructor(clazz, args)` (resolución primitiva de sobrecarga), `instantiate` (constructor por defecto, con argumentos o con un `Constructor`), `instantiator`, `findMarker(root, marker)` (tipo genérico de un ancestro), `findClassLoader()` y `getCallerClass`. Las usan `DynamicAccess`/`Props` (creación por clase y argumentos: AC-CFG-016, AC-PROPS).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Reflect.scala:33-177`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/ReflectSpec.scala:29-65`
+- `actor/src/main/scala/org/apache/pekko/util/Reflect.scala:33-293`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/ReflectSpec.scala:33-160`
 
 **Precondiciones.** Clases con constructores accesibles (`setAccessible(true)` se usa en `instantiate`).
 
@@ -1420,7 +1420,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `LineNumbers(obj)` (Scala), ``LineNumbers.`for`(obj)`` (Java) y `prettyName(obj)` devuelven información de origen de la clase que define el objeto (normalmente una lambda): `NoSourceInfo`, `UnknownSourceFormat(explanation)`, `SourceFile(filename)` o `SourceFileLines(filename, from, to)` (`toString`: `"<f>:<from>-<to>"` o `"<f>:<n>"` si `from == to`). Se obtiene leyendo el bytecode de la clase del recurso (puede bloquear por E/S) e interpretando `SourceFile` y `LineNumberTable`. El efecto visible en otros módulos es el texto de `toString` de los comportamientos de Typed (`Receive(<f>:<l>)`, `Deferred(...)`, `TransformMessages(...)`).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/LineNumbers.scala:28-76` (API pública y `prettyName`), `:78-373` (parser de class files; constantes, `LineNumberTable`, Java 8 lambdas)
+- `actor/src/main/scala/org/apache/pekko/util/LineNumbers.scala:30-87` (API pública y `prettyName`), `:78-373` (parser de class files; constantes, `LineNumberTable`, Java 8 lambdas)
 - consumidores: `actor-typed/.../internal/BehaviorImpl.scala:117,131,149,171`, `InterceptorImpl.scala:234,245`
 - tests: `actor-tests/src/test/scala-2/org/apache/pekko/util/LineNumberSpec.scala:22-66` (y `scala-3/`), `LineNumberSpecCodeForScala.scala`, `java/.../LineNumberSpecCodeForJava.java`
 
@@ -1455,8 +1455,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ManifestInfo` es una extensión (`ExtensionId` + `ExtensionIdProvider`) que lee `META-INF/MANIFEST.MF` de todos los jars del classpath, conserva los de proveedor conocido (`org.apache.pekko`) en un `Map[título, Version]`, y ofrece `checkSameVersion(productName, dependencies, logWarning[, throwException])`. `ManifestInfo.Version` envuelve `util.Version` (comparable, `equals`, `hashCode`, `toString`). `ManifestInfo.checkSameVersion(product, dependencies, versions)` (interno) construye el mensaje cuando los módulos tienen versiones distintas.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/ManifestInfo.scala:37-194`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:25-45`
+- `actor/src/main/scala/org/apache/pekko/util/ManifestInfo.scala:33-189`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:26-46`
 - claves: `pekko.fail-mixed-versions` (`reference.conf:99-110`, AC-CFG-007); cruza con AC-SYS-020 y AC-CFG-003.
 
 **Precondiciones.** `system.dynamicAccess.classLoader` con recursos; atributos `Implementation-Title|Bundle-Name`, `Implementation-Version|Bundle-Version`, `Implementation-Vendor-Id|Bundle-Vendor`.
@@ -1493,7 +1493,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `JavaVersion.majorVersion`: versión mayor del JDK ('1.8' -> 8, '11' -> 11); sin hilos.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/JavaVersion.scala:21-35`
+- `actor/src/main/scala/org/apache/pekko/util/JavaVersion.scala:22-26`
 
 **Condiciones.**
 - Lee la propiedad de sistema `java.specification.version`; si falta -> NullPointerException; si no es numérica -> NumberFormatException (derivada del código).
@@ -1521,7 +1521,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `FlightRecorderLoader.load[T](casp, fqcn, fallback)` instancia dinámicamente un *flight recorder* de Java Flight Recorder sólo si la JVM es >= 11 y `pekko.java-flight-recorder.enabled` es `true`; si la carga falla devuelve `fallback` y registra un warning; en otro caso devuelve `fallback`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/FlightRecorderLoader.scala:26-42`
+- `actor/src/main/scala/org/apache/pekko/util/FlightRecorderLoader.scala:27-42`
 - consumidor: `actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorFlightRecorder.scala:29`; clave en `reference.conf` (AC-CFG-007)
 
 **Precondiciones.** `casp.classicSystem` es un `ExtendedActorSystem`; la clave booleana existe.
@@ -1648,7 +1648,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `HashCode.hash(seed, value)` combina un valor en un hash: `37 * seed + contribución`, con `SEED = 23`. Contribución: `Boolean` -> 1/0; `Char`/`Short`/`Int`/`Byte` -> el valor entero; `Long` -> `(v ^ (v >>> 32)).toInt`; `Float` -> `floatToIntBits`; `Double` -> `doubleToLongBits` (como `Long`); `AnyRef` -> `value.hashCode()`; arreglos -> se encadena el hash de cada elemento.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/HashCode.scala:34-65`
+- `actor/src/main/scala/org/apache/pekko/util/HashCode.scala:33-126`
 - consumidor citado por el inventario: `Version.hashCode` (Version.scala:189-198)
 
 **Precondiciones.** Ninguna.
@@ -1737,7 +1737,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `private[pekko] class unused extends deprecated("unused", "")` (con `@nowarn("msg=deprecated")`): anotación interna que suprime el aviso de parámetro no usado cuando el parámetro es necesario por compatibilidad binaria u otro motivo (`-Ywarn-unused`) y avisa si se **usa** un parámetro marcado. No tiene efecto en tiempo de ejecución.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Unused.scala:36-37`
+- `actor/src/main/scala/org/apache/pekko/util/Unused.scala:36-37 (1.7.1)`
 - usos: `ByteString.scala:1084` (`copyToBuffer(@unused buffer)`), `StablePriorityDispatcherSpec.scala:29,33`, etc.
 
 **Precondiciones.** Ninguna. **Comportamiento.** Ninguno en runtime. **Errores.** Ninguno. **Orden / concurrencia / ciclo de vida.** n/a (anotación del compilador).
@@ -1763,7 +1763,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Dos estructuras no thread-safe que estiman la frecuencia de elementos para la política de admisión TinyLFU: `FrequencySketch[A](depth, width, counterBits, resetSize, hasher)` (genérica: profundidad y tamaño de contador configurables) y `FastFrequencySketch[A](width, resetSize)` (profundidad fija 4, contadores de 4 bits, usa `value.hashCode`). Operaciones: `increment(value)`, `frequency(value)` (mínimo de los contadores de las filas), `size` (número de contadores incrementados desde el último reinicio), `toDebugString`. Cuando `size` llega a `resetSize`, **todos los contadores se dividen por la mitad** (reinicio TinyLFU) y `size` se recalcula.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/FrequencySketch.scala:44-90` (fábrica, `Hasher`, `Bits`), `:126-242` (genérica), `:248-377` (rápida), `:383-425` (`debugString`)
+- `actor/src/main/scala/org/apache/pekko/util/FrequencySketch.scala:45-94` (fábrica, `Hasher`, `Bits`), `:126-242` (genérica), `:248-377` (rápida), `:383-425` (`debugString`)
 - consumidores (fuera de estos módulos): `cluster-sharding/.../internal/EntityPassivationStrategy.scala`, `ClusterShardingSettings.scala`; benchmarks `bench-jmh/.../FrequencySketchBenchmark.scala`
 - tests: `actor-tests/src/test/scala/org/apache/pekko/util/FrequencySketchSpec.scala:23-266` (genérica), `:269-374` (rápida), `ZipfianGenerator.scala:1-57`
 
@@ -1805,9 +1805,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Estructura mutable no thread-safe para seguir la frecuencia de elementos (políticas LFU) con operaciones en tiempo constante: lista doblemente enlazada de nodos de frecuencia, cada uno con una lista de elementos en orden de actualización, más un mapa de búsqueda. `FrequencyList.empty[A](dynamicAging = false)` y `FrequencyList.withOverallRecency.empty[A](dynamicAging = false)` (con reloj `NanoClock`).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/FrequencyList.scala:25-270`
+- `actor/src/main/scala/org/apache/pekko/util/FrequencyList.scala:26-271`
 - consumidor: `cluster-sharding/.../EntityPassivationStrategy.scala` (fuera de estos módulos)
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/FrequencyListSpec.scala:48-266`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/FrequencyListSpec.scala:39-257`
 
 **Precondiciones.** `clock` definido para las operaciones `removeOverall*` (si no: `UnsupportedOperationException("Overall recency is not enabled for this FrequencyList")`).
 
@@ -1846,8 +1846,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Lista de recencia mutable no thread-safe (doblemente enlazada + mapa): `update(value)` mueve/agrega al **final** (más reciente) y anota el tiempo del `Clock`; permite quitar los menos/más recientes por número (con `skip`) o por ventana de tiempo. `RecencyList.empty[A]` usa `NanoClock` (`System.nanoTime`); `Clock` es un trait con `currentTime()` y `earlierTime(duration)`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/RecencyList.scala:25-142`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/RecencyListSpec.scala:21-129`
+- `actor/src/main/scala/org/apache/pekko/util/RecencyList.scala:26-137`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/RecencyListSpec.scala:21-120`
 
 **Precondiciones.** Ninguna.
 
@@ -1879,8 +1879,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Variación de `RecencyList` para LRU segmentado (SLRU): `limits` por nivel; el nivel más bajo (0) es el "probatorio" y los superiores están protegidos. `update` inserta nuevos en el nivel 0 y **promociona** los existentes un nivel (el más alto los mueve al final de su lista). `removeLeastRecentOverLimit()` elimina del nivel 0 el exceso sobre la suma de límites, tras demover el exceso de cada nivel protegido al nivel inferior. `updateLimits(newLimits)` cambia los límites en caliente. Con reloj (`withOverallRecency`) soporta `removeOverallLeastRecentOutside(duration)`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/SegmentedRecencyList.scala:25-189`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/SegmentedRecencyListSpec.scala:32-157`
+- `actor/src/main/scala/org/apache/pekko/util/SegmentedRecencyList.scala:26-188`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/SegmentedRecencyListSpec.scala:23-148`
 
 **Precondiciones.** `limits` no vacío; `levels = limits.size`.
 
@@ -1915,7 +1915,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Lista doblemente enlazada **intrusiva** parametrizada por accesores `getPrevious/getNext/setPrevious/setNext` sobre el nodo. Operaciones: `isEmpty`, `getFirst`/`getLast` (`OptionVal`), `prepend`, `append`, `remove`, `moveToFront`, `moveToBack`, `getFirstOrElsePrepend`, `getLastOrElseAppend`, `getNextOrElseInsert`, `getPreviousOrElseInsert`, `findNextOrElseInsert`, `findPreviousOrElseInsert`, `forwardIterator`, `backwardIterator`. Es la base de `RecencyList`, `FrequencyList` y `SegmentedRecencyList`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/DoubleLinkedList.scala:26-149`
+- `actor/src/main/scala/org/apache/pekko/util/DoubleLinkedList.scala:27-150`
 - tests: `actor-tests/src/test/scala/org/apache/pekko/util/DoubleLinkedListSpec.scala:25-200`
 
 **Precondiciones.** Un nodo sólo puede pertenecer a una lista a la vez; `remove`/`moveTo*` suponen que el nodo está en la lista (sin comprobación).
@@ -1950,8 +1950,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `FutureConverters.asJava(Future[T]): CompletionStage[T]` y `asScala(CompletionStage[T]): Future[T]` (más extensiones `FutureOps.asJava` y `CompletionStageOps.asScala`). En Scala 2.13/3 delegan en `scala.jdk.javaapi.FutureConverters`; en 2.12 existe una implementación propia (`scala-2.12/.../FutureConverters.scala`, no relevante para el árbol 2.13). Son la frontera Java/Scala de `ask`, `Patterns` y `CoordinatedShutdown` (Java API).
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/FutureConverters.scala:30-45`; `scala-3/.../FutureConverters.scala` (espejo); `scala-2.12/...` (excluido)
-- tests: `actor-tests/src/test/java/org/apache/pekko/util/JavaConverterScala3InlineTest.java:34-46`
+- `actor/src/main/scala-2.13/org/apache/pekko/util/FutureConverters.scala:30-45 (1.7.1)`; `scala-3/.../FutureConverters.scala` (espejo); `scala-2.12/...` (excluido)
+- tests: `actor-tests/src/test/java/org/apache/pekko/util/JavaConverterScala3InlineTest.java:34-46 (1.7.1)`
 
 **Precondiciones.** Ninguna.
 
@@ -1983,8 +1983,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** (a) `OptionConverters`: `toScala(Optional|OptionalDouble|OptionalInt|OptionalLong)` y `toJava(Option)`, más `RichOptional/RichOption/RichOptionalDouble/Int/Long` (`toScala`, `toJava`, `toJavaPrimitive`, `toJavaGeneric`); en 2.13+ delegan en `scala.jdk`. (b) `FunctionConverters` hereda de `Priority0FunctionExtensions` (2.13+). (c) `JavaDurationConverters`: `asFiniteDuration(JDuration)`, `JDuration.asScala = Duration.fromNanos(self.toNanos)` y `Duration.asJava = JDuration.ofNanos(self.toNanos)`; es lo que usa `Timeout.create` (AC-UTIL-001).
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/util/OptionConverters.scala:30-80`; `scala-2.13+/.../FunctionConverters.scala:29-30`; `scala-2/.../JavaDurationConverters.scala:24-35`; `scala-3/.../*Converters.scala`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78` (compilación), `JavaConverterScala3InlineTest.java:36-45`
+- `actor/src/main/scala-2.13/org/apache/pekko/util/OptionConverters.scala:30-80 (1.7.1)`; `scala-2.13+/.../FunctionConverters.scala:29-30`; `scala-2/.../JavaDurationConverters.scala:24-35`; `scala-3/.../*Converters.scala`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78 (1.7.1)` (compilación), `JavaConverterScala3InlineTest.java:36-45`
 
 **Precondiciones.** `JDuration.asScala`: `toNanos` no debe desbordar (`ArithmeticException: long overflow`, medido por Timeout TO-NEG-04/05); `Duration.asJava`: duración finita (`toNanos` sobre `Inf` lanza `IllegalArgumentException`).
 
@@ -2018,7 +2018,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/scala-2.13+/org/apache/pekko/util/ccompat/package.scala:31-40`, `.../ccompatUsedUntil213.scala`; `scala-2.13+/org/apache/pekko/compat/Future.scala:29-59`; `scala-2.12/.../ccompat/*`, `scala-2.12/.../compat/{Future,PartialFunction}.scala`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78 (1.7.1)`
 
 **Precondiciones.** Ninguna.
 
@@ -2050,9 +2050,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `SameThreadExecutionContext()` devuelve un `ExecutionContext` que ejecuta cada tarea **inline en el hilo que la envía** (en Scala 2.13+: `ExecutionContext.parasitic`; en 2.12 una implementación propia con `BatchingExecutor`). Sólo debe crearse desde `ExecutionContexts#parasitic`; los `map`/`flatMap` hechos con él corren en el hilo del `Future` previo.
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/dispatch/internal/SameThreadExecutionContext.scala:27-29`; `scala-3/.../SameThreadExecutionContext.scala`; `scala-2.12/.../SameThreadExecutionContext.scala`
+- `actor/src/main/scala-2.13/org/apache/pekko/dispatch/internal/SameThreadExecutionContext.scala:27-29 (1.7.1)`; `scala-3/.../SameThreadExecutionContext.scala`; `scala-2.12/.../SameThreadExecutionContext.scala`
 - consumidor: `actor/src/main/scala/org/apache/pekko/dispatch/Future.scala` (`ExecutionContexts.parasitic`), `AbstractDispatcher.scala`, `BatchingExecutor.scala`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/dispatch/SameThreadExecutionContextSpec.scala:26-68`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/dispatch/SameThreadExecutionContextSpec.scala:26-68 (1.7.1)`
 
 **Precondiciones.** Ninguna.
 
@@ -2085,7 +2085,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ScalaBatchable.isBatchable(runnable)` devuelve `true` si el `Runnable` es `pekko.dispatch.Batchable` con `isBatchable == true` o es un `scala.concurrent.Batchable`; `false` en otro caso. Lo usa `BatchingExecutor` para decidir si agrupa tareas. Tres versiones (2.12, 2.13, 3).
 
 **Fuente.**
-- `actor/src/main/scala-2.13/org/apache/pekko/dispatch/internal/ScalaBatchable.scala:23-36`; `scala-3/...`; `scala-2.12/...`
+- `actor/src/main/scala/org/apache/pekko/dispatch/internal/ScalaBatchable.scala:23-36`; `scala-3/...`; `scala-2.12/...`
 - consumidor: `actor/src/main/scala/org/apache/pekko/dispatch/BatchingExecutor.scala`
 
 **Precondiciones.** Ninguna.
@@ -2148,9 +2148,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `Unsafe` obtiene la instancia de `sun.misc.Unsafe` por reflexión y la usan 9 clases Java para CAS/lectura-escritura volátil de campos (offsets de `_xxxDoNotCallMeDirectly`) sin `AtomicReferenceFieldUpdater`: `AbstractActorRef` (campos de `RepointableActorRef`: `_cellDoNotCallMeDirectly`, `_lookupDoNotCallMeDirectly`), `actor/dungeon/AbstractActorCell` (cuatro campos de `ActorCell`: `_mailbox`, `_childrenRefs`, `_nextName`, `_functionRefs`, con los nombres mangled `org$apache$pekko$actor$dungeon$Dispatch$$_mailboxDoNotCallMeDirectly` y análogos de `Children`), `AbstractMailbox` (`Mailbox._statusDoNotCallMeDirectly`, `_systemQueueDoNotCallMeDirectly`), `AbstractMessageDispatcher` (`_inhabitantsDoNotCallMeDirectly`, `_shutdownScheduleDoNotCallMeDirectly`), `AbstractNodeQueue` (`_tailDoNotCallMeDirectly`, `Node._nextDoNotCallMeDirectly`), `AbstractBoundedNodeQueue` (`_enqDoNotCallMeDirectly`, `_deqDoNotCallMeDirectly`, `Node._nextDoNotCallMeDirectly`), `AbstractPromiseActorRef` (`PromiseActorRef._stateDoNotCallMeDirectly`, `_watchedByDoNotCallMeDirectly`), `AbstractCircuitBreaker` (`CircuitBreaker._currentStateDoNotCallMeDirectly`, `_currentResetTimeoutDoNotCallMeDirectly`). Además `Unsafe` contiene dos utilidades públicas: `copyUSAsciiStrToBytes(str, bytes)` (copia ASCII con tres algoritmos según la JVM) y `fastHash(str)` (xorshift128+ sobre los caracteres).
 
 **Fuente.**
-- `actor/src/main/java/org/apache/pekko/util/Unsafe.java:17-211`
-- `actor/src/main/java/org/apache/pekko/actor/AbstractActorRef.java:25-28`, `actor/src/main/java/org/apache/pekko/actor/dungeon/AbstractActorCell.java:28-40`, `dispatch/AbstractMailbox.java:24`, `dispatch/AbstractMessageDispatcher.java:24`, `dispatch/AbstractNodeQueue.java:57-220`, `dispatch/AbstractBoundedNodeQueue.java:48-190`, `pattern/AbstractPromiseActorRef.java:25-28`, `pattern/AbstractCircuitBreaker.java:25-28`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/util/AsciiStringCopySpec.scala:22-52`
+- `actor/src/main/java/org/apache/pekko/util/Unsafe.java:17-146`
+- `actor/src/main/java/org/apache/pekko/actor/AbstractActorRef.java:26-29`, `actor/src/main/java/org/apache/pekko/actor/dungeon/AbstractActorCell.java:30-42`, `dispatch/AbstractMailbox.java:24`, `dispatch/AbstractMessageDispatcher.java:24`, `dispatch/AbstractNodeQueue.java:57-220`, `dispatch/AbstractBoundedNodeQueue.java:48-190`, `pattern/AbstractPromiseActorRef.java:25-28`, `pattern/AbstractCircuitBreaker.java:25-28`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/util/AsciiStringCopySpec.scala:22-45`
 
 **Precondiciones.** Una JVM con `sun.misc.Unsafe` (se lanza `ExceptionInInitializerError` si falla, `IllegalStateException("Can't find instance of sun.misc.Unsafe")` si no se localiza).
 
@@ -2213,9 +2213,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `UnsynchronizedByteArrayInputStream` (copiada de commons-io): `InputStream` sobre un array con `mark/reset` y sin sincronización. `ByteBufferCleaner`: libera explícitamente `ByteBuffer`s directos (`clean`, `isSupported`). Los adaptadores de `ByteString` están en AC-UTIL-006.5.
 
 **Fuente.**
-- `actor/src/main/java/org/apache/pekko/io/UnsynchronizedByteArrayInputStream.java:17-180`
-- `actor/src/main/java/org/apache/pekko/io/ByteBufferCleaner.java:17-146`
-- tests: `actor-tests/src/test/scala/org/apache/pekko/io/UnsynchronizedByteArrayInputStreamSpec.scala:25-52`, `ByteBufferCleanerSpec.scala:25-34`; mima: `actor/src/main/mima-filters/1.0.x.backwards.excludes/bytestring-inputstream.excludes`
+- `actor/src/main/java/org/apache/pekko/io/UnsynchronizedByteArrayInputStream.java:17-212`
+- `actor/src/main/java/org/apache/pekko/io/ByteBufferCleaner.java:17-123`
+- tests: `actor-tests/src/test/scala/org/apache/pekko/io/UnsynchronizedByteArrayInputStreamSpec.scala:28-255`, `ByteBufferCleanerSpec.scala:25-34`; mima: `actor/src/main/mima-filters/1.0.x.backwards.excludes/bytestring-inputstream.excludes`
 
 **Precondiciones.** `data` no nulo (NPE con el nombre `"data"`); `offset` y `length` no negativos (`IllegalArgumentException("<nombre> cannot be negative")`).
 
@@ -2255,7 +2255,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Convierte un patrón glob en regex anclada; es la definición histórica de `?`/`*` en actor selection (hoy reemplazada por Glob).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:44-45`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:46-47`
 - `actor/src/main/scala/org/apache/pekko/util/Glob.scala:25-37 (documenta la equivalencia)`
 
 **Condiciones.**
@@ -2286,7 +2286,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Ordena objetos por identidad de forma consistente (sin overflow) para usar en estructuras ordenadas (BalancingDispatcher).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:47-69`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:49-71`
 - `actor/src/main/scala/org/apache/pekko/dispatch/BalancingDispatcher.scala:67` (único uso en el árbol: `new ConcurrentSkipListSet[ActorCell](Helpers.identityHashComparator(...))`, leído en el cierre documental)
 
 **Condiciones.**
@@ -2316,7 +2316,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Dos formateadores de marcas de tiempo públicos de Helpers.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:71-113`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:73-115`
 
 **Condiciones.**
 - `currentTimeMillisToUTCString`: `timeOfDay = ts % 86400000`; horas, minutos y segundos con cero a la izquierda (`if (x < 10) append(0)`), ms con 3 dígitos; sufijo `UTC` (líneas 80-105).
@@ -2331,7 +2331,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Aserciones.**
 - A1 `currentTimeMillisToUTCString(System.currentTimeMillis)` es igual a `"%02d:%02d:%02d.%03dUTC"` de la hora UTC calculada con un `GregorianCalendar`: LoggerSpec.scala:283-293 ("Ticket 3080").
-- A2 relleno con ceros: `2019-05-05T00:00:00.000Z` -> `"00:00:00.000UTC"` y `...T23:59:59.999Z` -> `"23:59:59.999UTC"`: LoggerSpec.scala:295-316. **Corrección del cierre documental**: el contrato decía "sin tests en upstream"; sí los hay, y existe un consumidor en `actor/src/main/scala/org/apache/pekko/event/Logging.scala:997` (`StdOutLogger.timestamp`, que usa `Helpers.timestamp`).
+- A2 relleno con ceros: `2019-05-05T00:00:00.000Z` -> `"00:00:00.000UTC"` y `...T23:59:59.999Z` -> `"23:59:59.999UTC"`: LoggerSpec.scala:295-316. **Corrección del cierre documental**: el contrato decía "sin tests en upstream"; sí los hay, y existe un consumidor en `actor/src/main/scala/org/apache/pekko/event/Logging.scala:1009` (`StdOutLogger.timestamp`, que usa `Helpers.timestamp`).
 - A3 `timestamp` patrón y zona: derivada del código Helpers.scala:108-113 (*no afirmada por spec*).
 
 **Oráculo.** Posible con jar pekko-actor (comparar salida con zona UTC fijada).
@@ -2348,7 +2348,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Booleano de plataforma usado para ajustar el scheduler y IO.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:42`
+- `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:44`
 - `LightArrayRevolverScheduler.scala:67,120`
 - `Tcp.scala:640`
 - `DnsSettings.scala:113`
@@ -2380,11 +2380,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Un `ActorSystem` sin config explícita usa `ConfigFactory.load(classLoader)` (application.conf/json/properties + system properties + reference.conf); con `config` explícita usa ésa tal cual. En ambos casos las Settings leen `appConfig.withFallback(ConfigFactory.defaultReference(classLoader))` (reference.conf de todos los jars). Los defaults nunca viven en código: sólo en reference.conf.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:278-285 (apply(name, setup): config explícita o ConfigFactory.load(cl))`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:323-328`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:850-855 (ActorSystemImpl.settings: applicationConfig.withFallback(defaultReference))`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:277-284 (apply(name, setup): config explícita o ConfigFactory.load(cl))`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:322-327`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:847-859 (ActorSystemImpl.settings: applicationConfig.withFallback(defaultReference))`
 - `docs/src/main/paradox/general/configuration.md:18-53`
-- `actor/src/main/resources/reference.conf:1-1443 (el archivo completo, ver Cobertura)`
+- `actor/src/main/resources/reference.conf:1-1495 (el archivo completo, ver Cobertura)`
 
 **Condiciones.**
 - Sin config: `ConfigFactory.load(cl)`; precedencia: system properties > application.conf > reference.conf (configuration.md:39-43; `config.resource` redefine el nombre).
@@ -2419,9 +2419,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ActorSystem.Settings` lee de una vez, al construirse, todas las claves `pekko.*` que usa el núcleo y las expone como campos (`final val`). Cualquier clave ausente/ilegible lanza `ConfigException` y aborta la creación del sistema.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:386-494 (clase Settings)`
-- `actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:33-183`
-- `actor/src/main/resources/reference.conf:13-150`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:387-493 (clase Settings)`
+- `actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:34-184`
+- `actor/src/main/resources/reference.conf:13-146`
 
 **Condiciones.**
 - Campos y defaults verificados: ver aserciones. Campos extra sin test: ProviderSelectionType/ProviderClass/HasCluster (AC-CFG-008), SupervisorStrategyClass, CreationTimeout (20s), LoggersDispatcher, LogConfigOnStart, Home, SchedulerClass.
@@ -2461,8 +2461,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Si `pekko.version` de la config difiere de la versión del binario (`ActorSystem.Version`, generada en build), el sistema no arranca.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:408,485-487`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:184 (Version = pekko.Version.current, archivo generado)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:409,484-486`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:183 (Version = pekko.Version.current, archivo generado)`
 - `actor/src/main/resources/reference.conf:10-11 (include "version")`
 - `project/VersionGenerator.scala:18-25 (genera version.conf y Version.scala)`
 
@@ -2496,8 +2496,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/resources/reference.conf:17-50`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:434-440`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:343-376 (amendSlf4jConfig; AC-CFG-018)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:433-439`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:342-377 (amendSlf4jConfig; AC-CFG-018)`
 
 **Condiciones.**
 - Defaults: loggers=["org.apache.pekko.event.Logging$DefaultLogger"], logging-filter="org.apache.pekko.event.DefaultLoggingFilter", loggers-dispatcher="pekko.actor.default-dispatcher", logger-startup-timeout=5s, loglevel="INFO", stdout-loglevel="WARNING", log-config-on-start=off.
@@ -2534,7 +2534,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/resources/reference.conf:52-68`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:441-453`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:440-452`
 
 **Condiciones.**
 - `LogDeadLetters`: `toRootLowerCase(getString)`: `off`/`false` -> 0; `on`/`true` -> Int.MaxValue; otro -> `getInt` (un valor no numérico lanza ConfigException; ActorSystem.scala:441-445). Default 10.
@@ -2567,7 +2567,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/resources/reference.conf:70-83`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1230-1260`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1261-1291`
 
 **Condiciones.**
 - Defaults: library-extensions = `${?pekko.library-extensions} ["org.apache.pekko.serialization.SerializationExtension$"]`; extensions = [].
@@ -2601,7 +2601,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/resources/reference.conf:14-15,85-110`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:463-472`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:462-471`
 
 **Condiciones.**
 - Defaults: home="" (-> `Home = None`), daemonic=off, jvm-exit-on-fatal-error=on, jvm-shutdown-hooks=on, fail-mixed-versions=on, java-flight-recorder.enabled=true.
@@ -2634,8 +2634,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/resources/reference.conf:112-118`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:103-145 (ProviderSelection)`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:410-420 (Settings.ProviderSelectionType, ProviderClass, HasCluster)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:102-144 (ProviderSelection)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:411-421 (Settings.ProviderSelectionType, ProviderClass, HasCluster)`
 
 **Condiciones.**
 - `ProviderSelection("local")` = Local (fqcn = LocalActorRefProvider, hasCluster=false); `"remote"`/`org.apache.pekko.remote.RemoteActorRefProvider` = Remote (hasCluster=false); `"cluster"`/`org.apache.pekko.cluster.ClusterActorRefProvider` = Cluster (hasCluster=true); otra cadena = Custom(fqcn) (hasCluster=false) (ActorSystem.scala:137-144).
@@ -2668,11 +2668,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `guardian-supervisor-strategy` (FQCN de un SupervisorStrategyConfigurator), `creation-timeout`, `unstarted-push-timeout` y `typed.timeout`.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:120-151`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:422-424`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:512 (instancia el configurador)`
-- `actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:223 (UnstartedPushTimeout)`
-- `actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:715 (typed.timeout)`
+- `actor/src/main/resources/reference.conf:120-146`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:423-425`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:519 (instancia el configurador)`
+- `actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:222 (UnstartedPushTimeout)`
+- `actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:715 (1.7.1) (typed.timeout)`
 
 **Condiciones.**
 - Defaults: guardian-supervisor-strategy="org.apache.pekko.actor.DefaultSupervisorStrategy", creation-timeout=20s, unstarted-push-timeout=10s, typed.timeout=5s.
@@ -2705,8 +2705,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/resources/reference.conf:129-140`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:429-432`
-- `actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:171-223`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:428-431`
+- `actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:172-224`
 - `actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:283-307`
 
 **Condiciones.**
@@ -2743,14 +2743,14 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `pekko.actor.debug.*` (siete banderas, todas off) activan eventos Debug: `receive` (LoggingReceive), `autoreceive`, `lifecycle`, `fsm`, `event-stream`, `unhandled`, `router-misconfiguration`.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:736-759`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:455-461`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:569,655,699`
+- `actor/src/main/resources/reference.conf:783-806`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:454-460`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:588,674,718`
 - `actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:66`
-- `actor/src/main/scala/org/apache/pekko/event/Logging.scala:154`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:670`
-- `actor/src/main/scala/org/apache/pekko/actor/FSM.scala:964`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:953 (EventStream(this, DebugEventStream))`
+- `actor/src/main/scala/org/apache/pekko/event/Logging.scala:164`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:677`
+- `actor/src/main/scala/org/apache/pekko/actor/FSM.scala:969`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:984 (EventStream(this, DebugEventStream))`
 
 **Condiciones.**
 - `receive=on`: `LoggingReceive` envuelve `receive` y emite `Logging.Debug(path, clase, "received handled message <m> from <sender>")` o `received unhandled message ...` (LoggingReceiveSpec.scala:96-119, :90-92).
@@ -2786,7 +2786,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Cada subsección de `pekko.actor.deployment` (menos `default`) se convierte en un `Deploy` con `config = entrada.withFallback(default)`, `dispatcher`/`mailbox` leídos de la config con default "" y `scope = NoScopeGiven`.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:173-233`
+- `actor/src/main/resources/reference.conf:166-226`
 - `actor/src/main/scala/org/apache/pekko/actor/Deployer.scala:229-250,270-276`
 
 **Condiciones.**
@@ -2855,7 +2855,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/actor/Deployer.scala:285-321`
-- `actor/src/main/resources/reference.conf:155-171`
+- `actor/src/main/resources/reference.conf:148-164`
 
 **Condiciones.**
 - Si la entrada define `resizer` y `resizer.enabled` no es true, se antepone `resizer.enabled=on` (compatibilidad hacia atrás; Deployer.scala:289-292).
@@ -2888,7 +2888,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Claves de `deployment.default.resizer` y `deployment.default.optimal-size-exploring-resizer` con sus defaults.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:244-346`
+- `actor/src/main/resources/reference.conf:237-347`
 
 **Condiciones.**
 - resizer: enabled=off, lower-bound=1, upper-bound=10, pressure-threshold=1, rampup-rate=0.2, backoff-threshold=0.3, backoff-rate=0.1, messages-per-resize=10.
@@ -2952,7 +2952,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `pekko.actor.router.type-mapping` traduce nombres cortos de router a clases.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:154-171`
+- `actor/src/main/resources/reference.conf:147-164`
 - `actor/src/main/scala/org/apache/pekko/actor/Deployer.scala:233-242`
 
 **Condiciones.**
@@ -2983,7 +2983,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/actor/setup/ActorSystemSetup.scala:25-97`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:49-180`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:48-179`
 
 **Condiciones.**
 - `ActorSystemSetup(setups*)` indexa por `s.getClass` (clase concreta); un segundo Setup de la misma clase reemplaza al primero; `withSetup`/`and` equivalentes; `get[T]` devuelve Option; `get(Class)` Optional (ActorSystemSetup.scala:48-96).
@@ -3019,8 +3019,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `DynamicAccess` carga y crea instancias por FQCN (mailboxes, dispatchers, loggers, serializadores, extensiones, scheduler, routers, estrategia de guardianes); `ReflectiveDynamicAccess` lo implementa con reflexión JVM.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/DynamicAccess.scala:33-72`
-- `actor/src/main/scala/org/apache/pekko/actor/ReflectiveDynamicAccess.scala:35-88`
+- `actor/src/main/scala/org/apache/pekko/actor/DynamicAccess.scala:32-71`
+- `actor/src/main/scala/org/apache/pekko/actor/ReflectiveDynamicAccess.scala:35-150`
 
 **Condiciones.**
 - `createInstanceFor(fqcn, args)`: clase inexistente -> Failure(ClassNotFoundException); constructor no encontrado -> Failure(NoSuchMethodException); tipo incompatible -> `ClassCastException("<T> is not assignable from <c>")`/`"<clase> is not a subtype of <T>"` (ReflectiveDynamicAccess.scala:41,53); excepciones del constructor se relanzan sin envoltorio InvocationTargetException (línea 54).
@@ -3055,7 +3055,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Combinación y sustitución: withFallback, resolve tardío, `${?x}` opcional, `+=`, autorreferencia, ciclos. Config.withFallback: gana el receptor; objetos se fusionan clave por clave; las sustituciones se resuelven tras combinar capas; `${?x}` ausente omite la clave; `${?x} [d]` concatena listas; `+=` agrega al valor anterior; ciclo o sustitución requerida ausente fallan.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:11,78,878`
+- `actor/src/main/resources/reference.conf:11,78,926`
 - tools/oracle/config-hocon.jsh
 - crates/rakka-actor/tests/oracle/config-hocon.golden
 
@@ -3087,7 +3087,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos, notación científica, truncado, desborde. Unidades ns/us/ms/s/m/h/d y nombres largos; número sin unidad = ms; trunca hacia cero; admite negativos; errores BadValue con mensajes del jar.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:36,68,145,218,225,311,315`
+- `actor/src/main/resources/reference.conf:36,68,145,211,218,312,316`
 - tools/oracle/config-hocon.jsh
 - crates/rakka-actor/tests/oracle/config-hocon.golden
 
@@ -3119,7 +3119,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Tamaños en memoria: `128 KiB`, `K`, `kB`, `MB`, número sin unidad = bytes; `KB` falla. getBytes/getMemorySize con prefijos binarios y decimales; negativos/fuera de rango fallan.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:966,1011,1060,1116`
+- `actor/src/main/resources/reference.conf:1018,1063,1112,1168`
 - tools/oracle/config-hocon.jsh
 - crates/rakka-actor/tests/oracle/config-hocon.golden
 
@@ -3151,7 +3151,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Booleanos `on/off/yes/no/true/false` con y sin comillas; `ON`, `1`, `maybe` fallan. getBoolean acepta los seis literales (también entre comillas); distingue mayúsculas.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:50,63,86,90,98,103,248`
+- `actor/src/main/resources/reference.conf:50,63,86,90,98,103,241`
 - tools/oracle/config-hocon.jsh
 - crates/rakka-actor/tests/oracle/config-hocon.golden
 
@@ -3183,7 +3183,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Literales que Pekko interpreta por su cuenta: `infinite`, `unlimited`, `forever`, `never`, `default`, `on/off` en log-dead-letters. El parser entrega texto; getDuration/getBytes rechazan `infinite`/`unlimited`; Pekko los interpreta antes (ActorSystem.scala:441-453) o con helpers (DnsSettings, Tcp).
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:64-68,863,1046,1164,1182,1192,1198`
+- `actor/src/main/resources/reference.conf:64-68,911,1098,1216,1234,1244,1250`
 - tools/oracle/config-hocon.jsh
 - crates/rakka-actor/tests/oracle/config-hocon.golden
 
@@ -3247,7 +3247,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Sintaxis del archivo: comentarios `#` y `//`, claves con guiones y puntos, comillas triples, claves duplicadas, listas con coma final, errores de getters tipados. El parser debe aceptar reference.conf completo sin cambios; getters tipados: clave ausente (Missing), tipo erróneo (WrongType), null.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:1-1443`
+- `actor/src/main/resources/reference.conf:1-1495`
 - tools/oracle/config-hocon.jsh
 - crates/rakka-actor/tests/oracle/config-hocon.golden
 
@@ -3279,9 +3279,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Adaptación de la config para que Typed use SLF4J por defecto: sólo si `pekko.use-slf4j` es true y la clase del logger existe.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:333-377`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:332-378`
 - `actor-typed/src/main/resources/reference.conf:68 (pekko.use-slf4j = on)`
-- `actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:186-203`
+- `actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:187-204`
 
 **Condiciones.**
 - Si `pekko.loggers` ya contiene Slf4jLogger: config sin cambios, salvo que el filtro sea el default -> se fuerza `Slf4jLoggingFilter` (líneas 357-362).
@@ -3313,8 +3313,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Validación temprana de toda la config de `pekko.*` contra los defaults.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:395-402`
-- `actor/src/main/scala/org/apache/pekko/dispatch/Dispatchers.scala:75,134` (`InternalDispatcherId = "pekko.actor.internal-dispatcher"`; `internalDispatcher = lookup(InternalDispatcherId)`; leído en el cierre documental)
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:396-403`
+- `actor/src/main/scala/org/apache/pekko/dispatch/Dispatchers.scala:77,136` (`InternalDispatcherId = "pekko.actor.internal-dispatcher"`; `internalDispatcher = lookup(InternalDispatcherId)`; leído en el cierre documental)
 
 **Condiciones.**
 - Se valida el path `pekko` completo; la excepción es `ConfigException.ValidationFailed` agregada (comportamiento de Typesafe, no está en upstream/pekko).
@@ -3344,8 +3344,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Rechazo de una combinación de banderas de CoordinatedShutdown incoherente al crear el sistema.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:474-481`
-- `actor/src/main/resources/reference.conf:1245-1276`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:473-480`
+- `actor/src/main/resources/reference.conf:1297-1328`
 
 **Condiciones.**
 - Error: `ConfigurationException("pekko.coordinated-shutdown.run-by-actor-system-terminate=on and pekko.coordinated-shutdown.terminate-actor-system=off is not a supported configuration combination.")` (ActorSystem.scala:479-481).
@@ -3375,9 +3375,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `Address(protocol, system, host?, port?)`: dirección de un sistema de actores; con host+puerto tiene alcance global, sin ellos alcance local. `toString` = `protocol://system[@host][:port]`; `hostPort` = `system[@host][:port]`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:37-101`
-- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:119-133 (companion, InvalidHostRegex, apply)`
-- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:101 (hostPort)`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:38-102`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:120-134 (companion, InvalidHostRegex, apply)`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:102 (hostPort)`
 
 **Condiciones.**
 - Constructores: `Address(protocol, system)` (host y puerto None) y `Address(protocol, system, host, port)` (Some/Some; constructor Java con `Option(host)`: host null -> None). `copy` re-crea con los campos dados.
@@ -3412,7 +3412,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `Address.addressOrdering` ordena por protocolo, luego sistema, luego host (`None` = "") y luego puerto (`None` = 0), con comparación de Strings por unidades UTF-16.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:135-145`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:136-146`
 
 **Condiciones.**
 - `a eq b` -> no menor; si protocolos distintos -> `compareTo` < 0; igual con sistema; luego `a.host != b.host` compara `getOrElse("")`; luego puertos (`getOrElse(0)`) (Address.scala:139-144).
@@ -3443,8 +3443,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `hasInvalidHostCharacters` detecta hosts con `_` sin punto posterior; `checkHostCharacters()` lanza `IllegalArgumentException` si los hay. `AddressFromURIString` rechaza esos hosts porque `java.net.URI` no los reconoce como host.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:103-115`
-- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:121-122 (InvalidHostRegex = "_[^.]*$")`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:104-116`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:122-123 (InvalidHostRegex = "_[^.]*$")`
 
 **Condiciones.**
 - Regex `_[^.]*$` buscada en el host: `valid`, `is_valid.org`, `fu.is_valid.org` son válidos; `in_valid`, `invalid._org` son inválidos (el `_` no va seguido de punto hasta el final).
@@ -3476,7 +3476,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `AddressFromURIString(s)` / `.parse` / `.unapply` construye un Address a partir de `protocol://system[@host:port]` usando `java.net.URI`; falla con `MalformedURLException(s)` si no es una dirección válida.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:185-216`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:186-217`
 
 **Condiciones.**
 - Rechaza (None / MalformedURLException(addr)) si: URI mal formada (URISyntaxException), sin esquema, sin userInfo ni host, `pekko://system:5` (con puerto pero sin userInfo), userInfo sin host o sin puerto (Address.scala:190-202).
@@ -3510,7 +3510,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `RelativeActorPath.unapply(addr)` devuelve los elementos de un path relativo (`grand/child`, `/user/hello/world`) y None si la cadena es una URI absoluta o inválida.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:148-180 (PathUtils.split + RelativeActorPath)`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:149-181 (PathUtils.split + RelativeActorPath)`
 
 **Condiciones.**
 - `new URI(addr)`: si `isAbsolute` -> None; si URISyntaxException -> None; si no `split(uri.getRawPath, uri.getRawFragment)`.
@@ -3543,7 +3543,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ActorPathExtractor.unapply(addr)` extrae `(Address, elementos)` de una URI absoluta de actor.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:218-232`
+- `actor/src/main/scala/org/apache/pekko/actor/Address.scala:219-233`
 
 **Condiciones.**
 - `new URI(addr)`; si `getRawPath` es null o hay URISyntaxException -> None; si no, `AddressFromURIString.unapply(uri)` y `split(path, rawFragment).drop(1)` (se descarta el primer elemento vacío).
@@ -3574,7 +3574,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ActorPath.fromString(s)` parsea una cadena de path absoluto; `MalformedURLException("cannot parse as ActorPath: " + s)` si no es parseable.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:67-75`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:68-76`
 
 **Condiciones.**
 - `RootActorPath(address) / elems`: cada elemento pasa por `/` (que interpreta `nombre#uid`, AC-PATH-011).
@@ -3607,8 +3607,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Un elemento de path (nombre de actor) debe ser no vacío, no empezar con `$` e incluir sólo letras ASCII, dígitos, los símbolos `-_.*$+:@&=,!~';` y secuencias `%XX` (dos dígitos hex).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:77-148`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:33-64 (ActorPaths: fachada)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:78-174`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:34-65 (ActorPaths: fachada)`
 
 **Condiciones.**
 - Vacío -> `InvalidActorNameException("Actor path element must not be empty " + fullPathMsg)` (nótese el espacio antes de fullPathMsg, que es " (in path [<fullPath>])" o "") (ActorPath.scala:105-106).
@@ -3643,7 +3643,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `ActorPaths` es una fachada estática Java sobre `object ActorPath`: `fromString`, `validatePathElement` (con y sin `fullPath`) e `isValidPathElement`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:29-65`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:30-66`
 
 **Condiciones.**
 - Sin lógica propia: delega 1:1 en ActorPath.
@@ -3672,9 +3672,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Jerarquía `RootActorPath` / `ChildActorPath` con `address`, `name`, `parent`, `root`, `/`, `child`, `descendant`, `elements`, `toStringWithoutAddress`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:172-214`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:279-300`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:328-360`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:200-242`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:307-328`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:356-388`
 
 **Condiciones.**
 - `root / "user"` crea un ChildActorPath; `/` con `Iterable` ignora elementos vacíos (`if (elem.isEmpty) path else path / elem`) (ActorPath.scala:203-204).
@@ -3707,8 +3707,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Un path puede llevar el uid de la incarnación del actor como fragmento `#uid`; `/` acepta `nombre#uid`; `withUid`; `undefinedUid = 0`; `newUid` aleatorio distinto de 0; el uid se ve en `toSerializationFormat*`, no en `toString`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:264-270,316-323,336-342,365-367`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:390-404 (undefinedUid, newUid, splitNameAndUid)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:292-298,344-351,364-370,393-395`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:389-403 (undefinedUid, newUid, splitNameAndUid)`
 
 **Condiciones.**
 - `splitNameAndUid(name)`: si hay `#`, parte el nombre y hace `Integer.valueOf(resto)` (acepta `+`/`-` y dígitos Unicode; vacío o desborde -> NumberFormatException) (ActorCell.scala:400-404).
@@ -3741,7 +3741,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `RootActorPath(address, name = "/")` no admite separadores de path ni fragmentos en el nombre (salvo el `/` inicial).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:279-285`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:307-313`
 
 **Condiciones.**
 - `require(name.length == 1 || name.indexOf('/', 1) == -1, "/ may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: [%s]")` -> IllegalArgumentException con prefijo `requirement failed: `.
@@ -3773,7 +3773,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Representaciones de texto: `toString`, `toStringWithoutAddress`, `toStringWithAddress(addr)`, `toSerializationFormat` y `toSerializationFormatWithAddress(addr)`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:233-257,297-305,369-414,449-452`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:261-285,325-333,397-442,477-480`
 
 **Condiciones.**
 - `toString`: `address.toString + name` para la raíz; `/`-unión para hijos. `toStringWithoutAddress = elements.mkString("/", "/", "")` (la raíz da `/`).
@@ -3807,9 +3807,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Dos `ActorPath` son iguales si tienen mismos nombres y mismas raíces (address + name); el uid no cuenta. `compareTo` ordena por elementos de derecha a izquierda; `RootActorPath > ChildActorPath`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:153-170 (Scaladoc)`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:307-312`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:454-494`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:179-198 (Scaladoc)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:335-340`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:482-522`
 
 **Condiciones.**
 - `ChildActorPath.equals` compara nombres hacia arriba hasta la raíz (iterativo) y después `RootActorPath.equals` (case class: address + name).
@@ -3841,11 +3841,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Paths especiales del proveedor local: `/` (raíz), `/user`, `/system`, `/deadLetters`, `/temp/$x`, `/bubble-walker` e `ignore` (`pekko://local/ignore`).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:402 (rootPath = RootActorPath(Address("pekko", systemName)))`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:414-417 (deadLetters = rootPath / "deadLetters")`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:428-442 (tempNode = rootPath / "temp"; tempPath(prefix) = prefix + "$" + base64(contador))`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:451 (bubble-walker)`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:541-562 (IgnoreActorRef.path = RootActorPath(Address("pekko", "local")) / "ignore"; isIgnoreRefPath)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:409 (rootPath = RootActorPath(Address("pekko", systemName)))`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:421-424 (deadLetters = rootPath / "deadLetters")`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:435-449 (tempNode = rootPath / "temp"; tempPath(prefix) = prefix + "$" + base64(contador))`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:458 (bubble-walker)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:513-534 (IgnoreActorRef.path = RootActorPath(Address("pekko", "local")) / "ignore"; isIgnoreRefPath)`
 
 **Condiciones.**
 - `tempPath(prefix)` = `/temp/<prefix>$<base64(n)>` con n incremental (AtomicLong) (AC-UTIL-002.1).
@@ -3877,8 +3877,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Invariantes del nombre de un ChildActorPath.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:328-335`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:290-293,339-342 (`/` ya separó nombre y uid)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:356-363`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:318-321,367-370 (`/` ya separó nombre y uid)`
 
 **Condiciones.**
 - Errores con mensajes exactos sin prefijo `requirement failed: ` (usa `throw new IllegalArgumentException`).
@@ -3942,7 +3942,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `registerExtension(ext)` devuelve la instancia existente o la crea una sola vez por sistema aun con llamadas concurrentes; si la creación falla, la excepción queda registrada y se relanza igual en cada intento posterior.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1165-1221`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1196-1252`
 
 **Condiciones.**
 - Estado por ExtensionId: `CountDownLatch` (registro en curso), `Throwable` (falló) o la extensión (líneas 1167-1171).
@@ -3976,8 +3976,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** `extension(ext)` devuelve la extensión ya registrada o lanza; `hasExtension(ext)` indica si está registrada (esperando si está en curso).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1223-1228`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:728-742 (firmas en ExtendedActorSystem/ActorSystem)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1254-1259`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:727-741 (firmas en ExtendedActorSystem/ActorSystem)`
 
 **Condiciones.**
 - `extension(ext)` no registrada -> `IllegalArgumentException("Trying to get non-registered extension [<ext>]")` (línea 1224).
@@ -4008,8 +4008,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Al arrancar el sistema se cargan las extensiones listadas en `pekko.library-extensions` (todas, y un fallo aborta el arranque) y `pekko.extensions` (un fallo se loguea y se sigue).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1230-1260`
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1073 (loadExtensions en el arranque)`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1261-1291`
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1104 (loadExtensions en el arranque)`
 - `actor/src/main/resources/reference.conf:70-83`
 
 **Condiciones.**
@@ -4046,15 +4046,15 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Contrato observable.** Índice de las 11 extensiones que define el módulo `actor` y de su propiedad común: cada una es un `object` que extiende `ExtensionId[T]` (y, salvo `LogExt`, `ExtensionIdProvider` con `lookup` = el propio objeto), con `createExtension(system)` y, salvo `LogExt`/`AddressTerminatedTopic` en parte, sobrecargas `get(ActorSystem)`/`get(ClassicActorSystemProvider)` para Java. La instancia es única por `ActorSystem` y por identidad del `ExtensionId` (AC-EXT-001.1/.2). Sólo `SerializationExtension` se carga al arrancar (`pekko.library-extensions`, `reference.conf:78`); el resto se crea de forma perezosa en el primer `apply`/`get`/`extension`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/CoordinatedShutdown.scala:42,191-203` (`createExtension` lee `pekko.coordinated-shutdown`, construye las fases y llama a `init`)
+- `actor/src/main/scala/org/apache/pekko/actor/CoordinatedShutdown.scala:41,190-202` (`createExtension` lee `pekko.coordinated-shutdown`, construye las fases y llama a `init`)
 - `actor/src/main/scala/org/apache/pekko/serialization/SerializationExtension.scala:24-29` (`new Serialization(system)`)
-- `actor/src/main/scala/org/apache/pekko/io/Tcp.scala:50-62`, `Udp.scala:44-54`, `UdpConnected.scala:43-53`, `Dns.scala:76,151-159` (cada una `new XExt(system)`)
-- `actor/src/main/scala/org/apache/pekko/pattern/CircuitBreakersRegistry.scala:33-58`
+- `actor/src/main/scala/org/apache/pekko/io/Tcp.scala:49-61`, `Udp.scala:44-54`, `UdpConnected.scala:43-53`, `Dns.scala:76,151-159` (cada una `new XExt(system)`)
+- `actor/src/main/scala/org/apache/pekko/pattern/CircuitBreakersRegistry.scala:35-60`
 - `actor/src/main/scala/org/apache/pekko/event/AddressTerminatedTopic.scala:38-46` (`private[pekko]`; `new AddressTerminatedTopic`)
-- `actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:119-125` (deprecada desde Akka 2.6.0)
-- `actor/src/main/scala/org/apache/pekko/util/ManifestInfo.scala:37-53`
-- `actor/src/main/scala/org/apache/pekko/event/Logging.scala:470-480` (`LogExt`, `private[pekko]`, sin `ExtensionIdProvider`; `id()` incrementa un `AtomicInteger`)
-- carga: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1230-1259`
+- `actor/src/main/scala/org/apache/pekko/actor/TypedActor.scala:119-125 (1.7.1)` (deprecada desde Akka 2.6.0)
+- `actor/src/main/scala/org/apache/pekko/util/ManifestInfo.scala:33-49`
+- `actor/src/main/scala/org/apache/pekko/event/Logging.scala:480-490` (`LogExt`, `private[pekko]`, sin `ExtensionIdProvider`; `id()` incrementa un `AtomicInteger`)
+- carga: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1261-1290`
 - tests: `actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala` (sólo extensiones de prueba)
 
 **Precondiciones.** Las de cada extensión (por ejemplo, `Dns` y los `*Ext` de IO necesitan los gestores del sistema).
@@ -4114,15 +4114,15 @@ El padre desaparece del TSV; los hijos heredan `impl`/`validation` sólo cuando 
 
 ## Omisiones agregadas
 
-- `AC-UTIL-023` — Helpers.makePattern (patrón glob `?`/`*` a java.util.regex.Pattern). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:44-45`.
-- `AC-UTIL-024` — Helpers.compareIdentityHash / identityHashComparator (orden por identityHashCode sin overflow). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:47-69`.
-- `AC-UTIL-025` — Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para logs). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:71-113`.
-- `AC-UTIL-026` — Helpers.isWindows (detección de SO por os.name). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:42`.
-- `AC-CFG-018` — Settings.amendSlf4jConfig: `pekko.use-slf4j` agrega Slf4jLogger/Slf4jLoggingFilter a loggers. Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:333-377`.
-- `AC-CFG-019` — Validación de la config contra reference.conf (`checkValid` con `internal-dispatcher` excluido). Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:395-402`.
-- `AC-CFG-020` — Combinación no soportada coordinated-shutdown: run-by-actor-system-terminate=on con terminate-actor-system=off. Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:474-481`.
-- `AC-PATH-016` — ChildActorPath: validación del nombre en el constructor (`/` y `#` prohibidos). Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:328-335`.
-- `AC-UTIL-006.6`, `AC-UTIL-006.7`, `AC-UTIL-006.8` (cierre documental 2026-10-31) — ByteString: factorías/conversiones, búsqueda y serialización Java. Evidencia: `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:31-161,236-271,451-487,730-806,825-856`.
+- `AC-UTIL-023` — Helpers.makePattern (patrón glob `?`/`*` a java.util.regex.Pattern). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:46-47`.
+- `AC-UTIL-024` — Helpers.compareIdentityHash / identityHashComparator (orden por identityHashCode sin overflow). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:49-71`.
+- `AC-UTIL-025` — Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para logs). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:73-115`.
+- `AC-UTIL-026` — Helpers.isWindows (detección de SO por os.name). Evidencia: `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:44`.
+- `AC-CFG-018` — Settings.amendSlf4jConfig: `pekko.use-slf4j` agrega Slf4jLogger/Slf4jLoggingFilter a loggers. Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:332-378`.
+- `AC-CFG-019` — Validación de la config contra reference.conf (`checkValid` con `internal-dispatcher` excluido). Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:396-403`.
+- `AC-CFG-020` — Combinación no soportada coordinated-shutdown: run-by-actor-system-terminate=on con terminate-actor-system=off. Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:473-480`.
+- `AC-PATH-016` — ChildActorPath: validación del nombre en el constructor (`/` y `#` prohibidos). Evidencia: `actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala:356-363`.
+- `AC-UTIL-006.6`, `AC-UTIL-006.7`, `AC-UTIL-006.8` (cierre documental 2026-10-31) — ByteString: factorías/conversiones, búsqueda y serialización Java. Evidencia: `actor/src/main/scala-2.13/org/apache/pekko/util/ByteString.scala:31-161,236-271,451-487,730-806,825-856 (1.7.1)`.
 - Hijos nuevos por archivos de `util/` que ninguna fila citaba por ruta (ya listados dentro de AC-UTIL-016 sólo por nombre de clase): `AC-UTIL-016.2` (ConstantFun), `.3` (Collections), `.4` (ImmutableIntMap), `.10` (JavaVersion), `.12` (ClassLoaderObjectInputStream), `.13` (BoxedType), `.14` (UUIDComparator), `.15` (HashCode), `.17` (ErrorMessages), `.18` (Unused) y `AC-UTIL-017.2/.4` (FrequencyList, SegmentedRecencyList): estos archivos aparecían en `uncited-classic-main.txt`.
 - Tests sin cita previa asignados: ByteStringInitializationSpec, AsciiStringCopySpec, ByteStringTest.java, ByteStringBuilderScala213PlusSpec -> AC-UTIL-006.*; ConstantFunJavaTest.java -> AC-UTIL-016.2; LineNumberSpec* -> AC-UTIL-016.8; ImmutableIntMapSpec -> AC-UTIL-016.4; DoubleLinkedListSpec, FrequencyListSpec, SegmentedRecencyListSpec, ZipfianGenerator -> AC-UTIL-017.*; AddressTest.java -> AC-PATH-001; JavaExtension.java -> AC-EXT-001.1/AC-EXT-003; ActorSystemSetupTest.java y Scala212CompatTest -> AC-CFG-015 / AC-UTIL-018.3 (leídos en el cierre documental 2026-10-31); JavaConverterScala3InlineTest.java -> AC-UTIL-018.1/.2; `JavaDuration.java` prueba `scala.concurrent.duration.Duration` (biblioteca de Scala) y no es contrato de Pekko.
 
@@ -4226,10 +4226,10 @@ Ninguna. Las 37 filas que estaban `listed` (AC-UTIL-006.1-.5, 010, 012, 013, 014
 | `actor/src/main/scala/org/apache/pekko/actor/ReflectiveDynamicAccess.scala` | AC-CFG-016 |
 | `actor/src/main/scala/org/apache/pekko/actor/setup/ActorSystemSetup.scala` | AC-CFG-015 |
 | `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala (BootstrapSetup, ProviderSelection, Settings, extensiones)` | AC-CFG-001..011, AC-CFG-015, AC-CFG-018..020, AC-EXT-001.2, AC-EXT-002, AC-EXT-003 |
-| `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:390-404 (undefinedUid, newUid, splitNameAndUid)` | AC-PATH-011 |
-| `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:396-455 (paths especiales)` | AC-PATH-015 |
-| `actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:541-562 (IgnoreActorRef)` | AC-PATH-015 |
-| `actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:171-223, Children.scala:283-307` | AC-CFG-010 |
+| `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:389-403 (undefinedUid, newUid, splitNameAndUid)` | AC-PATH-011 |
+| `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:403-462 (paths especiales)` | AC-PATH-015 |
+| `actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:513-534 (IgnoreActorRef)` | AC-PATH-015 |
+| `actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:172-224, Children.scala:283-307` | AC-CFG-010 |
 | `actor/src/main/boilerplate/org/apache/pekko/{function,tuple}/** (plantillas de interfaces funcionales y tuplas Java)` | AC-JAPI-* (otra unidad; fuera de mi grupo, no leído) |
 | `actor/src/main/scala-2.12/**, actor/src/main/scala-2.13+/**` | AC-UTIL-018.* (shims de versión de Scala; sin comportamiento observable para Rust) |
 | `actor/src/main/mima-filters/**` | AC-UTIL-021 (compatibilidad binaria; sin comportamiento de runtime) |
@@ -4314,7 +4314,7 @@ No existen claves de `reference.conf` sin dueño; `pekko.use-slf4j` no está en 
 | `actor-tests/.../actor/LocalActorRefProviderSpec.scala:70-100,160-200` | AC-PATH-008, 015 |
 | `actor-tests/.../pattern/AskSpec.scala:248-262` | AC-PATH-015 |
 | `actor-tests/.../serialization/SerializeSpec.scala:310-361, actor/dungeon/DispatchSpec.scala` | AC-CFG-010 |
-| `actor-tests/.../event/LoggerSpec.scala, LoggingReceiveSpec.scala, actor/DeadLetterSuspensionSpec.scala, actor/CoordinatedShutdownSpec.scala:620-659, actor/ActorSystemSpec.scala:325-364` | AC-CFG-004, 005, 007, 009, 011 |
+| `actor-tests/.../event/LoggerSpec.scala, LoggingReceiveSpec.scala, actor/DeadLetterSuspensionSpec.scala, actor/CoordinatedShutdownSpec.scala:623-663, actor/ActorSystemSpec.scala:328-381` | AC-CFG-004, 005, 007, 009, 011 |
 | `ByteStringSpec, ByteStringBuilderSpec, ByteStringBuilderScala213PlusSpec, ByteIteratorSpec, ByteStringInputStreamSpec, ByteStringInitializationSpec, ByteStringTest.java, AsciiStringCopySpec, ImmutableIntMapSpec, FrequencySketchSpec, FrequencyListSpec, RecencyListSpec, SegmentedRecencyListSpec, DoubleLinkedListSpec, ReflectSpec, ManifestInfoSpec, LineNumberSpec, ConstantFunJavaTest, SameThreadExecutionContextSpec, ByteBufferCleanerSpec, UnsynchronizedByteArrayInputStreamSpec, TypedMultiMapSpec, BoundedBlockingQueueSpec, MessageBufferSpec, StablePriorityDispatcherSpec, Scala212CompatTest, JavaConverterScala3InlineTest` | AC-UTIL-006.*, 016.*, 017.*, 018.*, 022 (extracted en el cierre documental 2026-10-31) |
 
 ### D. Archivos que no definen comportamiento observable

@@ -74,27 +74,27 @@ Filas: AC-JAPI-010, AC-JAPI-011, AC-JAPI-012. Contratos y aserciones: `docs/inve
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-JAPI-001 | AbstractActor + createReceive y AbstractActor.ActorContext (getters Java,… | Equivalente: el trait `Actor` de Rust con `receive`; ver Q-JAPI-1/Q-JAPI-2 | actor-tests/src/test/java/org/apache/pekko/actor/ActorCreationTest.java:83-106 ;… | Q-JAPI-1, Q-JAPI-4 |
-| AC-JAPI-002 | UntypedAbstractActor, AbstractLoggingActor,… | Traits `Stash`, `Timers`, logging por contexto en Rust | actor-tests/src/test/java/org/apache/pekko/actor/StashJavaAPI.java:31-55 ;… | Q-JAPI-1 |
+| AC-JAPI-001 | AbstractActor + createReceive y AbstractActor.ActorContext (getters Java,… | Equivalente: el trait `Actor` de Rust con `receive`; ver Q-JAPI-1/Q-JAPI-2 | actor-tests/src/test/java/org/apache/pekko/actor/ActorCreationTest.java:80-98 ;… | Q-JAPI-1, Q-JAPI-4 |
+| AC-JAPI-002 | UntypedAbstractActor, AbstractLoggingActor,… | Traits `Stash`, `Timers`, logging por contexto en Rust | actor-tests/src/test/java/org/apache/pekko/actor/StashJavaAPI.java:30-54 ;… | Q-JAPI-1 |
 | AC-JAPI-003 | AbstractFSM / AbstractLoggingFSM / AbstractFSMWithStash y builders FSM… | Equivalente: FSM de AC-FSM (una sola API) | actor-tests/src/test/java/org/apache/pekko/actor/AbstractFSMActorTest.java:27-62 ;… | Q-JAPI-1, Q-JAPI-2 |
-| AC-JAPI-004.1 | japi.pf Match/PFBuilder/AbstractMatch/AbstractPFBuilder/CaseStatement:… | `ReceiveBuilder`/`TypeMatcher` (Q-JAPI-2) | actor-tests/src/test/java/org/apache/pekko/japi/MatchBuilderTest.java:28-110 ;… | Q-JAPI-2 |
+| AC-JAPI-004.1 | japi.pf Match/PFBuilder/AbstractMatch/AbstractPFBuilder/CaseStatement:… | `ReceiveBuilder`/`TypeMatcher` (Q-JAPI-2) | actor-tests/src/test/java/org/apache/pekko/japi/MatchBuilderTest.java:26-104 ;… | Q-JAPI-2 |
 | AC-JAPI-004.2 | japi.pf UnitMatch/UnitPFBuilder (variante con efecto, sin valor de retorno) | `ReceiveBuilder<()>` (Q-JAPI-2) | derivada del código (ver bloque de contrato) | Q-JAPI-1, Q-JAPI-2 |
 | AC-JAPI-004.3 | japi.pf FI: interfaces funcionales (Apply, UnitApply, Predicate,… | Closures `Fn`/`FnMut` de Rust | derivada del código (ver bloque de contrato) | Q-JAPI-1 |
 | AC-JAPI-004.4 | japi.pf DeciderBuilder: decider de supervisión por tipo de Throwable | `Decider` por tipo de error (Q-X-5) | derivada del código (ver bloque de contrato) | Q-JAPI-2, Q-X-5 |
-| AC-JAPI-005.1 | japi.function: Function, Function2, Procedure, Effect, Predicate (+ identity),… | Closures `Fn`; `Option<T>`; tuplas | actor-tests/src/test/java/org/apache/pekko/japi/JavaAPITestBase.java:30-70 ;… | Q-JAPI-1 |
-| AC-JAPI-005.2 | Funciones y tuplas generadas (japi.function.Functions, japi.tuple.Tuple1..22)… | tuplas nativas | actor-tests/src/test/java/org/apache/pekko/actor/JavaAPI.java:147-151 | Q-JAPI-1 |
-| AC-JAPI-005.3 | japi.Throwables: isFatal / isNonFatal con la semántica de… | `is_fatal(&panic_payload)` / clasificación de fallos | actor-tests/src/test/java/org/apache/pekko/japi/ThrowablesTest.java:19-31 | Q-X-5 |
+| AC-JAPI-005.1 | japi.function: Function, Function2, Procedure, Effect, Predicate (+ identity),… | Closures `Fn`; `Option<T>`; tuplas | actor-tests/src/test/java/org/apache/pekko/japi/JavaAPITestBase.java:23-25 ;… | Q-JAPI-1 |
+| AC-JAPI-005.2 | Funciones y tuplas generadas (japi.function.Functions, japi.tuple.Tuple1..22)… | tuplas nativas | actor-tests/src/test/java/org/apache/pekko/actor/JavaAPI.java:141-145 | Q-JAPI-1 |
+| AC-JAPI-005.3 | japi.Throwables: isFatal / isNonFatal con la semántica de… | `is_fatal(&panic_payload)` / clasificación de fallos | actor-tests/src/test/java/org/apache/pekko/japi/ThrowablesTest.java:21-42 | Q-X-5 |
 | AC-JAPI-005.4 | japi.JAPI (deprecado) y utilidades Java de colecciones/conversión | n/a | derivada del código (ver bloque de contrato) | Q-JAPI-1 |
 | AC-JAPI-013 | JavaPartialFunction: función parcial pura para Java (noMatch, isCheck,… | Fn(&A) -> Option<B> (las dos fases isCheck se sustituyen por Option) | derivada del código (ver bloque de contrato) | Q-JAPI-1 |
-| AC-JAPI-006 | Props Java (Props.create con clase/args o Creator) y AbstractProps:… | `Props::new(\|\| Actor)` (closure) y `Props::with_args` | actor-tests/src/test/scala/org/apache/pekko/actor/PropsCreationSpec.scala:53-82 ;… | Q-JAPI-1 |
+| AC-JAPI-006 | Props Java (Props.create con clase/args o Creator) y AbstractProps:… | `Props::new(\|\| Actor)` (closure) y `Props::with_args` | actor-tests/src/test/scala/org/apache/pekko/actor/PropsCreationSpec.scala:51-75 ;… | Q-JAPI-1 |
 | AC-JAPI-007 | EventBus Java (EventBus, LookupEventBus, SubchannelEventBus, ScanningEventBus,… | Traits de bus de eventos de AC-EVT | derivada del código (ver bloque de contrato) | Q-EVT-5, Q-JAPI-1 |
-| AC-JAPI-008 | Sobrecargas con java.time.Duration, Optional y CompletionStage en Scheduler,… | `std::time::Duration`, `Option<T>`, `Future` | actor-tests/src/test/java/org/apache/pekko/actor/ActorSelectionTest.java:36-47 ;… | Q-JAPI-1, Q-JAPI-4 |
-| AC-JAPI-009.1 | TypedActor (clásico, deprecado): proxies JDK; semántica de invocación (void,… | Q-JAPI-3: exclusión propuesta; alternativa macro `#[typed_actor]` | actor-tests/src/test/scala/org/apache/pekko/actor/TypedActorSpec.scala:340-441 | Q-JAPI-3, Q-X-5 |
-| AC-JAPI-009.2 | TypedActor: self/context, hooks de ciclo de vida (PreStart, PostStop,… | Q-JAPI-3 | actor-tests/src/test/scala/org/apache/pekko/actor/TypedActorSpec.scala:292-338,443-588 | Q-JAPI-3 |
-| AC-JAPI-009.3 | TypedProps, TypedActorExtension y createActorRefProxy (creación de proxies,… | Q-JAPI-3 | actor-tests/src/test/scala/org/apache/pekko/actor/TypedActorSpec.scala:290-305 ;… | Q-JAPI-3 |
+| AC-JAPI-008 | Sobrecargas con java.time.Duration, Optional y CompletionStage en Scheduler,… | `std::time::Duration`, `Option<T>`, `Future` | actor-tests/src/test/java/org/apache/pekko/actor/ActorSelectionTest.java:33-44 ;… | Q-JAPI-1, Q-JAPI-4 |
+| AC-JAPI-009.1 | TypedActor (clásico, deprecado): proxies JDK; semántica de invocación (void,… | Q-JAPI-3: exclusión propuesta; alternativa macro `#[typed_actor]` | actor-tests/src/test/scala/org/apache/pekko/actor/TypedActorSpec.scala:340-441 (1.7.1) | Q-JAPI-3, Q-X-5 |
+| AC-JAPI-009.2 | TypedActor: self/context, hooks de ciclo de vida (PreStart, PostStop,… | Q-JAPI-3 | actor-tests/src/test/scala/org/apache/pekko/actor/TypedActorSpec.scala:292-338,443-588… | Q-JAPI-3 |
+| AC-JAPI-009.3 | TypedProps, TypedActorExtension y createActorRefProxy (creación de proxies,… | Q-JAPI-3 | actor-tests/src/test/scala/org/apache/pekko/actor/TypedActorSpec.scala:290-305 (1.7.1) ;… | Q-JAPI-3 |
 | AC-JAPI-010 | Fábricas Java de mensajes IO: TcpMessage, UdpMessage, UdpConnectedMessage,… | n/a: se construyen los enums directamente | derivada del código (ver bloque de contrato) | Q-JAPI-1, Q-JAPI-4 |
 | AC-JAPI-011 | Clases base Java del núcleo: AbstractScheduler, JSerializer, offsets Unsafe… | n/a | derivada del código (ver bloque de contrato) | Q-JAPI-1 |
-| AC-JAPI-012 | ReceiveBuilder (receiveBuilder()): casos… | match nativo sobre enum de mensajes; ReceiveBuilder opcional con… | actor-tests/src/test/java/org/apache/pekko/japi/pf/ReceiveBuilderTest.java:89-287 | Q-JAPI-1, Q-JAPI-2, Q-JAPI-4 |
+| AC-JAPI-012 | ReceiveBuilder (receiveBuilder()): casos… | match nativo sobre enum de mensajes; ReceiveBuilder opcional con… | actor-tests/src/test/java/org/apache/pekko/japi/pf/ReceiveBuilderTest.java:60-258 | Q-JAPI-1, Q-JAPI-2, Q-JAPI-4 |
 
 ## Gates y criterio de cierre
 

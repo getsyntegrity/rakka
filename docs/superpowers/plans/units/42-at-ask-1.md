@@ -36,9 +36,9 @@ Filas: AT-ASK-001, AT-ASK-002, AT-ASK-003, AT-ASK-004. Contratos y aserciones: `
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-ASK-001 | AskPattern.ask / ? desde fuera de un actor | async fn ask<Req,Res>(target:&dyn RecipientRef<Req>, make:impl… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:71-130,132-189 | Q-T-ASK-1, Q-X-9 |
-| AT-ASK-002 | askWithStatus y StatusReply | `enum StatusReply<T> { Success(T), Error(StatusError) }`; `StatusError::Message(String)… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:267-272 ;… | Q-T-ASK-1, Q-X-9 |
-| AT-ASK-003 | Status.Failure clasico como respuesta falla el Future | Si se adopta Q-X-8(a): el ref temporal acepta el mensaje de fallo clasico; en (b) no… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:191-216 | Q-X-3, Q-X-8 |
+| AT-ASK-001 | AskPattern.ask / ? desde fuera de un actor | async fn ask<Req,Res>(target:&dyn RecipientRef<Req>, make:impl… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:74-143,145-202 | Q-T-ASK-1, Q-X-9 |
+| AT-ASK-002 | askWithStatus y StatusReply | `enum StatusReply<T> { Success(T), Error(StatusError) }`; `StatusError::Message(String)… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:280-285 ;… | Q-T-ASK-1, Q-X-9 |
+| AT-ASK-003 | Status.Failure clasico como respuesta falla el Future | Si se adopta Q-X-8(a): el ref temporal acepta el mensaje de fallo clasico; en (b) no… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/AskSpec.scala:204-229 | Q-X-3, Q-X-8 |
 | AT-ASK-004 | ask solo sobre InternalRecipientRef | trait RecipientRef<T> con ask() como metodo provisto: no hay restriccion; Q-T-ASK-2… | Sin test dedicado (todos los tests de AskSpec usan refs internos) | Q-T-ASK-2 |
 
 ## Gates y criterio de cierre

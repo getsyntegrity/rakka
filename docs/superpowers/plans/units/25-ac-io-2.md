@@ -36,7 +36,7 @@ Filas: AC-IO-009.8, AC-IO-010, AC-IO-011, AC-IO-012, AC-IO-013. Contratos y aser
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-IO-009.8 | AsyncDnsManager y adaptación del protocolo antiguo Dns.Resolve a Dns.Resolved;… | `AsyncDnsManager` actor | actor-tests/src/test/scala/org/apache/pekko/io/dns/internal/AsyncDnsManagerSpec.scala:30-… | Q-IO-4 |
+| AC-IO-009.8 | AsyncDnsManager y adaptación del protocolo antiguo Dns.Resolve a Dns.Resolved;… | `AsyncDnsManager` actor | actor-tests/src/test/scala/org/apache/pekko/io/dns/internal/AsyncDnsManagerSpec.scala:23-… | Q-IO-4 |
 | AC-IO-010 | BufferPool / DirectByteBufferPool: pool de buffers directos con límite | `BufferPool` con `Vec<BytesMut>` | derivada del código (ver bloque de contrato) | Q-IO-3 |
 | AC-IO-011 | pekko.io.pinned-dispatcher y deployments /IO-DNS/inet-address,… | `pinned-dispatcher` config + deployments | derivada del código (ver bloque de contrato) | Q-IO-1 |
 | AC-IO-012 | UnsynchronizedByteArrayInputStream (java io): InputStream sobre byte[] sin… | `std::io::Cursor<&[u8]>` | actor-tests/src/test/scala/org/apache/pekko/io/UnsynchronizedByteArrayInputStreamSpec.sca… | - |

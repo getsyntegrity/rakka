@@ -49,15 +49,15 @@ Filas: AC-CELL-029, AC-CELL-030, AC-CELL-031. Contratos y aserciones: `docs/inve
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-CELL-023 | Eventos Debug de ciclo de vida y AutoReceive ("started", "restarting",… | publicar `LogEvent::Debug` con los mismos textos | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:186-203,206-22… | Q-CELL-4 |
-| AC-CELL-024 | Limpieza de campos al terminar (props=terminatedProps, instancia nula,… | la celda libera la fábrica y la instancia al terminar | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:109-129 | - |
-| AC-CELL-025 | pekko.actor.debug.unhandled: reenviador de UnhandledMessage a Debug | suscriptor interno de `UnhandledMessage` que publica un Debug | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:115-131 | - |
+| AC-CELL-023 | Eventos Debug de ciclo de vida y AutoReceive ("started", "restarting",… | publicar `LogEvent::Debug` con los mismos textos | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:187-204,207-22… | Q-CELL-4 |
+| AC-CELL-024 | Limpieza de campos al terminar (props=terminatedProps, instancia nula,… | la celda libera la fábrica y la instancia al terminar | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:108-128 | - |
+| AC-CELL-025 | pekko.actor.debug.unhandled: reenviador de UnhandledMessage a Debug | suscriptor interno de `UnhandledMessage` que publica un Debug | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:137-153 | - |
 | AC-CELL-026 | Validación del tipo de mailbox exigido por el actor en Create | comprobación de `RequiresMessageQueue` contra el tipo de cola del mailbox | derivada del código (ver bloque de contrato) | - |
-| AC-CELL-027 | Fallo al crear la celda (initWithFailure) y punto de creación diferida | celda "fallida" que sólo entrega ActorInitializationError | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:508-531 | Q-REF-5 |
+| AC-CELL-027 | Fallo al crear la celda (initWithFailure) y punto de creación diferida | celda "fallida" que sólo entrega ActorInitializationError | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:510-533 | Q-REF-5 |
 | AC-CELL-028 | pekko.actor.serialize-messages: ida y vuelta de mensajes en modo test | hook de test que serializa y deserializa cada mensaje enviado (feature opcional) | actor-tests/src/test/scala/org/apache/pekko/actor/FunctionRefSpec.scala:108-120 ;… | Q-CELL-5 |
-| AC-CELL-029 | pekko.actor.serialize-creators: verificación de argumentos de Props al crear… | hook de test que serializa los argumentos de Props (feature opcional) | actor-tests/src/test/scala/org/apache/pekko/actor/PropsCreationSpec.scala:46-80 ;… | Q-CELL-5 |
+| AC-CELL-029 | pekko.actor.serialize-creators: verificación de argumentos de Props al crear… | hook de test que serializa los argumentos de Props (feature opcional) | actor-tests/src/test/scala/org/apache/pekko/actor/PropsCreationSpec.scala:44-73 ;… | Q-CELL-5 |
 | AC-CELL-030 | Errores al enviar (suspend/resume/restart/stop/sendMessage/sendSystemMessage)… | `catch_unwind`/Result en el envío con log Error | actor-tests/src/test/scala/org/apache/pekko/actor/dungeon/DispatchSpec.scala:30-41 | - |
-| AC-CELL-031 | Cell / ActorRefWithCell: interfaz interna de la celda (underlying, children,… | trait Cell pub(crate)… | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:845-860… | Q-REF-6 |
+| AC-CELL-031 | Cell / ActorRefWithCell: interfaz interna de la celda (underlying, children,… | trait Cell pub(crate)… | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:847-862… | Q-REF-6 |
 
 ## Gates y criterio de cierre
 

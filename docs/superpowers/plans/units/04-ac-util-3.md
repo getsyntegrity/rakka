@@ -47,12 +47,12 @@ Filas: AC-UTIL-026. Contratos y aserciones: `docs/inventory/contracts/classic-fo
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-UTIL-020 | Acceso Unsafe y offsets de campos (Unsafe.java, AbstractActorRef,… | `std::sync::atomic` (`AtomicPtr`, `AtomicU32`) / `arc-swap` | actor-tests/src/test/scala/org/apache/pekko/util/AsciiStringCopySpec.scala:22-52 | Q-UTIL-11 |
+| AC-UTIL-020 | Acceso Unsafe y offsets de campos (Unsafe.java, AbstractActorRef,… | `std::sync::atomic` (`AtomicPtr`, `AtomicU32`) / `arc-swap` | actor-tests/src/test/scala/org/apache/pekko/util/AsciiStringCopySpec.scala:22-45 | Q-UTIL-11 |
 | AC-UTIL-021 | Filtros MiMa (compatibilidad binaria) | N/A (en Rust: semver + `cargo-semver-checks`) | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
 | AC-UTIL-022 | UnsynchronizedByteArrayInputStream, ByteStringInputStream, ByteBufferCleaner | `std::io::Cursor<&[u8]>` | actor-tests/src/test/scala/org/apache/pekko/io/UnsynchronizedByteArrayInputStreamSpec.sca… | Q-UTIL-11, Q-UTIL-12 |
 | AC-UTIL-023 | Helpers.makePattern (patrón glob `?`/`*` a java.util.regex.Pattern) | `glob_matches` cubre el contrato; sin regex | actor-tests/src/test/scala/org/apache/pekko/util/GlobSpec.scala:60-73 | Q-UTIL-8 |
-| AC-UTIL-024 | Helpers.compareIdentityHash / identityHashComparator (orden por… | orden por dirección/ID único del objeto; en Rust no existe identityHashCode estable | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:309 ;… | Q-UTIL-10 |
-| AC-UTIL-025 | Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para… | `fn current_time_millis_to_utc_string(i64) -> String` y `fn timestamp(i64) -> String` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:282-316 | Q-UTIL-10 |
+| AC-UTIL-024 | Helpers.compareIdentityHash / identityHashComparator (orden por… | orden por dirección/ID único del objeto; en Rust no existe identityHashCode estable | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:307 ;… | Q-UTIL-10 |
+| AC-UTIL-025 | Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para… | `fn current_time_millis_to_utc_string(i64) -> String` y `fn timestamp(i64) -> String` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:283-317 | Q-UTIL-10 |
 | AC-UTIL-026 | Helpers.isWindows (detección de SO por os.name) | `cfg!(windows)` | derivada del código (ver bloque de contrato) | Q-UTIL-13 |
 
 ## Gates y criterio de cierre

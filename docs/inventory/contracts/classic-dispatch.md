@@ -13,9 +13,9 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** Estado atómico de un mailbox: un entero con estado primario Open(0)/Closed(1), bit Scheduled(2) y un contador de suspensión en unidades de 4 (`suspendUnit`). Suspender/reanudar son anidados; Closed es terminal; sólo se procesan mensajes de usuario si el estado es Open (con o sin Scheduled) y sin suspensión.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:35-57` (constantes), `:121-204` (consultas y transiciones), `:223-228` (`canBeScheduledForExecution`).
-- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:277-293` (`suspend`/`resume` a nivel de dispatcher).
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:311-329,359-381`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:38-60` (constantes), `:121-204` (consultas y transiciones), `:223-228` (`canBeScheduledForExecution`).
+- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:316-332` (`suspend`/`resume` a nivel de dispatcher).
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:312-330,360-382`.
 
 **Precondiciones.** Estado inicial 0 (Open, sin Scheduled, sin suspensión). No hay configuración.
 
@@ -54,10 +54,10 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** Un turno de mailbox (`Mailbox.run`) procesa primero todos los mensajes de sistema pendientes y luego hasta `max(throughput, 1)` mensajes de usuario, deteniéndose antes si vence el `throughput-deadline-time`, si el mailbox se suspende/cierra, o si la cola queda vacía; después marca el mailbox ocioso y lo reprograma si quedan mensajes.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:230-258` (`run`, `exec`), `:260-280` (`processMailbox`), `:289-333` (`processAllSystemMessages`).
-- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:333` (`isThroughputDeadlineTimeDefined`), `Dispatcher.scala:136-159` (`registerForExecution`).
-- `actor/src/main/resources/reference.conf:589-594`.
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatcherActorSpec.scala:84-141`; `ActorModelSpec.scala:311-347`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:262-273` (`run`, `exec`), `:260-280` (`processMailbox`), `:289-333` (`processAllSystemMessages`).
+- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:372` (`isThroughputDeadlineTimeDefined`), `Dispatcher.scala:136-159` (`registerForExecution`).
+- `actor/src/main/resources/reference.conf:620-625`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatcherActorSpec.scala:84-142`; `ActorModelSpec.scala:311-347`.
 
 **Precondiciones.** El mailbox fue marcado Scheduled por `registerForExecution` (AC-DSP-002) y tiene `actor` asignado. `throughput` y `throughputDeadlineTime` son los del dispatcher del actor (AC-DSP-003).
 
@@ -94,10 +94,10 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** Al desvincular un actor (`detach` -> `unregister`) su mailbox se reemplaza por el `deadLetterMailbox`, se cierra y se limpia: los mensajes de sistema pendientes pasan a `deadLetterMailbox.systemEnqueue` y los mensajes de usuario pendientes se mueven (vía `messageQueue.cleanUp`) al `deadLetterMailbox.messageQueue`, que los publica como `DeadLetter(msg, envelope.sender, receiver)`. Desde ese momento todo envío al actor va a dead letters.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:240-246` (`unregister`), `Mailbox.scala:340-354` (`cleanUp`), `:473-503` (`DefaultSystemMessageQueue`, centinela `NoMessage`), `:408-414,442-448,518-526` (`cleanUp` por tipo de cola).
-- `actor/src/main/scala/org/apache/pekko/dispatch/BalancingDispatcher.scala:79-90` (SharingMailbox.cleanUp), `Mailboxes.scala:54-72` (deadLetterMailbox).
+- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:279-285` (`unregister`), `Mailbox.scala:340-354` (`cleanUp`), `:473-503` (`DefaultSystemMessageQueue`, centinela `NoMessage`), `:408-414,442-448,518-526` (`cleanUp` por tipo de cola).
+- `actor/src/main/scala/org/apache/pekko/dispatch/BalancingDispatcher.scala:78-89` (SharingMailbox.cleanUp), `Mailboxes.scala:54-72` (deadLetterMailbox).
 - `actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:247-262` (orden de `finishTerminate`: `aroundPostStop` antes de `dispatcher.detach`).
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithBoundedStashSpec.scala:119-146`; `DeathWatchSpec.scala:145-152`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithBoundedStashSpec.scala:122-149`; `DeathWatchSpec.scala:145-152`.
 
 **Precondiciones.** El actor estaba registrado en el dispatcher; `detach` se invoca una sola vez (ver AC-DSP-001: dos `unregister` romperían el contador de inhabitants).
 
@@ -129,7 +129,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-004 SPI MessageQueue / MailboxType / ProducesMessageQueue
 
 - **Contrato observable**: `MessageQueue{enqueue, dequeue (null si vacía), numberOfMessages, hasMessages, cleanUp(owner, deadLetters)}`; `MailboxType.create(owner: Option[ActorRef], system: Option[ActorSystem])`; mailbox-type configurable por FQCN con constructor `(Settings, Config)`.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:362-396,644-650`; `Mailboxes.scala:241-255`; `actor/src/main/resources/reference.conf:631-635,686-733`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:376-410,668-674`; `Mailboxes.scala:241-255`; `actor/src/main/resources/reference.conf:678-682,733-780`.
 - **Condiciones**: constructor inexistente => `IllegalArgumentException("Cannot instantiate MailboxType [<fqcn>], defined in [<id>], make sure it has a public constructor with [org.apache.pekko.actor.ActorSystem.Settings, com.typesafe.config.Config] parameters", causa)` (`Mailboxes.scala:249-252`); `mailbox-type` vacío => `ConfigurationException("The setting mailbox-type, defined in [<id>] is empty")` (`:242`).
 - **Orden**: múltiples productores, un consumidor como mínimo (`Mailbox.scala:360`).
 - **Dependencias**: AC-CFG-016, Q-X-2.
@@ -141,7 +141,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-005 UnboundedMailbox
 
 - **Contrato observable**: FIFO sin límite, multi-consumidor (`ConcurrentLinkedQueue`), `remainingCapacity == Int.MaxValue`.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:533-538,653-665`; `reference.conf:635`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:557-562,677-689`; `reference.conf:635`.
 - **Condiciones**: `dequeue()` en vacía => null; `numberOfMessages` consistente con el tamaño (`queue.size`, O(n)).
 - **Orden**: FIFO por productor; con varios productores, orden de llegada.
 - **Dependencias**: AC-MBX-004.
@@ -153,7 +153,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-006 SingleConsumerOnlyUnboundedMailbox
 
 - **Contrato observable**: MPSC sin límite (`NodeMessageQueue` sobre `AbstractNodeQueue`, cola de Vyukov); sin `MultipleConsumerSemantics`, por lo que no es apta para BalancingDispatcher; `count()` es una estimación O(n) sobre una cola "en movimiento".
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:398-415,675-680`; `actor/src/main/java/org/apache/pekko/dispatch/AbstractNodeQueue.java:14-226` (leído: `add` = `getAndSet` del head + `setNext`; `poll` con spin cuando el productor aún no enlazó; `isEmpty` compara tail con head).
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:412-429,699-704`; `actor/src/main/java/org/apache/pekko/dispatch/AbstractNodeQueue.java:14-243` (leído: `add` = `getAndSet` del head + `setNext`; `poll` con spin cuando el productor aún no enlazó; `isEmpty` compara tail con head).
 - **Condiciones**: `cleanUp` mueve todo a deadLetters (`:408-414`).
 - **Orden**: FIFO; un solo consumidor.
 - **Dependencias**: AC-MBX-004.
@@ -165,7 +165,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-007 BoundedMailbox
 
 - **Contrato observable**: cola acotada (`LinkedBlockingQueue`); si está llena `enqueue` espera `pushTimeOut`; vencido => `DeadLetter(msg, sender, receiver)` a `provider.deadLetters`; `pushTimeOut < 0` => `put` bloqueante infinito; `0` => `offer` inmediato.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:544-571,705-726`; `reference.conf:637-647` (`mailbox-capacity=1000`, `mailbox-push-timeout-time=10s`).
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:568-595,729-750`; `reference.conf:637-647` (`mailbox-capacity=1000`, `mailbox-push-timeout-time=10s`).
 - **Condiciones**: `capacity<0` => `IllegalArgumentException("The capacity for BoundedMailbox can not be negative")` (`:713`); `pushTimeOut null` => `IllegalArgumentException("The push time-out for BoundedMailbox can not be null")` (`:714`). `capacity == 0` pasa esa validación pero `LinkedBlockingQueue(0)` lanza `IllegalArgumentException` de la JDK (sin mensaje propio) al crear la cola.
 - **Orden/concurrencia**: el emisor se bloquea (hilo que ejecuta `tell`) mientras espera; cola `LinkedBlockingQueue`.
 - **Dependencias**: AC-MBX-004, AC-MBX-022.
@@ -177,7 +177,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-008 NonBlockingBoundedMailbox
 
 - **Contrato observable**: cola acotada MPSC sin bloqueo (`BoundedNodeMessageQueue`); excedente => `DeadLetter(msg, sender, receiver)` inmediato; ignora push timeout (`pushTimeOut = Duration.Undefined`). Declara `MultipleConsumerSemantics` y `BoundedMessageQueueSemantics` aunque el comentario del mailbox diga que no admite varios consumidores: `poll` hace CAS sobre `deq` y reintenta ante consumidores concurrentes (`AbstractBoundedNodeQueue.java`, `pollNode`).
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:417-449,682-700`; `actor/src/main/java/org/apache/pekko/dispatch/AbstractBoundedNodeQueue.java:14-222` (leído: `add` comprueba `lastNode.count - deq.count < capacity`, `size()` es una aproximación "momentánea", capacidad 0 admitida).
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:431-463,706-724`; `actor/src/main/java/org/apache/pekko/dispatch/AbstractBoundedNodeQueue.java:14-240` (leído: `add` comprueba `lastNode.count - deq.count < capacity`, `size()` es una aproximación "momentánea", capacidad 0 admitida).
 - **Condiciones**: `capacity<0` => `IllegalArgumentException("The capacity for NonBlockingBoundedMailbox can not be negative")` (`Mailbox.scala:696`); a nivel de cola `capacity < 0` => `IllegalArgumentException("AbstractBoundedNodeQueue.capacity must be >= 0")`.
 - **Orden**: FIFO; `size()` exacto sólo sin concurrencia (corrección del inventario: es una aproximación según el Javadoc).
 - **Dependencias**: AC-MBX-004.
@@ -193,7 +193,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** Cola de mensajes ordenada por un `Comparator[Envelope]` (habitualmente un `PriorityGenerator(Any => Int)`): `dequeue` devuelve el elemento mínimo según el comparador (menor valor = mayor prioridad). Entre elementos de igual prioridad el orden NO está garantizado (cola binaria).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:728-773` (mailboxes), `Dispatcher.scala:164-183` (`PriorityGenerator`: `compare = gen(a.message) - gen(b.message)`).
+- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:752-797` (mailboxes), `Dispatcher.scala:164-183` (`PriorityGenerator`: `compare = gen(a.message) - gen(b.message)`).
 - `actor/src/main/scala/org/apache/pekko/util/BoundedBlockingQueue.scala:27-262` (cola acotada del caso acotado), `Mailbox.scala:557-571` (política de `enqueue` compartida).
 - Pruebas: `actor-tests/src/test/scala/org/apache/pekko/dispatch/PriorityDispatcherSpec.scala:25-100`; `MailboxConfigSpec.scala:204-213`.
 
@@ -230,7 +230,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** Igual que AC-MBX-009 pero los mensajes de igual prioridad salen en el orden en que fueron encolados (FIFO por número de secuencia asignado en `offer`).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:775-822`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:799-846`.
 - `actor/src/main/scala/org/apache/pekko/util/StablePriorityQueue.scala:14-87` (`PriorityQueueStabilizer`: cada `offer` envuelve el elemento con `seqNum.incrementAndGet`; `WrappedElementComparator` desempata con `signum(seqNum1 - seqNum2)`).
 - Pruebas: `actor-tests/src/test/scala/org/apache/pekko/dispatch/StablePriorityDispatcherSpec.scala:25-107`; `MailboxConfigSpec.scala:215-224`.
 
@@ -262,9 +262,9 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** `UnboundedDequeBasedMailbox` (`LinkedBlockingDeque`) y `BoundedDequeBasedMailbox(capacity, pushTimeOut)` añaden `enqueueFirst(receiver, envelope)`, que coloca el mensaje al frente (lo consume `Stash`). `enqueue` sigue añadiendo al final; `dequeue` toma el frente.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:573-629` (traits), `:824-868` (mailboxes), `reference.conf:686-733` (secciones `unbounded-deque-based`/`bounded-deque-based`).
-- Consumidor: `actor/src/main/scala/org/apache/pekko/actor/Stash.scala:245-277`.
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:259-264,270-281,357-437`; `ActorWithStashSpec.scala:121-139`; `ActorWithBoundedStashSpec.scala:119-133`; `StashJavaAPI.java:41-54`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:597-653` (traits), `:824-868` (mailboxes), `reference.conf:686-733` (secciones `unbounded-deque-based`/`bounded-deque-based`).
+- Consumidor: `actor/src/main/scala/org/apache/pekko/actor/Stash.scala:244-276`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:260-265,271-282,358-438`; `ActorWithStashSpec.scala:121-139`; `ActorWithBoundedStashSpec.scala:119-133`; `StashJavaAPI.java:41-54`.
 
 **Precondiciones.** Bounded: `capacity >= 0` y `pushTimeOut` no nulo; `LinkedBlockingDeque(0)` falla en la JDK.
 
@@ -297,7 +297,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** Los mensajes cuyo tipo implementa `ControlMessage` se desencolan antes que los demás; FIFO dentro de cada clase. Hay variante no acotada (`UnboundedControlAwareMailbox`) y acotada (`BoundedControlAwareMailbox(capacity, pushTimeOut)`).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:870-1035`; `reference.conf:676-681,707-725`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:894-1059`; `reference.conf:676-681,707-725`.
 - Pruebas: `actor-tests/src/test/scala/org/apache/pekko/dispatch/ControlAwareDispatcherSpec.scala:20-73`; `MailboxConfigSpec.scala:226-234`; `ActorMailboxSpec.scala:291-314`.
 
 **Precondiciones.** El mailbox bounded se crea por config con `mailbox-capacity` y `mailbox-push-timeout-time` (constructor `(Settings, Config)`). NO valida `capacity` ni `pushTimeOut` (a diferencia de los demás mailboxes acotados).
@@ -329,7 +329,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-013 Precedencia de selección de mailbox
 
 - **Contrato observable**: ver TSV (contrato corregido).
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:133-210`; `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:705-720`; `actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:92-104`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:132-201`; `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:712-727`; `actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:91-103`.
 - **Condiciones**: requisito del dispatcher `mailbox-requirement` ("" = sin requisito, `Mailboxes.scala:133-135`) y del actor (`RequiresMessageQueue[T]`, `:117-127`); `getRequiredType` con tipo comodín => `IllegalArgumentException("no wildcard type allowed in RequireMessageQueue argument (was [x])")` (`:123`). Cola producida que no cumple => IAE (textos en TSV) envuelta en `ConfigurationException` (`ActorRefProvider.scala:715-718`).
 - **Orden**: la creación del mailbox ocurre al crear el actor, el fallo se retrasa a la creación (`Dispatch.scala:86-88`).
 - **Dependencias**: AC-MBX-014, AC-MBX-015, AC-DSP-007.
@@ -341,7 +341,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-014 Lookup de mailboxes
 
 - **Contrato observable**: ver TSV.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:40-43,105-110,217-293`; `reference.conf:631-734`; typed `PropsAdapter.scala:45`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:40-43,105-110,208-283`; `reference.conf:631-734`; typed `PropsAdapter.scala:45`.
 - **Condiciones**: textos de error en TSV. Los ids se cachean en `ConcurrentHashMap` (`:74,272-277`): misma instancia por id.
 - **Orden**: carrera benigna (`:224-226`).
 - **Dependencias**: AC-CFG-001.
@@ -353,7 +353,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-015 Semánticas de cola y RequiresMessageQueue
 
 - **Contrato observable**: marcadores: MultipleConsumer, Unbounded, Bounded (con `pushTimeOut`), DequeBased(+Unbounded/Bounded), ControlAware(+Unbounded/Bounded), Logger. `RequiresMessageQueue[T]` en el actor; `ProducesMessageQueue[T]` en el MailboxType.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:509-629,873-899,1038-1046,648`; `Mailboxes.scala:112-152`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:533-653,897-923,1062-1070,672`; `Mailboxes.scala:112-152`.
 - **Condiciones**: un MailboxType que no declara `ProducesMessageQueue` produce `MessageQueue` genérico (`Mailboxes.scala:140`).
 - **Orden**: n/a.
 - **Dependencias**: AC-MBX-013.
@@ -365,7 +365,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-016 Stash
 
 - **Contrato observable**: ver TSV.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/actor/Stash.scala:126-278`; `Mailboxes.scala:295-331`; `reference.conf:649-653`; docs `docs/src/main/paradox/actors.md:1088-1146` (sección Stash: coincide con el código salvo la `MessageQueueAppendFailedException`, que la documentación afirma y el código no lanza).
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/actor/Stash.scala:125-277`; `Mailboxes.scala:295-331`; `reference.conf:649-653`; docs `docs/src/main/paradox/actors.md:1088-1146` (sección Stash: coincide con el código salvo la `MessageQueueAppendFailedException`, que la documentación afirma y el código no lanza).
 - **Condiciones**: textos exactos en TSV. El mensaje estachado se elimina del stash aunque `unstash()` falle (`Stash.scala:210-217`). `stash()` compara por identidad (`currMsg eq theStash.last`): sólo detecta el doble stash del MISMO mensaje consecutivo (el último del stash). Corrección: el Scaladoc (`Stash.scala:203-206,221-224`) dice que un mailbox acotado desbordado lanza `MessageQueueAppendFailedException`; el código no lo hace: `enqueueFirst` del mailbox acotado publica `DeadLetter` y no lanza (A5).
 - **Orden**: `unstashAll` recorre el stash al revés y hace `enqueueFirst` => orden original delante del resto (`:245-249`).
 - **Dependencias**: AC-MBX-011, AC-MBX-022, AC-MBX-023.
@@ -377,7 +377,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-017 Stash en restart y stop
 
 - **Contrato observable**: preRestart y postStop hacen `unstashAll`; en stop los mensajes terminan en deadLetters.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/actor/Stash.scala:82-103`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/actor/Stash.scala:81-102`.
 - **Condiciones**: `unstashAll` se ejecuta en `try/finally` antes de `super.preRestart/postStop`.
 - **Orden**: antes de que la nueva instancia procese; en stop, antes de `detach` (AC-MBX-003).
 - **Dependencias**: AC-MBX-016.
@@ -393,9 +393,9 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** `Stash` exige `DequeBasedMessageQueueSemantics`; `UnboundedStash` exige `UnboundedDequeBasedMessageQueueSemantics`; `UnrestrictedStash` no exige nada (el mailbox debe ser deque o falla la creación del stash). `StashFactory` crea stashes adicionales (aislados del stash de usuario) para actores internos; `clearStash()` devuelve y vacía; `unstashAll(filtro)` reencola sólo los que cumplen el filtro y vacía todo el stash.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/Stash.scala:71-125` (traits y `StashFactory`), `:149-173` (capacidad y comprobación del mailbox), `:244-264` (`unstashAll(filtro)`, `clearStash`).
+- `actor/src/main/scala/org/apache/pekko/actor/Stash.scala:70-124` (traits y `StashFactory`), `:149-173` (capacidad y comprobación del mailbox), `:244-264` (`unstashAll(filtro)`, `clearStash`).
 - `actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala` (`AbstractActorWithStash`, `AbstractActorWithUnboundedStash`, `AbstractActorWithUnrestrictedStash`).
-- Pruebas: `actor-tests/src/test/java/org/apache/pekko/actor/StashJavaAPI.java:41-54`, `StashJavaAPITestActors.java:24-80`; `AbstractFSMWithStashActorTest.java`. Consumo interno (fuera de módulo): persistence/persistence-typed.
+- Pruebas: `actor-tests/src/test/java/org/apache/pekko/actor/StashJavaAPI.java:40-53`, `StashJavaAPITestActors.java:24-80`; `AbstractFSMWithStashActorTest.java`. Consumo interno (fuera de módulo): persistence/persistence-typed.
 
 **Precondiciones.** `Stash`/`UnboundedStash` se resuelven por `RequiresMessageQueue` (AC-MBX-013); `UnrestrictedStash` requiere que el mailbox (p. ej. `Props.withMailbox("pekko.actor.mailbox.unbounded-deque-based")`) implemente `DequeBasedMessageQueueSemantics`.
 
@@ -421,7 +421,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-019 numberOfMessages aproximado
 
 - **Contrato observable**: puede devolver -1/0 u otra estimación; usar `hasMessages` para presencia.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:108-113,374-379`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:118-123,388-393`.
 - **Condiciones**: el test acepta -1.
 - **Orden**: n/a.
 - **Dependencias**: AC-RT-008.
@@ -437,8 +437,8 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** El requisito `org.apache.pekko.event.LoggerMessageQueueSemantics` se mapea (tabla `requirements`) a `pekko.actor.mailbox.logger-queue` con `mailbox-type = org.apache.pekko.event.LoggerMailboxType`. Es un mailbox no acotado cuyo `cleanUp` (al desvincular el actor, p. ej. al apagar el sistema) no envía los mensajes a dead letters sino que reenvía los eventos de log pendientes al `StandardOutLogger`.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:682-683,728-733`.
-- `actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:28-73`; consumidores: `actor/src/main/scala/org/apache/pekko/event/Logging.scala:1143` (`DefaultLogger`), `actor/src/main/scala/org/apache/pekko/event/jul/JavaLogger.scala:33`, `slf4j/src/main/scala/org/apache/pekko/event/slf4j/Slf4jLogger.scala`.
+- `actor/src/main/resources/reference.conf:729-730,775-780`.
+- `actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:29-75`; consumidores: `actor/src/main/scala/org/apache/pekko/event/Logging.scala:1155` (`DefaultLogger`), `actor/src/main/scala/org/apache/pekko/event/jul/JavaLogger.scala:33 (1.7.1)`, `slf4j/src/main/scala/org/apache/pekko/event/slf4j/Slf4jLogger.scala`.
 
 **Precondiciones.** `create` exige `owner` y `system` definidos.
 
@@ -467,7 +467,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:54-72`.
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:684-720,736-752` (cómo `EmptyLocalActorRef`/`DeadLetterActorRef` tratan el `DeadLetter` que envuelve un mensaje de sistema).
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:656-692,708-724` (cómo `EmptyLocalActorRef`/`DeadLetterActorRef` tratan el `DeadLetter` que envuelve un mensaje de sistema).
 
 **Precondiciones.** El mailbox nace cerrado (`becomeClosed()` en su constructor) y con `actor == null`.
 
@@ -493,7 +493,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-022 Validación y avisos de configuración de mailbox
 
 - **Contrato observable**: textos en TSV.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:696,713-714,760-761,809-810,854-857`; `Mailboxes.scala:173-178,257-266`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:720,737-738,784-785,833-834,878-881`; `Mailboxes.scala:173-178,257-266`.
 - **Condiciones**: warning sólo una vez por sistema para el pushTimeOut no cero (`mailboxNonZeroPushTimeoutWarningIssued`, `:131,257-267`; aplica a `ProducesPushTimeoutSemanticsMailbox` con `pushTimeOut.toNanos > 0`); warning de `mailbox-size` una vez (`:179`). Los mailboxes `BoundedControlAwareMailbox` y `NonBlockingBoundedMailbox` NO validan `pushTimeOut`; sólo este último valida `capacity`.
 - **Orden**: publicados en EventStream, categoría `mailboxes`.
 - **Dependencias**: AC-MBX-007, AC-MBX-014.
@@ -505,7 +505,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-MBX-023 Capacidad del stash por dispatcher/mailbox
 
 - **Contrato observable**: ver TSV.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:295-331`; `reference.conf:649-653`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:285-321`; `reference.conf:649-653`.
 - **Condiciones**: precedencia: sección del mailbox, luego dispatcher, luego default-mailbox (`:326-329`); cache por `dispatcher + "-" + mailbox` (`:313`).
 - **Orden**: n/a.
 - **Dependencias**: AC-MBX-016, AC-DSP-004.
@@ -521,7 +521,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-DSP-001 MessageDispatcher: attach/detach, inhabitants, apagado diferido
 
 - **Contrato observable**: `attach` registra el actor (inhabitants+1) y agenda su mailbox con hint de sistema; `detach` desregistra (inhabitants-1), cambia el mailbox del actor por deadLetterMailbox, lo cierra y limpia; si inhabitants llega a 0 se agenda `shutdown()` tras `shutdown-timeout`; reutilizar el dispatcher recrea el executor (delegate lazy). Las tareas `execute(Runnable)` también cuentan como inhabitants (AC-DSP-016.1).
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:75-266`; `Dispatcher.scala:53-66,125-129`; `reference.conf:586-587`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:107-305`; `Dispatcher.scala:53-66,125-129`; `reference.conf:586-587`.
 - **Condiciones**: inhabitants<0 => `IllegalStateException("ACTOR SYSTEM CORRUPTED!!! A dispatcher can't have less than 0 inhabitants!")` tras `reportFailure` (`:129-135`). Scheduler ya cerrado => shutdown inmediato (`:212-219`) y estado vuelto a UNSCHEDULED. Máquina UNSCHEDULED/SCHEDULED/RESCHEDULED (`:191-266`): llegar a 0 con UNSCHEDULED agenda el cierre (SCHEDULED); llegar a 0 con SCHEDULED pasa a RESCHEDULED (se reagenda al vencer); al vencer, `shutdown()` sólo si `inhabitants == 0` ("racy"), y el estado vuelve a UNSCHEDULED. `Dispatcher.shutdown()` reemplaza el delegate por una copia perezosa (`LazyExecutorServiceDelegate`) y apaga el viejo; el siguiente uso crea un executor nuevo.
 - **Orden/concurrencia**: CAS sobre contador (`getAndAddLong`) y estado; `shutdown` "racy" (`:254`). El cierre usa `scheduler.scheduleOnce(shutdownTimeout, shutdownAction)` con un EC que ejecuta en el hilo del scheduler; `shutdownAction` es `TaskRunOnClose` (se ejecuta al cerrar el scheduler, AC-SCH-009).
 - **Dependencias**: AC-MBX-002, AC-MBX-003, AC-SCH-001, AC-SCH-009.
@@ -533,8 +533,8 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-DSP-002 Dispatcher event-based: registerForExecution
 
 - **Contrato observable**: `dispatch` encola y registra con hint de mensaje; `systemDispatch` con hint de sistema; un mailbox se agenda a lo sumo una vez (CAS a Scheduled); los mailboxes de actores distintos se ejecutan en paralelo (un actor lento no bloquea a uno rápido en el mismo dispatcher).
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala:72-160`.
-- **Condiciones**: rechazo del executor => 1 reintento; segundo rechazo => `setAsIdle`, publica `Error(e, clase, clase, "registerForExecution was rejected twice!")` y relanza (`:146-156`); `executeTask` análogo con `"executeTask was rejected twice!"` (`:95-107`). El rechazo sólo ocurre con un executor apagado (el `ThreadPoolExecutor` usa `SaneRejectedExecutionHandler`, AC-DSP-009), o con una cola acotada llena en el `AffinityPool` (AC-DSP-013); `ActorCell.sendMessage` captura ese fallo y lo publica como `Error` sin propagarlo al emisor (`actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:137-147`).
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala:80-172`.
+- **Condiciones**: rechazo del executor => 1 reintento; segundo rechazo => `setAsIdle`, publica `Error(e, clase, clase, "registerForExecution was rejected twice!")` y relanza (`:146-156`); `executeTask` análogo con `"executeTask was rejected twice!"` (`:95-107`). El rechazo sólo ocurre con un executor apagado (el `ThreadPoolExecutor` usa `SaneRejectedExecutionHandler`, AC-DSP-009), o con una cola acotada llena en el `AffinityPool` (AC-DSP-013); `ActorCell.sendMessage` captura ese fallo y lo publica como `Error` sin propagarlo al emisor (`actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-148`).
 - **Orden**: `canBeScheduledForExecution` evaluado antes del CAS (`:140`).
 - **Dependencias**: AC-MBX-001.
 - **Equivalente Rust**: `Dispatcher::register_for_execution(mailbox, hints) -> Result<bool, Rejected>` sobre el executor elegido (Q-X-4); el rechazo sólo existe si el executor está cerrado o su cola llena.
@@ -545,7 +545,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-DSP-003 throughput y throughput-deadline-time
 
 - **Contrato observable**: máximo de mensajes por turno y tiempo máximo del turno. CONTRADICCIÓN doc/código en `throughput<=0` (ver Q-DSP-5): el Scaladoc dice "vaciar el mailbox", el código usa `max(throughput,1)`; lo observable es el código.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:263-280`; `AbstractDispatcher.scala:333`; `reference.conf:589-594`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:277-294`; `AbstractDispatcher.scala:333`; `reference.conf:589-594`.
 - **Condiciones**: `max(throughput,1)`; deadline activo sólo si `toMillis>0`; la comprobación es `(nanoTime - deadline) < 0` después de cada mensaje.
 - **Orden**: un actor lento no impide que otro obtenga turno cuando throughput es alto/bajo según config.
 - **Dependencias**: AC-MBX-002.
@@ -582,11 +582,11 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** Existen tres ids de dispatcher fijos: `pekko.actor.default-dispatcher`, `pekko.actor.internal-dispatcher` (executor fork-join, `parallelism-min/factor/max = 4/1.0/64`, `throughput = 5`) y `pekko.actor.default-blocking-io-dispatcher` (`thread-pool-executor`, `fixed-pool-size = 16`, `throughput = 1`). Los guardianes y actores internos corren en `internal-dispatcher`; el guardián de usuario también, salvo que el sistema se cree con un `guardianProps` propio (entonces corre en `default-dispatcher`, o en el dispatcher de esos Props). `internal-dispatcher` puede redefinirse como alias de otro dispatcher. Un `ExecutionContext` pasado vía `BootstrapSetup.defaultExecutionContext` sustituye el executor de todo dispatcher con `executor = "default-executor"`.
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:366-395,607-629`.
-- `actor/src/main/scala/org/apache/pekko/dispatch/Dispatchers.scala:24-54,56-75,127-134` (ids, prerrequisitos, `internalDispatcher` evaluado al construir `Dispatchers`).
-- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:155-178,282,393-401,995` (BootstrapSetup, `checkValid` sin la ruta `internal-dispatcher` para permitir alias).
-- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:534-570` (dispatcher de los guardianes).
-- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:513-541` (`DefaultExecutorServiceConfigurator`).
+- `actor/src/main/resources/reference.conf:371-400,638-676`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/Dispatchers.scala:24-56,58-77,129-136` (ids, prerrequisitos, `internalDispatcher` evaluado al construir `Dispatchers`).
+- `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:154-177,281,394-402,1026` (BootstrapSetup, `checkValid` sin la ruta `internal-dispatcher` para permitir alias).
+- `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:541-577` (dispatcher de los guardianes).
+- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:597-625` (`DefaultExecutorServiceConfigurator`).
 - Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:44-178`.
 
 **Precondiciones.** El EC externo debe aceptar `execute(Runnable)`; no se le exige ser un pool propio.
@@ -622,7 +622,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-DSP-007 Selección del dispatcher de un actor
 
 - **Contrato observable**: ver TSV.
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:684-757`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:691-764`.
 - **Condiciones**: textos en TSV.
 - **Orden**: verificación en la creación, antes de arrancar.
 - **Dependencias**: AC-CFG-012, AC-DSP-004, AC-MBX-013.
@@ -634,7 +634,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 ## AC-DSP-008 ForkJoinExecutorConfigurator
 
 - **Contrato observable**: ver TSV (contrato corregido). Efecto observable del `ForkJoinPool` de Pekko (modo `asyncMode` = cola FIFO por hilo cuando `task-peeking-mode = "FIFO"`, pila LIFO si `"LIFO"`; robo de trabajo entre hilos; tamaño `parallelism`; compensación de hilos bloqueados vía `blocking {}`/`Await` con `PekkoForkJoinWorkerThread` como `BlockContext` -> `ForkJoinPool.managedBlock`).
-- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/ForkJoinExecutorConfigurator.scala:43-49,120-234`; `ThreadPoolBuilder.scala:49-50,216-240`; `reference.conf:469-520`.
+- **Fuente**: `actor/src/main/scala/org/apache/pekko/dispatch/ForkJoinExecutorConfigurator.scala:39-45,119-189`; `ThreadPoolBuilder.scala:49-50,216-240`; `reference.conf:469-520`.
 - **Condiciones**: errores en TSV. `virtualize = on` sólo tiene efecto con JDK >= 21 (`isVirtualized = virtualize && JavaVersion.majorVersion >= 21`, `:105`): en JDK < 21 se ignora SIN error, a pesar de que `reference.conf:509-510` dice que lanzaría una excepción (contradicción registrada).
 - **Orden**: n/a.
 - **Dependencias**: AC-DSP-004.
@@ -645,7 +645,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 
 ## AC-DSP-009 ThreadPoolExecutorConfigurator y ThreadPoolConfig
 
-- **Contrato observable / Fuente / Condiciones**: ver TSV (tamaños, colas y errores). Corrección/omisión: la política de rechazo por defecto es `SaneRejectedExecutionHandler` (`actor/src/main/scala/org/apache/pekko/dispatch/ThreadPoolBuilder.scala:47,293-302`): cuando el pool está saturado (cola acotada llena y `maxPoolSize` alcanzado) el `Runnable` se ejecuta en el hilo del llamante ("caller runs"), es decir, el emisor de `tell` ejecuta el turno del mailbox del receptor; si el executor está apagado lanza `RejectedExecutionException("Shutdown")`. Los valores de `ThreadPoolConfig()` sin configurar (usados por el fallback de `PinnedDispatcherConfigurator`) son `allowCorePoolTimeout=false`, `corePoolSize=16`, `maxPoolSize=128`, `threadTimeout=60 s`, cola enlazada sin límite (`:40-45,86-92`). `atFullThrottle() = activeCount >= poolSize`.
+- **Contrato observable / Fuente / Condiciones**: ver TSV (tamaños, colas y errores). Corrección/omisión: la política de rechazo por defecto es `SaneRejectedExecutionHandler` (`actor/src/main/scala/org/apache/pekko/dispatch/ThreadPoolBuilder.scala:49,312-321`): cuando el pool está saturado (cola acotada llena y `maxPoolSize` alcanzado) el `Runnable` se ejecuta en el hilo del llamante ("caller runs"), es decir, el emisor de `tell` ejecuta el turno del mailbox del receptor; si el executor está apagado lanza `RejectedExecutionException("Shutdown")`. Los valores de `ThreadPoolConfig()` sin configurar (usados por el fallback de `PinnedDispatcherConfigurator`) son `allowCorePoolTimeout=false`, `corePoolSize=16`, `maxPoolSize=128`, `threadTimeout=60 s`, cola enlazada sin límite (`:40-45,86-92`). `atFullThrottle() = activeCount >= poolSize`.
 - **Orden**: n/a.
 - **Dependencias**: AC-DSP-004.
 - **Equivalente Rust**: pool de hilos con tamaño core/max, cola (array/linked, acotada o no), keep-alive y política "caller runs salvo apagado" (Q-DSP-1). El efecto de contrapresión (el emisor ejecuta el trabajo) es observable y se conserva; el nombre de hilo `<sistema>-<id>-N` también (AC-DSP-015).
@@ -660,9 +660,9 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** La clave `executor` de un dispatcher elige la fábrica de `ExecutorService`: `"default-executor"` (usa el EC externo si existe, si no `default-executor.fallback`), `"fork-join-executor"` (también para `null` o cadena vacía), `"virtual-thread-executor"` (si el runtime no soporta hilos virtuales, la fábrica de `virtual-thread-executor.fallback`), `"thread-pool-executor"`, `"affinity-pool-executor"`, o el FQCN de un `ExecutorServiceConfigurator` con constructor `(Config, DispatcherPrerequisites)`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:353-410` (`ExecutorServiceConfigurator`, `MessageDispatcherConfigurator.configureExecutor`), `:513-541` (`DefaultExecutorServiceConfigurator`).
-- `actor/src/main/resources/reference.conf:373-395,573-585`.
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53-98`; `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:230-264`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:392-450` (`ExecutorServiceConfigurator`, `MessageDispatcherConfigurator.configureExecutor`), `:513-541` (`DefaultExecutorServiceConfigurator`).
+- `actor/src/main/resources/reference.conf:378-400,600-616`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53-98`; `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:237-271`.
 
 **Precondiciones.** La config del dispatcher incluye (por herencia de `default-dispatcher`) las secciones `fork-join-executor`, `thread-pool-executor`, `affinity-pool-executor`, `virtual-thread-executor` y `default-executor`.
 
@@ -701,8 +701,8 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** Dispatcher de cola compartida ("work donating", deprecado, `private[pekko]`, base de `BalancingPool`): todos los actores del dispatcher usan UNA `messageQueue` común (`mailboxType.create(None, None)`) mediante un `SharingMailbox` por actor (con su propia cola de sistema); cualquier miembro libre puede procesar cualquier mensaje. Un mensaje enviado a un actor entra en la cola compartida y, si ese actor no pudo registrarse para ejecución (está ocupado), se intenta despertar a otros miembros ociosos (teamwork).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/BalancingDispatcher.scala:45-126`; `Dispatchers.scala:314-374` (configurador; ver AC-DSP-021).
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/BalancingDispatcherSpec.scala:31-102`; `ActorModelSpec.scala:588-663`; `ActorConfigurationVerificationSpec.scala:57-88`; `DispatchersSpec.scala:258-264,286-295`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/BalancingDispatcher.scala:45-125`; `Dispatchers.scala:314-374` (configurador; ver AC-DSP-021).
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/BalancingDispatcherSpec.scala:31-103`; `ActorModelSpec.scala:588-663`; `ActorConfigurationVerificationSpec.scala:57-88`; `DispatchersSpec.scala:258-264,286-295`.
 
 **Precondiciones.** El `mailbox-requirement` del dispatcher implementa `MultipleConsumerSemantics` (AC-DSP-021). `attempt-teamwork` (por defecto `on`) activa el reparto activo.
 
@@ -742,14 +742,14 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/dispatch/affinity/AffinityPool.scala:35-111` (estados y `IdleStrategy`), `:113-303` (pool), `:305-365` (configurador), `:367-444` (selector y rechazo).
-- `actor/src/main/resources/reference.conf:397-467`; `actor/src/main/java/org/apache/pekko/dispatch/AbstractBoundedNodeQueue.java` (cola por hilo); `actor/src/main/java/org/apache/pekko/dispatch/affinity/OnSpinWait.java`.
+- `actor/src/main/resources/reference.conf:402-472`; `actor/src/main/java/org/apache/pekko/dispatch/AbstractBoundedNodeQueue.java` (cola por hilo); `actor/src/main/java/org/apache/pekko/dispatch/affinity/OnSpinWait.java`.
 - Sin tests en `actor-tests`/`testkit` (búsqueda de `AffinityPool|affinity-pool`: sólo `docs/src/test/.../DispatcherDocSpec.scala` y `bench-jmh`).
 
 **Precondiciones / configuración.** `parallelism-min = 4`, `parallelism-factor = 0.8`, `parallelism-max = 64` (tamaño = `scaledPoolSize`: `min(max(ceil(cpus * factor), min), max)`); `task-queue-size = 512`; `rejection-handler = ...ThrowOnOverflowRejectionHandler`; `idle-cpu-level = 5` (1..10); `queue-selector = ...FairDistributionHashCache`; `fair-work-distribution.threshold = 128` (0..2048).
 
 **Comportamiento.**
 - Estados del pool: Uninitialized(0) -> Initializing(1) -> Running(2) -> ShuttingDown(3) -> ShutDown(4) -> Terminated(5). `start()` crea un worker por cola.
-- `execute(cmd)`: `queue = workQueues(queueSelector.getQueue(cmd, parallelism))` (NPE si `cmd` es null); si `poolState >= ShuttingDown` o `!queue.add(cmd)` -> `rejectionHandler.reject(cmd, this)`; el manejador por defecto lanza `RejectedExecutionException("Task <cmd> rejected from <pool>")`. Para el dispatcher, `registerForExecution` reintenta una vez y luego publica `Error(..., "registerForExecution was rejected twice!")` y relanza (AC-DSP-002); `ActorCell.sendMessage` captura ese fallo y lo publica como `Error(..., "swallowing exception during message send")` (`actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:137-147`), de modo que el emisor NO recibe la excepción y el mensaje queda en el mailbox sin planificar hasta el siguiente envío.
+- `execute(cmd)`: `queue = workQueues(queueSelector.getQueue(cmd, parallelism))` (NPE si `cmd` es null); si `poolState >= ShuttingDown` o `!queue.add(cmd)` -> `rejectionHandler.reject(cmd, this)`; el manejador por defecto lanza `RejectedExecutionException("Task <cmd> rejected from <pool>")`. Para el dispatcher, `registerForExecution` reintenta una vez y luego publica `Error(..., "registerForExecution was rejected twice!")` y relanza (AC-DSP-002); `ActorCell.sendMessage` captura ese fallo y lo publica como `Error(..., "swallowing exception during message send")` (`actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-148`), de modo que el emisor NO recibe la excepción y el mensaje queda en el mailbox sin planificar hasta el siguiente envío.
 - Worker: `poll` de su cola; si hay tarea la ejecuta y reinicia la estrategia de espera; si no, `idle()`. Estados de espera: Initial -> Spinning (`maxSpins = 1100*level - 1000` vueltas con `OnSpinWait`) -> Yielding (`maxYields = 5*level` `Thread.yield`) -> Parking (`parkNanos` desde 1 ns, duplicando hasta `maxPark = (250 - (80*(level-1))/3)` microsegundos, división entera).
 - `shutdown()`: ShuttingDown, interrumpe sólo workers ociosos; los demás vacían su cola; `shutdownNow()`: ShutDown, interrumpe todos y descarta lo encolado (devuelve lista vacía). Un worker que termina por excepción de una tarea se sustituye por otro con la misma cola si el pool está Running.
 - `FairDistributionHashCache`: con `threshold == 0`, `improve(hash) % queues`; si no, mapa inmutable hash -> índice: un hash visto reutiliza su índice; si el mapa ya tiene `> threshold` entradas, `improve(hash) % queues`; si no se le asigna `size % queues` (reparto round-robin por orden de llegada) y se guarda por CAS. `improve(h) = 0x7FFFFFFF & (reverseBytes(h * 0x9E3775CD) * 0x9E3775CD)` (aritmética `Int`).
@@ -776,7 +776,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 **Contrato observable.** `executor = "virtual-thread-executor"` ejecuta cada tarea (cada turno de mailbox) en un hilo virtual NUEVO (`newThreadPerTaskExecutor`), con nombre `<sistema>-<idDispatcher>-virtual-thread-<n>` (`n` desde 0); si el runtime no soporta hilos virtuales se usa el `fallback`. `fork-join-executor.virtualize = on` (JDK >= 21) hace que el `ForkJoinPool` sirva de planificador (carrier) de hilos virtuales con nombre `<sistema>-<idDispatcher>-virtual-thread-<n>`. En ambos casos el dispatcher no agrupa tareas (`batchable = false`).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:412-465` (configurador), `VirtualThreadSupport.scala:29-131` (reflexión sobre `Thread.ofVirtual`, `Executors.newThreadPerTaskExecutor`, planificador por defecto), `VirtualizedExecutorService.scala:25-117`, `ForkJoinExecutorConfigurator.scala:105,154-196`, `Dispatcher.scala:78-81`; `reference.conf:509-519,573-585`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:452-505` (configurador), `VirtualThreadSupport.scala:29-131` (reflexión sobre `Thread.ofVirtual`, `Executors.newThreadPerTaskExecutor`, planificador por defecto), `VirtualizedExecutorService.scala:25-117`, `ForkJoinExecutorConfigurator.scala:105,154-196`, `Dispatcher.scala:78-81`; `reference.conf:509-519,573-585`.
 - Pruebas (sólo JDK 21): `actor-tests/src/test/scala-jdk21-only/org/apache/pekko/dispatch/VirtualThreadPoolDispatcherSpec.scala:48-56`, `ForkJoinPoolVirtualThreadSpec.scala:58-66`.
 
 **Precondiciones.** `VirtualThreadSupport.isSupported = JavaVersion.majorVersion >= 21`; para hilos virtuales con `virtualize` hacen falta `--add-opens` (reflexión sobre `jdk.internal.misc`).
@@ -812,7 +812,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 
 ## AC-DSP-016 Dispatcher como ExecutionContextExecutor (descompuesta en AC-DSP-016.1 y AC-DSP-016.2)
 
-Fila descompuesta: `Dispatcher.execute/TaskInvocation/reportFailure` es AC-DSP-016.1 y el agrupador `BatchingExecutor` es AC-DSP-016.2. Una referencia a AC-DSP-016 significa ambos hijos. Fuente conjunta: `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:55-66,172-190` y `BatchingExecutor.scala:23-147`.
+Fila descompuesta: `Dispatcher.execute/TaskInvocation/reportFailure` es AC-DSP-016.1 y el agrupador `BatchingExecutor` es AC-DSP-016.2. Una referencia a AC-DSP-016 significa ambos hijos. Fuente conjunta: `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:55-67,206-225` y `BatchingExecutor.scala:23-147`.
 
 ## AC-DSP-016.1 Dispatcher.execute, TaskInvocation e inhabitants, reportFailure
 
@@ -821,8 +821,8 @@ Fila descompuesta: `Dispatcher.execute/TaskInvocation/reportFailure` es AC-DSP-0
 **Contrato observable.** Un `MessageDispatcher` es un `ExecutionContextExecutor`: `execute(Runnable)` ejecuta la tarea en el executor del dispatcher, la cuenta como inhabitant mientras está pendiente o en ejecución (mantiene vivo al dispatcher), y publica en el EventStream cualquier excepción no fatal de la tarea; `reportFailure(t)` publica el fallo como evento.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:55-63` (`TaskInvocation`), `:172-189` (`unbatchedExecute`, `reportFailure`), `:223` (`taskCleanup`), `Dispatcher.scala:92-108` (`executeTask`).
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:283-309,383-420`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:55-64` (`TaskInvocation`), `:172-189` (`unbatchedExecute`, `reportFailure`), `:223` (`taskCleanup`), `Dispatcher.scala:92-108` (`executeTask`).
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:284-310,384-421`.
 
 **Precondiciones.** El dispatcher está activo (si estaba apagado, `executorService` recrea el executor perezosamente).
 
@@ -857,8 +857,8 @@ Fila descompuesta: `Dispatcher.execute/TaskInvocation/reportFailure` es AC-DSP-0
 **Contrato observable.** `BatchingExecutor` agrupa las tareas "batchable" enviadas desde dentro de otra tarea del mismo hilo en un lote que se ejecuta en serie en ese hilo, sin pasar por la cola del executor y sin ejecutarlas en línea (inline) dentro de quien las envía. Si una tarea del lote bloquea (`blocking {}`/`Await`), el resto del lote se reenvía al executor para evitar interbloqueos. `MessageDispatcher` lo usa con `resubmitOnBlock = true`; el contexto "mismo hilo" (`sameThreadExecutionContext`) con `false`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/BatchingExecutor.scala:23-147`; `actor/src/main/scala-2.13/org/apache/pekko/dispatch/internal/ScalaBatchable.scala:32-36` (y las variantes `scala-2.12`, `scala-3`); `AbstractDispatcher.scala:109,173-174`; `Dispatcher.scala:78-81`.
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:55-208`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/BatchingExecutor.scala:24-152`; `actor/src/main/scala/org/apache/pekko/dispatch/internal/ScalaBatchable.scala:32-36` (y las variantes `scala-2.12`, `scala-3`); `AbstractDispatcher.scala:109,173-174`; `Dispatcher.scala:78-81`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:71-256`.
 
 **Precondiciones.** El `unbatchedExecute` subyacente NO debe ejecutar el `Runnable` de forma síncrona en el llamante (Scaladoc `:60-61`).
 
@@ -897,8 +897,8 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 **Contrato observable.** `ExecutionContexts` (API Java) construye `ExecutionContextExecutor` a partir de un `Executor`/`ExecutorService` (opcionalmente con `errorReporter`) y expone `global()`; `ExecutionContexts.parasitic` (interno, estable) y el obsoleto `sameThreadExecutionContext` ejecutan la tarea en el hilo que la envía (en Scala 2.13+ es `scala.concurrent.ExecutionContext.parasitic`).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/Future.scala:36-121`; `actor/src/main/scala-2.13/org/apache/pekko/dispatch/internal/SameThreadExecutionContext.scala` (y variantes 2.12/3).
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:36-53,153-166`; `SameThreadExecutionContextSpec.scala:26-70`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/Future.scala:25-81`; `actor/src/main/scala-2.13/org/apache/pekko/dispatch/internal/SameThreadExecutionContext.scala` (y variantes 2.12/3).
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:52-69,204-214`; `SameThreadExecutionContextSpec.scala:26-70`.
 
 **Precondiciones.** `fromExecutorService` exige un `ExecutorService` que el contexto devuelto puede apagar.
 
@@ -929,8 +929,8 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 **Contrato observable.** Utilidades para Java sobre `scala.concurrent.Future` y `CompletionStage`: `Futures.asJava/future/promise/failed/successful` y los obsoletos `find/firstCompletedOf/fold/reduce/sequence/traverse/failedCompletionStage`; `CompletionStages.asScala/find/firstCompletedOf/fold/reduce/sequence/traverse`; clases puente `japi` (`OnSuccess`, `OnFailure`, `OnComplete`, `Recover`, `Filter`, `Foreach`, `Mapper`).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/Future.scala:123-455`; `actor/src/main/scala/org/apache/pekko/dispatch/CompletionStages.scala:28-220`.
-- Pruebas: `actor-tests/src/test/java/org/apache/pekko/dispatch/CompletionStagesTests.java:40-140`; `JavaFutureTests.java:40-404`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/Future.scala:86-140`; `actor/src/main/scala/org/apache/pekko/dispatch/CompletionStages.scala:27-221`.
+- Pruebas: `actor-tests/src/test/java/org/apache/pekko/dispatch/CompletionStagesTests.java:44-144`; `JavaFutureTests.java:40-404`.
 
 **Precondiciones.** Los métodos con `executor` null (`sequence`/`traverse`) usan `thenCombine` síncrono; con executor usan `thenCombineAsync(executor)`.
 
@@ -966,8 +966,8 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 **Contrato observable.** Envoltorio de un `ExecutionContext` que garantiza ejecución en serie de las tareas enviadas, hasta `throughput` tareas por barrido antes de ceder el hilo, y permite suspender y reanudar el procesamiento.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/SerializedSuspendableExecutionContext.scala:24-110`.
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:211-293`.
+- `actor/src/main/scala/org/apache/pekko/util/SerializedSuspendableExecutionContext.scala:25-111`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:259-341`.
 
 **Precondiciones.** `throughput > 0`.
 
@@ -998,7 +998,7 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 **Contrato observable.** Piezas internas de los executors de JVM: (1) `PekkoForkJoinPool`/`PekkoJdk9ForkJoinPool`: `ForkJoinPool` que envuelve cada `Runnable` en una `PekkoForkJoinTask` y expone `atFullThrottle`; (2) `ForkJoinPoolConstants`: topes; (3) `CachingConfig`: `Config` con caché de `hasPath`/`getString`. Sin comportamiento propio observable fuera de rendimiento y de las salvaguardas de abajo.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/ForkJoinExecutorConfigurator.scala:53-100,120-130` (`PekkoForkJoinPool`, `PekkoForkJoinTask`, `validate`), `actor/src/main/scala-jdk-9/org/apache/pekko/dispatch/PekkoJdk9ForkJoinPool.scala:14-52`, `ForkJoinPoolConstants.scala:14-23`, `CachingConfig.scala:14-215`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/ForkJoinExecutorConfigurator.scala:49-98,119-129` (`PekkoForkJoinPool`, `PekkoForkJoinTask`, `validate`), `actor/src/main/scala-jdk-9/org/apache/pekko/dispatch/PekkoJdk9ForkJoinPool.scala:14-52 (1.7.1)`, `ForkJoinPoolConstants.scala:14-23`, `CachingConfig.scala:14-215`.
 - Usos: `Dispatchers.scala:119`, `AbstractDispatcher.scala:361`.
 
 **Precondiciones.** `ForkJoinExecutorConfigurator` exige una `ForkJoinPool.ForkJoinWorkerThreadFactory`.
@@ -1032,7 +1032,7 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 **Contrato observable.** `Envelope(message, sender)` es el sobre inmutable de un mensaje de usuario. La fábrica `Envelope(message, sender, system)` rechaza el mensaje `null` y reemplaza un remitente `noSender` por `system.deadLetters`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:34-53`; uso en `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:330-336` (`sendMessage(message, sender)`), `:586`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:34-53`; uso en `actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:329-335` (`sendMessage(message, sender)`), `:586`.
 - Errores y excepción: `actor/src/main/scala/org/apache/pekko/actor/Actor.scala:273-275` (`InvalidMessageException`).
 
 **Precondiciones.** Ninguna.
@@ -1055,7 +1055,7 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 
 ## AC-DSP-021 BalancingDispatcherConfigurator
 
-- **Contrato observable / Fuente / Condiciones**: `actor/src/main/scala/org/apache/pekko/dispatch/Dispatchers.scala:314-374`. El `mailbox-requirement` vacío se enmienda a `org.apache.pekko.dispatch.MultipleConsumerSemantics` (`:317-323`). Validaciones: (1) el requisito debe implementar `MultipleConsumerSemantics` -> `IllegalArgumentException("BalancingDispatcher must have 'mailbox-requirement' which implements org.apache.pekko.dispatch.MultipleConsumerSemantics; dispatcher [<id>] has [<requisito>]")` (`:338-341`); (2) con `mailbox` configurado, el tipo producido debe cumplir el requisito -> `IllegalArgumentException("BalancingDispatcher [<id>] has 'mailbox' [<clase>] which is incompatible with 'mailbox-requirement' [<requisito>]")` (`:343-348`); (3) idem con `mailbox-type` -> `"... has 'mailbox-type' [<clase>] which is incompatible with 'mailbox-requirement' [<requisito>]"` (`:349-354`); sin ninguno de los dos, `mailboxes.lookupByQueueType(requirement)`. La instancia se crea una vez (`dispatcher()` devuelve siempre la misma).
+- **Contrato observable / Fuente / Condiciones**: `actor/src/main/scala/org/apache/pekko/dispatch/Dispatchers.scala:310-373`. El `mailbox-requirement` vacío se enmienda a `org.apache.pekko.dispatch.MultipleConsumerSemantics` (`:317-323`). Validaciones: (1) el requisito debe implementar `MultipleConsumerSemantics` -> `IllegalArgumentException("BalancingDispatcher must have 'mailbox-requirement' which implements org.apache.pekko.dispatch.MultipleConsumerSemantics; dispatcher [<id>] has [<requisito>]")` (`:338-341`); (2) con `mailbox` configurado, el tipo producido debe cumplir el requisito -> `IllegalArgumentException("BalancingDispatcher [<id>] has 'mailbox' [<clase>] which is incompatible with 'mailbox-requirement' [<requisito>]")` (`:343-348`); (3) idem con `mailbox-type` -> `"... has 'mailbox-type' [<clase>] which is incompatible with 'mailbox-requirement' [<requisito>]"` (`:349-354`); sin ninguno de los dos, `mailboxes.lookupByQueueType(requirement)`. La instancia se crea una vez (`dispatcher()` devuelve siempre la misma).
 - **Orden**: validación en construcción del dispatcher (al primer `lookup`).
 - **Dependencias**: AC-DSP-012, AC-MBX-013.
 - **Equivalente Rust**: validación al construir (`Result<_, ConfigurationError>`).
@@ -1070,8 +1070,8 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 **Contrato observable.** Punto de entrada del dispatcher para suspender y reanudar el procesamiento de mensajes de usuario de un actor (usado por la supervisión, `ActorCell.suspend/resume`): después de `suspend(actor)` el dispatcher no empieza a procesar mensajes de usuario de ese actor; `resume(actor)` los reanuda y vuelve a planificar el mailbox.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:277-293`; estado en `Mailbox.scala:141-170`.
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:359-381`.
+- `actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:316-332`; estado en `Mailbox.scala:141-170`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:360-382`.
 
 **Precondiciones.** El mailbox del actor pertenece a este dispatcher y a este actor.
 
@@ -1108,7 +1108,7 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 
 ## AC-SCH-001 scheduleOnce
 
-- **Contrato observable / Fuente / Condiciones**: ver TSV (contrato refinado). Variantes: Runnable, closure, `(receiver, message)` con `sender` implícito (`actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:428-495`); `maxFrequency` (`:499`).
+- **Contrato observable / Fuente / Condiciones**: ver TSV (contrato refinado). Variantes: Runnable, closure, `(receiver, message)` con `sender` implícito (`actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:355-419`); `maxFrequency` (`:499`).
 - **Orden/concurrencia**: ejecuta en el `ExecutionContext` pasado; delay<=0 ejecuta ya en ese ec (devuelve un `Cancellable` no cancelable: `cancel()` y `isCancelled` son false, `LightArrayRevolverScheduler.scala:205-209,420-424`).
 - **Dependencias**: AC-DSP-016.1.
 - **Equivalente Rust**: `Scheduler::schedule_once(delay, task) -> Cancellable` con reloj inyectable (Q-SCH-1). Diferencia: `ExecutionContext` => `Executor`.
@@ -1142,10 +1142,10 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 **Contrato observable.** `schedule(initialDelay, interval, runnable)(ec)` (deprecado desde Akka 2.6.0: "Use scheduleWithFixedDelay or scheduleAtFixedRate instead. This has the same semantics as scheduleAtFixedRate, but scheduleWithFixedDelay is often preferred.") es el método abstracto que cada scheduler implementa con semántica de tasa fija. Las demás sobrecargas (`java.time.Duration`, closure, `(receiver, message)`) delegan en él, y `scheduleAtFixedRate(initialDelay, interval)(runnable)` es simplemente `schedule(initialDelay, interval, runnable)`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:229-231` (`scheduleAtFixedRate` -> `schedule`), `:343-420` (sobrecargas deprecadas; la variante con mensaje lanza `SchedulerException("timer active for terminated actor")` si el receptor terminó).
-- `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:134-161` (implementación de tasa fija).
-- `testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:52-54` (otra implementación).
-- Pruebas: `testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:24-106`; indirectas `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:81-92,216-445`.
+- `actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:223-225` (`scheduleAtFixedRate` -> `schedule`), `:343-420` (sobrecargas deprecadas; la variante con mensaje lanza `SchedulerException("timer active for terminated actor")` si el receptor terminó).
+- `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:134-170` (implementación de tasa fija).
+- `testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:53-55` (otra implementación).
+- Pruebas: `testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:24-106`; indirectas `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:83-94,219-448`.
 
 **Precondiciones.** Las de AC-SCH-003 (intervalo > 0 y dentro del máximo de la rueda).
 
@@ -1179,7 +1179,7 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 
 ## AC-SCH-006 SchedulerTask.cancelled()
 
-- **Contrato observable / Fuente**: ver TSV; `actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:505-523` (`SchedulerTask.cancelled()` es un callback vacío por defecto), `:101-104` (el envoltorio de `scheduleWithFixedDelay` lo reenvía), `LightArrayRevolverScheduler.scala:154-157,398-412` (el de tasa fija y `TaskHolder.cancel`).
+- **Contrato observable / Fuente**: ver TSV; `actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:429-447` (`SchedulerTask.cancelled()` es un callback vacío por defecto), `:101-104` (el envoltorio de `scheduleWithFixedDelay` lo reenvía), `LightArrayRevolverScheduler.scala:154-157,398-412` (el de tasa fija y `TaskHolder.cancel`).
 - **Condiciones/Orden**: se invoca (en el `ExecutionContext` de la tarea) al cancelar antes de ejecutar; en repetidas se reenvía al `SchedulerTask` original; si el `execute` del callback falla, `reportFailure`.
 - **Dependencias**: AC-SCH-005.
 - **Equivalente Rust**: método opcional `on_cancel` en el trait de tarea.
@@ -1189,7 +1189,7 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 
 ## AC-SCH-007 Tarea periódica a actor
 
-- **Contrato observable / Fuente**: ver TSV; `actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:153-169,351-362`.
+- **Contrato observable / Fuente**: ver TSV; `actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:150-164,340`.
 - **Condiciones**: texto `SchedulerException("timer active for terminated actor")`; la excepción de la tarea que no es `SchedulerException` (ni `IllegalStateException` con causa `SchedulerException`) NO se atrapa: la repetición se aborta porque no se reprograma, y el fallo se loguea por el `ExecutionContext`. En tasa fija, sólo `SchedulerException` se ignora.
 - **Orden/Dependencias**: AC-SCH-002.
 - **Equivalente Rust**: `is_terminated()` tras enviar.
@@ -1199,7 +1199,7 @@ Fila descompuesta: los contextos de ejecución (`ExecutionContexts`, `SameThread
 
 ## AC-SCH-008 LightArrayRevolverScheduler (descompuesta en AC-SCH-008.1, AC-SCH-008.2 y AC-SCH-008.3)
 
-Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo y los límites de retardo AC-SCH-008.2 y la mecánica de la rueda (buckets, vueltas, relojes que dan la vuelta) AC-SCH-008.3. Una referencia a AC-SCH-008 significa los tres hijos. Fuente conjunta: `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:50-430`. Decisión asociada: Q-SCH-1.
+Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo y los límites de retardo AC-SCH-008.2 y la mecánica de la rueda (buckets, vueltas, relojes que dan la vuelta) AC-SCH-008.3. Una referencia a AC-SCH-008 significa los tres hijos. Fuente conjunta: `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:50-450`. Decisión asociada: Q-SCH-1.
 
 ## AC-SCH-008.1 LARS: validación de configuración (tick-duration, ticks-per-wheel, shutdown-timeout, maxFrequency)
 
@@ -1208,8 +1208,8 @@ Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo
 **Contrato observable.** El scheduler por defecto valida y deriva su configuración al construirse: `ticks-per-wheel` potencia de 2, `tick-duration` con mínimo de 1 ms (10 ms en Windows) y `maxFrequency = 1 s / TickDuration`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:57-97,194`; `actor/src/main/resources/reference.conf:886-927`.
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:859-873`.
+- `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:57-97,212`; `actor/src/main/resources/reference.conf:934-975`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:864-878`.
 
 **Precondiciones.** Config con `pekko.scheduler.ticks-per-wheel` (512 por defecto), `tick-duration` (10 ms), `error-on-tick-duration-verification-failed` (on), `shutdown-timeout` (5 s).
 
@@ -1243,7 +1243,7 @@ Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo
 
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:93-97` (`roundUp`), `:127-168` (`scheduleWithFixedDelay`, `schedule`, `scheduleOnce`), `:205-235` (`schedule` privado, `checkPeriod`, `checkMaxDelay`).
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:477-484,701-781`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:480-487,705-785`.
 
 **Precondiciones.** Scheduler no parado para los casos que encolan.
 
@@ -1281,7 +1281,7 @@ Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo
 **Fuente.**
 - `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:99-125` (ganchos `clock`, `startTick`, `getShutdownTimeout`, `waitNanos`), `:200-203,249-352` (hilo, `checkQueue`, `nextTick`), `:357-430` (`TaskHolder`, estados `ExecutedTask`/`CancelledTask`).
 - `actor/src/main/java/org/apache/pekko/dispatch/AbstractNodeQueue.java` (cola de entrada multi-productor).
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:486-659,785-857`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:489-663,789-862`.
 
 **Precondiciones.** El scheduler arrancó (el hilo está en `nextTick`).
 
@@ -1330,9 +1330,9 @@ Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo
 **Contrato observable.** La clave `pekko.scheduler.implementation` (FQCN, por defecto `LightArrayRevolverScheduler`) elige el `Scheduler` del sistema; la clase se instancia por reflexión con un constructor `(Config, LoggingAdapter, ThreadFactory)`. Un scheduler propio debe: ejecutar todas las tareas `TaskRunOnClose` al cerrarse (si es `Closeable`), lanzar `IllegalStateException` si no puede agendar una tarea y, una vez agendada, ejecutarla (posiblemente antes de tiempo en el cierre). Se usa en pruebas para sustituir el tiempo real (`ExplicitlyTriggeredScheduler`).
 
 **Fuente.**
-- `actor/src/main/resources/reference.conf:906-921`; `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:468,965,1136-1165`; `actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:36-60`.
-- `testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:44-141`; `actor-testkit-typed/src/main/scala/org/apache/pekko/actor/testkit/typed/scaladsl/ManualTime.scala:34-48`.
-- Pruebas: `testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:24-106`; `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:36-52` (selecciona la implementación por config).
+- `actor/src/main/resources/reference.conf:954-969`; `actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:467,996,1167-1196`; `actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala:34-58`.
+- `testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:44-142`; `actor-testkit-typed/src/main/scala/org/apache/pekko/actor/testkit/typed/scaladsl/ManualTime.scala:34-48`.
+- Pruebas: `testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:24-106`; `actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:38-54` (selecciona la implementación por config).
 
 **Precondiciones.** La clase existe y expone el constructor; el `ThreadFactory` entregado es el del sistema con el nombre `<sistema>-scheduler`.
 
@@ -1357,7 +1357,7 @@ Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo
 
 ## AC-SCH-011 Timers / TimerScheduler
 
-- **Contrato observable / Fuente / Condiciones**: ver TSV; `actor/src/main/scala/org/apache/pekko/actor/Timers.scala:31-370` (API pública), `actor/src/main/scala/org/apache/pekko/actor/dungeon/TimerSchedulerImpl.scala:28-164`. Detalles verificados: `startTimer` cancela el timer previo con la misma clave y crea uno con generación `++timerGen` (por instancia de `TimerSchedulerImpl`); modos `FixedRate(initialDelay)`, `FixedDelay(initialDelay)` y `Single`; `startTimerAtFixedRate(key, msg, interval)` usa `initialDelay = interval`; `startPeriodicTimer` = `startTimerAtFixedRate`; el mensaje que viaja es un `InfluenceReceiveTimeoutTimerMsg`/`NotInfluenceReceiveTimeoutTimerMsg(key, generation, owner)` (AC-SCH-012); `cancel(key)` y `cancelAll()` cancelan la tarea del scheduler y borran la entrada (los ya encolados se descartan por clave/generación).
+- **Contrato observable / Fuente / Condiciones**: ver TSV; `actor/src/main/scala/org/apache/pekko/actor/Timers.scala:31-382` (API pública), `actor/src/main/scala/org/apache/pekko/actor/dungeon/TimerSchedulerImpl.scala:28-161`. Detalles verificados: `startTimer` cancela el timer previo con la misma clave y crea uno con generación `++timerGen` (por instancia de `TimerSchedulerImpl`); modos `FixedRate(initialDelay)`, `FixedDelay(initialDelay)` y `Single`; `startTimerAtFixedRate(key, msg, interval)` usa `initialDelay = interval`; `startPeriodicTimer` = `startTimerAtFixedRate`; el mensaje que viaja es un `InfluenceReceiveTimeoutTimerMsg`/`NotInfluenceReceiveTimeoutTimerMsg(key, generation, owner)` (AC-SCH-012); `cancel(key)` y `cancelAll()` cancelan la tarea del scheduler y borran la entrada (los ya encolados se descartan por clave/generación).
 - **Orden**: la intercepción ocurre en `aroundReceive` antes del receive y del stash; `aroundPreRestart` y `aroundPostStop` llaman `cancelAll()` ANTES de `preRestart`/`postStop` (por eso `isTimerActive` es false dentro de ellos).
 - **Dependencias**: AC-SCH-001.
 - **Equivalente Rust**: `TimerScheduler` en el contexto con mapa clave -> (generación, tarea).
@@ -1372,8 +1372,8 @@ Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo
 **Contrato observable.** Dos mecanismos distintos sobre el mensaje de usuario programado: (1) si el mensaje es un `AutoReceivedMessage` (p. ej. `PoisonPill`, `Kill`, `Identify`) se entrega por la vía de auto-recibidos del actor (no pasa por el `receive` del usuario); (2) si el mensaje es `NotInfluenceReceiveTimeout`, el sobre interno del timer también lo es y por tanto la llegada del timer no reinicia el `receive-timeout`.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/Timers.scala:52-70` (`aroundReceive`), `actor/src/main/scala/org/apache/pekko/actor/dungeon/TimerSchedulerImpl.scala:33-40,95-100`, `actor/src/main/scala/org/apache/pekko/actor/dungeon/ReceiveTimeout.scala:42,72`; `Actor.scala:33,81,164`.
-- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:308-314`; `ReceiveTimeoutSpec.scala:191-212`.
+- `actor/src/main/scala/org/apache/pekko/actor/Timers.scala:52-69` (`aroundReceive`), `actor/src/main/scala/org/apache/pekko/actor/dungeon/TimerSchedulerImpl.scala:33-40,92-97`, `actor/src/main/scala/org/apache/pekko/actor/dungeon/ReceiveTimeout.scala:52,86`; `Actor.scala:33,81,164`.
+- Pruebas: `actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:309-315`; `ReceiveTimeoutSpec.scala:191-212`.
 
 **Precondiciones.** El actor mezcla `Timers`.
 
@@ -1412,7 +1412,7 @@ Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo
 **Contrato observable.** `close()` del scheduler por defecto espera como máximo `pekko.scheduler.shutdown-timeout` (5 s) a que el hilo del timer reconozca la parada y devuelva las tareas pendientes. Si vence, `close()` falla y las tareas aún encoladas no se ejecutan (el apagado del sistema continúa sin ellas).
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:89,113,170-192,237-247,345-350`; `actor/src/main/resources/reference.conf:886-927`.
+- `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:89,113,188-210,255-265,364-369`; `actor/src/main/resources/reference.conf:934-975`.
 
 **Precondiciones.** Scheduler no cerrado (un segundo `close()` obtiene `Future.successful(Nil)` y no ejecuta nada).
 
@@ -1441,7 +1441,7 @@ Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo
 **Contrato observable.** Si el hilo del timer muere por un `Throwable` inesperado, el scheduler lo registra y, si no está parado, arranca otro hilo que continúa con la MISMA rueda; si no puede arrancar uno, se declara parado.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:288-310`.
+- `actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala:307-329`.
 
 **Precondiciones.** El hilo del timer ejecuta `nextTick()`.
 
@@ -1485,7 +1485,7 @@ Fila descompuesta: la validación de configuración es AC-SCH-008.1, el redondeo
 - AC-SCH-015: `LightArrayRevolverScheduler.scala:288-310` (recuperación del hilo).
 
 ## Contradicciones halladas y corregidas
-- AC-MBX-013: el inventario decía `ActorInitializationException` por requisito incumplido; el test afirma `ConfigurationException` (`ActorMailboxSpec.scala:316-319`) y el código lanza `IllegalArgumentException` envuelta (`ActorRefProvider.scala:715-718`). `ActorInitializationException` "requires mailbox type" existe en otra rama (`actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:93-100`).
+- AC-MBX-013: el inventario decía `ActorInitializationException` por requisito incumplido; el test afirma `ConfigurationException` (`ActorMailboxSpec.scala:316-319`) y el código lanza `IllegalArgumentException` envuelta (`ActorRefProvider.scala:715-718`). `ActorInitializationException` "requires mailbox type" existe en otra rama (`actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:92-99`).
 - AC-DSP-004: el inventario incluía `type=BalancingDispatcher` como válido; `Dispatchers.scala:268-273` lo rechaza salvo por FQCN.
 - AC-DSP-003: Scaladoc (`Dispatcher.scala:37-40`) vs código (`Mailbox.scala:264`) para throughput<=0 (el código es lo observable; ver Q-DSP-5).
 - AC-DSP-008: el comentario de `reference.conf:497` ("-1 (default)") contradice la línea efectiva `minimum-runnable = 1` (`:507`) y el comentario `:494-495` ("In Pekko 1.x, the default value is 1"); además `ForkJoinExecutorConfiguratorSpec.scala:153-162` ("auto-scale the default (minimum-runnable not set) on JDK 25+") lee la configuración con los valores por defecto de `reference.conf` (`system.dispatchers.config(id)`), por lo que con `minimum-runnable = 1` esperaría fallar en JDK 25+ (hoy `pending` en JDK < 25): inconsistencia no resoluble sin ejecutar con JDK 25 (Q-DSP-6).

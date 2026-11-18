@@ -57,17 +57,17 @@ Filas: AC-DW-013. Contratos y aserciones: `docs/inventory/contracts/classic-cell
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-DW-001 | watch: un único Terminated(ref) cuando el vigilado se detiene | `ctx.watch(&ActorRef) -> ActorRef` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:135-143 ;… | - |
-| AC-DW-002 | watch sobre un actor ya muerto → Terminated inmediato | Watch a ref terminado responde DWN | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:145-152 | Q-DW-1 |
-| AC-DW-003 | Restart no genera Terminated | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:195-214 | - |
-| AC-DW-004 | unwatch y descarte de Terminated ya encolado | set `terminated_queued` en la celda | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:169-193 ;… | - |
-| AC-DW-005 | watchWith(ref, msg) con mensaje custom | `ctx.watch_with(&ActorRef, msg)` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:293-316 | - |
-| AC-DW-006 | Mensaje Terminated (actor, existenceConfirmed, addressTerminated) | `struct Terminated { actor, existence_confirmed, address_terminated }` con `PartialEq`… | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:130-133 ;… | Q-DW-1 |
-| AC-DW-007 | Death pact: Terminated no manejado → DeathPactException → Stop | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:216-246 | - |
-| AC-DW-008 | El padre siempre recibe la terminación del hijo (DeathWatchNotification)… | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:248-266 | - |
+| AC-DW-001 | watch: un único Terminated(ref) cuando el vigilado se detiene | `ctx.watch(&ActorRef) -> ActorRef` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:134-142 ;… | - |
+| AC-DW-002 | watch sobre un actor ya muerto → Terminated inmediato | Watch a ref terminado responde DWN | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:144-151 | Q-DW-1 |
+| AC-DW-003 | Restart no genera Terminated | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:194-213 | - |
+| AC-DW-004 | unwatch y descarte de Terminated ya encolado | set `terminated_queued` en la celda | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:168-192 ;… | - |
+| AC-DW-005 | watchWith(ref, msg) con mensaje custom | `ctx.watch_with(&ActorRef, msg)` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:292-315 | - |
+| AC-DW-006 | Mensaje Terminated (actor, existenceConfirmed, addressTerminated) | `struct Terminated { actor, existence_confirmed, address_terminated }` con `PartialEq`… | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:129-132 ;… | Q-DW-1 |
+| AC-DW-007 | Death pact: Terminated no manejado → DeathPactException → Stop | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-245 | - |
+| AC-DW-008 | El padre siempre recibe la terminación del hijo (DeathWatchNotification)… | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:247-265 | - |
 | AC-DW-009 | Al pararse, un actor deja de vigilar a todos (sin Terminated a deadLetters) | - | derivada del código (ver bloque de contrato) | - |
-| AC-DW-010 | Notificación a watchers al morir (remotos primero, luego locales; el padre se… | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:154-167 | Q-DW-2 |
-| AC-DW-011 | Protocolo Watch/Unwatch de sistema (addWatcher/remWatcher) | - | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:230-252 | - |
+| AC-DW-010 | Notificación a watchers al morir (remotos primero, luego locales; el padre se… | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:153-166 | Q-DW-2 |
+| AC-DW-011 | Protocolo Watch/Unwatch de sistema (addWatcher/remWatcher) | - | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:231-253 | - |
 | AC-DW-012 | AddressTerminated y AddressTerminatedTopic (watch de refs remotos) | hook en el trait de ref (`is_local`) + topic opcional | actor-tests/src/test/scala/org/apache/pekko/event/AddressTerminatedTopicBenchSpec.scala:2… | Q-DW-2 |
 | AC-DW-013 | Interacción con Stash: Terminated desestachado vuelve a ser entregable | - | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:83-98,186-190… | - |
 

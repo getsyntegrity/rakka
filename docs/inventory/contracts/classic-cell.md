@@ -6,7 +6,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: equals es verdadero sólo si path y uid coinciden; hashCode = uid, o hash del path si uid == 0 (undefinedUid). Una referencia a un actor terminado no es igual a la de otro actor recreado con el mismo path.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:109-112,175-186 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:388-398
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:108-111,173-184 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:387-397
 - **Condiciones** (normales, límites, errores, efectos): Normal: refs de la misma encarnación son iguales. Límite: uid 0 (refs sin encarnación, p. ej. deadLetters) usa el hash del path. Errores: ninguno. Efectos: ninguno.
 - **Orden / concurrencia / ciclo de vida**: sin garantías de orden; operación pura.
 - **Dependencias**: AC-PATH-014
@@ -25,7 +25,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: compareTo ordena primero por path (ActorPath.compareTo) y, si empatan, por uid con resultado -1, 0 o 1.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:125-133
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:123-131
 - **Condiciones** (normales, límites, errores, efectos): Normal: path distinto → resultado del compareTo del path. Límite: path igual y uid igual → 0. Errores: ninguno.
 - **Orden / concurrencia / ciclo de vida**: sin concurrencia; puro.
 - **Dependencias**: AC-PATH-014
@@ -42,7 +42,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: toString = "Actor[<path>]" si uid == 0, "Actor[<path>#<uid>]" en otro caso.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:188-190 ; actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:143-151
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:186-188 ; actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:112-120
 - **Condiciones** (normales, límites, errores, efectos): Normal: actor vivo (uid != 0) incluye "#uid". Límite: deadLetters (uid 0) sin "#". Errores: ninguno.
 - **Orden / concurrencia / ciclo de vida**: puro.
 - **Dependencias**: AC-PATH-014
@@ -60,7 +60,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Envío asíncrono sin esperar al receptor. Un mensaje null lanza InvalidMessageException. Un sender ausente se sustituye por deadLetters al crear el Envelope. Un fallo al encolar no se propaga: se loguea como Error.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:141,157,457-458,684-691 ; actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:35-52 ; actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala:72-76 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:137-148,171-178
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:139,155,429-430,656-663 ; actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:35-52 ; actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala:80-84 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-149,172-179
 - **Condiciones** (normales, límites, errores, efectos): Mensaje null: con sender ausente "Message is null."; con sender "Message sent from [<sender>] is null." (AbstractDispatcher.scala:46-50). Envío a EmptyLocalActorRef/DeadLetterActorRef con null: InvalidMessageException("Message is null") (ActorRef.scala:685,737). Excepción durante el envío (p. ej. mailbox acotado lleno con timeout): se publica Error "swallowing exception during message send" (o con ": <mensaje>" si NoStackTrace) y NO se propaga (Dispatch.scala:137-148). Con pekko.actor.serialize-messages=on el mensaje se serializa y deserializa (Dispatch.scala:171-178; ver AC-CELL-028).
 - **Orden / concurrencia / ciclo de vida**: encolar → registerForExecution con hasMessageHint (Dispatcher.scala:72-76). Orden FIFO por par emisor-receptor (AC-REF-003). No bloquea al emisor salvo mailbox acotado.
 - **Dependencias**: AC-MBX-001
@@ -80,7 +80,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Para `tell`/`!` (y por tanto `ask`): (1) *at-most-once*: cada mensaje se entrega una vez o ninguna; nunca hay reintento ni duplicado. La publicación a dead letters es de *mejor esfuerzo* (message-delivery-reliability.md:319: la publicación ocurre “on a best-effort basis; it may fail even within the local JVM”); no se garantiza que toda pérdida sea observable. Escenarios concretos afirmados por spec: mailbox acotado lleno → `DeadLetter` (A3). (2) *Orden por par emisor–receptor*: si el emisor A envía M1, M2, M3 *directamente* a B con `tell`, los que se entreguen se encolan (y, con un mailbox FIFO, se procesan) en ese orden; los mensajes de A3 pueden intercalarse. La garantía no es transitiva (A→C directo y A→B→C pueden llegar en cualquier orden), sólo vale con `tell` al destino final (no con mediadores/routers), la creación del actor cuenta como un mensaje del padre al hijo, y los fallos de un hijo viajan por mensajes de sistema que NO están ordenados respecto de los mensajes de usuario.
-- **Fuente**: docs/src/main/paradox/general/message-delivery-reliability.md:38-45,111-130,134-140,142-155,157-168,172-180 ; actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala:72-76,86-90 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:230-280 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:171-178 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:225-251,268-291
+- **Fuente**: docs/src/main/paradox/general/message-delivery-reliability.md:38-45,111-130,134-140,142-155,157-168,172-180 ; actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala:80-84,94-98 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:262-294 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:172-179 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:224-250,267-290
 - **Precondiciones**: el mailbox del receptor preserva FIFO (el `UnboundedMailbox` por defecto; ver AC-MBX-005). Con un mailbox de prioridad la garantía vale para el orden de *encolado*, no de procesamiento (message-delivery-reliability.md:134-140; ver AC-MBX-009). El orden es por *par* (emisor, receptor): dos hilos distintos que envían con el mismo `sender` no tienen orden relativo.
 - **Comportamiento**: `ActorCell.sendMessage` → `Dispatcher.dispatch` hace `mbox.enqueue(receiver.self, invocation)` en el hilo del emisor y luego `registerForExecution`; el punto de linealización del orden es ese `enqueue`. El mailbox se drena en orden con `dequeue` (`Mailbox.processMailbox`, un mensaje a la vez; AC-CELL-003). Antes de cada mensaje de usuario se procesan los mensajes de sistema pendientes (AC-CELL-013.1), por lo que un `Terminate`/`Failed` puede adelantar a mensajes de usuario ya encolados. Un actor top-level recién creado enruta primero por `UnstartedCell` (AC-REF-020): ese buffer preserva el orden de llegada y es vaciado bajo lock antes de aceptar mensajes nuevos, de modo que el orden por emisor se conserva.
 - **Errores**: caminos locales donde Pekko *intenta* publicar un `DeadLetter` (mejor esfuerzo, sin garantía universal de que la pérdida sea observable): (a) mailbox cerrado/actor terminado → `DeadLetter` (AC-CELL-013.3); (b) mailbox acotado lleno tras `mailbox-push-timeout-time` → `DeadLetter(msg, sender, receptor)` (AC-MBX-007); (c) `UnstartedCell` con timeout de lock o cola llena → `Warning` + `DeadLetter` (AC-REF-020); (d) excepción al encolar → `Error` "swallowing exception during message send" y el mensaje se pierde (AC-CELL-030). No hay confirmación de entrega al emisor.
@@ -104,7 +104,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: forward(msg) = tell(msg, context.sender()); sirve para tell, ask y ActorSelection.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:164 ; actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:67
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:162 ; actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:63
 - **Condiciones** (normales, límites, errores, efectos): Normal: el sender del mensaje en curso se reenvía. Límite: sin sender (deadLetters) reenvía deadLetters. Errores: ninguno.
 - **Orden / concurrencia / ciclo de vida**: igual que tell.
 - **Dependencias**: AC-REF-005
@@ -121,7 +121,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: sender() devuelve el sender del mensaje en proceso; si no hay mensaje en curso o el mensaje no tiene sender, devuelve deadLetters.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:596-600 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:526 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:559
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:615-619 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:528 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:578
 - **Condiciones** (normales, límites, errores, efectos): Normal: sender del Envelope. Límite: fuera de receive tras clearActorFields (restart) o antes del primer mensaje → deadLetters. Errores: ninguno.
 - **Orden / concurrencia / ciclo de vida**: sólo válido durante el procesamiento del mensaje (AC-CELL-019).
 - **Dependencias**: AC-CELL-003
@@ -139,7 +139,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Crear un Actor con `new` fuera de actorOf lanza ActorInitializationException; dentro de un actor ocurre lo mismo si se instancia un actor anidado con `new`.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:495-506 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:622-640
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:497-508 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:641-659
 - **Condiciones** (normales, límites, errores, efectos): Mensaje exacto (sin path, actor == null): "You cannot create an instance of [<clase>] explicitly using the constructor (new). You have to use one of the 'actorOf' factory methods to create a new actor. See the documentation." (Actor.scala:496-501). La pila de contextos queda vacía tras el error (ActorRefSpec.scala:155).
 - **Orden / concurrencia / ciclo de vida**: el contexto se obtiene del thread-local contextStack durante newActor (ActorCell.scala:622-640).
 - **Dependencias**: AC-CELL-002
@@ -156,7 +156,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Props es inmutable; Props.empty crea un actor sin conducta (todo unhandled); Props.default usa defaultCreator, que lanza UnsupportedOperationException("No actor creator specified!"); formas: Props[T](), Props(creator), Props(clazz, args*), Props.create(...).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Props.scala:32-124 ; actor/src/main/scala/org/apache/pekko/actor/Props.scala:183-204
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Props.scala:31-123 ; actor/src/main/scala/org/apache/pekko/actor/Props.scala:182-203
 - **Condiciones** (normales, límites, errores, efectos): Normal: actorOf(props). Errores: creator por defecto → UnsupportedOperationException("No actor creator specified!"); firma de constructor inválida → IllegalArgumentException al construir Props (validación del producer). Defaults: dispatcher "pekko.actor.default-dispatcher" (Dispatchers.DefaultDispatcherId) y mailbox default si deploy tiene NoDispatcherGiven/NoMailboxGiven (Props.scala dispatcher/mailbox).
 - **Orden / concurrencia / ciclo de vida**: la fábrica corre dentro de la celda durante Create (AC-CELL-002.1), no en el hilo del llamador de actorOf.
 - **Dependencias**: AC-CFG-013
@@ -173,7 +173,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Cada withX devuelve una copia; withDispatcher/withMailbox devuelven `this` si el valor ya es el mismo; withDeploy hace d.withFallback(deploy); withActorTags agrega tags al deploy.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Props.scala:183-204
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Props.scala:182-203
 - **Condiciones** (normales, límites, errores, efectos): dispatcher cuando deploy.dispatcher == NoDispatcherGiven → DefaultDispatcherId; mailbox análogo. withRouter reemplaza routerConfig del deploy.
 - **Orden / concurrencia / ciclo de vida**: inmutable, seguro entre hilos.
 - **Dependencias**: AC-CFG-013
@@ -191,7 +191,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: `Props(deploy, clazz, args)` elige un `IndirectActorProducer` con `IndirectActorProducer.apply(clazz, args)`: (1) si `clazz` es subclase de `IndirectActorProducer` (productor del usuario o interno) se instancia con `args` (los tres internos `TypedCreatorFunctionConsumer(clz, creator)`, `CreatorFunctionConsumer(creator)` y `CreatorConsumer(clazz, javaCreator)` se construyen con `new` sin reflexión); (2) si `clazz` es subclase de `Actor` sin args → `NoArgsReflectConstructor`; con args → `ArgsReflectConstructor`; (3) otra cosa → `IllegalArgumentException("unknown actor creator [<clazz>]")`. `produce()` debe devolver una instancia NUEVA en cada llamada; `actorClass` es la cota superior del tipo producido y la usa el sistema para elegir mailbox/dispatcher (AC-CELL-026).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/IndirectActorProducer.scala:24-49,51-77,79-122 ; actor/src/main/scala/org/apache/pekko/actor/Props.scala:55-57,87-91,123-154,219-237 ; actor/src/main/scala/org/apache/pekko/actor/AbstractProps.scala:33-41,46-48,58-90 ; actor/src/main/scala/org/apache/pekko/util/Reflect.scala:95-124 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:622-640
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/IndirectActorProducer.scala:22-47,49-75,77-128 ; actor/src/main/scala/org/apache/pekko/actor/Props.scala:54-56,86-90,122-153,218-236 ; actor/src/main/scala/org/apache/pekko/actor/AbstractProps.scala:33-41,46-48,52-56 ; actor/src/main/scala/org/apache/pekko/util/Reflect.scala:136-169 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:641-659
 - **Precondiciones**: `Props.validate(clazz)` (en la construcción de `Props`, Props.scala:126) exige que `clazz` no sea abstracta y sea subclase de `Actor` o de `IndirectActorProducer`. El productor se calcula perezosamente pero se fuerza en la construcción de `Props` (Props.scala:153-154: "validate producer constructor signature"), de modo que un constructor inexistente falla al construir `Props`, no al crear el actor.
 - **Comportamiento**: `Props.newActor()` = `producer.produce()` y se invoca dentro de la celda durante `Create` (AC-CELL-002.1). `Props[T](creator)` = `TypedCreatorFunctionConsumer(runtimeClass, () => creator)`; `Props.default` = `CreatorFunctionConsumer(defaultCreator)` (lanza `UnsupportedOperationException("No actor creator specified!")` al producir); Java `Props.create(creator)` extrae el tipo del actor de la firma genérica de `Creator` y usa `CreatorConsumer`. `ArgsReflectConstructor` resuelve el constructor con `Reflect.findConstructor`: entre los constructores declarados con el mismo número de parámetros elige el único cuyos tipos aceptan cada argumento (`found.isInstance(arg)`, tipo envoltorio de primitivos, o `null` para un tipo no primitivo). `Props.actorClass()` instancia el productor (puede ser distinto del que luego produce) y devuelve `producer.actorClass`.
 - **Errores**: `IllegalArgumentException` en la construcción de `Props`: "Actor class [<name>] must not be abstract" (AbstractProps.scala:35); "Actor class [<name>] must be subClass of org.apache.pekko.actor.Actor or org.apache.pekko.actor.IndirectActorProducer." (:38-39); "unknown actor creator [<clazz>]" (IndirectActorProducer.scala:75); de `Reflect.findConstructor`: "no matching constructor found on <clazz> for arguments [<clases>]" y "multiple matching constructors found on <clazz> for arguments [<clases>]" (Reflect.scala:96-98,117,122); de `Props.create(Creator)`: "erased Creator types (e.g. lambdas) are unsupported, use Props.create(actorClass, creator) instead" y "cannot use non-static local Creator to create actors; make it static (e.g. local to a static method) or top-level" (AbstractProps.scala:75-76,135-136). Un productor que devuelve la misma instancia dos veces viola el contrato (no se comprueba; AC-SUP-011).
@@ -213,7 +213,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: actorOf(props, name) con name null → InvalidActorNameException("actor name must not be null"); vacío → "actor name must not be empty"; otro valor pasa por ActorPath.validatePathElement.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:58-64,269-277 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:230,246
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:59-65,269-277 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:237,253
 - **Condiciones** (normales, límites, errores, efectos): Mensajes que deben contener: null→"null"; vacío→"empty"; "$hallo"→"not start with `$`"; "a%","%3","%xx","%0G","%gg","%","%1t","a?"→"Invalid actor path element"; "üß"→"include only ASCII"; `he"llo`→`["] at position: 2`; `$hello`→`[$] at position: 0`; `hell>o`→`[>] at position: 4`. Los nombres generados por el sistema empiezan por "$" y son válidos sólo internamente.
 - **Orden / concurrencia / ciclo de vida**: la validación ocurre en el hilo del llamador, antes de reservar el nombre.
 - **Dependencias**: AC-PATH-008
@@ -230,7 +230,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: El nombre se reserva (ChildNameReserved) antes de crear el hijo; si ya existe (vivo o reservado, incluido uno parándose) lanza InvalidActorNameException("actor name [<n>] is not unique!"). Si la creación falla se libera la reserva.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:142-145,205-211 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:161-170,279-345
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:142-145,205-211 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:159-168,279-352
 - **Condiciones** (normales, límites, errores, efectos): Normal: único gana en concurrencia. Error: segundo → InvalidActorNameException. Reutilizar un nombre sólo es posible tras procesar la terminación del hijo (Terminated). Durante Termination de la celda, reservar lanza IllegalStateException("cannot reserve actor name '<n>': terminating"); en TerminatedChildrenContainer: "already terminated" (ChildrenContainer.scala:205-211 y TerminatedChildrenContainer).
 - **Orden / concurrencia / ciclo de vida**: tras context.stop(kid) el nombre sigue reservado hasta que el padre procesa la DeathWatchNotification del hijo (AC-DW-008).
 - **Dependencias**: AC-CELL-015.1
@@ -249,7 +249,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Sin nombre, el hijo se llama "$" + base64(contador) donde el contador es por celda y empieza en 0 ("$a","$b",…,"$~","$ab",…).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:124-131 ; actor/src/main/scala/org/apache/pekko/util/Helpers.scala:115-123
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:123-130 ; actor/src/main/scala/org/apache/pekko/util/Helpers.scala:117-125
 - **Condiciones** (normales, límites, errores, efectos): Normal: contador atómico por padre. Límite: tras 64 nombres pasa a dos caracteres ("$ab"). Los FunctionRef usan prefijo "$$".
 - **Orden / concurrencia / ciclo de vida**: el contador se incrementa en cada actorOf anónimo incluso si luego falla.
 - **Dependencias**: AC-PATH-008
@@ -266,7 +266,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: children devuelve los hijos vivos (no reservados) en orden de nombre; child(name) devuelve Option; getChild devuelve null; findChild devuelve Optional.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:44-56 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:79,120-136
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:46-57 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:79,120-136
 - **Condiciones** (normales, límites, errores, efectos): Normal: hijo existente. Límite: nombre reservado pero no iniciado → None. Errores: ninguno.
 - **Orden / concurrencia / ciclo de vida**: lectura racy fuera del actor.
 - **Dependencias**: AC-CELL-015.1
@@ -283,7 +283,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: actorSelection(String|ActorPath) construye una selección sobre el árbol evaluada en el momento de entrega; los elementos se resuelven por nombre, ".." (padre) o patrón con '*' y '?'; mensajes a elementos inexistentes se publican como DeadLetter; con comodines se entrega a todos los que coinciden.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:43-70,211-232,239-302 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:255-274
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:39-66,180-201,208-271 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:262-281
 - **Condiciones** (normales, límites, errores, efectos): Parseo: path relativo vacío "" → ancla deadLetters; que empieza por "/" → ancla rootGuardian; otro relativo → ancla lookupRoot (el actor consultado, ActorRefProvider.scala:255-271); ruta absoluta con address ajena → rootGuardianAt(address)==deadLetters; string no parseable → ancla deadLetters (ActorRefProvider.scala:255-274). Elementos vacíos se descartan (`user/` ≡ `user`) (ActorSelection.scala:221-226). ".." sobre el root devuelve el root. Strings ya probados: "/user","/system","/","","..","user","system","user/","system/" resuelven a su guardián (ActorSelectionSpec.scala:163-176); "a/b/c","pekko://all-systems/Nobody","pekko://all-systems/user","foo://user","/deadLetters","deadLetters","deadLetters/" → ActorIdentity(None) (:180-188).
 - **Orden / concurrencia / ciclo de vida**: la evaluación ocurre al entregar (deliverSelection); la entrega a hijos con comodín se hace en orden de iteración del contenedor de hijos (alfabético).
 - **Dependencias**: AC-REF-013 ; AC-REF-014
@@ -306,7 +306,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: resolveOne envía Identify(None) por ask y completa con el ref si ActorIdentity(_, Some(ref)); en cualquier otro resultado (None, timeout, fallo) falla con ActorNotFound(selection).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:79-141,387
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:75-110,356
 - **Condiciones** (normales, límites, errores, efectos): Mensaje de ActorNotFound: "Actor not found for: " + selection.toString (ActorSelection.scala:387). Variantes: resolveOne() con timeout implícito, resolveOne(FiniteDuration), resolveOne(java.time.Duration) → CompletionStage; resolveOneCS (deprecated).
 - **Orden / concurrencia / ciclo de vida**: la ejecución del callback usa un contexto paralelo/parasitic.
 - **Dependencias**: AC-ASK-001 ; AC-REF-013
@@ -325,7 +325,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Todo actor responde Identify(id) con ActorIdentity(id, Some(self)) sin pasar por receive; deadLetters y EmptyLocalActorRef responden ActorIdentity(id, None). Identify no reinicia el receive-timeout.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:76-111 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:578 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:693-704,736-738
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:77-113 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:597 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:665-676,708-710
 - **Condiciones** (normales, límites, errores, efectos): ActorIdentity(c, Some(null)) → IllegalArgumentException (mensaje "ActorIdentity created with ref = Some(null) is not allowed, this could happen when serializing with Scala 2.12 and deserializing with Scala 2.11 which is not supported."). Selección con comodín: sólo responden los existentes; si ninguno coincide responde None una vez (ActorSelectionSpec.scala:408-409).
 - **Orden / concurrencia / ciclo de vida**: se maneja como AutoReceivedMessage (ActorCell.scala:549-582).
 - **Dependencias**: AC-CELL-003.1
@@ -345,7 +345,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: `ActorSelection.tell(msg, sender)` crea `ActorSelectionMessage(msg, elements, wildcardFanOut = false)` y llama a `ActorSelection.deliverSelection(anchor, sender, sel)` en el hilo del llamador. Se recorre el árbol con refs de celda local: `SelectChildName(n)` → `getSingleChild(n)` (admite `nombre#uid`); `SelectParent` ("..") → `getParent`; `SelectChildPattern(p)` → hijos de `children` cuyo nombre coincide con el glob `p` (`Glob.matches(p, nombre)`, `?` = un carácter, `*` = cualquier secuencia, sin regex). Al agotar los elementos se entrega `sel.msg` al/los destinos con el `sender` original. Un elemento sin coincidencia fuera de un fan-out envía el `ActorSelectionMessage` completo a un `EmptyLocalActorRef` (que responde `ActorIdentity(id, None)` a un `Identify` o publica `DeadLetter`); dentro de un fan-out no se envía nada. Un ref no local ("foráneo", no `ActorRefWithCell`) recibe `sel.copy(elements = restantes)`.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:56-61,239-302,321-380 ; actor/src/main/scala/org/apache/pekko/util/Glob.scala:22-73 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:584-588 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:693-720 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:230-244
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:52-57,208-271,290-349 ; actor/src/main/scala/org/apache/pekko/util/Glob.scala:22-73 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:603-607 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:665-692 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:230-244
 - **Precondiciones**: el ancla es un `InternalActorRef`; los patrones llegan ya parseados como `SelectChildPattern` (un segmento con `?` o `*` — AC-REF-011). `Helpers.makePattern` sólo se conserva como `lazy val pattern` por compatibilidad y NO se usa para comparar (ActorSelection.scala:359-369).
 - **Comportamiento**: (1) `elements` vacío → `anchor.tell(msg, sender)`. (2) `rec(ref)`: si `ref` es `ActorRefWithCell`: `SelectParent` → si es el último, `parent.tell(msg, sender)`; si no, `rec(parent)` (el padre del root es el propio root); `SelectChildName(n)`: `child = getSingleChild(n)`; si `child == Nobody` → `if (!sel.wildcardFanOut) emptyRef.tell(sel, sender)`; si es el último → `child.tell(msg, sender)`; si no, `rec(child)`; `SelectChildPattern(p)`: `matching = children.filter(c => p.matches(c.path.name))`; si es el último elemento: sin coincidencias y `!wildcardFanOut` → `emptyRef.tell(sel, sender)`, si no `matching.foreach(_.tell(msg, sender))`; si quedan elementos: sin coincidencias y `!wildcardFanOut` → `emptyRef.tell(sel, sender)`, si no `deliverSelection(c, sender, sel.copy(elements = restantes, wildcardFanOut = sel.wildcardFanOut || matching.size > 1))` por cada coincidencia. (3) `emptyRef` = `EmptyLocalActorRef(provider, anchor.path / todos los elementos originales)`. (4) `ActorCell.receiveSelection(sel)` (camino de un `ActorSelectionMessage` que llega al buzón de una celda, p. ej. reenviado desde otro nodo): `elements` vacíos → `invoke(Envelope(sel.msg, sender(), system))`; si no, `deliverSelection(self, sender(), sel)`.
 - **Errores**: ninguno se propaga al emisor. Sin destino: `DeadLetter(msg, sender|deadLetters, emptyRef)` (con `Identify`: `ActorIdentity(id, None)` salvo `wildcardFanOut`); `DeadLetterSuppression` → `SuppressedDeadLetter`. Un `UnstartedCell` (actor top-level aún sin arrancar) devuelve `Nobody` en `getSingleChild` y `children` vacío, así que una selección que atraviese un actor sin arrancar se comporta como "no existe" (ActorSelection.scala vía RepointableActorRef.scala:264-266).
@@ -374,7 +374,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Un EmptyLocalActorRef publica DeadLetter por cada mensaje; Watch(watchee==this, watcher!=this) → envía DeathWatchNotification(existenceConfirmed=false, addressTerminated=false) al watcher; Unwatch se ignora; Identify → ActorIdentity(None); mensaje DeadLetterSuppression → SuppressedDeadLetter; ActorSelectionMessage con Identify responde None salvo fan-out; sin Identify publica DeadLetter con el mensaje interior.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:671-728
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:643-700
 - **Condiciones** (normales, límites, errores, efectos): mensaje null → InvalidMessageException("Message is null"); DeadLetter recibido se "desenvuelve" (specialHandle(d.message, d.sender)) para evitar bucles; sender noSender → deadLetters como remitente del DeadLetter. isTerminated = true.
 - **Orden / concurrencia / ciclo de vida**: sin orden especial.
 - **Dependencias**: AC-EVT-008
@@ -393,7 +393,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Todo mensaje a deadLetters se publica como DeadLetter(msg, sender|deadLetters, deadLetters); un DeadLetter recibido se re-publica tal cual; Identify responde None; mensajes suprimibles generan SuppressedDeadLetter.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:733-760 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:414-417
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:705-732 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:421-424
 - **Condiciones** (normales, límites, errores, efectos): sender por defecto = deadLetters (no noSender). Con DeadLetterSuppression: no DeadLetter pero sí SuppressedDeadLetter y AllDeadLetters (DeadLetterSupressionSpec.scala:87-92).
 - **Orden / concurrencia / ciclo de vida**: publicación síncrona en EventStream.
 - **Dependencias**: AC-EVT-008
@@ -412,7 +412,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: resolveActorRef(path: String) → ActorPathExtractor con la address local; si no, deadLetters. resolveActorRef(ActorPath) → si path.root != rootPath deadLetters. Elementos vacíos → deadLetters. getChild == Nobody → EmptyLocalActorRef con ruta ref.path / elementos; si existe, el ref.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:622-657
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:629-664
 - **Condiciones** (normales, límites, errores, efectos): Se loguea Debug (logDeser) en cada caso de fallback.
 - **Orden / concurrencia / ciclo de vida**: lectura racy del árbol.
 - **Dependencias**: AC-SYS-018
@@ -430,7 +430,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Operaciones internas start/suspend/resume/restart/stop/sendSystemMessage/getParent/getChild/isLocal/provider; MinimalActorRef las implementa como no-ops; isTerminated por defecto false.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:223-330,503-522
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:196-302,475-494
 - **Condiciones** (normales, límites, errores, efectos): Errores: Nobody.provider → UnsupportedOperationException("Nobody does not provide"). getParent de Minimal → Nobody.
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-CELL-013.1
@@ -447,7 +447,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: isTerminated = mailbox.isClosed; una vez true nunca vuelve a false; puede ser false aunque el actor ya esté muriendo (racy). getChild resuelve hijos y function refs por nombre, con uid opcional ("name#uid").
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:166-175,350-460 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:230-245 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:72
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:164-173,322-432 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:230-245 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:71
 - **Condiciones** (normales, límites, errores, efectos): nombre con '#' y uid distinto → Nobody. getChild(".."): padre; getChild(""): el mismo.
 - **Orden / concurrencia / ciclo de vida**: el mailbox pasa a Closed en detach (finishTerminate).
 - **Dependencias**: AC-CELL-008.2
@@ -464,7 +464,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: El ref que devuelve `system.actorOf` / `systemActorOf` (que usan `attachChild(async = true)`) y los refs de router (`RoutedActorRef`, siempre un `RepointableActorRef`) nacen con una `UnstartedCell`: un buffer bajo lock que acepta de inmediato mensajes de usuario y de sistema. El guardián padre, al procesar `Supervise(child, async = true)`, llama `point(catchFailures = true)`: crea la celda real, la arranca y entrega a ella primero los mensajes de sistema acumulados y luego los de usuario, en orden de llegada. `context.actorOf` de un actor normal (`async = false`) crea un `LocalActorRef` directamente (sin `UnstartedCell`); para routers con `async = false`, `initialize(false)` hace `point(false)` en línea.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:40-202,204-326 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:659-757 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:58-65 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:924-935 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:693-714 ; actor/src/main/scala/org/apache/pekko/routing/RoutedActorRef.scala:55-63 ; actor/src/main/resources/reference.conf:140-145
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:38-201,203-325 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:666-764 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:59-66 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:941-959 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:712-733 ; actor/src/main/scala/org/apache/pekko/routing/RoutedActorRef.scala:55-63 ; actor/src/main/resources/reference.conf:140-145
 - **Precondiciones**: `initialize` se llama exactamente una vez (si no: `IllegalStateException("initialize called more than once!")`); un `RepointableActorRef` se usa solo tras `initialize`; `point` supone que nadie más modifica `underlying`, aunque se puede enviar en cualquier momento.
 - **Comportamiento**: `initialize(async)`: `swapCell(UnstartedCell)`, `swapLookup(underlying)`, `supervisor.sendSystemMessage(Supervise(this, async))` y, si `!async`, `point(false)`. `point(catchFailures)`: `cell = newCell(u)` (con `catchFailures`, un fallo crea un `ActorCell` con `defaultGlobalDispatcher` y `initWithFailure(ex)`, AC-CELL-027); `swapLookup(cell)` ANTES de `cell.start()` (para que los hijos creados en el constructor se puedan buscar de inmediato); `cell.start()`; `u.replaceWith(cell)`. `replaceWith`: bajo lock, drena `sysmsgQueue` (invierte la lista para respetar el orden de envío, repetido mientras un mensaje de sistema encole otro), después `queue.poll()` mensaje a mensaje (drenando de nuevo `sysmsgQueue` tras cada uno), y por último `swapCell(cell)` en un `finally`. `Create` ya está en el mailbox real (lo encola `init`), así que va antes que cualquier mensaje drenado. `sendMessage` de la `UnstartedCell`: toma el lock con `tryLock(unstarted-push-timeout)`; si la celda real ya está lista delega en ella; si no, `queue.offer(msg)`. `sendSystemMessage`: `lock.lock()` sin timeout (nunca se pierde un mensaje de sistema). Delegaciones: `suspend/resume/restart/stop` → mensajes de sistema `Suspend/Resume/Recreate/Terminate` encolados; `isTerminated` → `false` mientras no esté lista; `getChild`/`children`/`getSingleChild` → vacío/`Nobody`; `hasMessages`/`numberOfMessages` → tamaño de la cola temporal.
 - **Errores**: lock no obtenido en `unstarted-push-timeout` (default 10 s) → `Warning(path, "dropping message of type<clase> due to lock timeout")` (el texto no lleva espacio tras "type", RepointableActorRef.scala:288) y `DeadLetter(msg, sender, self)` a `deadLetters`; cola temporal llena (`offer` falso) → `Warning "dropping message of type <clase> due to enqueue failure"` + `DeadLetter`. `point` sobre una celda ya arrancada devuelve `this` sin efecto (caso rutinario `async = false`); con `underlying == null` → `IllegalStateException("underlying cell is null")`. `isStarted` antes de `initialize` → `IllegalStateException("isStarted called before initialized")`.
@@ -488,7 +488,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Reenvía cada mensaje a la función con el sender; puede ser vigilado (Watch/Unwatch) y vigilar a otros (watch/unwatch propios); muere cuando muere el padre (stopFunctionRefs); no aparece entre children; al pararse reemplaza la función por deadLetterMessageHandler (evita retener memoria y bucles con DeadLetter).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:861-1000 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:68-122
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:833-972 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:69-121
 - **Condiciones** (normales, límites, errores, efectos): Terminated recibido por un FunctionRef que vigila: se entrega a la función con existenceConfirmed=true y NO se auto-limpia: hay que llamar unwatch (FunctionRefSpec.scala:83-86). removeFunctionRef(ref) exige ref.path.parent eq self.path (require); FunctionRef no registrado no se encuentra: al serializar con serialize-messages=on falla (SerializationCheckFailedException "Failed to serialize and deserialize message of type org.apache.pekko.actor.FunctionRefSpec…") (FunctionRefSpec.scala:108-120).
 - **Orden / concurrencia / ciclo de vida**: stop() → sendTerminated() notifica a watchers remotos primero y luego locales (ActorRef.scala:927-956). AddressTerminated se procesa en `!` (ActorRef.scala:897-898).
 - **Dependencias**: AC-DW-001
@@ -509,7 +509,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Descarta todo mensaje (hereda `!` = ()), sendSystemMessage no hace nada (no genera DeathWatchNotification); su path es fijo.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:529-562,567-570 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:419
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:501-534,539-542 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:426
 - **Condiciones** (normales, límites, errores, efectos): Watch a ignoreRef nunca se confirma (no hay Terminated). Errores: ninguno.
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-PATH-015
@@ -526,7 +526,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Se serializa como la ruta de serialización (Serialization.serializedActorPath); deserializar requiere un sistema en JavaSerializer.currentSystem; si no existe localmente el ref → EmptyLocalActorRef.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:471-496 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:521
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:443-468 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:493
 - **Condiciones** (normales, límites, errores, efectos): Sin sistema en scope → IllegalStateException("Trying to deserialize a serialized ActorRef without an ActorSystem in scope. Use 'org.apache.pekko.serialization.JavaSerializer.currentSystem.withValue(system) { ... }'") (ActorRef.scala:481-483). Con sistema: la misma instancia (eq) para un actor local vivo.
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-SER-007
@@ -544,7 +544,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: El sender implícito en un actor es self; sin contexto, noSender (null) → el receptor ve deadLetters.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:416 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:481-533 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:157,215
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:418 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:483-535 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:155,190
 - **Condiciones** (normales, límites, errores, efectos): n/a en Rust: sin implícitos.
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-REF-002
@@ -561,7 +561,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Dos rasgos "pegamento" (`@DoNotInherit`, no para extensión por el usuario) que permiten usar un objeto de Typed donde Classic espera un sistema o un contexto. `ClassicActorSystemProvider.classicSystem: ActorSystem` devuelve el `ActorSystem` classic subyacente (el propio objeto para un sistema classic; el sistema envuelto para un `ActorSystem[T]` de Typed). `ClassicActorContextProvider.classicActorContext: ActorContext` (`private[pekko]`, `@InternalApi`) devuelve el `ActorContext` classic subyacente (la propia `ActorCell` para un contexto classic; el `classicContext` envuelto para el `ActorContextAdapter` de Typed). Ambas operaciones son puras, sin efectos ni errores en las implementaciones reales.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ClassicActorSystemProvider.scala:18-45 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:530,1011 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:58,446 ; actor/src/main/scala/org/apache/pekko/actor/Extension.scala:85-115 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:43 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:66,175 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:58 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:160-170 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:50 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/javadsl/ActorContext.scala:49 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/package.scala:87 ; actor-testkit-typed/src/main/scala/org/apache/pekko/actor/testkit/typed/internal/StubbedActorContext.scala:97-99 ; actor-testkit-typed/src/main/scala/org/apache/pekko/actor/testkit/typed/internal/ActorSystemStub.scala:79-81
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ClassicActorSystemProvider.scala:18-45 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:529,1042 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:57,445 ; actor/src/main/scala/org/apache/pekko/actor/Extension.scala:85-115 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:45 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:67,190 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:57 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:162-172 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:52 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/javadsl/ActorContext.scala:51 ; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/package.scala:87 ; actor-testkit-typed/src/main/scala/org/apache/pekko/actor/testkit/typed/internal/StubbedActorContext.scala:100-102 ; actor-testkit-typed/src/main/scala/org/apache/pekko/actor/testkit/typed/internal/ActorSystemStub.scala:83-85
 - **Precondiciones**: ninguna. `ActorSystem` classic y `ActorSystem[T]` de Typed implementan `ClassicActorSystemProvider`; `ActorContext` classic (`trait ActorContext extends ActorRefFactory with ClassicActorContextProvider`) y los `ActorContext[T]` de Typed (scaladsl y javadsl) implementan `ClassicActorContextProvider`.
 - **Comportamiento**: (1) Sistema: `ActorSystemImpl.classicSystem = this`; `ActorSystemAdapter.classicSystem = system` (el classic envuelto); `toClassic` del adaptador usa `sys.classicSystem`. (2) Contexto: `ActorCell.classicActorContext = this`; `ActorContextAdapter.classicActorContext = classicContext`; `ActorContextImpl` lo usa para leer `props.deploy.tags` al crear el logging (ActorContextImpl.scala:167). (3) Uso aguas arriba: `ExtensionId.apply/get(system: ClassicActorSystemProvider)` = `apply(system.classicSystem)` (Extension.scala:93,115) y todas las extensiones concretas sobrescriben `get(system: ClassicActorSystemProvider)` (SerializationExtension, Tcp, Udp, UdpConnected, Dns, CoordinatedShutdown, TypedActor, ManifestInfo, CircuitBreakersRegistry, AddressTerminatedTopic); los patrones `after`/`retry`/`timeout` toman un `ClassicActorSystemProvider` y usan `classicSystem.scheduler`/`dispatcher` (Patterns.scala:458-460,570-578,613-622,735-736,764-765; FutureTimeoutSupport.scala:34-35,43-44); `FlightRecorderLoader.load` castea `classicSystem` a `ExtendedActorSystem`.
 - **Errores**: las implementaciones de pruebas de Typed (`ActorSystemStub.classicSystem`, `StubbedActorContext.classicActorContext`) lanzan `UnsupportedOperationException("no classic actor system available")` / "No classic ActorContext available with the stubbed actor context, to spawn materializers and run streams you will need a real actor". En Pekko real no hay error.
@@ -583,7 +583,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Igualdad por ancla (ref con uid) y path de elementos; toString "ActorSelection[Anchor(<path>[#uid]), Path(/<elems>)]"; toSerializationFormat concatena la ruta del ancla (con address por defecto si es ActorRefWithCell) y los elementos.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:143-194
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:112-163
 - **Condiciones** (normales, límites, errores, efectos): serialización: ancla terminada en "/" no duplica la barra; path vacío sólo imprime el ancla.
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-REF-011
@@ -601,7 +601,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: `VirtualPathContainer` es un `MinimalActorRef` con un mapa concurrente `nombre → InternalActorRef` de hijos virtuales; el sistema crea uno para `/temp` (`tempContainer`, hijo lógico del root guardian), donde se registran los `PromiseActorRef` de `ask` mediante `registerTempActor(ref, path)` y se retiran con `unregisterTempActor(path)`. Sólo `SelectChildName` es soportado en los `ActorSelectionMessage` dirigidos a un contenedor virtual; cualquier otra cosa (patrón, `..`, camino más profundo que un nivel sin el hijo) se desvía a un `EmptyLocalActorRef`.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:758-856 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:96-120,426-446,538-552,601-611 ; actor/src/main/scala/org/apache/pekko/pattern/AskSupport.scala:583-610,660-675 ; actor/src/main/scala/org/apache/pekko/util/Helpers.scala:115-123
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:730-828 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:97-121,433-453,545-559,608-618 ; actor/src/main/scala/org/apache/pekko/pattern/AskSupport.scala:584-611,661-676 ; actor/src/main/scala/org/apache/pekko/util/Helpers.scala:117-125
 - **Precondiciones**: los refs registrados deben provenir de `tempPath()`/`tempPath(prefix)`: `registerTempActor`/`unregisterTempActor` exigen `path.parent eq tempNode` (`assert`, "cannot registerTempActor() with anything not obtained from tempPath()" / "cannot unregisterTempActor() with anything not obtained from tempPath()"; ActorRefProvider.scala:604,609). Un `ActorSelectionMessage` debe tener `elements` no vacío (`require`, ActorRef.scala:778).
 - **Comportamiento**: (1) `tempPath(prefix)` = `/temp/<prefix>$<base64(contador)>` con un `AtomicLong` por proveedor (contador inicial 0; alfabeto `a-zA-Z0-9+~`; ver Helpers.scala:115-123), así `$a`, `$b`, … (ActorRefProvider.scala:432-440). (2) `addChild(name, ref)`: `children.put`; si ya había un hijo con ese nombre → Debug "<path> replacing child <name> (<old> -> <new>)" y `old.stop()`. (3) `removeChild(name)`: `children.remove`; si no existía → Warning "<path> trying to remove non-child <name>". `removeChild(name, ref)` (protegido) borra sólo si el valor actual es `ref`; si no hay valor → mismo Warning. (4) `getChild(name: String)` = `children.get(name)` (o `null`); `getChild(Iterator[String])`: iterador vacío → `this`; primer nombre vacío → `this`; nombre desconocido → `Nobody`; último nombre → el hijo; si quedan nombres → `hijo.getChild(resto)`. (5) `!`: para `ActorSelectionMessage(msg, elements, wildcardFanOut)` — `elements.head` = `SelectChildName(n)`: `getChild(n)` nulo → `if (!wildcardFanOut) emptyRef.tell(msg, sender)`; hijo encontrado y era el último elemento → `child ! msg` (con el `sender` implícito); hijo encontrado pero quedan elementos → `if (!wildcardFanOut) emptyRef.tell(msg, sender)`; `SelectChildPattern`/`SelectParent` → `if (!wildcardFanOut) emptyRef.tell(msg, sender)`. Cualquier otro mensaje → `MinimalActorRef.!` = descartar silenciosamente. (6) `emptyRef` = `EmptyLocalActorRef(provider, path / elementos, systemGuardian.underlying.system.eventStream)`. (7) Resto de `MinimalActorRef`: `getParent` configurado al `rootGuardian`, `isTerminated=false`, `start/suspend/resume/stop/restart/sendSystemMessage` no-ops. (8) `rootGuardian.getSingleChild("temp")` = `tempContainer`; `"deadLetters"` = `deadLetters`; otros nombres extra → `extraNames`, o el hijo real (ActorRefProvider.scala:547-551).
 - **Errores**: ver Precondiciones (`AssertionError`/`IllegalArgumentException` por uso incorrecto, internos). Mensajes de selección sin destino se publican como `DeadLetter(msg, sender, emptyRef)` donde `msg` es el mensaje de usuario interior (no el `ActorSelectionMessage`, a diferencia de `deliverSelection`, AC-REF-014); un `Identify` interior recibe `ActorIdentity(id, None)`.
@@ -627,7 +627,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: receive devuelve la conducta inicial (PartialFunction[Any, Unit]); emptyBehavior no matchea ningún mensaje (todo unhandled); ignoringBehavior consume todo; self es un val final del Actor; context es un val implícito.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:384-416,481-533,545-556
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:386-418,483-535,547-558
 - **Condiciones** (normales, límites, errores, efectos): Normal: receive se evalúa al instanciar el actor (la conducta es la cabeza del behaviorStack). Borde: become en el constructor reemplaza receive antes del primer mensaje. Error: instanciar sin contexto → ActorInitializationException (AC-REF-006).
 - **Orden / concurrencia / ciclo de vida**: aroundReceive aplica receive.applyOrElse(msg, notHandledFun) y si no estaba definido llama unhandled(msg) (Actor.scala:545-556).
 - **Dependencias**: -
@@ -646,7 +646,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: init crea el mailbox, encola Create(None) en la cola de sistema ANTES de cualquier mensaje y, si sendSupervise, envía Supervise(self, async=false) al padre; start() hace dispatcher.attach. Al procesar Create: newActor() (constructor) → aroundPreStart() → checkReceiveTimeout(reschedule=true) → Debug "started (<actor>)" si debug.lifecycle.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:79-116 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:622-683
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:78-115 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:641-702
 - **Condiciones** (normales, límites, errores, efectos): Normal: preStart corre una vez por incarnation. Instancia null → ActorInitializationException(self, "Actor instance passed to actorOf can't be 'null'") (ActorCell.scala:628-629). Con un fallo, ver AC-CELL-002.2.
 - **Orden / concurrencia / ciclo de vida**: Create se encola antes de cualquier mensaje de usuario porque el actor no está adjunto al dispatcher hasta start(); el hijo creado con context.actorOf tiene Supervise enviado al padre en init (síncrono para el padre), mientras que system.actorOf pasa por Supervise(async=true) al guardián (AC-REF-020).
 - **Dependencias**: AC-SUP-004
@@ -664,7 +664,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Si el constructor o preStart lanzan, la celda hace setFailed(actor.self) (si hay instancia), borra la instancia y lanza ActorInitializationException(self, "exception during creation, root cause message: [<mensaje de la causa raíz o 'No message available'>]", causa), que se maneja con handleInvokeFailure → Failed al padre.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:642-683,686-691 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:198-211
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:661-702,705-710 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:198-211
 - **Condiciones** (normales, límites, errores, efectos): InstantiationException: mensaje "exception during creation, this problem is likely to occur because the class of the Actor you tried to create is either, a non-static inner class (in which case make it a static inner class or use Props(new ...) or Props( new Creator ... ) or is missing an appropriate, reachable no-args constructor." (ActorCell.scala:667-674; sin sentido en Rust). InterruptedException: setFailedFatally y "interruption during creation". El mensaje de la excepción lleva el path del actor como prefijo: "<path>: <mensaje>" (Actor.scala:198-211; ActorRefSpec.scala:277-286 con pattern "/user/failingActor:").
 - **Orden / concurrencia / ciclo de vida**: tras el fallo el actor queda suspendido (mailbox) hasta que el padre decida: Stop (default), Restart → faultRecreate con actor==null → Error "changing Recreate into Create after <causa>" + faultCreate, Resume → "changing Resume into Create after <causa>" (AC-SUP-011).
 - **Dependencias**: AC-SUP-004 ; AC-SUP-011
@@ -684,7 +684,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Nunca dos mensajes del mismo actor se procesan concurrentemente; Terminated, PoisonPill, Kill, Identify, ActorSelectionMessage y AddressTerminated son AutoReceivedMessage y los trata la celda (no el receive del usuario salvo Terminated).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:549-590 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:545-556
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:568-609 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:547-558
 - **Condiciones** (normales, límites, errores, efectos): invoke: cancelReceiveTimeoutIfNeeded(msg) → currentMessage = envelope → autoReceiveMessage o receiveMessage (aroundReceive) → currentMessage = null (sólo si no falló) → checkReceiveTimeoutIfNeeded en finally. Excepción no fatal o Interrupted → handleInvokeFailure(Nil, e). Debug "received AutoReceiveMessage <envelope>" si debug.autoreceive (ActorCell.scala:569-570).
 - **Orden / concurrencia / ciclo de vida**: Memoria: el mailbox da la sincronización entre mensajes consecutivos. Los mensajes de sistema se tratan antes y entre mensajes de usuario (AC-CELL-013.1).
 - **Dependencias**: AC-MBX-002
@@ -703,7 +703,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Mensaje no manejado: Terminated(dead) → lanza DeathPactException(dead); cualquier otro → publica UnhandledMessage(msg, sender(), self) en el EventStream del sistema.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:292-302,545-556,650-662
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:292-302,547-558,652-664
 - **Condiciones** (normales, límites, errores, efectos): DeathPactException(dead) mensaje exacto "Monitored actor [<dead>] terminated"; es NoStackTrace (Actor.scala:282-285, ver AC-SUP-017). Usa sender() actual.
 - **Orden / concurrencia / ciclo de vida**: ocurre dentro del procesamiento del mensaje, en la propia tarea del actor.
 - **Dependencias**: AC-EVT-010 ; AC-DW-007
@@ -720,7 +720,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: become(b) con discardOld=true reemplaza el tope; con false apila; unbecome desapila y, con pila de 0 o 1 elementos, deja `actor.receive` como única conducta; la pila se limpia en restart (clearActorFields pone emptyBehaviorStack).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:106-137,602-615,622-640 ; docs/src/main/paradox/actors.md:1055
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:105-136,621-634,641-659 ; docs/src/main/paradox/actors.md:1055
 - **Condiciones** (normales, límites, errores, efectos): En el constructor: la pila empieza vacía (newActor); si el constructor hizo become, el receive NO se añade (ActorCell.scala:632); si no, se añade receive. become con pila vacía y discardOld=true deja [b].
 - **Orden / concurrencia / ciclo de vida**: la pila sólo se toca en el hilo del actor.
 - **Dependencias**: AC-CELL-001
@@ -740,7 +740,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: preStart y postStop vacíos; preRestart(reason, message) por defecto desvigila y detiene a todos los hijos y llama postStop(); postRestart(reason) por defecto llama preStart(). preRestart recibe la causa y el mensaje opcional; postRestart la causa.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:596-648 ; docs/src/main/paradox/actors.md:455-461,466-497
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:598-650 ; docs/src/main/paradox/actors.md:455-461,466-497
 - **Condiciones** (normales, límites, errores, efectos): Los hooks pueden lanzar: ver AC-CELL-007.4 (preRestart/postRestart) y AC-CELL-009 (postStop). preStart se llama exactamente una vez por incarnation (restart incluido por el default de postRestart).
 - **Orden / concurrencia / ciclo de vida**: Con defaults el orden observable es: postStop(old) → preStart(new) (ActorLifeCycleSpec.scala:93-96).
 - **Dependencias**: AC-CELL-007.1
@@ -759,7 +759,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: faultRecreate(cause): si actor==null → Error "changing Recreate into Create after <cause>" y faultCreate; si el contenedor de hijos no es normal (isNormal=false: Recreation/Creation/Termination) → faultResume(null) para equilibrar el contador de suspensión; si no → Debug "restarting"; optionalMessage = currentMessage.message o None; si !isFailedFatally → aroundPreRestart(cause, optionalMessage) sobre la instancia vieja; en finally clearActorFields(recreate=true) (currentMessage=null, behaviorStack vacío). El mailbox debe estar suspendido (assert).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:49-87,89-118 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:526 ; actor/src/main/scala/org/apache/pekko/dispatch/sysmsg/SystemMessage.scala:231 ; docs/src/main/paradox/actors.md:466-497
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:49-87,89-118 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:535 ; actor/src/main/scala/org/apache/pekko/dispatch/sysmsg/SystemMessage.scala:231 ; docs/src/main/paradox/actors.md:466-497
 - **Condiciones** (normales, límites, errores, efectos): Si preRestart lanza una excepción no fatal: se publica Error(PreRestartException(self, e, cause, optionalMessage), …, e.getMessage) y el restart continúa. PreRestartException.getMessage = "<path>: exception in preRestart(<clase de originalCause o null>, <clase del mensaje o None>)" (Actor.scala:225-241): las clases se imprimen con `Class.toString` ("class java.lang.RuntimeException"), y el mensaje opcional sólo aporta su clase si es `Some(AnyRef)`; en otro caso imprime "None". Hereda de ActorInitializationException (Stop con el decider por defecto).
 - **Orden / concurrencia / ciclo de vida**: durante el restart el mailbox está suspendido: los mensajes de usuario permanecen encolados, no se pierden ni se reprocesan; el mensaje que falló se pasa a preRestart y se descarta (AC-CELL-020). Recreate es StashWhenWaitingForChildren (SystemMessage.scala:231): si ya se espera a hijos, se difiere (AC-CELL-013.2).
 - **Dependencias**: AC-SUP-001 ; AC-CELL-006
@@ -778,7 +778,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Tras preRestart, si hay hijos pendientes de parada (por context.stop en preRestart, p. ej. el default), setChildrenTerminationReason(Recreation(cause)) devuelve true y la celda ESPERA: no crea la instancia hasta procesar la DeathWatchNotification del último hijo en toDie; entonces handleChildTerminated devuelve Some(Recreation(cause)) y se ejecuta finishRecreate(cause). Si no hay hijos por parar, finishRecreate corre de inmediato.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:114,327-351 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:183-190,246-266 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:25-226
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:114,327-351 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:181-188,246-266 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:25-226
 - **Condiciones** (normales, límites, errores, efectos): Mientras espera, el contenedor sigue aceptando hijos nuevos (reserve sólo falla en Termination); Recreate/Suspend/Resume que llegan se difieren (AC-CELL-013.2).
 - **Orden / concurrencia / ciclo de vida**: la espera se resuelve por mensajes de sistema DeathWatchNotification (no por tiempo).
 - **Dependencias**: AC-CELL-015.2 ; AC-DW-008
@@ -796,7 +796,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: finishRecreate: snapshot de children (survivors); resumeNonRecursive (en finally clearFailed); freshActor = newActor() (nueva incarnation con constructor); aroundPostRestart(cause) (default preStart); checkReceiveTimeout(reschedule=true); Debug "restarted"; sólo ENTONCES cada sobreviviente recibe restart(cause) (en orden de iteración del contenedor = nombre).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:278-303 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:622-640
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:278-303 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:641-659
 - **Condiciones** (normales, límites, errores, efectos): Si restart de un hijo lanza: Error "restarting <child>" y sigue con los demás. El uid del actor NO cambia en el restart (misma incarnation de ref).
 - **Orden / concurrencia / ciclo de vida**: orden: [padre: preRestart(old)] → [hijos stop si default] → constructor(new) → postRestart(new) → [hijos sobrevivientes: Recreate → su preRestart → su constructor → su postRestart]. Mensajes de usuario encolados se procesan DESPUÉS de postRestart (docs actors.md:487-491).
 - **Dependencias**: AC-SUP-015 ; AC-CELL-017
@@ -849,7 +849,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Orden estricto de finishTerminate (cada paso en try/finally, un fallo no impide los siguientes): (1) aroundPostStop (excepción no fatal → Error con e.getMessage); (2) stopFunctionRefs; (3) dispatcher.detach (mailbox → deadLetterMailbox, closed, cleanUp: pendientes a deadLetters); (4) parent.sendSystemMessage(DWN(self, existenceConfirmed=true)); (5) tellWatchersWeDied (watchers distintos del padre); (6) unwatchWatchedActors; (7) Debug "stopped"; (8) clearActorFields y clearFieldsForTermination (unstashAll, props = terminatedProps, actor = null).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:247-276 ; actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:240-246 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:54-72
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:247-276 ; actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:279-285 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:54-72
 - **Condiciones** (normales, límites, errores, efectos): tras terminar, `props` es terminatedProps, cuya fábrica lanza IllegalActorStateException("This Actor has been terminated") (ActorCell.scala:388); el contexto sigue siendo no nulo (no se anula) — ActorLifeCycleSpec.scala:193-230. Mensajes enviados después van a deadLetters (mailbox swap).
 - **Orden / concurrencia / ciclo de vida**: DeathWatchNotification al padre ANTES que a los watchers: un padre que también vigila recibe primero la limpieza del hijo y luego el Terminated (AC-DW-008).
 - **Dependencias**: AC-DW-010 ; AC-MBX-003
@@ -884,7 +884,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: stop es asíncrono; context.stop(hijo) marca shallDie y envía Terminate; context.stop(self) equivale a self.stop(); system.stop(ref): top-level bajo /user o /system pasa por StopChild al guardián, en otro caso llama ref.stop().
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:133-148 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:936-949
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:132-147 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:960-980
 - **Condiciones** (normales, límites, errores, efectos): stop de un ref no hijo → sólo InternalActorRef.stop(). stop de un ref ya muerto: no-op (mailbox cerrado: Terminate a deadLetters, DeadLetterSuppression).
 - **Orden / concurrencia / ciclo de vida**: el nombre queda reservado hasta Terminated del hijo (AC-REF-009.2).
 - **Dependencias**: AC-CELL-008.1
@@ -902,7 +902,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Mensaje ordinario (entra por la cola de usuario, en orden) que al procesarse llama self.stop(); es AutoReceivedMessage, PossiblyHarmful y DeadLetterSuppression.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:46-55 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:576 ; docs/src/main/paradox/actors.md:977
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:47-56 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:595 ; docs/src/main/paradox/actors.md:977
 - **Condiciones** (normales, límites, errores, efectos): Normal: los mensajes anteriores se procesan. Después de PoisonPill el actor sigue procesando hasta que Terminate llega por la cola de sistema (los mensajes de usuario ya dequeued en ese ciclo de throughput pueden procesarse; ver AC-CELL-013.1).
 - **Orden / concurrencia / ciclo de vida**: Terminate se encola al sistema: efecto tras el mensaje actual y antes del siguiente mensaje de usuario (Mailbox.processMailbox llama processAllSystemMessages tras cada mensaje).
 - **Dependencias**: AC-CELL-008.1
@@ -919,7 +919,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Al procesarse lanza ActorKilledException("Kill") (NoStackTrace) → se maneja como fallo del actor; el decider por defecto detiene al actor.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:57-70,177-180 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:575
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:58-71,177-180 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:594
 - **Condiciones** (normales, límites, errores, efectos): Mensaje de la excepción: "Kill" (ActorCell.scala:575, Actor.scala:177). Log Error: Logging.Error(ActorKilledException, path, _, "Kill").
 - **Orden / concurrencia / ciclo de vida**: como cualquier fallo: suspende, notifica a su padre (AC-SUP-001).
 - **Dependencias**: AC-SUP-004
@@ -937,7 +937,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Mailbox.run: si no está cerrado, processAllSystemMessages(); luego processMailbox(): por cada mensaje de usuario (hasta throughput y deadline): dequeue → invoke → processAllSystemMessages(). Nunca se ejecuta un mensaje de usuario con un mensaje de sistema pendiente. Un mailbox suspendido (suspendCount>0) NO procesa mensajes de usuario pero sí de sistema.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:230-280,289-333 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:481-546
+- **Fuente**: actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:262-294,303-347 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:490-555
 - **Condiciones** (normales, límites, errores, efectos): Si el mailbox se cierra mientras se procesan sistema, los restantes se envían al deadLetterMailbox (DeathWatch lo exige). Una interrupción durante el procesamiento se relanza como InterruptedException al terminar el drenaje. Throughput: max(throughput,1) mensajes por turno.
 - **Orden / concurrencia / ciclo de vida**: dentro de systemInvoke, `invokeAll` procesa en orden de envío (EarliestFirst), y tras cada mensaje recalcula el estado (calculateState) para desestacar (AC-CELL-013.2); si isTerminated el resto se manda a deadLetters.
 - **Dependencias**: AC-MBX-002
@@ -955,7 +955,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Estado = SuspendedWaitForChildren si el contenedor espera Recreation/Creation; Suspended si el mailbox está suspendido; Default si no. shouldStash(m, state): Default → nunca; Suspended → m es StashWhenFailed (Failed); SuspendedWaitForChildren → m es StashWhenWaitingForChildren. Diferidos se guardan en sysmsgStash (LatestFirst) y se reponen al "subir" de estado (newState < currentState) con rest.reversePrepend(unstashAll()).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:452-545 ; actor/src/main/scala/org/apache/pekko/dispatch/sysmsg/SystemMessage.scala:215-278 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:405-407
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:451-554 ; actor/src/main/scala/org/apache/pekko/dispatch/sysmsg/SystemMessage.scala:215-278 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:404-406
 - **Condiciones** (normales, límites, errores, efectos): Terminate durante espera de hijos NO se difiere: pasa a Termination (AC-CELL-008.1). clearFieldsForTermination hace unstashAll() y descarta.
 - **Orden / concurrencia / ciclo de vida**: reponer: los diferidos se ejecutan antes del resto pendiente y en orden de llegada original.
 - **Dependencias**: AC-CELL-007.2 ; AC-CELL-008.1
@@ -972,7 +972,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Tras detach cualquier mensaje de usuario va a deadLetters (DeadLetter(msg, sender, receiver), sin bucle para DeadLetter); cualquier mensaje de sistema se vuelve DeadLetter(sysmsg, receiver, receiver). cleanUp traslada pendientes (sistema y usuario) al mailbox muerto.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:289-333,340-354 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:54-72 ; actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:240-246
+- **Fuente**: actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:303-347,354-368 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:54-72 ; actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:279-285
 - **Condiciones** (normales, límites, errores, efectos): onDeadLetterMailboxEnqueue ignora DeadLetter (actor suscrito a DeadLetter) para evitar bucles. Los Terminate a deadLetters son DeadLetterSuppression.
 - **Orden / concurrencia / ciclo de vida**: ocurre en unregister (detach) en finishTerminate paso 3.
 - **Dependencias**: AC-DW-002 ; AC-REF-016
@@ -1007,7 +1007,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Estados: Empty, Normal (TreeMap nombre→ChildStats), Terminating(c, toDie, reason ∈ {UserRequest, Recreation(cause), Creation, Termination}), Terminated. Un nombre queda reservado (ChildNameReserved) hasta initChild o unreserve; sólo se libera tras procesar la DWN del hijo.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:25-226 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:161-190,246-266,312-345
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:25-226 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:159-188,246-266,312-352
 - **Condiciones** (normales, límites, errores, efectos): reserve en Normal/Terminating(no Termination) con nombre existente → InvalidActorNameException("actor name [<n>] is not unique!"); Terminating(Termination) → IllegalStateException("cannot reserve actor name '<n>': terminating"); Terminated → IllegalStateException("cannot reserve actor name '<n>': already terminated"). remove: si el último de toDie se va y reason == Termination → Terminated, si no → Normal. isNormal sólo con UserRequest o Normal.
 - **Orden / concurrencia / ciclo de vida**: transiciones por CAS (swapChildrenRefs).
 - **Dependencias**: AC-REF-009.2
@@ -1026,7 +1026,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: removeChildAndGetStateChange: si el contenedor es Terminating y tras remove ya no lo es, devuelve la razón (Some(reason)) y la celda continúa: Recreation → finishRecreate(cause), Creation → finishCreate, Termination → finishTerminate; UserRequest no hace nada.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:150-226 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:183-190,246-266 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:327-351
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala:150-226 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:181-188,246-266 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:327-351
 - **Condiciones** (normales, límites, errores, efectos): si remove deja aún hijos en toDie, no hay cambio de estado (None).
 - **Orden / concurrencia / ciclo de vida**: el resultado se calcula ANTES de quitar (la coincidencia se hace sobre el contenedor previo).
 - **Dependencias**: AC-CELL-007.2 ; AC-CELL-008.1
@@ -1043,7 +1043,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: makeChild: validar serializabilidad de args si serialize-creators (AC-CELL-029) → comprobar !terminating → reserveChild(name) → provider.actorOf(childPath con newUid, systemService, async) → heredar suspensiones → initChild → start. Debug "now supervising <child>" al procesar Supervise.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:279-345 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:79-116 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:693-714
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:279-352 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:78-115 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:712-733
 - **Condiciones** (normales, límites, errores, efectos): Supervise ignorado si la celda está en Termination (isTerminating). Para hijos RepointableActorRef con async, handleSupervise llama point(catchFailures=true).
 - **Orden / concurrencia / ciclo de vida**: el hijo hereda "N" Suspend del padre para no procesar mensajes mientras el padre falla.
 - **Dependencias**: AC-CELL-015.1 ; AC-REF-020
@@ -1061,7 +1061,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: setReceiveTimeout(d) programa el envío de ReceiveTimeout tras d sin mensajes; cada mensaje que no sea NotInfluenceReceiveTimeout cancela y reprograma el temporizador; Duration.Undefined/Inf lo apaga; se cancela al parar (terminate y faultCreate) y se reprograma tras restart.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/ReceiveTimeout.scala:14-84 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:146-164 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:76-104 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:162-163,181-182,289 ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:200
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/ReceiveTimeout.scala:14-104 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:147-164 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:75-103 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:162-163,181-182,289 ; actor/src/main/scala/org/apache/pekko/actor/AbstractActor.scala:206
 - **Condiciones** (normales, límites, errores, efectos): ReceiveTimeout llega como mensaje normal (sender deadLetters, programado con system.scheduler.scheduleOnce(f, self, ReceiveTimeout)); puede llegar justo tras otro mensaje (no garantiza inactividad previa). Si el usuario cambia el timeout durante un mensaje NotInfluence se reprograma igualmente (receiveTimeoutChanged). Identify es NotInfluence.
 - **Orden / concurrencia / ciclo de vida**: antes de procesar: cancelReceiveTimeoutIfNeeded(msg) sólo si hay datos y el mensaje influye; después (finally): checkReceiveTimeoutIfNeeded. En restart: finishRecreate llama checkReceiveTimeout(reschedule=true) tras postRestart.
 - **Dependencias**: AC-SCH-001
@@ -1084,7 +1084,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: ActorContext expone self, props, receiveTimeout/setReceiveTimeout, become/unbecome, sender, children/child, dispatcher, system, parent, watch/watchWith/unwatch, actorOf/actorSelection/stop; la Java API ofrece getSelf/getProps/getParent/getSystem/getDispatcher/getChildren/getChild/findChild.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:58-250,435-464
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:57-249,434-463
 - **Condiciones** (normales, límites, errores, efectos): self y props son thread-safe (ActorCell.scala:60-74); receiveTimeout/setReceiveTimeout no lo son (:76-104). dispatcher es un ExecutionContextExecutor del actor.
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-DSP-016
@@ -1101,7 +1101,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Del `ActorContext` sólo `self`, `props`, `system`, `dispatcher` y `parent` son seguros desde otros hilos (Futures, callbacks); el resto (`sender`, `children`, `child`, `become`, `unbecome`, `watch`, `watchWith`, `unwatch`, `receiveTimeout`, `setReceiveTimeout` y la creación de hijos) NO es thread-safe y sólo debe invocarse desde el hilo que procesa el mensaje del actor. El contexto no es serializable (`NotSerializableException("ActorContext is not serializable!")`). El contexto/`ActorCell` NO se anula al terminar el actor: capturarlo y usarlo después no produce `NullPointerException`, aunque la instancia del actor ya no existe (`props` pasa a `terminatedProps`).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:58-247 (doc de cada método: thread-safe en :63,71,175,184,192; no thread-safe en :80,101,110,126,134,142,158,166,207,224,235; `writeObject` :241-244) ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:383-413,716-726 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:247-276 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:481-533 ; docs/src/main/paradox/actors.md:748-759
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:57-246 (doc de cada método: thread-safe en :63,71,175,184,192; no thread-safe en :80,101,110,126,134,142,158,166,207,224,235; `writeObject` :241-244) ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:382-412,735-745 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:247-276 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:483-535 ; docs/src/main/paradox/actors.md:748-759
 - **Precondiciones**: el contexto lo da el sistema a cada `Actor` (val implícito `context`, AC-CELL-001); la instancia sólo existe dentro de la celda.
 - **Comportamiento**: `self` y `props` son lecturas de campos de la celda (`props` es una variable privada que `clearFieldsForTermination` sustituye por `terminatedProps`); `dispatcher`, `system` y `parent` son `val`. `sender()` lee `currentMessage` (campo no volátil protegido por el mailbox, ActorCell.scala:412-413 "vars don't need volatile since it's protected with the mailbox status … Make sure that they are not read/written outside of a message processing (systemInvoke/invoke)"). Cerrar sobre `context` en una callback de Future rompe la encapsulación del actor (docs actors.md:748-759). Tras `context.stop(self)` y la parada completa, el `ActorCell` sigue siendo accesible y no es `null`.
 - **Errores**: el uso desde otro hilo es indefinido (carrera sobre campos no volátiles); ninguna excepción garantizada. Serializar un `ActorContext` (o un `Actor` que lo contiene) → `NotSerializableException("ActorContext is not serializable!")` (ActorCell.scala:242-244).
@@ -1122,7 +1122,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: El mensaje durante el cual falló se entrega a preRestart como Option y no se reprocesa en la nueva instancia; el sender de ese mensaje es accesible en preRestart.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:99-104 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:559 ; docs/src/main/paradox/general/supervision.md:59-79 ; docs/src/main/paradox/actors.md:471-497
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:99-104 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:578 ; docs/src/main/paradox/general/supervision.md:59-79 ; docs/src/main/paradox/actors.md:471-497
 - **Condiciones** (normales, límites, errores, efectos): optionalMessage = Some(currentMessage.message) si currentMessage != null, si no None.
 - **Orden / concurrencia / ciclo de vida**: ver AC-CELL-007.1.
 - **Dependencias**: AC-CELL-007.1
@@ -1140,7 +1140,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: InterruptedException durante receive se reporta al padre envuelta en ActorInterruptedException(cause) y se re-marca el flag de interrupción del hilo; durante la creación: ActorInitializationException(self, "interruption during creation", e) y setFailedFatally.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:226-234,353-359 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:658-662
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:226-234,353-359 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:677-681
 - **Condiciones** (normales, límites, errores, efectos): ActorInterruptedException.getMessage = cause.getMessage. El resto de mensajes sigue procesándose.
 - **Orden / concurrencia / ciclo de vida**: ver AC-SUP-001.
 - **Dependencias**: AC-SUP-001
@@ -1157,7 +1157,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: aroundX envuelve al hook real: aroundReceive aplica la conducta y llama unhandled si no matchea; aroundPreStart → preStart; aroundPostStop → postStop; aroundPreRestart → preRestart; aroundPostRestart → postRestart. Pueden sobrescribirse (protected[pekko]).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:545-584 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:370-382
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:547-586 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:372-384
 - **Condiciones** (normales, límites, errores, efectos): n/a.
 - **Orden / concurrencia / ciclo de vida**: la celda siempre llama a los around*, nunca directo al hook.
 - **Dependencias**: AC-CELL-006
@@ -1174,7 +1174,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Con debug.lifecycle=on se publican eventos Debug (source = path del actor, clase = clase del actor): "started (<actor>)", "restarting", "restarted", "stopping", "stopped", "now supervising <child>" (source = path del supervisor), "now watched by <watcher>", "no longer watched by <watcher>". Con debug.autoreceive=on: "received AutoReceiveMessage <envelope>".
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:569-570,655-656,699-700 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:99,206,271,290 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:189,207
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:588-589,674-675,718-719 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:99,206,271,290 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:190,208
 - **Condiciones** (normales, límites, errores, efectos): "stopping" sólo se emite la primera vez que se espera a los hijos (!wasTerminating). Los textos deben incluir exactamente el toString de actor/envelope/ref de Pekko.
 - **Orden / concurrencia / ciclo de vida**: "started" tras preStart; "restarting" antes de preRestart; "restarted" tras postRestart; "stopping" al iniciar la espera de hijos; "stopped" al final de finishTerminate.
 - **Dependencias**: AC-CFG-011
@@ -1193,7 +1193,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Tras terminar: _props = terminatedProps (su fábrica lanza IllegalActorStateException("This Actor has been terminated")), _actor = null, sysmsgStash descartado, currentMessage = null, behaviorStack vacío.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:386-388,716-726
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:385-387,735-745
 - **Condiciones** (normales, límites, errores, efectos): la limpieza ocurre DESPUÉS de enviar los Terminated (se verifica "durante un tiempo razonable").
 - **Orden / concurrencia / ciclo de vida**: último paso de finishTerminate.
 - **Dependencias**: AC-CELL-008.2
@@ -1209,7 +1209,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Con debug.unhandled=on, al iniciar loggers se crea el actor de sistema "UnhandledMessageForwarder" suscrito a UnhandledMessage que publica Debug(rcp.path.toString, rcp.getClass, "unhandled message from " + sender + ": " + msg).
-- **Fuente**: actor/src/main/resources/reference.conf:754-755 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:460 ; actor/src/main/scala/org/apache/pekko/event/Logging.scala:154-170
+- **Fuente**: actor/src/main/resources/reference.conf:801-802 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:459 ; actor/src/main/scala/org/apache/pekko/event/Logging.scala:164-180
 - **Condiciones** (normales, límites, errores, efectos): Si el nombre ya existe (InvalidActorNameException) se ignora.
 - **Orden / concurrencia / ciclo de vida**: depende del arranque de loggers.
 - **Dependencias**: AC-EVT-010 ; AC-CELL-004
@@ -1225,7 +1225,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Si el mailboxType produce ProducesMessageQueue y el actor exige un tipo, init compara; si no coincide Create lleva Some(ActorInitializationException(self, "Actor [<self>] requires mailbox type [<req>] got [<got>]")) (got = "null" si no hay cola).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:79-116
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:78-115
 - **Condiciones** (normales, límites, errores, efectos): el fallo se difiere al procesamiento de Create para tratarse como fallo normal de creación.
 - **Orden / concurrencia / ciclo de vida**: Create sigue siendo el primer mensaje de sistema.
 - **Dependencias**: AC-MBX-016 ; AC-CELL-002.2
@@ -1241,7 +1241,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Si newCell falla con catchFailures=true se crea un ActorCell con dispatcher global por defecto y UnboundedMailbox y Create(Some(ActorInitializationException(self, "failure while creating ActorCell", cause))). Un dispatcher no configurado lanza ConfigurationException("Dispatcher [<id>] not configured for path <path>"); un problema de configuración al crear: ConfigurationException("configuration problem while creating [<path>] with dispatcher [<d>] and mailbox [<m>]", e).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:118-129 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:112-121 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:704-719
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:117-128 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:112-121 ; actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:711-726
 - **Condiciones** (normales, límites, errores, efectos): top-level cuyo mailbox falla: 1 ActorInitializationException logueada y el ref termina; hijo normal: el padre recibe (self, sender, ConfigurationException) cuya causa es el error original.
 - **Orden / concurrencia / ciclo de vida**: el error aparece como fallo de creación normal (AC-CELL-002.2).
 - **Dependencias**: AC-REF-020
@@ -1259,7 +1259,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Fachada del lado de la celda del modo de prueba `pekko.actor.serialize-messages` (default `off`, reference.conf:129-131). Con `on`, `ActorCell.sendMessage` sustituye el `Envelope` por otro cuyo mensaje ha hecho un viaje de serialización completo (serializar con el serializador de su clase y deserializar con id y manifest) ANTES de entregar al dispatcher; se desenvuelve un `DeadLetter` (el viaje se hace sobre su `message` y se reempaqueta). Quedan exentos los mensajes `NoSerializationVerificationNeeded` y los de clases cuyo nombre empieza por algún prefijo de `no-serialization-verification-needed-class-prefix` (default `["org.apache.pekko."]`). Un fallo lanza `SerializationCheckFailedException(msg, e)` ("Failed to serialize and deserialize message of type <FQCN> for testing. To avoid this error, either disable 'pekko.actor.serialize-messages', mark the message with 'org.apache.pekko.actor.NoSerializationVerificationNeeded', or configure serialization to support this message"), que `sendMessage` captura (`handleException`) y publica como `Error` "swallowing exception during message send": el mensaje no se entrega.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:36-41,137-147,171-223 ; actor/src/main/resources/reference.conf:129-140 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala (Settings.SerializeAllMessages / NoSerializationVerificationNeededClassPrefix)
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:34-39,136-148,172-224 ; actor/src/main/resources/reference.conf:129-140 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala (Settings.SerializeAllMessages / NoSerializationVerificationNeededClassPrefix)
 - **Precondiciones**: la definición completa del viaje de serialización (serializador, manifiesto, `DisabledJavaSerializer`, `Serialization.currentTransportInformation`) está en AC-SER-008.1 (classic-io-ser); este bloque define sólo el punto de integración en `sendMessage` y su efecto sobre la entrega. AC-SER-008.1 es la fuente de verdad del algoritmo de serialización; si ambos difieren, prevalece AC-SER-008.1.
 - **Comportamiento**: `sendMessage(msg)`: `msgToDispatch = if (SerializeAllMessages) serializeAndDeserialize(msg) else msg`; `dispatcher.dispatch(this, msgToDispatch)`. `serializeAndDeserialize`: quita el envoltorio `DeadLetter`; `NoSerializationVerificationNeeded` o prefijo exento → devuelve el envelope original (misma instancia); si no, `serializeAndDeserializePayload` (con `NonFatal` → `SerializationCheckFailedException`); si el serializador es `DisabledJavaSerializer` y `!shouldWarnAboutJavaSerializer`, el mensaje se considera "local conocido" y se devuelve tal cual. Los mensajes de sistema (`sendSystemMessage`) NO pasan por esta comprobación (Dispatch.scala:225-228).
 - **Errores**: `SerializationCheckFailedException` (case class `PekkoException`, constructor `private[dungeon]`) → tragada por `handleException` y registrada como `Error(e, path, clase, "swallowing exception during message send")` (la excepción NO es `NoStackTrace`, así que no lleva sufijo); el emisor no ve nada y el receptor no recibe el mensaje.
@@ -1302,7 +1302,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Las operaciones de ciclo de vida y envío no propagan excepciones: InterruptedException → Error "interrupted during message send" y se re-marca; otra no fatal → Error "swallowing exception during message send" (con ": <mensaje>" si es NoStackTrace).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:137-170,225-228
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-171,226-229
 - **Condiciones** (normales, límites, errores, efectos): nunca se pierde un mensaje de sistema por esta vía en condiciones normales.
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-REF-002
@@ -1319,7 +1319,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: `Cell` (`private[pekko]`, INTERNAL API) es la interfaz que un `ActorRefWithCell` expone como `underlying`: `self`, `system`, `systemImpl`, `start(): this.type`, `suspend()`, `resume(causedByFailure)`, `restart(cause)`, `stop()`, `isTerminated` ("true" si localmente se sabe terminado, "false" si vivo o incierto), `parent`, `childrenRefs`, `getChildByName(name): Option[ChildStats]`, `getSingleChild(name)` ("racy" desde fuera), `sendMessage(Envelope)`, `sendMessage(message, sender)` (final: `Envelope(message, sender, system)`), `sendSystemMessage(msg)`, `isLocal`, `hasMessages` ("user messages" encolados; false si no es local), `numberOfMessages` ("puede ser costoso"; 0 si no es local) y `props`. `ActorRefWithCell` (abstracta) añade `underlying: Cell`, `children` y `getSingleChild(name)`. Implementaciones: `ActorCell` (`isLocal = true`, `props = _props`, que `clearFieldsForTermination` reemplaza por `ActorCell.terminatedProps`; `isTerminated = mailbox.isClosed`; `hasMessages`/`numberOfMessages` delegan en el mailbox ACTUAL; `suspend/resume/restart/stop` encolan `Suspend/Resume/Recreate/Terminate` como mensajes de sistema) y `UnstartedCell` (AC-REF-020: `childrenRefs` vacío, `getChildByName` None, `getSingleChild` Nobody, `isLocal = true`; `hasMessages`/`numberOfMessages` leen su cola temporal mientras la celda real no está lista). `LocalActorRef.underlying` devuelve su `ActorCell` y delega en él `sendSystemMessage`, `!` (→ `sendMessage(message, sender)`), `restart`, `getSingleChild` (y `start/suspend/resume/stop/children/isTerminated` por la jerarquía `InternalActorRef`/`ActorRefWithCell`). `RepointableActorRef` delega `stop/restart/isTerminated/isLocal/getParent/!/sendSystemMessage` en `underlying` (la celda actual, `UnstartedCell` o real).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:249-367,431-446,716-727 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:316-322,350-464 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:49-72 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:40,224,230 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:150-200,204-326 ; testkit/src/main/scala/org/apache/pekko/testkit/TestActorRef.scala:34-45,82,106-118 ; testkit/src/main/scala/org/apache/pekko/testkit/CallingThreadDispatcher.scala:368-376
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:248-366,430-445,735-746 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:288-294,322-436 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:47-71 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:41,224,230 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:150-199,203-325 ; testkit/src/main/scala/org/apache/pekko/testkit/TestActorRef.scala:33-44,81,105-117 ; testkit/src/main/scala/org/apache/pekko/testkit/CallingThreadDispatcher.scala:368-376
 - **Precondiciones**: el ref debe ser un `ActorRefWithCell` (`LocalActorRef`, `RepointableActorRef`, `RoutedActorRef`); `Nobody`, `EmptyLocalActorRef`, `DeadLetterActorRef`, `VirtualPathContainer` y `FunctionRef` no tienen celda. `start()` debe llamarse antes de que se procesen mensajes encolados (la celda real lo hace en `init`/`start`). Las operaciones de `Cell` "sólo pueden lanzar Fatal Throwables" (AC-CELL-030).
 - **Comportamiento**: (1) `mailbox` se lee con `getObjectVolatile` y se reemplaza con `swapMailbox` (bucle CAS que devuelve el mailbox anterior) — Dispatch.scala:49-66. (2) `isTerminated` es `mailbox.isClosed` (monotónico, AC-REF-019); para `UnstartedCell` es `false` salvo que la celda real esté lista y terminada (RepointableActorRef.scala:259-262). (3) `hasMessages`/`numberOfMessages` consultan el mailbox actual (no un snapshot cacheado), de modo que tras `swapMailbox` reflejan el nuevo. (4) `sendMessage(message, sender)` construye `Envelope(message, sender, system)`; mensaje null → `InvalidMessageException`, sender ausente → `deadLetters` (AC-REF-002). (5) `UnstartedCell.sendMessage` encola en la cola temporal bajo `lock` (con `tryLock(timeout)`): si falla `offer` publica Warning "dropping message of type ... due to enqueue failure" y envía `DeadLetter`; si expira el lock, Warning "dropping message of type... due to lock timeout" y `DeadLetter` (RepointableActorRef.scala:268-291). `sendSystemMessage` toma `lock.lock()` sin timeout y, si la celda no está lista, antepone el mensaje a `sysmsgQueue` (:293-304): los mensajes de sistema nunca se pierden. (6) Tras terminar, `props` devuelve `ActorCell.terminatedProps` (`Props(throw IllegalActorStateException("This Actor has been terminated"))`, ActorCell.scala:388) y `actor` se limpia a null, pero SÓLO después de enviar `Terminated` (comentario del spec: "the fields are cleared after the Terminated message has been sent").
 - **Errores**: `RepointableActorRef.isStarted` antes de `initialize` (underlying null) → `IllegalStateException("isStarted called before initialized")` (RepointableActorRef.scala:156-157); `IllegalActorStateException("This Actor has been terminated")` sólo si se instanciara `terminatedProps`; el resto de errores de envío, AC-CELL-030 y AC-REF-020.
@@ -1343,7 +1343,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Excepción no fatal en invoke/systemInvoke → handleInvokeFailure: suspende su mailbox (suspendNonRecursive), marca setFailed(child | self), suspende a todos sus hijos excepto el hijo cuyo Failed está procesando y childrenNotToSuspend, y envía Failed(self, causa, uid) al padre (InterruptedException se envuelve en ActorInterruptedException). El actor deja de procesar mensajes de usuario.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:49-87,214-245 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:549-566 ; docs/src/main/paradox/general/supervision.md:59-79
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:49-87,214-245 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:568-585 ; docs/src/main/paradox/general/supervision.md:59-79
 - **Condiciones** (normales, límites, errores, efectos): Si falla el propio manejo (p. ej. enviar al padre): parada de emergencia (AC-SUP-016). uid = self.path.uid.
 - **Orden / concurrencia / ciclo de vida**: el padre recibe Failed por cola de sistema (no ordenado con mensajes de usuario). "NEVER SEND THE SAME SYSTEM MESSAGE OBJECT TO TWO ACTORS" (se crea un Failed nuevo por envío).
 - **Dependencias**: AC-CELL-013.1
@@ -1379,7 +1379,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Resume se loguea en Warning, Restart y Stop en Error, Escalate no se loguea; se pueden fijar niveles propios con resume(level), restart(level), stop(level).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:114-201,395-430
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:112-201,394-429
 - **Condiciones** (normales, límites, errores, efectos): loggingEnabled=false desactiva el log; ver AC-SUP-018.
 - **Orden / concurrencia / ciclo de vida**: el log ocurre antes de aplicar la directiva.
 - **Dependencias**: AC-EVT-012
@@ -1395,7 +1395,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: ActorInitializationException, ActorKilledException y DeathPactException → Stop; cualquier otra Exception → Restart; Throwable que no es Exception: el decider no está definido y handleFailure usa escalateDefault → Escalate.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:210-223,363-376
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:210-223,362-375
 - **Condiciones** (normales, límites, errores, efectos): decider.applyOrElse(cause, escalateDefault).
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-SUP-003
@@ -1414,7 +1414,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: defaultStrategy = OneForOneStrategy()(defaultDecider) (sin límite de reintentos); stoppingStrategy = OneForOneStrategy()({ case _: Exception => Stop }); los configuradores DefaultSupervisorStrategy / StoppingSupervisorStrategy las devuelven.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:225-244,96-107
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:225-244,94-105
 - **Condiciones** (normales, límites, errores, efectos): stoppingStrategy deja Throwable no Exception sin directiva → Escalate.
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-SUP-006.1
@@ -1430,7 +1430,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: OneForOne aplica la directiva sólo al hijo que falló. Sin ventana: maxNrOfRetries<0 → ilimitado; =0 → ningún reinicio (la primera falla detiene); N>0 → se permiten N reinicios, la N+1-ésima falla detiene (stats.maxNrOfRetriesCount += 1 <= N). Al denegarse el permiso: context.stop(child).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:49-78,582-678
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:47-76,582-679
 - **Condiciones** (normales, límites, errores, efectos): requestRestartPermission((Some(r), _)) con r<1 → false; (Some(r), None) → contador++ y contador<=r; (None, _) → true.
 - **Orden / concurrencia / ciclo de vida**: restartChild(child, cause, suspendFirst=false) (el hijo ya está suspendido por su fallo).
 - **Dependencias**: AC-SUP-003
@@ -1451,7 +1451,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Con ventana finita (>=0) y N=-1 se usa N=1; la ventana se abre al primer permiso solicitado (restartTimeWindowStartNanos==0 ⇒ now) y no se desliza: dentro de la ventana (now-start <= window) cuenta+1 y se permite si cuenta<=N; fuera de la ventana: cuenta=1, nueva ventana desde now, permitido. Duration.Inf equivale a "sin ventana".
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:49-90,303-309,550,660-662
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:47-88,302-308,549,660-662
 - **Condiciones** (normales, límites, errores, efectos): withinTimeRange infinito o negativo → None (sin ventana); ventana 0 → Some(0). Cada hijo tiene su propio contador (ChildRestartStats).
 - **Orden / concurrencia / ciclo de vida**: el contador se actualiza al solicitar permiso, aunque el reinicio luego se descarte.
 - **Dependencias**: AC-SUP-006.1
@@ -1470,7 +1470,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: La directiva se aplica a todos los hijos (stats de todos los ChildRestartStats): Restart sólo si todos permiten (forall); si no, se detiene a todos. Los hermanos se reinician con suspendFirst = (hermano != hijo fallido), o sea se suspenden antes de reiniciar.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:468-568
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:467-568
 - **Condiciones** (normales, límites, errores, efectos): children vacío → no hace nada. Resume y Stop siguen la rama de handleFailure (Resume sólo resume al hijo que falló; Stop se aplica a todos por processFailure(restart=false)).
 - **Orden / concurrencia / ciclo de vida**: el orden de reinicio sigue el orden de iteración del contenedor de hijos (nombre).
 - **Dependencias**: AC-SUP-006.2
@@ -1489,7 +1489,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: handleFailure devuelve false para Escalate; la celda hace `throw f.cause` dentro del manejo de Failed, que se convierte en un fallo del propio padre con la MISMA causa (sin envolver), enviado a su supervisor.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:352-393 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:305-314 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:214-225
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:351-392 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:305-314 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:214-225
 - **Condiciones** (normales, límites, errores, efectos): logFailure no loguea Escalate.
 - **Orden / concurrencia / ciclo de vida**: el hijo escalador queda suspendido hasta que alguien decida sobre él.
 - **Dependencias**: AC-SUP-001
@@ -1522,7 +1522,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Cada fallo propio o recursivo incrementa suspendCount del mailbox (suspend() devuelve true si estaba en 0); resume() decrementa y el actor vuelve a procesar al llegar a 0 (dispatcher.resume reprograma). Cerrado no cambia. Un fallo dentro de una suspensión ya existente vuelve a incrementar el contador (no hay guarda `isFailed` en `handleInvokeFailure`, ver AC-SUP-001), y `resume` nunca baja de 0 (`if (s < suspendUnit) s`, Mailbox.scala:148-155).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:49-87,120-130,214-245 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:121-170 ; actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:277-293
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:49-87,120-130,214-245 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:131-193 ; actor/src/main/scala/org/apache/pekko/dispatch/AbstractDispatcher.scala:316-332
 - **Condiciones** (normales, límites, errores, efectos): faultSuspend siempre suspende (equilibrio); un hijo hereda tantas suspensiones como tenga el padre al crearse (AC-CELL-016).
 - **Orden / concurrencia / ciclo de vida**: Suspend se difiere si la celda espera hijos (AC-CELL-013.2).
 - **Dependencias**: AC-MBX-001
@@ -1554,7 +1554,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: makeDecider(Seq[Class]) → Restart si el error es instancia de alguna clase, si no Escalate; makeDecider(Iterable[CauseDirective]) ordena (sort inserta cada par antes de cualquier supertipo ya presente) y devuelve la primera directiva cuyo tipo coincide, si no Escalate; makeDecider(JDecider) delega; conversiones implícitas seqThrowable2Decider y seqCauseDirective2Decider.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:246-309
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:246-308
 - **Condiciones** (normales, límites, errores, efectos): lista vacía → todo Escalate.
 - **Orden / concurrencia / ciclo de vida**: n/a.
 - **Dependencias**: AC-SUP-004
@@ -1572,7 +1572,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Estrategias custom pueden redefinir decider, handleChildTerminated(context, child, children), processFailure(context, restart, child, cause, stats, children), handleFailure (devuelve true si manejó), logFailure, loggingEnabled; resumeChild(child, cause) y restartChild(child, cause, suspendFirst) son final. En el decider, sender() es el hijo que falló.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:316-466 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:305-351
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:315-465 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:305-351
 - **Condiciones** (normales, límites, errores, efectos): handleChildTerminated se invoca tras quitar al hijo del contenedor; sus excepciones se loguean (AC-SUP-020). La documentación de `SupervisorStrategy.handleChildTerminated` (FaultHandling.scala:334-338) dice que las excepciones lanzadas durante la terminación NO hacen fallar al actor, pero el código de la celda siempre publica el Error "handleChildTerminated failed" y llama `handleInvokeFailure(Nil, e)` (dungeon/FaultHandling.scala:334-340): se envía `Failed` al padre incluso durante la terminación; lo que lo vuelve inocuo es que el padre, al reiniciar/reanudar, encuentra un contenedor no normal y sólo equilibra el contador de suspensión (`faultRecreate` con `isNormal == false` → `faultResume(null)`, FaultHandling.scala:115-118) — derivado del código (no afirmado por spec; sólo se afirma el log, SupervisorMiscSpec.scala:158-162).
 - **Orden / concurrencia / ciclo de vida**: handleFailure corre dentro del procesamiento de Failed.
 - **Dependencias**: AC-SUP-006.1
@@ -1589,7 +1589,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: rootGuardianStrategy = OneForOne { case ex => log.error(ex, "guardian failed, shutting down system"); Stop }; /user usa guardianStrategy (configurador de pekko.actor.guardian-supervisor-strategy, default DefaultSupervisorStrategy); /system usa defaultStrategy; los guardianes no detienen a sus hijos en preRestart (override preRestart vacío). La cadena de vigilancia: systemGuardian vigila a /user y root vigila a systemGuardian; la muerte de /user detiene el sistema.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:312-326,518-575,613-620 ; actor/src/main/resources/reference.conf:119-123
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:319-333,525-582,620-627 ; actor/src/main/resources/reference.conf:119-123
 - **Condiciones** (normales, límites, errores, efectos): ActorSystem con guardianProps custom: actorOf desde fuera lanza UnsupportedOperationException.
 - **Orden / concurrencia / ciclo de vida**: init del provider envía Watch(guardian, systemGuardian) y Watch(systemGuardian, rootGuardian).
 - **Dependencias**: AC-SYS-003 ; AC-CFG-013
@@ -1658,7 +1658,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Si loggingEnabled: mensaje = si cause es ActorInitializationException con causa: si la causa es InvocationTargetException con causa → ex.getCause.getMessage, si no ex.getMessage; en otro caso cause.getMessage. Escalate no se loguea. Error → publish(Error(cause, child.path.toString, getClass (clase de la estrategia), mensaje)); otros niveles → LogEvent(nivel, child.path.toString, getClass, mensaje). Si el publish falla se ignora.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:395-433
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:394-432
 - **Condiciones** (normales, límites, errores, efectos): source = path del hijo; logClass = clase de la estrategia.
 - **Orden / concurrencia / ciclo de vida**: antes de resume/processFailure.
 - **Dependencias**: AC-SUP-003 ; AC-EVT-012
@@ -1708,7 +1708,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: `case class OneForOneStrategy(maxNrOfRetries: Int = -1, withinTimeRange: Duration = Duration.Inf, override val loggingEnabled: Boolean = true)(val decider: SupervisorStrategy.Decider)` y `AllForOneStrategy(...)` con la misma firma y defaults (negativo = sin límite; `Duration.Inf` = sin ventana; ver AC-SUP-006.1/.2). `Actor.supervisorStrategy` es un `def` que devuelve `SupervisorStrategy.defaultStrategy` (= `OneForOneStrategy()(defaultDecider)`, AC-SUP-005) salvo que se sobrescriba (con `def` u `override val`). `OneForOneStrategy.withMaxNrOfRetries(n)` = `copy(maxNrOfRetries = n)(decider)`: copia con el mismo `decider`, mismos `withinTimeRange` y `loggingEnabled`, y `retriesWindow` recalculado; sólo existe en OneForOne. Sobrecargas Java (ambas clases, mismo conjunto salvo `withMaxNrOfRetries`): `(Int, Duration|java.time.Duration, JDecider, Boolean)`, `(Int, Duration|java.time.Duration, JDecider)`, `(Int, Duration|java.time.Duration, JIterable[Class[_ <: Throwable]])` (→ `makeDecider(trapExit)`: las clases listadas → Restart, el resto Escalate), `(Int, Duration|java.time.Duration, Decider)` (lambda), `(Boolean, Decider)` y `(Decider)` (= `this()(decider)`, reinicia sin límite). `java.time.Duration` se convierte con `.asScala`; `JDecider` con `makeDecider(func) = { case x => func(x) }`.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:456-568,570-678 ; actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:230-232,260-285,303-307 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:585-588 ; actor/src/main/scala/org/apache/pekko/pattern/BackoffSupervisor.scala:84-93 ; docs/src/main/paradox/fault-tolerance.md:317
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:455-568,570-679 ; actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:230-232,259-284,302-306 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:587-590 ; actor/src/main/scala/org/apache/pekko/pattern/BackoffSupervisor.scala:23 ; docs/src/main/paradox/fault-tolerance.md:317
 - **Precondiciones**: el `decider` va en la segunda lista de parámetros y es obligatorio; en Java, el constructor sin `decider` no existe. `withMaxNrOfRetries` sólo en `OneForOneStrategy`.
 - **Comportamiento**: `retriesWindow = (maxNrOfRetriesOption(n), withinTimeRangeOption(w).map(_.toMillis.toInt))` es un `val` privado calculado una vez por estrategia (FaultHandling.scala:549-550,660-662). `maxNrOfRetriesOption(n)` = `None` si `n < 0`, `Some(n)` si no (:306-307) — por tanto `maxNrOfRetries = 0` es `Some(0)` y deniega todo reinicio (`retries < 1` en `requestRestartPermission`, :60). `withinTimeRangeOption(w)` = `Some(w)` si `w.isFinite && w >= Duration.Zero`, si no `None` (:303-304). `processFailure` de OneForOne: `restart && stats.requestRestartPermission(retriesWindow)` → `restartChild(child, cause, suspendFirst = false)`, si no `context.stop(child)` (:673-676); AllForOne exige permiso de TODOS los hijos (`forall`) y reinicia con `suspendFirst = crs.child != child`, si no detiene a todos (:561-566). `loggingEnabled` es `override val` en el constructor (default true) y es el valor que consulta `logFailure` (AC-SUP-013). `Actor.supervisorStrategy` se evalúa en cada fallo de hijo; si se sobrescribe con `def` puede devolver estrategias distintas por llamada, con `val` (patrón habitual en los specs) siempre la misma. `BackoffSupervisor.props(childProps, childName, minBackoff, maxBackoff, randomFactor, maxNrOfRetries)` (deprecated, :84-93) construye su estrategia como `defaultStrategy match { case o: OneForOneStrategy => o.withMaxNrOfRetries(n); case s => s }`: es el único uso de `withMaxNrOfRetries` de la estrategia (la homónima de `BackoffOpts`/`BackoffOptionsImpl` es otro método).
 - **Errores**: ninguno propio de los constructores (no validan argumentos: ni `maxNrOfRetries` ni la ventana lanzan excepciones); `toMillis.toInt` envuelve (no satura) y con ventanas > ~24,8 días produce una ventana negativa efectivamente ilimitada (Q-SUP-2). `Duration` no finita distinta de `Inf` (`MinusInf`, `Undefined`) → sin ventana (`withinTimeRangeOption` → None); la ventana `0` es `Some(0)` y se trata como ventana de 0 ms con N=1 si `maxNrOfRetries < 0`.
@@ -1733,7 +1733,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: context.watch(ref) envía Watch(ref, self) al vigilado y lo registra una vez; se recibe exactamente un Terminated aunque se vigile varias veces; watch(self) no hace nada y devuelve el ref.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:29-49 ; docs/src/main/paradox/actors.md:440-444
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:30-50 ; docs/src/main/paradox/actors.md:440-444
 - **Condiciones** (normales, límites, errores, efectos): ref no InternalActorRef → IllegalArgumentException("ActorRef is not internal: <ref>") (no representable en Rust). Vigilar dos veces con el mismo modo → no repite el Watch (checkWatchingSame). Vigilar con distinto modo → AC-DW-005.
 - **Orden / concurrencia / ciclo de vida**: Watch y Unwatch son mensajes de sistema: asíncronos respecto del mensaje que los origina ("watch and unwatch are asynchronous", DeathWatchSpec.scala:183).
 - **Dependencias**: AC-CELL-013.3
@@ -1751,7 +1751,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Vigilar un actor terminado produce Terminated(actor) con existenceConfirmed=false si la ref ya estaba muerta (EmptyLocalActorRef o mailbox muerto); true si la parada ocurrió después del watch.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:693-698,745-752 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:54-72 ; docs/src/main/paradox/actors.md:430-440
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:665-670,717-724 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailboxes.scala:54-72 ; docs/src/main/paradox/actors.md:430-440
 - **Condiciones** (normales, límites, errores, efectos): si watcher == watchee == deadLetters no se envía nada.
 - **Orden / concurrencia / ciclo de vida**: asíncrono: el Terminated llega más tarde por cola de sistema.
 - **Dependencias**: AC-REF-015 ; AC-CELL-013.3
@@ -1783,7 +1783,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Tras unwatch no se entrega Terminated aunque la notificación ya estuviera en camino o en el mailbox: unwatch envía Unwatch al vigilado (si estaba en watching), quita de watching y de terminatedQueued.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:67-97,117-119 ; docs/src/main/paradox/actors.md:440-444
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:68-98,118-120 ; docs/src/main/paradox/actors.md:440-444
 - **Condiciones** (normales, límites, errores, efectos): unwatch de un ref no vigilado es inofensivo: igual limpia terminatedQueued; unwatch(self) no envía Unwatch.
 - **Orden / concurrencia / ciclo de vida**: DWN → Terminated encolado → unwatch → Terminated recibido: la celda lo descarta (receivedTerminated sólo entrega si está en terminatedQueued).
 - **Dependencias**: AC-DW-001
@@ -1800,7 +1800,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: watchWith(ref, msg) entrega msg (a través de receive, no como Terminated) cuando el vigilado termina. Re-vigilar con otro modo/mensaje sin unwatch lanza IllegalStateException.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:51-65,121-131
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:52-66,122-132
 - **Condiciones** (normales, límites, errores, efectos): Mensaje exacto: "Watch(<self>, <ref>) termination message was not overwritten from [<previous>] to [<newMessage>]. If this was intended, unwatch first before using `watch` / `watchWith` with another message." donde previous/newMessage son Option (None / Some(msg)) (DeathWatch.scala:127-130). watch tras watchWith (o al revés) también lanza porque cambian Some/None. Mismo mensaje (igualdad) no lanza.
 - **Orden / concurrencia / ciclo de vida**: al entregar, currentMessage se reemplaza por el mensaje custom (para que stash guarde el custom).
 - **Dependencias**: AC-DW-001
@@ -1817,7 +1817,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Terminated(actor)(existenceConfirmed, addressTerminated) es AutoReceivedMessage; sólo llega al receive si sigue en terminatedQueued; su sender es el actor muerto. existenceConfirmed=false si no vino directamente del actor; addressTerminated=true si se derivó de la caída de un nodo.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:112-141 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:81-115
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:114-143 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:82-116
 - **Condiciones** (normales, límites, errores, efectos): watchedActorTerminated: si no se vigila, ignora; si vigila y no isTerminating: self.tell(Terminated(actor)(…), actor) y terminatedQueuedFor(actor, optionalMessage). Si la celda se está deteniendo no se envía.
 - **Orden / concurrencia / ciclo de vida**: ver AC-CELL-008.2 para el orden respecto del padre.
 - **Dependencias**: AC-DW-001
@@ -1837,7 +1837,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: Un watcher que no maneja Terminated falla con DeathPactException(dead) ("Monitored actor [<dead>] terminated") y el decider por defecto lo detiene.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:276-288,650-662
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Actor.scala:276-288,652-664
 - **Condiciones** (normales, límites, errores, efectos): sender() es el actor muerto.
 - **Orden / concurrencia / ciclo de vida**: el DeathPactException aparece como Failed del watcher y luego su supervisor lo detiene y llega Terminated(watcher) a quienes lo vigilan.
 - **Dependencias**: AC-CELL-004 ; AC-SUP-004
@@ -1852,7 +1852,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: finishTerminate envía DWN(self, true, false) al padre aunque no lo vigile; el padre, en watchedActorTerminated, actualiza el contenedor (handleChildTerminated) si es hijo; si además lo vigila, el Terminated se envía antes (self.tell) y se entrega después.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:262-266,327-351 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:99-115
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:262-266,327-351 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:100-116
 - **Condiciones** (normales, límites, errores, efectos): la terminación libera el nombre; si el contenedor cambia de estado se continúa la acción diferida.
 - **Orden / concurrencia / ciclo de vida**: tellWatchersWeDied omite al padre (ya fue notificado por DWN directa).
 - **Dependencias**: AC-CELL-015.2
@@ -1869,7 +1869,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: terminate() llama unwatchWatchedActors (envía Unwatch a cada vigilado, vacía watching y terminatedQueued) antes de detener hijos; finishTerminate lo repite al final (por si hubo parada de emergencia).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:184-185,268 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:165-180
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:184-185,268 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:166-181
 - **Condiciones** (normales, límites, errores, efectos): un watchee no InternalActorRef → IllegalStateException("Expected InternalActorRef, but got […]") (no representable).
 - **Orden / concurrencia / ciclo de vida**: antes de detener hijos (AC-CELL-008.1).
 - **Dependencias**: AC-CELL-008.1
@@ -1885,7 +1885,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: tellWatchersWeDied envía DWN(self, existenceConfirmed=true, addressTerminated=false) a cada watcher (remotos primero, luego locales) salvo al padre; luego vacía watchedBy (en finally) y mantiene la suscripción a AddressTerminated.
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:133-163
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:134-164
 - **Condiciones** (normales, límites, errores, efectos): si watchedBy está vacío no hace nada.
 - **Orden / concurrencia / ciclo de vida**: remotos antes que locales para que el RemoteDaemon no se cierre antes de sus Terminated.
 - **Dependencias**: AC-DW-001
@@ -1901,7 +1901,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Watch(watchee, watcher) válido sólo si exactamente una parte es self: watchee==self → añade a watchedBy (Debug "now watched by <watcher>"); watcher==self → ejecuta watch(watchee); Unwatch análogo (Debug "no longer watched by <watcher>"). Otras combinaciones → Warning "BUG".
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:182-215
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:183-216
 - **Condiciones** (normales, límites, errores, efectos): añadir un watcher ya presente no repite el Debug.
 - **Orden / concurrencia / ciclo de vida**: mensajes de sistema; ver AC-CELL-013.2 (nunca diferidos).
 - **Dependencias**: AC-CELL-014
@@ -1917,7 +1917,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: internal-required.
 - **Contrato observable**: Mecanismo de DeathWatch para refs no locales (remote/cluster), inerte cuando todo es local. La celda mantiene una suscripción al extension `AddressTerminatedTopic` mientras tenga al menos un ref no local en `watching` o en `watchedBy`. Cuando el detector de fallos de remote/cluster declara caída una `Address` publica `AddressTerminated(address)` (mensaje `private[pekko]`, `AutoReceivedMessage`, `PossiblyHarmful`, `DeadLetterSuppression`) a todos los suscriptores con `noSender`. Al recibirlo la celda: (1) quita de `watchedBy` los watchers de esa address; (2) para cada vigilado de esa address se envía a sí misma `DeathWatchNotification(a, existenceConfirmed = (a es hijo propio), addressTerminated = true)`, lo que produce `Terminated(a)(existenceConfirmed, addressTerminated = true)` si lo vigila (AC-DW-006).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:35-79,99-115,133-163,217-264 ; actor/src/main/scala/org/apache/pekko/event/AddressTerminatedTopic.scala:30-71 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:572-575 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:112-145 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:896-899,1100-1139 (FunctionRef, misma lógica)
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:36-80,100-116,134-164,218-265 ; actor/src/main/scala/org/apache/pekko/event/AddressTerminatedTopic.scala:30-71 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:591-594 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:114-147 ; actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:868-871,1072-1111 (FunctionRef, misma lógica)
 - **Precondiciones**: `AddressTerminatedTopic(system)` se obtiene como extensión del sistema; `isLocal` de cada `InternalActorRef` determina "no local" (`maintainAddressTerminatedSubscription`: `null` o `!isLocal`). Sin proveedor remoto nunca hay refs no locales ni se publica `AddressTerminated`.
 - **Comportamiento**: `maintainAddressTerminatedSubscription(change)(block)`: si `change` es no local, mide `hasNonLocalAddress` (`watching.keysIterator.exists(isNonLocal) || watchedBy.exists(isNonLocal)`) antes y después de `block`; `!had && has` → `AddressTerminatedTopic(system).subscribe(self)`; `had && !has` → `unsubscribe(self)`. Se invoca en `watch`/`watchWith` (con el vigilado), `unwatch`, `watchedActorTerminated`, `addWatcher`/`remWatcher` (con el watcher), `tellWatchersWeDied` (vaciar `watchedBy`) y `unwatchWatchedActors`. `AddressTerminatedTopic.subscribe/unsubscribe` actualizan un `AtomicReference[Set[ActorRef]]` por CAS con reintento; `publish(msg)` hace `subscribers.get.foreach(_.tell(msg, noSender))` sobre la instantánea actual. Al llegar `AddressTerminated` (autoreceive, ActorCell.scala:574) → `addressTerminated(address)` (DeathWatch.scala:217-233): quita de `watchedBy` (dentro de `maintain…()` sin argumento, que también re-evalúa) y envía los `DeathWatchNotification` por la cola de sistema propia. `existenceConfirmed = childrenRefs.getByRef(a).isDefined`: `true` sólo si es hijo, para que el padre libere el nombre y se pueda recrear el hijo de inmediato; `false` para refs remotos no resueltos.
 - **Errores**: ninguno propio. Si el ref remoto no resuelve nunca, `existenceConfirmed=false` informa de ello. Un suscriptor parado antes de desuscribirse sigue en el conjunto hasta que `postStop` (o `finishTerminate`) lo retira: el `tell` a un actor muerto va a dead letters, pero `AddressTerminated` es `DeadLetterSuppression` (no genera ruido).
@@ -1939,7 +1939,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 
 - **Estado de análisis**: extracted. Visibilidad: public.
 - **Contrato observable**: unstashAll devuelve los mensajes al principio del mailbox; si el mensaje es Terminated(ref) se re-registra con terminatedQueuedFor(ref, None) para que se pueda recibir otra vez; un watchWith estachado entrega el mensaje custom (currentMessage reemplazado).
-- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Stash.scala:266-277 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:81-93
+- **Fuente**: actor/src/main/scala/org/apache/pekko/actor/Stash.scala:265-276 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:82-94
 - **Condiciones** (normales, límites, errores, efectos): el mensaje se entrega una vez por unstash.
 - **Orden / concurrencia / ciclo de vida**: enqueueFirst: va delante de los demás mensajes del mailbox.
 - **Dependencias**: AC-MBX-016

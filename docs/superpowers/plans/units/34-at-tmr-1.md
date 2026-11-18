@@ -52,7 +52,7 @@ Filas: AT-TMR-007.1, AT-TMR-007.2, AT-TMR-008. Contratos y aserciones: `docs/inv
 | AT-TMR-005 | startPeriodicTimer | No portar (o alias deprecado). | sin test dedicado | Q-T-TMR-3 |
 | AT-TMR-006 | Reemplazo por clave con garantia de no entrega del timer previo (generaciones) | TimerMsg interno {key, generation, owner} filtrado antes del Behavior. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TimerSpec.scala:131-149,… | - |
 | AT-TMR-007.1 | cancel / cancelAll / isTimerActive | timers.cancel(key), timers.cancel_all(), timers.is_timer_active(key). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TimerSpec.scala:151-172,… | - |
-| AT-TMR-007.2 | NotInfluenceReceiveTimeout en mensajes de timer | Marca explicita al iniciar el timer (no_influence_receive_timeout) o metodo del mensaje;… | actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:151-297… | Q-T-TMR-2, Q-T-TMR-4 |
+| AT-TMR-007.2 | NotInfluenceReceiveTimeout en mensajes de timer | Marca explicita al iniciar el timer (no_influence_receive_timeout) o metodo del mensaje;… | actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:180-327… | Q-T-TMR-2, Q-T-TMR-4 |
 | AT-TMR-008 | Timers combinados con transformMessages y anidados | Sin logica extra si el TimerMsg se rutea antes del interceptor. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala… | - |
 
 ## Gates y criterio de cierre

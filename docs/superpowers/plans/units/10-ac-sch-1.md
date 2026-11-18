@@ -58,21 +58,21 @@ Filas: AC-SCH-011, AC-SCH-012, AC-SCH-013, AC-SCH-014, AC-SCH-015. Contratos y a
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-SCH-001 | Scheduler.scheduleOnce (Runnable, closure, o mensaje a ActorRef) → Cancellable | `fn schedule_once(&self, delay, f) -> Cancellable` sobre runtime de timers | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:96-119,156-176,475-… | Q-SCH-1 |
-| AC-SCH-002 | scheduleWithFixedDelay | loop async con sleep tras la tarea | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:217-248,450-472,720… | Q-SCH-1 |
-| AC-SCH-003 | scheduleAtFixedRate | `tokio::time::interval` con `MissedTickBehavior::Burst` | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:420-446,700-718 | Q-SCH-1, Q-SCH-4 |
+| AC-SCH-001 | Scheduler.scheduleOnce (Runnable, closure, o mensaje a ActorRef) → Cancellable | `fn schedule_once(&self, delay, f) -> Cancellable` sobre runtime de timers | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:98-121,158-178,478-… | Q-SCH-1 |
+| AC-SCH-002 | scheduleWithFixedDelay | loop async con sleep tras la tarea | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:220-251,453-475,724… | Q-SCH-1 |
+| AC-SCH-003 | scheduleAtFixedRate | `tokio::time::interval` con `MissedTickBehavior::Burst` | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:423-449,704-722 | Q-SCH-1, Q-SCH-4 |
 | AC-SCH-004 | schedule(...) deprecado (= fixed rate) | - | testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:24… | Q-SCH-4 |
-| AC-SCH-005 | Cancellable: cancel() true sólo si esta llamada canceló; isCancelled;… | `struct Cancellable(Arc<AtomicU8>)` | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:121-154,316-346 | - |
-| AC-SCH-006 | SchedulerTask.cancelled() callback | trait opcional `on_cancel` | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:135-144,348-366 | - |
-| AC-SCH-007 | Tarea periódica a actor se detiene si el receptor terminó o si la tarea lanza | chequear `is_terminated()` antes de reenviar | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:252-314 | - |
-| AC-SCH-008.1 | LARS: validación de tick-duration, ticks-per-wheel, shutdown-timeout y… | `SchedulerSettings::from_config` con los mismos mensajes y cfg!(windows) | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:859-873 | Q-SCH-1, Q-X-4 |
-| AC-SCH-008.2 | LARS: redondeo al tick (roundUp), retardos <= 0, límite de retardo y de… | funciones puras round_up, check_period, check_max_delay con los mismos mensajes | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:477-484 ;… | Q-SCH-1, Q-X-4 |
-| AC-SCH-008.3 | LARS: mecánica de la rueda (buckets, vueltas, tick y reloj que dan la vuelta,… | `WheelScheduler<Clock, Waiter>` con rueda portada y reloj/espera inyectables | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:486-659 ;… | Q-SCH-1, Q-X-4 |
-| AC-SCH-009 | close() del scheduler: ejecuta TaskRunOnClose, rechaza nuevas tareas con… | - | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:661-697 | Q-SCH-1 |
+| AC-SCH-005 | Cancellable: cancel() true sólo si esta llamada canceló; isCancelled;… | `struct Cancellable(Arc<AtomicU8>)` | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:123-156,319-349 | - |
+| AC-SCH-006 | SchedulerTask.cancelled() callback | trait opcional `on_cancel` | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:137-146,351-369 | - |
+| AC-SCH-007 | Tarea periódica a actor se detiene si el receptor terminó o si la tarea lanza | chequear `is_terminated()` antes de reenviar | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:255-317 | - |
+| AC-SCH-008.1 | LARS: validación de tick-duration, ticks-per-wheel, shutdown-timeout y… | `SchedulerSettings::from_config` con los mismos mensajes y cfg!(windows) | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:864-878 | Q-SCH-1, Q-X-4 |
+| AC-SCH-008.2 | LARS: redondeo al tick (roundUp), retardos <= 0, límite de retardo y de… | funciones puras round_up, check_period, check_max_delay con los mismos mensajes | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:480-487 ;… | Q-SCH-1, Q-X-4 |
+| AC-SCH-008.3 | LARS: mecánica de la rueda (buckets, vueltas, tick y reloj que dan la vuelta,… | `WheelScheduler<Clock, Waiter>` con rueda portada y reloj/espera inyectables | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:489-663 ;… | Q-SCH-1, Q-X-4 |
+| AC-SCH-009 | close() del scheduler: ejecuta TaskRunOnClose, rechaza nuevas tareas con… | - | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:665-701 | Q-SCH-1 |
 | AC-SCH-010 | scheduler.implementation pluggable (constructor Config, LoggingAdapter,… | trait `Scheduler` inyectable en el builder | testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:24… | Q-SCH-2, Q-X-2 |
-| AC-SCH-011 | Timers / TimerScheduler: startSingleTimer, startTimerWithFixedDelay,… | `ctx.timers()` con `HashMap<Key, (gen, Cancellable)>` | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:200-306 | Q-SCH-3 |
-| AC-SCH-012 | Mensajes de timer: AutoReceivedMessage y NotInfluenceReceiveTimeout | - | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:308-314 ;… | Q-SCH-3 |
-| AC-SCH-013 | Timers combinados con Stash | - | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:344-355 | Q-SCH-3 |
+| AC-SCH-011 | Timers / TimerScheduler: startSingleTimer, startTimerWithFixedDelay,… | `ctx.timers()` con `HashMap<Key, (gen, Cancellable)>` | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:201-307 | Q-SCH-3 |
+| AC-SCH-012 | Mensajes de timer: AutoReceivedMessage y NotInfluenceReceiveTimeout | - | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:309-315 ;… | Q-SCH-3 |
+| AC-SCH-013 | Timers combinados con Stash | - | actor-tests/src/test/scala/org/apache/pekko/actor/TimerSpec.scala:423-452 | Q-SCH-3 |
 | AC-SCH-014 | scheduler.shutdown-timeout (espera de parada del hilo del scheduler) | parámetro de cierre del scheduler | derivada del código (ver bloque de contrato) | Q-SCH-1 |
 | AC-SCH-015 | Recuperación del hilo del timer ante excepción (LARS) | supervisión del hilo/tarea del reloj | derivada del código (ver bloque de contrato) | Q-X-5 |
 

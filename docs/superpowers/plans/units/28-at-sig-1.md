@@ -46,9 +46,9 @@ Filas: AT-SIG-007, AT-SIG-008. Contratos y aserciones: `docs/inventory/contracts
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-SIG-001 | Signal (trait) y entrega confiable de senales | enum Signal { PreRestart, PostStop, Terminated(ActorRefAny), ChildFailed{..},… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:204-238… | Q-T-SIG-1 |
-| AT-SIG-002 | PreRestart | Signal::PreRestart. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:149-1… | - |
-| AT-SIG-003 | PostStop | Signal::PostStop. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:210-216;… | - |
+| AT-SIG-001 | Signal (trait) y entrega confiable de senales | enum Signal { PreRestart, PostStop, Terminated(ActorRefAny), ChildFailed{..},… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:205-239… | Q-T-SIG-1 |
+| AT-SIG-002 | PreRestart | Signal::PreRestart. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:151-1… | - |
+| AT-SIG-003 | PostStop | Signal::PostStop. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:211-217;… | - |
 | AT-SIG-004 | Terminated (watch) | Signal::Terminated(ActorRef<Untyped>) con PartialEq por path+uid. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:375-… | Q-T-SIG-1 |
 | AT-SIG-005 | ChildFailed | Signal::ChildFailed{ child, cause: Arc<dyn Error + Send + Sync> }; un helper… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TerminatedSpec.scala:25-44;… | Q-T-SIG-1 |
 | AT-SIG-006 | DeathPactException por Terminated no manejado | Error tipado ActorError::DeathPact(ActorRefAny). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/WatchSpec.scala:165-204;… | - |
