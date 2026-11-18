@@ -6,15 +6,16 @@
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-016.15, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
+Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-005.1, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-016.15, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
 
 ## Prerrequisitos
 
-- Spec 04 `AC-CFG-1` (`04-ac-cfg-1.md`), por las filas AC-CFG-001, AC-CFG-012.1, AC-CFG-012.2, AC-CFG-012.3, AC-CFG-012.4, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.6, AC-CFG-017.7. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 04 `AC-CFG-1` (`04-ac-cfg-1.md`), por las filas AC-CFG-001, AC-CFG-007, AC-CFG-012.1, AC-CFG-012.2, AC-CFG-012.3, AC-CFG-012.4, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.6, AC-CFG-017.7. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 03 `AC-UTIL-2` (`03-ac-util-2.md`), por las filas AC-UTIL-022. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 22 `AC-SER-1` (`22-ac-ser-1.md`), por las filas AC-SER-004.1, AC-SER-004.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 10 `AC-EVT-1` (`10-ac-evt-1.md`), por las filas AC-EVT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 07 `AC-MBX-1` (`07-ac-mbx-1.md`), por las filas AC-MBX-009, AC-MBX-010. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 17 `AC-EXT-1` (`17-ac-ext-1.md`), por las filas AC-EXT-001.1. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
@@ -30,43 +31,43 @@ casos rust-anything contra Pekko 2.0.0 (JDK 17): `oracle/` (comando `util-core-c
 
 ### Tarea 1: Timeout (duración para ask/resolveOne) (+5 filas)
 
-Filas: AC-UTIL-001, AC-UTIL-002.4, AC-UTIL-002.5, AC-UTIL-004.2, AC-UTIL-005.1, AC-UTIL-005.2. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-001, AC-UTIL-002.4, AC-UTIL-002.5, AC-UTIL-004.2, AC-UTIL-005.2, AC-UTIL-006.1. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 2: ByteString inmutable (ByteString1C, ByteString1, ByteStrings; factories, slicing,… (+5 filas)
+### Tarea 2: CompactByteString (compactación a ByteString1C) (+5 filas)
 
-Filas: AC-UTIL-006.1, AC-UTIL-006.2, AC-UTIL-006.3, AC-UTIL-006.4, AC-UTIL-006.5, AC-UTIL-006.8. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
-
-1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
-2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
-3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
-4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
-
-### Tarea 3: ByteString: búsqueda (indexOf con from/to, lastIndexOf, contains, indexOfSlice,… (+5 filas)
-
-Filas: AC-UTIL-006.7, AC-UTIL-006.6, AC-UTIL-007, AC-UTIL-008, AC-UTIL-009, AC-UTIL-010. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-006.2, AC-UTIL-006.3, AC-UTIL-006.4, AC-UTIL-006.5, AC-UTIL-006.8, AC-UTIL-006.7. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 4: TokenBucket / NanoTimeTokenBucket (+5 filas)
+### Tarea 3: ByteString: factorías y conversiones (String, Array, ByteBuffer, Base64, charset,… (+5 filas)
 
-Filas: AC-UTIL-011, AC-UTIL-012, AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-006.6, AC-UTIL-007, AC-UTIL-008, AC-UTIL-009, AC-UTIL-010, AC-UTIL-011. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 5: OptionVal (Option sin allocación) (+5 filas)
+### Tarea 4: BoundedBlockingQueue (+5 filas)
 
-Filas: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.5, AC-UTIL-016.8. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-012, AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.1. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 5: ConstantFun (funciones constantes/identidad Scala y Java) (+5 filas)
+
+Filas: AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.5, AC-UTIL-016.8, AC-UTIL-016.9. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -81,7 +82,6 @@ Filas: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.5
 | AC-UTIL-002.4 | ConfigOps.getMillisDuration / getNanosDuration | `Config::get_millis_duration(path) -> Result<Duration, ConfigError>` y… | derivada del código (ver bloque de contrato) | Q-CFG-4, Q-X-1, Q-X-9 |
 | AC-UTIL-002.5 | ConfigOps.renderWithRedactions (toString de Settings con datos sensibles… | `Config::render_with_redactions(&self) -> String` | derivada del código (ver bloque de contrato) | Q-CFG-4 |
 | AC-UTIL-004.2 | ConfigurationException | `struct ConfigurationException` (tipo separado) con `From` a PekkoException si hace falta | derivada del código (ver bloque de contrato) | Q-UTIL-17, Q-UTIL-3, Q-UTIL-4, Q-X-9 |
-| AC-UTIL-005.1 | PekkoVersion.require y UnsupportedPekkoVersion | `fn require(library: &str, required: &str, current: &str) -> Result<(),… | actor-tests/src/test/scala/org/apache/pekko/PekkoVersionSpec.scala:23-106 | Q-CFG-5 |
 | AC-UTIL-005.2 | util.Version (versión comparable con M/RC/dynver) | `struct Version` con `pekko_compare`/`PartialEq`, `Version::parse -> Result<_,… | actor-tests/src/test/scala/org/apache/pekko/util/VersionSpec.scala:19-105 | Q-UTIL-6, Q-X-9 |
 | AC-UTIL-006.1 | ByteString inmutable (ByteString1C, ByteString1, ByteStrings; factories,… | `ByteString` sobre `bytes::Bytes` o rope propio con recortes saturados y sin copia;… | actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:372-696 ;… | Q-UTIL-12, Q-UTIL-14, Q-UTIL-8 |
 | AC-UTIL-006.2 | CompactByteString (compactación a ByteString1C) | variante compacta del mismo tipo | actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:2186-2191 ;… | Q-UTIL-12 |
@@ -107,6 +107,7 @@ Filas: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.5
 | AC-UTIL-016.4 | ImmutableIntMap (mapa Int->Int inmutable) | `BTreeMap<i32,i32>` persistente | actor-tests/src/test/scala/org/apache/pekko/util/ImmutableIntMapSpec.scala:25-156 | Q-UTIL-11, Q-UTIL-14 |
 | AC-UTIL-016.5 | PrettyDuration (formateo legible de duraciones) | `pretty(Duration, include_nanos, precision) -> String` | actor-tests/src/test/scala/org/apache/pekko/util/PrettyDurationSpec.scala:25-58 | Q-UTIL-9 |
 | AC-UTIL-016.8 | LineNumbers (extracción de nombre de archivo/línea desde bytecode de lambdas) | n/a: depende de bytecode JVM; propuesta: `std::panic::Location` donde se use | actor-tests/src/test/scala-2/org/apache/pekko/util/LineNumberSpec.scala:22-66 ;… | Q-UTIL-11, Q-UTIL-16 |
+| AC-UTIL-016.9 | ManifestInfo (versiones de módulos Pekko en el classpath) | constante de versión del crate; chequeo mixto n/a | actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:26-46 | Q-CFG-5, Q-UTIL-11, Q-UTIL-6 |
 
 ## Gates y criterio de cierre
 

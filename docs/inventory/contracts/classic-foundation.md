@@ -401,6 +401,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-CFG-5.
 
+**Actualización P66 (2026-11-18, Pekko 2.0.0).** `Version.current` en 2.0.0 es "2.0.0" (Q-CFG-5; `version.conf` generado por `project/VersionGenerator.scala:20-40`, PV-01), no 1.7.1. El oráculo 2.0.0 confirma A1..A7 (PV-02..PV-06, PV-12, PV-13) y añade: comparación primero como texto y luego como Int (`2.5.6` contra `2.05.5` pasa y no mira el parche), `NumberFormatException: For input string: "<dígitos>"` para un número fuera de Int cuando hay que convertirlo (PV-07, PV-08, PV-11), patrón de dígitos ASCII con coincidencia total (PV-09, PV-10). En Rust: `rakka_actor::pekko_version::{CURRENT, require, require_against, UnsupportedPekkoVersion, RequireError}`.
+
 
 ---
 

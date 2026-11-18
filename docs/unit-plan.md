@@ -217,7 +217,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** `PekkoVersion::require(libreria, version_requerida)` con las reglas de PekkoVersionSpec (misma mayor/menor, parche, M/RC, SNAPSHOT y versiones incomprensibles no fallan) y `UnsupportedPekkoVersion` con el mensaje `Current version of Pekko is [<cur>], but <lib> requires version [<req>]`.
 - **Filas (1; impl: pending 1):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-005.1.
 - **Exclusiones/costuras:** el valor de `Version.current` lo decide Q-CFG-5 (bloquea esta fila); `util.Version` (P67) queda fuera: segun el contrato `PekkoVersion.require` no depende de otra fila.
-- **Decisiones:** 1 distintas en sus filas; respondidas: Q-CFG-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P66). <!-- generated:unit-decisions -->
+- **Decisiones:** 2 distintas en sus filas; respondidas: Q-CFG-5, Q-UTIL-17. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P66). <!-- generated:unit-decisions -->
 - **Dependencias:** ninguna.
 - **Archivos previstos:** `crates/rakka-actor/src/util/pekko_version.rs` (nuevo; nombre orientativo).
 - **Tests/oraculo:** PekkoVersionSpec A1-A6 portados; A7 (texto exacto del mensaje) derivada del codigo, comprobable con el jar 1.7.1 (`PekkoVersion.require` es publico; escenario por crear).

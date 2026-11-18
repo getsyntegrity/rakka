@@ -7,15 +7,15 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 521 | 22 | 67 | 432 | 4 | 4.2 % | 17.1 % |
+| Classic (`rakka-actor`) | 521 | 23 | 67 | 431 | 4 | 4.4 % | 17.3 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 781 | 22 | 67 | 692 | 4 | 2.8 % | 11.4 % |
+| **Total** | 781 | 23 | 67 | 691 | 4 | 2.9 % | 11.5 % |
 
 ## Por ola
 
 | Ola | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| 0 - valores sin runtime | 57 | 12 | 5 | 40 | 4 | 21.1 % | 29.8 % |
+| 0 - valores sin runtime | 57 | 13 | 5 | 39 | 4 | 22.8 % | 31.6 % |
 | 1 - configuracion, eventos y scheduler | 70 | 3 | 13 | 54 | 0 | 4.3 % | 22.9 % |
 | 2 - nucleo del runtime Classic | 134 | 7 | 42 | 85 | 0 | 5.2 % | 36.6 % |
 | 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 6 | 39 | 0 | 0.0 % | 13.3 % |
@@ -95,7 +95,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P63 T-TK-COMPORTAMIENTO | 9 | 19 | 0 | 0 | 19 | 0 | 0.0 % | 0.0 % | no |
 | P64 T-TK-LOGGING | 9 | 6 | 0 | 0 | 6 | 0 | 0.0 % | 0.0 % | no |
 | P65 UTIL-HASHCODE | 0 | 1 | 1 | 0 | 0 | 0 | 100.0 % | 100.0 % | sí |
-| P66 UTIL-PEKKOVERSION | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P66 UTIL-PEKKOVERSION | 0 | 1 | 1 | 0 | 0 | 0 | 100.0 % | 100.0 % | sí |
 | P67 UTIL-VERSION | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
 | P68 UTIL-PRETTYDURATION | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
 | P69 UTIL-UUID-ORDEN | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
@@ -112,9 +112,9 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 Orden por (done + ½·partial) / filas. Entre las atrasadas hay empates en 0 %: se desempata por el tamaño de la unidad.
 
-**5 más avanzadas:** P05 UTIL-GLOB (1 done, 0 partial de 1), P65 UTIL-HASHCODE (1 done, 0 partial de 1), P02 UTIL-NUCLEO (6 done, 2 partial de 8), P06 UTIL-PLATAFORMA (4 done, 3 partial de 8), P01 PATH (3 done, 13 partial de 16)
+**5 más avanzadas:** P05 UTIL-GLOB (1 done, 0 partial de 1), P65 UTIL-HASHCODE (1 done, 0 partial de 1), P66 UTIL-PEKKOVERSION (1 done, 0 partial de 1), P02 UTIL-NUCLEO (6 done, 2 partial de 8), P06 UTIL-PLATAFORMA (4 done, 3 partial de 8)
 
-**5 más atrasadas:** P55 T-SUPERVISION (31 filas), P50 T-SISTEMA-TIPADO (25 filas), P45 TK-API (22 filas), P48 T-COMPORTAMIENTO-NUCLEO (21 filas), P53 T-INTERCEPTORES-TIMERS-STASH (21 filas). Unidades en 0 %: 57 de 75.
+**5 más atrasadas:** P55 T-SUPERVISION (31 filas), P50 T-SISTEMA-TIPADO (25 filas), P45 TK-API (22 filas), P48 T-COMPORTAMIENTO-NUCLEO (21 filas), P53 T-INTERCEPTORES-TIMERS-STASH (21 filas). Unidades en 0 %: 56 de 75.
 
 ## Por área del inventario y comparación aserción por aserción
 
@@ -142,7 +142,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-SUP | 22 | 1 | 7 | 14 | 0 | 4.5 % | 36.4 % | sí |
 | AC-SYS | 27 | 0 | 6 | 21 | 0 | 0.0 % | 22.2 % | sí |
 | AC-TK | 27 | 0 | 0 | 27 | 0 | 0.0 % | 0.0 % | no |
-| AC-UTIL | 65 | 12 | 5 | 48 | 4 | 18.5 % | 26.2 % | sí |
+| AC-UTIL | 65 | 13 | 5 | 47 | 4 | 20.0 % | 27.7 % | sí |
 | AT-ADP | 13 | 0 | 0 | 13 | 0 | 0.0 % | 0.0 % | no |
 | AT-ASK | 4 | 0 | 0 | 4 | 0 | 0.0 % | 0.0 % | no |
 | AT-BEH | 26 | 0 | 0 | 26 | 0 | 0.0 % | 0.0 % | no |
@@ -177,4 +177,4 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 
 ## Casos grabados y filas que cubren
 
-`cases/coverage.tsv` declara las filas que cubre cada uno de los 1098 casos (`tools/parity/apply_comparison.py`). Base `cited`: el caso lo cita una fila comparada; `same-group`: hereda las filas de su grupo de nombres; `none`: **256 casos sin fila asignada**, a mapear cuando un slice tome su unidad.
+`cases/coverage.tsv` declara las filas que cubre cada uno de los 1112 casos (`tools/parity/apply_comparison.py`). Base `cited`: el caso lo cita una fila comparada; `same-group`: hereda las filas de su grupo de nombres; `none`: **256 casos sin fila asignada**, a mapear cuando un slice tome su unidad.

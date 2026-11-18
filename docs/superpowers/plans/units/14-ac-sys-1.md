@@ -24,8 +24,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 20 `AC-RT-1` (`20-ac-rt-1.md`), por las filas AC-RT-003.1. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 18 `AC-ASK-1` (`18-ac-ask-1.md`), por las filas AC-ASK-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 22 `AC-SER-1` (`22-ac-ser-1.md`), por las filas AC-SER-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-005.2.
-- Spec 03 `AC-UTIL-2` (`03-ac-util-2.md`), por las filas AC-UTIL-016.9.
+- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-005.2, AC-UTIL-016.9.
 
 Decisiones:
 

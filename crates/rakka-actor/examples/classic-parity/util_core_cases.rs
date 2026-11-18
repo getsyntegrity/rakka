@@ -7,6 +7,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use rakka_actor::actor::IllegalArgumentError;
+use rakka_actor::pekko_version::{self, RequireError};
 use rakka_actor::util::clock::{
     Clock, FixedDelayScheduler, NanoClock, ScheduledClock, SelectedClock,
 };
@@ -563,6 +564,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
     // ---- Slice P65: UTIL-HASHCODE (AC-UTIL-016.15)
     for (id, result) in hash_code_cases() {
         lines.push((esc(&id), esc(&format!("{id} -> {result}"))));
+    }
+
+    // ---- Slice P66: UTIL-PEKKOVERSION (AC-UTIL-005.1)
+    for (id, result) in pekko_version_cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
     }
 
     lines
@@ -1352,5 +1358,277 @@ fn hash_code_cases() -> Vec<(String, String)> {
         format!("{} {result}", hash_code::SEED),
     );
     add("HC-14 SEED constant", hash_code::SEED.to_string());
+    cases
+}
+
+/// `PekkoVersionOracle.outcome`: `ok`, or `<Exception>[<message>]`.
+fn require_outcome(library: &str, required: &str, current: &str) -> String {
+    match pekko_version::require_against(library, required, current) {
+        Ok(()) => "ok".to_owned(),
+        Err(e) => require_error(&e),
+    }
+}
+
+fn require_error(e: &RequireError) -> String {
+    let (class, message) = match e {
+        RequireError::Unsupported(e) => (e.java_class(), e.message()),
+        RequireError::NumberFormat(e) => (e.java_class(), e.message()),
+    };
+    format!("{class}[{message}]")
+}
+
+/// `PekkoVersionOracle.pairs`.
+fn require_pairs(pairs: &[&str]) -> String {
+    join(pairs.iter().map(|pair| {
+        let (required, current) = pair.split_once('|').expect("pair needs a bar");
+        format!(
+            "[{}]/[{}]={}",
+            esc(required),
+            esc(current),
+            require_outcome("lib", required, current)
+        )
+    }))
+}
+
+/// The cases of `PekkoVersionOracle.java` (slice P66).
+fn pekko_version_cases() -> Vec<(String, String)> {
+    let mut cases: Vec<(String, String)> = Vec::new();
+    let mut add = |id: &str, line: String| cases.push((id.to_owned(), line));
+
+    add(
+        "PV-01 current version",
+        format!(
+            "current=[{}] conf=[{}]",
+            pekko_version::CURRENT,
+            esc(&format!("pekko.version = \"{}\"\n", pekko_version::CURRENT))
+        ),
+    );
+    add(
+        "PV-02 spec: satisfied",
+        require_pairs(&[
+            "2.5.6|2.5.6",
+            "2.5.6|2.5.7",
+            "2.5.6|2.6.0",
+            "2.5.6|2.5.7-RC10",
+            "2.6.0-RC1|2.6.0-RC1",
+            "2.6.0-RC1|2.6.0-RC2",
+            "2.6.0-RC1|2.7.0",
+            "2.5.6|2.5.7-M10",
+            "2.5.7-M9|2.5.7-M9",
+            "2.5.7-M9|2.5.7-M10",
+            "2.5.7-M9|2.5.8",
+            "2.5.7-M9|2.5.7-RC1",
+        ]),
+    );
+    add(
+        "PV-03 spec: unsatisfied",
+        require_pairs(&[
+            "2.5.6|2.5.6-RC1",
+            "2.5.6-RC2|2.5.6-RC1",
+            "2.5.6|2.5.6-M1",
+            "2.5.7-M10|2.5.7-M9",
+            "2.5.7-RC1|2.5.7-M9",
+            "2.5.6|3.0.0",
+            "2.5.6|1.0.0",
+            "2.5.6|2.4.19",
+            "2.5.6|2.5.5",
+        ]),
+    );
+    add(
+        "PV-04 spec: snapshot and nonsense",
+        require_pairs(&[
+            "2.5.6|2.5-SNAPSHOT",
+            "2.5.6|2.5-20180109-133700",
+            "2.5-SNAPSHOT|2.5-SNAPSHOT",
+            "2.5-20180109-133700|2.5-20180109-133700",
+            "2.5.6|nonsense",
+            "nonsense|2.5.6",
+            "nonsense|nonsense",
+            "2.5-SNAPSHOT|2.5.6",
+            "2.5.6|2.5.6-SNAPSHOT",
+            "2.5.6-SNAPSHOT|2.5.6",
+        ]),
+    );
+    add(
+        "PV-05 messages",
+        join(
+            ["my-library", "", "caf\u{e9} \u{20ac}", "[x]", "a\nb"]
+                .iter()
+                .map(|library| require_outcome(library, "2.5.6", "2.5.5"))
+                .chain([
+                    require_outcome("lib", "2.5.6-M1", "2.5.6-M0"),
+                    require_outcome("lib", "2.5.6-RC3", "2.5.6-M9"),
+                ]),
+        ),
+    );
+    let kinds = ["", "-M1", "-M2", "-RC1", "-RC2"];
+    add(
+        "PV-06 pre-release matrix",
+        kinds
+            .iter()
+            .flat_map(|required| kinds.iter().map(move |current| (required, current)))
+            .map(|(required, current)| {
+                let outcome = require_outcome(
+                    "lib",
+                    &format!("2.5.6{required}"),
+                    &format!("2.5.6{current}"),
+                );
+                if outcome.starts_with("ok") { '1' } else { '0' }
+            })
+            .collect(),
+    );
+    add(
+        "PV-07 numbers compared as text then as ints",
+        require_pairs(&[
+            "2.5.6|2.05.6",
+            "2.05.6|2.5.6",
+            "2.5.6|2.5.06",
+            "2.5.06|2.5.6",
+            "02.5.6|2.5.6",
+            "2.5.6|02.5.6",
+            "2.6.0|2.05.9",
+            "2.05.9|2.5.8",
+            "2.5.007|2.5.7",
+            "2.5.7|2.5.0007",
+            "2.5.7|2.5.007-M1",
+            "2.5.7-M01|2.5.7-M1",
+            "2.5.7-M2|2.5.7-M02",
+            "2.5.7-M10|2.5.7-M9",
+            "2.5.7-M9|2.5.7-M10",
+            "2.5.2147483647|2.5.2147483646",
+            "2.5.2147483647|2.5.2147483647",
+        ]),
+    );
+    add(
+        "PV-08 numbers out of int range",
+        require_pairs(&[
+            "2.5.6|2.5.99999999999",
+            "2.5.99999999999|2.5.6",
+            "2.99999999999.0|2.5.0",
+            "2.5.0|2.99999999999.0",
+            "99999999999.5.6|99999999999.5.7",
+            "99999999999.5.6|99999999998.5.7",
+            "2.5.99999999999|2.5.99999999999",
+            "2.5.99999999999|2.5.99999999998",
+            "2.5.6-M99999999999|2.5.6-M1",
+            "2.5.6-M1|2.5.6-M99999999999",
+            "2.5.6-RC99999999999|2.5.6-RC99999999999",
+            "2.5.6-RC99999999999|2.5.6-RC99999999998",
+            "2.5.2147483648|2.5.1",
+            "2.5.1|2.5.2147483648",
+            "2.2147483648.1|2.1.1",
+            "2.5.6-M2147483648|2.5.6-M1",
+        ]),
+    );
+    add(
+        "PV-09 strings that are not a version",
+        require_pairs(&[
+            "2.5.6| 2.5.6",
+            "2.5.6|2.5.6 ",
+            " 2.5.6|2.5.5",
+            "2.5.6 |2.5.5",
+            "v2.5.6|2.5.5",
+            "2.5.6|v2.5.5",
+            "2.5.6-|2.5.5",
+            "2.5.6-M|2.5.5",
+            "2.5.6-m1|2.5.5",
+            "2.5.6-rc1|2.5.5",
+            "2.5.6-RC|2.5.5",
+            "2.5.6.1|2.5.5",
+            "2.5|2.5.5",
+            "2.5.|2.5.5",
+            "..|2.5.5",
+            "|2.5.5",
+            "2.5.6|",
+            "|",
+            "2.5.6-M1-M1|2.5.5",
+            "2.5.6-M1x|2.5.5",
+            "2.5.6\n|2.5.5",
+            "2.5.6|2.5.5\n",
+            "2.5.6-RC1+3|2.5.5",
+            "2.5.6+3|2.5.5",
+            "-2.5.6|2.5.5",
+            "2.-5.6|2.5.5",
+            "2.5.6-M-1|2.5.5",
+            "2.5.6-M+1|2.5.5",
+        ]),
+    );
+    add(
+        "PV-10 digits outside ASCII",
+        require_pairs(&[
+            "2.5.6|\u{662}.\u{665}.\u{665}",
+            "\u{662}.\u{665}.\u{666}|2.5.5",
+            "2.5.6|2.5.\u{665}",
+            "2.5.\u{666}|2.5.5",
+            "2.5.6|\u{ff12}.\u{ff15}.\u{ff15}",
+            "2.5.6-M\u{661}|2.5.6-M1",
+            "2.5.6-M\u{661}|2.5.6",
+        ]),
+    );
+    add(
+        "PV-11 equal strings are never checked",
+        require_pairs(&[
+            "2.5.6|2.5.6",
+            "2.5.6-M1|2.5.6-M1",
+            "nonsense|nonsense",
+            "|",
+            "99999999999.9.9|99999999999.9.9",
+            "2.5.6-M99999999999|2.5.6-M99999999999",
+        ]),
+    );
+    add(
+        "PV-12 public require against the current version",
+        join(
+            [
+                "2.0.0",
+                "1.7.1",
+                "2.0.1",
+                "2.1.0",
+                "3.0.0",
+                "1.0.0",
+                "2.0.0-RC1",
+                "2.0.0-M1",
+                "2.0-SNAPSHOT",
+                "nonsense",
+                "1.9.9",
+                "2.0.0-RC99999999999",
+            ]
+            .iter()
+            .map(|required| {
+                let outcome = match pekko_version::require("my-lib", required) {
+                    Ok(()) => "ok".to_owned(),
+                    Err(e) => require_error(&e),
+                };
+                format!("[{required}]={outcome}")
+            }),
+        ),
+    );
+    add(
+        "PV-13 the exception",
+        match pekko_version::require_against("lib", "9.0.0", "2.0.0") {
+            Err(RequireError::Unsupported(e)) => format!(
+                "class=org.apache.pekko.{0} super=java.lang.RuntimeException final=true cause=null toString=[org.apache.pekko.{0}: {1}] suppressed=0",
+                e.java_class(),
+                e.message()
+            ),
+            _ => "no exception".to_owned(),
+        },
+    );
+    let mut matrix = String::new();
+    for major in 1..=3 {
+        for minor in 0..=2 {
+            for patch in 0..=2 {
+                for pre in ["", "-M1", "-RC1"] {
+                    let required = format!("{major}.{minor}.{patch}{pre}");
+                    matrix.push(if require_outcome("l", &required, "2.0.0") == "ok" {
+                        '1'
+                    } else {
+                        '0'
+                    });
+                }
+            }
+        }
+    }
+    add("PV-14 many required versions against 2.0.0", matrix);
     cases
 }

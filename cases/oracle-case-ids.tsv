@@ -530,3 +530,17 @@ uc-0130	util-core	HC-09 arrays of objects
 uc-0131	util-core	HC-10 boxed values
 uc-0132	util-core	HC-11 chaining example
 uc-0133	util-core	HC-14 SEED constant
+uc-0134	util-core	PV-01 current version
+uc-0135	util-core	PV-02 spec: satisfied
+uc-0136	util-core	PV-03 spec: unsatisfied
+uc-0137	util-core	PV-04 spec: snapshot and nonsense
+uc-0138	util-core	PV-05 messages
+uc-0139	util-core	PV-06 pre-release matrix
+uc-0140	util-core	PV-07 numbers compared as text then as ints
+uc-0141	util-core	PV-08 numbers out of int range
+uc-0142	util-core	PV-09 strings that are not a version
+uc-0143	util-core	PV-10 digits outside ASCII
+uc-0144	util-core	PV-11 equal strings are never checked
+uc-0145	util-core	PV-12 public require against the current version
+uc-0146	util-core	PV-13 the exception
+uc-0147	util-core	PV-14 many required versions against 2.0.0

@@ -7,8 +7,8 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | # | Spec | Filas | Tareas | Estado | Depende de |
 |---|---|---|---|---|---|
 | 01 | [AC-PATH-1](01-ac-path-1.md) | 13 | 3 | sin decisiones abiertas (preliminar) | 02 |
-| 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | sin decisiones abiertas (preliminar) | 04, 03, 22, 10, 07 |
-| 03 | [AC-UTIL-2](03-ac-util-2.md) | 23 | 4 | pendiente de decisiones | 02, 04, 17, 09 |
+| 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | sin decisiones abiertas (preliminar) | 04, 03, 22, 10, 07, 17 |
+| 03 | [AC-UTIL-2](03-ac-util-2.md) | 22 | 4 | pendiente de decisiones | 04, 02, 09 |
 | 04 | [AC-CFG-1](04-ac-cfg-1.md) | 29 | 5 | sin decisiones abiertas (preliminar) | 10, 17, 14, 21, 05, 15, 22, 02, 20 |
 | 05 | [AC-REF-1](05-ac-ref-1.md) | 30 | 5 | pendiente de decisiones | 01, 07, 12, 04, 18, 10, 14, 13, 22 |
 | 06 | [AC-REF-2](06-ac-ref-2.md) | 1 | 1 | sin decisiones abiertas (preliminar) | 05, 14, 18 |
@@ -19,7 +19,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | 11 | [AC-TK-1](11-ac-tk-1.md) | 27 | 5 | pendiente de decisiones | 08, 14, 15, 04, 17, 10, 05, 12, 07, 19, 09, 25, 22, 23 |
 | 12 | [AC-CELL-1](12-ac-cell-1.md) | 30 | 5 | pendiente de decisiones | 15, 07, 16, 10, 05, 09, 08 |
 | 13 | [AC-CELL-2](13-ac-cell-2.md) | 9 | 2 | pendiente de decisiones | 04, 12, 10, 07, 05, 22 |
-| 14 | [AC-SYS-1](14-ac-sys-1.md) | 27 | 5 | pendiente de decisiones | 04, 17, 10, 12, 15, 21, 08, 05, 11, 16, 09, 01, 07, 20, 18, 22, 02, 03 |
+| 14 | [AC-SYS-1](14-ac-sys-1.md) | 27 | 5 | pendiente de decisiones | 04, 17, 10, 12, 15, 21, 08, 05, 11, 16, 09, 01, 07, 20, 18, 22, 02 |
 | 15 | [AC-SUP-1](15-ac-sup-1.md) | 21 | 4 | pendiente de decisiones | 12, 01, 10, 07, 04, 14 |
 | 16 | [AC-DW-1](16-ac-dw-1.md) | 8 | 2 | pendiente de decisiones | 05, 12, 15, 17, 07 |
 | 17 | [AC-EXT-1](17-ac-ext-1.md) | 5 | 1 | pendiente de decisiones | 14, 04 |
@@ -66,8 +66,8 @@ El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL,
 - `AC-UTIL-1` necesita `AC-SER-1`.
 - `AC-UTIL-1` necesita `AC-EVT-1`.
 - `AC-UTIL-1` necesita `AC-MBX-1`.
+- `AC-UTIL-1` necesita `AC-EXT-1`.
 - `AC-UTIL-2` necesita `AC-CFG-1`.
-- `AC-UTIL-2` necesita `AC-EXT-1`.
 - `AC-UTIL-2` necesita `AC-SCH-1`.
 - `AC-CFG-1` necesita `AC-EVT-1`.
 - `AC-CFG-1` necesita `AC-EXT-1`.
