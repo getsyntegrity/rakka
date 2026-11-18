@@ -105,6 +105,14 @@ if os.path.exists("docs/unit-plan.md"):
     for line in unit_plan.stdout.splitlines():
         if line.startswith("FAIL"): fail.append("unit-plan: " + line[5:])
     check(unit_plan.returncode == 0 or any(l.startswith("FAIL") for l in unit_plan.stdout.splitlines()), "unit_plan.py --check crashed: " + unit_plan.stderr[-300:])
+# docs/progress.md is generated: its totals must match the inventory
+prog_path = "docs/progress.md"
+check(os.path.exists(prog_path), "docs/progress.md missing (run tools/package/generate.py)")
+if os.path.exists(prog_path):
+    prog = open(prog_path, encoding="utf-8").read()
+    n_done = sum(1 for r in rows.values() if r["impl"] == "done"); n_part = sum(1 for r in rows.values() if r["impl"] == "partial")
+    m = re.search(r"\| \*\*Total\*\* \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|", prog)
+    check(m is not None and tuple(map(int, m.groups())) == (len(rows), n_done, n_part, len(rows) - n_done - n_part), "docs/progress.md totals do not match the inventory (regenerate it)")
 print(f"abbreviated_citations_skipped={abbreviated}")
 print(f"rows={len(rows)} decisions={sum(c.values())} groups={len(reg) - sum(c.values())} citation_problems={bad} failures={len(fail)}")
 for f in fail: print("FAIL", f)

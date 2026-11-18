@@ -1,10 +1,12 @@
 # Spec 16 — AC-SUP (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 22. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 21. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
+
+Filas ya `done` en esta unidad (no se reabren): AC-SUP-009.
 
 ## Prerrequisitos
 
@@ -14,7 +16,6 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 08 `AC-MBX-1` (`08-ac-mbx-1.md`), por las filas AC-MBX-001.
 - Spec 05 `AC-CFG-1` (`05-ac-cfg-1.md`), por las filas AC-CFG-013.
 - Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-003.1, AC-SYS-003.2.
-- Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-008. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
@@ -39,25 +40,25 @@ Filas: AC-SUP-001, AC-SUP-002, AC-SUP-003, AC-SUP-004, AC-SUP-005, AC-SUP-006.1.
 
 ### Tarea 2: OneForOneStrategy: ventana withinTimeRange (+5 filas)
 
-Filas: AC-SUP-006.2, AC-SUP-007, AC-SUP-008, AC-SUP-009, AC-SUP-010, AC-SUP-011. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-SUP-006.2, AC-SUP-007, AC-SUP-008, AC-SUP-010, AC-SUP-011, AC-SUP-012. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 3: Helpers makeDecider (Seq de excepciones → Restart si no Escalate; lista CauseDirective;… (+5 filas)
+### Tarea 3: Puntos de extensión de SupervisorStrategy: decider, handleChildTerminated,… (+5 filas)
 
-Filas: AC-SUP-012, AC-SUP-013, AC-SUP-014, AC-SUP-015, AC-SUP-016, AC-SUP-017. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-SUP-013, AC-SUP-014, AC-SUP-015, AC-SUP-016, AC-SUP-017, AC-SUP-018. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 4: logFailure: texto y destino del log de fallos de hijos (+3 filas)
+### Tarea 4: Fallo fatal en restart: Resume con causa se convierte en Restart y no se repite preRestart (+2 filas)
 
-Filas: AC-SUP-018, AC-SUP-019, AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-SUP-019, AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -77,7 +78,6 @@ Filas: AC-SUP-018, AC-SUP-019, AC-SUP-020, AC-SUP-021. Contratos y aserciones: `
 | AC-SUP-006.2 | OneForOneStrategy: ventana withinTimeRange | `RestartWindow { start: Option<Instant>, count }` con `Instant` monótono | actor-tests/src/test/scala/org/apache/pekko/actor/RestartStrategySpec.scala:42-88 ;… | Q-SUP-2 |
 | AC-SUP-007 | AllForOneStrategy | igual que OneForOne sobre el conjunto | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:320-382 ;… | - |
 | AC-SUP-008 | Escalate: el padre relanza la causa sin envolver hacia su propio supervisor | propagar `Failure` original | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:769-790… | - |
-| AC-SUP-009 | Resume: el hijo conserva estado y se reanudan sus hijos | - | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:817-861 | - |
 | AC-SUP-010 | Suspensión recursiva de hijos durante el fallo y contadores balanceados | contador de suspensión en mailbox (entero) + reanudar al llegar a 0 | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:834-861 | Q-X-4 |
 | AC-SUP-011 | Fallo durante la creación: Recreate/Resume se convierten en Create | - | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:863-914 | - |
 | AC-SUP-012 | Helpers makeDecider (Seq de excepciones → Restart si no Escalate; lista… | closures; matching por tipo de error con `downcast_ref` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:242-292 ;… | Q-SUP-1 |

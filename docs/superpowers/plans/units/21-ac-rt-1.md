@@ -12,7 +12,6 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 19 `AC-ASK-1` (`19-ac-ask-1.md`), por las filas AC-ASK-001.1, AC-ASK-006.
 - Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-001.
 - Spec 13 `AC-CELL-1` (`13-ac-cell-1.md`), por las filas AC-CELL-001.
-- Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-001.
 - Spec 05 `AC-CFG-1` (`05-ac-cfg-1.md`), por las filas AC-CFG-012.1, AC-CFG-012.2, AC-CFG-012.3, AC-CFG-012.4, AC-CFG-014.
 - Spec 08 `AC-MBX-1` (`08-ac-mbx-1.md`), por las filas AC-MBX-019.
 - Spec 23 `AC-SER-1` (`23-ac-ser-1.md`), por las filas AC-SER-001.1, AC-SER-001.2, AC-SER-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**

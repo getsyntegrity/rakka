@@ -11,7 +11,6 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 05 `AC-CFG-1` (`05-ac-cfg-1.md`), por las filas AC-CFG-001.
 - Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`), por las filas AC-SCH-001.
 - Spec 15 `AC-SYS-1` (`15-ac-sys-1.md`), por las filas AC-SYS-004.
-- Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-001.
 
 Decisiones:
 
