@@ -3,12 +3,21 @@
 version = 4
 
 [[package]]
+name = "bytes"
+version = "1.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "776dfebd015e2d8732c684a2c71003674ccb49457b539b9e82151ba38e96dd7c"
+
+[[package]]
 name = "rakka"
 version = "0.1.0"
 
 [[package]]
 name = "rakka-actor"
 version = "0.1.0"
+dependencies = [
+ "bytes",
+]
 
 [[package]]
 name = "rakka-actor-typed"

@@ -7,6 +7,7 @@
 //! classic-parity scenario-lines           stdin = one scenario JSON per line -> one JSON trace per line
 //! ```
 
+mod bytes_cases;
 mod json;
 mod path_address_cases;
 mod path_case;

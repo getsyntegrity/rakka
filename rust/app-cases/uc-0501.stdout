@@ -1,0 +1,1 @@
+BU-07 result does not invalidate the builder -> ok <> len=0 ok <01> len=1 ok <0102> len=2 2 ok 0 t <> len=0 ok <0a0b> len=2 ok ok <0a0b03> len=3 ok ok ok <0a0b0304> len=4

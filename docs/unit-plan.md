@@ -171,7 +171,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** ByteString, ByteStringBuilder/Iterator y adaptadores de flujo.
 - **Filas (9; impl: pending 9):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-006.1, AC-UTIL-006.2, AC-UTIL-006.3, AC-UTIL-006.4, AC-UTIL-006.5, AC-UTIL-006.8, AC-UTIL-006.7, AC-UTIL-006.6, AC-UTIL-022.
 - **Exclusiones/costuras:** Q-UTIL-12 (bloqueante) fija el alcance: sin respuesta solo avanzan las filas que no dependen de la representacion.
-- **Decisiones:** 6 distintas en sus filas; respondidas: Q-CFG-11, Q-UTIL-11, Q-UTIL-12, Q-UTIL-14, Q-UTIL-8, Q-X-3. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P04). <!-- generated:unit-decisions -->
+- **Decisiones:** 11 distintas en sus filas; respondidas: Q-CFG-11, Q-UTIL-11, Q-UTIL-12, Q-UTIL-14, Q-UTIL-8, Q-X-3; propuestas sin respuesta: Q-UTIL-22, Q-UTIL-23, Q-UTIL-24, Q-UTIL-25, Q-UTIL-26. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P04). <!-- generated:unit-decisions -->
 - **Dependencias:** P02, P76.
 - **Archivos previstos:** `crates/rakka-actor/src/util/bytes/*.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs ByteStringSpec portados + oraculo jars.

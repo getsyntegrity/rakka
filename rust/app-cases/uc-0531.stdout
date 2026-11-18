@@ -1,0 +1,1 @@
+ST-03 UnsynchronizedByteArrayInputStream skip -> ok ok 1 98 1 -1 0 ok 0 !IllegalArgumentException[Skipping backward is not supported] ok 3 0 ok 2 ok 97 ok ok 3 ok 97 ok 3 0 -1 ok 97

@@ -289,5 +289,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P03 (2026-11-18): UTIL-ESTRUCTURAS (AC-UTIL-007..014, 015.1, 016.4, 017.1..017.5)
     StructuresOracle.register();
+
+    // ---- Slice P04 (2026-11-18): UTIL-BYTES (AC-UTIL-006.1..006.7, 016.3, 022)
+    BytesOracle.register();
   }
 }

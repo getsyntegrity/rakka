@@ -1,0 +1,1 @@
+IT-09 a short iterator consumes what it has and then fails -> ok ok !NoSuchElementException[next on empty iterator] 2 t ok !NoSuchElementException[next on empty iterator] 3 ok !NoSuchElementException[next on empty iterator] 1 ok !NoSuchElementException[next on empty iterator] ok !NoSuchElementException[next on empty iterator] 2 ok !NoSuchElementException[next on empty iterator] 6

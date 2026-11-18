@@ -1,0 +1,1 @@
+IT-05 clone is independent and duplicate yields two iterators -> ok ok 1 ok 2 2 1 2 1 1 ok 3 0 1 <03> len=0 <> len=0 ok ok len=2 <0102> len=0 <010203> len=0

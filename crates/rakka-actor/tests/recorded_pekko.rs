@@ -2,6 +2,8 @@
 //! library, so that the recorded behaviour also counts as verified by `cargo test`/`cargo llvm-cov`.
 //! The harness code (JSON, scenario runner, path rendering) is shared with the `classic-parity` CLI.
 
+#[path = "../examples/classic-parity/bytes_cases.rs"]
+mod bytes_cases;
 #[path = "../examples/classic-parity/json.rs"]
 #[allow(dead_code)]
 mod json;

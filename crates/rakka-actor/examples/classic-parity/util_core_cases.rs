@@ -84,6 +84,18 @@ pub const PENDING: &[(&str, &str)] = &[
         "MB-DROP-ABSENT drop of an id that was never added",
         "Q-UTIL-15 (b), accepted: Pekko 2.0.0 throws NullPointerException; Rust returns 0 (AC-UTIL-010, authorised divergence)",
     ),
+    (
+        "BS-APPLY-1C apply out of range on a compact value",
+        "JVM array error text of a compact ByteString (AC-UTIL-006.1, Q-UTIL-23)",
+    ),
+    (
+        "BS-HEAD-EMPTY head of the empty ByteString",
+        "JVM array error of the empty ByteString (AC-UTIL-006.1, Q-UTIL-23)",
+    ),
+    (
+        "IT-CAT ++ of iterators over different arrays",
+        "Pekko 2.0.0 loses the left side of the concatenation (AC-UTIL-006.4, Q-UTIL-24)",
+    ),
 ];
 
 /// `esc` of the script: every UTF-16 unit outside printable ASCII becomes `\uXXXX`.
@@ -608,6 +620,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
 
     // ---- Slice P03: UTIL-ESTRUCTURAS (AC-UTIL-007..014, 015.1, 016.4, 017.1..017.5)
     for (id, result) in crate::structures_cases::cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+    }
+
+    // ---- Slice P04: UTIL-BYTES (AC-UTIL-006.1..006.7, 016.3, 022)
+    for (id, result) in crate::bytes_cases::cases() {
         lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
     }
 

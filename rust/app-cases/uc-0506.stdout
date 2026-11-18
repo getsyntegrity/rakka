@@ -1,0 +1,1 @@
+IT-01 next, head, hasNext and the exhausted iterator -> ok ok 1 1 2 2 2 3 f 0 !NoSuchElementException[next on empty iterator] !NoSuchElementException[next on empty iterator] 0 f ok f !NoSuchElementException[next on empty iterator] 0

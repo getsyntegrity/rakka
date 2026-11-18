@@ -850,3 +850,86 @@ uc-0450	util-core	BQ-C6 poll with a timeout returns null on an empty queue and t
 uc-0451	util-core	BQ-C7 iterator remove drops the element it returned, by identity
 uc-0452	util-core	BQ-C8 the iterator is a snapshot
 uc-0453	util-core	RG-01 ReentrantGuard is absent from the 2.0.0 jar
+uc-0454	util-core	BS-01 take drop dropRight on a compact value with extreme arguments
+uc-0455	util-core	BS-02 chained trimming on a compact value
+uc-0456	util-core	BS-03 trimming on a slice of an array (ByteString1)
+uc-0457	util-core	BS-04 trimming on a concatenation (ByteStrings)
+uc-0458	util-core	BS-05 slice patterns on every shape of value
+uc-0459	util-core	BS-06 concatenation: empty sides, lengths and contents
+uc-0460	util-core	BS-07 splitAt and the identity of the reassembled value
+uc-0461	util-core	BS-08 element access on a slice and on a concatenation
+uc-0462	util-core	BS-09 tail and init of a single byte and of the empty value
+uc-0463	util-core	BS-10 grouped
+uc-0464	util-core	BS-11 toString and its cut at 100 bytes
+uc-0465	util-core	BS-12 equality across representations
+uc-0466	util-core	BS-13 mapI, fold and toArray
+uc-0467	util-core	BS-14 span, takeWhile and dropWhile with a signed predicate
+uc-0468	util-core	BS-15 compact keeps the content
+uc-0469	util-core	BS-16 fromArray saturates its offset and length
+uc-0470	util-core	BS-17 fromInts truncates
+uc-0471	util-core	BS-18 strings: UTF-8 and the named charsets
+uc-0472	util-core	BS-19 decoding invalid UTF-8
+uc-0473	util-core	BS-20 decodeString of a range
+uc-0474	util-core	BS-21 Base64 encode
+uc-0475	util-core	BS-22 Base64 decode
+uc-0476	util-core	BS-23 copyToArray
+uc-0477	util-core	BS-24 copyToBuffer
+uc-0478	util-core	BS-25 fromByteBuffer consumes the buffer
+uc-0479	util-core	BS-26 unsafe array and byte buffers
+uc-0480	util-core	BS-27 indexOf on every shape of value
+uc-0481	util-core	BS-28 lastIndexOf and contains
+uc-0482	util-core	BS-29 indexOfSlice and containsSlice
+uc-0483	util-core	BS-30 lastIndexOfSlice, startsWith and endsWith
+uc-0484	util-core	BS-31 UTF-8 decoding of random byte soups
+uc-0485	util-core	BS-32 Base64 decoding of random text soups
+uc-0486	util-core	BS-33 charset names and aliases
+uc-0487	util-core	BS-R1 random trimming and search against three values
+uc-0488	util-core	BS-R2 random trimming and search against three values
+uc-0489	util-core	BS-R3 random trimming and search against three values
+uc-0490	util-core	BS-R7 random trimming and search against three values
+uc-0491	util-core	BS-R11 random trimming and search against three values
+uc-0492	util-core	BS-R42 random trimming and search against three values
+uc-0493	util-core	BS-R99 random trimming and search against three values
+uc-0494	util-core	BS-R12345 random trimming and search against three values
+uc-0495	util-core	BU-01 primitives in both byte orders
+uc-0496	util-core	BU-02 putLongPart for every length
+uc-0497	util-core	BU-03 floats and doubles are written as raw bits
+uc-0498	util-core	BU-04 arrays of primitives
+uc-0499	util-core	BU-05 byte arrays and ranges
+uc-0500	util-core	BU-06 appending ByteStrings and collections
+uc-0501	util-core	BU-07 result does not invalidate the builder
+uc-0502	util-core	BU-08 the output stream adapter
+uc-0503	util-core	BU-R5 random writes
+uc-0504	util-core	BU-R17 random writes
+uc-0505	util-core	BU-R23 random writes
+uc-0506	util-core	IT-01 next, head, hasNext and the exhausted iterator
+uc-0507	util-core	IT-02 size consumes the iterator
+uc-0508	util-core	IT-03 take, drop and slice mutate the iterator
+uc-0509	util-core	IT-04 the same on a view and on a concatenation
+uc-0510	util-core	IT-05 clone is independent and duplicate yields two iterators
+uc-0511	util-core	IT-06 reading primitives in both byte orders
+uc-0512	util-core	IT-07 getLongPart
+uc-0513	util-core	IT-08 floats and doubles
+uc-0514	util-core	IT-09 a short iterator consumes what it has and then fails
+uc-0515	util-core	IT-10 getBytes, getByteString and arrays of primitives
+uc-0516	util-core	IT-11 copyToArray never loops past the destination
+uc-0517	util-core	IT-12 copyToBuffer
+uc-0518	util-core	IT-13 toByteString consumes the iterator
+uc-0519	util-core	IT-14 indexOf consumes the iterator
+uc-0520	util-core	IT-15 takeWhile, dropWhile and span
+uc-0521	util-core	IT-17 asInputStream
+uc-0522	util-core	IT-18 reading after take and drop
+uc-0523	util-core	IT-R4 random reads
+uc-0524	util-core	IT-R8 random reads
+uc-0525	util-core	IT-R15 random reads
+uc-0526	util-core	IT-R16 random reads
+uc-0527	util-core	IT-R23 random reads
+uc-0528	util-core	IT-R42 random reads
+uc-0529	util-core	ST-01 ByteString.asInputStream: compact, slice and concatenation
+uc-0530	util-core	ST-02 UnsynchronizedByteArrayInputStream reads
+uc-0531	util-core	ST-03 UnsynchronizedByteArrayInputStream skip
+uc-0532	util-core	ST-04 UnsynchronizedByteArrayInputStream with offset and length
+uc-0533	util-core	ST-05 readAll on both adapters and reset without a mark
+uc-0534	util-core	ST-R6 random reads
+uc-0535	util-core	ST-R9 random reads
+uc-0536	util-core	ST-06 readNBytes, skipNBytes and transferTo

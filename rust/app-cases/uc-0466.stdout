@@ -1,0 +1,1 @@
+BS-13 mapI, fold and toArray -> ok <00017f80ff> <0102808100> <ff007e7ffe> <2c2dabac2b> ByteString(1, 2, -128, -127, 0) ByteString(-1, 0, 126, 127, -2) ByteString(44, 45, -85, -84, 43) -1 -252 <00017f80ff> <010203> <020304> ByteString(2, 3, 4) 6

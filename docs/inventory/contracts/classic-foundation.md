@@ -493,6 +493,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-12 (representación; bloquea la implementación, no la extracción del contrato), Q-UTIL-14 (reproducir el hash de Scala), Q-UTIL-8 no aplica.
 
 
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** En 2.0.0 `ByteString.scala` es un único archivo `actor/src/main/scala/org/apache/pekko/util/ByteString.scala` (ya no hay `scala-2.13`/`scala-3`) y añade una cuarta representación, `ByteString2` (dos fragmentos simples, identidad de serialización 3), que no se observa. Medido con el jar 2.0.0 en JDK 17: `takeRight(Int.MinValue)` devuelve todo (`length - n` desborda), `grouped(0)` falla con `size=0 must be positive`, `apply` fuera de rango sobre ByteString1/ByteStrings lanza `IndexOutOfBoundsException(<idx>)` y sobre un valor compacto `ArrayIndexOutOfBoundsException` con el texto de la JVM (BS-APPLY-1C, Q-UTIL-23 propuesta). `hashCode` no se reproduce (Q-UTIL-14 (b)). Rust: `rakka_actor::util::byte_string::ByteString` (Q-UTIL-12 (c)); casos uc-0454..uc-0467 y BS-R* (uc-0487..uc-0494); fila `partial` por Q-UTIL-23.
+
 ---
 
 ## AC-UTIL-006.2 — CompactByteString (compactación a ByteString1C) y factorías compactas
@@ -529,6 +531,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-12.
 
+
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** Q-UTIL-12 (c): `is_compact` es siempre `true` y `compact` copia a un tamaño exacto; `CompactByteString` no tiene tipo aparte. Casos uc-0468..uc-0470 y uc-0478. A2 no aplica.
 
 ---
 
@@ -572,6 +576,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-12.
 
+
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** Medido: `putLongPart(x, n, order)` con n > 8 desplaza módulo 64 (n=9 BE de 0x0102030405060708 escribe `08 01..08`); con n < 0 el builder queda corrupto (`result()` falla con `AssertionError: empty ByteStrings length must be 0, was -1`), que Rust no reproduce (escribe 0 bytes). Errores de `putBytes` fuera de rango: texto del arraycopy de la JVM, no reproducido. Rust: `ByteStringBuilder`; casos uc-0495..uc-0505.
 
 ---
 
@@ -620,6 +626,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-12.
 
 
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** El código está ahora en `scala-2.13/org/apache/pekko/util/ByteIterator.scala`: `getShort/getInt/getLong` del iterador de un array comprueban `len` y lanzan `NoSuchElementException("next on empty iterator")` SIN consumir (el multi-fragmento consume lo disponible; el contrato de 1.7.1 decía que siempre consumía), `getLongPart(n, LITTLE_ENDIAN)` desplaza un Int (módulo 32, extensión de signo), `indexOf` agota el iterador, `asInputStream.skip(-2)` devuelve -2, y `++` entre iteradores de arrays distintos pierde el lado izquierdo (IT-CAT, Q-UTIL-24 propuesta; no implementado). Rust: `ByteIterator`; casos uc-0506..uc-0528; fila `partial`.
+
 ---
 
 ## AC-UTIL-006.5 — Adaptadores java.io: ByteString.asInputStream, ByteIterator.asInputStream y ByteStringBuilder.asOutputStream
@@ -654,6 +662,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-12.
 
+
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** `ByteString.asInputStream` sobre un ByteString1C/ByteString1 es `UnsynchronizedByteArrayInputStream` y sobre un rope `SequenceInputStream` (entrega por fragmento); con `Bytes` hay un fragmento. Rust: `ByteString::as_input_stream`, `ByteIterator::into_input_stream`, `ByteStringBuilder: io::Write`; casos uc-0529..uc-0536, IT-17 y BU-08.
 
 ---
 
@@ -701,6 +711,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-12 (representación y dependencias `bytes`/`base64`/`encoding_rs`).
 
 
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** Nuevo en 2.0.0: `decodeString(charset, from, until)` (rango saturado; BS-20). Medido: el reemplazo U+FFFD de la JVM trata un sustituto codificado `ED A0..BF xx` como una sola unidad (BS-19, BS-31); `decodeBase64` acepta falta de relleno y falla con `Illegal base64 character <byte con signo en hexadecimal>`, `Input byte array has wrong 4-byte ending unit`, `... incorrect ending byte at <i>`, `Last unit does not have enough valid bits` o `Input byte[] should at least have 2 bytes for base64 bytes` (BS-22, BS-32); los alias de charset (`latin1`, `utf8`, `ascii`, ...) se resuelven como en `Charset.forName` (BS-33). Q-UTIL-22 propuesta: charsets fuera de UTF-8/US-ASCII/ISO-8859-1 y dependencias. Casos uc-0469..uc-0479, uc-0484..uc-0486; fila `partial`.
+
 ---
 
 ## AC-UTIL-006.7 — ByteString: búsqueda (indexOf, lastIndexOf, contains, indexOfSlice, containsSlice, startsWith)
@@ -742,6 +754,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-12.
 
 
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** 2.0.0 añade `lastIndexOf(elem[, end])`, `lastIndexOfSlice`, `endsWith(Array)` e `indexOfSlice/startsWith` con `Array[Byte]` (`@since 2.0.0`), y busca con `SWARUtil` (AC-UTIL-028); `matchesAt`/`compareBytesTo` son `private[pekko]`. Casos uc-0480..uc-0483 y BS-R*; los resultados son los del contrato.
+
 ---
 
 ## AC-UTIL-006.8 — ByteString: serialización Java (SerializationProxy, identidades 0/1/2)
@@ -776,6 +790,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-X-3 (mensajes dinámicos), Q-CFG-11 (serialización) y el módulo AC-SER; Q-UTIL-12.
 
+
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** 2.0.0 añade la identidad 3 (`ByteString2`) a 0/1/2 (`ByteString.scala:1071`, `SerializationProxy` :2146-2170, `Companion` :2164-2175 con `Invalid serialization id <n>`). Sin equivalente grabable; Q-UTIL-26 propuesta; fila `partial` hasta AC-SER.
 
 ---
 
@@ -1294,6 +1310,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 **Actualización P76 (2026-11-18, Pekko 2.0.0).** `EmptyImmutableSeq.iterator` es ahora `Iterator.empty` (`next on empty iterator` lo produce la biblioteca de Scala, no Pekko) y `apply(idx)` sigue lanzando `IndexOutOfBoundsException(idx.toString)`; `PartialImmutableValuesIterable` sigue igual (`NoSuchElementException("next")`); nuevo `Collections.IterableOps.collectToImmutableSeq` (`java.lang.Iterable` + función parcial -> `Seq`, equivalente `filter_map`; sin consumidores en main). Cierre pendiente de Q-UTIL-20 y de P04 (ByteIterator).
+
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** El mensaje `next on empty iterator` que `ByteIterator` hereda de `Collections.EmptyImmutableSeq.iterator` (el `Iterator.empty` de Scala) queda medido y comparado: IT-01 (uc-0506), IT-09 (uc-0514), IT-11 (uc-0516), IT-R* (uc-0523..uc-0528). Rust lo da con `ByteIterator::next_byte`/`get_*` (`ByteStringError::NoSuchElement`). La fila sigue `partial` hasta que el Owner responda Q-UTIL-20.
 
 ---
 
@@ -2310,6 +2328,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11, Q-UTIL-12.
 
+
+**Actualización P04 (2026-11-18, Pekko 2.0.0).** `UnsynchronizedByteArrayInputStream.skip(n)` ya no avanza el `n` completo: avanza `min(n, restante)` y devuelve ese número (`skip(2^40)` no lanza `ArithmeticException`; ST-03), `available` nunca es negativo, y el constructor con rango usa aritmética long; nuevos `readAllBytes`, `readNBytes`, `skipNBytes` (EOFException) y `transferTo` (ST-06). Texto de `read` con rango inválido: `Range [off, off + len) out of bounds for length n`. `ByteBufferCleaner` es privada del paquete y no se mide; Q-UTIL-25 propuesta; fila `partial`. Casos uc-0530..uc-0536.
 
 ---
 

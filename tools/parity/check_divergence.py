@@ -502,6 +502,25 @@ MUTANTS = {
         "an overflowing IPv4 octet in an IPv6 host no longer escapes as NumberFormatException (the JDK 17 behaviour Pekko 2.0.0 shows)",
     ),
 
+    # --- slice P04: ByteString, ByteStringBuilder, ByteIterator and the java.io adapters ---
+    "byte-string-take-right-saturates": (
+        "src/util/byte_string/mod.rs",
+        "self.slice(length.wrapping_sub(n), length)",
+        "self.slice(length.saturating_sub(n), length)",
+        "`take_right(Int.MinValue)` stops overflowing to the whole value (Scala computes `length - n` with Int wrap-around)",
+    ),
+    "utf8-surrogate-replaced-byte-by-byte": (
+        "src/util/byte_string/charset.rs",
+        "let consumed = if bytes[position] == 0xED",
+        "let consumed = if bytes[position] == 0xEE",
+        "an encoded surrogate (ED A0..BF xx) yields one U+FFFD per byte instead of one for the whole sequence, as the JVM decoder does",
+    ),
+    "long-part-little-endian-shifts-as-long": (
+        "src/util/byte_string/iterator.rs",
+        "value |= i64::from((byte as i32).wrapping_shl(i.wrapping_mul(8) as u32)) as u64;",
+        "value |= u64::from(byte).wrapping_shl(i.wrapping_mul(8) as u32);",
+        "`getLongPart(n, LITTLE_ENDIAN)` shifts a Long instead of Pekko's Int (shift modulo 32 and sign extension past 4 bytes)",
+    ),
 }
 
 

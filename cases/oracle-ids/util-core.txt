@@ -469,3 +469,89 @@ BQ-C6 poll with a timeout returns null on an empty queue and the element when on
 BQ-C7 iterator remove drops the element it returned, by identity
 BQ-C8 the iterator is a snapshot
 RG-01 ReentrantGuard is absent from the 2.0.0 jar
+BS-01 take drop dropRight on a compact value with extreme arguments
+BS-02 chained trimming on a compact value
+BS-03 trimming on a slice of an array (ByteString1)
+BS-04 trimming on a concatenation (ByteStrings)
+BS-05 slice patterns on every shape of value
+BS-06 concatenation: empty sides, lengths and contents
+BS-07 splitAt and the identity of the reassembled value
+BS-08 element access on a slice and on a concatenation
+BS-09 tail and init of a single byte and of the empty value
+BS-10 grouped
+BS-11 toString and its cut at 100 bytes
+BS-12 equality across representations
+BS-13 mapI, fold and toArray
+BS-14 span, takeWhile and dropWhile with a signed predicate
+BS-15 compact keeps the content
+BS-16 fromArray saturates its offset and length
+BS-17 fromInts truncates
+BS-18 strings: UTF-8 and the named charsets
+BS-19 decoding invalid UTF-8
+BS-20 decodeString of a range
+BS-21 Base64 encode
+BS-22 Base64 decode
+BS-23 copyToArray
+BS-24 copyToBuffer
+BS-25 fromByteBuffer consumes the buffer
+BS-26 unsafe array and byte buffers
+BS-27 indexOf on every shape of value
+BS-28 lastIndexOf and contains
+BS-29 indexOfSlice and containsSlice
+BS-30 lastIndexOfSlice, startsWith and endsWith
+BS-31 UTF-8 decoding of random byte soups
+BS-32 Base64 decoding of random text soups
+BS-33 charset names and aliases
+BS-R1 random trimming and search against three values
+BS-R2 random trimming and search against three values
+BS-R3 random trimming and search against three values
+BS-R7 random trimming and search against three values
+BS-R11 random trimming and search against three values
+BS-R42 random trimming and search against three values
+BS-R99 random trimming and search against three values
+BS-R12345 random trimming and search against three values
+BU-01 primitives in both byte orders
+BU-02 putLongPart for every length
+BU-03 floats and doubles are written as raw bits
+BU-04 arrays of primitives
+BU-05 byte arrays and ranges
+BU-06 appending ByteStrings and collections
+BU-07 result does not invalidate the builder
+BU-08 the output stream adapter
+BU-R5 random writes
+BU-R17 random writes
+BU-R23 random writes
+IT-01 next, head, hasNext and the exhausted iterator
+IT-02 size consumes the iterator
+IT-03 take, drop and slice mutate the iterator
+IT-04 the same on a view and on a concatenation
+IT-05 clone is independent and duplicate yields two iterators
+IT-06 reading primitives in both byte orders
+IT-07 getLongPart
+IT-08 floats and doubles
+IT-09 a short iterator consumes what it has and then fails
+IT-10 getBytes, getByteString and arrays of primitives
+IT-11 copyToArray never loops past the destination
+IT-12 copyToBuffer
+IT-13 toByteString consumes the iterator
+IT-14 indexOf consumes the iterator
+IT-15 takeWhile, dropWhile and span
+IT-17 asInputStream
+IT-18 reading after take and drop
+IT-R4 random reads
+IT-R8 random reads
+IT-R15 random reads
+IT-R16 random reads
+IT-R23 random reads
+IT-R42 random reads
+ST-01 ByteString.asInputStream: compact, slice and concatenation
+ST-02 UnsynchronizedByteArrayInputStream reads
+ST-03 UnsynchronizedByteArrayInputStream skip
+ST-04 UnsynchronizedByteArrayInputStream with offset and length
+ST-05 readAll on both adapters and reset without a mark
+ST-R6 random reads
+ST-R9 random reads
+ST-06 readNBytes, skipNBytes and transferTo
+BS-APPLY-1C apply out of range on a compact value
+IT-CAT ++ of iterators over different arrays
+BS-HEAD-EMPTY head of the empty ByteString
