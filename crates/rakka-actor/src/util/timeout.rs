@@ -95,7 +95,8 @@ fn java_duration_to_string(seconds: u64, nanos: u32) -> String {
     }
     text += &seconds_of_minute.to_string();
     if nanos > 0 {
-        text += &format!(".{nanos:09}").trim_end_matches('0').to_owned();
+        let fraction = format!(".{nanos:09}");
+        text += fraction.trim_end_matches('0');
     }
     text + "S"
 }
