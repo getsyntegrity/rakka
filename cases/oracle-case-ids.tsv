@@ -544,3 +544,25 @@ uc-0144	util-core	PV-11 equal strings are never checked
 uc-0145	util-core	PV-12 public require against the current version
 uc-0146	util-core	PV-13 the exception
 uc-0147	util-core	PV-14 many required versions against 2.0.0
+uc-0148	util-core	VR-01 three digits (spec)
+uc-0149	util-core	VR-02 more than three digits
+uc-0150	util-core	VR-03 two digits (spec)
+uc-0151	util-core	VR-04 one digit (spec)
+uc-0152	util-core	VR-05 qualifier (spec)
+uc-0153	util-core	VR-06 non digits (spec)
+uc-0154	util-core	VR-07 dynver (spec)
+uc-0155	util-core	VR-08 no digits (spec)
+uc-0156	util-core	VR-09 qualifier matrix (raw compareTo, row vs column)
+uc-0157	util-core	VR-10 antisymmetry of the matrix
+uc-0158	util-core	VR-11 qualifier on one side only
+uc-0159	util-core	VR-12 qualifier text order (raw String.compareTo)
+uc-0160	util-core	VR-13 equals and hashCode
+uc-0161	util-core	VR-14 hashCode agrees with equals
+uc-0162	util-core	VR-15 malformed strings
+uc-0163	util-core	VR-16 numbers out of int range
+uc-0164	util-core	VR-17 negative and wrapping numbers
+uc-0165	util-core	VR-18 digits outside ASCII
+uc-0166	util-core	VR-19 equal strings short-circuit
+uc-0167	util-core	VR-20 version field and Zero
+uc-0168	util-core	VR-22 parse exceptions
+uc-0169	util-core	VR-23 sorting

@@ -8,7 +8,9 @@ pub mod helpers;
 pub mod swar;
 mod time_unit;
 mod timeout;
+mod version;
 
 pub use glob::glob_matches;
 pub use time_unit::TimeUnit;
 pub use timeout::Timeout;
+pub use version::{Version, VersionError};

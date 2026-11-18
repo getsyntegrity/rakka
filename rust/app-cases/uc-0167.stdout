@@ -1,0 +1,1 @@
+VR-20 version field and Zero -> ok [1.2]=[1.2] [1.2.0-M1]=[1.2.0-M1] [foo]=[foo] [2020-09-07]=[2020-09-07] [1.0.10+3-abc]=[1.0.10+3-abc] zero=[0.0.0] 1.2>zero=1 zero>foo=1 0=zero:0

@@ -271,5 +271,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P66 (2026-11-18): UTIL-PEKKOVERSION (AC-UTIL-005.1)
     PekkoVersionOracle.register();
+
+    // ---- Slice P67 (2026-11-18): UTIL-VERSION (AC-UTIL-005.2)
+    VersionOracle.register();
   }
 }

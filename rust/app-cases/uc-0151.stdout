@@ -1,0 +1,1 @@
+VR-04 one digit (spec) -> ok [1]/[1.0]=0 eq=true [1.0]/[1]=0 eq=true [1]/[1.0.0]=0 eq=true [1.0.0]/[1]=0 eq=true [1.0]/[1.0.0]=0 eq=true [3]/[2]=1 eq=false [2b]/[2a]=1 eq=false [2a]/[2b]=-1 eq=false [2020-09-07]/[2020-08-30]=1 eq=false [2020-08-30]/[2020-09-07]=-1 eq=false [2]/[2]=0 eq=true [10]/[9]=1 eq=false [99999999999]/[99999999998]=1 eq=false [99999999999]/[1]=-1 eq=false
