@@ -195,5 +195,15 @@ final class UtilCoreOracle {
     // PENDING-Q-UTIL-3: a null message.
     run("EX-NULL PekkoException(null)", () -> exc(new PekkoException(null)));
     
+
+    // ---- Slice P02 (2026-11-18): gaps found when comparing the rows with the recorded cases
+    run("TO-06N eq Timeout(-1000 ms) Timeout(-1 s)", () -> {
+      Timeout a = Timeout.apply(-1000L, TimeUnit.MILLISECONDS), b = Timeout.apply(-1L, TimeUnit.SECONDS);
+      return "eq=" + a.equals(b) + " hashEq=" + (a.hashCode() == b.hashCode());
+    });
+    for (String s2 : new String[] {"\u1C90", "\uA7C0"}) run("LC " + esc(s2), () -> "[" + esc(H.toRootLowerCase(s2)) + "]");
+    run("EX-TS-01 PekkoException(boom).toString", () -> "str=[" + new PekkoException("boom") + "]");
+    run("EX-TS-02 ConfigurationException(bad, cause).toString", () -> "str=[" + new ConfigurationException("bad", new IllegalStateException("why")) + "]");
+    run("EX-TS-03 PekkoException(empty).toString", () -> "str=[" + new PekkoException("") + "]");
   }
 }

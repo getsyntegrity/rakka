@@ -127,3 +127,10 @@ fn requiring_with_checks_the_predicate_on_the_value() {
         "abc"
     );
 }
+
+/// Pekko 2.0.0 on JDK 17 (Unicode 13) lower-cases U+1C90 (Georgian Mtavruli) to U+10D0, as Rust does (oracle `LC U+1C90`,
+/// case uc-0083). Characters added after Unicode 13 (Q-UTIL-7) are the accepted divergence: `LC U+A7C0` is not produced.
+#[test]
+fn georgian_mtavruli_is_lower_cased_like_jdk_17() {
+    assert_eq!(to_root_lower_case("\u{1C90}"), "\u{10D0}");
+}

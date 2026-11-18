@@ -1045,3 +1045,5 @@ r02-max-one-second-stops	scenario-3b5	-	none
 r03-resume-not-counted	scenario-3b5	-	none
 r04-max-two-third-stops	scenario-3b5	-	none
 r05-unlimited-both-restart	scenario-3b5	-	none
+uc-0082	oracle-util-core	AC-UTIL-001	cited
+uc-0083	oracle-util-core	AC-UTIL-002.2	cited

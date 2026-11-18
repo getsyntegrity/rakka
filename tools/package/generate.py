@@ -431,6 +431,8 @@ def _progress_md():
         rs = [r for r in inv if r["id"].startswith(kind + "-" + a + "-")]
         out.append(line(f"{kind}-{a}", rs, f" {'sí' if a in compared and kind == 'AC' else 'no'} |"))
     out.append("")
+    excluded = [r["id"] for r in inv if "EXCLUIDA (autorizada" in r["notes"]]
+    out += ["## Filas excluidas por el Owner", "", f"{len(excluded)} fila(s) con exclusión autorizada (cuentan como `done`; la nota de la fila cita la decisión): " + (", ".join(excluded) or "ninguna"), ""]
     nf = [r for r in inv if r["id"] in flagged]
     n, d, p, q = tally(nf)
     out += ["## Filas con nota «revisar contra 2.0.0»", "",

@@ -79,3 +79,5 @@
 {"name": "uc-0079", "args": ["util-core-case"], "stdin": "EX-04 ConfigurationException(bad)"}
 {"name": "uc-0080", "args": ["util-core-case"], "stdin": "EX-05 ConfigurationException(bad, cause)"}
 {"name": "uc-0081", "args": ["util-core-case"], "stdin": "EX-06 PekkoException(msg, null)"}
+{"name": "uc-0082", "args": ["util-core-case"], "stdin": "TO-06N eq Timeout(-1000 ms) Timeout(-1 s)"}
+{"name": "uc-0083", "args": ["util-core-case"], "stdin": "LC \\u1C90"}
