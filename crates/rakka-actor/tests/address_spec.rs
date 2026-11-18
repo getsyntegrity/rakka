@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 1.7.1 actor-tests/src/test/scala/org/apache/pekko/actor/AddressSpec.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor-tests/src/test/scala/org/apache/pekko/actor/AddressSpec.scala (Apache-2.0).
 
 use rakka_actor::actor::Address;
 

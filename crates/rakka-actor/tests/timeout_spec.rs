@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 1.7.1 actor/src/main/scala/org/apache/pekko/util/Timeout.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/Timeout.scala (Apache-2.0).
 //! `Timeout` (AC-UTIL-001), plan docs/superpowers/plans/2026-10-30-ac-util-core.md.
 //!
 //! Domain (Owner decision on Q-UTIL-1): negative, zero and positive durations within

@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 1.7.1 actor/src/main/scala/org/apache/pekko/PekkoException.scala and actor-tests PekkoExceptionSpec.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/PekkoException.scala and actor-tests PekkoExceptionSpec.scala (Apache-2.0).
 //! `PekkoException` and `ConfigurationException` (AC-UTIL-004), plan
 //! docs/superpowers/plans/2026-10-30-ac-util-core.md.
 

@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 1.7.1 actor/src/main/scala/org/apache/pekko/util/Helpers.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/Helpers.scala (Apache-2.0).
 //! `util::helpers` (AC-UTIL-002), plan docs/superpowers/plans/2026-10-30-ac-util-core.md.
 
 use rakka_actor::util::helpers::{Requiring, base64, base64_append, to_root_lower_case};

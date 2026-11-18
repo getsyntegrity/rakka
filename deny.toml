@@ -1,0 +1,7 @@
+# Licence policy for dependencies (cargo deny check licenses). Decision Q-X-18 / docs/legal/provenance-audit.md.
+[graph]
+all-features = true
+
+[licenses]
+allow = ["Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib"]
+confidence-threshold = 0.9

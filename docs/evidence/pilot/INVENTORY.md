@@ -25,9 +25,9 @@ What is ported: `ActorPath.fromString` → `ActorPathExtractor` → `AddressFrom
 
 Findings worth keeping:
 - `fromString` does **not** call `validatePathElement`: `$a`, `a%20b`, `..`, non-ASCII and empty-name-with-uid (`/user/#5`) are all accepted.
-- Everything hinges on `java.net.URI(String)` (RFC 2396 + JDK deviations), so the JDK 17.0.21 parser is ported as-is (`pekko-actor/src/identity/jdk_uri.rs`). Unicode classes (`Character.digit/isSpaceChar/isISOControl`) are generated from the JDK (`pekko-actor/tools/GenTables.java`).
+- Everything hinges on `java.net.URI(String)` (RFC 2396 + JDK deviations), so the observable behaviour of the JDK 17 URI parser is what the recorded cases fix (the pilot's own parser was replaced; see `docs/legal/provenance-audit.md`). Unicode classes (`Character.digit/isSpaceChar/isISOControl`) are generated from the JDK (`pekko-actor/tools/GenTables.java`).
 - `NumberFormatException` is observable in two places: a bad `#uid` (`For input string: "x"`) and an out-of-int-range octet in an IPv6-embedded IPv4 literal (`Error at index 9 in: "99999999999"`) — the latter escapes `fromString` because Pekko only catches `URISyntaxException`.
-- A user info like `%ED%A0%80` decodes to **one** U+FFFD in the JDK (three with Rust's `from_utf8_lossy`); the JDK's malformed-length rules are ported in `decode_utf8_jdk`.
+- A user info like `%ED%A0%80` decodes to **one** U+FFFD in the JDK (three with Rust's `from_utf8_lossy`); the JDK's malformed-sequence replacement counts are what the recorded `UTF-*` cases fix.
 - Strings are `Vec<u16>` (Java `String` semantics: lone surrogates, UTF-16 positions).
 
 Out-of-scope dependencies hit by this slice: **none** for `fromString` itself. Pending parts of the same classes that touch
