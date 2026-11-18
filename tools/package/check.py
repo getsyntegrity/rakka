@@ -63,7 +63,7 @@ def nlines(p):
 bad = 0
 abbreviated = 0
 for src in glob.glob("docs/inventory/contracts/*.md") + ["docs/inventory/actor-classic.tsv", "docs/inventory/actor-typed.tsv"]:
-    for m in re.finditer(r'(?<![A-Za-z0-9_\-./])((?:actor|actor-tests|testkit|actor-typed|actor-typed-tests|actor-testkit-typed)/[A-Za-z0-9_\-./]+\.(?:scala|java|conf)):(\d+)(?:-(\d+))?', open(src, encoding="utf-8").read()):
+    for m in re.finditer(r'(?<![A-Za-z0-9_\-./])((?:actor|actor-tests|testkit|actor-typed|actor-typed-tests|actor-testkit-typed)/[A-Za-z0-9_\-./]+\.(?:scala|java|conf)):(\d+)(?:-(\d+))?(?!\d|-\d)(?!(?:,\d+(?:-\d+)?)* \(1\.7\.1\))', open(src, encoding="utf-8").read()):
         if "/..." in m.group(1) or "..." in m.group(1): abbreviated += 1; continue
         n = nlines("upstream/pekko/" + m.group(1))
         if n is None:   # short form relative to org/apache/pekko/ in one of the module trees

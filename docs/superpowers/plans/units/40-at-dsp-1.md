@@ -38,7 +38,7 @@ Filas: AT-DSP-001, AT-DSP-002, AT-DSP-003, AT-DSP-004, AT-DSP-005. Contratos y a
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AT-DSP-001 | Props tipado (empty, encadenado, firstOrElse, allOf) | struct Props{selectors: Vec<Selector>} con builder; first_of::<T>() y all_of::<T>(). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/PropsSpec.scala:20-31 | Q-T-DSP-1 |
+| AT-DSP-001 | Props tipado (empty, encadenado, firstOrElse, allOf) | struct Props{selectors: Vec<Selector>} con builder; first_of::<T>() y all_of::<T>(). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/PropsSpec.scala:21-32 | Q-T-DSP-1 |
 | AT-DSP-002 | DispatcherSelector: default, blocking, fromConfig, sameAsParent | DispatcherSelector::{default,blocking,from_config(path),same_as_parent}; mapeo a pools… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/DispatcherSelector… | Q-T-DSP-2, Q-X-4 |
 | AT-DSP-003 | MailboxSelector: default (SingleConsumerOnlyUnboundedMailbox),… | MailboxSelector::{Default, Bounded(n), FromConfig(path)}. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/MailboxSelectorSpec.scala:3… | Q-T-DSP-3 |
 | AT-DSP-004 | ActorTags | `ActorTags(Vec<String>)` como variante de `Props` con `ActorTags::new(impl… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.s… | Q-T-DSP-1, Q-T-LOG-1 |

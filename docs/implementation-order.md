@@ -18,7 +18,7 @@ En Pekko, un actor tipado corre dentro de una celda clásica (`ActorAdapter`, `A
 
 ## Decisiones bloqueantes
 
-El registro único está en `docs/decisions.md` (211 decisiones: 8 bloqueantes, 202 propuestas, 0 aceptadas, 0 aceptadas con cambios, 1 rechazadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
+El registro único está en `docs/decisions.md` (216 decisiones: 8 bloqueantes, 202 propuestas, 5 aceptadas, 0 aceptadas con cambios, 1 rechazadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
 
 ## Orden de las specs
 

@@ -63,7 +63,7 @@ Filas: AT-SYS-010, AT-SYS-011, AT-SYS-012. Contratos y aserciones: `docs/invento
 | AT-SYS-003 | Arranque del guardian (GuardianStartupBehavior) | En Rust el sistema puede construirse completo antes de arrancar el guardian, haciendo… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/GuardianSt… | Q-T-SYS-3 |
 | AT-SYS-004 | Parada del guardian termina el sistema (GuardianStopInterceptor) | Interceptor interno sobre el guardian que dispara terminate. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.sc… | - |
 | AT-SYS-005 | terminate / whenTerminated / getWhenTerminated / close | system.terminate(); system.when_terminated() -> impl Future<Output=()>; Drop o close()… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.sc… | Q-T-SYS-4 |
-| AT-SYS-006 | Settings tipados y restart-stash-capacity | struct TypedSettings { restart_stash_capacity: usize, .. } desde la config. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:882-9… | Q-T-SYS-2 |
+| AT-SYS-006 | Settings tipados y restart-stash-capacity | struct TypedSettings { restart_stash_capacity: usize, .. } desde la config. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:888-9… | Q-T-SYS-2 |
 | AT-SYS-007.1 | ActorSystem.name y address | system.name() -> &str; system.address() -> Address. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.sc… | - |
 | AT-SYS-007.2 | ActorSystem.startTime y uptime | system.start_time() (ms desde epoch) y system.uptime() (segundos enteros) con reloj… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.sc… | Q-T-TMR-4 |
 | AT-SYS-007.3 | ActorSystem.log, logConfiguration y printTree | system.log() (target tracing sin span de actor), system.log_configuration() (INFO con… | No hay spec que afirme el comportamiento. Usos de diagnostico:… | Q-T-SYS-1, Q-T-SYS-2 |
@@ -72,7 +72,7 @@ Filas: AT-SYS-010, AT-SYS-011, AT-SYS-012. Contratos y aserciones: `docs/invento
 | AT-SYS-009 | Scheduler tipado (scheduleOnce, scheduleWithFixedDelay, scheduleAtFixedRate) | Trait Scheduler sobre el timer del runtime. | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SchedulerSpec.scala:19-27… | Q-T-TMR-4 |
 | AT-SYS-010 | deadLetters | system.dead_letters::<M>(). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec… | Q-X-6 |
 | AT-SYS-011 | ActorSystemAdapter / AdapterExtension (sistema tipado sobre el clasico) | En Rust: decidir si existe un runtime clasico debajo (porte en capas) o un runtime… | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpe… | Q-X-8 |
-| AT-SYS-012 | Settings.toString redacta valores sensibles | impl Display para Settings que aplica una funcion redact(config). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:27-46 | Q-T-SYS-2, Q-X-1 |
+| AT-SYS-012 | Settings.toString redacta valores sensibles | impl Display para Settings que aplica una funcion redact(config). | actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:29-48 | Q-T-SYS-2, Q-X-1 |
 
 ## Gates y criterio de cierre
 

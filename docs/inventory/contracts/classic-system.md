@@ -11,14 +11,14 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] El nombre debe cumplir ^[a-zA-Z0-9][a-zA-Z0-9-_]*$ (match completo); si no, IllegalArgumentException con mensaje fijo. Crear un sistema con un nombre inválido falla antes de arrancar nada. Nombres válidos: ASCII alfanumérico inicial, luego alfanuméricos, '-' o '_'. Los nombres inválidos del test incluyen prefijo '-' o '_', espacio, '*', '@', '#', '$', '%', '/'.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:840-843 (validación en el cuerpo de ActorSystemImpl)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:837-840 (validación en el cuerpo de ActorSystemImpl)
 - Scaladoc/doc pública: n/a (el patrón aparece sólo en el código y en el spec)
 - reference.conf: n/a
 
 **Condiciones.**
-- Normal: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' es válido (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:160-162).
-- Error: IllegalArgumentException con mensaje exacto `invalid ActorSystem name [<name>], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-' or '_')` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:840-843; el spec sólo verifica el tipo, el texto es derivado del código).
-- Límite: cadena vacía no matchea (primer carácter obligatorio); el spec actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:152-158 lo cubre por propiedad (cualquier String que no matchee el regex).
+- Normal: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' es válido (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:163-165).
+- Error: IllegalArgumentException con mensaje exacto `invalid ActorSystem name [<name>], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-' or '_')` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:837-840; el spec sólo verifica el tipo, el texto es derivado del código).
+- Límite: cadena vacía no matchea (primer carácter obligatorio); el spec actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:155-161 lo cubre por propiedad (cualquier String que no matchee el regex).
 
 **Orden / concurrencia / ciclo de vida.** Se valida en el constructor de ActorSystemImpl, antes de crear settings/proveedor/hilos; no hay efectos secundarios si falla.
 
@@ -29,10 +29,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: tipo `ActorSystemName` validado en construcción. Diferencia observable: el error es `Err`, no excepción (Q-X-5); el regex se aplica sobre Unicode como ASCII estricto (igual que Java: `[a-zA-Z0-9]` no admite letras no ASCII).
 
 **Aserciones.**
-- A1: los nombres '-hallowelt', '_hallowelt', 'hallo welt', 'hallo*welt', 'hallo@welt', 'hallo#welt', 'hallo$welt', 'hallo%welt', 'hallo/welt' lanzan IllegalArgumentException — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:135-150.
-- A2: todo String que no matchee `^[a-zA-Z0-9][a-zA-Z0-9-_]*$` lanza IllegalArgumentException (propiedad) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:152-158.
-- A3: el nombre con los 64 caracteres válidos (a-z, A-Z, 0-9, '-', '_') se acepta — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:160-162.
-- A4: el mensaje de error es el literal de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:840-843 — derivada del código, *no afirmada por spec*.
+- A1: los nombres '-hallowelt', '_hallowelt', 'hallo welt', 'hallo*welt', 'hallo@welt', 'hallo#welt', 'hallo$welt', 'hallo%welt', 'hallo/welt' lanzan IllegalArgumentException — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:138-153.
+- A2: todo String que no matchee `^[a-zA-Z0-9][a-zA-Z0-9-_]*$` lanza IllegalArgumentException (propiedad) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:155-161.
+- A3: el nombre con los 64 caracteres válidos (a-z, A-Z, 0-9, '-', '_') se acepta — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:163-165.
+- A4: el mensaje de error es el literal de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:837-840 — derivada del código, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial pekko-actor 1.7.1: escenario propuesto `tools/oracle/sys-name-validation.jsh` (no existe) que llama `ActorSystem.create(n)` y vuelca excepción+mensaje para una tabla de nombres; procedencia: jars oficiales.
 
@@ -45,12 +45,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] Todas las sobrecargas de `ActorSystem.apply`/`create` convergen en un único punto, `apply(name, setup: ActorSystemSetup)`, que resuelve classLoader, config y executor por defecto desde el `BootstrapSetup` contenido en el setup y construye `new ActorSystemImpl(name, appConfig, cl, defaultEC, None, setup).start()`. `ActorSystem()`/`create()` usan el nombre `"default"`. Un argumento `null` (Java) o `None` (Scala) de config, classLoader o executor significa "usar el valor por defecto": config = `ConfigFactory.load(cl)`, classLoader = `findClassLoader()`, executor = `pekko.actor.default-dispatcher.default-executor.fallback`. El sistema devuelto ya está arrancado (secuencia de AC-SYS-002).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:193-328 (todas las sobrecargas `create`/`apply`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:263 (`apply()` = `apply("default")`), 272 (`apply(name)`), 278-285 (cuerpo común), 291-292 (`apply(name, BootstrapSetup)` = `create(name, ActorSystemSetup.create(..))`), 323-328 (`apply(name, Option..)` empaqueta en `BootstrapSetup`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:49-180 (`BootstrapSetup`, `ProviderSelection`: ver AC-SYS-018 y AC-CFG-015)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:849-856 (fusión de config dentro de `ActorSystemImpl`: `applicationConfig.withFallback(ConfigFactory.defaultReference(classLoader))` más `amendSlf4jConfig`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:192-327 (todas las sobrecargas `create`/`apply`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:262 (`apply()` = `apply("default")`), 272 (`apply(name)`), 278-285 (cuerpo común), 291-292 (`apply(name, BootstrapSetup)` = `create(name, ActorSystemSetup.create(..))`), 323-328 (`apply(name, Option..)` empaqueta en `BootstrapSetup`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:48-179 (`BootstrapSetup`, `ProviderSelection`: ver AC-SYS-018 y AC-CFG-015)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:846-860 (fusión de config dentro de `ActorSystemImpl`: `applicationConfig.withFallback(ConfigFactory.defaultReference(classLoader))` más `amendSlf4jConfig`)
 - reference.conf: `pekko.actor.default-dispatcher.default-executor.fallback` (documentado en ActorSystem.scala:241-245)
-- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:250-261; actor-tests/src/test/scala-2.13+/org/apache/pekko/actor/ActorSystemScala213PlusSpec.scala:29-35; actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53-98,121-150
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:253-264; actor-tests/src/test/scala-2.13+/org/apache/pekko/actor/ActorSystemScala213PlusSpec.scala:29-35; actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53-98,121-150
 
 **Precondiciones.** `name` cumple AC-SYS-001.1 (se valida en el constructor de `ActorSystemImpl`, no en `apply`). La config proporcionada debe superar `checkValid` contra la referencia (ActorSystem.scala:395-400, ver AC-CFG).
 
@@ -78,7 +78,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - `build()` devuelve `Err` en vez de lanzar (Q-X-5).
 
 **Aserciones.**
-- A1: `ActorSystem()` crea un sistema cuyo `whenTerminated` no está completo hasta `terminate()`, y tras terminar entrega `Terminated(rootGuardian)` con ambos flags `true` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:250-261 (usa el nombre por defecto sin afirmarlo).
+- A1: `ActorSystem()` crea un sistema cuyo `whenTerminated` no está completo hasta `terminate()`, y tras terminar entrega `Terminated(rootGuardian)` con ambos flags `true` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:253-264 (usa el nombre por defecto sin afirmarlo).
 - A2: `Using(ActorSystem()) { .. }` deja el sistema terminado al salir (AutoCloseable.close) — actor-tests/src/test/scala-2.13+/org/apache/pekko/actor/ActorSystemScala213PlusSpec.scala:29-35.
 - A3: con `defaultExecutionContext = Some(ec)` el executor recibe las ejecuciones del dispatcher por defecto (el probe observa `"called"` y el actor responde `"pong"`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53-75.
 - A4: si el default-dispatcher tiene `executor` configurado explícitamente (`fork-join-executor`) el executor pasado no se usa (`ecProbe.expectNoMessage()`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:77-98.
@@ -97,12 +97,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual interno] Orden fijo dentro de `_start` (lazy, ejecutada una sola vez): `registerOnTermination(stopScheduler())` → `provider.init(this)` → `_initialized = true` → si `log-dead-letters > 0`, `systemActorOf(DeadLetterListener, "deadLetterListener")` → `eventStream.startUnsubscriber()` → `ManifestInfo.checkSameVersion("Apache Pekko", allModules, logWarning = true)` → `loadExtensions()` si no `terminating` → `logConfiguration()` si `log-config-on-start`. Ante `NonFatal(e)`: `terminate()` (o `stopScheduler` si `terminate` falla) y se relanza `e`. Al volver, el sistema tiene guardianes, loggers por defecto, listener de dead letters (si procede), unsubscriber del EventStream y extensiones cargadas.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1047-1083 (`_initialized`, `assertInitialized`, `_start`, `start()`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1167-1260 (registro de extensiones y `loadExtensions`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:613-620 (`LocalActorRefProvider.init`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:950-955 (stdout logger previo a `start`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1078-1114 (`_initialized`, `assertInitialized`, `_start`, `start()`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1198-1291 (registro de extensiones y `loadExtensions`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:620-627 (`LocalActorRefProvider.init`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:981-986 (stdout logger previo a `start`)
 - reference.conf: `pekko.log-config-on-start`, `pekko.log-dead-letters`, `pekko.library-extensions`, `pekko.extensions`
-- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:99-120,153-172
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:100-121,154-173
 
 **Precondiciones.** Objeto `ActorSystemImpl` completamente construido (eventStream, scheduler, provider, dispatchers y mailboxes ya creados: ActorSystem.scala:952-1000). Hasta `provider.init` el único logger activo es el stdout de arranque (ActorSystem.scala:953-954).
 
@@ -130,10 +130,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - Los nombres de actores de sistema (`log1-DefaultLogger`, `deadLetterListener`, `eventStreamUnsubscriber-N`) se conservan si se mantiene la jerarquía `/system`.
 
 **Aserciones.**
-- A1: una extensión listada en `pekko.extensions` que falla al crearse hace fallar `ActorSystem(..)` con `RuntimeException` — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:99-109.
-- A2: una extensión listada en `pekko.extensions` que no existe NO impide el arranque y se loguea `error("While trying to load extension [org.apache.pekko.actor.MissingExtension], skipping.")` — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:111-120.
-- A3: una `library-extension` que falla al crearse hace fallar el arranque propagando la excepción original (`FailingTestExtension.TestException`) — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:153-162.
-- A4: una `library-extension` inexistente hace fallar el arranque con `RuntimeException` — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:164-172.
+- A1: una extensión listada en `pekko.extensions` que falla al crearse hace fallar `ActorSystem(..)` con `RuntimeException` — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:100-110.
+- A2: una extensión listada en `pekko.extensions` que no existe NO impide el arranque y se loguea `error("While trying to load extension [org.apache.pekko.actor.MissingExtension], skipping.")` — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:112-121.
+- A3: una `library-extension` que falla al crearse hace fallar el arranque propagando la excepción original (`FailingTestExtension.TestException`) — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:154-163.
+- A4: una `library-extension` inexistente hace fallar el arranque con `RuntimeException` — actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:165-173.
 - A5: el `deadLetterListener` se crea bajo `/system` sólo si `log-dead-letters > 0` — derivada de ActorSystem.scala:1068-1069, *no afirmada por spec*. Caracterización propuesta: con `log-dead-letters = off` el hijo `deadLetterListener` no existe en `/system`; con `on` existe.
 - A6: la cadena de Watch /user → /system → / está establecida antes de cualquier actor de usuario — derivada de ActorRefProvider.scala:617-618, *no afirmada por spec* (comportamiento observable indirecto: ActorSystemSpec.scala:328-334 afirma que fallar `/user` termina el sistema, ver AC-SYS-008).
 - A7: tras un fallo de arranque el sistema queda terminado y el error se propaga — derivada de ActorSystem.scala:1075-1081; indirectamente observada por A1/A3 (la excepción llega al llamador), *el estado terminado no está afirmado por spec*.
@@ -152,18 +152,18 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Los tres guardianes existen; un mensaje cualquiera enviado a ellos se publica como UnhandledMessage (log Warning 'unhandled message from Actor[<deadLetters path>]: <msg>'), no como DeadLetter. / (root), /user y /system son actores; rootGuardian es su propio padre; el padre de rootGuardian es el 'bubble walker'.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:315-326 (Guardian)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:538-552 (rootGuardian)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:558-584 (guardian /user)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:586-599 (systemGuardian /system)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:322-333 (Guardian)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:545-559 (rootGuardian)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:565-591 (guardian /user)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:593-606 (systemGuardian /system)
 - docs: n/a (el link a supervision.md del inventario original no se verificó)
 
 **Condiciones.**
-- Guardian: `Terminated(_) => context.stop(self)`; `StopChild(child) => context.stop(child)` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:319-322).
-- Los guardianes no pierden hijos en reinicio: `preRestart` vacío (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:325,373).
-- rootGuardian.getSingleChild: 'temp' -> tempContainer, 'deadLetters' -> deadLetters, otros -> extraNames o hijo real (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:546-551).
-- Con guardianProps (AC-SYS-009) /user usa esos Props y su dispatcher (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:562-577).
-- Error: root guardian usa estrategia que loguea 'guardian failed, shutting down system' y Stop (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:518-522).
+- Guardian: `Terminated(_) => context.stop(self)`; `StopChild(child) => context.stop(child)` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:326-329).
+- Los guardianes no pierden hijos en reinicio: `preRestart` vacío (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:332,380).
+- rootGuardian.getSingleChild: 'temp' -> tempContainer, 'deadLetters' -> deadLetters, otros -> extraNames o hijo real (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:553-558).
+- Con guardianProps (AC-SYS-009) /user usa esos Props y su dispatcher (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:569-584).
+- Error: root guardian usa estrategia que loguea 'guardian failed, shutting down system' y Stop (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:525-529).
 
 **Orden / concurrencia / ciclo de vida.** Primero root, luego /user (reserveChild + initChild + start), luego /system. Los tres están en `lazy val`: se materializan en provider.init.
 
@@ -171,13 +171,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Equivalente Rust propuesto.** `RootGuardian`, `UserGuardian`, `SystemGuardian` como actores internos
 
-**Diferencias observables.** Rust: tres actores internos con mailbox sin límite (UnboundedMessageQueueSemantics, actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:317,333). Diferencia: ninguna observable si el path y el warning se conservan.
+**Diferencias observables.** Rust: tres actores internos con mailbox sin límite (UnboundedMessageQueueSemantics, actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:324,340). Diferencia: ninguna observable si el path y el warning se conservan.
 
 **Aserciones.**
-- A1: `rootGuardian ! "Hello, Mr. Root Guardian"` produce exactamente 1 warning `unhandled message from Actor[<path de deadLetters>]: Hello, Mr. Root Guardian` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:70-81.
-- A2: ídem para /user — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:83-94.
-- A3: ídem para /system — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:96-107.
-- A4: el hijo de un actor se resuelve por path con nombre URL-encoded `pekko%3A%2F%2FClusterSystem%40127.0.0.1%3A7355` y mantiene `path.name` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:49-65.
+- A1: `rootGuardian ! "Hello, Mr. Root Guardian"` produce exactamente 1 warning `unhandled message from Actor[<path de deadLetters>]: Hello, Mr. Root Guardian` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:69-80.
+- A2: ídem para /user — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:82-93.
+- A3: ídem para /system — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:95-106.
+- A4: el hijo de un actor se resuelve por path con nombre URL-encoded `pekko%3A%2F%2FClusterSystem%40127.0.0.1%3A7355` y mantiene `path.name` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:48-64.
 
 **Oráculo.** Jar oficial: escenario propuesto `sys-guardians-unhandled.jsh` (envía a /, /user, /system y captura eventos); procedencia jars oficiales.
 
@@ -190,16 +190,16 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual docs] /system registra hooks (sender de RegisterTerminationHook, vigilado con watch); cuando /user termina notifica TerminationHook a todos, espera TerminationHookDone o Terminated de cada uno, detiene los loggers por defecto y se detiene; la raíz para al último. Mecanismo interno por el que remote/cluster (y extensiones) retrasan el apagado de /system. En local sin remote nadie lo usa.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:295-308 (mensajes)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:331-374 (SystemGuardian)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:302-315 (mensajes)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:338-381 (SystemGuardian)
 - Scaladoc/doc pública: n/a
 - reference.conf: n/a
 
 **Condiciones.**
-- `RegisterTerminationHook` sólo se acepta si `sender() != context.system.deadLetters` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:351).
-- Antes de Terminated(guardian): un hook que muere se elimina del set (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:346-349).
-- Terminated(guardian): `context.become(terminating)`, enviar TerminationHook a todos, y comprobar si ya está vacío (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:339-345).
-- En `terminating`: `Terminated(a)` o `TerminationHookDone` (de sender()) quitan el hook y, si el set queda vacío, `eventStream.stopDefaultLoggers(system)` y `context.stop(self)` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:356-370).
+- `RegisterTerminationHook` sólo se acepta si `sender() != context.system.deadLetters` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:358).
+- Antes de Terminated(guardian): un hook que muere se elimina del set (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:353-356).
+- Terminated(guardian): `context.become(terminating)`, enviar TerminationHook a todos, y comprobar si ya está vacío (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:346-352).
+- En `terminating`: `Terminated(a)` o `TerminationHookDone` (de sender()) quitan el hook y, si el set queda vacío, `eventStream.stopDefaultLoggers(system)` y `context.stop(self)` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:363-377).
 
 **Orden / concurrencia / ciclo de vida.** /system vigila a /user (Watch en init). Los loggers se detienen después de que todos los hooks terminaron, de modo que los hooks aún pueden loguear.
 
@@ -210,11 +210,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: mismos mensajes como tipos internos. Diferencia: ninguna observable local; sin remote es código sin consumidor (Q-SYS-4).
 
 **Aserciones.**
-- A1: un RegisterTerminationHook cuyo sender es deadLetters se ignora — derivada del código actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:351, *no afirmada por spec*.
-- A2: al terminar /user, cada hook registrado recibe TerminationHook — actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:344, *no afirmada por spec*.
-- A3: /system no se detiene hasta que cada hook responde TerminationHookDone o termina — actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:357-358,366-370, *no afirmada por spec*.
-- A4: stopDefaultLoggers corre inmediatamente antes de context.stop(self) del guardián de sistema — actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:367-369, *no afirmada por spec*.
-- A5: un hook que termina antes de Terminated(guardian) se retira del set — actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:346-349, *no afirmada por spec*.
+- A1: un RegisterTerminationHook cuyo sender es deadLetters se ignora — derivada del código actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:358, *no afirmada por spec*.
+- A2: al terminar /user, cada hook registrado recibe TerminationHook — actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:351, *no afirmada por spec*.
+- A3: /system no se detiene hasta que cada hook responde TerminationHookDone o termina — actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:364-365,373-377, *no afirmada por spec*.
+- A4: stopDefaultLoggers corre inmediatamente antes de context.stop(self) del guardián de sistema — actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:374-376, *no afirmada por spec*.
+- A5: un hook que termina antes de Terminated(guardian) se retira del set — actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:353-356, *no afirmada por spec*.
 
 **Oráculo.** Parcial: con jar oficial se puede registrar un actor-hook vía `system.systemActorOf` + `RegisterTerminationHook` (clase private[pekko]; requiere jshell en package pekko.actor). Escenario propuesto `sys-termination-hook.jsh`; procedencia jars oficiales.
 
@@ -227,15 +227,15 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] Devuelve whenTerminated; múltiples llamadas no fallan; al completar, whenTerminated está completo con Terminated(rootGuardian) con existenceConfirmed=true y addressTerminated=true y es la misma instancia que devuelve terminate(). terminate pone `terminating=true`; si CoordinatedShutdown está habilitado delega en `CoordinatedShutdown.run(ActorSystemTerminateReason)` (que luego llama finalTerminate); si no, `finalTerminate()`.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1089-1104 (terminate)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1112-1117 (finalTerminate: detiene deadLetterListener si !log-dead-letters-during-shutdown; guardian.stop())
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:448-487 (bubble walker completa terminationPromise)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1120-1135 (terminate)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1143-1148 (finalTerminate: detiene deadLetterListener si !log-dead-letters-during-shutdown; guardian.stop())
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:455-494 (bubble walker completa terminationPromise)
 - reference.conf: pekko.coordinated-shutdown.run-by-actor-system-terminate / terminate-actor-system (reference.conf, sección coordinated-shutdown)
 
 **Condiciones.**
-- Combinación run-by-actor-system-terminate=on y terminate-actor-system=off: ConfigurationException en Settings (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:478-481, ver AC-SYS-022).
-- `aborting` evita CoordinatedShutdown (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1091).
-- Idempotente: finalTerminate dice 'these actions are idempotent' (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1113).
+- Combinación run-by-actor-system-terminate=on y terminate-actor-system=off: ConfigurationException en Settings (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:477-480, ver AC-SYS-022).
+- `aborting` evita CoordinatedShutdown (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1122).
+- Idempotente: finalTerminate dice 'these actions are idempotent' (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1144).
 
 **Orden / concurrencia / ciclo de vida.** `terminating=true` se fija antes de cualquier otra acción (impide nuevas extensiones y rechaza actorOf, AC-SYS-007). El resultado del Future se completa cuando el bubble-walker recibe DeathWatchNotification de /.
 
@@ -246,15 +246,15 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `terminate()` devuelve un future compartido (Q-X-4); `Terminated{actor: root, existence_confirmed: true, address_terminated: true}`.
 
 **Aserciones.**
-- A1: `whenTerminated` no está completo antes de terminate y lo está tras `Await` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:250-256.
-- A2: `terminated.actor == provider.rootGuardian`, `addressTerminated==true`, `existenceConfirmed==true` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:257-259.
-- A3: el valor de `whenTerminated` es la misma instancia que devuelve `terminate()` (theSameInstanceAs) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:260.
-- A4: llamar `terminate()` y luego `registerOnTermination` sólo ejecuta el callback una vez o lanza Rejected (exactamente 1 de las dos) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:272-286.
-- A5: terminate() es idempotente (múltiples llamadas no fallan) — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1112-1117, *no afirmada por spec*.
-- A6: `sys.terminate()` ejecuta `CoordinatedShutdown` con la razón `ActorSystemTerminateReason` (`shutdownReason() == Some(ActorSystemTerminateReason)`) y `whenTerminated` queda completo — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:546-555 (auditoría 2026-10-31: este spec sí afirma el comportamiento de esta fila).
-- A7: con `run-by-actor-system-terminate = off`, `terminate()` NO ejecuta `CoordinatedShutdown` (`shutdownReason() == None`) pero el sistema termina — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:557-570.
-- A8: `terminate-actor-system = off` con `run-by-actor-system-terminate = on` falla con `ConfigurationException` al crear el sistema — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:572-582.
-- A9: `CoordinatedShutdown(sys).run(CustomReason)` termina el `ActorSystem` y fija `shutdownReason()` — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:535-544 (integración AC-CS-006.2).
+- A1: `whenTerminated` no está completo antes de terminate y lo está tras `Await` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:253-259.
+- A2: `terminated.actor == provider.rootGuardian`, `addressTerminated==true`, `existenceConfirmed==true` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:260-262.
+- A3: el valor de `whenTerminated` es la misma instancia que devuelve `terminate()` (theSameInstanceAs) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:263.
+- A4: llamar `terminate()` y luego `registerOnTermination` sólo ejecuta el callback una vez o lanza Rejected (exactamente 1 de las dos) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:275-289.
+- A5: terminate() es idempotente (múltiples llamadas no fallan) — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1143-1148, *no afirmada por spec*.
+- A6: `sys.terminate()` ejecuta `CoordinatedShutdown` con la razón `ActorSystemTerminateReason` (`shutdownReason() == Some(ActorSystemTerminateReason)`) y `whenTerminated` queda completo — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:547-556 (auditoría 2026-10-31: este spec sí afirma el comportamiento de esta fila).
+- A7: con `run-by-actor-system-terminate = off`, `terminate()` NO ejecuta `CoordinatedShutdown` (`shutdownReason() == None`) pero el sistema termina — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:558-571.
+- A8: `terminate-actor-system = off` con `run-by-actor-system-terminate = on` falla con `ConfigurationException` al crear el sistema — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:573-583.
+- A9: `CoordinatedShutdown(sys).run(CustomReason)` termina el `ActorSystem` y fija `shutdownReason()` — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:536-545 (integración AC-CS-006.2).
 
 **Oráculo.** Jar oficial: escenario propuesto `sys-terminate.jsh` (terminate dos veces y volcado de Terminated). Procedencia: jars oficiales.
 
@@ -267,8 +267,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] Future[Terminated] compartido; se completa después de que corrieron todos los callbacks registrados con registerOnTermination. Await sobre whenTerminated sólo vuelve cuando todos los callbacks terminaron.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1000-1003
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1303-1333 (TerminationCallbacks.terminationFuture = done.future)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1031-1034
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1335-1368 (TerminationCallbacks.terminationFuture = done.future)
 - reference.conf: n/a
 
 **Condiciones.**
@@ -283,8 +283,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `Shared<..>` o canal watch. Diferencia: ninguna observable.
 
 **Aserciones.**
-- A1: un callback de 50 ms (dilatado) registrado con registerOnTermination ya corrió cuando `Await.ready(whenTerminated)` vuelve — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:234-248.
-- A2: `whenTerminated.isCompleted` es true tras terminar y false antes — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:250-256.
+- A1: un callback de 50 ms (dilatado) registrado con registerOnTermination ya corrió cuando `Await.ready(whenTerminated)` vuelve — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:237-251.
+- A2: `whenTerminated.isCompleted` es true tras terminar y false antes — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:253-259.
 
 **Oráculo.** Jar oficial: escenario propuesto `sys-terminate.jsh` (comparte con AC-SYS-004).
 
@@ -297,13 +297,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Ejecución en orden inverso al registro; registrar después de terminado lanza RejectedExecutionException("ActorSystem already terminated."). Si se registra durante la terminación: o se ejecuta una vez o se rechaza (nunca ambas ni ninguna). El Scaladoc de TerminationCallbacks.add dice 'callbacks are executed in reverse order of insertion'. Implementación: lista enlazada de promesas (CAS sobre AtomicReference).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1084-1085
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1303-1333 (TerminationCallbacks)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1115-1116
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1335-1368 (TerminationCallbacks)
 - reference.conf: n/a
 
 **Condiciones.**
-- `add` tras completar upstream: `RejectedExecutionException("ActorSystem already terminated.")` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1321).
-- Los callbacks corren en el ExecutionContext del dispatcher del sistema (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1000 usa `(dispatcher)`).
+- `add` tras completar upstream: `RejectedExecutionException("ActorSystem already terminated.")` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1353).
+- Los callbacks corren en el ExecutionContext del dispatcher del sistema (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1031 usa `(dispatcher)`).
 
 **Orden / concurrencia / ciclo de vida.** Callback N+1 corre antes que N (cada nuevo callback se ejecuta cuando completa `p.future` y el anterior espera a ése: `some.completeWith(p.future.andThen{r.run()})`). Serie, no paralelo.
 
@@ -314,10 +314,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: pila LIFO ejecutada secuencialmente; el hilo/tarea que ejecuta es del runtime (Q-X-4).
 
 **Aserciones.**
-- A1: 10 callbacks registrados en orden 1..10 se ejecutan en orden 10..1 — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:212-232.
-- A2: tras `system.close()`, `registerOnTermination` lanza RejectedExecutionException con mensaje exactamente `ActorSystem already terminated.` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:263-270.
-- A3: `terminate()` seguido de `registerOnTermination`: el contador (callback o rechazo) vale 1 — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:272-286.
-- A4: registrar callbacks antes de terminar no los ejecuta hasta la terminación — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1311-1327, *no afirmada por spec*.
+- A1: 10 callbacks registrados en orden 1..10 se ejecutan en orden 10..1 — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:215-235.
+- A2: tras `system.close()`, `registerOnTermination` lanza RejectedExecutionException con mensaje exactamente `ActorSystem already terminated.` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:266-273.
+- A3: `terminate()` seguido de `registerOnTermination`: el contador (callback o rechazo) vale 1 — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:275-289.
+- A4: registrar callbacks antes de terminar no los ejecuta hasta la terminación — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1343-1359, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: escenario propuesto `sys-termination-callbacks.jsh`.
 
@@ -331,11 +331,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Fuente.**
 - actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:313-314 (throw)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:927-937
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:944-961
 
 **Condiciones.**
 - Error: IllegalStateException con mensaje exacto `cannot create children while terminating or terminated` (Children.scala:314).
-- Una vez que `failing==true` crear no puede volver a tener éxito (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:309).
+- Una vez que `failing==true` crear no puede volver a tener éxito (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:312).
 
 **Orden / concurrencia / ciclo de vida.** Condición de carrera intencionada: `terminate()` desde un scheduler a 100 ms mientras otro hilo crea actores sin parar; el invariante es monotonía (éxitos, luego fallos).
 
@@ -346,9 +346,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: el estado 'terminating' del contenedor de hijos del guardián debe ser atómico con respecto a reserveChild. Diferencia: error tipado.
 
 **Aserciones.**
-- A1: una vez que actorOf lanza IllegalStateException no vuelve a tener éxito (`failing should not be true`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:309.
-- A2: tras terminar el sistema, ningún actor creado queda no terminado salvo UnstartedCell — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:323-325.
-- A3: el sistema termina en < 10 s de uptime bajo creación continua — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316-320.
+- A1: una vez que actorOf lanza IllegalStateException no vuelve a tener éxito (`failing should not be true`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:312.
+- A2: tras terminar el sistema, ningún actor creado queda no terminado salvo UnstartedCell — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:326-328.
+- A3: el sistema termina en < 10 s de uptime bajo creación continua — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:319-323.
 
 **Oráculo.** Jar oficial: escenario propuesto `sys-create-during-terminate.jsh` (no determinista en tiempo; comparar sólo las invariantes A1-A2).
 
@@ -361,14 +361,14 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Kill sobre /user (ActorKilledException) apaga el sistema; con guardian-supervisor-strategy=StoppingSupervisorStrategy un hijo de /user que falla se detiene (Terminated con existenceConfirmed=true, addressTerminated=false); con una estrategia que escala, el fallo apaga el sistema. El root guardian usa una estrategia que loguea 'guardian failed, shutting down system' y hace Stop de /user. /user usa la estrategia configurada (por defecto DefaultSupervisorStrategy).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:510-527
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:422 (SupervisorStrategyClass)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:517-534
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:423 (SupervisorStrategyClass)
 - reference.conf:123 (pekko.actor.guardian-supervisor-strategy)
 
 **Condiciones.**
-- Kill a /user -> EventFilter[ActorKilledException] observa el error y whenTerminated se completa (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:330-333).
-- Estrategia que lanza `Exception("hello")` en un hijo con StoppingSupervisorStrategy: el hijo muere, el sistema sigue (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:343-356).
-- Estrategia `Escalate` -> el sistema termina (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:359-375).
+- Kill a /user -> EventFilter[ActorKilledException] observa el error y whenTerminated se completa (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:333-336).
+- Estrategia que lanza `Exception("hello")` en un hijo con StoppingSupervisorStrategy: el hijo muere, el sistema sigue (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:360-373).
+- Estrategia `Escalate` -> el sistema termina (actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:376-392).
 
 **Orden / concurrencia / ciclo de vida.** Fallo de /user -> reportado al root guardian -> `SupervisorStrategy.Stop` sobre /user -> /system (que vigila a /user) ejecuta hooks -> raíz para.
 
@@ -379,9 +379,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: estrategia por tipo registrado. Diferencia: FQCN de config pasa a clave de registro (Q-X-2).
 
 **Aserciones.**
-- A1: `system.actorSelection("/user") ! Kill` genera un ActorKilledException y el sistema termina — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:328-334.
-- A2: con StoppingSupervisorStrategy, un `Exception("hello")` en un hijo de /user: 1 evento de error, y el probe recibe `Terminated(a)(existenceConfirmed=true, addressTerminated=false)` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:336-357.
-- A3: con una estrategia que escala, la excepción de un hijo provoca el apagado del sistema — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:359-375.
+- A1: `system.actorSelection("/user") ! Kill` genera un ActorKilledException y el sistema termina — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:331-337.
+- A2: con StoppingSupervisorStrategy, un `Exception("hello")` en un hijo de /user: 1 evento de error, y el probe recibe `Terminated(a)(existenceConfirmed=true, addressTerminated=false)` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:353-374.
+- A3: con una estrategia que escala, la excepción de un hijo provoca el apagado del sistema — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:376-392.
 
 **Oráculo.** Jar oficial: escenario propuesto `sys-guardian-strategy.jsh`.
 
@@ -394,12 +394,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Con guardianProps, actorOf top-level desde afuera lanza UnsupportedOperationException (con o sin nombre); /user usa el dispatcher indicado por los Props (default-dispatcher si SameAsParent). Con guardian custom el sistema no permite crear actores desde afuera: sólo el guardián (typed) puede crearlos.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:927-937
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:562-577
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:944-961
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:569-584
 
 **Condiciones.**
-- UnsupportedOperationException con nombre: `cannot create top-level actor [<name>] from the outside on ActorSystem with custom user guardian` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:930-931); sin nombre: `cannot create top-level actor from the outside on ActorSystem with custom user guardian` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:936-937).
-- Dispatcher: `Deploy.DispatcherSameAsParent` -> DefaultDispatcherId; si no, `props.dispatcher` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:566-568).
+- UnsupportedOperationException con nombre: `cannot create top-level actor [<name>] from the outside on ActorSystem with custom user guardian` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:947-948); sin nombre: `cannot create top-level actor from the outside on ActorSystem with custom user guardian` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:960-961).
+- Dispatcher: `Deploy.DispatcherSameAsParent` -> DefaultDispatcherId; si no, `props.dispatcher` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:573-575).
 
 **Orden / concurrencia / ciclo de vida.** n/a: construcción.
 
@@ -410,7 +410,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `actor_of` devuelve `Err(Unsupported)`. El guardián custom lo usa actor-typed (Q-X-8).
 
 **Aserciones.**
-- A1: `sys.actorOf(Props.empty)` y `sys.actorOf(Props.empty, "empty")` lanzan UnsupportedOperationException — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:386-392.
+- A1: `sys.actorOf(Props.empty)` y `sys.actorOf(Props.empty, "empty")` lanzan UnsupportedOperationException — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:403-409.
 - A2: con `guardianProps = Some(Props.empty)` (sin dispatcher en los props) el guardián `/user` usa `pekko.actor.default-dispatcher`, mientras que sin `guardianProps` usa `pekko.actor.internal-dispatcher` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:152-168 (auditoría 2026-10-31: el spec está en la clase `ActorSystemDispatchersSpec`; antes figuraba como `ActorSystemDispatcherSpec:156` sin leer).
 - A3: `pekko.actor.internal-dispatcher = pekko.actor.default-dispatcher` redirige el guardián al default-dispatcher — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:105-119.
 
@@ -425,10 +425,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] `ExtendedActorSystem.systemActorOf(props, name)` crea un hijo del guardián de sistema con `systemService = true` (se omite el `Deployer`: no se aplica configuración `pekko.actor.deployment` externa) y devuelve su `ActorRef`. Es la forma de crear actores internos de librerías (loggers, `deadLetterListener`, extensiones, `testActor-N`/`testProbe-N` del testkit). Los actores de sistema cuelgan de `/system`, que se detiene sólo después de que `/user` haya terminado.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:772-779 (declaración y Scaladoc), 924-925 (implementación)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:659-667 (`systemService` se pasa a `provider.actorOf`), 586-599 (`systemGuardian`)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:189-199 (`testActor` vía `systemActorOf`)
-- specs: actor-tests/src/test/scala/org/apache/pekko/routing/ConfiguredLocalRoutingSpec.scala:196-207; actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-186
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:771-778 (declaración y Scaladoc), 924-925 (implementación)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:666-674 (`systemService` se pasa a `provider.actorOf`), 586-599 (`systemGuardian`)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:188-198 (`testActor` vía `systemActorOf`)
+- specs: actor-tests/src/test/scala/org/apache/pekko/routing/ConfiguredLocalRoutingSpec.scala:196-207; actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:167-189
 
 **Precondiciones.** El sistema ha pasado `provider.init` (el guardián de sistema existe). Se puede invocar durante `start` (lo hace el arranque para el `deadLetterListener`).
 
@@ -446,7 +446,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Aserciones.**
 - A1: un actor creado con `systemActorOf` bajo un padre de sistema puede alojar un router cuyos parámetros salen de la config (`/sys-parent/round` → 6 rutees, `round-robin-pool`), es decir, el hijo de un actor de sistema SÍ aplica deployment por config aunque el actor de sistema no — actor-tests/src/test/scala/org/apache/pekko/routing/ConfiguredLocalRoutingSpec.scala:196-207 (el test está marcado como excepción: "we don't really support deployment configuration of system actors").
-- A2: los actores creados por el testkit con `systemActorOf` aparecen en la ruta `pekko://<sistema>/system/testProbe…` (el filtro de log espera `Actor[pekko://LogDeadLetters/system/testProbe.*`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:173-179.
+- A2: los actores creados por el testkit con `systemActorOf` aparecen en la ruta `pekko://<sistema>/system/testProbe…` (el filtro de log espera `Actor[pekko://LogDeadLetters/system/testProbe.*`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:176-182.
 - A3: el path de un actor creado con `systemActorOf(props, "x")` es `/system/x` y `parent == systemGuardian` — derivada de ActorSystem.scala:924-925, *no afirmada por spec directa*. Caracterización propuesta: `system_actor_of(p, "x").path() == "/system/x"`.
 - A4: `systemActorOf` con nombre duplicado falla con `InvalidActorNameException` — derivada de AC-SYS-016 A1-A2 (misma ruta `attachChild`), *no afirmada por spec para /system*.
 - A5: tras `terminate()`, los actores de `/system` se detienen después de los de `/user` — derivada de ActorRefProvider.scala:339-345 (`Terminated(guardian)` dispara `context.become(terminating)`), *no afirmada por spec*; observable en CoordinatedShutdown (AC-CS).
@@ -462,7 +462,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual Scaladoc, interno] `ActorSystemImpl.abort()` pone `aborting = true` y llama `terminate()`. Con `aborting`, `terminate()` salta `CoordinatedShutdown` y ejecuta directamente `finalTerminate()`; además, cada actor que se detiene envía a sí mismo `DeathWatchNotification(ref, existenceConfirmed = true, addressTerminated = false)` por cada hijo no local, de modo que no espera la confirmación de hijos desplegados en remoto. Sólo la ruta local es observable en rakka (sin remote).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1123-1134 (`aborting`, `abort`), 1089-1104 (`terminate`), 1119-1121 (`isTerminating` incluye `aborting`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1154-1165 (`aborting`, `abort`), 1089-1104 (`terminate`), 1119-1121 (`isTerminating` incluye `aborting`)
 - actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:186-196 (`terminate()` de la celda: rama `systemImpl.aborting`)
 - specs: ninguno en pekko-actor (grep de `abort()`/`aborting` sobre actor-tests, testkit y actor/src/test no devuelve usos sobre ActorSystem)
 
@@ -499,10 +499,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] Superficie de consulta de `ActorSystem`: `name` (el nombre validado), `settings` (`Settings` + `toString` redactado: AC-SYS-022), `startTime` (ms desde epoch, fijado una vez al construir: `val`), `uptime` (segundos enteros = `(now - startTime) / 1000`, truncado), `eventStream`, `log` (adaptador al eventStream cuyo `logSource` es `"<clase de ActorSystemImpl>(<nombre>)"`), `deadLetters`, `scheduler`, `dispatchers`, `dispatcher` (executor implícito por defecto = `dispatchers.defaultGlobalDispatcher`), `mailboxes`; constructores de rutas `system / name`, `system / iterable`, `child`, `descendant` (ruta bajo `/user`); `logConfiguration()`; `toString` = dirección raíz (`pekko://<nombre>`). El sistema es un handle compartible entre hilos.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:530-641 (declaraciones y Scaladoc de los accesores), 572-577 (`startTime`, `uptime`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:920 (`logConfiguration`), 953-998 (eventStream, logFilter, log, scheduler, provider, mailboxes, dispatchers, dispatcher), 1002-1009 (`whenTerminated`, guardianes, `/`), 1262 (`toString`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:553-567 (`child`, `descendant`)
-- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316,395-411; actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:536-575 (usa `system.name` y `system.settings.config`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:529-640 (declaraciones y Scaladoc de los accesores), 572-577 (`startTime`, `uptime`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:937 (`logConfiguration`), 953-998 (eventStream, logFilter, log, scheduler, provider, mailboxes, dispatchers, dispatcher), 1002-1009 (`whenTerminated`, guardianes, `/`), 1262 (`toString`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:552-566 (`child`, `descendant`)
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:319,412-428; actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:537-576 (usa `system.name` y `system.settings.config`)
 
 **Precondiciones.** Ninguna tras el arranque; durante la construcción los accesores de proveedor pueden fallar (AC-SYS-023).
 
@@ -526,9 +526,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - El `logSource` de `system.log` incluye el nombre de clase JVM de `ActorSystemImpl` (Q-EVT-1): se propone `"rakka::ActorSystemImpl(<nombre>)"` o un nombre de tipo documentado.
 
 **Aserciones.**
-- A1: `system.settings.toString` no contiene el nombre de usuario ni el home y contiene `<username>` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:395-411 (ver AC-SYS-022).
-- A2: `uptime` se expresa en segundos (el test espera que un sistema recién creado esté por debajo de 10 s: `system.uptime >= 10` implica fallo) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316.
-- A3: el nombre y la config de un sistema existente se pueden reutilizar para crear otro (`ActorSystem(system.name, system.settings.config)`) — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:536 (uso, no aserción de los accesores).
+- A1: `system.settings.toString` no contiene el nombre de usuario ni el home y contiene `<username>` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:412-428 (ver AC-SYS-022).
+- A2: `uptime` se expresa en segundos (el test espera que un sistema recién creado esté por debajo de 10 s: `system.uptime >= 10` implica fallo) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:319.
+- A3: el nombre y la config de un sistema existente se pueden reutilizar para crear otro (`ActorSystem(system.name, system.settings.config)`) — actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:537 (uso, no aserción de los accesores).
 - A4: `toString` del sistema es `pekko://<nombre>` — derivada de ActorSystem.scala:1262 y de `RootActorPath(Address("pekko", name))` (ActorRefProvider.scala:402), *no afirmada por spec*. Caracterización: `assert_eq!(system.to_string(), "pekko://nombre")` (o el esquema que se decida en AC-PATH).
 - A5: `uptime()` es `(now - startTime) / 1000` truncado — derivada de ActorSystem.scala:577, *no afirmada por spec*. Caracterización con reloj inyectable.
 - A6: `system / "a"` = `/user/a` y `system.child("a")` equivale — derivada de ActorSystem.scala:557,1008, *no afirmada por spec*.
@@ -545,10 +545,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual para extensiones, `@DoNotInherit`] `ExtendedActorSystem` añade a `ActorSystem` la superficie para integradores: `provider`, `guardian`, `systemGuardian`, `systemActorOf` (AC-SYS-010), `threadFactory`, `dynamicAccess`, `logFilter`, y los internos `printTree`, `uid`, `finalTerminate`, `isTerminating`. `printTree` recorre la jerarquía desde la raíz y devuelve un texto indentado; sólo se usa para diagnóstico (`ActorSystemSpec` lo imprime si el apagado falla y `TestKit.shutdownActorSystem` lo loguea en caso de timeout).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:754-823 (declaración de `ExtendedActorSystem`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:838 (`uid`), 909-918 (`threadFactory`, `dynamicAccess`), 956-959 (`logFilter`), 1264-1301 (`printTree`)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1045 (uso de `printTree`)
-- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316-320; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:563,637 (sólo imprimen)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:753-822 (declaración de `ExtendedActorSystem`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:836 (`uid`), 909-918 (`threadFactory`, `dynamicAccess`), 956-959 (`logFilter`), 1264-1301 (`printTree`)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1027 (uso de `printTree`)
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:319-323; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:565,639 (sólo imprimen)
 
 **Precondiciones.** Obtención por downcast `system.asInstanceOf[ExtendedActorSystem]` (en Pekko Classic) o por `ExtensionId.createExtension(system: ExtendedActorSystem)`.
 
@@ -568,8 +568,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** `print_tree()` tiene formato propio (no se compara textualmente con Pekko: ningún test lo afirma). Sin `threadFactory`/`dynamicAccess`.
 
 **Aserciones.**
-- A1: `printTree` no falla sobre un sistema vivo y su salida se usa sólo como diagnóstico del fallo `"System didn't terminate within 5 seconds"` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316-320 (se ejecuta únicamente en la rama de fallo; no hay aserción sobre el texto).
-- A2: `printTree` se invoca en SupervisorHierarchySpec en los diagnósticos de fallo — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:563,637 (sin aserción sobre el texto).
+- A1: `printTree` no falla sobre un sistema vivo y su salida se usa sólo como diagnóstico del fallo `"System didn't terminate within 5 seconds"` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:319-323 (se ejecuta únicamente en la rama de fallo; no hay aserción sobre el texto).
+- A2: `printTree` se invoca en SupervisorHierarchySpec en los diagnósticos de fallo — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:565,639 (sin aserción sobre el texto).
 - A3: el texto de `printTree` empieza con `-> ` para la raíz y marca cada hijo con `⌊-> ` — derivada de ActorSystem.scala:1269, *no afirmada por spec*. Caracterización: el propio formato de rakka (nombre, tipo, nº de hijos), no la cadena de Pekko.
 - A4: `uid` es distinto entre sistemas — derivada de `ThreadLocalRandom` (ActorSystem.scala:838), *no afirmada por spec*.
 
@@ -584,7 +584,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] Bloquea hasta whenTerminated o vence pekko.coordinated-shutdown.close-actor-system-timeout (Await.result lanza TimeoutException al vencer). `Using(ActorSystem()){..}` termina el sistema al salir del bloque; close() deja whenTerminated completo.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1106-1110
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1137-1141
 - reference.conf:1257 (close-actor-system-timeout)
 
 **Condiciones.**
@@ -599,7 +599,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `close_blocking` o `async fn close`. Diferencia: AutoCloseable no existe; el equivalente idiomático es una guarda `SystemGuard` opcional (Q-SYS-1).
 
 **Aserciones.**
-- A1: tras `close()`, registerOnTermination lanza RejectedExecutionException — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:263-270.
+- A1: tras `close()`, registerOnTermination lanza RejectedExecutionException — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:266-273.
 - A2: `Using(ActorSystem()) { s => .. }` deja `whenTerminated.isCompleted==true` — actor-tests/src/test/scala-2.13+/org/apache/pekko/actor/ActorSystemScala213PlusSpec.scala:29-35.
 
 **Oráculo.** Jar oficial: `sys-terminate.jsh` (close en vez de terminate).
@@ -613,13 +613,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual JVM] El UncaughtExceptionHandler de los hilos del sistema: errores NonFatal/InterruptedException/NotImplementedError/ControlThrowable se loguean ('Uncaught error from thread [{}]'); cualquier otro es fatal: imprime a stderr, loguea con marker SECURITY y o System.exit(-1) (si jvm-exit-on-fatal-error) o terminate(). Un hilo del sistema que muere con error fatal apaga el proceso (o el sistema).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:858-906
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:875-923
 - reference.conf:90 (jvm-exit-on-fatal-error = on)
 
 **Condiciones.**
-- No fatal: `log.error(cause, "Uncaught error from thread [{}]", thread.getName)` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:862).
-- Fatal: stderr `Uncaught error from thread [<t>]: <msg>, <message> ActorSystem[<name>]` + stacktrace, luego log con LogMarker.Security (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:883-906); `message` = `shutting down JVM since 'pekko.jvm-exit-on-fatal-error' is enabled for` o `shutting down`.
-- Si IncompatibleClassChangeError con mensaje que empieza con org.apache.pekko: aviso a stderr sobre versiones mezcladas (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:865-873).
+- No fatal: `log.error(cause, "Uncaught error from thread [{}]", thread.getName)` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:879).
+- Fatal: stderr `Uncaught error from thread [<t>]: <msg>, <message> ActorSystem[<name>]` + stacktrace, luego log con LogMarker.Security (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:900-923); `message` = `shutting down JVM since 'pekko.jvm-exit-on-fatal-error' is enabled for` o `shutting down`.
+- Si IncompatibleClassChangeError con mensaje que empieza con org.apache.pekko: aviso a stderr sobre versiones mezcladas (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:882-890).
 
 **Orden / concurrencia / ciclo de vida.** Corre en el hilo que murió.
 
@@ -630,9 +630,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `panic` en tarea de actor ya es 'fallo' (Q-X-5); 'fatal' = abort/OOM no capturable; propuesta: política `FatalErrorPolicy::{ExitProcess, TerminateSystem}` aplicada a panics fuera de actores y a un handler de señal; diferencia observable: sin IncompatibleClassChangeError.
 
 **Aserciones.**
-- A1: un error NonFatal en un hilo del sistema sólo se loguea — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:862-863, *no afirmada por spec*.
-- A2: con jvm-exit-on-fatal-error=on el proceso sale con código -1 — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:877-879, *no afirmada por spec*.
-- A3: con jvm-exit-on-fatal-error=off se llama terminate() — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:880-882, *no afirmada por spec*.
+- A1: un error NonFatal en un hilo del sistema sólo se loguea — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:879-880, *no afirmada por spec*.
+- A2: con jvm-exit-on-fatal-error=on el proceso sale con código -1 — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:894-896, *no afirmada por spec*.
+- A3: con jvm-exit-on-fatal-error=off se llama terminate() — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:897-899, *no afirmada por spec*.
 
 **Oráculo.** Parcial: jar oficial con un hilo del threadFactory del sistema que lanza OutOfMemoryError simulado y `jvm-exit-on-fatal-error=off`; escenario propuesto `sys-fatal-error.jsh`.
 
@@ -645,10 +645,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] `provider.actorOf(system, props, supervisor, path, systemService, deploy, lookupDeploy, async)` (create-only) resuelve `Props` + `Deploy` (código vs config `pekko.actor.deployment`) a un `InternalActorRef`: sin router, el `Deploy` de config (si `lookupDeploy`) o el pasado (si no) pisa dispatcher y mailbox de los `Props` y `DispatcherSameAsParent` hereda el dispatcher del padre; con router se fusionan los `routerConfig` (`router :: deploy :: lookup` reducidos con `withFallback`) y se crea un `RoutedActorRef`. Los errores de configuración de dispatcher o mailbox se convierten en `ConfigurationException`. Con `async` se crea un `RepointableActorRef` (inicialización asíncrona, `UnstartedCell`); si no, un `LocalActorRef`. Dos creadores concurrentes del mismo nombre: exactamente uno gana y el otro recibe `InvalidActorNameException`.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:659-757 (`actorOf`), 123-139 (contrato de `systemService`/`deploy`/`lookupDeploy`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:924-925 (llamada con `systemService`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:666-764 (`actorOf`), 123-139 (contrato de `systemService`/`deploy`/`lookupDeploy`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:941-942 (llamada con `systemService`)
 - reference.conf: `pekko.actor.deployment`, `pekko.actor.debug.router-misconfiguration`, `pekko.actor.default-dispatcher`, `pekko.actor.default-mailbox`
-- specs: actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:132-198; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:108-125,508-544
+- specs: actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:131-197; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:109-127,510-546
 
 **Precondiciones.** `props.deploy.routerConfig` define la rama (`NoRouter` ↔ no router). `systemService = true` omite el `Deployer` (documentado en ActorRefProvider.scala:123-129; ver AC-SYS-010).
 
@@ -672,12 +672,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** `Err(SpawnError)` en lugar de excepciones (Q-X-5); `Dispatcher`/`Mailbox` por registro de fábricas, no por FQCN (Q-X-2); la causa `AssertionError` del test se sustituye por un error cualquiera devuelto por la fábrica o un pánico capturado en la creación.
 
 **Aserciones.**
-- A1: 4 creaciones concurrentes de `new-actorN` con el mismo nombre producen exactamente {éxito, `InvalidActorNameException`} (conjunto de resultados `Set(1, 2)`), repetido 100 veces — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:134-154.
-- A2: dos `actorOf(.., "duplicate")` en el mismo mensaje producen exactamente 1 `InvalidActorNameException` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:156-166.
-- A3: nombres mal formados: `null`→mensaje con "null", `""`→"empty", `"$hallo"`→"not start with `$`", `"a%"`/`"%3"`/`"%xx"`/`"%0G"`/`"%gg"`/`"%"`/`"%1t"`/`"a?"`→"Invalid actor path element", `"üß"`→"include only ASCII", `he"llo`→`["] at position: 2`, `$hello`→`[$] at position: 0`, `hell>o`→`[>] at position: 4` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:168-198.
-- A4: un `MailboxType` cuyo `create` lanza hace que un actor hijo (no top-level) falle en `context.actorOf` con `ConfigurationException` cuya `getCause` es la excepción original — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:516-525 (el mailbox `error-mailbox` se define en SupervisorSpec.scala:115-125 y `creator(.., fail = true)` lo aplica en :108-111).
-- A5: lo mismo con un router hijo (`creator(..).withRouter(RoundRobinPool(1))`): `ConfigurationException` con `getCause == failure` — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:533-542.
-- A6: para un actor top-level con la misma falla, el error se manifiesta como `ActorInitializationException` logueado una vez y el actor termina (`expectTerminated`) tanto sin router como con `RoundRobinPool(1)` — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:510-514 y 527-531 (casos "creating a top-level actor" / "creating a top-level router").
+- A1: 4 creaciones concurrentes de `new-actorN` con el mismo nombre producen exactamente {éxito, `InvalidActorNameException`} (conjunto de resultados `Set(1, 2)`), repetido 100 veces — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:133-153.
+- A2: dos `actorOf(.., "duplicate")` en el mismo mensaje producen exactamente 1 `InvalidActorNameException` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:155-165.
+- A3: nombres mal formados: `null`→mensaje con "null", `""`→"empty", `"$hallo"`→"not start with `$`", `"a%"`/`"%3"`/`"%xx"`/`"%0G"`/`"%gg"`/`"%"`/`"%1t"`/`"a?"`→"Invalid actor path element", `"üß"`→"include only ASCII", `he"llo`→`["] at position: 2`, `$hello`→`[$] at position: 0`, `hell>o`→`[>] at position: 4` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:167-197.
+- A4: un `MailboxType` cuyo `create` lanza hace que un actor hijo (no top-level) falle en `context.actorOf` con `ConfigurationException` cuya `getCause` es la excepción original — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:518-527 (el mailbox `error-mailbox` se define en SupervisorSpec.scala:115-125 y `creator(.., fail = true)` lo aplica en :108-111).
+- A5: lo mismo con un router hijo (`creator(..).withRouter(RoundRobinPool(1))`): `ConfigurationException` con `getCause == failure` — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:535-544.
+- A6: para un actor top-level con la misma falla, el error se manifiesta como `ActorInitializationException` logueado una vez y el actor termina (`expectTerminated`) tanto sin router como con `RoundRobinPool(1)` — actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:512-516 y 527-531 (casos "creating a top-level actor" / "creating a top-level router").
 - A7: dispatcher inexistente en los `Props` falla con `ConfigurationException("Dispatcher [x] not configured for path <path>")` — derivada de ActorRefProvider.scala:704-705, *no afirmada por spec* (ActorModelSpec/DispatchersSpec cubren la parte de dispatchers: AC-DSP). Caracterización propuesta.
 - A8: `debug.router-misconfiguration = on` avisa cuando la config declara un router y el código no — derivada de ActorRefProvider.scala:670-677, *no afirmada por spec*. Caracterización propuesta con `EventFilter.warning`.
 - A9: la tabla de fusión `(dispatcher, mailbox)` del `Deploy` produce, p. ej., `(SameAsParent, NoMailboxGiven)` ⇒ `props.withDispatcher(parentDispatcher)` — derivada de ActorRefProvider.scala:689-694, *no afirmada por spec* (los casos de `SameAsParent` se prueban indirectamente en DispatchersSpec).
@@ -693,8 +693,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual interno] El proveedor local genera rutas únicas bajo `/temp` para refs de corta vida (cada `ask` crea una `PromiseActorRef` registrada ahí): `tempPath(prefix) = rootPath/temp/<prefix>$<base64(contador)>` con un `AtomicLong` creciente (primer nombre `$a`, luego `$b`…). `tempContainer` es un `VirtualPathContainer` (hijo virtual de la raíz) que mantiene un mapa concurrente nombre→ref y es resoluble por path mientras viva el ref. `registerTempActor` y `unregisterTempActor` exigen (assert) que el padre del path sea `/temp`.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:96-120 (contrato en el trait), 425-442 (`tempNumber`, `tempNode`, `tempPath`), 601-611 (`tempContainer`, register/unregister)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:763-856 (`VirtualPathContainer`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:97-121 (contrato en el trait), 425-442 (`tempNumber`, `tempNode`, `tempPath`), 601-611 (`tempContainer`, register/unregister)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:735-828 (`VirtualPathContainer`)
 - specs: actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:248-266,268-289
 
 **Precondiciones.** Los paths pasados a `register/unregisterTempActor` DEBEN venir de `tempPath()` (documentado; se comprueba con `assert(path.parent eq tempNode, ..)`: ActorRefProvider.scala:604,609).
@@ -734,9 +734,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual para remote/cluster; `@DoNotInherit`] Interfaz del proveedor de refs: `rootGuardian`, `rootGuardianAt(address)`, `guardian` (/user), `systemGuardian` (/system), `deadLetters`, `ignoreRef`, `rootPath`, `settings`, `init(system)`, `deployer`, `tempPath*`/`tempContainer`/`register/unregisterTempActor` (AC-SYS-017), `actorOf` (AC-SYS-016), `resolveActorRef` (AC-SYS-024), `terminationFuture` (AC-SYS-019), `getExternalAddressFor`, `getDefaultAddress`, `serializationInformation`, `addressString`. En el proveedor local: `getExternalAddressFor(addr) = Some(addr)` sólo si `addr == rootPath.address`, si no `None`; `getDefaultAddress = rootPath.address`; `rootGuardianAt(address)` = `rootGuardian` si coincide con la dirección raíz, si no `deadLetters`; `addressString` es `getDefaultAddress.toString` cacheado. `ProviderSelection` (local/remote/cluster/custom) decide qué proveedor se instancia.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:40-181 (trait), 554-556 (`rootGuardianAt`), 759-761 (`getExternalAddressFor`, `getDefaultAddress`), 763-778 (`serializationInformation`), 780-791 (`addressString`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:103-145 (`ProviderSelection`), 408-420 (selección en `Settings`)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:541-562 (`IgnoreActorRef.path` = `pekko://local/ignore`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:41-188 (trait), 554-556 (`rootGuardianAt`), 759-761 (`getExternalAddressFor`, `getDefaultAddress`), 763-778 (`serializationInformation`), 780-791 (`addressString`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:102-144 (`ProviderSelection`), 408-420 (selección en `Settings`)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:513-534 (`IgnoreActorRef.path` = `pekko://local/ignore`)
 - reference.conf: `pekko.actor.provider`
 - specs: actor-tests/src/test/scala/org/apache/pekko/actor/ProviderSelectionSpec.scala:38-67
 
@@ -779,12 +779,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual interno] El padre del guardián raíz es un ref mínimo en /bubble-walker: recibe Failed de la raíz (loguea 'guardian <child> failed, shutting down!' y la detiene), ignora Supervise, y ante DeathWatchNotification se detiene y completa terminationFuture con Terminated(rootGuardian)(true,true). Es el 'último' ref: su stop() marca la terminación.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:421-423
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:448-487
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:428-430
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:455-494
 
 **Condiciones.**
-- Mensaje normal mientras camina: `log.error(s"$this received unexpected message [$message]")`; null -> InvalidMessageException("Message is null") (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:469-474).
-- SystemMessage inesperado: error `$this received unexpected system message [$message]` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:484).
+- Mensaje normal mientras camina: `log.error(s"$this received unexpected message [$message]")`; null -> InvalidMessageException("Message is null") (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:476-481).
+- SystemMessage inesperado: error `$this received unexpected system message [$message]` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:491).
 
 **Orden / concurrencia / ciclo de vida.** stop() idempotente (trySuccess).
 
@@ -795,9 +795,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: igual.
 
 **Aserciones.**
-- A1: Terminated devuelto por terminate() tiene actor=rootGuardian y ambos flags true — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:257-259.
-- A2: Failed del guardián raíz -> error 'guardian .. failed, shutting down!' y stop del hijo — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:478-481, *no afirmada por spec*.
-- A3: stop() es idempotente — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:457-461.
+- A1: Terminated devuelto por terminate() tiene actor=rootGuardian y ambos flags true — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:260-262.
+- A2: Failed del guardián raíz -> error 'guardian .. failed, shutting down!' y stop del hijo — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:485-488, *no afirmada por spec*.
+- A3: stop() es idempotente — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:464-468.
 
 **Oráculo.** Jar oficial: `sys-terminate.jsh`.
 
@@ -810,10 +810,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec para `checkSameVersion`; JVM-específico para la lectura de MANIFEST] `ManifestInfo` es una extensión que lee `META-INF/MANIFEST.MF` de todos los jars del classpath y registra la versión (`Implementation-Version`, o `Bundle-Version`) de los artefactos con vendor `org.apache.pekko` (`Implementation-Vendor-Id`/`Bundle-Vendor`), indexada por título (`Implementation-Title`/`Bundle-Name`). `checkSameVersion(productName, dependencies, versions)` devuelve `Some(mensaje)` si las versiones de los módulos listados no son idénticas y `None` si coinciden; el arranque del sistema lo invoca con `logWarning = true` y, si `pekko.fail-mixed-versions = on`, lanza `IllegalStateException(message)`.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/util/ManifestInfo.scala:37-103 (objeto: constantes, `Version`, `checkSameVersion` puro), 110-194 (extensión: lectura de manifests y `checkSameVersion` con log/throw)
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1013-1045 (lista `allModules`), 1071 (invocación en `start`), 472 (`FailMixedVersions`)
+- actor/src/main/scala/org/apache/pekko/util/ManifestInfo.scala:33-98 (objeto: constantes, `Version`, `checkSameVersion` puro), 110-194 (extensión: lectura de manifests y `checkSameVersion` con log/throw)
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1044-1076 (lista `allModules`), 1071 (invocación en `start`), 472 (`FailMixedVersions`)
 - reference.conf: `pekko.fail-mixed-versions`
-- specs: actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:18-46
+- specs: actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:19-47
 
 **Precondiciones.** Sólo se consideran versiones cuyo vendor está en `knownVendors = Set("org.apache.pekko")` y que tengan título, versión y vendor no nulos (ManifestInfo.scala:140-144).
 
@@ -835,9 +835,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** No hay MANIFEST ni classpath: las versiones vienen de constantes de compilación (en un workspace de crates con versión única el chequeo es trivial y casi siempre `None`; el caso de versiones mezcladas sólo es observable inyectando el mapa). Los nombres de módulo de `allModules` se reducen a los crates rakka equivalentes.
 
 **Aserciones.**
-- A1: con `pekko-actor 1.0.2`, `pekko-persistence 1.0.1`, `pekko-cluster 1.0.1` y `unrelated 1.0.1`, y `allModules = [pekko-actor, pekko-persistence, pekko-cluster]`, el resultado es exactamente el mensaje con "version 1.0.2 of Pekko", "[pekko-persistence, pekko-cluster]" y "(1.0.1, [pekko-cluster, pekko-persistence]), (1.0.2, [pekko-actor])" — actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:20-32.
-- A2: con versiones `1.0.2` y `1.0.2+10-abababef` (dynver) la versión mayor es la dynver, el módulo a actualizar es `pekko-actor` y el agrupado es `(1.0.2, [pekko-actor]), (1.0.2+10-abababef, [pekko-persistence])` — actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:34-44.
-- A3: módulos no listados en `dependencies` (`unrelated`) se ignoran — actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:21-27 (el caso de A1 incluye `unrelated 1.0.1` y no aparece en el mensaje).
+- A1: con `pekko-actor 1.0.2`, `pekko-persistence 1.0.1`, `pekko-cluster 1.0.1` y `unrelated 1.0.1`, y `allModules = [pekko-actor, pekko-persistence, pekko-cluster]`, el resultado es exactamente el mensaje con "version 1.0.2 of Pekko", "[pekko-persistence, pekko-cluster]" y "(1.0.1, [pekko-cluster, pekko-persistence]), (1.0.2, [pekko-actor])" — actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:21-33.
+- A2: con versiones `1.0.2` y `1.0.2+10-abababef` (dynver) la versión mayor es la dynver, el módulo a actualizar es `pekko-actor` y el agrupado es `(1.0.2, [pekko-actor]), (1.0.2+10-abababef, [pekko-persistence])` — actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:35-45.
+- A3: módulos no listados en `dependencies` (`unrelated`) se ignoran — actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:22-28 (el caso de A1 incluye `unrelated 1.0.1` y no aparece en el mensaje).
 - A4: si todas las versiones coinciden, `checkSameVersion` devuelve `None` — derivada de ManifestInfo.scala:84,101, *no afirmada por spec*. Caracterización propuesta.
 - A5: con `fail-mixed-versions = on` y discrepancia, el arranque lanza `IllegalStateException` con el mismo mensaje; con `off`, sólo un `warning` — derivada de ManifestInfo.scala:165-193 y ActorSystem.scala:1071, *no afirmada por spec*. Caracterización propuesta inyectando el mapa de versiones.
 - A6: sólo cuentan artefactos con vendor `org.apache.pekko` — derivada de ManifestInfo.scala:46,140-144, *no afirmada por spec*; sin equivalente en Rust (no hay manifests).
@@ -853,7 +853,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual, deprecado desde Akka 2.6.0] `org.apache.pekko.Main.main(args)` exige exactamente un argumento (FQCN de la clase del actor "supervisor de aplicación"); con otro número imprime por stdout `you need to provide exactly one argument: the class of the application supervisor actor` y no hace nada más. Con un argumento: crea `ActorSystem("Main")`, carga la clase vía `dynamicAccess.getClassFor[Actor]`, crea el actor `app` y un `Terminator` (`app-terminator`) que vigila (`watch`) al actor; cuando `app` termina, el `Terminator` loguea `info("application supervisor has terminated, shutting down")` y llama `context.system.terminate()`. Si algo falla (`NonFatal`) al cargar/crear, termina el sistema y relanza la excepción.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/Main.scala:27-62
+- actor/src/main/scala/org/apache/pekko/Main.scala:27-62 (1.7.1)
 - specs: ninguno (búsqueda de `pekko.Main`/`Main.main` en actor-tests, testkit y actor/src/test sin resultados)
 
 **Precondiciones.** El argumento debe ser el FQCN de una clase `Actor` instanciable sin argumentos.
@@ -887,8 +887,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] settings.toString renderiza el Config sin valores de variables de entorno y reemplazando el nombre de usuario del proceso por `<username>`; no aparece el home del usuario. El Config se renderiza con setShowEnvVariableValues(false) y se reemplaza `user.name` por `<username>`.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:488-491
-- actor/src/main/scala/org/apache/pekko/util/Helpers.scala:180-192
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:487-490
+- actor/src/main/scala/org/apache/pekko/util/Helpers.scala:182-194
 
 **Condiciones.**
 - El reemplazo es por subcadena (String.replace) del valor de la propiedad `user.name` (Helpers.scala:191): si el nombre de usuario es una subcadena común, se reemplaza en todo el texto.
@@ -902,8 +902,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: usar el usuario del proceso (`USER`/`getuid`) y no mostrar valores de variables de entorno. Diferencia: el 'home' del test se pasa como propiedad Java `${user.home}` en HOCON; en Rust el equivalente de sustitución es `${HOME}` (Q-X-1).
 
 **Aserciones.**
-- A1: `settings.toString` no contiene `user.name` ni `user.home` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:404-408.
-- A2: `settings.toString` contiene `<username>` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:409.
+- A1: `settings.toString` no contiene `user.name` ni `user.home` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:421-425.
+- A2: `settings.toString` contiene `<username>` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:426.
 
 **Oráculo.** Jar oficial: escenario propuesto `sys-settings-redaction.jsh`.
 
@@ -916,12 +916,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual interno] Lanza IllegalStateException con texto fijo mientras el sistema no completó provider.init. Las extensiones que requieren sistema inicializado llaman a esta guardia.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1050-1057
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1081-1088
 
 **Condiciones.**
-- IllegalStateException("The calling code expected that the ActorSystem was initialized but it wasn't yet. This is probably a bug in the ActorSystem initialization sequence often related to initialization of extensions. Please report at https://github.com/apache/pekko/issues.") (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1055-1057; texto parcial, verificar contra el archivo al implementar).
+- IllegalStateException("The calling code expected that the ActorSystem was initialized but it wasn't yet. This is probably a bug in the ActorSystem initialization sequence often related to initialization of extensions. Please report at https://github.com/apache/pekko/issues.") (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1086-1088; texto parcial, verificar contra el archivo al implementar).
 
-**Orden / concurrencia / ciclo de vida.** _initialized se fija tras provider.init (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1066).
+**Orden / concurrencia / ciclo de vida.** _initialized se fija tras provider.init (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1097).
 
 **Dependencias.** Filas: AC-SYS-002 ; AC-EXT-003. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
 
@@ -930,7 +930,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `Err`. Diferencia: tipo de error.
 
 **Aserciones.**
-- A1: antes de provider.init, assertInitialized falla — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1055-1057, *no afirmada por spec*.
+- A1: antes de provider.init, assertInitialized falla — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1086-1088, *no afirmada por spec*.
 
 **Oráculo.** No aplica: sólo alcanzable con extensiones que llaman en construcción.
 
@@ -943,12 +943,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual interno] Path con dirección distinta de la raíz o path vacío -> deadLetters (con log Debug `Resolve (deserialization) ..`); path no existente -> EmptyLocalActorRef bajo el mismo path. Resuelve refs por path para deserialización, ActorSelection y envío por path.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:622-657
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:629-664
 
 **Condiciones.**
-- String no parseable o dirección ajena: `deadLetters` + Debug `Resolve (deserialization) of unknown (invalid) path [{}], using deadLetters.` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:624-626).
-- ActorPath de otro root: Debug `Resolve (deserialization) of foreign path [{}] doesn't match root path [{}], using deadLetters.` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:631-636).
-- Elementos vacíos: deadLetters (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:644-646). No encontrado: `EmptyLocalActorRef(system.provider, ref.path / pathElements, eventStream)` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:655).
+- String no parseable o dirección ajena: `deadLetters` + Debug `Resolve (deserialization) of unknown (invalid) path [{}], using deadLetters.` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:631-633).
+- ActorPath de otro root: Debug `Resolve (deserialization) of foreign path [{}] doesn't match root path [{}], using deadLetters.` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:638-643).
+- Elementos vacíos: deadLetters (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:651-653). No encontrado: `EmptyLocalActorRef(system.provider, ref.path / pathElements, eventStream)` (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:662).
 
 **Orden / concurrencia / ciclo de vida.** n/a
 
@@ -959,9 +959,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: igual; `ActorSelection` (AC-REF) reutiliza este método.
 
 **Aserciones.**
-- A1: un hijo con nombre `pekko%3A%2F%2FClusterSystem%40127.0.0.1%3A7355` se resuelve y conserva el nombre — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:49-65.
-- A2: path de otro sistema devuelve deadLetters — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:629-637, *no afirmada por spec*.
-- A3: path inexistente devuelve un ref terminado (EmptyLocalActorRef) con el mismo path — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:648-656.
+- A1: un hijo con nombre `pekko%3A%2F%2FClusterSystem%40127.0.0.1%3A7355` se resuelve y conserva el nombre — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:48-64.
+- A2: path de otro sistema devuelve deadLetters — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:636-644, *no afirmada por spec*.
+- A3: path inexistente devuelve un ref terminado (EmptyLocalActorRef) con el mismo path — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:655-663.
 
 **Oráculo.** Jar oficial: escenario propuesto `sys-resolve-actor-ref.jsh`.
 
@@ -974,10 +974,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual interno] rootGuardian.getSingleChild: 'temp' -> tempContainer, 'deadLetters' -> deadLetters, otros nombres registrados con registerExtraNames, resto -> hijo real. Permite que /deadLetters y /temp sean resolubles por path como hijos del root.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:499-508,546-551
+- actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:506-515,553-558
 
 **Condiciones.**
-- getParent del root = root (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:546).
+- getParent del root = root (actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:553).
 
 **Orden / concurrencia / ciclo de vida.** n/a
 
@@ -988,7 +988,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: igual.
 
 **Aserciones.**
-- A1: `system.actorSelection("/deadLetters")` y `/temp` resuelven a esos refs — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:547-550, *no afirmada por spec leída*.
+- A1: `system.actorSelection("/deadLetters")` y `/temp` resuelven a esos refs — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:554-557, *no afirmada por spec leída*.
 
 **Oráculo.** Jar oficial: `sys-resolve-actor-ref.jsh`.
 
@@ -1001,13 +1001,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] subscribe devuelve false si ya estaba suscrito al canal; unsubscribe false si no lo estaba; publish entrega a todos los suscriptores del clasificador y a ningún otro; publish sin suscriptores no falla. Bus genérico con tres tipos asociados; las implementaciones concretas (Lookup/Subchannel/Scanning/ManagedActor) comparten estas garantías.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:33-90
+- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:32-89
 - documentación de usuario `docs/src/main/paradox/event-bus.md` queda fuera de los módulos del alcance (no se usa como fuente de contrato)
 
 **Condiciones.**
-- subscribe(sub, c) -> true la primera vez, false si ya estaba (actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:76-80).
-- unsubscribe(sub, c) -> true si estaba, false si no (actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:66-74,82-86).
-- publish(e) sin suscriptores: sin efecto ni error (actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:100-102).
+- subscribe(sub, c) -> true la primera vez, false si ya estaba (actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:75-79).
+- unsubscribe(sub, c) -> true si estaba, false si no (actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:65-73,81-85).
+- publish(e) sin suscriptores: sin efecto ni error (actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:99-101).
 
 **Orden / concurrencia / ciclo de vida.** Cada suscriptor recibe un evento por publish (sin duplicados); no hay garantía de orden entre suscriptores.
 
@@ -1018,15 +1018,15 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: trait con tipos asociados; Subscriber es `ActorRef` o closure. Diferencia: ninguna observable.
 
 **Aserciones.**
-- A1: subscribe -> true — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:62-64.
-- A2: unsubscribe de suscriptor existente -> true — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:66-68.
-- A3: unsubscribe de un suscriptor inexistente -> false — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:70-74.
-- A4: subscribe dos veces: true luego false; unsubscribe luego true — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:76-80.
-- A5: unsubscribe dos veces: true luego false — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:82-86.
-- A6: 10 suscriptores con clasificadores distintos: todos subscribe=true y unsubscribe=true — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:88-98.
-- A7: publish con un único suscriptor entrega 1 vez (y varias veces si se publica varias) — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:104-122.
-- A8: publish a 10 suscriptores del mismo clasificador entrega a los 10 — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:124-137.
-- A9: no se entrega a suscriptores de otro clasificador ni a ex-suscriptores — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:139-156.
+- A1: subscribe -> true — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:61-63.
+- A2: unsubscribe de suscriptor existente -> true — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:65-67.
+- A3: unsubscribe de un suscriptor inexistente -> false — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:69-73.
+- A4: subscribe dos veces: true luego false; unsubscribe luego true — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:75-79.
+- A5: unsubscribe dos veces: true luego false — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:81-85.
+- A6: 10 suscriptores con clasificadores distintos: todos subscribe=true y unsubscribe=true — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:87-97.
+- A7: publish con un único suscriptor entrega 1 vez (y varias veces si se publica varias) — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:103-121.
+- A8: publish a 10 suscriptores del mismo clasificador entrega a los 10 — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:123-136.
+- A9: no se entrega a suscriptores de otro clasificador ni a ex-suscriptores — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:138-155.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-eventbus-contract.jsh` (clase LookupClassification mínima; sólo Scala-from-jshell es incómodo: usar `EventStream` con clases como clasificador).
 
@@ -1039,7 +1039,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] Clasificación por igualdad de clasificador (Index<Classifier, Subscriber> con comparador de suscriptores). subscribe(sub, c) = subscribers.put(c, sub); publish(e) itera los valores del clasificador classify(e).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:93-130
+- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:92-127
 
 **Condiciones.**
 - compareSubscribers define la identidad de suscriptor (orden total); mapSize es sólo una pista de capacidad (EventBus.scala:95-103).
@@ -1053,9 +1053,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `RwLock<HashMap<..>>` o estructura concurrente; sin diferencia observable.
 
 **Aserciones.**
-- A1: los tests abstractos de EventBus pasan con classify = evento.toString — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:353-369.
-- A2: unsubscribe(subscriber) sin clasificador quita todas las suscripciones — derivada de actor/src/main/scala/org/apache/pekko/event/EventBus.scala:124, *no afirmada por spec*.
-- A3: publish entrega en el hilo del publicador (publish(event, subscriber) síncrono) — derivada de actor/src/main/scala/org/apache/pekko/event/EventBus.scala:126-129.
+- A1: los tests abstractos de EventBus pasan con classify = evento.toString — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:346-360.
+- A2: unsubscribe(subscriber) sin clasificador quita todas las suscripciones — derivada de actor/src/main/scala/org/apache/pekko/event/EventBus.scala:121, *no afirmada por spec*.
+- A3: publish entrega en el hilo del publicador (publish(event, subscriber) síncrono) — derivada de actor/src/main/scala/org/apache/pekko/event/EventBus.scala:123-126.
 
 **Oráculo.** Jar oficial: ver AC-EVT-001.
 
@@ -1068,7 +1068,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Suscribirse a un supertipo recibe eventos de subtipos (clase o interfaz); correcto al agregar/quitar suscripciones en cualquier orden; resultado booleano de subscribe/unsubscribe por (suscriptor, canal) exacto. Cache Map[Classifier, Set[Subscriber]] volátil reconstruido bajo lock (subscriptions.synchronized) y consultado sin lock en publish.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:136-211
+- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:133-208
 
 **Condiciones.**
 - subscribe -> diff.nonEmpty (true si cambió la visibilidad efectiva) (EventBus.scala:159-163).
@@ -1084,13 +1084,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `ArcSwap<HashMap<..>>` + Mutex para escritura. Diferencia: la relación de subtipo debe proveerse (Q-X-6).
 
 **Aserciones.**
-- A1: subscribe(B3) true; publish(C) sin entrega, publish(B3) entrega; subscribe(A) true; C y B2 entregan; unsubscribe(B2) true; luego C y B3 sin duplicar, A entrega — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:150-174.
-- A2: clases e interfaces (AT, BT, CC, CCATBT): suscripción a interfaz recibe subtipos — update on subscribe actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:176-197.
-- A3: update on unsubscribe (a3 deja de recibir, otros no) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:199-219.
-- A4: unsubscribe(sub) de todos los canales — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:221-241.
-- A5: update on publish (la caché se completa al publicar) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:243-257.
-- A6: unsubscribe de una clase usada con trait: a2 pierde CC pero conserva BT — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:259-279.
-- A7: subscribe después de publish añade el canal sin perder los anteriores — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:281-297.
+- A1: subscribe(B3) true; publish(C) sin entrega, publish(B3) entrega; subscribe(A) true; C y B2 entregan; unsubscribe(B2) true; luego C y B3 sin duplicar, A entrega — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:172-196.
+- A2: clases e interfaces (AT, BT, CC, CCATBT): suscripción a interfaz recibe subtipos — update on subscribe actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:198-219.
+- A3: update on unsubscribe (a3 deja de recibir, otros no) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:221-241.
+- A4: unsubscribe(sub) de todos los canales — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:243-263.
+- A5: update on publish (la caché se completa al publicar) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:265-279.
+- A6: unsubscribe de una clase usada con trait: a2 pierde CC pero conserva BT — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:281-301.
+- A7: subscribe después de publish añade el canal sin perder los anteriores — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:303-319.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-subchannel.jsh` usando `EventStream` con clases Java/Scala de prueba compiladas en jshell.
 
@@ -1103,7 +1103,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] Recorre todos los pares (clasificador, suscriptor) evaluando `matches(classifier, event)`; orden total por compareClassifiers/compareSubscribers. Un mismo suscriptor con dos clasificadores que coinciden recibe el evento dos veces (itera pares).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:219-269
+- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:216-264
 
 **Condiciones.**
 - unsubscribe(subscriber) elimina todos los pares con compareSubscribers==0 (EventBus.scala:253-259).
@@ -1117,8 +1117,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `BTreeSet` bajo lock o skiplist concurrente.
 
 **Aserciones.**
-- A1: los tests abstractos de EventBus pasan con matches(c,e)=e.toString==c — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:317-333.
-- A2: un suscriptor con dos clasificadores coincidentes recibe dos veces — derivada de actor/src/main/scala/org/apache/pekko/event/EventBus.scala:261-268, *no afirmada por spec*.
+- A1: los tests abstractos de EventBus pasan con matches(c,e)=e.toString==c — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:315-329.
+- A2: un suscriptor con dos clasificadores coincidentes recibe dos veces — derivada de actor/src/main/scala/org/apache/pekko/event/EventBus.scala:256-263, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: ver AC-EVT-001.
 
@@ -1131,15 +1131,15 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] El bus vigila (watch) a los suscriptores mediante un unsubscriber y los quita al recibir Terminated; la muerte del actor clasificador (monitored) no quita suscripciones; un suscriptor sólo se des-registra del unsubscriber cuando deja su última suscripción. seqNr secuencia las altas/bajas hacia el unsubscriber (Register/Unregister con seq == atSeq+1; si no, stash) para que watch/unwatch lleguen en el mismo orden que las mutaciones del mapa.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:277-436
-- actor/src/main/scala/org/apache/pekko/event/ActorClassificationUnsubscriber.scala:28-104
+- actor/src/main/scala/org/apache/pekko/event/EventBus.scala:272-431
+- actor/src/main/scala/org/apache/pekko/event/ActorClassificationUnsubscriber.scala:29-105
 - reference.conf:752 (pekko.actor.debug.event-stream)
 
 **Condiciones.**
 - subscribe/unsubscribe con suscriptor o clasificador null: IllegalArgumentException("Subscriber is null") / ("Classifier is null") (EventBus.scala:407-415).
-- Texto Debug: `actor <a> has terminated, unsubscribing it from <bus>` (actor/src/main/scala/org/apache/pekko/event/ActorClassificationUnsubscriber.scala:68), `unregistered watch of <a> in <bus>`, `registered watch for <a> in <bus>`, `will monitor <bus>`.
+- Texto Debug: `actor <a> has terminated, unsubscribing it from <bus>` (actor/src/main/scala/org/apache/pekko/event/ActorClassificationUnsubscriber.scala:69), `unregistered watch of <a> in <bus>`, `registered watch for <a> in <bus>`, `will monitor <bus>`.
 
-**Orden / concurrencia / ciclo de vida.** Terminated(actor) -> unsubscribe(actor) -> otro Unregister que se procesa inofensivamente (comentario actor/src/main/scala/org/apache/pekko/event/ActorClassificationUnsubscriber.scala:69-71).
+**Orden / concurrencia / ciclo de vida.** Terminated(actor) -> unsubscribe(actor) -> otro Unregister que se procesa inofensivamente (comentario actor/src/main/scala/org/apache/pekko/event/ActorClassificationUnsubscriber.scala:70-72).
 
 **Dependencias.** Filas: AC-EVT-001 ; AC-DW-001 ; AC-SYS-010. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
 
@@ -1148,11 +1148,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: ídem, usando el watch de AC-DW. Diferencia: `this.toString` del bus en el texto Debug depende de Display del bus.
 
 **Aserciones.**
-- A1: al morir el suscriptor, deja de recibir y el unsubscriber lo publica en Debug `actor <subs> has terminated, unsubscribing it from <bus>` — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:202-223,283-289.
-- A2: la muerte del actor clasificador (a1) no quita la suscripción; sigue entregando m(2) — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:225-247.
-- A3: tras unsubscribe de a1 sigue recibiendo de a2; sólo al quitar a2 se publica `unregistered watch of <subs> in <bus>` — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:249-281,291-297.
-- A4: los tests abstractos de EventBus pasan con ActorEventBus — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:180-198.
-- A5: null en subscribe/unsubscribe lanza IllegalArgumentException — derivada de actor/src/main/scala/org/apache/pekko/event/EventBus.scala:407-419, *no afirmada por spec*.
+- A1: al morir el suscriptor, deja de recibir y el unsubscriber lo publica en Debug `actor <subs> has terminated, unsubscribing it from <bus>` — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:201-222,282-288.
+- A2: la muerte del actor clasificador (a1) no quita la suscripción; sigue entregando m(2) — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:224-246.
+- A3: tras unsubscribe de a1 sigue recibiendo de a2; sólo al quitar a2 se publica `unregistered watch of <subs> in <bus>` — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:248-280,290-296.
+- A4: los tests abstractos de EventBus pasan con ActorEventBus — actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:179-197.
+- A5: null en subscribe/unsubscribe lanza IllegalArgumentException — derivada de actor/src/main/scala/org/apache/pekko/event/EventBus.scala:402-414, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-managed-classification.jsh`.
 
@@ -1165,11 +1165,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Bus del sistema con SubchannelClassification por clase del evento (`event.getClass`); entrega con tell al ActorRef suscriptor; null como suscriptor lanza IllegalArgumentException con mensaje exacto `subscriber is null`. Con debug=true publica Debug en cada (un)subscribe: `subscribing <ref> to channel <cls>`, `unsubscribing <ref> from channel <cls>`, `unsubscribing <ref> from all channels`, `initialized unsubscriber to: <u>, registering <n> initial subscribers with it`, `not using unsubscriber <u>, because already initialized with <p>`.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/EventStream.scala:34-161
+- actor/src/main/scala/org/apache/pekko/event/EventStream.scala:34-172
 - reference.conf:752 (pekko.actor.debug.event-stream)
 
 **Condiciones.**
-- subscribe/unsubscribe(null,..) -> IllegalArgumentException("subscriber is null") (actor/src/main/scala/org/apache/pekko/event/EventStream.scala:57,65,75).
+- subscribe/unsubscribe(null,..) -> IllegalArgumentException("subscriber is null") (actor/src/main/scala/org/apache/pekko/event/EventStream.scala:61,72,85).
 - publish a suscriptor terminado cuando sys==null: lo desuscribe (actor/src/main/scala/org/apache/pekko/event/EventStream.scala:51-54).
 
 **Orden / concurrencia / ciclo de vida.** subscribe: (debug Debug) -> registerWithUnsubscriber -> super.subscribe. unsubscribe: super -> unregisterIfNoMoreSubscribedChannels -> (debug Debug).
@@ -1181,12 +1181,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: ver Q-X-6 para la clasificación de eventos; Debug de event-stream se conserva textual.
 
 **Aserciones.**
-- A1: subscribe(testActor, M); publish(M(42)) entrega; unsubscribe(testActor); publish(M(13)) no entrega — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:86-100.
-- A2: subscribe(null, ..) lanza IllegalArgumentException con mensaje `subscriber is null` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:102-106.
-- A3: unsubscribe(null, c) y unsubscribe(null) lanzan IllegalArgumentException `subscriber is null` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:108-113.
-- A4: suscribir dos veces el mismo ref/clase devuelve true y luego false — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:311-312.
-- A5: el mensaje Debug `unsubscribing <ref> from all channels` se publica en modo debug — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:315.
-- A6: el mensaje Debug `unsubscribing <ref> from channel class <cls>` usa `channel.toString` de java.lang.Class (`class pkg.A` / `interface pkg.T`) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:395-423 (dependiente de JVM).
+- A1: subscribe(testActor, M); publish(M(42)) entrega; unsubscribe(testActor); publish(M(13)) no entrega — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:108-122.
+- A2: subscribe(null, ..) lanza IllegalArgumentException con mensaje `subscriber is null` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:124-128.
+- A3: unsubscribe(null, c) y unsubscribe(null) lanzan IllegalArgumentException `subscriber is null` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:130-135.
+- A4: suscribir dos veces el mismo ref/clase devuelve true y luego false — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:333-334.
+- A5: el mensaje Debug `unsubscribing <ref> from all channels` se publica en modo debug — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:337.
+- A6: el mensaje Debug `unsubscribing <ref> from channel class <cls>` usa `channel.toString` de java.lang.Class (`class pkg.A` / `interface pkg.T`) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:417-445 (dependiente de JVM).
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-eventstream-debug.jsh` para comparar textos Debug; el texto con `class`/`interface` es JVM y se mapeará (Q-EVT-1).
 
@@ -1200,11 +1200,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Fuente.**
 - actor/src/main/scala/org/apache/pekko/event/EventStreamUnsubscriber.scala:30-97
-- actor/src/main/scala/org/apache/pekko/event/EventStream.scala:93-161
+- actor/src/main/scala/org/apache/pekko/event/EventStream.scala:103-172
 
 **Condiciones.**
 - Nombre del actor: `eventStreamUnsubscriber-<contador global>` (actor/src/main/scala/org/apache/pekko/event/EventStreamUnsubscriber.scala:90).
-- initUnsubscriber devuelve false si ya existe (actor/src/main/scala/org/apache/pekko/event/EventStream.scala:116-123).
+- initUnsubscriber devuelve false si ya existe (actor/src/main/scala/org/apache/pekko/event/EventStream.scala:127-134).
 
 **Orden / concurrencia / ciclo de vida.** Terminated(actor) -> eventStream.unsubscribe(actor) -> `unsubscribing <a> from all channels` (Debug) -> UnregisterIfNoMoreSubscribedChannels -> `unwatching <a>, since has no subscriptions`.
 
@@ -1215,12 +1215,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: ídem. Diferencia: ninguna observable; los textos Debug se conservan.
 
 **Aserciones.**
-- A1: al terminar el suscriptor se publican `unsubscribing <target> from all channels` y `unwatching <target>` y deja de recibir — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:298-325.
-- A2: un suscriptor ya terminado al suscribirse es desuscrito inmediatamente y puede re-suscribirse (true) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:327-356.
-- A3: initUnsubscriber(p.ref) sobre un sistema ya iniciado devuelve false — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:358-373.
-- A4: unsubscribe(sub) publica `unwatching <sub>` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:375-393.
-- A5: el unsubscriber hace watch por cada subscribe (idempotente): dos `watching <ref>`; unsubscribe(canal) mantiene el watch mientras queden canales; al quitar el último publica `unwatching <ref>, since has no subscriptions` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:395-423.
-- A6: unsubscribe de un canal sin suscripción devuelve false — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:420.
+- A1: al terminar el suscriptor se publican `unsubscribing <target> from all channels` y `unwatching <target>` y deja de recibir — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:320-347.
+- A2: un suscriptor ya terminado al suscribirse es desuscrito inmediatamente y puede re-suscribirse (true) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:349-378.
+- A3: initUnsubscriber(p.ref) sobre un sistema ya iniciado devuelve false — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:380-395.
+- A4: unsubscribe(sub) publica `unwatching <sub>` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:397-415.
+- A5: el unsubscriber hace watch por cada subscribe (idempotente): dos `watching <ref>`; unsubscribe(canal) mantiene el watch mientras queden canales; al quitar el último publica `unwatching <ref>, since has no subscriptions` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:417-445.
+- A6: unsubscribe de un canal sin suscripción devuelve false — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:442.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-eventstream-unsubscriber.jsh`.
 
@@ -1233,12 +1233,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] DeadLetter(message, sender, recipient) exige sender y recipient no nulos; DeadLetterSuppression -> se publica SuppressedDeadLetter (no DeadLetter); Dropped(message, reason, sender, recipient); WrappedMessage.unwrap desenvuelve recursivamente. A un ref muerto (EmptyLocalActorRef) o a deadLetters, un mensaje normal publica DeadLetter con sender = deadLetters si no hay sender. AllDeadLetters es el supertipo de los tres; DeadLetterListener se suscribe a DeadLetter, Dropped y UnhandledMessage.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:579-583 (AllDeadLetters)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:591-595 (DeadLetter)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:609-614 (SuppressedDeadLetter)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:622-631 (Dropped)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:633-653 (WrappedMessage)
-- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:671-756 (EmptyLocalActorRef, DeadLetterActorRef)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:551-555 (AllDeadLetters)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:563-567 (DeadLetter)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:581-586 (SuppressedDeadLetter)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:594-603 (Dropped)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:605-625 (WrappedMessage)
+- actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:643-728 (EmptyLocalActorRef, DeadLetterActorRef)
 
 **Condiciones.**
 - DeadLetter/SuppressedDeadLetter con sender o recipient null: IllegalArgumentException por `require` con mensajes `DeadLetter sender may not be null` / `DeadLetter recipient may not be null` (AR:593-594, 612-613).
@@ -1259,8 +1259,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A2: el listener de AllDeadLetters recibe ambos en ese orden — DeadLetterSupressionSpec.scala:60-62.
 - A3: vía ActorSelection se desenvuelve el mensaje de ActorSelectionMessage (sólo se comprueba el contenido) — DeadLetterSupressionSpec.scala:64-71.
 - A4: a system.deadLetters: DeadLetter(NormalMsg, testActor, system.deadLetters) y SuppressedDeadLetter equivalente — DeadLetterSupressionSpec.scala:74-97; por ActorSelection a deadLetters también — :99-105.
-- A5: sender/recipient null en DeadLetter lanzan IllegalArgumentException — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:593-594, *no afirmada por spec*.
-- A6: WrappedMessage.unwrap desenvuelve recursivamente — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:638-643, *no afirmada por spec*.
+- A5: sender/recipient null en DeadLetter lanzan IllegalArgumentException — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:565-566, *no afirmada por spec*.
+- A6: WrappedMessage.unwrap desenvuelve recursivamente — derivada de actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:610-615, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-deadletters.jsh` (suscribe probes a DeadLetter/SuppressedDeadLetter/AllDeadLetters).
 
@@ -1273,17 +1273,17 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Cuenta DeadLetter, Dropped y UnhandledMessage; loguea Info 'Message [<clase>] ...' hasta log-dead-letters; al alcanzar el límite añade `, no more dead letters will be logged in next [<dur>]` (o `, no more dead letters will be logged` y se detiene si suspend=infinite); tras suspend-duration, el siguiente mensaje se loguea con `, of which N were not logged. The counter will be reset now` y reinicia el contador; no loguea mensajes envueltos de DeadLetterSuppression ni durante el apagado salvo log-dead-letters-during-shutdown. Cuatro modos de recibir: siempre (log-dead-letters=on => Int.MaxValue), hasta N con parada, hasta N con suspensión temporal, y suspendido.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:33-161
+- actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:34-206
 - reference.conf:58 (log-dead-letters=10), :63 (log-dead-letters-during-shutdown=off), :68 (suspend-duration=5 minutes)
 - ActorSystem.scala:441-455 (parseo: off/false->0; on/true->Int.MaxValue; entero; suspend `infinite`)
 
 **Condiciones.**
-- Texto DeadLetter: `Message [<cls>] from <sender> to <recipient> was not delivered. [<n>] dead letters encountered<doneMsg>. If this is not an expected behavior then <recipient> may have terminated unexpectedly. This logging can be turned off or adjusted with configuration settings 'pekko.log-dead-letters' and 'pekko.log-dead-letters-during-shutdown'.` (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:134-145). `from <sender>` sólo si sender es real (no noSender ni deadLetters) (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:121,150-152).
-- Texto Dropped: `Message [<cls>] from <s> to <r> was dropped. <reason>. [<n>] dead letters encountered<doneMsg>. ` (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:126-129); Unhandled: `... was unhandled. ...` (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:130-133). Marker: ActorLogMarker.deadLetter(messageStr) (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:147).
-- Mensaje envuelto: ` wrapped in [<wrapperCls>]` (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:124).
-- El evento Info tiene logSource = recipient.path.toString y logClass = recipient.getClass (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:141-142).
+- Texto DeadLetter: `Message [<cls>] from <sender> to <recipient> was not delivered. [<n>] dead letters encountered<doneMsg>. If this is not an expected behavior then <recipient> may have terminated unexpectedly. This logging can be turned off or adjusted with configuration settings 'pekko.log-dead-letters' and 'pekko.log-dead-letters-during-shutdown'.` (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:151-162). `from <sender>` sólo si sender es real (no noSender ni deadLetters) (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:138,167-169).
+- Texto Dropped: `Message [<cls>] from <s> to <r> was dropped. <reason>. [<n>] dead letters encountered<doneMsg>. ` (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:143-146); Unhandled: `... was unhandled. ...` (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:147-150). Marker: ActorLogMarker.deadLetter(messageStr) (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:164).
+- Mensaje envuelto: ` wrapped in [<wrapperCls>]` (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:141).
+- El evento Info tiene logSource = recipient.path.toString y logClass = recipient.getClass (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:158-159).
 
-**Orden / concurrencia / ciclo de vida.** preStart suscribe DeadLetter, Dropped y UnhandledMessage; preRestart/postRestart/postStop especiales (no re-suscribe, no pierde suscripción en restart; postStop desuscribe) (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:40-53).
+**Orden / concurrencia / ciclo de vida.** preStart suscribe DeadLetter, Dropped y UnhandledMessage; preRestart/postRestart/postStop especiales (no re-suscribe, no pierde suscripción en restart; postStop desuscribe) (actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:57-70).
 
 **Dependencias.** Filas: AC-CFG-005 ; AC-EVT-008 ; AC-EVT-010 ; AC-TK-005.2. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
 
@@ -1296,9 +1296,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A2: los mensajes 5 y 6 no se loguean — DeadLetterSuspensionSpec.scala:85-86.
 - A3: tras 2050 ms el 7º se loguea con `, of which 2 were not logged` — DeadLetterSuspensionSpec.scala:88-96.
 - A4: el 8º reinicia el contador: `[1] dead letters encountered` — DeadLetterSuspensionSpec.scala:98-101.
-- A5: con loglevel=INFO, un mensaje a un actor muerto produce Info `from Actor[pekko://LogDeadLetters/system/testProbe.. not delivered` y (por TestEventListener) un Warning `received dead letter from Actor[pekko://LogDeadLetters/system/testProbe..` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-186.
+- A5: con loglevel=INFO, un mensaje a un actor muerto produce Info `from Actor[pekko://LogDeadLetters/system/testProbe.. not delivered` y (por TestEventListener) un Warning `received dead letter from Actor[pekko://LogDeadLetters/system/testProbe..` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:167-189.
 - A6: sin sender: Info `.*not delivered` y Warning `received dead letter: boom` — ActorSystemSpec.scala:188-210.
-- A7: mensajes DeadLetterSuppression envueltos no se cuentan ni loguean — derivada de actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:154-159, *no afirmada por spec*.
+- A7: mensajes DeadLetterSuppression envueltos no se cuentan ni loguean — derivada de actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:199-204, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-deadletter-listener.jsh` (captura Info con EventFilter equivalente: suscripción a LogEvent y volcado de mensajes).
 
@@ -1311,12 +1311,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] UnhandledMessage(message, sender, recipient) se publica en el EventStream; con pekko.actor.debug.unhandled=on un actor interno `UnhandledMessageForwarder` lo convierte en Debug `unhandled message from <sender>: <msg>` con logSource=recipient.path y logClass=recipient.getClass. El forwarder se crea como /system/UnhandledMessageForwarder dentro de startDefaultLoggers.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:154-166
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:164-176
 - actor/src/main/scala/org/apache/pekko/actor/Actor.scala:293-303 (`UnhandledMessage extends WrappedMessage with AllDeadLetters`), 545-550 y 656-661 (`aroundReceive` -> `unhandled(msg)`: `Terminated(dead)` => `DeathPactException(dead)`, otro => `eventStream.publish(UnhandledMessage(message, sender(), self))`; leído en la auditoría 2026-10-31)
 - reference.conf:755 (debug.unhandled)
 
 **Condiciones.**
-- Si el nombre ya está en uso (InvalidActorNameException) se ignora (actor/src/main/scala/org/apache/pekko/event/Logging.scala:164-166).
+- Si el nombre ya está en uso (InvalidActorNameException) se ignora (actor/src/main/scala/org/apache/pekko/event/Logging.scala:174-176).
 - Los tests de LocalActorRefProviderSpec ven el log como Warning por TestEventListener (`unhandled message from Actor[..]: msg`, TestEventListener.scala:582-584).
 
 **Orden / concurrencia / ciclo de vida.** n/a
@@ -1328,9 +1328,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: igual.
 
 **Aserciones.**
-- A1: publicar UnhandledMessage(42, deadLetters, deadLetters) con debug.unhandled=on entrega al suscriptor el mensaje y además un Debug(logSource=deadLetters.path, logClass=deadLetters.getClass, `unhandled message from <deadLetters>: 42`) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:115-131.
-- A2: sin debug.unhandled no se crea el forwarder — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:154-155, *no afirmada por spec*.
-- A3: el warning de TestEventListener por mensaje no manejado coincide con LocalActorRefProviderSpec — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:70-107.
+- A1: publicar UnhandledMessage(42, deadLetters, deadLetters) con debug.unhandled=on entrega al suscriptor el mensaje y además un Debug(logSource=deadLetters.path, logClass=deadLetters.getClass, `unhandled message from <deadLetters>: 42`) — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:137-153.
+- A2: sin debug.unhandled no se crea el forwarder — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:164-165, *no afirmada por spec*.
+- A3: el warning de TestEventListener por mensaje no manejado coincide con LocalActorRefProviderSpec — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:69-106.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-unhandled.jsh`.
 
@@ -1343,18 +1343,18 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] Antes de start se loguea por StandardOutLogger (stdout-loglevel); luego los loggers configurados (pekko.loggers) como actores bajo /system, cada uno debe responder LoggerInitialized dentro de logger-startup-timeout o se publica Warning y el arranque falla con LoggerInitializationException si responde otra cosa. setLogLevel suscribe/desuscribe cada logger a las clases Error/Warning/Info/Debug según el nivel; los eventos por debajo del nivel nunca llegan al actor.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:44-231
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:518-555 (levelFor/classFor)
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:962-990 (InitializeLogger/LoggerInitialized)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:44-241
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:528-565 (levelFor/classFor)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:974-1002 (InitializeLogger/LoggerInitialized)
 - reference.conf:19,28,31,36,41,46 (loggers, logging-filter, loggers-dispatcher, logger-startup-timeout, loglevel, stdout-loglevel)
 
 **Condiciones.**
-- pekko.loggers vacío -> DefaultLogger (actor/src/main/scala/org/apache/pekko/event/Logging.scala:126-129). StandardOutLogger en la lista se ignora al crear actores y se mantiene suscrito (actor/src/main/scala/org/apache/pekko/event/Logging.scala:133,168-170).
-- Logger no cargable: ConfigurationException(`Logger specified in config can't be loaded [<name>] due to [<e>]`, e) (actor/src/main/scala/org/apache/pekko/event/Logging.scala:142-145).
-- Timeout de arranque del logger: Warning `Logger <name> did not respond within <timeout> to InitializeLogger(bus)` y respuesta '[TIMEOUT]' que luego falla con LoggerInitializationException(`Logger <name> did not respond with LoggerInitialized, sent instead [TIMEOUT]`) (actor/src/main/scala/org/apache/pekko/event/Logging.scala:216-228).
-- Cualquier Exception al arrancar: stderr `error while starting up loggers`, stacktrace y ConfigurationException(`Could not start logger due to [<e>]`) (actor/src/main/scala/org/apache/pekko/event/Logging.scala:171-175).
-- Nombre del actor logger: `log<N>-<SimpleName>` con N de LogExt (actor/src/main/scala/org/apache/pekko/event/Logging.scala:211); dispatcher = pekko.loggers-dispatcher (actor/src/main/scala/org/apache/pekko/event/Logging.scala:212).
-- stopDefaultLoggers: desuscribe y detiene cada logger; si StandardOutLogger no estaba, lo activa antes y publica Debug `shutting down: StandardOutLogger`; al final Debug `all default loggers stopped` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:182-201).
+- pekko.loggers vacío -> DefaultLogger (actor/src/main/scala/org/apache/pekko/event/Logging.scala:133-136). StandardOutLogger en la lista se ignora al crear actores y se mantiene suscrito (actor/src/main/scala/org/apache/pekko/event/Logging.scala:140,178-180).
+- Logger no cargable: ConfigurationException(`Logger specified in config can't be loaded [<name>] due to [<e>]`, e) (actor/src/main/scala/org/apache/pekko/event/Logging.scala:149-152).
+- Timeout de arranque del logger: Warning `Logger <name> did not respond within <timeout> to InitializeLogger(bus)` y respuesta '[TIMEOUT]' que luego falla con LoggerInitializationException(`Logger <name> did not respond with LoggerInitialized, sent instead [TIMEOUT]`) (actor/src/main/scala/org/apache/pekko/event/Logging.scala:226-238).
+- Cualquier Exception al arrancar: stderr `error while starting up loggers`, stacktrace y ConfigurationException(`Could not start logger due to [<e>]`) (actor/src/main/scala/org/apache/pekko/event/Logging.scala:181-185).
+- Nombre del actor logger: `log<N>-<SimpleName>` con N de LogExt (actor/src/main/scala/org/apache/pekko/event/Logging.scala:221); dispatcher = pekko.loggers-dispatcher (actor/src/main/scala/org/apache/pekko/event/Logging.scala:222).
+- stopDefaultLoggers: desuscribe y detiene cada logger; si StandardOutLogger no estaba, lo activa antes y publica Debug `shutting down: StandardOutLogger`; al final Debug `all default loggers stopped` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:192-211).
 
 **Orden / concurrencia / ciclo de vida.** Debug publicados: `StandardOutLogger started`, `Default Loggers started`, `logger <name> started`. stopDefaultLoggers corre cuando /system termina (AC-SYS-003.2).
 
@@ -1365,14 +1365,14 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: ver Q-X-7. Diferencia: nombres `log1-DefaultLogger` se conservan sólo si los loggers son actores.
 
 **Aserciones.**
-- A1: manage log levels: tras setLogLevel(Warning/Debug/Error) sólo llegan eventos con level <= configurado — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:133-148,434-441.
-- A2: un sistema con pekko.loglevel=DEBUG y un logger configurado imprime a stdout — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:182-187.
-- A3: con loglevel=OFF y stdout-loglevel=OFF no se escribe nada en stdout — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:209-215.
-- A4: con varios loggers cada uno recibe el evento — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:217-238.
-- A5: stdout-loglevel/loglevel desconocidos usan ErrorLevel — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:89-98,119-124, *no afirmada por spec*.
-- A6: timeout de logger: Warning y LoggerInitializationException — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:216-228, *no afirmada por spec*.
-- A7: logger no cargable -> ConfigurationException — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:140-146, *no afirmada por spec*.
-- A8: StandardOutLogger.! con null lanza InvalidMessageException("Message is null") — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:1119, *no afirmada por spec*.
+- A1: manage log levels: tras setLogLevel(Warning/Debug/Error) sólo llegan eventos con level <= configurado — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:155-170,456-463.
+- A2: un sistema con pekko.loglevel=DEBUG y un logger configurado imprime a stdout — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:183-188.
+- A3: con loglevel=OFF y stdout-loglevel=OFF no se escribe nada en stdout — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:210-216.
+- A4: con varios loggers cada uno recibe el evento — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:218-239.
+- A5: stdout-loglevel/loglevel desconocidos usan ErrorLevel — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:93-102,126-131, *no afirmada por spec*.
+- A6: timeout de logger: Warning y LoggerInitializationException — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:226-238, *no afirmada por spec*.
+- A7: logger no cargable -> ConfigurationException — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:147-153, *no afirmada por spec*.
+- A8: StandardOutLogger.! con null lanza InvalidMessageException("Message is null") — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:1131, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-loggingbus.jsh` (loggers configurados con clase que falla, loglevel desconocido).
 
@@ -1385,13 +1385,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] Eventos inmutables publicados en el EventStream y entregados a los loggers; thread = hilo creador, timestamp = currentTimeMillis al crear; Error lleva cause (Error.NoCause por defecto); variantes con MDC (Error2..) y con marker (Error3..). LogEvent.level, logSource (String), logClass, message (Any), mdc (Map[String, Any] vacío por defecto).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:487-555
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:711-960
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:497-565
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:721-972
 
 **Condiciones.**
-- `LogEvent.apply(level, logSource, logClass, message[, mdc[, marker]])` con un nivel que no es Error/Warning/Info/Debug (p. ej. `OffLevel`) lanza `IllegalArgumentException("Unsupported log level [<level>]")` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:771-800; auditoría 2026-10-31, sin spec que lo afirme).
+- `LogEvent.apply(level, logSource, logClass, message[, mdc[, marker]])` con un nivel que no es Error/Warning/Info/Debug (p. ej. `OffLevel`) lanza `IllegalArgumentException("Unsupported log level [<level>]")` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:783-812; auditoría 2026-10-31, sin spec que lo afirme).
 - Variantes (Logging.scala:804-960): `Error(cause, src, cls, msg)` (case class; `Error.NoCause` por defecto, objeto `NoStackTrace`), `Error2` (+mdc), `Error3` (+mdc, marker); `Warning`, `Warning2` (+mdc), `Warning3` (+mdc, marker), `Warning4` (+mdc, marker, cause; `Warning.apply(cause, .., mdc)` pasa `marker = null`); `Info`/`Info2`/`Info3` y `Debug`/`Debug2`/`Debug3` análogos. Las subclases heredan de la anterior (`Error3 <: Error2 <: Error`) y los `apply` de los objetos compañeros eligen la variante según los argumentos (auditoría 2026-10-31).
-- Serialización: LogEvent está ligado a `bytes` en el test 3165 y no debe causar StackOverflowError al serializar (actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:347-356).
+- Serialización: LogEvent está ligado a `bytes` en el test 3165 y no debe causar StackOverflowError al serializar (actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:348-357).
 
 **Orden / concurrencia / ciclo de vida.** n/a
 
@@ -1402,10 +1402,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: enum con campos; `thread` = nombre del hilo; mdc = `HashMap<String, Value>`.
 
 **Aserciones.**
-- A1: un Warning con MDC {requestId:1} llega al logger con mdc.size==1 y mdc("requestId")==1 — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:240-259.
-- A2: MDC con mensaje actual: size 3 con requestId, currentMsg y currentMsgLength==22 — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:261-268.
-- A3: MDC del mensaje se limpia en el siguiente (size 1) — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:270-273.
-- A4: serializar un LogEvent con serialize-messages=on no desborda la pila — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:347-356.
+- A1: un Warning con MDC {requestId:1} llega al logger con mdc.size==1 y mdc("requestId")==1 — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:241-260.
+- A2: MDC con mensaje actual: size 3 con requestId, currentMsg y currentMsgLength==22 — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:262-269.
+- A3: MDC del mensaje se limpia en el siguiente (size 1) — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:271-274.
+- A4: serializar un LogEvent con serialize-messages=on no desborda la pila — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:348-357.
 
 **Oráculo.** Jar oficial: `evt-logevent-shape.jsh`.
 
@@ -1418,15 +1418,15 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Reemplaza cada `{}` en orden por arg.toString; un único argumento Array (primitivo o de objetos) se expande como varargs; si sobran argumentos se añade ` WARNING arguments left: N`; si faltan, los `{}` restantes quedan literales; no formatea si el nivel está deshabilitado. Las sobrecargas `error(cause, template, arg1..arg4)` y `error(template, arg1..arg4)` y las equivalentes de warning/info/debug.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1192-1300
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1520-1557 (format1/format/formatImpl)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1204-1313
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1533-1570 (format1/format/formatImpl)
 
 **Condiciones.**
-- formatImpl: mientras queden argumentos busca `{}`; si no hay más `{}` añade el resto de la plantilla + ` WARNING arguments left: <n>` y termina (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1533-1548).
-- format1 con Array de primitivos: se boxean (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1520-1524).
-- notifyLog con nivel no soportado: IllegalArgumentException(`Unsupported log level [<l>]`) (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1508-1514).
+- formatImpl: mientras queden argumentos busca `{}`; si no hay más `{}` añade el resto de la plantilla + ` WARNING arguments left: <n>` y termina (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1546-1561).
+- format1 con Array de primitivos: se boxean (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1533-1537).
+- notifyLog con nivel no soportado: IllegalArgumentException(`Unsupported log level [<l>]`) (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1521-1527).
 
-**Orden / concurrencia / ciclo de vida.** Se evalúa isXEnabled antes de formatear (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1225).
+**Orden / concurrencia / ciclo de vida.** Se evalúa isXEnabled antes de formatear (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1238).
 
 **Dependencias.** Filas: AC-EVT-012. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
 
@@ -1440,7 +1440,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A3: Array de primitivos int[]{10,20,30} -> `Args as array of primitives: 10, 20, 30` — LoggingAdapterTest.java:74-76.
 - A4: Array de objetos -> expandido con toString — LoggingAdapterTest.java:78-84.
 - A5: cuatro argumentos -> `Four args message: 1, 2, 3, 4` — LoggingAdapterTest.java:86-87.
-- A6: sobran argumentos -> sufijo ` WARNING arguments left: N` — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:1536-1540, *no afirmada por spec*.
+- A6: sobran argumentos -> sufijo ` WARNING arguments left: N` — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:1549-1553, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-logging-format.jsh` (casos A1-A6; incluye más args que `{}` y `{}` sin args).
 
@@ -1453,11 +1453,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] BusLogging publica Error/Warning/Info/Debug(logSource, logClass, message, mdc) en el bus si el LoggingFilter lo permite; NoLogging no hace nada y reporta todos los niveles deshabilitados. BusLogging.isXEnabled delega en el LoggingFilter con (logClass, logSource).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:2017-2046
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:2049-2129
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:2026-2055
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:2058-2138
 
 **Condiciones.**
-- NoLogging: isErrorEnabled=false (actor/src/main/scala/org/apache/pekko/event/Logging.scala:2057) y todos los métodos no hacen nada.
+- NoLogging: isErrorEnabled=false (actor/src/main/scala/org/apache/pekko/event/Logging.scala:2066) y todos los métodos no hacen nada.
 
 **Orden / concurrencia / ciclo de vida.** n/a
 
@@ -1468,8 +1468,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: ídem.
 
 **Aserciones.**
-- A1: `system.log.error("Danger! Danger!")` llega a los loggers configurados — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:157-180.
-- A2: NoLogging no publica — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:2049-2081, *no afirmada por spec*.
+- A1: `system.log.error("Danger! Danger!")` llega a los loggers configurados — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:158-181.
+- A2: NoLogging no publica — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:2058-2090, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: `evt-logging-format.jsh`.
 
@@ -1482,11 +1482,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] `LogSource[T]` define cómo un objeto origen se convierte en el par `(logSource: String, logClass: Class)` de los `LogEvent`: `genString(t)` (variante sin sistema), `genString(t, system)` (variante que incluye la dirección del sistema) y `getClazz(t)` (por defecto `t.getClass`). Reglas predefinidas (objeto `LogSource`): `String` → la propia cadena (con sistema: `s + "(" + system + ")"`) y clase `DummyClassForStringSources`; `Actor` y `ActorRef` → `path.toString` (con sistema: `path.toStringWithAddress(provider.getDefaultAddress)`, con respaldo a `path.toString` si falla); `Class` → `Logging.simpleName(c)` (con sistema: `simpleName + "(" + system + ")"`) y la propia clase como `logClass`. Las fábricas `Logging(system|bus, src)`, `Logging.withMarker(system|bus, src)`, `Logging(actor)`, `Logging.withMarker(actor)` y `Logging.getLogger(system|bus|actor, ..)` aplican esas reglas y devuelven un `BusLogging`/`MarkerLoggingAdapter`/adaptador diagnóstico sobre el EventStream (o bus) dado.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:236-284 (`trait LogSource`), 289-296 (`ActorWithLogClass`, `DummyClassForStringSources`), 317-403 (`object LogSource`: reglas, `apply`, `fromAnyRef`)
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:438-465 (`simpleName`, `messageClassName`)
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:573-705 (fábricas `apply`, `withMarker`, `getLogger`)
-- actor/src/main/scala/org/apache/pekko/actor/Actor.scala:340-350 (uso desde `ActorLogging`)
-- specs: actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:74-94,96-128,164-180; actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-94; actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:54-90
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:246-294 (`trait LogSource`), 289-296 (`ActorWithLogClass`, `DummyClassForStringSources`), 317-403 (`object LogSource`: reglas, `apply`, `fromAnyRef`)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:448-475 (`simpleName`, `messageClassName`)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:583-715 (fábricas `apply`, `withMarker`, `getLogger`)
+- actor/src/main/scala/org/apache/pekko/actor/Actor.scala:342-352 (uso desde `ActorLogging`)
+- specs: actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:75-95,97-129,165-181; actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-94 (1.7.1); actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:51-87
 
 **Precondiciones.** Para `apply(system, src)`/`withMarker(system, src)`/`getLogger(system, ..)` el sistema debe ser `ExtendedActorSystem` (usa `system.logFilter`, Logging.scala:575). Para el bus no hay filtro de sistema: se usa `DefaultLoggingFilter` (Logging.scala:613-615). `apply(T)` exige un `LogSource[T]` implícito (error de compilación si no existe).
 
@@ -1511,10 +1511,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - La asimetría `apply` vs `getLogger` (sistema incluido o no en el string) es un accidente del código Pekko: se propone conservarla en `getLogger`-equivalente sólo si algún spec la exige (ninguno lo hace); si se unifica, es una divergencia a registrar (Q-EVT-6).
 
 **Aserciones.**
-- A1: un `LoggingReceive` con origen `Some("funky")` publica un `Logging.Debug` cuyo `logSource` es `"funky"` y cuyo `logClass` es `classOf[DummyClassForStringSources]` (regla `String` de `fromAnyRef`) — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:80-91.
-- A2: el origen por defecto de `LoggingReceive` (el actor) produce `logSource == actor.path.toString` (sin dirección del sistema) y `logClass == actor.underlyingActor.getClass` (regla `Actor` de `fromAnyRef`) — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:116-118 (y 140-142; con nivel Info: 174-176).
-- A3: un actor con `ActorLogging` emite eventos cuyo `logClass` es la clase del actor — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:77,92 (`record.getSourceClassName == classOf[LogProducer].getName`, derivado de `logClass.getName` en JavaLogger.scala:53).
-- A4: `Logging.getLogger(system, this)` devuelve un adaptador utilizable con formato `{}` (los eventos llegan al EventStream) — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:54-90 (no afirma el `logSource`).
+- A1: un `LoggingReceive` con origen `Some("funky")` publica un `Logging.Debug` cuyo `logSource` es `"funky"` y cuyo `logClass` es `classOf[DummyClassForStringSources]` (regla `String` de `fromAnyRef`) — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:81-92.
+- A2: el origen por defecto de `LoggingReceive` (el actor) produce `logSource == actor.path.toString` (sin dirección del sistema) y `logClass == actor.underlyingActor.getClass` (regla `Actor` de `fromAnyRef`) — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:117-119 (y 140-142; con nivel Info: 174-176).
+- A3: un actor con `ActorLogging` emite eventos cuyo `logClass` es la clase del actor — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:77,92 (1.7.1) (`record.getSourceClassName == classOf[LogProducer].getName`, derivado de `logClass.getName` en JavaLogger.scala:53).
+- A4: `Logging.getLogger(system, this)` devuelve un adaptador utilizable con formato `{}` (los eventos llegan al EventStream) — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:51-87 (no afirma el `logSource`).
 - A5: `LogSource(String)` con sistema es `s + "(" + system + ")"` y sin sistema `s` — derivada de Logging.scala:318-322, *no afirmada por spec*. Caracterización propuesta.
 - A6: `LogSource(Actor|ActorRef)` con sistema es `path.toStringWithAddress(defaultAddress)` (ej. `pekko://sys/user/a`) — derivada de Logging.scala:329-337, *no afirmada por spec* (A2 sólo cubre la variante sin sistema). Caracterización propuesta.
 - A7: `LogSource(Class)` es `simpleName` (+ `"(" + system + ")"`) y `logClass` la propia clase — derivada de Logging.scala:351-356, *no afirmada por spec*.
@@ -1533,10 +1533,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] mdc(currentMessage) se invoca por cada mensaje del actor y su resultado se adjunta a cada LogEvent emitido mientras procesa ese mensaje; luego se limpia. DiagnosticLoggingAdapter mantiene `_mdc` mutable; mdc(null) -> emptyMDC; clearMDC().
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1623-1660
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1636-1673
 
 **Condiciones.**
-- mdc(null) se normaliza a emptyMDC; setMDC(java null) -> emptyMDC (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1649-1677).
+- mdc(null) se normaliza a emptyMDC; setMDC(java null) -> emptyMDC (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1662-1690).
 
 **Orden / concurrencia / ciclo de vida.** mdc() se llama antes de cada mensaje (reqId incrementa por mensaje: 1,2,3,4).
 
@@ -1547,10 +1547,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: ídem.
 
 **Aserciones.**
-- A1: reqId crece 1,2,3,4 y MDC por mensaje — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:240-273.
+- A1: reqId crece 1,2,3,4 y MDC por mensaje — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:241-274.
 - A2: ErrorLevel MDC `{messageLength=8}`, Warning `{messageLength=9}`, Info `{messageLength=9}`, 4ª llamada Debug sin MDC y 5ª con `{messageLength=29}` — LoggingAdapterTest.java:92-112.
-- A3: un actor cuyo `mdc` devuelve `null` publica el evento con MDC vacío (`{}`) — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:114-125 (auditoría 2026-10-31: el test `mustSupportMdcNull` envía `Log(InfoLevel, "Null MDC")` y espera `expectLog(InfoLevel(), "Null MDC", "{}")`).
-- A4: `DiagnosticActorLogging.aroundReceive` llama `log.mdc(mdc(msg))` antes de procesar cada mensaje y `log.clearMDC()` en `finally`; `mdc` por defecto es `emptyMDC` — actor/src/main/scala/org/apache/pekko/actor/Actor.scala:370-382 (leído en la auditoría; el comportamiento por mensaje lo afirman A1-A2), *no afirmada por spec* de forma directa para el `finally`.
+- A3: un actor cuyo `mdc` devuelve `null` publica el evento con MDC vacío (`{}`) — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:111-122 (auditoría 2026-10-31: el test `mustSupportMdcNull` envía `Log(InfoLevel, "Null MDC")` y espera `expectLog(InfoLevel(), "Null MDC", "{}")`).
+- A4: `DiagnosticActorLogging.aroundReceive` llama `log.mdc(mdc(msg))` antes de procesar cada mensaje y `log.clearMDC()` en `finally`; `mdc` por defecto es `emptyMDC` — actor/src/main/scala/org/apache/pekko/actor/Actor.scala:372-384 (leído en la auditoría; el comportamiento por mensaje lo afirman A1-A2), *no afirmada por spec* de forma directa para el `finally`.
 
 **Oráculo.** Jar oficial: `evt-logging-format.jsh` con actor DiagnosticActorLogging.
 
@@ -1563,12 +1563,12 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Un marker (nombre + propiedades) se adjunta al LogEvent (Error3/Warning3/Info3/Debug3); LogMarker.Security existe con nombre `SECURITY`. `ActorLogMarker.deadLetter(messageClass)` lo usa el DeadLetterListener.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1687-1740
-- actor/src/main/scala/org/apache/pekko/actor/ActorLogMarker.scala:26-36 (`ActorLogMarker.deadLetter`)
-- actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:147 (único uso)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1700-1746
+- actor/src/main/scala/org/apache/pekko/actor/ActorLogMarker.scala:24-34 (`ActorLogMarker.deadLetter`)
+- actor/src/main/scala/org/apache/pekko/event/DeadLetterListener.scala:164 (único uso)
 
 **Condiciones.**
-- LogMarker.toString = `LogMarker(<name>,<properties>)` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1698; corregido en la auditoría 2026-10-31, antes 1699-1700).
+- LogMarker.toString = `LogMarker(<name>,<properties>)` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1711; corregido en la auditoría 2026-10-31, antes 1699-1700).
 - `ActorLogMarker.deadLetter(messageClass)` = `LogMarker("pekkoDeadLetter", Map("pekkoMessageClass" -> messageClass))` (ActorLogMarker.scala:33-34; la clave es `LogMarker.Properties.MessageClass`, Logging.scala:1731-1735). Los nombres de marcador y propiedades son API pública según el Scaladoc (ActorLogMarker.scala:20-24). `LogMarker.Security` es `LogMarker("SECURITY")` (Logging.scala:1726).
 
 **Orden / concurrencia / ciclo de vida.** n/a
@@ -1595,11 +1595,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] DefaultLoggingFilter habilita un nivel si eventStream.logLevel >= nivel; pluggable por FQCN con pekko.logging-filter; LoggingFilterWithMarker añade marker. Con DefaultLoggingFilter(() => InfoLevel) isDebugEnabled=false.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1560-1620
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1573-1633
 - reference.conf:28
 
 **Condiciones.**
-- LoggingFilterWithMarkerWrapper adapta un LoggingFilter sin marker (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1592-1606).
+- LoggingFilterWithMarkerWrapper adapta un LoggingFilter sin marker (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1605-1619).
 
 **Orden / concurrencia / ciclo de vida.** n/a
 
@@ -1610,7 +1610,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: ídem.
 
 **Aserciones.**
-- A1: con loglevel=OFF el adaptador no loguea (isErrorEnabled=false) — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:209-215.
+- A1: con loglevel=OFF el adaptador no loguea (isErrorEnabled=false) — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:210-216.
 - A2: DefaultLoggingFilter(()=>InfoLevel) permite info del MarkerLoggingAdapter — actor-tests/src/test/scala/org/apache/pekko/event/MarkerLoggingSpec.scala:22-36.
 
 **Oráculo.** Jar oficial: ver AC-EVT-013.1.
@@ -1624,18 +1624,18 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Línea Error `[ERROR] [<ts>] [<thread>] [<source>]<mdc> <msg><stack>`; Warning/Info/Debug `[WARN|INFO|DEBUG] [<ts>] [<thread>] [<source>]<mdc> <msg>`; con marker se inserta `[<markerName>]` pegado a continuación del nivel (`[LEVEL] [<marker>][<ts>] ...`); timestamp `MM/dd/yyyy HH:mm:ss.SSS` en zona horaria del sistema; la causa se incluye aun sin stacktrace. El StandardOutLogger es un ActorRef mínimo síncrono; DefaultLogger lo envuelve como actor con LoggerMailbox.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:993-1105 (StdOutLogger y formatos)
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1114-1136 (StandardOutLogger)
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1143-1148 (DefaultLogger)
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1153-1162 (stackTraceFor)
-- actor/src/main/scala/org/apache/pekko/util/Helpers.scala:108-113 (timestamp)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1005-1117 (StdOutLogger y formatos)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1126-1148 (StandardOutLogger)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1155-1160 (DefaultLogger)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:1165-1174 (stackTraceFor)
+- actor/src/main/scala/org/apache/pekko/util/Helpers.scala:110-115 (timestamp)
 
 **Condiciones.**
-- Formatos: ErrorFormat `[ERROR] [%s] [%s] [%s]%s %s%s`; ErrorFormatWithMarker `[ERROR] [%s][%s] [%s] [%s]%s %s%s`; sin causa `[ERROR] [%s] [%s] [%s]%s %s` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1089-1093); `[WARN] [%s] [%s] [%s]%s %s`, `[INFO] ...`, `[DEBUG] ...` y variantes con marker (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1095-1102).
-- formatMDC: vacío -> ''; uno -> `[k:v]`; varios -> `[k1:v1][k2:v2]` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1080-1085) — sin separador antes: el %s del formato va pegado a `[source]`.
-- stackTraceFor: null/NoCause -> ''; NoStackTrace -> ` (<claseDeLaCausa>: <mensaje>)`; otro -> '\n' + printStackTrace (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1153-1162).
-- Evento inesperado: Warning `received unexpected event of class <cls>: <e>` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1004-1005).
-- StandardOutLogger.! con null: InvalidMessageException("Message is null") (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1119).
+- Formatos: ErrorFormat `[ERROR] [%s] [%s] [%s]%s %s%s`; ErrorFormatWithMarker `[ERROR] [%s][%s] [%s] [%s]%s %s%s`; sin causa `[ERROR] [%s] [%s] [%s]%s %s` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1101-1105); `[WARN] [%s] [%s] [%s]%s %s`, `[INFO] ...`, `[DEBUG] ...` y variantes con marker (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1107-1114).
+- formatMDC: vacío -> ''; uno -> `[k:v]`; varios -> `[k1:v1][k2:v2]` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1092-1097) — sin separador antes: el %s del formato va pegado a `[source]`.
+- stackTraceFor: null/NoCause -> ''; NoStackTrace -> ` (<claseDeLaCausa>: <mensaje>)`; otro -> '\n' + printStackTrace (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1165-1174).
+- Evento inesperado: Warning `received unexpected event of class <cls>: <e>` (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1016-1017).
+- StandardOutLogger.! con null: InvalidMessageException("Message is null") (actor/src/main/scala/org/apache/pekko/event/Logging.scala:1131).
 
 **Orden / concurrencia / ciclo de vida.** print por println síncrono; DefaultLogger procesa en su hilo (loggers-dispatcher).
 
@@ -1646,13 +1646,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: conservar bytes exactos si Q-EVT-2 lo acepta; thread = nombre del hilo del runtime.
 
 **Aserciones.**
-- A1: log.timestamp(event) == formato `MM/dd/yyyy HH:mm:ss.SSS` en zona del sistema — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:319-327.
-- A2: error con causa NoStackTrace incluye el mensaje de la causa en la salida — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:329-343.
-- A3: currentTimeMillisToUTCString devuelve `HH:mm:ss.SSSUTC` con ceros a la izquierda — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:282-317 (Helpers, AC-UTIL).
-- A4: la salida de un logger de sistema real aparece en stdout — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:184-187.
-- A5: los eventos no se pierden al cerrar: ver AC-EVT-020 — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:189-205.
-- A6: formato exacto de cada nivel con/sin marker y MDC — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:1008-1105, *no afirmada por spec*.
-- A7: formatMDC para 1 y N entradas — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:1080-1085, *no afirmada por spec*.
+- A1: log.timestamp(event) == formato `MM/dd/yyyy HH:mm:ss.SSS` en zona del sistema — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:320-328.
+- A2: error con causa NoStackTrace incluye el mensaje de la causa en la salida — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:330-344.
+- A3: currentTimeMillisToUTCString devuelve `HH:mm:ss.SSSUTC` con ceros a la izquierda — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:283-318 (Helpers, AC-UTIL).
+- A4: la salida de un logger de sistema real aparece en stdout — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:185-188.
+- A5: los eventos no se pierden al cerrar: ver AC-EVT-020 — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:190-206.
+- A6: formato exacto de cada nivel con/sin marker y MDC — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:1020-1117, *no afirmada por spec*.
+- A7: formatMDC para 1 y N entradas — derivada de actor/src/main/scala/org/apache/pekko/event/Logging.scala:1092-1097, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: escenario propuesto `evt-stdout-format.jsh` con zona horaria fijada (-Duser.timezone=UTC) y thread name controlado; es el candidato principal de oráculo (bytes de stdout).
 
@@ -1665,9 +1665,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual] El trait `ActorLogging` aporta `log: LoggingAdapter` creado al primer acceso con `pekko.event.Logging(context.system, this)` (origen = el actor, sistema = el de su contexto) y cacheado en un campo no volátil (sólo seguro dentro del actor). `DiagnosticActorLogging` (AC-EVT-014) es el equivalente con MDC y creación eager.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/actor/Actor.scala:328-350 (`ActorLogging`)
-- actor/src/main/scala/org/apache/pekko/event/Logging.scala:324-338,573-576 (regla `Actor` de `LogSource` y fábrica)
-- specs: actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:36-43,62-94; (usos sin aserción propia: actor-tests/src/test/scala/org/apache/pekko/routing/BalancingSpec.scala:34, actor-tests/src/test/scala/org/apache/pekko/pattern/CircuitBreakerStressSpec.scala:35)
+- actor/src/main/scala/org/apache/pekko/actor/Actor.scala:330-352 (`ActorLogging`)
+- actor/src/main/scala/org/apache/pekko/event/Logging.scala:334-348,583-586 (regla `Actor` de `LogSource` y fábrica)
+- specs: actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:36-43,62-94 (1.7.1); (usos sin aserción propia: actor-tests/src/test/scala/org/apache/pekko/routing/BalancingSpec.scala:35, actor-tests/src/test/scala/org/apache/pekko/pattern/CircuitBreakerStressSpec.scala:35)
 
 **Precondiciones.** El trait sólo se mezcla en un `Actor` (autotipo `this: Actor =>`). El primer acceso a `log` debe ocurrir con `context` disponible (no en el constructor antes de que exista el contexto... en la práctica `context` se inicializa antes del constructor del actor: Actor.scala, ver AC-CELL).
 
@@ -1684,8 +1684,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: `ctx.log()` en lugar de un mixin; la fuente incluye el nombre de tipo del actor (Q-EVT-1) en lugar del nombre de clase JVM.
 
 **Aserciones.**
-- A1: el mensaje con `{}` se formatea con el argumento: `log.info(s, x)` con `("{} is the magic number", 3)` produce el mensaje `"3 is the magic number"` en el evento y `log.error(e, e.getMessage)` produce `"Simulated error"` con la causa `e` — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-94 (aserciones sobre el `LogRecord` del `JavaLogger`: nivel, mensaje, `thrown`).
-- A2: los eventos de un actor con `ActorLogging` llevan `logClass` igual a la clase del actor — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:77,92.
+- A1: el mensaje con `{}` se formatea con el argumento: `log.info(s, x)` con `("{} is the magic number", 3)` produce el mensaje `"3 is the magic number"` en el evento y `log.error(e, e.getMessage)` produce `"Simulated error"` con la causa `e` — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-94 (1.7.1) (aserciones sobre el `LogRecord` del `JavaLogger`: nivel, mensaje, `thrown`).
+- A2: los eventos de un actor con `ActorLogging` llevan `logClass` igual a la clase del actor — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:77,92 (1.7.1).
 - A3: `log` crea el adaptador en el primer acceso y devuelve la misma instancia después — derivada de Actor.scala:343-348, *no afirmada por spec*. Caracterización propuesta: dos llamadas a `ctx.log()` devuelven adaptadores con el mismo `logSource`.
 - A4: el `logSource` es el path del actor con la dirección del sistema (`pekko://sys/user/x`) — derivada de Actor.scala:346 + Logging.scala:329-337, *no afirmada por spec*. Caracterización propuesta con un `EventStream` suscrito.
 - A5: tras un reinicio el actor nuevo obtiene un `log` nuevo con el mismo `logSource` — derivada de Actor.scala:341, *no afirmada por spec*.
@@ -1701,10 +1701,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] `LoggingReceive(r)` (y `withLabel`, `apply(level)`, `create` Java) envuelve un `Receive` en un `LoggingReceive` SÓLO si `pekko.actor.debug.receive = on` (`Settings.AddLoggingReceive`); si no, devuelve `r` sin cambios. Si `r` ya es un `LoggingReceive`, no lo envuelve otra vez. El decorador registra en `isDefinedAt(o)` (es decir, ANTES de ejecutar el cuerpo) un evento al nivel configurado (Debug por defecto) con el texto `received <handled|unhandled> message <o> from <context.sender()>` (+ `" in state <label>"` si hay etiqueta) cuando `eventStream.logLevel >= nivel`. El origen del evento es el actor del contexto o la fuente explícita; si ese origen es un `DiagnosticActorLogging`, el evento incluye su MDC (`LogEvent` con MDC → `Debug2`/`Info2`…). `apply(o)` delega en `r(o)` sin registrar.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:28-107
-- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:455 (`AddLoggingReceive`)
+- actor/src/main/scala/org/apache/pekko/event/LoggingReceive.scala:28-108
+- actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:454 (`AddLoggingReceive`)
 - reference.conf: `pekko.actor.debug.receive`
-- specs: actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:36-70,72-182
+- specs: actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:37-71,73-183
 
 **Precondiciones.** Se necesita un `ActorContext` implícito (el contexto del actor que lo construye). Los specs usan el sistema `appLogging` con `pekko.actor.debug.receive = true` y `pekko.loglevel = DEBUG` (LoggingReceiveSpec.scala:39-43) y silencian Debug/Info ajenos con `TestEvent.Mute` (51-58).
 
@@ -1727,11 +1727,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - Mensajes unhandled posteriores (`UnhandledMessage`) los publica la celda, no el decorador (AC-EVT-010).
 
 **Aserciones.**
-- A1: un `LoggingReceive(Some("funky"), { case null => })` que recibe `"hallo"` publica exactamente `Logging.Debug("funky", classOf[DummyClassForStringSources], "received unhandled message hallo from " + system.deadLetters)` y después un `UnhandledMessage` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:74-94.
-- A2: con `debug.receive = on`, `switch.orElse(LoggingReceive { case _ => sender() ! "x" })` registra `Debug(actor.path.toString, actor.underlyingActor.getClass, "received handled message buh from " + self)` y luego entrega `"x"`; tras `context.become(r, false)` con un `Receive` sin decorador, un mensaje `"bah"` produce un `UnhandledMessage("bah", _, actor)` y ningún Debug de LoggingReceive; el mensaje `"becomenull"` (atendido por `switch`, antes del decorador en el `orElse`) no produce Debug — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:96-128 (la ausencia de Debug para `"becomenull"` se deduce de que `expectMsgPF` en la línea 124 recibe `UnhandledMessage` como primer mensaje).
-- A3: `LoggingReceive(LoggingReceive { .. })` no duplica el registro: tras `"buh"` llega un único `Debug` y después `"x"` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:130-145.
-- A4: con un actor `DiagnosticActorLogging` cuyo `mdc` devuelve `Map("hello" -> "mdc")`, el evento es un `Logging.Debug2` con `m.mdc == myMDC` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:147-162.
-- A5: `LoggingReceive(Logging.InfoLevel) { .. }` publica un `Logging.Info` con `src == actor.path.toString` y mensaje `"received handled message buh from " + self` (suscripción a `Logging.Info`), seguido de `"x"` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:164-180.
+- A1: un `LoggingReceive(Some("funky"), { case null => })` que recibe `"hallo"` publica exactamente `Logging.Debug("funky", classOf[DummyClassForStringSources], "received unhandled message hallo from " + system.deadLetters)` y después un `UnhandledMessage` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:75-95.
+- A2: con `debug.receive = on`, `switch.orElse(LoggingReceive { case _ => sender() ! "x" })` registra `Debug(actor.path.toString, actor.underlyingActor.getClass, "received handled message buh from " + self)` y luego entrega `"x"`; tras `context.become(r, false)` con un `Receive` sin decorador, un mensaje `"bah"` produce un `UnhandledMessage("bah", _, actor)` y ningún Debug de LoggingReceive; el mensaje `"becomenull"` (atendido por `switch`, antes del decorador en el `orElse`) no produce Debug — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:97-129 (la ausencia de Debug para `"becomenull"` se deduce de que `expectMsgPF` en la línea 124 recibe `UnhandledMessage` como primer mensaje).
+- A3: `LoggingReceive(LoggingReceive { .. })` no duplica el registro: tras `"buh"` llega un único `Debug` y después `"x"` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:131-146.
+- A4: con un actor `DiagnosticActorLogging` cuyo `mdc` devuelve `Map("hello" -> "mdc")`, el evento es un `Logging.Debug2` con `m.mdc == myMDC` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:148-163.
+- A5: `LoggingReceive(Logging.InfoLevel) { .. }` publica un `Logging.Info` con `src == actor.path.toString` y mensaje `"received handled message buh from " + self` (suscripción a `Logging.Info`), seguido de `"x"` — actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:165-181.
 - A6: con `debug.receive = off`, `LoggingReceive(r)` devuelve `r` y no se publica nada — derivada de LoggingReceive.scala:66, *no afirmada por spec*. Caracterización propuesta.
 - A7: sólo se registra si `eventStream.logLevel >= logLevel` (con `loglevel = INFO` y nivel Debug no hay evento) — derivada de LoggingReceive.scala:89, *no afirmada por spec*. Caracterización propuesta.
 - A8: `withLabel("L")` añade `" in state L"` al final del mensaje — derivada de LoggingReceive.scala:94-97, *no afirmada por spec aquí* (lo ejerce FSM con debug.fsm: AC-FSM).
@@ -1748,13 +1748,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Al limpiar el mailbox del logger (cleanUp), los LogEvent pendientes con level <= logLevel se imprimen por StandardOutLogger para no perderlos; si el nivel es OFF no se imprime. LoggerMailboxType exige owner y system (`no mailbox owner or system given`).
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:28-73
+- actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:29-75
 - reference.conf:731 (logger-queue)
 
 **Condiciones.**
-- LoggerMailboxType.create sin owner/system: IllegalArgumentException("no mailbox owner or system given") (actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:39).
+- LoggerMailboxType.create sin owner/system: IllegalArgumentException("no mailbox owner or system given") (actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:41).
 
-**Orden / concurrencia / ciclo de vida.** cleanUp ocurre tras cambiar el mailbox por el de dead letters (comentario actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:55-56).
+**Orden / concurrencia / ciclo de vida.** cleanUp ocurre tras cambiar el mailbox por el de dead letters (comentario actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:57-58).
 
 **Dependencias.** Filas: AC-MBX-004. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
 
@@ -1763,8 +1763,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: ídem si hay logger-actor.
 
 **Aserciones.**
-- A1: con un logger lento (500 ms en msg1), tres errores seguidos y shutdownActorSystem(verifySystemShutdown=true): stdout tiene 3 líneas, la primera con msg1 y la última con msg3 — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:189-205.
-- A2: eventos con level > logLevel se descartan en cleanUp — derivada de actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:62, *no afirmada por spec*.
+- A1: con un logger lento (500 ms en msg1), tres errores seguidos y shutdownActorSystem(verifySystemShutdown=true): stdout tiene 3 líneas, la primera con msg1 y la última con msg3 — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:190-206.
+- A2: eventos con level > logLevel se descartan en cleanUp — derivada de actor/src/main/scala/org/apache/pekko/event/LoggerMailbox.scala:64, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: `evt-logger-drain.jsh` (SlowLogger de LoggerSpec).
 
@@ -1777,9 +1777,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual, deprecado desde Akka 2.6.0] `JavaLogger` es un actor logger que traduce cada `LogEvent` del EventStream a un `java.util.logging.LogRecord` y lo entrega al `logging.Logger` correspondiente; `JavaLoggingFilter` filtra en origen según el nivel del backend JUL. Fábrica `jul.Logger`: nombre del logger = `logSource` si `logClass == DummyClassForStringSources`, si no `logClass.getName`. Mapa de niveles: Info→INFO, Debug→CONFIG, Warning→WARNING, Error→SEVERE, cualquier otro→FINE. El trait `JavaLogging` aporta un `lazy val log` JUL con el nombre de la clase.
 
 **Fuente.**
-- actor/src/main/scala/org/apache/pekko/event/jul/JavaLogger.scala:29-121
+- actor/src/main/scala/org/apache/pekko/event/jul/JavaLogger.scala:29-121 (1.7.1)
 - reference.conf: `pekko.loggers`, `pekko.logging-filter` (se activan por FQCN)
-- specs: actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:26-97
+- specs: actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:26-97 (1.7.1)
 
 **Precondiciones.** Se activa con `pekko.loggers = ["org.apache.pekko.event.jul.JavaLogger"]` y `pekko.logging-filter = "org.apache.pekko.event.jul.JavaLoggingFilter"` (JavaLoggerSpec.scala:29-34).
 
@@ -1800,8 +1800,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Niveles JUL → niveles `log` (CONFIG pasa a Debug, FINE a Trace); `thrown` es un valor en claves; `LogRecord.sourceMethodName` siempre ausente (igual que Pekko: "lost forever").
 
 **Aserciones.**
-- A1: un `Error` con causa produce un registro con `millis != 0`, `threadID != 0`, nivel `SEVERE`, mensaje `"Simulated error"`, `thrown` de la clase de la causa, `sourceClassName` = clase del productor y `sourceMethodName == null` — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-79.
-- A2: un `Info` con plantilla `"{} is the magic number"` y argumento `3` produce un registro con `millis != 0`, `threadID != 0`, nivel `INFO`, mensaje `"3 is the magic number"`, `thrown == null`, `sourceClassName` = clase del productor y `sourceMethodName == null` — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:81-94.
+- A1: un `Error` con causa produce un registro con `millis != 0`, `threadID != 0`, nivel `SEVERE`, mensaje `"Simulated error"`, `thrown` de la clase de la causa, `sourceClassName` = clase del productor y `sourceMethodName == null` — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:66-79 (1.7.1).
+- A2: un `Info` con plantilla `"{} is the magic number"` y argumento `3` produce un registro con `millis != 0`, `threadID != 0`, nivel `INFO`, mensaje `"3 is the magic number"`, `thrown == null`, `sourceClassName` = clase del productor y `sourceMethodName == null` — actor-tests/src/test/scala/org/apache/pekko/event/jul/JavaLoggerSpec.scala:81-94 (1.7.1).
 - A3: `mapLevel`: Info→INFO, Debug→CONFIG, Warning→WARNING, Error→SEVERE, otros→FINE — derivada de JavaLogger.scala:95-101, *no afirmada por spec*. Caracterización propuesta (tabla).
 - A4: `Logger(classOf[DummyClassForStringSources], "name")` resuelve el logger `"name"`; con otra clase, el logger se llama como la clase — derivada de JavaLogger.scala:85-88, *no afirmada por spec*.
 - A5: `InitializeLogger` responde `LoggerInitialized` y emite el aviso de deprecación — derivada de JavaLogger.scala:41-44, *no afirmada por spec*.
@@ -1854,17 +1854,17 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] testActor es un actor creado con systemActorOf bajo /system con nombre `<testActorName>-<N>` (N global creciente), ejecutado en CallingThreadDispatcher; encola en una cola bloqueante (LinkedBlockingDeque) cada mensaje (mensaje, sender); el resto de aserciones consumen esa cola. El TestKit es el receptor de las respuestas de los actores bajo prueba; `testActor`, `lastSender`, `ignoreMsg`, `watch`, `setAutoPilot` son mensajes internos (SetIgnore, Watch, UnWatch, SetAutoPilot, Spawn) procesados por TestActor.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:37-151 (TestActor)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:168-199 (TestKitBase, testActor)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:213-241
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:286
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:36-150 (TestActor)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:167-198 (TestKitBase, testActor)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:212-240
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:285
 - testkit/src/main/resources/reference.conf:31-33 (calling-thread-dispatcher)
 
 **Condiciones.**
-- testActor lazy: `systemActorOf(TestActor.props(queue).withDispatcher(CallingThreadDispatcher.Id), "%s-%d".format(testActorName, testActorId.incrementAndGet))` y espera a `isStarted` si es RepointableRef (hasta 3 s dilatados, polling 10 ms) (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:189-199).
-- lastMessage = NullMessage hasta que alguna aserción desencola; `lastSender`/`lastMessage.msg` sobre NullMessage lanzan IllegalActorStateException("last receive did not dequeue a message") (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:71-74).
-- ignoreMsg(f): los mensajes para los que f devuelve true no se encolan (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:141-142); ignoreNoMsg() lo borra.
-- Mensajes no AnyRef (primitivos) llegan boxed: `case x: AnyRef` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:136).
+- testActor lazy: `systemActorOf(TestActor.props(queue).withDispatcher(CallingThreadDispatcher.Id), "%s-%d".format(testActorName, testActorId.incrementAndGet))` y espera a `isStarted` si es RepointableRef (hasta 3 s dilatados, polling 10 ms) (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:188-198).
+- lastMessage = NullMessage hasta que alguna aserción desencola; `lastSender`/`lastMessage.msg` sobre NullMessage lanzan IllegalActorStateException("last receive did not dequeue a message") (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:70-73).
+- ignoreMsg(f): los mensajes para los que f devuelve true no se encolan (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:140-141); ignoreNoMsg() lo borra.
+- Mensajes no AnyRef (primitivos) llegan boxed: `case x: AnyRef` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:135).
 
 **Orden / concurrencia / ciclo de vida.** El testActor procesa en el hilo del emisor (CallingThreadDispatcher): cuando `tell` retorna, el mensaje ya está en la cola o descartado. watch/unwatch/setAutoPilot/ignoreMsg se envían como mensajes al testActor y por tanto también son síncronos.
 
@@ -1880,8 +1880,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A3: ignoreMsg{case 42 => true}: 42 se descarta y "pigdog" llega — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:193-198.
 - A4: probe.watch(target muerto) con cola no vacía: llega "hello" y luego Terminated(target)(false,false) — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:200-211.
 - A5: nombre por defecto empieza por `testProbe`; con nombre `worker` empieza por `worker` — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:213-221.
-- A6: nombres de actor de sistema `testActor-N`/`testProbe-N` aparecen como `Actor[pekko://<sys>/system/testProbe..` en logs — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:174,178.
-- A7: al detenerse el testActor, los mensajes pendientes se reenvían a deadLetters como DeadLetter(m, sender, self) — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:145-150, *no afirmada por spec*.
+- A6: nombres de actor de sistema `testActor-N`/`testProbe-N` aparecen como `Actor[pekko://<sys>/system/testProbe..` en logs — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:177,181.
+- A7: al detenerse el testActor, los mensajes pendientes se reenvían a deadLetters como DeadLetter(m, sender, self) — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:144-149, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial (pekko-testkit 1.7.1) vía jshell: escenario propuesto `tk-testactor.jsh` (path y nombre, orden síncrono). Procedencia: jars oficiales (requiere fetch-jars con pekko-testkit).
 
@@ -1894,18 +1894,18 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Cada expect* toma el siguiente mensaje de la cola con timeout dilatado (por defecto remainingOrDefault) y falla con AssertionError cuyo mensaje contiene el hint si vence o no coincide. El timeout de las variantes con duración se dilata (`max.dilated`); `receiveOne` NO dilata.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:448-474 (expectMsg)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:486-492 (expectMsgPF)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:503-506 (expectTerminated)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:552-566 (expectMsgType)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:632-691 (expectMsgAllOf/AllClassOf)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:447-473 (expectMsg)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:485-491 (expectMsgPF)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:502-505 (expectTerminated)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:551-565 (expectMsgType)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:631-690 (expectMsgAllOf/AllClassOf)
 
 **Condiciones.**
-- expectMsg vence: AssertionError `timeout (<max>) during expectMsg while waiting for <obj>` + `: <hint>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:471).
-- expectMsg distinto: AssertionError `expected <obj>, found <o>` + `: <hint>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:472).
-- expectMsgPF sin match: `expected: <hint> but got unexpected message <o>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:490); timeout: `timeout (<max>) during expectMsg: <hint>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:489).
-- expectMsgAllOf: recibe n=obj.size mensajes; error `not found [..] found unexpected [..]` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:649-664).
-- expectMsgAllClassOf compara clases exactas con BoxedType (primitivos boxed); AllConformingOf compara por conformidad (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:685-691).
+- expectMsg vence: AssertionError `timeout (<max>) during expectMsg while waiting for <obj>` + `: <hint>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:470).
+- expectMsg distinto: AssertionError `expected <obj>, found <o>` + `: <hint>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:471).
+- expectMsgPF sin match: `expected: <hint> but got unexpected message <o>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:489); timeout: `timeout (<max>) during expectMsg: <hint>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:488).
+- expectMsgAllOf: recibe n=obj.size mensajes; error `not found [..] found unexpected [..]` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:648-663).
+- expectMsgAllClassOf compara clases exactas con BoxedType (primitivos boxed); AllConformingOf compara por conformidad (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:684-690).
 
 **Orden / concurrencia / ciclo de vida.** Consume exactamente un mensaje por expect (excepto *All*, n mensajes). Mensajes no coincidentes se pierden (se consumieron).
 
@@ -1920,10 +1920,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A2: `expectMsg(0.millis, hint, "bye")` con "hello" en cola -> AssertionError que contiene el hint — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:116-124.
 - A3: expectMsgType[Int] / expectMsgAnyClassOf(classOf[Int]) / expectMsgAllClassOf(classOf[Int]) / expectMsgAllConformingOf(classOf[Int]) (con y sin duración) aceptan el primitivo 42 boxed — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:151-160.
 - A4: expectTerminated(target) devuelve el Terminated si el testActor vigila a target — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:200-211 (usa expectMsg con Terminated).
-- A5: `expectMsg(max, obj)` dilata `max` por timefactor — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:457, *no afirmada por spec leída*.
-- A6: expectMsgAllOf informa `not found`/`found unexpected` — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:649-664, *no afirmada por spec*.
-- A7: expectMsgPF devuelve f(o) — testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:486-492, *no afirmada por spec leída*.
-- A8: expectMsgAnyOf/AnyClassOf/AllConformingOf — pendiente de leer cuerpos (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:589-725).
+- A5: `expectMsg(max, obj)` dilata `max` por timefactor — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:456, *no afirmada por spec leída*.
+- A6: expectMsgAllOf informa `not found`/`found unexpected` — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:648-663, *no afirmada por spec*.
+- A7: expectMsgPF devuelve f(o) — testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:485-491, *no afirmada por spec leída*.
+- A8: expectMsgAnyOf/AnyClassOf/AllConformingOf — pendiente de leer cuerpos (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:588-717).
 
 **Oráculo.** Jar oficial pekko-testkit: `tk-expect.jsh` comparando textos de AssertionError (A1-A2, A6).
 
@@ -1936,13 +1936,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] expectNoMessage() espera pekko.test.expect-no-message-default (100 ms) dilatado; expectNoMessage(max) NO dilata; si llega un mensaje lo extrae de la cola y lanza AssertionError `assertion failed: received unexpected message <m> after <n> millis`; expectNoMsg(max) (deprecado) sí dilata. Polling con espera geométrica (max 100 ms) sobre peekFirst; sólo hace pop del mensaje ofensor.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:727-783
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:717-765
 - testkit reference.conf:26 (expect-no-message-default = 100ms)
 
 **Condiciones.**
-- Error: `java.lang.AssertionError: assertion failed: received unexpected message <elem> after <ms> millis` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:778-779). El elem es el RealMessage(msg, sender), no sólo el msg (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:772-778: `elem` es de la cola).
+- Error: `java.lang.AssertionError: assertion failed: received unexpected message <elem> after <ms> millis` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:760-761). El elem es el RealMessage(msg, sender), no sólo el msg (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:754-760: `elem` es de la cola).
 
-**Orden / concurrencia / ciclo de vida.** El mensaje que provoca el fallo se saca de la cola para que expectNoMessage posteriores no lo vean (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:775).
+**Orden / concurrencia / ciclo de vida.** El mensaje que provoca el fallo se saca de la cola para que expectNoMessage posteriores no lo vean (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:757).
 
 **Dependencias.** Filas: AC-TK-004. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
 
@@ -1952,8 +1952,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Aserciones.**
 - A1: dos mensajes en cola, `eventually(expectNoMessage(100.millis))` falla las primeras veces (extrayendo uno cada vez) y luego pasa; después un "tak" nuevo se recibe — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:223-233.
-- A2: expectNoMessage tras within no hace fallar el within por tiempo — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:433,781, *no afirmada por spec*.
-- A3: formato del mensaje de error — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:778-779, *no afirmada por spec*.
+- A2: expectNoMessage tras within no hace fallar el within por tiempo — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:432,763, *no afirmada por spec*.
+- A3: formato del mensaje de error — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:760-761, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: `tk-expect.jsh`.
 
@@ -1963,17 +1963,17 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 *Unidad TK · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual por spec] receiveN(n) recibe n mensajes antes del deadline (AssertionError `timeout (<max>) while expecting <n> messages (got <k>)`); receiveWhile consume mientras el PF acepte y devuelve la lista (no es error alcanzar max); fishForMessage descarta mensajes hasta que el PF devuelve true y falla si el PF no está definido; fishForSpecificMessage ignora los no definidos. receiveOne(max): max==0 -> pollFirst; finito -> pollFirst(timeout); infinito -> takeFirst; actualiza lastMessage (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:862-881).
+**Contrato observable.** [contractual por spec] receiveN(n) recibe n mensajes antes del deadline (AssertionError `timeout (<max>) while expecting <n> messages (got <k>)`); receiveWhile consume mientras el PF acepte y devuelve la lista (no es error alcanzar max); fishForMessage descarta mensajes hasta que el PF devuelve true y falla si el PF no está definido; fishForSpecificMessage ignora los no definidos. receiveOne(max): max==0 -> pollFirst; finito -> pollFirst(timeout); infinito -> takeFirst; actualiza lastMessage (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:844-863).
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:516-547
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:804-833
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:839-881
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:515-546
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:786-815
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:821-863
 
 **Condiciones.**
-- fishForMessage: timeout `timeout (<max>) during fishForMessage, hint: <hint>`; PF no definido: `fishForMessage(<hint>) found unexpected message <o>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:522-523).
-- fishForSpecificMessage: timeout `timeout (<max>) during fishForSpecificMessage, hint: <hint>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:543).
-- receiveWhile: si el mensaje no coincide se devuelve a la cabeza de la cola (offerFirst) y se restaura lastMessage (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:821-824); activa lastWasNoMsg (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:831).
+- fishForMessage: timeout `timeout (<max>) during fishForMessage, hint: <hint>`; PF no definido: `fishForMessage(<hint>) found unexpected message <o>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:521-522).
+- fishForSpecificMessage: timeout `timeout (<max>) during fishForSpecificMessage, hint: <hint>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:542).
+- receiveWhile: si el mensaje no coincide se devuelve a la cabeza de la cola (offerFirst) y se restaura lastMessage (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:803-806); activa lastWasNoMsg (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:813).
 
 **Orden / concurrencia / ciclo de vida.** receiveWhile con `idle` corta si pasa ese tiempo sin mensajes.
 
@@ -1986,10 +1986,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Aserciones.**
 - A1: fishForMessage con PF `case "fishForMe" => true; case _ => false` consume "hallo", "welt", "fishForMe" y deja "done" — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:162-175.
 - A2: fishForSpecificMessage devuelve "fishForMe" y deja "done" — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:177-191.
-- A3: receiveN(n) con menos mensajes -> AssertionError `timeout .. while expecting n messages (got k)` — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:851, *no afirmada por spec*.
-- A4: receiveWhile devuelve los resultados en orden y re-encola el primer no coincidente — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:810-826, *no afirmada por spec*.
-- A5: fishForMessage con PF no definido para un mensaje falla — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:523, *no afirmada por spec*.
-- A6: receiveOne(0) no bloquea — testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:863-865.
+- A3: receiveN(n) con menos mensajes -> AssertionError `timeout .. while expecting n messages (got k)` — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:833, *no afirmada por spec*.
+- A4: receiveWhile devuelve los resultados en orden y re-encola el primer no coincidente — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:792-808, *no afirmada por spec*.
+- A5: fishForMessage con PF no definido para un mensaje falla — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:522, *no afirmada por spec*.
+- A6: receiveOne(0) no bloquea — testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:845-847.
 
 **Oráculo.** Jar oficial: `tk-receive.jsh`.
 
@@ -2002,19 +2002,19 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] within(min,max) acota el tiempo de un bloque (max dilatado; min no); anidados toman el menor; remaining fuera de within lanza AssertionError; awaitCond vence con AssertionError `timeout <max> expired: <message>`; awaitAssert relanza la última excepción al vencer. El estado `end` (Duration.Undefined fuera de within) lo comparte todo el TestKit (campo var, no thread-safe).
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:253-281 (remaining*)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:298-359 (awaitCond/awaitAssert)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:372-397
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:415-443 (within)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:252-280 (remaining*)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:297-358 (awaitCond/awaitAssert)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:371-396
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:414-442 (within)
 
 **Condiciones.**
-- remaining fuera de within: AssertionError `` `remaining` may not be called outside of `within` `` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:262).
-- remainingOr con end infinito: IllegalArgumentException("`end` cannot be infinite") (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:271,273); max infinito: "max duration cannot be infinite" (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:278,280).
-- within: AssertionError `required min time <min> not possible, only <rem> left` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:419); `block took <d>, should at least have been <min>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:432); `block took <d>, exceeding <max>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:434), este último no se comprueba si la última aserción fue expectNoMessage/receiveWhile (lastWasNoMsg).
-- awaitCond: `assert(now < stop, s"timeout ${_max} expired: $message")` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:309); polling cada `interval` (100 ms por defecto) (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:307-315).
-- awaitAssert: la excepción se relanza si `(now + t) >= stop` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:347); sólo captura NonFatal.
+- remaining fuera de within: AssertionError `` `remaining` may not be called outside of `within` `` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:261).
+- remainingOr con end infinito: IllegalArgumentException("`end` cannot be infinite") (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:270,272); max infinito: "max duration cannot be infinite" (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:277,279).
+- within: AssertionError `required min time <min> not possible, only <rem> left` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:418); `block took <d>, should at least have been <min>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:431); `block took <d>, exceeding <max>` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:433), este último no se comprueba si la última aserción fue expectNoMessage/receiveWhile (lastWasNoMsg).
+- awaitCond: `assert(now < stop, s"timeout ${_max} expired: $message")` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:308); polling cada `interval` (100 ms por defecto) (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:306-314).
+- awaitAssert: la excepción se relanza si `(now + t) >= stop` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:346); sólo captura NonFatal.
 
-**Orden / concurrencia / ciclo de vida.** within restaura `end` en finally (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:427-429).
+**Orden / concurrencia / ciclo de vida.** within restaura `end` en finally (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:426-428).
 
 **Dependencias.** Filas: AC-TK-004. Externas: Typesafe Config / Scala stdlib / JVM según la fila (ver Fuente).
 
@@ -2027,9 +2027,9 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A2: `probe.awaitCond(false, 1.second)` lanza AssertionError y tarda >= 1 s * timefactor y < +1 s — testkit/src/test/scala/org/apache/pekko/testkit/TestTimeSpec.scala:27-33.
 - A3: `awaitAssert("foo" === "foo")` pasa; `awaitAssert("foo" === "bar", 500.millis, 300.millis)` dentro de within(300ms,2s) lanza TestFailedException — testkit/src/test/scala/org/apache/pekko/testkit/TestTimeSpec.scala:36-43.
 - A4: `remaining` fuera de `within` lanza AssertionError — testkit/src/test/scala/org/apache/pekko/testkit/TestTimeSpec.scala:45-49.
-- A5: within fallido por exceder max — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:434, *no afirmada por spec*.
-- A6: within anidado toma el menor tiempo restante — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:423-425, *no afirmada por spec*.
-- A7: `within(3.seconds){ expectMsg(..); ..; expectNoMessage() }` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:94-99.
+- A5: within fallido por exceder max — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:433, *no afirmada por spec*.
+- A6: within anidado toma el menor tiempo restante — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:422-424, *no afirmada por spec*.
+- A7: `within(3.seconds){ expectMsg(..); ..; expectNoMessage() }` — actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:116-121.
 
 **Oráculo.** Jar oficial: `tk-within.jsh` (mensajes de AssertionError).
 
@@ -2042,10 +2042,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] TestProbe es un TestKit con su propio testActor; `send(actor,msg)` usa testActor como sender; `reply(msg)` envía al sender del último mensaje con el probe como emisor; `forward(actor, msg=último)` conserva el sender original; el nombre del actor empieza por el indicado (por defecto `testProbe`). TestProbe.apply()(implicit system) y apply(name).
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1055-1093
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1037-1075
 
 **Condiciones.**
-- reply sobre NullMessage lanza IllegalActorStateException (por lastMessage.sender, testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:72-74).
+- reply sobre NullMessage lanza IllegalActorStateException (por lastMessage.sender, testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:71-73).
 
 **Orden / concurrencia / ciclo de vida.** Síncrono (ver AC-TK-001.1).
 
@@ -2059,7 +2059,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A1: probe1.send(probe2.ref, "hello"); probe2.expectMsg(0.millis,"hello"); probe2.lastMessage.sender ! "world"; probe1.expectMsg(0.millis, "some hint here", "world") — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:50-57.
 - A2: TestProbe("worker").ref.path.name empieza por `worker` — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:213-216.
 - A3: `new TestProbe(system).ref.path.name` empieza por `testProbe` — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:218-221.
-- A4: forward y reply — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1076-1086, *no afirmada por spec leída*.
+- A4: forward y reply — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1058-1068, *no afirmada por spec leída*.
 
 **Oráculo.** Jar oficial: `tk-testactor.jsh`.
 
@@ -2072,11 +2072,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] El AutoPilot corre por cada mensaje recibido por el testActor (antes de decidir ignorar y encolar); su retorno es el siguiente pilot (KeepRunning conserva el actual). El pilot recibe `sender()` y el mensaje; puede reenviar a otro testActor.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:40-52
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:136-143
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:39-51
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:135-142
 
 **Condiciones.**
-- autopilot corre siempre (incluso con ignoreMsg que luego descarta el mensaje) (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:137-142).
+- autopilot corre siempre (incluso con ignoreMsg que luego descarta el mensaje) (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:136-141).
 
 **Orden / concurrencia / ciclo de vida.** autopilot.run -> ignore-check -> offerLast.
 
@@ -2101,11 +2101,11 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] childActorOf(props[, name][, strategy]) crea un hijo del testActor y lo devuelve; sin estrategia usa stoppingStrategy; con estrategia, el testActor delega a ella los fallos de ese hijo. DelegatingSupervisorStrategy olvida la delegación al terminar el hijo (handleChildTerminated).
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:79-112
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:896-934
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:78-111
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:878-916
 
 **Condiciones.**
-- Delegado ausente -> stoppingStrategy (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:84).
+- Delegado ausente -> stoppingStrategy (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:83).
 
 **Orden / concurrencia / ciclo de vida.** childActorOf usa `testActor ! Spawn` y `expectMsgType[ActorRef]`, por lo que consume un mensaje de la cola.
 
@@ -2118,7 +2118,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Aserciones.**
 - A1: `child.path.parent == probe.ref.path` y nombre dado respetado — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:59-66.
 - A2: con SupervisorStrategy.defaultStrategy un hijo que lanza RuntimeException se reinicia (postRestart llamado > 1 vez) — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:68-91.
-- A3: sin estrategia, el hijo que falla se detiene — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:84, *no afirmada por spec*.
+- A3: sin estrategia, el hijo que falla se detiene — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:83, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: `tk-childactorof.jsh`.
 
@@ -2131,7 +2131,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] ImplicitSender hace que `self` sea testActor (sender implícito); DefaultTimeout expone `timeout` = pekko.test.default-timeout. Mixins; nada más.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1095-1101
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1077-1083
 
 **Condiciones.**
 - n/a
@@ -2145,8 +2145,8 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Diferencia observable de API: `self` implícito no existe en Rust.
 
 **Aserciones.**
-- A1: `self === testActor` — testkit/src/test/scala/org/apache/pekko/testkit/ImplicitSenderSpec.scala:28-32.
-- A2: `timeout === testKitSettings.DefaultTimeout` — testkit/src/test/scala/org/apache/pekko/testkit/DefaultTimeoutSpec.scala:28-32.
+- A1: `self === testActor` — testkit/src/test/scala/org/apache/pekko/testkit/ImplicitSenderSpec.scala:29-33.
+- A2: `timeout === testKitSettings.DefaultTimeout` — testkit/src/test/scala/org/apache/pekko/testkit/DefaultTimeoutSpec.scala:29-33.
 
 **Oráculo.** No aplica (es sintaxis Scala).
 
@@ -2160,7 +2160,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 
 **Fuente.**
 - testkit/src/main/scala/org/apache/pekko/testkit/TestKitExtension.scala:25-42
-- testkit/src/main/scala/org/apache/pekko/testkit/package.scala:67-70
+- testkit/src/main/scala/org/apache/pekko/testkit/package.scala:64-67
 - testkit/src/main/resources/reference.conf:10-34
 
 **Condiciones.**
@@ -2191,17 +2191,17 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] Un filtro decide si un LogEvent coincide: tipo (Error con causa asignable al tipo dado; Warning/Info/Debug), fuente exacta (opcional), mensaje (igualdad completa si `message`, prefijo `start` o regex `pattern`); EventFilter.error() sin tipo coincide con cualquier Error (con o sin causa); EventFilter[T]() sólo con causa asignable; EventFilter[NoCause.type]() coincide con cualquier error. El mensaje se convierte a String (`null` -> "null"); la fuente es la cadena logSource.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:88-157 (EventFilter base)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:176-308 (fábricas)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:324-375 (ErrorFilter)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:385-510 (Warning/Info/DebugFilter)
-- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:517-542 (Custom, DeadLettersFilter)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:89-158 (EventFilter base)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:177-309 (fábricas)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:325-376 (ErrorFilter)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:386-511 (Warning/Info/DebugFilter)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:518-543 (Custom, DeadLettersFilter)
 
 **Condiciones.**
-- ErrorFilter: coincide si (throwable es NoCause.getClass o throwable.isInstance(cause)) y [(msg==null && cause.getMessage==null && stackTrace vacío) || doMatch(src,msg) || doMatch(src, cause.getMessage)] (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:331-336).
-- doMatch: `(source vacío o igual) && (complete ? msg == s : msg.startsWith(s)) | regex.findFirstIn(msg).isDefined)` (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:149-155).
-- DeadLettersFilter coincide con Warning cuyo `msg` sea instancia (boxed) de la clase dada (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:535-539).
-- Con occurrences=Int.MaxValue no hay conteo (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:86,101).
+- ErrorFilter: coincide si (throwable es NoCause.getClass o throwable.isInstance(cause)) y [(msg==null && cause.getMessage==null && stackTrace vacío) || doMatch(src,msg) || doMatch(src, cause.getMessage)] (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:332-337).
+- doMatch: `(source vacío o igual) && (complete ? msg == s : msg.startsWith(s)) | regex.findFirstIn(msg).isDefined)` (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:150-156).
+- DeadLettersFilter coincide con Warning cuyo `msg` sea instancia (boxed) de la clase dada (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:536-540).
+- Con occurrences=Int.MaxValue no hay conteo (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:87,102).
 
 **Orden / concurrencia / ciclo de vida.** apply(event) decrementa `todo` al coincidir.
 
@@ -2219,7 +2219,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A5: EventFilter[AnError]() coincide con causa del tipo — testkit/src/test/scala/org/apache/pekko/testkit/TestEventListenerSpec.scala:47-50.
 - A6: EventFilter[Error.NoCause.type]() coincide con error sin causa y con cualquier causa — testkit/src/test/scala/org/apache/pekko/testkit/TestEventListenerSpec.scala:53-64.
 - A7: EventFilter.warning() coincide con warning sin y con causa — testkit/src/test/scala/org/apache/pekko/testkit/TestEventListenerSpec.scala:66-75.
-- A8: filtros por `start`, `pattern`, `message`, `source` — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:149-155, *no afirmada por spec*.
+- A8: filtros por `start`, `pattern`, `message`, `source` — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:150-156, *no afirmada por spec*.
 - A9: `EventFilter.warning(pattern = "received dead letter from Actor\[pekko://LogDeadLetters/system/testProbe.*")` — uso en ActorSystemSpec.scala:174-181.
 
 **Oráculo.** Jar oficial pekko-testkit: `tk-eventfilter.jsh` con una tabla (filtro, evento) -> bool.
@@ -2233,13 +2233,13 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] intercept publica Mute(this), ejecuta el bloque, espera hasta filter-leeway (dilatado) a que se alcancen exactamente `occurrences` y publica UnMute en finally; si faltan: AssertionError `timeout (<leeway>) waiting for <n> messages on <filter>`; si sobran: `received <k> excess messages on <filter>`. filterEvents(filters)(block): Mute(filters); bloque; espera con leeway todos; UnMute en finally; falla con `Filter completion error:\n Timeout (<leeway>) waiting for <f>`.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:106-137
-- testkit/src/main/scala/org/apache/pekko/testkit/package.scala:28-54
+- testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:107-138
+- testkit/src/main/scala/org/apache/pekko/testkit/package.scala:25-51
 - testkit reference.conf:18 (filter-leeway = 3s)
 
 **Condiciones.**
 - filterEvents falla con AssertionError("Filter completion error:\n" + lista de `Timeout (<leeway>) waiting for <filtro>`) (package.scala:41-42).
-- intercept y filterEvents no comprueban excesos hasta el final; `awaitDone` devuelve true si todo==MaxValue o todo==0 (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:106-109).
+- intercept y filterEvents no comprueban excesos hasta el final; `awaitDone` devuelve true si todo==MaxValue o todo==0 (testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:107-110).
 
 **Orden / concurrencia / ciclo de vida.** Mute/UnMute son mensajes al EventStream procesados por el TestEventListener (asíncrono respecto del bloque; por eso la espera con leeway).
 
@@ -2250,10 +2250,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Diferencias observables.** Rust: ídem; la espera usa poll con dilatación.
 
 **Aserciones.**
-- A1: `EventFilter.warning(pattern="received dead letter from Actor\[pekko://LogDeadLetters/system/testProbe.*", occurrences=1).intercept{ a.tell("boom", probe.ref) }(sys)` pasa con exactamente 1 ocurrencia — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:164-186.
-- A2: intercept anidado (info `.*not delivered` y warning `received dead letter: boom`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:188-210.
-- A3: `filterEvents(EventFilter.warning(s"unhandled message from Actor[$deadLettersPath]: $message", occurrences = 1)) { rootGuardian ! message }` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:77-79.
-- A4: falta/exceso de ocurrencias produce AssertionError con los textos fijos — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:115-119,130-134, *no afirmada por spec*.
+- A1: `EventFilter.warning(pattern="received dead letter from Actor\[pekko://LogDeadLetters/system/testProbe.*", occurrences=1).intercept{ a.tell("boom", probe.ref) }(sys)` pasa con exactamente 1 ocurrencia — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:167-189.
+- A2: intercept anidado (info `.*not delivered` y warning `received dead letter: boom`) — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:191-213.
+- A3: `filterEvents(EventFilter.warning(s"unhandled message from Actor[$deadLettersPath]: $message", occurrences = 1)) { rootGuardian ! message }` — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:76-78.
+- A4: falta/exceso de ocurrencias produce AssertionError con los textos fijos — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:116-120,131-135, *no afirmada por spec*.
 - A5: `filterException[T](block)` = `EventFilter[T]().intercept(block)` — package.scala:53-54.
 
 **Oráculo.** Jar oficial: `tk-intercept.jsh` (fallos por falta y por exceso).
@@ -2285,7 +2285,7 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 - A1: un DeadLetter sin filtro imprime el Warning `received dead letter ..` (observado indirectamente por filtros) — ActorSystemSpec.scala:177-181.
 - A2: `received dead letter: boom` cuando el sender es noSender (deadLetters) — ActorSystemSpec.scala:203.
 - A3: UnhandledMessage -> `unhandled message from Actor[<deadLetters>]: <msg>` — LocalActorRefProviderSpec.scala:77.
-- A4: DeadLettersFilter coincide con el Warning interno (prefijo no incluido) — testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:535-539,572-573, *no afirmada por spec leída*.
+- A4: DeadLettersFilter coincide con el Warning interno (prefijo no incluido) — testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:536-540,572-573, *no afirmada por spec leída*.
 - A5: Dropped -> Warning `dropped message from <sender>. <reason>: <msg>` — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:585-588.
 - A6: Terminate se ignora — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestEventListener.scala:571.
 
@@ -2300,10 +2300,10 @@ Convención de `impl`/`validation`: todas las filas del grupo están `pending` (
 **Contrato observable.** [contractual por spec] `TestActorRef[T <: Actor]` es un `LocalActorRef` que (1) se crea y arranca de forma síncrona (el actor existe y su constructor y `preStart` ya corrieron al volver de `TestActorRef(..)`), (2) usa por defecto el `CallingThreadDispatcher` (AC-TK-006.2) salvo que los `Props` indiquen otro dispatcher, de modo que cada `!`/`?` ejecuta el `receive` del actor en el hilo del emisor antes de volver, (3) deja el `receiveTimeout` sin definir (`Duration.Undefined`), (4) expone el actor subyacente (`underlyingActor`), (5) permite inyectar mensajes directamente (`receive(o[, sender])`) sin pasar por el buzón, propagando al llamador las excepciones del `receive`, (6) ofrece `watch`/`unwatch` en nombre del actor, (7) se puede crear bajo cualquier supervisor (guardián por defecto, otro `TestActorRef`, una probe, o `TestProbe.childActorOf`) y con nombre aleatorio `$<base64>` si no se da.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestActorRef.scala:28-156 (clase), 158-263 (companion: `apply`/`create`, `randomName`, `InternalGetActor`)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestActorRef.scala:27-155 (clase), 158-263 (companion: `apply`/`create`, `randomName`, `InternalGetActor`)
 - testkit/src/main/scala/org/apache/pekko/testkit/CallingThreadDispatcher.scala:136-138 (`Id`)
 - testkit/src/main/resources/reference.conf:31-33
-- specs: testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:30-118 (fixtures), 120-359 (casos); usos en otros specs: actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:107-127, actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:168-185, actor-tests/src/test/scala/org/apache/pekko/io/TcpListenerSpec.scala:157-177, actor-tests/src/test/scala/org/apache/pekko/io/TcpConnectionSpec.scala:104,113,919-957, actor-tests/src/test/scala/org/apache/pekko/io/InetAddressDnsResolverSpec.scala:103-108,152-157, actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:171-182,271-288,315
+- specs: testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:30-118 (fixtures), 120-359 (casos); usos en otros specs: actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:108-128, actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:216-233, actor-tests/src/test/scala/org/apache/pekko/io/TcpListenerSpec.scala:157-177, actor-tests/src/test/scala/org/apache/pekko/io/TcpConnectionSpec.scala:105,114,966-1004, actor-tests/src/test/scala/org/apache/pekko/io/InetAddressDnsResolverSpec.scala:103-108,152-157 (1.7.1), actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:172-183,272-289,316
 
 **Precondiciones.** Un `ActorSystem` implícito (en realidad un `ActorSystemImpl`, por el cast). El supervisor debe ser una ref local (`LocalActorRef`) o una `RepointableActorRef` ya iniciada; con un top-level aún no iniciado lanza `IllegalStateException("cannot attach a TestActor to an unstarted top-level actor, ensure that it is started by sending a message and observing the reply")` (TestActorRef.scala:38-43). Con supervisor de otro tipo sólo se loguea un error (50-54).
 
@@ -2350,7 +2350,7 @@ Viabilidad: alta para todo lo observable por los specs listados; límite: el act
 - A11: `ref.receive("work")` ejecuta el manejador y el actor se detiene (`isTerminated`) — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:269-273; con `sender` explícito (`testActor`) además llega `"workDone"` a ese emisor — :275-280.
 - A12: un `TestActorRef` creado con un supervisor `TestProbe.ref` o con `parent.childActorOf(..)` no lanza al crearse y registra la excepción del hijo (`EventFilter[RuntimeException](message = "expected")`) — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:282-307.
 - A13: el companion crea con supervisor por defecto (el guardián `/user`), con nombre dado, con supervisor dado y con ambos, y con `Props` en las mismas combinaciones; los atributos `supervisor` y `name` del actor reflejan lo pedido — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:311-358.
-- A14: con un `TestActorRef` anidado y `p.send(b, "hello")` hacia un actor que reenvía a otro con `blocking`, `p.expectMsg(0.seconds, "hello")` pasa (entrega totalmente síncrona) — actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:168-185.
+- A14: con un `TestActorRef` anidado y `p.send(b, "hello")` hacia un actor que reenvía a otro con `blocking`, `p.expectMsg(0.seconds, "hello")` pasa (entrega totalmente síncrona) — actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:216-233.
 - A15: `underlyingActor` se usa para leer campos internos de actores de I/O (`channel`, `listener`) — actor-tests/src/test/scala/org/apache/pekko/io/TcpListenerSpec.scala:177 y TcpConnectionSpec.scala:104,113,957 (aserciones propias de AC-IO; aquí fijan el patrón de acceso de sólo lectura).
 - A16: un supervisor top-level aún no iniciado provoca `IllegalStateException` con el mensaje citado — derivada de TestActorRef.scala:38-43, *no afirmada por spec*. Caracterización propuesta.
 - A17: `underlyingActor` sobre un actor terminado lanza `IllegalActorStateException("underlying actor is terminated")` — derivada de TestActorRef.scala:127, *no afirmada por spec*. Caracterización propuesta: `Err(Terminated)`.
@@ -2370,9 +2370,9 @@ Viabilidad: alta para todo lo observable por los specs listados; límite: el act
 - testkit/src/main/scala/org/apache/pekko/testkit/CallingThreadDispatcher.scala:51-66 (reglas de bloqueo), 68-134 (`CallingThreadDispatcherQueues`), 136-138 (`Id`), 140-339 (`CallingThreadDispatcher`), 341-347 (configurador), 349-395 (`CallingThreadMailbox`)
 - testkit/src/main/resources/reference.conf:31-33 (`pekko.test.calling-thread-dispatcher`)
 - actor/src/main/resources/reference.conf:142-145 (`unstarted-push-timeout` "relevante con el CallingThreadDispatcher para un actor top-level")
-- actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:352 (comentario: "needed for CallingThreadDispatcher, which never calls Mailbox.run()")
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:189-199 (el `testActor` usa la CTD)
-- specs: actor-tests/src/test/scala/org/apache/pekko/testkit/CallingThreadDispatcherModelSpec.scala:26-71; actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:278-508; testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:30-57; actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:168-208; testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:156-230
+- actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:366 (comentario: "needed for CallingThreadDispatcher, which never calls Mailbox.run()")
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:188-198 (el `testActor` usa la CTD)
+- specs: actor-tests/src/test/scala/org/apache/pekko/testkit/CallingThreadDispatcherModelSpec.scala:26-71; actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:279-509; testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:30-57; actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:216-256; testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:156-230
 
 **Precondiciones.** Seleccionable por id `pekko.test.calling-thread-dispatcher` en `Props`, o implícito en `TestActorRef`/`testActor`. El `LocalActorRef` debe usar `CallingThreadMailbox` (si no: `ActorInitializationException("expected CallingThreadMailbox, got …")`, CallingThreadDispatcher.scala:189).
 
@@ -2410,16 +2410,16 @@ Viabilidad: alta para el modelo de un hilo (todos los specs de testkit) y media-
 
 **Aserciones.**
 - A1: `ActorModelSpec` aplicado a la CTD ("A Calling Thread Dispatcher") — actor-tests/src/test/scala/org/apache/pekko/testkit/CallingThreadDispatcherModelSpec.scala:58-71 (hereda los casos de ActorModelSpec con un dispatcher interceptado; ver A2-A9).
-- A2: "dynamically handle its own life cycle": registra/desregistra y el dispatcher cuenta `stops` (0→1→2→3) al detener actores y completar futuros — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:283-309.
-- A3: "process messages one at a time": el segundo mensaje (Wait 1000) no se solapa con el siguiente; `msgsReceived == msgsProcessed == 3` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:311-329.
-- A4: "handle queueing from multiple threads": 10 hilos × 20 mensajes ⇒ 200 recibidos y procesados — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:331-347.
-- A5: "not process messages for a suspended actor": suspendido no procesa (`assertNoCountDown` 1000 ms); al reanudar, procesa el mensaje encolado; contadores `suspensions = resumes = 1` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:359-381.
-- A6: "handle waves of actors": 3 olas de 10 000 actores con un `Terminated` por actor y `stops = run` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:383-420 (el comentario de las líneas 399-401 documenta que con la CTD el hilo "keep-alive" debe estar en otro hilo para no interbloquearse).
-- A7: "continue to process messages when exception is thrown": tras `IndexOutOfBoundsException` y `RemoteException` en el manejador siguen procesándose los mensajes posteriores (`Reply("foo2")`, `Reply("bar2")`), mientras los futuros de los mensajes fallidos quedan sin completar (`f3.value.isEmpty`) — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:479-497.
-- A8: "not double-deregister": `DoubleStop` deja `registers == 1` y `unregisters == 1` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:499-506.
-- A9: dos casos con interrupciones (`ActorInterruptedException` con causa `"Ping!"` y la variante sin excepción) — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:422-477: **no portables** (Q-TK-7).
+- A2: "dynamically handle its own life cycle": registra/desregistra y el dispatcher cuenta `stops` (0→1→2→3) al detener actores y completar futuros — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:284-310.
+- A3: "process messages one at a time": el segundo mensaje (Wait 1000) no se solapa con el siguiente; `msgsReceived == msgsProcessed == 3` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:312-330.
+- A4: "handle queueing from multiple threads": 10 hilos × 20 mensajes ⇒ 200 recibidos y procesados — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:332-348.
+- A5: "not process messages for a suspended actor": suspendido no procesa (`assertNoCountDown` 1000 ms); al reanudar, procesa el mensaje encolado; contadores `suspensions = resumes = 1` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:360-382.
+- A6: "handle waves of actors": 3 olas de 10 000 actores con un `Terminated` por actor y `stops = run` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:384-421 (el comentario de las líneas 399-401 documenta que con la CTD el hilo "keep-alive" debe estar en otro hilo para no interbloquearse).
+- A7: "continue to process messages when exception is thrown": tras `IndexOutOfBoundsException` y `RemoteException` en el manejador siguen procesándose los mensajes posteriores (`Reply("foo2")`, `Reply("bar2")`), mientras los futuros de los mensajes fallidos quedan sin completar (`f3.value.isEmpty`) — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:480-498.
+- A8: "not double-deregister": `DoubleStop` deja `registers == 1` y `unregisters == 1` — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:500-507.
+- A9: dos casos con interrupciones (`ActorInterruptedException` con causa `"Ping!"` y la variante sin excepción) — actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:423-478: **no portables** (Q-TK-7).
 - A10: entrega síncrona del `testActor`: `tk.ref ? "hello"; tk.expectMsg(0.millis, "hello")`, `lastMessage.sender ! "world"` ⇒ `future.isCompleted == true` — testkit/src/test/scala/org/apache/pekko/testkit/TestProbeSpec.scala:32-39; análogos en :41-57.
-- A11: como `ExecutionContext` síncrono, `ec.execute(batch)` ejecuta la tarea y las encoladas dentro de ella antes de volver (`x == 1`) — actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:187-208.
+- A11: como `ExecutionContext` síncrono, `ec.execute(batch)` ejecuta la tarea y las encoladas dentro de ella antes de volver (`x == 1`) — actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:235-256.
 - A12: orden determinista y reentrada: mensajes enviados desde dentro de un `receive` a otro actor (que a su vez responde al primero) no se anidan en la pila y el contador final es exacto; todo en el hilo del test — testkit/src/test/scala/org/apache/pekko/testkit/TestActorRefSpec.scala:156-179.
 - A13: los mensajes sin leer de un buzón CTD terminado pasan a dead letters — derivada de CallingThreadDispatcher.scala:381-394, observable en testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpecSpec.scala:75-113 ("enqueue unread messages from testActor to deadLetters": `locker should contain(DeadLetter(42, davyJones, probe.ref))`).
 - A14: los mensajes de sistema se procesan inmediatamente en el hilo del emisor, aunque haya mensajes normales encolados — derivada de CallingThreadDispatcher.scala:223-230 y 282, *no afirmada por spec*. Caracterización propuesta: `watch` sobre un actor ocupado entrega `Terminated` sin esperar.
@@ -2438,8 +2438,8 @@ Viabilidad: alta para el modelo de un hilo (todos los specs de testkit) y media-
 **Contrato observable.** [contractual por spec] `TestFSMRef[S, D, T <: Actor](system, props, supervisor, name)(implicit ev: T <:< FSM[S, D])` es un `TestActorRef[T]` con acceso a estado y timers del FSM subyacente: `stateName`, `stateData`, `setState(stateName, stateData, timeout, stopReason)` (cada argumento omitido conserva el valor actual; `timeout` por defecto `null` ≡ sin timeout), y los proxies de timers `startTimerWithFixedDelay`, `startTimerAtFixedRate`, `startSingleTimer`, `setTimer` (deprecado), `cancelTimer`, `isTimerActive(name)`, `isStateTimerActive`. `setState` equivale a una transición iniciada desde dentro del FSM, incluidos el timeout y la parada.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestFSMRef.scala:22-147 (clase y companion)
-- specs: testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:20-105; actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:223-262 (uso con timers y terminación)
+- testkit/src/main/scala/org/apache/pekko/testkit/TestFSMRef.scala:22-136 (clase y companion)
+- specs: testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:21-106; actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:224-263 (uso con timers y terminación)
 
 **Precondiciones.** Hereda las de `TestActorRef`. El actor debe ser un FSM (`T <:< FSM[S, D]`, comprobado en compilación). Los companions crean con supervisor por defecto = guardián y nombre aleatorio si no se dan (TestFSMRef.scala:119-146).
 
@@ -2464,12 +2464,12 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Diferencias observables.** `S`/`D` clonables en vez de referencias; el argumento `timeout: FiniteDuration = null` se modela con `Option<Duration>`; `setTimer` deprecado puede omitirse si AC-FSM-004 decide no portarlo (queda sujeto a esa decisión).
 
 **Aserciones.**
-- A1: acceso a estado: tras `startWith(1, "")`, `stateName == 1` y `stateData == ""`; tras `fsm ! "go"` pasan a `2` y `"go"` (transición síncrona vía CTD) — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:24-39.
-- A2: `setState(stateName = 1)` cambia sólo el nombre (los datos siguen `"go"`); `setState(stateData = "buh")` cambia sólo los datos — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:40-45.
-- A3: `setState(timeout = 100.millis)` arma el timeout de estado: dentro de `within(80.millis, 500.millis)` el FSM pasa a estado `2` con datos `"timeout"` — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:46-49.
-- A4: timers: `isTimerActive("test")` es `false`; tras `startTimerWithFixedDelay("test", 12, 10.millis)` es `true`; tras `cancelTimer("test")` es `false` — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:52-64.
-- A5: companion: supervisor por defecto = guardián (`fsm.underlyingActor.supervisor == guardian`); nombre dado; supervisor dado; supervisor y nombre — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:67-103.
-- A6: `TestFSMRef` se usa para comprobar que todos los timers se cancelan al terminar el FSM (`startSingleTimer` por transición, `onTermination`) — actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:223-262 (aserciones de AC-FSM; aquí fijan el uso de `isTimerActive` desde el test).
+- A1: acceso a estado: tras `startWith(1, "")`, `stateName == 1` y `stateData == ""`; tras `fsm ! "go"` pasan a `2` y `"go"` (transición síncrona vía CTD) — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:25-40.
+- A2: `setState(stateName = 1)` cambia sólo el nombre (los datos siguen `"go"`); `setState(stateData = "buh")` cambia sólo los datos — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:41-46.
+- A3: `setState(timeout = 100.millis)` arma el timeout de estado: dentro de `within(80.millis, 500.millis)` el FSM pasa a estado `2` con datos `"timeout"` — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:47-50.
+- A4: timers: `isTimerActive("test")` es `false`; tras `startTimerWithFixedDelay("test", 12, 10.millis)` es `true`; tras `cancelTimer("test")` es `false` — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:53-65.
+- A5: companion: supervisor por defecto = guardián (`fsm.underlyingActor.supervisor == guardian`); nombre dado; supervisor dado; supervisor y nombre — testkit/src/test/scala/org/apache/pekko/testkit/TestFSMRefSpec.scala:68-104.
+- A6: `TestFSMRef` se usa para comprobar que todos los timers se cancelan al terminar el FSM (`startSingleTimer` por transición, `onTermination`) — actor-tests/src/test/scala/org/apache/pekko/actor/FSMActorSpec.scala:224-263 (aserciones de AC-FSM; aquí fijan el uso de `isTimerActive` desde el test).
 - A7: `setState(stopReason = Some(Normal))` ejecuta `onTermination` y detiene el actor — derivada de TestFSMRef.scala:66-72 y del FSM, *no afirmada por spec*. Caracterización propuesta.
 - A8: `isStateTimerActive` refleja el timeout de estado armado por `setState(timeout = …)` — derivada de TestFSMRef.scala:116, *no afirmada por spec*. Caracterización propuesta.
 
@@ -2484,12 +2484,12 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Contrato observable.** [contractual por spec] timePasses(d) avanza el reloj lógico, ejecuta en el hilo llamante todas las tareas vencidas en orden de tiempo (incluidas las que se programan durante la ejecución) y respeta la cancelación; tareas con delay<=0 se ejecutan al programarlas; las periódicas se reprograman sólo si la ejecución no falló. currentTime en ms (AtomicLong); `scheduled` ConcurrentHashMap Item->tiempo; las tareas se ejecutan ordenadas por tiempo, una a una (re-evalúa el conjunto tras cada ejecución).
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:44-141
+- testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:44-142
 - reference.conf (actor): pekko.scheduler.implementation para inyectarlo (AC-SCH-010)
 
 **Condiciones.**
-- El runnable que lanza excepción no se reprograma y no propaga el error (Try) (testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:97-101).
-- cancel(): true si el size del mapa bajó; isCancelled se marca siempre (testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:124-129).
+- El runnable que lanza excepción no se reprograma y no propaga el error (Try) (testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:98-102).
+- cancel(): true si el size del mapa bajó; isCancelled se marca siempre (testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:125-130).
 - timePasses convierte `amount.toMillis`; no dilata (ETS doc 63-65).
 
 **Orden / concurrencia / ciclo de vida.** Ejecución en el hilo del test, no en el ExecutionContext dado (testkit/src/main/scala/org/apache/pekko/testkit/ExplicitlyTriggeredScheduler.scala:38-42).
@@ -2521,11 +2521,11 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Contrato observable.** [contractual] Primitivas para tests: `TestLatch(count = 1)(implicit system)` (envoltorio de `CountDownLatch` que es `Awaitable[Unit]`; `countDown`, `isOpen`, `open`, `reset`, `ready/result(atMost)` con espera dilatada por `timefactor` y `TimeoutException("Timeout of <atMost> with time factor of <factor>")` al agotarse; `Duration.Inf`/no finito ⇒ `IllegalArgumentException("TestLatch does not support waiting for <d>")`; `DefaultTimeout = 5 s`); `TestBarrier(count)` (envoltorio de `CyclicBarrier`; `await()` y `await(timeout)` dilatados; al agotarse lanza `TestBarrierTimeoutException("Timeout of <t> and time factor of <factor>")`; `reset()`; `DefaultTimeout = 5 s`); `TestException(message)` (excepción `RuntimeException` sin traza, case class con igualdad por mensaje).
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestLatch.scala:31-61
-- testkit/src/main/scala/org/apache/pekko/testkit/TestBarrier.scala:23-53
+- testkit/src/main/scala/org/apache/pekko/testkit/TestLatch.scala:32-62
+- testkit/src/main/scala/org/apache/pekko/testkit/TestBarrier.scala:24-54
 - testkit/src/main/scala/org/apache/pekko/testkit/TestException.scala:21
 - testkit/src/main/scala/org/apache/pekko/testkit/package.scala (`dilated`: AC-TK-013) y TestKitExtension (`TestTimeFactor`: AC-TK-004)
-- usos como evidencia: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:216-227; testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpecSpec.scala:67-72,101-104; actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:103,117,125; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:469
+- usos como evidencia: actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:219-230; testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpecSpec.scala:67-72,101-104; actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:103,117,125; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:471
 
 **Precondiciones.** Un `ActorSystem` implícito (para leer el `timefactor`). `TestBarrier.await()` sin timeout usa `DefaultTimeout`.
 
@@ -2545,7 +2545,7 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Diferencias observables.** `Awaitable[Unit]` → método propio (`ready`/`result`); mensajes de error idénticos; `Duration.Inf` se modela con `Option<Duration>` o con un tipo `FiniteDuration` que impide el caso (diferencia: error en compilación en lugar de `IllegalArgumentException`).
 
 **Aserciones.**
-- A1: `TestLatch(count)`: `countDown` `count` veces abre el latch y `Await.ready(latch, 5.seconds)` retorna; el orden de ejecución de los callbacks de terminación se observa a través del latch — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:212-232.
+- A1: `TestLatch(count)`: `countDown` `count` veces abre el latch y `Await.ready(latch, 5.seconds)` retorna; el orden de ejecución de los callbacks de terminación se observa a través del latch — actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:215-235.
 - A2: un `TestLatch` abierto desde `registerOnTermination` se completa al terminar el sistema (`Await.ready(latch, 2.seconds)`) — testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpecSpec.scala:64-73.
 - A3: `TestBarrier(2)` sincroniza el hilo del test con el actor: `state.finished.await()` (timeout por defecto) vuelve cuando el actor llama a `await`, y `beforeEach` hace `reset()` — actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:103,117,125.
 - A4: `ready` con duración infinita lanza `IllegalArgumentException("TestLatch does not support waiting for Duration.Inf")` — derivada de TestLatch.scala:48-50, *no afirmada por spec*. Caracterización propuesta.
@@ -2562,14 +2562,14 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 
 *Unidad TK · visibilidad public · analysis `extracted`*
 
-**Contrato observable.** [contractual] Termina el sistema y espera hasta `duration` dilatado (por defecto min(10s dilatado, 10s)); si vence imprime (o lanza RuntimeException si verifySystemShutdown) `Failed to stop [<name>] within [<d>] \n<printTree>`. duration indefinida -> `10.seconds.dilated.min(10.seconds)` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1036).
+**Contrato observable.** [contractual] Termina el sistema y espera hasta `duration` dilatado (por defecto min(10s dilatado, 10s)); si vence imprime (o lanza RuntimeException si verifySystemShutdown) `Failed to stop [<name>] within [<d>] \n<printTree>`. duration indefinida -> `10.seconds.dilated.min(10.seconds)` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1018).
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:889-894
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1030-1049
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:871-876
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1012-1031
 
 **Condiciones.**
-- Timeout: mensaje `Failed to stop [%s] within [%s] \n%s` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1042-1045); println si no verify, RuntimeException si verify.
+- Timeout: mensaje `Failed to stop [%s] within [%s] \n%s` (testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1024-1027); println si no verify, RuntimeException si verify.
 
 **Orden / concurrencia / ciclo de vida.** terminate() y luego Await.ready(whenTerminated, d).
 
@@ -2580,9 +2580,9 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Diferencias observables.** Rust: `Result<(), ShutdownTimeout>`.
 
 **Aserciones.**
-- A1: `shutdownActorSystem(sys, verifySystemShutdown = true)` vuelve sin error cuando el sistema termina (drena logs) — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:189-205.
-- A2: tope de 10 s para duración indefinida — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1036, *no afirmada por spec*.
-- A3: mensaje de fallo con printTree — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1042-1047, *no afirmada por spec*.
+- A1: `shutdownActorSystem(sys, verifySystemShutdown = true)` vuelve sin error cuando el sistema termina (drena logs) — actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:190-206.
+- A2: tope de 10 s para duración indefinida — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1018, *no afirmada por spec*.
+- A3: mensaje de fallo con printTree — derivada de testkit/src/main/scala/org/apache/pekko/testkit/TestKit.scala:1024-1029, *no afirmada por spec*.
 
 **Oráculo.** Jar oficial: `tk-shutdown.jsh`.
 
@@ -2595,9 +2595,9 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Contrato observable.** [contractual, API Java] `javadsl.TestKit(system)` es una fachada que delega TODA su API en un `TestProbe` interno (`tp = new TestProbe(system)`): `getTestActor`/`getRef` (el actor es el de la probe, nombre `testProbe-N`, no `testActor-N`), `getSystem`, `msgAvailable`, `getLastSender`, `send`, `forward`, `reply`, `watch`/`unwatch`, `ignoreMsg`/`ignoreNoMsg`, `setAutoPilot`, `remaining*`, `within`, `awaitCond`, `awaitAssert`, `expectMsg*`/`expectMsgPF`/`expectMsgClass`/`expectMsgAnyOf`/`expectMsgAllOf*`/`expectMsgAnyClassOf`, `expectNoMessage`/`expectNoMsg`, `expectTerminated`, `fishForMessage`/`fishForSpecificMessage`, `receiveN`/`receiveOne`/`receiveWhile`, `childActorOf`, `dilated`, y el companion `shutdownActorSystem(..)` (10 s, sin verificar por defecto). Las funciones de emparejamiento Java (`JFunction`) son TOTALES: se envuelven en `CachingPartialFunction` que usa `JavaPartialFunction.NoMatch` como "no definido". `javadsl.EventFilter(clazz, system)` acepta una clase `Throwable` (filtro de `Error` con esa causa) o una clase de `LogEvent`; configuración encadenada `message` (exacto: `complete = true`), `startsWith` (`complete = false`), `matches` (patrón regex), `from` (fuente), `occurrences`; `intercept(Supplier)` ejecuta el bloque con el filtro equivalente (`ErrorFilter`/`WarningFilter`/`InfoFilter`/`DebugFilter`); `unknown LogLevel` ⇒ `IllegalArgumentException`.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/javadsl/TestKit.scala:31-861 (clase), 863-937 (companion), 953-966 (`CachingPartialFunction`)
+- testkit/src/main/scala/org/apache/pekko/testkit/javadsl/TestKit.scala:29-545 (clase), 863-937 (companion), 953-966 (`CachingPartialFunction`)
 - testkit/src/main/scala/org/apache/pekko/testkit/javadsl/EventFilter.scala:23-92
-- specs: testkit/src/test/java/org/apache/pekko/testkit/javadsl/TestKitApiTest.java:25-183 (compila toda la API; "actual impl is tested elsewhere"); actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:54-126,140-178 (uso real de `expectMsgPF` Java con `Duration` y `getRef`); docs/src/test/java/jdocs/event/EventBusDocTest.java:277-349 (fuera de los módulos del alcance, sólo evidencia)
+- specs: testkit/src/test/java/org/apache/pekko/testkit/javadsl/TestKitApiTest.java:24-182 (compila toda la API; "actual impl is tested elsewhere"); actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:51-123,137-175 (uso real de `expectMsgPF` Java con `Duration` y `getRef`); docs/src/test/java/jdocs/event/EventBusDocTest.java:277-349 (fuera de los módulos del alcance, sólo evidencia)
 
 **Precondiciones.** Un `ActorSystem` ya creado; el sistema debe apagarse por el usuario. La clase no es thread-safe (una cola, una pila de `within`).
 
@@ -2618,9 +2618,9 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Diferencias observables.** Una sola API en lugar de dos; las funciones Java totales con `NoMatch` se sustituyen por `Option` o por `FnMut(&Msg) -> Option<R>` (la semántica "no definido" se conserva como `None`).
 
 **Aserciones.**
-- A1: `TestKitApiTest` compila todas las firmas Java de `TestKit` (awaitAssert/awaitCond, childActorOf, expectMsg*, fishFor*, receive*, ignoreMsg, expectMsgAllOf/AnyOf/AnyClassOf, getters, forward/send/watch/unwatch, setAutoPilot, `shutdownActorSystem(system, Duration)`) — testkit/src/test/java/org/apache/pekko/testkit/javadsl/TestKitApiTest.java:27-182 (sin ejecutar: el método se declara `compileOnlyTestCase`, con `testKit` nulo).
-- A2: los eventos de log llegan a `getRef()` y `expectMsgPF(Duration, hint, f)` con una función total aplicada a un `LogEvent` verifica mensaje, nivel y MDC en 3 s — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:140-178.
-- A3: `javadsl.TestKit.getRef()` entrega mensajes a una cola que `expectMsg*` examina (uso de la API en un test real) — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:54-90.
+- A1: `TestKitApiTest` compila todas las firmas Java de `TestKit` (awaitAssert/awaitCond, childActorOf, expectMsg*, fishFor*, receive*, ignoreMsg, expectMsgAllOf/AnyOf/AnyClassOf, getters, forward/send/watch/unwatch, setAutoPilot, `shutdownActorSystem(system, Duration)`) — testkit/src/test/java/org/apache/pekko/testkit/javadsl/TestKitApiTest.java:26-181 (sin ejecutar: el método se declara `compileOnlyTestCase`, con `testKit` nulo).
+- A2: los eventos de log llegan a `getRef()` y `expectMsgPF(Duration, hint, f)` con una función total aplicada a un `LogEvent` verifica mensaje, nivel y MDC en 3 s — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:137-175.
+- A3: `javadsl.TestKit.getRef()` entrega mensajes a una cola que `expectMsg*` examina (uso de la API en un test real) — actor-tests/src/test/java/org/apache/pekko/event/LoggingAdapterTest.java:51-87.
 - A4: `javadsl.EventFilter` no tiene tests en el repositorio de Pekko (ni en testkit ni en actor-tests): su comportamiento es *no afirmado por spec*. Caracterización propuesta a partir de EventFilter.scala:47-91: `new EventFilter(classOf[RuntimeException], sys).message("expected").occurrences(1).intercept(..)` falla si no hay exactamente 1 `Error` con causa `RuntimeException` y mensaje exacto.
 - A5: la construcción con una clase que no es `Throwable` ni `LogEvent` lanza `IllegalArgumentException("supplied class must either be LogEvent or Throwable")` — derivada de EventFilter.scala:25-27, *no afirmada por spec*.
 - A6: `expectMsg(max, obj, hint)` pasa `hint` y `obj` a la probe en el orden `(max, hint, obj)` — derivada de TestKit.scala:484, *no afirmada por spec*.
@@ -2637,8 +2637,8 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Contrato observable.** [contractual para portar specs] PekkoSpec crea un ActorSystem cuyo nombre sale del nombre de la clase del spec (TestKitUtils.testNameFromCallStack: sin paquete, sin `$..`, caracteres no [a-zA-Z_0-9-] -> `_`), con testConf: loggers=[TestEventListener], loglevel=WARNING, stdout-loglevel=WARNING, default-dispatcher fork-join (parallelism 8); apaga el sistema en afterAll. PekkoSpec mezcla TestKit con ScalaTest; en Rust el harness deberá ofrecer: sistema por test con nombre derivado, config base, `expect*`, `EventFilter`, apagado al final.
 
 **Fuente.**
-- testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpec.scala:38-148
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKitUtils.scala:20-71
+- testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpec.scala:41-151
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKitUtils.scala:22-79
 
 **Condiciones.**
 - testNameFromCallStack sin clase en la pila: IllegalArgumentException(`Couldn't find [<cls>] in call stack`) (TestKitUtils.scala:53).
@@ -2652,10 +2652,10 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Diferencias observables.** Rust: harness de tests (Q-TK-6). Diferencia: sin Coroner/ScalaTest.
 
 **Aserciones.**
-- A1: testConf = loggers TestEventListener, loglevel WARNING, stdout-loglevel WARNING, fork-join 8 hilos — testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpec.scala:39-55.
+- A1: testConf = loggers TestEventListener, loglevel WARNING, stdout-loglevel WARNING, fork-join 8 hilos — testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpec.scala:42-58.
 - A2: scrubActorSystemName: `a.b.C$$anon$1` -> `C` y no alfanuméricos -> `_` — derivada de TestKitUtils.scala:64-70, *no afirmada por spec leída*.
-- A3: muteDeadLetters publica Mute(DeadLettersFilter(clazz)(MaxValue)) sólo si el log no está en debug — testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpec.scala:130-136.
-- A4: afterAll apaga el sistema — testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpec.scala:112-117.
+- A3: muteDeadLetters publica Mute(DeadLettersFilter(clazz)(MaxValue)) sólo si el log no está en debug — testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpec.scala:133-139.
+- A4: afterAll apaga el sistema — testkit/src/test/scala/org/apache/pekko/testkit/PekkoSpec.scala:115-120.
 
 **Oráculo.** No aplica (infra de test).
 
@@ -2670,9 +2670,9 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Fuente.**
 - testkit/src/test/scala/org/apache/pekko/testkit/Coroner.scala:37-254 (objeto `Coroner`: `watch` 92-134, `printReport` 139-254), 267-292 (`WatchedByCoroner`)
 - testkit/src/test/scala/org/apache/pekko/testkit/TestTags.scala:18-23; testkit/src/test/scala/org/apache/pekko/testkit/WithLogCapturing.scala:25-97; testkit/src/test/scala/org/apache/pekko/testkit/AbstractSpec.scala:20-21
-- testkit/src/test/java/org/apache/pekko/testkit/PekkoJUnitActorSystemResource.java:46-85; testkit/src/test/java/org/apache/pekko/testkit/TestActorRefJavaCompile.java:21-33
+- testkit/src/test/java/org/apache/pekko/testkit/PekkoJUnitActorSystemResource.java:45-79; testkit/src/test/java/org/apache/pekko/testkit/TestActorRefJavaCompile.java:21-33
 - testkit/src/test/scala/org/apache/pekko/testkit/metrics/ (MetricsKit.scala, MetricsKitOps.scala, HdrHistogram.scala, AveragingGauge.scala, KnownOpsInTimespanTimer.scala, FileDescriptorMetricSet.scala, MemoryUsageSnapshotting.scala, MetricKeyDSL.scala, reporter/PekkoConsoleReporter.scala)
-- specs: testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:28-154; testkit/src/test/scala/org/apache/pekko/testkit/metrics/MetricsKitSpec.scala:37-86
+- specs: testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:28-154; testkit/src/test/scala/org/apache/pekko/testkit/metrics/MetricsKitSpec.scala:38-87
 
 **Precondiciones.** `Coroner` usa `ManagementFactory.getThreadMXBean` (JVM). `WithLogCapturing` exige un `implicit def system` y el listener adecuado en `pekko.loggers` (p. ej. `SilenceAllTestEventListener`).
 
@@ -2681,7 +2681,7 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 - `printReport(title, out)`: cabecera `#Coroner's Report: <title>` con arquitectura de SO, procesadores, carga, hora de arranque y uptime de la VM y uso de heap/non-heap (Coroner.scala:139-154); espera 300 ms para evitar una lectura de hilos incoherente (156-159); imprime `All threads:` con el volcado (`dumpAllThreads`) y `Deadlocks found <descripción>:` con los hilos bloqueados (`findDeadlockedThreads`, que usa sincronizadores de propiedad cuando la JVM lo soporta) (249-254).
 - `WithLogCapturing.withFixture`: un `EventFilter(Int.MaxValue)` que acumula todos los eventos (`matches` siempre `true`), envuelve `test()` y lo registra con mensajes Debug `Logging started/finished for test [name]`; si el resultado no es éxito ni pendiente, imprime el log capturado con el `StdOutLogger`.
 - `PekkoJUnitActorSystemResource`: ver arriba.
-- `metrics/*`: `MetricsKit` es `private[pekko]` (su Scaladoc advierte que NO es una utilidad de micro-benchmarking, MetricsKit.scala:25-32); registra métricas Codahale (`counter`, `averageGauge`, `timedWithKnownOps`, `hdrHistogram`, `measureMemory/Gc/FileDescriptors`, MetricsKitOps.scala:28-107) y las reporta por consola (`PekkoConsoleReporter`). Sólo lo consume `ActorCreationPerfSpec` (actor-tests/src/test/scala/org/apache/pekko/actor/ActorCreationPerfSpec.scala:131), un spec de rendimiento sin contrato funcional. `HdrHistogram.update` lanza `IllegalArgumentException` con texto "can not be stored in this histogram" cuando el valor excede el máximo (HdrHistogram.scala:36-56).
+- `metrics/*`: `MetricsKit` es `private[pekko]` (su Scaladoc advierte que NO es una utilidad de micro-benchmarking, MetricsKit.scala:25-32); registra métricas Codahale (`counter`, `averageGauge`, `timedWithKnownOps`, `hdrHistogram`, `measureMemory/Gc/FileDescriptors`, MetricsKitOps.scala:28-107) y las reporta por consola (`PekkoConsoleReporter`). Sólo lo consume `ActorCreationPerfSpec` (actor-tests/src/test/scala/org/apache/pekko/actor/ActorCreationPerfSpec.scala:133), un spec de rendimiento sin contrato funcional. `HdrHistogram.update` lanza `IllegalArgumentException` con texto "can not be stored in this histogram" cuando el valor excede el máximo (HdrHistogram.scala:36-56).
 
 **Errores.** `Coroner.printReport` captura `NonFatal` al imprimir el informe y escribe `Error displaying Coroner's Report` con la traza. Los demás componentes no definen errores propios.
 
@@ -2705,7 +2705,7 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 - A2: cancelar a tiempo no genera salida (`report === ""`) — testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:49-56.
 - A3: con `displayThreadCounts = true` el informe contiene `"Coroner Thread Count starts at "`, `"Coroner Thread Count started at "` y el título, pero no `"Coroner's Report"` — testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:58-68.
 - A4: `printReport` con dos hilos en deadlock (candados `ReentrantLock` en orden inverso) incluye `"Coroner's Report"` y, si la JVM soporta sincronizadores propios, la sección `"Deadlocks found for monitors and ownable synchronizers"` con los nombres `deadlock-thread-a` y `deadlock-thread-b`; si no, la sección `"…but NOT ownable synchronizers"` con `None` — testkit/src/test/scala/org/apache/pekko/testkit/CoronerSpec.scala:70-151.
-- A5: `MetricsKit` mide descriptores de fichero, tiempo sobre un número conocido de operaciones, promedio con `Gauge`, histogramas, y falla con `"can not be stored in this histogram"` al desbordar — testkit/src/test/scala/org/apache/pekko/testkit/metrics/MetricsKitSpec.scala:39-84 (benchmarks de la suite JVM; ver Diferencias).
+- A5: `MetricsKit` mide descriptores de fichero, tiempo sobre un número conocido de operaciones, promedio con `Gauge`, histogramas, y falla con `"can not be stored in this histogram"` al desbordar — testkit/src/test/scala/org/apache/pekko/testkit/metrics/MetricsKitSpec.scala:40-85 (benchmarks de la suite JVM; ver Diferencias).
 - A6: `WithLogCapturing` imprime el log capturado sólo si el test falla y con prefijo `| ` — derivada de WithLogCapturing.scala:31-76, *no afirmada por spec* (no hay spec de WithLogCapturing). Caracterización propuesta.
 - A7: `PekkoJUnitActorSystemResource` crea el sistema en `before()` (nombre y config dados, `testConf` por defecto) y lo apaga en `after()` — derivada de PekkoJUnitActorSystemResource.java:51-85, *no afirmada por spec directa* (la usa LoggingAdapterTest.java:44-53 como infraestructura).
 
@@ -2720,7 +2720,7 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Contrato observable.** [contractual por spec] ver AC-TK-005.2 (filterEvents/filterException) y AC-TK-004 (dilated). Ver AC-TK-005.2.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/package.scala:28-70
+- testkit/src/main/scala/org/apache/pekko/testkit/package.scala:25-67
 
 **Condiciones.**
 - Ver AC-TK-005.2.
@@ -2734,7 +2734,7 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Diferencias observables.** Ver AC-TK-005.2.
 
 **Aserciones.**
-- A1: filterEvents(EventFilter.warning(.., occurrences = 1)) { .. } — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:77-79,90-91,103-104.
+- A1: filterEvents(EventFilter.warning(.., occurrences = 1)) { .. } — actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:76-78,89-90,102-103.
 
 **Oráculo.** Jar oficial: `tk-intercept.jsh`.
 
@@ -2747,7 +2747,7 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Contrato observable.** [contractual interno] Deriva un nombre de ActorSystem válido (AC-SYS-001.1) a partir de la pila de llamadas. En Rust no hay pila de clases; el nombre sale del nombre del test.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestKitUtils.scala:20-71
+- testkit/src/main/scala/org/apache/pekko/testkit/TestKitUtils.scala:22-79
 
 **Condiciones.**
 - scrubActorSystemName: quita paquete (`^.*\.`), anónimos (`\$\$?\w+`), reemplaza `[^a-zA-Z_0-9-]` por `_` y elimina `MultiJvmNode\d+` (TestKitUtils.scala:64-70).
@@ -2777,7 +2777,7 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Fuente.**
 - testkit/src/main/scala/org/apache/pekko/testkit/JavaSerializable.scala:17-22; testkit/src/main/scala/org/apache/pekko/testkit/TestJavaSerializer.scala:30-52
 - testkit/src/main/resources/reference.conf:36-49
-- specs: no hay spec propio en testkit; evidencia relacionada: actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:86,216 (`BothTestSerializableAndJavaSerializable`, otro marcador de test, no este)
+- specs: no hay spec propio en testkit; evidencia relacionada: actor-tests/src/test/scala/org/apache/pekko/serialization/SerializeSpec.scala:101,231 (`BothTestSerializableAndJavaSerializable`, otro marcador de test, no este)
 
 **Precondiciones.** Un `ExtendedActorSystem` (constructor de `TestJavaSerializer(system)`); la entrada del `serialization-bindings` debe cargarse (viene en el `reference.conf` del testkit, o explícita como indica el Scaladoc: "needs to be explicitly enabled in the config").
 
@@ -2810,7 +2810,7 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Contrato observable.** [contractual por spec] Actores de uso común en tests: `EchoActor` responde a `sender()` el mismo mensaje sin modificar; `BlackholeActor` ignora todo; `ForwardActor(ref)` reenvía cada mensaje con `ref.forward(message)` (conserva el emisor original). Props: `echoActorProps`, `blackholeProps`, `forwardActorProps(ref)`.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/TestActors.scala:21-56
+- testkit/src/main/scala/org/apache/pekko/testkit/TestActors.scala:22-57
 - specs: testkit/src/test/scala/org/apache/pekko/testkit/TestActorsSpec.scala:16-41; usados como utilería en actor-tests (DeadLetterSupressionSpec, DeadLetterSuspensionSpec, ActorSystemDispatcherSpec.scala:88)
 
 **Precondiciones.** Ninguna; `ForwardActor` exige un `ActorRef` destino.
@@ -2844,8 +2844,8 @@ Los timers usan el scheduler del sistema; con la CTD el `receive` disparado por 
 **Contrato observable.** [contractual] Utilidad de `object SocketUtil` para obtener direcciones TCP/UDP libres en `localhost`/loopback: `temporaryLocalPort(udp)`, `temporaryLocalPort(protocol: Tcp|Udp|Both)` (con `Both`, hasta 5 intentos para un puerto libre en TCP y UDP, y `RuntimeException("Unable to find a port that is free for tcp and udp")` si no lo logra), `temporaryServerAddress(address = RANDOM_LOOPBACK_ADDRESS, udp)`, `temporaryServerAddresses(n, hostname, udp)`, `temporaryServerHostnameAndPort`, `temporaryUdpIpv6Port(iface)`, `notBoundServerAddress([address])` (puerto 0). Para `RANDOM_LOOPBACK_ADDRESS` elige `127.20.<0-255>.<0-254>` si el sistema permite enlazar `127.20.0.0`, y `127.0.0.1` si no. Cada dirección se obtiene enlazando un socket al puerto 0 y cerrándolo (hay una ventana de carrera hasta que el test lo reutilice). Fallo al enlazar ⇒ `RuntimeException("Binding to <addr> failed with <msg>", cause)`.
 
 **Fuente.**
-- testkit/src/main/scala/org/apache/pekko/testkit/SocketUtil.scala:24-135
-- specs: no hay spec propio; usado por actor-tests/src/test/scala/org/apache/pekko/io/UdpIntegrationSpec.scala:23,76, actor-tests/src/test/scala/org/apache/pekko/io/CapacityLimitSpec.scala:20, actor-tests/src/test/scala/org/apache/pekko/io/TcpListenerSpec.scala:152, entre otros (unidad IO)
+- testkit/src/main/scala/org/apache/pekko/testkit/SocketUtil.scala:27-139
+- specs: no hay spec propio; usado por actor-tests/src/test/scala/org/apache/pekko/io/UdpIntegrationSpec.scala:24,77, actor-tests/src/test/scala/org/apache/pekko/io/CapacityLimitSpec.scala:20, actor-tests/src/test/scala/org/apache/pekko/io/TcpListenerSpec.scala:152, entre otros (unidad IO)
 
 **Precondiciones.** Permiso para enlazar sockets locales. `temporaryUdpIpv6Port` exige una interfaz con dirección IPv6.
 

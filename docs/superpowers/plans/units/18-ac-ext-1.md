@@ -36,10 +36,10 @@ Filas: AC-EXT-001.1, AC-EXT-001.2, AC-EXT-002, AC-EXT-003, AC-EXT-004. Contratos
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-EXT-001.1 | Extension / ExtensionId / AbstractExtensionId / ExtensionIdProvider: identidad… | `trait ExtensionId { type Ext; fn create(&self, &ExtendedActorSystem) -> Self::Ext }`… | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:28-80 ;… | Q-EXT-1 |
-| AC-EXT-001.2 | ActorSystemImpl.registerExtension: una instancia por sistema, registro en… | mapa `ExtensionKey -> OnceLock<Result<Arc<dyn Any>, Arc<Error>>>` con espera acotada por… | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:82-97 | Q-EXT-2, Q-X-4 |
+| AC-EXT-001.1 | Extension / ExtensionId / AbstractExtensionId / ExtensionIdProvider: identidad… | `trait ExtensionId { type Ext; fn create(&self, &ExtendedActorSystem) -> Self::Ext }`… | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:29-81 ;… | Q-EXT-1 |
+| AC-EXT-001.2 | ActorSystemImpl.registerExtension: una instancia por sistema, registro en… | mapa `ExtensionKey -> OnceLock<Result<Arc<dyn Any>, Arc<Error>>>` con espera acotada por… | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:83-98 | Q-EXT-2, Q-X-4 |
 | AC-EXT-002 | extension() y hasExtension() | `fn extension<E>() -> Option<Arc<E>>` | - (JavaExtension.java:83-88 y ExtensionSpec.scala:70-80 lo ejercitan) | Q-EXT-1 |
-| AC-EXT-003 | Carga automática desde config (library-extensions / extensions) | registro nombre→ExtensionId | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:99,111,122,135,153,… | Q-CFG-8, Q-X-2 |
+| AC-EXT-003 | Carga automática desde config (library-extensions / extensions) | registro nombre→ExtensionId | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:100,112,123,136,154… | Q-CFG-8, Q-X-2 |
 | AC-EXT-004 | Extensiones provistas por pekko-actor (CoordinatedShutdown,… | - | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala | Q-EXT-1, Q-EXT-3 |
 
 ## Gates y criterio de cierre

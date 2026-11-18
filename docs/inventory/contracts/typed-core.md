@@ -10,7 +10,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Un Behavior[T] es un valor inmutable que define como reacciona el actor al proximo mensaje T o Signal y cual es el Behavior siguiente. El usuario no extiende Behavior (@DoNotInherit): extiende ExtensibleBehavior o usa los DSL. Un Behavior que cierra sobre un ActorContext no se puede mover a otro contexto. Hay 9 tipos internos (tags 1..9): Extensible, Empty, Ignore, Unhandled, Deferred, Same, Failed, Stopped, Supervise.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:28-49; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:106-141 (ExtensibleBehavior.receive/receiveSignal); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:29-44 (BehaviorTags) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:30-51; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:116-151 (ExtensibleBehavior.receive/receiveSignal); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:29-44 (BehaviorTags) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: receive/receiveSignal devuelven el Behavior siguiente o uno de los especiales (stopped, same, unhandled); el resultado de un ExtensibleBehavior se arranca (Behavior.start) si es Deferred. Limites: Behavior.narrow es un cast sin costo (Behavior.scala:56). Errores: ExtensibleBehavior.receive/receiveSignal pueden lanzar Exception (@throws), que lo trata la supervision (AT-SUP-*). Efectos: ninguno al construir el valor; el estado mutable debe vivir en setup (AT-BEH-023).
 
@@ -22,9 +22,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Un Behavior funcional cambia de estado devolviendo otro Behavior (StateA a StateB y de vuelta) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:285-291
+- A1: Un Behavior funcional cambia de estado devolviendo otro Behavior (StateA a StateB y de vuelta) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:286-292
 
-- A2: El mismo valor Behavior sirve para dos actores/arranques independientes (cada BehaviorTestKit parte de StateA); el spec lo prueba sobre Behaviors funcionales y sus envoltorios (transformMessages, intercept, supervise), no sobre un `Deferred` directo (BehaviorSpec.scala:505, 528, 554) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:333-337
+- A2: El mismo valor Behavior sirve para dos actores/arranques independientes (cada BehaviorTestKit parte de StateA); el spec lo prueba sobre Behaviors funcionales y sus envoltorios (transformMessages, intercept, supervise), no sobre un `Deferred` directo (BehaviorSpec.scala:505, 528, 554) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:334-338
 
 - A3: ExtensibleBehavior es la base de AbstractBehavior, ReceiveBehavior e InterceptorImpl (los DSL se implementan sobre el), derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/AbstractBehavior.scala:46; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:135-139; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:51-54
 
@@ -40,7 +40,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.same: devolverlo desde un handler mantiene el Behavior actual (sin reallocar). No es valido como Behavior inicial (IllegalArgumentException) ni se puede ejecutar directamente en el interprete.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:51-57; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:183-192 (canonicalize); actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:240-243 (validateAsInitial); actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:289-290; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:58, 90-92 (toString "Same") | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:52-58; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:193-202 (canonicalize); actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:250-253 (validateAsInitial); actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:299-300; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:58, 90-92 (toString "Same") | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: canonicalize(same, current) = current. Errores: validateAsInitial(same) lanza IllegalArgumentException("cannot use Same as initial behavior"); interpretar same/unhandled lanza IllegalArgumentException("cannot execute with [Same] as behavior"); setup(setup(same)) detiene el actor al arrancar con ActorInitializationException (error logueado). Efectos: ninguno.
 
@@ -52,15 +52,15 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Un handler que devuelve same permite recibir otro mensaje con el mismo Behavior (Ignore luego Ping) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:250-252
+- A1: Un handler que devuelve same permite recibir otro mensaje con el mismo Behavior (Ignore luego Ping) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:251-253
 
 - A2: setup que devuelve same como Behavior inicial termina el actor y se loguea ActorInitializationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/DeferredSpec.scala:147-158
 
 - A3: unstashAll(Behaviors.same) usa el Behavior en curso (inicial y tras un mensaje intermedio) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:331-347, 349-369
 
-- A4: validateAsInitial(same) lanza IllegalArgumentException con mensaje "cannot use Same as initial behavior" (texto exacto por toString "Same"); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:240-243
+- A4: validateAsInitial(same) lanza IllegalArgumentException con mensaje "cannot use Same as initial behavior" (texto exacto por toString "Same"); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:250-253
 
-- A5: interpretar same directamente lanza IllegalArgumentException("cannot execute with [Same] as behavior"); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:289-290
+- A5: interpretar same directamente lanza IllegalArgumentException("cannot execute with [Same] as behavior"); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:299-300
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): llamar Behavior.validateAsInitial/interpretMessage por jshell con Behaviors.same y capturar mensaje de excepcion
 
@@ -72,7 +72,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.unhandled: el mensaje/senal se considera no manejado; se mantiene el Behavior actual y el ActorAdapter lo deriva a Actor.unhandled clasico, que publica UnhandledMessage en el event stream. Un Terminated no manejado lanza DeathPactException (AT-SIG-006). Invalido como Behavior inicial.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:59-65; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:60, 86-88; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:164-167; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:220-230; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:291-292 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:60-66; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:60, 86-88; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:168-171; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:224-234; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:301-302 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: handler devuelve unhandled, el actor sigue vivo con el Behavior actual y procesa el siguiente mensaje. Errores: Terminated no manejado en interpretSignal lanza DeathPactException(ref); como inicial: IllegalArgumentException("cannot use Unhandled as initial behavior"). Efectos: UnhandledMessage(msg, sender, recipient) al event stream para mensajes; para otras Signal no se publica nada (ActorAdapter.unhandled, caso `_: Signal`, ActorAdapter.scala:226-227).
 
@@ -84,13 +84,13 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Behavior.isUnhandled(interpretMessage(b, ctx, Miss)) es true y el monitor ve Missed — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:258-264
+- A1: Behavior.isUnhandled(interpretMessage(b, ctx, Miss)) es true y el monitor ve Missed — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:259-265
 
 - A2: Un mensaje unhandled se publica como UnhandledMessage y el actor sigue procesando (Ping despues de Miss responde Pong) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:126-133
 
-- A3: delegate que devuelve unhandled publica UnhandledMessage(UnPingable,_,_) y el actor pasa al delegador — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelegateSpec.scala:82-99
+- A3: delegate que devuelve unhandled publica UnhandledMessage(UnPingable,_,_) y el actor pasa al delegador — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelegateSpec.scala:83-100
 
-- A4: unhandled como Behavior inicial lanza IllegalArgumentException("cannot use Unhandled as initial behavior"); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:240-243
+- A4: unhandled como Behavior inicial lanza IllegalArgumentException("cannot use Unhandled as initial behavior"); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:250-253
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): suscribir un listener al eventStream clasico y enviar un mensaje a un Behavior que devuelve unhandled
 
@@ -102,7 +102,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.stopped y stopped(postStop): el actor termina voluntariamente; sus hijos se detienen; el Behavior previo recibe PostStop y despues corre el callback postStop (ComposedStoppingBehavior). Es valido como Behavior inicial (el actor para enseguida). Un Deferred no se arranca al parar.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:67-90; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:62-65, 98-121 (StoppedBehavior); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:173-176; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:325-336; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:342-362; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:299-302 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:68-91; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:62-65, 98-121 (StoppedBehavior); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:177-180; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:329-340; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:346-366; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:309-312 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: stopped(cb) => el Behavior previo (y sus interceptores) recibe PostStop, luego se invoca cb. Limites: si el Behavior previo es Deferred no se arranca (ActorAdapter.scala:354-356). Errores: ComposedStoppingBehavior lanza IllegalStateException("Stopping, should never receive a message") si recibe un mensaje y IllegalArgumentException("The ComposedStoppingBehavior should only ever receive a PostStop signal, but received ...") si recibe otra senal (ActorAdapter.scala:346-351). Efectos: context.stop(self) y el Behavior pasa a Stopped; todos los hijos paran antes de que se complete la terminacion.
 
@@ -114,7 +114,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Un Behavior stopped deja de estar vivo (isAlive false) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:270-274
+- A1: Un Behavior stopped deja de estar vivo (isAlive false) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:271-275
 
 - A2: stopped(cb) devuelto desde setup ejecuta cb — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StopSpec.scala:33-41
 
@@ -142,7 +142,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.empty: trata todo mensaje como unhandled (el interprete devuelve unhandled); las senales no se manejan (Terminated no manejado produce DeathPactException como cualquier Behavior).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:92-95; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:305-306; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:67, 78-80 (toString "Empty") | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:93-96; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:315-316; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:67, 78-80 (toString "Empty") | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: cada mensaje => Unhandled => UnhandledMessage publicado. Senales: interpret devuelve unhandled; MessageAdaptionFailure no mata el actor (el default relanza solo en receive*/AbstractBehavior; empty no lo relanza). Errores: Terminated => DeathPactException (Behavior.scala:274). Efectos: ninguno.
 
@@ -156,9 +156,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: Un actor con empty NO se detiene cuando falla un message adapter (MessageAdaptionFailure se ignora) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/AdaptationFailureSpec.scala:103-127
 
-- A2: interpret de EmptyBehavior devuelve unhandled; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:305-306
+- A2: interpret de EmptyBehavior devuelve unhandled; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:315-316
 
-- A3: Terminated recibido por empty lanza DeathPactException; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:270-277
+- A3: Terminated recibido por empty lanza DeathPactException; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:280-287
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): enviar mensaje y Terminated a un actor con Behaviors.empty
 
@@ -170,7 +170,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.ignore: ignora todos los mensajes y senales y devuelve same sin publicar UnhandledMessage. Tambien traga Terminated (no hay DeathPact).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:97-100; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:297-298; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:69, 82-84 (toString "Ignore") | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:98-101; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:307-308; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:69, 82-84 (toString "Ignore") | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: devuelve same siempre (incluso para PostStop/PreRestart). Errores: ninguno (interpretSignal no lanza DeathPact porque result != Unhandled). Efectos: ninguno.
 
@@ -184,9 +184,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: Un actor con ignore sobrevive al MessageAdaptionFailure — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/AdaptationFailureSpec.scala:103-127
 
-- A2: ignore tambien devuelve same para Terminated, por lo que no hay DeathPactException; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:270-277, 297-298
+- A2: ignore tambien devuelve same para Terminated, por lo que no hay DeathPactException; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:280-287, 297-298
 
-- A3: ignore no publica UnhandledMessage; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:297-298
+- A3: ignore no publica UnhandledMessage; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:307-308
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): actor con ignore y watcher: parar al observado y comprobar que no hay fallo
 
@@ -198,7 +198,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.setup(factory): la fabrica corre al arrancar el actor (no al primer mensaje) y en cada restart, con el ActorContext; setups anidados se arrancan hasta un Behavior concreto; setup(same)/setup(unhandled) se rechaza; una excepcion en la fabrica detiene el actor (ActorInitializationException) salvo supervision; un Deferred no se arranca al parar.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:28-40; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:123-133; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:183-211 (canonicalize, start); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:299-307; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:317-323 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:29-41; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:123-133; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:193-221 (canonicalize, start); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:303-311; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:321-327 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: factory(ctx) devuelve el Behavior concreto; start desenvuelve Deferred anidados, incluso dentro de interceptores y SuperviseBehavior. Limites: PostStop no arranca Deferred (ActorAdapter.scala:329-331). Errores: excepcion de la fabrica => ActorInitializationException logueada y el actor termina; setup(same) => idem; en BehaviorTestKit la excepcion se propaga tal cual al llamador (DeferredSpec 177-188). Efectos: la fabrica puede hacer spawn/watch/timers.
 
@@ -224,11 +224,11 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A7: En BehaviorTestKit la fabrica corre inmediatamente y la excepcion se propaga al llamador — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/DeferredSpec.scala:166-188
 
-- A8: En un restart la fabrica de `setup` se ejecuta de nuevo: con `restart.withLimit` y una fabrica que falla una vez se observa StartFailed y luego Started — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:353-375; actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1145-1153
+- A8: En un restart la fabrica de `setup` se ejecuta de nuevo: con `restart.withLimit` y una fabrica que falla una vez se observa StartFailed y luego Started — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:355-377; actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1152-1160
 
-- A9: La segunda ejecucion de la fabrica tras un restart ve el estado externo dejado por la primera y puede devolver `stopped` (el actor termina) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1673-1691
+- A9: La segunda ejecucion de la fabrica tras un restart ve el estado externo dejado por la primera y puede devolver `stopped` (el actor termina) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1680-1698
 
-- A10: Un `Deferred` sin arrancar no se arranca al parar el actor (sin efectos de creacion), derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:329-331; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:355-356
+- A10: Un `Deferred` sin arrancar no se arranca al parar el actor (sin efectos de creacion), derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:333-335; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:359-360
 
 - A8: Intercept con setup anidado y recursivo reinicia el estado de la fabrica solo cuando se vuelve a crear el setup — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/InterceptSpec.scala:236-291
 
@@ -242,7 +242,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** receive(onMessage: (ctx, msg) => Behavior) y receiveMessage(onMessage: msg => Behavior) crean un Behavior (Receive[T]) que procesa mensajes con o sin ActorContext. El manejador de senales por defecto relanza MessageAdaptionFailure y trata el resto como unhandled.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:102-134; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:329-348 (Receive, ReceiveImpl, ReceiveMessageImpl); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:73-76, 135-172 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:103-135; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:330-349 (Receive, ReceiveImpl, ReceiveMessageImpl); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:73-76, 135-172 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: onMessage devuelve el siguiente Behavior; receive con ctx permite spawn/watch; receiveMessage evita envolver la funcion. Errores: excepcion en onMessage => supervision; default de senales: MessageAdaptionFailure(ex) => throw ex (BehaviorImpl.scala:74). Efectos: ninguno.
 
@@ -254,9 +254,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Un Behavior receive procesa mensajes, cambia de estado y reacciona a PostStop/PreRestart/Terminated por receiveSignal — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:349-381
+- A1: Un Behavior receive procesa mensajes, cambia de estado y reacciona a PostStop/PreRestart/Terminated por receiveSignal — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:350-382
 
-- A2: receive con firma (context, message) y receiveSignal se comporta igual — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:399-433
+- A2: receive con firma (context, message) y receiveSignal se comporta igual — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:400-434
 
 - A3: receive sin receiveSignal: el default relanza MessageAdaptionFailure y el actor se detiene — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/AdaptationFailureSpec.scala:65-67, 89-101
 
@@ -272,7 +272,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** receivePartial y receiveMessagePartial construyen un Receive a partir de una PartialFunction; un mensaje para el que la funcion no esta definida se trata como unhandled (applyOrElse a Behaviors.unhandled) y se publica UnhandledMessage.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:157-171 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:158-172 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: caso definido => su Behavior. Limites: caso no definido => Behaviors.unhandled. Errores: receivePartial(PartialFunction.empty) no maneja MessageAdaptionFailure (relanza). Efectos: UnhandledMessage para no definidos.
 
@@ -302,7 +302,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** receiveMessageWithSame(onMessage: T => Unit) procesa el mensaje y siempre devuelve same; no tiene ctx ni cambia de Behavior.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:136-155 (@since 1.1.0) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:137-156 (@since 1.1.0) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: onMessage(msg) y luego same. Errores: excepcion => supervision. Efectos: los del callback.
 
@@ -314,7 +314,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: ReceiveMessageWithSameBehaviorSpec pasa los casos de Messages: dos Ping, Miss luego Ping, Ignore luego Ping — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:243-252, 383-397
+- A1: ReceiveMessageWithSameBehaviorSpec pasa los casos de Messages: dos Ping, Miss luego Ping, Ignore luego Ping — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:244-253, 383-397
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): secuencia Ping/Miss/Ignore
 
@@ -326,7 +326,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** receiveSignal(partial) agrega un manejador parcial de Signal a un Receive o crea un Behavior que solo maneja senales (los mensajes quedan unhandled). Las senales no cubiertas siguen el default (MessageAdaptionFailure se relanza; el resto unhandled).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:173-177; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:329-348; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:73-76, 141-145, 165-169 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:174-178; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:330-349; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:73-76, 141-145, 165-169 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: el handler recibe (ctx, signal) y devuelve el siguiente Behavior. Limites: Behaviors.receiveSignal es receive((_,_) => same).receiveSignal(handler) (Behaviors.scala:176-177): los mensajes se aceptan y se ignoran con same, NO unhandled. Errores: signal handler que no cubre MessageAdaptionFailure relanza la causa. Efectos: ninguno.
 
@@ -346,7 +346,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A4: receiveSignal que no cubre MessageAdaptionFailure => el actor se detiene; cubriendolo, sobrevive — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/AdaptationFailureSpec.scala:69-72, 80-83, 89-127
 
-- A5: Behaviors.receiveSignal consume mensajes devolviendo same; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:176-177
+- A5: Behaviors.receiveSignal consume mensajes devolviendo same; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:177-178
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): receiveSignal con PostStop/PreRestart/Terminated sobre un actor con hijos
 
@@ -370,15 +370,15 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: AbstractBehavior con el contexto del padre falla al primer mensaje con IllegalStateException "was created with wrong ActorContext" (2 ocurrencias: mensaje y PostStop) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:188-215
+- A1: AbstractBehavior con el contexto del padre falla al primer mensaje con IllegalStateException "was created with wrong ActorContext" (2 ocurrencias: mensaje y PostStop) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:189-216
 
-- A2: Compartir la misma instancia entre dos actores se detecta como contexto equivocado (2 ocurrencias) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:243-277
+- A2: Compartir la misma instancia entre dos actores se detecta como contexto equivocado (2 ocurrencias) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:244-278
 
-- A3: Usar el contexto del padre en el constructor falla con UnsupportedOperationException "Unsupported access to ActorContext" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:217-241
+- A3: Usar el contexto del padre en el constructor falla con UnsupportedOperationException "Unsupported access to ActorContext" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:218-242
 
-- A4: supervise(AbstractBehavior) lanza IllegalArgumentException (tambien con contexto null) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1527-1548
+- A4: supervise(AbstractBehavior) lanza IllegalArgumentException (tambien con contexto null) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1534-1555
 
-- A5: detect wrong context: error IllegalStateException con mensaje que contiene "created with wrong ActorContext" y el actor termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1550-1573
+- A5: detect wrong context: error IllegalStateException con mensaje que contiene "created with wrong ActorContext" y el actor termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1557-1580
 
 - A6: AbstractBehavior sin override de onSignal se detiene por MessageAdaptionFailure; si maneja solo PreRestart tambien; si maneja MessageAdaptionFailure sobrevive — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/AdaptationFailureSpec.scala:73-74, 84, 89-127
 
@@ -392,7 +392,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Interprete de Behavior (Behavior.start, canonicalize, interpretMessage, interpretSignal, existsInStack). Es nucleo sin API de usuario pero BehaviorTestKit lo usa. Reglas: start arranca Deferred anidados (tambien dentro de interceptores y SuperviseBehavior); canonicalize resuelve same/unhandled contra el actual y desenvuelve Deferred; ejecutar same/unhandled/deferred/supervise directamente es IllegalArgumentException; Behavior null es InvalidMessageException; el resultado de ExtensibleBehavior se arranca.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:176-313; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:29-44 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:186-323; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:29-44 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): behavior null => InvalidMessageException("[null] is not an allowed behavior"); same/unhandled => IllegalArgumentException("cannot execute with [<toString>] as behavior"); Deferred => IllegalArgumentException("deferred [<d>] should not be passed to interpreter"); Supervise => IllegalArgumentException("supervise [<s>] should not be passed to interpreter"); existsInStack con Deferred en la pila => IllegalArgumentException("Cannot verify behavior existence when there are deferred in the behavior stack, Behavior.start the stack first. This is probably a bug, please create an issue. <d>"). interpretSignal(Terminated) con resultado Unhandled => DeathPactException(ref). Efectos: PostStop sobre StoppedBehavior invoca su callback (Behavior.scala:299-302); Ignore devuelve same; Empty devuelve unhandled; Failed devuelve si mismo.
 
@@ -410,9 +410,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A3: start arranca setup anidado dentro de transformMessages y monitor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/DeferredSpec.scala:99-145
 
-- A4: interpretMessage devuelve unhandled para Miss — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:258-264
+- A4: interpretMessage devuelve unhandled para Miss — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:259-265
 
-- A5: Mensajes de error exactos de interpret y existsInStack; derivadas del codigo; no afirmadas por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:226-228, 285-296
+- A5: Mensajes de error exactos de interpret y existsInStack; derivadas del codigo; no afirmadas por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:236-238, 285-296
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): invocar Behavior.interpretMessage/interpretSignal por jshell con cada tag y capturar excepciones
 
@@ -424,7 +424,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Validacion de Behavior inicial: validateAsInitial rechaza same y unhandled (IllegalArgumentException); stopped es valido; isAlive es falso para Stopped y Failed; isUnhandled e isDeferred consultan el tag. ActorContext.spawn y ActorSystem.apply validan el Behavior inicial.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:235-259; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:41-56; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:303-304; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:84-85 (supervise.onFailure valida el envuelto) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:245-269; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:58-70; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:305-306; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:92-93 (supervise.onFailure valida el envuelto) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores: IllegalArgumentException("cannot use <Same|Unhandled> as initial behavior"); ActorSystem.apply con Behavior no vivo => IllegalArgumentException (require, ActorSystem.scala:304, sin mensaje del usuario: "requirement failed"). unstash con unhandled inicial => IllegalArgumentException("Cannot unstash with unhandled as starting behavior"). supervise(b) valida b con validateAsInitial. Efectos: ninguno.
 
@@ -442,7 +442,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A3: stopped como Behavior inicial del sistema es rechazado ("note that an immediately stopped ActorSystem(Behaviors.stopped) is not allowed") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/GuardianStartupSpec.scala:76-77
 
-- A4: ActorSystem.apply valida el Behavior inicial y exige que este vivo; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:303-304
+- A4: ActorSystem.apply valida el Behavior inicial y exige que este vivo; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:305-306
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): ActorSystem.apply con same/unhandled/stopped; ctx.spawn con same: ver donde sale la excepcion
 
@@ -454,7 +454,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** BehaviorInterceptor + Behaviors.intercept: envuelve un Behavior; aroundStart/aroundReceive/aroundSignal pueden transformar, filtrar o delegar via target. Solo intercepta mensajes cuya clase es asignable a interceptMessageClass (el resto pasa directo al interno); la fabrica se invoca por cada uso (estado por actor).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/BehaviorInterceptor.scala:25-94; actor-typed/src/main/scala/org/apache/pekko/actor/typed/BehaviorInterceptor.scala:96-139 (PreStartTarget, ReceiveTarget, SignalTarget); actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:179-191; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:34-104; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:174-182 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/BehaviorInterceptor.scala:25-94; actor-typed/src/main/scala/org/apache/pekko/actor/typed/BehaviorInterceptor.scala:96-139 (PreStartTarget, ReceiveTarget, SignalTarget); actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:180-192; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:34-104; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:174-182 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: aroundStart por defecto = target.start(ctx); aroundSignal por defecto = target(ctx, signal); aroundReceive es abstracto; devolver Behaviors.same sin invocar target filtra el mensaje. interceptMessageClass: constructor por defecto toma el ClassTag de Outer (con boxing de primitivos, BehaviorInterceptor.scala:52-56); null => ningun mensaje pasa por aroundReceive (todos van directo al target). Errores: excepcion en el interceptor => supervision. Efectos: aroundStart puede reemplazar el Behavior arrancado (devolver stopped evita arrancar el interno).
 
@@ -520,7 +520,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Deduplicacion de interceptores (isSame): si el Behavior devuelto por el interno ya contiene el mismo interceptor (isSame), se conserva solo el mas interno, para no crecer la pila en definiciones recursivas. Por defecto isSame es igualdad de instancia.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:106-123; actor-typed/src/main/scala/org/apache/pekko/actor/typed/BehaviorInterceptor.scala:87-92; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:174-182; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:218-233 (existsInStack) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:106-123; actor-typed/src/main/scala/org/apache/pekko/actor/typed/BehaviorInterceptor.scala:87-92; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:174-182; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:228-243 (existsInStack) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: tras cada receive/receiveSignal/start, si el resultado esta vivo y no es same/unhandled, se busca en la pila (existsInStack) un InterceptorImpl con isSame; si existe se descarta el envoltorio externo (el nuevo resultado ya lo contiene). Limites: stopped/same/unhandled no se deduplican. Errores: existsInStack con Deferred sin arrancar lanza IllegalArgumentException (por eso se arranca antes, InterceptorImpl.scala:107). Efectos: aroundReceive se ejecuta una sola vez por mensaje.
 
@@ -542,7 +542,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A5: monitor al mismo ref anidado o recursivo notifica una vez por mensaje — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/MonitorSpec.scala:39-71
 
-- A6: transformMessages con el mismo PartialFunction no se acumula (transformCount=1; =2 tras el segundo mensaje recursivo) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:84-139
+- A6: transformMessages con el mismo PartialFunction no se acumula (transformCount=1; =2 tras el segundo mensaje recursivo) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:85-140
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): contar invocaciones de aroundReceive en una definicion recursiva
 
@@ -554,7 +554,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** transformMessages (Behavior.BehaviorDecorators): embudo que acepta un tipo exterior y lo transforma al interior via funcion parcial; lo no definido queda unhandled; mensajes cuya clase no es la exterior pasan sin transformar (interceptMessageClass por ClassTag); las senales no se transforman; mezclar distintos transformMessages en la misma pila lanza IllegalStateException salvo que sea la misma funcion parcial.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:143-175; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:55-56; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:206-246 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:153-185; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:55-56; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:206-246 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): IllegalStateException("transformMessages can only be used one time in the same behavior stack. One defined in <loc1>, and another in <loc2>") (InterceptorImpl.scala:232-234). Normales: matcher.applyOrElse => unhandled si no definido. Efectos: ninguno. Los mensajes de otra clase llegan al interno con un cast sin chequeo (InterceptorImpl.scala:97).
 
@@ -566,15 +566,15 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Transforma Int a String (42 llega como "42") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:65-71
+- A1: Transforma Int a String (42 llega como "42") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:66-72
 
-- A2: Filtra mensajes (13 no definido => descartado como unhandled) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:73-82
+- A2: Filtra mensajes (13 no definido => descartado como unhandled) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:74-83
 
-- A3: El mismo PartialFunction usado varias veces no se acumula (inicial y recursivo) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:84-139
+- A3: El mismo PartialFunction usado varias veces no se acumula (inicial y recursivo) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:85-140
 
-- A4: Mezclar dos transformMessages distintos en la misma pila termina el actor con ActorInitializationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:141-157
+- A4: Mezclar dos transformMessages distintos en la misma pila termina el actor con ActorInitializationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:142-158
 
-- A5: Funciona combinado con timers internos y externos — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:159-201
+- A5: Funciona combinado con timers internos y externos — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:160-202
 
 - A6: Combinable con un interceptor de protocolo: ExternalResponse se salta el transformMessages — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/InterceptSpec.scala:481-491
 
@@ -590,7 +590,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.monitor(monitor, behavior): reenvia una copia de cada mensaje de la clase T (ClassTag) al ref monitor antes de procesarlo; otros tipos pasan sin monitorear. Deduplicado por ref (isSame compara actorRef).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:193-207; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:128-149 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:194-208; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:128-149 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: monitor ! msg y luego target(ctx, msg). Limites: senales no se monitorean. Errores: ninguno propio. Efectos: un tell extra por mensaje.
 
@@ -620,7 +620,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.logMessages(+LogOptions): registra mensajes y senales recibidos con plantillas "actor [{}] received message: {}" y "actor [{}] received signal: {}" (ruta del actor y valor); nivel por defecto DEBUG, logger configurable, desactivable con LogOptions.withEnabled(false). Intercepta mensajes de cualquier tipo.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:209-223; actor-typed/src/main/scala/org/apache/pekko/actor/typed/LogOptions.scala:24-94; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:154-204 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:210-224; actor-typed/src/main/scala/org/apache/pekko/actor/typed/LogOptions.scala:25-95; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InterceptorImpl.scala:154-204 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: plantilla con selfPath y mensaje/senal; nivel segun LogOptions (ERROR/WARN/INFO/DEBUG/TRACE). Limites: enabled=false no loguea. isSame compara LogOptions (igualdad por valor, un caso class): dos logMessages con las mismas opciones se deduplican. Efectos: usa LoggerFactory.getLogger(LogMessagesInterceptor) si no hay logger (InterceptorImpl.scala:174).
 
@@ -632,17 +632,17 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Se loguea "actor [<path>] received message: Hello" a DEBUG y "received signal: PostStop" al parar — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:35-47
+- A1: Se loguea "actor [<path>] received message: Hello" a DEBUG y "received signal: PostStop" al parar — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:36-48
 
-- A2: Con LogOptions().withLevel(INFO) sale a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:49-62
+- A2: Con LogOptions().withLevel(INFO) sale a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:50-63
 
-- A3: Con withLogger(system.log) usa ese logger — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:64-78
+- A3: Con withLogger(system.log) usa ese logger — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:65-79
 
-- A4: Con withEnabled(false) no se loguea (0 ocurrencias) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:80-93
+- A4: Con withEnabled(false) no se loguea (0 ocurrencias) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:81-94
 
-- A5: Se combina con withMdc: las entradas MDC aparecen en el log del mensaje y de la senal — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:95-137
+- A5: Se combina con withMdc: las entradas MDC aparecen en el log del mensaje y de la senal — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:96-138
 
-- A6: Loguea mensajes de cualquier tipo (13 en un Behavior[String]) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:139-147
+- A6: Loguea mensajes de cualquier tipo (13 en un Behavior[String]) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/LogMessagesSpec.scala:140-148
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): capturar la salida del logger de un actor con logMessages
 
@@ -654,7 +654,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.withMdc (estatico, por mensaje, combinado): agrega entradas MDC durante el procesamiento de cada mensaje y senal (las entradas por mensaje pisan a las estaticas con la misma clave); el MDC se limpia al terminar cada mensaje; un withMdc mas interno devuelto desde el Behavior reemplaza al externo; al declarar (inicial) gana el mas externo; mensajes de otra clase pasan sin MDC.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:271-322; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/WithMdcBehaviorInterceptor.scala:28-117 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:272-323; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/WithMdcBehaviorInterceptor.scala:28-117 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: setMdcValues(static + dynamic) antes de cada aroundReceive; para aroundSignal y aroundStart solo el estatico (WithMdcBehaviorInterceptor.scala:77, 101). Limites: el aroundStart elimina interceptores MDC ya presentes en la pila (el externo gana, lineas 51-82); isSame es true para cualquier otro WithMdc (linea 85-88) => en ejecucion el ultimo gana. Efectos: MDC.clear() en finally tras cada start/receive/signal.
 
@@ -666,15 +666,15 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: En setup el MDC dinamico esta vacio y el estatico presente; en el mensaje 1 hay txId y first; en el 2 no hay first (no se filtra entre mensajes) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:340-382
+- A1: En setup el MDC dinamico esta vacio y el estatico presente; en el mensaje 1 hay txId y first; en el 2 no hay first (no se filtra entre mensajes) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:342-385
 
-- A2: withMdc anidado inicial: gana el externo ("outermost"), no aparece "innermost" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:384-404
+- A2: withMdc anidado inicial: gana el externo ("outermost"), no aparece "innermost" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:402-422
 
-- A3: El MDC se mantiene al cambiar de Behavior — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:406-432
+- A3: El MDC se mantiene al cambiar de Behavior — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:424-450
 
-- A4: Si el nuevo Behavior esta envuelto en withMdc, reemplaza al anterior (mdc-version 1 a 2) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:434-462
+- A4: Si el nuevo Behavior esta envuelto en withMdc, reemplaza al anterior (mdc-version 1 a 2) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:452-480
 
-- A5: El usuario puede agregar entradas MDC propias dentro del handler ("inner-outer") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:464-481
+- A5: El usuario puede agregar entradas MDC propias dentro del handler ("inner-outer") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorLoggingSpec.scala:482-499
 
 - A6: Combinable con un interceptor de protocolo: mdcForMessage no se invoca para ExternalResponse — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/InterceptSpec.scala:493-511
 
@@ -688,7 +688,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.withTimers(factory): entrega un TimerScheduler ligado al actor (setup + timer compartido del contexto); ver AT-TMR-*.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:262-270; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:38-48; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:114-131 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:263-271; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:39-49; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:116-133 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: withTimers[T] = setup(wrapWithTimers(factory)); varios withTimers anidados reciben el mismo scheduler (ctx.timer). Errores: IllegalArgumentException("timers not supported with [<clase del ctx>]") si el contexto no es ActorContextImpl (TimerSchedulerImpl.scala:47). Efectos: ver TMR.
 
@@ -704,7 +704,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: Los timers se mantienen al cambiar de Behavior — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TimerSpec.scala:283-306
 
-- A3: El texto del IllegalArgumentException para contextos no soportados; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:47
+- A3: El texto del IllegalArgumentException para contextos no soportados; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:48
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): ver AT-TMR-001
 
@@ -716,7 +716,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.withStash(capacity)(factory): setup que entrega un StashBuffer de capacidad fija ligado al actor; ver AT-STASH-*.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:41-50; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:24-35 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:42-51; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:24-35 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: withStash(c)(f) = setup(ctx => f(StashBuffer(ctx, c))). Limites: capacity no se valida en el constructor (negativo no lanza; isFull seria size==capacity). Efectos: ver STASH.
 
@@ -730,7 +730,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: withStash(10) permite stash/unstashAll dentro del actor (Immutable y Mutable) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:221-262
 
-- A2: capacity no validada en el constructor; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:42-44
+- A2: capacity no validada en el constructor; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:44-46
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): ver AT-STASH-001
 
@@ -742,7 +742,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behavior.narrow[U <: T]: estrechar el tipo de mensaje de un Behavior es siempre seguro (cast sin costo; mismo objeto). Simula la contravarianza.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:50-56 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:52-64 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: devuelve this. Limites: en JVM no hay cambio de identidad. Errores: ninguno. Efectos: ninguno.
 
@@ -754,7 +754,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Un Behavior[Any] estrechado a Behavior[Command] se supervisa y recibe un String desde unsafeUpcast — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1497-1525
+- A1: Un Behavior[Any] estrechado a Behavior[Command] se supervisa y recibe un String desde unsafeUpcast — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1504-1532
 
 - A2: intercept(...).narrow convierte el interceptor Any-to-Msg en Behavior[Msg] — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/InterceptSpec.scala:329-363
 
@@ -768,7 +768,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Reutilizacion de valores Behavior: un mismo valor Behavior puede usarse para varios actores/arranques (BehaviorSpec Reuse) y para el reinicio por supervision; el estado mutable debe vivir en setup.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:28-41; docs/src/main/paradox/typed/fault-tolerance.md:76-82 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:30-43; docs/src/main/paradox/typed/fault-tolerance.md:76-82 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: el valor no guarda estado entre usos. Errores: reutilizar una instancia AbstractBehavior en dos actores se detecta (AT-BEH-010). Efectos: ninguno.
 
@@ -780,7 +780,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Dos BehaviorTestKit sobre el mismo valor Behavior parten del mismo estado inicial — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:333-337
+- A1: Dos BehaviorTestKit sobre el mismo valor Behavior parten del mismo estado inicial — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:334-338
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): spawn de dos actores con el mismo valor Behavior
 
@@ -792,7 +792,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Cuando una supervision Stop (o un limite de restart agotado en backoff) captura una excepcion, devuelve BehaviorImpl.failed(cause) en lugar de relanzar. El Behavior fallido no esta vivo (isAlive false). El ActorAdapter lo trata en next(): si rethrowTypedFailure (hijo typed de un padre typed) lanza TypedActorFailedException(cause) para que el padre rellene ChildFailed; si no (guardian, systemActorOf) hace context.stop(self).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:71, 94-96; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:303-304; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:41-49, 168-172; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:136-148, 159-167 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:71, 94-96; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:313-314; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:41-49, 168-172; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:139-151, 159-167 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: interpretar FailedBehavior devuelve el mismo Behavior (Behavior.scala:303-304). Errores: TypedActorFailedException(cause) es una RuntimeException interna que no se loguea de nuevo (ya lo logueo la supervision). Efectos: el actor termina; los hijos se paran y el padre observador recibe ChildFailed(ref, cause).
 
@@ -808,9 +808,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: Con supervise(stop) explicito el padre tambien recibe ChildFailed con la misma causa — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/WatchSpec.scala:130-162
 
-- A3: En BehaviorTestKit la excepcion no supervisada se propaga y el Behavior recibe PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:129-137
+- A3: En BehaviorTestKit la excepcion no supervisada se propaga y el Behavior recibe PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:131-139
 
-- A4: TypedActorFailedException solo se lanza si rethrowTypedFailure; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:168-172
+- A4: TypedActorFailedException solo se lanza si rethrowTypedFailure; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:172-176
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): padre que observa un hijo que lanza; comparar causa en ChildFailed
 
@@ -822,7 +822,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Signal (trait abierto) es la base de las senales del sistema; se entregan al Behavior de forma confiable (a diferencia del at-most-once de los mensajes). Las senales publicas son PreRestart, PostStop, Terminated, ChildFailed y MessageAdaptionFailure; hay internas (PoisonPill, ScheduledRestart, ResetRestartCount).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:28-35; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/PoisonPill.scala:30-37; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:198-203 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:28-35; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/PoisonPill.scala:30-37; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:202-207 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: toda senal llega al receiveSignal del Behavior vigente. Limites: las senales no pasan por el filtro interceptMessageClass; si no se manejan, el default las deja unhandled (salvo MessageAdaptionFailure que se relanza, y Terminated que produce DeathPactException). Errores: ver filas especificas. Efectos: ninguno.
 
@@ -834,9 +834,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Un Behavior recibe PostStop, PreRestart y Terminated tambien despues de procesar un mensaje, y un mensaje despues de Terminated — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:210-236
+- A1: Un Behavior recibe PostStop, PreRestart y Terminated tambien despues de procesar un mensaje, y un mensaje despues de Terminated — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:211-237
 
-- A2: Las senales siguen el mismo despacho que los mensajes del adaptador (ActorAdapter.aroundReceive); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:87-123
+- A2: Las senales siguen el mismo despacho que los mensajes del adaptador (ActorAdapter.aroundReceive); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:87-127
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): enviar cada senal a un Behavior con receiveSignal que registre
 
@@ -848,7 +848,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** PreRestart: se entrega al Behavior que fallo antes de reemplazarlo en un restart; el Behavior devuelto se ignora; una excepcion del manejador se registra ("failure during PreRestart") y no impide el restart; no se emite PostStop en un restart de supervision.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:37-45; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:313-351; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:309-315; docs/src/main/paradox/typed/fault-tolerance.md:133-146 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:37-46; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:317-355; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:313-319; docs/src/main/paradox/typed/fault-tolerance.md:133-146 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: target.signalRestart(ctx) interpreta PreRestart sobre el Behavior (o el Behavior de la UnstashException). Errores: NonFatal en el manejador => ctx.log.error("failure during PreRestart", ex) y el restart sigue (Supervision.scala:344-347). Efectos: cancelAllTimers antes (Supervision.scala:334).
 
@@ -860,15 +860,15 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: restart: el probe recibe ReceivedSignal(PreRestart) y el estado vuelve a 0 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:512-526
+- A1: restart: el probe recibe ReceivedSignal(PreRestart) y el estado vuelve a 0 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:518-532
 
-- A2: PreRestart se entrega aunque el Behavior ya haya recibido mensajes — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:222-224
+- A2: PreRestart se entrega aunque el Behavior ya haya recibido mensajes — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:223-225
 
-- A3: restart con limit: dos PreRestart y a la tercera falla PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:528-548
+- A3: restart con limit: dos PreRestart y a la tercera falla PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:534-554
 
 - A4: Tras falla al desapilar, PreRestart va al ultimo Behavior desapilado (pre-restart-2) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:490-525
 
-- A5: El texto "failure during PreRestart" al fallar el manejador; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:346
+- A5: El texto "failure during PreRestart" al fallar el manejador; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:350
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): actor con supervise(restart) y receiveSignal que registra PreRestart/PostStop
 
@@ -880,7 +880,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** PostStop: se emite cuando el actor y todos sus hijos (transitivamente) terminaron; Terminated llega a los watchers solo despues; no se emite en restart; un Deferred sin arrancar no recibe PostStop.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:47-61; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:325-336; docs/src/main/paradox/typed/actor-lifecycle.md:159-189 (leido: confirma que PostStop se emite al parar y que NO se emite en un restart; los ejemplos GracefulStopDocSpec/Test son de documentacion y no afirman mas) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:48-63; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:329-340; docs/src/main/paradox/typed/actor-lifecycle.md:159-189 (leido: confirma que PostStop se emite al parar y que NO se emite en un restart; los ejemplos GracefulStopDocSpec/Test son de documentacion y no afirman mas) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: postStop del adaptador cancela timers, interpreta PostStop sobre el Behavior vigente (no arranca Deferred) y lo reemplaza por Stopped. Efectos: ctx.clearMdc.
 
@@ -900,7 +900,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A4: Un actor que para por excepcion sin supervision recibe PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:307-347
 
-- A5: Terminated llega a los watchers despues de PostStop y de los hijos (Scaladoc); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:47-51
+- A5: Terminated llega a los watchers despues de PostStop y de los hijos (Scaladoc); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:48-53
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): padre con 2 hijos y watcher: ordenar eventos PostStop/Terminated
 
@@ -912,7 +912,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Terminated(ref): lifecycle signal al observar (context.watch) un actor que termino. DeathWatch es idempotente; la notificacion llega aunque el registro sea posterior a la terminacion; Terminated.equals/hashCode se basan en ref.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:63-94; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:94-101 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:65-96; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:94-101 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: classic.Terminated(ref) => Terminated(ActorRefAdapter(ref)) si no hay causa registrada. Limites: ChildFailed es un subtipo; Terminated.equals usa el patron Terminated(`ref`) (MessageAndSignals.scala:90-93) y por eso Terminated(r) == ChildFailed(r, c) es true mientras ChildFailed(r,c) == Terminated(r) es false (ChildFailed.equals exige ChildFailed con la misma causa, lineas 115-118). toString: "Terminated(<ref>)". Errores: ninguno. Efectos: ninguno.
 
@@ -934,7 +934,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A5: Terminated(r) hace match de un ChildFailed (pattern matching) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TerminatedSpec.scala:25-37
 
-- A6: Terminated(r) == ChildFailed(r,c) es true pero ChildFailed(r,c) == Terminated(r) es false; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:90-93, 115-118
+- A6: Terminated(r) == ChildFailed(r,c) es true pero ChildFailed(r,c) == Terminated(r) es false; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:92-95, 115-118
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): comparar igualdad Terminated/ChildFailed en ambos sentidos
 
@@ -946,7 +946,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** ChildFailed(ref, cause): subtipo de Terminated entregado solo cuando el hijo observado directo se detuvo por una falla; contiene la causa. Si el Behavior no distingue, se maneja como Terminated.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:96-119; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:94-100; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:232-273; docs/src/main/paradox/typed/fault-tolerance.md:149-162 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:98-121; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:94-100; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:236-277; docs/src/main/paradox/typed/fault-tolerance.md:149-162 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: failures[ref] = causa; en el Terminated posterior se emite ChildFailed(ref, ex) y se borra la entrada. Limites: solo hijos directos (supervisorStrategy del padre); si el padre no hizo watch, no hay causa y llega nada (no hay Terminated tampoco). toString: "ChildFailed(<ref>,<clase de la causa>)" (solo el nombre de clase). Errores: ninguno. Efectos: el padre typed decide Stop para hijos typed (ActorAdapter.scala:258-259).
 
@@ -964,7 +964,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A3: Hijo con supervise(stop): el padre recibe ChildFailed con la excepcion original — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/WatchSpec.scala:130-162
 
-- A4: toString de ChildFailed imprime solo el nombre de clase de la causa; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:111
+- A4: toString de ChildFailed imprime solo el nombre de clase de la causa; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:113
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): padre que observa a hijo que falla; comparar causa y toString
 
@@ -976,7 +976,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** DeathPactException por Terminated no manejado: si el Behavior devuelve unhandled para un Terminated, Behavior.interpretSignal lanza DeathPactException(ref) (que la supervision puede manejar); sin supervision el actor falla y para.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:270-277; actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:18-27; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:220-230 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:280-287; actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:18-27; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:224-234 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): DeathPactException extends RuntimeException("death pact with <ref> was triggered") (MessageAndSignals.scala:22-23); ActorAdapter.unhandled tambien lanza DeathPactException para Terminated que llegue (linea 222-225), pero normalmente no se alcanza. Efectos: el actor termina; el padre que lo observa recibe Terminated/ChildFailed.
 
@@ -992,7 +992,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: receiveSignal que devuelve unhandled para Terminated: se loguea DeathPactException y el actor termina tras PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:483-533
 
-- A3: supervise(...).onFailure[DeathPactException](restart): el actor sobrevive y responde — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1408-1439
+- A3: supervise(...).onFailure[DeathPactException](restart): el actor sobrevive y responde — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1415-1446
 
 - A4: El mensaje "death pact with <ref> was triggered"; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:22-23
 
@@ -1006,7 +1006,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** MessageAdaptionFailure(exception): si la funcion de un message adapter, pipeToSelf o ask lanza una excepcion NonFatal, se entrega esta senal al Behavior; el default la relanza (la supervision decide); el usuario puede manejarla para ignorar la falla.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:121-125; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:198-218; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:73-76; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/AbstractBehavior.scala:97-104 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/MessageAndSignals.scala:123-127; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:202-222; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:73-76; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/AbstractBehavior.scala:97-104 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: withSafelyAdapted captura NonFatal => handleSignal(MessageAdaptionFailure(ex)). Limites: si el handler no relanza, el actor sigue y el mensaje se descarta; los demas Behaviors (empty, ignore, receiveSignal que lo captura, AbstractBehavior que lo captura) no mueren. Errores: adaptador que devuelve null => se ignora con warning (CTX-014). Efectos: ninguno.
 
@@ -1022,9 +1022,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: empty, ignore, receiveSignal que captura MessageAdaptionFailure y AbstractBehavior que la maneja: el actor sigue vivo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/AdaptationFailureSpec.scala:77-85, 103-128
 
-- A3: Excepcion en el adapter (tercer mensaje): el actor se detiene tras recibir los dos primeros — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:211-254
+- A3: Excepcion en el adapter (tercer mensaje): el actor se detiene tras recibir los dos primeros — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:213-256
 
-- A4: La falla de un adapter queda bajo la supervision del actor (nested y flatten) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1575-1648
+- A4: La falla de un adapter queda bajo la supervision del actor (nested y flatten) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1582-1655
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): message adapter que lanza, con cada Behavior de la lista
 
@@ -1064,7 +1064,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** context.self es la identidad ligada a esta encarnacion del actor; context.system es el ActorSystem. Ambos son thread-safe (accesibles desde Futures y otros hilos).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:60-76; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:56-57 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:62-78; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:55-56 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: self y system son val finales del ActorContextAdapter. Limites: un actor recreado con el mismo nombre tiene otro uid y por lo tanto otro ref. Errores: ninguno. Efectos: ninguno.
 
@@ -1078,7 +1078,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: context.system y context.self coinciden con el sistema y el actor externos — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:535-548
 
-- A2: self/system son accesibles desde fuera del hilo del actor sin error; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:56-57
+- A2: self/system son accesibles desde fuera del hilo del actor sin error; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:55-56
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): comparar self/system desde un Future
 
@@ -1090,7 +1090,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** spawn(behavior, name, props) / spawnAnonymous(behavior, props): crea un hijo con el Behavior y los Props dados. El nombre debe ser unico entre hermanos (el error de nombre lo da el clasico); el Behavior inicial se valida; el despliegue remoto esta prohibido (ConfigurationException "Remote deployment not allowed for typed actors"); no thread-safe.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:125-140; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:67-75; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:25-57; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/PropsAdapter.scala:30-58 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:127-142; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:75-83; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:27-71; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/PropsAdapter.scala:32-72 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: devuelve ActorRef[U]; el hijo queda supervisado por el ActorAdapter del padre con rethrowTypedFailure=true (hijos typed paran con Stop, AT-SUP-001). Errores: nombre duplicado/invalido => excepciones clasicas (InvalidActorNameException, AC-CELL); despliegue remoto => ConfigurationException("Remote deployment not allowed for typed actors") (ActorRefFactoryAdapter.scala:27, 36-37); fuera del hilo => UnsupportedOperationException (AT-CTX-016). Efectos: PropsAdapter aplica dispatcher, mailbox y ActorTags; siempre Deploy.local.
 
@@ -1108,7 +1108,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A3: context.child("B") devuelve el hijo creado con spawn(..., "B") y context.children lo incluye — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:550-576
 
-- A4: PropsAdapter fuerza Deploy.local y traduce DispatcherSelector/MailboxSelector/ActorTags; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/PropsAdapter.scala:34-55
+- A4: PropsAdapter fuerza Deploy.local y traduce DispatcherSelector/MailboxSelector/ActorTags; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/PropsAdapter.scala:39-60
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): dos spawn con el mismo nombre; capturar excepcion y texto
 
@@ -1120,7 +1120,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** children / child(name): lista los hijos vivos (sin orden particular) y busca por nombre; los refs son ActorRef[Nothing]; no thread-safe.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:108-123; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:59-66 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:110-125; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:67-74 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: child(name) devuelve Option y children la coleccion de hijos clasicos adaptados (classicContext.children.map(ActorRefAdapter)). Errores: fuera del hilo del actor => UnsupportedOperationException (checkCurrentActorThread). Efectos: ninguno.
 
@@ -1134,7 +1134,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: child("A") antes de crear devuelve vacio, children devuelve el hijo B con nombre B — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:550-576
 
-- A2: children/child llaman a checkCurrentActorThread; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:59-66
+- A2: children/child llaman a checkCurrentActorThread; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:67-74
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): children tras spawn y tras stop del hijo
 
@@ -1146,7 +1146,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** stop(child): fuerza la terminacion de un hijo directo tras su mensaje actual; solo hijos directos; pasar self o un actor que no es hijo lanza IllegalArgumentException; un hijo ya parado se ignora; un message adapter (FunctionRef) se remueve.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:152-161; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:77-104 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:154-163; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:85-112 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): self => IllegalArgumentException("Only direct children of an actor can be stopped through the actor context, but you tried to stop [<self>] by passing its ActorRef to the `stop` method. Stopping self has to be expressed as explicitly returning a Stop Behavior with `Behaviors.stopped`."); no hijo => IllegalArgumentException("Only direct children of an actor can be stopped through the actor context, but [<ref>] is not a child of [<self>]. Stopping other actors has to be expressed as an explicit stop message that the actor accepts.") (CTXA 92-102). Limites: hijo ya detenido => sin efecto; FunctionRef => cell.removeFunctionRef. Efectos: classicContext.stop(c).
 
@@ -1162,9 +1162,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: context.stop sobre un actor que no es hijo lanza IllegalArgumentException y el actor sigue funcionando — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:349-373
 
-- A3: Parar un hijo ya parado no falla (se puede repetir) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:670-687
+- A3: Parar un hijo ya parado no falla (se puede repetir) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:671-688
 
-- A4: Los textos exactos de los dos IllegalArgumentException; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:92-102
+- A4: Los textos exactos de los dos IllegalArgumentException; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:100-110
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): context.stop con self y con un actor ajeno; capturar mensajes
 
@@ -1176,7 +1176,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** watch(other): registra la notificacion Terminated; idempotente si no se mezcla con watchWith; si el mismo sujeto se observo antes con watchWith lanza IllegalStateException.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:163-176; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:106-109; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:125-131 (checkWatchingSame) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:165-178; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:114-117; actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:126-132 (checkWatchingSame) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto, de classic): IllegalStateException("Watch(<self>, <ref>) termination message was not overwritten from [<previous>] to [<newMessage>]. If this was intended, unwatch first before using `watch` / `watchWith` with another message."). Limites: watch dos veces del mismo sujeto no falla y entrega un solo Terminated. Efectos: ninguno.
 
@@ -1208,7 +1208,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** watchWith(other, msg): en vez de Terminated entrega msg propio como mensaje; idempotente con el mismo msg; con otro msg o tras watch lanza IllegalStateException; para cambiarlo hay que hacer unwatch primero. La estrategia de restart revoca el watchWith previo sobre los hijos para esperar su terminacion.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:178-191; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:110-113; docs/src/main/paradox/typed/actor-lifecycle.md:202-215 (leido: describe watchWith como alternativa a Terminated; sin reglas adicionales); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:421-428 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:180-193; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:118-121; docs/src/main/paradox/typed/actor-lifecycle.md:202-215 (leido: describe watchWith como alternativa a Terminated; sin reglas adicionales); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:425-432 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores: ver AT-CTX-005 (mismo mensaje clasico). Limites: msg es del tipo T del actor. Efectos: al terminar el sujeto se encola msg (no una senal).
 
@@ -1230,7 +1230,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A5: watchWith con otro mensaje sin unwatch falla con IllegalStateException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/WatchSpec.scala:349-360
 
-- A6: Tras restart el watchWith del padre sobre el hijo se revoca: no llega Ping(1) pero sigue Ping(0) de otro sujeto — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:618-660
+- A6: Tras restart el watchWith del padre sobre el hijo se revoca: no llega Ping(1) pero sigue Ping(0) de otro sujeto — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:624-666
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): secuencias del WatchSpec
 
@@ -1242,7 +1242,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** unwatch(other): revoca el registro de watch/watchWith; despues no llega Terminated ni el mensaje de watchWith.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:193-200; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:114-117 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:195-202; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:122-125 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: classicContext.unwatch. Limites: unwatch sin watch previo no falla (comportamiento clasico). Efectos: libera el registro para otro mensaje en watchWith.
 
@@ -1268,7 +1268,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** setReceiveTimeout(duration, msg) / cancelReceiveTimeout(): si no llega ningun mensaje durante el periodo se entrega msg como mensaje (no senal); el plazo se reinicia con cada mensaje que influye (los NotInfluenceReceiveTimeout no); cancelReceiveTimeout lo apaga.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:202-219; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:118-129; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:102-103 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:204-221; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:126-137; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:102-103 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: guarda receiveTimeoutMsg y llama classicContext.setReceiveTimeout(d). Limites: cancelReceiveTimeout => setReceiveTimeout(Duration.Undefined) y msg = null. Errores: ninguno propio (checkCurrentActorThread). Efectos: classic.ReceiveTimeout se convierte en handleMessage(receiveTimeoutMsg).
 
@@ -1284,7 +1284,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: setReceiveTimeout(1 minute) no interfiere con scheduleOnce ni con mensajes normales — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:597-623
 
-- A3: La regla de reinicio del plazo (cada mensaje lo reinicia salvo los `NotInfluenceReceiveTimeout`; cambiar el timeout dentro del handler de un mensaje marcado surte efecto) la fija el `ActorCell` clasico y la afirma `ReceiveTimeoutSpec` clasico, no un spec typed — actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:151-297 (detalle por prueba en AT-TMR-007.2, A1-A4). Los dos tests typed de A1/A2 no ejercitan el reinicio por trafico: A1 solo verifica entrega con 1 ns y A2 solo verifica que un plazo de 1 minuto no dispara. Caracterizacion propuesta (oraculo, tiempos con reloj inyectable): timeout de 50 ms con un mensaje normal cada 20 ms => no dispara; sin trafico => dispara y se vuelve a disparar periodicamente cada 50 ms (la propia entrega de `ReceiveTimeout` no es del marker, asi que el `ActorCell` reprograma: `ReceiveTimeout.scala:40-42`), hasta `cancelReceiveTimeout`.
+- A3: La regla de reinicio del plazo (cada mensaje lo reinicia salvo los `NotInfluenceReceiveTimeout`; cambiar el timeout dentro del handler de un mensaje marcado surte efecto) la fija el `ActorCell` clasico y la afirma `ReceiveTimeoutSpec` clasico, no un spec typed — actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:180-327 (detalle por prueba en AT-TMR-007.2, A1-A4). Los dos tests typed de A1/A2 no ejercitan el reinicio por trafico: A1 solo verifica entrega con 1 ns y A2 solo verifica que un plazo de 1 minuto no dispara. Caracterizacion propuesta (oraculo, tiempos con reloj inyectable): timeout de 50 ms con un mensaje normal cada 20 ms => no dispara; sin trafico => dispara y se vuelve a disparar periodicamente cada 50 ms (la propia entrega de `ReceiveTimeout` no es del marker, asi que el `ActorCell` reprograma: `ReceiveTimeout.scala:40-42`), hasta `cancelReceiveTimeout`.
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): timeout de 50 ms con trafico periodico de 20 ms y sin trafico
 
@@ -1296,7 +1296,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** scheduleOnce(delay, target, msg): programa un envio unico a cualquier ActorRef y devuelve Cancellable; thread-safe.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:221-230; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:131-134 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:223-232; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:139-141 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: classicContext.system.scheduler.scheduleOnce(delay, toClassic(target), msg) con el dispatcher del actor. Limites: target debe ser un ref adaptado (ActorRefAdapter.toClassic lanza UnsupportedOperationException("Only adapted classic ActorRefs permissible (<ref> of class <clase>)") en otro caso). Efectos: cancel antes del disparo evita el envio.
 
@@ -1322,7 +1322,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** executionContext: el ExecutionContext (dispatcher) del actor para tareas asincronas como Future; thread-safe.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:232-239; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:130 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:234-241; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:138 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: classicContext.dispatcher. Efectos: las tareas corren en el dispatcher configurado en Props (p.ej. ping-pong-dispatcher).
 
@@ -1334,9 +1334,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Un Future lanzado en context.executionContext corre fuera del hilo del actor y el acceso al contexto alli falla con UnsupportedOperationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:69-93
+- A1: Un Future lanzado en context.executionContext corre fuera del hilo del actor y el acceso al contexto alli falla con UnsupportedOperationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:70-94
 
-- A2: pipeToSelf procesa el resultado en el dispatcher del actor (nombre de hilo con prefijo del dispatcher) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextPipeToSelfSpec.scala:76-99
+- A2: pipeToSelf procesa el resultado en el dispatcher del actor (nombre de hilo con prefijo del dispatcher) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextPipeToSelfSpec.scala:77-100
 
 **Oraculo.** no aplica: es una referencia al dispatcher del runtime; ver Q-X-4.
 
@@ -1348,7 +1348,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** messageAdapter[U](f): crea (o reutiliza) un ref adaptador que convierte U al protocolo T del actor. Un adaptador por clase de mensaje (el nuevo reemplaza al anterior para la misma clase); se prueban en orden inverso de registro y matchean subclases; la funcion corre dentro del actor; tiene el mismo ciclo de vida que el actor; un tipo sin adaptador queda unhandled; tras la terminacion los mensajes van a dead letters.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:266-292; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:306-331; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:104-111, 182-196; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:135-140; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InternalMessage.scala:17-40 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:268-294; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:308-333; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:108-115, 182-196; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:142-148; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/InternalMessage.scala:17-40 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: internalMessageAdapter reemplaza la entrada de la misma clase (con boxing de primitivos) y devuelve siempre el mismo ref (un FunctionRef por actor, nombre "adapter"). Limites: tipo no registrado => unhandled (UnhandledMessage), no rompe. Errores: NonFatal del adaptador => MessageAdaptionFailure (AT-SIG-007). Efectos: AdaptMessage/AdaptWithRegisteredMessageAdapter son mensajes internos (InternalMessage.scala); AdaptMessage es WrappedMessage (aparece desenvuelto en logs y dead letters, ActorRef.scala:633-641).
 
@@ -1360,21 +1360,21 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: La funcion del adaptador corre dentro del actor (nombre y dispatcher del snitch), tambien con spawnMessageAdapter — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:75-115
+- A1: La funcion del adaptador corre dentro del actor (nombre y dispatcher del snitch), tambien con spawnMessageAdapter — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:77-117
 
-- A2: Se usa el adaptador correcto por clase y el registrado antes para el mismo tipo se reemplaza; adaptador de Int funciona — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:117-164
+- A2: Se usa el adaptador correcto por clase y el registrado antes para el mismo tipo se reemplaza; adaptador de Int funciona — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:119-166
 
-- A3: Un tipo sin adaptador se descarta como unhandled sin romper el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:166-209
+- A3: Un tipo sin adaptador se descarta como unhandled sin romper el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:168-211
 
-- A4: Excepcion en el adaptador detiene el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:211-254
+- A4: Excepcion en el adaptador detiene el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:213-256
 
-- A5: Una excepcion posterior al adaptador (en el handler) no se atrapa como falla del adaptador; los mensajes pendientes van a dead letters — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:256-310
+- A5: Una excepcion posterior al adaptador (en el handler) no se atrapa como falla del adaptador; los mensajes pendientes van a dead letters — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:258-312
 
-- A6: Tras terminar el actor, los mensajes al adaptador van a DeadLetter — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:314-334
+- A6: Tras terminar el actor, los mensajes al adaptador van a DeadLetter — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:316-336
 
 - A7: spawnMessageAdapter con nombre incluye el nombre en el path del adaptador y entrega al actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:639-660
 
-- A8: La funcion del adaptador puede acceder al contexto sin error de hilo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:145-164
+- A8: La funcion del adaptador puede acceder al contexto sin error de hilo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:146-165
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): registrar adaptadores para Resp y Pong2; enviar tipos registrados, no registrados y subclases
 
@@ -1386,7 +1386,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** ask (desde el actor) con mapResponse: interaccion request-response con timeout; la respuesta o Failure(TimeoutException) se transforma al protocolo propio dentro del actor; las respuestas llegan en orden; si el mapeo lanza o no matchea, el actor falla como si fuera una excepcion normal.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:294-324; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:228-232 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:296-326; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:230-234 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: target.ask(createRequest)(timeout, scheduler) y pipeToSelf(mapResponse). Errores: timeout => Failure(TimeoutException) con mensaje que empieza "Ask timed out on" e incluye la ruta del destino, la clase del mensaje "[java.lang.String]" y el plazo "[10 ms]"; destino terminado => TimeoutException con "had already been terminated"; mapeo que lanza => el actor falla (stop con error logueado) (CAS 85-124). Efectos: ninguno.
 
@@ -1398,15 +1398,15 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: El mapeo corre en el actor (nombre del snitch y dispatcher) y devuelve Pong — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:52-83
+- A1: El mapeo corre en el actor (nombre del snitch y dispatcher) y devuelve Pong — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:54-85
 
-- A2: Si el mapeo lanza por una respuesta inesperada, el actor se detiene (NotImplementedError logueado) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:85-124
+- A2: Si el mapeo lanza por una respuesta inesperada, el actor se detiene (NotImplementedError logueado) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:87-126
 
-- A3: Ask contra deadLetters: Failure(TimeoutException) con "had already been terminated" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:126-144
+- A3: Ask contra deadLetters: Failure(TimeoutException) con "had already been terminated" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:128-146
 
-- A4: Ask a un actor que no responde en 10 ms: TimeoutException "Ask timed out on" con ruta, clase del mensaje y [10 ms] — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:146-168
+- A4: Ask a un actor que no responde en 10 ms: TimeoutException "Ask timed out on" con ruta, clase del mensaje y [10 ms] — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:148-170
 
-- A5: 100 asks responden en el mismo orden en que se enviaron — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:170-199
+- A5: 100 asks responden en el mismo orden en que se enviaron — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:172-201
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): ask a un actor que ignora y a deadLetters con timeout 10 ms; capturar mensaje exacto
 
@@ -1418,7 +1418,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** askWithStatus: como ask pero desenvuelve StatusReply: Success(v) => Success(v); Error(why) => Failure(why) (normalmente StatusReply.ErrorMessage).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:326-327; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:234-241 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:328-329; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:236-243 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: ver ask. Errores: StatusReply.Error("boho") => Failure(StatusReply.ErrorMessage("boho")) con getClass "org.apache.pekko.pattern.StatusReply$ErrorMessage"; Error(excepcion) conserva la excepcion. Efectos: ninguno.
 
@@ -1430,11 +1430,11 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: StatusReply.Success(Pong) se mapea a Success(Pong) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:201-222
+- A1: StatusReply.Success(Pong) se mapea a Success(Pong) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:203-224
 
-- A2: StatusReply.Error("boho") llega como ErrorMessage con mensaje "boho" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:224-245
+- A2: StatusReply.Error("boho") llega como ErrorMessage con mensaje "boho" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:226-247
 
-- A3: StatusReply.Error(TestException("boho")) conserva la excepcion original — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:247-269
+- A3: StatusReply.Error(TestException("boho")) conserva la excepcion original — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:249-271
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): responder StatusReply.Success y Error con texto y con excepcion
 
@@ -1446,7 +1446,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** pipeToSelf(future)(mapResult): al completarse el Future el resultado se mapea y se envia a self (AdaptMessage), procesandose dentro del actor; si el mapeo devuelve null se ignora con un warning; las excepciones del mapeo van por MessageAdaptionFailure.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:329-336; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:278-292; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:198-218 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:331-338; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:280-294; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:202-222 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: future.onComplete(v => self ! AdaptMessage(v, mapResult)) con executor parasitico. Errores: mapResult null => warn "Adapter function returned null which is not valid as an actor message, ignoring. This can happen for example when using pipeToSelf and returning null from the adapt function. Null value is ignored and not passed on to actor."; mapeo que lanza => MessageAdaptionFailure. Efectos: ninguno.
 
@@ -1458,13 +1458,13 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Exito: "ok: hi" procesado en el dispatcher del actor con su nombre — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextPipeToSelfSpec.scala:45, 76-99
+- A1: Exito: "ok: hi" procesado en el dispatcher del actor con su nombre — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextPipeToSelfSpec.scala:46, 76-99
 
-- A2: Fallo: "ko: <Fail>" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextPipeToSelfSpec.scala:46
+- A2: Fallo: "ko: <Fail>" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextPipeToSelfSpec.scala:47
 
-- A3: Mapeo que devuelve null: warning exacto y el mensaje no llega al actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextPipeToSelfSpec.scala:47-71
+- A3: Mapeo que devuelve null: warning exacto y el mensaje no llega al actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextPipeToSelfSpec.scala:48-72
 
-- A4: Excepcion en el mapeo bajo supervise(restart): PreRestart y nuevo arranque — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1575-1609
+- A4: Excepcion en el mapeo bajo supervise(restart): PreRestart y nuevo arranque — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1582-1616
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): pipeToSelf de Future fallido y de null
 
@@ -1476,7 +1476,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** delegate(delegator, msg): arranca el Behavior delegador, interpreta msg (mensaje o senal) con el y devuelve el Behavior resultante: same se resuelve al delegador arrancado; unhandled se publica como UnhandledMessage (onUnhandled) y tambien se cambia al delegador.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:142-150; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:215-226 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:144-152; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:217-228 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: Behavior.start(delegator) + interpretMessage/Signal. Limites: same => started; unhandled => this.onUnhandled(msg) y started; cualquier otro => interpretado. Errores: excepciones del delegador se propagan. Efectos: UnhandledMessage en unhandled.
 
@@ -1488,9 +1488,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: delegate entre ping y pong: ForwardTo y luego ResponseFrom; el actor queda en el delegador — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelegateSpec.scala:66-80
+- A1: delegate entre ping y pong: ForwardTo y luego ResponseFrom; el actor queda en el delegador — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelegateSpec.scala:67-81
 
-- A2: Un mensaje no manejado por el delegador se publica como UnhandledMessage y el actor cambia al delegador — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelegateSpec.scala:82-99
+- A2: Un mensaje no manejado por el delegador se publica como UnhandledMessage y el actor cambia al delegador — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextDelegateSpec.scala:83-100
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): delegate con same y con unhandled
 
@@ -1502,7 +1502,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Chequeo de hilo del ActorContext (no thread-safe): los metodos no thread-safe lanzan UnsupportedOperationException si se llaman fuera del procesamiento del mensaje o desde otro hilo; se permite desde message adapters y mappers de ask porque corren en el actor.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:338-376; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:87-123; docs/src/main/paradox/typed/actor-lifecycle.md:63-70 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:340-378; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:87-127; docs/src/main/paradox/typed/actor-lifecycle.md:63-70 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): fuera de mensaje => UnsupportedOperationException("Unsupported access to ActorContext from the outside of <self>. No message is currently processed by the actor, but ActorContext was called from <hilo>."); otro hilo durante el mensaje => UnsupportedOperationException("Unsupported access to ActorContext operation from the outside of <self>. Current message is processed by <hilo>, but ActorContext was called from <hilo>."); doble entrada => IllegalStateException("Invalid access by thread from the outside of <self>. Current message is processed by <hilo>, but also accessed from <hilo>."). Efectos: ninguno.
 
@@ -1514,15 +1514,15 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Acceso al contexto desde fuera tras la inicializacion lanza UnsupportedOperationException que incluye "Unsupported access to ActorContext" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:50-67
+- A1: Acceso al contexto desde fuera tras la inicializacion lanza UnsupportedOperationException que incluye "Unsupported access to ActorContext" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:51-68
 
-- A2: Acceso desde otro hilo durante el mensaje lanza la misma excepcion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:69-93
+- A2: Acceso desde otro hilo durante el mensaje lanza la misma excepcion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:70-94
 
-- A3: Acceso desde otro hilo tras terminar el mensaje lanza la misma excepcion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:95-121
+- A3: Acceso desde otro hilo tras terminar el mensaje lanza la misma excepcion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:96-122
 
-- A4: Acceso desde un hijo con el contexto del padre lanza la misma excepcion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:123-143
+- A4: Acceso desde un hijo con el contexto del padre lanza la misma excepcion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:124-144
 
-- A5: Acceso permitido desde message adapter y desde mapper de ask — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:145-186
+- A5: Acceso permitido desde message adapter y desde mapper de ask — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorThreadSpec.scala:146-187
 
 **Oraculo.** no aplica: depende de hilos de la JVM; se valida en Rust con tests de compilacion (Q-T-CTX-2).
 
@@ -1534,7 +1534,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** `TypedActorContext[T]` es el contexto comun a ambos DSL (`asScala`, `asJava` devuelven la misma instancia: `ActorContextImpl` implementa los dos, `ActorContextImpl.scala:133-135`), y el puente al contexto clasico: `ctx.toClassic` / `ctx.actorOf(props[, name])` (extensiones `TypedActorContextOps`, `scaladsl/adapter/package.scala:142-152`) y `Adapter.toClassic(ctx)` / `Adapter.actorOf(ctx, ...)` (javadsl). El contexto clasico se obtiene solo si el contexto typed es un `ActorContextAdapter`; en caso contrario se lanza `UnsupportedOperationException`. `actorOf` crea un hijo CLASICO del actor typed (hijo directo del `ActorCell` subyacente, no de una capa typed). Las demas extensiones del mismo `package object` (spawn/watch/unwatch/stop sobre contexto clasico, toTyped/toClassic de refs, sistemas y schedulers) se contratan en AT-ADP-*; aqui solo se fija la frontera del contexto.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/TypedActorContext.scala:25-37; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/package.scala:142-152; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:26-42, 47-58; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:133-135; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:50-58 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/TypedActorContext.scala:26-38; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/package.scala:142-152; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:27-43, 47-58; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:135-137; actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:52-60 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Precondiciones.** Cualquier `TypedActorContext` (el trait es `@DoNotInherit`, `TypedActorContext.scala:24`). Para `toClassic`/`actorOf` el contexto debe ser un `ActorContextAdapter` (el que el runtime entrega a los Behaviors de actores reales).
 
@@ -1552,11 +1552,11 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: Un actor typed crea un hijo clasico con `context.actorOf(props)` y le habla (ping/ok) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpec.scala:291-297 (el actor typed1 ejecuta `context.actorOf(classic1)` en AdapterSpec.scala:78-79; el test afirma `probe.expectMsg("ok")`).
 
-- A2: `ctx.actorOf(props, name)` (sobrecarga con nombre) y `Adapter.actorOf(ctx, props, name)` (javadsl, actor-typed/src/main/scala/org/apache/pekko/actor/typed/javadsl/Adapter.scala:138-141) no estan afirmadas por spec (los specs solo usan la sobrecarga sin nombre: AdapterSpec.scala:79, 87, 93, 97, 153). Caracterizacion propuesta: el hijo se llama `name` y `context.child(name)` lo devuelve como `ActorRef[Nothing]`.
+- A2: `ctx.actorOf(props, name)` (sobrecarga con nombre) y `Adapter.actorOf(ctx, props, name)` (javadsl, actor-typed/src/main/scala/org/apache/pekko/actor/typed/javadsl/Adapter.scala:136-139) no estan afirmadas por spec (los specs solo usan la sobrecarga sin nombre: AdapterSpec.scala:79, 87, 93, 97, 153). Caracterizacion propuesta: el hijo se llama `name` y `context.child(name)` lo devuelve como `ActorRef[Nothing]`.
 
-- A3: El texto de UnsupportedOperationException para contextos no adaptados; no afirmada por spec (ningun spec de actor-typed-tests invoca `toClassic` sobre un contexto no adaptado: busqueda de `Only adapted classic` solo encuentra la fuente) — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:32-34. Caracterizacion propuesta: oraculo que invoque `Adapter.toClassic` con un contexto de `StubbedActorContext`.
+- A3: El texto de UnsupportedOperationException para contextos no adaptados; no afirmada por spec (ningun spec de actor-typed-tests invoca `toClassic` sobre un contexto no adaptado: busqueda de `Only adapted classic` solo encuentra la fuente) — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:33-35. Caracterizacion propuesta: oraculo que invoque `Adapter.toClassic` con un contexto de `StubbedActorContext`.
 
-- A4: `asScala` y `asJava` devuelven el mismo objeto; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:133-135.
+- A4: `asScala` y `asJava` devuelven el mismo objeto; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:135-137.
 
 **Validacion prevista.** A1: test portado (requiere capa clasica, Q-X-8); A2/A3: caracterizacion con oraculo (`tools/oracle/run.sh`, escenario nuevo que invoca `toClassic` con un contexto adaptado y con uno de testkit); A4 se vuelve estructural en Rust (no aplica).
 
@@ -1570,7 +1570,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** spawnMessageAdapter (interno) y hooks internos onUnhandled/currentBehavior/hasTimer/cancelAllTimers/clearMdc: spawnMessageAdapter crea adaptadores livianos con nombre $..-name; onUnhandled permite que el stash trate unhandled como el adaptador; los usan stash, supervision y otros modulos.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:241-264, 338-381; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:135-146; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:126-131, 192-201, 294-304 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/ActorContext.scala:243-266, 338-381; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:142-154; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:128-133, 192-201, 294-304 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: spawnMessageAdapter(f, name) y spawnMessageAdapter(f) (nombre vacio). onUnhandled(msg) = adapter.unhandled(msg). Efectos: clearMdc limpia el MDC solo si se uso (mdcUsed).
 
@@ -1586,7 +1586,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: spawnMessageAdapter(identity, name) devuelve un ref cuyo nombre incluye `name` y reenvia al actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:639-660
 
-- A3: spawnMessageAdapter(f) tambien ejecuta f en el hilo del actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:94-114
+- A3: spawnMessageAdapter(f) tambien ejecuta f en el hilo del actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:96-116
 
 **Oraculo.** no aplica: hooks internos observables solo via stash/supervision.
 
@@ -1612,7 +1612,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: Un ActorRef typed envia a un actor clasico y viceversa — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpec.scala:250-273
 
-- A2: Un mensaje a un actor terminado llega a DeadLetter — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:314-334
+- A2: Un mensaje a un actor terminado llega a DeadLetter — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:316-336
 
 - A3: Ordenacion por path y uid (compareTo); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorRefImpl.scala:33-40
 
@@ -1626,7 +1626,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Rechazo de mensajes null: tell(null) lanza InvalidMessageException("[null] is not an allowed message") tanto en ActorRefAdapter como en ActorSystemAdapter.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefAdapter.scala:35-38; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:69-72 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefAdapter.scala:35-38; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:70-73 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): InvalidMessageException("[null] is not an allowed message"). Efectos: ninguno.
 
@@ -1638,9 +1638,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: actor ! null lanza InvalidMessageException (con interceptores y transformMessages) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:662-668
+- A1: actor ! null lanza InvalidMessageException (con interceptores y transformMessages) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:662-669
 
-- A2: sys ! null lanza InvalidMessageException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:174-180
+- A2: sys ! null lanza InvalidMessageException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:172-178
 
 - A3: typedRef ! null lanza InvalidMessageException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpec.scala:258-265
 
@@ -1668,7 +1668,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: unsafeUpcast permite enviar un PoisonPill de tipo distinto al protocolo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/InterceptSpec.scala:324
 
-- A2: unsafeUpcast permite enviar un String a un actor de Command — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1519-1521
+- A2: unsafeUpcast permite enviar un String a un actor de Command — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1526-1528
 
 - A3: narrow devuelve this: igualdad con el original por path+uid; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorRefImpl.scala:29-31
 
@@ -1734,7 +1734,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** ignoreRef: ActorRef que descarta todo mensaje; es singleton por sistema (la misma instancia para cualquier tipo); un ask contra el expira por timeout; es observable con watch sin lanzar; convertible a clasico y de vuelta.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:174-177; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:90-93; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorRefResolver.scala:86-92 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:176-179; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:91-94; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorRefResolver.scala:86-92 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: cachedIgnoreRef.unsafeUpcast. Limites: ActorRefResolver.resolveActorRef devuelve ignoreRef tipado si la ruta es la del ignoreRef (ActorRefResolver.scala:88-89). Errores: ninguno. Efectos: ninguno.
 
@@ -1798,7 +1798,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** ActorSystem.apply/create(guardianBehavior, name[, config|setup|bootstrapSetup][, guardianProps]): crea un ActorSystem clasico (ActorSystemImpl) cuyo guardian de usuario ejecuta el Behavior typed; valida el Behavior inicial y exige que este vivo; carga la config con ConfigFactory.load(classLoader) salvo que se pase; los Props del guardian (mailbox, dispatcher) se aplican al guardian; envia GuardianStartupBehavior.Start al terminar de arrancar.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:221-331; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:143-156; docs/src/main/paradox/typed/actor-lifecycle.md:71-90 (leido: el actor guardian es el Behavior pasado al ActorSystem; al parar el guardian se para el sistema; terminate() usa Coordinated Shutdown) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:223-333; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:144-171; docs/src/main/paradox/typed/actor-lifecycle.md:71-90 (leido: el actor guardian es el Behavior pasado al ActorSystem; al parar el guardian se para el sistema; terminate() usa Coordinated Shutdown) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: createInternal => ActorSystemImpl con guardian PropsAdapter(rethrowTypedFailure=false) + system.start() + guardian ! Start + AdapterExtension(system).adapter. Errores: Behavior same/unhandled => IllegalArgumentException("cannot use Same as initial behavior"); Behavior no vivo (stopped) => IllegalArgumentException("requirement failed") por require sin mensaje (ActorSystem.scala:303-304). Efectos: arranca scheduler, dispatchers, logging (SLF4J), CoordinatedShutdown, extensiones (AT-EXT) y cargadores definidos por reference.conf.
 
@@ -1816,11 +1816,11 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A3: El nombre del sistema es el dado — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:141-145
 
-- A4: guardianProps con MailboxSelector.bounded(5) hace que el guardian use BoundedMailbox$MessageQueue — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:189-209
+- A4: guardianProps con MailboxSelector.bounded(5) hace que el guardian use BoundedMailbox$MessageQueue — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:187-208
 
 - A5: Un mensaje enviado justo despues de crear el sistema llega al guardian; el guardian no arranca antes de que el sistema clasico este inicializado — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/GuardianStartupSpec.scala:34-71
 
-- A6: ActorSystem.create(Behaviors.empty, name) crea un sistema cuyo getWhenTerminated no esta completo — actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/ActorSystemTest.java:39-44
+- A6: ActorSystem.create(Behaviors.empty, name) crea un sistema cuyo getWhenTerminated no esta completo — actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/ActorSystemTest.java:36-41
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): crear un sistema con guardian setup y observar el orden de eventos de arranque
 
@@ -1832,7 +1832,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** ActorSystem como ActorRef[T] del guardian: ActorSystem[T] extiende ActorRef[T]; tell envia al guardian de usuario; path es pekko://<name>/user; refPrefix "user"; tell(null) lanza InvalidMessageException.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:43; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:54-87, 137 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:45; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:55-88, 137 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: system.guardian ! msg. Errores: InvalidMessageException("[null] is not an allowed message"). Efectos: ninguno. isLocal true; isTerminated = whenTerminated.isCompleted.
 
@@ -1846,9 +1846,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: sys ! Probe("hello", replyTo) llega al guardian que responde — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:74-89
 
-- A2: sys ! null lanza InvalidMessageException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:174-180
+- A2: sys ! null lanza InvalidMessageException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:172-178
 
-- A3: path = RootActorPath(Address("pekko", name)) / "user"; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:84-85
+- A3: path = RootActorPath(Address("pekko", name)) / "user"; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:85-86
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): enviar al sistema y comparar path
 
@@ -1860,7 +1860,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Arranque del guardian (GuardianStartupBehavior): el guardian de usuario es un Behavior intermedio que espera el mensaje Start; los mensajes que lleguen antes se guardan (hasta 1000) y se entregan despues de Start dentro de un GuardianStopInterceptor; el Behavior del usuario no se arranca antes de la inicializacion del sistema clasico.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/GuardianStartupBehavior.scala:24-55; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:311-322 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/GuardianStartupBehavior.scala:24-55; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:313-324 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): StashOverflowException("Guardian Behavior did not receive start and buffer is full.") si hay 1000 mensajes en espera (GuardianStartupBehavior.scala:49-51). Normales: Start => withStash(1000){ stash.unstashAll(intercept(GuardianStopInterceptor)(guardian)) }. Efectos: ninguno.
 
@@ -1920,7 +1920,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** terminate / whenTerminated / getWhenTerminated / close: terminate corre CoordinatedShutdown con ActorSystemTerminateReason (salvo run-by-actor-system-terminate=off), para el guardian, sus hijos y por ultimo el system guardian; es asincrono; whenTerminated completa al final (despues de los terminate hooks); close() bloquea hasta terminar o lanza TimeoutException tras close-actor-system-timeout (desde 1.3.0) y hace que ActorSystem sea AutoCloseable (try-with-resources / scala.util.Using).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:106-166; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:116-126 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:108-168; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:117-127 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: terminate() delega en classic terminate; whenTerminated = system.whenTerminated.map(_ => Done); close() = system.close(). Errores: close sin completar en el plazo => TimeoutException (classic, AC-SYS). Efectos: tras close() getWhenTerminated esta completo.
 
@@ -1936,11 +1936,11 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: Using(ActorSystem(...)) termina el sistema automaticamente (whenTerminated.isCompleted) — actor-typed-tests/src/test/scala-2.13+/org/apache/pekko/actor/typed/ActorSystemScala213PlusSpec.scala:28-34
 
-- A3: getWhenTerminated tras terminate completa en 2 segundos — actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/ActorSystemTest.java:30-37
+- A3: getWhenTerminated tras terminate completa en 2 segundos — actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/ActorSystemTest.java:27-34
 
-- A4: getWhenTerminated sin terminate no esta completo — actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/ActorSystemTest.java:39-44
+- A4: getWhenTerminated sin terminate no esta completo — actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/ActorSystemTest.java:36-41
 
-- A5: try-with-resources cierra el sistema y getWhenTerminated queda completo — actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/ActorSystemTest.java:46-53
+- A5: try-with-resources cierra el sistema y getWhenTerminated queda completo — actor-typed-tests/src/test/java/org/apache/pekko/actor/typed/ActorSystemTest.java:43-50
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): terminate y close con y sin CoordinatedShutdown
 
@@ -1952,7 +1952,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Settings tipados y restart-stash-capacity: Settings envuelve la config clasica; RestartStashCapacity sale de pekko.actor.typed.restart-stash-capacity (default 1000) y debe ser >= 0.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:333-352; actor-typed/src/main/resources/reference.conf:22-27 (restart-stash-capacity = 1000)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:335-354; actor-typed/src/main/resources/reference.conf:22-27 (restart-stash-capacity = 1000)
 
 **Condiciones.** Errores (texto exacto): valor negativo => IllegalArgumentException("requirement failed: restart-stash-capacity must be >= 0") por Helpers.Requiring (ActorSystem.scala:351). Normales: Settings.setup = classicSettings.setup. Efectos: toString redacta (ver AT-SYS-012).
 
@@ -1964,9 +1964,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: El stash de supervision usa withStashCapacity cuando se define (capacidad 2 => 2 mensajes guardados) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:882-910
+- A1: El stash de supervision usa withStashCapacity cuando se define (capacidad 2 => 2 mensajes guardados) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:888-916
 
-- A2: Sin withStashCapacity la capacidad sale de system.settings.RestartStashCapacity; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:365-367
+- A2: Sin withStashCapacity la capacidad sale de system.settings.RestartStashCapacity; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:369-371
 
 - A3: Valor por defecto 1000; derivada de reference.conf; no afirmada por spec — actor-typed/src/main/resources/reference.conf:27
 
@@ -1980,7 +1980,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** name devuelve el nombre del sistema; address devuelve la direccion externa del transporte por defecto: en no-cluster, Address("pekko", name) sin host ni puerto.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:46-50, 209-217; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:109, 139 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:48-52, 209-217; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:110, 139 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: delegan en classic (name; provider.getDefaultAddress). Efectos: ninguno.
 
@@ -1994,7 +1994,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: sys.name == nombre dado ("adapter-name") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:141-145
 
-- A2: sys.address == Address("pekko", "adapter-address") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:182-186
+- A2: sys.address == Address("pekko", "adapter-address") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:180-184
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): system.name y system.address
 
@@ -2006,7 +2006,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** startTime: instante de arranque en milisegundos desde epoch; uptime: tiempo de vida en segundos.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:70-78; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:112, 114 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:72-80; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:113, 114 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: uptime = segundos enteros desde startTime. Limites: justo tras crear, uptime < 1.
 
@@ -2030,7 +2030,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** (1) `system.log: org.slf4j.Logger` es un logger SLF4J con nombre de clase `org.apache.pekko.actor.typed.ActorSystem`, sin origen de actor ni MDC de actor; es un `val` (misma instancia siempre). (2) `system.logConfiguration()` emite UNA entrada de log a nivel INFO con el texto de la configuracion del sistema, redactado (variables de entorno ocultas y `user.name` sustituido por `<username>`, ver AT-SYS-012); la entrada la escribe el `LoggingAdapter` CLASICO del sistema (fuente de log = el sistema clasico), no el `Logger` de (1). Se invoca automaticamente al arrancar el sistema si `pekko.log-config-on-start = on` (por defecto `off`). (3) `system.printTree: String` devuelve una cadena multilinea con la jerarquia de actores desde la raiz (`rootGuardian`, no desde `/user`), pensada solo para depuracion; el formato no es API estable (Scaladoc). Lo usan el testkit para diagnosticar un shutdown que excede el plazo.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:56-68, 179-185; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:107-108, 115; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:545-547 (logConfiguration), 920 (`log.info(settings.toString)`), 492 (Settings.toString = `config.renderWithRedactions()`), 440 (`LogConfigOnStart`), 1074 (`if (LogConfigOnStart) logConfiguration()`), 800-806 (printTree: `private[pekko]`, "may OOM on large actor systems"), 1264-1301 (printNode); actor/src/main/scala/org/apache/pekko/util/Helpers.scala:183-192 (redaccion); actor/src/main/resources/reference.conf:48-50 | reference.conf: `pekko.log-config-on-start = off` (actor/src/main/resources/reference.conf:50)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:58-70, 179-185; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:108-109, 115; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:544-546 (logConfiguration), 920 (`log.info(settings.toString)`), 492 (Settings.toString = `config.renderWithRedactions()`), 440 (`LogConfigOnStart`), 1074 (`if (LogConfigOnStart) logConfiguration()`), 800-806 (printTree: `private[pekko]`, "may OOM on large actor systems"), 1264-1301 (printNode); actor/src/main/scala/org/apache/pekko/util/Helpers.scala:185-194 (redaccion); actor/src/main/resources/reference.conf:48-50 | reference.conf: `pekko.log-config-on-start = off` (actor/src/main/resources/reference.conf:50)
 
 **Precondiciones.** Sistema en marcha. `printTree` recorre el arbol sin sincronizacion: es una foto aproximada si hay actores creandose o muriendo.
 
@@ -2046,13 +2046,13 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: `log` es `LoggerFactory.getLogger(classOf[ActorSystem[_]])`; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:107. Caracterizacion propuesta: `system.log.getName == "org.apache.pekko.actor.typed.ActorSystem"` y `eq` entre dos llamadas.
+- A1: `log` es `LoggerFactory.getLogger(classOf[ActorSystem[_]])`; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:108. Caracterizacion propuesta: `system.log.getName == "org.apache.pekko.actor.typed.ActorSystem"` y `eq` entre dos llamadas.
 
-- A2: `logConfiguration()` delega en el sistema clasico y escribe `settings.toString` a INFO; no afirmada por spec (el unico uso en tests, `docs/src/test/scala/docs/config/ConfigDocSpec.scala:39-44`, es `compileOnly`: solo invoca el metodo y no afirma salida) — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:108; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:920. Caracterizacion propuesta: captura de logs (LogCapturing/testkit) afirma una entrada INFO que contiene `pekko {` y no contiene el valor de `user.name`.
+- A2: `logConfiguration()` delega en el sistema clasico y escribe `settings.toString` a INFO; no afirmada por spec (el unico uso en tests, `docs/src/test/scala/docs/config/ConfigDocSpec.scala:39-44`, es `compileOnly`: solo invoca el metodo y no afirma salida) — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:109; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:937. Caracterizacion propuesta: captura de logs (LogCapturing/testkit) afirma una entrada INFO que contiene `pekko {` y no contiene el valor de `user.name`.
 
-- A3: `printTree` delega en el clasico; no afirmada por spec como contenido. Solo se usa como diagnostico: actor-testkit-typed/src/main/scala/org/apache/pekko/actor/testkit/typed/internal/TestKitUtils.scala:93-102 (mensaje "Failed to stop [<name>] within [<timeout>]" seguido de `printTree`), actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:316-319 (se imprime antes de `fail(...)`; no se afirma el contenido) — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:115. Caracterizacion propuesta: sistema con `/user/a` y `/user/a/b`: la cadena contiene los nombres `user`, `a`, `b` en ese orden de anidamiento y empieza por `-> ` seguido del nombre de la raiz.
+- A3: `printTree` delega en el clasico; no afirmada por spec como contenido. Solo se usa como diagnostico: actor-testkit-typed/src/main/scala/org/apache/pekko/actor/testkit/typed/internal/TestKitUtils.scala:93-102 (mensaje "Failed to stop [<name>] within [<timeout>]" seguido de `printTree`), actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:319-322 (se imprime antes de `fail(...)`; no se afirma el contenido) — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:116. Caracterizacion propuesta: sistema con `/user/a` y `/user/a/b`: la cadena contiene los nombres `user`, `a`, `b` en ese orden de anidamiento y empieza por `-> ` seguido del nombre de la raiz.
 
-- A4: `pekko.log-config-on-start = on` dispara `logConfiguration()` una vez tras arrancar; no afirmada por spec — actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1074. Caracterizacion propuesta: sistema creado con la clave `on` y captura de logs.
+- A4: `pekko.log-config-on-start = on` dispara `logConfiguration()` una vez tras arrancar; no afirmada por spec — actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:1105. Caracterizacion propuesta: sistema creado con la clave `on` y captura de logs.
 
 **Validacion prevista.** Diferencial con el oraculo para A1, A2 y A4 (las entradas de log son observables con un appender de captura en `jshell`); A3 solo verifica contenido estructural (nombres y orden), nunca igualdad de cadena. Para A2 revisar tambien AT-SYS-012 (redaccion).
 
@@ -2066,7 +2066,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** threadFactory: ThreadFactory que el transporte puede usar para crear hilos; dynamicAccess: acceso reflexivo (ClassLoader wrapper); executionContext: dispatcher por defecto del sistema (pekko.actor.default-dispatcher).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:80-109; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:105-106, 113 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:82-111; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:106-107, 113 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: delegan en el sistema clasico. Efectos: threadFactory.newThread(r).start() ejecuta r; executionContext ejecuta Futures.
 
@@ -2078,9 +2078,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: threadFactory crea un hilo que ejecuta su Runnable — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:155-165
+- A1: threadFactory crea un hilo que ejecuta su Runnable — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:155-163
 
-- A2: executionContext ejecuta Futures — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:167-172
+- A2: executionContext ejecuta Futures — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/internal/ActorSystemSpec.scala:165-170
 
 **Oraculo.** no aplica: depende de la JVM (hilos y classloaders); equivalente a decidir en Q-T-SYS-1.
 
@@ -2092,7 +2092,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** systemActorOf(behavior, name, props): crea actores bajo /system (paran despues de los de usuario), para librerias; el Behavior se envuelve con supervise(stop) y rethrowTypedFailure=false.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:187-194; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:127-135 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:189-196; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:128-136 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: system.systemActorOf(PropsAdapter(() => supervise(behavior).onFailure(stop), props, false), name). Limites: falla del Behavior => context.stop (AT-SUP-022). Efectos: path /system/<name>.
 
@@ -2104,9 +2104,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Un systemActorOf que lanza se detiene (default Stop) y entrega PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:142-150
+- A1: Un systemActorOf que lanza se detiene (default Stop) y entrega PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:143-151
 
-- A2: El Behavior se envuelve con supervise(stop); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:129-131
+- A2: El Behavior se envuelve con supervise(stop); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:130-132
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): systemActorOf y path del actor
 
@@ -2146,7 +2146,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** deadLetters: destino que acepta y descarta todo, publicando DeadLetter en el event stream.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:168-172; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:90 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:170-174; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:91 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: ActorRefAdapter(system.deadLetters). Efectos: DeadLetter(message, sender, recipient) en el event stream.
 
@@ -2158,9 +2158,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Un mensaje a un actor ya terminado llega como DeadLetter — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:314-334
+- A1: Un mensaje a un actor ya terminado llega como DeadLetter — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/MessageAdapterSpec.scala:316-336
 
-- A2: Ask contra deadLetters expira con TimeoutException "had already been terminated" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:126-144
+- A2: Ask contra deadLetters expira con TimeoutException "had already been terminated" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/ActorContextAskSpec.scala:128-146
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): suscribir un probe a DeadLetter y enviar a deadLetters
 
@@ -2172,7 +2172,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** ActorSystemAdapter / AdapterExtension (sistema tipado sobre el clasico): el ActorSystem tipado es un adaptador sobre classic.ActorSystemImpl; hay un solo adaptador por sistema clasico (toTyped devuelve la misma instancia); LoadTypedExtensions carga extensiones tipadas en sistemas clasicos.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:40-176; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/AdapterExtension.scala:17-34 (ExtensionId clasico que crea el ActorSystemAdapter); actor-typed/src/main/resources/reference.conf:35-36
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:39-191; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/AdapterExtension.scala:17-34 (ExtensionId clasico que crea el ActorSystemAdapter); actor-typed/src/main/resources/reference.conf:35-36
 
 **Condiciones.** Normales: AdapterExtension crea un unico ActorSystemAdapter por sistema; ActorSystemAdapter.apply(system) y toClassic. Efectos: pekko.library-extensions += LoadTypedExtensions (reference.conf:36).
 
@@ -2186,7 +2186,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: system.toTyped dos veces devuelve la misma instancia — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/adapter/AdapterSpec.scala:202-208
 
-- A2: Hay un unico ActorSystemAdapter por sistema clasico (AdapterExtension); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:143-156
+- A2: Hay un unico ActorSystemAdapter por sistema clasico (AdapterExtension); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:144-171
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): toTyped dos veces sobre el mismo sistema
 
@@ -2198,7 +2198,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Settings.toString (y logConfiguration) imprime la config con config.renderWithRedactions(): no muestra valores de variables de entorno y reemplaza el nombre del usuario del proceso por "<username>"; un ActorSystem.toString/Settings no debe filtrar user.home ni user.name.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:343-346; actor/src/main/scala/org/apache/pekko/util/Helpers.scala:183-192 (renderWithRedactions, @since 1.0.2) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:345-348; actor/src/main/scala/org/apache/pekko/util/Helpers.scala:185-194 (renderWithRedactions, @since 1.0.2) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: configText = config.root.render(ConfigRenderOptions.defaults().setShowEnvVariableValues(false)); luego replace(System.getProperty("user.name"), "<username>"). Errores: si user.name es null o vacio, replace con null lanza NullPointerException (derivada; no afirmada por spec). Efectos: ninguno.
 
@@ -2210,9 +2210,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Settings.toString no contiene user.name ni user.home y si contiene "<username>" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:30-46
+- A1: Settings.toString no contiene user.name ni user.home y si contiene "<username>" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:32-48
 
-- A2: Los valores de variables de entorno no se muestran (setShowEnvVariableValues(false)); derivada del codigo; no afirmada por spec — actor/src/main/scala/org/apache/pekko/util/Helpers.scala:189-191
+- A2: Los valores de variables de entorno no se muestran (setShowEnvVariableValues(false)); derivada del codigo; no afirmada por spec — actor/src/main/scala/org/apache/pekko/util/Helpers.scala:191-193
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): imprimir system.settings con una propiedad ${user.home} y comparar
 
@@ -2236,13 +2236,13 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Sin supervise, Throw detiene al actor, se loguea Exc3 como ERROR, el Behavior recibe PostStop y el actor termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:387-396, 492-500
+- A1: Sin supervise, Throw detiene al actor, se loguea Exc3 como ERROR, el Behavior recibe PostStop y el actor termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:389-398, 492-500
 
-- A2: En BehaviorTestKit la excepcion no supervisada se propaga y el Behavior recibe PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:129-137
+- A2: En BehaviorTestKit la excepcion no supervisada se propaga y el Behavior recibe PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:131-139
 
 - A3: El padre observador recibe ChildFailed con la causa — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/WatchSpec.scala:100-128
 
-- A4: El ActorAdapter padre decide Stop para hijos typed y registra la causa; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:232-266
+- A4: El ActorAdapter padre decide Stop para hijos typed y registra la causa; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:236-270
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): actor sin supervise que lanza; observar PostStop y ChildFailed
 
@@ -2254,7 +2254,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Behaviors.supervise(b).onFailure[Thr](strategy) y onFailure(clazz, strategy): aplica la estrategia solo a excepciones del tipo dado o subclases (default Throwable); solo NonFatal; los errores fatales no se capturan; valida el Behavior envuelto como inicial; AbstractBehavior directo se rechaza (AT-SUP-013). Cada onFailure agrega una capa; excepciones no cubiertas siguen subiendo.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:225-260; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:72-97; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:44-64, 70-131, 136-157 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/Behaviors.scala:226-261; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:80-107; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:45-67, 70-131, 136-157 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: Supervisor.apply segun la estrategia (Restart/Backoff => RestartSupervisor; Resume => ResumeSupervisor; Stop => StopSupervisor). Limites: tag Nothing se trata como Throwable (Behavior.scala:84); la clase se compara con throwableClass.isAssignableFrom(UnstashException.unwrap(t).getClass). Errores: Behavior envuelto same/unhandled => IllegalArgumentException (validateAsInitial). Efectos: ver estrategias.
 
@@ -2266,13 +2266,13 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Excepcion no cubierta por onFailure[Exc1] detiene al actor (Exc3 => PostStop) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:139-147
+- A1: Excepcion no cubierta por onFailure[Exc1] detiene al actor (Exc3 => PostStop) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:141-149
 
-- A2: No captura errores fatales: StackOverflowError se propaga y no hay PreRestart — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:214-222
+- A2: No captura errores fatales: StackOverflowError se propaga y no hay PreRestart — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:216-224
 
-- A3: Un Behavior[Any] estrechado y supervisado maneja una excepcion de un mensaje de otro tipo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1497-1525
+- A3: Un Behavior[Any] estrechado y supervisado maneja una excepcion de un mensaje de otro tipo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1504-1532
 
-- A4: Solo se capturan NonFatal; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:146, 163, 171, 297, 333
+- A4: Solo se capturan NonFatal; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:149, 163, 171, 297, 333
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): supervise con subclases de excepcion y Error fatal
 
@@ -2284,7 +2284,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** SupervisorStrategy.stop: registra la falla (ERROR por defecto) con el texto "Supervisor StopSupervisor saw failure: <mensaje>" y detiene el actor (Failed); el padre recibe ChildFailed.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:47-50, 132-140; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:159-167 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:47-50, 132-140; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:162-171 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: StopSupervisor.handleException loguea y devuelve BehaviorImpl.failed(t). Limites: excepciones en setup inicial tambien paran (se loguea una vez). Errores: ninguno. Efectos: logging segun loggingEnabled/logLevel.
 
@@ -2296,9 +2296,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: stop explicito: se loguea Exc3, llega PostStop y el actor termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:397-406
+- A1: stop explicito: se loguea Exc3, llega PostStop y el actor termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:399-408
 
-- A2: stop con excepcion en setup: se loguea Exc3 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:408-418
+- A2: stop con excepcion en setup: se loguea Exc3 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:410-420
 
 - A3: El padre recibe ChildFailed con la causa — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/WatchSpec.scala:130-162
 
@@ -2312,7 +2312,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** SupervisorStrategy.resume: mantiene el Behavior actual (Behaviors.same; o el Behavior de UnstashException) y procesa el siguiente mensaje; se loguea la falla (ERROR por defecto); si falla un Behavior diferido al arrancar, el actor se detiene (no hay estado previo).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:28-35, 125-130; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:169-178; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:85-89, 294-311 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:28-35, 125-130; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:173-182; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:88-92, 294-311 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: ResumeSupervisor.handleException => log + Behaviors.same. Limites: con UnstashException se devuelve e.behavior (el Behavior en curso al fallar el unstash) y el resto del stash se conserva. Errores: fallo en el setup inicial => ActorInitializationException; se loguean TestException y ActorInitializationException. Efectos: ninguno.
 
@@ -2324,11 +2324,11 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: resume: el contador sigue en 1 despues de la excepcion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:163-174, 834-847
+- A1: resume: el contador sigue en 1 despues de la excepcion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:165-176, 834-847
 
 - A2: resume no resetea el estado del setup (Ping devuelve 2 tras la falla) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:281-305
 
-- A3: Fallo en la fabrica con resume: se loguean TestException y ActorInitializationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1107-1115
+- A3: Fallo en la fabrica con resume: se loguean TestException y ActorInitializationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1113-1121
 
 - A4: Resume durante unstash: el actor continua desde el Behavior en curso, current-2 y 5 en el stash — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:565-610
 
@@ -2342,7 +2342,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** SupervisorStrategy.restart (ilimitado): entrega PreRestart al Behavior que fallo, recrea el Behavior inicial (setup corre de nuevo) y descarta el estado; por defecto detiene hijos y espera su terminacion; si la falla ocurre al arrancar con restarts ilimitados se relanza (el actor para) para evitar bucles.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:37-45, 157-184; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:294-311, 313-330, 332-419 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:37-45, 157-184; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:298-315, 313-330, 332-419 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: handleException => cancelAllTimers, signalRestart, prepareRestart; si no hay hijos a parar, restartCompleted ya reinicia en la misma llamada. Errores: fallo en el setup del primer arranque con maxRestarts=-1 => throw t (ActorInitializationException; no se loguea doble) (SUP 301-305). Efectos: timers cancelados; Behavior inicial re-arrancado (setup de nuevo).
 
@@ -2354,15 +2354,15 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: restart: PreRestart llega y el estado vuelve a 0 (stubbed) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:149-161
+- A1: restart: PreRestart llega y el estado vuelve a 0 (stubbed) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:151-163
 
-- A2: restart: el log es Exc2 como ERROR, PreRestart y estado 0 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:512-526
+- A2: restart: el log es Exc2 como ERROR, PreRestart y estado 0 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:518-532
 
 - A3: restart recrea el setup (counter reinicia en 1) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:255-279
 
-- A4: El Behavior diferido se crea de inmediato (sin esperar el primer mensaje) bajo restart — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:272-281, 1078-1088
+- A4: El Behavior diferido se crea de inmediato (sin esperar el primer mensaje) bajo restart — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:274-283, 1078-1088
 
-- A5: Fallo de la fabrica en el arranque inicial con restart ilimitado falla en vez de reiniciar (ActorInitializationException) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1090-1105
+- A5: Fallo de la fabrica en el arranque inicial con restart ilimitado falla en vez de reiniciar (ActorInitializationException) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1096-1111
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): supervise(restart) con estado, setup y hijos
 
@@ -2374,7 +2374,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** RestartSupervisorStrategy.withLimit(maxNrOfRetries, withinTimeRange): si dentro de la ventana se supera el maximo, la excepcion se relanza al padre (bajo padre typed: Stop); la ventana se inicia en la primera falla y se reinicia (contador a 1) cuando expira; maxNrOfRetries=0 detiene en la primera falla; tambien aplica a fallas al arrancar.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:251-285; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:294-311, 332-338, 430-441; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:215-218 (deadlineHasTimeLeft) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:251-285; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:298-315, 332-338, 430-441; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:219-222 (deadlineHasTimeLeft) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: updateRestartCount: timeLeft = deadline sin definir o con tiempo; nuevo deadline = ahora + withinTimeRange si no habia o expiro; restartCount = timeLeft ? count+1 : 1. Limites: limite alcanzado si maxRestarts != -1 && restartCount >= maxRestarts && deadlineHasTimeLeft => throw t (Restart). Errores: limite 0 => primera falla propaga. En start: (restartCount + 1) >= maxRestarts && deadlineHasTimeLeft => throw t. Efectos: el actor para tras PostStop.
 
@@ -2386,19 +2386,19 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: withLimit(2, 1.minute): dos PreRestart y a la tercera falla la excepcion sube y llega PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:224-237
+- A1: withLimit(2, 1.minute): dos PreRestart y a la tercera falla la excepcion sube y llega PostStop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:226-239
 
-- A2: La ventana expira y el contador vuelve a 0 (2 PreRestart mas despues de 2.1 s) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:239-259
+- A2: La ventana expira y el contador vuelve a 0 (2 PreRestart mas despues de 2.1 s) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:241-261
 
-- A3: withLimit(0, ...) detiene en la primera falla (PostStop) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:261-270
+- A3: withLimit(0, ...) detiene en la primera falla (PostStop) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:263-272
 
-- A4: Con limite 2 y ventana 500 ms: tres fallas Exc2 logueadas, dos PreRestart y la tercera PostStop; el actor termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:528-548
+- A4: Con limite 2 y ventana 500 ms: tres fallas Exc2 logueadas, dos PreRestart y la tercera PostStop; el actor termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:534-554
 
-- A5: Con ventana de 500 ms, esperar mas que la ventana resetea el limite y el estado vuelve a 0 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:550-573
+- A5: Con ventana de 500 ms, esperar mas que la ventana resetea el limite y el estado vuelve a 0 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:556-579
 
-- A6: Falla de la fabrica con withLimit(3,1s) y un fallo: reinicia y luego Started — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1145-1155
+- A6: Falla de la fabrica con withLimit(3,1s) y un fallo: reinicia y luego Started — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1152-1162
 
-- A7: Fabrica que siempre falla con withLimit(2,1s): 3 intentos (1+2 reinicios) y luego ActorInitializationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1157-1173
+- A7: Fabrica que siempre falla con withLimit(2,1s): 3 intentos (1+2 reinicios) y luego ActorInitializationException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1164-1180
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): withLimit(2, 1 minuto) con tres fallas y con espera de la ventana
 
@@ -2410,7 +2410,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Reinicia con espera exponencial: delay(n) = min(maxBackoff, minBackoff * 2^n) * (1 + random * randomFactor), con n = numero de reinicios previos (el primero espera minBackoff); si el calculo desborda o no es finito se usa maxBackoff; el factor aleatorio se aplica despues del tope, por lo que el delay real puede exceder maxBackoff hasta randomFactor veces. Durante la espera el supervisor acumula en su stash los mensajes y senales (AT-SUP-009).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:52-86, 116-120, 186-202; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:185-196, 353-390 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:52-86, 116-120, 186-202; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:189-200, 353-390 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: prepareRestart => log con numero de error, updateRestartCount, ctx.scheduleOnce(restartDelay, self, ScheduledRestart(this)), Behaviors.empty (durante la espera el Behavior interno no recibe nada). Errores: ninguno propio. Efectos: Backoff por defecto resetBackoffAfter = (min+max)/2.
 
@@ -2422,15 +2422,15 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Primer reinicio tras ~minBackoff (1 s) y segundo tras ~2 s, con randomFactor 0; el Behavior vuelve a estado 0 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:912-958
+- A1: Primer reinicio tras ~minBackoff (1 s) y segundo tras ~2 s, con randomFactor 0; el Behavior vuelve a estado 0 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:918-964
 
-- A2: Fallo de la fabrica con backoff: reinicia tras el retraso y luego Started — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1122-1134
+- A2: Fallo de la fabrica con backoff: reinicia tras el retraso y luego Started — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1128-1140
 
-- A3: Excepcion no cubierta por el tipo del supervisor con backoff: ActorInitializationException sin reinicio — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1136-1143
+- A3: Excepcion no cubierta por el tipo del supervisor con backoff: ActorInitializationException sin reinicio — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1142-1150
 
-- A4: Mensajes y senales llegados durante el backoff no se pierden si hay stash (Pong(1), Pong(2)) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:882-910
+- A4: Mensajes y senales llegados durante el backoff no se pierden si hay stash (Pong(1), Pong(2)) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:888-916
 
-- A5: calculateDelay: formula y tope; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:185-196
+- A5: calculateDelay: formula y tope; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:189-200
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): restartWithBackoff(100ms,1s,0): medir los tres primeros reinicios con reloj inyectable
 
@@ -2442,7 +2442,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** withResetBackoffAfter: el contador de backoff se resetea si el actor no vuelve a fallar durante resetBackoffAfter tras completarse el restart (default (minBackoff + maxBackoff) / 2); se implementa con la senal ResetRestartCount(current, owner) agendada con scheduleOnce y solo resetea si el contador no cambio.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:52-86, 310-327, 189-210; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:198-203, 241-250, 392-402 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:52-86, 310-327, 189-210; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:202-207, 241-250, 392-402 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: restartCompleted agenda ResetRestartCount(restartCount, this) a resetBackoffAfter; al llegar, si current == restartCount => restartCount = 0. Limites: si hubo otra falla en medio (restartCount cambio), no se resetea. Efectos: tambien resetea el nivel de log critico (SUP-010).
 
@@ -2454,13 +2454,13 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: resetBackoffAfter por defecto es (100ms + 1s) / 2 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1117-1120
+- A1: resetBackoffAfter por defecto es (100ms + 1s) / 2 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1123-1126
 
-- A2: Con resetBackoffAfter 100 ms, tras esperar el reset el segundo reinicio vuelve a esperar minBackoff — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:991-1029
+- A2: Con resetBackoffAfter 100 ms, tras esperar el reset el segundo reinicio vuelve a esperar minBackoff — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:997-1035
 
-- A3: El nivel critico de log se reinicia tras resetBackoffAfter (2 s): vuelve a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1463-1495
+- A3: El nivel critico de log se reinicia tras resetBackoffAfter (2 s): vuelve a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1470-1502
 
-- A4: ResetRestartCount sin duenio coincidente pasa al Behavior de usuario como senal opaca (ver AT-SUP-017) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1032-1076
+- A4: ResetRestartCount sin duenio coincidente pasa al Behavior de usuario como senal opaca (ver AT-SUP-017) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1038-1082
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): backoff con resetBackoffAfter corto; dos fallas separadas por mas que el reset
 
@@ -2472,7 +2472,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** withMaxRestarts(n): maximo de reinicios fallidos seguidos con backoff; al alcanzarlo el actor falla y para (se loguea la falla con el numero de error y se devuelve Failed). El Scaladoc dice que cero o negativo desactiva el limite; el codigo solo trata -1 como ilimitado.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:189-230, 329-333; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:145-152 (unlimitedRestarts), 332-351, 414-418 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:189-230, 329-333; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:148-155 (unlimitedRestarts), 332-351, 414-418 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: handleException: maxRestarts != -1 && restartCount >= maxRestarts && deadlineHasTimeLeft => Backoff: log(ctx, t, restartCount+1) y Failed(t). Limites derivados, no afirmados: withMaxRestarts(0) falla en la primera excepcion sin reiniciar; withMaxRestarts(-5) tambien (solo -1 es ilimitado) => contradice el Scaladoc 'Zero or negative disables the upper limit'. Errores: ninguno propio. Efectos: el actor termina.
 
@@ -2484,9 +2484,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: withMaxRestarts(2): la excepcion inicial y dos fallos de arranque (TestException x2) terminan el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:960-989
+- A1: withMaxRestarts(2): la excepcion inicial y dos fallos de arranque (TestException x2) terminan el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:966-995
 
-- A2: maxRestarts 0 o negativo distinto de -1 no desactiva el limite; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:335
+- A2: maxRestarts 0 o negativo distinto de -1 no desactiva el limite; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:339
 
 - A3: Scaladoc afirma que cero o negativo desactiva el limite; contradice el codigo — actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:329-333
 
@@ -2500,7 +2500,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Hijos detenidos en restart (withStopChildren): por defecto los hijos se detienen antes del restart y este espera sus Terminated; withStopChildren(false) los conserva (el setup solo corre en el primer arranque); un watchWith previo del padre sobre el hijo se revoca (unwatch + watch) para poder esperar su terminacion.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:286-288; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:220-275, 353-376, 421-428; docs/src/main/paradox/typed/fault-tolerance.md:105-131 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:286-288; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:224-279, 353-376, 421-428; docs/src/main/paradox/typed/fault-tolerance.md:105-131 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: prepareRestart: childrenToStop = ctx.children (si stopChildren); stopChildren(unwatch, watch, stop); el restart espera Terminated de todos (estado 'children'); si ScheduledRestart llega antes, gotScheduledRestart=true y se espera. Limites: Terminated de otros actores no esperados se acumulan en el stash y se entregan despues. Errores: ninguno propio. Efectos: los hijos reciben PostStop antes de que corra el nuevo setup.
 
@@ -2512,17 +2512,17 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Con restart y con backoff los hijos reciben PostStop antes del nuevo arranque; GetState queda en stash y se responde con children vacio — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:575-616
+- A1: Con restart y con backoff los hijos reciben PostStop antes del nuevo arranque; GetState queda en stash y se responde con children vacio — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:581-622
 
-- A2: El Terminated de otro actor observado llega despues, al nuevo Behavior — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:607-615
+- A2: El Terminated de otro actor observado llega despues, al nuevo Behavior — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:613-621
 
-- A3: El restart revoca el watchWith sobre el hijo: no llega Ping(1) pero si Ping(0) del otro sujeto — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:618-660
+- A3: El restart revoca el watchWith sobre el hijo: no llega Ping(1) pero si Ping(0) del otro sujeto — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:624-666
 
-- A4: withStopChildren(false): el hijo sigue vivo y no recibe senales — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:662-689
+- A4: withStopChildren(false): el hijo sigue vivo y no recibe senales — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:668-695
 
-- A5: Dos fallas seguidas durante unstash: se paran los hijos en cada reinicio — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:691-734
+- A5: Dos fallas seguidas durante unstash: se paran los hijos en cada reinicio — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:697-740
 
-- A6: Una excepcion en el PRIMER `setup` tras haber creado hijos: los hijos creados antes de lanzar (`child1`, `child2`) se detienen (reciben `PostStop`), el supervisor reintenta y, cuando el `setup` deja de fallar, queda solo `child1` (creado por el setup exitoso); vale con `restart.withLimit(10, 1.second)` y con `restartWithBackoff(10.millis, 10.millis, 0)`. Se loguea ERROR del `TestException` — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:736-777 (cuerpo en :744-777: `child2Probe.expectMessage(ReceivedSignal(PostStop))`, luego `GetState` => `children.keySet == Set("child1")`). El segundo hijo con parada lenta (`slowStop2`) evita un bucle de reinicios que agotaria el limite antes de que `throwFromSetup` vuelva a `false` (comentario :755-756): la espera de `Terminated` de los hijos es parte de la semantica.
+- A6: Una excepcion en el PRIMER `setup` tras haber creado hijos: los hijos creados antes de lanzar (`child1`, `child2`) se detienen (reciben `PostStop`), el supervisor reintenta y, cuando el `setup` deja de fallar, queda solo `child1` (creado por el setup exitoso); vale con `restart.withLimit(10, 1.second)` y con `restartWithBackoff(10.millis, 10.millis, 0)`. Se loguea ERROR del `TestException` — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:742-783 (cuerpo en :744-777: `child2Probe.expectMessage(ReceivedSignal(PostStop))`, luego `GetState` => `children.keySet == Set("child1")`). El segundo hijo con parada lenta (`slowStop2`) evita un bucle de reinicios que agotaria el limite antes de que `throwFromSetup` vuelva a `false` (comentario :755-756): la espera de `Terminated` de los hijos es parte de la semantica.
 
 - A7: Una excepcion en un `setup` POSTERIOR (durante un reinicio provocado por `Exc1`): `PreRestart` al padre; el nuevo `setup` crea `child1` y `child2` y lanza; se paran ambos y se reintenta; al dejar de fallar queda `child1`. Con restart limitado y con backoff — SupervisionSpec.scala:779-832 (cuerpo :787-832: `parentProbe.expectMessage(ReceivedSignal(PreRestart))`, dos `child1Probe.expectMessage(ReceivedSignal(PostStop))` — el original y el de la encarnacion fallida —, `child2Probe.expectMessage(ReceivedSignal(PostStop))`, `children.keySet == Set("child1")`). Esta afirmacion cubre el caso de AT-SUP-005/Q-T-SUP-4 (setup que falla durante un restart): el supervisor reintenta hasta que el setup tiene exito, dentro del limite configurado.
 
@@ -2536,7 +2536,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Stash durante restart/backoff (withStashCapacity) y Dropped al llenarse: mientras el restart esta en curso los mensajes y senales se guardan en un StashBuffer[Any] del supervisor (capacidad de la estrategia o pekko.actor.typed.restart-stash-capacity=1000) y se desapilan al nuevo Behavior; si el stash esta lleno se publica Dropped(msg, "Stash is full in [RestartSupervisor]", self) en el event stream.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:290-298, 340-350; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:120-124, 220-292, 365-376; actor-typed/src/main/resources/reference.conf:22-27
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:290-298, 340-350; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:123-127, 220-292, 365-376; actor-typed/src/main/resources/reference.conf:22-27
 
 **Condiciones.** Normales: stash.stash(m) si no isFull; si lleno, dropped(ctx, m). Limites: el mismo StashBuffer se conserva si el reinicio vuelve a fallar (SUP 369-373). Errores: ninguno (nunca StashOverflowException). Efectos: Dropped en eventStream clasico con reason "Stash is full in [RestartSupervisor]" (nombre simple de la clase interna).
 
@@ -2548,13 +2548,13 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Backoff con stashCapacity 2 y 4 mensajes: Pong(1), Pong(2) tras reiniciar y Dropped(Ping(3)), Dropped(Ping(4)) con el texto exacto — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:882-910
+- A1: Backoff con stashCapacity 2 y 4 mensajes: Pong(1), Pong(2) tras reiniciar y Dropped(Ping(3)), Dropped(Ping(4)) con el texto exacto — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:888-916
 
-- A2: stashCapacity 0: Ping(1) se publica como Dropped inmediatamente — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:912-936
+- A2: stashCapacity 0: Ping(1) se publica como Dropped inmediatamente — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:918-942
 
-- A3: No se pierden mensajes si fallan nuevamente durante el unstash (Pong(1), Pong(2) tras dos PreRestart) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1195-1230
+- A3: No se pierden mensajes si fallan nuevamente durante el unstash (Pong(1), Pong(2) tras dos PreRestart) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1202-1237
 
-- A4: Fallo en el constructor con hijo de parada lenta: no se pierden los Pong(1), Pong(2) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1232-1241
+- A4: Fallo en el constructor con hijo de parada lenta: no se pierden los Pong(1), Pong(2) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1239-1248
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): backoff con stashCapacity 2 y 4 mensajes; suscribir probe a Dropped
 
@@ -2566,7 +2566,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Logging de supervision (withLoggingEnabled, withLogLevel, withCriticalLogLevel): cada falla se loguea con el nivel configurado (ERROR por defecto) y el texto "Supervisor <ClaseSupervisor> saw failure[ [n]]: <mensaje>"; backoff puede elevar a un nivel critico despues de N errores (el contador se resetea con resetBackoffAfter); loggingEnabled=false desactiva el log.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:120-145, 356-366; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:97-118 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:120-145, 356-366; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:100-121 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: logMessage = s"Supervisor $this saw failure$errorCountStr: ${unwrapped.getMessage}"; $this = nombre simple de la clase (StopSupervisor, ResumeSupervisor, RestartSupervisor); errorCountStr = " [n]" si errorCount >= 0 (solo backoff). Nivel critico: errorCount > criticalLogLevelAfter. La causa se loguea desenvuelta de UnstashException. Efectos: logger del ActorContext (MDC del actor).
 
@@ -2578,11 +2578,11 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: withLogLevel(INFO) loguea "exc-1" a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1441-1450
+- A1: withLogLevel(INFO) loguea "exc-1" a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1448-1457
 
-- A2: withLogLevel(DEBUG) no loguea a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1452-1461
+- A2: withLogLevel(DEBUG) no loguea a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1459-1468
 
-- A3: Backoff con withLogLevel(INFO).withCriticalLogLevel(ERROR, 3): 3 a INFO, 2 a ERROR y tras el reset vuelve a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1463-1495
+- A3: Backoff con withLogLevel(INFO).withCriticalLogLevel(ERROR, 3): 3 a INFO, 2 a ERROR y tras el reset vuelve a INFO — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1470-1502
 
 - A4: El texto "Supervisor RestartSupervisor saw failure.*: unstash-fail" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:495-498
 
@@ -2598,7 +2598,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Supervision anidada y orden de manejo: supervise puede anidarse (o encadenar onFailure) para manejar distintas excepciones con distintas estrategias; el supervisor mas interno que matchea maneja; un supervisor para la misma clase de excepcion que reaparece en el Behavior devuelto se deduplica (isSame por clase de excepcion).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:70-83 (isSame); docs/src/main/paradox/typed/fault-tolerance.md:63-72 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:73-86 (isSame); docs/src/main/paradox/typed/fault-tolerance.md:63-72 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: isSame = AbstractSupervisor con la misma throwableClass. Limites: la pila crece una capa por clase distinta; el spec cuenta 2 InterceptorImpl.receive en la pila para 5 supervise anidados (RuntimeException deduplicada). Errores: ninguno. Efectos: ninguno.
 
@@ -2610,19 +2610,19 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Anidado y plano: Exc2 resume, Exc3 restart, Exc1 para (BehaviorTestKit) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:176-212
+- A1: Anidado y plano: Exc2 resume, Exc3 restart, Exc1 para (BehaviorTestKit) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:178-214
 
-- A2: Anidado y plano: IOException restart, IllegalArgumentException stop o restart/backoff, segun la combinacion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:448-490
+- A2: Anidado y plano: IOException restart, IllegalArgumentException stop o restart/backoff, segun la combinacion — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:450-496
 
-- A3: Anidado en ejecucion: Exc2 resume (sin mensajes), Exc3 restart, Exc1 stop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:849-880
+- A3: Anidado en ejecucion: Exc2 resume (sin mensajes), Exc3 restart, Exc1 stop — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:855-886
 
-- A4: Supervisiones con defers anidados y planos arrancan y llegan a Started — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1243-1268
+- A4: Supervisiones con defers anidados y planos arrancan y llegan a Started — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1250-1275
 
-- A5: Al devolver un Behavior que vuelve a supervisar RuntimeException, solo se conserva el mas interno (resume); 2 InterceptorImpl.receive en la pila — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1270-1307
+- A5: Al devolver un Behavior que vuelve a supervisar RuntimeException, solo se conserva el mas interno (resume); 2 InterceptorImpl.receive en la pila — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1277-1314
 
-- A6: Idem con interceptores intercalados (Supervisor.aroundReceive aparece 2 veces) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1309-1353
+- A6: Idem con interceptores intercalados (Supervisor.aroundReceive aparece 2 veces) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1316-1360
 
-- A7: Un backoff supervisor creado en setup se reemplaza por el resume del Behavior nuevo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1355-1406
+- A7: Un backoff supervisor creado en setup se reemplaza por el resume del Behavior nuevo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1362-1413
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): anidamientos de supervise con distintas excepciones
 
@@ -2646,7 +2646,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Tras switch a otro Behavior la supervision (resume) sigue activa y se maneja boom como resume — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1270-1307
+- A1: Tras switch a otro Behavior la supervision (resume) sigue activa y se maneja boom como resume — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1277-1314
 
 - A2: Estado cambiante A a B con restart vuelve a A y sigue supervisado (ActorContextSpec reset behavior) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorContextSpec.scala:255-279
 
@@ -2660,7 +2660,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Rechazo de AbstractBehavior supervisado directamente: supervise(b).onFailure(...) con una instancia AbstractBehavior (scaladsl o javadsl) lanza IllegalArgumentException porque el restart necesita una nueva instancia.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:44-51 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:45-54 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): IllegalArgumentException("The supervised Behavior must not be a AbstractBehavior instance directly,because a different instance should be created when it is restarted. Wrap in Behaviors.setup.") (nota: falta un espacio tras la coma en el original). Con contexto null se lanza antes IllegalArgumentException del constructor de AbstractBehavior.
 
@@ -2672,11 +2672,11 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: supervise(new AbstractBehavior(wrongContext)).onFailure(restart) lanza IllegalArgumentException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1536-1541
+- A1: supervise(new AbstractBehavior(wrongContext)).onFailure(restart) lanza IllegalArgumentException — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1543-1548
 
-- A2: supervise(new AbstractBehavior(null)) lanza IllegalArgumentException (ya en el constructor) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1543-1547
+- A2: supervise(new AbstractBehavior(null)) lanza IllegalArgumentException (ya en el constructor) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1550-1554
 
-- A3: El texto exacto del mensaje (incluyendo "directly,because"); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:48-50
+- A3: El texto exacto del mensaje (incluyendo "directly,because"); derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:51-53
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): supervise de una instancia AbstractBehavior; capturar texto
 
@@ -2688,7 +2688,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** DeathPactException supervisable: un DeathPactException (Terminated no manejado) puede recuperarse con supervision (p.ej. restart) porque se lanza dentro de interpretSignal.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:270-277 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:280-287 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: onFailure[DeathPactException](restart): PreRestart implicito y el actor sigue respondiendo. Efectos: se loguea DeathPactException como ERROR.
 
@@ -2700,7 +2700,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: supervise(...).onFailure[DeathPactException](restart): tras morir el hijo observado, el actor sigue y responde "pong" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1408-1439
+- A1: supervise(...).onFailure[DeathPactException](restart): tras morir el hijo observado, el actor sigue y responde "pong" — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1415-1446
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): padre que observa sin manejar Terminated con restart
 
@@ -2712,7 +2712,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Supervision de fallas en funciones adaptadoras: la excepcion de un message adapter / pipeToSelf / ask llega como MessageAdaptionFailure y, relanzada, la toma la supervision del actor (nested y flat).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:198-218 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:202-222 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: restart => PreRestart y nuevo arranque; stop mas especifico dentro de restart general => PostStop y termina. Efectos: ninguno.
 
@@ -2724,9 +2724,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: pipeToSelf cuyo mapeo lanza TestException con restart: PreRestart, Starting, y luego procesa mensajes — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1575-1609
+- A1: pipeToSelf cuyo mapeo lanza TestException con restart: PreRestart, Starting, y luego procesa mensajes — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1582-1616
 
-- A2: Con supervise anidado: stop para TestException dentro de restart para Exception => se detiene (PostStop) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1611-1648
+- A2: Con supervise anidado: stop para TestException dentro de restart para Exception => se detiene (PostStop) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1618-1655
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): message adapter que lanza bajo restart y stop anidados
 
@@ -2738,7 +2738,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Timers cancelados en restart y descarte de TimerMsg de encarnaciones previas: en falla/restart se cancelan todos los timers; los mensajes de timer ya encolados de la encarnacion previa se descartan (por owner).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:297-299, 332-335, 394; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:309-323; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:169-196 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:301-303, 332-335, 394; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:313-327; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:162-189 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: cancelAllTimers en handleException, restartCompleted y preRestart/postRestart; interceptTimerMsg descarta si owner distinto. Efectos: debug log "Received timer [{}] from old restarted instance, discarding".
 
@@ -2768,7 +2768,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Senales internas ScheduledRestart(owner) y ResetRestartCount(current, owner): el supervisor duenio las consume; si el duenio no es este supervisor (p.ej. otro supervisor anidado) pasan al siguiente nivel y finalmente al Behavior de usuario como senal opaca, que se ignora si no se maneja.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:198-203, 220-250 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:202-207, 220-250 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: owner eq this => procesa; si no => super.aroundSignal (target). Errores: ScheduledRestart sin restart en curso => IllegalStateException("Unexpected ScheduledRestart when restart not in progress") (SUP 233-234). Efectos: el Behavior de usuario puede observar ResetRestartCount como senal; el nombre de clase termina en "ResetRestartCount".
 
@@ -2780,9 +2780,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: En dos restartWithBackoff anidados/planos el Behavior interno recibe una senal cuyo nombre de clase termina en ResetRestartCount y sigue vivo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1032-1076
+- A1: En dos restartWithBackoff anidados/planos el Behavior interno recibe una senal cuyo nombre de clase termina en ResetRestartCount y sigue vivo — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1038-1082
 
-- A2: ScheduledRestart inesperado lanza IllegalStateException con el texto exacto; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:233-234
+- A2: ScheduledRestart inesperado lanza IllegalStateException con el texto exacto; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:237-238
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): dos backoff anidados y observar senales en el Behavior
 
@@ -2794,7 +2794,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Falla durante unstash (UnstashException) y supervision: si falla un mensaje desapilado, PreRestart/PostStop van al ultimo Behavior desapilado, el resto del stash se conserva para el nuevo Behavior y resume continua desde ese Behavior; UnstashException(cause, behavior) envuelve la causa y el supervisor la desenvuelve.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:187-244, 268-287; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:313-330, 345-349, 76; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:152-162 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:192-249, 268-287; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:317-334, 345-349, 76; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:156-166 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: interpretOne captura NonFatal => throw UnstashException(e, b2). ActorAdapter.handleUnstashException: behavior = e.behavior y relanza e.cause (tambien envuelto en TypedActorFailedException o ActorInitializationException). Errores: texto de UnstashException: "[<cause>] when unstashing in [<behavior>]". Efectos: mensajes restantes sin desapilar quedan en el buffer.
 
@@ -2814,7 +2814,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A4: resume: continua desde el Behavior en curso; stash size 5, luego 1, luego 0 — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:565-610
 
-- A5: restart.withStashCapacity(4) ante dos Throw seguidos conserva Pong(1), Pong(2) tras dos PreRestart — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1195-1230
+- A5: restart.withStashCapacity(4) ante dos Throw seguidos conserva Pong(1), Pong(2) tras dos PreRestart — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1202-1237
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): stash con 4 mensajes, falla el tercero con cada estrategia
 
@@ -2838,11 +2838,11 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: supervise(stopped) con cada estrategia termina el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1661-1664
+- A1: supervise(stopped) con cada estrategia termina el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1668-1671
 
-- A2: supervise(setup(stopped)) con cada estrategia termina el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1666-1669
+- A2: supervise(setup(stopped)) con cada estrategia termina el actor — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1673-1676
 
-- A3: Stopped tras un restart (setup devuelve stopped en la segunda ejecucion) termina el actor (excepto resume) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1671-1692
+- A3: Stopped tras un restart (setup devuelve stopped en la segunda ejecucion) termina el actor (excepto resume) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1678-1699
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): supervise de stopped con las 5 estrategias
 
@@ -2854,9 +2854,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Un actor typed creado desde el mundo clasico (`classicSystem.spawn/spawnAnonymous`, `classicContext.spawn/spawnAnonymous`, `classicSystem.toTyped.systemActorOf`, o `PropsAdapter(behavior)` para pasarlo como `classic.Props`) se envuelve con `Behaviors.supervise(behavior).onFailure(SupervisorStrategy.stop)`: si el Behavior lanza, el actor se detiene (recibe `PostStop`, no `PreRestart`) y su padre clasico lo ve terminar; no se reinicia aunque el padre clasico tenga la estrategia clasica por defecto (que reiniciaria). El usuario puede sobrescribirlo envolviendo su propio `Behaviors.supervise(...).onFailure(restart)` (la supervision mas interna gana, AT-SUP-011). Ademas `rethrowTypedFailure = false` en estas rutas: la falla NO se relanza al padre clasico como `TypedActorFailedException`; el actor hace `context.stop(self)` (AT-SUP-022, AT-BEH-024).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/package.scala:49-81 (ClassicActorSystemOps.spawn/spawnAnonymous, `Behaviors.supervise(..).onFailure(stop)`, `rethrowTypedFailure = false`), 103-130 (ClassicActorContextOps.spawn/spawnAnonymous), 86-98 (internalSystemActorOf); actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/PropsAdapter.scala:31-37 (PropsAdapter publico, mismo envoltorio); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:127-133 (systemActorOf); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:28-56 (spawnAnonymous no valida el Behavior inicial; spawn si, vía `validateAsInitial` dentro del productor del Props); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:164-180 (next: FailedBehavior con rethrowTypedFailure=false => context.stop(self)); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:159-167 (StopSupervisor: log + BehaviorImpl.failed); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/PropsAdapter.scala:30-56 (Props clasico con Deploy.local) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/package.scala:49-81 (ClassicActorSystemOps.spawn/spawnAnonymous, `Behaviors.supervise(..).onFailure(stop)`, `rethrowTypedFailure = false`), 103-130 (ClassicActorContextOps.spawn/spawnAnonymous), 86-98 (internalSystemActorOf); actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/adapter/PropsAdapter.scala:31-37 (PropsAdapter publico, mismo envoltorio); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:128-134 (systemActorOf); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:45-70 (spawnAnonymous no valida el Behavior inicial; spawn si, vía `validateAsInitial` dentro del productor del Props); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:168-184 (next: FailedBehavior con rethrowTypedFailure=false => context.stop(self)); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:162-171 (StopSupervisor: log + BehaviorImpl.failed); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/PropsAdapter.scala:32-70 (Props clasico con Deploy.local) | reference.conf: n/a (sin clave asociada a esta fila)
 
-**Precondiciones.** Un padre clasico (actor o sistema clasico, o systemActorOf). `classicSystem.spawn/spawnAnonymous` delega en el `actorOf` del sistema: solo funciona en un sistema clasico con guardian por defecto; en un sistema creado con `typed.ActorSystem(...)` (guardian typed personalizado) lanza `UnsupportedOperationException("cannot create top-level actor [<name>] from the outside on ActorSystem with custom user guardian")` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:927-938; docs/src/main/paradox/typed/coexisting.md:143-150), caso no cubierto por ClassicSupervisingTypedSpec y relativo a AC-SYS/AT-SYS-011. Behavior inicial valido para `spawn` con nombre (no `same`/`unhandled`; AT-BEH-012); `spawnAnonymous` clasico NO llama a `validateAsInitial` (`ActorRefFactoryAdapter.scala:34`, contraste con :50), asimetria sin spec.
+**Precondiciones.** Un padre clasico (actor o sistema clasico, o systemActorOf). `classicSystem.spawn/spawnAnonymous` delega en el `actorOf` del sistema: solo funciona en un sistema clasico con guardian por defecto; en un sistema creado con `typed.ActorSystem(...)` (guardian typed personalizado) lanza `UnsupportedOperationException("cannot create top-level actor [<name>] from the outside on ActorSystem with custom user guardian")` (actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:944-969; docs/src/main/paradox/typed/coexisting.md:143-150), caso no cubierto por ClassicSupervisingTypedSpec y relativo a AC-SYS/AT-SYS-011. Behavior inicial valido para `spawn` con nombre (no `same`/`unhandled`; AT-BEH-012); `spawnAnonymous` clasico NO llama a `validateAsInitial` (`ActorRefFactoryAdapter.scala:34`, contraste con :50), asimetria sin spec.
 
 **Comportamiento.** (1) Excepcion no fatal del Behavior: StopSupervisor la loguea (ERROR por defecto, AT-SUP-010) y devuelve `FailedBehavior`; `ActorAdapter.next` con `rethrowTypedFailure=false` ejecuta `context.stop(self)`: se publica `PostStop` al Behavior y el actor termina; un watcher clasico recibe `Terminated`. La estrategia del padre clasico NO interviene (no hay excepcion que llegue a su `supervisorStrategy`). (2) Con `supervise(restart)` propio la excepcion la resuelve el RestartSupervisor interno: `PreRestart` y el actor sigue vivo (AT-SUP-005). (3) Props: siempre `Deploy.local`; remoto prohibido (`ConfigurationException("Remote deployment not allowed for typed actors")` si el clasico lo rechaza por config remota, `ActorRefFactoryAdapter.scala:27, 36-37, 53-54`).
 
@@ -2870,7 +2870,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Spawn desde un sistema clasico: la excepcion del Behavior produce `PostStop`, ningun otro mensaje a la sonda y `Terminated` al watcher clasico — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:74-82 (`probe.expectMsg(PostStop)`, `probe.expectNoMessage()`, `expectTerminated`); `spawnAnonymous` identico: :84-92.
+- A1: Spawn desde un sistema clasico: la excepcion del Behavior produce `PostStop`, ningun otro mensaje a la sonda y `Terminated` al watcher clasico — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:75-83 (`probe.expectMsg(PostStop)`, `probe.expectNoMessage()`, `expectTerminated`); `spawnAnonymous` identico: :84-92.
 
 - A2: Override con `Behaviors.supervise(...).onFailure(SupervisorStrategy.restart)`: `PreRestart`, ninguna terminacion (`expectNoMessage()` del testkit clasico) — ClassicSupervisingTypedSpec.scala:94-103.
 
@@ -2882,7 +2882,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A6: El padre NO recibe la excepcion ni aplica su estrategia clasica; no afirmada por spec como tal (los tests solo observan `Terminated`). Caracterizacion propuesta: padre clasico con `supervisorStrategy` que cuenta `Decider` invocaciones y afirma 0 con `rethrowTypedFailure=false` (frente a 1 con `ctx.spawn` typed, AT-SUP-001).
 
-- A7: `spawn` con Behavior inicial invalido vs `spawnAnonymous` sin validar; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:34, 50.
+- A7: `spawn` con Behavior inicial invalido vs `spawnAnonymous` sin validar; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorRefFactoryAdapter.scala:51, 50.
 
 **Validacion prevista.** A1-A5: tests portados 1:1 (requieren la capa clasica; dependientes de Q-X-8). A6-A7: caracterizacion con oraculo (`tools/oracle/run.sh`, escenario nuevo con un padre clasico que cuenta invocaciones del decider y que spawnea un Behavior `same` anonimo y con nombre). Los `expectNoMessage` son de tiempo real (50 ms configurado en el spec, :67): usar reloj inyectable (Q-T-TMR-4).
 
@@ -2926,7 +2926,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** El ActorAdapter recibe rethrowTypedFailure: true para hijos creados con ActorContext.spawn/spawnAnonymous (el padre es un ActorAdapter que sabe interpretar TypedActorFailedException) y false para el guardian de usuario, systemActorOf y spawns desde clasico. Con true, un Failed del Behavior se rethrow como TypedActorFailedException(cause) (el padre registra la causa y no la reloguea); con false se hace context.stop(self).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:65, 164-172, 232-240; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:67-75; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:311-318; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:127-133 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:65, 164-172, 232-240; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:75-83; actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:313-320; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:128-134 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: con true, el padre typed ve ChildFailed con la causa; con false el actor para y el padre (guardian/clasico) solo ve Terminated. Errores: ninguno propio. Efectos: evita doble logueo.
 
@@ -2940,9 +2940,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A1: Un hijo typed spawneado por un typed padre produce ChildFailed con la misma causa — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/WatchSpec.scala:100-162
 
-- A2: Un typed spawneado desde clasico con default stop recibe PostStop y termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:74-82
+- A2: Un typed spawneado desde clasico con default stop recibe PostStop y termina — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/coexistence/ClassicSupervisingTypedSpec.scala:75-83
 
-- A3: El guardian y systemActorOf usan rethrowTypedFailure=false; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:317; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:127-133
+- A3: El guardian y systemActorOf usan rethrowTypedFailure=false; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/ActorSystem.scala:319; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorSystemAdapter.scala:128-134
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): fallo de un hijo spawneado por padre typed vs desde clasico
 
@@ -2954,7 +2954,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** TimerScheduler ligado al actor (withTimers): timers con clave que envian mensajes a self; se cancelan todos al parar o reiniciar el actor; varios withTimers anidados comparten el mismo scheduler (ctx.timer); no es thread-safe (solo dentro del actor).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:24-33; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:38-48, 93-99; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:114-131; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:309-335 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:25-34; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:39-49, 93-99; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/ActorContextImpl.scala:116-133; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:313-339 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: ctx.timer se crea lazy en el primer acceso con checkCurrentActorThread (UnsupportedOperationException fuera del actor). Limites: timers = Map[key -> Timer]; cancelAll en postStop, preRestart y postRestart. Errores: contexto no soportado => IllegalArgumentException (AT-BEH-020). Efectos: tras parar, ningun tick llega a dead letters.
 
@@ -2986,7 +2986,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** startSingleTimer(key, msg, delay) / startSingleTimer(msg, delay): envia msg una vez tras delay; sin clave usa el propio msg como clave; tras entregarse, el timer deja de estar activo.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:232-255; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:116-117, 133-134, 180-184 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:224-247; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:109-110, 133-134, 180-184 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: scheduleOnce(delay, () => self ! timerMsg) con executor parasitico. Limites: al llegar el TimerMsg valido, si no repite, se elimina de timers (interceptTimerMsg). Efectos: ninguno.
 
@@ -3010,7 +3010,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** startTimerWithFixedDelay(key, msg, [initialDelay,] delay): envio repetido con retraso fijo entre envios (no compensa demoras; frecuencia algo menor a 1/delay); sin initialDelay el primer envio sale tras delay; sin clave usa msg como clave.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:34-110; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:107-111, 135-137 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:35-111; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:103-107, 135-137 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: scheduleWithFixedDelay(initialDelay, delay). Errores: una excepcion en el Runnable aborta la repeticion (clasico). Efectos: ninguno.
 
@@ -3034,7 +3034,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** startTimerAtFixedRate(key, msg, [initialDelay,] interval): envio repetido a tasa fija compensando demoras (puede enviar rafagas tras pausas largas); sin initialDelay el primero sale tras interval.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:112-222; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:101-105, 138-140 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:113-222; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:97-101, 138-140 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: scheduleAtFixedRate(initialDelay, interval). Errores: igual que fixed delay.
 
@@ -3046,9 +3046,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: startTimerAtFixedRate delega en scheduleAtFixedRate con initialDelay = interval por defecto; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:101-105, 138-140
+- A1: startTimerAtFixedRate delega en scheduleAtFixedRate con initialDelay = interval por defecto; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:97-101, 138-140
 
-- A2: Con ManualTime, avanzar varios intervalos de golpe entrega rafagas (Scaladoc); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:112-134
+- A2: Con ManualTime, avanzar varios intervalos de golpe entrega rafagas (Scaladoc); no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:113-135
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): fixed rate 10 ms con una pausa artificial; contar ticks
 
@@ -3060,7 +3060,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** startPeriodicTimer: deprecado desde Akka 2.6.0; segun el Scaladoc se comporta como fixed rate. Implementaciones inconsistentes: la API Scala (TimerSchedulerImpl) usa fixed rate; la sobrecarga Java (TimerSchedulerCrossDslSupport) delega en startTimerWithFixedDelay.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:224-229; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:81-84, 113-114 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:222; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:80, 113-114 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: Scala startPeriodicTimer(key,msg,interval) = startTimer(..., FixedRateMode(interval)); Java startPeriodicTimer(key,msg,java.time.Duration) = startTimerWithFixedDelay(key,msg,interval). Efectos: ninguno.
 
@@ -3072,9 +3072,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: Scala: startPeriodicTimer usa FixedRateMode; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:113-114
+- A1: Scala: startPeriodicTimer usa FixedRateMode; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:108
 
-- A2: Java: startPeriodicTimer delega en startTimerWithFixedDelay; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:81-84
+- A2: Java: startPeriodicTimer delega en startTimerWithFixedDelay; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:80
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): comparar los tiempos de startPeriodicTimer (Scala) y la sobrecarga Java
 
@@ -3086,7 +3086,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Reemplazo por clave con garantia de no entrega del timer previo (generaciones): un nuevo timer con la misma clave cancela el anterior y se garantiza que el mensaje del anterior no se recibe aunque ya estuviera encolado en el mailbox; idem tras cancel y tras restart (owner distinto).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:44-48; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:33-36, 119-145, 169-196; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:125-144 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:45-49; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:34-37, 119-145, 169-196; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:129-148 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: timerGen = Iterator.from(1); TimerMsg(key, generation, owner); interceptTimerMsg: sin timer => debug "Received timer [{}] that has been removed, discarding"; owner distinto => debug "Received timer [{}] from old restarted instance, discarding"; generacion distinta => debug "Received timer [{}] from old generation [{}], expected generation [{}], discarding"; valida => devuelve el mensaje original (y borra si no repite). Limites: NotInfluenceReceiveTimeout se propaga al TimerMsg (AT-TMR-007.2). Efectos: solo logs debug.
 
@@ -3110,7 +3110,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A6: Excepcion en el bloque withTimers descarta el TimerMsg pendiente — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TimerSpec.scala:372-404
 
-- A7: Los tres textos de debug; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:173-192
+- A7: Los tres textos de debug; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:166-185
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): replace con latch, cancel y restart como en TimerSpec
 
@@ -3122,7 +3122,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** cancel(key) por clave es idempotente (sin efecto si no existe); cancelAll cancela todos los timers; isTimerActive(key) indica si hay un timer activo con la clave (false tras entregar un single timer, tras cancel y tras parar/restart).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:256-276; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:147-167 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/TimerScheduler.scala:248-268; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:140-160 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: cancel => task.cancel() y timers -= key. Limites: un TimerMsg ya encolado de un timer cancelado se descarta (AT-TMR-006). Errores: ninguno. Efectos: ninguno.
 
@@ -3138,7 +3138,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: isTimerActive es false en PostStop (timers cancelados al parar) — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TimerSpec.scala:110, 128, 171, 199, 229, 241, 253
 
-- A3: cancelAll vacia el mapa; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:162-167
+- A3: cancelAll vacia el mapa; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:155-160
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): cancel antes del disparo; isTimerActive antes y despues
 
@@ -3150,7 +3150,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Si el mensaje `msg` con el que se inicia un timer (`startSingleTimer`, `startTimerWithFixedDelay`, `startTimerAtFixedRate`, `startPeriodicTimer`) es instancia del marker clasico `org.apache.pekko.actor.NotInfluenceReceiveTimeout`, el sobre interno `TimerMsg` que se envia al buzon del actor tambien lo es; por lo tanto, cuando ese tick llega, el `ActorCell` clasico NO cancela ni reprograma el receive timeout del actor (`ctx.setReceiveTimeout`, AT-CTX-008), igual que para cualquier mensaje con ese marker. Si `msg` no es del marker, el tick se comporta como un mensaje normal y reinicia el plazo. El marker se evalua sobre el `msg` ORIGINAL del usuario en el momento de `startTimer` (no en cada entrega), y el `Behavior` recibe `msg`, no el `TimerMsg`.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:119-145 (en particular 126-130); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:125-142 (handleMessage entrega `t.msg` tras `interceptTimerMsg`); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:118-129 (setReceiveTimeout/cancelReceiveTimeout); actor/src/main/scala/org/apache/pekko/actor/Actor.scala:161-164 (marker `trait NotInfluenceReceiveTimeout`) y :81 (`Identify` lo lleva); actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:549-566 (`invoke`: `cancelReceiveTimeoutIfNeeded(msg)` antes y `checkReceiveTimeoutIfNeeded(msg, timeoutBeforeReceive)` en `finally`); actor/src/main/scala/org/apache/pekko/actor/dungeon/ReceiveTimeout.scala:40-82; actor/src/main/scala/org/apache/pekko/actor/dungeon/TimerSchedulerImpl.scala:34-40, 93-99 (la version clasica de `Timers` aplica la misma regla con `NotInfluenceReceiveTimeoutTimerMsg`) | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:112-138 (en particular 126-130); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:129-146 (handleMessage entrega `t.msg` tras `interceptTimerMsg`); actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorContextAdapter.scala:126-137 (setReceiveTimeout/cancelReceiveTimeout); actor/src/main/scala/org/apache/pekko/actor/Actor.scala:161-164 (marker `trait NotInfluenceReceiveTimeout`) y :81 (`Identify` lo lleva); actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:568-585 (`invoke`: `cancelReceiveTimeoutIfNeeded(msg)` antes y `checkReceiveTimeoutIfNeeded(msg, timeoutBeforeReceive)` en `finally`); actor/src/main/scala/org/apache/pekko/actor/dungeon/ReceiveTimeout.scala:50-101; actor/src/main/scala/org/apache/pekko/actor/dungeon/TimerSchedulerImpl.scala:34-40, 93-99 (la version clasica de `Timers` aplica la misma regla con `NotInfluenceReceiveTimeoutTimerMsg`) | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Precondiciones.** Un timer iniciado con `msg` cuyo tipo mezcla `NotInfluenceReceiveTimeout` (en Scala/Java se declara en la clase del mensaje). Un receive timeout configurado en el actor para que el efecto sea observable.
 
@@ -3166,7 +3166,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.** (La semantica se afirma en specs CLASICOS, que fijan la regla del `ActorCell` que typed reutiliza; ningun spec de actor-typed-tests ejercita timers con mensajes del marker.)
 
-- A1: Mensajes `NotInfluenceReceiveTimeout` (propios y `Identify`) enviados cada 100 ms NO impiden que el receive timeout de 1 s dispare — actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:151-171 (el `timeoutLatch` se abre en `ReceiveTimeout`).
+- A1: Mensajes `NotInfluenceReceiveTimeout` (propios y `Identify`) enviados cada 100 ms NO impiden que el receive timeout de 1 s dispare — actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:180-200 (el `timeoutLatch` se abre en `ReceiveTimeout`).
 
 - A2: Con `Timers` clasico, ticks `TransparentTick` (marker) e `Identify` cada 100 ms no impiden el timeout y el actor recibio al menos un tick (`count.get() should be > 0`) — ReceiveTimeoutSpec.scala:191-213. Es el equivalente clasico exacto de esta fila.
 
@@ -3174,9 +3174,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A4: Un actor que solo recibe ticks del marker recibe el timeout (dos veces: el handler reenvia un tick al recibir `ReceiveTimeout`) — ReceiveTimeoutSpec.scala:173-189.
 
-- A5: En typed, `TimerMsg` hereda el marker cuando el `msg` del timer lo implementa; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:126-130. Caracterizacion propuesta (oraculo): `Behaviors.withTimers` con `startTimerWithFixedDelay(key, Tick, 100.ms)` donde `Tick extends NotInfluenceReceiveTimeout` y `setReceiveTimeout(1.s, Timeout)`: `Timeout` llega a ~1 s; repetir con `Tick` sin marker: no llega mientras haya ticks.
+- A5: En typed, `TimerMsg` hereda el marker cuando el `msg` del timer lo implementa; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:119-123. Caracterizacion propuesta (oraculo): `Behaviors.withTimers` con `startTimerWithFixedDelay(key, Tick, 100.ms)` donde `Tick extends NotInfluenceReceiveTimeout` y `setReceiveTimeout(1.s, Timeout)`: `Timeout` llega a ~1 s; repetir con `Tick` sin marker: no llega mientras haya ticks.
 
-- A6: Un tick marcado descartado por clave cancelada igual cae bajo la regla (1); no afirmada por spec — mismo codigo + actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:130-136.
+- A6: Un tick marcado descartado por clave cancelada igual cae bajo la regla (1); no afirmada por spec — mismo codigo + actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:134-140.
 
 **Validacion prevista.** A1-A4: tests portados contra la regla del ActorCell del runtime Rust (ReceiveTimeoutSpec es de AC-CELL; se porta alli y typed la reutiliza). A5-A6: diferencial con oraculo (escenario nuevo) y test de integracion Rust; tiempos con reloj inyectable (Q-T-TMR-4), no en tiempo real.
 
@@ -3192,7 +3192,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Timers combinados con transformMessages y anidados: withTimers funciona dentro y fuera de transformMessages y anidado; el TimerMsg se ruta antes del interceptor.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:38-48; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:125-144 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/TimerSchedulerImpl.scala:39-49; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/adapter/ActorAdapter.scala:129-148 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: handleMessage intercepta TimerMsg ANTES de Behavior.interpretMessage, por lo que no pasa por transformMessages. Errores: ninguno. Efectos: ninguno.
 
@@ -3204,9 +3204,9 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Aserciones.**
 
-- A1: withTimers dentro de transformMessages: el tick llega transformado ("A") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:159-179
+- A1: withTimers dentro de transformMessages: el tick llega transformado ("A") — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:160-180
 
-- A2: withTimers fuera de transformMessages: idem — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:181-201
+- A2: withTimers fuera de transformMessages: idem — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TransformMessagesSpec.scala:182-202
 
 - A3: Timers anidados disparan ambos — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/TimerSpec.scala:256-281
 
@@ -3220,7 +3220,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** StashBuffer: creacion con capacidad (Behaviors.withStash) y StashOverflowException: buffer acotado; stash por encima de capacity lanza StashOverflowException (javadsl.StashOverflowException, subclase de scaladsl.StashOverflowException); stash(null) lanza NullPointerException.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:24-87, 172; actor-typed/src/main/scala/org/apache/pekko/actor/typed/javadsl/StashBuffer.scala:160; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:42-89; docs/src/main/paradox/typed/stash.md:40-52 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:24-87, 172; actor-typed/src/main/scala/org/apache/pekko/actor/typed/javadsl/StashBuffer.scala:160; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:44-91; docs/src/main/paradox/typed/stash.md:40-52 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): StashOverflowException("Couldn't add [<clase del mensaje>] because stash with capacity [<capacity>] is full"); stash(null) => NullPointerException. Limites: isFull = size == capacity; capacity no validada. Efectos: no thread-safe.
 
@@ -3236,7 +3236,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: capacity devuelve la capacidad dada — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.scala:267-272
 
-- A3: El texto del overflow y NPE por null; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:72-76
+- A3: El texto del overflow y NPE por null; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:74-78
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): stash por encima de la capacidad; capturar el texto
 
@@ -3248,7 +3248,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** unstashAll(behavior): pasa al Behavior y procesa todo lo guardado en orden de llegada; lo stasheado durante el unstash no se procesa en esa llamada (se desapilan a lo sumo los mensajes presentes al llamar); Behavior unhandled no es valido; el resultado puede ser un Behavior deferido (se arranca).
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:126-142; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:156-160, 162-185, 187-244 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:126-142; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:161-165, 162-185, 187-244 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: unstash(behavior, size, identity) y luego stashCleared. Limites: stash vacio => devuelve behavior sin arrancar. Errores: ver AT-STASH-005. Efectos: clear durante el unstash vacia el buffer y detiene el procesamiento restante.
 
@@ -3282,7 +3282,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** unstash(behavior, numberOfMessages, wrap): procesa a lo sumo n mensajes envolviendolos con wrap (p.ej. Unstashed(msg)); permite intercalar mensajes propios entre varias llamadas; nunca desapila mas que los presentes al llamar.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:144-165; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:162-185, 254-255 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:144-165; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:167-190, 254-255 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Normales: iterador take(min(n, size)) sobre los nodos; wrap se aplica a cada mensaje antes de interpretarlo. Limites: n mayor que size => size. Efectos: dropHeadForUnstash va quitando nodos.
 
@@ -3310,7 +3310,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Inspeccion: isEmpty, nonEmpty, size, capacity, isFull, head, foreach, contains, exists, clear; head en buffer vacio lanza NoSuchElementException("head of empty buffer"); foreach recorre en orden; contains usa ==.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:45-124; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:63-154 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/scaladsl/StashBuffer.scala:45-124; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:65-159 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): NoSuchElementException("head of empty buffer") (SBI 125, 129). Normales: clear => vacia y notifica stashCleared. Efectos: ninguno.
 
@@ -3332,7 +3332,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A5: clear deja size 0 y permite volver a guardar — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashBufferSpec.scala:221-229
 
-- A6: El texto "head of empty buffer"; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:125
+- A6: El texto "head of empty buffer"; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:130
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): stash a: contains/exists/clear/size
 
@@ -3344,7 +3344,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** Semantica del unstash: same mantiene el Behavior en curso del unstash (no el del actor); unhandled se trata como unhandled normal (onUnhandled => UnhandledMessage) y mantiene el Behavior; si el Behavior para durante el unstash, el resto va a dead letters; unhandled como Behavior inicial lanza IllegalArgumentException; si el inicial esta muerto, todos van a dead letters.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:187-252 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:192-257 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): IllegalArgumentException("Cannot unstash with unhandled as starting behavior"). Normales: same inicial => currentBehaviorWhenUnstashInProgress o ctx.currentBehavior. Limites: stopped => unstashRestToDeadLetters: DeadLetter(wrap(msg), system.deadLetters, self) para cada restante. Efectos: UnhandledMessage por cada mensaje unhandled.
 
@@ -3380,7 +3380,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Contrato observable.** UnstashException (falla durante unstash): la excepcion de un mensaje desapilado se envuelve en UnstashException(cause, behavior) para que la supervision y el adaptador senalen PreRestart/PostStop al Behavior en curso; ver AT-SUP-018.
 
-**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:204-207, 268-287 | reference.conf: n/a (sin clave asociada a esta fila)
+**Fuente.** actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:209-212, 268-287 | reference.conf: n/a (sin clave asociada a esta fila)
 
 **Condiciones.** Errores (texto exacto): RuntimeException("[<cause>] when unstashing in [<behavior>]", cause). UnstashException.unwrap(t) devuelve la causa. Efectos: ver AT-SUP-018.
 
@@ -3396,7 +3396,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - A2: Restart, backoff y resume ven el Behavior desapilado — actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/scaladsl/StashSpec.scala:490-610
 
-- A3: El texto de UnstashException; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:286-287
+- A3: El texto de UnstashException; derivada del codigo; no afirmada por spec — actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/StashBufferImpl.scala:294-295
 
 **Oraculo.** Jar oficial pekko-actor-typed_2.13-1.7.1 + pekko-actor_2.13-1.7.1 (tools/oracle/fetch-jars.sh, SHA-1 en docs/upstream.md) ejecutado con tools/oracle/run.sh y un escenario .jsh nuevo (no existe aun): ver AT-SUP-018
 
@@ -3414,7 +3414,7 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 - **AT-BEH-024** (Behavior fallido / FailedBehavior). Evidencia: `actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/BehaviorImpl.scala:71, 94-96` y `.../Behavior.scala:303-304`: es el tipo que devuelven las supervisiones Stop y backoff agotado y que ActorAdapter.next trata distinto segun rethrowTypedFailure. Ninguna fila lo cubria.
 - **AT-SUP-022** (rethrowTypedFailure: guardian/systemActorOf vs hijo typed). Evidencia: `.../internal/adapter/ActorAdapter.scala:65, 164-172`, `.../ActorSystem.scala:311-318` y `.../internal/adapter/ActorSystemAdapter.scala:127-133`. Observable: ChildFailed con causa (padre typed) frente a simple parada (guardian, clasico).
-- **AT-SYS-012** (Settings.toString redacta valores sensibles). Evidencia: `.../ActorSystem.scala:343-346`, `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:183-192` y el test sin cita `actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:27-46`. El inventario viejo citaba el spec en AT-SYS-007 pero sin fila para la redaccion.
+- **AT-SYS-012** (Settings.toString redacta valores sensibles). Evidencia: `.../ActorSystem.scala:343-346`, `actor/src/main/scala/org/apache/pekko/util/Helpers.scala:185-194` y el test sin cita `actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/ActorSystemSpec.scala:29-48`. El inventario viejo citaba el spec en AT-SYS-007 pero sin fila para la redaccion.
 - Candidatas revisadas y NO agregadas (cubiertas o de otro grupo): `internal/InternalMessage.scala` (AdaptMessage/AdaptWithRegisteredMessageAdapter) queda cubierta por AT-CTX-011/014; `pekko.actor.typed.default-mailbox` (reference.conf:30-32, Props.scala:213) es del grupo DSP; `SerializedActorRef`/MiscMessageSerializer son AT-SER-001/003; `pekko.use-slf4j`, `LoggerClass`, `ActorMdc` son del grupo LOG; `extensions`/`library-extensions` son del grupo EXT; `internal/ActorFlightRecorder.scala` solo instrumenta delivery (DLV).
 
 ## Contradicciones halladas y corregidas

@@ -68,29 +68,29 @@ Filas: AC-MBX-019, AC-MBX-020, AC-MBX-021, AC-MBX-022, AC-MBX-023. Contratos y a
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-MBX-001 | Estado del mailbox: Open/Closed/Scheduled + contador de suspensión | `AtomicU32` con los mismos bits o enum+contador bajo lock | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:311-329… | Q-MBX-5, Q-X-4 |
+| AC-MBX-001 | Estado del mailbox: Open/Closed/Scheduled + contador de suspensión | `AtomicU32` con los mismos bits o enum+contador bajo lock | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:312-330… | Q-MBX-5, Q-X-4 |
 | AC-MBX-002 | Ejecución del mailbox: sistema primero, luego hasta `throughput` mensajes (o… | tarea async/hilo que procesa N y cede (yield) | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatcherActorSpec.scala:84,1… | Q-DSP-5, Q-MBX-5, Q-MBX-6 |
-| AC-MBX-003 | Mailbox cerrado: mensajes pendientes a deadLetters; sistema pendiente al… | drenar la cola a deadLetters al cerrar | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithBoundedStashSpec.scala:119-146… | Q-MBX-5 |
-| AC-MBX-004 | SPI MessageQueue / MailboxType / ProducesMessageQueue y mailbox-type custom… | traits `MessageQueue`, `MailboxType` + registro por nombre | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:257 | Q-DSP-2, Q-X-2 |
-| AC-MBX-005 | UnboundedMailbox (default) | cola MPMC lock-free (`crossbeam::queue::SegQueue`) o `Mutex<VecDeque>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:255 ;… | - |
-| AC-MBX-006 | SingleConsumerOnlyUnboundedMailbox (MPSC de Vyukov) | canal MPSC (`std::sync::mpsc`/`crossbeam-channel`/`tokio::mpsc`) | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:321 | Q-MBX-6 |
-| AC-MBX-007 | BoundedMailbox (capacidad + mailbox-push-timeout-time) | canal acotado; bloqueo vs `async send` | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:52,56,85,89… | Q-MBX-1, Q-X-4 |
-| AC-MBX-008 | NonBlockingBoundedMailbox | cola acotada lock-free con `try_push` | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:325 | Q-MBX-6 |
+| AC-MBX-003 | Mailbox cerrado: mensajes pendientes a deadLetters; sistema pendiente al… | drenar la cola a deadLetters al cerrar | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithBoundedStashSpec.scala:122-149… | Q-MBX-5 |
+| AC-MBX-004 | SPI MessageQueue / MailboxType / ProducesMessageQueue y mailbox-type custom… | traits `MessageQueue`, `MailboxType` + registro por nombre | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:259 | Q-DSP-2, Q-X-2 |
+| AC-MBX-005 | UnboundedMailbox (default) | cola MPMC lock-free (`crossbeam::queue::SegQueue`) o `Mutex<VecDeque>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:256 ;… | - |
+| AC-MBX-006 | SingleConsumerOnlyUnboundedMailbox (MPSC de Vyukov) | canal MPSC (`std::sync::mpsc`/`crossbeam-channel`/`tokio::mpsc`) | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:323 | Q-MBX-6 |
+| AC-MBX-007 | BoundedMailbox (capacidad + mailbox-push-timeout-time) | canal acotado; bloqueo vs `async send` | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:53,57,86,90… | Q-MBX-1, Q-X-4 |
+| AC-MBX-008 | NonBlockingBoundedMailbox | cola acotada lock-free con `try_push` | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:327 | Q-MBX-6 |
 | AC-MBX-009 | UnboundedPriorityMailbox / BoundedPriorityMailbox y PriorityGenerator | `BinaryHeap` con comparador | actor-tests/src/test/scala/org/apache/pekko/dispatch/PriorityDispatcherSpec.scala:58,63… | Q-MBX-1, Q-MBX-4, Q-MBX-7 |
 | AC-MBX-010 | UnboundedStablePriorityMailbox / BoundedStablePriorityMailbox | heap con secuencia | actor-tests/src/test/scala/org/apache/pekko/dispatch/StablePriorityDispatcherSpec.scala:6… | Q-MBX-1, Q-MBX-4, Q-MBX-7 |
-| AC-MBX-011 | Mailboxes basados en deque (Unbounded/BoundedDequeBasedMailbox, enqueueFirst) | `Mutex<VecDeque>` con push_front | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:259,287,357,374,… | Q-MBX-1, Q-MBX-2 |
+| AC-MBX-011 | Mailboxes basados en deque (Unbounded/BoundedDequeBasedMailbox, enqueueFirst) | `Mutex<VecDeque>` con push_front | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:260,288,358,375,… | Q-MBX-1, Q-MBX-2 |
 | AC-MBX-012 | Mailboxes control-aware (ControlMessage primero) | dos colas; marker trait `ControlMessage` | actor-tests/src/test/scala/org/apache/pekko/dispatch/ControlAwareDispatcherSpec.scala:37,… | Q-MBX-1, Q-MBX-3 |
-| AC-MBX-013 | Precedencia de selección de mailbox y verificación de requisitos | resolución en `Mailboxes::mailbox_type_for(props, dispatcher_cfg)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:255-458 | Q-MBX-2 |
-| AC-MBX-014 | Lookup de mailboxes por id, `bounded-capacity:N`, lookupByQueueType,… | registro + parseo de prefijo | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:266,302,309 | Q-DSP-2, Q-MBX-2, Q-X-1 |
-| AC-MBX-015 | Traits de semántica de cola… | `enum QueueSemantics` + método `required_queue()` en el actor | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:266 | Q-MBX-2 |
+| AC-MBX-013 | Precedencia de selección de mailbox y verificación de requisitos | resolución en `Mailboxes::mailbox_type_for(props, dispatcher_cfg)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:256-459 | Q-MBX-2 |
+| AC-MBX-014 | Lookup de mailboxes por id, `bounded-capacity:N`, lookupByQueueType,… | registro + parseo de prefijo | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:267,303,310 | Q-DSP-2, Q-MBX-2, Q-X-1 |
+| AC-MBX-015 | Traits de semántica de cola… | `enum QueueSemantics` + método `required_queue()` en el actor | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:267 | Q-MBX-2 |
 | AC-MBX-016 | Stash: stash(), unstash, unstashAll (orden original), capacidad,… | `Stash` en el contexto (Vec<Envelope>) + push_front | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:121-127,129-13… | Q-MBX-1 |
 | AC-MBX-017 | Stash en restart y stop: preRestart y postStop hacen unstashAll | - | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:149-184 ;… | - |
-| AC-MBX-018 | Variantes UnboundedStash / UnrestrictedStash, StashFactory, clearStash,… | - | actor-tests/src/test/java/org/apache/pekko/actor/StashJavaAPI.java:41-54 ;… | Q-MBX-2 |
+| AC-MBX-018 | Variantes UnboundedStash / UnrestrictedStash, StashFactory, clearStash,… | - | actor-tests/src/test/java/org/apache/pekko/actor/StashJavaAPI.java:40-53 ;… | Q-MBX-2 |
 | AC-MBX-019 | numberOfMessages/hasMessages son aproximados | - | derivada del código (ver bloque de contrato) | - |
 | AC-MBX-020 | Mapeo de requirement LoggerMessageQueueSemantics a mailbox logger-queue… | tipo de cola de logger drenable | derivada del código (ver bloque de contrato) | Q-X-7 |
-| AC-MBX-021 | deadLetterMailbox: mailbox cerrado compartido que reenvía a deadLetters | mailbox singleton cerrado con cola que publica DeadLetter | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithBoundedStashSpec.scala:119-146… | Q-MBX-5 |
+| AC-MBX-021 | deadLetterMailbox: mailbox cerrado compartido que reenvía a deadLetters | mailbox singleton cerrado con cola que publica DeadLetter | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithBoundedStashSpec.scala:122-149… | Q-MBX-5 |
 | AC-MBX-022 | Validación y avisos de configuración de mailbox (capacidad negativa,… | validación en constructores de MailboxType | derivada del código (ver bloque de contrato) | - |
-| AC-MBX-023 | Capacidad del stash por dispatcher/mailbox (stash-capacity, caché, alias de… | resolución de config con fallback encadenado | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithBoundedStashSpec.scala:151-175 | Q-X-1 |
+| AC-MBX-023 | Capacidad del stash por dispatcher/mailbox (stash-capacity, caché, alias de… | resolución de config con fallback encadenado | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithBoundedStashSpec.scala:154-178 | Q-X-1 |
 
 ## Gates y criterio de cierre
 
