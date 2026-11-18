@@ -10,6 +10,9 @@ import java.util.concurrent.TimeUnit;
 final class UtilCoreOracle {
   private UtilCoreOracle() {}
 
+  // Helpers.timestamp captures the default zone when Helpers loads: pin a fixed zone before anything touches it (slice P06).
+  static { System.setProperty("user.timezone", "GMT+05:30"); }
+
   static final java.util.Map<String, Callable<String>> CASES = new java.util.LinkedHashMap<>();
 
   static void run(String id, Callable<String> f) {
@@ -259,5 +262,8 @@ final class UtilCoreOracle {
     run("GL-PERF 20 stars vs 2000 a", () -> globPairs(("*a".repeat(20) + "*b") + "|" + "a".repeat(2000), ("*a".repeat(20) + "*a") + "|" + "a".repeat(2000), ("*a".repeat(20) + "*a") + "|" + "a".repeat(19)));
     // A pattern `*` or `?` against the same character in the input: Glob.scala:51 compares the literal first.
     run("GL-05 wildcards in the input", () -> globPairs("*|*", "?|?", "*|?", "a*|a*", "a*b|a*b", "a*b|a*", "*a|**a", "?*|**", "*?|?*", "**|*"));
+
+    // ---- Slice P06 (2026-11-18): UTIL-PLATAFORMA (AC-UTIL-020, 023..028)
+    PlatformOracle.register();
   }
 }

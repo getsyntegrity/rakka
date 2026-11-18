@@ -1,0 +1,1 @@
+CK-01 NanoClock -> ok monotonic=true d=0:inRange=true d=1:inRange=true d=1000000000:inRange=true d=-1000000000:inRange=true d=4611686018427387903:inRange=true

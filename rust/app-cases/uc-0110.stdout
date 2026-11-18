@@ -1,0 +1,1 @@
+CK-04 ScheduledClock update resumes the increments -> ok reachedBefore=true stuck=+3 movedForward=true reachedAfter=false nextIsPlusOne=true

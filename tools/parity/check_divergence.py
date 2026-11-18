@@ -269,6 +269,25 @@ MUTANTS = {
         '"{msg}"',
         "`requiring` fails with the bare message: the `requirement failed: ` prefix of Predef.require is lost",
     ),
+    # --- slice P06: UTIL-PLATAFORMA ---
+    "utc-string-milliseconds-unpadded": (
+        "src/util/helpers.rs",
+        "        zero_if(ms < 100),\n",
+        "        zero_if(false),\n",
+        "currentTimeMillisToUTCString does not zero-pad the hundreds of milliseconds: 5 ms prints as `.05UTC`",
+    ),
+    "scheduled-clock-increments-by-two": (
+        "src/util/clock.rs",
+        "self.time.fetch_add(1, Ordering::AcqRel).wrapping_add(1)",
+        "self.time.fetch_add(2, Ordering::AcqRel).wrapping_add(2)",
+        "ScheduledClock.currentTime advances the time by two between scheduler updates instead of one",
+    ),
+    "swar-last-index-counts-from-front": (
+        "src/util/swar.rs",
+        "((63 - word.trailing_zeros()) >> 3) as i32",
+        "(word.leading_zeros() >> 3) as i32",
+        "SWARUtil.getLastIndex returns the first match (counting from the most significant byte) instead of the last",
+    ),
     # --- slice P05: Glob ---
     "glob-trailing-star-unmatched": (
         "src/util/glob.rs",

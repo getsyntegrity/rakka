@@ -97,3 +97,25 @@
 {"name": "uc-0097", "args": ["util-core-case"], "stdin": "GL-PERF 12 stars vs 36 a"}
 {"name": "uc-0098", "args": ["util-core-case"], "stdin": "GL-PERF 20 stars vs 2000 a"}
 {"name": "uc-0099", "args": ["util-core-case"], "stdin": "GL-05 wildcards in the input"}
+{"name": "uc-0100", "args": ["util-core-case"], "stdin": "WIN-01 isWindows"}
+{"name": "uc-0101", "args": ["util-core-case"], "stdin": "TS-UTC-01 currentTimeMillisToUTCString"}
+{"name": "uc-0102", "args": ["util-core-case"], "stdin": "TS-UTC-02 negative timestamps"}
+{"name": "uc-0103", "args": ["util-core-case"], "stdin": "TS-LOCAL-01 timestamp small values"}
+{"name": "uc-0104", "args": ["util-core-case"], "stdin": "TS-LOCAL-02 timestamp calendar edges"}
+{"name": "uc-0105", "args": ["util-core-case"], "stdin": "ID-01 compareIdentityHash invariants"}
+{"name": "uc-0106", "args": ["util-core-case"], "stdin": "ID-02 identityHashComparator with tie-break"}
+{"name": "uc-0107", "args": ["util-core-case"], "stdin": "CK-01 NanoClock"}
+{"name": "uc-0108", "args": ["util-core-case"], "stdin": "CK-02 ScheduledClock increments by one until maxIncrement"}
+{"name": "uc-0109", "args": ["util-core-case"], "stdin": "CK-03 ScheduledClock maxIncrement boundaries"}
+{"name": "uc-0110", "args": ["util-core-case"], "stdin": "CK-04 ScheduledClock update resumes the increments"}
+{"name": "uc-0111", "args": ["util-core-case"], "stdin": "CK-05 Clock extension selection"}
+{"name": "uc-0112", "args": ["util-core-case"], "stdin": "SW-01 compilePattern for every byte"}
+{"name": "uc-0113", "args": ["util-core-case"], "stdin": "SW-02 applyPattern"}
+{"name": "uc-0114", "args": ["util-core-case"], "stdin": "SW-03 getIndex and getLastIndex"}
+{"name": "uc-0115", "args": ["util-core-case"], "stdin": "SW-04 getLong getInt getShort"}
+{"name": "uc-0116", "args": ["util-core-case"], "stdin": "SW-05 putLong putInt putShort"}
+{"name": "uc-0117", "args": ["util-core-case"], "stdin": "SW-06 variants without MethodHandle"}
+{"name": "uc-0118", "args": ["util-core-case"], "stdin": "SW-07 byte-wise getShort getInt getLong"}
+{"name": "uc-0119", "args": ["util-core-case"], "stdin": "UN-01 fastHash of ASCII text"}
+{"name": "uc-0120", "args": ["util-core-case"], "stdin": "UN-02 copyUSAsciiStrToBytes of ASCII text"}
+{"name": "uc-0121", "args": ["util-core-case"], "stdin": "MP-EXH makePattern lengths 0-4"}

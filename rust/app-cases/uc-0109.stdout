@@ -1,0 +1,1 @@
+CK-03 ScheduledClock maxIncrement boundaries -> ok interval=1: +1 +1 +1 +1 +1 +1 reached=true; interval=100000: +1 +1 +1 +1 +1 +1 reached=true; interval=100001: +1 +1 +1 +1 +1 +1 reached=true; interval=100002: +1 +2 +2 +2 +2 +2 reached=true; interval=100004: +1 +2 +3 +4 +4 +4 reached=true; interval=1000000: n=900000 +900000 reached=true n+1 +900000 n+2 +900000
