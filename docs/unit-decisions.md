@@ -1012,13 +1012,15 @@ Sin decisiones asociadas a sus filas en `contract-map.tsv`.
 
 ## P77 UTIL-FRONTERAS
 
-3 filas; 3 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 0 propuestas.
+3 filas; 5 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-UTIL-1 | rejected (2026-10-31): rechazar: la recomendación (a) (std::time::Duration, sólo valores positivos) NO se adopta. ALTERNATIVA ELEGIDA Y VIGENTE: preservar el dominio de Pekko, es… | 1: AC-UTIL-018.2 | — | — | `classic-foundation` |
 | Q-UTIL-11 | accepted_with_changes (2026-11-18): aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y… | 3: AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-UTIL-018.1 | — | — | `transversal` |
+| Q-DSP-3 | propuesta | 1: AC-UTIL-018.3 | Bloquea sólo AC-DSP-017.2. | — | `classic-dispatch` |
+| Q-UTIL-27 | propuesta | 3: AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3 | — | — | `classic-foundation` |
 
 ## Filas que citan una agrupación sin miembros concretos (pendientes de revisión)
 
@@ -1028,4 +1030,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 471 (230 respondidas, 0 bloqueantes, 241 propuestas).
+Total de pares unidad–decisión: 473 (230 respondidas, 0 bloqueantes, 243 propuestas).

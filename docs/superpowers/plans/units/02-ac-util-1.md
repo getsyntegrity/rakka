@@ -19,7 +19,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-21`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`.
+- Propuestas aún sin decisión del Owner: `Q-DSP-3`, `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-21`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`, `Q-UTIL-27`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -95,9 +95,9 @@ Filas: AC-UTIL-020, AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contrato
 | AC-UTIL-016.11 | FlightRecorderLoader (carga de JFR vía reflexión) | n/a: `tracing` (Q-CFG-7) | derivada del código (ver bloque de contrato) | Q-CFG-7, Q-UTIL-11 |
 | AC-UTIL-016.17 | ErrorMessages.RemoteDeploymentConfigErrorPrefix | `const REMOTE_DEPLOYMENT_CONFIG_ERROR_PREFIX: &str` | derivada del código (ver bloque de contrato) | - |
 | AC-UTIL-016.18 | Unused (marcador para silenciar warnings) | n/a: Rust avisa por `_` | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-UTIL-20 |
-| AC-UTIL-018.1 | FutureConverters / CompletionStage <-> Future | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/java/org/apache/pekko/util/JavaConverterScala3InlineTest.java:34-46… | Q-UTIL-11, Q-X-4 |
-| AC-UTIL-018.2 | OptionConverters / FunctionConverters / JavaDurationConverters | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78 (1.7.1)… | Q-UTIL-1, Q-UTIL-11 |
-| AC-UTIL-018.3 | ccompat (JavaConverters, compat.Future/PartialFunction) y shims de Scala 2.12 | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78 (1.7.1) | Q-UTIL-11 |
+| AC-UTIL-018.1 | FutureConverters / CompletionStage <-> Future | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/java/org/apache/pekko/util/JavaConverterScala3InlineTest.java:34-46… | Q-UTIL-11, Q-UTIL-27, Q-X-4 |
+| AC-UTIL-018.2 | OptionConverters / FunctionConverters / JavaDurationConverters | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78 (1.7.1)… | Q-UTIL-1, Q-UTIL-11, Q-UTIL-27 |
+| AC-UTIL-018.3 | ccompat (JavaConverters, compat.Future/PartialFunction) y shims de Scala 2.12 | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78 (1.7.1) | Q-DSP-3, Q-UTIL-11, Q-UTIL-27 |
 | AC-UTIL-018.4 | SameThreadExecutionContext (ejecuta el callback inline, 'parasitic') | n/a salvo SameThreadExecutionContext (callback inline) | actor-tests/src/test/scala/org/apache/pekko/dispatch/SameThreadExecutionContextSpec.scala… | Q-UTIL-11, Q-X-4 |
 | AC-UTIL-018.5 | ScalaBatchable (marca de ejecución por lotes en 2.12/2.13/3) | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-X-4 |
 | AC-UTIL-019 | Anotaciones ApiMayChange, DoNotInherit, InternalApi, InternalStableApi | `pub(crate)`, sealed traits (patrón `mod private { pub trait Sealed {} }`),… | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-UTIL-20 |

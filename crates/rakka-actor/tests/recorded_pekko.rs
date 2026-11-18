@@ -4,6 +4,8 @@
 
 #[path = "../examples/classic-parity/bytes_cases.rs"]
 mod bytes_cases;
+#[path = "../examples/classic-parity/fronteras_cases.rs"]
+mod fronteras_cases;
 #[path = "../examples/classic-parity/json.rs"]
 #[allow(dead_code)]
 mod json;

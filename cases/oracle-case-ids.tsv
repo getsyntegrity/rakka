@@ -933,3 +933,16 @@ uc-0533	util-core	ST-05 readAll on both adapters and reset without a mark
 uc-0534	util-core	ST-R6 random reads
 uc-0535	util-core	ST-R9 random reads
 uc-0536	util-core	ST-06 readNBytes, skipNBytes and transferTo
+uc-0537	util-core	FR-DUR-01 create(Duration.ZERO)
+uc-0538	util-core	FR-DUR-02 create(ofNanos(1))
+uc-0539	util-core	FR-DUR-03 create(ofSeconds(0, 999999999))
+uc-0540	util-core	FR-DUR-04 create(ofSeconds(1))
+uc-0541	util-core	FR-DUR-05 create(ofSeconds(86400, 5))
+uc-0542	util-core	FR-DUR-06 create(ofSeconds(9223372036))
+uc-0543	util-core	FR-DUR-07 create(ofSeconds(9223372037))
+uc-0544	util-core	FR-DUR-08 create(ofSeconds(9223372035, 999999999))
+uc-0545	util-core	FR-DUR-09 create(ofSeconds(9223372037, 1))
+uc-0546	util-core	FR-DUR-10 create(ofSeconds(3600, 500000000))
+uc-0547	util-core	FR-DUR-11 create(ofSeconds(Long.MAX_VALUE, 999999999))
+uc-0548	util-core	FR-DUR-12 create(ofSeconds(61, 1))
+uc-0549	util-core	FR-DUR-13 create(ofSeconds(9223372036, 854775807)) eq Timeout(Long.MaxValue ns)

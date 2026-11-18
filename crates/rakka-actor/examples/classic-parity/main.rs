@@ -8,6 +8,7 @@
 //! ```
 
 mod bytes_cases;
+mod fronteras_cases;
 mod json;
 mod path_address_cases;
 mod path_case;

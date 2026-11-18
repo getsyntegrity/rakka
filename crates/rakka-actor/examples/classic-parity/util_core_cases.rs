@@ -628,6 +628,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
         lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
     }
 
+    // ---- Slice P77: UTIL-FRONTERAS (AC-UTIL-018.2)
+    for (id, line) in crate::fronteras_cases::cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {line}"))));
+    }
+
     lines
 }
 

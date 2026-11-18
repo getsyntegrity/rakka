@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 229 decisiones: 0 bloqueantes, 167 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 230 decisiones: 0 bloqueantes, 168 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1896,6 +1896,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) no implementar nada hasta AC-SER; cuando exista, un formato propio (identidad `u8` 0..3, cuerpo i32 BE + bytes por fragmento) con los mismos tests de ida y vuelta; (b) implementar ya un `to_wire`/`from_wire` con ese formato; (c) excluir la fila (la serialización Java no tiene equivalente).
 - **Recomendación:** (a): ningún efecto observable hoy; el formato de red de los mensajes lo decide AC-SER. AC-UTIL-006.8 queda `partial`. Clasificación: arquitectura (depende de AC-SER).
 - **Filas afectadas:** AC-UTIL-006.8
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-27 — Cierre de las filas de frontera Java/Scala (FutureConverters, OptionConverters/FunctionConverters/JavaDurationConverters, ccompat) eliminadas en 2.0.0
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** 2.0.0 elimina util/FutureConverters, util/OptionConverters, util/FunctionConverters, util/JavaDurationConverters, util/ccompat y compat/Future (actor/src/main/mima-filters/2.0.x.backwards.excludes: future-converters, javaapi-option, function-converters, java-duration-converters, remove-scala-2.12-support); lo que queda es scala.jdk.* de la biblioteca de Scala (actor/src/main/java/org/apache/pekko/util/OptionalUtil.java:21,38). Único comportamiento propio observable: Timeout.create(java.time.Duration), medido por los casos grabados uc-0537..uc-0549 y TO-NEG-04/05, ya correcto en Rust. Timeout -> java.time.Duration (toJava) lo usan Actor.scala:158, AbstractActor.scala:173, CachePolicy.scala:33 y OptimalSizeExploringResizer.scala:273 (otras unidades).
+- **Alternativas:** (a) cerrar 018.1, 018.2 y 018.3 como `done` con el equivalente documentado (un único `Future`, `Option<T>`, closures, `TryFrom<std::time::Duration> for Timeout`) y marcadas `eliminado en 2.0.0`, sin tipo propio; la conversión inversa Timeout -> duración Java se resuelve en las filas consumidoras (JAPI/ACT/DNS/RTG); (b) escribir tipos propios (conversores) y caracterizarlos con el oráculo aunque Pekko 2.0.0 ya no los tenga; (c) excluir alguna fila (requiere autorización explícita).
+- **Recomendación:** (a): Q-UTIL-11 (a) y Q-X-4 (A) ya aceptan el equivalente y el Owner marcó ccompat como `eliminado en 2.0.0`; falta confirmar que ello cierra `impl`/`validation` de las tres filas sin conversores propios (las aserciones A1/A2 son pruebas de compilación o delegan en la biblioteca de Scala).
+- **Filas afectadas:** AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 

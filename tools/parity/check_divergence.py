@@ -521,6 +521,25 @@ MUTANTS = {
         "value |= u64::from(byte).wrapping_shl(i.wrapping_mul(8) as u32);",
         "`getLongPart(n, LITTLE_ENDIAN)` shifts a Long instead of Pekko's Int (shift modulo 32 and sign extension past 4 bytes)",
     ),
+    # --- slice P77: Timeout.create(java.time.Duration) through the Java<->Scala duration converter ---
+    "duration-nanos-sum-wraps": (
+        "src/util/timeout.rs",
+        ".and_then(|seconds_as_nanos| seconds_as_nanos.checked_add(i64::from(nanos)))",
+        ".map(|seconds_as_nanos| seconds_as_nanos.wrapping_add(i64::from(nanos)))",
+        "converting a java.time.Duration of seconds and nanos that passes 2^63-1 ns wraps to a negative Timeout instead of failing",
+    ),
+    "duration-seconds-multiply-wraps": (
+        "src/util/timeout.rs",
+        ".and_then(|seconds| seconds.checked_mul(1_000_000_000))",
+        ".map(|seconds| seconds.wrapping_mul(1_000_000_000))",
+        "seconds-to-nanoseconds is not checked: a duration of more than 292 years with a nanosecond part becomes a small positive Timeout",
+    ),
+    "duration-text-minutes-unreduced": (
+        "src/util/timeout.rs",
+        "seconds % 3600 / 60",
+        "seconds / 60",
+        "the overflow message prints the minutes of the duration without taking them modulo the hour (PT2562047H153722867M...)",
+    ),
 }
 
 

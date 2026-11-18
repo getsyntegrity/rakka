@@ -1,0 +1,1 @@
+FR-DUR-09 create(ofSeconds(9223372037, 1)) -> ERR IllegalArgumentException [Java duration PT2562047H47M17.000000001S cannot be expressed as a Scala duration]

@@ -1,0 +1,1 @@
+FR-DUR-11 create(ofSeconds(Long.MAX_VALUE, 999999999)) -> ERR IllegalArgumentException [Java duration PT2562047788015215H30M7.999999999S cannot be expressed as a Scala duration]
