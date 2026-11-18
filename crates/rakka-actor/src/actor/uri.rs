@@ -1,19 +1,7 @@
-// Parsing behavior ported from OpenJDK 21 java.base/java/net/URI.java (Parser, decode) and the
-// malformed-input lengths of java.base/sun/nio/cs/UTF_8.java (Decoder) (GPL-2.0 WITH
-// Classpath-exception-2.0), as used by Apache Pekko 2.0.0
-// actor/src/main/scala/org/apache/pekko/actor/Address.scala (Apache-2.0).
-// Licensing of this derived file pending Owner decision Q-PATH-6.
-//! The subset of `java.net.URI` that is observable through Pekko's
-//! `AddressFromURIString`, `ActorPathExtractor` and `RelativeActorPath`:
-//! the parser (RFC 2396 with the JDK deviations, server authority falling back
-//! to a registry authority) and the getters Pekko calls.
-//!
-//! Indices are positions in a `char` slice. The JDK works on UTF-16 units,
-//! but every check treats both halves of a surrogate pair alike (non-ASCII,
-//! not a space, not a control), so the outcome is the same.
+// Clean-room implementation from docs/legal/cleanroom/uri-spec.md (Apache-2.0).
+//! A parser that reproduces what `new java.net.URI(String)` exposes to Pekko: scheme, decoded user
+//! information, host, port, raw path and raw fragment.
 
-/// Why `new URI(s)` failed: `URISyntaxException`, or a `NumberFormatException` that `URI` lets escape
-/// (an IPv4 octet that overflows `Integer.parseInt`, on JDK 17: decision Q-X-16).
 use super::errors::NumberFormatError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,24 +10,19 @@ pub(crate) enum UriError {
     NumberFormat(NumberFormatError),
 }
 
-type Res<T> = Result<T, UriError>;
-
 #[derive(Debug, Default)]
 pub(crate) struct Uri {
     pub(crate) scheme: Option<String>,
     raw_user_info: Option<String>,
     pub(crate) host: Option<String>,
-    /// `-1` when undefined, like `URI.getPort`.
     pub(crate) port: i32,
-    /// `getRawPath`: `None` for opaque URIs.
     pub(crate) raw_path: Option<String>,
     pub(crate) raw_fragment: Option<String>,
 }
 
 impl Uri {
-    /// `getUserInfo`: `%XX` escapes decoded as UTF-8, malformed bytes become U+FFFD.
     pub(crate) fn user_info(&self) -> Option<String> {
-        self.raw_user_info.as_deref().map(decode)
+        self.raw_user_info.as_deref().map(decode_escapes)
     }
 
     pub(crate) fn is_absolute(&self) -> bool {
@@ -47,769 +30,647 @@ impl Uri {
     }
 }
 
-/// `new URI(s)`.
-pub(crate) fn parse(s: &str) -> Res<Uri> {
-    let input: Vec<char> = s.chars().collect();
-    let mut parser = Parser {
-        input: &input,
-        uri: Uri {
-            port: -1,
-            ..Uri::default()
-        },
-        ipv6_byte_count: 0,
+// ---------------------------------------------------------------------------------------------
+// Character classes (RFC 2396 with RFC 2732 brackets) plus Java's "other" characters.
+// ---------------------------------------------------------------------------------------------
+
+/// Which component a run of characters belongs to.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Class {
+    UserInfo,
+    RegistryName,
+    Path,
+    /// Query, fragment and the scheme-specific part of opaque URIs.
+    Any,
+}
+
+fn is_unreserved(c: char) -> bool {
+    c.is_ascii_alphanumeric() || "-_.!~*'()".contains(c)
+}
+
+/// Non-ASCII, not an ISO control character and not a Unicode space separator (Zs, Zl, Zp).
+fn is_other(c: char) -> bool {
+    if c.is_ascii() {
+        return false;
+    }
+    let cp = c as u32;
+    let control = (0x80..=0x9F).contains(&cp);
+    let space = matches!(
+        cp,
+        0xA0 | 0x1680 | 0x2000..=0x200A | 0x2028 | 0x2029 | 0x202F | 0x205F | 0x3000
+    );
+    !control && !space
+}
+
+fn allows(class: Class, c: char) -> bool {
+    if is_unreserved(c) || is_other(c) {
+        return true;
+    }
+    let extra = match class {
+        Class::UserInfo => ";:&=+$,",
+        Class::RegistryName => "$,;:@&=+",
+        Class::Path => ":@&=+$,;/",
+        Class::Any => ";/?:@&=+$,[]",
     };
-    parser.parse()?;
-    Ok(parser.uri)
+    extra.contains(c)
 }
 
-const fn low_mask(chars: &str) -> u64 {
-    let b = chars.as_bytes();
-    let mut m = 0u64;
-    let mut i = 0;
-    while i < b.len() {
-        if b[i] < 64 {
-            m |= 1 << b[i];
-        }
-        i += 1;
-    }
-    m
-}
-
-const fn high_mask(chars: &str) -> u64 {
-    let b = chars.as_bytes();
-    let mut m = 0u64;
-    let mut i = 0;
-    while i < b.len() {
-        if b[i] >= 64 && b[i] < 128 {
-            m |= 1 << (b[i] - 64);
-        }
-        i += 1;
-    }
-    m
-}
-
-#[derive(Clone, Copy)]
-struct Mask(u64, u64);
-
-impl Mask {
-    const fn of(chars: &str) -> Mask {
-        Mask(low_mask(chars), high_mask(chars))
-    }
-
-    const fn or(self, o: Mask) -> Mask {
-        Mask(self.0 | o.0, self.1 | o.1)
-    }
-
-    fn matches(self, c: char) -> bool {
-        let c = c as u32;
-        match c {
-            0 => false,
-            1..64 => (1u64 << c) & self.0 != 0,
-            64..128 => (1u64 << (c - 64)) & self.1 != 0,
-            _ => false,
-        }
-    }
-
-    fn escaped(self) -> bool {
-        self.0 & ESCAPED.0 != 0
-    }
-}
-
-const DIGIT: Mask = Mask::of("0123456789");
-const ALPHA: Mask = Mask::of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
-const ALPHANUM: Mask = DIGIT.or(ALPHA);
-const HEX: Mask = DIGIT.or(Mask::of("ABCDEFabcdef"));
-const MARK: Mask = Mask::of("-_.!~*'()");
-const UNRESERVED: Mask = ALPHANUM.or(MARK);
-const RESERVED: Mask = Mask::of(";/?:@&=+$,[]");
-/// Bit 0 (NUL) marks "escapes allowed", as in the JDK.
-const ESCAPED: Mask = Mask(1, 0);
-const URIC: Mask = RESERVED.or(UNRESERVED).or(ESCAPED);
-const PCHAR: Mask = UNRESERVED.or(ESCAPED).or(Mask::of(":@&=+$,"));
-const PATH: Mask = PCHAR.or(Mask::of(";/"));
-const DASH: Mask = Mask::of("-");
-const DOT: Mask = Mask::of(".");
-const USERINFO: Mask = UNRESERVED.or(ESCAPED).or(Mask::of(";:&=+$,"));
-const REG_NAME: Mask = UNRESERVED.or(ESCAPED).or(Mask::of("$,;:@&=+"));
-const SERVER: Mask = USERINFO.or(ALPHANUM).or(DASH).or(Mask::of(".:@[]"));
-const SERVER_PERCENT: Mask = SERVER.or(Mask::of("%"));
-const SCHEME: Mask = ALPHA.or(DIGIT).or(Mask::of("+-."));
-const SCOPE_ID: Mask = ALPHANUM.or(Mask::of("_."));
-
-/// `Character.isSpaceChar` (Zs, Zl, Zp) for chars above U+0080.
-fn is_space_char(c: char) -> bool {
-    matches!(
-        c,
-        '\u{A0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200A}' | '\u{2028}' | '\u{2029}' | '\u{202F}' | '\u{205F}' | '\u{3000}'
-    )
-}
-
-fn is_iso_control(c: char) -> bool {
-    matches!(c, '\u{0}'..='\u{1F}' | '\u{7F}'..='\u{9F}')
-}
-
-struct Parser<'a> {
-    input: &'a [char],
-    uri: Uri,
-    ipv6_byte_count: u32,
-}
-
-impl Parser<'_> {
-    fn sub(&self, start: usize, end: usize) -> String {
-        self.input[start..end].iter().collect()
-    }
-
-    fn at(&self, start: usize, end: usize, c: char) -> bool {
-        start < end && self.input[start] == c
-    }
-
-    fn at_str(&self, start: usize, end: usize, s: &str) -> bool {
-        let s: Vec<char> = s.chars().collect();
-        start + s.len() <= end && self.input[start..start + s.len()] == s[..]
-    }
-
-    fn scan_char(&self, start: usize, end: usize, c: char) -> usize {
-        if self.at(start, end, c) {
-            start + 1
-        } else {
-            start
-        }
-    }
-
-    /// `scan(start, end, err, stop)`: `None` when an `err` char comes first.
-    fn scan_err_stop(&self, start: usize, end: usize, err: &str, stop: &str) -> Option<usize> {
-        let mut p = start;
-        while p < end {
-            let c = self.input[p];
-            if err.contains(c) {
-                return None;
-            }
-            if stop.contains(c) {
-                break;
-            }
-            p += 1;
-        }
-        Some(p)
-    }
-
-    fn scan_stop(&self, start: usize, end: usize, stop: &str) -> usize {
-        let mut p = start;
-        while p < end && !stop.contains(self.input[p]) {
-            p += 1;
-        }
-        p
-    }
-
-    fn scan_escape(&self, p: usize, n: usize, c: char) -> Res<usize> {
+/// True when every character of `text` is legal in `class` and every `%` starts a valid escape.
+fn valid_run(class: Class, text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let mut chars = text.char_indices();
+    while let Some((i, c)) = chars.next() {
         if c == '%' {
-            if p + 3 <= n && HEX.matches(self.input[p + 1]) && HEX.matches(self.input[p + 2]) {
-                return Ok(p + 3);
+            let ok = bytes.get(i + 1).is_some_and(u8::is_ascii_hexdigit)
+                && bytes.get(i + 2).is_some_and(u8::is_ascii_hexdigit);
+            if !ok {
+                return false;
             }
+            chars.next();
+            chars.next();
+        } else if !allows(class, c) {
+            return false;
+        }
+    }
+    true
+}
+
+// ---------------------------------------------------------------------------------------------
+// Top-level parse
+// ---------------------------------------------------------------------------------------------
+
+pub(crate) fn parse(s: &str) -> Result<Uri, UriError> {
+    let mut uri = Uri {
+        port: -1,
+        ..Uri::default()
+    };
+
+    // A scheme exists only when ':' comes before any '/', '?' or '#'.
+    let mut rest = s;
+    if let Some(stop) = s.find(['/', '?', '#', ':'])
+        && s.as_bytes()[stop] == b':'
+    {
+        let scheme = &s[..stop];
+        if !valid_scheme(scheme) {
             return Err(UriError::Syntax);
         }
-        if (c as u32) > 128 && !is_space_char(c) && !is_iso_control(c) {
-            return Ok(p + 1);
+        uri.scheme = Some(scheme.to_owned());
+        rest = &s[stop + 1..];
+        if rest.is_empty() {
+            return Err(UriError::Syntax);
         }
-        Ok(p)
+        if !rest.starts_with('/') {
+            // Opaque: everything up to '#' is the scheme-specific part.
+            let (body, fragment) = split_fragment(rest);
+            if !valid_run(Class::Any, body) {
+                return Err(UriError::Syntax);
+            }
+            set_fragment(&mut uri, fragment)?;
+            return Ok(uri);
+        }
     }
 
-    fn scan(&self, start: usize, n: usize, mask: Mask) -> Res<usize> {
-        let mut p = start;
-        while p < n {
-            let c = self.input[p];
-            if mask.matches(c) {
-                p += 1;
-                continue;
+    let (body, fragment) = split_fragment(rest);
+    let hierarchical = body;
+    let after_authority = if let Some(after_slashes) = hierarchical.strip_prefix("//") {
+        let end = after_slashes
+            .find(['/', '?'])
+            .unwrap_or(after_slashes.len());
+        let authority = &after_slashes[..end];
+        let remainder = &after_slashes[end..];
+        if authority.is_empty() {
+            if remainder.is_empty() && fragment.is_none() {
+                return Err(UriError::Syntax);
             }
-            if mask.escaped() {
-                let q = self.scan_escape(p, n, c)?;
-                if q > p {
-                    p = q;
-                    continue;
-                }
+        } else {
+            parse_authority(authority, &mut uri)?;
+        }
+        remainder
+    } else {
+        hierarchical
+    };
+
+    let (path, query) = match after_authority.find('?') {
+        Some(q) => (&after_authority[..q], Some(&after_authority[q + 1..])),
+        None => (after_authority, None),
+    };
+    if !valid_run(Class::Path, path) {
+        return Err(UriError::Syntax);
+    }
+    if let Some(query) = query
+        && !valid_run(Class::Any, query)
+    {
+        return Err(UriError::Syntax);
+    }
+    uri.raw_path = Some(path.to_owned());
+    set_fragment(&mut uri, fragment)?;
+    Ok(uri)
+}
+
+fn split_fragment(s: &str) -> (&str, Option<&str>) {
+    match s.find('#') {
+        Some(i) => (&s[..i], Some(&s[i + 1..])),
+        None => (s, None),
+    }
+}
+
+fn set_fragment(uri: &mut Uri, fragment: Option<&str>) -> Result<(), UriError> {
+    if let Some(fragment) = fragment {
+        if !valid_run(Class::Any, fragment) {
+            return Err(UriError::Syntax);
+        }
+        uri.raw_fragment = Some(fragment.to_owned());
+    }
+    Ok(())
+}
+
+fn valid_scheme(s: &str) -> bool {
+    let mut chars = s.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphabetic())
+        && chars.all(|c| c.is_ascii_alphanumeric() || "+-.".contains(c))
+}
+
+// ---------------------------------------------------------------------------------------------
+// Authority
+// ---------------------------------------------------------------------------------------------
+
+/// Tries the server-based form first, then falls back to a registry-based name.
+fn parse_authority(authority: &str, uri: &mut Uri) -> Result<(), UriError> {
+    // The server-based form is only attempted when every character could belong to one.
+    let server_shaped = authority
+        .chars()
+        .all(|c| is_unreserved(c) || is_other(c) || ";:&=+$,@[]%".contains(c));
+    if server_shaped && let Some(server) = parse_server(authority)? {
+        uri.raw_user_info = server.user_info;
+        uri.host = Some(server.host);
+        uri.port = server.port;
+        return Ok(());
+    }
+    if valid_run(Class::RegistryName, authority) {
+        Ok(())
+    } else {
+        Err(UriError::Syntax)
+    }
+}
+
+struct Server {
+    user_info: Option<String>,
+    host: String,
+    port: i32,
+}
+
+/// `Ok(None)` means "not a server-based authority" (the caller may still accept it as a registry name).
+fn parse_server(authority: &str) -> Result<Option<Server>, UriError> {
+    let (user_info, host_port) = match authority.find('@') {
+        Some(at) => {
+            let user = &authority[..at];
+            if !valid_run(Class::UserInfo, user) {
+                return Ok(None);
             }
+            (Some(user.to_owned()), &authority[at + 1..])
+        }
+        None => (None, authority),
+    };
+
+    let (host, port_text) = if let Some(inner_and_rest) = host_port.strip_prefix('[') {
+        let Some(close) = inner_and_rest.find(']') else {
+            return Ok(None);
+        };
+        if !valid_ipv6_reference(&inner_and_rest[..close])? {
+            return Ok(None);
+        }
+        let after = &inner_and_rest[close + 1..];
+        let port = if after.is_empty() {
+            None
+        } else if let Some(p) = after.strip_prefix(':') {
+            Some(p)
+        } else {
+            return Ok(None);
+        };
+        (&host_port[..close + 2], port)
+    } else {
+        let (host, port) = match host_port.find(':') {
+            Some(colon) => (&host_port[..colon], Some(&host_port[colon + 1..])),
+            None => (host_port, None),
+        };
+        if !(is_ipv4_address(host) || is_hostname(host)) {
+            return Ok(None);
+        }
+        (host, port)
+    };
+
+    let port = match port_text {
+        None | Some("") => -1,
+        Some(digits) => {
+            if !digits.bytes().all(|b| b.is_ascii_digit()) {
+                return Ok(None);
+            }
+            digits.parse::<i32>().map_err(|_| UriError::Syntax)?
+        }
+    };
+    Ok(Some(Server {
+        user_info,
+        host: host.to_owned(),
+        port,
+    }))
+}
+
+// ---------------------------------------------------------------------------------------------
+// Hosts
+// ---------------------------------------------------------------------------------------------
+
+fn is_ipv4_address(s: &str) -> bool {
+    let mut count = 0;
+    for part in s.split('.') {
+        count += 1;
+        let ok = !part.is_empty()
+            && part.len() <= 3
+            && part.bytes().all(|b| b.is_ascii_digit())
+            && part.parse::<u16>().is_ok_and(|v| v <= 255);
+        if !ok {
+            return false;
+        }
+    }
+    count == 4
+}
+
+fn is_hostname(s: &str) -> bool {
+    let name = s.strip_suffix('.').unwrap_or(s);
+    if name.is_empty() {
+        return false;
+    }
+    let multi_label = name.contains('.');
+    let mut labels = name.split('.').peekable();
+    while let Some(label) = labels.next() {
+        let bytes = label.as_bytes();
+        let (Some(&first), Some(&last)) = (bytes.first(), bytes.last()) else {
+            return false;
+        };
+        if !first.is_ascii_alphanumeric() || !last.is_ascii_alphanumeric() {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|&b| b.is_ascii_alphanumeric() || b == b'-')
+        {
+            return false;
+        }
+        if multi_label && labels.peek().is_none() && !first.is_ascii_alphabetic() {
+            return false;
+        }
+    }
+    true
+}
+
+/// Validates the text between `[` and `]`. An IPv4 octet in the trailing position that overflows
+/// a 32-bit integer escapes as a `NumberFormat` error.
+fn valid_ipv6_reference(inner: &str) -> Result<bool, UriError> {
+    let (address, scope) = match inner.find('%') {
+        Some(p) => (&inner[..p], Some(&inner[p + 1..])),
+        None => (inner, None),
+    };
+    // The address is examined first: an overflowing embedded octet wins over a bad scope.
+    if !valid_ipv6_address(address)? {
+        return Ok(false);
+    }
+    Ok(scope.is_none_or(valid_scope))
+}
+
+fn valid_ipv6_address(address: &str) -> Result<bool, UriError> {
+    let bytes = address.as_bytes();
+    let mut i = 0;
+    let mut groups = 0;
+    let mut compressed = false;
+    if bytes.starts_with(b"::") {
+        compressed = true;
+        i = 2;
+    } else if bytes.first() == Some(&b':') {
+        return Ok(false);
+    }
+    while i < bytes.len() {
+        // One token: hex digits, or a dotted-decimal tail.
+        let start = i;
+        while i < bytes.len() && (bytes[i].is_ascii_hexdigit() || bytes[i] == b'.') {
+            i += 1;
+        }
+        let token = &address[start..i];
+        if token.is_empty() {
+            return Ok(false);
+        }
+        if token.contains('.') {
+            // A dotted-decimal tail is only recognised after a ':' separator.
+            if start == 0 || i != bytes.len() || !embedded_ipv4(token)? {
+                return Ok(false);
+            }
+            groups += 2;
             break;
         }
-        Ok(p)
-    }
-
-    fn check_chars(&self, start: usize, end: usize, mask: Mask) -> Res<()> {
-        if self.scan(start, end, mask)? < end {
-            return Err(UriError::Syntax);
+        if token.len() > 4 {
+            return Ok(false);
         }
-        Ok(())
-    }
-
-    fn parse(&mut self) -> Res<()> {
-        let n = self.input.len();
-        let mut p;
-        match self.scan_err_stop(0, n, "/?#", ":") {
-            Some(colon) if self.at(colon, n, ':') => {
-                if colon == 0 {
-                    return Err(UriError::Syntax);
-                }
-                self.check_chars(0, 1, ALPHA)?;
-                self.check_chars(1, colon, SCHEME)?;
-                self.uri.scheme = Some(self.sub(0, colon));
-                p = colon + 1;
-                if self.at(p, n, '/') {
-                    p = self.parse_hierarchical(p, n)?;
-                } else {
-                    let q = self.scan_stop(p, n, "#");
-                    if q <= p {
-                        return Err(UriError::Syntax);
-                    }
-                    self.check_chars(p, q, URIC)?;
-                    p = q;
-                }
+        groups += 1;
+        if i == bytes.len() {
+            break;
+        }
+        // bytes[i] must be ':'
+        if bytes[i] != b':' {
+            return Ok(false);
+        }
+        if bytes.get(i + 1) == Some(&b':') {
+            if compressed {
+                return Ok(false);
             }
-            _ => p = self.parse_hierarchical(0, n)?,
-        }
-        if self.at(p, n, '#') {
-            self.check_chars(p + 1, n, URIC)?;
-            self.uri.raw_fragment = Some(self.sub(p + 1, n));
-            p = n;
-        }
-        if p < n {
-            return Err(UriError::Syntax);
-        }
-        Ok(())
-    }
-
-    fn parse_hierarchical(&mut self, start: usize, n: usize) -> Res<usize> {
-        let mut p = start;
-        if self.at(p, n, '/') && self.at(p + 1, n, '/') {
-            p += 2;
-            let q = self.scan_stop(p, n, "/?#");
-            if q > p {
-                p = self.parse_authority(p, q)?;
-            } else if q >= n {
-                return Err(UriError::Syntax);
-            }
-        }
-        let q = self.scan_stop(p, n, "?#");
-        self.check_chars(p, q, PATH)?;
-        self.uri.raw_path = Some(self.sub(p, q));
-        p = q;
-        if self.at(p, n, '?') {
-            p += 1;
-            let q = self.scan_stop(p, n, "#");
-            self.check_chars(p, q, URIC)?;
-            p = q;
-        }
-        Ok(p)
-    }
-
-    fn reset_server(&mut self) {
-        self.uri.raw_user_info = None;
-        self.uri.host = None;
-        self.uri.port = -1;
-    }
-
-    fn parse_authority(&mut self, p: usize, n: usize) -> Res<usize> {
-        let server_mask = if self.scan_stop(p, n, "]") > p {
-            SERVER_PERCENT
+            compressed = true;
+            i += 2;
         } else {
-            SERVER
-        };
-        let server_chars = self.scan(p, n, server_mask)? == n;
-        let reg_chars = self.scan(p, n, REG_NAME)? == n;
-
-        if reg_chars && !server_chars {
-            return Ok(n);
-        }
-
-        // `new URI(String)` never requires a server authority, so a server
-        // parse that fails or stops early falls back to a registry authority
-        // when every char is a reg_name char.
-        let mut q = p;
-        if server_chars {
-            match self.parse_server(p, n, reg_chars) {
-                Ok(end) if end == n => q = end,
-                // Only `URISyntaxException` is caught; a `NumberFormatException` escapes (JDK 17).
-                Ok(_) | Err(UriError::Syntax) => self.reset_server(),
-                Err(error @ UriError::NumberFormat(_)) => return Err(error),
+            i += 1;
+            if i == bytes.len() {
+                return Ok(false);
             }
-        }
-        if q < n && !reg_chars {
-            return Err(UriError::Syntax);
-        }
-        Ok(n)
-    }
-
-    fn parse_server(&mut self, start: usize, n: usize, skip_parse_exception: bool) -> Res<usize> {
-        let mut p = start;
-        if let Some(q) = self.scan_err_stop(p, n, "/?#", "@")
-            && self.at(q, n, '@')
-        {
-            self.check_chars(p, q, USERINFO)?;
-            self.uri.raw_user_info = Some(self.sub(p, q));
-            p = q + 1;
-        }
-
-        if self.at(p, n, '[') {
-            p += 1;
-            match self.scan_err_stop(p, n, "/?#", "]") {
-                Some(q) if q > p && self.at(q, n, ']') => {
-                    let r = self.scan_stop(p, q, "%");
-                    if r > p {
-                        self.parse_ipv6_reference(p, r)?;
-                        if r + 1 == q {
-                            return Err(UriError::Syntax);
-                        }
-                        self.check_chars(r + 1, q, SCOPE_ID)?;
-                    } else {
-                        self.parse_ipv6_reference(p, q)?;
-                    }
-                    self.uri.host = Some(self.sub(p - 1, q + 1));
-                    p = q + 1;
-                }
-                _ => return Err(UriError::Syntax),
-            }
-        } else {
-            p = match self.parse_ipv4_address(p, n) {
-                Some(q) if q > p => q,
-                _ => self.parse_hostname(p, n, skip_parse_exception)?,
-            };
-        }
-
-        if self.at(p, n, ':') {
-            p += 1;
-            let q = self.scan_stop(p, n, "/");
-            if q > p {
-                self.check_chars(p, q, DIGIT)?;
-                let digits = self.sub(p, q);
-                self.uri.port = digits.parse::<i32>().map_err(|_| UriError::Syntax)?;
-                p = q;
-            }
-        } else if p < n && skip_parse_exception {
-            return Ok(p);
-        }
-        if p < n {
-            return Err(UriError::Syntax);
-        }
-        Ok(p)
-    }
-
-    /// `URI.scanByte` on JDK 17: `Integer.parseInt(input, p, q, 10) > 255` (so an overflow throws).
-    fn scan_byte(&self, start: usize, n: usize) -> Res<usize> {
-        let p = start;
-        let q = self.scan(p, n, DIGIT)?;
-        if q <= p {
-            return Ok(q);
-        }
-        match parse_int_range(&self.input[p..q]) {
-            Ok(value) if value > 255 => Ok(p),
-            Ok(_) => Ok(q),
-            Err(error) => Err(UriError::NumberFormat(error)),
         }
     }
-
-    fn scan_ipv4_address(&self, start: usize, n: usize, strict: bool) -> Res<Option<usize>> {
-        let mut p = start;
-        let m = self.scan(p, n, DIGIT.or(DOT))?;
-        if m <= p || (strict && m != n) {
-            return Ok(None);
-        }
-        for i in 0..4 {
-            let q = self.scan_byte(p, m)?;
-            if q <= p {
-                break;
-            }
-            p = q;
-            if i < 3 {
-                let q = self.scan_char(p, m, '.');
-                if q <= p {
-                    break;
-                }
-                p = q;
-            } else if q < m {
-                break;
-            } else {
-                return Ok(Some(q));
-            }
-        }
-        if strict {
-            return Err(UriError::Syntax);
-        }
-        Ok(None)
-    }
-
-    fn take_ipv4_address(&self, start: usize, n: usize) -> Res<usize> {
-        match self.scan_ipv4_address(start, n, true)? {
-            Some(p) if p > start => Ok(p),
-            _ => Err(UriError::Syntax),
-        }
-    }
-
-    fn parse_ipv4_address(&mut self, start: usize, n: usize) -> Option<usize> {
-        let p = self.scan_ipv4_address(start, n, false).ok()??;
-        if p > start && p < n && self.input[p] != ':' {
-            return None;
-        }
-        if p > start {
-            self.uri.host = Some(self.sub(start, p));
-        }
-        Some(p)
-    }
-
-    fn parse_hostname(&mut self, start: usize, n: usize, skip_parse_exception: bool) -> Res<usize> {
-        let mut p = start;
-        let mut last_label = None;
-        loop {
-            let q = self.scan(p, n, ALPHANUM)?;
-            if q <= p {
-                break;
-            }
-            last_label = Some(p);
-            p = q;
-            let q = self.scan(p, n, ALPHANUM.or(DASH))?;
-            if q > p {
-                if self.input[q - 1] == '-' {
-                    return Err(UriError::Syntax);
-                }
-                p = q;
-            }
-            let q = self.scan_char(p, n, '.');
-            if q <= p {
-                break;
-            }
-            p = q;
-            if p >= n {
-                break;
-            }
-        }
-        if p < n && !self.at(p, n, ':') {
-            if skip_parse_exception {
-                return Ok(p);
-            }
-            return Err(UriError::Syntax);
-        }
-        let l = last_label.ok_or(UriError::Syntax)?;
-        if l > start && !ALPHA.matches(self.input[l]) {
-            return Err(UriError::Syntax);
-        }
-        self.uri.host = Some(self.sub(start, p));
-        Ok(p)
-    }
-
-    fn parse_ipv6_reference(&mut self, start: usize, n: usize) -> Res<usize> {
-        let mut p = start;
-        let mut compressed_zeros = false;
-        if let Some(q) = self.scan_hex_seq(p, n)? {
-            p = q;
-            if self.at_str(p, n, "::") {
-                compressed_zeros = true;
-                p = self.scan_hex_post(p + 2, n)?;
-            } else if self.at(p, n, ':') {
-                p = self.take_ipv4_address(p + 1, n)?;
-                self.ipv6_byte_count += 4;
-            }
-        } else if self.at_str(p, n, "::") {
-            compressed_zeros = true;
-            p = self.scan_hex_post(p + 2, n)?;
-        }
-        let malformed = p < n
-            || self.ipv6_byte_count > 16
-            || (!compressed_zeros && self.ipv6_byte_count < 16)
-            || (compressed_zeros && self.ipv6_byte_count == 16);
-        if malformed {
-            return Err(UriError::Syntax);
-        }
-        Ok(p)
-    }
-
-    fn scan_hex_post(&mut self, start: usize, n: usize) -> Res<usize> {
-        let mut p = start;
-        if p == n {
-            return Ok(p);
-        }
-        if let Some(q) = self.scan_hex_seq(p, n)? {
-            p = q;
-            if self.at(p, n, ':') {
-                p = self.take_ipv4_address(p + 1, n)?;
-                self.ipv6_byte_count += 4;
-            }
-        } else {
-            p = self.take_ipv4_address(p, n)?;
-            self.ipv6_byte_count += 4;
-        }
-        Ok(p)
-    }
-
-    fn scan_hex_seq(&mut self, start: usize, n: usize) -> Res<Option<usize>> {
-        let mut p = start;
-        let q = self.scan(p, n, HEX)?;
-        if q <= p || self.at(q, n, '.') {
-            return Ok(None);
-        }
-        if q > p + 4 {
-            return Err(UriError::Syntax);
-        }
-        self.ipv6_byte_count += 2;
-        p = q;
-        while p < n {
-            if !self.at(p, n, ':') || self.at(p + 1, n, ':') {
-                break;
-            }
-            p += 1;
-            let q = self.scan(p, n, HEX)?;
-            if q <= p {
-                return Err(UriError::Syntax);
-            }
-            if self.at(q, n, '.') {
-                p -= 1;
-                break;
-            }
-            if q > p + 4 {
-                return Err(UriError::Syntax);
-            }
-            self.ipv6_byte_count += 2;
-            p = q;
-        }
-        Ok(Some(p))
-    }
+    Ok(if compressed { groups < 8 } else { groups == 8 })
 }
 
-/// `URI.decode`: each run of `%XX` becomes bytes decoded with the JDK UTF-8
-/// `CharsetDecoder` set to `REPLACE` (see [`decode_utf8_like_jdk`]).
-/// Escapes are well-formed here (the parser checked them).
-fn decode(s: &str) -> String {
-    if !s.contains('%') {
-        return s.to_owned();
+fn valid_scope(scope: &str) -> bool {
+    !scope.is_empty()
+        && scope
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._".contains(c))
+}
+
+/// Dotted-decimal tail of an IPv6 reference, octet by octet.
+fn embedded_ipv4(token: &str) -> Result<bool, UriError> {
+    let mut count = 0;
+    for part in token.split('.') {
+        count += 1;
+        if count > 4 {
+            return Ok(false);
+        }
+        if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
+            return Ok(false);
+        }
+        let mut value: i32 = 0;
+        for (index, digit) in part.bytes().enumerate() {
+            value = value
+                .checked_mul(10)
+                .and_then(|v| v.checked_add(i32::from(digit - b'0')))
+                .ok_or_else(|| {
+                    UriError::NumberFormat(NumberFormatError::new(format!(
+                        "Error at index {index} in: \"{part}\""
+                    )))
+                })?;
+        }
+        if value > 255 {
+            return Ok(false);
+        }
     }
-    let mut out = String::with_capacity(s.len());
-    let mut bytes = Vec::new();
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c != '%' {
+    Ok(count == 4)
+}
+
+// ---------------------------------------------------------------------------------------------
+// User information decoding
+// ---------------------------------------------------------------------------------------------
+
+/// Replaces each run of `%XX` escapes by its UTF-8 decoding (malformed input becomes U+FFFD).
+fn decode_escapes(raw: &str) -> String {
+    let bytes = raw.as_bytes();
+    let mut out = String::with_capacity(raw.len());
+    let mut i = 0;
+    while i < raw.len() {
+        if bytes[i] != b'%' {
+            let c = raw[i..].chars().next().unwrap_or('\u{FFFD}');
             out.push(c);
+            i += c.len_utf8();
             continue;
         }
-        bytes.clear();
-        let mut c = c;
-        loop {
-            debug_assert_eq!(c, '%');
-            let hi = chars.next().and_then(|d| d.to_digit(16)).unwrap_or(0);
-            let lo = chars.next().and_then(|d| d.to_digit(16)).unwrap_or(0);
-            bytes.push((hi * 16 + lo) as u8);
-            match chars.peek() {
-                Some('%') => c = chars.next().unwrap_or('%'),
-                _ => break,
-            }
+        let mut octets = Vec::new();
+        while i < raw.len() && bytes[i] == b'%' {
+            let hex = &raw[i + 1..i + 3];
+            octets.push(u8::from_str_radix(hex, 16).unwrap_or(0));
+            i += 3;
         }
-        decode_utf8_like_jdk(&bytes, &mut out);
+        decode_utf8_lossy_into(&octets, &mut out);
     }
     out
 }
 
-/// UTF-8 decoding with the malformed-input lengths of the JDK decoder
-/// (`sun.nio.cs.UTF_8.Decoder` driven by `CharsetDecoder.decode(in, out,
-/// true)`): every malformed sequence becomes one U+FFFD. It differs from
-/// `String::from_utf8_lossy` (WHATWG "maximal subpart") in two places: an
-/// encoded surrogate (`ED A0..BF xx`) is one malformed sequence of up to three
-/// bytes, and a truncated sequence at the end of the run is always one.
-fn decode_utf8_like_jdk(bytes: &[u8], out: &mut String) {
-    let cont = |b: u8| b & 0xC0 == 0x80;
-    let mut i = 0;
-    while i < bytes.len() {
-        let b1 = bytes[i];
-        let rest = &bytes[i..];
-        let at = |k: usize| rest.get(k).copied();
-        // Number of bytes consumed by one decoded char or one U+FFFD.
-        let (decoded, len): (Option<char>, usize) = match b1 {
-            0x00..=0x7F => (Some(char::from(b1)), 1),
-            0xC2..=0xDF => match at(1) {
-                // Truncated at the end of input: malformed for the remaining length.
-                None => (None, 1),
-                Some(b2) if !cont(b2) => (None, 1),
-                Some(b2) => (
-                    char::from_u32((u32::from(b1 & 0x1F) << 6) | u32::from(b2 & 0x3F)),
-                    2,
-                ),
-            },
-            0xE0..=0xEF => {
-                // malformedN(3): the E0 overlong prefix or a bad second byte
-                // is 1, a bad third byte is 2.
-                let bad_first_two = |b2: u8| (b1 == 0xE0 && b2 & 0xE0 == 0x80) || !cont(b2);
-                match (at(1), at(2)) {
-                    (Some(b2), _) if bad_first_two(b2) => (None, 1),
-                    (Some(_), Some(b3)) if !cont(b3) => (None, 2),
-                    (Some(b2), Some(b3)) => {
-                        let c = (u32::from(b1 & 0x0F) << 12)
-                            | (u32::from(b2 & 0x3F) << 6)
-                            | u32::from(b3 & 0x3F);
-                        // A surrogate is malformed for its three bytes.
-                        (char::from_u32(c), 3)
-                    }
-                    _ => (None, rest.len()),
-                }
-            }
-            0xF0..=0xF7 => {
-                // malformedN(4) and the truncated-input checks
-                // (isMalformed4_2 / isMalformed4_3).
-                let bad_second = |b2: u8| {
-                    b1 > 0xF4
-                        || (b1 == 0xF0 && !(0x90..=0xBF).contains(&b2))
-                        || (b1 == 0xF4 && b2 & 0xF0 != 0x80)
-                        || !cont(b2)
-                };
-                match (at(1), at(2), at(3)) {
-                    _ if b1 > 0xF4 => (None, 1),
-                    (Some(b2), _, _) if bad_second(b2) => (None, 1),
-                    (Some(_), Some(b3), _) if !cont(b3) => (None, 2),
-                    (Some(_), Some(_), Some(b4)) if !cont(b4) => (None, 3),
-                    (Some(b2), Some(b3), Some(b4)) => {
-                        let c = (u32::from(b1 & 0x07) << 18)
-                            | (u32::from(b2 & 0x3F) << 12)
-                            | (u32::from(b3 & 0x3F) << 6)
-                            | u32::from(b4 & 0x3F);
-                        // The lead/second-byte checks above already keep c
-                        // within U+10000..=U+10FFFF.
-                        (char::from_u32(c), 4)
-                    }
-                    _ => (None, rest.len()),
-                }
-            }
-            // Continuation bytes, C0/C1 and F8..FF.
-            _ => (None, 1),
-        };
-        out.push(decoded.unwrap_or('\u{FFFD}'));
-        i += len;
-    }
+fn is_continuation(b: u8) -> bool {
+    b & 0xC0 == 0x80
 }
 
-/// `Integer.parseInt(CharSequence, begin, end, 10)` of JDK 17 for a run of ASCII digits (what `URI.scanByte`
-/// calls): the only failure is overflow, reported as `Error at index N in: "digits"`.
-fn parse_int_range(digits: &[char]) -> Result<i32, NumberFormatError> {
-    let limit = -i32::MAX;
-    let multmin = limit / 10;
-    let mut result: i32 = 0;
-    for (index, c) in digits.iter().enumerate() {
-        let digit = c.to_digit(10).map_or(i32::MAX, |d| d as i32);
-        if result < multmin || {
-            result *= 10;
-            result < limit + digit
-        } {
-            let text: String = digits.iter().collect();
-            return Err(NumberFormatError::new(format!(
-                "Error at index {index} in: \"{text}\""
-            )));
+/// UTF-8 decoding where each malformed prefix yields one U+FFFD (lengths fixed by recorded cases).
+fn decode_utf8_lossy_into(octets: &[u8], out: &mut String) {
+    let mut i = 0;
+    while i < octets.len() {
+        let lead = octets[i];
+        let next = |n: usize| octets.get(i + n).copied();
+        if lead < 0x80 {
+            out.push(char::from(lead));
+            i += 1;
+            continue;
         }
-        result -= digit;
+        let (need, lo, hi) = match lead {
+            0xC2..=0xDF => (1, 0x80, 0xBF),
+            0xE0 => (2, 0xA0, 0xBF),
+            0xE1..=0xEC | 0xEE | 0xEF => (2, 0x80, 0xBF),
+            0xED => (2, 0x80, 0xBF),
+            0xF0 => (3, 0x90, 0xBF),
+            0xF1..=0xF3 => (3, 0x80, 0xBF),
+            0xF4 => (3, 0x80, 0x8F),
+            _ => {
+                out.push('\u{FFFD}');
+                i += 1;
+                continue;
+            }
+        };
+        let Some(second) = next(1).filter(|&b| is_continuation(b)) else {
+            out.push('\u{FFFD}');
+            i += 1;
+            continue;
+        };
+        if !(lo..=hi).contains(&second) {
+            // A surrogate encoding swallows its continuation; other overlong/out-of-range forms do not.
+            if lead == 0xED {
+                let consumed = if next(2).is_some_and(is_continuation) {
+                    3
+                } else {
+                    2
+                };
+                out.push('\u{FFFD}');
+                i += consumed;
+            } else {
+                out.push('\u{FFFD}');
+                i += 1;
+            }
+            continue;
+        }
+        let mut length = 2;
+        let mut complete = true;
+        while length <= need {
+            if next(length).is_some_and(is_continuation) {
+                length += 1;
+            } else {
+                complete = false;
+                break;
+            }
+        }
+        if complete {
+            if let Ok(text) = std::str::from_utf8(&octets[i..i + length]) {
+                out.push_str(text);
+            } else {
+                out.push('\u{FFFD}');
+            }
+            i += length;
+        } else {
+            out.push('\u{FFFD}');
+            i += length;
+        }
     }
-    Ok(-result)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn ok(s: &str) -> Uri {
-        parse(s).unwrap_or_else(|_| panic!("{s} should parse"))
-    }
-
-    #[test]
-    fn server_authority_exposes_user_info_host_and_port() {
-        let u = ok("pekko://a%20b@h:1/p?q#f");
-        assert_eq!(u.scheme.as_deref(), Some("pekko"));
-        assert_eq!(u.user_info().as_deref(), Some("a b"));
-        assert_eq!((u.host.as_deref(), u.port), (Some("h"), 1));
-        assert_eq!(u.raw_path.as_deref(), Some("/p"));
-        assert_eq!(u.raw_fragment.as_deref(), Some("f"));
-    }
-
-    #[test]
-    fn invalid_server_falls_back_to_registry_without_host() {
-        for s in [
-            "pekko://my_sys",
-            "pekko://sys@in_valid:1",
-            "pekko://sys@256.1.1.1:1",
-            "pekko://sys@-h:1",
-        ] {
-            let u = ok(s);
-            assert_eq!(
-                (u.host.as_deref(), u.user_info(), u.port),
-                (None, None, -1),
-                "{s}"
-            );
+    fn nfe_message(input: &str) -> String {
+        match parse(input) {
+            Err(UriError::NumberFormat(e)) => e.to_string(),
+            other => panic!("expected NumberFormat, got {other:?}"),
         }
     }
 
     #[test]
-    fn port_beyond_i32_falls_back_to_registry() {
-        let u = ok("pekko://sys@host:2147483648");
-        assert_eq!((u.host, u.port), (None, -1));
+    fn remote_authority_fields() {
+        let u = parse("pekko://sys@host:2552/user/a%20b?q=1#42").unwrap();
+        assert_eq!(u.scheme.as_deref(), Some("pekko"));
+        assert_eq!(u.user_info().as_deref(), Some("sys"));
+        assert_eq!(u.host.as_deref(), Some("host"));
+        assert_eq!(u.port, 2552);
+        assert_eq!(u.raw_path.as_deref(), Some("/user/a%20b"));
+        assert_eq!(u.raw_fragment.as_deref(), Some("42"));
+        assert!(u.is_absolute());
     }
 
     #[test]
-    fn opaque_uri_has_no_path() {
-        assert_eq!(ok("pekko:sys").raw_path, None);
+    fn local_authority_and_empty_port() {
+        let u = parse("pekko://sys:/x").unwrap();
+        assert_eq!((u.host.as_deref(), u.port), (Some("sys"), -1));
+        let u = parse("pekko://sys").unwrap();
+        assert_eq!(u.raw_path.as_deref(), Some(""));
+        assert_eq!(u.raw_fragment, None);
+    }
+
+    #[test]
+    fn registry_authority_has_no_host() {
+        let u = parse("pekko://a_b@c_d/x").unwrap();
+        assert_eq!((u.host.clone(), u.user_info(), u.port), (None, None, -1));
+        let u = parse("x://256").unwrap();
+        assert_eq!(u.host.as_deref(), Some("256"));
+    }
+
+    #[test]
+    fn hostname_rules() {
+        assert!(parse("p://s@a.1/x").unwrap().host.is_none());
+        assert_eq!(parse("p://s@1/x").unwrap().host.as_deref(), Some("1"));
+        assert_eq!(parse("p://s@a.b./x").unwrap().host.as_deref(), Some("a.b."));
+        assert!(parse("p://s@1.2.3.256/x").unwrap().host.is_none());
+        assert_eq!(
+            parse("p://s@1.2.3.04/x").unwrap().host.as_deref(),
+            Some("1.2.3.04")
+        );
     }
 
     #[test]
     fn syntax_errors() {
-        for s in [
-            "://hallo",
-            "pekko://",
-            "pekko://s y",
-            "pekko://a%2@h:1",
-            "pekko://sys@[::1",
-            "pekko://sys@[1::2::3]:1",
+        for bad in [
+            "pekko:",
+            ":x",
+            "1a://h",
+            "//",
             "a b",
-            "a%2",
-            "foo#1#2",
-            "pekko://sys/a# 5",
-            "1pekko://sys",
+            "p://h/a b",
+            "p://h/a[b]",
+            "p://h#a#b",
+            "p://h:99999999999",
+            "p://[::1",
+            "p://[1::2::3]",
+            "p://[1:2:3:4:5:6:7:8:9]",
+            "p://h/%zz",
+            "p://h/\u{a0}",
+            "p://h/\u{85}",
+            "p://h/{",
         ] {
-            assert!(parse(s).is_err(), "{s:?} should fail");
+            assert_eq!(parse(bad).unwrap_err(), UriError::Syntax, "{bad}");
         }
     }
 
     #[test]
-    fn ipv6_literals_keep_brackets_and_zone() {
-        assert_eq!(ok("p://s@[::1]:1").host.as_deref(), Some("[::1]"));
+    fn legal_extras() {
+        assert!(parse("pekko:opaque[x]#f").unwrap().raw_path.is_none());
         assert_eq!(
-            ok("p://s@[fe80::1%25eth0]:1").host.as_deref(),
-            Some("[fe80::1%25eth0]")
+            parse("p://h/x?a[b]#c[d]").unwrap().raw_fragment.as_deref(),
+            Some("c[d]")
+        );
+        assert_eq!(parse("p://h/x#").unwrap().raw_fragment.as_deref(), Some(""));
+        assert_eq!(
+            parse("p://h/\u{e9}").unwrap().raw_path.as_deref(),
+            Some("/\u{e9}")
+        );
+        assert!(parse("//h/x").unwrap().scheme.is_none());
+        assert!(
+            parse("p://[fe80::1%eth0]:1/x")
+                .unwrap()
+                .host
+                .unwrap()
+                .starts_with('[')
+        );
+        assert!(parse("p://[::ffff:1.2.3.4]/x").is_ok());
+        assert!(parse("p:///x").unwrap().host.is_none());
+    }
+
+    #[test]
+    fn embedded_ipv4_overflow_is_number_format() {
+        assert_eq!(
+            nfe_message("p://[::1.2.3.99999999999]"),
+            "Error at index 9 in: \"99999999999\""
         );
         assert_eq!(
-            ok("p://s@[::FFFF:1.2.3.4]:1").host.as_deref(),
-            Some("[::FFFF:1.2.3.4]")
+            nfe_message("p://[::1.2.3.2147483648]"),
+            "Error at index 9 in: \"2147483648\""
+        );
+        assert_eq!(parse("p://[::1.2.3.256]").unwrap_err(), UriError::Syntax);
+        assert_eq!(
+            parse("p://[1.2.3.99999999999]").unwrap_err(),
+            UriError::Syntax
+        );
+        assert_eq!(
+            parse("p://[::1.2.3.99999999999x]").unwrap_err(),
+            UriError::Syntax
+        );
+        assert_eq!(
+            parse("p://[::1.2.3.99999999999 ]").unwrap_err(),
+            UriError::Syntax
         );
     }
 
     #[test]
-    fn decode_replaces_malformed_utf8() {
-        assert_eq!(decode("a%C3%BC"), "a\u{FC}");
-        assert_eq!(decode("a%FF"), "a\u{FFFD}");
+    fn user_info_decoding() {
+        let decoded = |s: &str| parse(&format!("p://{s}@h:1")).unwrap().user_info().unwrap();
+        assert_eq!(decoded("a%C3%A9b"), "a\u{e9}b");
+        assert_eq!(decoded("%E2%82%AC%F0%9F%98%80"), "\u{20ac}\u{1F600}");
+        assert_eq!(decoded("a%ED%A0%80b"), "a\u{fffd}b");
+        assert_eq!(decoded("%ED%A0b"), "\u{fffd}b");
+        assert_eq!(decoded("%C0%80"), "\u{fffd}\u{fffd}");
+        assert_eq!(decoded("%E2%82"), "\u{fffd}");
+        assert_eq!(decoded("%F0%80%80%80"), "\u{fffd}".repeat(4));
+        assert_eq!(decoded("%FF%FE"), "\u{fffd}\u{fffd}");
+        assert_eq!(decoded("\u{e9}x"), "\u{e9}x");
     }
 
-    /// Malformed-input lengths of the JDK UTF-8 decoder, as probed on Java 21
-    /// through `new URI("pekko://" + escapes + "@h:1").getUserInfo()`.
     #[test]
-    fn decode_replaces_malformed_utf8_like_the_jdk_decoder() {
-        let r = '\u{FFFD}';
-        for (escaped, expected) in [
-            ("%ED%A0%80", format!("{r}")),
-            ("%ED%A0%80%ED%B0%80", format!("{r}{r}")),
-            ("%ED%A0%41", format!("{r}A")),
-            ("%ED%A0", format!("{r}")),
-            ("%C0%80", format!("{r}{r}")),
-            ("%E0%80%80", format!("{r}{r}{r}")),
-            ("%E0%80", format!("{r}{r}")),
-            ("%E2%82", format!("{r}")),
-            ("%E2%82%41", format!("{r}A")),
-            ("%F0%9F%98", format!("{r}")),
-            ("%F0%9F%41", format!("{r}A")),
-            ("%F0%90%80%41", format!("{r}A")),
-            ("%F4%90%80%80", format!("{r}{r}{r}{r}")),
-            ("%F5%80", format!("{r}{r}")),
-            ("%F8%88%80%80%80", format!("{r}{r}{r}{r}{r}")),
-            ("%F0%9F%98%80%80", format!("\u{1F600}{r}")),
-        ] {
-            assert_eq!(decode(escaped), expected, "{escaped}");
-        }
+    fn deep_path_is_linear() {
+        let s = format!("p://h{}", "/a".repeat(1_000_000));
+        assert_eq!(parse(&s).unwrap().raw_path.unwrap().len(), 2_000_000);
     }
 }

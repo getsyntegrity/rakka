@@ -109,7 +109,7 @@ if os.path.exists("docs/unit-plan.md"):
 # 1. every Rust source of crates/ names where it comes from: either the Pekko 2.0.0 files it derives from, or the clean-room specification it implements.
 # 2. nothing in crates/, tools/ or oracle/ mentions OpenJDK, the GPL or the Classpath exception (those words live only in docs/legal/).
 # PENDING_CLEANROOM lists the files still waiting for their clean-room rewrite (Q-PATH-6); it must only shrink and ends empty.
-PENDING_CLEANROOM = {"crates/rakka-actor/src/actor/uri.rs"}
+PENDING_CLEANROOM = set()
 for rs in sorted(glob.glob("crates/*/src/**/*.rs", recursive=True)):
     if os.path.basename(rs) in ("lib.rs", "mod.rs") or rs in PENDING_CLEANROOM: continue
     head = "".join(open(rs, encoding="utf-8").readlines()[:8])

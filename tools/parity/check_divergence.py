@@ -26,8 +26,8 @@ CASES_REPORT = os.path.join(ROOT, "rust", "app-cases", "replay-report.md")
 MUTANTS = {
     "utf8-lossy-decoder": (
         "src/actor/uri.rs",
-        "decode_utf8_like_jdk(&bytes, &mut out);",
-        "out.push_str(&String::from_utf8_lossy(&bytes));",
+        "decode_utf8_lossy_into(&octets, &mut out);",
+        "out.push_str(&String::from_utf8_lossy(&octets));",
         "decode %XX user info with Rust's maximal-subpart UTF-8 replacement instead of the JDK's "
         "(the real bug the differential fuzzer found while porting)",
     ),
@@ -258,10 +258,11 @@ MUTANTS = {
     ),
     "ipv4-octet-overflow-swallowed": (
         "src/actor/uri.rs",
-        "Err(error) => Err(UriError::NumberFormat(error)),",
-        "Err(_) => Ok(p),",
+        ".ok_or_else(|| {\n                    UriError::NumberFormat(NumberFormatError::new(format!(\n                        \"Error at index {index} in: \\\"{part}\\\"\"\n                    )))\n                })?;",
+        ".unwrap_or(256);",
         "an overflowing IPv4 octet in an IPv6 host no longer escapes as NumberFormatException (the JDK 17 behaviour Pekko 2.0.0 shows)",
     ),
+
 }
 
 
