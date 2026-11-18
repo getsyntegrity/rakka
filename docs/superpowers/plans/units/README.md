@@ -7,55 +7,54 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | # | Spec | Filas | Tareas | Estado | Depende de |
 |---|---|---|---|---|---|
 | 01 | [AC-PATH-1](01-ac-path-1.md) | 13 | 3 | sin decisiones abiertas (preliminar) | 02 |
-| 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | pendiente de decisiones | 05, 03, 23, 11, 08 |
-| 03 | [AC-UTIL-2](03-ac-util-2.md) | 30 | 5 | sin decisiones abiertas (preliminar) | 02, 05, 18 |
-| 04 | [AC-UTIL-3](04-ac-util-3.md) | 3 | 1 | sin decisiones abiertas (preliminar) | 10, 24, 03 |
-| 05 | [AC-CFG-1](05-ac-cfg-1.md) | 29 | 5 | sin decisiones abiertas (preliminar) | 11, 18, 15, 22, 06, 16, 23, 02, 21 |
-| 06 | [AC-REF-1](06-ac-ref-1.md) | 30 | 5 | pendiente de decisiones | 01, 08, 13, 05, 19, 11, 15, 14, 23 |
-| 07 | [AC-REF-2](07-ac-ref-2.md) | 1 | 1 | sin decisiones abiertas (preliminar) | 06, 15, 19 |
-| 08 | [AC-MBX-1](08-ac-mbx-1.md) | 23 | 4 | pendiente de decisiones | 13, 09, 11, 05, 02, 21, 06 |
-| 09 | [AC-DSP-1](09-ac-dsp-1.md) | 25 | 5 | pendiente de decisiones | 08, 05, 21, 11, 13 |
-| 10 | [AC-SCH-1](10-ac-sch-1.md) | 17 | 3 | pendiente de decisiones | 09, 02, 04, 05, 13, 08 |
-| 11 | [AC-EVT-1](11-ac-evt-1.md) | 24 | 4 | pendiente de decisiones | 02, 15, 17, 06, 05, 12, 13, 01, 20, 08, 26 |
-| 12 | [AC-TK-1](12-ac-tk-1.md) | 27 | 5 | pendiente de decisiones | 09, 15, 16, 05, 18, 11, 06, 13, 08, 20, 10, 26, 23, 24 |
-| 13 | [AC-CELL-1](13-ac-cell-1.md) | 30 | 5 | pendiente de decisiones | 16, 08, 17, 11, 06, 10, 09 |
-| 14 | [AC-CELL-2](14-ac-cell-2.md) | 9 | 2 | pendiente de decisiones | 05, 13, 11, 08, 06, 23 |
-| 15 | [AC-SYS-1](15-ac-sys-1.md) | 27 | 5 | pendiente de decisiones | 05, 18, 11, 13, 16, 22, 09, 06, 12, 17, 10, 01, 08, 21, 19, 23, 02, 03 |
-| 16 | [AC-SUP-1](16-ac-sup-1.md) | 21 | 4 | pendiente de decisiones | 13, 01, 11, 08, 05, 15 |
-| 17 | [AC-DW-1](17-ac-dw-1.md) | 8 | 2 | pendiente de decisiones | 06, 13, 16, 18, 08 |
-| 18 | [AC-EXT-1](18-ac-ext-1.md) | 5 | 1 | pendiente de decisiones | 15, 05 |
-| 19 | [AC-ASK-1](19-ac-ask-1.md) | 30 | 5 | pendiente de decisiones | 02, 15, 06, 10, 01, 05, 18, 16 |
-| 20 | [AC-FSM-1](20-ac-fsm-1.md) | 11 | 2 | pendiente de decisiones | 13, 21, 10, 05 |
-| 21 | [AC-RT-1](21-ac-rt-1.md) | 22 | 4 | pendiente de decisiones | 06, 19, 16, 13, 05, 08, 23, 10, 09 |
-| 22 | [AC-CS-1](22-ac-cs-1.md) | 15 | 3 | pendiente de decisiones | 05, 10, 15 |
-| 23 | [AC-SER-1](23-ac-ser-1.md) | 23 | 4 | pendiente de decisiones | 05, 01, 06, 15, 25, 03, 18 |
-| 24 | [AC-IO-1](24-ac-io-1.md) | 30 | 5 | pendiente de decisiones | 15, 18, 25, 05, 09, 16 |
-| 25 | [AC-IO-2](25-ac-io-2.md) | 5 | 1 | pendiente de decisiones | 24, 09 |
-| 26 | [AC-JAPI-1](26-ac-japi-1.md) | 21 | 4 | pendiente de decisiones | 03, 13, 20, 16, 06, 11, 01, 15, 10, 19, 23, 24 |
-| 27 | [AT-BEH-1](27-at-beh-1.md) | 26 | 5 | pendiente de decisiones | 28, 38, 36, 39, 34, 35, 29 |
-| 28 | [AT-SIG-1](28-at-sig-1.md) | 8 | 2 | pendiente de decisiones | 36, 32, 27 |
-| 29 | [AT-REF-1](29-at-ref-1.md) | 7 | 2 | pendiente de decisiones | 48, 27, 42, 41 |
-| 30 | [AT-TK-1](30-at-tk-1.md) | 30 | 5 | pendiente de decisiones | 05, 33, 31, 32, 42, 47, 39, 43, 34, 29, 38, 12 |
-| 31 | [AT-TK-2](31-at-tk-2.md) | 12 | 2 | pendiente de decisiones | 30, 10, 12, 33, 34, 38, 23, 48, 02, 05 |
-| 32 | [AT-CTX-1](32-at-ctx-1.md) | 18 | 3 | pendiente de decisiones | 29, 33, 40, 28, 42, 27, 38, 36, 37, 50, 35 |
-| 33 | [AT-SYS-1](33-at-sys-1.md) | 15 | 3 | pendiente de decisiones | 37, 29, 35, 47, 39, 38 |
-| 34 | [AT-TMR-1](34-at-tmr-1.md) | 9 | 2 | pendiente de decisiones | 27, 32 |
-| 35 | [AT-STASH-1](35-at-stash-1.md) | 6 | 1 | pendiente de decisiones | 27, 38, 36 |
-| 36 | [AT-SUP-1](36-at-sup-1.md) | 24 | 4 | pendiente de decisiones | 28, 27, 34, 32, 33, 35, 38, 39, 37 |
-| 37 | [AT-ADP-1](37-at-adp-1.md) | 13 | 3 | pendiente de decisiones | 33, 36, 40, 32, 27, 38, 41, 47 |
-| 38 | [AT-EVT-1](38-at-evt-1.md) | 4 | 1 | pendiente de decisiones | 27 |
-| 39 | [AT-LOG-1](39-at-log-1.md) | 5 | 1 | pendiente de decisiones | 27, 32, 37, 40, 30, 31 |
-| 40 | [AT-DSP-1](40-at-dsp-1.md) | 5 | 1 | pendiente de decisiones | 32, 39, 33, 31 |
-| 41 | [AT-EXT-1](41-at-ext-1.md) | 7 | 2 | pendiente de decisiones | 37 |
-| 42 | [AT-ASK-1](42-at-ask-1.md) | 4 | 1 | pendiente de decisiones | 29, 38 |
-| 43 | [AT-RCP-1](43-at-rcp-1.md) | 10 | 2 | pendiente de decisiones | 41, 48, 32, 44 |
-| 44 | [AT-RT-1](44-at-rt-1.md) | 8 | 2 | pendiente de decisiones | 27, 32, 40, 43, 38 |
-| 45 | [AT-PS-1](45-at-ps-1.md) | 3 | 1 | pendiente de decisiones | 32, 43, 38 |
-| 46 | [AT-SPV-1](46-at-spv-1.md) | 1 | 1 | pendiente de decisiones | 32, 42 |
-| 47 | [AT-CS-1](47-at-cs-1.md) | 1 | 1 | sin decisiones abiertas (preliminar) | - |
-| 48 | [AT-SER-1](48-at-ser-1.md) | 3 | 1 | pendiente de decisiones | 29, 43 |
-| 49 | [AT-DLV-1](49-at-dlv-1.md) | 25 | 5 | pendiente de decisiones | 32, 27, 43, 41 |
-| 50 | [AT-JAPI-1](50-at-japi-1.md) | 16 | 3 | pendiente de decisiones | 27, 36, 28, 39, 32, 42, 34, 35, 44, 37 |
+| 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | sin decisiones abiertas (preliminar) | 04, 03, 22, 10, 07 |
+| 03 | [AC-UTIL-2](03-ac-util-2.md) | 29 | 5 | sin decisiones abiertas (preliminar) | 02, 04, 17, 09, 23 |
+| 04 | [AC-CFG-1](04-ac-cfg-1.md) | 29 | 5 | sin decisiones abiertas (preliminar) | 10, 17, 14, 21, 05, 15, 22, 02, 20 |
+| 05 | [AC-REF-1](05-ac-ref-1.md) | 30 | 5 | pendiente de decisiones | 01, 07, 12, 04, 18, 10, 14, 13, 22 |
+| 06 | [AC-REF-2](06-ac-ref-2.md) | 1 | 1 | sin decisiones abiertas (preliminar) | 05, 14, 18 |
+| 07 | [AC-MBX-1](07-ac-mbx-1.md) | 23 | 4 | pendiente de decisiones | 12, 08, 10, 04, 02, 20, 05 |
+| 08 | [AC-DSP-1](08-ac-dsp-1.md) | 25 | 5 | pendiente de decisiones | 07, 04, 20, 10, 12 |
+| 09 | [AC-SCH-1](09-ac-sch-1.md) | 17 | 3 | pendiente de decisiones | 08, 02, 03, 04, 12, 07 |
+| 10 | [AC-EVT-1](10-ac-evt-1.md) | 24 | 4 | pendiente de decisiones | 02, 14, 16, 05, 04, 11, 12, 01, 19, 07, 25 |
+| 11 | [AC-TK-1](11-ac-tk-1.md) | 27 | 5 | pendiente de decisiones | 08, 14, 15, 04, 17, 10, 05, 12, 07, 19, 09, 25, 22, 23 |
+| 12 | [AC-CELL-1](12-ac-cell-1.md) | 30 | 5 | pendiente de decisiones | 15, 07, 16, 10, 05, 09, 08 |
+| 13 | [AC-CELL-2](13-ac-cell-2.md) | 9 | 2 | pendiente de decisiones | 04, 12, 10, 07, 05, 22 |
+| 14 | [AC-SYS-1](14-ac-sys-1.md) | 27 | 5 | pendiente de decisiones | 04, 17, 10, 12, 15, 21, 08, 05, 11, 16, 09, 01, 07, 20, 18, 22, 02, 03 |
+| 15 | [AC-SUP-1](15-ac-sup-1.md) | 21 | 4 | pendiente de decisiones | 12, 01, 10, 07, 04, 14 |
+| 16 | [AC-DW-1](16-ac-dw-1.md) | 8 | 2 | pendiente de decisiones | 05, 12, 15, 17, 07 |
+| 17 | [AC-EXT-1](17-ac-ext-1.md) | 5 | 1 | pendiente de decisiones | 14, 04 |
+| 18 | [AC-ASK-1](18-ac-ask-1.md) | 30 | 5 | pendiente de decisiones | 02, 14, 05, 09, 01, 04, 17, 15 |
+| 19 | [AC-FSM-1](19-ac-fsm-1.md) | 11 | 2 | pendiente de decisiones | 12, 20, 09, 04 |
+| 20 | [AC-RT-1](20-ac-rt-1.md) | 22 | 4 | pendiente de decisiones | 05, 18, 15, 12, 04, 07, 22, 09, 08 |
+| 21 | [AC-CS-1](21-ac-cs-1.md) | 15 | 3 | pendiente de decisiones | 04, 09, 14 |
+| 22 | [AC-SER-1](22-ac-ser-1.md) | 23 | 4 | pendiente de decisiones | 04, 01, 05, 14, 24, 17 |
+| 23 | [AC-IO-1](23-ac-io-1.md) | 30 | 5 | pendiente de decisiones | 14, 17, 24, 04, 08, 15 |
+| 24 | [AC-IO-2](24-ac-io-2.md) | 5 | 1 | pendiente de decisiones | 23, 08 |
+| 25 | [AC-JAPI-1](25-ac-japi-1.md) | 21 | 4 | pendiente de decisiones | 03, 12, 19, 15, 05, 10, 01, 14, 09, 18, 22, 23 |
+| 26 | [AT-BEH-1](26-at-beh-1.md) | 26 | 5 | pendiente de decisiones | 27, 37, 35, 38, 33, 34, 28 |
+| 27 | [AT-SIG-1](27-at-sig-1.md) | 8 | 2 | pendiente de decisiones | 35, 31, 26 |
+| 28 | [AT-REF-1](28-at-ref-1.md) | 7 | 2 | pendiente de decisiones | 47, 26, 41, 40 |
+| 29 | [AT-TK-1](29-at-tk-1.md) | 30 | 5 | pendiente de decisiones | 04, 32, 30, 31, 41, 46, 38, 42, 33, 28, 37, 11 |
+| 30 | [AT-TK-2](30-at-tk-2.md) | 12 | 2 | pendiente de decisiones | 29, 09, 11, 32, 33, 37, 22, 47, 02, 04 |
+| 31 | [AT-CTX-1](31-at-ctx-1.md) | 18 | 3 | pendiente de decisiones | 28, 32, 39, 27, 41, 26, 37, 35, 36, 49, 34 |
+| 32 | [AT-SYS-1](32-at-sys-1.md) | 15 | 3 | pendiente de decisiones | 36, 28, 34, 46, 38, 37 |
+| 33 | [AT-TMR-1](33-at-tmr-1.md) | 9 | 2 | pendiente de decisiones | 26, 31 |
+| 34 | [AT-STASH-1](34-at-stash-1.md) | 6 | 1 | pendiente de decisiones | 26, 37, 35 |
+| 35 | [AT-SUP-1](35-at-sup-1.md) | 24 | 4 | pendiente de decisiones | 27, 26, 33, 31, 32, 34, 37, 38, 36 |
+| 36 | [AT-ADP-1](36-at-adp-1.md) | 13 | 3 | pendiente de decisiones | 32, 35, 39, 31, 26, 37, 40, 46 |
+| 37 | [AT-EVT-1](37-at-evt-1.md) | 4 | 1 | pendiente de decisiones | 26 |
+| 38 | [AT-LOG-1](38-at-log-1.md) | 5 | 1 | pendiente de decisiones | 26, 31, 36, 39, 29, 30 |
+| 39 | [AT-DSP-1](39-at-dsp-1.md) | 5 | 1 | pendiente de decisiones | 31, 38, 32, 30 |
+| 40 | [AT-EXT-1](40-at-ext-1.md) | 7 | 2 | pendiente de decisiones | 36 |
+| 41 | [AT-ASK-1](41-at-ask-1.md) | 4 | 1 | pendiente de decisiones | 28, 37 |
+| 42 | [AT-RCP-1](42-at-rcp-1.md) | 10 | 2 | pendiente de decisiones | 40, 47, 31, 43 |
+| 43 | [AT-RT-1](43-at-rt-1.md) | 8 | 2 | pendiente de decisiones | 26, 31, 39, 42, 37 |
+| 44 | [AT-PS-1](44-at-ps-1.md) | 3 | 1 | pendiente de decisiones | 31, 42, 37 |
+| 45 | [AT-SPV-1](45-at-spv-1.md) | 1 | 1 | pendiente de decisiones | 31, 41 |
+| 46 | [AT-CS-1](46-at-cs-1.md) | 1 | 1 | sin decisiones abiertas (preliminar) | - |
+| 47 | [AT-SER-1](47-at-ser-1.md) | 3 | 1 | pendiente de decisiones | 28, 42 |
+| 48 | [AT-DLV-1](48-at-dlv-1.md) | 25 | 5 | pendiente de decisiones | 31, 26, 42, 40 |
+| 49 | [AT-JAPI-1](49-at-japi-1.md) | 16 | 3 | pendiente de decisiones | 26, 35, 27, 38, 31, 41, 33, 34, 43, 36 |
 
 ## Ciclos y dependencias hacia adelante
 
@@ -69,8 +68,8 @@ El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL,
 - `AC-UTIL-1` necesita `AC-MBX-1`.
 - `AC-UTIL-2` necesita `AC-CFG-1`.
 - `AC-UTIL-2` necesita `AC-EXT-1`.
-- `AC-UTIL-3` necesita `AC-SCH-1`.
-- `AC-UTIL-3` necesita `AC-IO-1`.
+- `AC-UTIL-2` necesita `AC-SCH-1`.
+- `AC-UTIL-2` necesita `AC-IO-1`.
 - `AC-CFG-1` necesita `AC-EVT-1`.
 - `AC-CFG-1` necesita `AC-EXT-1`.
 - `AC-CFG-1` necesita `AC-SYS-1`.

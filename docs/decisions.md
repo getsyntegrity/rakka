@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 220 decisiones: 0 bloqueantes, 159 propuestas, 48 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 220 decisiones: 0 bloqueantes, 158 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1809,16 +1809,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** TK
 - **Origen:** classic-system
 
-### Q-UTIL-17 — toString / Display de PekkoException y ConfigurationException: con o sin nombre de clase
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Pekko 2.0.0 (oráculo EX-TS-01..03, casos medidos el 2026-11-18): `new PekkoException("boom").toString` = `org.apache.pekko.PekkoException: boom`; `ConfigurationException` = `org.apache.pekko.ConfigurationException: bad`; con mensaje vacío `org.apache.pekko.PekkoException: `. Hoy el `Display` de Rust imprime sólo el mensaje (`java_class()` da el nombre simple).
-- **Alternativas:** (a) `Display` = sólo el mensaje, como es convención en Rust, y `java_class()`/`java_name()` para quien quiera el nombre; (b) `Display` = `<nombre calificado JVM>: <mensaje>`, como `Throwable.toString`.
-- **Recomendación:** (a): lo que consumen los usuarios de un crate Rust es el mensaje; el nombre de clase está disponible aparte. Es una diferencia observable con Pekko: requiere autorización del Owner (A-4); sin respuesta AC-UTIL-004.1 queda `partial`.
-- **Filas afectadas:** AC-UTIL-004.1; AC-UTIL-004.2
-- **Unidades afectadas:** P02
-- **Origen:** classic-foundation
-
 ## 6. Respuestas del Owner por unidad
 
 Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la sección 4).
@@ -2250,7 +2240,7 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Filas afectadas:** AC-UTIL-014, 015.2, 016.*, 017.*, 018.*, 019, 020, 021, 022 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.8, AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.11, AC-UTIL-016.13, AC-UTIL-016.14, AC-UTIL-016.18, AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.4, AC-UTIL-018.5, AC-UTIL-019]
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
-- **Respuesta del Owner:** aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y SWARUtil. Las exclusiones candidatas 016.7, 016.12, 016.13 y 021 NO quedan autorizadas: el Owner decide aparte tras una línea por cada una con lo que se pierde. (Owner (respuesta al lote 01), 2026-11-18)
+- **Respuesta del Owner:** aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y SWARUtil. Las exclusiones candidatas 016.7, 016.12, 016.13 y 021 NO quedan autorizadas: el Owner decide aparte tras una línea por cada una con lo que se pierde. RESPUESTA POSTERIOR (2026-11-18): se autoriza excluir AC-UTIL-016.7 (cubierto por el registro de Q-X-2), AC-UTIL-016.12 y AC-UTIL-016.13. AC-UTIL-021 NO es exclusión: su equivalente es cargo-semver-checks, que entra en los gates a partir del primer release (anotado en la fila y en AGENTS.md). Las filas excluidas no cuentan como done: progress.md las muestra como excluded y calcula los porcentajes sobre las filas en alcance. (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-UTIL-12 — Alcance y representación de ByteString/ByteIterator/ByteStringBuilder
 
@@ -2306,4 +2296,15 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** aceptar. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-17 — toString / Display de PekkoException y ConfigurationException: con o sin nombre de clase
+
+- **Estado:** aceptada
+- **Evidencia:** Pekko 2.0.0 (oráculo EX-TS-01..03, casos medidos el 2026-11-18): `new PekkoException("boom").toString` = `org.apache.pekko.PekkoException: boom`; `ConfigurationException` = `org.apache.pekko.ConfigurationException: bad`; con mensaje vacío `org.apache.pekko.PekkoException: `. Hoy el `Display` de Rust imprime sólo el mensaje (`java_class()` da el nombre simple).
+- **Alternativas:** (a) `Display` = sólo el mensaje, como es convención en Rust, y `java_class()`/`java_name()` para quien quiera el nombre; (b) `Display` = `<nombre calificado JVM>: <mensaje>`, como `Throwable.toString`.
+- **Recomendación:** (a): lo que consumen los usuarios de un crate Rust es el mensaje; el nombre de clase está disponible aparte. Es una diferencia observable con Pekko: requiere autorización del Owner (A-4); sin respuesta AC-UTIL-004.1 queda `partial`.
+- **Filas afectadas:** AC-UTIL-004.1; AC-UTIL-004.2
+- **Unidades afectadas:** P02
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a): Display de PekkoException y ConfigurationException muestra sólo el mensaje; java_class() queda aparte. (Owner (respuesta tras P02), 2026-11-18)
 

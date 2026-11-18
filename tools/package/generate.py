@@ -380,19 +380,21 @@ def _progress_md():
         compared = {l.strip() for l in open("docs/inventory/compared-areas.txt", encoding="utf-8") if l.strip() and not l.startswith("#")}
     area_of = lambda i: i.split("-")[1]
     flagged = {r["id"] for r in inv if "revisar contra 2.0.0" in r["notes"]}
+    is_excluded = lambda r: r["validation"] == "excluded" or "EXCLUIDA (autorizada" in r["notes"]
     def tally(rs):
-        c = collections.Counter(r["impl"] for r in rs)
-        n = len(rs)
-        return n, c["done"], c["partial"], c["pending"]
+        """-> (rows in scope, done, partial, pending, excluded): excluded rows are not done and not in scope."""
+        ex = sum(1 for r in rs if is_excluded(r))
+        c = collections.Counter(r["impl"] for r in rs if not is_excluded(r))
+        return len(rs) - ex, c["done"], c["partial"], c["pending"], ex
     pct = lambda a, n: f"{100.0 * a / n:.1f} %" if n else "-"
     def line(label, rs, extra=""):
-        n, d, p, q = tally(rs)
-        return f"| {label} | {n} | {d} | {p} | {q} | {pct(d, n)} | {pct(d + p, n)} |{extra}"
-    HEAD = "| {} | Filas | done | partial | pending | % done | % done + partial |"
-    SEP = "|---|---|---|---|---|---|---|"
+        n, d, p, q, x = tally(rs)
+        return f"| {label} | {n} | {d} | {p} | {q} | {x} | {pct(d, n)} | {pct(d + p, n)} |{extra}"
+    HEAD = "| {} | En alcance | done | partial | pending | excluded | % done | % done + partial |"
+    SEP = "|---|---|---|---|---|---|---|---|"
     out = ["# Avance del port", "",
            "Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (columna `impl`), `docs/unit-rows.tsv` y `docs/unit-plan.md`. **No editar a mano.**",
-           "`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar).", ""]
+           "`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar); `excluded` = fila excluida por autorización del Owner: **no cuenta como done** y sale del denominador. Los porcentajes se calculan sobre las filas **en alcance** (total menos excluidas).", ""]
     classic = [r for r in inv if r["id"].startswith("AC-")]
     typed = [r for r in inv if r["id"].startswith("AT-")]
     out += ["## Resumen", "", HEAD.format("Módulo"), SEP, line("Classic (`rakka-actor`)", classic), line("Typed (`rakka-actor-typed`)", typed), line("**Total**", inv), ""]
@@ -405,15 +407,15 @@ def _progress_md():
     # by unit
     units = sorted(set(unit_of.values()), key=lambda u: int(u[1:]))
     scores = {}
-    out += ["## Por unidad del plan", "", "| Unidad | Ola | Filas | done | partial | pending | % done | % done + partial | Áreas comparadas |", "|---|---|---|---|---|---|---|---|---|"]
+    out += ["## Por unidad del plan", "", "| Unidad | Ola | En alcance | done | partial | pending | excluded | % done | % done + partial | Áreas comparadas |", "|---|---|---|---|---|---|---|---|---|---|"]
     for u in units:
         rs = [r for r in inv if unit_of.get(r["id"]) == u]
-        n, d, p, q = tally(rs)
+        n, d, p, q, x = tally(rs)
         areas = sorted({area_of(r["id"]) for r in rs})
         done_cmp = [a for a in areas if a in compared]
         cmp_text = "sí" if len(done_cmp) == len(areas) and areas else ("parcial" if done_cmp else "no")
         scores[u] = ((d + 0.5 * p) / n if n else 0.0, n, d, p)
-        out.append(f"| {u} {name_of.get(u, '')} | {wave_of.get(u, '?')} | {n} | {d} | {p} | {q} | {pct(d, n)} | {pct(d + p, n)} | {cmp_text} |")
+        out.append(f"| {u} {name_of.get(u, '')} | {wave_of.get(u, '?')} | {n} | {d} | {p} | {q} | {x} | {pct(d, n)} | {pct(d + p, n)} | {cmp_text} |")
     out.append("")
     ranked = [u for u in units if scores[u][1]]
     best = sorted(ranked, key=lambda u: (-scores[u][0], -scores[u][1], u))[:5]
@@ -426,15 +428,15 @@ def _progress_md():
     areas = sorted({(r["id"][:2], area_of(r["id"])) for r in inv})
     out += ["## Por área del inventario y comparación aserción por aserción", "",
             "Un área figura como comparada cuando se contrastaron las aserciones de cada una de sus filas con los casos grabados (`docs/inventory/compared-areas.txt`). En las áreas **sin comparar** todas las filas siguen `pending` aunque algún caso grabado las roce: falta hacer la comparación al tomar su unidad.", "",
-            HEAD.format("Área").replace("Filas", "Filas") + " Comparada |", SEP[:-1] + "|---|"]
+            HEAD.format("Área") + " Comparada |", SEP + "---|"]
     for kind, a in areas:
         rs = [r for r in inv if r["id"].startswith(kind + "-" + a + "-")]
         out.append(line(f"{kind}-{a}", rs, f" {'sí' if a in compared and kind == 'AC' else 'no'} |"))
     out.append("")
-    excluded = [r["id"] for r in inv if "EXCLUIDA (autorizada" in r["notes"]]
-    out += ["## Filas excluidas por el Owner", "", f"{len(excluded)} fila(s) con exclusión autorizada (cuentan como `done`; la nota de la fila cita la decisión): " + (", ".join(excluded) or "ninguna"), ""]
+    excluded = [r["id"] for r in inv if is_excluded(r)]
+    out += ["## Filas excluidas por el Owner", "", f"{len(excluded)} fila(s) con exclusión autorizada (no cuentan como done ni en el alcance; la nota de la fila cita la decisión): " + (", ".join(excluded) or "ninguna"), ""]
     nf = [r for r in inv if r["id"] in flagged]
-    n, d, p, q = tally(nf)
+    n, d, p, q, x = tally(nf)
     out += ["## Filas con nota «revisar contra 2.0.0»", "",
             f"{n} filas ({d} done, {p} partial, {q} pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.", ""]
     if os.path.exists("cases/coverage.tsv"):

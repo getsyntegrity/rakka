@@ -1,179 +1,179 @@
 # Avance del port
 
 Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (columna `impl`), `docs/unit-rows.tsv` y `docs/unit-plan.md`. **No editar a mano.**
-`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar).
+`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar); `excluded` = fila excluida por autorización del Owner: **no cuenta como done** y sale del denominador. Los porcentajes se calculan sobre las filas **en alcance** (total menos excluidas).
 
 ## Resumen
 
-| Módulo | Filas | done | partial | pending | % done | % done + partial |
-|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 525 | 16 | 65 | 444 | 3.0 % | 15.4 % |
-| Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0.0 % | 0.0 % |
-| **Total** | 785 | 16 | 65 | 704 | 2.0 % | 10.3 % |
+| Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
+|---|---|---|---|---|---|---|---|
+| Classic (`rakka-actor`) | 521 | 16 | 64 | 441 | 4 | 3.1 % | 15.4 % |
+| Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
+| **Total** | 781 | 16 | 64 | 701 | 4 | 2.0 % | 10.2 % |
 
 ## Por ola
 
-| Ola | Filas | done | partial | pending | % done | % done + partial |
-|---|---|---|---|---|---|---|
-| 0 - valores sin runtime | 61 | 6 | 3 | 52 | 9.8 % | 14.8 % |
-| 1 - configuracion, eventos y scheduler | 70 | 3 | 13 | 54 | 4.3 % | 22.9 % |
-| 2 - nucleo del runtime Classic | 134 | 7 | 42 | 85 | 5.2 % | 36.6 % |
-| 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 6 | 39 | 0.0 % | 13.3 % |
-| 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0.0 % | 0.0 % |
-| 5 - apagado, serializacion e IO | 84 | 0 | 1 | 83 | 0.0 % | 1.2 % |
-| 6 - testkit Classic y superficie Java | 50 | 0 | 0 | 50 | 0.0 % | 0.0 % |
-| 7 - Typed: nucleo, adaptador y sistema | 105 | 0 | 0 | 105 | 0.0 % | 0.0 % |
-| 8 - Typed: contexto, supervision, receptionist y entrega fiable | 96 | 0 | 0 | 96 | 0.0 % | 0.0 % |
-| 9 - Typed: javadsl y testkits | 59 | 0 | 0 | 59 | 0.0 % | 0.0 % |
+| Ola | En alcance | done | partial | pending | excluded | % done | % done + partial |
+|---|---|---|---|---|---|---|---|
+| 0 - valores sin runtime | 57 | 6 | 2 | 49 | 4 | 10.5 % | 14.0 % |
+| 1 - configuracion, eventos y scheduler | 70 | 3 | 13 | 54 | 0 | 4.3 % | 22.9 % |
+| 2 - nucleo del runtime Classic | 134 | 7 | 42 | 85 | 0 | 5.2 % | 36.6 % |
+| 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 6 | 39 | 0 | 0.0 % | 13.3 % |
+| 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0 | 0.0 % | 0.0 % |
+| 5 - apagado, serializacion e IO | 84 | 0 | 1 | 83 | 0 | 0.0 % | 1.2 % |
+| 6 - testkit Classic y superficie Java | 50 | 0 | 0 | 50 | 0 | 0.0 % | 0.0 % |
+| 7 - Typed: nucleo, adaptador y sistema | 105 | 0 | 0 | 105 | 0 | 0.0 % | 0.0 % |
+| 8 - Typed: contexto, supervision, receptionist y entrega fiable | 96 | 0 | 0 | 96 | 0 | 0.0 % | 0.0 % |
+| 9 - Typed: javadsl y testkits | 59 | 0 | 0 | 59 | 0 | 0.0 % | 0.0 % |
 
 ## Por unidad del plan
 
-| Unidad | Ola | Filas | done | partial | pending | % done | % done + partial | Áreas comparadas |
-|---|---|---|---|---|---|---|---|---|
-| P01 PATH | 1 | 16 | 3 | 13 | 0 | 18.8 % | 100.0 % | sí |
-| P02 UTIL-NUCLEO | 0 | 9 | 6 | 3 | 0 | 66.7 % | 100.0 % | sí |
-| P03 UTIL-ESTRUCTURAS | 0 | 16 | 0 | 0 | 16 | 0.0 % | 0.0 % | sí |
-| P04 UTIL-BYTES | 0 | 9 | 0 | 0 | 9 | 0.0 % | 0.0 % | sí |
-| P05 UTIL-GLOB | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P06 UTIL-PLATAFORMA | 0 | 8 | 0 | 0 | 8 | 0.0 % | 0.0 % | sí |
-| P07 CFG-HOCON | 1 | 12 | 0 | 0 | 12 | 0.0 % | 0.0 % | parcial |
-| P08 CFG-AJUSTES | 1 | 10 | 0 | 0 | 10 | 0.0 % | 0.0 % | no |
-| P09 CFG-ENTORNO | 1 | 3 | 0 | 0 | 3 | 0.0 % | 0.0 % | no |
-| P10 CFG-DEPLOY | 1 | 3 | 0 | 0 | 3 | 0.0 % | 0.0 % | no |
-| P11 EVT-BUS | 1 | 11 | 0 | 0 | 11 | 0.0 % | 0.0 % | no |
-| P12 SCH-RUEDA | 1 | 13 | 0 | 0 | 13 | 0.0 % | 0.0 % | no |
-| P13 MBX-COLAS | 2 | 12 | 0 | 0 | 12 | 0.0 % | 0.0 % | sí |
-| P14 REF-BASE | 2 | 15 | 0 | 6 | 9 | 0.0 % | 40.0 % | sí |
-| P15 MBX-NUCLEO | 2 | 7 | 0 | 4 | 3 | 0.0 % | 57.1 % | sí |
-| P16 DSP-EJECUTORES | 2 | 19 | 0 | 0 | 19 | 0.0 % | 0.0 % | sí |
-| P17 REF-MUERTOS | 2 | 4 | 0 | 3 | 1 | 0.0 % | 75.0 % | sí |
-| P18 CELL-HIJOS | 2 | 6 | 1 | 4 | 1 | 16.7 % | 83.3 % | sí |
-| P19 CELL-EJECUCION | 2 | 11 | 0 | 3 | 8 | 0.0 % | 27.3 % | sí |
-| P20 SUP-ESTRATEGIAS | 2 | 10 | 0 | 4 | 6 | 0.0 % | 40.0 % | sí |
-| P21 SUP-FALLO | 2 | 11 | 1 | 5 | 5 | 9.1 % | 54.5 % | sí |
-| P22 CELL-REINICIO-PARADA | 2 | 21 | 2 | 8 | 11 | 9.5 % | 47.6 % | sí |
-| P23 DW-VIGILANCIA | 2 | 13 | 3 | 5 | 5 | 23.1 % | 61.5 % | parcial |
-| P24 MBX-STASH | 2 | 5 | 0 | 0 | 5 | 0.0 % | 0.0 % | sí |
-| P25 SYS-GUARDIANES | 3 | 12 | 0 | 2 | 10 | 0.0 % | 16.7 % | sí |
-| P26 SYS-PROVEEDOR | 3 | 8 | 0 | 3 | 5 | 0.0 % | 37.5 % | sí |
-| P27 SCH-ACTORES | 3 | 4 | 0 | 0 | 4 | 0.0 % | 0.0 % | no |
-| P28 SELECCION-CREACION | 3 | 9 | 0 | 1 | 8 | 0.0 % | 11.1 % | sí |
-| P29 REF-SELECCION | 3 | 6 | 0 | 0 | 6 | 0.0 % | 0.0 % | sí |
-| P30 EXT | 3 | 5 | 0 | 0 | 5 | 0.0 % | 0.0 % | no |
-| P31 ASK | 4 | 17 | 0 | 0 | 17 | 0.0 % | 0.0 % | parcial |
-| P32 CIRCUIT-BREAKER-BACKOFF | 4 | 15 | 0 | 0 | 15 | 0.0 % | 0.0 % | no |
-| P33 FSM | 4 | 11 | 0 | 0 | 11 | 0.0 % | 0.0 % | no |
-| P34 EVT-LOGGING | 4 | 11 | 0 | 0 | 11 | 0.0 % | 0.0 % | no |
-| P35 RT-NUCLEO | 4 | 9 | 0 | 0 | 9 | 0.0 % | 0.0 % | no |
-| P36 RT-ESTRATEGIAS | 4 | 9 | 0 | 0 | 9 | 0.0 % | 0.0 % | parcial |
-| P37 RT-CONFIG | 4 | 9 | 0 | 0 | 9 | 0.0 % | 0.0 % | no |
-| P38 CS-NUCLEO | 5 | 13 | 0 | 0 | 13 | 0.0 % | 0.0 % | no |
-| P39 TERMINACION | 5 | 10 | 0 | 1 | 9 | 0.0 % | 10.0 % | parcial |
-| P40 SER-NUCLEO | 5 | 18 | 0 | 0 | 18 | 0.0 % | 0.0 % | no |
-| P41 SER-SISTEMA | 5 | 8 | 0 | 0 | 8 | 0.0 % | 0.0 % | parcial |
-| P42 IO-TCP | 5 | 16 | 0 | 0 | 16 | 0.0 % | 0.0 % | no |
-| P43 IO-UDP-DNS | 5 | 19 | 0 | 0 | 19 | 0.0 % | 0.0 % | no |
-| P44 TK-DISPATCHER-REF | 6 | 5 | 0 | 0 | 5 | 0.0 % | 0.0 % | no |
-| P45 TK-API | 6 | 22 | 0 | 0 | 22 | 0.0 % | 0.0 % | no |
-| P46 JAPI-ACTORES | 6 | 16 | 0 | 0 | 16 | 0.0 % | 0.0 % | no |
-| P47 JAPI-EXTRA | 6 | 7 | 0 | 0 | 7 | 0.0 % | 0.0 % | no |
-| P48 T-COMPORTAMIENTO-NUCLEO | 7 | 21 | 0 | 0 | 21 | 0.0 % | 0.0 % | parcial |
-| P49 T-ADAPTADOR-CLASICO | 7 | 19 | 0 | 0 | 19 | 0.0 % | 0.0 % | parcial |
-| P50 T-SISTEMA-TIPADO | 7 | 25 | 0 | 0 | 25 | 0.0 % | 0.0 % | parcial |
-| P51 T-ASK-TIPADO | 7 | 5 | 0 | 0 | 5 | 0.0 % | 0.0 % | parcial |
-| P52 T-OBSERVABILIDAD | 7 | 14 | 0 | 0 | 14 | 0.0 % | 0.0 % | parcial |
-| P53 T-INTERCEPTORES-TIMERS-STASH | 7 | 21 | 0 | 0 | 21 | 0.0 % | 0.0 % | no |
-| P54 T-CONTEXTO-SENALES | 8 | 14 | 0 | 0 | 14 | 0.0 % | 0.0 % | parcial |
-| P55 T-SUPERVISION | 8 | 31 | 0 | 0 | 31 | 0.0 % | 0.0 % | parcial |
-| P56 T-RECEPCIONISTA-SERIALIZACION | 8 | 14 | 0 | 0 | 14 | 0.0 % | 0.0 % | parcial |
-| P57 T-ROUTERS-PUBSUB-SPAWN | 8 | 12 | 0 | 0 | 12 | 0.0 % | 0.0 % | no |
-| P58 T-ENTREGA-FIABLE-BASE | 8 | 13 | 0 | 0 | 13 | 0.0 % | 0.0 % | no |
-| P59 T-ENTREGA-FIABLE-DURABLE | 8 | 6 | 0 | 0 | 6 | 0.0 % | 0.0 % | no |
-| P60 T-ENTREGA-FIABLE-WORKPULLING | 8 | 6 | 0 | 0 | 6 | 0.0 % | 0.0 % | no |
-| P61 T-JAVADSL | 9 | 17 | 0 | 0 | 17 | 0.0 % | 0.0 % | no |
-| P62 T-TK-SONDA | 9 | 17 | 0 | 0 | 17 | 0.0 % | 0.0 % | no |
-| P63 T-TK-COMPORTAMIENTO | 9 | 19 | 0 | 0 | 19 | 0.0 % | 0.0 % | no |
-| P64 T-TK-LOGGING | 9 | 6 | 0 | 0 | 6 | 0.0 % | 0.0 % | no |
-| P65 UTIL-HASHCODE | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P66 UTIL-PEKKOVERSION | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P67 UTIL-VERSION | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P68 UTIL-PRETTYDURATION | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P69 UTIL-UUID-ORDEN | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P70 UTIL-RELOJ | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P71 UTIL-REGISTRO-FABRICAS | 0 | 2 | 0 | 0 | 2 | 0.0 % | 0.0 % | sí |
-| P72 UTIL-MANIFEST | 3 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P73 UTIL-JFR | 1 | 2 | 0 | 0 | 2 | 0.0 % | 0.0 % | sí |
-| P74 UTIL-TIPOS-DESERIALIZACION | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P75 UTIL-ORIGEN-CLOSURES | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P76 UTIL-EQUIVALENCIAS | 0 | 5 | 0 | 0 | 5 | 0.0 % | 0.0 % | sí |
-| P77 UTIL-FRONTERAS | 0 | 3 | 0 | 0 | 3 | 0.0 % | 0.0 % | sí |
+| Unidad | Ola | En alcance | done | partial | pending | excluded | % done | % done + partial | Áreas comparadas |
+|---|---|---|---|---|---|---|---|---|---|
+| P01 PATH | 1 | 16 | 3 | 13 | 0 | 0 | 18.8 % | 100.0 % | sí |
+| P02 UTIL-NUCLEO | 0 | 8 | 6 | 2 | 0 | 1 | 75.0 % | 100.0 % | sí |
+| P03 UTIL-ESTRUCTURAS | 0 | 16 | 0 | 0 | 16 | 0 | 0.0 % | 0.0 % | sí |
+| P04 UTIL-BYTES | 0 | 9 | 0 | 0 | 9 | 0 | 0.0 % | 0.0 % | sí |
+| P05 UTIL-GLOB | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P06 UTIL-PLATAFORMA | 0 | 8 | 0 | 0 | 8 | 0 | 0.0 % | 0.0 % | sí |
+| P07 CFG-HOCON | 1 | 12 | 0 | 0 | 12 | 0 | 0.0 % | 0.0 % | parcial |
+| P08 CFG-AJUSTES | 1 | 10 | 0 | 0 | 10 | 0 | 0.0 % | 0.0 % | no |
+| P09 CFG-ENTORNO | 1 | 3 | 0 | 0 | 3 | 0 | 0.0 % | 0.0 % | no |
+| P10 CFG-DEPLOY | 1 | 3 | 0 | 0 | 3 | 0 | 0.0 % | 0.0 % | no |
+| P11 EVT-BUS | 1 | 11 | 0 | 0 | 11 | 0 | 0.0 % | 0.0 % | no |
+| P12 SCH-RUEDA | 1 | 13 | 0 | 0 | 13 | 0 | 0.0 % | 0.0 % | no |
+| P13 MBX-COLAS | 2 | 12 | 0 | 0 | 12 | 0 | 0.0 % | 0.0 % | sí |
+| P14 REF-BASE | 2 | 15 | 0 | 6 | 9 | 0 | 0.0 % | 40.0 % | sí |
+| P15 MBX-NUCLEO | 2 | 7 | 0 | 4 | 3 | 0 | 0.0 % | 57.1 % | sí |
+| P16 DSP-EJECUTORES | 2 | 19 | 0 | 0 | 19 | 0 | 0.0 % | 0.0 % | sí |
+| P17 REF-MUERTOS | 2 | 4 | 0 | 3 | 1 | 0 | 0.0 % | 75.0 % | sí |
+| P18 CELL-HIJOS | 2 | 6 | 1 | 4 | 1 | 0 | 16.7 % | 83.3 % | sí |
+| P19 CELL-EJECUCION | 2 | 11 | 0 | 3 | 8 | 0 | 0.0 % | 27.3 % | sí |
+| P20 SUP-ESTRATEGIAS | 2 | 10 | 0 | 4 | 6 | 0 | 0.0 % | 40.0 % | sí |
+| P21 SUP-FALLO | 2 | 11 | 1 | 5 | 5 | 0 | 9.1 % | 54.5 % | sí |
+| P22 CELL-REINICIO-PARADA | 2 | 21 | 2 | 8 | 11 | 0 | 9.5 % | 47.6 % | sí |
+| P23 DW-VIGILANCIA | 2 | 13 | 3 | 5 | 5 | 0 | 23.1 % | 61.5 % | parcial |
+| P24 MBX-STASH | 2 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | sí |
+| P25 SYS-GUARDIANES | 3 | 12 | 0 | 2 | 10 | 0 | 0.0 % | 16.7 % | sí |
+| P26 SYS-PROVEEDOR | 3 | 8 | 0 | 3 | 5 | 0 | 0.0 % | 37.5 % | sí |
+| P27 SCH-ACTORES | 3 | 4 | 0 | 0 | 4 | 0 | 0.0 % | 0.0 % | no |
+| P28 SELECCION-CREACION | 3 | 9 | 0 | 1 | 8 | 0 | 0.0 % | 11.1 % | sí |
+| P29 REF-SELECCION | 3 | 6 | 0 | 0 | 6 | 0 | 0.0 % | 0.0 % | sí |
+| P30 EXT | 3 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | no |
+| P31 ASK | 4 | 17 | 0 | 0 | 17 | 0 | 0.0 % | 0.0 % | parcial |
+| P32 CIRCUIT-BREAKER-BACKOFF | 4 | 15 | 0 | 0 | 15 | 0 | 0.0 % | 0.0 % | no |
+| P33 FSM | 4 | 11 | 0 | 0 | 11 | 0 | 0.0 % | 0.0 % | no |
+| P34 EVT-LOGGING | 4 | 11 | 0 | 0 | 11 | 0 | 0.0 % | 0.0 % | no |
+| P35 RT-NUCLEO | 4 | 9 | 0 | 0 | 9 | 0 | 0.0 % | 0.0 % | no |
+| P36 RT-ESTRATEGIAS | 4 | 9 | 0 | 0 | 9 | 0 | 0.0 % | 0.0 % | parcial |
+| P37 RT-CONFIG | 4 | 9 | 0 | 0 | 9 | 0 | 0.0 % | 0.0 % | no |
+| P38 CS-NUCLEO | 5 | 13 | 0 | 0 | 13 | 0 | 0.0 % | 0.0 % | no |
+| P39 TERMINACION | 5 | 10 | 0 | 1 | 9 | 0 | 0.0 % | 10.0 % | parcial |
+| P40 SER-NUCLEO | 5 | 18 | 0 | 0 | 18 | 0 | 0.0 % | 0.0 % | no |
+| P41 SER-SISTEMA | 5 | 8 | 0 | 0 | 8 | 0 | 0.0 % | 0.0 % | parcial |
+| P42 IO-TCP | 5 | 16 | 0 | 0 | 16 | 0 | 0.0 % | 0.0 % | no |
+| P43 IO-UDP-DNS | 5 | 19 | 0 | 0 | 19 | 0 | 0.0 % | 0.0 % | no |
+| P44 TK-DISPATCHER-REF | 6 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | no |
+| P45 TK-API | 6 | 22 | 0 | 0 | 22 | 0 | 0.0 % | 0.0 % | no |
+| P46 JAPI-ACTORES | 6 | 16 | 0 | 0 | 16 | 0 | 0.0 % | 0.0 % | no |
+| P47 JAPI-EXTRA | 6 | 7 | 0 | 0 | 7 | 0 | 0.0 % | 0.0 % | no |
+| P48 T-COMPORTAMIENTO-NUCLEO | 7 | 21 | 0 | 0 | 21 | 0 | 0.0 % | 0.0 % | parcial |
+| P49 T-ADAPTADOR-CLASICO | 7 | 19 | 0 | 0 | 19 | 0 | 0.0 % | 0.0 % | parcial |
+| P50 T-SISTEMA-TIPADO | 7 | 25 | 0 | 0 | 25 | 0 | 0.0 % | 0.0 % | parcial |
+| P51 T-ASK-TIPADO | 7 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | parcial |
+| P52 T-OBSERVABILIDAD | 7 | 14 | 0 | 0 | 14 | 0 | 0.0 % | 0.0 % | parcial |
+| P53 T-INTERCEPTORES-TIMERS-STASH | 7 | 21 | 0 | 0 | 21 | 0 | 0.0 % | 0.0 % | no |
+| P54 T-CONTEXTO-SENALES | 8 | 14 | 0 | 0 | 14 | 0 | 0.0 % | 0.0 % | parcial |
+| P55 T-SUPERVISION | 8 | 31 | 0 | 0 | 31 | 0 | 0.0 % | 0.0 % | parcial |
+| P56 T-RECEPCIONISTA-SERIALIZACION | 8 | 14 | 0 | 0 | 14 | 0 | 0.0 % | 0.0 % | parcial |
+| P57 T-ROUTERS-PUBSUB-SPAWN | 8 | 12 | 0 | 0 | 12 | 0 | 0.0 % | 0.0 % | no |
+| P58 T-ENTREGA-FIABLE-BASE | 8 | 13 | 0 | 0 | 13 | 0 | 0.0 % | 0.0 % | no |
+| P59 T-ENTREGA-FIABLE-DURABLE | 8 | 6 | 0 | 0 | 6 | 0 | 0.0 % | 0.0 % | no |
+| P60 T-ENTREGA-FIABLE-WORKPULLING | 8 | 6 | 0 | 0 | 6 | 0 | 0.0 % | 0.0 % | no |
+| P61 T-JAVADSL | 9 | 17 | 0 | 0 | 17 | 0 | 0.0 % | 0.0 % | no |
+| P62 T-TK-SONDA | 9 | 17 | 0 | 0 | 17 | 0 | 0.0 % | 0.0 % | no |
+| P63 T-TK-COMPORTAMIENTO | 9 | 19 | 0 | 0 | 19 | 0 | 0.0 % | 0.0 % | no |
+| P64 T-TK-LOGGING | 9 | 6 | 0 | 0 | 6 | 0 | 0.0 % | 0.0 % | no |
+| P65 UTIL-HASHCODE | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P66 UTIL-PEKKOVERSION | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P67 UTIL-VERSION | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P68 UTIL-PRETTYDURATION | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P69 UTIL-UUID-ORDEN | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P70 UTIL-RELOJ | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P71 UTIL-REGISTRO-FABRICAS | 0 | 0 | 0 | 0 | 0 | 2 | - | - | sí |
+| P72 UTIL-MANIFEST | 3 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P73 UTIL-JFR | 1 | 2 | 0 | 0 | 2 | 0 | 0.0 % | 0.0 % | sí |
+| P74 UTIL-TIPOS-DESERIALIZACION | 0 | 0 | 0 | 0 | 0 | 1 | - | - | sí |
+| P75 UTIL-ORIGEN-CLOSURES | 0 | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | sí |
+| P76 UTIL-EQUIVALENCIAS | 0 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | sí |
+| P77 UTIL-FRONTERAS | 0 | 3 | 0 | 0 | 3 | 0 | 0.0 % | 0.0 % | sí |
 
 ## Más avanzadas y más atrasadas
 
 Orden por (done + ½·partial) / filas. Entre las atrasadas hay empates en 0 %: se desempata por el tamaño de la unidad.
 
-**5 más avanzadas:** P02 UTIL-NUCLEO (6 done, 3 partial de 9), P01 PATH (3 done, 13 partial de 16), P18 CELL-HIJOS (1 done, 4 partial de 6), P23 DW-VIGILANCIA (3 done, 5 partial de 13), P17 REF-MUERTOS (0 done, 3 partial de 4)
+**5 más avanzadas:** P02 UTIL-NUCLEO (6 done, 2 partial de 8), P01 PATH (3 done, 13 partial de 16), P18 CELL-HIJOS (1 done, 4 partial de 6), P23 DW-VIGILANCIA (3 done, 5 partial de 13), P17 REF-MUERTOS (0 done, 3 partial de 4)
 
-**5 más atrasadas:** P55 T-SUPERVISION (31 filas), P50 T-SISTEMA-TIPADO (25 filas), P45 TK-API (22 filas), P48 T-COMPORTAMIENTO-NUCLEO (21 filas), P53 T-INTERCEPTORES-TIMERS-STASH (21 filas). Unidades en 0 %: 62 de 77.
+**5 más atrasadas:** P55 T-SUPERVISION (31 filas), P50 T-SISTEMA-TIPADO (25 filas), P45 TK-API (22 filas), P48 T-COMPORTAMIENTO-NUCLEO (21 filas), P53 T-INTERCEPTORES-TIMERS-STASH (21 filas). Unidades en 0 %: 60 de 75.
 
 ## Por área del inventario y comparación aserción por aserción
 
 Un área figura como comparada cuando se contrastaron las aserciones de cada una de sus filas con los casos grabados (`docs/inventory/compared-areas.txt`). En las áreas **sin comparar** todas las filas siguen `pending` aunque algún caso grabado las roce: falta hacer la comparación al tomar su unidad.
 
-| Área | Filas | done | partial | pending | % done | % done + partial | Comparada |
-|---|---|---|---|---|---|---|---|
-| AC-ASK | 30 | 0 | 0 | 30 | 0.0 % | 0.0 % | no |
-| AC-CELL | 39 | 0 | 16 | 23 | 0.0 % | 41.0 % | sí |
-| AC-CFG | 29 | 0 | 0 | 29 | 0.0 % | 0.0 % | no |
-| AC-CS | 15 | 0 | 0 | 15 | 0.0 % | 0.0 % | no |
-| AC-DSP | 25 | 0 | 3 | 22 | 0.0 % | 12.0 % | sí |
-| AC-DW | 13 | 5 | 4 | 4 | 38.5 % | 69.2 % | sí |
-| AC-EVT | 24 | 0 | 0 | 24 | 0.0 % | 0.0 % | no |
-| AC-EXT | 5 | 0 | 0 | 5 | 0.0 % | 0.0 % | no |
-| AC-FSM | 11 | 0 | 0 | 11 | 0.0 % | 0.0 % | no |
-| AC-IO | 35 | 0 | 0 | 35 | 0.0 % | 0.0 % | no |
-| AC-JAPI | 21 | 0 | 0 | 21 | 0.0 % | 0.0 % | no |
-| AC-MBX | 23 | 0 | 3 | 20 | 0.0 % | 13.0 % | sí |
-| AC-PATH | 16 | 3 | 13 | 0 | 18.8 % | 100.0 % | sí |
-| AC-REF | 32 | 1 | 10 | 21 | 3.1 % | 34.4 % | sí |
-| AC-RT | 22 | 0 | 0 | 22 | 0.0 % | 0.0 % | no |
-| AC-SCH | 17 | 0 | 0 | 17 | 0.0 % | 0.0 % | no |
-| AC-SER | 23 | 0 | 0 | 23 | 0.0 % | 0.0 % | no |
-| AC-SUP | 22 | 1 | 7 | 14 | 4.5 % | 36.4 % | sí |
-| AC-SYS | 27 | 0 | 6 | 21 | 0.0 % | 22.2 % | sí |
-| AC-TK | 27 | 0 | 0 | 27 | 0.0 % | 0.0 % | no |
-| AC-UTIL | 69 | 6 | 3 | 60 | 8.7 % | 13.0 % | sí |
-| AT-ADP | 13 | 0 | 0 | 13 | 0.0 % | 0.0 % | no |
-| AT-ASK | 4 | 0 | 0 | 4 | 0.0 % | 0.0 % | no |
-| AT-BEH | 26 | 0 | 0 | 26 | 0.0 % | 0.0 % | no |
-| AT-CS | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | no |
-| AT-CTX | 18 | 0 | 0 | 18 | 0.0 % | 0.0 % | no |
-| AT-DLV | 25 | 0 | 0 | 25 | 0.0 % | 0.0 % | no |
-| AT-DSP | 5 | 0 | 0 | 5 | 0.0 % | 0.0 % | no |
-| AT-EVT | 4 | 0 | 0 | 4 | 0.0 % | 0.0 % | no |
-| AT-EXT | 7 | 0 | 0 | 7 | 0.0 % | 0.0 % | no |
-| AT-JAPI | 16 | 0 | 0 | 16 | 0.0 % | 0.0 % | no |
-| AT-LOG | 5 | 0 | 0 | 5 | 0.0 % | 0.0 % | no |
-| AT-PS | 3 | 0 | 0 | 3 | 0.0 % | 0.0 % | no |
-| AT-RCP | 10 | 0 | 0 | 10 | 0.0 % | 0.0 % | no |
-| AT-REF | 7 | 0 | 0 | 7 | 0.0 % | 0.0 % | no |
-| AT-RT | 8 | 0 | 0 | 8 | 0.0 % | 0.0 % | no |
-| AT-SER | 3 | 0 | 0 | 3 | 0.0 % | 0.0 % | no |
-| AT-SIG | 8 | 0 | 0 | 8 | 0.0 % | 0.0 % | no |
-| AT-SPV | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | no |
-| AT-STASH | 6 | 0 | 0 | 6 | 0.0 % | 0.0 % | no |
-| AT-SUP | 24 | 0 | 0 | 24 | 0.0 % | 0.0 % | no |
-| AT-SYS | 15 | 0 | 0 | 15 | 0.0 % | 0.0 % | no |
-| AT-TK | 42 | 0 | 0 | 42 | 0.0 % | 0.0 % | no |
-| AT-TMR | 9 | 0 | 0 | 9 | 0.0 % | 0.0 % | no |
+| Área | En alcance | done | partial | pending | excluded | % done | % done + partial | Comparada |
+|---|---|---|---|---|---|---|---|---|
+| AC-ASK | 30 | 0 | 0 | 30 | 0 | 0.0 % | 0.0 % | no |
+| AC-CELL | 39 | 0 | 16 | 23 | 0 | 0.0 % | 41.0 % | sí |
+| AC-CFG | 29 | 0 | 0 | 29 | 0 | 0.0 % | 0.0 % | no |
+| AC-CS | 15 | 0 | 0 | 15 | 0 | 0.0 % | 0.0 % | no |
+| AC-DSP | 25 | 0 | 3 | 22 | 0 | 0.0 % | 12.0 % | sí |
+| AC-DW | 13 | 5 | 4 | 4 | 0 | 38.5 % | 69.2 % | sí |
+| AC-EVT | 24 | 0 | 0 | 24 | 0 | 0.0 % | 0.0 % | no |
+| AC-EXT | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | no |
+| AC-FSM | 11 | 0 | 0 | 11 | 0 | 0.0 % | 0.0 % | no |
+| AC-IO | 35 | 0 | 0 | 35 | 0 | 0.0 % | 0.0 % | no |
+| AC-JAPI | 21 | 0 | 0 | 21 | 0 | 0.0 % | 0.0 % | no |
+| AC-MBX | 23 | 0 | 3 | 20 | 0 | 0.0 % | 13.0 % | sí |
+| AC-PATH | 16 | 3 | 13 | 0 | 0 | 18.8 % | 100.0 % | sí |
+| AC-REF | 32 | 1 | 10 | 21 | 0 | 3.1 % | 34.4 % | sí |
+| AC-RT | 22 | 0 | 0 | 22 | 0 | 0.0 % | 0.0 % | no |
+| AC-SCH | 17 | 0 | 0 | 17 | 0 | 0.0 % | 0.0 % | no |
+| AC-SER | 23 | 0 | 0 | 23 | 0 | 0.0 % | 0.0 % | no |
+| AC-SUP | 22 | 1 | 7 | 14 | 0 | 4.5 % | 36.4 % | sí |
+| AC-SYS | 27 | 0 | 6 | 21 | 0 | 0.0 % | 22.2 % | sí |
+| AC-TK | 27 | 0 | 0 | 27 | 0 | 0.0 % | 0.0 % | no |
+| AC-UTIL | 65 | 6 | 2 | 57 | 4 | 9.2 % | 12.3 % | sí |
+| AT-ADP | 13 | 0 | 0 | 13 | 0 | 0.0 % | 0.0 % | no |
+| AT-ASK | 4 | 0 | 0 | 4 | 0 | 0.0 % | 0.0 % | no |
+| AT-BEH | 26 | 0 | 0 | 26 | 0 | 0.0 % | 0.0 % | no |
+| AT-CS | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | no |
+| AT-CTX | 18 | 0 | 0 | 18 | 0 | 0.0 % | 0.0 % | no |
+| AT-DLV | 25 | 0 | 0 | 25 | 0 | 0.0 % | 0.0 % | no |
+| AT-DSP | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | no |
+| AT-EVT | 4 | 0 | 0 | 4 | 0 | 0.0 % | 0.0 % | no |
+| AT-EXT | 7 | 0 | 0 | 7 | 0 | 0.0 % | 0.0 % | no |
+| AT-JAPI | 16 | 0 | 0 | 16 | 0 | 0.0 % | 0.0 % | no |
+| AT-LOG | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | no |
+| AT-PS | 3 | 0 | 0 | 3 | 0 | 0.0 % | 0.0 % | no |
+| AT-RCP | 10 | 0 | 0 | 10 | 0 | 0.0 % | 0.0 % | no |
+| AT-REF | 7 | 0 | 0 | 7 | 0 | 0.0 % | 0.0 % | no |
+| AT-RT | 8 | 0 | 0 | 8 | 0 | 0.0 % | 0.0 % | no |
+| AT-SER | 3 | 0 | 0 | 3 | 0 | 0.0 % | 0.0 % | no |
+| AT-SIG | 8 | 0 | 0 | 8 | 0 | 0.0 % | 0.0 % | no |
+| AT-SPV | 1 | 0 | 0 | 1 | 0 | 0.0 % | 0.0 % | no |
+| AT-STASH | 6 | 0 | 0 | 6 | 0 | 0.0 % | 0.0 % | no |
+| AT-SUP | 24 | 0 | 0 | 24 | 0 | 0.0 % | 0.0 % | no |
+| AT-SYS | 15 | 0 | 0 | 15 | 0 | 0.0 % | 0.0 % | no |
+| AT-TK | 42 | 0 | 0 | 42 | 0 | 0.0 % | 0.0 % | no |
+| AT-TMR | 9 | 0 | 0 | 9 | 0 | 0.0 % | 0.0 % | no |
 
 ## Filas excluidas por el Owner
 
-1 fila(s) con exclusión autorizada (cuentan como `done`; la nota de la fila cita la decisión): AC-UTIL-004.3
+4 fila(s) con exclusión autorizada (no cuentan como done ni en el alcance; la nota de la fila cita la decisión): AC-UTIL-004.3, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13
 
 ## Filas con nota «revisar contra 2.0.0»
 
-545 filas (6 done, 36 partial, 503 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
+542 filas (7 done, 35 partial, 500 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
 
 ## Casos grabados y filas que cubren
 

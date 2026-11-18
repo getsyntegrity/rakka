@@ -137,9 +137,11 @@ prog_path = "docs/progress.md"
 check(os.path.exists(prog_path), "docs/progress.md missing (run tools/package/generate.py)")
 if os.path.exists(prog_path):
     prog = open(prog_path, encoding="utf-8").read()
-    n_done = sum(1 for r in rows.values() if r["impl"] == "done"); n_part = sum(1 for r in rows.values() if r["impl"] == "partial")
-    m = re.search(r"\| \*\*Total\*\* \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|", prog)
-    check(m is not None and tuple(map(int, m.groups())) == (len(rows), n_done, n_part, len(rows) - n_done - n_part), "docs/progress.md totals do not match the inventory (regenerate it)")
+    excluded = [r for r in rows.values() if r["validation"] == "excluded" or "EXCLUIDA (autorizada" in r["notes"]]
+    live = [r for r in rows.values() if r not in excluded]
+    n_done = sum(1 for r in live if r["impl"] == "done"); n_part = sum(1 for r in live if r["impl"] == "partial")
+    m = re.search(r"\| \*\*Total\*\* \| (\d+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|", prog)
+    check(m is not None and tuple(map(int, m.groups())) == (len(live), n_done, n_part, len(live) - n_done - n_part, len(excluded)), "docs/progress.md totals do not match the inventory (regenerate it)")
 print(f"abbreviated_citations_skipped={abbreviated}")
 print(f"rows={len(rows)} decisions={sum(c.values())} groups={len(reg) - sum(c.values())} citation_problems={bad} failures={len(fail)}")
 for f in fail: print("FAIL", f)
