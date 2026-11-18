@@ -18,7 +18,7 @@ En Pekko, un actor tipado corre dentro de una celda clásica (`ActorAdapter`, `A
 
 ## Decisiones bloqueantes
 
-El registro único está en `docs/decisions.md` (224 decisiones: 0 bloqueantes, 162 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
+El registro único está en `docs/decisions.md` (229 decisiones: 0 bloqueantes, 167 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
 
 ## Orden de las specs
 
@@ -30,49 +30,49 @@ Fases: 1 valores sin concurrencia (PATH, UTIL, CFG); 2 runtime Classic (REF, MBX
 | Unidad | Filas pendientes | Specs (orden de ejecución) |
 |---|---|---|
 | AC-PATH | 13 | 01 |
-| AC-UTIL | 33 | 02, 03 |
-| AC-CFG | 29 | 04 |
-| AC-REF | 31 | 05, 06 |
-| AC-MBX | 23 | 07 |
-| AC-DSP | 25 | 08 |
-| AC-SCH | 17 | 09 |
-| AC-EVT | 24 | 10 |
-| AC-TK | 27 | 11 |
-| AC-CELL | 39 | 12, 13 |
-| AC-SYS | 27 | 14 |
-| AC-SUP | 21 | 15 |
-| AC-DW | 8 | 16 |
-| AC-EXT | 5 | 17 |
-| AC-ASK | 30 | 18 |
-| AC-FSM | 11 | 19 |
-| AC-RT | 22 | 20 |
-| AC-CS | 15 | 21 |
-| AC-SER | 23 | 22 |
-| AC-IO | 35 | 23, 24 |
-| AC-JAPI | 21 | 25 |
-| AT-BEH | 26 | 26 |
-| AT-SIG | 8 | 27 |
-| AT-REF | 7 | 28 |
-| AT-TK | 42 | 29, 30 |
-| AT-CTX | 18 | 31 |
-| AT-SYS | 15 | 32 |
-| AT-TMR | 9 | 33 |
-| AT-STASH | 6 | 34 |
-| AT-SUP | 24 | 35 |
-| AT-ADP | 13 | 36 |
-| AT-EVT | 4 | 37 |
-| AT-LOG | 5 | 38 |
-| AT-DSP | 5 | 39 |
-| AT-EXT | 7 | 40 |
-| AT-ASK | 4 | 41 |
-| AT-RCP | 10 | 42 |
-| AT-RT | 8 | 43 |
-| AT-PS | 3 | 44 |
-| AT-SPV | 1 | 45 |
-| AT-CS | 1 | 46 |
-| AT-SER | 3 | 47 |
-| AT-DLV | 25 | 48 |
-| AT-JAPI | 16 | 49 |
+| AC-UTIL | 29 | 02 |
+| AC-CFG | 29 | 03 |
+| AC-REF | 31 | 04, 05 |
+| AC-MBX | 23 | 06 |
+| AC-DSP | 25 | 07 |
+| AC-SCH | 17 | 08 |
+| AC-EVT | 24 | 09 |
+| AC-TK | 27 | 10 |
+| AC-CELL | 39 | 11, 12 |
+| AC-SYS | 27 | 13 |
+| AC-SUP | 21 | 14 |
+| AC-DW | 8 | 15 |
+| AC-EXT | 5 | 16 |
+| AC-ASK | 30 | 17 |
+| AC-FSM | 11 | 18 |
+| AC-RT | 22 | 19 |
+| AC-CS | 15 | 20 |
+| AC-SER | 23 | 21 |
+| AC-IO | 35 | 22, 23 |
+| AC-JAPI | 21 | 24 |
+| AT-BEH | 26 | 25 |
+| AT-SIG | 8 | 26 |
+| AT-REF | 7 | 27 |
+| AT-TK | 42 | 28, 29 |
+| AT-CTX | 18 | 30 |
+| AT-SYS | 15 | 31 |
+| AT-TMR | 9 | 32 |
+| AT-STASH | 6 | 33 |
+| AT-SUP | 24 | 34 |
+| AT-ADP | 13 | 35 |
+| AT-EVT | 4 | 36 |
+| AT-LOG | 5 | 37 |
+| AT-DSP | 5 | 38 |
+| AT-EXT | 7 | 39 |
+| AT-ASK | 4 | 40 |
+| AT-RCP | 10 | 41 |
+| AT-RT | 8 | 42 |
+| AT-PS | 3 | 43 |
+| AT-SPV | 1 | 44 |
+| AT-CS | 1 | 45 |
+| AT-SER | 3 | 46 |
+| AT-DLV | 25 | 47 |
+| AT-JAPI | 16 | 48 |
 <!-- END GENERATED UNIT TABLE -->
 
 ## Ya implementado (no se repite)

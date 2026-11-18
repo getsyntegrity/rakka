@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 224 decisiones: 0 bloqueantes, 162 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 229 decisiones: 0 bloqueantes, 167 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1846,6 +1846,56 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) gana el prefijo más largo (el más específico), y a igual longitud el insertado primero: determinista; (b) gana el primero insertado (lo que hay hoy); (c) reproducir el orden de iteración del HashMap de Scala (String.hashCode y orden del CHAMP trie).
 - **Recomendación:** (a): es el único criterio que un usuario puede predecir y coincide con "la entrada más específica" que el contrato de AC-UTIL-009 promete; sólo difiere de Pekko en configuraciones solapadas, donde Pekko depende del hash. Clasificación: representación (diferencia observable sólo en solapamientos). Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila.
 - **Filas afectadas:** AC-UTIL-009
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-22 — Charsets y Base64 de ByteString sin dependencias externas
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** ByteString.scala:207-215,630-640 y companion (`fromString(s, charset)`, `decodeString(charset)`, `encodeBase64/decodeBase64`); el oráculo (BS-18..BS-22 y BS-31..BS-33: uc-0471..uc-0475, uc-0484..uc-0486) acepta cualquier charset de la JVM por nombre (UTF-16, windows-1252, ...) y alias (`latin1`, `utf8`, `ascii`...). Q-UTIL-12 (c) dejó abierta la lista de charsets y la dependencia `base64`/`encoding_rs`.
+- **Alternativas:** (a) UTF-8, US-ASCII e ISO-8859-1 con los alias medidos y Base64 propio (std no lo trae): sin dependencias nuevas; el resto de nombres falla con UnsupportedEncodingException; (b) añadir `encoding_rs` (y su tabla de alias) para el resto de charsets; (c) además `base64` en lugar del decodificador propio.
+- **Recomendación:** (a): cubre todo lo que usa Pekko en main (UTF-8) y los tests; un charset exótico (UTF-16, windows-1252) falla con `UnsupportedEncodingException` hasta que un consumidor (IO/SER) lo pida. El Base64 propio reproduce los mensajes de error de la JVM (BS-22 y BS-32: 60 sopas de texto grabadas, más una corrida diferencial ad hoc de 900 entradas sin divergencias). Clasificación: dependencia externa. Bloquea: nada observable de lo ya implementado; AC-UTIL-006.6 queda `partial` (charsets).
+- **Filas afectadas:** AC-UTIL-006.6
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-23 — Excepción de índice de ByteString/ByteIterator que depende de la representación
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** ByteString.scala:1.7.1 168-307 / 2.0.0 ByteString1C.apply: `apply(idx)` sobre un ByteString1C indexa el array y lanza ArrayIndexOutOfBoundsException con el texto de la JVM (`Index 3 out of bounds for length 3`, caso BS-APPLY-1C); sobre ByteString1/ByteStrings lanza IndexOutOfBoundsException(idx) (BS-08: `3`, `-1`). `head`/`last` del vacío (ByteString1C.empty) lanzan la primera (BS-HEAD-EMPTY); `ByteIterator.head` agotado lanza `Index n out of bounds for length n` (IT-01 medido). Con `bytes::Bytes` no hay representación que elegir.
+- **Alternativas:** (a) `apply`/`head`/`last` fallan siempre con `IndexOutOfBoundsException` cuyo mensaje es el índice (el texto de ByteString1/ByteStrings); `ByteIterator::head` devuelve `Option`; (b) reproducir el texto de la JVM del array compacto cuando el valor es un único fragmento completo; (c) devolver `Option<u8>` sin excepción.
+- **Recomendación:** (a): la clase y el texto de ByteString1/ByteStrings son los que un programa ve con valores recortados o concatenados; el texto de la JVM del array compacto depende del tamaño del array subyacente, que `Bytes` no expone. Clasificación: representación. Bloquea: AC-UTIL-006.1 (`partial`: mensaje de `apply`/`head`/`last` sobre un valor compacto y del vacío).
+- **Filas afectadas:** AC-UTIL-006.1
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-24 — ByteIterator: `++` entre arrays no contiguos y lecturas cortas
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** ByteIterator.scala:61-80 (ByteArrayIterator.++): para dos ByteArrayIterator sobre arrays distintos construye `MultiByteArrayIterator(List(this, bai))` y después `this.clear()`: el iterador resultante conserva sólo el lado derecho (medido IT-CAT: `iter 0102 ++ 0304` -> len 2, `<0304>`; con ByteArrayIterator contiguos del mismo array sí concatena). Lecturas cortas: `getShort/getInt/getLong` sobre ByteArrayIterator no consumen nada y lanzan `next on empty iterator` (IT-09: len sigue en 2), pero MultiByteArrayIterator consume lo disponible antes de fallar (medido `iterrope x01 x02; getint` -> len 0); `getLongPart` consume siempre. 2.0.0 añade `getShort/Int/Long` por SWARUtil (ByteIterator.scala:136-160); en 1.7.1 todos consumían (contrato 006.4 desactualizado).
+- **Alternativas:** (a) `++` concatena correctamente (sin pérdida del lado izquierdo) y las lecturas de primitivas cortas no consumen; (b) reproducir la pérdida del lado izquierdo y la diferencia según la representación; (c) no exponer `++` entre iteradores.
+- **Recomendación:** (a) para las lecturas (ya implementado: atómicas, como ByteArrayIterator) y para `++`: pérdida de datos es un defecto de Pekko 2.0.0, no un contrato. Hasta que el Owner responda no se implementa `++` entre iteradores (AC-UTIL-006.4 queda `partial`). Clasificación: defecto de Pekko + representación.
+- **Filas afectadas:** AC-UTIL-006.4
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-25 — ByteBufferCleaner (liberación explícita de buffers directos)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/java/org/apache/pekko/io/ByteBufferCleaner.java:17-123 (clase privada del paquete: `clean`, `isSupported`); sin oráculo posible desde fuera del paquete; ByteBufferCleanerSpec.scala:25-34. Consumidores: AC-IO (buffer pools de TCP/UDP), aún sin implementar. En Rust un `Bytes`/`Vec` se libera por `Drop`.
+- **Alternativas:** (a) no portar la clase: la liberación determinista de `Drop` cumple el contrato observable (el buffer se libera), `isSupported` sería siempre `true`; requiere que el Owner autorice la exclusión de esta parte de la fila; (b) portar una API `clean`/`is_supported` vacía; (c) esperar a AC-IO.
+- **Recomendación:** (a): ninguna API nueva; Q-UTIL-11 no autorizó esta exclusión (sólo 016.7, 016.12, 016.13). AC-UTIL-022 queda `partial` (UnsynchronizedByteArrayInputStream hecho y comparado con el oráculo; falta resolver el cleaner). Clasificación: lenguaje (Drop).
+- **Filas afectadas:** AC-UTIL-022
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-26 — Serialización de ByteString (proxy 0/1/2 y la identidad 3 nueva en 2.0.0)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** ByteString.scala (2.0.0) `SerializationProxy` :2146-2170 y `Companion` :2164-2175: identidades ByteString1=0, ByteString1C=1, ByteStrings=2 y, nueva en 2.0.0, ByteString2=3 (ByteString.scala:1071); `writeObject` escribe el byte de identidad y `writeToOutputStream` (i32 BE de longitud + bytes por fragmento); `readFromInputStream` lanza `Invalid serialization id <n>` para otro valor. Q-X-3 (A) y Q-CFG-11 aceptadas: la serialización Java no existe hasta AC-SER. Ningún caso grabable: ObjectOutputStream no tiene equivalente.
+- **Alternativas:** (a) no implementar nada hasta AC-SER; cuando exista, un formato propio (identidad `u8` 0..3, cuerpo i32 BE + bytes por fragmento) con los mismos tests de ida y vuelta; (b) implementar ya un `to_wire`/`from_wire` con ese formato; (c) excluir la fila (la serialización Java no tiene equivalente).
+- **Recomendación:** (a): ningún efecto observable hoy; el formato de red de los mensajes lo decide AC-SER. AC-UTIL-006.8 queda `partial`. Clasificación: arquitectura (depende de AC-SER).
+- **Filas afectadas:** AC-UTIL-006.8
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 

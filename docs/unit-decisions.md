@@ -57,7 +57,7 @@
 
 ## P04 UTIL-BYTES
 
-9 filas; 6 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 0 propuestas.
+9 filas; 11 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -67,6 +67,11 @@
 | Q-UTIL-14 | accepted (2026-11-18): aceptar (a) para FrequencySketch, incluida la validación de desbordamiento de 2.0.0, y (b) para el resto. | 1: AC-UTIL-006.1 | Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*. | — | `classic-foundation` |
 | Q-UTIL-8 | accepted (2026-11-18): aceptar (c). Autoriza no reproducir makePattern bit a bit. | 1: AC-UTIL-006.1 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-UTIL-006.8 | — | — | `transversal` |
+| Q-UTIL-22 | propuesta | 1: AC-UTIL-006.6 | Bloquea: nada observable de lo ya implementado; AC-UTIL-006.6 queda `partial` (charsets). | — | `classic-foundation` |
+| Q-UTIL-23 | propuesta | 2: AC-UTIL-006.1, AC-UTIL-006.4 | Bloquea: AC-UTIL-006.1 (`partial`: mensaje de `apply`/`head`/`last` sobre un valor compacto y del vacío). | — | `classic-foundation` |
+| Q-UTIL-24 | propuesta | 1: AC-UTIL-006.4 | — | — | `classic-foundation` |
+| Q-UTIL-25 | propuesta | 1: AC-UTIL-022 | — | — | `classic-foundation` |
+| Q-UTIL-26 | propuesta | 1: AC-UTIL-006.8 | — | — | `classic-foundation` |
 
 ## P05 UTIL-GLOB
 
@@ -1023,4 +1028,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 466 (230 respondidas, 0 bloqueantes, 236 propuestas).
+Total de pares unidad–decisión: 471 (230 respondidas, 0 bloqueantes, 241 propuestas).
