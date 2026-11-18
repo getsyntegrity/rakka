@@ -4,6 +4,7 @@ Port a Rust de los módulos de actores de Apache Pekko 1.7.1: `pekko-actor` (Cla
 
 ## Estructura
 
+- `migration/pekko-rust-pilot/` — piloto previo (port contra Pekko 2.0.0) importado tal cual y aislado: tiene su propio workspace y no forma parte del workspace raíz. Es fuente de código, grabaciones y evidencia para la migración; leer su `MIGRATION-README.md` (estado verificado y diferencias a resolver).
 - `upstream/pekko/` — submódulo fijado en v1.7.1 (`9a54d129…`). **Sólo lectura.** Ver `docs/upstream.md`.
 - `crates/rakka-actor/`, `crates/rakka-actor-typed/` — código propio.
 - `crates/*/tests/oracle/*.golden` — salidas del jar oficial de Pekko usadas por tests diferenciales.
@@ -31,9 +32,9 @@ No usar `-race`/sanitizers ni correr workbench salvo pedido explícito.
 
 ## Ramas y PR
 
-- `develop` es la rama de integración. Las ramas de trabajo salen de `origin/develop` (nunca de otra rama de trabajo) y sus PR apuntan a `develop`.
-- `main` recibe únicamente PR de release desde `develop`.
-- No hay push directo a `main` ni a `develop`, ni force push, ni borrado de ramas. Los merges los decide el Owner.
+- `feat/pekko-rust-pilot-migration` es la rama de integración y la rama por defecto del repositorio. Las ramas de trabajo salen de `origin/feat/pekko-rust-pilot-migration` (nunca de otra rama de trabajo) y sus PR apuntan a ella.
+- `main` y `develop` están discontinuadas: no se ramifica desde ellas ni se apunta ningún PR a ellas. Quedan como referencia histórica hasta que el Owner decida archivarlas.
+- No hay push directo a `feat/pekko-rust-pilot-migration` salvo pedido explícito del Owner, ni force push, ni borrado de ramas sin autorización. Los merges los decide el Owner.
 - Antes de ramificar: verificar `git status`, preservar los cambios existentes y actualizar las referencias remotas (`git fetch --all --prune`).
 
 ## Flujo por unidad

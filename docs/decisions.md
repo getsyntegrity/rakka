@@ -9,7 +9,7 @@ Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones trans
 | ID | Autorización | Alcance |
 |---|---|---|
 | A-1 | Apache Pekko 1.7.1 es la fuente de verdad, fijada en `upstream/pekko` @ `9a54d1294c3ac7821bbed3c940769c3d5027d1ff` (= `v1.7.1^{}`, verificado con `git ls-remote` el 2026-10-30). | todo |
-| A-2 | `develop` es la rama de integración; `main` sólo recibe PR de release; sin push directo ni force push; las ramas salen de `origin/develop`. | proceso |
+| A-2 | `feat/pekko-rust-pilot-migration` es la rama de integración; `main` y `develop` están discontinuadas (referencia histórica hasta que el Owner decida archivarlas); sin push directo a la rama de integración salvo pedido explícito del Owner, sin force push ni borrado de ramas sin autorización; las ramas salen de `origin/feat/pekko-rust-pilot-migration`. | proceso |
 | A-3 | TDD estricto RED → GREEN → REFACTOR con evidencia real; cobertura mínima 90 % de las líneas de producción nuevas o modificadas; nombres que expresan propósito. | todas las unidades |
 | A-4 | Ninguna diferencia semántica se acepta sin decisión explícita del Owner; una pregunta abierta impide cerrar el comportamiento afectado. | todas las filas con `Q-` |
 | A-5 | Ningún comportamiento se elimina por ser difícil de expresar en Rust; las exclusiones requieren autorización explícita. | todo el inventario |

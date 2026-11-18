@@ -10,7 +10,7 @@ Este documento ordena las 783 filas del inventario (523 de Classic en `docs/inve
 2. El agente toma la spec con menor número cuyo estado sea "lista" o "pendiente de decisiones" con todas sus decisiones registradas como aceptadas. Una spec "bloqueada" no se ejecuta.
 3. Por cada tarea: RED → GREEN → REFACTOR con evidencia (`superpowers:test-driven-development`), los gates de formato, build, tests, clippy y cobertura >= 90 % de las líneas nuevas o modificadas (`superpowers:verification-before-completion`), y actualización de `impl`/`validation` del inventario.
 4. Una fila con decisión abierta queda `partial`; nunca se cierra sobre una recomendación no aceptada. Ninguna fila se excluye sin autorización explícita.
-5. Una rama y un PR hacia `develop` por spec (o por unidad de trabajo de ~400 líneas, según `AGENTS.md`); el merge lo decide el Owner.
+5. Una rama y un PR hacia `feat/pekko-rust-pilot-migration` por spec (o por unidad de trabajo de ~400 líneas, según `AGENTS.md`); el merge lo decide el Owner.
 
 ## Decisión previa que cambia todo el orden: Typed sobre Classic
 
