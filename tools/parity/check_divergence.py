@@ -250,6 +250,25 @@ MUTANTS = {
         "let digit = (if unit < 128 { decimal_digit_value(unit) } else { None }).ok_or_else(fail)?;",
         "a uid written with non-ASCII decimal digits (Arabic-Indic, fullwidth) is rejected instead of parsed",
     ),
+    # --- slice P02: Timeout, Helpers, Done/NotUsed, base exceptions ---
+    "lower-case-ascii-only": (
+        "src/util/helpers.rs",
+        "    s.to_lowercase()\n",
+        "    s.to_ascii_lowercase()\n",
+        "toRootLowerCase only lower-cases ASCII: non-ASCII letters (Cyrillic, Georgian, final sigma) stay upper-case",
+    ),
+    "timeout-max-rejected": (
+        "src/util/timeout.rs",
+        "if nanos == i64::MIN {",
+        "if nanos == i64::MIN || nanos == i64::MAX {",
+        "the largest representable Timeout (2^63-1 ns) is rejected as out of range (off-by-one at the upper bound)",
+    ),
+    "requirement-prefix-missing": (
+        "src/util/helpers.rs",
+        '"requirement failed: {msg}"',
+        '"{msg}"',
+        "`requiring` fails with the bare message: the `requirement failed: ` prefix of Predef.require is lost",
+    ),
     "lossy-stdin-decoder": (
         "examples/classic-parity/json.rs",
         "String::from_utf16(&out).map_err(|_| OUT_OF_DOMAIN.to_string())",

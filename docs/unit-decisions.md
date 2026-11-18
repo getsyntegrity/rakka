@@ -27,7 +27,7 @@
 
 ## P02 UTIL-NUCLEO
 
-9 filas; 6 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 0 propuestas.
+9 filas; 7 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -37,6 +37,7 @@
 | Q-UTIL-4 | accepted (2026-11-18): aceptar (i-a). Autoriza excluir OnlyCauseStackTrace. | 2: AC-UTIL-004.2, AC-UTIL-004.3 | Bloquea: AC-UTIL-004.2/.3 (cierre); puede avanzar: AC-UTIL-004.1. | — | `classic-foundation` |
 | Q-UTIL-5 | accepted (2026-11-18): aceptar (a): pub struct Done. | 2: AC-UTIL-003.1, AC-UTIL-003.2 | Bloquea: cierre de AC-UTIL-003.1/.2 (estado `partial`); puede avanzar: el resto. | — | `classic-foundation` |
 | Q-UTIL-7 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-UTIL-002.2 | Bloquea: nada; puede avanzar: AC-UTIL-002.2 con (a) y el golden limitado a Unicode <= 10 (como ahora). | — | `classic-foundation` |
+| Q-UTIL-17 | propuesta | 2: AC-UTIL-004.1, AC-UTIL-004.2 | — | — | `classic-foundation` |
 
 ## P03 UTIL-ESTRUCTURAS
 
@@ -1015,4 +1016,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 458 (226 respondidas, 0 bloqueantes, 232 propuestas).
+Total de pares unidad–decisión: 459 (226 respondidas, 0 bloqueantes, 233 propuestas).

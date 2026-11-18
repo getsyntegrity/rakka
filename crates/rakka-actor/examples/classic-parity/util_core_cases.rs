@@ -26,6 +26,22 @@ pub const PENDING: &[(&str, &str)] = &[
         "Q-UTIL-4",
     ),
     (
+        "LC \\uA7C0",
+        "Q-UTIL-7 (character added after Unicode 13: JDK 17 leaves it, Rust lower-cases it)",
+    ),
+    (
+        "EX-TS-01 PekkoException(boom).toString",
+        "Q-UTIL-17 (proposed)",
+    ),
+    (
+        "EX-TS-02 ConfigurationException(bad, cause).toString",
+        "Q-UTIL-17 (proposed)",
+    ),
+    (
+        "EX-TS-03 PekkoException(empty).toString",
+        "Q-UTIL-17 (proposed)",
+    ),
+    (
         "DN-03 Done.done() is Done.getInstance()",
         "Java facade, no Rust counterpart (Q-UTIL-5)",
     ),
@@ -126,6 +142,18 @@ pub fn rust_lines() -> Vec<(String, String)> {
             hasher.hash_one(a) == hasher.hash_one(b)
         )),
     );
+    let (negative_millis, negative_second) = (
+        Timeout::of(-1000, TimeUnit::Milliseconds).unwrap(),
+        Timeout::of(-1, TimeUnit::Seconds).unwrap(),
+    );
+    case(
+        "TO-06N eq Timeout(-1000 ms) Timeout(-1 s)".into(),
+        ok(format!(
+            "eq={} hashEq={}",
+            negative_millis == negative_second,
+            hasher.hash_one(negative_millis) == hasher.hash_one(negative_second)
+        )),
+    );
     let (one, two) = (
         Timeout::of(1, TimeUnit::Seconds).unwrap(),
         Timeout::of(2, TimeUnit::Seconds).unwrap(),
@@ -217,6 +245,7 @@ pub fn rust_lines() -> Vec<(String, String)> {
         "\u{0391}\u{03A3}",
         "\u{0391}\u{03A3}\u{0391}",
         "\u{03A3}",
+        "\u{1C90}",
     ] {
         case(
             format!("LC {}", esc(s)),

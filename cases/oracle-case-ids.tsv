@@ -478,3 +478,5 @@ uc-0078	util-core	EX-03 PekkoException(boom, cause)
 uc-0079	util-core	EX-04 ConfigurationException(bad)
 uc-0080	util-core	EX-05 ConfigurationException(bad, cause)
 uc-0081	util-core	EX-06 PekkoException(msg, null)
+uc-0082	util-core	TO-06N eq Timeout(-1000 ms) Timeout(-1 s)
+uc-0083	util-core	LC \u1C90

@@ -50,6 +50,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P02 (2026-11-18, Pekko 2.0.0 en JDK 17).** `Timeout.create(java.time.Duration)` ya no pasa por `JavaDurationConverters.asScala` sino por `scala.jdk.DurationConverters.toScala`: `create(ofSeconds(9223372036, 854775808))` lanza `IllegalArgumentException: Java duration PT2562047H47M16.854775808S cannot be expressed as a Scala duration` y `create(ofSeconds(Long.MAX_VALUE))` lanza `IllegalArgumentException: requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)` (casos uc-0033 y uc-0034); el texto «ArithmeticException» de este bloque corresponde a 1.7.1. Q-UTIL-2 respondida (a): el `Debug` de Rust no promete el formato de Pekko (TO-STR-* no se reproducen).
+
 ## AC-UTIL-002.1 — Helpers.base64 / base64chars (nombres generados `$a`, temp paths)
 
 *unidad UTIL · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle*
@@ -115,6 +117,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 ---
+
+**Actualización P02 (2026-11-18, JDK 17).** La JDK 17 implementa Unicode 13: `toRootLowerCase("U+1C90")` da U+10D0 (caso uc-0083), igual que Rust; la divergencia de A2 (medida con JDK 11) sólo subsiste para caracteres añadidos después de Unicode 13, p. ej. U+A7C0, que JDK 17 deja igual y Rust pasa a U+A7C1 (Q-UTIL-7 (a), aceptada).
 
 ## AC-UTIL-002.3 — Helpers.Requiring (requiring con IllegalArgumentException)
 

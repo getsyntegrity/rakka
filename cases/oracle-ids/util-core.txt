@@ -87,3 +87,9 @@ EX-05 ConfigurationException(bad, cause)
 EX-06 PekkoException(msg, null)
 EX-SUB ConfigurationException isA PekkoException
 EX-NULL PekkoException(null)
+TO-06N eq Timeout(-1000 ms) Timeout(-1 s)
+LC \u1C90
+LC \uA7C0
+EX-TS-01 PekkoException(boom).toString
+EX-TS-02 ConfigurationException(bad, cause).toString
+EX-TS-03 PekkoException(empty).toString

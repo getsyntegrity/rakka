@@ -7,9 +7,9 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | # | Spec | Filas | Tareas | Estado | Depende de |
 |---|---|---|---|---|---|
 | 01 | [AC-PATH-1](01-ac-path-1.md) | 13 | 3 | sin decisiones abiertas (preliminar) | 02 |
-| 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | sin decisiones abiertas (preliminar) | 05, 03, 04, 23, 11, 08 |
+| 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | pendiente de decisiones | 05, 03, 23, 11, 08 |
 | 03 | [AC-UTIL-2](03-ac-util-2.md) | 30 | 5 | sin decisiones abiertas (preliminar) | 02, 05, 18 |
-| 04 | [AC-UTIL-3](04-ac-util-3.md) | 8 | 2 | sin decisiones abiertas (preliminar) | 02, 03, 10, 24 |
+| 04 | [AC-UTIL-3](04-ac-util-3.md) | 3 | 1 | sin decisiones abiertas (preliminar) | 10, 24, 03 |
 | 05 | [AC-CFG-1](05-ac-cfg-1.md) | 29 | 5 | sin decisiones abiertas (preliminar) | 11, 18, 15, 22, 06, 16, 23, 02, 21 |
 | 06 | [AC-REF-1](06-ac-ref-1.md) | 30 | 5 | pendiente de decisiones | 01, 08, 13, 05, 19, 11, 15, 14, 23 |
 | 07 | [AC-REF-2](07-ac-ref-2.md) | 1 | 1 | sin decisiones abiertas (preliminar) | 06, 15, 19 |
@@ -20,7 +20,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | 12 | [AC-TK-1](12-ac-tk-1.md) | 27 | 5 | pendiente de decisiones | 09, 15, 16, 05, 18, 11, 06, 13, 08, 20, 10, 26, 23, 24 |
 | 13 | [AC-CELL-1](13-ac-cell-1.md) | 30 | 5 | pendiente de decisiones | 16, 08, 17, 11, 06, 10, 09 |
 | 14 | [AC-CELL-2](14-ac-cell-2.md) | 9 | 2 | pendiente de decisiones | 05, 13, 11, 08, 06, 23 |
-| 15 | [AC-SYS-1](15-ac-sys-1.md) | 27 | 5 | pendiente de decisiones | 05, 18, 11, 13, 16, 22, 02, 09, 06, 12, 17, 10, 01, 08, 21, 19, 23, 03 |
+| 15 | [AC-SYS-1](15-ac-sys-1.md) | 27 | 5 | pendiente de decisiones | 05, 18, 11, 13, 16, 22, 09, 06, 12, 17, 10, 01, 08, 21, 19, 23, 02, 03 |
 | 16 | [AC-SUP-1](16-ac-sup-1.md) | 21 | 4 | pendiente de decisiones | 13, 01, 11, 08, 05, 15 |
 | 17 | [AC-DW-1](17-ac-dw-1.md) | 8 | 2 | pendiente de decisiones | 06, 13, 16, 18, 08 |
 | 18 | [AC-EXT-1](18-ac-ext-1.md) | 5 | 1 | pendiente de decisiones | 15, 05 |
@@ -59,12 +59,11 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 
 ## Ciclos y dependencias hacia adelante
 
-El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL, SYS, EVT, SCH, TK se necesitan entre sí), por eso el orden es por unidad. 115 dependencias de spec van hacia una spec posterior. Regla de costura para todas: la spec que consume define un trait con el contrato mínimo que necesita, lo prueba con un doble de prueba que cumple las aserciones del bloque de contrato de la fila, y cuando llega la spec que lo implementa el doble se reemplaza y se re-ejecutan los tests; nada de eso reduce el contrato de la fila posterior. Lista:
+El grafo `depends_on` del inventario es cíclico a nivel de fila (Classic: CELL, SYS, EVT, SCH, TK se necesitan entre sí), por eso el orden es por unidad. 114 dependencias de spec van hacia una spec posterior. Regla de costura para todas: la spec que consume define un trait con el contrato mínimo que necesita, lo prueba con un doble de prueba que cumple las aserciones del bloque de contrato de la fila, y cuando llega la spec que lo implementa el doble se reemplaza y se re-ejecutan los tests; nada de eso reduce el contrato de la fila posterior. Lista:
 
 - `AC-PATH-1` necesita `AC-UTIL-1`.
 - `AC-UTIL-1` necesita `AC-CFG-1`.
 - `AC-UTIL-1` necesita `AC-UTIL-2`.
-- `AC-UTIL-1` necesita `AC-UTIL-3`.
 - `AC-UTIL-1` necesita `AC-SER-1`.
 - `AC-UTIL-1` necesita `AC-EVT-1`.
 - `AC-UTIL-1` necesita `AC-MBX-1`.

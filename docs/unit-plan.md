@@ -149,7 +149,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Timeout, Done, NotUsed, excepciones base y Helpers puros cerrados contra los jars.
 - **Filas (9; impl: partial 8, pending 1):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-001, AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.2, AC-UTIL-004.3.
 - **Exclusiones/costuras:** Q-UTIL-2..5 y Q-UTIL-7 siguen abiertas: filas partial hasta decision; no se replanifica lo ya implementado. Desde 2026-11-01 incluye AC-UTIL-004.3 (OnlyCauseStackTrace, Q-UTIL-4/Q-X-9), proveniente de P05; `impl` pending.
-- **Decisiones:** 6 distintas en sus filas; respondidas: Q-UTIL-1, Q-UTIL-2, Q-UTIL-3, Q-UTIL-4, Q-UTIL-5, Q-UTIL-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P02). <!-- generated:unit-decisions -->
+- **Decisiones:** 7 distintas en sus filas; respondidas: Q-UTIL-1, Q-UTIL-2, Q-UTIL-3, Q-UTIL-4, Q-UTIL-5, Q-UTIL-7; propuestas sin respuesta: Q-UTIL-17. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P02). <!-- generated:unit-decisions -->
 - **Dependencias:** ninguna.
 - **Archivos previstos:** `crates/rakka-actor/src/{done,not_used,pekko_exception}.rs` y `crates/rakka-actor/src/util/{timeout,time_unit,helpers}.rs` (existentes: implementados parcialmente); tests existentes en `crates/rakka-actor/tests/`.
 - **Tests/oraculo:** unidad + oraculo jars.

@@ -16,7 +16,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 38 `AT-EVT-1` (`38-at-evt-1.md`), por las filas AT-EVT-001, AT-EVT-002, AT-EVT-003, AT-EVT-004. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 23 `AC-SER-1` (`23-ac-ser-1.md`), por las filas AC-SER-001.1, AC-SER-001.3, AC-SER-002.
 - Spec 48 `AT-SER-1` (`48-at-ser-1.md`), por las filas AT-SER-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-001, AC-UTIL-002.3, AC-UTIL-002.4.
+- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-001, AC-UTIL-002.4.
 - Spec 05 `AC-CFG-1` (`05-ac-cfg-1.md`), por las filas AC-CFG-001, AC-CFG-002.
 
 Decisiones:

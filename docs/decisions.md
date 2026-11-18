@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 219 decisiones: 0 bloqueantes, 158 propuestas, 48 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 220 decisiones: 0 bloqueantes, 159 propuestas, 48 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1808,6 +1808,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Filas afectadas:** AC-TK-015
 - **Unidades afectadas:** TK
 - **Origen:** classic-system
+
+### Q-UTIL-17 — toString / Display de PekkoException y ConfigurationException: con o sin nombre de clase
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Pekko 2.0.0 (oráculo EX-TS-01..03, casos medidos el 2026-11-18): `new PekkoException("boom").toString` = `org.apache.pekko.PekkoException: boom`; `ConfigurationException` = `org.apache.pekko.ConfigurationException: bad`; con mensaje vacío `org.apache.pekko.PekkoException: `. Hoy el `Display` de Rust imprime sólo el mensaje (`java_class()` da el nombre simple).
+- **Alternativas:** (a) `Display` = sólo el mensaje, como es convención en Rust, y `java_class()`/`java_name()` para quien quiera el nombre; (b) `Display` = `<nombre calificado JVM>: <mensaje>`, como `Throwable.toString`.
+- **Recomendación:** (a): lo que consumen los usuarios de un crate Rust es el mensaje; el nombre de clase está disponible aparte. Es una diferencia observable con Pekko: requiere autorización del Owner (A-4); sin respuesta AC-UTIL-004.1 queda `partial`.
+- **Filas afectadas:** AC-UTIL-004.1; AC-UTIL-004.2
+- **Unidades afectadas:** P02
+- **Origen:** classic-foundation
 
 ## 6. Respuestas del Owner por unidad
 

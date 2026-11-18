@@ -14,7 +14,6 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 13 `AC-CELL-1` (`13-ac-cell-1.md`), por las filas AC-CELL-004, AC-CELL-015.1, AC-CELL-015.2.
 - Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 22 `AC-CS-1` (`22-ac-cs-1.md`), por las filas AC-CS-004.1, AC-CS-004.2, AC-CS-004.3, AC-CS-006.1, AC-CS-006.2, AC-CS-009. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-005.2.
 - Spec 09 `AC-DSP-1` (`09-ac-dsp-1.md`), por las filas AC-DSP-001, AC-DSP-006, AC-DSP-007, AC-DSP-015.
 - Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-009.1, AC-REF-009.2, AC-REF-010, AC-REF-011, AC-REF-012.
 - Spec 12 `AC-TK-1` (`12-ac-tk-1.md`), por las filas AC-TK-001.1.
@@ -25,6 +24,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 21 `AC-RT-1` (`21-ac-rt-1.md`), por las filas AC-RT-003.1. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 19 `AC-ASK-1` (`19-ac-ask-1.md`), por las filas AC-ASK-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 23 `AC-SER-1` (`23-ac-ser-1.md`), por las filas AC-SER-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-005.2.
 - Spec 03 `AC-UTIL-2` (`03-ac-util-2.md`), por las filas AC-UTIL-016.9.
 
 Decisiones:

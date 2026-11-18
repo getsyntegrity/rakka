@@ -205,3 +205,18 @@ fn no_public_path_builds_a_timeout_outside_the_range() {
     assert!(Timeout::new(i64::MIN).is_err());
     assert!(Timeout::of(i64::MIN, TimeUnit::Nanoseconds).is_err());
 }
+
+#[test]
+fn negative_timeouts_with_the_same_nanoseconds_are_equal_and_hash_alike() {
+    // Oracle TO-06N (case uc-0082): Timeout(-1000 ms) == Timeout(-1 s) with the same hash.
+    let (millis, second) = (
+        Timeout::of(-1000, TimeUnit::Milliseconds).unwrap(),
+        Timeout::of(-1, TimeUnit::Seconds).unwrap(),
+    );
+    let hasher = std::hash::RandomState::new();
+    assert_eq!(millis, second);
+    assert_eq!(
+        std::hash::BuildHasher::hash_one(&hasher, millis),
+        std::hash::BuildHasher::hash_one(&hasher, second)
+    );
+}
