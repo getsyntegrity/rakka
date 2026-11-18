@@ -1,6 +1,6 @@
 # Spec 21 — AC-RT (1/1)
 
-**Estado:** bloqueada. **Filas:** 22. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 22. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -20,8 +20,8 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 Decisiones:
 
-- Bloqueantes: `Q-RT-4`.
-- Propuestas aún sin decisión del Owner: `Q-ASK-1`, `Q-RT-1`, `Q-RT-2`, `Q-RT-3`, `Q-RT-5`, `Q-RT-6`, `Q-RT-7`, `Q-RT-8`, `Q-RT-9`, `Q-X-1`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
+- Bloqueantes: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-ASK-1`, `Q-RT-1`, `Q-RT-2`, `Q-RT-3`, `Q-RT-5`, `Q-RT-6`, `Q-RT-7`, `Q-RT-8`, `Q-RT-9`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

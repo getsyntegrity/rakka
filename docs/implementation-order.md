@@ -2,7 +2,7 @@
 
 > **Cierre documental 2026-10-31:** el plan de unidades vigente es `docs/unit-plan.md` (77 unidades en 10 olas tras la particion documental de P05 del 2026-11-01, sin ciclos entre unidades; asignación en `docs/unit-rows.tsv`; costuras en `docs/cycles.md`). Las 50 specs generadas de abajo siguen siendo agrupaciones preliminares por unidad de inventario y no deben ejecutarse.
 
-Este documento ordena las 783 filas del inventario (523 de Classic en `docs/inventory/actor-classic.tsv`, 260 de Typed en `docs/inventory/actor-typed.tsv`) en 50 specs **preliminares**: son agrupaciones de filas que aún requieren revisión de atomicidad y de dependencias antes de considerarse ejecutables. Cada spec tiene como máximo 5 tareas y vive en `docs/superpowers/plans/units/` (índice con estado y dependencias: `docs/superpowers/plans/units/README.md`, generado por `tools/package/generate.py`). Las 492 filas del inventario inicial se revisaron contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 (`9a54d129…`); 69 se descompusieron en hijos y se agregaron las omisiones detectadas. **La documentación completa no es implementación ni paridad**: las columnas `impl` y `validation` del inventario son la única medida de avance.
+Este documento ordena las 785 filas del inventario (525 de Classic en `docs/inventory/actor-classic.tsv`, 260 de Typed en `docs/inventory/actor-typed.tsv`) en 50 specs **preliminares**: son agrupaciones de filas que aún requieren revisión de atomicidad y de dependencias antes de considerarse ejecutables. Cada spec tiene como máximo 5 tareas y vive en `docs/superpowers/plans/units/` (índice con estado y dependencias: `docs/superpowers/plans/units/README.md`, generado por `tools/package/generate.py`). Las 492 filas del inventario inicial se revisaron contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 (`9a54d129…`); 69 se descompusieron en hijos y se agregaron las omisiones detectadas. **La documentación completa no es implementación ni paridad**: las columnas `impl` y `validation` del inventario son la única medida de avance.
 
 ## Cómo se ejecuta
 
@@ -18,7 +18,7 @@ En Pekko, un actor tipado corre dentro de una celda clásica (`ActorAdapter`, `A
 
 ## Decisiones bloqueantes
 
-El registro único está en `docs/decisions.md` (218 decisiones: 8 bloqueantes, 202 propuestas, 7 aceptadas, 0 aceptadas con cambios, 1 rechazadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
+El registro único está en `docs/decisions.md` (219 decisiones: 0 bloqueantes, 158 propuestas, 48 aceptadas, 10 aceptadas con cambios, 3 rechazadas). Las transversales `Q-X-1` a `Q-X-10` (HOCON, registro de fábricas, mensajes dinámicos, runtime, fallos, EventStream, loggers, Typed sobre Classic, `Done`/`Timeout`, límites del módulo) condicionan a casi todas las specs.
 
 ## Orden de las specs
 
@@ -30,7 +30,7 @@ Fases: 1 valores sin concurrencia (PATH, UTIL, CFG); 2 runtime Classic (REF, MBX
 | Unidad | Filas pendientes | Specs (orden de ejecución) |
 |---|---|---|
 | AC-PATH | 13 | 01 |
-| AC-UTIL | 66 | 02, 03, 04 |
+| AC-UTIL | 68 | 02, 03, 04 |
 | AC-CFG | 29 | 05 |
 | AC-REF | 31 | 06, 07 |
 | AC-MBX | 23 | 08 |

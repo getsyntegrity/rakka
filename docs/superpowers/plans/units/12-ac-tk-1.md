@@ -1,6 +1,6 @@
 # Spec 12 — AC-TK (1/1)
 
-**Estado:** bloqueada. **Filas:** 27. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 27. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -25,8 +25,8 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 Decisiones:
 
-- Bloqueantes: `Q-TK-1`.
-- Propuestas aún sin decisión del Owner: `Q-EVT-5`, `Q-TK-10`, `Q-TK-2`, `Q-TK-3`, `Q-TK-4`, `Q-TK-5`, `Q-TK-6`, `Q-TK-7`, `Q-TK-8`, `Q-TK-9`, `Q-X-2`, `Q-X-3`, `Q-X-4`, `Q-X-5`, `Q-X-7`.
+- Bloqueantes: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-EVT-5`, `Q-TK-10`, `Q-TK-2`, `Q-TK-3`, `Q-TK-4`, `Q-TK-5`, `Q-TK-6`, `Q-TK-7`, `Q-TK-8`, `Q-TK-9`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 218 decisiones: 8 bloqueantes, 202 propuestas, 7 aceptadas, 0 aceptadas con cambios, 1 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 219 decisiones: 0 bloqueantes, 158 propuestas, 48 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -23,169 +23,97 @@ Responder con una de estas formas por decisión (o por bloque): `aceptar` (se ad
 
 Impiden cerrar el comportamiento afectado aunque el resto de la unidad avance.
 
-### Q-FSM-4 — Estado inexistente: terminate sin context.stop(self)
-
-- **Estado:** bloqueante
-- **Evidencia:** FSM.scala:882-884 (terminate sin stop) vs 869-878 (applyState hace stop) | Cierre 2026-10-31: Clasificacion: divergencia funcional (replicar un comportamiento que parece defecto) — la parte de incertidumbre sobre el comportamiento queda RESUELTA por lectura: FSM.scala:881-884 (makeTransition) llama `terminate(stay().withStopReason(Failure("Next state %s does not exist")))` sin `context.stop(self)`; `terminate` cancela timers, fija currentState al stay() con stopReason, ejecuta onTermination una vez y loguea el error; el actor sigue vivo procesando en el estado anterior, y el terminate de postStop ya no re-ejecuta onTermination. FSMActorSpec:170-186 solo afirma el log de error. No se ha ejecutado el oraculo (Java disponible es 11 y AGENTS.md pide 21); queda como confirmacion opcional.
-- **Alternativas:** (a) replicar: el actor sigue vivo tras "Next state X does not exist"; (b) detenerlo tambien
-- **Recomendación:** (a) replicar (paridad) y marcarlo como Q; confirmar contra el jar oficial con un escenario de oraculo antes de implementar. Consecuencias observables: (a) un FSM con estado destino inexistente sigue contestando mensajes tras el error; (b) onTermination se invoca con Failure y no se vuelve a invocar al parar. Bloquea AC-FSM-006.1 A1/A4 y AC-FSM-006.2 (A1 depende del orden de terminate); puede avanzar el resto de FSM. Solo hace falta el Owner para elegir replicar (recomendado) o detener el actor tambien.
-- **Filas afectadas:** AC-FSM-006.1;AC-FSM-006.2
-- **Unidades afectadas:** FSM
-- **Origen:** classic-patterns
-
-### Q-RT-4 — Introspeccion de mailbox para SmallestMailbox y Resizer (pressure)
-
-- **Estado:** bloqueante
-- **Evidencia:** SmallestMailbox.scala:108-153; Resizer.scala:206-226 | Cierre 2026-10-31: Clasificacion: arquitectura (vista interna del mailbox en AC-MBX-019). Evidencia ampliada: SmallestMailbox.scala:96-153 usa is_scheduled/currentMessage/hasMessages/numberOfMessages/isSuspended; Resizer.scala:206-226 (pressure) usa isScheduled, hasMessages, currentMessage, numberOfMessages; OptimalSizeExploringResizer.scala:217-228 usa numberOfMessages + currentMessage != null.
-- **Alternativas:** (a) exponer una vista interna de solo lectura del mailbox (is_scheduled, has_messages, number_of_messages, is_suspended, current_message) en AC-MBX; (b) heuristica aproximada
-- **Recomendación:** (a) necesaria para paridad; marcar bloqueante si AC-MBX-019 no la ofrece. Consecuencias: sin la vista, SmallestMailbox degrada a heuristica (cambia la eleccion de routee) y los resizers no pueden medir presion/carga. Bloquea la integracion de AC-RT-008, 013.2 y 014 (reportMessageCount); NO bloquea la logica pura de AC-RT-013.1 (capacity/rampup/backoff), de AC-RT-014 (resize/optimize/explore con carga inyectada) ni los constructores. Es el unico Q bloqueante de RT: priorizarlo en AC-MBX.
-- **Filas afectadas:** AC-RT-008;AC-RT-013.1;AC-RT-013.2;AC-RT-014
-- **Unidades afectadas:** RT
-- **Origen:** classic-patterns
-
-### Q-SER-1 — Resolución de bindings y manifests sin jerarquía de clases JVM
-
-- **Estado:** bloqueante
-- **Evidencia:** Serialization.scala:326-390,507-520 (isAssignableFrom, orden subtipo-primero); SerializeSpec.scala:191-243 (8 casos de jerarquía/interfaz); reference.conf:817-831 (claves FQCN JVM como "[B", "java.io.Serializable", "scala.Long"); Serialization.scala:241-258 (manifest = nombre de clase cargado por reflexión)
-- **Alternativas:** (a) Registro de tipos con relación de supertipos declarada (marker traits registrados) y orden por especificidad; (b) solo coincidencia exacta de TypeId (sin jerarquía) y bindings por enum cerrado; (c) bindings por nombre lógico de mensaje (string estable) en lugar de FQCN
-- **Recomendación:** (a) con (c) para manifests: cada tipo registrado declara su nombre lógico y supertipos; las claves FQCN de reference.conf se aceptan como alias de nombre lógico; reutilizar la solución de Q-X-6 (jerarquía en EventStream). Conserva el desempate y el aviso "Multiple serializers found". El typo "synch" de un mensaje (Serialization.scala:277) queda a elección: copiar o corregir | Clasificación (cierre documental 2026-10-31): arquitectura (representación de tipos y jerarquías JVM).
-- **Filas afectadas:** AC-SER-001.1; AC-SER-001.2; AC-SER-001.3; AC-SER-002; AC-SER-003.2; AC-SER-003.3; AC-SER-003.5
-- **Unidades afectadas:** SER
-- **Origen:** classic-io-ser
-
-### Q-T-BEH-1 — Forma del tipo Behavior en Rust, setup re-ejecutable y reutilizacion del valor
-
-- **Estado:** bloqueante
-- **Evidencia:** Pekko reutiliza el mismo valor Behavior en varios spawns y re-ejecuta setup en cada restart (actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:331-339; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:404; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:198-211); sin eso supervise/restart no puede recrear el Behavior. Requisitos observables que cualquier representacion debe cumplir (contrato en AT-BEH-007, R1-R3): reutilizar el mismo Behavior en actores independientes y volver a ejecutar la fabrica de setup en cada restart (actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:404; actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1145-1153, 1673-1691). El FnOnce propuesto antes en AT-BEH-001/AT-BEH-007 contradice R1 y R2.
-- **Alternativas:** (a) enum Behavior<M> cerrado con Deferred(Arc<dyn Fn(&mut Ctx)->Behavior>) y Behavior: Clone via Arc; (b) Box<dyn FnOnce> y prohibir restart de esos Behaviors (rompe AT-BEH-023 y AT-SUP-005); (c) trait object Behavior con metodo clone_box.
-- **Recomendación:** Clasificacion: arquitectura. Consecuencia observable: sin (a) un Behavior no puede reutilizarse ni reiniciarse (se rompen restart y AT-BEH-023). Bloquea AT-BEH-001, 004, 007, 011, 023 y AT-SUP-005/013; puede avanzar todo lo que no construye Behaviors (SIG, REF, STASH solo-estructura). | Recomendacion previa: (a). Es el unico que conserva restart y reutilizacion. Es una recomendacion: el Owner no la acepto; hasta que responda AT-BEH-001, AT-BEH-004 y AT-BEH-007 no se cierran y ninguna alternativa se considera adoptada.
-- **Filas afectadas:** AT-BEH-001; AT-BEH-007; AT-BEH-011; AT-BEH-023; AT-SUP-005; AT-SUP-013
-- **Unidades afectadas:** BEH; SUP
-- **Origen:** typed-core
-
-### Q-T-SUP-3 — Backoff: maxRestarts 0/negativo y default de resetBackoffAfter segun doc Java
-
-- **Estado:** bloqueante
-- **Evidencia:** Scaladoc de withMaxRestarts: 'Zero or negative disables the upper limit' (actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:329-333) vs codigo que solo trata -1 como ilimitado (actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:145-152, 335); Scaladoc Java de withResetBackoffAfter dice 'same value as minBackoff' (actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:322-326) vs codigo y spec (min+max)/2 (actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:82-86; actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1117-1120).
-- **Alternativas:** (a) seguir el codigo: solo -1 ilimitado, 0 y otros negativos fallan en la primera excepcion; resetBackoffAfter por defecto (min+max)/2; (b) seguir el Scaladoc: <=0 desactiva el limite.
-- **Recomendación:** Clasificacion: incertidumbre parcialmente resuelta; el caso maxRestarts<=0 requiere medicion con el oraculo y luego decision. Resuelto por lectura: el default de resetBackoffAfter es (min+max)/2 (spec :1117-1120; el Scaladoc Java es erroneo). Para maxRestarts: el codigo trata solo -1 como ilimitado (Supervision.scala:145-152, 335) y ningun spec afirma 0 ni negativos; la medicion con el oraculo (withMaxRestarts(0)) decidira la lectura de Pekko, y solo si el oraculo contradice al codigo leido hace falta al Owner. Bloquea AT-SUP-007.3; AT-SUP-007.2 puede avanzar. | Recomendacion previa: (a) para el default de resetBackoffAfter (lo afirma el spec); para maxRestarts <=0 pedir decision: no hay spec que afirme ninguna de las dos lecturas.
-- **Filas afectadas:** AT-SUP-007.2; AT-SUP-007.3
-- **Unidades afectadas:** SUP
-- **Origen:** typed-core
-
-### Q-TK-1 — Entrega síncrona del testActor (CallingThreadDispatcher) en TestKit/TestProbe
-
-- **Estado:** bloqueante
-- **Evidencia:** TestKit.scala:189-193 crea el testActor con CallingThreadDispatcher; TestProbeSpec.scala:32-39 hace `expectMsg(0.millis, ..)` inmediatamente tras `ask`/tell y afirma `future.isCompleted == true` tras responder. Cierre 2026-10-31 (leídos CallingThreadDispatcher.scala completo, CallingThreadDispatcherModelSpec y ActorModelSpec:278-508): el testActor se crea con CallingThreadDispatcher (TestKit.scala:189-193); la entrega síncrona se apoya en register->runQueue, dispatch->runQueue y un candado reentrante por actor con colas por hilo (CallingThreadDispatcher.scala:183-338). Es implementable en Rust (ver AC-TK-006.2, Equivalente Rust).
-- **Alternativas:** (a) dispatcher inline obligatorio para TestActor (misma semántica que Pekko); (b) entrega asíncrona con expectMsg que sondea y cambiar los specs portados; (c) ambos, con inline por defecto; (d) TestProbe como ref especial que empuja directamente a su cola en el hilo del emisor (misma entrega observable, sin path /system/testActor ni ciclo de vida de actor)
-- **Recomendación:** [Clasificación: arquitectura] (a): sin ella no se portan 1:1 los specs que usan expectMsg(0.millis). Consecuencias observables: sin entrega síncrona fallan 1:1 los specs con expectMsg(0.millis, ..) y `future.isCompleted` tras responder (TestProbeSpec.scala:32-57, TestActorRefSpec.scala:224-230, ExecutionContextSpec.scala:168-185). Bloquea: AC-TK-001.1, AC-TK-002.1, AC-TK-006.1, AC-TK-006.2 y el port de los specs que usen testActor/TestProbe con 0 ms. Puede avanzar: el resto de AC-SYS/AC-EVT/AC-TK y los specs con esperas no nulas (con sondeo, opción b).
-- **Filas afectadas:** AC-TK-001.1 ; AC-TK-002.1 ; AC-TK-006.2 ; AC-TK-006.1 ; AC-TK-007
-- **Unidades afectadas:** TK ; DSP
-- **Origen:** classic-system
-
-### Q-UTIL-12 — Alcance y representación de ByteString/ByteIterator/ByteStringBuilder
-
-- **Estado:** bloqueante
-- **Evidencia:** scala-2.13/util/ByteString.scala:31,867,1164,1254 y ByteIterator.scala:26-430; ByteStringSpec.scala:360 (140 tests según inventario). Lo consumen IO (AC-IO-*) y serialización (AC-SER-*) que están en alcance. [Cierre documental 2026-10-31] Contrato extraído (AC-UTIL-006.1-.8, 022): ver bloques. Operaciones que condicionan la representación: recortes sin copia, `++` sin copia, `compact`/`isCompact`, `asByteBuffers` por fragmento, `toArrayUnsafe` sin copia en un fragmento, igualdad y `hashCode` por contenido, `toString` con tope de 100 bytes, serialización Java (identidades 0/1/2), builder con temporal y fragmentos, iterador mutable con `clone`.
-- **Alternativas:** (a) newtype sobre `bytes::Bytes` (dependencia externa); (b) rope propio sin dependencias (el crate no tiene dependencias hoy); (c) ByteString = `Bytes` + traits para el builder/iterator.
-- **Recomendación:** Decidir antes de empezar IO/SER; no bloquea UTIL/CFG/PATH/EXT. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA/dependencia externa (bytes, base64, encoding_rs). Con la extracción completada, la comparación es posible: (a) bytes::Bytes cubre recortes y clone baratos, un solo fragmento (isCompact deja de distinguir ropes; 'asByteBuffers' devolvería un solo trozo); (b) rope propio conserva fragmentos (isCompact, asByteBuffers y la fusión de ByteString1 contiguos son reproducibles) sin dependencias. Recomendación: (c) = Bytes + traits, con una lista de fragmentos sólo si IO la necesita (writev). Consecuencias observables: asByteBuffers/isCompact; alcance de charsets distintos de UTF-8. Bloquea: AC-UTIL-006.* y AC-UTIL-022 (impl) y, por dependencia, AC-IO-*/AC-SER-*; puede avanzar: toda UTIL/CFG/PATH/EXT sin ByteString.
-- **Filas afectadas:** AC-UTIL-006.*, AC-UTIL-022
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-6 — Version.compareTo es asimétrico cuando un lado no tiene calificador (rest vacío) y el otro sí
-
-- **Estado:** bloqueante
-- **Evidencia:** util/Version.scala:170-175: `if (rest=="" && other.rest!="") diff=1` seguido de un `if (other.rest=="" && rest!="") diff=-1 else diff=rest.compareTo(other.rest)` independiente; con rest="" y other.rest="M1" el `else` sobrescribe a 1 con "".compareTo("M1") < 0. VersionSpec.scala:56-64 sólo prueba `1.2-M1 < 1.2.0` (lado con calificador a la izquierda). Sin ejecutar con el jar: hipótesis a confirmar. [Cierre documental 2026-10-31] CONFIRMADO midiendo con el jar 1.7.1 (JDK 11, ORACLE=jars tools/oracle/run.sh): Version("1.2.0").compareTo(Version("1.2-M1")) = -2 y Version("1.2-M1").compareTo(Version("1.2.0")) = -1 (ambos negativos); 1.2.0 vs 1.2.0-RC1 = -3 y 1.2.0-RC1 vs 1.2.0 = -1.
-- **Alternativas:** (a) reproducir exactamente (bug-compatible) y fijarlo con un test del jar; (b) corregir para que sea antisimétrico (1.2.0 > 1.2-M1) y registrar la diferencia; (c) no portar Version.compareTo y usar semver.
-- **Recomendación:** Confirmar primero con el jar (escenario nuevo en tools/oracle). Si se confirma, (a) hasta que el Owner decida: cualquier diferencia no autorizada es regresión (AGENTS.md). [Cierre documental 2026-10-31] Clasificación: la incertidumbre se resolvió leyendo y midiendo (defecto confirmado); lo que queda es una DIVERGENCIA FUNCIONAL candidata que sólo el Owner puede autorizar (bug-compatible vs corregir). Consecuencias observables: con (a) una versión final 1.2.0 compara MENOR que 1.2-M1 (ManifestInfo.checkSameVersion y PekkoVersion eligen la 'más alta' con max); con (b) 1.2.0 > 1.2-M1. Bloquea: la implementación de la comparación con calificador (AC-UTIL-005.2 A5/A8) y la elección de la versión más alta en AC-UTIL-016.9; puede avanzar: parseo, igualdad, comparación numérica y dynver (A1-A4, A6-A7).
-- **Filas afectadas:** AC-UTIL-005.2
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
 ## 4. Decisiones transversales (afectan a varias unidades)
 
 Decidirlas primero: desbloquean la mayor parte de las propuestas por unidad.
 
 ### Q-X-1 — Implementación de HOCON (parser y carga)
 
-- **Estado:** propuesta (sin decisión del Owner)
+- **Estado:** aceptada con cambios
 - **Evidencia:** Plan docs/superpowers/plans/2026-10-30-ac-cfg-parser-loading.md: golden de 161 casos contra Typesafe Config 1.4.9; `hocon-parser` 1.14.2 diverge en `+=` entre capas, duraciones negativas, `"ON"` e `include classpath()`; `hocon-rs` 0.2.0 no tiene `withFallback`; `hocon` 0.9.0 sin mantenimiento desde 2022.
 - **Alternativas:** (A) subconjunto propio sin dependencias; (B) `hocon-parser` tras fachada con una `Q:` por divergencia; (C) (B) más parche upstream.
 - **Recomendación:** (A), con el golden como suite de aceptación y ampliado antes de implementar. Alias: Q-CFG-1.
 - **Filas afectadas:** AC-CFG-001; AC-CFG-017.*; todo lo que lee Config
 - **Unidades afectadas:** AC-CFG, AC-SER (WireConfig), todas las que leen reference.conf
 - **Origen:** transversal
+- **Respuesta del Owner:** aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-X-2 — Registro nombre → fábrica en lugar de reflexión por FQCN
 
-- **Estado:** propuesta (sin decisión del Owner)
+- **Estado:** aceptada con cambios
 - **Evidencia:** AC-CFG-016, AC-EXT-003, DynamicAccessSpec.scala:40,50,59,72; el inventario ya propone el registro; `inventory`/`linkme` descartado como mecanismo principal (dependen del linker).
 - **Alternativas:** (A) `FactoryRegistry<Producto>` por punto de extensión; (B) un registro único con `Any`; (C) macros de registro global.
 - **Recomendación:** (A); un nombre no registrado devuelve un error de configuración que lleva el nombre. Abierto dentro de la decisión: tipo del error (`ConfigurationException` o propio). Alias: Q-CFG-2.
 - **Filas afectadas:** AC-CFG-016; AC-EXT-003; AC-MBX-004; AC-DSP-010; AC-EVT-011; AC-SCH-010; AC-SER-*
 - **Unidades afectadas:** AC-CFG, AC-EXT, AC-MBX, AC-DSP, AC-EVT, AC-SCH, AC-SER
 - **Origen:** transversal
+- **Respuesta del Owner:** aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-X-3 — Tipo de los mensajes en Classic
 
-- **Estado:** propuesta (sin decisión del Owner)
+- **Estado:** aceptada
 - **Evidencia:** actor-classic.md pregunta 2; Classic es dinámico (`Any` + `PartialFunction`); `unhandled`, `become` y `UnhandledMessage` dependen de poder rechazar un mensaje.
 - **Alternativas:** (A) `Box<dyn Any + Send>` y `receive` que hace downcast y devuelve Handled/Unhandled; (B) enum por actor.
 - **Recomendación:** (A); el tipado fuerte queda en `rakka-actor-typed`.
 - **Filas afectadas:** AC-REF-002; AC-CELL-001; AC-ASK-001
 - **Unidades afectadas:** AC-REF, AC-CELL, AC-ASK, AC-FSM, AC-RT
 - **Origen:** transversal
+- **Respuesta del Owner:** aceptar (A). (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-X-4 — Runtime y modelo de ejecución
 
-- **Estado:** propuesta (sin decisión del Owner)
+- **Estado:** aceptada con cambios
 - **Evidencia:** actor-classic.md pregunta 3; `BoundedMailbox` bloquea al emisor (no encaja en async); claves de `fork-join-executor`; rueda de timers `LightArrayRevolverScheduler`.
 - **Alternativas:** (A) pools de hilos propios con interfaz de ejecutor y futuros agnósticos del runtime; (B) atar el port a tokio.
 - **Recomendación:** (A): preserva el bloqueo del emisor, `PinnedDispatcher` y las claves de configuración; tokio puede ser un adaptador opcional más adelante.
 - **Filas afectadas:** AC-DSP-008; AC-MBX-007; AC-SCH-008
 - **Unidades afectadas:** AC-DSP, AC-MBX, AC-SCH, AC-CELL, AC-ASK
 - **Origen:** transversal
+- **Respuesta del Owner:** aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-X-5 — Qué es un fallo supervisable
 
-- **Estado:** propuesta (sin decisión del Owner)
+- **Estado:** aceptada con cambios
 - **Evidencia:** actor-classic.md pregunta 1; Pekko distingue Exception (reinicia) de Error/Throwable (escala).
 - **Alternativas:** (A) `Err` y `panic` son fallos supervisables, tratados como Exception; (B) `panic` escala; (C) no capturar panics.
 - **Recomendación:** (A): capturar panics preserva el aislamiento entre actores; (C) lo rompe.
 - **Filas afectadas:** AC-SUP-001; AC-SUP-004; AC-SYS-015; AT-SUP-002
 - **Unidades afectadas:** AC-SUP, AC-CELL, AT-SUP
 - **Origen:** transversal
+- **Respuesta del Owner:** aceptar (A). Documentar que con panic=abort no hay supervisión de panics. (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-X-6 — Suscripción por jerarquía de tipos en EventStream
 
-- **Estado:** propuesta (sin decisión del Owner)
+- **Estado:** aceptada
 - **Evidencia:** actor-classic.md pregunta 5; Rust no tiene herencia; AC-UTIL-008, AC-EVT-003.
 - **Alternativas:** (A) `TypeId` exacto más canales padre declarados por el tipo de evento; (B) enum cerrado de eventos.
 - **Recomendación:** (A).
 - **Filas afectadas:** AC-UTIL-008; AC-EVT-003
 - **Unidades afectadas:** AC-EVT, AC-UTIL, AT-EVT
 - **Origen:** transversal
+- **Respuesta del Owner:** aceptar (A). (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-X-7 — Loggers como actores o backend directo
 
-- **Estado:** propuesta (sin decisión del Owner)
+- **Estado:** aceptada
 - **Evidencia:** actor-classic.md pregunta 8; `LoggerSpec` y `EventFilter` dependen del handshake InitializeLogger/LoggerInitialized (AC-EVT-011).
 - **Alternativas:** (A) loggers como actores con el handshake; (B) backend directo a `tracing`.
 - **Recomendación:** (A): permite portar `LoggerSpec` y `EventFilter` sin cambios; `tracing` puede ser un logger más.
 - **Filas afectadas:** AC-EVT-011; AC-TK-*
 - **Unidades afectadas:** AC-EVT, AC-TK, AT-LOG
 - **Origen:** transversal
+- **Respuesta del Owner:** aceptar (A). (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-X-8 — Typed sobre Classic o runtime tipado nativo
 
-- **Estado:** propuesta (sin decisión del Owner)
+- **Estado:** aceptada
 - **Evidencia:** docs/implementation-order.md (sección Decisión previa); `ActorAdapter`, `ActorContextAdapter`, `ActorSystemAdapter` en actor-typed/.../internal/adapter/.
 - **Alternativas:** (a) replicar las capas de Pekko; (b) runtime tipado nativo con interop aparte.
 - **Recomendación:** (a): cada contrato heredado se implementa y valida una sola vez y la interop sale casi gratis.
 - **Filas afectadas:** AT-SYS-011; AT-ADP-*; todas las AT-*
 - **Unidades afectadas:** todas las AT-*
 - **Origen:** transversal
+- **Respuesta del Owner:** aceptar (a): Typed sobre Classic. (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-X-9 — Agrupación de presentación: Done, Timeout, null y unidades de duración (Q-UTIL-1..5)
 
@@ -200,13 +128,14 @@ Decidirlas primero: desbloquean la mayor parte de las propuestas por unidad.
 
 ### Q-X-10 — Límites del módulo: remote, cluster, streams, persistence, http
 
-- **Estado:** propuesta (sin decisión del Owner)
+- **Estado:** aceptada
 - **Evidencia:** actor-classic.md sección Límites del módulo; ninguno vive en `pekko-actor`/`pekko-actor-typed`; hay ganchos (AC-SYS-018, AC-DW-010/012, AC-SER-007).
 - **Alternativas:** (A) fuera del alcance; el trait `ActorRefProvider` se deja abierto; (B) incluir alguno.
 - **Recomendación:** (A). Es el límite con que se armó el inventario; no fue autorizado explícitamente.
 - **Filas afectadas:** AC-SYS-018; AC-CFG-008
 - **Unidades afectadas:** AC-SYS, AC-CFG, AC-DW, AC-SER
 - **Origen:** transversal
+- **Respuesta del Owner:** autoriza el alcance (A): sólo actor y actor-typed locales (sin remoting, cluster, persistence, streams ni HTTP). (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-X-11 — Versión de referencia: Apache Pekko 2.0.0
 
@@ -284,6 +213,17 @@ Decidirlas primero: desbloquean la mayor parte de las propuestas por unidad.
 - **Unidades afectadas:** todas
 - **Origen:** transversal
 - **Respuesta del Owner:** aceptar: el dominio de entrada de la API pública es &str; las entradas con sustitutos UTF-16 sueltos (representables en Java, no en Rust) quedan fuera de dominio. En el replay se listan como NOT_APPLICABLE en cases/not-applicable.tsv (con motivo y esta decisión), se informan como "N/N aplicables + K no aplicables" y el arnés las rechaza con un error explícito, nunca con reemplazo lossy. Sustituye a "las cifras del piloto tienen que mantenerse" sólo para ese caso. (Owner (instrucción en la sesión), 2026-11-18)
+
+### Q-X-18 — Procedencia del código: reescritura en sala limpia de lo derivado de fuentes no compatibles o dudosas
+
+- **Estado:** aceptada
+- **Evidencia:** Auditoría de procedencia (docs/legal/provenance-audit.md); uri.rs y jstring.rs declaran estar portados de OpenJDK (GPL-2.0 con Classpath exception), ver Q-PATH-6.
+- **Alternativas:** (a) sala limpia documentada; (b) revisión legal del código existente.
+- **Recomendación:** (a).
+- **Filas afectadas:** AC-PATH-*; todo archivo de procedencia dudosa
+- **Unidades afectadas:** todas
+- **Origen:** transversal
+- **Respuesta del Owner:** aceptar: todo el código de rakka derivado de fuentes con licencia no compatible con Apache-2.0, o de procedencia dudosa, se reescribe en sala limpia (auditoría de procedencia, especificación sin código, implementación por un agente que no lee el original ni código GPL, verificación con replay, mutantes y comparación de similitud). Prohibido leer o portar código de OpenJDK u otras fuentes GPL: la conducta del JDK se toma sólo de su documentación pública y del oráculo. No se publica ningún release hasta cerrar todas las reescrituras. (Owner (respuesta al lote 01), 2026-11-18)
 
 Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 
@@ -438,116 +378,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Filas afectadas:** AC-CELL-028 ; AC-CELL-029
 - **Unidades afectadas:** CELL
 - **Origen:** classic-cell
-
-### Q-CFG-3 — checkValid contra reference.conf (Typesafe Config) con un parser propio
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** ActorSystem.scala:395-402: `cfg.checkValid(defaultReference.withoutPath("pekko.actor.internal-dispatcher"), "pekko")`. Las reglas (compatibilidad de tipos, listas, objetos, mensaje agregado `ValidationFailed`) pertenecen a Typesafe Config 1.4.9, que no está en upstream/pekko; ningún test de Pekko las afirma.
-- **Alternativas:** (a) implementar checkValid con tabla de compatibilidad documentada y escenarios del jar; (b) omitirlo y fallar al leer cada clave; (c) reducirlo a presencia de claves.
-- **Recomendación:** (a) si Q-X-1 elige parser propio; con (b)/(c) se pierde 'fail-fast con lista de errores'. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (depende de Q-X-1). Consecuencias observables: sin checkValid un sistema arranca con configuración mal tipada y falla más tarde, clave a clave, sin la lista agregada `ValidationFailed`. Bloquea: AC-CFG-019 (y la parte fail-fast de AC-CFG-002). Puede avanzar: lectura de cada clave en Settings.
-- **Filas afectadas:** AC-CFG-019, AC-CFG-002
-- **Unidades afectadas:** CFG
-- **Origen:** classic-foundation
-
-### Q-CFG-4 — Fidelidad de errores y render de Config (tipos y textos de ConfigException, renderWithRedactions)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** DeployerSpec.scala:144-161 exige ConfigException.WrongType; el golden config-hocon.golden fija mensajes (TYPE-*, SUB-*, DUR-ERR, SIZE-ERR); Helpers.scala:178-192 renderiza con ConfigRenderOptions.defaults (formato propio de Typesafe).
-- **Alternativas:** (a) enum de errores con las mismas categorías y mensajes del golden; (b) mismas categorías, mensajes propios; (c) textos exactos sólo donde un test de Pekko los afirme.
-- **Recomendación:** (a) para los mensajes del golden; render sin exigir igualdad textual. [Cierre documental 2026-10-31] Clasificación: representación (errores) con riesgo de divergencia de mensajes. Consecuencias observables: `ConfigException.WrongType` exigido por DeployerSpec.scala:144-161; mensajes del golden. Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios.
-- **Filas afectadas:** AC-CFG-002, 005, 012.1, 017.*, AC-UTIL-002.4, AC-UTIL-002.5
-- **Unidades afectadas:** CFG, UTIL
-- **Origen:** classic-foundation
-
-### Q-CFG-5 — Valor de `pekko.version` y de `ActorSystem.Version` en rakka
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** reference.conf:10-11 (`include "version"`), project/VersionGenerator.scala:18-25 (genera version.conf y Version.scala), ActorSystem.scala:485-487 (error si difieren), ConfigSpec.scala:41-42.
-- **Alternativas:** (a) la versión de Pekko portada ("1.7.1"); (b) la versión del crate (CARGO_PKG_VERSION); (c) ambas: `pekko.version` fijo en 1.7.1 y una constante aparte del crate.
-- **Recomendación:** (a) mientras la fuente de verdad sea Pekko 1.7.1; así `PekkoVersion.require` de librerías se comporta igual. [Cierre documental 2026-10-31] Clasificación: representación; incertidumbre NO resoluble con las fuentes (es una decisión de producto). Consecuencias observables: `ActorSystem.Version`, `pekko.version` y `PekkoVersion.require`. Bloquea: AC-CFG-003, AC-UTIL-005.1; puede avanzar: el resto.
-- **Filas afectadas:** AC-CFG-003, AC-UTIL-005.1
-- **Unidades afectadas:** CFG, UTIL
-- **Origen:** classic-foundation
-
-### Q-CFG-6 — Fuentes de la config de aplicación cuando no se pasa Config
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** ActorSystem.scala:281 y docs/src/main/paradox/general/configuration.md:18-53: `ConfigFactory.load(cl)` = application.conf/json/properties del classpath + system properties + `config.resource`; reference.conf de cada jar.
-- **Alternativas:** (a) application.conf del directorio de trabajo + variables de entorno con prefijo + reference.conf embebidos de las crates; (b) sólo reference.conf embebido y config explícita; (c) además un equivalente a `-Dkey=value` por línea de comandos.
-- **Recomendación:** (a) con una ruta configurable; documentar que no hay classpath scanning. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (fuentes de configuración). Consecuencias observables: cómo se localiza application.conf/variables; no cambia el contrato de merge (golden FB-*). Bloquea: AC-CFG-001 (carga por defecto); puede avanzar: `ActorSystem::new(config)` con config explícita.
-- **Filas afectadas:** AC-CFG-001
-- **Unidades afectadas:** CFG
-- **Origen:** classic-foundation
-
-### Q-CFG-7 — Claves de JVM: qué semántica tienen en Rust (daemonic, jvm-exit-on-fatal-error, jvm-shutdown-hooks, fail-mixed-versions, java-flight-recorder.enabled, home)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** reference.conf:14-15,85-110; ActorSystem.scala:463-472; CoordinatedShutdownSpec.scala:632-645 (conteo de hooks).
-- **Alternativas:** (a) aceptar todas; mapear daemonic a hilos del runtime, jvm-exit a abort/exit, jvm-shutdown-hooks a manejadores de señales; ignorar con aviso fail-mixed-versions y java-flight-recorder; (b) rechazar las claves sin sentido.
-- **Recomendación:** (a); la clave siempre se acepta para no romper configs de Pekko. [Cierre documental 2026-10-31] Clasificación: EXCLUSIÓN PARCIAL de comportamiento JVM con aceptación de claves (daemonic, jvm-exit-on-fatal-error, jvm-shutdown-hooks, fail-mixed-versions, java-flight-recorder.enabled, home). Evidencia añadida: la clave jvm-shutdown-hooks cuenta hooks en CoordinatedShutdownSpec.scala:632-645. Consecuencias observables: sólo el comportamiento al terminar el proceso. Bloquea: AC-CFG-007 y AC-UTIL-016.11 (impl); puede avanzar: aceptar y validar las claves.
-- **Filas afectadas:** AC-CFG-007, AC-UTIL-016.11
-- **Unidades afectadas:** CFG, UTIL
-- **Origen:** classic-foundation
-
-### Q-CFG-8 — Nombres estables para el registro de extensiones/fábricas (FQCN con `$` de objeto Scala)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** reference.conf:78 usa `org.apache.pekko.serialization.SerializationExtension$`; ReflectiveDynamicAccess.scala:69-87 resuelve `fqcn$` y luego `fqcn`; ExtensionSpec.scala:143 lista `InstanceCountingExtension` con y sin `$`.
-- **Alternativas:** (a) registrar ambos nombres (con y sin `$`) para cada extensión; (b) normalizar quitando `$` al resolver; (c) claves propias de Rust y tabla de alias de los FQCN de Pekko.
-- **Recomendación:** (b): mantiene el reference.conf sin cambios y los duplicados siguen creando una sola instancia. [Cierre documental 2026-10-31] Clasificación: representación (nombres estables). Consecuencias observables: reference.conf con `...SerializationExtension$` debe cargar la misma extensión una sola vez. Bloquea: AC-CFG-006 y AC-EXT-003; puede avanzar: AC-EXT-001.*, AC-EXT-002.
-- **Filas afectadas:** AC-CFG-006, AC-EXT-003 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.7]
-- **Unidades afectadas:** CFG, EXT, UTIL
-- **Origen:** classic-foundation
-
-### Q-CFG-9 — Proveedor distinto de local (remote, cluster, FQCN) en un sistema solo-local
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** ActorSystem.scala:107-145 y 410-420; remote/cluster están fuera del módulo; ProviderSelectionSpec.scala:38-67 sólo prueba la selección, no la carga de la clase.
-- **Alternativas:** (a) `ProviderSelection` completo, pero crear el sistema con Remote/Cluster/Custom no registrado devuelve un error de configuración que nombra la clase; (b) rechazar `remote`/`cluster` al parsear Settings; (c) permitir proveedores registrados por el usuario (punto de extensión para remote).
-- **Recomendación:** (a) + (c): deja la puerta abierta a remote sin implementarlo. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (alcance de remote/cluster). Consecuencias observables: mensaje de error al pedir `remote`/`cluster`/FQCN en un sistema solo local. Bloquea: AC-CFG-008; puede avanzar: provider `local`.
-- **Filas afectadas:** AC-CFG-008, AC-SYS-018
-- **Unidades afectadas:** CFG, SYS
-- **Origen:** classic-foundation
-
-### Q-CFG-10 — pekko.use-slf4j / amendSlf4jConfig
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** ActorSystem.scala:343-376, actor-typed reference.conf:68, ConfigSpec.scala:186-203. Depende de si los loggers son actores o un backend (Q-X-7).
-- **Alternativas:** (a) no portar la función si Q-X-7 elige un backend de logging; (b) portarla con un 'logger' registrado como Slf4jLogger equivalente.
-- **Recomendación:** Sigue a Q-X-7. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (depende de Q-X-7). Consecuencias observables: `pekko.use-slf4j` agrega Slf4jLogger/Slf4jLoggingFilter. Bloquea: AC-CFG-018; puede avanzar: AC-CFG-004 sin esa clave.
-- **Filas afectadas:** AC-CFG-004, AC-CFG-018
-- **Unidades afectadas:** CFG
-- **Origen:** classic-foundation
-
-### Q-CFG-11 — serialize-messages / serialize-creators / no-serialization-verification-needed-class-prefix
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Dispatch.scala:171-223, Children.scala:283-307, SerializeSpec.scala:310-361, DispatchSpec.scala:29-41; en Rust los mensajes son `Box<dyn Any + Send>` (Q-X-3).
-- **Alternativas:** (a) portar el chequeo sólo para tipos con serializador registrado; (b) no portar los dos modos y rechazar las claves en `on`; (c) portar con un trait `Verifiable` opt-in.
-- **Recomendación:** (a) cuando exista AC-SER; mientras tanto las claves se aceptan en `off`. [Cierre documental 2026-10-31] Clasificación: DIVERGENCIA FUNCIONAL potencial (los mensajes en Rust son `Box<dyn Any + Send>`, Q-X-3) y dependencia de AC-SER. Consecuencias observables: verificación de serialización en `serialize-messages`/`serialize-creators` y el prefijo `no-serialization-verification-needed-class-prefix`. Bloquea: AC-CFG-010 (y AC-UTIL-006.8); puede avanzar: aceptar las claves en `off`.
-- **Filas afectadas:** AC-CFG-010 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.12]
-- **Unidades afectadas:** CFG, SER, UTIL
-- **Origen:** classic-foundation
-
-### Q-CFG-12 — Deploy.withFallback descarta los tags de `this`
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Deployer.scala:109-117 crea el Deploy resultante con `Deploy(path, config..., mailbox)` sin pasar `tags`; withTags existe aparte (línea 119-120). Ningún test lo afirma.
-- **Alternativas:** (a) reproducir (los tags no sobreviven al merge); (b) conservar los tags de `this` y registrar la diferencia.
-- **Recomendación:** (a) hasta que un test o consumidor de tags (cluster) diga lo contrario. [Cierre documental 2026-10-31] Clasificación: incertidumbre RESUELTA parcialmente por lectura: Deploy.withFallback (Deployer.scala:109-117) no copia `tags`; en el árbol fijado los únicos usos de `tags` son `Props.withTags` (Props.scala:217) y `DaemonMsgCreateSerializer.scala:78-79,170` (remote, fuera de estos módulos); ningún test de actor-tests los toca. No se puede decidir con las fuentes del módulo. Consecuencias observables: tags de un Props que se mezcla con un Deploy de configuración. Bloquea: nada en pekko-actor; puede avanzar: AC-CFG-013 con (a).
-- **Filas afectadas:** AC-CFG-013
-- **Unidades afectadas:** CFG
-- **Origen:** classic-foundation
-
-### Q-CFG-13 — ActorSystemSetup: identidad por clase concreta del Setup
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** ActorSystemSetup.scala:48-49,76-87 indexa por `getClass`; ActorSystemSetupSpec.scala:39-55.
-- **Alternativas:** (a) `HashMap<TypeId, Arc<dyn Any + Send + Sync>>` con `TypeId` del tipo concreto; (b) trait `Setup` con `fn key() -> &'static str`.
-- **Recomendación:** (a). [Cierre documental 2026-10-31] Clasificación: representación (identidad por clase concreta del Setup). Consecuencias observables: dos Setup del mismo tipo se reemplazan (ActorSystemSetupSpec.scala:39-45). Bloquea: nada; (a) es suficiente.
-- **Filas afectadas:** AC-CFG-015
-- **Unidades afectadas:** CFG
-- **Origen:** classic-foundation
 
 ### Q-CS-1 — Fases: errores de config/validacion como Result y orden entre fases independientes
 
@@ -709,16 +539,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** DW
 - **Origen:** classic-cell
 
-### Q-EVT-1 — Nombres de clase JVM en mensajes observables (dead letters, canales Debug, `class`/`interface`)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** DeadLetterListener.scala:123-137 (`Message [java.lang.Integer]`); EventStreamSpec.scala:395-423 (`channel class ...A`/`interface ...T`); toString de ActorRef `Actor[pekko://sys/path#uid]`.
-- **Alternativas:** (a) usar `std::any::type_name` y declarar la diferencia; (b) tabla de nombres Pekko para tipos estándar (Integer, String) y type_name para el resto; (c) nombre configurable por tipo
-- **Recomendación:** [Clasificación: divergencia funcional (texto observable)] (b) para tipos primitivos/estándar que los specs afirman (`java.lang.Integer`) y (a) para el resto; el texto exacto de specs portados se ajusta con una función `message_type_name`. Consecuencias observables: mensajes de dead letters, canales Debug y logSource/logClass de ActorLogging, LoggingReceive, system.log y LogSource usan el nombre de tipo elegido. Bloquea: la comparación textual exacta de AC-EVT-006/008/009/010/013.3/018/019; la lógica avanza con `message_type_name`.
-- **Filas afectadas:** AC-EVT-006 ; AC-EVT-008 ; AC-EVT-009 ; AC-EVT-010 ; AC-EVT-013.3 ; AC-EVT-018 ; AC-EVT-019 ; AC-SYS-012
-- **Unidades afectadas:** EVT
-- **Origen:** classic-system
-
 ### Q-EVT-2 — Fidelidad byte a byte de la salida stdout de los loggers por defecto
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -726,16 +546,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) byte-compatible con Pekko (thread = nombre de hilo del runtime); (b) formato propio con `tracing`; (c) ambos: StandardOutLogger fiel y puente opcional a `tracing`
 - **Recomendación:** [Clasificación: arquitectura (backend de logging)] (c), con (a) como default de DefaultLogger/StandardOutLogger. Consecuencias observables: formato byte a byte de stdout, hilo y marca de tiempo. Bloquea: AC-EVT-011/017 en su validación diferencial; el resto avanza.
 - **Filas afectadas:** AC-EVT-011 ; AC-EVT-017
-- **Unidades afectadas:** EVT
-- **Origen:** classic-system
-
-### Q-EVT-3 — Plantillas `{}` y varargs en LoggingAdapter
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Logging.scala:1520-1557; LoggingAdapterTest.java:55-90: hasta 4 argumentos o Array expandido; sufijo ` WARNING arguments left: N`.
-- **Alternativas:** (a) métodos con `&[&dyn Display]` + macros `log_info!`; (b) sólo macros (no verificable con tests dinámicos); (c) `format!` nativo sin `{}` de Pekko
-- **Recomendación:** [Clasificación: representación que conserva el contrato] (a): conserva el formato textual `{}` y el sufijo de argumentos sobrantes, con macros como azúcar. Consecuencias observables: el sufijo ` WARNING arguments left: N` y el límite de 4 argumentos. Bloquea: nada (puede decidirse al implementar AC-EVT-013.1).
-- **Filas afectadas:** AC-EVT-013.1
 - **Unidades afectadas:** EVT
 - **Origen:** classic-system
 
@@ -1009,66 +819,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 
-### Q-PATH-1 — Cómo ordenar listas de Address con un comparador que no es orden total
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Address.scala:135-145; plan AC-PATH: slice::sort_by puede entrar en pánico en Rust >= 1.81 si detecta un orden no total y puede diferir de List.sort de Java (CMPA-17).
-- **Alternativas:** (a) sólo `pekko_compare` y documentar el límite; (b) función que reproduce el TimSort de Java; (c) desempate `None < Some` con `Ord` (contradice la decisión del Owner).
-- **Recomendación:** (a) hasta que haya un consumidor (cluster). [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA/divergencia funcional acotada (orden no total). Consecuencias observables: ordenar listas de Address con el comparador de Pekko puede diferir de List.sort. Bloquea: nada hasta que exista un consumidor (cluster); puede avanzar: AC-PATH-002 con pekko_compare.
-- **Filas afectadas:** AC-PATH-002
-- **Unidades afectadas:** PATH
-- **Origen:** classic-foundation
-
-### Q-PATH-2 — Surrogate suelto en el mensaje de validación de nombres
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** ActorPath.scala:107-113: para `x🙂` Pekko informa `illegal character [\uD83D] at position: 1` (VAL-23); un String de Rust no puede contener un surrogate suelto.
-- **Alternativas:** (a) U+FFFD (`from_utf16_lossy`); (b) `?`; (c) el carácter completo; (d) guardar el mensaje en UTF-16.
-- **Recomendación:** (a); la posición sigue siendo el índice UTF-16. [Cierre documental 2026-10-31] Clasificación: DIVERGENCIA FUNCIONAL menor inevitable (String de Rust no contiene surrogates sueltos). Consecuencias observables: sólo el texto del mensaje de error de nombres con surrogates sueltos. Bloquea: AC-PATH-008 (cierre; VAL-22/23 pendientes); puede avanzar: el resto.
-- **Filas afectadas:** AC-PATH-008
-- **Unidades afectadas:** PATH
-- **Origen:** classic-foundation
-
-### Q-PATH-3 — Valor de hashCode de Address y ActorPath
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Address.scala:77-79 (MurmurHash3.productHash), ActorPath.scala:469-479 (hash por niveles). Rust sólo expone `Hash`.
-- **Alternativas:** (a) no reproducir el valor; (b) `pekko_hash_code() -> i32` idéntico.
-- **Recomendación:** (a); (b) si alguna unidad lo necesita. [Cierre documental 2026-10-31] Clasificación: representación; depende del hash de Scala (ver Q-UTIL-14). Bloquea: nada.
-- **Filas afectadas:** AC-PATH-001, AC-PATH-014
-- **Unidades afectadas:** PATH
-- **Origen:** classic-foundation
-
-### Q-PATH-4 — `null` de Java en Address/ActorPath
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** fromString(null) y validatePathElement(null) lanzan NullPointerException; `new Address(null, "s")` imprime `null://s`.
-- **Alternativas:** (a) aceptarlo como diferencia de lenguaje; (b) tipos `Option<&str>` en la API.
-- **Recomendación:** (a); `host = null` sí se representa como None. [Cierre documental 2026-10-31] Clasificación: DIVERGENCIA DE LENGUAJE (null). Bloquea: nada; puede avanzar con (a).
-- **Filas afectadas:** AC-PATH-001, 004, 007, 008
-- **Unidades afectadas:** PATH
-- **Origen:** classic-foundation
-
-### Q-PATH-5 — Fachada Java ActorPaths
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** ActorPath.scala:29-65 delega 1:1 en ActorPath; es la pregunta 7 de docs/inventory/actor-classic.md.
-- **Alternativas:** (a) excluir; (b) fusionar con AC-PATH-007/008; (c) portar como funciones libres.
-- **Recomendación:** (b)/(c): las funciones libres ya cubren el contrato; la exclusión requiere decisión explícita. [Cierre documental 2026-10-31] Clasificación: EXCLUSIÓN DE ALCANCE si se elige (a) (fachada Java); (b)/(c) conservan el contrato. Bloquea: AC-PATH-009 (cierre); puede avanzar: AC-PATH-007/008.
-- **Filas afectadas:** AC-PATH-009
-- **Unidades afectadas:** PATH
-- **Origen:** classic-foundation
-
-### Q-PATH-6 — Licencia de uri.rs y jstring.rs (comportamiento portado de OpenJDK 21, GPL-2.0 WITH Classpath-exception-2.0)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** crates/rakka-actor/src/actor/uri.rs y jstring.rs reproducen java.net.URI, sun.nio.cs.UTF_8, String.compareTo, Integer.valueOf, Character.digit; el proyecto es Apache-2.0 (docs/upstream.md).
-- **Alternativas:** (a) aceptar como reimplementación del comportamiento y declarar la referencia en el encabezado (estado actual); (b) sala limpia desde RFC 2396/3629 y el oráculo; (c) crate externo compatible.
-- **Recomendación:** Es una pregunta de licencia, no de semántica; recomendar (b) o (a) con revisión legal. [Cierre documental 2026-10-31] Clasificación: pregunta de LICENCIA (no semántica) que el Owner debe resolver; las fuentes del repositorio no la resuelven. Consecuencias observables: ninguna en comportamiento; el riesgo es legal. Bloquea: publicación de uri.rs/jstring.rs; puede avanzar: el resto de PATH.
-- **Filas afectadas:** AC-PATH-002, 004, 005, 006, 007, 011, 014
-- **Unidades afectadas:** PATH
-- **Origen:** classic-foundation
-
 ### Q-REF-1 — Representación de "sin sender" y valor de sender() fuera de un mensaje
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -1209,26 +959,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** RT
 - **Origen:** classic-patterns
 
-### Q-SCH-1 — Rueda de ticks (LightArrayRevolver) propia vs. timers del runtime
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** LightArrayRevolverScheduler.scala:50-357; reference.conf:886-927; SchedulerSpec.scala:467-857 (redondeo al tick, ticks-per-wheel, wrap, relojes que dan la vuelta, rechazo de retardos, y un Driver determinista con reloj, waitNanos y startTick sobreescribibles)
-- **Alternativas:** (a) portar la rueda (precisión por tick, semántica de redondeo y wrap); (b) tokio::time y emular redondeo a tick
-- **Recomendación:** [Clasificación: arquitectura] (a) port de la rueda con `Clock` y `Waiter` inyectables sobre un hilo propio (la rueda es observable: redondeo al tick, ticks-per-wheel, rechazo de retardos); es exactamente el patrón del spec y permite portar 1:1 las pruebas determinísticas. (b) tokio::time con redondeo emulado no es equivalente y no se recomienda. Consecuencias: bloquea la implementación de AC-SCH-008.1/.2/.3, 009, 014, 015; AC-SCH-001..003 pueden probarse antes con el scheduler manual (AC-SCH-010).
-- **Filas afectadas:** AC-SCH-001,AC-SCH-002,AC-SCH-003,AC-SCH-008.1,AC-SCH-008.2,AC-SCH-008.3,AC-SCH-009,AC-SCH-014
-- **Unidades afectadas:** SCH
-- **Origen:** classic-dispatch
-
-### Q-SCH-2 — Scheduler pluggable (scheduler.implementation) sin reflexión
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** reference.conf:906-921; ActorSystem.scala:468,965,1136-1165; ExplicitlyTriggeredScheduler.scala:44-141; ManualTime.scala:34-48
-- **Alternativas:** (a) registro por nombre + inyección en builder; (b) sólo inyección
-- **Recomendación:** [Clasificación: arquitectura; subordinada a Q-X-2] (a) registro por nombre + inyección en el builder del sistema; el scheduler manual de testkit se registra como `org.apache.pekko.testkit.ExplicitlyTriggeredScheduler`. Consecuencia: el testkit determinista (ManualTime) depende de esto. Bloquea sólo la carga por nombre.
-- **Filas afectadas:** AC-SCH-010
-- **Unidades afectadas:** SCH
-- **Origen:** classic-dispatch
-
 ### Q-SCH-3 — Mensajes de timer: tipo de mensaje interno y entrega al actor
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -1236,16 +966,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) Envelope especial de timer con generación interceptado antes de receive; (b) mensaje normal
 - **Recomendación:** [Clasificación: representación que conserva el contrato; depende de Q-X-3] (a) sobre interno de timer (key, generación, propietario, influencia en receive-timeout) interceptado antes de receive y del stash; auto-recibidos por la vía de autoReceive. Bloquea AC-SCH-011/012/013 hasta Q-X-3; no bloquea el resto del grupo.
 - **Filas afectadas:** AC-SCH-011,AC-SCH-012,AC-SCH-013
-- **Unidades afectadas:** SCH
-- **Origen:** classic-dispatch
-
-### Q-SCH-4 — schedule(...) deprecado: mantener como alias de scheduleAtFixedRate
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Scheduler.scala:229-231 (scheduleAtFixedRate delega en schedule), :343-420 (sobrecargas deprecadas desde Akka 2.6.0), :403 (método abstracto); LightArrayRevolverScheduler.scala:134-161; ExplicitlyTriggeredScheduler.scala:52-54; ExplicitlyTriggeredSchedulerSpec.scala:24-106 (ejerce schedule directamente)
-- **Alternativas:** (a) alias deprecado; (b) omitir y exponer sólo schedule_at_fixed_rate (propuesta de exclusión, requiere autorización)
-- **Recomendación:** [Clasificación: exclusión de alcance (propuesta) o alias] (a): alias deprecado, costo nulo, mismo código interno; (b) exponer sólo `schedule_at_fixed_rate` queda como propuesta de exclusión que requiere autorización. La fila sigue en alcance. No bloquea.
-- **Filas afectadas:** AC-SCH-004,AC-SCH-003
 - **Unidades afectadas:** SCH
 - **Origen:** classic-dispatch
 
@@ -2089,139 +1809,317 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** TK
 - **Origen:** classic-system
 
-### Q-UTIL-2 — toString de Timeout conserva la unidad
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-2): Pekko imprime `Timeout(100 milliseconds)` o `Timeout(0 days)`: el `FiniteDuration` recuerda la unidad con que se construyó, aunque `Timeout(1000.millis) == Timeout(1.second)`. `std::time::Duration` no la recuerda.
-- **Alternativas:** (a) `Debug` derivado (`Timeout(100ms)`) sin prometer el formato de Pekko (lo implementado); (b) guardar la unidad junto con el valor (rompe la igualdad por valor o exige un `PartialEq` manual).
-- **Recomendación:** (a): sólo aparece en logs. Sin respuesta del Owner la fila AC-UTIL-001 queda `partial`. [Cierre documental 2026-10-31] Clasificación: representación (toString). Bloquea: cierre de AC-UTIL-001 (TO-STR-*); puede avanzar: resto de AC-UTIL-001.
-- **Filas afectadas:** AC-UTIL-001
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-3 — null y mensajes diferidos en PekkoException y requiring
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-3): `new PekkoException(null)` tiene `getMessage == null` y se imprime sin `: `; `requiring(cond, null)` da `requirement failed: null`. Con `&str`/`impl Display` no se puede expresar `null`. Igual que Q-PATH-4.
-- **Alternativas:** (a) aceptarlo como diferencia de lenguaje (única alternativa registrada en el plan).
-- **Recomendación:** (a), igual que Q-PATH-4. Sin respuesta del Owner las filas afectadas quedan `partial`. [Cierre documental 2026-10-31] Clasificación: DIVERGENCIA DE LENGUAJE (null). Bloquea: cierre de AC-UTIL-002.3/004.1/004.2; puede avanzar: el resto.
-- **Filas afectadas:** AC-UTIL-002.3; AC-UTIL-004.1; AC-UTIL-004.2
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-4 — Jerarquía de excepciones y OnlyCauseStackTrace
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-4): (i) `ConfigurationException` es subclase de `PekkoException`: un `catch PekkoException` la atrapa; con tipos separados no. (ii) `OnlyCauseStackTrace` sólo cambia qué stack trace imprime la JVM; los errores de Rust no llevan stack trace.
-- **Alternativas:** (a) tipos separados y un `From<ConfigurationException> for PekkoException` (pierde `java_class`) cuando algún consumidor lo pida; (b) un único `enum PekkoError`; (c) un trait común. Para (ii) el plan propone excluir `OnlyCauseStackTrace` y documentarlo.
-- **Recomendación:** (i) (a); (ii) excluirlo y documentarlo. La exclusión de `OnlyCauseStackTrace` requiere autorización explícita del Owner (A-5). Sin respuesta las filas quedan `partial`. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (jerarquía de errores) + EXCLUSIÓN propuesta (OnlyCauseStackTrace). Bloquea: AC-UTIL-004.2/.3 (cierre); puede avanzar: AC-UTIL-004.1.
-- **Filas afectadas:** AC-UTIL-004.2; AC-UTIL-004.3
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-5 — Done propio o ()
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-5), inventario AC-UTIL-003.1: se implementó `pub struct Done;`; la fila queda `partial` hasta decidir. Java expone `getInstance()` y `done()`.
-- **Alternativas:** (a) `pub struct Done;` (lo implementado); (b) `()`.
-- **Recomendación:** Sin recomendación registrada en el plan: lo implementado (a) es un estado, no una decisión aceptada. La fila AC-UTIL-003.1 queda `partial`. [Cierre documental 2026-10-31] Clasificación: representación (Done). Bloquea: cierre de AC-UTIL-003.1/.2 (estado `partial`); puede avanzar: el resto.
-- **Filas afectadas:** AC-UTIL-003.1
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-7 — toRootLowerCase: tabla de minúsculas de Unicode distinta entre JDK y Rust
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** util/Helpers.scala:40 usa String.toLowerCase(Locale.ROOT); el oráculo corre con JDK 11 (Unicode 10) y Rust 1.96 usa Unicode más nuevo (plan AC-UTIL, decisión 6). [Cierre documental 2026-10-31] Medido con el jar (JDK 11): toRootLowerCase("\u1C90") devuelve U+1C90 (sin cambio; el carácter es de Unicode 11). La salida de Pekko depende de la JDK que lo ejecute (JDK 17 = Unicode 13, JDK 21 = Unicode 15), de modo que no existe una única referencia 'Unicode de Pekko'.
-- **Alternativas:** (a) usar `str::to_lowercase` y declarar la diferencia para caracteres posteriores a Unicode 10; (b) tabla propia congelada a Unicode 10; (c) tabla del JDK 21 (referencia del port de URI).
-- **Recomendación:** (a): los consumidores (log-dead-letters, niveles de log) sólo reciben ASCII en la práctica. [Cierre documental 2026-10-31] Clasificación: representación que conserva el contrato en la práctica (los consumidores son ASCII) con una divergencia menor y acotada; la opción (c) es inviable como 'referencia' porque Pekko no fija la versión de Unicode. Consecuencias observables: sólo para caracteres añadidos después de la JDK usada (p. ej. U+1C90 -> U+10D0 en Rust). Bloquea: nada; puede avanzar: AC-UTIL-002.2 con (a) y el golden limitado a Unicode <= 10 (como ahora).
-- **Filas afectadas:** AC-UTIL-002.2
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-8 — Semántica de cadenas por unidades UTF-16 (Glob, makePattern, WildcardIndex)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** util/Glob.scala:43-72 recorre `charAt` (unidades UTF-16): `?` consume una unidad, no un punto de código; Helpers.makePattern usa `.` de java.util.regex que no cruza terminadores de línea (Helpers.scala:44-45) mientras Glob.matches sí; WildcardIndex.scala:87-89 elige entre `prefix*` solapados según el orden de iteración de un HashMap de Scala. GlobSpec.scala:60-73 sólo compara sobre {a,b,*,?}. [Cierre documental 2026-10-31] Medido con el jar: Glob.matches("a?b","a\nb") = true, Glob.matches("a*b","a\nb") = true, Glob.matches("a?b","a\u0085b") = true, pero makePattern("a?b") rechaza "a\nb" y "a\u0085b" y makePattern("a*b") rechaza "a\nb". Par sustituto: makePattern("a?b") acepta "a\uD83D\uDE42b" (un punto de código) y Glob.matches("a?b", ...) = false (Glob.matches("a??b", ...) = true). Uso en producción: ActorSelection.scala:364 (`pattern = Helpers.makePattern`, usado por SelectChildPattern) y :369 (`Glob.matches`, el que decide).
-- **Alternativas:** (a) operar sobre `&[u16]` (idéntico a Java, incluidos pares sustitutos); (b) sobre `char` de Rust (distinto para caracteres fuera del BMP); (c) igual que (a) y fijar el orden de `prefix*` por inserción; documentar la diferencia de saltos de línea.
-- **Recomendación:** (c): los nombres válidos de actor son ASCII/%XX (ActorPath.scala:127-148) y los patrones de selección vienen del usuario; la diferencia de saltos de línea debe decidirla el Owner. [Cierre documental 2026-10-31] Clasificación: representación (UTF-16 vs char) + divergencia funcional ya existente DENTRO de Pekko (Glob y makePattern difieren en saltos de línea y pares sustitutos). Resuelto por medición: la semántica contractual en producción es la de Glob.matches (UTF-16, sin terminadores de línea especiales); makePattern sólo se conserva como definición histórica. Consecuencias observables: nombres de actor con caracteres fuera del BMP o con saltos de línea (los nombres válidos son ASCII/%XX, ActorPath.scala:127-148, así que sólo afecta a patrones de selección arbitrarios). Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023).
-- **Filas afectadas:** AC-UTIL-009, AC-UTIL-016.6, AC-UTIL-023, AC-CFG-012.2 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.15]
-- **Unidades afectadas:** UTIL, CFG
-- **Origen:** classic-foundation
-
-### Q-UTIL-9 — PrettyDuration: `%.4g` de java.util.Formatter y representación de infinitos/indefinido
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** util/PrettyDuration.scala:51-55,57-59: `"%.{p}g"` con Locale.ROOT; el %g de Java usa notación científica cuando el valor redondeado >= 10^precisión (p. ej. 10000 d) y difiere del %g de C/Rust; Duration.Inf/MinusInf/Undefined son valores de scala.concurrent.duration.Duration, que `std::time::Duration` no tiene. PrettyDurationSpec.scala:25-57 fija 10 casos + 3 sin números. [Cierre documental 2026-10-31] Medido con el jar: 10000 days -> `1.000e+04 d`, 99999 days -> `1.000e+05 d`, 1 day -> `1.000 d`, 1500 microseconds -> `1.500 ms`, Duration.Inf -> `∞ (infinity)`. Consumidores: AsyncDnsResolver.scala:37,146 y DeadLetterListener.scala:31,99 (sólo mensajes de log).
-- **Alternativas:** (a) implementar el %g de Java a mano y un enum `PekkoDuration { Finite, Inf, MinusInf, Undefined }`; (b) limitar a los casos del spec y documentar el resto; (c) delegar a un crate de formateo.
-- **Recomendación:** (a), validado contra un escenario del oráculo con valores grandes y pequeños. [Cierre documental 2026-10-31] Clasificación: representación (reimplementar %.4g de Java; la regla observable es: notación científica con exponente de dos dígitos cuando el valor redondeado a 4 cifras significativas es >= 10^4). Resuelto por medición; no requiere al Owner salvo que se prefiera (b) (limitar a los casos del spec). Consecuencias observables: sólo texto de logs. Bloquea: nada; puede avanzar: AC-UTIL-016.5 con (a) y el golden por crear.
-- **Filas afectadas:** AC-UTIL-016.5
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-10 — Estructuras concurrentes e identidad (Index, Switch, TokenBucket, colas, identityHashCode, timestamp)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Index.scala:23-199 (ConcurrentSkipListSet por clave, iteración débilmente consistente, isEmpty con falsos negativos), LockUtil.scala:29-155 (synchronized), TokenBucket.scala:19-91 (aritmética con wrap-around), Helpers.scala:47-69 (identityHashCode), Helpers.scala:108-113 (zona horaria del sistema).
-- **Alternativas:** (a) Mutex + estructuras estándar, iteración sobre instantánea; (b) mapas concurrentes lock-free; (c) fijar una API mínima por consumidor real y diferir el resto.
-- **Recomendación:** (a) con tests portados 1:1 (IndexSpec, SwitchSpec, TokenBucketSpec); id de identidad = dirección del Arc o contador. [Cierre documental 2026-10-31] Clasificación: arquitectura (modelo de concurrencia de las estructuras). Consecuencias observables: iteración débilmente consistente de Index y semántica de Switch/BoundedBlockingQueue (AC-UTIL-012: 79 casos con eventos de señal). Hallazgos del cierre: MessageBuffer/MessageBufferMap y las colas LRU/LFU (AC-UTIL-010, 017.*) NO son thread-safe por contrato (no aplican). Bloquea: AC-UTIL-012 y AC-UTIL-013 (colas bloqueantes) hasta fijar Q-X-4; puede avanzar: AC-UTIL-010, 011, 017.*.
-- **Filas afectadas:** AC-UTIL-007, 008, 010, 011, 012, 013, 015.1, 024, 025
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-11 — Elementos propios de la JVM o de Scala sin equivalente natural en Rust (propuesta de equivalente; no exclusión)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** util/LockUtil.scala:19-27 (ReentrantGuard, deprecado), util/TypedMultiMap.scala, util/JavaVersion.scala, util/Reflect.scala, util/LineNumbers.scala, util/BoxedType.scala, java/org/apache/pekko/annotation/*.java, java/org/apache/pekko/util/Unsafe.java, mima-filters, shims de Scala 2.12/2.13/3 (scala-2.13/util/*Converters.scala), cachés de cluster (FrequencySketch...).
-- **Alternativas:** (a) cada fila se mantiene en alcance con un equivalente Rust documentado (atómicos, `pub(crate)`, traits sellados, semver) y la diferencia observable anotada; (b) proponer al Owner excluirlas explícitamente fila por fila.
-- **Recomendación:** (a) ahora; (b) sólo con aprobación explícita del Owner (nada se excluye sin autorización). [Cierre documental 2026-10-31] Clasificación: mezcla de representación (Option<T>, atómicos, pub(crate), semver-checks) y EXCLUSIÓN DE ALCANCE (sólo si el Owner la aprueba fila por fila). Cierre documental: cada fila afectada (AC-UTIL-014, 015.2, 016.1-.4, .7, .8, .9, .11-.15, .18, 017.*, 018.*, 019, 020, 021, 022) tiene ahora un efecto observable identificado y una representación Rust; ninguna se excluye. Candidatas a exclusión explícita (requieren aprobación): AC-UTIL-016.7 (findMarker/findClassLoader/getCallerClass), 016.12 (ClassLoaderObjectInputStream), 016.13 (BoxedType), 018.3 (ccompat), 021 (MiMa, sustituible por cargo-semver-checks). Bloquea: nada; puede avanzar: el resto con (a).
-- **Filas afectadas:** AC-UTIL-014, 015.2, 016.*, 017.*, 018.*, 019, 020, 021, 022 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.8, AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.11, AC-UTIL-016.13, AC-UTIL-016.14, AC-UTIL-016.18, AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.4, AC-UTIL-018.5, AC-UTIL-019]
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-13 — Helpers.isWindows deriva de `os.name` contiene "win"
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** util/Helpers.scala:42; consumidores: LightArrayRevolverScheduler.scala:67,120, io/Tcp.scala:640, io/dns/DnsSettings.scala:113. [Cierre documental 2026-10-31] Medido con el jar en macOS (JDK 11): os.name = "Mac OS X" y Helpers.isWindows = false.
-- **Alternativas:** (a) `cfg!(windows)` (comportamiento esperado); (b) reproducir la heurística de subcadena sobre `std::env::consts::OS`.
-- **Recomendación:** (a). [Cierre documental 2026-10-31] Clasificación: representación (plataforma real). Consecuencias observables: sólo si un JVM informara os.name con 'win' sin ser Windows (ninguno conocido). Bloquea: nada; (a) es suficiente.
-- **Filas afectadas:** AC-UTIL-026
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-14 — Reproducir scala.util.hashing.MurmurHash3 y los hashCode de Scala/Java donde un valor observable depende de ellos
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** FrequencySketch.scala:79,201 usan MurmurHash3.stringHash(value, 135283237), mixLast y finalizeHash; FrequencySketchSpec.scala:25-90 afirma valores exactos (size == 6, size == 500 tras el reinicio) que sólo son estables con el hash exacto o sin colisiones; ByteString.hashCode es el de Seq[Byte] (medido: `ByteString("abc")` = -1431565476, vacío = 473519988); ImmutableIntMap.hashCode = Arrays.hashCode (medido 1281 para {10->10}); HashCode.scala (medido 856 para (23, 5)); Address/ActorPath hashCode (Q-PATH-3); FastFrequencySketch usa `value.hashCode` (String.hashCode de Java, UTF-16). scala-library no está en upstream/pekko: el comportamiento se conoce sólo por el jar.
-- **Alternativas:** (a) portar MurmurHash3 (stringHash, mixLast, finalizeHash, seqHash) y String.hashCode de Java exactos y validarlos con un golden del jar; (b) usar cualquier hash y relajar los tests exactos a las cotas estadísticas que el spec ya usa en otros casos; (c) crate de hash externo sin garantía de igualdad con Scala.
-- **Recomendación:** (a) para FrequencySketch/FastFrequencySketch (los tests de Pekko afirman valores exactos); (b) para ByteString/ImmutableIntMap/Address/ActorPath mientras ningún consumidor guarde o compare el valor numérico (coincide con Q-PATH-3 (a)). Consecuencias observables: sólo en estructuras de caché de cluster-sharding y en hashCode explícitos; con (b) los valores exactos del spec dejan de coincidir. Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*.
-- **Filas afectadas:** AC-UTIL-017.1, AC-UTIL-006.1, AC-UTIL-016.4, AC-UTIL-016.15, AC-PATH-001, AC-PATH-014
-- **Unidades afectadas:** UTIL, PATH
-- **Origen:** classic-foundation
-
-### Q-UTIL-15 — MessageBufferMap.drop con un id ausente: NullPointerException de Pekko vs 0 mensajes
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** MessageBuffer.scala:265-272: `val entries = bufferMap.get(id); if (entries.nonEmpty) ...` sin comprobar null; medido con el jar: `new MessageBufferMap[String].drop("x", "r", null)` lanza NullPointerException (antes de tocar deadLetters). Ningún test de MessageBufferSpec cubre `drop`. Consumidor: cluster-sharding Shard.scala (fuera de estos módulos).
-- **Alternativas:** (a) reproducir el NPE (panic en Rust); (b) devolver 0 sin enviar nada y registrar la diferencia; (c) devolver Option/Result.
-- **Recomendación:** (b): un NPE por id ausente es un defecto evidente (el resto de operaciones del mapa toleran ids ausentes: getOrEmpty/remove/contains) y ningún test lo afirma; pero cualquier diferencia con Pekko requiere autorización. Consecuencias observables: sólo cuando un consumidor llama a drop con un id que nunca tuvo mensajes. Bloquea: nada (AC-UTIL-010 puede cerrarse con (b) documentado); puede avanzar: todo AC-UTIL-010.
-- **Filas afectadas:** AC-UTIL-010
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-16 — Representación del texto de origen de closures de Typed (equivalente de LineNumbers)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** LineNumbers.scala:28-76 (API) y su uso en BehaviorImpl.scala:117,131,149,171 e InterceptorImpl.scala:234,245 (toString `Receive(<archivo:líneas>)`); LineNumberSpec fija rangos (22-22, 24-24, 29-31, 35-36; Java 29-29, 34-35, 40-45) que dependen del compilador de Scala/Java; Rust no tiene bytecode.
-- **Alternativas:** (a) #[track_caller] / Location::caller() en los constructores para mostrar `archivo:línea` (un solo número); (b) std::any::type_name::<F>() del closure; (c) excluir el texto (Debug opaco).
-- **Recomendación:** (a) con fallback a (b). Consecuencias observables: el texto de Debug/Display de Behavior e interceptores deja de coincidir con Pekko (rangos y nombres de archivo de compilación); los tests portados de Typed que comparen ese texto deben fijar el formato propio. Bloquea: AC-UTIL-016.8 (impl) y los tests de toString de Typed; puede avanzar: el resto.
-- **Filas afectadas:** AC-UTIL-016.8
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
 ## 6. Respuestas del Owner por unidad
 
 Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la sección 4).
+
+### Q-CFG-3 — checkValid contra reference.conf (Typesafe Config) con un parser propio
+
+- **Estado:** aceptada
+- **Evidencia:** ActorSystem.scala:395-402: `cfg.checkValid(defaultReference.withoutPath("pekko.actor.internal-dispatcher"), "pekko")`. Las reglas (compatibilidad de tipos, listas, objetos, mensaje agregado `ValidationFailed`) pertenecen a Typesafe Config 1.4.9, que no está en upstream/pekko; ningún test de Pekko las afirma.
+- **Alternativas:** (a) implementar checkValid con tabla de compatibilidad documentada y escenarios del jar; (b) omitirlo y fallar al leer cada clave; (c) reducirlo a presencia de claves.
+- **Recomendación:** (a) si Q-X-1 elige parser propio; con (b)/(c) se pierde 'fail-fast con lista de errores'. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (depende de Q-X-1). Consecuencias observables: sin checkValid un sistema arranca con configuración mal tipada y falla más tarde, clave a clave, sin la lista agregada `ValidationFailed`. Bloquea: AC-CFG-019 (y la parte fail-fast de AC-CFG-002). Puede avanzar: lectura de cada clave en Settings.
+- **Filas afectadas:** AC-CFG-019, AC-CFG-002
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a): se implementa checkValid porque Q-X-1 es parser propio. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-4 — Fidelidad de errores y render de Config (tipos y textos de ConfigException, renderWithRedactions)
+
+- **Estado:** aceptada
+- **Evidencia:** DeployerSpec.scala:144-161 exige ConfigException.WrongType; el golden config-hocon.golden fija mensajes (TYPE-*, SUB-*, DUR-ERR, SIZE-ERR); Helpers.scala:178-192 renderiza con ConfigRenderOptions.defaults (formato propio de Typesafe).
+- **Alternativas:** (a) enum de errores con las mismas categorías y mensajes del golden; (b) mismas categorías, mensajes propios; (c) textos exactos sólo donde un test de Pekko los afirme.
+- **Recomendación:** (a) para los mensajes del golden; render sin exigir igualdad textual. [Cierre documental 2026-10-31] Clasificación: representación (errores) con riesgo de divergencia de mensajes. Consecuencias observables: `ConfigException.WrongType` exigido por DeployerSpec.scala:144-161; mensajes del golden. Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios.
+- **Filas afectadas:** AC-CFG-002, 005, 012.1, 017.*, AC-UTIL-002.4, AC-UTIL-002.5
+- **Unidades afectadas:** CFG, UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-5 — Valor de `pekko.version` y de `ActorSystem.Version` en rakka
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** reference.conf:10-11 (`include "version"`), project/VersionGenerator.scala:18-25 (genera version.conf y Version.scala), ActorSystem.scala:485-487 (error si difieren), ConfigSpec.scala:41-42.
+- **Alternativas:** (a) la versión de Pekko portada ("1.7.1"); (b) la versión del crate (CARGO_PKG_VERSION); (c) ambas: `pekko.version` fijo en 1.7.1 y una constante aparte del crate.
+- **Recomendación:** (a) mientras la fuente de verdad sea Pekko 1.7.1; así `PekkoVersion.require` de librerías se comporta igual. [Cierre documental 2026-10-31] Clasificación: representación; incertidumbre NO resoluble con las fuentes (es una decisión de producto). Consecuencias observables: `ActorSystem.Version`, `pekko.version` y `PekkoVersion.require`. Bloquea: AC-CFG-003, AC-UTIL-005.1; puede avanzar: el resto.
+- **Filas afectadas:** AC-CFG-003, AC-UTIL-005.1
+- **Unidades afectadas:** CFG, UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a) con el valor "2.0.0" (la referencia pasó de 1.7.1 a 2.0.0, Q-X-11). (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-6 — Fuentes de la config de aplicación cuando no se pasa Config
+
+- **Estado:** aceptada
+- **Evidencia:** ActorSystem.scala:281 y docs/src/main/paradox/general/configuration.md:18-53: `ConfigFactory.load(cl)` = application.conf/json/properties del classpath + system properties + `config.resource`; reference.conf de cada jar.
+- **Alternativas:** (a) application.conf del directorio de trabajo + variables de entorno con prefijo + reference.conf embebidos de las crates; (b) sólo reference.conf embebido y config explícita; (c) además un equivalente a `-Dkey=value` por línea de comandos.
+- **Recomendación:** (a) con una ruta configurable; documentar que no hay classpath scanning. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (fuentes de configuración). Consecuencias observables: cómo se localiza application.conf/variables; no cambia el contrato de merge (golden FB-*). Bloquea: AC-CFG-001 (carga por defecto); puede avanzar: `ActorSystem::new(config)` con config explícita.
+- **Filas afectadas:** AC-CFG-001
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-7 — Claves de JVM: qué semántica tienen en Rust (daemonic, jvm-exit-on-fatal-error, jvm-shutdown-hooks, fail-mixed-versions, java-flight-recorder.enabled, home)
+
+- **Estado:** aceptada
+- **Evidencia:** reference.conf:14-15,85-110; ActorSystem.scala:463-472; CoordinatedShutdownSpec.scala:632-645 (conteo de hooks).
+- **Alternativas:** (a) aceptar todas; mapear daemonic a hilos del runtime, jvm-exit a abort/exit, jvm-shutdown-hooks a manejadores de señales; ignorar con aviso fail-mixed-versions y java-flight-recorder; (b) rechazar las claves sin sentido.
+- **Recomendación:** (a); la clave siempre se acepta para no romper configs de Pekko. [Cierre documental 2026-10-31] Clasificación: EXCLUSIÓN PARCIAL de comportamiento JVM con aceptación de claves (daemonic, jvm-exit-on-fatal-error, jvm-shutdown-hooks, fail-mixed-versions, java-flight-recorder.enabled, home). Evidencia añadida: la clave jvm-shutdown-hooks cuenta hooks en CoordinatedShutdownSpec.scala:632-645. Consecuencias observables: sólo el comportamiento al terminar el proceso. Bloquea: AC-CFG-007 y AC-UTIL-016.11 (impl); puede avanzar: aceptar y validar las claves.
+- **Filas afectadas:** AC-CFG-007, AC-UTIL-016.11
+- **Unidades afectadas:** CFG, UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-8 — Nombres estables para el registro de extensiones/fábricas (FQCN con `$` de objeto Scala)
+
+- **Estado:** aceptada
+- **Evidencia:** reference.conf:78 usa `org.apache.pekko.serialization.SerializationExtension$`; ReflectiveDynamicAccess.scala:69-87 resuelve `fqcn$` y luego `fqcn`; ExtensionSpec.scala:143 lista `InstanceCountingExtension` con y sin `$`.
+- **Alternativas:** (a) registrar ambos nombres (con y sin `$`) para cada extensión; (b) normalizar quitando `$` al resolver; (c) claves propias de Rust y tabla de alias de los FQCN de Pekko.
+- **Recomendación:** (b): mantiene el reference.conf sin cambios y los duplicados siguen creando una sola instancia. [Cierre documental 2026-10-31] Clasificación: representación (nombres estables). Consecuencias observables: reference.conf con `...SerializationExtension$` debe cargar la misma extensión una sola vez. Bloquea: AC-CFG-006 y AC-EXT-003; puede avanzar: AC-EXT-001.*, AC-EXT-002.
+- **Filas afectadas:** AC-CFG-006, AC-EXT-003 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.7]
+- **Unidades afectadas:** CFG, EXT, UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-9 — Proveedor distinto de local (remote, cluster, FQCN) en un sistema solo-local
+
+- **Estado:** aceptada
+- **Evidencia:** ActorSystem.scala:107-145 y 410-420; remote/cluster están fuera del módulo; ProviderSelectionSpec.scala:38-67 sólo prueba la selección, no la carga de la clase.
+- **Alternativas:** (a) `ProviderSelection` completo, pero crear el sistema con Remote/Cluster/Custom no registrado devuelve un error de configuración que nombra la clase; (b) rechazar `remote`/`cluster` al parsear Settings; (c) permitir proveedores registrados por el usuario (punto de extensión para remote).
+- **Recomendación:** (a) + (c): deja la puerta abierta a remote sin implementarlo. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (alcance de remote/cluster). Consecuencias observables: mensaje de error al pedir `remote`/`cluster`/FQCN en un sistema solo local. Bloquea: AC-CFG-008; puede avanzar: provider `local`.
+- **Filas afectadas:** AC-CFG-008, AC-SYS-018
+- **Unidades afectadas:** CFG, SYS
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a)+(c). (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-10 — pekko.use-slf4j / amendSlf4jConfig
+
+- **Estado:** aceptada
+- **Evidencia:** ActorSystem.scala:343-376, actor-typed reference.conf:68, ConfigSpec.scala:186-203. Depende de si los loggers son actores o un backend (Q-X-7).
+- **Alternativas:** (a) no portar la función si Q-X-7 elige un backend de logging; (b) portarla con un 'logger' registrado como Slf4jLogger equivalente.
+- **Recomendación:** Sigue a Q-X-7. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (depende de Q-X-7). Consecuencias observables: `pekko.use-slf4j` agrega Slf4jLogger/Slf4jLoggingFilter. Bloquea: AC-CFG-018; puede avanzar: AC-CFG-004 sin esa clave.
+- **Filas afectadas:** AC-CFG-004, AC-CFG-018
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-11 — serialize-messages / serialize-creators / no-serialization-verification-needed-class-prefix
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** Dispatch.scala:171-223, Children.scala:283-307, SerializeSpec.scala:310-361, DispatchSpec.scala:29-41; en Rust los mensajes son `Box<dyn Any + Send>` (Q-X-3).
+- **Alternativas:** (a) portar el chequeo sólo para tipos con serializador registrado; (b) no portar los dos modos y rechazar las claves en `on`; (c) portar con un trait `Verifiable` opt-in.
+- **Recomendación:** (a) cuando exista AC-SER; mientras tanto las claves se aceptan en `off`. [Cierre documental 2026-10-31] Clasificación: DIVERGENCIA FUNCIONAL potencial (los mensajes en Rust son `Box<dyn Any + Send>`, Q-X-3) y dependencia de AC-SER. Consecuencias observables: verificación de serialización en `serialize-messages`/`serialize-creators` y el prefijo `no-serialization-verification-needed-class-prefix`. Bloquea: AC-CFG-010 (y AC-UTIL-006.8); puede avanzar: aceptar las claves en `off`.
+- **Filas afectadas:** AC-CFG-010 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.12]
+- **Unidades afectadas:** CFG, SER, UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar las claves; con la opción en `on` el arranque falla con un error de configuración (no un no-op silencioso) hasta que exista AC-SER. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-12 — Deploy.withFallback descarta los tags de `this`
+
+- **Estado:** aceptada
+- **Evidencia:** Deployer.scala:109-117 crea el Deploy resultante con `Deploy(path, config..., mailbox)` sin pasar `tags`; withTags existe aparte (línea 119-120). Ningún test lo afirma.
+- **Alternativas:** (a) reproducir (los tags no sobreviven al merge); (b) conservar los tags de `this` y registrar la diferencia.
+- **Recomendación:** (a) hasta que un test o consumidor de tags (cluster) diga lo contrario. [Cierre documental 2026-10-31] Clasificación: incertidumbre RESUELTA parcialmente por lectura: Deploy.withFallback (Deployer.scala:109-117) no copia `tags`; en el árbol fijado los únicos usos de `tags` son `Props.withTags` (Props.scala:217) y `DaemonMsgCreateSerializer.scala:78-79,170` (remote, fuera de estos módulos); ningún test de actor-tests los toca. No se puede decidir con las fuentes del módulo. Consecuencias observables: tags de un Props que se mezcla con un Deploy de configuración. Bloquea: nada en pekko-actor; puede avanzar: AC-CFG-013 con (a).
+- **Filas afectadas:** AC-CFG-013
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-13 — ActorSystemSetup: identidad por clase concreta del Setup
+
+- **Estado:** aceptada
+- **Evidencia:** ActorSystemSetup.scala:48-49,76-87 indexa por `getClass`; ActorSystemSetupSpec.scala:39-55.
+- **Alternativas:** (a) `HashMap<TypeId, Arc<dyn Any + Send + Sync>>` con `TypeId` del tipo concreto; (b) trait `Setup` con `fn key() -> &'static str`.
+- **Recomendación:** (a). [Cierre documental 2026-10-31] Clasificación: representación (identidad por clase concreta del Setup). Consecuencias observables: dos Setup del mismo tipo se reemplazan (ActorSystemSetupSpec.scala:39-45). Bloquea: nada; (a) es suficiente.
+- **Filas afectadas:** AC-CFG-015
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-EVT-1 — Nombres de clase JVM en mensajes observables (dead letters, canales Debug, `class`/`interface`)
+
+- **Estado:** aceptada
+- **Evidencia:** DeadLetterListener.scala:123-137 (`Message [java.lang.Integer]`); EventStreamSpec.scala:395-423 (`channel class ...A`/`interface ...T`); toString de ActorRef `Actor[pekko://sys/path#uid]`.
+- **Alternativas:** (a) usar `std::any::type_name` y declarar la diferencia; (b) tabla de nombres Pekko para tipos estándar (Integer, String) y type_name para el resto; (c) nombre configurable por tipo
+- **Recomendación:** [Clasificación: divergencia funcional (texto observable)] (b) para tipos primitivos/estándar que los specs afirman (`java.lang.Integer`) y (a) para el resto; el texto exacto de specs portados se ajusta con una función `message_type_name`. Consecuencias observables: mensajes de dead letters, canales Debug y logSource/logClass de ActorLogging, LoggingReceive, system.log y LogSource usan el nombre de tipo elegido. Bloquea: la comparación textual exacta de AC-EVT-006/008/009/010/013.3/018/019; la lógica avanza con `message_type_name`.
+- **Filas afectadas:** AC-EVT-006 ; AC-EVT-008 ; AC-EVT-009 ; AC-EVT-010 ; AC-EVT-013.3 ; AC-EVT-018 ; AC-EVT-019 ; AC-SYS-012
+- **Unidades afectadas:** EVT
+- **Origen:** classic-system
+- **Respuesta del Owner:** aceptar, incluida la supresión de dead letters durante el shutdown terminante de 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-EVT-3 — Plantillas `{}` y varargs en LoggingAdapter
+
+- **Estado:** aceptada
+- **Evidencia:** Logging.scala:1520-1557; LoggingAdapterTest.java:55-90: hasta 4 argumentos o Array expandido; sufijo ` WARNING arguments left: N`.
+- **Alternativas:** (a) métodos con `&[&dyn Display]` + macros `log_info!`; (b) sólo macros (no verificable con tests dinámicos); (c) `format!` nativo sin `{}` de Pekko
+- **Recomendación:** [Clasificación: representación que conserva el contrato] (a): conserva el formato textual `{}` y el sufijo de argumentos sobrantes, con macros como azúcar. Consecuencias observables: el sufijo ` WARNING arguments left: N` y el límite de 4 argumentos. Bloquea: nada (puede decidirse al implementar AC-EVT-013.1).
+- **Filas afectadas:** AC-EVT-013.1
+- **Unidades afectadas:** EVT
+- **Origen:** classic-system
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-FSM-4 — Estado inexistente: terminate sin context.stop(self)
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** FSM.scala:882-884 (terminate sin stop) vs 869-878 (applyState hace stop) | Cierre 2026-10-31: Clasificacion: divergencia funcional (replicar un comportamiento que parece defecto) — la parte de incertidumbre sobre el comportamiento queda RESUELTA por lectura: FSM.scala:881-884 (makeTransition) llama `terminate(stay().withStopReason(Failure("Next state %s does not exist")))` sin `context.stop(self)`; `terminate` cancela timers, fija currentState al stay() con stopReason, ejecuta onTermination una vez y loguea el error; el actor sigue vivo procesando en el estado anterior, y el terminate de postStop ya no re-ejecuta onTermination. FSMActorSpec:170-186 solo afirma el log de error. No se ha ejecutado el oraculo (Java disponible es 11 y AGENTS.md pide 21); queda como confirmacion opcional.
+- **Alternativas:** (a) replicar: el actor sigue vivo tras "Next state X does not exist"; (b) detenerlo tambien
+- **Recomendación:** (a) replicar (paridad) y marcarlo como Q; confirmar contra el jar oficial con un escenario de oraculo antes de implementar. Consecuencias observables: (a) un FSM con estado destino inexistente sigue contestando mensajes tras el error; (b) onTermination se invoca con Failure y no se vuelve a invocar al parar. Bloquea AC-FSM-006.1 A1/A4 y AC-FSM-006.2 (A1 depende del orden de terminate); puede avanzar el resto de FSM. Solo hace falta el Owner para elegir replicar (recomendado) o detener el actor tambien.
+- **Filas afectadas:** AC-FSM-006.1;AC-FSM-006.2
+- **Unidades afectadas:** FSM
+- **Origen:** classic-patterns
+- **Respuesta del Owner:** aceptar (a) replicar. Condición: antes, grabar un escenario del oráculo contra 2.0.0 que lo confirme; si el oráculo contradice la lectura del código, gana el oráculo. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-PATH-1 — Cómo ordenar listas de Address con un comparador que no es orden total
+
+- **Estado:** aceptada
+- **Evidencia:** Address.scala:135-145; plan AC-PATH: slice::sort_by puede entrar en pánico en Rust >= 1.81 si detecta un orden no total y puede diferir de List.sort de Java (CMPA-17).
+- **Alternativas:** (a) sólo `pekko_compare` y documentar el límite; (b) función que reproduce el TimSort de Java; (c) desempate `None < Some` con `Ord` (contradice la decisión del Owner).
+- **Recomendación:** (a) hasta que haya un consumidor (cluster). [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA/divergencia funcional acotada (orden no total). Consecuencias observables: ordenar listas de Address con el comparador de Pekko puede diferir de List.sort. Bloquea: nada hasta que exista un consumidor (cluster); puede avanzar: AC-PATH-002 con pekko_compare.
+- **Filas afectadas:** AC-PATH-002
+- **Unidades afectadas:** PATH
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-PATH-2 — Surrogate suelto en el mensaje de validación de nombres
+
+- **Estado:** aceptada
+- **Evidencia:** ActorPath.scala:107-113: para `x🙂` Pekko informa `illegal character [\uD83D] at position: 1` (VAL-23); un String de Rust no puede contener un surrogate suelto.
+- **Alternativas:** (a) U+FFFD (`from_utf16_lossy`); (b) `?`; (c) el carácter completo; (d) guardar el mensaje en UTF-16.
+- **Recomendación:** (a); la posición sigue siendo el índice UTF-16. [Cierre documental 2026-10-31] Clasificación: DIVERGENCIA FUNCIONAL menor inevitable (String de Rust no contiene surrogates sueltos). Consecuencias observables: sólo el texto del mensaje de error de nombres con surrogates sueltos. Bloquea: AC-PATH-008 (cierre; VAL-22/23 pendientes); puede avanzar: el resto.
+- **Filas afectadas:** AC-PATH-008
+- **Unidades afectadas:** PATH
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar lo implementado: message() muestra U+FFFD y message_utf16() es exacto (el sustituto suelto de Pekko). (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-PATH-3 — Valor de hashCode de Address y ActorPath
+
+- **Estado:** aceptada
+- **Evidencia:** Address.scala:77-79 (MurmurHash3.productHash), ActorPath.scala:469-479 (hash por niveles). Rust sólo expone `Hash`.
+- **Alternativas:** (a) no reproducir el valor; (b) `pekko_hash_code() -> i32` idéntico.
+- **Recomendación:** (a); (b) si alguna unidad lo necesita. [Cierre documental 2026-10-31] Clasificación: representación; depende del hash de Scala (ver Q-UTIL-14). Bloquea: nada.
+- **Filas afectadas:** AC-PATH-001, AC-PATH-014
+- **Unidades afectadas:** PATH
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-PATH-4 — `null` de Java en Address/ActorPath
+
+- **Estado:** aceptada
+- **Evidencia:** fromString(null) y validatePathElement(null) lanzan NullPointerException; `new Address(null, "s")` imprime `null://s`.
+- **Alternativas:** (a) aceptarlo como diferencia de lenguaje; (b) tipos `Option<&str>` en la API.
+- **Recomendación:** (a); `host = null` sí se representa como None. [Cierre documental 2026-10-31] Clasificación: DIVERGENCIA DE LENGUAJE (null). Bloquea: nada; puede avanzar con (a).
+- **Filas afectadas:** AC-PATH-001, 004, 007, 008
+- **Unidades afectadas:** PATH
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-PATH-5 — Fachada Java ActorPaths
+
+- **Estado:** aceptada
+- **Evidencia:** ActorPath.scala:29-65 delega 1:1 en ActorPath; es la pregunta 7 de docs/inventory/actor-classic.md.
+- **Alternativas:** (a) excluir; (b) fusionar con AC-PATH-007/008; (c) portar como funciones libres.
+- **Recomendación:** (b)/(c): las funciones libres ya cubren el contrato; la exclusión requiere decisión explícita. [Cierre documental 2026-10-31] Clasificación: EXCLUSIÓN DE ALCANCE si se elige (a) (fachada Java); (b)/(c) conservan el contrato. Bloquea: AC-PATH-009 (cierre); puede avanzar: AC-PATH-007/008.
+- **Filas afectadas:** AC-PATH-009
+- **Unidades afectadas:** PATH
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-PATH-6 — Licencia de uri.rs y jstring.rs (comportamiento portado de OpenJDK 21, GPL-2.0 WITH Classpath-exception-2.0)
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** crates/rakka-actor/src/actor/uri.rs y jstring.rs reproducen java.net.URI, sun.nio.cs.UTF_8, String.compareTo, Integer.valueOf, Character.digit; el proyecto es Apache-2.0 (docs/upstream.md).
+- **Alternativas:** (a) aceptar como reimplementación del comportamiento y declarar la referencia en el encabezado (estado actual); (b) sala limpia desde RFC 2396/3629 y el oráculo; (c) crate externo compatible.
+- **Recomendación:** Es una pregunta de licencia, no de semántica; recomendar (b) o (a) con revisión legal. [Cierre documental 2026-10-31] Clasificación: pregunta de LICENCIA (no semántica) que el Owner debe resolver; las fuentes del repositorio no la resuelven. Consecuencias observables: ninguna en comportamiento; el riesgo es legal. Bloquea: publicación de uri.rs/jstring.rs; puede avanzar: el resto de PATH.
+- **Filas afectadas:** AC-PATH-002, 004, 005, 006, 007, 011, 014
+- **Unidades afectadas:** PATH
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (b): reescritura en sala limpia de uri.rs y jstring.rs desde RFC 2396/3986/3629 y los casos grabados, por un agente que no lee los archivos actuales ni código de OpenJDK. No se publica ningún release hasta cerrarla. NOTICE se corrige a 2.0.0. AMPLIACIÓN (Owner, misma fecha): todo código de rakka derivado de fuentes con licencia no compatible con Apache-2.0, o de procedencia dudosa, se reescribe en sala limpia con proceso documentado (ver Q-X-18); el objetivo es eliminar la duda con un proceso, no decidir si algo es legal. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-RT-4 — Introspeccion de mailbox para SmallestMailbox y Resizer (pressure)
+
+- **Estado:** aceptada
+- **Evidencia:** SmallestMailbox.scala:108-153; Resizer.scala:206-226 | Cierre 2026-10-31: Clasificacion: arquitectura (vista interna del mailbox en AC-MBX-019). Evidencia ampliada: SmallestMailbox.scala:96-153 usa is_scheduled/currentMessage/hasMessages/numberOfMessages/isSuspended; Resizer.scala:206-226 (pressure) usa isScheduled, hasMessages, currentMessage, numberOfMessages; OptimalSizeExploringResizer.scala:217-228 usa numberOfMessages + currentMessage != null.
+- **Alternativas:** (a) exponer una vista interna de solo lectura del mailbox (is_scheduled, has_messages, number_of_messages, is_suspended, current_message) en AC-MBX; (b) heuristica aproximada
+- **Recomendación:** (a) necesaria para paridad; marcar bloqueante si AC-MBX-019 no la ofrece. Consecuencias: sin la vista, SmallestMailbox degrada a heuristica (cambia la eleccion de routee) y los resizers no pueden medir presion/carga. Bloquea la integracion de AC-RT-008, 013.2 y 014 (reportMessageCount); NO bloquea la logica pura de AC-RT-013.1 (capacity/rampup/backoff), de AC-RT-014 (resize/optimize/explore con carga inyectada) ni los constructores. Es el unico Q bloqueante de RT: priorizarlo en AC-MBX.
+- **Filas afectadas:** AC-RT-008;AC-RT-013.1;AC-RT-013.2;AC-RT-014
+- **Unidades afectadas:** RT
+- **Origen:** classic-patterns
+- **Respuesta del Owner:** aceptar (a), como vista interna (no API pública estable) en AC-MBX-019. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-SCH-1 — Rueda de ticks (LightArrayRevolver) propia vs. timers del runtime
+
+- **Estado:** aceptada
+- **Evidencia:** LightArrayRevolverScheduler.scala:50-357; reference.conf:886-927; SchedulerSpec.scala:467-857 (redondeo al tick, ticks-per-wheel, wrap, relojes que dan la vuelta, rechazo de retardos, y un Driver determinista con reloj, waitNanos y startTick sobreescribibles)
+- **Alternativas:** (a) portar la rueda (precisión por tick, semántica de redondeo y wrap); (b) tokio::time y emular redondeo a tick
+- **Recomendación:** [Clasificación: arquitectura] (a) port de la rueda con `Clock` y `Waiter` inyectables sobre un hilo propio (la rueda es observable: redondeo al tick, ticks-per-wheel, rechazo de retardos); es exactamente el patrón del spec y permite portar 1:1 las pruebas determinísticas. (b) tokio::time con redondeo emulado no es equivalente y no se recomienda. Consecuencias: bloquea la implementación de AC-SCH-008.1/.2/.3, 009, 014, 015; AC-SCH-001..003 pueden probarse antes con el scheduler manual (AC-SCH-010).
+- **Filas afectadas:** AC-SCH-001,AC-SCH-002,AC-SCH-003,AC-SCH-008.1,AC-SCH-008.2,AC-SCH-008.3,AC-SCH-009,AC-SCH-014
+- **Unidades afectadas:** SCH
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** aceptar (a): rueda propia con hilo propio. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-SCH-2 — Scheduler pluggable (scheduler.implementation) sin reflexión
+
+- **Estado:** aceptada
+- **Evidencia:** reference.conf:906-921; ActorSystem.scala:468,965,1136-1165; ExplicitlyTriggeredScheduler.scala:44-141; ManualTime.scala:34-48
+- **Alternativas:** (a) registro por nombre + inyección en builder; (b) sólo inyección
+- **Recomendación:** [Clasificación: arquitectura; subordinada a Q-X-2] (a) registro por nombre + inyección en el builder del sistema; el scheduler manual de testkit se registra como `org.apache.pekko.testkit.ExplicitlyTriggeredScheduler`. Consecuencia: el testkit determinista (ManualTime) depende de esto. Bloquea sólo la carga por nombre.
+- **Filas afectadas:** AC-SCH-010
+- **Unidades afectadas:** SCH
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** aceptar (a). (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-SCH-4 — schedule(...) deprecado: mantener como alias de scheduleAtFixedRate
+
+- **Estado:** rechazada
+- **Evidencia:** Scheduler.scala:229-231 (scheduleAtFixedRate delega en schedule), :343-420 (sobrecargas deprecadas desde Akka 2.6.0), :403 (método abstracto); LightArrayRevolverScheduler.scala:134-161; ExplicitlyTriggeredScheduler.scala:52-54; ExplicitlyTriggeredSchedulerSpec.scala:24-106 (ejerce schedule directamente)
+- **Alternativas:** (a) alias deprecado; (b) omitir y exponer sólo schedule_at_fixed_rate (propuesta de exclusión, requiere autorización)
+- **Recomendación:** [Clasificación: exclusión de alcance (propuesta) o alias] (a): alias deprecado, costo nulo, mismo código interno; (b) exponer sólo `schedule_at_fixed_rate` queda como propuesta de exclusión que requiere autorización. La fila sigue en alcance. No bloquea.
+- **Filas afectadas:** AC-SCH-004,AC-SCH-003
+- **Unidades afectadas:** SCH
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** rechazar (a) (alias deprecado). Elegido (b): sólo schedule_at_fixed_rate, como en 2.0.0. Autoriza la exclusión del alias `schedule` deprecado. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-SER-1 — Resolución de bindings y manifests sin jerarquía de clases JVM
+
+- **Estado:** aceptada
+- **Evidencia:** Serialization.scala:326-390,507-520 (isAssignableFrom, orden subtipo-primero); SerializeSpec.scala:191-243 (8 casos de jerarquía/interfaz); reference.conf:817-831 (claves FQCN JVM como "[B", "java.io.Serializable", "scala.Long"); Serialization.scala:241-258 (manifest = nombre de clase cargado por reflexión)
+- **Alternativas:** (a) Registro de tipos con relación de supertipos declarada (marker traits registrados) y orden por especificidad; (b) solo coincidencia exacta de TypeId (sin jerarquía) y bindings por enum cerrado; (c) bindings por nombre lógico de mensaje (string estable) en lugar de FQCN
+- **Recomendación:** (a) con (c) para manifests: cada tipo registrado declara su nombre lógico y supertipos; las claves FQCN de reference.conf se aceptan como alias de nombre lógico; reutilizar la solución de Q-X-6 (jerarquía en EventStream). Conserva el desempate y el aviso "Multiple serializers found". El typo "synch" de un mensaje (Serialization.scala:277) queda a elección: copiar o corregir | Clasificación (cierre documental 2026-10-31): arquitectura (representación de tipos y jerarquías JVM).
+- **Filas afectadas:** AC-SER-001.1; AC-SER-001.2; AC-SER-001.3; AC-SER-002; AC-SER-003.2; AC-SER-003.3; AC-SER-003.5
+- **Unidades afectadas:** SER
+- **Origen:** classic-io-ser
+- **Respuesta del Owner:** aceptar (a)+(c), incluido el comportamiento de 2.0.0 con includeManifest=false. El typo "synch" se copia por compatibilidad de configuración. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-T-BEH-1 — Forma del tipo Behavior en Rust, setup re-ejecutable y reutilizacion del valor
+
+- **Estado:** aceptada
+- **Evidencia:** Pekko reutiliza el mismo valor Behavior en varios spawns y re-ejecuta setup en cada restart (actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/BehaviorSpec.scala:331-339; actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:404; actor-typed/src/main/scala/org/apache/pekko/actor/typed/Behavior.scala:198-211); sin eso supervise/restart no puede recrear el Behavior. Requisitos observables que cualquier representacion debe cumplir (contrato en AT-BEH-007, R1-R3): reutilizar el mismo Behavior en actores independientes y volver a ejecutar la fabrica de setup en cada restart (actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:404; actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1145-1153, 1673-1691). El FnOnce propuesto antes en AT-BEH-001/AT-BEH-007 contradice R1 y R2.
+- **Alternativas:** (a) enum Behavior<M> cerrado con Deferred(Arc<dyn Fn(&mut Ctx)->Behavior>) y Behavior: Clone via Arc; (b) Box<dyn FnOnce> y prohibir restart de esos Behaviors (rompe AT-BEH-023 y AT-SUP-005); (c) trait object Behavior con metodo clone_box.
+- **Recomendación:** Clasificacion: arquitectura. Consecuencia observable: sin (a) un Behavior no puede reutilizarse ni reiniciarse (se rompen restart y AT-BEH-023). Bloquea AT-BEH-001, 004, 007, 011, 023 y AT-SUP-005/013; puede avanzar todo lo que no construye Behaviors (SIG, REF, STASH solo-estructura). | Recomendacion previa: (a). Es el unico que conserva restart y reutilizacion. Es una recomendacion: el Owner no la acepto; hasta que responda AT-BEH-001, AT-BEH-004 y AT-BEH-007 no se cierran y ninguna alternativa se considera adoptada.
+- **Filas afectadas:** AT-BEH-001; AT-BEH-007; AT-BEH-011; AT-BEH-023; AT-SUP-005; AT-SUP-013
+- **Unidades afectadas:** BEH; SUP
+- **Origen:** typed-core
+- **Respuesta del Owner:** aceptar (a). La caché de Props de 2.0.0 no se replica: es una optimización interna sin efecto observable. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-T-SUP-3 — Backoff: maxRestarts 0/negativo y default de resetBackoffAfter segun doc Java
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** Scaladoc de withMaxRestarts: 'Zero or negative disables the upper limit' (actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:329-333) vs codigo que solo trata -1 como ilimitado (actor-typed/src/main/scala/org/apache/pekko/actor/typed/internal/Supervision.scala:145-152, 335); Scaladoc Java de withResetBackoffAfter dice 'same value as minBackoff' (actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:322-326) vs codigo y spec (min+max)/2 (actor-typed/src/main/scala/org/apache/pekko/actor/typed/SupervisorStrategy.scala:82-86; actor-typed-tests/src/test/scala/org/apache/pekko/actor/typed/SupervisionSpec.scala:1117-1120).
+- **Alternativas:** (a) seguir el codigo: solo -1 ilimitado, 0 y otros negativos fallan en la primera excepcion; resetBackoffAfter por defecto (min+max)/2; (b) seguir el Scaladoc: <=0 desactiva el limite.
+- **Recomendación:** Clasificacion: incertidumbre parcialmente resuelta; el caso maxRestarts<=0 requiere medicion con el oraculo y luego decision. Resuelto por lectura: el default de resetBackoffAfter es (min+max)/2 (spec :1117-1120; el Scaladoc Java es erroneo). Para maxRestarts: el codigo trata solo -1 como ilimitado (Supervision.scala:145-152, 335) y ningun spec afirma 0 ni negativos; la medicion con el oraculo (withMaxRestarts(0)) decidira la lectura de Pekko, y solo si el oraculo contradice al codigo leido hace falta al Owner. Bloquea AT-SUP-007.3; AT-SUP-007.2 puede avanzar. | Recomendacion previa: (a) para el default de resetBackoffAfter (lo afirma el spec); para maxRestarts <=0 pedir decision: no hay spec que afirme ninguna de las dos lecturas.
+- **Filas afectadas:** AT-SUP-007.2; AT-SUP-007.3
+- **Unidades afectadas:** SUP
+- **Origen:** typed-core
+- **Respuesta del Owner:** aceptar (a) para el default (min+max)/2. Para maxRestarts <= 0 manda el código, no el Scaladoc; condición: confirmarlo con el oráculo antes de implementar AT-SUP-007.3. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-TK-1 — Entrega síncrona del testActor (CallingThreadDispatcher) en TestKit/TestProbe
+
+- **Estado:** aceptada
+- **Evidencia:** TestKit.scala:189-193 crea el testActor con CallingThreadDispatcher; TestProbeSpec.scala:32-39 hace `expectMsg(0.millis, ..)` inmediatamente tras `ask`/tell y afirma `future.isCompleted == true` tras responder. Cierre 2026-10-31 (leídos CallingThreadDispatcher.scala completo, CallingThreadDispatcherModelSpec y ActorModelSpec:278-508): el testActor se crea con CallingThreadDispatcher (TestKit.scala:189-193); la entrega síncrona se apoya en register->runQueue, dispatch->runQueue y un candado reentrante por actor con colas por hilo (CallingThreadDispatcher.scala:183-338). Es implementable en Rust (ver AC-TK-006.2, Equivalente Rust).
+- **Alternativas:** (a) dispatcher inline obligatorio para TestActor (misma semántica que Pekko); (b) entrega asíncrona con expectMsg que sondea y cambiar los specs portados; (c) ambos, con inline por defecto; (d) TestProbe como ref especial que empuja directamente a su cola en el hilo del emisor (misma entrega observable, sin path /system/testActor ni ciclo de vida de actor)
+- **Recomendación:** [Clasificación: arquitectura] (a): sin ella no se portan 1:1 los specs que usan expectMsg(0.millis). Consecuencias observables: sin entrega síncrona fallan 1:1 los specs con expectMsg(0.millis, ..) y `future.isCompleted` tras responder (TestProbeSpec.scala:32-57, TestActorRefSpec.scala:224-230, ExecutionContextSpec.scala:168-185). Bloquea: AC-TK-001.1, AC-TK-002.1, AC-TK-006.1, AC-TK-006.2 y el port de los specs que usen testActor/TestProbe con 0 ms. Puede avanzar: el resto de AC-SYS/AC-EVT/AC-TK y los specs con esperas no nulas (con sondeo, opción b).
+- **Filas afectadas:** AC-TK-001.1 ; AC-TK-002.1 ; AC-TK-006.2 ; AC-TK-006.1 ; AC-TK-007
+- **Unidades afectadas:** TK ; DSP
+- **Origen:** classic-system
+- **Respuesta del Owner:** aceptar (a): dispatcher inline obligatorio para el testActor. (Owner (respuesta al lote 01), 2026-11-18)
 
 ### Q-UTIL-1 — Negativos y rango de Timeout
 
@@ -2233,4 +2131,169 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** rechazar: la recomendación (a) (std::time::Duration, sólo valores positivos) NO se adopta. ALTERNATIVA ELEGIDA Y VIGENTE: preservar el dominio de Pekko, es decir (b) en su variante mínima (i64 nanosegundos con signo, sin biblioteca de aritmética) con (c) constructores falibles que rechazan lo que Pekko rechaza; admite duraciones negativas, cero y positivas en [-(2^63-1), 2^63-1] ns (Long.MinValue fuera). La restricción a positivos no se acepta como adaptación al lenguaje. No decide Q-UTIL-2, Q-UTIL-3, Q-UTIL-4 ni Q-UTIL-5 (Owner (instrucción en la sesión), 2026-10-31)
+
+### Q-UTIL-2 — toString de Timeout conserva la unidad
+
+- **Estado:** aceptada
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-2): Pekko imprime `Timeout(100 milliseconds)` o `Timeout(0 days)`: el `FiniteDuration` recuerda la unidad con que se construyó, aunque `Timeout(1000.millis) == Timeout(1.second)`. `std::time::Duration` no la recuerda.
+- **Alternativas:** (a) `Debug` derivado (`Timeout(100ms)`) sin prometer el formato de Pekko (lo implementado); (b) guardar la unidad junto con el valor (rompe la igualdad por valor o exige un `PartialEq` manual).
+- **Recomendación:** (a): sólo aparece en logs. Sin respuesta del Owner la fila AC-UTIL-001 queda `partial`. [Cierre documental 2026-10-31] Clasificación: representación (toString). Bloquea: cierre de AC-UTIL-001 (TO-STR-*); puede avanzar: resto de AC-UTIL-001.
+- **Filas afectadas:** AC-UTIL-001
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-3 — null y mensajes diferidos en PekkoException y requiring
+
+- **Estado:** aceptada
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-3): `new PekkoException(null)` tiene `getMessage == null` y se imprime sin `: `; `requiring(cond, null)` da `requirement failed: null`. Con `&str`/`impl Display` no se puede expresar `null`. Igual que Q-PATH-4.
+- **Alternativas:** (a) aceptarlo como diferencia de lenguaje (única alternativa registrada en el plan).
+- **Recomendación:** (a), igual que Q-PATH-4. Sin respuesta del Owner las filas afectadas quedan `partial`. [Cierre documental 2026-10-31] Clasificación: DIVERGENCIA DE LENGUAJE (null). Bloquea: cierre de AC-UTIL-002.3/004.1/004.2; puede avanzar: el resto.
+- **Filas afectadas:** AC-UTIL-002.3; AC-UTIL-004.1; AC-UTIL-004.2
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-4 — Jerarquía de excepciones y OnlyCauseStackTrace
+
+- **Estado:** aceptada
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-4): (i) `ConfigurationException` es subclase de `PekkoException`: un `catch PekkoException` la atrapa; con tipos separados no. (ii) `OnlyCauseStackTrace` sólo cambia qué stack trace imprime la JVM; los errores de Rust no llevan stack trace.
+- **Alternativas:** (a) tipos separados y un `From<ConfigurationException> for PekkoException` (pierde `java_class`) cuando algún consumidor lo pida; (b) un único `enum PekkoError`; (c) un trait común. Para (ii) el plan propone excluir `OnlyCauseStackTrace` y documentarlo.
+- **Recomendación:** (i) (a); (ii) excluirlo y documentarlo. La exclusión de `OnlyCauseStackTrace` requiere autorización explícita del Owner (A-5). Sin respuesta las filas quedan `partial`. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA (jerarquía de errores) + EXCLUSIÓN propuesta (OnlyCauseStackTrace). Bloquea: AC-UTIL-004.2/.3 (cierre); puede avanzar: AC-UTIL-004.1.
+- **Filas afectadas:** AC-UTIL-004.2; AC-UTIL-004.3
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (i-a). Autoriza excluir OnlyCauseStackTrace. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-5 — Done propio o ()
+
+- **Estado:** aceptada
+- **Evidencia:** docs/superpowers/plans/2026-10-30-ac-util-core.md (Q-UTIL-5), inventario AC-UTIL-003.1: se implementó `pub struct Done;`; la fila queda `partial` hasta decidir. Java expone `getInstance()` y `done()`.
+- **Alternativas:** (a) `pub struct Done;` (lo implementado); (b) `()`.
+- **Recomendación:** Sin recomendación registrada en el plan: lo implementado (a) es un estado, no una decisión aceptada. La fila AC-UTIL-003.1 queda `partial`. [Cierre documental 2026-10-31] Clasificación: representación (Done). Bloquea: cierre de AC-UTIL-003.1/.2 (estado `partial`); puede avanzar: el resto.
+- **Filas afectadas:** AC-UTIL-003.1
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a): pub struct Done. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-6 — Version.compareTo es asimétrico cuando un lado no tiene calificador (rest vacío) y el otro sí
+
+- **Estado:** rechazada
+- **Evidencia:** util/Version.scala:170-175: `if (rest=="" && other.rest!="") diff=1` seguido de un `if (other.rest=="" && rest!="") diff=-1 else diff=rest.compareTo(other.rest)` independiente; con rest="" y other.rest="M1" el `else` sobrescribe a 1 con "".compareTo("M1") < 0. VersionSpec.scala:56-64 sólo prueba `1.2-M1 < 1.2.0` (lado con calificador a la izquierda). Sin ejecutar con el jar: hipótesis a confirmar. [Cierre documental 2026-10-31] CONFIRMADO midiendo con el jar 1.7.1 (JDK 11, ORACLE=jars tools/oracle/run.sh): Version("1.2.0").compareTo(Version("1.2-M1")) = -2 y Version("1.2-M1").compareTo(Version("1.2.0")) = -1 (ambos negativos); 1.2.0 vs 1.2.0-RC1 = -3 y 1.2.0-RC1 vs 1.2.0 = -1.
+- **Alternativas:** (a) reproducir exactamente (bug-compatible) y fijarlo con un test del jar; (b) corregir para que sea antisimétrico (1.2.0 > 1.2-M1) y registrar la diferencia; (c) no portar Version.compareTo y usar semver.
+- **Recomendación:** Confirmar primero con el jar (escenario nuevo en tools/oracle). Si se confirma, (a) hasta que el Owner decida: cualquier diferencia no autorizada es regresión (AGENTS.md). [Cierre documental 2026-10-31] Clasificación: la incertidumbre se resolvió leyendo y midiendo (defecto confirmado); lo que queda es una DIVERGENCIA FUNCIONAL candidata que sólo el Owner puede autorizar (bug-compatible vs corregir). Consecuencias observables: con (a) una versión final 1.2.0 compara MENOR que 1.2-M1 (ManifestInfo.checkSameVersion y PekkoVersion eligen la 'más alta' con max); con (b) 1.2.0 > 1.2-M1. Bloquea: la implementación de la comparación con calificador (AC-UTIL-005.2 A5/A8) y la elección de la versión más alta en AC-UTIL-016.9; puede avanzar: parseo, igualdad, comparación numérica y dynver (A1-A4, A6-A7).
+- **Filas afectadas:** AC-UTIL-005.2
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** rechazar (a) bug-compatible de 1.7.1. Elegido: seguir el comportamiento corregido de 2.0.0 (1.2.0 > 1.2.0-M1). Condición: medirlo con el jar 2.0.0 antes de implementarlo. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-7 — toRootLowerCase: tabla de minúsculas de Unicode distinta entre JDK y Rust
+
+- **Estado:** aceptada
+- **Evidencia:** util/Helpers.scala:40 usa String.toLowerCase(Locale.ROOT); el oráculo corre con JDK 11 (Unicode 10) y Rust 1.96 usa Unicode más nuevo (plan AC-UTIL, decisión 6). [Cierre documental 2026-10-31] Medido con el jar (JDK 11): toRootLowerCase("\u1C90") devuelve U+1C90 (sin cambio; el carácter es de Unicode 11). La salida de Pekko depende de la JDK que lo ejecute (JDK 17 = Unicode 13, JDK 21 = Unicode 15), de modo que no existe una única referencia 'Unicode de Pekko'.
+- **Alternativas:** (a) usar `str::to_lowercase` y declarar la diferencia para caracteres posteriores a Unicode 10; (b) tabla propia congelada a Unicode 10; (c) tabla del JDK 21 (referencia del port de URI).
+- **Recomendación:** (a): los consumidores (log-dead-letters, niveles de log) sólo reciben ASCII en la práctica. [Cierre documental 2026-10-31] Clasificación: representación que conserva el contrato en la práctica (los consumidores son ASCII) con una divergencia menor y acotada; la opción (c) es inviable como 'referencia' porque Pekko no fija la versión de Unicode. Consecuencias observables: sólo para caracteres añadidos después de la JDK usada (p. ej. U+1C90 -> U+10D0 en Rust). Bloquea: nada; puede avanzar: AC-UTIL-002.2 con (a) y el golden limitado a Unicode <= 10 (como ahora).
+- **Filas afectadas:** AC-UTIL-002.2
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-8 — Semántica de cadenas por unidades UTF-16 (Glob, makePattern, WildcardIndex)
+
+- **Estado:** aceptada
+- **Evidencia:** util/Glob.scala:43-72 recorre `charAt` (unidades UTF-16): `?` consume una unidad, no un punto de código; Helpers.makePattern usa `.` de java.util.regex que no cruza terminadores de línea (Helpers.scala:44-45) mientras Glob.matches sí; WildcardIndex.scala:87-89 elige entre `prefix*` solapados según el orden de iteración de un HashMap de Scala. GlobSpec.scala:60-73 sólo compara sobre {a,b,*,?}. [Cierre documental 2026-10-31] Medido con el jar: Glob.matches("a?b","a\nb") = true, Glob.matches("a*b","a\nb") = true, Glob.matches("a?b","a\u0085b") = true, pero makePattern("a?b") rechaza "a\nb" y "a\u0085b" y makePattern("a*b") rechaza "a\nb". Par sustituto: makePattern("a?b") acepta "a\uD83D\uDE42b" (un punto de código) y Glob.matches("a?b", ...) = false (Glob.matches("a??b", ...) = true). Uso en producción: ActorSelection.scala:364 (`pattern = Helpers.makePattern`, usado por SelectChildPattern) y :369 (`Glob.matches`, el que decide).
+- **Alternativas:** (a) operar sobre `&[u16]` (idéntico a Java, incluidos pares sustitutos); (b) sobre `char` de Rust (distinto para caracteres fuera del BMP); (c) igual que (a) y fijar el orden de `prefix*` por inserción; documentar la diferencia de saltos de línea.
+- **Recomendación:** (c): los nombres válidos de actor son ASCII/%XX (ActorPath.scala:127-148) y los patrones de selección vienen del usuario; la diferencia de saltos de línea debe decidirla el Owner. [Cierre documental 2026-10-31] Clasificación: representación (UTF-16 vs char) + divergencia funcional ya existente DENTRO de Pekko (Glob y makePattern difieren en saltos de línea y pares sustitutos). Resuelto por medición: la semántica contractual en producción es la de Glob.matches (UTF-16, sin terminadores de línea especiales); makePattern sólo se conserva como definición histórica. Consecuencias observables: nombres de actor con caracteres fuera del BMP o con saltos de línea (los nombres válidos son ASCII/%XX, ActorPath.scala:127-148, así que sólo afecta a patrones de selección arbitrarios). Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023).
+- **Filas afectadas:** AC-UTIL-009, AC-UTIL-016.6, AC-UTIL-023, AC-CFG-012.2 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.15]
+- **Unidades afectadas:** UTIL, CFG
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (c). Autoriza no reproducir makePattern bit a bit. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-9 — PrettyDuration: `%.4g` de java.util.Formatter y representación de infinitos/indefinido
+
+- **Estado:** aceptada
+- **Evidencia:** util/PrettyDuration.scala:51-55,57-59: `"%.{p}g"` con Locale.ROOT; el %g de Java usa notación científica cuando el valor redondeado >= 10^precisión (p. ej. 10000 d) y difiere del %g de C/Rust; Duration.Inf/MinusInf/Undefined son valores de scala.concurrent.duration.Duration, que `std::time::Duration` no tiene. PrettyDurationSpec.scala:25-57 fija 10 casos + 3 sin números. [Cierre documental 2026-10-31] Medido con el jar: 10000 days -> `1.000e+04 d`, 99999 days -> `1.000e+05 d`, 1 day -> `1.000 d`, 1500 microseconds -> `1.500 ms`, Duration.Inf -> `∞ (infinity)`. Consumidores: AsyncDnsResolver.scala:37,146 y DeadLetterListener.scala:31,99 (sólo mensajes de log).
+- **Alternativas:** (a) implementar el %g de Java a mano y un enum `PekkoDuration { Finite, Inf, MinusInf, Undefined }`; (b) limitar a los casos del spec y documentar el resto; (c) delegar a un crate de formateo.
+- **Recomendación:** (a), validado contra un escenario del oráculo con valores grandes y pequeños. [Cierre documental 2026-10-31] Clasificación: representación (reimplementar %.4g de Java; la regla observable es: notación científica con exponente de dos dígitos cuando el valor redondeado a 4 cifras significativas es >= 10^4). Resuelto por medición; no requiere al Owner salvo que se prefiera (b) (limitar a los casos del spec). Consecuencias observables: sólo texto de logs. Bloquea: nada; puede avanzar: AC-UTIL-016.5 con (a) y el golden por crear.
+- **Filas afectadas:** AC-UTIL-016.5
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-10 — Estructuras concurrentes e identidad (Index, Switch, TokenBucket, colas, identityHashCode, timestamp)
+
+- **Estado:** aceptada
+- **Evidencia:** Index.scala:23-199 (ConcurrentSkipListSet por clave, iteración débilmente consistente, isEmpty con falsos negativos), LockUtil.scala:29-155 (synchronized), TokenBucket.scala:19-91 (aritmética con wrap-around), Helpers.scala:47-69 (identityHashCode), Helpers.scala:108-113 (zona horaria del sistema).
+- **Alternativas:** (a) Mutex + estructuras estándar, iteración sobre instantánea; (b) mapas concurrentes lock-free; (c) fijar una API mínima por consumidor real y diferir el resto.
+- **Recomendación:** (a) con tests portados 1:1 (IndexSpec, SwitchSpec, TokenBucketSpec); id de identidad = dirección del Arc o contador. [Cierre documental 2026-10-31] Clasificación: arquitectura (modelo de concurrencia de las estructuras). Consecuencias observables: iteración débilmente consistente de Index y semántica de Switch/BoundedBlockingQueue (AC-UTIL-012: 79 casos con eventos de señal). Hallazgos del cierre: MessageBuffer/MessageBufferMap y las colas LRU/LFU (AC-UTIL-010, 017.*) NO son thread-safe por contrato (no aplican). Bloquea: AC-UTIL-012 y AC-UTIL-013 (colas bloqueantes) hasta fijar Q-X-4; puede avanzar: AC-UTIL-010, 011, 017.*.
+- **Filas afectadas:** AC-UTIL-007, 008, 010, 011, 012, 013, 015.1, 024, 025
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a). (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-11 — Elementos propios de la JVM o de Scala sin equivalente natural en Rust (propuesta de equivalente; no exclusión)
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** util/LockUtil.scala:19-27 (ReentrantGuard, deprecado), util/TypedMultiMap.scala, util/JavaVersion.scala, util/Reflect.scala, util/LineNumbers.scala, util/BoxedType.scala, java/org/apache/pekko/annotation/*.java, java/org/apache/pekko/util/Unsafe.java, mima-filters, shims de Scala 2.12/2.13/3 (scala-2.13/util/*Converters.scala), cachés de cluster (FrequencySketch...).
+- **Alternativas:** (a) cada fila se mantiene en alcance con un equivalente Rust documentado (atómicos, `pub(crate)`, traits sellados, semver) y la diferencia observable anotada; (b) proponer al Owner excluirlas explícitamente fila por fila.
+- **Recomendación:** (a) ahora; (b) sólo con aprobación explícita del Owner (nada se excluye sin autorización). [Cierre documental 2026-10-31] Clasificación: mezcla de representación (Option<T>, atómicos, pub(crate), semver-checks) y EXCLUSIÓN DE ALCANCE (sólo si el Owner la aprueba fila por fila). Cierre documental: cada fila afectada (AC-UTIL-014, 015.2, 016.1-.4, .7, .8, .9, .11-.15, .18, 017.*, 018.*, 019, 020, 021, 022) tiene ahora un efecto observable identificado y una representación Rust; ninguna se excluye. Candidatas a exclusión explícita (requieren aprobación): AC-UTIL-016.7 (findMarker/findClassLoader/getCallerClass), 016.12 (ClassLoaderObjectInputStream), 016.13 (BoxedType), 018.3 (ccompat), 021 (MiMa, sustituible por cargo-semver-checks). Bloquea: nada; puede avanzar: el resto con (a).
+- **Filas afectadas:** AC-UTIL-014, 015.2, 016.*, 017.*, 018.*, 019, 020, 021, 022 [asociacion explicita por contrato, cierre P05: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.8, AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.11, AC-UTIL-016.13, AC-UTIL-016.14, AC-UTIL-016.18, AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.4, AC-UTIL-018.5, AC-UTIL-019]
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y SWARUtil. Las exclusiones candidatas 016.7, 016.12, 016.13 y 021 NO quedan autorizadas: el Owner decide aparte tras una línea por cada una con lo que se pierde. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-12 — Alcance y representación de ByteString/ByteIterator/ByteStringBuilder
+
+- **Estado:** aceptada
+- **Evidencia:** scala-2.13/util/ByteString.scala:31,867,1164,1254 y ByteIterator.scala:26-430; ByteStringSpec.scala:360 (140 tests según inventario). Lo consumen IO (AC-IO-*) y serialización (AC-SER-*) que están en alcance. [Cierre documental 2026-10-31] Contrato extraído (AC-UTIL-006.1-.8, 022): ver bloques. Operaciones que condicionan la representación: recortes sin copia, `++` sin copia, `compact`/`isCompact`, `asByteBuffers` por fragmento, `toArrayUnsafe` sin copia en un fragmento, igualdad y `hashCode` por contenido, `toString` con tope de 100 bytes, serialización Java (identidades 0/1/2), builder con temporal y fragmentos, iterador mutable con `clone`.
+- **Alternativas:** (a) newtype sobre `bytes::Bytes` (dependencia externa); (b) rope propio sin dependencias (el crate no tiene dependencias hoy); (c) ByteString = `Bytes` + traits para el builder/iterator.
+- **Recomendación:** Decidir antes de empezar IO/SER; no bloquea UTIL/CFG/PATH/EXT. [Cierre documental 2026-10-31] Clasificación: ARQUITECTURA/dependencia externa (bytes, base64, encoding_rs). Con la extracción completada, la comparación es posible: (a) bytes::Bytes cubre recortes y clone baratos, un solo fragmento (isCompact deja de distinguir ropes; 'asByteBuffers' devolvería un solo trozo); (b) rope propio conserva fragmentos (isCompact, asByteBuffers y la fusión de ByteString1 contiguos son reproducibles) sin dependencias. Recomendación: (c) = Bytes + traits, con una lista de fragmentos sólo si IO la necesita (writev). Consecuencias observables: asByteBuffers/isCompact; alcance de charsets distintos de UTF-8. Bloquea: AC-UTIL-006.* y AC-UTIL-022 (impl) y, por dependencia, AC-IO-*/AC-SER-*; puede avanzar: toda UTIL/CFG/PATH/EXT sin ByteString.
+- **Filas afectadas:** AC-UTIL-006.*, AC-UTIL-022
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (c): newtype sobre bytes::Bytes, con lista de fragmentos sólo si IO la necesita. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-13 — Helpers.isWindows deriva de `os.name` contiene "win"
+
+- **Estado:** aceptada
+- **Evidencia:** util/Helpers.scala:42; consumidores: LightArrayRevolverScheduler.scala:67,120, io/Tcp.scala:640, io/dns/DnsSettings.scala:113. [Cierre documental 2026-10-31] Medido con el jar en macOS (JDK 11): os.name = "Mac OS X" y Helpers.isWindows = false.
+- **Alternativas:** (a) `cfg!(windows)` (comportamiento esperado); (b) reproducir la heurística de subcadena sobre `std::env::consts::OS`.
+- **Recomendación:** (a). [Cierre documental 2026-10-31] Clasificación: representación (plataforma real). Consecuencias observables: sólo si un JVM informara os.name con 'win' sin ser Windows (ninguno conocido). Bloquea: nada; (a) es suficiente.
+- **Filas afectadas:** AC-UTIL-026
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-14 — Reproducir scala.util.hashing.MurmurHash3 y los hashCode de Scala/Java donde un valor observable depende de ellos
+
+- **Estado:** aceptada
+- **Evidencia:** FrequencySketch.scala:79,201 usan MurmurHash3.stringHash(value, 135283237), mixLast y finalizeHash; FrequencySketchSpec.scala:25-90 afirma valores exactos (size == 6, size == 500 tras el reinicio) que sólo son estables con el hash exacto o sin colisiones; ByteString.hashCode es el de Seq[Byte] (medido: `ByteString("abc")` = -1431565476, vacío = 473519988); ImmutableIntMap.hashCode = Arrays.hashCode (medido 1281 para {10->10}); HashCode.scala (medido 856 para (23, 5)); Address/ActorPath hashCode (Q-PATH-3); FastFrequencySketch usa `value.hashCode` (String.hashCode de Java, UTF-16). scala-library no está en upstream/pekko: el comportamiento se conoce sólo por el jar.
+- **Alternativas:** (a) portar MurmurHash3 (stringHash, mixLast, finalizeHash, seqHash) y String.hashCode de Java exactos y validarlos con un golden del jar; (b) usar cualquier hash y relajar los tests exactos a las cotas estadísticas que el spec ya usa en otros casos; (c) crate de hash externo sin garantía de igualdad con Scala.
+- **Recomendación:** (a) para FrequencySketch/FastFrequencySketch (los tests de Pekko afirman valores exactos); (b) para ByteString/ImmutableIntMap/Address/ActorPath mientras ningún consumidor guarde o compare el valor numérico (coincide con Q-PATH-3 (a)). Consecuencias observables: sólo en estructuras de caché de cluster-sharding y en hashCode explícitos; con (b) los valores exactos del spec dejan de coincidir. Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*.
+- **Filas afectadas:** AC-UTIL-017.1, AC-UTIL-006.1, AC-UTIL-016.4, AC-UTIL-016.15, AC-PATH-001, AC-PATH-014
+- **Unidades afectadas:** UTIL, PATH
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a) para FrequencySketch, incluida la validación de desbordamiento de 2.0.0, y (b) para el resto. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-15 — MessageBufferMap.drop con un id ausente: NullPointerException de Pekko vs 0 mensajes
+
+- **Estado:** aceptada
+- **Evidencia:** MessageBuffer.scala:265-272: `val entries = bufferMap.get(id); if (entries.nonEmpty) ...` sin comprobar null; medido con el jar: `new MessageBufferMap[String].drop("x", "r", null)` lanza NullPointerException (antes de tocar deadLetters). Ningún test de MessageBufferSpec cubre `drop`. Consumidor: cluster-sharding Shard.scala (fuera de estos módulos).
+- **Alternativas:** (a) reproducir el NPE (panic en Rust); (b) devolver 0 sin enviar nada y registrar la diferencia; (c) devolver Option/Result.
+- **Recomendación:** (b): un NPE por id ausente es un defecto evidente (el resto de operaciones del mapa toleran ids ausentes: getOrEmpty/remove/contains) y ningún test lo afirma; pero cualquier diferencia con Pekko requiere autorización. Consecuencias observables: sólo cuando un consumidor llama a drop con un id que nunca tuvo mensajes. Bloquea: nada (AC-UTIL-010 puede cerrarse con (b) documentado); puede avanzar: todo AC-UTIL-010.
+- **Filas afectadas:** AC-UTIL-010
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (b): devolver 0. Autoriza la divergencia con Pekko; queda documentada. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-UTIL-16 — Representación del texto de origen de closures de Typed (equivalente de LineNumbers)
+
+- **Estado:** aceptada
+- **Evidencia:** LineNumbers.scala:28-76 (API) y su uso en BehaviorImpl.scala:117,131,149,171 e InterceptorImpl.scala:234,245 (toString `Receive(<archivo:líneas>)`); LineNumberSpec fija rangos (22-22, 24-24, 29-31, 35-36; Java 29-29, 34-35, 40-45) que dependen del compilador de Scala/Java; Rust no tiene bytecode.
+- **Alternativas:** (a) #[track_caller] / Location::caller() en los constructores para mostrar `archivo:línea` (un solo número); (b) std::any::type_name::<F>() del closure; (c) excluir el texto (Debug opaco).
+- **Recomendación:** (a) con fallback a (b). Consecuencias observables: el texto de Debug/Display de Behavior e interceptores deja de coincidir con Pekko (rangos y nombres de archivo de compilación); los tests portados de Typed que comparen ese texto deben fijar el formato propio. Bloquea: AC-UTIL-016.8 (impl) y los tests de toString de Typed; puede avanzar: el resto.
+- **Filas afectadas:** AC-UTIL-016.8
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar. (Owner (respuesta al lote 01), 2026-11-18)
 

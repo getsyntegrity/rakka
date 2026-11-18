@@ -1,6 +1,6 @@
 # Spec 05 — AC-CFG (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 29. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias. **Filas:** 29. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -21,7 +21,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-10`, `Q-CFG-11`, `Q-CFG-12`, `Q-CFG-13`, `Q-CFG-3`, `Q-CFG-4`, `Q-CFG-5`, `Q-CFG-6`, `Q-CFG-7`, `Q-CFG-8`, `Q-CFG-9`, `Q-UTIL-8`, `Q-X-1`, `Q-X-10`, `Q-X-2`, `Q-X-3`, `Q-X-6`, `Q-X-7`.
+- Propuestas aún sin decisión del Owner: ninguna.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

@@ -18,7 +18,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-IO-1`, `Q-IO-2`, `Q-IO-3`, `Q-IO-4`, `Q-IO-5`, `Q-IO-6`, `Q-X-1`, `Q-X-2`, `Q-X-3`, `Q-X-5`.
+- Propuestas aún sin decisión del Owner: `Q-IO-1`, `Q-IO-2`, `Q-IO-3`, `Q-IO-4`, `Q-IO-5`, `Q-IO-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

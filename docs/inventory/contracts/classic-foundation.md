@@ -2373,6 +2373,41 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+## AC-UTIL-027 — Clock / NanoClock / ScheduledClock (reloj interno basado en nanoTime)
+
+*unidad UTIL · visibilidad internal-required · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Extensión `Clock` con `currentTime()` y `earlierTime(duration)`; `ScheduledClock` (cuando `pekko.scheduled-clock-interval` > 0) actualiza el valor con el scheduler, nunca retrocede e incrementa en 1 entre actualizaciones; `NanoClock` (System.nanoTime) en otro caso. Fila creada el 2026-11-18 por la decisión Q-UTIL-11: archivo nuevo en 2.0.0; el contrato se extrae al tomar la unidad.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/Clock.scala:36-67,77-125`
+- `actor/src/main/resources/reference.conf:980`
+
+**Dependencias.** AC-SCH-008.3.
+
+**Aserciones.** Por extraer.
+
+**Oráculo.** Por definir (casos rust-anything).
+
+**Decisiones.** -
+
+## AC-UTIL-028 — SWARUtil (lectura/escritura multibyte y patrones SWAR sobre byte[])
+
+*unidad UTIL · visibilidad internal-required · analysis=listed · impl=pending · validation=pending*
+
+**Contrato observable.** Utilidades de bajo nivel de ByteString: `compilePattern`, `applyPattern`, `getIndex`, `getLastIndex`, `getLong/getInt/getShort`, `putInt/putShort/putLong` con `ByteOrder` y variantes de respaldo sin MethodHandle. Fila creada el 2026-11-18 por la decisión Q-UTIL-11: archivo nuevo en 2.0.0. El archivo declara estar copiado del proyecto Netty (Apache-2.0): al portarlo hay que conservar su aviso.
+
+**Fuente.**
+- `actor/src/main/scala/org/apache/pekko/util/SWARUtil.scala:64-457`
+
+**Dependencias.** AC-UTIL-022.
+
+**Aserciones.** Por extraer.
+
+**Oráculo.** Por definir (casos rust-anything).
+
+**Decisiones.** -
+
 ## AC-CFG-001 — Carga de configuración: ConfigFactory.load + reference.conf como fallback; config explícita por ActorSystem(name, config)
 
 *unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*

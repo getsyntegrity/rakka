@@ -7,3 +7,56 @@ Q-X-14	accepted	2026-11-18	Owner (instrucción en la sesión)	aceptar: gates = r
 Q-X-15	accepted	2026-11-18	Owner (instrucción en la sesión)	aceptar: los crates son rakka-actor y rakka-actor-typed.
 Q-X-16	accepted	2026-11-18	Owner (instrucción en la sesión)	aceptar: el JDK del oráculo queda fijo en 17, porque los mensajes de excepción del JDK forman parte de lo observable y cambian entre versiones. Las grabaciones de JDK 21 de los goldens deprecados no cuentan.
 Q-X-17	accepted	2026-11-18	Owner (instrucción en la sesión)	aceptar: el dominio de entrada de la API pública es &str; las entradas con sustitutos UTF-16 sueltos (representables en Java, no en Rust) quedan fuera de dominio. En el replay se listan como NOT_APPLICABLE en cases/not-applicable.tsv (con motivo y esta decisión), se informan como "N/N aplicables + K no aplicables" y el arnés las rechaza con un error explícito, nunca con reemplazo lossy. Sustituye a "las cifras del piloto tienen que mantenerse" sólo para ese caso.
+Q-CFG-10	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-CFG-12	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-CFG-13	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-CFG-6	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-CFG-7	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-CFG-8	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-EVT-3	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-PATH-1	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-PATH-3	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-PATH-4	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-PATH-5	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-UTIL-13	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-UTIL-2	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-UTIL-3	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-UTIL-7	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-UTIL-9	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0.
+Q-CFG-11	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar las claves; con la opción en `on` el arranque falla con un error de configuración (no un no-op silencioso) hasta que exista AC-SER.
+Q-CFG-3	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a): se implementa checkValid porque Q-X-1 es parser propio.
+Q-CFG-4	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado).
+Q-CFG-5	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar (a) con el valor "2.0.0" (la referencia pasó de 1.7.1 a 2.0.0, Q-X-11).
+Q-CFG-9	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a)+(c).
+Q-EVT-1	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar, incluida la supresión de dead letters durante el shutdown terminante de 2.0.0.
+Q-PATH-2	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar lo implementado: message() muestra U+FFFD y message_utf16() es exacto (el sustituto suelto de Pekko).
+Q-PATH-6	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar (b): reescritura en sala limpia de uri.rs y jstring.rs desde RFC 2396/3986/3629 y los casos grabados, por un agente que no lee los archivos actuales ni código de OpenJDK. No se publica ningún release hasta cerrarla. NOTICE se corrige a 2.0.0. AMPLIACIÓN (Owner, misma fecha): todo código de rakka derivado de fuentes con licencia no compatible con Apache-2.0, o de procedencia dudosa, se reescribe en sala limpia con proceso documentado (ver Q-X-18); el objetivo es eliminar la duda con un proceso, no decidir si algo es legal.
+Q-SCH-1	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a): rueda propia con hilo propio.
+Q-SCH-2	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a).
+Q-SCH-4	rejected	2026-11-18	Owner (respuesta al lote 01)	rechazar (a) (alias deprecado). Elegido (b): sólo schedule_at_fixed_rate, como en 2.0.0. Autoriza la exclusión del alias `schedule` deprecado.
+Q-UTIL-10	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a).
+Q-UTIL-11	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y SWARUtil. Las exclusiones candidatas 016.7, 016.12, 016.13 y 021 NO quedan autorizadas: el Owner decide aparte tras una línea por cada una con lo que se pierde.
+Q-UTIL-14	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a) para FrequencySketch, incluida la validación de desbordamiento de 2.0.0, y (b) para el resto.
+Q-UTIL-15	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (b): devolver 0. Autoriza la divergencia con Pekko; queda documentada.
+Q-UTIL-16	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar.
+Q-UTIL-4	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (i-a). Autoriza excluir OnlyCauseStackTrace.
+Q-UTIL-5	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a): pub struct Done.
+Q-UTIL-8	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (c). Autoriza no reproducir makePattern bit a bit.
+Q-X-1	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0.
+Q-X-10	accepted	2026-11-18	Owner (respuesta al lote 01)	autoriza el alcance (A): sólo actor y actor-typed locales (sin remoting, cluster, persistence, streams ni HTTP).
+Q-X-2	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko.
+Q-X-3	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (A).
+Q-X-4	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1).
+Q-X-5	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar (A). Documentar que con panic=abort no hay supervisión de panics.
+Q-X-6	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (A).
+Q-X-7	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (A).
+Q-X-8	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a): Typed sobre Classic.
+Q-FSM-4	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar (a) replicar. Condición: antes, grabar un escenario del oráculo contra 2.0.0 que lo confirme; si el oráculo contradice la lectura del código, gana el oráculo.
+Q-RT-4	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a), como vista interna (no API pública estable) en AC-MBX-019.
+Q-SER-1	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a)+(c), incluido el comportamiento de 2.0.0 con includeManifest=false. El typo "synch" se copia por compatibilidad de configuración.
+Q-T-BEH-1	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a). La caché de Props de 2.0.0 no se replica: es una optimización interna sin efecto observable.
+Q-T-SUP-3	accepted_with_changes	2026-11-18	Owner (respuesta al lote 01)	aceptar (a) para el default (min+max)/2. Para maxRestarts <= 0 manda el código, no el Scaladoc; condición: confirmarlo con el oráculo antes de implementar AT-SUP-007.3.
+Q-TK-1	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (a): dispatcher inline obligatorio para el testActor.
+Q-UTIL-12	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar (c): newtype sobre bytes::Bytes, con lista de fragmentos sólo si IO la necesita.
+Q-UTIL-6	rejected	2026-11-18	Owner (respuesta al lote 01)	rechazar (a) bug-compatible de 1.7.1. Elegido: seguir el comportamiento corregido de 2.0.0 (1.2.0 > 1.2.0-M1). Condición: medirlo con el jar 2.0.0 antes de implementarlo.
+Q-X-18	accepted	2026-11-18	Owner (respuesta al lote 01)	aceptar: todo el código de rakka derivado de fuentes con licencia no compatible con Apache-2.0, o de procedencia dudosa, se reescribe en sala limpia (auditoría de procedencia, especificación sin código, implementación por un agente que no lee el original ni código GPL, verificación con replay, mutantes y comparación de similitud). Prohibido leer o portar código de OpenJDK u otras fuentes GPL: la conducta del JDK se toma sólo de su documentación pública y del oráculo. No se publica ningún release hasta cerrar todas las reescrituras.

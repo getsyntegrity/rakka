@@ -2,14 +2,14 @@ rakka
 Copyright 2026 The rakka contributors
 
 rakka is a Rust port of the actor modules (pekko-actor, pekko-actor-typed)
-of Apache Pekko 1.7.1 (https://pekko.apache.org/), licensed under the Apache
+of Apache Pekko 2.0.0 (https://pekko.apache.org/), licensed under the Apache
 License, Version 2.0. Its behavior, structure and documentation are derived
 from Apache Pekko. The NOTICE of the corresponding Apache Pekko artifacts is
 reproduced below as required by Section 4(d) of the License.
 
 =============================================================================
 Apache Pekko
-Copyright 2022-2025 The Apache Software Foundation
+Copyright 2022-2026 The Apache Software Foundation
 
 This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
@@ -24,19 +24,6 @@ Apache License, Version 2.0 License.
 
 pekko-actor contains MurmurHash.scala which has changes made by the Scala-Lang team under an Apache 2.0 license.
 
-Copyright (c) 2002-2023 EPFL
-Copyright (c) 2011-2023 Lightbend, Inc.
-
-Scala includes software developed at
-LAMP/EPFL (https://lamp.epfl.ch/) and
-Lightbend, Inc. (https://www.lightbend.com/).
-
----------------
-
-pekko-actor contains code from scala-collection-compat which has changes made by the Scala-Lang team
-under an Apache 2.0 license.
-
-scala-collection-compat
 Copyright (c) 2002-2023 EPFL
 Copyright (c) 2011-2023 Lightbend, Inc.
 
@@ -86,4 +73,3 @@ Other developers who have contributed code are:
 
 * Eric Bie contributed extensive unit test suite which has helped ensure high implementation
   quality
-

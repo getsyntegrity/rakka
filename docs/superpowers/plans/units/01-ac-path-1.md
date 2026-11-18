@@ -1,6 +1,6 @@
 # Spec 01 — AC-PATH (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 13. **Tareas:** 3 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias. **Filas:** 13. **Tareas:** 3 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -15,7 +15,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-PATH-003, AC-PATH-012, AC-PAT
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-PATH-1`, `Q-PATH-2`, `Q-PATH-3`, `Q-PATH-4`, `Q-PATH-5`, `Q-PATH-6`, `Q-UTIL-14`.
+- Propuestas aún sin decisión del Owner: ninguna.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

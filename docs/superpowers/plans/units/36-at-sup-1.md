@@ -1,6 +1,6 @@
 # Spec 36 — AT-SUP (1/1)
 
-**Estado:** bloqueada. **Filas:** 24. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 24. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -20,8 +20,8 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 Decisiones:
 
-- Bloqueantes: `Q-T-BEH-1`, `Q-T-SUP-3`.
-- Propuestas aún sin decisión del Owner: `Q-T-BEH-5`, `Q-T-CTX-4`, `Q-T-SIG-1`, `Q-T-STASH-1`, `Q-T-SUP-1`, `Q-T-SUP-2`, `Q-T-SUP-4`, `Q-T-SUP-5`, `Q-T-SUP-6`, `Q-T-SUP-7`, `Q-T-SUP-8`, `Q-T-TMR-4`, `Q-X-5`, `Q-X-6`, `Q-X-7`, `Q-X-8`.
+- Bloqueantes: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-T-BEH-5`, `Q-T-CTX-4`, `Q-T-SIG-1`, `Q-T-STASH-1`, `Q-T-SUP-1`, `Q-T-SUP-2`, `Q-T-SUP-4`, `Q-T-SUP-5`, `Q-T-SUP-6`, `Q-T-SUP-7`, `Q-T-SUP-8`, `Q-T-TMR-4`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

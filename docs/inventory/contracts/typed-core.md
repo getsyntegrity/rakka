@@ -236,6 +236,8 @@ Convencion de aserciones: `A<n>` es un comportamiento esperado + cita del cuerpo
 
 **Decisiones.** Q-T-BEH-1, Q-X-5
 
+**Actualización 2026-11-18.** El Owner aceptó (a) en Q-T-BEH-1: la forma `Behavior` de Rust deja de estar «NO aceptada»; la caché de Props de 2.0.0 no se replica (optimización interna sin efecto observable).
+
 ## AT-BEH-008.1 — Behaviors.receive / receiveMessage: Receive[T] con y sin contexto
 
 *Visibilidad:* public · *analysis:* extracted · *impl/validation:* pending/pending
