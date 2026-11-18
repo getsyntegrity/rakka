@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/{Timeout,Helpers,Glob,Clock,SWARUtil}.scala, Done.scala, NotUsed.scala, PekkoException.scala and actor/src/main/java/org/apache/pekko/util/Unsafe.java (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/{Timeout,Helpers,Glob,Clock,SWARUtil,PrettyDuration}.scala, Done.scala, NotUsed.scala, PekkoException.scala and actor/src/main/java/org/apache/pekko/util/Unsafe.java (Apache-2.0).
 //! Cases of the AC-UTIL (core) oracle (`UtilCoreOracle.java`, converted from the deprecated jshell script): each
 //! rebuilds one oracle case with the Rust API and renders it with the oracle's line format.
 
@@ -20,7 +20,7 @@ use rakka_actor::util::helpers::{
     to_root_lower_case,
 };
 use rakka_actor::util::swar::{self, ByteOrder};
-use rakka_actor::util::{TimeUnit, Timeout, Version};
+use rakka_actor::util::{PekkoDuration, TimeUnit, Timeout, Version};
 use rakka_actor::{ConfigurationException, Done, NotUsed, PekkoException};
 
 /// Golden cases that depend on an open Owner question or on a Java-only facade: not produced
@@ -577,6 +577,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
 
     // ---- Slice P67: UTIL-VERSION (AC-UTIL-005.2)
     for (id, result) in version_cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+    }
+
+    // ---- Slice P68: UTIL-PRETTYDURATION (AC-UTIL-016.5)
+    for (id, result) in pretty_duration_cases() {
         lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
     }
 
@@ -2144,5 +2149,297 @@ fn version_cases() -> Vec<(String, String)> {
                 .join(" ")
         ),
     );
+    cases
+}
+
+const US: i64 = 1_000;
+const MS: i64 = 1_000_000;
+const S: i64 = 1_000_000_000;
+const MIN: i64 = 60 * S;
+const H: i64 = 60 * MIN;
+const D: i64 = 24 * H;
+
+/// `PrettyDurationOracle.pretty`: `{text}`, or `<Exception>[<message>]`.
+fn pretty_outcome(d: PekkoDuration, include_nanos: bool, precision: i32) -> String {
+    match d.pretty_with(include_nanos, precision) {
+        Ok(text) => format!("{{{text}}}"),
+        Err(e) => format!("{}[{}]", e.java_class(), e.message()),
+    }
+}
+
+/// `PrettyDurationOracle.nanos`: `fromNanos(n)` then `pretty_outcome`.
+fn pretty_nanos(n: i64, include_nanos: bool, precision: i32) -> String {
+    match Timeout::new(n) {
+        Ok(t) => pretty_outcome(PekkoDuration::Finite(t), include_nanos, precision),
+        Err(e) => format!("{}[{}]", e.java_class(), e.message()),
+    }
+}
+
+/// `PrettyDurationOracle.list`: `[n]={text}` with the default rendering.
+fn pretty_list(ns: &[i64]) -> String {
+    join(
+        ns.iter()
+            .map(|&n| format!("[{n}]={}", pretty_nanos(n, false, 4))),
+    )
+}
+
+fn pretty_for_precisions(n: i64, precisions: &[i32]) -> String {
+    join(precisions.iter().map(|&p| pretty_nanos(n, false, p)))
+}
+
+/// `PrettyDurationOracle.sweep`: the same xorshift64* generator.
+fn pretty_sweep(seed: u64, count: usize, vary_precision: bool) -> String {
+    let mut x = seed;
+    let mut out = Vec::with_capacity(count);
+    for _ in 0..count {
+        x ^= x >> 12;
+        x ^= x << 25;
+        x ^= x >> 27;
+        let r = x.wrapping_mul(0x2545_F491_4F6C_DD1D);
+        let bits = ((r >> 58) & 63) as u32;
+        let magnitude = ((r << 1) >> 1) >> (63 - bits);
+        let n = if (r >> 57) & 1 == 0 {
+            magnitude as i64
+        } else {
+            -(magnitude as i64)
+        };
+        let precision = if vary_precision {
+            1 + ((r >> 52) & 15) as i32
+        } else {
+            4
+        };
+        out.push(pretty_nanos(n, (r >> 51) & 1 == 1, precision));
+    }
+    join(out)
+}
+
+/// The cases of `PrettyDurationOracle.java` (slice P68).
+fn pretty_duration_cases() -> Vec<(String, String)> {
+    let mut cases: Vec<(String, String)> = Vec::new();
+    let mut add = |id: &str, line: String| cases.push((id.to_owned(), line));
+    let non_finite = [
+        PekkoDuration::Inf,
+        PekkoDuration::MinusInf,
+        PekkoDuration::Undefined,
+    ];
+
+    add(
+        "PD-01 spec table",
+        pretty_list(&[
+            9,
+            95,
+            999,
+            1000,
+            9500,
+            9500 * US,
+            9500 * MS,
+            95 * S,
+            95 * MIN,
+            95 * H,
+        ]),
+    );
+    add(
+        "PD-02 infinities and undefined",
+        join(non_finite.iter().map(|&d| {
+            format!(
+                "{} {} {} {}",
+                pretty_outcome(d, false, 4),
+                pretty_outcome(d, true, 4),
+                pretty_outcome(d, true, 1),
+                pretty_outcome(d, false, 40)
+            )
+        })) + " "
+            + &join(non_finite.iter().map(PekkoDuration::pretty)),
+    );
+    add(
+        "PD-03 infinities with invalid precision",
+        join(non_finite.iter().flat_map(|&d| {
+            [0, -1, i32::MIN]
+                .into_iter()
+                .map(move |p| pretty_outcome(d, false, p))
+        })),
+    );
+    add(
+        "PD-04 unit boundaries",
+        join(
+            [US, MS, S, MIN, H, D]
+                .iter()
+                .map(|&u| pretty_list(&[u - 1, u, u + 1])),
+        ),
+    );
+    add(
+        "PD-05 default format equals pretty with 4 digits",
+        join([1, 999, 1500, 4 * S, 3 * D].iter().map(|&n| {
+            let default = PekkoDuration::Finite(Timeout::new(n).expect("in range")).pretty();
+            format!("{default}|{}", pretty_nanos(n, false, 4))
+        })),
+    );
+    add(
+        "PD-06 include nanos",
+        join(
+            [0, 1, 999, 1500, 95 * S, 3 * D + 17, i64::MAX, -5, -i64::MAX]
+                .iter()
+                .map(|&n| {
+                    format!(
+                        "[{n}]={} {}",
+                        pretty_nanos(n, true, 4),
+                        pretty_nanos(n, true, 2)
+                    )
+                }),
+        ),
+    );
+    add(
+        "PD-07 precision must be positive",
+        join([0, -1, -7, i32::MIN].iter().map(|&p| {
+            format!(
+                "{} {}",
+                pretty_nanos(1500, false, p),
+                pretty_nanos(1500, true, p)
+            )
+        })),
+    );
+    add(
+        "PD-08 scientific notation",
+        pretty_list(&[
+            9999 * D,
+            10000 * D,
+            99999 * D,
+            100000 * D,
+            12345 * D,
+            106751 * D,
+            9999 * D + 5 * H,
+            9999 * D + 12 * H,
+            9999 * D + 11 * H,
+        ]),
+    );
+    add("PD-09 zero", pretty_for_precisions(0, &[1, 2, 4, 7, 12]));
+    add(
+        "PD-10 negative durations",
+        pretty_list(&[
+            -1,
+            -999,
+            -1000,
+            -1500,
+            -US,
+            -MS,
+            -95 * S,
+            -95 * MIN,
+            -95 * H,
+            -3 * D,
+            -i64::MAX,
+        ]),
+    );
+    add(
+        "PD-11 Long.MaxValue",
+        pretty_for_precisions(i64::MAX, &[1, 3, 4, 6, 10, 17, 18, 20]),
+    );
+    add(
+        "PD-12 precision from 1 to 25",
+        join(
+            [1, 7, 1234, 1_234_567, 98_765_432_101, 123_456_789_012_345]
+                .iter()
+                .map(|&n| {
+                    let all: Vec<i32> = (1..=25).collect();
+                    format!("{} |", pretty_for_precisions(n, &all))
+                }),
+        ),
+    );
+    add(
+        "PD-13 large precision",
+        join([50, 100, 400].iter().map(|&p| {
+            format!(
+                "{} {}",
+                pretty_nanos(1500, false, p),
+                pretty_nanos(3 * D, false, p)
+            )
+        })),
+    );
+    add(
+        "PD-14 rounds half up on the decimal digits",
+        join(
+            [
+                1_000_500,
+                12_345,
+                1_005_000,
+                2_675_000,
+                1_000_050,
+                999_950,
+                9_999_500,
+                99_995,
+                9_995,
+                2_500,
+                3_500,
+                1_235_000_000,
+                1_245_000_000,
+                8_650_000_000_000,
+            ]
+            .iter()
+            .map(|&n| format!("[{n}]={}", pretty_for_precisions(n, &[4, 3, 2, 1]))),
+        ),
+    );
+    add(
+        "PD-15 carry to the next power of ten",
+        join(
+            [
+                9999,
+                99_995,
+                999_950,
+                9_999_500,
+                999_999,
+                59_999_500_000,
+                3_599_950_000_000,
+                86_399_950_000_000,
+                106_751 * D,
+                9_999 * D + 22 * H,
+            ]
+            .iter()
+            .map(|&n| {
+                let first_six: Vec<i32> = (1..=6).collect();
+                format!("[{n}]={}", pretty_for_precisions(n, &first_six))
+            }),
+        ),
+    );
+    add(
+        "PD-16 sweep of 3000 pseudo-random magnitudes",
+        pretty_sweep(0x2545_F491_4F6C_DD1D, 3000, false),
+    );
+    add(
+        "PD-17 sweep of 3000 pseudo-random precisions",
+        pretty_sweep(0x9E37_79B9_7F4A_7C15, 3000, true),
+    );
+    add(
+        "PD-18 sweep of round values",
+        join([1, US, MS, S, MIN, H, D].iter().flat_map(|&u| {
+            [
+                1, 2, 3, 5, 7, 10, 11, 15, 24, 59, 60, 61, 99, 100, 101, 999, 1000, 1001, 9999,
+                10000, 12345, 99999,
+            ]
+            .into_iter()
+            .map(move |k| pretty_nanos(u * k, false, 4))
+        })),
+    );
+    add("PD-19 integral doubles from 2^53", {
+        let mut parts = Vec::new();
+        for e in 52..=62 {
+            let base: i64 = 1 << e;
+            for m in [
+                base,
+                base + base / 3,
+                base + base / 2 + 12345,
+                base.wrapping_mul(2).wrapping_sub(1),
+            ] {
+                parts.push(format!(
+                    "[{}]={}",
+                    -m,
+                    pretty_for_precisions(-m, &[16, 17, 18, 19, 20, 22])
+                ));
+            }
+        }
+        parts.push(format!(
+            "[max]={}",
+            pretty_for_precisions(-i64::MAX, &[1, 4, 15, 16, 17, 18, 19, 20, 22])
+        ));
+        join(parts)
+    });
     cases
 }

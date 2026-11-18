@@ -184,3 +184,22 @@ VR-20 version field and Zero
 VR-21 public constructor parses lazily
 VR-22 parse exceptions
 VR-23 sorting
+PD-01 spec table
+PD-02 infinities and undefined
+PD-03 infinities with invalid precision
+PD-04 unit boundaries
+PD-05 default format equals pretty with 4 digits
+PD-06 include nanos
+PD-07 precision must be positive
+PD-08 scientific notation
+PD-09 zero
+PD-10 negative durations
+PD-11 Long.MaxValue
+PD-12 precision from 1 to 25
+PD-13 large precision
+PD-14 rounds half up on the decimal digits
+PD-15 carry to the next power of ten
+PD-16 sweep of 3000 pseudo-random magnitudes
+PD-17 sweep of 3000 pseudo-random precisions
+PD-18 sweep of round values
+PD-19 integral doubles from 2^53

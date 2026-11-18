@@ -167,3 +167,22 @@
 {"name": "uc-0167", "args": ["util-core-case"], "stdin": "VR-20 version field and Zero"}
 {"name": "uc-0168", "args": ["util-core-case"], "stdin": "VR-22 parse exceptions"}
 {"name": "uc-0169", "args": ["util-core-case"], "stdin": "VR-23 sorting"}
+{"name": "uc-0170", "args": ["util-core-case"], "stdin": "PD-01 spec table"}
+{"name": "uc-0171", "args": ["util-core-case"], "stdin": "PD-02 infinities and undefined"}
+{"name": "uc-0172", "args": ["util-core-case"], "stdin": "PD-03 infinities with invalid precision"}
+{"name": "uc-0173", "args": ["util-core-case"], "stdin": "PD-04 unit boundaries"}
+{"name": "uc-0174", "args": ["util-core-case"], "stdin": "PD-05 default format equals pretty with 4 digits"}
+{"name": "uc-0175", "args": ["util-core-case"], "stdin": "PD-06 include nanos"}
+{"name": "uc-0176", "args": ["util-core-case"], "stdin": "PD-07 precision must be positive"}
+{"name": "uc-0177", "args": ["util-core-case"], "stdin": "PD-08 scientific notation"}
+{"name": "uc-0178", "args": ["util-core-case"], "stdin": "PD-09 zero"}
+{"name": "uc-0179", "args": ["util-core-case"], "stdin": "PD-10 negative durations"}
+{"name": "uc-0180", "args": ["util-core-case"], "stdin": "PD-11 Long.MaxValue"}
+{"name": "uc-0181", "args": ["util-core-case"], "stdin": "PD-12 precision from 1 to 25"}
+{"name": "uc-0182", "args": ["util-core-case"], "stdin": "PD-13 large precision"}
+{"name": "uc-0183", "args": ["util-core-case"], "stdin": "PD-14 rounds half up on the decimal digits"}
+{"name": "uc-0184", "args": ["util-core-case"], "stdin": "PD-15 carry to the next power of ten"}
+{"name": "uc-0185", "args": ["util-core-case"], "stdin": "PD-16 sweep of 3000 pseudo-random magnitudes"}
+{"name": "uc-0186", "args": ["util-core-case"], "stdin": "PD-17 sweep of 3000 pseudo-random precisions"}
+{"name": "uc-0187", "args": ["util-core-case"], "stdin": "PD-18 sweep of round values"}
+{"name": "uc-0188", "args": ["util-core-case"], "stdin": "PD-19 integral doubles from 2^53"}
