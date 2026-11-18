@@ -253,7 +253,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** `compare_uuid(a, b)`: orden por version; para ambos v1, por `timestamp()` como entero de 64 bits sin signo y, en empate, por los 64 bits menos significativos sin signo; para el resto, por los 64 bits mas y menos significativos sin signo.
 - **Filas (1; impl: pending 1):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-016.14.
 - **Exclusiones/costuras:** el entero devuelto por Pekko (p. ej. `-3` = diferencia de versiones) no se reproduce salvo que Q-UTIL-11 lo decida (propuesta: `Ordering`); el unico consumidor esta fuera de estos modulos (persistence-query).
-- **Decisiones:** 1 distintas en sus filas; respondidas: Q-UTIL-11. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P69). <!-- generated:unit-decisions -->
+- **Decisiones:** 2 distintas en sus filas; respondidas: Q-UTIL-11, Q-X-18. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P69). <!-- generated:unit-decisions -->
 - **Dependencias:** ninguna.
 - **Archivos previstos:** `crates/rakka-actor/src/util/uuid_ordering.rs` (nuevo; nombre orientativo).
 - **Tests/oraculo:** No existe spec de Pekko. Diferencial con el jar (`tools/oracle/uuid-comparator.jsh`, por crear): v1 con timestamps extremos y v4 con bit alto (`new UUID(0x4000..., 0x8000...01)` > `new UUID(0x4000..., 1)`), diferencia de versiones.

@@ -20,7 +20,7 @@ use rakka_actor::util::helpers::{
     to_root_lower_case,
 };
 use rakka_actor::util::swar::{self, ByteOrder};
-use rakka_actor::util::{PekkoDuration, TimeUnit, Timeout, Version};
+use rakka_actor::util::{JavaUuid, PekkoDuration, TimeUnit, Timeout, Version, pekko_compare_uuid};
 use rakka_actor::{ConfigurationException, Done, NotUsed, PekkoException};
 
 /// Golden cases that depend on an open Owner question or on a Java-only facade: not produced
@@ -582,6 +582,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
 
     // ---- Slice P68: UTIL-PRETTYDURATION (AC-UTIL-016.5)
     for (id, result) in pretty_duration_cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+    }
+
+    // ---- Slice P69: UTIL-UUID-ORDEN (AC-UTIL-016.14)
+    for (id, result) in uuid_order_cases() {
         lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
     }
 
@@ -2441,5 +2446,403 @@ fn pretty_duration_cases() -> Vec<(String, String)> {
         ));
         join(parts)
     });
+    cases
+}
+
+// ---- Slice P69: UTIL-UUID-ORDEN (AC-UTIL-016.14), the twin of `UuidOrderOracle.java`.
+
+fn uu(msb: u64, lsb: u64) -> JavaUuid {
+    JavaUuid::new(msb as i64, lsb as i64)
+}
+
+fn uu_with_version(rest: u64, version: u64) -> u64 {
+    (rest & !0xF000) | (version << 12)
+}
+
+fn uu_show(x: JavaUuid) -> String {
+    format!(
+        "{:016x}:{:016x}",
+        x.most_significant_bits() as u64,
+        x.least_significant_bits() as u64
+    )
+}
+
+fn uu_pair(a: JavaUuid, b: JavaUuid) -> String {
+    format!(
+        "[{}]/[{}]={}",
+        uu_show(a),
+        uu_show(b),
+        pekko_compare_uuid(a, b)
+    )
+}
+
+fn uu_pairs(pairs: &[(JavaUuid, JavaUuid)]) -> String {
+    pairs
+        .iter()
+        .map(|&(a, b)| uu_pair(a, b))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn uu_timestamp(x: JavaUuid) -> String {
+    match x.timestamp() {
+        Ok(t) => t.to_string(),
+        Err(e) => format!("{}[{}]", e.java_class(), e.message()),
+    }
+}
+
+/// `UuidOrderOracle.next`: xorshift64*.
+fn uu_next(state: &mut u64) -> u64 {
+    *state ^= *state >> 12;
+    *state ^= *state << 25;
+    *state ^= *state >> 27;
+    state.wrapping_mul(0x2545_F491_4F6C_DD1D)
+}
+
+/// `UuidOrderOracle.sweep`.
+fn uu_sweep(seed: u64, pairs: usize, versions: &[u64], tie_heavy: bool) -> String {
+    let mut state = seed;
+    let (mut neg, mut zero, mut pos, mut antisym, mut trans) = (0, 0, 0, 0, 0);
+    let mut h: i32 = 17;
+    let mut all: Vec<JavaUuid> = Vec::new();
+    let versioned = |state: &mut u64| {
+        let rest = uu_next(state);
+        let v = versions[((uu_next(state) >> 1) % versions.len() as u64) as usize];
+        uu_with_version(rest, v)
+    };
+    for i in 0..pairs {
+        let m1 = versioned(&mut state);
+        let l1 = uu_next(&mut state);
+        let mode = if tie_heavy { i % 4 } else { 0 };
+        let (m2, l2) = match mode {
+            0 => {
+                let m2 = versioned(&mut state);
+                (m2, uu_next(&mut state))
+            }
+            1 => (m1, uu_next(&mut state)),
+            2 => {
+                let bit = (uu_next(&mut state) >> 1) % 128;
+                if bit < 64 {
+                    (m1 ^ (1 << bit), l1)
+                } else {
+                    (m1, l1 ^ (1 << (bit - 64)))
+                }
+            }
+            _ => (m1, l1),
+        };
+        let (a, b) = (uu(m1, l1), uu(m2, l2));
+        let r = pekko_compare_uuid(a, b);
+        match r.cmp(&0) {
+            std::cmp::Ordering::Less => neg += 1,
+            std::cmp::Ordering::Equal => zero += 1,
+            std::cmp::Ordering::Greater => pos += 1,
+        }
+        h = h.wrapping_mul(31).wrapping_add(r);
+        if pekko_compare_uuid(b, a).signum() != -r.signum() {
+            antisym += 1;
+        }
+        if all.len() < 60 {
+            all.push(a);
+            all.push(b);
+        }
+    }
+    for w in all.windows(3) {
+        let (a, b, c) = (w[0], w[1], w[2]);
+        if pekko_compare_uuid(a, b) <= 0
+            && pekko_compare_uuid(b, c) <= 0
+            && pekko_compare_uuid(a, c) > 0
+        {
+            trans += 1;
+        }
+    }
+    format!(
+        "neg={neg} zero={zero} pos={pos} hash={h} antisymmetry-violations={antisym} transitivity-violations={trans}"
+    )
+}
+
+/// The cases of `UuidOrderOracle.java` (slice P69).
+fn uuid_order_cases() -> Vec<(String, String)> {
+    let mut cases: Vec<(String, String)> = Vec::new();
+    let mut add = |id: &str, line: String| cases.push((id.to_owned(), line));
+    let fw = uu_with_version;
+
+    add(
+        "UU-01 version of the msb",
+        [
+            0x0_u64,
+            0x1000,
+            0x4000,
+            0xF000,
+            0x0FFF,
+            0xFFFF_FFFF_FFFF_0FFF,
+            0xFFFF_FFFF_FFFF_FFFF,
+            0x8000_0000_0000_8000,
+            0x1234_5678_9ABC_5DEF,
+        ]
+        .iter()
+        .map(|&m| format!("[{m:016x}]={}", uu(m, 0).version()))
+        .collect::<Vec<_>>()
+        .join(" "),
+    );
+    add(
+        "UU-02 timestamp of version 1",
+        [
+            0x0000_0000_0000_1000_u64,
+            0x0000_0001_0000_1000,
+            0x0000_0000_0001_1000,
+            0x0000_0000_0000_1001,
+            0xFFFF_FFFF_FFFF_1FFF,
+            0x8000_0000_8000_1800,
+            0x1234_5678_9ABC_1DEF,
+            0xFFFF_FFFF_FFFF_1000,
+            0x0000_0000_0000_1FFF,
+        ]
+        .iter()
+        .map(|&m| format!("[{m:016x}]={}", uu_timestamp(uu(m, 0x8000_0000_0000_0001))))
+        .collect::<Vec<_>>()
+        .join(" "),
+    );
+    add(
+        "UU-03 timestamp of other versions",
+        [0_u64, 2, 3, 4, 5, 6, 7, 8, 15]
+            .iter()
+            .map(|&v| format!("v{v}={}", uu_timestamp(uu(fw(0x1234_5678_9ABC_0DEF, v), 5))))
+            .collect::<Vec<_>>()
+            .join(" "),
+    );
+    add("UU-04 order by version number", {
+        let mut parts = Vec::new();
+        let mut v1 = 0_u64;
+        while v1 < 16 {
+            let mut v2 = 15_i64;
+            while v2 >= 0 {
+                parts.push(uu_pair(
+                    uu(fw(0x0123_4567_89AB_0000, v1), 7),
+                    uu(fw(0x0123_4567_89AB_0000, v2 as u64), 7),
+                ));
+                v2 -= 4;
+            }
+            v1 += 3;
+        }
+        parts.join(" ")
+    });
+    add(
+        "UU-05 version before every other bit",
+        uu_pairs(&[
+            (uu(fw(u64::MAX, 3), u64::MAX), uu(fw(0, 4), 0)),
+            (uu(fw(0, 3), 0), uu(fw(u64::MAX, 4), u64::MAX)),
+            (uu(fw(u64::MAX, 1), u64::MAX), uu(fw(0, 2), 0)),
+            (uu(fw(0, 15), 0), uu(fw(0, 0), 0)),
+        ]),
+    );
+    add(
+        "UU-06 unsigned lsb of version 4",
+        uu_pairs(&[
+            (
+                uu(0x4000_0000_0000_0000, 0x8000_0000_0000_0001),
+                uu(0x4000_0000_0000_0000, 1),
+            ),
+            (
+                uu(0x4000_0000_0000_0000, 1),
+                uu(0x4000_0000_0000_0000, 0x8000_0000_0000_0001),
+            ),
+            (
+                uu(0x4000_0000_0000_0000, u64::MAX),
+                uu(0x4000_0000_0000_0000, 0),
+            ),
+            (
+                uu(0x4000_0000_0000_0000, 0x7FFF_FFFF_FFFF_FFFF),
+                uu(0x4000_0000_0000_0000, 0x8000_0000_0000_0000),
+            ),
+            (uu(0x4000_0000_0000_0000, 1), uu(0x4000_0000_0000_0000, 2)),
+            (uu(0x4000_0000_0000_0000, 0), uu(0x4000_0000_0000_0000, 0)),
+        ]),
+    );
+    add(
+        "UU-07 unsigned msb of version 4",
+        uu_pairs(&[
+            (uu(0xF000_0000_0000_4000, 0), uu(0x7000_0000_0000_4000, 0)),
+            (uu(0x7000_0000_0000_4000, 0), uu(0xF000_0000_0000_4000, 0)),
+            (uu(0x8000_0000_0000_4000, 0), uu(0x0000_0000_0000_4000, 0)),
+            (uu(0xFFFF_FFFF_FFFF_4FFF, 0), uu(0x0000_0000_0000_4000, 0)),
+            (uu(0x0000_0001_FFFF_4000, 0), uu(0x0000_0000_FFFF_4000, 0)),
+            (uu(0x8000_0000_FFFF_4000, 0), uu(0x7FFF_FFFF_FFFF_4000, 0)),
+        ]),
+    );
+    add(
+        "UU-08 the two 32-bit halves",
+        uu_pairs(&[
+            (uu(0x8000_0000_4000_0000, 0), uu(0x7FFF_FFFF_4000_0000, 0)),
+            (uu(0x0000_0001_4000_8000, 0), uu(0x0000_0001_4000_7FFF, 0)),
+            (uu(0x4000_0000, 0x8000_0000), uu(0x4000_0000, 0x7FFF_FFFF)),
+            (
+                uu(0x4000_0000, 0x8000_0000_0000_0000),
+                uu(0x4000_0000, 0xFFFF_FFFF),
+            ),
+            (
+                uu(0x4000_0000, 0xFFFF_FFFF_0000_0000),
+                uu(0x4000_0000, 0x7FFF_FFFF_FFFF_FFFF),
+            ),
+            (
+                uu(0x4000_0000, 0xFFFF_FFFF_0000_0001),
+                uu(0x4000_0000, 0xFFFF_FFFF_0000_0002),
+            ),
+        ]),
+    );
+    add(
+        "UU-09 raw magnitudes of the result",
+        uu_pairs(&[
+            (uu(0x4000_0000, 0), uu(0x7FFF_FFFF_4000_0000, 0)),
+            (uu(0x7FFF_FFFF_4000_0000, 0), uu(0x4000_0000, 0)),
+            (uu(0x8000_0000_4000_0000, 0), uu(0xFFFF_FFFF_4000_0000, 0)),
+            (uu(0xFFFF_FFFF_4000_0000, 0), uu(0x8000_0000_4000_0000, 0)),
+            (
+                uu(0x4000_0000_0000_0000, 0x8000_0000_0000_0000),
+                uu(0x4000_0000_0000_0000, 0xFFFF_FFFF_0000_0000),
+            ),
+            (
+                uu(0x4000_0000_0000_0000, 0),
+                uu(0x4000_0000_0000_0000, 0x7FFF_FFFF_0000_0000),
+            ),
+            (
+                uu(0x4000_0000_0000_0000, 0),
+                uu(0x4000_0000_0000_0000, 0x7FFF_FFFF),
+            ),
+            (
+                uu(0x4000_0000_0000_0000, 0xFFFF_FFFF),
+                uu(0x4000_0000_0000_0000, 0),
+            ),
+        ]),
+    );
+    add(
+        "UU-10 version 1 by timestamp",
+        uu_pairs(&[
+            (uu(0x0000_0002_0000_1000, 0), uu(0x0000_0001_0000_1000, 0)),
+            (uu(0x0000_0000_0001_1000, 0), uu(0x0000_0001_0000_1000, 0)),
+            (uu(0x0000_0000_0000_1001, 0), uu(0x0000_0001_0000_1000, 0)),
+            (uu(0x0000_0000_0000_1001, 0), uu(0x0000_0000_0000_1000, 0)),
+            (uu(0x0000_0000_0000_1000, 0), uu(0x0000_0000_0000_1001, 0)),
+            (uu(0x8000_0000_0000_1000, 0), uu(0x7FFF_FFFF_0000_1000, 0)),
+        ]),
+    );
+    add(
+        "UU-11 version 1 ignores the msb order",
+        uu_pairs(&[
+            (uu(0xFFFF_FFFF_FFFF_1000, 0), uu(0x0000_0000_0000_1FFF, 0)),
+            (uu(0x0000_0000_0000_1FFF, 0), uu(0xFFFF_FFFF_FFFF_1000, 0)),
+            (uu(0x0000_0001_0000_1000, 0), uu(0x0000_0000_0000_1FFF, 0)),
+            (uu(0x0000_FFFF_FFFF_1000, 0), uu(0xFFFF_0000_0000_1000, 0)),
+            (uu(0xFFFF_0000_0000_1000, 0), uu(0x0000_FFFF_FFFF_1000, 0)),
+        ]),
+    );
+    let tie = 0x1234_5678_9ABC_1DEF_u64;
+    add(
+        "UU-12 version 1 timestamp ties by unsigned lsb",
+        uu_pairs(&[
+            (uu(tie, 0x8000_0000_0000_0001), uu(tie, 1)),
+            (uu(tie, 1), uu(tie, 0x8000_0000_0000_0001)),
+            (uu(tie, u64::MAX), uu(tie, 0)),
+            (uu(tie, 0xFFFF_FFFF), uu(tie, 0xFFFF_FFFF_0000_0000)),
+            (uu(tie, 5), uu(tie, 5)),
+            (uu(tie, 5), uu(tie, 6)),
+        ]),
+    );
+    add(
+        "UU-13 version 1 lsb tie-break extremes",
+        uu_pairs(&[
+            (uu(0x1000, 3), uu(0x1000, 3)),
+            (uu(0x1000, 3), uu(0x1000, 0xC000_0000_0000_0003)),
+            (uu(0x1000, 0xC000_0000_0000_0003), uu(0x1000, 3)),
+            (uu(0xFFFF_FFFF_FFFF_1FFF, 0), uu(0xFFFF_FFFF_FFFF_1FFF, 0)),
+            (
+                uu(0xFFFF_FFFF_FFFF_1FFF, 1),
+                uu(0xFFFF_FFFF_FFFF_1FFE, u64::MAX),
+            ),
+        ]),
+    );
+    add(
+        "UU-14 versions 0, 2, 3, 5 to 15 order like version 4",
+        [0_u64, 2, 3, 5, 6, 7, 8, 9, 15]
+            .iter()
+            .map(|&v| {
+                format!(
+                    "v{v} {} {};",
+                    uu_pair(
+                        uu(fw(0xF000_0000_0000_0000, v), 1),
+                        uu(fw(0x7000_0000_0000_0000, v), 1)
+                    ),
+                    uu_pair(
+                        uu(fw(0x1000_0000_0000_0000, v), 0x8000_0000_0000_0000),
+                        uu(fw(0x1000_0000_0000_0000, v), 1)
+                    )
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+    );
+    add("UU-15 every version against every version", {
+        let mut b = Vec::new();
+        for v1 in 0..16_u64 {
+            let mut row = String::new();
+            for v2 in 0..16_u64 {
+                row.push_str(&format!(
+                    "{},",
+                    pekko_compare_uuid(
+                        uu(fw(0x0123_4567_89AB_0DEF, v1), (-2_i64) as u64),
+                        uu(fw(0x0123_4567_89AB_0DEF, v2), 3)
+                    )
+                ));
+            }
+            b.push(row);
+        }
+        b.join(" ")
+    });
+    add(
+        "UU-16 reflexive and null-like extremes",
+        uu_pairs(&[
+            (uu(0, 0), uu(0, 0)),
+            (uu(u64::MAX, u64::MAX), uu(u64::MAX, u64::MAX)),
+            (uu(0, 0), uu(u64::MAX, u64::MAX)),
+            (uu(u64::MAX, u64::MAX), uu(0, 0)),
+            (uu(1 << 63, 1 << 63), uu((1 << 63) - 1, (1 << 63) - 1)),
+            (uu(0x1000, 0), uu(0x1000, 0)),
+        ]),
+    );
+    add(
+        "UU-17 the shared comparator instance",
+        // Rust has no comparator singleton to share: the `Ord` of `JavaUuid` is the one comparator.
+        format!(
+            "same=true distinctFromNew=true cmp={}",
+            pekko_compare_uuid(
+                uu(0x4000_0000_0000_0000, 0x8000_0000_0000_0001),
+                uu(0x4000_0000_0000_0000, 1)
+            )
+        ),
+    );
+    add("UU-18 sorting a mixed list", {
+        let mut state: u64 = 20_260_518;
+        let vs = [1_u64, 4, 3, 1, 4];
+        let mut l: Vec<JavaUuid> = Vec::new();
+        for i in 0..24 {
+            let rest = (uu_next(&mut state) & 0x0000_0000_00FF_FFFF)
+                | if i % 2 == 0 { 0 } else { 0x8000_0000_0000_0000 };
+            let lsb = uu_next(&mut state);
+            l.push(uu(fw(rest, vs[i % vs.len()]), lsb));
+        }
+        l.sort();
+        l.iter().map(|&x| uu_show(x)).collect::<Vec<_>>().join(" ")
+    });
+    add(
+        "UU-19 sweep of 3000 random pairs",
+        uu_sweep(0x9E37_79B9_7F4A_7C15, 3000, &[1, 2, 3, 4, 5, 8], false),
+    );
+    add(
+        "UU-20 sweep of 3000 pairs with shared bits",
+        uu_sweep(0xD1B5_4A32_D192_ED03, 3000, &[1, 4], true),
+    );
+    add(
+        "UU-21 sweep of 3000 version 1 pairs",
+        uu_sweep(0x2545_F491_4F6C_DD1D, 3000, &[1], true),
+    );
     cases
 }

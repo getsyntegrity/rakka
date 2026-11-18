@@ -66,6 +66,11 @@ java_error!(
     "IllegalArgumentException"
 );
 java_error!(
+    /// `java.lang.UnsupportedOperationException`.
+    UnsupportedOperationError,
+    "UnsupportedOperationException"
+);
+java_error!(
     /// `java.lang.IllegalStateException`.
     IllegalStateError,
     "IllegalStateException"

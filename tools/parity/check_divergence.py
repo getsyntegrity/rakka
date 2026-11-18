@@ -364,6 +364,25 @@ MUTANTS = {
         "if false {",
         "a negative duration of 2^53 ns or more uses the shortest digits of the double (what C prints) instead of the integer digits Java prints",
     ),
+    # --- slice P69: UUIDComparator ---
+    "uuid-order-signed-halves": (
+        "src/util/uuid_order.rs",
+        "fn compare_uints(i1: i32, i2: i32) -> i32 {",
+        "fn compare_uints(i1: i32, i2: i32) -> i32 {\n    if true {\n        return i1.wrapping_sub(i2);\n    }",
+        "the 32-bit halves are compared as signed numbers (like java.util.UUID.compareTo) instead of unsigned: a set top bit sorts first",
+    ),
+    "uuid-order-version-one-by-msb": (
+        "src/util/uuid_order.rs",
+        "    if version == 1 {\n        // `timestamp()`",
+        "    if version == 255 {\n        // `timestamp()`",
+        "two version-1 UUIDs are ordered by their raw most significant bits instead of by timestamp()",
+    ),
+    "uuid-order-timestamp-keeps-version": (
+        "src/util/uuid_order.rs",
+        "let time_hi = msb & 0x0FFF;",
+        "let time_hi = msb & 0xFFFF;",
+        "timestamp() keeps the four version bits in time_hi: a 64-bit value instead of the 60-bit time",
+    ),
     # --- slice P05: Glob ---
     "glob-trailing-star-unmatched": (
         "src/util/glob.rs",

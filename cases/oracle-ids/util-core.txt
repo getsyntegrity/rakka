@@ -203,3 +203,24 @@ PD-16 sweep of 3000 pseudo-random magnitudes
 PD-17 sweep of 3000 pseudo-random precisions
 PD-18 sweep of round values
 PD-19 integral doubles from 2^53
+UU-01 version of the msb
+UU-02 timestamp of version 1
+UU-03 timestamp of other versions
+UU-04 order by version number
+UU-05 version before every other bit
+UU-06 unsigned lsb of version 4
+UU-07 unsigned msb of version 4
+UU-08 the two 32-bit halves
+UU-09 raw magnitudes of the result
+UU-10 version 1 by timestamp
+UU-11 version 1 ignores the msb order
+UU-12 version 1 timestamp ties by unsigned lsb
+UU-13 version 1 lsb tie-break extremes
+UU-14 versions 0, 2, 3, 5 to 15 order like version 4
+UU-15 every version against every version
+UU-16 reflexive and null-like extremes
+UU-17 the shared comparator instance
+UU-18 sorting a mixed list
+UU-19 sweep of 3000 random pairs
+UU-20 sweep of 3000 pairs with shared bits
+UU-21 sweep of 3000 version 1 pairs

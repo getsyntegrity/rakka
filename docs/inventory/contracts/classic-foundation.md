@@ -1651,6 +1651,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11 (qué se devuelve: `Ordering` vs entero).
 
+**Actualización P69 (2026-11-18, Pekko 2.0.0).** Medido con el jar 2.0.0 (JDK 17) por `UuidOrderOracle` (casos UU-01..UU-21 -> uc-0189..uc-0209): `UUIDComparator.scala` no cambió respecto de 1.7.1 y A1 se confirma. Añade lo medido que el contrato no afirmaba: el resultado crudo es la resta de las mitades de 32 bits o `±1` (`-15` entre versión 0 y 15, `±2147483647` entre mitades extremas del mismo signo); `timestamp()` de v1 es `time_hi(12 bits) << 48 | time_mid << 32 | time_low` (sin los 4 bits de versión) y lanza `UnsupportedOperationException[Not a time-based UUID]` con otra versión; las versiones 0, 2, 3, 5..15 se ordenan como la 4 (msb y lsb sin signo). Rust: `JavaUuid`, `pekko_compare_uuid` (Int crudo), `compare_uuid` y `Ord` (signo) en `crates/rakka-actor/src/util/uuid_order.rs`; sin parseo ni generación de UUID.
+
 
 ---
 
