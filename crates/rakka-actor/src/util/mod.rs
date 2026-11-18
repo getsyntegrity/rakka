@@ -1,6 +1,7 @@
 //! Utilities of `org.apache.pekko.util`.
 
 pub mod bounded_blocking_queue;
+pub mod byte_string;
 pub mod clock;
 pub mod double_linked_list;
 pub mod fast_hash;
