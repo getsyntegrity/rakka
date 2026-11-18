@@ -13,12 +13,12 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 11 `AC-EVT-1` (`11-ac-evt-1.md`), por las filas AC-EVT-006, AC-EVT-007, AC-EVT-009, AC-EVT-010, AC-EVT-011, AC-EVT-015.
 - Spec 13 `AC-CELL-1` (`13-ac-cell-1.md`), por las filas AC-CELL-004, AC-CELL-015.1, AC-CELL-015.2.
 - Spec 16 `AC-SUP-1` (`16-ac-sup-1.md`), por las filas AC-SUP-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-001, AC-DW-012. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 22 `AC-CS-1` (`22-ac-cs-1.md`), por las filas AC-CS-004.1, AC-CS-004.2, AC-CS-004.3, AC-CS-006.1, AC-CS-006.2, AC-CS-009. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-002.1, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-005.2.
+- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-005.2.
 - Spec 09 `AC-DSP-1` (`09-ac-dsp-1.md`), por las filas AC-DSP-001, AC-DSP-006, AC-DSP-007, AC-DSP-015.
 - Spec 06 `AC-REF-1` (`06-ac-ref-1.md`), por las filas AC-REF-009.1, AC-REF-009.2, AC-REF-010, AC-REF-011, AC-REF-012.
 - Spec 12 `AC-TK-1` (`12-ac-tk-1.md`), por las filas AC-TK-001.1.
+- Spec 17 `AC-DW-1` (`17-ac-dw-1.md`), por las filas AC-DW-012. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 10 `AC-SCH-1` (`10-ac-sch-1.md`), por las filas AC-SCH-001.
 - Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-007, AC-PATH-008, AC-PATH-015.
 - Spec 08 `AC-MBX-1` (`08-ac-mbx-1.md`), por las filas AC-MBX-013.

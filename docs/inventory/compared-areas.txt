@@ -1,0 +1,10 @@
+# Areas of the Classic inventory whose rows were compared assertion by assertion with the recorded cases
+CELL
+DSP
+DW
+MBX
+PATH
+REF
+SUP
+SYS
+UTIL

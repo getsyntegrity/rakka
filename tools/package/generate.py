@@ -354,3 +354,91 @@ stats = dict(rows=len(rows), specs=len(specs), forward=len([1 for s in order for
              max_tasks=max(len(s["tasks"]) for s in specs), listed=sum(1 for d in rows if d["analysis"] == "listed"))
 print(json.dumps(stats))
 json.dump({s["id"]: dict(seq=s["seq"], file=specfile(s)) for s in order}, open("/dev/null", "w"))
+
+
+# ------------------------------------------------------------------ docs/progress.md (generated from the TSVs)
+def _progress_md():
+    """Progress of the port, computed from the inventory (impl column), docs/unit-rows.tsv and docs/unit-plan.md."""
+    import csv as _csv
+    _csv.field_size_limit(10**9)
+    read = lambda p: list(_csv.reader(open(p, encoding="utf-8", newline=""), delimiter="\t", quoting=_csv.QUOTE_NONE))
+    inv = []
+    for kind in ("classic", "typed"):
+        t = read(f"docs/inventory/actor-{kind}.tsv")
+        inv += [dict(zip(t[0], x)) for x in t[1:]]
+    unit_of = {x[0]: x[1] for x in read("docs/unit-rows.tsv")[1:]}
+    plan = open("docs/unit-plan.md", encoding="utf-8").read().split("\n")
+    wave_of, name_of, wave_title, cur = {}, {}, {}, None
+    for ln in plan:
+        m = re.match(r"^## (Ola (\d+)) - (.*)$", ln)
+        if m: cur = int(m.group(2)); wave_title[cur] = m.group(3); continue
+        m = re.match(r"^### (P\d+) (\S+)", ln)
+        if m and cur is not None: wave_of[m.group(1)] = cur; name_of[m.group(1)] = m.group(2)
+    compared = set()
+    if os.path.exists("docs/inventory/compared-areas.txt"):
+        compared = {l.strip() for l in open("docs/inventory/compared-areas.txt", encoding="utf-8") if l.strip() and not l.startswith("#")}
+    area_of = lambda i: i.split("-")[1]
+    flagged = {r["id"] for r in inv if "revisar contra 2.0.0" in r["notes"]}
+    def tally(rs):
+        c = collections.Counter(r["impl"] for r in rs)
+        n = len(rs)
+        return n, c["done"], c["partial"], c["pending"]
+    pct = lambda a, n: f"{100.0 * a / n:.1f} %" if n else "-"
+    def line(label, rs, extra=""):
+        n, d, p, q = tally(rs)
+        return f"| {label} | {n} | {d} | {p} | {q} | {pct(d, n)} | {pct(d + p, n)} |{extra}"
+    HEAD = "| {} | Filas | done | partial | pending | % done | % done + partial |"
+    SEP = "|---|---|---|---|---|---|---|"
+    out = ["# Avance del port", "",
+           "Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (columna `impl`), `docs/unit-rows.tsv` y `docs/unit-plan.md`. **No editar a mano.**",
+           "`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar).", ""]
+    classic = [r for r in inv if r["id"].startswith("AC-")]
+    typed = [r for r in inv if r["id"].startswith("AT-")]
+    out += ["## Resumen", "", HEAD.format("Módulo"), SEP, line("Classic (`rakka-actor`)", classic), line("Typed (`rakka-actor-typed`)", typed), line("**Total**", inv), ""]
+    # by wave
+    out += ["## Por ola", "", HEAD.format("Ola"), SEP]
+    for w in sorted(wave_title):
+        rs = [r for r in inv if wave_of.get(unit_of.get(r["id"])) == w]
+        out.append(line(f"{w} - {wave_title[w]}", rs))
+    out.append("")
+    # by unit
+    units = sorted(set(unit_of.values()), key=lambda u: int(u[1:]))
+    scores = {}
+    out += ["## Por unidad del plan", "", "| Unidad | Ola | Filas | done | partial | pending | % done | % done + partial | Áreas comparadas |", "|---|---|---|---|---|---|---|---|---|"]
+    for u in units:
+        rs = [r for r in inv if unit_of.get(r["id"]) == u]
+        n, d, p, q = tally(rs)
+        areas = sorted({area_of(r["id"]) for r in rs})
+        done_cmp = [a for a in areas if a in compared]
+        cmp_text = "sí" if len(done_cmp) == len(areas) and areas else ("parcial" if done_cmp else "no")
+        scores[u] = ((d + 0.5 * p) / n if n else 0.0, n, d, p)
+        out.append(f"| {u} {name_of.get(u, '')} | {wave_of.get(u, '?')} | {n} | {d} | {p} | {q} | {pct(d, n)} | {pct(d + p, n)} | {cmp_text} |")
+    out.append("")
+    ranked = [u for u in units if scores[u][1]]
+    best = sorted(ranked, key=lambda u: (-scores[u][0], -scores[u][1], u))[:5]
+    worst = sorted(ranked, key=lambda u: (scores[u][0], -scores[u][1], u))[:5]
+    zero = [u for u in ranked if scores[u][2] == 0 and scores[u][3] == 0]
+    out += ["## Más avanzadas y más atrasadas", "", "Orden por (done + ½·partial) / filas. Entre las atrasadas hay empates en 0 %: se desempata por el tamaño de la unidad.", "",
+            "**5 más avanzadas:** " + ", ".join(f"{u} {name_of.get(u, '')} ({scores[u][2]} done, {scores[u][3]} partial de {scores[u][1]})" for u in best), "",
+            "**5 más atrasadas:** " + ", ".join(f"{u} {name_of.get(u, '')} ({scores[u][1]} filas)" for u in worst) + f". Unidades en 0 %: {len(zero)} de {len(ranked)}.", ""]
+    # by area, with the comparison flag
+    areas = sorted({(r["id"][:2], area_of(r["id"])) for r in inv})
+    out += ["## Por área del inventario y comparación aserción por aserción", "",
+            "Un área figura como comparada cuando se contrastaron las aserciones de cada una de sus filas con los casos grabados (`docs/inventory/compared-areas.txt`). En las áreas **sin comparar** todas las filas siguen `pending` aunque algún caso grabado las roce: falta hacer la comparación al tomar su unidad.", "",
+            HEAD.format("Área").replace("Filas", "Filas") + " Comparada |", SEP[:-1] + "|---|"]
+    for kind, a in areas:
+        rs = [r for r in inv if r["id"].startswith(kind + "-" + a + "-")]
+        out.append(line(f"{kind}-{a}", rs, f" {'sí' if a in compared and kind == 'AC' else 'no'} |"))
+    out.append("")
+    nf = [r for r in inv if r["id"] in flagged]
+    n, d, p, q = tally(nf)
+    out += ["## Filas con nota «revisar contra 2.0.0»", "",
+            f"{n} filas ({d} done, {p} partial, {q} pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.", ""]
+    if os.path.exists("cases/coverage.tsv"):
+        cov = read("cases/coverage.tsv")[1:]
+        none = [x[0] for x in cov if x[2] == "-"]
+        out += ["## Casos grabados y filas que cubren", "",
+                f"`cases/coverage.tsv` declara las filas que cubre cada uno de los {len(cov)} casos (`tools/parity/apply_comparison.py`). Base `cited`: el caso lo cita una fila comparada; `same-group`: hereda las filas de su grupo de nombres; `none`: **{len(none)} casos sin fila asignada**, a mapear cuando un slice tome su unidad.", ""]
+    return "\n".join(out)
+
+open("docs/progress.md", "w", encoding="utf-8").write(_progress_md())

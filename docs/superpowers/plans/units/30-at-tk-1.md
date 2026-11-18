@@ -14,7 +14,6 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 32 `AT-CTX-1` (`32-at-ctx-1.md`), por las filas AT-CTX-002, AT-CTX-003, AT-CTX-004, AT-CTX-005, AT-CTX-006, AT-CTX-007, AT-CTX-008, AT-CTX-009, AT-CTX-011, AT-CTX-012, AT-CTX-013, AT-CTX-016, AT-CTX-018. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 42 `AT-ASK-1` (`42-at-ask-1.md`), por las filas AT-ASK-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 47 `AT-CS-1` (`47-at-cs-1.md`), por las filas AT-CS-001. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-002.1.
 - Spec 39 `AT-LOG-1` (`39-at-log-1.md`), por las filas AT-LOG-001, AT-LOG-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 43 `AT-RCP-1` (`43-at-rcp-1.md`), por las filas AT-RCP-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 34 `AT-TMR-1` (`34-at-tmr-1.md`), por las filas AT-TMR-001, AT-TMR-002, AT-TMR-003, AT-TMR-004, AT-TMR-005, AT-TMR-007.1. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
