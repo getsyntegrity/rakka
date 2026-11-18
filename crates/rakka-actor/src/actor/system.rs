@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala and actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala (Apache-2.0).
 //! `ActorSystem` (local, Classic): provider, guardians and the termination chain.
 //! Follows `ActorSystem.scala` and `LocalActorRefProvider` in `ActorRefProvider.scala`.
 

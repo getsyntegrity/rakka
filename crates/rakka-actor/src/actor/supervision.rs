@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala (Apache-2.0).
 //! Supervision: directives, `OneForOneStrategy` / `AllForOneStrategy` and the restart limit of a child.
 //! Follows `SupervisorStrategy.scala` (`OneForOneStrategy`, `defaultDecider`, `ChildRestartStats`).
 

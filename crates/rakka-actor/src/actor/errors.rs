@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 1.7.1 actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala and Address.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorPath.scala, actor/src/main/scala/org/apache/pekko/actor/Address.scala and actor/src/main/scala/org/apache/pekko/actor/Actor.scala (Apache-2.0).
 //! Errors carrying the Java exception class Pekko throws and its exact message.
 
 use std::fmt;

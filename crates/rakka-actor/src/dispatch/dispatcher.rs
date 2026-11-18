@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala and actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala (Apache-2.0).
 //! The default dispatcher: a fixed pool of threads that run mailboxes.
 //! (Pekko's default is a fork-join pool with `parallelism-min = 8`; scheduling policy is not observable.)
 

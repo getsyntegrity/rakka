@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/dungeon/ChildrenContainer.scala and actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala (Apache-2.0).
 //! `ChildrenContainer`: the children of an actor and their termination state.
 //! Mirrors `dungeon/ChildrenContainer.scala` (Normal / Terminating / Terminated, name reservation).
 

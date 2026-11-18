@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala (Apache-2.0).
 //! `ActorRef` and the internal reference kinds of a local system.
 
 use std::hash::{Hash, Hasher};

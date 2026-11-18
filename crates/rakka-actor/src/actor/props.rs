@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/Props.scala, actor/src/main/scala/org/apache/pekko/actor/Actor.scala and actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala (Apache-2.0).
 //! `Actor`, `Props`, `ActorContext` and the built-in messages (Classic).
 
 use std::any::Any;

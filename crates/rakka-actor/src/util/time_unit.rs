@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 1.7.1 actor/src/main/scala/org/apache/pekko/util/Timeout.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/Timeout.scala (Apache-2.0).
 
 /// `java.util.concurrent.TimeUnit`, as taken by `Timeout(length, unit)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

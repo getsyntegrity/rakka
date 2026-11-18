@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/dispatch/sysmsg/SystemMessage.scala and actor/src/main/scala/org/apache/pekko/actor/Actor.scala (Apache-2.0).
 //! System messages (`org.apache.pekko.dispatch.sysmsg`) and the user-level messages the runtime
 //! itself sends (`Terminated`, `StopChild`).
 

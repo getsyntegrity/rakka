@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/Actor.scala and actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala (Apache-2.0).
 //! Failures of actor code: the `Throwable` an actor "throws" and how the runtime reports it.
 //! Rust has no checked exceptions, so an actor fails by unwinding with a [`Throwable`] payload
 //! ([`throw`]) or with any ordinary panic, which is reported as a `java.lang.RuntimeException`.
