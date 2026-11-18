@@ -268,5 +268,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P65 (2026-11-18): UTIL-HASHCODE (AC-UTIL-016.15)
     HashCodeOracle.register();
+
+    // ---- Slice P66 (2026-11-18): UTIL-PEKKOVERSION (AC-UTIL-005.1)
+    PekkoVersionOracle.register();
   }
 }

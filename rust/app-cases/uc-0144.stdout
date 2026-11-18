@@ -1,0 +1,1 @@
+PV-11 equal strings are never checked -> ok [2.5.6]/[2.5.6]=ok [2.5.6-M1]/[2.5.6-M1]=ok [nonsense]/[nonsense]=ok []/[]=ok [99999999999.9.9]/[99999999999.9.9]=ok [2.5.6-M99999999999]/[2.5.6-M99999999999]=ok

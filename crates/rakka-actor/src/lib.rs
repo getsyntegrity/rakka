@@ -9,6 +9,7 @@ mod done;
 pub mod event;
 mod not_used;
 mod pekko_exception;
+pub mod pekko_version;
 pub mod util;
 
 pub use done::Done;

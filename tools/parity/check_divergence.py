@@ -307,6 +307,25 @@ MUTANTS = {
         "self.bytes().fold(0_i32, |h, unit| {",
         "a string contributes its UTF-8 bytes instead of UTF-16 units: non-ASCII text hashes differently",
     ),
+    # --- slice P66: PekkoVersion.require ---
+    "pekko-version-patch-compared-as-text": (
+        "src/pekko_version.rs",
+        "to_int(required_parsed.patch)? > to_int(current_parsed.patch)?",
+        "required_parsed.patch > current_parsed.patch",
+        "patch numbers are compared as text instead of as ints once their text differs: `2.5.7` against `2.5.0007` is refused",
+    ),
+    "pekko-version-rc-accepts-milestone": (
+        "src/pekko_version.rs",
+        "(Some((PreRelease::ReleaseCandidate, _)), Some((PreRelease::Milestone, _))) => {\n            unsupported()\n        }",
+        "(Some((PreRelease::ReleaseCandidate, _)), Some((PreRelease::Milestone, _))) => {\n            Ok(())\n        }",
+        "a requirement on an RC is satisfied by a milestone of the same patch (a milestone is older than an RC)",
+    ),
+    "pekko-version-final-accepts-pre-release": (
+        "src/pekko_version.rs",
+        "(None, Some(_)) => unsupported(),",
+        "(None, Some(_)) => Ok(()),",
+        "a requirement on a final version is satisfied by an M/RC of the same patch",
+    ),
     # --- slice P05: Glob ---
     "glob-trailing-star-unmatched": (
         "src/util/glob.rs",

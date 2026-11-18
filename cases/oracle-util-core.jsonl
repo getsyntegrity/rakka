@@ -131,3 +131,17 @@
 {"name": "uc-0131", "args": ["util-core-case"], "stdin": "HC-10 boxed values"}
 {"name": "uc-0132", "args": ["util-core-case"], "stdin": "HC-11 chaining example"}
 {"name": "uc-0133", "args": ["util-core-case"], "stdin": "HC-14 SEED constant"}
+{"name": "uc-0134", "args": ["util-core-case"], "stdin": "PV-01 current version"}
+{"name": "uc-0135", "args": ["util-core-case"], "stdin": "PV-02 spec: satisfied"}
+{"name": "uc-0136", "args": ["util-core-case"], "stdin": "PV-03 spec: unsatisfied"}
+{"name": "uc-0137", "args": ["util-core-case"], "stdin": "PV-04 spec: snapshot and nonsense"}
+{"name": "uc-0138", "args": ["util-core-case"], "stdin": "PV-05 messages"}
+{"name": "uc-0139", "args": ["util-core-case"], "stdin": "PV-06 pre-release matrix"}
+{"name": "uc-0140", "args": ["util-core-case"], "stdin": "PV-07 numbers compared as text then as ints"}
+{"name": "uc-0141", "args": ["util-core-case"], "stdin": "PV-08 numbers out of int range"}
+{"name": "uc-0142", "args": ["util-core-case"], "stdin": "PV-09 strings that are not a version"}
+{"name": "uc-0143", "args": ["util-core-case"], "stdin": "PV-10 digits outside ASCII"}
+{"name": "uc-0144", "args": ["util-core-case"], "stdin": "PV-11 equal strings are never checked"}
+{"name": "uc-0145", "args": ["util-core-case"], "stdin": "PV-12 public require against the current version"}
+{"name": "uc-0146", "args": ["util-core-case"], "stdin": "PV-13 the exception"}
+{"name": "uc-0147", "args": ["util-core-case"], "stdin": "PV-14 many required versions against 2.0.0"}

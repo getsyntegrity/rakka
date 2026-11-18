@@ -909,11 +909,12 @@
 
 ## P66 UTIL-PEKKOVERSION
 
-1 filas; 1 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 0 propuestas.
+1 filas; 2 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 0 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CFG-5 | accepted_with_changes (2026-11-18): aceptar (a) con el valor "2.0.0" (la referencia pasó de 1.7.1 a 2.0.0, Q-X-11). | 1: AC-UTIL-005.1 | Bloquea: AC-CFG-003, AC-UTIL-005.1; puede avanzar: el resto. | — | `classic-foundation` |
+| Q-UTIL-17 | accepted (2026-11-18): aceptar (a): Display de PekkoException y ConfigurationException muestra sólo el mensaje; java_class() queda aparte. | 1: AC-UTIL-005.1 | — | — | `classic-foundation` |
 
 ## P67 UTIL-VERSION
 
@@ -1019,4 +1020,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 462 (228 respondidas, 0 bloqueantes, 234 propuestas).
+Total de pares unidad–decisión: 463 (229 respondidas, 0 bloqueantes, 234 propuestas).
