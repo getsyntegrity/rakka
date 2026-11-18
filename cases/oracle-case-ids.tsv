@@ -480,3 +480,19 @@ uc-0080	util-core	EX-05 ConfigurationException(bad, cause)
 uc-0081	util-core	EX-06 PekkoException(msg, null)
 uc-0082	util-core	TO-06N eq Timeout(-1000 ms) Timeout(-1 s)
 uc-0083	util-core	LC \u1C90
+uc-0084	util-core	GL-01 literals
+uc-0085	util-core	GL-02 question mark
+uc-0086	util-core	GL-03 star
+uc-0087	util-core	GL-04 star positions
+uc-0088	util-core	GL-U16-01 ? vs astral
+uc-0089	util-core	GL-U16-02 literal astral
+uc-0090	util-core	GL-U16-03 line breaks
+uc-0091	util-core	GL-U16-04 case and metachars
+uc-0092	util-core	GL-EXH patterns of length 0
+uc-0093	util-core	GL-EXH patterns of length 1
+uc-0094	util-core	GL-EXH patterns of length 2
+uc-0095	util-core	GL-EXH patterns of length 3
+uc-0096	util-core	GL-EXH patterns of length 4
+uc-0097	util-core	GL-PERF 12 stars vs 36 a
+uc-0098	util-core	GL-PERF 20 stars vs 2000 a
+uc-0099	util-core	GL-05 wildcards in the input

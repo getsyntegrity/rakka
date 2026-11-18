@@ -93,3 +93,19 @@ LC \uA7C0
 EX-TS-01 PekkoException(boom).toString
 EX-TS-02 ConfigurationException(bad, cause).toString
 EX-TS-03 PekkoException(empty).toString
+GL-01 literals
+GL-02 question mark
+GL-03 star
+GL-04 star positions
+GL-U16-01 ? vs astral
+GL-U16-02 literal astral
+GL-U16-03 line breaks
+GL-U16-04 case and metachars
+GL-EXH patterns of length 0
+GL-EXH patterns of length 1
+GL-EXH patterns of length 2
+GL-EXH patterns of length 3
+GL-EXH patterns of length 4
+GL-PERF 12 stars vs 36 a
+GL-PERF 20 stars vs 2000 a
+GL-05 wildcards in the input

@@ -1,0 +1,1 @@
+GL-01 literals -> ok [abc]/[abc]=true [abc]/[abd]=false []/[]=true []/[a]=false [a]/[]=false

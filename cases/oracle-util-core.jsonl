@@ -81,3 +81,19 @@
 {"name": "uc-0081", "args": ["util-core-case"], "stdin": "EX-06 PekkoException(msg, null)"}
 {"name": "uc-0082", "args": ["util-core-case"], "stdin": "TO-06N eq Timeout(-1000 ms) Timeout(-1 s)"}
 {"name": "uc-0083", "args": ["util-core-case"], "stdin": "LC \\u1C90"}
+{"name": "uc-0084", "args": ["util-core-case"], "stdin": "GL-01 literals"}
+{"name": "uc-0085", "args": ["util-core-case"], "stdin": "GL-02 question mark"}
+{"name": "uc-0086", "args": ["util-core-case"], "stdin": "GL-03 star"}
+{"name": "uc-0087", "args": ["util-core-case"], "stdin": "GL-04 star positions"}
+{"name": "uc-0088", "args": ["util-core-case"], "stdin": "GL-U16-01 ? vs astral"}
+{"name": "uc-0089", "args": ["util-core-case"], "stdin": "GL-U16-02 literal astral"}
+{"name": "uc-0090", "args": ["util-core-case"], "stdin": "GL-U16-03 line breaks"}
+{"name": "uc-0091", "args": ["util-core-case"], "stdin": "GL-U16-04 case and metachars"}
+{"name": "uc-0092", "args": ["util-core-case"], "stdin": "GL-EXH patterns of length 0"}
+{"name": "uc-0093", "args": ["util-core-case"], "stdin": "GL-EXH patterns of length 1"}
+{"name": "uc-0094", "args": ["util-core-case"], "stdin": "GL-EXH patterns of length 2"}
+{"name": "uc-0095", "args": ["util-core-case"], "stdin": "GL-EXH patterns of length 3"}
+{"name": "uc-0096", "args": ["util-core-case"], "stdin": "GL-EXH patterns of length 4"}
+{"name": "uc-0097", "args": ["util-core-case"], "stdin": "GL-PERF 12 stars vs 36 a"}
+{"name": "uc-0098", "args": ["util-core-case"], "stdin": "GL-PERF 20 stars vs 2000 a"}
+{"name": "uc-0099", "args": ["util-core-case"], "stdin": "GL-05 wildcards in the input"}

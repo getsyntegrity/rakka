@@ -1375,6 +1375,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-8
 
 
+
+**Actualización P05 (2026-11-18, Pekko 2.0.0).** Q-UTIL-8 respondida (c): la referencia es `Glob.matches` (`Glob.scala:38-73`), medido con el oráculo (casos uc-0084..uc-0099): `?` y `*` aceptan saltos de línea; `?` consume una unidad UTF-16 (`"??"` coincide con U+1F600, `"?"` no); la comparación literal precede a la de comodín, de modo que un `*` de la entrada coincide con un `*` del patrón (`"*a"` contra `"**a"` es falso). `Helpers.makePattern` no se reproduce bit a bit, así que A4 se cubre sin regex: el resultado de Glob para todos los patrones de 0-4 caracteres contra todas las entradas de 0-4 queda grabado (GL-EXH). En Rust: `rakka_actor::util::glob_matches(&str, &str)`.
+
 ---
 
 ## AC-UTIL-016.7 — Reflect (findConstructor, instantiate, findClassLoader, getCallerClass, findMarker)

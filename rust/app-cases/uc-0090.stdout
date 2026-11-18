@@ -1,0 +1,1 @@
+GL-U16-03 line breaks -> ok [a?b]/[a\u000Ab]=true [a*b]/[a\u000D\u000Ab]=true [*]/[\u000A]=true [?]/[\u000A]=true [a?b]/[a\u2028b]=true [a?]/[a\u0085]=true

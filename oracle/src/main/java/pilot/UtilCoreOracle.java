@@ -57,6 +57,30 @@ final class UtilCoreOracle {
     return b.toString();
   }
 
+
+  static String globPairs(String... pairs) {
+    StringBuilder out = new StringBuilder();
+    for (String pair : pairs) {
+      int bar = pair.indexOf('|');
+      String pat = pair.substring(0, bar), in = pair.substring(bar + 1);
+      String shownPat = pat.length() > 40 ? pat.length() + "x" : esc(pat);
+      String shownIn = in.length() > 40 ? in.length() + "x" : esc(in);
+      out.append('[').append(shownPat).append("]/[").append(shownIn).append("]=").append(Glob$.MODULE$.matches(pat, in)).append(' ');
+    }
+    return out.toString().trim();
+  }
+
+  static java.util.List<String> allStrings(String alphabet, int length) {
+    java.util.List<String> all = new java.util.ArrayList<>();
+    all.add("");
+    for (int i = 0; i < length; i++) {
+      java.util.List<String> next = new java.util.ArrayList<>();
+      for (String prefix : all) for (char c : alphabet.toCharArray()) next.add(prefix + c);
+      all = next;
+    }
+    return all;
+  }
+
   static final Helpers$ H = Helpers$.MODULE$;
 
   static String nanos(Timeout t) { return "nanos=" + t.duration().toNanos(); }
@@ -205,5 +229,35 @@ final class UtilCoreOracle {
     run("EX-TS-01 PekkoException(boom).toString", () -> "str=[" + new PekkoException("boom") + "]");
     run("EX-TS-02 ConfigurationException(bad, cause).toString", () -> "str=[" + new ConfigurationException("bad", new IllegalStateException("why")) + "]");
     run("EX-TS-03 PekkoException(empty).toString", () -> "str=[" + new PekkoException("") + "]");
+
+    // ---- Slice P05 (2026-11-18): Glob (AC-UTIL-016.6): Glob.scala:38-73, GlobSpec.scala:35-91
+    run("GL-01 literals", () -> globPairs("abc|abc", "abc|abd", "|", "|a", "a|"));
+    run("GL-02 question mark", () -> globPairs("a?c|abc", "a?c|ac", "a?c|abbc", "???|abc"));
+    run("GL-03 star", () -> globPairs("*|", "*|anything", "a*|a", "a*c|abbbc", "a*c|abbbd", "**|ab", "*b*|abc"));
+    run("GL-04 star positions", () -> globPairs("*a|ba", "*a|ab", "a*a|aa", "a*a|a", "*ab*|xxabyy", "*ab*|xxaybb", "?*|", "?*|a", "*?|a", "a**b|ab", "*?*?*|ab", "*?*?*|a"));
+    // ? and * consume one UTF-16 code unit (Q-UTIL-8): a code point outside the BMP is two units, and line breaks are ordinary characters.
+    String astral = new String(Character.toChars(0x1F600));
+    run("GL-U16-01 ? vs astral", () -> globPairs("?|" + astral, "??|" + astral, "???|" + astral, "*|" + astral, "a?b|a" + astral + "b", "a??b|a" + astral + "b"));
+    run("GL-U16-02 literal astral", () -> globPairs(astral + "|" + astral, "?" + astral + "|x" + astral, "*" + astral + "|ab" + astral, astral + "*|" + astral + "ab", "?|\u00e9", "\u00e9|\u00e9", "\u00e9?|\u00e9a"));
+    run("GL-U16-03 line breaks", () -> globPairs("a?b|a\nb", "a*b|a\r\nb", "*|\n", "?|\n", "a?b|a\u2028b", "a?|a\u0085"));
+    run("GL-U16-04 case and metachars", () -> globPairs("A|a", "a.c|abc", "a.c|a.c", "[a]|a", "[a]|[a]", "a\\|a\\", "\\Q*\\E|\\Qxx\\E", "(a)|(a)", "a+|aa"));
+    // 0-4 character patterns over {a,b,*,?} against every 0-4 character input over {a,b}: GlobSpec.scala:60-73 without the regex side.
+    for (int len = 0; len <= 4; len++) {
+      final int n = len;
+      run("GL-EXH patterns of length " + n, () -> {
+        StringBuilder out = new StringBuilder();
+        for (String pat : allStrings("ab*?", n)) {
+          out.append('[').append(pat).append("]=");
+          for (int k = 0; k <= 4; k++) for (String in : allStrings("ab", k)) out.append(Glob$.MODULE$.matches(pat, in) ? 'T' : 'F');
+          out.append(' ');
+        }
+        return out.toString().trim();
+      });
+    }
+    // GlobSpec.scala:75-90: no catastrophic backtracking; the answer is what is recorded, speed is checked by the Rust test.
+    run("GL-PERF 12 stars vs 36 a", () -> globPairs(("*a".repeat(12) + "*b") + "|" + "a".repeat(36), ("*a".repeat(12) + "*") + "|" + "a".repeat(36), ("*a".repeat(12) + "*a") + "|" + "a".repeat(12)));
+    run("GL-PERF 20 stars vs 2000 a", () -> globPairs(("*a".repeat(20) + "*b") + "|" + "a".repeat(2000), ("*a".repeat(20) + "*a") + "|" + "a".repeat(2000), ("*a".repeat(20) + "*a") + "|" + "a".repeat(19)));
+    // A pattern `*` or `?` against the same character in the input: Glob.scala:51 compares the literal first.
+    run("GL-05 wildcards in the input", () -> globPairs("*|*", "?|?", "*|?", "a*|a*", "a*b|a*b", "a*b|a*", "*a|**a", "?*|**", "*?|?*", "**|*"));
   }
 }

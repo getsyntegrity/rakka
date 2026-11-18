@@ -1,0 +1,1 @@
+GL-U16-04 case and metachars -> ok [A]/[a]=false [a.c]/[abc]=false [a.c]/[a.c]=true [[a]]/[a]=false [[a]]/[[a]]=true [a\]/[a\]=true [\Q*\E]/[\Qxx\E]=true [(a)]/[(a)]=true [a+]/[aa]=false
