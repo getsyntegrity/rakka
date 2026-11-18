@@ -1,0 +1,1 @@
+WC-06 negative and minimum states are behind the wall time -> ok [-5]=true [-1]=true [-9223372036854775808]=true [-9223372036854775807]=true

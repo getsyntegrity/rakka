@@ -11,6 +11,7 @@ mod time_unit;
 mod timeout;
 mod uuid_order;
 mod version;
+pub mod wall_clock;
 
 pub use glob::glob_matches;
 pub use pretty_duration::PekkoDuration;

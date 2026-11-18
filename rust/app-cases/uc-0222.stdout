@@ -1,0 +1,1 @@
+WC-13 8 threads of 500 readings on a new clock -> ok count=4000 distinct=true eachThreadIncreasing=true allAtLeastBefore=true

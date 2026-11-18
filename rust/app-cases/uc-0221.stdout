@@ -1,0 +1,1 @@
+WC-12 8 threads of 500 readings on a clock ahead of the wall time -> ok count=4000 distinct=true eachThreadIncreasing=true contiguous min=+1 max=+4000 state=+4000
