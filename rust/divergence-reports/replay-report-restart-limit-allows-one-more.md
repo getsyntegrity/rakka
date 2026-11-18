@@ -1,8 +1,8 @@
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-i2z9eagu/target-restart-limit-allows-one-more/release/examples/classic-parity`
+Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-3pr9tpx_/target-restart-limit-allows-one-more/release/examples/classic-parity`
 
-Passed: 556/566
+Passed: 1034/1045
 
 Fallback rate: not reported by this build
 
@@ -83,6 +83,28 @@ stdout:
 ```diff
 - {"system":{"ok":true,"name":"sys","toString":"pekko://sys","root":"pekko://sys/","user":"pekko://sys/user","systemGuardian":"pekko://sys/system","deadLetters":"pekko://sys/deadLetters"},"steps":[{"op":"spawn","ok":true,"path":"pekko://sys/user/p","name":"p","parent":"pekko://sys/user","hasUid":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/p/c","name":"c","parent":"pekko://sys/user/p","hasUid":true},{"op":"do","ok":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: brst"},{"ev":"pre-start"}]},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"terminated","actor":"pekko://sys/user/p/c","is":"c1","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/user/p/c"}]},{"op":"do","ok":true,"path":"pekko://sys/user/p/c","name":"c","parent":"pekko://sys/user/p","hasUid":true},{"op":"tell","ok":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: brst"},{"ev":"pre-start"},{"ev":"received","msg":"ok","sender":"pekko://sys/deadLetters","n":1}]},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: brst"},{"ev":"pre-start"},{"ev":"received","msg":"ok","sender":"pekko://sys/deadLetters","n":1},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":2},{"ev":"post-stop"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: brst"},{"ev":"pre-start"},{"ev":"received","msg":"ok","sender":"pekko://sys/deadLetters","n":1},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":2},{"ev":"post-stop"}]}]}
 + {"system":{"ok":true,"name":"sys","toString":"pekko://sys","root":"pekko://sys/","user":"pekko://sys/user","systemGuardian":"pekko://sys/system","deadLetters":"pekko://sys/deadLetters"},"steps":[{"op":"spawn","ok":true,"path":"pekko://sys/user/p","name":"p","parent":"pekko://sys/user","hasUid":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/p/c","name":"c","parent":"pekko://sys/user/p","hasUid":true},{"op":"do","ok":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: brst"},{"ev":"pre-start"}]},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"terminated","actor":"pekko://sys/user/p/c","is":"c1","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/user/p/c"}]},{"op":"do","ok":true,"path":"pekko://sys/user/p/c","name":"c","parent":"pekko://sys/user/p","hasUid":true},{"op":"tell","ok":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: brst"},{"ev":"pre-start"},{"ev":"received","msg":"ok","sender":"pekko://sys/deadLetters","n":1}]},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: brst"},{"ev":"pre-start"},{"ev":"received","msg":"ok","sender":"pekko://sys/deadLetters","n":1},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":2},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: brst"},{"ev":"pre-start"},{"ev":"received","msg":"ok","sender":"pekko://sys/deadLetters","n":1},{"ev":"received","msg":"brst","sender":"pekko://sys/deadLetters","n":2},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: brst","msg":"brst"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: brst"},{"ev":"pre-start"}]}]}
+```
+
+### ok-user-info-lone-surrog
+
+Arguments: `path-from-string`
+
+status:
+
+```diff
+expected exit code 0, got exit code 2
+```
+
+stdout:
+
+```diff
+- {"ok":true,"toString":"pekko://sys\ud800@host:2552/user","name":"user","elements":["user"],"uid":0,"toStringWithoutAddress":"/user","toSerializationFormat":"pekko://sys\ud800@host:2552/user","address":{"protocol":"pekko","system":"sys\ud800","host":"host","port":2552,"toString":"pekko://sys\ud800@host:2552"}}
+```
+
+stderr:
+
+```diff
++ input outside the API domain: lone UTF-16 surrogate (public inputs are &str; decision Q-X-17)
 ```
 
 ### r02-max-one-second-stops

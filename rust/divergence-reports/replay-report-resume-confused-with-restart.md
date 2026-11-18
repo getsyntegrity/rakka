@@ -1,8 +1,8 @@
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-i2z9eagu/target-resume-confused-with-restart/release/examples/classic-parity`
+Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-3pr9tpx_/target-resume-confused-with-restart/release/examples/classic-parity`
 
-Passed: 544/566
+Passed: 1022/1045
 
 Fallback rate: not reported by this build
 
@@ -182,6 +182,28 @@ stdout:
 ```diff
 - {"system":{"ok":true,"name":"sys","toString":"pekko://sys","root":"pekko://sys/","user":"pekko://sys/user","systemGuardian":"pekko://sys/system","deadLetters":"pekko://sys/deadLetters"},"steps":[{"op":"spawn","ok":true,"path":"pekko://sys/user/p","name":"p","parent":"pekko://sys/user","hasUid":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/p/c1","name":"c1","parent":"pekko://sys/user/p","hasUid":true},{"op":"do","ok":true,"path":"pekko://sys/user/p/c2","name":"c2","parent":"pekko://sys/user/p","hasUid":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: bres","directive":"Resume"}]},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"y1","sender":"pekko://sys/deadLetters","n":1}]},{"op":"open-hold","ok":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"bres","sender":"pekko://sys/deadLetters","n":1},{"ev":"received","msg":"m","sender":"pekko://sys/deadLetters","n":2}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"bres","sender":"pekko://sys/deadLetters","n":1},{"ev":"received","msg":"m","sender":"pekko://sys/deadLetters","n":2}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"y1","sender":"pekko://sys/deadLetters","n":1}]}]}
 + {"system":{"ok":true,"name":"sys","toString":"pekko://sys","root":"pekko://sys/","user":"pekko://sys/user","systemGuardian":"pekko://sys/system","deadLetters":"pekko://sys/deadLetters"},"steps":[{"op":"spawn","ok":true,"path":"pekko://sys/user/p","name":"p","parent":"pekko://sys/user","hasUid":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/p/c1","name":"c1","parent":"pekko://sys/user/p","hasUid":true},{"op":"do","ok":true,"path":"pekko://sys/user/p/c2","name":"c2","parent":"pekko://sys/user/p","hasUid":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: bres","directive":"Resume"}]},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"y1","sender":"pekko://sys/deadLetters","n":1}]},{"op":"open-hold","ok":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"bres","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: bres","msg":"bres"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"bres","sender":"pekko://sys/deadLetters","n":1},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: bres","msg":"bres"},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: bres"},{"ev":"pre-start"},{"ev":"received","msg":"m","sender":"pekko://sys/deadLetters","n":1}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"y1","sender":"pekko://sys/deadLetters","n":1}]}]}
+```
+
+### ok-user-info-lone-surrog
+
+Arguments: `path-from-string`
+
+status:
+
+```diff
+expected exit code 0, got exit code 2
+```
+
+stdout:
+
+```diff
+- {"ok":true,"toString":"pekko://sys\ud800@host:2552/user","name":"user","elements":["user"],"uid":0,"toStringWithoutAddress":"/user","toSerializationFormat":"pekko://sys\ud800@host:2552/user","address":{"protocol":"pekko","system":"sys\ud800","host":"host","port":2552,"toString":"pekko://sys\ud800@host:2552"}}
+```
+
+stderr:
+
+```diff
++ input outside the API domain: lone UTF-16 surrogate (public inputs are &str; decision Q-X-17)
 ```
 
 ### r03-resume-not-counted

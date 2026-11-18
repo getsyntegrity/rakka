@@ -1,8 +1,8 @@
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-i2z9eagu/target-receiver-never-sees-sender/release/examples/classic-parity`
+Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-3pr9tpx_/target-receiver-never-sees-sender/release/examples/classic-parity`
 
-Passed: 470/566
+Passed: 948/1045
 
 Fallback rate: not reported by this build
 
@@ -600,6 +600,28 @@ stdout:
 ```diff
 - {"system":{"ok":true,"name":"sys","toString":"pekko://sys","root":"pekko://sys/","user":"pekko://sys/user","systemGuardian":"pekko://sys/system","deadLetters":"pekko://sys/deadLetters"},"steps":[{"op":"subscribe","ok":true},{"op":"spawn","ok":true,"path":"pekko://sys/user/p","name":"p","parent":"pekko://sys/user","hasUid":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/p/c1","name":"c1","parent":"pekko://sys/user/p","hasUid":true},{"op":"do","ok":true,"path":"pekko://sys/user/p/c2","name":"c2","parent":"pekko://sys/user/p","hasUid":true},{"op":"do","ok":true},{"op":"do","ok":true},{"op":"tell","ok":true},{"op":"tell-seq","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"decide","cause":"java.lang.IllegalStateException: bstp","directive":"Stop"},{"ev":"pre-start"},{"ev":"terminated","actor":"pekko://sys/user/p/c1","is":"c1","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/user/p/c1"},{"ev":"terminated","actor":"pekko://sys/user/p/c2","is":"c2","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/user/p/c2"}]},{"op":"await-events","ok":true,"events":[{"ev":"dead-letter","msg":"q-0","sender":"pekko://sys/deadLetters","recipient":"pekko://sys/user/p/c1"},{"ev":"dead-letter","msg":"q-1","sender":"pekko://sys/deadLetters","recipient":"pekko://sys/user/p/c1"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"bstp","sender":"pekko://sys/deadLetters","n":1},{"ev":"post-stop"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"post-stop"}]},{"op":"events-now","ok":true,"events":[{"ev":"dead-letter","msg":"q-0","sender":"pekko://sys/deadLetters","recipient":"pekko://sys/user/p/c1"},{"ev":"dead-letter","msg":"q-1","sender":"pekko://sys/deadLetters","recipient":"pekko://sys/user/p/c1"}]}]}
 + {"system":{"ok":true,"name":"sys","toString":"pekko://sys","root":"pekko://sys/","user":"pekko://sys/user","systemGuardian":"pekko://sys/system","deadLetters":"pekko://sys/deadLetters"},"steps":[{"op":"subscribe","ok":true},{"op":"spawn","ok":true,"path":"pekko://sys/user/p","name":"p","parent":"pekko://sys/user","hasUid":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/p/c1","name":"c1","parent":"pekko://sys/user/p","hasUid":true},{"op":"do","ok":true,"path":"pekko://sys/user/p/c2","name":"c2","parent":"pekko://sys/user/p","hasUid":true},{"op":"do","ok":true},{"op":"do","ok":true},{"op":"tell","ok":true},{"op":"tell-seq","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"decide","cause":"java.lang.IllegalStateException: bstp","directive":"Stop"},{"ev":"pre-start"},{"ev":"terminated","actor":"pekko://sys/user/p/c1","is":"c1","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/deadLetters"},{"ev":"terminated","actor":"pekko://sys/user/p/c2","is":"c2","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/deadLetters"}]},{"op":"await-events","ok":true,"events":[{"ev":"dead-letter","msg":"q-0","sender":"pekko://sys/deadLetters","recipient":"pekko://sys/user/p/c1"},{"ev":"dead-letter","msg":"q-1","sender":"pekko://sys/deadLetters","recipient":"pekko://sys/user/p/c1"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"bstp","sender":"pekko://sys/deadLetters","n":1},{"ev":"post-stop"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"post-stop"}]},{"op":"events-now","ok":true,"events":[{"ev":"dead-letter","msg":"q-0","sender":"pekko://sys/deadLetters","recipient":"pekko://sys/user/p/c1"},{"ev":"dead-letter","msg":"q-1","sender":"pekko://sys/deadLetters","recipient":"pekko://sys/user/p/c1"}]}]}
+```
+
+### ok-user-info-lone-surrog
+
+Arguments: `path-from-string`
+
+status:
+
+```diff
+expected exit code 0, got exit code 2
+```
+
+stdout:
+
+```diff
+- {"ok":true,"toString":"pekko://sys\ud800@host:2552/user","name":"user","elements":["user"],"uid":0,"toStringWithoutAddress":"/user","toSerializationFormat":"pekko://sys\ud800@host:2552/user","address":{"protocol":"pekko","system":"sys\ud800","host":"host","port":2552,"toString":"pekko://sys\ud800@host:2552"}}
+```
+
+stderr:
+
+```diff
++ input outside the API domain: lone UTF-16 surrogate (public inputs are &str; decision Q-X-17)
 ```
 
 ### ord-2-concurrent-senders

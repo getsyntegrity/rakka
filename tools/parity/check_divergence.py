@@ -91,7 +91,7 @@ MUTANTS = {
     "watch-self-check-by-path": (
         "src/actor/cell.rs",
         "        if *subject == me {\n            return;",
-        "        if subject.path().elements == me.path().elements {\n            return;",
+        "        if subject.path() == me.path() {\n            return;",
         "`watch` ignores a reference with the same path as the watcher (a new actor cannot watch its dead predecessor)",
     ),
     "unwatch-keeps-queued-terminated": (

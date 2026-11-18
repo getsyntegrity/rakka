@@ -1,8 +1,8 @@
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-i2z9eagu/target-escalate-alters-cause/release/examples/classic-parity`
+Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-3pr9tpx_/target-escalate-alters-cause/release/examples/classic-parity`
 
-Passed: 550/566
+Passed: 1028/1045
 
 Fallback rate: not reported by this build
 
@@ -182,4 +182,26 @@ stdout:
 ```diff
 - {"system":{"ok":true,"name":"sys","toString":"pekko://sys","root":"pekko://sys/","user":"pekko://sys/user","systemGuardian":"pekko://sys/system","deadLetters":"pekko://sys/deadLetters"},"steps":[{"op":"spawn","ok":true,"path":"pekko://sys/user/g","name":"g","parent":"pekko://sys/user","hasUid":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/g/p","name":"p","parent":"pekko://sys/user/g","hasUid":true},{"op":"do","ok":true,"path":"pekko://sys/user/g/p/c","name":"c","parent":"pekko://sys/user/g/p","hasUid":true},{"op":"do","ok":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: esc","msg":{"class":"org.apache.pekko.dispatch.sysmsg.Failed"}},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: esc"},{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/g/p/d","name":"d","parent":"pekko://sys/user/g/p","hasUid":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Restart"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Restart"},{"ev":"terminated","actor":"pekko://sys/user/g/p","is":"p","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/user/g/p"}]},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: esc","msg":{"class":"org.apache.pekko.dispatch.sysmsg.Failed"}},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: esc"},{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"post-stop"}]},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"esc","sender":"pekko://sys/deadLetters","n":1},{"ev":"post-stop"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Restart"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Restart"},{"ev":"terminated","actor":"pekko://sys/user/g/p","is":"p","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/user/g/p"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"pre-restart","reason":"java.lang.IllegalStateException: esc","msg":{"class":"org.apache.pekko.dispatch.sysmsg.Failed"}},{"ev":"post-stop"},{"ev":"post-restart","reason":"java.lang.IllegalStateException: esc"},{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"post-stop"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"esc","sender":"pekko://sys/deadLetters","n":1},{"ev":"post-stop"}]}]}
 + {"system":{"ok":true,"name":"sys","toString":"pekko://sys","root":"pekko://sys/","user":"pekko://sys/user","systemGuardian":"pekko://sys/system","deadLetters":"pekko://sys/deadLetters"},"steps":[{"op":"spawn","ok":true,"path":"pekko://sys/user/g","name":"g","parent":"pekko://sys/user","hasUid":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/g/p","name":"p","parent":"pekko://sys/user/g","hasUid":true},{"op":"do","ok":true,"path":"pekko://sys/user/g/p/c","name":"c","parent":"pekko://sys/user/g/p","hasUid":true},{"op":"do","ok":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"pre-restart","reason":"org.apache.pekko.actor.ActorInitializationException: esc","msg":{"class":"org.apache.pekko.dispatch.sysmsg.Failed"}},{"ev":"post-stop"},{"ev":"post-restart","reason":"org.apache.pekko.actor.ActorInitializationException: esc"},{"ev":"pre-start"}]},{"op":"do","ok":true,"path":"pekko://sys/user/g/p/d","name":"d","parent":"pekko://sys/user/g/p","hasUid":true},{"op":"tell","ok":true},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"org.apache.pekko.actor.ActorInitializationException: esc","directive":"Restart"},{"ev":"decide","cause":"org.apache.pekko.actor.ActorInitializationException: esc","directive":"Restart"},{"ev":"terminated","actor":"pekko://sys/user/g/p","is":"p","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/user/g/p"}]},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"pre-restart","reason":"org.apache.pekko.actor.ActorInitializationException: esc","msg":{"class":"org.apache.pekko.dispatch.sysmsg.Failed"}},{"ev":"post-stop"},{"ev":"post-restart","reason":"org.apache.pekko.actor.ActorInitializationException: esc"},{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"post-stop"}]},{"op":"await-events","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"esc","sender":"pekko://sys/deadLetters","n":1},{"ev":"post-stop"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"org.apache.pekko.actor.ActorInitializationException: esc","directive":"Restart"},{"ev":"decide","cause":"org.apache.pekko.actor.ActorInitializationException: esc","directive":"Restart"},{"ev":"terminated","actor":"pekko://sys/user/g/p","is":"p","existenceConfirmed":true,"addressTerminated":false,"sender":"pekko://sys/user/g/p"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"pre-restart","reason":"org.apache.pekko.actor.ActorInitializationException: esc","msg":{"class":"org.apache.pekko.dispatch.sysmsg.Failed"}},{"ev":"post-stop"},{"ev":"post-restart","reason":"org.apache.pekko.actor.ActorInitializationException: esc"},{"ev":"pre-start"},{"ev":"decide","cause":"java.lang.IllegalStateException: esc","directive":"Escalate"},{"ev":"post-stop"}]},{"op":"events-now","ok":true,"events":[{"ev":"pre-start"},{"ev":"received","msg":"esc","sender":"pekko://sys/deadLetters","n":1},{"ev":"post-stop"}]}]}
+```
+
+### ok-user-info-lone-surrog
+
+Arguments: `path-from-string`
+
+status:
+
+```diff
+expected exit code 0, got exit code 2
+```
+
+stdout:
+
+```diff
+- {"ok":true,"toString":"pekko://sys\ud800@host:2552/user","name":"user","elements":["user"],"uid":0,"toStringWithoutAddress":"/user","toSerializationFormat":"pekko://sys\ud800@host:2552/user","address":{"protocol":"pekko","system":"sys\ud800","host":"host","port":2552,"toString":"pekko://sys\ud800@host:2552"}}
+```
+
+stderr:
+
+```diff
++ input outside the API domain: lone UTF-16 surrogate (public inputs are &str; decision Q-X-17)
 ```
