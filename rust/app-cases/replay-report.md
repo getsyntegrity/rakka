@@ -2,7 +2,7 @@
 
 Build: `/Users/pablogore/Projects/rakka/target/release/examples/classic-parity`
 
-Passed: 1172/1173
+Passed: 1186/1187
 
 Fallback rate: not reported by this build
 

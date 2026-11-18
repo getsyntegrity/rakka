@@ -383,6 +383,25 @@ MUTANTS = {
         "let time_hi = msb & 0xFFFF;",
         "timestamp() keeps the four version bits in time_hi: a 64-bit value instead of the 60-bit time",
     ),
+    # --- slice P70: AlwaysIncreasingClock ---
+    "wall-clock-stall-repeats": (
+        "src/util/wall_clock.rs",
+        "            let next = if current_system_time <= last {\n                last.wrapping_add(1)",
+        "            let next = if current_system_time <= last {\n                last",
+        "a clock that is not behind the system time repeats the previous value instead of adding one",
+    ),
+    "wall-clock-follows-system-time": (
+        "src/util/wall_clock.rs",
+        "            let next = if current_system_time <= last {",
+        "            let next = if current_system_time <= last && false {",
+        "the clock always returns the system time, so a clock ahead of it (or a system time that goes backwards) moves back",
+    ),
+    "wall-clock-saturates": (
+        "src/util/wall_clock.rs",
+        "                last.wrapping_add(1)",
+        "                last.saturating_add(1)",
+        "the increment saturates at Long.MAX_VALUE instead of wrapping around to Long.MIN_VALUE like Java",
+    ),
     # --- slice P05: Glob ---
     "glob-trailing-star-unmatched": (
         "src/util/glob.rs",

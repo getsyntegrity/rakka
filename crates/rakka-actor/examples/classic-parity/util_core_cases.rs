@@ -20,6 +20,7 @@ use rakka_actor::util::helpers::{
     to_root_lower_case,
 };
 use rakka_actor::util::swar::{self, ByteOrder};
+use rakka_actor::util::wall_clock::{AlwaysIncreasingClock, WallClock, always_increasing_clock};
 use rakka_actor::util::{JavaUuid, PekkoDuration, TimeUnit, Timeout, Version, pekko_compare_uuid};
 use rakka_actor::{ConfigurationException, Done, NotUsed, PekkoException};
 
@@ -587,6 +588,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
 
     // ---- Slice P69: UTIL-UUID-ORDEN (AC-UTIL-016.14)
     for (id, result) in uuid_order_cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+    }
+
+    // ---- Slice P70: UTIL-RELOJ (AC-UTIL-016.16)
+    for (id, result) in wall_clock_cases() {
         lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
     }
 
@@ -2844,5 +2850,261 @@ fn uuid_order_cases() -> Vec<(String, String)> {
         "UU-21 sweep of 3000 version 1 pairs",
         uu_sweep(0x2545_F491_4F6C_DD1D, 3000, &[1], true),
     );
+    cases
+}
+
+const WC_FUTURE: i64 = 1_000_000_000_000_000_000;
+
+/// `System.currentTimeMillis()` as the oracle reads it around a reading.
+fn wc_wall() -> i64 {
+    let after = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap();
+    i64::try_from(after.as_millis()).unwrap()
+}
+
+fn wc_strict(xs: &[i64]) -> bool {
+    xs.windows(2).all(|w| w[1] > w[0])
+}
+
+fn wc_calls(c: &AlwaysIncreasingClock, n: usize) -> Vec<i64> {
+    (0..n).map(|_| c.current_time_millis()).collect()
+}
+
+fn wc_offsets(xs: &[i64], base: i64) -> String {
+    xs.iter()
+        .map(|x| format!("+{}", x - base))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// A reading of `c` bracketed by two wall-clock readings: is it within them?
+fn wc_in_range(c: &AlwaysIncreasingClock) -> bool {
+    let before = wc_wall();
+    let r = c.current_time_millis();
+    let after = wc_wall();
+    before <= r && r <= after
+}
+
+fn wc_concurrent(c: &AlwaysIncreasingClock, threads: usize, each: usize) -> Vec<Vec<i64>> {
+    let go = std::sync::Barrier::new(threads);
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..threads)
+            .map(|_| {
+                scope.spawn(|| {
+                    go.wait();
+                    wc_calls(c, each)
+                })
+            })
+            .collect();
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    })
+}
+
+/// `(count, distinct, eachThreadIncreasing, contiguous, min, max)` of a concurrent run.
+fn wc_report(out: &[Vec<i64>], base: i64, shape: bool) -> String {
+    let each_increasing = out.iter().all(|row| wc_strict(row));
+    let mut all: Vec<i64> = out.iter().flatten().copied().collect();
+    all.sort_unstable();
+    let distinct = all.windows(2).all(|w| w[0] != w[1]);
+    let head = format!(
+        "count={} distinct={distinct} eachThreadIncreasing={each_increasing}",
+        all.len()
+    );
+    if !shape {
+        return head;
+    }
+    let contiguous = all[all.len() - 1] - all[0] == i64::try_from(all.len()).unwrap() - 1;
+    format!(
+        "{head} {} min=+{} max=+{}",
+        if contiguous { "contiguous" } else { "gaps" },
+        all[0] - base,
+        all[all.len() - 1] - base
+    )
+}
+
+/// The cases of `WallClockOracle.java` (slice P70).
+fn wall_clock_cases() -> Vec<(String, String)> {
+    let mut cases: Vec<(String, String)> = Vec::new();
+    let mut add = |id: &str, line: String| cases.push((id.to_owned(), line));
+    let ahead = || {
+        let c = AlwaysIncreasingClock::new();
+        c.set(WC_FUTURE);
+        c
+    };
+
+    add(
+        "WC-01 a new clock starts at zero",
+        format!("state={}", AlwaysIncreasingClock::new().get()),
+    );
+    {
+        let c = AlwaysIncreasingClock::new();
+        let before = wc_wall();
+        let r = c.current_time_millis();
+        let after = wc_wall();
+        add(
+            "WC-02 first reading of a new clock is the wall time",
+            format!(
+                "inRange={} stateIsResult={}",
+                before <= r && r <= after,
+                c.get() == r
+            ),
+        );
+    }
+    {
+        let c = AlwaysIncreasingClock::new();
+        let before = wc_wall();
+        let r = wc_calls(&c, 1000);
+        add(
+            "WC-03 1000 readings strictly increase",
+            format!(
+                "strict={} aboveBefore={} stateIsLast={}",
+                wc_strict(&r),
+                r[0] >= before,
+                c.get() == r[999]
+            ),
+        );
+    }
+    {
+        let c = ahead();
+        let r = wc_calls(&c, 6);
+        add(
+            "WC-04 a clock ahead of the wall time adds one",
+            format!(
+                "{} state=+{}",
+                wc_offsets(&r, WC_FUTURE),
+                c.get() - WC_FUTURE
+            ),
+        );
+    }
+    {
+        let c = AlwaysIncreasingClock::new();
+        c.set(1);
+        let before = wc_wall();
+        let r = c.current_time_millis();
+        let after = wc_wall();
+        add(
+            "WC-05 a clock behind the wall time jumps to it",
+            format!(
+                "inRange={} stateIsResult={}",
+                before <= r && r <= after,
+                c.get() == r
+            ),
+        );
+    }
+    {
+        let fields: Vec<String> = [-5_i64, -1, i64::MIN, i64::MIN + 1]
+            .iter()
+            .map(|&s| {
+                let c = AlwaysIncreasingClock::new();
+                c.set(s);
+                format!("[{s}]={}", wc_in_range(&c))
+            })
+            .collect();
+        add(
+            "WC-06 negative and minimum states are behind the wall time",
+            fields.join(" "),
+        );
+    }
+    {
+        let c = AlwaysIncreasingClock::new();
+        c.set(i64::MAX - 2);
+        let (a, b, d) = (
+            c.current_time_millis(),
+            c.current_time_millis(),
+            c.current_time_millis(),
+        );
+        add(
+            "WC-07 the increment wraps around at the top of the Long range",
+            format!(
+                "a={a} b={b} c={d} wrapped={} nextIsWall={}",
+                d == i64::MIN,
+                wc_in_range(&c)
+            ),
+        );
+    }
+    {
+        let a = ahead();
+        let b = AlwaysIncreasingClock::new();
+        let ra = a.current_time_millis();
+        add(
+            "WC-08 two clocks are independent",
+            format!(
+                "a=+{} bIsWall={} aState=+{}",
+                ra - WC_FUTURE,
+                wc_in_range(&b),
+                a.get() - WC_FUTURE
+            ),
+        );
+    }
+    {
+        let a = ahead();
+        let b = AlwaysIncreasingClock::new();
+        b.set(WC_FUTURE + 100);
+        let mut parts = Vec::new();
+        for _ in 0..4 {
+            let ra = a.current_time_millis() - WC_FUTURE;
+            let rb = b.current_time_millis() - WC_FUTURE;
+            parts.push(format!("a=+{ra} b=+{rb}"));
+        }
+        add("WC-09 interleaved readings of two clocks", parts.join(" "));
+    }
+    {
+        let c = AlwaysIncreasingClock::new();
+        c.set(WC_FUTURE);
+        let r1 = c.current_time_millis();
+        c.set(WC_FUTURE + 50);
+        let r2 = c.current_time_millis();
+        c.set(WC_FUTURE - 50);
+        let r3 = c.current_time_millis();
+        add(
+            "WC-10 set between readings",
+            format!(
+                "r1=+{} r2=+{} r3=+{}",
+                r1 - WC_FUTURE,
+                r2 - WC_FUTURE,
+                r3 - WC_FUTURE
+            ),
+        );
+    }
+    {
+        let (w1, w2) = (always_increasing_clock(), always_increasing_clock());
+        let r: Vec<i64> = (0..200)
+            .map(|i| if i % 2 == 0 { w1 } else { w2 }.current_time_millis())
+            .collect();
+        add(
+            "WC-11 the shared instance",
+            format!("same={} strict={}", std::ptr::eq(w1, w2), wc_strict(&r)),
+        );
+    }
+    {
+        let c = ahead();
+        let r = wc_report(&wc_concurrent(&c, 8, 500), WC_FUTURE, true);
+        add(
+            "WC-12 8 threads of 500 readings on a clock ahead of the wall time",
+            format!("{r} state=+{}", c.get() - WC_FUTURE),
+        );
+    }
+    {
+        let c = AlwaysIncreasingClock::new();
+        let before = wc_wall();
+        let out = wc_concurrent(&c, 8, 500);
+        let all_at_least = out.iter().flatten().all(|&x| x >= before);
+        add(
+            "WC-13 8 threads of 500 readings on a new clock",
+            format!(
+                "{} allAtLeastBefore={all_at_least}",
+                wc_report(&out, before, false)
+            ),
+        );
+    }
+    {
+        let c = ahead();
+        let r = wc_report(&wc_concurrent(&c, 4, 2000), WC_FUTURE, true);
+        add(
+            "WC-14 4 threads of 2000 readings on a clock ahead of the wall time",
+            format!("{r} state=+{}", c.get() - WC_FUTURE),
+        );
+    }
     cases
 }

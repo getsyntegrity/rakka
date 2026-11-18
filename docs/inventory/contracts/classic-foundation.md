@@ -1716,6 +1716,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Ninguna.
 
+**Actualización P70 (2026-11-18, Pekko 2.0.0).** Medido con el jar 2.0.0 (JDK 17) por `WallClockOracle` (casos WC-01..WC-14 -> uc-0210..uc-0223): `WallClock.scala` no cambió de comportamiento y A1 se confirma. Añade lo medido que el contrato no afirmaba: el estado inicial es 0 (`AtomicLong`), la primera lectura es la hora de pared; con el estado por delante de la hora de pared cada lectura suma 1 (también con 8 hilos concurrentes: resultados distintos y contiguos); el `+1` envuelve de `Long.MAX_VALUE` a `Long.MIN_VALUE` y la lectura siguiente vuelve a la hora de pared; relojes distintos son independientes y `WallClock.AlwaysIncreasingClock` es una instancia compartida. Los casos no dependen del reloj real: el oráculo fija el estado con `set` o compara invariantes. Rust: `crates/rakka-actor/src/util/wall_clock.rs` con fuente de tiempo inyectable.
+
 
 ---
 

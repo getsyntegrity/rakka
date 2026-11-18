@@ -280,5 +280,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P69 (2026-11-18): UTIL-UUID-ORDEN (AC-UTIL-016.14)
     UuidOrderOracle.register();
+
+    // ---- Slice P70 (2026-11-18): UTIL-RELOJ (AC-UTIL-016.16)
+    WallClockOracle.register();
   }
 }

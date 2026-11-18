@@ -606,3 +606,17 @@ uc-0206	util-core	UU-18 sorting a mixed list
 uc-0207	util-core	UU-19 sweep of 3000 random pairs
 uc-0208	util-core	UU-20 sweep of 3000 pairs with shared bits
 uc-0209	util-core	UU-21 sweep of 3000 version 1 pairs
+uc-0210	util-core	WC-01 a new clock starts at zero
+uc-0211	util-core	WC-02 first reading of a new clock is the wall time
+uc-0212	util-core	WC-03 1000 readings strictly increase
+uc-0213	util-core	WC-04 a clock ahead of the wall time adds one
+uc-0214	util-core	WC-05 a clock behind the wall time jumps to it
+uc-0215	util-core	WC-06 negative and minimum states are behind the wall time
+uc-0216	util-core	WC-07 the increment wraps around at the top of the Long range
+uc-0217	util-core	WC-08 two clocks are independent
+uc-0218	util-core	WC-09 interleaved readings of two clocks
+uc-0219	util-core	WC-10 set between readings
+uc-0220	util-core	WC-11 the shared instance
+uc-0221	util-core	WC-12 8 threads of 500 readings on a clock ahead of the wall time
+uc-0222	util-core	WC-13 8 threads of 500 readings on a new clock
+uc-0223	util-core	WC-14 4 threads of 2000 readings on a clock ahead of the wall time

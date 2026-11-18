@@ -45,7 +45,7 @@ AC-UTIL-016.12	UTIL	classic	(implementada)		extracted	done	derivada del código	
 AC-UTIL-016.13	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-11	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-016.14	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-11,Q-X-18	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-016.15	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-PATH-3,Q-UTIL-14,Q-UTIL-8	docs/inventory/contracts/classic-foundation.md
-AC-UTIL-016.16	UTIL	classic	AC-UTIL-2	3	extracted	pending	derivada del código	casos rust-anything contra Pekko 2.0.0 (		docs/inventory/contracts/classic-foundation.md
+AC-UTIL-016.16	UTIL	classic	(implementada)		extracted	done	derivada del código	existente		docs/inventory/contracts/classic-foundation.md
 AC-UTIL-016.17	UTIL	classic	AC-UTIL-2	3	extracted	pending	derivada del código	casos rust-anything contra Pekko 2.0.0 (		docs/inventory/contracts/classic-foundation.md
 AC-UTIL-016.18	UTIL	classic	AC-UTIL-2	3	extracted	pending	derivada del código	casos rust-anything contra Pekko 2.0.0 (	Q-UTIL-11	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-017.1	UTIL	classic	AC-UTIL-2	3	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/util/FrequencySketchSpec.scala:23-416 ;…	casos rust-anything contra Pekko 2.0.0 (	Q-UTIL-11,Q-UTIL-14,Q-UTIL-8	docs/inventory/contracts/classic-foundation.md

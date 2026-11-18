@@ -207,3 +207,17 @@
 {"name": "uc-0207", "args": ["util-core-case"], "stdin": "UU-19 sweep of 3000 random pairs"}
 {"name": "uc-0208", "args": ["util-core-case"], "stdin": "UU-20 sweep of 3000 pairs with shared bits"}
 {"name": "uc-0209", "args": ["util-core-case"], "stdin": "UU-21 sweep of 3000 version 1 pairs"}
+{"name": "uc-0210", "args": ["util-core-case"], "stdin": "WC-01 a new clock starts at zero"}
+{"name": "uc-0211", "args": ["util-core-case"], "stdin": "WC-02 first reading of a new clock is the wall time"}
+{"name": "uc-0212", "args": ["util-core-case"], "stdin": "WC-03 1000 readings strictly increase"}
+{"name": "uc-0213", "args": ["util-core-case"], "stdin": "WC-04 a clock ahead of the wall time adds one"}
+{"name": "uc-0214", "args": ["util-core-case"], "stdin": "WC-05 a clock behind the wall time jumps to it"}
+{"name": "uc-0215", "args": ["util-core-case"], "stdin": "WC-06 negative and minimum states are behind the wall time"}
+{"name": "uc-0216", "args": ["util-core-case"], "stdin": "WC-07 the increment wraps around at the top of the Long range"}
+{"name": "uc-0217", "args": ["util-core-case"], "stdin": "WC-08 two clocks are independent"}
+{"name": "uc-0218", "args": ["util-core-case"], "stdin": "WC-09 interleaved readings of two clocks"}
+{"name": "uc-0219", "args": ["util-core-case"], "stdin": "WC-10 set between readings"}
+{"name": "uc-0220", "args": ["util-core-case"], "stdin": "WC-11 the shared instance"}
+{"name": "uc-0221", "args": ["util-core-case"], "stdin": "WC-12 8 threads of 500 readings on a clock ahead of the wall time"}
+{"name": "uc-0222", "args": ["util-core-case"], "stdin": "WC-13 8 threads of 500 readings on a new clock"}
+{"name": "uc-0223", "args": ["util-core-case"], "stdin": "WC-14 4 threads of 2000 readings on a clock ahead of the wall time"}
