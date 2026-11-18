@@ -77,7 +77,7 @@
 
 ## P06 UTIL-PLATAFORMA
 
-8 filas; 4 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 0 propuestas.
+8 filas; 6 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -85,6 +85,8 @@
 | Q-UTIL-11 | accepted_with_changes (2026-11-18): aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y… | 4: AC-UTIL-020, AC-UTIL-021, AC-UTIL-027, AC-UTIL-028 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
 | Q-UTIL-13 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-UTIL-026 | Bloquea: nada; (a) es suficiente. | — | `classic-foundation` |
 | Q-UTIL-8 | accepted (2026-11-18): aceptar (c). Autoriza no reproducir makePattern bit a bit. | 1: AC-UTIL-023 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
+| Q-UTIL-18 | propuesta | 1: AC-UTIL-025 | — | — | `classic-foundation` |
+| Q-UTIL-19 | propuesta | 1: AC-UTIL-020 | — | — | `classic-foundation` |
 
 ## P07 CFG-HOCON
 
@@ -1016,4 +1018,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 459 (227 respondidas, 0 bloqueantes, 232 propuestas).
+Total de pares unidad–decisión: 461 (227 respondidas, 0 bloqueantes, 234 propuestas).

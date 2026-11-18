@@ -1,0 +1,1 @@
+CK-02 ScheduledClock increments by one until maxIncrement -> ok scheduled=true delayNanos=100003 reached=false c1=+1,reached=false c2=+2,reached=false c3=+3,reached=true c4=+3,reached=true c5=+3,reached=true c6=+3,reached=true earlier(0)=+3 earlier(5)=+-2

@@ -1,0 +1,1 @@
+UN-01 fastHash of ASCII text -> ok []=992666 [a]=1241259299 [abc]=1177643766 [abcdefghijklmnopqrstuvxyz]=1216771795 [Hello, World!]=738667715 [128x]=2068222581 [1000x]=-62155758 [\u0000]=2038174978 [\u007F]=1190929553

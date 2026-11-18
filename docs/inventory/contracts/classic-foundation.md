@@ -2150,7 +2150,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ## AC-UTIL-020 — Acceso Unsafe y offsets de campos (Unsafe.java y clases Abstract*)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle*
 
 **Contrato observable.** `Unsafe` obtiene la instancia de `sun.misc.Unsafe` por reflexión y la usan 9 clases Java para CAS/lectura-escritura volátil de campos (offsets de `_xxxDoNotCallMeDirectly`) sin `AtomicReferenceFieldUpdater`: `AbstractActorRef` (campos de `RepointableActorRef`: `_cellDoNotCallMeDirectly`, `_lookupDoNotCallMeDirectly`), `actor/dungeon/AbstractActorCell` (cuatro campos de `ActorCell`: `_mailbox`, `_childrenRefs`, `_nextName`, `_functionRefs`, con los nombres mangled `org$apache$pekko$actor$dungeon$Dispatch$$_mailboxDoNotCallMeDirectly` y análogos de `Children`), `AbstractMailbox` (`Mailbox._statusDoNotCallMeDirectly`, `_systemQueueDoNotCallMeDirectly`), `AbstractMessageDispatcher` (`_inhabitantsDoNotCallMeDirectly`, `_shutdownScheduleDoNotCallMeDirectly`), `AbstractNodeQueue` (`_tailDoNotCallMeDirectly`, `Node._nextDoNotCallMeDirectly`), `AbstractBoundedNodeQueue` (`_enqDoNotCallMeDirectly`, `_deqDoNotCallMeDirectly`, `Node._nextDoNotCallMeDirectly`), `AbstractPromiseActorRef` (`PromiseActorRef._stateDoNotCallMeDirectly`, `_watchedByDoNotCallMeDirectly`), `AbstractCircuitBreaker` (`CircuitBreaker._currentStateDoNotCallMeDirectly`, `_currentResetTimeoutDoNotCallMeDirectly`). Además `Unsafe` contiene dos utilidades públicas: `copyUSAsciiStrToBytes(str, bytes)` (copia ASCII con tres algoritmos según la JVM) y `fastHash(str)` (xorshift128+ sobre los caracteres).
 
@@ -2187,6 +2187,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 ---
+
+**Actualización P06 (2026-11-18, Pekko 2.0.0).** Oráculo (la clase `Unsafe` es pública, se llama directo): `fastHash` de texto ASCII y `copyUSAsciiStrToBytes` de texto ASCII coinciden (UN-01 uc-0119, UN-02 uc-0120). Sin `--add-opens` la JVM elige el algoritmo 0: para texto no ASCII `fastHash` usa `String.getBytes(US_ASCII)` (`é` y `€` dan el mismo valor, `a\u00e9b` otro) y un carácter fuera del BMP lanza `ArrayIndexOutOfBoundsException` porque la cadena de bytes es más corta que `length()` (UN-03, medido, sin grabar). Con el algoritmo 1 (JDK con acceso a `String.value`) los bytes Latin-1 se extienden con signo. Rust: `fast_hash(&str) -> Option<i32>` sólo para ASCII; el resto es la propuesta Q-UTIL-19. Los atómicos de las clases `Abstract*` no se portan aquí: cada fila dueña usa `std::sync::atomic` (Q-UTIL-11 (a)).
 
 ## AC-UTIL-021 — Filtros MiMa (compatibilidad binaria)
 
@@ -2257,7 +2259,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ## AC-UTIL-023 — Helpers.makePattern (patrón glob `?`/`*` a java.util.regex.Pattern)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=oracle*
 
 **Contrato observable.** Convierte un patrón glob en regex anclada; es la definición histórica de `?`/`*` en actor selection (hoy reemplazada por Glob).
 
@@ -2286,9 +2288,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P06 (2026-11-18, Pekko 2.0.0).** Q-UTIL-8 (c) autoriza no reproducir `makePattern` bit a bit. A1: MP-EXH (uc-0121) graba el resultado de `makePattern` para los 341 patrones de 0-4 caracteres sobre {a,b,*,?} contra las 31 entradas de 0-4 sobre {a,b}; Rust responde con `glob_matches` y coincide (igual que GL-EXH). A2 medida con el oráculo 2.0.0 (MP-NL, sin grabar): `makePattern("a?b")` rechaza `a\nb`, `a\u0085b` y `a\u2028b` mientras Glob los acepta; `makePattern("a?b")` acepta `a` + U+1F642 + `b` (punto de código) y Glob no (`"a??b"` sí); `makePattern("?")` rechaza `\r` y `makePattern("*")` rechaza `\r\n`. Es la diferencia autorizada: la referencia es Glob.matches (ActorSelection.scala:369 decide).
+
 ## AC-UTIL-024 — Helpers.compareIdentityHash / identityHashComparator (orden por identityHashCode sin overflow)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=oracle*
 
 **Contrato observable.** Ordena objetos por identidad de forma consistente (sin overflow) para usar en estructuras ordenadas (BalancingDispatcher).
 
@@ -2316,9 +2320,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P06 (2026-11-18, Pekko 2.0.0).** Q-UTIL-10 (a): la identidad es la dirección del referente. Rust: `util::helpers::compare_identity_hash(&T, &T) -> Ordering` (dirección sin signo) e `identity_hash_comparator(comp)` (rama `case 0 if a != b`: sólo cuando son iguales por identidad y no por `==`, p. ej. NaN). Oráculo 2.0.0: invariantes (ID-01 uc-0105, ID-02 uc-0106). El valor concreto del orden no es observable.
+
 ## AC-UTIL-025 — Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para logs)
 
-*unidad UTIL · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
 
 **Contrato observable.** Dos formateadores de marcas de tiempo públicos de Helpers.
 
@@ -2348,9 +2354,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P06 (2026-11-18, Pekko 2.0.0).** `current_time_millis_to_utc_string(i64)` coincide con el oráculo (TS-UTC-01/02, uc-0101/0102), incluido el `-` por campo para negativos (`-1` -> `00:00:00.00-1UTC`, `-1000` -> `00:00:0-1.000UTC`, `-86399999` -> `0-23:0-59:0-59.00-999UTC`) y `Long.MaxValue` -> `07:12:55.807UTC`. `timestamp`: el oráculo fija la zona `GMT+05:30` (propiedad `user.timezone` antes de cargar Helpers, que la captura) para que el caso no dependa del host; `timestamp_at_utc_offset(ms, segundos)` coincide (TS-LOCAL-01/02, uc-0103/0104). El año es el `yyyy` de Java (año de la era: el año 0 sale `0001`, y más de 9999 lleva `+`: `01/01/+10000`, `08/17/+292278994` para Long.MAX). Pendiente: la zona por defecto del sistema (Q-UTIL-18).
+
 ## AC-UTIL-026 — Helpers.isWindows (detección de SO por os.name)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=oracle*
 
 **Contrato observable.** Booleano de plataforma usado para ajustar el scheduler y IO.
 
@@ -2380,40 +2388,79 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P06 (2026-11-18, Pekko 2.0.0).** Q-UTIL-13 (a): `util::helpers::IS_WINDOWS = cfg!(windows)`. WIN-01 (uc-0100) en macOS: `isWindows=false`.
+
 ## AC-UTIL-027 — Clock / NanoClock / ScheduledClock (reloj interno basado en nanoTime)
 
-*unidad UTIL · visibilidad internal-required · analysis=listed · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle*
 
-**Contrato observable.** Extensión `Clock` con `currentTime()` y `earlierTime(duration)`; `ScheduledClock` (cuando `pekko.scheduled-clock-interval` > 0) actualiza el valor con el scheduler, nunca retrocede e incrementa en 1 entre actualizaciones; `NanoClock` (System.nanoTime) en otro caso. Fila creada el 2026-11-18 por la decisión Q-UTIL-11: archivo nuevo en 2.0.0; el contrato se extrae al tomar la unidad.
+**Contrato observable.** Extensión `Clock` (`private[pekko]`, pública en el bytecode) con `currentTime(): Long` y `earlierTime(duration: FiniteDuration): Long`. `Clock.createExtension(system)` lee `pekko.scheduled-clock-interval` (reference.conf:980, por defecto `1 s`; `0` significa llamar a `System.nanoTime` en cada llamada): si el intervalo es > 0 crea un `ScheduledClock(interval, system.scheduler, system.dispatcher)`, si no un `NanoClock`. Los valores tienen el origen arbitrario y la vuelta de `System.nanoTime`: sólo las diferencias significan algo.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/Clock.scala:36-67,77-125`
-- `actor/src/main/resources/reference.conf:980`
+- `actor/src/main/scala/org/apache/pekko/util/Clock.scala:36-67` (objeto, trait y `NanoClock`), `:77-125` (`ScheduledClock`)
+- `actor/src/main/resources/reference.conf:978-980`
+- tests: ninguno en upstream (`grep Clock actor-tests` sólo da usos de otros tipos).
 
-**Dependencias.** AC-SCH-008.3.
+**Condiciones.**
+- `NanoClock.currentTime = System.nanoTime()`; `earlierTime(d) = currentTime() - d.toNanos` (aritmética con vuelta; `d` puede ser negativo).
+- `ScheduledClock`: `time` (AtomicLong) y `updatedTime` parten de `System.nanoTime()`; `maxIncrement = max(updateInterval.toNanos - 100000, 0)`; en construcción llama `scheduler.scheduleWithFixedDelay(updateInterval, updateInterval){ update() }`.
+- `update()`: `now = nanoTime`; `newTime = if (now - current >= 0) now else current` (la diferencia cubre la vuelta de Long.MaxValue); CAS sobre `time` (si una llamada concurrente a `currentTime` lo cambió, reintenta); al lograrlo `updatedTime = newTime` y `maxIncrementReached = false`.
+- `currentTime()`: si `maxIncrementReached` devuelve `time.get()`; si no `now = time.incrementAndGet()` y, si `now - updatedTime >= maxIncrement`, `maxIncrementReached = true`; devuelve `now`.
+- `earlierTime(d) = time.get() - d.toNanos` (no incrementa).
 
-**Aserciones.** Por extraer.
+**Orden / concurrencia / ciclo de vida.** `time` es atómico; `updatedTime` y `maxIncrementReached` son `@volatile`. La tarea del scheduler y los llamantes concurrentes nunca hacen retroceder `time`.
 
-**Oráculo.** Por definir (casos rust-anything).
+**Dependencias.** AC-EXT (Extension, ExtensionId), AC-SCH-008.3 (`scheduleWithFixedDelay`), AC-CFG (clave de configuración).
 
-**Decisiones.** -
+**Equivalente Rust propuesto y diferencias observables.** `util::clock`: trait `Clock`, `NanoClock`, `ScheduledClock::new(intervalo, &dyn FixedDelayScheduler)` (la tarea de Pekko pasa a ser un cierre que el scheduler real programará) y `SelectedClock::for_interval` (la lógica de `createExtension`). El tiempo es `i64` con `wrapping_*`; `earlier_time` recibe nanosegundos con signo como un `FiniteDuration`. El origen de `NanoClock` es el primer uso en el proceso.
+
+**Aserciones.**
+- A1 `NanoClock.currentTime` no retrocede y `earlierTime(d) + d` cae entre dos lecturas (también con `d` negativo o enorme): CK-01 (uc-0107).
+- A2 `ScheduledClock`: con intervalo 100003 ns, `currentTime` da +1, +2, +3 y se queda en +3 con `maxIncrementReached = true`; `earlierTime(0) = +3`, `earlierTime(5) = -2`; la tarea se programa con retardo inicial igual al intervalo: CK-02 (uc-0108).
+- A3 bordes de `maxIncrement` (intervalos 1, 100000, 100001, 100002, 100004 ns; con 1 ms, 900000 incrementos y luego se queda): CK-03 (uc-0109).
+- A4 tras `update()` el tiempo no retrocede, `maxIncrementReached` vuelve a `false` y el siguiente `currentTime` es +1: CK-04 (uc-0110).
+- A5 selección: sin clave y con `1 ms`/`1 s` -> `ScheduledClock`; `0`/`0 s` -> `NanoClock` (ActorSystem real): CK-05 (uc-0111).
+- A6 *no afirmada por spec ni observable con el reloj real*: `update` no retrocede si `nanoTime` quedó detrás de los incrementos, y vuelta a negativo: `tests/platform_spec.rs` con una fuente de tiempo manual.
+
+**Oráculo.** `PlatformOracle` (familia util-core): `NanoClock` y `ScheduledClock` se construyen directo (públicos en el bytecode) con una `Scheduler` falsa que captura la tarea, y CK-05 usa un `ActorSystem` con el log apagado.
+
+**Decisiones.** Q-UTIL-11.
+
+**Actualización P06 (2026-11-18).** Falta para cerrar: registrar `Clock` como extensión (AC-EXT), leer la clave (AC-CFG) y un `FixedDelayScheduler` sobre el scheduler real, con cancelación (AC-SCH-008.3).
 
 ## AC-UTIL-028 — SWARUtil (lectura/escritura multibyte y patrones SWAR sobre byte[])
 
-*unidad UTIL · visibilidad internal-required · analysis=listed · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=oracle*
 
-**Contrato observable.** Utilidades de bajo nivel de ByteString: `compilePattern`, `applyPattern`, `getIndex`, `getLastIndex`, `getLong/getInt/getShort`, `putInt/putShort/putLong` con `ByteOrder` y variantes de respaldo sin MethodHandle. Fila creada el 2026-11-18 por la decisión Q-UTIL-11: archivo nuevo en 2.0.0. El archivo declara estar copiado del proyecto Netty (Apache-2.0): al portarlo hay que conservar su aviso.
+**Contrato observable.** Utilidades de bajo nivel de `ByteString` (`private[pekko]`, públicas en el bytecode), copiadas del proyecto Netty (Apache-2.0, `Copyright 2024 The Netty Project`): `compilePattern(byte)` repite el byte en los 8 carriles de un `Long` (`(b & 0xFF) * 0x0101010101010101`); `applyPattern(word, pattern)` marca con el bit alto cada byte de `word` igual al de `pattern` (`input = word ^ pattern; tmp = (input & 0x7F..) + 0x7F..; ~(tmp | input | 0x7F..)`); `getIndex(word)` = `numberOfLeadingZeros(word) >>> 3` (8 si no hay marca; sólo big endian); `getLastIndex(word)` = -1 si `word == 0`, si no `(63 - numberOfTrailingZeros(word)) >>> 3`; `getLong/getInt/getShort(array, index, byteOrder)` y `putInt/putShort/putLong(array, index, value, byteOrder)` (`putShort` escribe los 16 bits bajos de un `Int`); variantes `...WithoutMethodHandle` por desplazamientos y `getShortBE/LE`, `getIntBE/LE`, `getLongBE/LE` por bytes sueltos.
 
 **Fuente.**
-- `actor/src/main/scala/org/apache/pekko/util/SWARUtil.scala:64-457`
+- `actor/src/main/scala/org/apache/pekko/util/SWARUtil.scala:64-318` (API) y `:319-457` (variantes de respaldo)
+- tests: ninguno en upstream.
 
-**Dependencias.** AC-UTIL-022.
+**Condiciones.**
+- Las lecturas y escrituras usan `MethodHandles.byteArrayViewVarHandle`; si la JVM no lo ofrece, las variantes por desplazamientos. No comprueban límites (lo hace la JVM con una excepción de índice).
+- Cada lectura reconstruye el valor con signo del tipo (Long, Int, Short).
 
-**Aserciones.** Por extraer.
+**Orden / concurrencia / ciclo de vida.** Funciones puras sobre el arreglo del llamador.
 
-**Oráculo.** Por definir (casos rust-anything).
+**Dependencias.** AC-UTIL-022 (ByteString los usa).
 
-**Decisiones.** -
+**Equivalente Rust propuesto y diferencias observables.** `util::swar`: `i64`/`i32`/`i16` como los tipos de la JVM, `u8` por `Byte`, `ByteOrder::{BigEndian, LittleEndian}`; una sola implementación (`from_be_bytes`...), porque las dos rutas de Pekko dan lo mismo. Un índice fuera del arreglo entra en pánico (Pekko: `IndexOutOfBoundsException`; el contrato lo deja a cargo del llamador).
+
+**Aserciones.**
+- A1 `compilePattern` de los 256 bytes: SW-01 (uc-0112).
+- A2 `applyPattern`: 35 pares fijos (palabras con bytes 00/01/7F/80/FF) y 400 aleatorios con el byte plantado en un carril: SW-02 (uc-0113); además `tests/platform_spec.rs` comprueba con 20000 palabras que marca exactamente los bytes iguales.
+- A3 `getIndex`/`getLastIndex` de las 256 combinaciones de marcas y de palabras con otros bits: SW-03 (uc-0114).
+- A4 `getLong/getInt/getShort` en todos los desplazamientos y ambos órdenes: SW-04 (uc-0115).
+- A5 `putLong/putInt/putShort` (incluido el recorte a 16 bits) en ambos órdenes: SW-05 (uc-0116).
+- A6 variantes sin MethodHandle iguales a las de VarHandle: SW-06 (uc-0117).
+- A7 variantes por bytes sueltos: SW-07 (uc-0118).
+- A8 *no afirmada*: índices fuera de rango (ver arriba).
+
+**Oráculo.** `PlatformOracle` llama `SWARUtil$.MODULE$` directo.
+
+**Decisiones.** Q-UTIL-11. Aviso de Netty: encabezado de `crates/rakka-actor/src/util/swar.rs` y NOTICE (ya incluye a Netty).
 
 ## AC-CFG-001 — Carga de configuración: ConfigFactory.load + reference.conf como fallback; config explícita por ActorSystem(name, config)
 

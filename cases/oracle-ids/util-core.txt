@@ -109,3 +109,27 @@ GL-EXH patterns of length 4
 GL-PERF 12 stars vs 36 a
 GL-PERF 20 stars vs 2000 a
 GL-05 wildcards in the input
+WIN-01 isWindows
+TS-UTC-01 currentTimeMillisToUTCString
+TS-UTC-02 negative timestamps
+TS-LOCAL-01 timestamp small values
+TS-LOCAL-02 timestamp calendar edges
+ID-01 compareIdentityHash invariants
+ID-02 identityHashComparator with tie-break
+CK-01 NanoClock
+CK-02 ScheduledClock increments by one until maxIncrement
+CK-03 ScheduledClock maxIncrement boundaries
+CK-04 ScheduledClock update resumes the increments
+CK-05 Clock extension selection
+SW-01 compilePattern for every byte
+SW-02 applyPattern
+SW-03 getIndex and getLastIndex
+SW-04 getLong getInt getShort
+SW-05 putLong putInt putShort
+SW-06 variants without MethodHandle
+SW-07 byte-wise getShort getInt getLong
+UN-01 fastHash of ASCII text
+UN-02 copyUSAsciiStrToBytes of ASCII text
+UN-03 fastHash of non-ASCII text
+MP-EXH makePattern lengths 0-4
+MP-NL makePattern vs Glob with line breaks and astral

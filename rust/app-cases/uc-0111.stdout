@@ -1,0 +1,1 @@
+CK-05 Clock extension selection -> ok default=ScheduledClock 0=NanoClock 0s=NanoClock 1ms=ScheduledClock 1s=ScheduledClock

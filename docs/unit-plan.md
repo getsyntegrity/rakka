@@ -194,7 +194,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Helpers de plataforma (makePattern, isWindows, timestamp, Unsafe).
 - **Filas (8; impl: pending 8):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-020, AC-UTIL-021, AC-UTIL-023, AC-UTIL-024, AC-UTIL-025, AC-UTIL-026, AC-UTIL-027, AC-UTIL-028.
 - **Exclusiones/costuras:** UTIL-020/021 son parte de Unsafe/MiMa: pueden quedar no aplicables solo con autorizacion del Owner (A-5); aqui se planifican. (2026-11-01) Declara P02 (AC-UTIL-026 depende de AC-UTIL-002.2): antes lo cubria P05 por cierre transitivo.
-- **Decisiones:** 4 distintas en sus filas; respondidas: Q-UTIL-10, Q-UTIL-11, Q-UTIL-13, Q-UTIL-8. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P06). <!-- generated:unit-decisions -->
+- **Decisiones:** 6 distintas en sus filas; respondidas: Q-UTIL-10, Q-UTIL-11, Q-UTIL-13, Q-UTIL-8; propuestas sin respuesta: Q-UTIL-18, Q-UTIL-19. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P06). <!-- generated:unit-decisions -->
 - **Dependencias:** P02, P05.
 - **Archivos previstos:** `crates/rakka-actor/src/util/platform.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** unidad + oraculo jars.

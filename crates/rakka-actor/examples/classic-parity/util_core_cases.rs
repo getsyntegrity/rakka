@@ -1,13 +1,23 @@
-// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/{Timeout,Helpers,Glob}.scala, Done.scala, NotUsed.scala and PekkoException.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/{Timeout,Helpers,Glob,Clock,SWARUtil}.scala, Done.scala, NotUsed.scala, PekkoException.scala and actor/src/main/java/org/apache/pekko/util/Unsafe.java (Apache-2.0).
 //! Cases of the AC-UTIL (core) oracle (`UtilCoreOracle.java`, converted from the deprecated jshell script): each
 //! rebuilds one oracle case with the Rust API and renders it with the oracle's line format.
 
 use std::hash::{BuildHasher, RandomState};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use rakka_actor::actor::IllegalArgumentError;
+use rakka_actor::util::clock::{
+    Clock, FixedDelayScheduler, NanoClock, ScheduledClock, SelectedClock,
+};
+use rakka_actor::util::fast_hash::fast_hash;
 use rakka_actor::util::glob_matches;
-use rakka_actor::util::helpers::{Requiring, base64, base64_append, to_root_lower_case};
+use rakka_actor::util::helpers::{
+    IS_WINDOWS, Requiring, base64, base64_append, compare_identity_hash,
+    current_time_millis_to_utc_string, identity_hash_comparator, timestamp_at_utc_offset,
+    to_root_lower_case,
+};
+use rakka_actor::util::swar::{self, ByteOrder};
 use rakka_actor::util::{TimeUnit, Timeout};
 use rakka_actor::{ConfigurationException, Done, NotUsed, PekkoException};
 
@@ -45,6 +55,14 @@ pub const PENDING: &[(&str, &str)] = &[
     (
         "DN-03 Done.done() is Done.getInstance()",
         "Java facade, no Rust counterpart (Q-UTIL-5)",
+    ),
+    (
+        "UN-03 fastHash of non-ASCII text",
+        "Q-UTIL-19 (proposed): the result depends on the algorithm the JVM selects",
+    ),
+    (
+        "MP-NL makePattern vs Glob with line breaks and astral",
+        "Q-UTIL-8 (c): java.util.regex is not reproduced; Glob.matches is the contract",
     ),
 ];
 
@@ -528,6 +546,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
         lines.push((esc(&id), esc(&format!("{id} -> {result}"))));
     }
 
+    // ---- Slice P06: UTIL-PLATAFORMA (AC-UTIL-020, 023..028)
+    for (id, result) in platform_cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+    }
+
     lines
 }
 
@@ -541,4 +564,585 @@ fn strings_of(alphabet: &str, length: usize) -> Vec<String> {
             .collect();
     }
     all
+}
+
+/// The oracle's fixed time zone (`GMT+05:30`, pinned by `UtilCoreOracle`).
+const ORACLE_ZONE_OFFSET_SECONDS: i32 = 5 * 3600 + 30 * 60;
+
+/// A `Scheduler` that keeps the first task of `scheduleWithFixedDelay` so that the case drives the ticks.
+#[derive(Default)]
+struct CapturingScheduler {
+    initial_delay_nanos: Mutex<Option<u128>>,
+    task: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
+}
+
+impl FixedDelayScheduler for CapturingScheduler {
+    fn schedule_with_fixed_delay(
+        &self,
+        initial_delay: Duration,
+        _delay: Duration,
+        task: Box<dyn Fn() + Send + Sync>,
+    ) {
+        *self.initial_delay_nanos.lock().unwrap() = Some(initial_delay.as_nanos());
+        *self.task.lock().unwrap() = Some(task);
+    }
+}
+
+impl CapturingScheduler {
+    fn tick(&self) {
+        (self
+            .task
+            .lock()
+            .unwrap()
+            .as_ref()
+            .expect("a scheduled task"))();
+    }
+}
+
+/// xorshift64, as `PlatformOracle.Gen`.
+struct Gen(u64);
+
+impl Gen {
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn utc_strings(values: &[i64]) -> String {
+    values
+        .iter()
+        .map(|v| format!("[{v}]={}", current_time_millis_to_utc_string(*v)))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn zoned_strings(values: &[i64]) -> String {
+    values
+        .iter()
+        .map(|v| {
+            format!(
+                "[{v}]={}",
+                timestamp_at_utc_offset(*v, ORACLE_ZONE_OFFSET_SECONDS)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+const SWAR_SAMPLE: [u8; 16] = [
+    0x01, 0x02, 0x03, 0x84, 0xFF, 0x00, 0x7F, 0x80, 0x55, 0xAA, 0x10, 0x20, 0xFE, 0x01, 0x81, 0x7E,
+];
+
+fn swar_gets() -> String {
+    let (be, le) = (ByteOrder::BigEndian, ByteOrder::LittleEndian);
+    let mut out = Vec::new();
+    for i in 0..=SWAR_SAMPLE.len() - 8 {
+        out.push(format!(
+            "L{i}:{:016x}/{:016x}",
+            swar::get_long(&SWAR_SAMPLE, i, be) as u64,
+            swar::get_long(&SWAR_SAMPLE, i, le) as u64
+        ));
+    }
+    for i in 0..=SWAR_SAMPLE.len() - 4 {
+        out.push(format!(
+            "I{i}:{:08x}/{:08x}",
+            swar::get_int(&SWAR_SAMPLE, i, be) as u32,
+            swar::get_int(&SWAR_SAMPLE, i, le) as u32
+        ));
+    }
+    for i in 0..=SWAR_SAMPLE.len() - 2 {
+        out.push(format!(
+            "S{i}:{:04x}/{:04x}",
+            swar::get_short(&SWAR_SAMPLE, i, be) as u16,
+            swar::get_short(&SWAR_SAMPLE, i, le) as u16
+        ));
+    }
+    out.join(" ")
+}
+
+fn swar_puts() -> String {
+    let longs = [0_i64, 1, -1, 0x0123_4567_89AB_CDEF, i64::MIN, i64::MAX];
+    let ints = [0_i32, 1, -1, 0x1234_5678, i32::MIN, i32::MAX];
+    let mut out = Vec::new();
+    for (order, tag) in [(ByteOrder::BigEndian, "B"), (ByteOrder::LittleEndian, "L")] {
+        for v in longs {
+            for at in [0, 3] {
+                let mut array = [0_u8; 11];
+                swar::put_long(&mut array, at, v, order);
+                out.push(format!("PL{tag}{at}={}", hex_bytes(&array)));
+            }
+        }
+        for v in ints {
+            for at in [0, 5] {
+                let mut array = [0_u8; 9];
+                swar::put_int(&mut array, at, v, order);
+                out.push(format!("PI{tag}{at}={}", hex_bytes(&array)));
+                let mut short = [0_u8; 5];
+                swar::put_short(&mut short, at % 3, v, order);
+                out.push(format!("PS{tag}{}={}", at % 3, hex_bytes(&short)));
+            }
+        }
+    }
+    out.join(" ")
+}
+
+fn swar_cases() -> Vec<(String, String)> {
+    let mut cases = Vec::new();
+    cases.push((
+        "SW-01 compilePattern for every byte".to_owned(),
+        (-128_i32..=127)
+            .map(|b| format!("{:016x}", swar::compile_pattern(b as u8) as u64))
+            .collect::<Vec<_>>()
+            .join(" "),
+    ));
+    let mut applied = Vec::new();
+    let words = [
+        0_i64,
+        -1,
+        0x0102_0304_0506_0708,
+        0x8080_8080_8080_8080_u64 as i64,
+        0x7F7F_7F7F_7F7F_7F7F,
+        0x0001_0001_0001_0001,
+        0xFF00_FF00_FF00_FF00_u64 as i64,
+    ];
+    let patterns = [0_u8, 1, 0x7F, 0x80, 0xFF].map(swar::compile_pattern);
+    for word in words {
+        for pattern in patterns {
+            applied.push(format!(
+                "{:016x}",
+                swar::apply_pattern(word, pattern) as u64
+            ));
+        }
+    }
+    let mut generator = Gen(0x9E37_79B9_7F4A_7C15);
+    for i in 0..200_u32 {
+        let word = generator.next();
+        let probe = generator.next() as u8;
+        let pattern = swar::compile_pattern(probe);
+        applied.push(format!(
+            "{:016x}",
+            swar::apply_pattern(word as i64, pattern) as u64
+        ));
+        let lane = 8 * (i % 8);
+        let planted = (word & !(0xFF_u64 << lane)) | (u64::from(probe) << lane);
+        applied.push(format!(
+            "{:016x}",
+            swar::apply_pattern(planted as i64, pattern) as u64
+        ));
+    }
+    cases.push(("SW-02 applyPattern".to_owned(), applied.join(" ")));
+    let mut indexes = Vec::new();
+    for mask in 0..256_u32 {
+        let mut word = 0_u64;
+        for b in 0..8 {
+            if mask & (1 << b) != 0 {
+                word |= 0x80_u64 << (8 * b);
+            }
+        }
+        indexes.push(format!(
+            "{}/{}",
+            swar::get_index(word as i64),
+            swar::get_last_index(word as i64)
+        ));
+    }
+    for word in [
+        1_u64,
+        0xFF,
+        0x100,
+        0x0000_FFFF_0000_0000,
+        1 << 63,
+        u64::MAX,
+        0x00FF_0000_0000_0000,
+        0x0000_0001_0000_0000,
+    ] {
+        indexes.push(format!(
+            "{}/{}",
+            swar::get_index(word as i64),
+            swar::get_last_index(word as i64)
+        ));
+    }
+    cases.push((
+        "SW-03 getIndex and getLastIndex".to_owned(),
+        indexes.join(" "),
+    ));
+    cases.push(("SW-04 getLong getInt getShort".to_owned(), swar_gets()));
+    cases.push(("SW-05 putLong putInt putShort".to_owned(), swar_puts()));
+    cases.push((
+        "SW-06 variants without MethodHandle".to_owned(),
+        format!("{} | {}", swar_gets(), swar_puts()),
+    ));
+    let mut bytewise = Vec::new();
+    for i in (0..=SWAR_SAMPLE.len() - 8).step_by(3) {
+        let b = &SWAR_SAMPLE[i..i + 8];
+        bytewise.push(format!(
+            "{:04x}/{:04x}",
+            swar::get_short_be(b[0], b[1]) as u16,
+            swar::get_short_le(b[0], b[1]) as u16
+        ));
+        bytewise.push(format!(
+            "{:08x}/{:08x}",
+            swar::get_int_be(b[0], b[1], b[2], b[3]) as u32,
+            swar::get_int_le(b[0], b[1], b[2], b[3]) as u32
+        ));
+        let word: [u8; 8] = b.try_into().unwrap();
+        bytewise.push(format!(
+            "{:016x}/{:016x}",
+            swar::get_long_be(word) as u64,
+            swar::get_long_le(word) as u64
+        ));
+    }
+    cases.push((
+        "SW-07 byte-wise getShort getInt getLong".to_owned(),
+        bytewise.join(" "),
+    ));
+    cases
+}
+
+fn clock_cases() -> Vec<(String, String)> {
+    let mut cases = Vec::new();
+    let nano = NanoClock;
+    let mut monotonic = true;
+    let mut previous = nano.current_time();
+    for _ in 0..1000 {
+        let now = nano.current_time();
+        monotonic &= now.wrapping_sub(previous) >= 0;
+        previous = now;
+    }
+    let mut nano_fields = format!("monotonic={monotonic}");
+    for d in [
+        0_i64,
+        1,
+        1_000_000_000,
+        -1_000_000_000,
+        4_611_686_018_427_387_903,
+    ] {
+        let before = nano.current_time();
+        let earlier = nano.earlier_time(d);
+        let after = nano.current_time();
+        let reconstructed = earlier.wrapping_add(d);
+        nano_fields.push_str(&format!(
+            " d={d}:inRange={}",
+            reconstructed.wrapping_sub(before) >= 0 && after.wrapping_sub(reconstructed) >= 0
+        ));
+    }
+    cases.push(("CK-01 NanoClock".to_owned(), nano_fields));
+
+    let scheduler = CapturingScheduler::default();
+    let clock = ScheduledClock::new(Duration::from_nanos(100_003), &scheduler);
+    let base = clock.earlier_time(0);
+    let mut fields = format!(
+        "scheduled={} delayNanos={} reached={}",
+        scheduler.task.lock().unwrap().is_some(),
+        scheduler.initial_delay_nanos.lock().unwrap().unwrap(),
+        clock.max_increment_reached()
+    );
+    for i in 1..=6 {
+        let c = clock.current_time();
+        fields.push_str(&format!(
+            " c{i}=+{},reached={}",
+            c.wrapping_sub(base),
+            clock.max_increment_reached()
+        ));
+    }
+    fields.push_str(&format!(
+        " earlier(0)=+{} earlier(5)=+{}",
+        clock.earlier_time(0).wrapping_sub(base),
+        clock.earlier_time(5).wrapping_sub(base)
+    ));
+    cases.push((
+        "CK-02 ScheduledClock increments by one until maxIncrement".to_owned(),
+        fields,
+    ));
+
+    let mut fields = String::new();
+    for interval in [1_u64, 100_000, 100_001, 100_002, 100_004] {
+        let clock = ScheduledClock::new(
+            Duration::from_nanos(interval),
+            &CapturingScheduler::default(),
+        );
+        let base = clock.earlier_time(0);
+        fields.push_str(&format!("interval={interval}:"));
+        for _ in 0..6 {
+            fields.push_str(&format!(" +{}", clock.current_time().wrapping_sub(base)));
+        }
+        fields.push_str(&format!(" reached={}; ", clock.max_increment_reached()));
+    }
+    let one_ms = ScheduledClock::new(
+        Duration::from_nanos(1_000_000),
+        &CapturingScheduler::default(),
+    );
+    let base = one_ms.earlier_time(0);
+    let mut last = 0;
+    for _ in 1..=900_000 {
+        last = one_ms.current_time().wrapping_sub(base);
+    }
+    fields.push_str(&format!(
+        "interval=1000000: n=900000 +{last} reached={}",
+        one_ms.max_increment_reached()
+    ));
+    fields.push_str(&format!(
+        " n+1 +{}",
+        one_ms.current_time().wrapping_sub(base)
+    ));
+    fields.push_str(&format!(
+        " n+2 +{}",
+        one_ms.current_time().wrapping_sub(base)
+    ));
+    cases.push((
+        "CK-03 ScheduledClock maxIncrement boundaries".to_owned(),
+        fields,
+    ));
+
+    let scheduler = CapturingScheduler::default();
+    let clock = ScheduledClock::new(Duration::from_nanos(100_003), &scheduler);
+    let base = clock.earlier_time(0);
+    for _ in 0..5 {
+        clock.current_time();
+    }
+    let reached_before = clock.max_increment_reached();
+    let stuck = clock.current_time().wrapping_sub(base);
+    scheduler.tick();
+    let after_update = clock.earlier_time(0);
+    let reached_after = clock.max_increment_reached();
+    let next = clock.current_time();
+    cases.push((
+        "CK-04 ScheduledClock update resumes the increments".to_owned(),
+        format!(
+            "reachedBefore={reached_before} stuck=+{stuck} movedForward={} reachedAfter={reached_after} nextIsPlusOne={}",
+            after_update.wrapping_sub(base.wrapping_add(stuck)) >= 0,
+            next.wrapping_sub(after_update) == 1
+        ),
+    ));
+
+    let kind = |interval: Duration| {
+        SelectedClock::for_interval(interval, &CapturingScheduler::default()).class_name()
+    };
+    cases.push((
+        "CK-05 Clock extension selection".to_owned(),
+        format!(
+            "default={} 0={} 0s={} 1ms={} 1s={}",
+            kind(Duration::from_secs(1)),
+            kind(Duration::ZERO),
+            kind(Duration::ZERO),
+            kind(Duration::from_millis(1)),
+            kind(Duration::from_secs(1))
+        ),
+    ));
+    cases
+}
+
+fn identity_cases() -> Vec<(String, String)> {
+    let sign = |ordering: std::cmp::Ordering| ordering as i32;
+    let objects: Vec<Box<u64>> = (0..60).map(Box::new).collect();
+    let (mut self_zero, mut antisym, mut domain, mut transitive) = (true, true, true, true);
+    for a in &objects {
+        self_zero &= compare_identity_hash(&**a, &**a).is_eq();
+        for b in &objects {
+            let ab = compare_identity_hash(&**a, &**b);
+            domain &= (-1..=1).contains(&sign(ab));
+            antisym &= sign(ab) == -sign(compare_identity_hash(&**b, &**a));
+            for c in &objects[..12] {
+                if ab.is_lt() && compare_identity_hash(&**b, &**c).is_lt() {
+                    transitive &= compare_identity_hash(&**a, &**c).is_lt();
+                }
+            }
+        }
+    }
+    let first = (
+        "ID-01 compareIdentityHash invariants".to_owned(),
+        format!("self={self_zero} antisym={antisym} domain={domain} transitive={transitive}"),
+    );
+
+    #[derive(PartialEq)]
+    struct Tagged(u32);
+    let by_tag = |x: &Tagged, y: &Tagged| x.0.cmp(&y.0);
+    let comparator = identity_hash_comparator(by_tag);
+    let items: Vec<Box<Tagged>> = (0..80).map(|tag| Box::new(Tagged(tag))).collect();
+    let (mut self_zero, mut distinct, mut antisym) = (true, true, true);
+    for a in &items {
+        self_zero &= comparator(a, a).is_eq();
+        for b in &items {
+            if !std::ptr::eq(&**a, &**b) {
+                distinct &= comparator(a, b).is_ne();
+            }
+            antisym &= comparator(a, b) == comparator(b, a).reverse();
+        }
+    }
+    let mut sorted: Vec<&Tagged> = items.iter().map(|b| &**b).collect();
+    sorted.sort_by(|a, b| comparator(a, b));
+    let strictly_increasing = sorted.windows(2).all(|w| comparator(w[0], w[1]).is_lt());
+    let mut from_reverse: Vec<&Tagged> = items.iter().rev().map(|b| &**b).collect();
+    from_reverse.sort_by(|a, b| comparator(a, b));
+    let stable = sorted
+        .iter()
+        .zip(&from_reverse)
+        .all(|(a, b)| std::ptr::eq(*a, *b));
+    let second = (
+        "ID-02 identityHashComparator with tie-break".to_owned(),
+        format!(
+            "self={self_zero} distinct={distinct} antisym={antisym} sorted={strictly_increasing} stable={stable}"
+        ),
+    );
+    vec![first, second]
+}
+
+/// The ASCII characters 0..=127 as one string (the oracle's `allAscii()`).
+fn all_ascii() -> String {
+    (0..128_u8).map(char::from).collect()
+}
+
+fn platform_cases() -> Vec<(String, String)> {
+    let mut cases = vec![(
+        "WIN-01 isWindows".to_owned(),
+        format!("isWindows={IS_WINDOWS}"),
+    )];
+    cases.push((
+        "TS-UTC-01 currentTimeMillisToUTCString".to_owned(),
+        utc_strings(&[
+            0,
+            1,
+            9,
+            10,
+            99,
+            100,
+            999,
+            1000,
+            59_999,
+            60_000,
+            3_599_999,
+            3_600_000,
+            36_000_000,
+            86_399_999,
+            86_400_000,
+            86_400_001,
+            90_061_001,
+            1_557_014_400_000,
+            1_557_100_799_999,
+            i64::MAX,
+        ]),
+    ));
+    cases.push((
+        "TS-UTC-02 negative timestamps".to_owned(),
+        utc_strings(&[
+            -1,
+            -9,
+            -10,
+            -999,
+            -1000,
+            -60_000,
+            -3_600_000,
+            -36_000_000,
+            -86_399_999,
+            -86_400_000,
+            -86_400_001,
+            -1_234_567,
+            i64::MIN,
+        ]),
+    ));
+    cases.push((
+        "TS-LOCAL-01 timestamp small values".to_owned(),
+        zoned_strings(&[
+            0,
+            1,
+            999,
+            1000,
+            86_399_999,
+            86_400_000,
+            -1,
+            -1000,
+            -19_800_000,
+            -19_800_001,
+        ]),
+    ));
+    cases.push((
+        "TS-LOCAL-02 timestamp calendar edges".to_owned(),
+        zoned_strings(&[
+            951_782_400_000,
+            951_868_800_000,
+            1_582_934_400_000,
+            1_583_020_800_000,
+            4_107_542_400_000,
+            -2_203_891_200_000,
+            -2_203_977_600_000,
+            -62_135_596_800_000,
+            -62_167_219_200_000,
+            -62_167_239_000_001,
+            253_402_300_799_999,
+            253_402_281_000_000,
+            i64::MAX,
+            i64::MIN,
+        ]),
+    ));
+    cases.extend(identity_cases());
+    cases.extend(clock_cases());
+    cases.extend(swar_cases());
+
+    let long_text = "x".repeat(1000);
+    let ascii = all_ascii();
+    let texts: [&str; 9] = [
+        "",
+        "a",
+        "abc",
+        "abcdefghijklmnopqrstuvxyz",
+        "Hello, World!",
+        &ascii,
+        &long_text,
+        "\u{0}",
+        "\u{7f}",
+    ];
+    cases.push((
+        "UN-01 fastHash of ASCII text".to_owned(),
+        texts
+            .iter()
+            .map(|t| {
+                let shown = if t.len() > 40 {
+                    format!("{}x", t.len())
+                } else {
+                    esc(t)
+                };
+                format!("[{shown}]={}", fast_hash(t).expect("ASCII text"))
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+    ));
+    cases.push((
+        "UN-02 copyUSAsciiStrToBytes of ASCII text".to_owned(),
+        ["", "abc", "abcdefghijklmnopqrstuvxyz", ascii.as_str()]
+            .iter()
+            .map(|text| {
+                let mut target = vec![0x5A_u8; text.len() + 3];
+                target[..text.len()].copy_from_slice(text.as_bytes());
+                hex_bytes(&target)
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+    ));
+
+    // makePattern is not reproduced (Q-UTIL-8 (c)): the Rust side answers with `glob_matches`, which
+    // must agree with the regex on this alphabet (GlobSpec.scala:60-73).
+    let mut bits = Vec::new();
+    for len in 0..=4 {
+        for pattern in strings_of("ab*?", len) {
+            let mut row = String::new();
+            for input_len in 0..=4 {
+                for input in strings_of("ab", input_len) {
+                    row.push(if glob_matches(&pattern, &input) {
+                        'T'
+                    } else {
+                        'F'
+                    });
+                }
+            }
+            bits.push(format!("[{pattern}]={row}"));
+        }
+    }
+    cases.push(("MP-EXH makePattern lengths 0-4".to_owned(), bits.join(" ")));
+    cases
 }

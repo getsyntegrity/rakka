@@ -496,3 +496,25 @@ uc-0096	util-core	GL-EXH patterns of length 4
 uc-0097	util-core	GL-PERF 12 stars vs 36 a
 uc-0098	util-core	GL-PERF 20 stars vs 2000 a
 uc-0099	util-core	GL-05 wildcards in the input
+uc-0100	util-core	WIN-01 isWindows
+uc-0101	util-core	TS-UTC-01 currentTimeMillisToUTCString
+uc-0102	util-core	TS-UTC-02 negative timestamps
+uc-0103	util-core	TS-LOCAL-01 timestamp small values
+uc-0104	util-core	TS-LOCAL-02 timestamp calendar edges
+uc-0105	util-core	ID-01 compareIdentityHash invariants
+uc-0106	util-core	ID-02 identityHashComparator with tie-break
+uc-0107	util-core	CK-01 NanoClock
+uc-0108	util-core	CK-02 ScheduledClock increments by one until maxIncrement
+uc-0109	util-core	CK-03 ScheduledClock maxIncrement boundaries
+uc-0110	util-core	CK-04 ScheduledClock update resumes the increments
+uc-0111	util-core	CK-05 Clock extension selection
+uc-0112	util-core	SW-01 compilePattern for every byte
+uc-0113	util-core	SW-02 applyPattern
+uc-0114	util-core	SW-03 getIndex and getLastIndex
+uc-0115	util-core	SW-04 getLong getInt getShort
+uc-0116	util-core	SW-05 putLong putInt putShort
+uc-0117	util-core	SW-06 variants without MethodHandle
+uc-0118	util-core	SW-07 byte-wise getShort getInt getLong
+uc-0119	util-core	UN-01 fastHash of ASCII text
+uc-0120	util-core	UN-02 copyUSAsciiStrToBytes of ASCII text
+uc-0121	util-core	MP-EXH makePattern lengths 0-4

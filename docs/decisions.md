@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 220 decisiones: 0 bloqueantes, 158 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 222 decisiones: 0 bloqueantes, 160 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1808,6 +1808,26 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Filas afectadas:** AC-TK-015
 - **Unidades afectadas:** TK
 - **Origen:** classic-system
+
+### Q-UTIL-18 — Zona horaria del sistema para Helpers.timestamp
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Helpers.scala:108-113: `timestamp(ms)` formatea con `ZoneId.systemDefault()` capturada al cargar Helpers; consumidor: StdOutLogger.timestamp (Logging.scala:1009). La biblioteca estándar de Rust no conoce zonas horarias (ni sus reglas de horario de verano). Medido en 2.0.0 (TS-LOCAL-01/02, zona fijada en GMT+05:30): el patrón y el cálculo de fechas ya coinciden para un desplazamiento fijo (`timestamp_at_utc_offset`).
+- **Alternativas:** (a) añadir una dependencia con base de zonas (candidatas: `jiff`, o `chrono` con `iana-time-zone`; a verificar con `cargo deny check licenses`); (b) sin dependencia: `timestamp` recibe el desplazamiento respecto de UTC y quien lo llama lo decide (el logger usa UTC por defecto); (c) FFI a `localtime_r`/`GetTimeZoneInformation` (código `unsafe` por plataforma).
+- **Recomendación:** (a) una dependencia mantenida y con licencia compatible; con (b) la salida de log no coincide con la de Pekko fuera de UTC. Consecuencia observable: sólo el texto de la hora en la salida estándar del logger.
+- **Filas afectadas:** AC-UTIL-025
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-19 — fastHash y copyUSAsciiStrToBytes con texto no ASCII dependen del algoritmo que elija la JVM
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Unsafe.java:73-146: el algoritmo 1 (acceso reflexivo a `String.value`, que exige `--add-opens java.base/java.lang`) usa los bytes Latin-1 con extensión de signo; el algoritmo 0 usa `getBytes(US_ASCII)` (`?` por cada carácter no ASCII, y un par sustituto da un solo `?`, de modo que `fastHash` lanza ArrayIndexOutOfBoundsException). Medido en 2.0.0 con JDK 17 sin `--add-opens` (UN-03, sin grabar): `é` y `€` -> 1727796305, `aéb` -> 967922898, U+1F600 -> ArrayIndexOutOfBoundsException. Ningún consumidor de producción en actor/src/main ni actor-typed/src/main (sólo AsciiStringCopySpec).
+- **Alternativas:** (a) reproducir el algoritmo 0 (el que corre sin opciones de JVM); (b) reproducir el algoritmo 1 (Latin-1 con signo; los caracteres > U+00FF dependen de la representación interna); (c) aceptar sólo texto ASCII y devolver `None` para el resto (lo implementado).
+- **Recomendación:** (c): la función no tiene consumidores y los dos algoritmos discrepan entre sí.
+- **Filas afectadas:** AC-UTIL-020
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
 
 ## 6. Respuestas del Owner por unidad
 
