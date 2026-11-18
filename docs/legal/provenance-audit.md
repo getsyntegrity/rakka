@@ -37,6 +37,13 @@ Fuera de la tabla por archivo: `rust/app-cases/` (grabaciones de la salida de Pe
 
 - Contienen o describen el código del piloto `jdk_uri.rs`/`jdk_int.rs`/`jdk_tables.rs`/`decode_utf8_jdk`, que ya no está en el árbol. No exponen funciones. Se borra el parche y se reescriben las dos líneas del INVENTORY.
 
+## Estado de las reescrituras en sala limpia
+
+| Archivo | Estado |
+|---|---|
+| `jstring.rs` | **Reescrito** (especificación `cleanroom/jstring-spec.md`, bitácora `jstring-log.md`, similitud `jstring-similarity.md`). El archivo anterior se borró del árbol; sigue en el historial de git. |
+| `uri.rs` | Pendiente (`cleanroom/uri-spec.md`). |
+
 ## Historial de git
 
 - `6410d2a` (2026-10-30, «Initial import: pekko-rs scaffold, inventory, oracle and AC-PATH») y `2600f48` (renombrado a rakka): origen de `uri.rs` y `jstring.rs` con los encabezados citados.

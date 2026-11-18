@@ -238,6 +238,18 @@ MUTANTS = {
         "under AllForOne a Stop (or an exhausted restart limit) stops only the failed child, the healthy sibling survives",
     ),
     # --- consolidation: JDK 17 oracle and the &str input domain (decisions Q-X-16, Q-X-17) ---
+    "compare-by-code-point": (
+        "src/actor/jstring.rs",
+        "a.encode_utf16().cmp(b.encode_utf16())",
+        "a.cmp(b)",
+        "string order by code point (Rust `str` order) instead of UTF-16 code units: supplementary characters sort after U+FFFF",
+    ),
+    "ascii-digits-only": (
+        "src/actor/jstring.rs",
+        "let digit = decimal_digit_value(unit).ok_or_else(fail)?;",
+        "let digit = (if unit < 128 { decimal_digit_value(unit) } else { None }).ok_or_else(fail)?;",
+        "a uid written with non-ASCII decimal digits (Arabic-Indic, fullwidth) is rejected instead of parsed",
+    ),
     "lossy-stdin-decoder": (
         "examples/classic-parity/json.rs",
         "String::from_utf16(&out).map_err(|_| OUT_OF_DOMAIN.to_string())",
