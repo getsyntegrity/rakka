@@ -1,0 +1,1 @@
+CH [foo#1#2] -> ERR NumberFormatException [For input string: "1#2"]

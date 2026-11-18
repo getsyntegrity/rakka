@@ -1,0 +1,89 @@
+TO-01 Timeout.zero
+TO-02 Timeout(3, NANOSECONDS)
+TO-MAX NANOSECONDS
+TO-OVER NANOSECONDS
+TO-02 Timeout(3, MICROSECONDS)
+TO-MAX MICROSECONDS
+TO-OVER MICROSECONDS
+TO-02 Timeout(3, MILLISECONDS)
+TO-MAX MILLISECONDS
+TO-OVER MILLISECONDS
+TO-02 Timeout(3, SECONDS)
+TO-MAX SECONDS
+TO-OVER SECONDS
+TO-02 Timeout(3, MINUTES)
+TO-MAX MINUTES
+TO-OVER MINUTES
+TO-02 Timeout(3, HOURS)
+TO-MAX HOURS
+TO-OVER HOURS
+TO-02 Timeout(3, DAYS)
+TO-MAX DAYS
+TO-OVER DAYS
+TO-03 Timeout(0, DAYS)
+TO-04 Timeout(1500, MILLISECONDS)
+TO-05 Timeout(Long.MaxValue, DAYS)
+TO-06 eq Timeout(1000 ms) Timeout(1 s)
+TO-07 ne Timeout(1 s) Timeout(2 s)
+TO-08 create(ofMillis(250))
+TO-09 create(ofSeconds(9223372036, 854775807))
+TO-NEG-01 Timeout(-5, MILLISECONDS)
+TO-NEG-02 Timeout(Long.MinValue, NANOSECONDS)
+TO-NEG-03 create(ofMillis(-250))
+TO-NEG-04 create(ofSeconds(9223372036, 854775808))
+TO-NEG-05 create(ofSeconds(Long.MAX_VALUE))
+TO-STR-01 Timeout(100, MILLISECONDS)
+TO-STR-02 Timeout.zero
+TO-STR-03 Timeout(1000, MILLISECONDS)
+B64 0
+B64 1
+B64 25
+B64 26
+B64 51
+B64 52
+B64 61
+B64 62
+B64 63
+B64 64
+B64 65
+B64 4095
+B64 4096
+B64 4294967296
+B64 -1
+B64 -64
+B64 -9223372036854775808
+B64 9223372036854775807
+B64-SB prefix x, 5
+B64-SB prefix temp/$, 64
+B64-SB empty prefix, 0
+LC Hello WORLD 123
+LC TITLE
+LC 
+LC \u041F\u0420\u0418\u0412\u0415\u0422
+LC \uFF21\uFF22
+LC \uD801\uDC00
+LC \u00DF
+LC \u0130
+LC \u0391\u03A3
+LC \u0391\u03A3\u0391
+LC \u03A3
+RQ-01 5.requiring(true)
+RQ-02 5.requiring(false, msg)
+RQ-03 1.requiring(false, 42)
+RQ-04 1.requiring(false, empty)
+RQ-05 3.requiring(_ > 0)
+RQ-06 0.requiring(_ > 0)
+RQ-07 abc.requiring(len == 3)
+RQ-NULL 1.requiring(false, null)
+RQ-LAZY msg not evaluated when cond holds
+DN-01 Done
+DN-02 NotUsed
+DN-03 Done.done() is Done.getInstance()
+EX-01 PekkoException(boom)
+EX-02 PekkoException(empty)
+EX-03 PekkoException(boom, cause)
+EX-04 ConfigurationException(bad)
+EX-05 ConfigurationException(bad, cause)
+EX-06 PekkoException(msg, null)
+EX-SUB ConfigurationException isA PekkoException
+EX-NULL PekkoException(null)

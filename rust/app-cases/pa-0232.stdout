@@ -1,0 +1,1 @@
+CT-06 new(pekko,sys,h,70000) -> ok str=[pekko://sys@h:70000] protocol=[pekko] system=[sys] host=[h] port=[70000] local=false global=true hostPort=[sys@h:70000]

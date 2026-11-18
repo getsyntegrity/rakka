@@ -1,0 +1,1 @@
+HC host=Some(a_b) port=None -> ERR IllegalArgumentException [requirement failed: Using invalid host characters 'Some(a_b)' in the Address is not allowed.]

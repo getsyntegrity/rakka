@@ -1,6 +1,6 @@
 // A 1,000,000-level ActorPath must be built, rendered, compared, hashed and
 // dropped without recursion, on the default test thread stack. Pekko 1.7.1
-// handles it (oracle case DEEP-01 in tools/oracle/path-address.jsh).
+// handles it (oracle case DEEP-01, PathAddressOracle.java).
 
 use std::cmp::Ordering;
 use std::hash::{BuildHasher, RandomState};

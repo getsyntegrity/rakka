@@ -1,0 +1,1 @@
+CT-16 new(p,'s@h:1') -> ok str=[p://s@h:1] protocol=[p] system=[s@h:1] host=none port=none local=true global=false hostPort=[s@h:1]

@@ -1,0 +1,4 @@
+UID-01 root.withUid(0) -> ok same=true RootActorPath str=[pekko://mysys/] ser=[pekko://mysys/] noAddr=[/] addr=[pekko://mysys] name=[/] uid=0 elems=([])
+UID-06 child#3.withUid(3) same -> ok same=true
+NAV-01 root -> ok RootActorPath str=[pekko://mysys/] ser=[pekko://mysys/] noAddr=[/] addr=[pekko://mysys] name=[/] uid=0 elems=([]) parentIsSelf=true rootIsSelf=true
+NAV-02 child -> ok ChildActorPath str=[pekko://mysys/a/b] ser=[pekko://mysys/a/b#4] noAddr=[/a/b] addr=[pekko://mysys] name=[b] uid=4 elems=([a],[b]) parent=[pekko://mysys/a] parentUid=0 rootIsSame=true root=[pekko://mysys/]

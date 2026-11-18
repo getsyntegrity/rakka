@@ -1,0 +1,480 @@
+case	family	oracle_id
+pa-0001	path-address	SPEC-APS-27
+pa-0002	path-address	SPEC-APS-32
+pa-0003	path-address	SPEC-APS-37
+pa-0004	path-address	SPEC-APS-42
+pa-0005	path-address	SPEC-APS-47
+pa-0006	path-address	SPEC-APS-51
+pa-0007	path-address	SPEC-APS-52
+pa-0008	path-address	SPEC-APS-53
+pa-0009	path-address	SPEC-APS-54
+pa-0010	path-address	SPEC-APS-55
+pa-0011	path-address	SPEC-APS-60
+pa-0012	path-address	SPEC-APS-61
+pa-0013	path-address	SPEC-APS-62
+pa-0014	path-address	SPEC-APS-63
+pa-0015	path-address	SPEC-APS-67
+pa-0016	path-address	SPEC-APS-73
+pa-0017	path-address	SPEC-APS-74
+pa-0018	path-address	SPEC-APS-75
+pa-0019	path-address	SPEC-APS-76
+pa-0020	path-address	SPEC-APS-80
+pa-0021	path-address	SPEC-APS-86
+pa-0022	path-address	SPEC-APS-90
+pa-0023	path-address	SPEC-APS-91
+pa-0024	path-address	SPEC-APS-92
+pa-0025	path-address	SPEC-APS-94
+pa-0026	path-address	SPEC-APS-95
+pa-0027	path-address	SPEC-APS-96
+pa-0028	path-address	SPEC-APS-98
+pa-0029	path-address	SPEC-APS-99
+pa-0030	path-address	SPEC-APS-100
+pa-0031	path-address	SPEC-APS-103
+pa-0032	path-address	SPEC-APS-104
+pa-0033	path-address	SPEC-APS-105
+pa-0034	path-address	SPEC-APS-110
+pa-0035	path-address	SPEC-APS-114
+pa-0036	path-address	SPEC-APS-119-124[valid]
+pa-0037	path-address	SPEC-APS-119-124[is_valid.org]
+pa-0038	path-address	SPEC-APS-119-124[fu.is_valid.org]
+pa-0039	path-address	SPEC-APS-119-124[in_valid]
+pa-0040	path-address	SPEC-APS-119-124[invalid._org]
+pa-0041	path-address	SPEC-APS-126
+pa-0042	path-address	SPEC-APS-133-143[localhost]
+pa-0043	path-address	SPEC-APS-133-143[is_valid.org]
+pa-0044	path-address	SPEC-APS-133-143[fu.is_valid.org]
+pa-0045	path-address	SPEC-APS-133-143[in_valid]
+pa-0046	path-address	SPEC-APS-133-143[invalid._org]
+pa-0047	path-address	SPEC-ADS-34
+pa-0048	path-address	SPEC-RAP-29
+pa-0049	path-address	SPEC-RAP-32
+pa-0050	path-address	SPEC-RAP-35
+pa-0051	path-address	SPEC-RAP-39
+pa-0052	path-address	SPEC-LARP-01
+pa-0053	path-address	SPEC-LARP-02
+pa-0054	path-address	SPEC-LARP-03
+pa-0055	path-address	SPEC-LARP-04
+pa-0056	path-address	SPEC-LARP-05
+pa-0057	path-address	SPEC-LARP-06
+pa-0058	path-address	SPEC-LARP-07
+pa-0059	path-address	SPEC-LARP-08
+pa-0060	path-address	SPEC-LARP-09
+pa-0061	path-address	SPEC-LARP-10
+pa-0062	path-address	SPEC-LARP-11
+pa-0063	path-address	SPEC-LARP-12
+pa-0064	path-address	SPEC-LARP-13
+pa-0065	path-address	SPEC-JAPI-62
+pa-0066	path-address	FS-01 [pekko://mysys/user]
+pa-0067	path-address	FS-02 [pekko://sys]
+pa-0068	path-address	FS-03 [pekko://sys/]
+pa-0069	path-address	FS-04 [pekko://sys/user/]
+pa-0070	path-address	FS-05 [pekko://sys/user//x]
+pa-0071	path-address	FS-06 [pekko://sys//a]
+pa-0072	path-address	FS-07 [pekko://sys/./a/../b]
+pa-0073	path-address	FS-08 [pekko://sys/$a]
+pa-0074	path-address	FS-09 [pekko://sys/user/a%20b]
+pa-0075	path-address	FS-10 [pekko://sys/a%2Fb]
+pa-0076	path-address	FS-11 [pekko://sys/a%2]
+pa-0077	path-address	FS-12 [pekko://sys/a%zz]
+pa-0078	path-address	FS-13 [pekko://sys/a b]
+pa-0079	path-address	FS-14 [pekko://sys/\u00FCser]
+pa-0080	path-address	FS-15 [pekko://sys/user?x=1]
+pa-0081	path-address	FS-16 [pekko://sys/user?x#5]
+pa-0082	path-address	FS-17 [pekko://sys/user#5?x]
+pa-0083	path-address	FS-18 [pekko://sys@in_valid:5001/user]
+pa-0084	path-address	FS-19 [pekko://my_sys/user]
+pa-0085	path-address	FS-20 [pekko://my_sys@host:1/user]
+pa-0086	path-address	FS-21 [pekko:sys]
+pa-0087	path-address	FS-22 [pekko:sys/user]
+pa-0088	path-address	FS-23 [pekko:///user]
+pa-0089	path-address	FS-24 [pekko://@host:1/user]
+pa-0090	path-address	FS-25 [pekko://sys:1234/user]
+pa-0091	path-address	FS-26 [pekko://sys@host/user]
+pa-0092	path-address	FS-27 [pekko://sys@[::1]:2552/user]
+pa-0093	path-address	FS-28 [pekko://sys@127.0.0.1:2552/user]
+pa-0094	path-address	FS-29 [pekko://a%20b@h:1/u]
+pa-0095	path-address	FS-30 [pekko://a:b@h:1/u]
+pa-0096	path-address	FS-31 [PEKKO://Sys@HOST:1/User]
+pa-0097	path-address	FS-32 [/user/a]
+pa-0098	path-address	FS-33 [user/a]
+pa-0099	path-address	FS-34 [pekko://sys@h:70000/u]
+pa-0100	path-address	FS-35 [pekko://sys@h:99999999999/u]
+pa-0101	path-address	FS-36 [pekko://sys/a#5]
+pa-0102	path-address	FS-37 [pekko://sys/a#+5]
+pa-0103	path-address	FS-38 [pekko://sys/a#-5]
+pa-0104	path-address	FS-39 [pekko://sys/a#0]
+pa-0105	path-address	FS-40 [pekko://sys/a#abc]
+pa-0106	path-address	FS-41 [pekko://sys/a#99999999999]
+pa-0107	path-address	FS-42 [pekko://sys/a#2147483647]
+pa-0108	path-address	FS-43 [pekko://sys/a#2147483648]
+pa-0109	path-address	FS-44 [pekko://sys/a#-2147483648]
+pa-0110	path-address	FS-45 [pekko://sys/a#]
+pa-0111	path-address	FS-46 [pekko://sys/a#5#6]
+pa-0112	path-address	FS-47 [pekko://sys/a# 5]
+pa-0113	path-address	FS-48 [pekko://sys#5]
+pa-0114	path-address	FS-49 [pekko://sys/#5]
+pa-0115	path-address	FS-50 [pekko://sys/user/#5]
+pa-0116	path-address	FS-51 [pekko://sys/a/b#7]
+pa-0117	path-address	FS-52 [pekko://sys/a#\u0665]
+pa-0118	path-address	FS-53 [pekko://sys/a#\uFF15]
+pa-0119	path-address	FS-54 [pekko://sys/a#+]
+pa-0120	path-address	FS-55 [pekko://sys/a#-]
+pa-0121	path-address	FS-56 [pekko://sys/a#+-5]
+pa-0122	path-address	AD-01 [pekko://my_sys@host:1234]
+pa-0123	path-address	AD-02 [pekko://sys]
+pa-0124	path-address	AD-03 [pekko://sys/]
+pa-0125	path-address	AD-04 [pekko://sys/user/a]
+pa-0126	path-address	AD-05 [pekko://sys?x]
+pa-0127	path-address	AD-06 [pekko://sys#5]
+pa-0128	path-address	AD-07 [pekko://sys@h:1/user#5]
+pa-0129	path-address	AD-08 [pekko://sys@in_valid:5001]
+pa-0130	path-address	AD-09 [pekko://sys:1234]
+pa-0131	path-address	AD-10 [pekko://@host:1]
+pa-0132	path-address	AD-11 [pekko://sys@host]
+pa-0133	path-address	AD-12 [pekko://sys@host:]
+pa-0134	path-address	AD-13 [pekko://sys@host:0]
+pa-0135	path-address	AD-14 [pekko://sys@host:00012]
+pa-0136	path-address	AD-15 [pekko://sys@host:-1]
+pa-0137	path-address	AD-16 [pekko://sys@host:70000]
+pa-0138	path-address	AD-17 [pekko://sys@host:2147483647]
+pa-0139	path-address	AD-18 [pekko://sys@host:2147483648]
+pa-0140	path-address	AD-19 [pekko://sys@host:99999999999]
+pa-0141	path-address	AD-20 [pekko://sys@[::1]:2552]
+pa-0142	path-address	AD-21 [pekko://sys@[::1]]
+pa-0143	path-address	AD-22 [pekko://sys@[::1]
+pa-0144	path-address	AD-23 [pekko://sys@127.0.0.1:2552]
+pa-0145	path-address	AD-24 [pekko://sys@256.1.1.1:1]
+pa-0146	path-address	AD-25 [pekko://my_sys]
+pa-0147	path-address	AD-26 [pekko://my_sys@host:1]
+pa-0148	path-address	AD-27 [pekko://a:b@h:1]
+pa-0149	path-address	AD-28 [pekko://a%20b@h:1]
+pa-0150	path-address	AD-29 [pekko://a%2@h:1]
+pa-0151	path-address	AD-30 [pekko://sys@h\u00F6:1]
+pa-0152	path-address	AD-31 [pekko://s\u00FFs@h:1]
+pa-0153	path-address	AD-32 [pekko://s\u00FFs]
+pa-0154	path-address	AD-33 [pekko:sys]
+pa-0155	path-address	AD-34 [pekko:///]
+pa-0156	path-address	AD-35 [pekko://]
+pa-0157	path-address	AD-36 [PEKKO://Sys@HOST:1]
+pa-0158	path-address	AD-37 [pekko://s y]
+pa-0159	path-address	AD-38 [/user]
+pa-0160	path-address	AD-39 [sys@h:1]
+pa-0161	path-address	AD-40 [1pekko://sys]
+pa-0162	path-address	AD-41 [pekko://sys@h-1.example.com:1]
+pa-0163	path-address	AD-42 [pekko://sys@-h:1]
+pa-0164	path-address	AD-43 [pekko://sys@h.:1]
+pa-0165	path-address	AD-44 [pekko://sys@h_1.example.com:1]
+pa-0166	path-address	AD-45 [pekko://sys@host:1234 ]
+pa-0167	path-address	AD-46 []
+pa-0168	path-address	AD-47 [://hallo]
+pa-0169	path-address	AD-48 [pekko://a%C3%BC@h:1]
+pa-0170	path-address	AD-49 [pekko://a%FF@h:1]
+pa-0171	path-address	AD-50 [pekko://sys@[::FFFF:1.2.3.4]:1]
+pa-0172	path-address	AD-51 [pekko://sys@[fe80::1%25eth0]:1]
+pa-0173	path-address	AD-52 [pekko://sys@[1::2::3]:1]
+pa-0174	path-address	AD-53 [pekko://sys@::1:1]
+pa-0175	path-address	AD-PARSE [pekko://sys@h:1]
+pa-0176	path-address	AD-PARSE [pekko://sys:1]
+pa-0177	path-address	UTF-AD-01 [pekko://a%ED%A0%80b@h:1]
+pa-0178	path-address	UTF-AD-02 [pekko://a%ED%B0%80b@h:1]
+pa-0179	path-address	UTF-AD-03 [pekko://a%ED%A0%80%ED%B0%80b@h:1]
+pa-0180	path-address	UTF-AD-04 [pekko://a%ED%A0%41b@h:1]
+pa-0181	path-address	UTF-AD-05 [pekko://a%ED%A0b@h:1]
+pa-0182	path-address	UTF-AD-06 [pekko://a%C0%80b@h:1]
+pa-0183	path-address	UTF-AD-07 [pekko://a%C1%BFb@h:1]
+pa-0184	path-address	UTF-AD-08 [pekko://a%E0%80%80b@h:1]
+pa-0185	path-address	UTF-AD-09 [pekko://a%E0%9F%BFb@h:1]
+pa-0186	path-address	UTF-AD-10 [pekko://a%E0%80b@h:1]
+pa-0187	path-address	UTF-AD-11 [pekko://a%F0%80%80%80b@h:1]
+pa-0188	path-address	UTF-AD-12 [pekko://a%F0%8F%BF%BFb@h:1]
+pa-0189	path-address	UTF-AD-13 [pekko://a%F4%90%80%80b@h:1]
+pa-0190	path-address	UTF-AD-14 [pekko://a%F5%80%80%80b@h:1]
+pa-0191	path-address	UTF-AD-15 [pekko://a%E2%82b@h:1]
+pa-0192	path-address	UTF-AD-16 [pekko://a%E2%82%41b@h:1]
+pa-0193	path-address	UTF-AD-17 [pekko://a%F0%9F%98b@h:1]
+pa-0194	path-address	UTF-AD-18 [pekko://a%F0%9F%41b@h:1]
+pa-0195	path-address	UTF-AD-19 [pekko://a%F0%90%80%41b@h:1]
+pa-0196	path-address	UTF-AD-20 [pekko://a%80b@h:1]
+pa-0197	path-address	UTF-AD-21 [pekko://a%BF%80b@h:1]
+pa-0198	path-address	UTF-AD-22 [pekko://a%C3b@h:1]
+pa-0199	path-address	UTF-AD-23 [pekko://a%C3%BCx%FF%E2%82%ACb@h:1]
+pa-0200	path-address	UTF-AD-24 [pekko://a%E2%82%AC%ED%A0%E2%82%ACb@h:1]
+pa-0201	path-address	UTF-AD-25 [pekko://a%F8%88%80%80%80b@h:1]
+pa-0202	path-address	UTF-AD-26 [pekko://a%FC%84%80%80%80%80b@h:1]
+pa-0203	path-address	UTF-AD-27 [pekko://a%FEb@h:1]
+pa-0204	path-address	UTF-AD-28 [pekko://a%FFb@h:1]
+pa-0205	path-address	UTF-AD-29 [pekko://a%C2%41b@h:1]
+pa-0206	path-address	UTF-AD-30 [pekko://a%F0%9F%98%80%80b@h:1]
+pa-0207	path-address	UTF-FS-01 [pekko://a%ED%A0%80@h:1/u%ED%A0%80/v%C0%80#5]
+pa-0208	path-address	UTF-FS-02 [pekko://a%ED%A0%80/u]
+pa-0209	path-address	UTF-FS-03 [pekko://a%E2%82@h%E2:1/u]
+pa-0210	path-address	UTF-FS-04 [pekko://a%FF@h:1/u#%FF]
+pa-0211	path-address	DEEP-01 fromString 1e6 levels vs built
+pa-0212	path-address	RP-01 []
+pa-0213	path-address	RP-02 [/user/a]
+pa-0214	path-address	RP-03 [pekko://sys/a]
+pa-0215	path-address	RP-04 [foo:bar]
+pa-0216	path-address	RP-05 [a%2]
+pa-0217	path-address	RP-06 [a b]
+pa-0218	path-address	RP-07 [foo?x]
+pa-0219	path-address	RP-08 [foo#abc]
+pa-0220	path-address	RP-09 [#5]
+pa-0221	path-address	RP-10 [../a]
+pa-0222	path-address	RP-11 [foo//bar]
+pa-0223	path-address	RP-12 [foo/]
+pa-0224	path-address	RP-13 [\u00FC]
+pa-0225	path-address	RP-14 [a%20b]
+pa-0226	path-address	RP-15 [foo#1#2]
+pa-0227	path-address	CT-01 new(pekko,sys)
+pa-0228	path-address	CT-02 new(pekko,sys,h,1234)
+pa-0229	path-address	CT-03 new(pekko,sys,h,0)
+pa-0230	path-address	CT-04 new(pekko,sys,h,-5)
+pa-0231	path-address	CT-05 new(pekko,sys,h,-1)
+pa-0232	path-address	CT-06 new(pekko,sys,h,70000)
+pa-0233	path-address	CT-07 new(pekko,sys,h,MAX)
+pa-0234	path-address	CT-08 new(pekko,sys,h,MIN)
+pa-0235	path-address	CT-09 new(pekko,sys,null,1)
+pa-0236	path-address	CT-10 new(pekko,sys,'',1)
+pa-0237	path-address	CT-11 copy(host=Some(h),port=None)
+pa-0238	path-address	CT-12 copy(host=Some(''),port=None)
+pa-0239	path-address	CT-13 copy(host=None,port=Some(7))
+pa-0240	path-address	CT-14 new('',s)
+pa-0241	path-address	CT-15 new(p,'')
+pa-0242	path-address	CT-16 new(p,'s@h:1')
+pa-0243	path-address	CT-17 new(p,s,'h:1',2)
+pa-0244	path-address	CT-18 apply(pekko,sys,h,1) eq new
+pa-0245	path-address	CT-19 parsed eq constructed
+pa-0246	path-address	CT-20 roundtrip parse(new(p,s,h,-5).toString)
+pa-0247	path-address	CT-21 roundtrip parse(new(p,s,in_valid,1).toString)
+pa-0248	path-address	HC [_]
+pa-0249	path-address	HC [a_]
+pa-0250	path-address	HC [_a]
+pa-0251	path-address	HC [a_b.c]
+pa-0252	path-address	HC [a.b_c]
+pa-0253	path-address	HC [a_b.c_d]
+pa-0254	path-address	HC [a_.b]
+pa-0255	path-address	HC [a._]
+pa-0256	path-address	HC [\u00FC_x]
+pa-0257	path-address	HC host=None
+pa-0258	path-address	HC host=Some(a_b) port=None
+pa-0259	path-address	RT [/]
+pa-0260	path-address	RT []
+pa-0261	path-address	RT [user]
+pa-0262	path-address	RT [/a]
+pa-0263	path-address	RT [/a/]
+pa-0264	path-address	RT [//]
+pa-0265	path-address	RT [a/b]
+pa-0266	path-address	RT [#]
+pa-0267	path-address	RT [/a#1]
+pa-0268	path-address	RT [a#b]
+pa-0269	path-address	RT new RootActorPath(addr) default name
+pa-0270	path-address	CH [foo]
+pa-0271	path-address	CH [foo#7]
+pa-0272	path-address	CH [foo#+7]
+pa-0273	path-address	CH [foo#-7]
+pa-0274	path-address	CH [foo#0]
+pa-0275	path-address	CH [foo#abc]
+pa-0276	path-address	CH [foo#]
+pa-0277	path-address	CH [foo#99999999999]
+pa-0278	path-address	CH [foo#1#2]
+pa-0279	path-address	CH [#5]
+pa-0280	path-address	CH []
+pa-0281	path-address	CH [foo#\u0665]
+pa-0282	path-address	CH [foo#+]
+pa-0283	path-address	CH [a/b]
+pa-0284	path-address	CH [/]
+pa-0285	path-address	CH [a b]
+pa-0286	path-address	CH [\u00FC]
+pa-0287	path-address	CH [$a]
+pa-0288	path-address	CH [.]
+pa-0289	path-address	CH [..]
+pa-0290	path-address	CH [a?b]
+pa-0291	path-address	CH [a%2]
+pa-0292	path-address	CH root/'foo#7'
+pa-0293	path-address	CH root/'a/b'
+pa-0294	path-address	CH java child('x#3')
+pa-0295	path-address	DS-01 [a,,b]
+pa-0296	path-address	DS-02 []
+pa-0297	path-address	DS-03 [,]
+pa-0298	path-address	DS-04 [a,b#5]
+pa-0299	path-address	DS-05 [a#5,b]
+pa-0300	path-address	DS-06 [a/b]
+pa-0301	path-address	DS-07 [a#x]
+pa-0302	path-address	DS-08 child.descendant[c,d]
+pa-0303	path-address	UID-02 root.withUid(5)
+pa-0304	path-address	UID-03 root.withUid(-1)
+pa-0305	path-address	UID-04 child.withUid(9)
+pa-0306	path-address	UID-05 child#3.withUid(0)
+pa-0307	path-address	UID-07 child.withUid(MIN)
+pa-0308	path-address	NAV-03 remote child address
+pa-0309	path-address	NAV-04 root named elements
+pa-0310	path-address	STR-01 child#7
+pa-0311	path-address	STR-02 child#7 strWithAddr(remote)
+pa-0312	path-address	STR-03 child#7 serWithAddr(remote)
+pa-0313	path-address	STR-04 child#7 strWithAddr(local other)
+pa-0314	path-address	STR-05 child#7 serWithAddr(local other)
+pa-0315	path-address	STR-06 remote child#7 serWithAddr(other remote)
+pa-0316	path-address	STR-07 root serWithAddr(remote)
+pa-0317	path-address	STR-08 root named '/x' strWithAddr(remote)
+pa-0318	path-address	STR-09 root named '/x' child strWithAddr(remote)
+pa-0319	path-address	STR-10 child#-3 ser
+pa-0320	path-address	STR-11 ignore
+pa-0321	path-address	STR-12 ignore strWithAddr(remote)
+pa-0322	path-address	STR-13 ignore serWithAddr(remote)
+pa-0323	path-address	STR-14 user-built pekko://local/ignore#5 strWithAddr
+pa-0324	path-address	STR-15 user-built pekko://local/ignore#5 serWithAddr
+pa-0325	path-address	STR-16 pekko://local/ignore/x strWithAddr
+pa-0326	path-address	STR-17 root pekko://local/ strWithAddr
+pa-0327	path-address	STR-18 akka://local/ignore strWithAddr
+pa-0328	path-address	CMPA-01 same fields
+pa-0329	path-address	CMPA-02 protocol akka<pekko
+pa-0330	path-address	CMPA-03 system
+pa-0331	path-address	CMPA-04 host
+pa-0332	path-address	CMPA-05 port
+pa-0333	path-address	CMPA-06 negative port
+pa-0334	path-address	CMPA-07 local vs remote
+pa-0335	path-address	CMPA-08 host None vs Some('') (same port None)
+pa-0336	path-address	CMPA-09 port None vs Some(0) (same host)
+pa-0337	path-address	CMPA-10 a=(None,1) b=(Some(''),2)
+pa-0338	path-address	CMPA-11 b=(Some(''),2) c=(None,2)
+pa-0339	path-address	CMPA-12 a=(None,1) c=(None,2)
+pa-0340	path-address	CMPA-13 local(None,None) vs (Some(''),Some(5))
+pa-0341	path-address	CMPA-14 UTF-16 order system U+FF61 vs U+10000
+pa-0342	path-address	CMPA-15 uppercase vs lowercase
+pa-0343	path-address	CMPA-16 same toString different fields
+pa-0344	path-address	CMPP-01 root vs equal root
+pa-0345	path-address	CMPP-02 root vs child
+pa-0346	path-address	CMPP-03 /a vs /b
+pa-0347	path-address	CMPP-04 /a/b vs /b
+pa-0348	path-address	CMPP-05 /b/a vs /a/b
+pa-0349	path-address	CMPP-06 /a#1 vs /a#2 (uid ignored)
+pa-0350	path-address	CMPP-07 /a vs /a on other system
+pa-0351	path-address	CMPP-08 /a local vs /a remote
+pa-0352	path-address	CMPP-09 roots same toString, different Address
+pa-0353	path-address	CMPP-10 children of roots with same toString
+pa-0354	path-address	CMPP-11 root(s,'/a') vs root('s/','a')
+pa-0355	path-address	CMPP-12 root(s,'/a') vs child s/a
+pa-0356	path-address	CMPP-13 UTF-16 child names U+FF61 vs U+10000
+pa-0357	path-address	CMPP-14 fromString vs built
+pa-0358	path-address	CMPP-15 ignore vs user-built
+pa-0359	path-address	CMPP-16 empty-name child vs root
+pa-0360	path-address	VAL-01 []
+pa-0361	path-address	VAL-02 [abc]
+pa-0362	path-address	VAL-03 [ABCxyz019]
+pa-0363	path-address	VAL-04 [$abc]
+pa-0364	path-address	VAL-05 [$]
+pa-0365	path-address	VAL-06 [a$b]
+pa-0366	path-address	VAL-07 [a$]
+pa-0367	path-address	VAL-08 [a/b]
+pa-0368	path-address	VAL-09 [a#b]
+pa-0369	path-address	VAL-10 [a%2Fb]
+pa-0370	path-address	VAL-11 [%41]
+pa-0371	path-address	VAL-12 [A%aF]
+pa-0372	path-address	VAL-13 [a%2]
+pa-0373	path-address	VAL-14 [a%]
+pa-0374	path-address	VAL-15 [%]
+pa-0375	path-address	VAL-16 [%g1]
+pa-0376	path-address	VAL-17 [a%%41]
+pa-0377	path-address	VAL-18 [a b]
+pa-0378	path-address	VAL-19 [ ]
+pa-0379	path-address	VAL-20 [\u0009]
+pa-0380	path-address	VAL-21 [\u00FC]
+pa-0381	path-address	VAL-22 [\uD83D\uDE42]
+pa-0382	path-address	VAL-23 [x\uD83D\uDE42]
+pa-0383	path-address	VAL-24 [-_.*$+:@&=,!~';]
+pa-0384	path-address	VAL-25 [-]
+pa-0385	path-address	VAL-26 [.]
+pa-0386	path-address	VAL-27 [..]
+pa-0387	path-address	VAL-28 [a"b]
+pa-0388	path-address	VAL-29 [a?b]
+pa-0389	path-address	VAL-30 [a\b]
+pa-0390	path-address	VAL-31 [a(b]
+pa-0391	path-address	VAL-32 [a[b]
+pa-0392	path-address	VAL-FP-01 ['' in /a/b]
+pa-0393	path-address	VAL-FP-02 [$a in /user/$a]
+pa-0394	path-address	VAL-FP-03 [ok in /x]
+pa-0395	path-address	VAL-FP-04 [a b in '']
+pa-0396	path-address	VAL-JAPI-01 ActorPaths.validatePathElement($x)
+pa-0397	path-address	VAL-JAPI-02 ActorPaths.validatePathElement(x, /p)
+pa-0398	path-address	VAL-JAPI-03 ActorPaths.isValidPathElement(a)
+uc-0001	util-core	TO-01 Timeout.zero
+uc-0002	util-core	TO-02 Timeout(3, NANOSECONDS)
+uc-0003	util-core	TO-MAX NANOSECONDS
+uc-0004	util-core	TO-OVER NANOSECONDS
+uc-0005	util-core	TO-02 Timeout(3, MICROSECONDS)
+uc-0006	util-core	TO-MAX MICROSECONDS
+uc-0007	util-core	TO-OVER MICROSECONDS
+uc-0008	util-core	TO-02 Timeout(3, MILLISECONDS)
+uc-0009	util-core	TO-MAX MILLISECONDS
+uc-0010	util-core	TO-OVER MILLISECONDS
+uc-0011	util-core	TO-02 Timeout(3, SECONDS)
+uc-0012	util-core	TO-MAX SECONDS
+uc-0013	util-core	TO-OVER SECONDS
+uc-0014	util-core	TO-02 Timeout(3, MINUTES)
+uc-0015	util-core	TO-MAX MINUTES
+uc-0016	util-core	TO-OVER MINUTES
+uc-0017	util-core	TO-02 Timeout(3, HOURS)
+uc-0018	util-core	TO-MAX HOURS
+uc-0019	util-core	TO-OVER HOURS
+uc-0020	util-core	TO-02 Timeout(3, DAYS)
+uc-0021	util-core	TO-MAX DAYS
+uc-0022	util-core	TO-OVER DAYS
+uc-0023	util-core	TO-03 Timeout(0, DAYS)
+uc-0024	util-core	TO-04 Timeout(1500, MILLISECONDS)
+uc-0025	util-core	TO-05 Timeout(Long.MaxValue, DAYS)
+uc-0026	util-core	TO-06 eq Timeout(1000 ms) Timeout(1 s)
+uc-0027	util-core	TO-07 ne Timeout(1 s) Timeout(2 s)
+uc-0028	util-core	TO-08 create(ofMillis(250))
+uc-0029	util-core	TO-09 create(ofSeconds(9223372036, 854775807))
+uc-0030	util-core	TO-NEG-01 Timeout(-5, MILLISECONDS)
+uc-0031	util-core	TO-NEG-02 Timeout(Long.MinValue, NANOSECONDS)
+uc-0032	util-core	TO-NEG-03 create(ofMillis(-250))
+uc-0033	util-core	TO-NEG-04 create(ofSeconds(9223372036, 854775808))
+uc-0034	util-core	TO-NEG-05 create(ofSeconds(Long.MAX_VALUE))
+uc-0035	util-core	B64 0
+uc-0036	util-core	B64 1
+uc-0037	util-core	B64 25
+uc-0038	util-core	B64 26
+uc-0039	util-core	B64 51
+uc-0040	util-core	B64 52
+uc-0041	util-core	B64 61
+uc-0042	util-core	B64 62
+uc-0043	util-core	B64 63
+uc-0044	util-core	B64 64
+uc-0045	util-core	B64 65
+uc-0046	util-core	B64 4095
+uc-0047	util-core	B64 4096
+uc-0048	util-core	B64 4294967296
+uc-0049	util-core	B64 -1
+uc-0050	util-core	B64 -64
+uc-0051	util-core	B64 -9223372036854775808
+uc-0052	util-core	B64 9223372036854775807
+uc-0053	util-core	B64-SB prefix x, 5
+uc-0054	util-core	B64-SB prefix temp/$, 64
+uc-0055	util-core	B64-SB empty prefix, 0
+uc-0056	util-core	LC Hello WORLD 123
+uc-0057	util-core	LC TITLE
+uc-0058	util-core	LC 
+uc-0059	util-core	LC \u041F\u0420\u0418\u0412\u0415\u0422
+uc-0060	util-core	LC \uFF21\uFF22
+uc-0061	util-core	LC \uD801\uDC00
+uc-0062	util-core	LC \u00DF
+uc-0063	util-core	LC \u0130
+uc-0064	util-core	LC \u0391\u03A3
+uc-0065	util-core	LC \u0391\u03A3\u0391
+uc-0066	util-core	LC \u03A3
+uc-0067	util-core	RQ-01 5.requiring(true)
+uc-0068	util-core	RQ-02 5.requiring(false, msg)
+uc-0069	util-core	RQ-03 1.requiring(false, 42)
+uc-0070	util-core	RQ-04 1.requiring(false, empty)
+uc-0071	util-core	RQ-05 3.requiring(_ > 0)
+uc-0072	util-core	RQ-06 0.requiring(_ > 0)
+uc-0073	util-core	RQ-07 abc.requiring(len == 3)
+uc-0074	util-core	DN-01 Done
+uc-0075	util-core	DN-02 NotUsed
+uc-0076	util-core	EX-01 PekkoException(boom)
+uc-0077	util-core	EX-02 PekkoException(empty)
+uc-0078	util-core	EX-03 PekkoException(boom, cause)
+uc-0079	util-core	EX-04 ConfigurationException(bad)
+uc-0080	util-core	EX-05 ConfigurationException(bad, cause)
+uc-0081	util-core	EX-06 PekkoException(msg, null)

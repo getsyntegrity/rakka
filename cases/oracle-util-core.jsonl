@@ -1,0 +1,81 @@
+{"name": "uc-0001", "args": ["util-core-case"], "stdin": "TO-01 Timeout.zero"}
+{"name": "uc-0002", "args": ["util-core-case"], "stdin": "TO-02 Timeout(3, NANOSECONDS)"}
+{"name": "uc-0003", "args": ["util-core-case"], "stdin": "TO-MAX NANOSECONDS"}
+{"name": "uc-0004", "args": ["util-core-case"], "stdin": "TO-OVER NANOSECONDS"}
+{"name": "uc-0005", "args": ["util-core-case"], "stdin": "TO-02 Timeout(3, MICROSECONDS)"}
+{"name": "uc-0006", "args": ["util-core-case"], "stdin": "TO-MAX MICROSECONDS"}
+{"name": "uc-0007", "args": ["util-core-case"], "stdin": "TO-OVER MICROSECONDS"}
+{"name": "uc-0008", "args": ["util-core-case"], "stdin": "TO-02 Timeout(3, MILLISECONDS)"}
+{"name": "uc-0009", "args": ["util-core-case"], "stdin": "TO-MAX MILLISECONDS"}
+{"name": "uc-0010", "args": ["util-core-case"], "stdin": "TO-OVER MILLISECONDS"}
+{"name": "uc-0011", "args": ["util-core-case"], "stdin": "TO-02 Timeout(3, SECONDS)"}
+{"name": "uc-0012", "args": ["util-core-case"], "stdin": "TO-MAX SECONDS"}
+{"name": "uc-0013", "args": ["util-core-case"], "stdin": "TO-OVER SECONDS"}
+{"name": "uc-0014", "args": ["util-core-case"], "stdin": "TO-02 Timeout(3, MINUTES)"}
+{"name": "uc-0015", "args": ["util-core-case"], "stdin": "TO-MAX MINUTES"}
+{"name": "uc-0016", "args": ["util-core-case"], "stdin": "TO-OVER MINUTES"}
+{"name": "uc-0017", "args": ["util-core-case"], "stdin": "TO-02 Timeout(3, HOURS)"}
+{"name": "uc-0018", "args": ["util-core-case"], "stdin": "TO-MAX HOURS"}
+{"name": "uc-0019", "args": ["util-core-case"], "stdin": "TO-OVER HOURS"}
+{"name": "uc-0020", "args": ["util-core-case"], "stdin": "TO-02 Timeout(3, DAYS)"}
+{"name": "uc-0021", "args": ["util-core-case"], "stdin": "TO-MAX DAYS"}
+{"name": "uc-0022", "args": ["util-core-case"], "stdin": "TO-OVER DAYS"}
+{"name": "uc-0023", "args": ["util-core-case"], "stdin": "TO-03 Timeout(0, DAYS)"}
+{"name": "uc-0024", "args": ["util-core-case"], "stdin": "TO-04 Timeout(1500, MILLISECONDS)"}
+{"name": "uc-0025", "args": ["util-core-case"], "stdin": "TO-05 Timeout(Long.MaxValue, DAYS)"}
+{"name": "uc-0026", "args": ["util-core-case"], "stdin": "TO-06 eq Timeout(1000 ms) Timeout(1 s)"}
+{"name": "uc-0027", "args": ["util-core-case"], "stdin": "TO-07 ne Timeout(1 s) Timeout(2 s)"}
+{"name": "uc-0028", "args": ["util-core-case"], "stdin": "TO-08 create(ofMillis(250))"}
+{"name": "uc-0029", "args": ["util-core-case"], "stdin": "TO-09 create(ofSeconds(9223372036, 854775807))"}
+{"name": "uc-0030", "args": ["util-core-case"], "stdin": "TO-NEG-01 Timeout(-5, MILLISECONDS)"}
+{"name": "uc-0031", "args": ["util-core-case"], "stdin": "TO-NEG-02 Timeout(Long.MinValue, NANOSECONDS)"}
+{"name": "uc-0032", "args": ["util-core-case"], "stdin": "TO-NEG-03 create(ofMillis(-250))"}
+{"name": "uc-0033", "args": ["util-core-case"], "stdin": "TO-NEG-04 create(ofSeconds(9223372036, 854775808))"}
+{"name": "uc-0034", "args": ["util-core-case"], "stdin": "TO-NEG-05 create(ofSeconds(Long.MAX_VALUE))"}
+{"name": "uc-0035", "args": ["util-core-case"], "stdin": "B64 0"}
+{"name": "uc-0036", "args": ["util-core-case"], "stdin": "B64 1"}
+{"name": "uc-0037", "args": ["util-core-case"], "stdin": "B64 25"}
+{"name": "uc-0038", "args": ["util-core-case"], "stdin": "B64 26"}
+{"name": "uc-0039", "args": ["util-core-case"], "stdin": "B64 51"}
+{"name": "uc-0040", "args": ["util-core-case"], "stdin": "B64 52"}
+{"name": "uc-0041", "args": ["util-core-case"], "stdin": "B64 61"}
+{"name": "uc-0042", "args": ["util-core-case"], "stdin": "B64 62"}
+{"name": "uc-0043", "args": ["util-core-case"], "stdin": "B64 63"}
+{"name": "uc-0044", "args": ["util-core-case"], "stdin": "B64 64"}
+{"name": "uc-0045", "args": ["util-core-case"], "stdin": "B64 65"}
+{"name": "uc-0046", "args": ["util-core-case"], "stdin": "B64 4095"}
+{"name": "uc-0047", "args": ["util-core-case"], "stdin": "B64 4096"}
+{"name": "uc-0048", "args": ["util-core-case"], "stdin": "B64 4294967296"}
+{"name": "uc-0049", "args": ["util-core-case"], "stdin": "B64 -1"}
+{"name": "uc-0050", "args": ["util-core-case"], "stdin": "B64 -64"}
+{"name": "uc-0051", "args": ["util-core-case"], "stdin": "B64 -9223372036854775808"}
+{"name": "uc-0052", "args": ["util-core-case"], "stdin": "B64 9223372036854775807"}
+{"name": "uc-0053", "args": ["util-core-case"], "stdin": "B64-SB prefix x, 5"}
+{"name": "uc-0054", "args": ["util-core-case"], "stdin": "B64-SB prefix temp/$, 64"}
+{"name": "uc-0055", "args": ["util-core-case"], "stdin": "B64-SB empty prefix, 0"}
+{"name": "uc-0056", "args": ["util-core-case"], "stdin": "LC Hello WORLD 123"}
+{"name": "uc-0057", "args": ["util-core-case"], "stdin": "LC TITLE"}
+{"name": "uc-0058", "args": ["util-core-case"], "stdin": "LC "}
+{"name": "uc-0059", "args": ["util-core-case"], "stdin": "LC \\u041F\\u0420\\u0418\\u0412\\u0415\\u0422"}
+{"name": "uc-0060", "args": ["util-core-case"], "stdin": "LC \\uFF21\\uFF22"}
+{"name": "uc-0061", "args": ["util-core-case"], "stdin": "LC \\uD801\\uDC00"}
+{"name": "uc-0062", "args": ["util-core-case"], "stdin": "LC \\u00DF"}
+{"name": "uc-0063", "args": ["util-core-case"], "stdin": "LC \\u0130"}
+{"name": "uc-0064", "args": ["util-core-case"], "stdin": "LC \\u0391\\u03A3"}
+{"name": "uc-0065", "args": ["util-core-case"], "stdin": "LC \\u0391\\u03A3\\u0391"}
+{"name": "uc-0066", "args": ["util-core-case"], "stdin": "LC \\u03A3"}
+{"name": "uc-0067", "args": ["util-core-case"], "stdin": "RQ-01 5.requiring(true)"}
+{"name": "uc-0068", "args": ["util-core-case"], "stdin": "RQ-02 5.requiring(false, msg)"}
+{"name": "uc-0069", "args": ["util-core-case"], "stdin": "RQ-03 1.requiring(false, 42)"}
+{"name": "uc-0070", "args": ["util-core-case"], "stdin": "RQ-04 1.requiring(false, empty)"}
+{"name": "uc-0071", "args": ["util-core-case"], "stdin": "RQ-05 3.requiring(_ > 0)"}
+{"name": "uc-0072", "args": ["util-core-case"], "stdin": "RQ-06 0.requiring(_ > 0)"}
+{"name": "uc-0073", "args": ["util-core-case"], "stdin": "RQ-07 abc.requiring(len == 3)"}
+{"name": "uc-0074", "args": ["util-core-case"], "stdin": "DN-01 Done"}
+{"name": "uc-0075", "args": ["util-core-case"], "stdin": "DN-02 NotUsed"}
+{"name": "uc-0076", "args": ["util-core-case"], "stdin": "EX-01 PekkoException(boom)"}
+{"name": "uc-0077", "args": ["util-core-case"], "stdin": "EX-02 PekkoException(empty)"}
+{"name": "uc-0078", "args": ["util-core-case"], "stdin": "EX-03 PekkoException(boom, cause)"}
+{"name": "uc-0079", "args": ["util-core-case"], "stdin": "EX-04 ConfigurationException(bad)"}
+{"name": "uc-0080", "args": ["util-core-case"], "stdin": "EX-05 ConfigurationException(bad, cause)"}
+{"name": "uc-0081", "args": ["util-core-case"], "stdin": "EX-06 PekkoException(msg, null)"}

@@ -4,11 +4,15 @@ Port a Rust de los módulos de actores de Apache Pekko 2.0.0: `rakka-actor` (Cla
 
 ## Estructura
 
-- `migration/pekko-rust-pilot/` — piloto previo (port contra Pekko 2.0.0) importado tal cual y aislado: tiene su propio workspace y no forma parte del workspace raíz. Es fuente de código, grabaciones y evidencia para la migración; leer su `MIGRATION-README.md` (estado verificado y diferencias a resolver).
+- `crates/rakka-actor/` — Classic: `src/actor` (paths, direcciones, runtime: sistema, celdas, hijos, supervisión), `src/dispatch`, `src/event`, `src/util`; `examples/classic-parity/` es el arnés CLI que imprime lo mismo que el oráculo (`path-from-string`, `scenario`, `path-address-case`, `util-core-case`); `tests/recorded_pekko.rs` repite en proceso todos los casos grabados.
+- `oracle/` — oráculo oficial (Q-X-12): CLI Java contra Pekko 2.0.0 en JDK 17 (`oracle/run.sh <comando>`, se construye con `mvn -f oracle/pom.xml package`).
+- `cases/*.jsonl` — entradas de los casos; `rust/app-cases/` — grabaciones de Pekko (`rust-anything app record/replay`, no se editan a mano); `cases/not-applicable.tsv` — entradas fuera del dominio `&str` (Q-X-17), con motivo y decisión; `cases/oracle-ids/` — todos los ids del oráculo por familia; `cases/oracle-case-ids.tsv` — caso → id.
+- `tools/parity/` — `replay.py` (replay con NOT_APPLICABLE: informa "N/N aplicables + K no aplicables"), `check_divergence.py` (mutantes; `--selftest` debe salir con 1), `fuzz_*.py` (fuzzers diferenciales JVM vs Rust), `make_*.py` (generadores de casos), `coverage.sh`, `reproduce-all.sh`.
+- `rust/divergence-reports/` y `docs/evidence/pilot/` — evidencia del piloto (reportes por mutante, `INVENTORY.md`, `REPORT-3b.md`, `MIGRATION-README.md`).
 - `upstream/pekko/` — submódulo fijado en v2.0.0 (`9fbd2283…`; Scala 2.13.18, Config 1.4.9, JDK mínima 17). **Sólo lectura.** Ver `docs/upstream.md`. Las citas `path:line` del inventario apuntan a 2.0.0; `docs/inventory/pekko-2.0.0-reanchor.md` resume el reanclaje desde 1.7.1.
-- `crates/rakka-actor/`, `crates/rakka-actor-typed/` — código propio.
-- `crates/*/tests/oracle/*.golden` — **deprecado** (Q-X-12): salidas del oráculo jshell de 1.7.1; se convierten a casos `rust-anything` y se eliminan.
-- `tools/oracle/` — **deprecado** (Q-X-12): oráculo jshell + jars 1.7.1. El oráculo oficial es el CLI Java del piloto (JDK 17) con `rust-anything app record/replay` contra Pekko 2.0.0 (hoy en `migration/pekko-rust-pilot/oracle/`; el bloque B de la consolidación lo mueve a `oracle/`).
+- `crates/rakka-actor-typed/` — Typed (vacío hasta el slice correspondiente).
+- `crates/rakka-actor/tests/oracle/config-hocon.golden` — único golden jshell que queda (CFG, sin consumidor); se convierte a casos `rust-anything` cuando una unidad tome CFG. Los de PATH y UTIL ya son casos grabados.
+- `tools/oracle/` (jshell, jars 1.7.1) se eliminó (Q-X-12); su historia está en git.
 - `docs/inventory/` — inventario de alcance (`actor-classic.tsv`, `actor-typed.tsv` + resúmenes `.md`) y `contracts/` (contrato, fuente `path:line`, aserciones y oráculo de cada fila). Es la definición de "100%". Convenciones en `docs/inventory/README.md`.
 - `docs/decisions.md` (+ `docs/decisions/register.tsv`) — registro único de decisiones del Owner: autorizadas, propuestas y bloqueantes.
 - `docs/implementation-order.md` — orden de ejecución; `docs/superpowers/plans/units/` — 49 specs preliminares generadas (agrupaciones de filas, máximo 5 tareas cada una; requieren revisión de atomicidad y dependencias antes de considerarse ejecutables); `docs/contract-map.tsv` — fila → spec → validación.
@@ -26,7 +30,7 @@ Port a Rust de los módulos de actores de Apache Pekko 2.0.0: `rakka-actor` (Cla
 | Tests | `cargo test --workspace` |
 | Lint | `cargo clippy --workspace --all-targets -- -D warnings` |
 | Formato | `cargo fmt --all --check` |
-| Oráculo | `oracle/run.sh` (JDK 17) + `rust-anything app record/replay` (Q-X-12; hasta el bloque B: `migration/pekko-rust-pilot/oracle/run.sh`). `tools/oracle/run.sh` (jshell, Java 21) está deprecado |
+| Oráculo | `oracle/run.sh <comando>` (JDK 17) + `rust-anything app record/replay` (Q-X-12); replay: `python3.12 tools/parity/replay.py` |
 | Paquete documental | `python3.12 tools/package/generate.py` y `python3.12 tools/package/check.py` (requieren Python ≥3.12: f-strings anidados) |
 
 No usar `-race`/sanitizers ni correr workbench salvo pedido explícito.

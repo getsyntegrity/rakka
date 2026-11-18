@@ -1,0 +1,4 @@
+bin.name = "classic-parity"
+args = ["path-address-case"]
+status.code = 0
+fs.sandbox = true

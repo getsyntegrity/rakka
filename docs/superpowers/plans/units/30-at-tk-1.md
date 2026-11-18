@@ -30,7 +30,7 @@ Decisiones:
 
 ## Estrategia de oráculo y procedencia
 
-jars pekko-actor-typed; el jar `pekko-actor-testkit-typed` NO está en tools/oracle/fetch-jars.sh: agregarlo con su SHA-1 es parte de la primera tarea. Todo golden lleva en su cabecera la fuente exacta (jars con SHA-1 verificado, o commit de Pekko) y el hash del script, como los goldens existentes.
+casos rust-anything contra pekko-actor-testkit-typed 2.0.0: agregar la dependencia a `oracle/pom.xml` es parte de la primera tarea. Todo golden lleva en su cabecera la fuente exacta (jars con SHA-1 verificado, o commit de Pekko) y el hash del script, como los goldens existentes.
 
 ## Tareas
 

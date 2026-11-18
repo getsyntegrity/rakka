@@ -1,0 +1,1 @@
+AD-50 [pekko://sys@[::FFFF:1.2.3.4]:1] -> ok str=[pekko://sys@[::FFFF:1.2.3.4]:1] protocol=[pekko] system=[sys] host=[[::FFFF:1.2.3.4]] port=[1] local=false global=true hostPort=[sys@[::FFFF:1.2.3.4]:1]

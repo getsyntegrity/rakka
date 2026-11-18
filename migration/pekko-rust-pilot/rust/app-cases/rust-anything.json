@@ -1,8 +1,0 @@
-{
-  "schema": "rust-anything/app-cases@1",
-  "name": "classic-parity",
-  "run": [
-    "oracle/run.sh"
-  ],
-  "timeout_secs": 30
-}

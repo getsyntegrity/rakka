@@ -12,10 +12,17 @@
 //! but every check treats both halves of a surrogate pair alike (non-ASCII,
 //! not a space, not a control), so the outcome is the same.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct UriSyntaxError;
+/// Why `new URI(s)` failed: `URISyntaxException`, or a `NumberFormatException` that `URI` lets escape
+/// (an IPv4 octet that overflows `Integer.parseInt`, on JDK 17: decision Q-X-16).
+use super::errors::NumberFormatError;
 
-type Res<T> = Result<T, UriSyntaxError>;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum UriError {
+    Syntax,
+    NumberFormat(NumberFormatError),
+}
+
+type Res<T> = Result<T, UriError>;
 
 #[derive(Debug, Default)]
 pub(crate) struct Uri {
@@ -199,7 +206,7 @@ impl Parser<'_> {
             if p + 3 <= n && HEX.matches(self.input[p + 1]) && HEX.matches(self.input[p + 2]) {
                 return Ok(p + 3);
             }
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
         if (c as u32) > 128 && !is_space_char(c) && !is_iso_control(c) {
             return Ok(p + 1);
@@ -229,7 +236,7 @@ impl Parser<'_> {
 
     fn check_chars(&self, start: usize, end: usize, mask: Mask) -> Res<()> {
         if self.scan(start, end, mask)? < end {
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
         Ok(())
     }
@@ -240,7 +247,7 @@ impl Parser<'_> {
         match self.scan_err_stop(0, n, "/?#", ":") {
             Some(colon) if self.at(colon, n, ':') => {
                 if colon == 0 {
-                    return Err(UriSyntaxError);
+                    return Err(UriError::Syntax);
                 }
                 self.check_chars(0, 1, ALPHA)?;
                 self.check_chars(1, colon, SCHEME)?;
@@ -251,7 +258,7 @@ impl Parser<'_> {
                 } else {
                     let q = self.scan_stop(p, n, "#");
                     if q <= p {
-                        return Err(UriSyntaxError);
+                        return Err(UriError::Syntax);
                     }
                     self.check_chars(p, q, URIC)?;
                     p = q;
@@ -265,7 +272,7 @@ impl Parser<'_> {
             p = n;
         }
         if p < n {
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
         Ok(())
     }
@@ -278,7 +285,7 @@ impl Parser<'_> {
             if q > p {
                 p = self.parse_authority(p, q)?;
             } else if q >= n {
-                return Err(UriSyntaxError);
+                return Err(UriError::Syntax);
             }
         }
         let q = self.scan_stop(p, n, "?#");
@@ -320,11 +327,13 @@ impl Parser<'_> {
         if server_chars {
             match self.parse_server(p, n, reg_chars) {
                 Ok(end) if end == n => q = end,
-                _ => self.reset_server(),
+                // Only `URISyntaxException` is caught; a `NumberFormatException` escapes (JDK 17).
+                Ok(_) | Err(UriError::Syntax) => self.reset_server(),
+                Err(error @ UriError::NumberFormat(_)) => return Err(error),
             }
         }
         if q < n && !reg_chars {
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
         Ok(n)
     }
@@ -347,7 +356,7 @@ impl Parser<'_> {
                     if r > p {
                         self.parse_ipv6_reference(p, r)?;
                         if r + 1 == q {
-                            return Err(UriSyntaxError);
+                            return Err(UriError::Syntax);
                         }
                         self.check_chars(r + 1, q, SCOPE_ID)?;
                     } else {
@@ -356,7 +365,7 @@ impl Parser<'_> {
                     self.uri.host = Some(self.sub(p - 1, q + 1));
                     p = q + 1;
                 }
-                _ => return Err(UriSyntaxError),
+                _ => return Err(UriError::Syntax),
             }
         } else {
             p = match self.parse_ipv4_address(p, n) {
@@ -371,37 +380,30 @@ impl Parser<'_> {
             if q > p {
                 self.check_chars(p, q, DIGIT)?;
                 let digits = self.sub(p, q);
-                self.uri.port = digits.parse::<i32>().map_err(|_| UriSyntaxError)?;
+                self.uri.port = digits.parse::<i32>().map_err(|_| UriError::Syntax)?;
                 p = q;
             }
         } else if p < n && skip_parse_exception {
             return Ok(p);
         }
         if p < n {
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
         Ok(p)
     }
 
+    /// `URI.scanByte` on JDK 17: `Integer.parseInt(input, p, q, 10) > 255` (so an overflow throws).
     fn scan_byte(&self, start: usize, n: usize) -> Res<usize> {
         let p = start;
         let q = self.scan(p, n, DIGIT)?;
         if q <= p {
             return Ok(q);
         }
-        let mut i = p;
-        while self.scan_char(i, q, '0') > i {
-            i += 1;
+        match parse_int_range(&self.input[p..q]) {
+            Ok(value) if value > 255 => Ok(p),
+            Ok(_) => Ok(q),
+            Err(error) => Err(UriError::NumberFormat(error)),
         }
-        let significant = q - i;
-        if significant < 3 {
-            return Ok(q);
-        }
-        if significant > 3 {
-            return Ok(p);
-        }
-        let value: u32 = self.sub(p, q).parse().map_err(|_| UriSyntaxError)?;
-        Ok(if value > 255 { p } else { q })
     }
 
     fn scan_ipv4_address(&self, start: usize, n: usize, strict: bool) -> Res<Option<usize>> {
@@ -429,7 +431,7 @@ impl Parser<'_> {
             }
         }
         if strict {
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
         Ok(None)
     }
@@ -437,7 +439,7 @@ impl Parser<'_> {
     fn take_ipv4_address(&self, start: usize, n: usize) -> Res<usize> {
         match self.scan_ipv4_address(start, n, true)? {
             Some(p) if p > start => Ok(p),
-            _ => Err(UriSyntaxError),
+            _ => Err(UriError::Syntax),
         }
     }
 
@@ -465,7 +467,7 @@ impl Parser<'_> {
             let q = self.scan(p, n, ALPHANUM.or(DASH))?;
             if q > p {
                 if self.input[q - 1] == '-' {
-                    return Err(UriSyntaxError);
+                    return Err(UriError::Syntax);
                 }
                 p = q;
             }
@@ -482,11 +484,11 @@ impl Parser<'_> {
             if skip_parse_exception {
                 return Ok(p);
             }
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
-        let l = last_label.ok_or(UriSyntaxError)?;
+        let l = last_label.ok_or(UriError::Syntax)?;
         if l > start && !ALPHA.matches(self.input[l]) {
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
         self.uri.host = Some(self.sub(start, p));
         Ok(p)
@@ -513,7 +515,7 @@ impl Parser<'_> {
             || (!compressed_zeros && self.ipv6_byte_count < 16)
             || (compressed_zeros && self.ipv6_byte_count == 16);
         if malformed {
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
         Ok(p)
     }
@@ -543,7 +545,7 @@ impl Parser<'_> {
             return Ok(None);
         }
         if q > p + 4 {
-            return Err(UriSyntaxError);
+            return Err(UriError::Syntax);
         }
         self.ipv6_byte_count += 2;
         p = q;
@@ -554,14 +556,14 @@ impl Parser<'_> {
             p += 1;
             let q = self.scan(p, n, HEX)?;
             if q <= p {
-                return Err(UriSyntaxError);
+                return Err(UriError::Syntax);
             }
             if self.at(q, n, '.') {
                 p -= 1;
                 break;
             }
             if q > p + 4 {
-                return Err(UriSyntaxError);
+                return Err(UriError::Syntax);
             }
             self.ipv6_byte_count += 2;
             p = q;
@@ -676,6 +678,28 @@ fn decode_utf8_like_jdk(bytes: &[u8], out: &mut String) {
         out.push(decoded.unwrap_or('\u{FFFD}'));
         i += len;
     }
+}
+
+/// `Integer.parseInt(CharSequence, begin, end, 10)` of JDK 17 for a run of ASCII digits (what `URI.scanByte`
+/// calls): the only failure is overflow, reported as `Error at index N in: "digits"`.
+fn parse_int_range(digits: &[char]) -> Result<i32, NumberFormatError> {
+    let limit = -i32::MAX;
+    let multmin = limit / 10;
+    let mut result: i32 = 0;
+    for (index, c) in digits.iter().enumerate() {
+        let digit = c.to_digit(10).map_or(i32::MAX, |d| d as i32);
+        if result < multmin || {
+            result *= 10;
+            result < limit + digit
+        } {
+            let text: String = digits.iter().collect();
+            return Err(NumberFormatError::new(format!(
+                "Error at index {index} in: \"{text}\""
+            )));
+        }
+        result -= digit;
+    }
+    Ok(-result)
 }
 
 #[cfg(test)]

@@ -1,0 +1,2 @@
+case	source_name	reason	decision	link
+ok-user-info-lone-surrog	ok-user-info-lone-surrogate	The input holds an unpaired UTF-16 surrogate (\ud800): representable in a Java String, not in a Rust &str. The public API domain is &str, so the input is out of domain and the harness must reject it with an explicit error (exit 2, "outside the API domain"), never replace it.	Q-X-17	docs/decisions.md

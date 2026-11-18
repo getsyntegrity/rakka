@@ -2,3 +2,5 @@
 /.oracle
 /.idea
 /docs.tar.gz
+oracle/target/
+__pycache__/

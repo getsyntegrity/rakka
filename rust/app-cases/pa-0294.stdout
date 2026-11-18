@@ -1,0 +1,1 @@
+CH java child('x#3') -> ok ChildActorPath str=[pekko://mysys/x] ser=[pekko://mysys/x#3] noAddr=[/x] addr=[pekko://mysys] name=[x] uid=3 elems=([x])

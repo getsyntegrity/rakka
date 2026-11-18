@@ -20,7 +20,7 @@ Decisiones:
 
 ## Estrategia de oráculo y procedencia
 
-jars oficiales pekko-actor 1.7.1 + JDK (jshell); ya existe tools/oracle/path-address.jsh. Todo golden lleva en su cabecera la fuente exacta (jars con SHA-1 verificado, o commit de Pekko) y el hash del script, como los goldens existentes.
+casos rust-anything contra Pekko 2.0.0 (JDK 17): `oracle/` (comando `path-address-case`) y `cases/oracle-path-address.jsonl`. Todo golden lleva en su cabecera la fuente exacta (jars con SHA-1 verificado, o commit de Pekko) y el hash del script, como los goldens existentes.
 
 ## Tareas
 

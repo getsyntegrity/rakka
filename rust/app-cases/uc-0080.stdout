@@ -1,0 +1,1 @@
+EX-05 ConfigurationException(bad, cause) -> ok class=[ConfigurationException] msg=[bad] cause=[why]

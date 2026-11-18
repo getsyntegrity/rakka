@@ -165,19 +165,28 @@ fn a_std_duration_converts_with_try_from_and_keeps_its_nanoseconds() {
 }
 
 #[test]
-fn a_std_duration_beyond_the_range_fails_with_long_overflow_not_saturation() {
-    // create(ofSeconds(9223372036, 854775808)) and create(ofSeconds(Long.MAX_VALUE)) throw
-    // ArithmeticException("long overflow") (oracle TO-NEG-04, TO-NEG-05).
-    for too_long in [
-        Duration::new(9_223_372_036, 854_775_808),
-        Duration::from_secs(i64::MAX as u64),
-        Duration::from_secs(u64::MAX),
-        Duration::MAX,
+fn a_std_duration_beyond_the_range_fails_like_scala_duration_converters_in_pekko_2_0_0() {
+    // Pekko 2.0.0 `Timeout.create` goes through `scala.jdk.DurationConverters.toScala` (oracle TO-NEG-04,
+    // TO-NEG-05): a duration with seconds and nanos that overflows is an IllegalArgumentException naming the
+    // Java duration; one without nanos reaches `FiniteDuration(seconds, SECONDS)` and fails its requirement.
+    let requirement = "requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)";
+    let cannot = |iso: &str| format!("Java duration {iso} cannot be expressed as a Scala duration");
+    for (too_long, message) in [
+        (
+            Duration::new(9_223_372_036, 854_775_808),
+            cannot("PT2562047H47M16.854775808S"),
+        ),
+        (Duration::from_secs(i64::MAX as u64), requirement.to_owned()),
+        (Duration::from_secs(u64::MAX), requirement.to_owned()),
+        (Duration::MAX, cannot("PT5124095576030431H15.999999999S")),
+        (
+            Duration::new(9_223_372_037, 500_000_000),
+            cannot("PT2562047H47M17.5S"),
+        ),
     ] {
         let err = Timeout::try_from(too_long).unwrap_err();
-        assert_eq!(err.java_class(), "ArithmeticException", "{too_long:?}");
-        assert_eq!(err.message(), "long overflow", "{too_long:?}");
-        assert_eq!(err.to_string(), "long overflow", "{too_long:?}");
+        assert_eq!(err.java_class(), "IllegalArgumentException", "{too_long:?}");
+        assert_eq!(err.message(), message, "{too_long:?}");
     }
 }
 

@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 216 decisiones: 8 bloqueantes, 202 propuestas, 5 aceptadas, 0 aceptadas con cambios, 1 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 218 decisiones: 8 bloqueantes, 202 propuestas, 7 aceptadas, 0 aceptadas con cambios, 1 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -222,7 +222,7 @@ Decidirlas primero: desbloquean la mayor parte de las propuestas por unidad.
 ### Q-X-12 — Oráculo oficial: CLI Java del piloto con rust-anything
 
 - **Estado:** aceptada
-- **Evidencia:** migration/pekko-rust-pilot/oracle (Java 17), `rust-anything app record/replay`. El oráculo jshell + goldens de tools/oracle queda deprecado y sus escenarios se convierten a casos rust-anything.
+- **Evidencia:** oracle/ (Java 17), `rust-anything app record/replay`. El oráculo jshell + goldens de tools/oracle queda deprecado y sus escenarios se convierten a casos rust-anything.
 - **Alternativas:** (a) CLI del piloto + rust-anything; (b) jshell + goldens; (c) ambos.
 - **Recomendación:** (a).
 - **Filas afectadas:** todas las filas
@@ -262,6 +262,28 @@ Decidirlas primero: desbloquean la mayor parte de las propuestas por unidad.
 - **Unidades afectadas:** todas
 - **Origen:** transversal
 - **Respuesta del Owner:** aceptar: los crates son rakka-actor y rakka-actor-typed. (Owner (instrucción en la sesión), 2026-11-18)
+
+### Q-X-16 — JDK del oráculo fijo en 17
+
+- **Estado:** aceptada
+- **Evidencia:** oracle/ (CLI Java, JDK 17), project/JdkOptions.scala:26 (targetJavaVersion 17). Los mensajes de excepción del JDK forman parte de lo observable y cambian entre versiones: p. ej. URI.scanByte lanza NumberFormatException con `Error at index N in: "…"` en JDK 17.
+- **Alternativas:** (a) JDK 17 fijo; (b) JDK 21; (c) ambos.
+- **Recomendación:** (a); las grabaciones de JDK 21 de los goldens deprecados no cuentan.
+- **Filas afectadas:** AC-PATH-*; AC-UTIL-*; todas las filas con mensajes de excepción del JDK
+- **Unidades afectadas:** todas
+- **Origen:** transversal
+- **Respuesta del Owner:** aceptar: el JDK del oráculo queda fijo en 17, porque los mensajes de excepción del JDK forman parte de lo observable y cambian entre versiones. Las grabaciones de JDK 21 de los goldens deprecados no cuentan. (Owner (instrucción en la sesión), 2026-11-18)
+
+### Q-X-17 — Dominio de entrada de la API pública: &str
+
+- **Estado:** aceptada
+- **Evidencia:** Q-PATH-2; la entrada con un sustituto UTF-16 suelto (p. ej. `pekko://sys\ud800@host:2552/user`) es representable en un String de Java y no en un &str de Rust. Caso grabado: ok-user-info-lone-surrogate.
+- **Alternativas:** (a) &str y las entradas con sustitutos sueltos quedan fuera de dominio (NOT_APPLICABLE explícito y rechazo explícito en el arnés); (b) UTF-16 en la API.
+- **Recomendación:** (a).
+- **Filas afectadas:** AC-PATH-*; AC-UTIL-*
+- **Unidades afectadas:** todas
+- **Origen:** transversal
+- **Respuesta del Owner:** aceptar: el dominio de entrada de la API pública es &str; las entradas con sustitutos UTF-16 sueltos (representables en Java, no en Rust) quedan fuera de dominio. En el replay se listan como NOT_APPLICABLE en cases/not-applicable.tsv (con motivo y esta decisión), se informan como "N/N aplicables + K no aplicables" y el arnés las rechaza con un error explícito, nunca con reemplazo lossy. Sustituye a "las cifras del piloto tienen que mantenerse" sólo para ese caso. (Owner (instrucción en la sesión), 2026-11-18)
 
 Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 

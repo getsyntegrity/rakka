@@ -1,0 +1,1 @@
+VAL-JAPI-01 ActorPaths.validatePathElement($x) -> ERR InvalidActorNameException [Invalid actor path element [$x], illegal character [$] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

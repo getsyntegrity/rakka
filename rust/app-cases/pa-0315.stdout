@@ -1,0 +1,1 @@
+STR-06 remote child#7 serWithAddr(other remote) -> ok pekko://mysys@aaa:7355/foo#7

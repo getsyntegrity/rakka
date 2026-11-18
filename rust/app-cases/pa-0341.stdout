@@ -1,0 +1,1 @@
+CMPA-14 UTF-16 order system U+FF61 vs U+10000 -> ok cmp=1 cmpRev=-1 eq=false

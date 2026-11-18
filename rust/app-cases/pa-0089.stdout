@@ -1,0 +1,1 @@
+FS-24 [pekko://@host:1/user] -> ok ChildActorPath str=[pekko://@host:1/user] ser=[pekko://@host:1/user] noAddr=[/user] addr=[pekko://@host:1] name=[user] uid=0 elems=([user])

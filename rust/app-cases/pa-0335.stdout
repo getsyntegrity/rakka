@@ -1,0 +1,1 @@
+CMPA-08 host None vs Some('') (same port None) -> ok cmp=0 cmpRev=0 eq=false

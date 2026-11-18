@@ -1,0 +1,1 @@
+CMPP-13 UTF-16 child names U+FF61 vs U+10000 -> ok cmp=1 cmpRev=-1 eq=false eqRev=false

@@ -1,0 +1,1 @@
+VAL-22 [\uD83D\uDE42] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [\uD83D\uDE42], illegal character [\uD83D] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

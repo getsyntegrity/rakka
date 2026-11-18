@@ -1,0 +1,1 @@
+TO-NEG-05 create(ofSeconds(Long.MAX_VALUE)) -> ERR IllegalArgumentException [requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]

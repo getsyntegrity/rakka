@@ -1,6 +1,6 @@
 [package]
 name = "rakka-actor"
-description = "Rust port of Apache Pekko 1.7.1 classic actors (pekko-actor)"
+description = "Rust port of Apache Pekko 2.0.0 classic actors (pekko-actor)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
