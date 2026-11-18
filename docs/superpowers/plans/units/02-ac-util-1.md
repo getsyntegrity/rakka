@@ -1,6 +1,6 @@
 # Spec 02 — AC-UTIL (1/2)
 
-**Estado:** sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias. **Filas:** 30. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 30. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -20,7 +20,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-UTIL-20`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -100,9 +100,9 @@ Filas: AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.
 | AC-UTIL-014 | TypedMultiMap | `TypedMultiMap<K, V>` con trait asociado para la dependencia clave->valor y estructura… | actor-tests/src/test/scala-2/org/apache/pekko/util/TypedMultiMapSpec.scala:22-77 | Q-UTIL-11 |
 | AC-UTIL-015.1 | Switch (interruptor atómico con acciones bajo lock) | `Switch` con `AtomicBool` + `Mutex<()>`; acciones como closures | actor-tests/src/test/scala/org/apache/pekko/util/SwitchSpec.scala:24-110 | Q-UTIL-10, Q-UTIL-11, Q-X-5 |
 | AC-UTIL-015.2 | ReentrantGuard (deprecado desde 1.2.1) | n/a: `std::sync::Mutex` ya cubre `withGuard` (propuesta de equivalente) | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
-| AC-UTIL-016.1 | OptionVal (Option sin allocación) | `Option<T>` de Rust (ya sin allocación) | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
-| AC-UTIL-016.2 | ConstantFun (funciones constantes/identidad Scala y Java) | closures `const`/`identity` donde se necesiten | actor-tests/src/test/java/org/apache/pekko/util/ConstantFunJavaTest.java:26-48 | Q-UTIL-11 |
-| AC-UTIL-016.3 | Collections (EmptyImmutableSeq, PartialImmutableValuesIterable) | `Vec`/iteradores nativos | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
+| AC-UTIL-016.1 | OptionVal (Option sin allocación) | `Option<T>` de Rust (ya sin allocación) | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-UTIL-20 |
+| AC-UTIL-016.2 | ConstantFun (funciones constantes/identidad Scala y Java) | closures `const`/`identity` donde se necesiten | actor-tests/src/test/java/org/apache/pekko/util/ConstantFunJavaTest.java:26-48 | Q-UTIL-11, Q-UTIL-20 |
+| AC-UTIL-016.3 | Collections (EmptyImmutableSeq, PartialImmutableValuesIterable) | `Vec`/iteradores nativos | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-UTIL-20 |
 | AC-UTIL-016.4 | ImmutableIntMap (mapa Int->Int inmutable) | `BTreeMap<i32,i32>` persistente | actor-tests/src/test/scala/org/apache/pekko/util/ImmutableIntMapSpec.scala:25-156 | Q-UTIL-11, Q-UTIL-14 |
 | AC-UTIL-016.9 | ManifestInfo (versiones de módulos Pekko en el classpath) | constante de versión del crate; chequeo mixto n/a | actor-tests/src/test/scala/org/apache/pekko/util/ManifestInfoSpec.scala:26-46 | Q-CFG-5, Q-UTIL-11, Q-UTIL-6 |
 | AC-UTIL-016.10 | JavaVersion (major de java.specification.version) | n/a: no hay JVM (propuesta de exclusión en Q-UTIL-11) | derivada del código (ver bloque de contrato) | Q-UTIL-11 |

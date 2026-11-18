@@ -7,7 +7,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | # | Spec | Filas | Tareas | Estado | Depende de |
 |---|---|---|---|---|---|
 | 01 | [AC-PATH-1](01-ac-path-1.md) | 13 | 3 | sin decisiones abiertas (preliminar) | 02 |
-| 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | sin decisiones abiertas (preliminar) | 04, 03, 22, 10, 07, 17 |
+| 02 | [AC-UTIL-1](02-ac-util-1.md) | 30 | 5 | pendiente de decisiones | 04, 03, 22, 10, 07, 17 |
 | 03 | [AC-UTIL-2](03-ac-util-2.md) | 17 | 3 | pendiente de decisiones | 02, 09 |
 | 04 | [AC-CFG-1](04-ac-cfg-1.md) | 29 | 5 | sin decisiones abiertas (preliminar) | 10, 17, 14, 21, 05, 15, 22, 02, 20 |
 | 05 | [AC-REF-1](05-ac-ref-1.md) | 30 | 5 | pendiente de decisiones | 01, 07, 12, 04, 18, 10, 14, 13, 22 |

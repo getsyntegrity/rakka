@@ -1203,6 +1203,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-11 (representación de un tipo de optimización de la JVM: `Option<T>`).
 
 
+**Actualización P76 (2026-11-18, Pekko 2.0.0).** `OptionVal.scala` no cambió (`get` lanza `NoSuchElementException("OptionVal.None.get")`, `toString` `None`/`Some(x)`). Equivalente aceptado por Q-UTIL-11 (a): `Option<T>`; sin caso grabado (A1 no afirmada). Cierre pendiente de Q-UTIL-20.
+
 ---
 
 ## AC-UTIL-016.2 — ConstantFun (funciones constantes/identidad Scala y Java)
@@ -1237,6 +1239,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-11.
 
 
+**Actualización P76 (2026-11-18, Pekko 2.0.0).** `ConstantFun.scala` y `ConstantFunJavaTest` sin cambios de comportamiento. Equivalente aceptado por Q-UTIL-11 (a): `std::convert::identity` y closures; A1/A2 inobservables en Rust. Cierre pendiente de Q-UTIL-20.
+
 ---
 
 ## AC-UTIL-016.3 — Collections (EmptyImmutableSeq, PartialImmutableValuesIterable)
@@ -1268,6 +1272,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11.
 
+
+**Actualización P76 (2026-11-18, Pekko 2.0.0).** `EmptyImmutableSeq.iterator` es ahora `Iterator.empty` (`next on empty iterator` lo produce la biblioteca de Scala, no Pekko) y `apply(idx)` sigue lanzando `IndexOutOfBoundsException(idx.toString)`; `PartialImmutableValuesIterable` sigue igual (`NoSuchElementException("next")`); nuevo `Collections.IterableOps.collectToImmutableSeq` (`java.lang.Iterable` + función parcial -> `Seq`, equivalente `filter_map`; sin consumidores en main). Cierre pendiente de Q-UTIL-20 y de P04 (ByteIterator).
 
 ---
 
@@ -1775,6 +1781,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-11.
 
 
+**Actualización P76 (2026-11-18, Pekko 2.0.0).** `Unused.scala` está eliminado en 2.0.0: eliminado en 2.0.0 (no es exclusión). El efecto lo cubre `_nombre` y `cargo clippy -- -D warnings`. Cierre pendiente de Q-UTIL-20.
+
 ---
 
 ## AC-UTIL-017.1 — FrequencySketch y FastFrequencySketch (Count-Min Sketch con reinicio TinyLFU)
@@ -2159,6 +2167,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11.
 
+
+**Actualización P76 (2026-11-18, Pekko 2.0.0).** Las cuatro anotaciones no cambiaron en 2.0.0 (`@Documented`, `@Retention(CLASS)`; `@Target` método/constructor/campo/tipo/paquete salvo `DoNotInherit` sólo tipo). Equivalente aceptado por Q-UTIL-11 (a); `cargo-semver-checks` entra en los gates desde el primer release (AGENTS.md). Cierre pendiente de Q-UTIL-20.
 
 ---
 

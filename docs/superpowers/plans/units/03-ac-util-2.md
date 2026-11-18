@@ -16,7 +16,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-UTIL-18`, `Q-UTIL-19`.
+- Propuestas aún sin decisión del Owner: `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -56,7 +56,7 @@ Filas: AC-UTIL-020, AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contrato
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-UTIL-016.18 | Unused (marcador para silenciar warnings) | n/a: Rust avisa por `_` | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
+| AC-UTIL-016.18 | Unused (marcador para silenciar warnings) | n/a: Rust avisa por `_` | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-UTIL-20 |
 | AC-UTIL-017.1 | FrequencySketch (Count-Min Sketch de 4 bits) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/FrequencySketchSpec.scala:23-416 ;… | Q-UTIL-11, Q-UTIL-14, Q-UTIL-8 |
 | AC-UTIL-017.2 | FrequencyList (lista de frecuencias LFU) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/FrequencyListSpec.scala:23-257 | Q-UTIL-11 |
 | AC-UTIL-017.3 | RecencyList (LRU por reloj) | no portar en este alcance (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/RecencyListSpec.scala:21-120 | Q-UTIL-11 |
@@ -67,7 +67,7 @@ Filas: AC-UTIL-020, AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contrato
 | AC-UTIL-018.3 | ccompat (JavaConverters, compat.Future/PartialFunction) y shims de Scala 2.12 | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | actor-tests/src/test/scala/org/apache/pekko/util/Scala212CompatTest.scala:35-78 (1.7.1) | Q-UTIL-11 |
 | AC-UTIL-018.4 | SameThreadExecutionContext (ejecuta el callback inline, 'parasitic') | n/a salvo SameThreadExecutionContext (callback inline) | actor-tests/src/test/scala/org/apache/pekko/dispatch/SameThreadExecutionContextSpec.scala… | Q-UTIL-11, Q-X-4 |
 | AC-UTIL-018.5 | ScalaBatchable (marca de ejecución por lotes en 2.12/2.13/3) | n/a: sin equivalente en Rust (propuesta; Q-UTIL-11) | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-X-4 |
-| AC-UTIL-019 | Anotaciones ApiMayChange, DoNotInherit, InternalApi, InternalStableApi | `pub(crate)`, sealed traits (patrón `mod private { pub trait Sealed {} }`),… | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
+| AC-UTIL-019 | Anotaciones ApiMayChange, DoNotInherit, InternalApi, InternalStableApi | `pub(crate)`, sealed traits (patrón `mod private { pub trait Sealed {} }`),… | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-UTIL-20 |
 | AC-UTIL-020 | Acceso Unsafe y offsets de campos (Unsafe.java, AbstractActorRef,… | `std::sync::atomic` (`AtomicPtr`, `AtomicU32`) / `arc-swap` | actor-tests/src/test/scala/org/apache/pekko/util/AsciiStringCopySpec.scala:22-45 | Q-UTIL-11, Q-UTIL-19 |
 | AC-UTIL-021 | Filtros MiMa (compatibilidad binaria) | N/A (en Rust: semver + `cargo-semver-checks`) | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
 | AC-UTIL-022 | UnsynchronizedByteArrayInputStream, ByteStringInputStream, ByteBufferCleaner | `std::io::Cursor<&[u8]>` | actor-tests/src/test/scala/org/apache/pekko/io/UnsynchronizedByteArrayInputStreamSpec.sca… | Q-UTIL-11, Q-UTIL-12 |
