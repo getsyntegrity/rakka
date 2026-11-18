@@ -1,0 +1,1 @@
+DL-06 last or else append -> ok a b empty=f first=a last=b fwd=[a,b] backReversed=[a,b] b empty=f first=a last=b fwd=[a,b] backReversed=[a,b] c empty=f first=a last=c fwd=[a,b,c] backReversed=[a,b,c]

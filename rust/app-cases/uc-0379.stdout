@@ -1,0 +1,1 @@
+FS-11 Bits helpers -> ok pow2=t exp=32 ceil=1 pow2=t exp=0 ceil=1 pow2=t exp=1 ceil=2 pow2=f exp=2 ceil=4 pow2=t exp=2 ceil=4 pow2=f exp=3 ceil=8 pow2=f exp=7 ceil=128 pow2=t exp=29 ceil=536870912 pow2=f exp=30 ceil=1073741824 pow2=t exp=30 ceil=1073741824 pow2=f exp=31 ceil=-2147483648 pow2=f exp=31 ceil=-2147483648 pow2=f exp=32 ceil=1 pow2=t exp=31 ceil=-2147483648

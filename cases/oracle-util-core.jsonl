@@ -232,3 +232,222 @@
 {"name": "uc-0232", "args": ["util-core-case"], "stdin": "LN-09 a non-serializable lambda has no source info"}
 {"name": "uc-0233", "args": ["util-core-case"], "stdin": "LN-10 the Java API for is the same as apply"}
 {"name": "uc-0234", "args": ["util-core-case"], "stdin": "LN-11 two closures of one site report the same origin and two sites differ"}
+{"name": "uc-0235", "args": ["util-core-case"], "stdin": "IX-01 take and return a value"}
+{"name": "uc-0236", "args": ["util-core-case"], "stdin": "IX-02 put reports whether the value was new"}
+{"name": "uc-0237", "args": ["util-core-case"], "stdin": "IX-03 remove one value, remove a key"}
+{"name": "uc-0238", "args": ["util-core-case"], "stdin": "IX-04 removeValue from every key"}
+{"name": "uc-0239", "args": ["util-core-case"], "stdin": "IX-05 foreach visits every pair and findValue finds each value"}
+{"name": "uc-0240", "args": ["util-core-case"], "stdin": "IX-06 clear"}
+{"name": "uc-0241", "args": ["util-core-case"], "stdin": "IX-07 a key that loses its last value disappears"}
+{"name": "uc-0242", "args": ["util-core-case"], "stdin": "IX-08 the comparator orders values, equal values collapse"}
+{"name": "uc-0243", "args": ["util-core-case"], "stdin": "IX-09 values are the union over all keys"}
+{"name": "uc-0244", "args": ["util-core-case"], "stdin": "IX-11 random sequence seed 11"}
+{"name": "uc-0245", "args": ["util-core-case"], "stdin": "IX-12 random sequence seed 12"}
+{"name": "uc-0246", "args": ["util-core-case"], "stdin": "IX-13 random sequence seed 13"}
+{"name": "uc-0247", "args": ["util-core-case"], "stdin": "IX-14 random sequence, reversed comparator"}
+{"name": "uc-0248", "args": ["util-core-case"], "stdin": "IM-01 empty map"}
+{"name": "uc-0249", "args": ["util-core-case"], "stdin": "IM-02 updated keeps the keys ordered"}
+{"name": "uc-0250", "args": ["util-core-case"], "stdin": "IM-03 hashCode is Arrays.hashCode of the key/value array"}
+{"name": "uc-0251", "args": ["util-core-case"], "stdin": "IM-04 replace values"}
+{"name": "uc-0252", "args": ["util-core-case"], "stdin": "IM-05 updateIfAbsent evaluates the value only for a new key"}
+{"name": "uc-0253", "args": ["util-core-case"], "stdin": "IM-06 equals and hashCode"}
+{"name": "uc-0254", "args": ["util-core-case"], "stdin": "IM-07 remove first, middle, last, absent and until empty"}
+{"name": "uc-0255", "args": ["util-core-case"], "stdin": "IM-08 get of an absent key is Int.MinValue"}
+{"name": "uc-0256", "args": ["util-core-case"], "stdin": "IM-09 extreme keys and values"}
+{"name": "uc-0257", "args": ["util-core-case"], "stdin": "IM-21 random sequence seed 21"}
+{"name": "uc-0258", "args": ["util-core-case"], "stdin": "IM-22 random sequence seed 22"}
+{"name": "uc-0259", "args": ["util-core-case"], "stdin": "IM-23 random sequence seed 23"}
+{"name": "uc-0260", "args": ["util-core-case"], "stdin": "TM-01 retain and remove values for the same key"}
+{"name": "uc-0261", "args": ["util-core-case"], "stdin": "TM-02 retain and remove values for multiple keys"}
+{"name": "uc-0262", "args": ["util-core-case"], "stdin": "TM-03 valueRemoved takes the value from every key and drops the emptied ones"}
+{"name": "uc-0263", "args": ["util-core-case"], "stdin": "TM-04 keyRemoved removes every value of a key"}
+{"name": "uc-0264", "args": ["util-core-case"], "stdin": "TM-05 setAll with an empty set keeps the key, valueRemoved only drops sets equal to the value"}
+{"name": "uc-0265", "args": ["util-core-case"], "stdin": "TM-06 plus overwrites by key without merging"}
+{"name": "uc-0266", "args": ["util-core-case"], "stdin": "TM-07 removing an absent pair leaves the map equal"}
+{"name": "uc-0267", "args": ["util-core-case"], "stdin": "TM-31 random sequence seed 31"}
+{"name": "uc-0268", "args": ["util-core-case"], "stdin": "TM-32 random sequence seed 32"}
+{"name": "uc-0269", "args": ["util-core-case"], "stdin": "TM-33 random sequence seed 33"}
+{"name": "uc-0270", "args": ["util-core-case"], "stdin": "WI-01 insert and find"}
+{"name": "uc-0271", "args": ["util-core-case"], "stdin": "WI-02 insert and find (spec)"}
+{"name": "uc-0272", "args": ["util-core-case"], "stdin": "WI-03 a single wildcard matches one element"}
+{"name": "uc-0273", "args": ["util-core-case"], "stdin": "WI-04 wildcard in the middle"}
+{"name": "uc-0274", "args": ["util-core-case"], "stdin": "WI-05 wildcard suffix"}
+{"name": "uc-0275", "args": ["util-core-case"], "stdin": "WI-06 wildcard suffix in the second position"}
+{"name": "uc-0276", "args": ["util-core-case"], "stdin": "WI-07 a double wildcard cannot be a suffix"}
+{"name": "uc-0277", "args": ["util-core-case"], "stdin": "WI-08 nothing found in an empty index"}
+{"name": "uc-0278", "args": ["util-core-case"], "stdin": "WI-09 terminal double wildcard"}
+{"name": "uc-0279", "args": ["util-core-case"], "stdin": "WI-10 a lone double wildcard matches everything, even nothing"}
+{"name": "uc-0280", "args": ["util-core-case"], "stdin": "WI-11 non-terminal double wildcards are ignored"}
+{"name": "uc-0281", "args": ["util-core-case"], "stdin": "WI-12 exact elements win over wildcards, single over double"}
+{"name": "uc-0282", "args": ["util-core-case"], "stdin": "WI-13 non-ASCII and astral elements, suffix compared by prefix"}
+{"name": "uc-0283", "args": ["util-core-case"], "stdin": "WI-14 an empty element and repeated insertion"}
+{"name": "uc-0284", "args": ["util-core-case"], "stdin": "WI-15 only prefix* entries: the index reports empty and finds nothing"}
+{"name": "uc-0285", "args": ["util-core-case"], "stdin": "WI-16 inserting prefix* again replaces the subtree of that prefix"}
+{"name": "uc-0286", "args": ["util-core-case"], "stdin": "WI-41 random sequence seed 41"}
+{"name": "uc-0287", "args": ["util-core-case"], "stdin": "WI-42 random sequence seed 42"}
+{"name": "uc-0288", "args": ["util-core-case"], "stdin": "WI-43 random sequence seed 43"}
+{"name": "uc-0289", "args": ["util-core-case"], "stdin": "SI-01 a key inherits the values of its superclass"}
+{"name": "uc-0290", "args": ["util-core-case"], "stdin": "SI-02 adding a value reaches every subclass"}
+{"name": "uc-0291", "args": ["util-core-case"], "stdin": "SI-03 multiple inheritance: 12 is below 4 and 6"}
+{"name": "uc-0292", "args": ["util-core-case"], "stdin": "SI-04 removeValue by key and by value"}
+{"name": "uc-0293", "args": ["util-core-case"], "stdin": "SI-05 a new key slots between existing ones"}
+{"name": "uc-0294", "args": ["util-core-case"], "stdin": "SI-06 a value added under an unknown key creates it"}
+{"name": "uc-0295", "args": ["util-core-case"], "stdin": "SI-51 random sequence seed 51"}
+{"name": "uc-0296", "args": ["util-core-case"], "stdin": "SI-52 random sequence seed 52"}
+{"name": "uc-0297", "args": ["util-core-case"], "stdin": "SI-53 random sequence seed 53"}
+{"name": "uc-0298", "args": ["util-core-case"], "stdin": "SI-54 random sequence seed 54"}
+{"name": "uc-0299", "args": ["util-core-case"], "stdin": "MB-01 empty and nonEmpty"}
+{"name": "uc-0300", "args": ["util-core-case"], "stdin": "MB-02 append and dropHead"}
+{"name": "uc-0301", "args": ["util-core-case"], "stdin": "MB-03 foreach keeps insertion order"}
+{"name": "uc-0302", "args": ["util-core-case"], "stdin": "MB-04 filterNot of the first element"}
+{"name": "uc-0303", "args": ["util-core-case"], "stdin": "MB-05 filterNot of the last element"}
+{"name": "uc-0304", "args": ["util-core-case"], "stdin": "MB-06 filterNot of single entries among six"}
+{"name": "uc-0305", "args": ["util-core-case"], "stdin": "MB-07 filterNot of several entries"}
+{"name": "uc-0306", "args": ["util-core-case"], "stdin": "MB-08 filterNot of nothing and of everything"}
+{"name": "uc-0307", "args": ["util-core-case"], "stdin": "MB-09 the map: contains, add, append, remove"}
+{"name": "uc-0308", "args": ["util-core-case"], "stdin": "MB-10 the map keeps one buffer per id"}
+{"name": "uc-0309", "args": ["util-core-case"], "stdin": "MB-11 drop publishes Dropped for each buffered message, in order"}
+{"name": "uc-0310", "args": ["util-core-case"], "stdin": "MB-12 the map after removing and re-adding ids"}
+{"name": "uc-0311", "args": ["util-core-case"], "stdin": "MB-61 random sequence seed 61"}
+{"name": "uc-0312", "args": ["util-core-case"], "stdin": "MB-62 random sequence seed 62"}
+{"name": "uc-0313", "args": ["util-core-case"], "stdin": "MB-63 random sequence seed 63"}
+{"name": "uc-0314", "args": ["util-core-case"], "stdin": "SC-01 on and off"}
+{"name": "uc-0315", "args": ["util-core-case"], "stdin": "SC-02 switchOn/switchOff with an action"}
+{"name": "uc-0316", "args": ["util-core-case"], "stdin": "SC-03 an exception in the action reverts the switch"}
+{"name": "uc-0317", "args": ["util-core-case"], "stdin": "SC-04 ifOn/ifOff run the action without locking"}
+{"name": "uc-0318", "args": ["util-core-case"], "stdin": "SC-05 whileOn/whileOff run the action under the lock"}
+{"name": "uc-0319", "args": ["util-core-case"], "stdin": "SC-06 fold picks a callback by state"}
+{"name": "uc-0320", "args": ["util-core-case"], "stdin": "SC-07 locked returns the value and the lock is re-entrant"}
+{"name": "uc-0321", "args": ["util-core-case"], "stdin": "SC-08 a switch can start on"}
+{"name": "uc-0322", "args": ["util-core-case"], "stdin": "SC-09 failed actions leave no trace of success"}
+{"name": "uc-0323", "args": ["util-core-case"], "stdin": "SC-71 random sequence seed 71"}
+{"name": "uc-0324", "args": ["util-core-case"], "stdin": "SC-72 random sequence seed 72"}
+{"name": "uc-0325", "args": ["util-core-case"], "stdin": "SC-73 random sequence seed 73"}
+{"name": "uc-0326", "args": ["util-core-case"], "stdin": "TB-01 starts full"}
+{"name": "uc-0327", "args": ["util-core-case"], "stdin": "TB-02 different rates and capacities"}
+{"name": "uc-0328", "args": ["util-core-case"], "stdin": "TB-03 elements larger than the capacity"}
+{"name": "uc-0329", "args": ["util-core-case"], "stdin": "TB-04 capacity zero"}
+{"name": "uc-0330", "args": ["util-core-case"], "stdin": "TB-05 arrival rate below the production rate"}
+{"name": "uc-0331", "args": ["util-core-case"], "stdin": "TB-06 the capacity is kept"}
+{"name": "uc-0332", "args": ["util-core-case"], "stdin": "TB-07 negative time"}
+{"name": "uc-0333", "args": ["util-core-case"], "stdin": "TB-08 time that wraps over"}
+{"name": "uc-0334", "args": ["util-core-case"], "stdin": "TB-09 equal intervals between tokens"}
+{"name": "uc-0335", "args": ["util-core-case"], "stdin": "TB-10 cost zero"}
+{"name": "uc-0336", "args": ["util-core-case"], "stdin": "TB-11 very slow rates"}
+{"name": "uc-0337", "args": ["util-core-case"], "stdin": "TB-12 invalid arguments"}
+{"name": "uc-0338", "args": ["util-core-case"], "stdin": "TB-81 random sequence seed 81"}
+{"name": "uc-0339", "args": ["util-core-case"], "stdin": "TB-82 random sequence seed 82"}
+{"name": "uc-0340", "args": ["util-core-case"], "stdin": "TB-83 random sequence seed 83"}
+{"name": "uc-0341", "args": ["util-core-case"], "stdin": "TB-84 random sequence seed 84"}
+{"name": "uc-0342", "args": ["util-core-case"], "stdin": "SQ-01 FIFO among equal priorities"}
+{"name": "uc-0343", "args": ["util-core-case"], "stdin": "SQ-02 lower priority first, FIFO for ties (blocking queue)"}
+{"name": "uc-0344", "args": ["util-core-case"], "stdin": "SQ-03 many equal priorities keep the order of arrival"}
+{"name": "uc-0345", "args": ["util-core-case"], "stdin": "SQ-04 iterator remove"}
+{"name": "uc-0346", "args": ["util-core-case"], "stdin": "SQ-92 random sequence seed 92"}
+{"name": "uc-0347", "args": ["util-core-case"], "stdin": "SQ-93 random sequence seed 93"}
+{"name": "uc-0348", "args": ["util-core-case"], "stdin": "SQ-94 random sequence on the blocking queue"}
+{"name": "uc-0349", "args": ["util-core-case"], "stdin": "BQ-01 constructor"}
+{"name": "uc-0350", "args": ["util-core-case"], "stdin": "BQ-02 remainingCapacity follows the size"}
+{"name": "uc-0351", "args": ["util-core-case"], "stdin": "BQ-03 put and offer on a queue with room"}
+{"name": "uc-0352", "args": ["util-core-case"], "stdin": "BQ-04 offer on a full queue returns false"}
+{"name": "uc-0353", "args": ["util-core-case"], "stdin": "BQ-05 offer with a timeout"}
+{"name": "uc-0354", "args": ["util-core-case"], "stdin": "BQ-06 poll and take"}
+{"name": "uc-0355", "args": ["util-core-case"], "stdin": "BQ-07 peek does not remove"}
+{"name": "uc-0356", "args": ["util-core-case"], "stdin": "BQ-08 remove and contains"}
+{"name": "uc-0357", "args": ["util-core-case"], "stdin": "BQ-09 clear"}
+{"name": "uc-0358", "args": ["util-core-case"], "stdin": "BQ-10 drainTo"}
+{"name": "uc-0359", "args": ["util-core-case"], "stdin": "BQ-11 containsAll"}
+{"name": "uc-0360", "args": ["util-core-case"], "stdin": "BQ-12 removeAll"}
+{"name": "uc-0361", "args": ["util-core-case"], "stdin": "BQ-13 retainAll"}
+{"name": "uc-0362", "args": ["util-core-case"], "stdin": "BQ-14 iterator"}
+{"name": "uc-0363", "args": ["util-core-case"], "stdin": "BQ-15 iterator remove frees room"}
+{"name": "uc-0364", "args": ["util-core-case"], "stdin": "BQ-16 priority backing queue orders by priority"}
+{"name": "uc-0365", "args": ["util-core-case"], "stdin": "BQ-17 duplicates are kept and removed one at a time"}
+{"name": "uc-0366", "args": ["util-core-case"], "stdin": "BQ-97 random sequence seed 97"}
+{"name": "uc-0367", "args": ["util-core-case"], "stdin": "BQ-98 random sequence seed 98"}
+{"name": "uc-0368", "args": ["util-core-case"], "stdin": "BQ-99 random sequence, priority backing"}
+{"name": "uc-0369", "args": ["util-core-case"], "stdin": "FS-01 MurmurHash3.stringHash with the default seed"}
+{"name": "uc-0370", "args": ["util-core-case"], "stdin": "FS-02 MurmurHash3.stringHash with other seeds"}
+{"name": "uc-0371", "args": ["util-core-case"], "stdin": "FS-03 increment counters"}
+{"name": "uc-0372", "args": ["util-core-case"], "stdin": "FS-04 counters saturate at the maximum"}
+{"name": "uc-0373", "args": ["util-core-case"], "stdin": "FS-05 reset halves the counters"}
+{"name": "uc-0374", "args": ["util-core-case"], "stdin": "FS-06 reset size reached exactly"}
+{"name": "uc-0375", "args": ["util-core-case"], "stdin": "FS-07 counter widths"}
+{"name": "uc-0376", "args": ["util-core-case"], "stdin": "FS-08 depth one and width one collide"}
+{"name": "uc-0377", "args": ["util-core-case"], "stdin": "FS-09 sketch constructor requirements"}
+{"name": "uc-0378", "args": ["util-core-case"], "stdin": "FS-10 width overflow is rejected (2.0.0)"}
+{"name": "uc-0379", "args": ["util-core-case"], "stdin": "FS-11 Bits helpers"}
+{"name": "uc-0380", "args": ["util-core-case"], "stdin": "FS-12 a tiny sketch debug string"}
+{"name": "uc-0381", "args": ["util-core-case"], "stdin": "FS-13 reset size derives from the capacity"}
+{"name": "uc-0382", "args": ["util-core-case"], "stdin": "FS-111 random sequence seed 111"}
+{"name": "uc-0383", "args": ["util-core-case"], "stdin": "FS-112 random sequence seed 112"}
+{"name": "uc-0384", "args": ["util-core-case"], "stdin": "FS-113 random sequence with 2 bit counters"}
+{"name": "uc-0385", "args": ["util-core-case"], "stdin": "FS-114 random sequence with 8 bit counters"}
+{"name": "uc-0386", "args": ["util-core-case"], "stdin": "FS-115 random sequence with 16 bit counters"}
+{"name": "uc-0387", "args": ["util-core-case"], "stdin": "FS-116 random sequence with 64 bit counters"}
+{"name": "uc-0388", "args": ["util-core-case"], "stdin": "FF-01 fast sketch: increment counters"}
+{"name": "uc-0389", "args": ["util-core-case"], "stdin": "FF-02 fast sketch: counters saturate"}
+{"name": "uc-0390", "args": ["util-core-case"], "stdin": "FF-03 fast sketch: integer items hash to themselves"}
+{"name": "uc-0391", "args": ["util-core-case"], "stdin": "FF-04 fast sketch: constructor requirements"}
+{"name": "uc-0392", "args": ["util-core-case"], "stdin": "FF-05 fast sketch: a tiny debug string"}
+{"name": "uc-0393", "args": ["util-core-case"], "stdin": "FF-06 fast sketch: reset size reached exactly"}
+{"name": "uc-0394", "args": ["util-core-case"], "stdin": "FF-122 random sequence seed 122"}
+{"name": "uc-0395", "args": ["util-core-case"], "stdin": "FF-123 random sequence seed 123"}
+{"name": "uc-0396", "args": ["util-core-case"], "stdin": "FF-124 random sequence seed 124"}
+{"name": "uc-0397", "args": ["util-core-case"], "stdin": "FF-125 random sequence, 1 counter column"}
+{"name": "uc-0398", "args": ["util-core-case"], "stdin": "RL-01 recency over a sequence of updates and removals"}
+{"name": "uc-0399", "args": ["util-core-case"], "stdin": "RL-02 least and most recent, single removals"}
+{"name": "uc-0400", "args": ["util-core-case"], "stdin": "RL-03 time based removals"}
+{"name": "uc-0401", "args": ["util-core-case"], "stdin": "RL-04 removals of nothing and of more than there is"}
+{"name": "uc-0402", "args": ["util-core-case"], "stdin": "RL-131 random sequence seed 131"}
+{"name": "uc-0403", "args": ["util-core-case"], "stdin": "RL-132 random sequence seed 132"}
+{"name": "uc-0404", "args": ["util-core-case"], "stdin": "RL-133 random sequence seed 133"}
+{"name": "uc-0405", "args": ["util-core-case"], "stdin": "FL-01 frequency order, least and most"}
+{"name": "uc-0406", "args": ["util-core-case"], "stdin": "FL-02 removeLeastFrequent and removeMostFrequent with skip"}
+{"name": "uc-0407", "args": ["util-core-case"], "stdin": "FL-03 overall recency with a clock"}
+{"name": "uc-0408", "args": ["util-core-case"], "stdin": "FL-04 overall recency not enabled"}
+{"name": "uc-0409", "args": ["util-core-case"], "stdin": "FL-05 plain LFU: removeLeastFrequent does not age"}
+{"name": "uc-0410", "args": ["util-core-case"], "stdin": "FL-06 dynamic aging lets new entries overtake old ones"}
+{"name": "uc-0411", "args": ["util-core-case"], "stdin": "FL-07 dynamic aging with a clock"}
+{"name": "uc-0412", "args": ["util-core-case"], "stdin": "FL-141 random sequence seed 141"}
+{"name": "uc-0413", "args": ["util-core-case"], "stdin": "FL-142 random sequence seed 142"}
+{"name": "uc-0414", "args": ["util-core-case"], "stdin": "FL-143 random sequence, dynamic aging"}
+{"name": "uc-0415", "args": ["util-core-case"], "stdin": "FL-144 random sequence, clock"}
+{"name": "uc-0416", "args": ["util-core-case"], "stdin": "FL-145 random sequence, dynamic aging and clock"}
+{"name": "uc-0417", "args": ["util-core-case"], "stdin": "SR-01 two segments"}
+{"name": "uc-0418", "args": ["util-core-case"], "stdin": "SR-02 four segments"}
+{"name": "uc-0419", "args": ["util-core-case"], "stdin": "SR-03 updating limits"}
+{"name": "uc-0420", "args": ["util-core-case"], "stdin": "SR-04 overall recency with a clock"}
+{"name": "uc-0421", "args": ["util-core-case"], "stdin": "SR-05 overall recency not enabled"}
+{"name": "uc-0422", "args": ["util-core-case"], "stdin": "SR-06 remove and single level"}
+{"name": "uc-0423", "args": ["util-core-case"], "stdin": "SR-151 random sequence seed 151"}
+{"name": "uc-0424", "args": ["util-core-case"], "stdin": "SR-152 random sequence seed 152"}
+{"name": "uc-0425", "args": ["util-core-case"], "stdin": "SR-153 random sequence, three segments with a clock"}
+{"name": "uc-0426", "args": ["util-core-case"], "stdin": "DL-01 prepend and append"}
+{"name": "uc-0427", "args": ["util-core-case"], "stdin": "DL-02 remove first, middle and last"}
+{"name": "uc-0428", "args": ["util-core-case"], "stdin": "DL-03 move to front"}
+{"name": "uc-0429", "args": ["util-core-case"], "stdin": "DL-04 move to back"}
+{"name": "uc-0430", "args": ["util-core-case"], "stdin": "DL-05 first or else prepend"}
+{"name": "uc-0431", "args": ["util-core-case"], "stdin": "DL-06 last or else append"}
+{"name": "uc-0432", "args": ["util-core-case"], "stdin": "DL-07 next or else insert"}
+{"name": "uc-0433", "args": ["util-core-case"], "stdin": "DL-08 previous or else insert"}
+{"name": "uc-0434", "args": ["util-core-case"], "stdin": "DL-09 find next or else insert"}
+{"name": "uc-0435", "args": ["util-core-case"], "stdin": "DL-10 find previous or else insert"}
+{"name": "uc-0436", "args": ["util-core-case"], "stdin": "DL-11 moving a node that is already there changes nothing"}
+{"name": "uc-0437", "args": ["util-core-case"], "stdin": "DL-12 a list of one node"}
+{"name": "uc-0438", "args": ["util-core-case"], "stdin": "DL-13 a removed node can be linked again"}
+{"name": "uc-0439", "args": ["util-core-case"], "stdin": "DL-161 random sequence seed 161"}
+{"name": "uc-0440", "args": ["util-core-case"], "stdin": "DL-162 random sequence seed 162"}
+{"name": "uc-0441", "args": ["util-core-case"], "stdin": "DL-163 random sequence seed 163"}
+{"name": "uc-0442", "args": ["util-core-case"], "stdin": "CC-01 Index in parallel: the upper half is never lost"}
+{"name": "uc-0443", "args": ["util-core-case"], "stdin": "CC-02 Switch: exactly one of 8 racing switchOn wins"}
+{"name": "uc-0444", "args": ["util-core-case"], "stdin": "CC-03 Switch: switchOff waits for locked"}
+{"name": "uc-0445", "args": ["util-core-case"], "stdin": "BQ-C1 one producer, one consumer through capacity 3 keep FIFO"}
+{"name": "uc-0446", "args": ["util-core-case"], "stdin": "BQ-C2 four producers and four consumers lose and duplicate nothing"}
+{"name": "uc-0447", "args": ["util-core-case"], "stdin": "BQ-C3 take blocks on an empty queue until an element arrives"}
+{"name": "uc-0448", "args": ["util-core-case"], "stdin": "BQ-C4 put blocks on a full queue until there is room"}
+{"name": "uc-0449", "args": ["util-core-case"], "stdin": "BQ-C5 offer with a timeout gives up on a full queue and succeeds when room appears"}
+{"name": "uc-0450", "args": ["util-core-case"], "stdin": "BQ-C6 poll with a timeout returns null on an empty queue and the element when one arrives"}
+{"name": "uc-0451", "args": ["util-core-case"], "stdin": "BQ-C7 iterator remove drops the element it returned, by identity"}
+{"name": "uc-0452", "args": ["util-core-case"], "stdin": "BQ-C8 the iterator is a snapshot"}
+{"name": "uc-0453", "args": ["util-core-case"], "stdin": "RG-01 ReentrantGuard is absent from the 2.0.0 jar"}

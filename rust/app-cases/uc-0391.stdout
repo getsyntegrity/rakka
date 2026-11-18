@@ -1,0 +1,1 @@
+FF-04 fast sketch: constructor requirements -> ok !IllegalArgumentException[requirement failed: width must be a power of two] ok ok ok ok

@@ -1,0 +1,1 @@
+SQ-02 lower priority first, FIFO for ties (blocking queue) -> ok t t t t t [y1,y2,z1,x1,x2] 0

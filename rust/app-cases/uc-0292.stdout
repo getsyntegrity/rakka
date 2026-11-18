@@ -1,0 +1,1 @@
+SI-04 removeValue by key and by value -> ok {2:[x]} {2:[y]} {4:[x,y]} {6:[x,y]} {2:[y] 4:[y] 6:[y]} [y] [y] [y] {2:[y] 4:[y] 6:[y]} [] [] {} []

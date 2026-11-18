@@ -1,0 +1,1 @@
+DL-09 find next or else insert -> ok c2 c1 a2 a1 empty=f first=a1 last=c2 fwd=[a1,a2,c1,c2] backReversed=[a1,a2,c1,c2] c1 empty=f first=a1 last=c2 fwd=[a1,a2,c1,c2] backReversed=[a1,a2,c1,c2] b1 empty=f first=a1 last=c2 fwd=[a1,a2,b1,c1,c2] backReversed=[a1,a2,b1,c1,c2] d1 empty=f first=a1 last=d1 fwd=[a1,a2,b1,c1,c2,d1] backReversed=[a1,a2,b1,c1,c2,d1]

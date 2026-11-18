@@ -8,7 +8,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 03 `AC-UTIL-2` (`03-ac-util-2.md`), por las filas AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-020.
+- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-020.
 - Spec 12 `AC-CELL-1` (`12-ac-cell-1.md`), por las filas AC-CELL-001.
 - Spec 19 `AC-FSM-1` (`19-ac-fsm-1.md`), por las filas AC-FSM-001.1, AC-FSM-001.2.
 - Spec 15 `AC-SUP-1` (`15-ac-sup-1.md`), por las filas AC-SUP-001.

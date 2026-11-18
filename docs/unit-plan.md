@@ -160,7 +160,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Estructuras de datos concurrentes/inmutables (Index, WildcardIndex, SubclassifiedIndex, colas, LFU/LRU).
 - **Filas (16; impl: pending 16):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-007, AC-UTIL-008, AC-UTIL-009, AC-UTIL-010, AC-UTIL-011, AC-UTIL-012, AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.4, AC-UTIL-017.1, AC-UTIL-017.2, AC-UTIL-017.3, AC-UTIL-017.4, AC-UTIL-017.5.
 - **Exclusiones/costuras:** UTIL-008/009/012/013 se prueban solo con sus propios specs; el uso por EVT/CFG/MBX es de las unidades consumidoras.
-- **Decisiones:** 8 distintas en sus filas; respondidas: 8 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P03). <!-- generated:unit-decisions -->
+- **Decisiones:** 9 distintas en sus filas; respondidas: 8 (ver detalle); propuestas sin respuesta: Q-UTIL-21. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P03). <!-- generated:unit-decisions -->
 - **Dependencias:** P02, P65, P76.
 - **Archivos previstos:** `crates/rakka-actor/src/util/{index,wildcard_index,queues,lfu}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs Pekko 1:1 (Index/WildcardIndex/queues).

@@ -1,0 +1,1 @@
+DL-08 previous or else insert -> ok a c empty=f first=a last=c fwd=[a,c] backReversed=[a,c] a empty=f first=a last=c fwd=[a,c] backReversed=[a,c] b empty=f first=a last=c fwd=[a,b,c] backReversed=[a,b,c]

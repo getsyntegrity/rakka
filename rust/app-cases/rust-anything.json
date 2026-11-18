@@ -4,5 +4,5 @@
   "run": [
     "oracle/run.sh"
   ],
-  "timeout_secs": 120
+  "timeout_secs": 60
 }

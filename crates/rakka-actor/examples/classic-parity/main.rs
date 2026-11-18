@@ -11,6 +11,7 @@ mod json;
 mod path_address_cases;
 mod path_case;
 mod scenario;
+mod structures_cases;
 mod util_core_cases;
 
 use std::io::{Read, Write};
@@ -21,7 +22,7 @@ use path_case::path_from_string;
 
 fn usage() -> ExitCode {
     eprintln!(
-        "usage: classic-parity path-from-string | path-from-string-lines | scenario | scenario-lines | path-address-case | util-core-case   (JSON on stdin)"
+        "usage: classic-parity path-from-string | path-from-string-lines | scenario | scenario-lines | path-address-case | util-core-case | util-core-all   (JSON on stdin)"
     );
     ExitCode::from(2)
 }
@@ -95,6 +96,11 @@ fn main() -> ExitCode {
         }
         "path-address-ids" => print_ids(&mut out, path_address_cases::rust_lines()),
         "util-core-ids" => print_ids(&mut out, util_core_cases::rust_lines()),
+        "util-core-all" => {
+            for (_, line) in util_core_cases::rust_lines() {
+                writeln!(out, "{line}").ok();
+            }
+        }
         "path-address-case" => {
             return oracle_case(&mut out, &input, path_address_cases::rust_lines());
         }

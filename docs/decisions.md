@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 223 decisiones: 0 bloqueantes, 161 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 224 decisiones: 0 bloqueantes, 162 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1836,6 +1836,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) cerrar OptionVal, ConstantFun, Unused y las anotaciones como `done` con equivalente documentado (Option<T>, closures/std::convert::identity, prefijo `_`, visibilidad/traits sellados/cargo-semver-checks) y sin oraculo, y cerrar Collections junto con ByteIterator (P04); (b) escribir tipos propios (OptionVal, constantes de ConstantFun, EmptyImmutableSeq) y caracterizarlos con oraculo aunque no tengan consumidor; (c) excluir alguna fila (requiere autorizacion explicita).
 - **Recomendación:** (a): Q-UTIL-11 (a) ya acepta el equivalente documentado; falta confirmar que ello basta para cerrar `impl`/`validation` sin casos grabados porque las aserciones A# son 'no afirmadas por spec' o inobservables en Rust.
 - **Filas afectadas:** AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.18, AC-UTIL-019
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-21 — Selección entre entradas `prefix*` solapadas de WildcardIndex (orden del HashMap de Scala)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** WildcardIndex.scala:87-89 (`wildcardSuffixChildren.collectFirst { case (key, branch) if nextElement.startsWith(key) => branch }` sobre un `HashMap[String, WildcardTree]`): con dos prefijos que ambos son prefijo del elemento (p. ej. `a*` y `ab*` para `abc`) gana el que el HashMap de Scala itera primero, que depende de `String.hashCode` y de la estructura del trie; ningún spec lo afirma (AC-UTIL-009 A7).
+- **Alternativas:** (a) gana el prefijo más largo (el más específico), y a igual longitud el insertado primero: determinista; (b) gana el primero insertado (lo que hay hoy); (c) reproducir el orden de iteración del HashMap de Scala (String.hashCode y orden del CHAMP trie).
+- **Recomendación:** (a): es el único criterio que un usuario puede predecir y coincide con "la entrada más específica" que el contrato de AC-UTIL-009 promete; sólo difiere de Pekko en configuraciones solapadas, donde Pekko depende del hash. Clasificación: representación (diferencia observable sólo en solapamientos). Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila.
+- **Filas afectadas:** AC-UTIL-009
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 

@@ -1,0 +1,1 @@
+TM-05 setAll with an empty set keeps the key, valueRemoved only drops sets equal to the value

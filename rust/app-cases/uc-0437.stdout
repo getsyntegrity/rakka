@@ -1,0 +1,1 @@
+DL-12 a list of one node -> ok a empty=f first=a last=a fwd=[a] backReversed=[a] a a empty=f first=a last=a fwd=[a] backReversed=[a] a a empty=f first=a last=a fwd=[a] backReversed=[a] ok empty=t first=null last=null fwd=[] backReversed=[]

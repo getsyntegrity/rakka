@@ -286,5 +286,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P75 (2026-11-18): UTIL-ORIGEN-CLOSURES (AC-UTIL-016.8)
     LineNumbersOracle.register();
+
+    // ---- Slice P03 (2026-11-18): UTIL-ESTRUCTURAS (AC-UTIL-007..014, 015.1, 016.4, 017.1..017.5)
+    StructuresOracle.register();
   }
 }

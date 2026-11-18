@@ -249,3 +249,223 @@ LN-08 an anonymous class has a source file and lines
 LN-09 a non-serializable lambda has no source info
 LN-10 the Java API for is the same as apply
 LN-11 two closures of one site report the same origin and two sites differ
+IX-01 take and return a value
+IX-02 put reports whether the value was new
+IX-03 remove one value, remove a key
+IX-04 removeValue from every key
+IX-05 foreach visits every pair and findValue finds each value
+IX-06 clear
+IX-07 a key that loses its last value disappears
+IX-08 the comparator orders values, equal values collapse
+IX-09 values are the union over all keys
+IX-11 random sequence seed 11
+IX-12 random sequence seed 12
+IX-13 random sequence seed 13
+IX-14 random sequence, reversed comparator
+IM-01 empty map
+IM-02 updated keeps the keys ordered
+IM-03 hashCode is Arrays.hashCode of the key/value array
+IM-04 replace values
+IM-05 updateIfAbsent evaluates the value only for a new key
+IM-06 equals and hashCode
+IM-07 remove first, middle, last, absent and until empty
+IM-08 get of an absent key is Int.MinValue
+IM-09 extreme keys and values
+IM-21 random sequence seed 21
+IM-22 random sequence seed 22
+IM-23 random sequence seed 23
+TM-01 retain and remove values for the same key
+TM-02 retain and remove values for multiple keys
+TM-03 valueRemoved takes the value from every key and drops the emptied ones
+TM-04 keyRemoved removes every value of a key
+TM-05 setAll with an empty set keeps the key, valueRemoved only drops sets equal to the value
+TM-06 plus overwrites by key without merging
+TM-07 removing an absent pair leaves the map equal
+TM-31 random sequence seed 31
+TM-32 random sequence seed 32
+TM-33 random sequence seed 33
+WI-01 insert and find
+WI-02 insert and find (spec)
+WI-03 a single wildcard matches one element
+WI-04 wildcard in the middle
+WI-05 wildcard suffix
+WI-06 wildcard suffix in the second position
+WI-07 a double wildcard cannot be a suffix
+WI-08 nothing found in an empty index
+WI-09 terminal double wildcard
+WI-10 a lone double wildcard matches everything, even nothing
+WI-11 non-terminal double wildcards are ignored
+WI-12 exact elements win over wildcards, single over double
+WI-13 non-ASCII and astral elements, suffix compared by prefix
+WI-14 an empty element and repeated insertion
+WI-15 only prefix* entries: the index reports empty and finds nothing
+WI-16 inserting prefix* again replaces the subtree of that prefix
+WI-41 random sequence seed 41
+WI-42 random sequence seed 42
+WI-43 random sequence seed 43
+SI-01 a key inherits the values of its superclass
+SI-02 adding a value reaches every subclass
+SI-03 multiple inheritance: 12 is below 4 and 6
+SI-04 removeValue by key and by value
+SI-05 a new key slots between existing ones
+SI-06 a value added under an unknown key creates it
+SI-51 random sequence seed 51
+SI-52 random sequence seed 52
+SI-53 random sequence seed 53
+SI-54 random sequence seed 54
+MB-01 empty and nonEmpty
+MB-02 append and dropHead
+MB-03 foreach keeps insertion order
+MB-04 filterNot of the first element
+MB-05 filterNot of the last element
+MB-06 filterNot of single entries among six
+MB-07 filterNot of several entries
+MB-08 filterNot of nothing and of everything
+MB-09 the map: contains, add, append, remove
+MB-10 the map keeps one buffer per id
+MB-11 drop publishes Dropped for each buffered message, in order
+MB-12 the map after removing and re-adding ids
+MB-61 random sequence seed 61
+MB-62 random sequence seed 62
+MB-63 random sequence seed 63
+SC-01 on and off
+SC-02 switchOn/switchOff with an action
+SC-03 an exception in the action reverts the switch
+SC-04 ifOn/ifOff run the action without locking
+SC-05 whileOn/whileOff run the action under the lock
+SC-06 fold picks a callback by state
+SC-07 locked returns the value and the lock is re-entrant
+SC-08 a switch can start on
+SC-09 failed actions leave no trace of success
+SC-71 random sequence seed 71
+SC-72 random sequence seed 72
+SC-73 random sequence seed 73
+TB-01 starts full
+TB-02 different rates and capacities
+TB-03 elements larger than the capacity
+TB-04 capacity zero
+TB-05 arrival rate below the production rate
+TB-06 the capacity is kept
+TB-07 negative time
+TB-08 time that wraps over
+TB-09 equal intervals between tokens
+TB-10 cost zero
+TB-11 very slow rates
+TB-12 invalid arguments
+TB-81 random sequence seed 81
+TB-82 random sequence seed 82
+TB-83 random sequence seed 83
+TB-84 random sequence seed 84
+SQ-01 FIFO among equal priorities
+SQ-02 lower priority first, FIFO for ties (blocking queue)
+SQ-03 many equal priorities keep the order of arrival
+SQ-04 iterator remove
+SQ-92 random sequence seed 92
+SQ-93 random sequence seed 93
+SQ-94 random sequence on the blocking queue
+BQ-01 constructor
+BQ-02 remainingCapacity follows the size
+BQ-03 put and offer on a queue with room
+BQ-04 offer on a full queue returns false
+BQ-05 offer with a timeout
+BQ-06 poll and take
+BQ-07 peek does not remove
+BQ-08 remove and contains
+BQ-09 clear
+BQ-10 drainTo
+BQ-11 containsAll
+BQ-12 removeAll
+BQ-13 retainAll
+BQ-14 iterator
+BQ-15 iterator remove frees room
+BQ-16 priority backing queue orders by priority
+BQ-17 duplicates are kept and removed one at a time
+BQ-97 random sequence seed 97
+BQ-98 random sequence seed 98
+BQ-99 random sequence, priority backing
+FS-01 MurmurHash3.stringHash with the default seed
+FS-02 MurmurHash3.stringHash with other seeds
+FS-03 increment counters
+FS-04 counters saturate at the maximum
+FS-05 reset halves the counters
+FS-06 reset size reached exactly
+FS-07 counter widths
+FS-08 depth one and width one collide
+FS-09 sketch constructor requirements
+FS-10 width overflow is rejected (2.0.0)
+FS-11 Bits helpers
+FS-12 a tiny sketch debug string
+FS-13 reset size derives from the capacity
+FS-111 random sequence seed 111
+FS-112 random sequence seed 112
+FS-113 random sequence with 2 bit counters
+FS-114 random sequence with 8 bit counters
+FS-115 random sequence with 16 bit counters
+FS-116 random sequence with 64 bit counters
+FF-01 fast sketch: increment counters
+FF-02 fast sketch: counters saturate
+FF-03 fast sketch: integer items hash to themselves
+FF-04 fast sketch: constructor requirements
+FF-05 fast sketch: a tiny debug string
+FF-06 fast sketch: reset size reached exactly
+FF-122 random sequence seed 122
+FF-123 random sequence seed 123
+FF-124 random sequence seed 124
+FF-125 random sequence, 1 counter column
+RL-01 recency over a sequence of updates and removals
+RL-02 least and most recent, single removals
+RL-03 time based removals
+RL-04 removals of nothing and of more than there is
+RL-131 random sequence seed 131
+RL-132 random sequence seed 132
+RL-133 random sequence seed 133
+FL-01 frequency order, least and most
+FL-02 removeLeastFrequent and removeMostFrequent with skip
+FL-03 overall recency with a clock
+FL-04 overall recency not enabled
+FL-05 plain LFU: removeLeastFrequent does not age
+FL-06 dynamic aging lets new entries overtake old ones
+FL-07 dynamic aging with a clock
+FL-141 random sequence seed 141
+FL-142 random sequence seed 142
+FL-143 random sequence, dynamic aging
+FL-144 random sequence, clock
+FL-145 random sequence, dynamic aging and clock
+SR-01 two segments
+SR-02 four segments
+SR-03 updating limits
+SR-04 overall recency with a clock
+SR-05 overall recency not enabled
+SR-06 remove and single level
+SR-151 random sequence seed 151
+SR-152 random sequence seed 152
+SR-153 random sequence, three segments with a clock
+DL-01 prepend and append
+DL-02 remove first, middle and last
+DL-03 move to front
+DL-04 move to back
+DL-05 first or else prepend
+DL-06 last or else append
+DL-07 next or else insert
+DL-08 previous or else insert
+DL-09 find next or else insert
+DL-10 find previous or else insert
+DL-11 moving a node that is already there changes nothing
+DL-12 a list of one node
+DL-13 a removed node can be linked again
+DL-161 random sequence seed 161
+DL-162 random sequence seed 162
+DL-163 random sequence seed 163
+MB-DROP-ABSENT drop of an id that was never added
+CC-01 Index in parallel: the upper half is never lost
+CC-02 Switch: exactly one of 8 racing switchOn wins
+CC-03 Switch: switchOff waits for locked
+BQ-C1 one producer, one consumer through capacity 3 keep FIFO
+BQ-C2 four producers and four consumers lose and duplicate nothing
+BQ-C3 take blocks on an empty queue until an element arrives
+BQ-C4 put blocks on a full queue until there is room
+BQ-C5 offer with a timeout gives up on a full queue and succeeds when room appears
+BQ-C6 poll with a timeout returns null on an empty queue and the element when one arrives
+BQ-C7 iterator remove drops the element it returned, by identity
+BQ-C8 the iterator is a snapshot
+RG-01 ReentrantGuard is absent from the 2.0.0 jar

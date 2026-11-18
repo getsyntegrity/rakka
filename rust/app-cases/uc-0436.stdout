@@ -1,0 +1,1 @@
+DL-11 moving a node that is already there changes nothing -> ok a b a empty=f first=a last=b fwd=[a,b] backReversed=[a,b] b empty=f first=a last=b fwd=[a,b] backReversed=[a,b] b empty=f first=b last=a fwd=[b,a] backReversed=[b,a] b empty=f first=a last=b fwd=[a,b] backReversed=[a,b]

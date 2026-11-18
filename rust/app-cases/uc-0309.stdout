@@ -1,0 +1,1 @@
+MB-11 drop publishes Dropped for each buffered message, in order -> ok ok ok ok dropped=2 sent=[m1/stopped/s1/noSender,m2/stopped/s2/noSender] f 1 dropped=1 sent=[m3/gone/s3/noSender] 0tf ok dropped=0 sent=[] f

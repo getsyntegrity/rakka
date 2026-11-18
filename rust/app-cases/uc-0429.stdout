@@ -1,0 +1,1 @@
+DL-04 move to back -> ok c b a empty=f first=c last=a fwd=[c,b,a] backReversed=[c,b,a] a empty=f first=c last=a fwd=[c,b,a] backReversed=[c,b,a] b empty=f first=c last=b fwd=[c,a,b] backReversed=[c,a,b] c empty=f first=a last=c fwd=[a,b,c] backReversed=[a,b,c]

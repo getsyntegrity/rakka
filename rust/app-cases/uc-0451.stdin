@@ -1,0 +1,1 @@
+BQ-C7 iterator remove drops the element it returned, by identity

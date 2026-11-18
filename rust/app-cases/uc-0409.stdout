@@ -1,0 +1,1 @@
+FL-05 plain LFU: removeLeastFrequent does not age -> ok ok size=3 size=3 size=3 [c,b,a] [c] size=3 [d,b,a] [d] size=3 [b,e,a] [b,e,a] []

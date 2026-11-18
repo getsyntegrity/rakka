@@ -1,0 +1,1 @@
+DL-01 prepend and append -> ok empty=t first=null last=null fwd=[] backReversed=[] c b a empty=f first=a last=c fwd=[a,b,c] backReversed=[a,b,c] ok ok ok empty=t first=null last=null fwd=[] backReversed=[] a b c empty=f first=a last=c fwd=[a,b,c] backReversed=[a,b,c]

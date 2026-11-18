@@ -1,0 +1,1 @@
+FS-09 sketch constructor requirements -> ok !IllegalArgumentException[requirement failed: width must be a power of two] !IllegalArgumentException[requirement failed: counterBits must be 2, 4, 8, 16, 32, or 64 bits] ok ok ok

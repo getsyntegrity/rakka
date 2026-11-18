@@ -1,0 +1,1 @@
+DL-05 first or else prepend -> ok c b empty=f first=b last=c fwd=[b,c] backReversed=[b,c] b empty=f first=b last=c fwd=[b,c] backReversed=[b,c] a empty=f first=a last=c fwd=[a,b,c] backReversed=[a,b,c]

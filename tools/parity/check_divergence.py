@@ -421,6 +421,55 @@ MUTANTS = {
         'format!("{lines}")',
         "prettyName omits the `<package>/` prefix of a located closure",
     ),
+    # --- slice P03: data structures (Index, Switch, TokenBucket, WildcardIndex, sketches, queues, ImmutableIntMap) ---
+    "index-put-duplicate-is-new": (
+        "src/util/index.rs",
+        "Ok(_) => false,",
+        "Ok(_) => true,",
+        "`put` reports a value that was already associated with the key as new",
+    ),
+    "token-bucket-no-tick-at-exact-period": (
+        "src/util/token_bucket.rs",
+        "if time_elapsed >= period {",
+        "if time_elapsed > period {",
+        "a token that arrives exactly one period after the last update is not counted until the next period",
+    ),
+    "switch-no-revert-on-panic": (
+        "src/util/switch.rs",
+        "self.compare_and_set(!from, from); // revert status",
+        "// the switch keeps its new state even though the action panicked",
+        "a panicking action no longer reverts the switch (SwitchSpec `revert when exception`)",
+    ),
+    "wildcard-skips-double-fallback": (
+        "src/util/wildcard_index.rs",
+        "if with_single_wildcard.is_none_or(WildcardTree::is_empty) {",
+        "if false {",
+        "a path with no single-wildcard match never falls back to the terminal `**` entries",
+    ),
+    "frequency-sketch-reset-keeps-neighbour-bits": (
+        "src/util/frequency_sketch.rs",
+        "(slot >> 1) & self.reset_mask",
+        "slot >> 1",
+        "the TinyLFU reset shifts the counters without masking, so the low bit of each counter leaks into its neighbour",
+    ),
+    "murmur3-mix-last-rotation": (
+        "src/util/frequency_sketch.rs",
+        "k = k.rotate_left(15);",
+        "k = k.rotate_left(14);",
+        "MurmurHash3.mixLast rotates by 14 instead of 15, so every sketch hash (and the exact counters of FrequencySketchSpec) changes",
+    ),
+    "stable-queue-ties-last-in-first-out": (
+        "src/util/stable_priority_queue.rs",
+        "(a.seq_num.wrapping_sub(b.seq_num) as i64) < 0,",
+        "(a.seq_num.wrapping_sub(b.seq_num) as i64) > 0,",
+        "elements of equal priority come out last in first out instead of first in first out",
+    ),
+    "int-map-hash-starts-at-zero": (
+        "src/util/immutable_int_map.rs",
+        ".fold(1_i32,",
+        ".fold(0_i32,",
+        "ImmutableIntMap.hashCode starts from 0 instead of 1 like Arrays.hashCode (1281 for {10 -> 10})",
+    ),
     # --- slice P05: Glob ---
     "glob-trailing-star-unmatched": (
         "src/util/glob.rs",

@@ -1,0 +1,1 @@
+SI-02 adding a value reaches every subclass -> ok {4:[]} {6:[]} {12:[]} {2:[x] 4:[x] 6:[x] 12:[x]} [x] [x] [x] {3:[y] 6:[y] 12:[y]} [x,y] [x,y] [y] [x]

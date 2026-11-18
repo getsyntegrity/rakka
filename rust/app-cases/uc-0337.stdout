@@ -1,0 +1,1 @@
+TB-12 invalid arguments -> ok !IllegalArgumentException[requirement failed: Capacity must be non-negative.] !IllegalArgumentException[requirement failed: Time between tokens must be larger than zero nanoseconds.] !IllegalArgumentException[requirement failed: Time between tokens must be larger than zero nanoseconds.] ok ok !IllegalArgumentException[Cost must be non-negative] 0 1
