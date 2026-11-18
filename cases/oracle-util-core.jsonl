@@ -450,3 +450,4 @@
 {"name": "uc-0450", "args": ["util-core-case"], "stdin": "BQ-C6 poll with a timeout returns null on an empty queue and the element when one arrives"}
 {"name": "uc-0451", "args": ["util-core-case"], "stdin": "BQ-C7 iterator remove drops the element it returned, by identity"}
 {"name": "uc-0452", "args": ["util-core-case"], "stdin": "BQ-C8 the iterator is a snapshot"}
+{"name": "uc-0453", "args": ["util-core-case"], "stdin": "RG-01 ReentrantGuard is absent from the 2.0.0 jar"}

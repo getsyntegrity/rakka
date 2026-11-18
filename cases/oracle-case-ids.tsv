@@ -849,3 +849,4 @@ uc-0449	util-core	BQ-C5 offer with a timeout gives up on a full queue and succee
 uc-0450	util-core	BQ-C6 poll with a timeout returns null on an empty queue and the element when one arrives
 uc-0451	util-core	BQ-C7 iterator remove drops the element it returned, by identity
 uc-0452	util-core	BQ-C8 the iterator is a snapshot
+uc-0453	util-core	RG-01 ReentrantGuard is absent from the 2.0.0 jar

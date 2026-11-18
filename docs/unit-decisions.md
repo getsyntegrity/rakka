@@ -41,7 +41,7 @@
 
 ## P03 UTIL-ESTRUCTURAS
 
-16 filas; 8 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 0 propuestas.
+16 filas; 9 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -53,6 +53,7 @@
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-UTIL-012 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-UTIL-015.1 | — | — | `transversal` |
 | Q-X-6 | accepted (2026-11-18): aceptar (A). | 1: AC-UTIL-008 | — | — | `transversal` |
+| Q-UTIL-21 | propuesta | 1: AC-UTIL-009 | Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila. | — | `classic-foundation` |
 
 ## P04 UTIL-BYTES
 
@@ -1022,4 +1023,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 465 (230 respondidas, 0 bloqueantes, 235 propuestas).
+Total de pares unidad–decisión: 466 (230 respondidas, 0 bloqueantes, 236 propuestas).

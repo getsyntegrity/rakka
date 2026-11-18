@@ -18,7 +18,7 @@ import org.apache.pekko.util.*;
  * Switch (015.1), ImmutableIntMap (016.4), FrequencySketch (017.1), FrequencyList (017.2), RecencyList (017.3),
  * SegmentedRecencyList (017.4) and DoubleLinkedList (017.5) of Pekko 2.0.0.
  *
- * <p>Sequence cases are scripts shared with the Rust twin through {@code cases/structures.tsv}: one line per case,
+ * <p>Sequence cases are scripts shared with the Rust twin through {@code crates/rakka-actor/examples/classic-parity/structures.tsv}: one line per case,
  * {@code id<TAB>family<TAB>script}, a script being operations separated by ';' and words by spaces. Both sides run the
  * same interpreter and print one token per operation, so a divergence names the operation. A script operation
  * {@code rand SEED N} expands to N pseudo-random operations from the xorshift generator {@link Rng}, which both sides
@@ -112,12 +112,12 @@ final class StructuresOracle {
 
   static List<String[]> scripts = null;
 
-  /** Lines of cases/structures.tsv: id, family, script. */
+  /** Lines of the structures.tsv next to the Rust twin: id, family, script. */
   static List<String[]> scripts() {
     if (scripts != null) return scripts;
     try {
       Path classes = Paths.get(StructuresOracle.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-      Path file = classes.resolve("../../../cases/structures.tsv").normalize();
+      Path file = classes.resolve("../../../crates/rakka-actor/examples/classic-parity/structures.tsv").normalize();
       List<String[]> out = new ArrayList<>();
       for (String line : Files.readAllLines(file)) {
         if (line.isBlank() || line.startsWith("#")) continue;
@@ -145,6 +145,15 @@ final class StructuresOracle {
     concurrentCases();
     QueuesOracle.register();
     SketchOracle.register();
+    // Last, so that the recorded case names of the cases above do not move.
+    run("RG-01 ReentrantGuard is absent from the 2.0.0 jar", () -> {
+      try {
+        Class.forName("org.apache.pekko.util.ReentrantGuard");
+        return "class=present";
+      } catch (ClassNotFoundException e) {
+        return "class=absent";
+      }
+    });
   }
 
   static Interp interpreter(String family) {

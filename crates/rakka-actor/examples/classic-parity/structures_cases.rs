@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/{Index,SubclassifiedIndex,WildcardIndex,MessageBuffer,TokenBucket,BoundedBlockingQueue,StablePriorityQueue,TypedMultiMap,LockUtil,ImmutableIntMap,FrequencySketch,FrequencyList,RecencyList,SegmentedRecencyList,DoubleLinkedList}.scala (Apache-2.0).
 //! Cases of the AC-UTIL (structures) oracle (`StructuresOracle.java` and its siblings): the Rust twin of
-//! each case. The sequence cases are the scripts of `cases/structures.tsv`, run by an interpreter per
+//! each case. The sequence cases are the scripts of `structures.tsv`, run by an interpreter per
 //! family that mirrors the Java one operation by operation; the concurrent cases are coded here and in
 //! the oracle and print invariants only. Slice P03.
 
@@ -35,7 +35,7 @@ use rakka_actor::util::token_bucket::TokenBucket;
 use rakka_actor::util::typed_multi_map::{TypedKey, TypedMultiMap};
 use rakka_actor::util::wildcard_index::WildcardIndex;
 
-const SCRIPTS: &str = include_str!("../../../../cases/structures.tsv");
+const SCRIPTS: &str = include_str!("structures.tsv");
 
 // ---------------------------------------------------------------- shared helpers
 
@@ -160,7 +160,7 @@ fn interpreter(family: &str) -> Box<dyn Interp> {
     }
 }
 
-/// The lines of the structures oracle, in the order of `cases/structures.tsv` and then the concurrent
+/// The lines of the structures oracle, in the order of `structures.tsv` and then the concurrent
 /// cases: `(id, result)` where the result is what follows `ok ` in the oracle line.
 pub fn cases() -> Vec<(String, String)> {
     // A panicking action is part of the cases: keep it off the standard error.
@@ -181,6 +181,11 @@ pub fn cases() -> Vec<(String, String)> {
     }
     panic::set_hook(previous_hook);
     out.extend(concurrent_cases());
+    // `ReentrantGuard` (AC-UTIL-015.2) no longer exists in 2.0.0 and never existed here: `Mutex` replaces it.
+    out.push((
+        "RG-01 ReentrantGuard is absent from the 2.0.0 jar".to_owned(),
+        "class=absent".to_owned(),
+    ));
     out
 }
 

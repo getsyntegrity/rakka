@@ -12,7 +12,6 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 08 `AC-DSP-1` (`08-ac-dsp-1.md`), por las filas AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-004, AC-DSP-023. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 10 `AC-EVT-1` (`10-ac-evt-1.md`), por las filas AC-EVT-008. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 04 `AC-CFG-1` (`04-ac-cfg-1.md`), por las filas AC-CFG-001, AC-CFG-016.
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-012, AC-UTIL-013.
 - Spec 20 `AC-RT-1` (`20-ac-rt-1.md`), por las filas AC-RT-008. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 05 `AC-REF-1` (`05-ac-ref-1.md`), por las filas AC-REF-015.
 

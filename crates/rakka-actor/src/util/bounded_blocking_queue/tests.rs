@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor-tests/src/test/scala/org/apache/pekko/util/BoundedBlockingQueueSpec.scala (Apache-2.0).
 //! `BoundedBlockingQueueSpec` of Pekko 2.0.0 (actor-tests/.../util/BoundedBlockingQueueSpec.scala), one
 //! test per `in` block. The spec's `Thread.sleep` and "does not return within 100 ms" checks are
 //! replaced by waiting for the thread under test to announce (through the listener) that it is about

@@ -816,6 +816,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-10.
 
 
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `Index.scala` re-leído contra 2.0.0: sin cambios de comportamiento. Equivalente (Q-UTIL-10 (a)): `Mutex` sobre `HashMap<K, Vec<V>>` con iteración sobre instantánea. A1-A7 cubiertas (IndexSpec portado, casos IX-*, CC-01).
+
 ---
 
 ## AC-UTIL-008 — SubclassifiedIndex / Subclassification
@@ -851,6 +853,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-X-6, Q-UTIL-10.
 
+
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `SubclassifiedIndex.scala` re-leído contra 2.0.0 (líneas 19-231). Lo observable es lo de A3: diffs de addKey/addValue/removeValue y findValues, medidos con el jar en una jerarquía con herencia múltiple (casos SI-*). Quedan fuera A1/A2 (EventStream, AC-EVT-003).
 
 ---
 
@@ -890,6 +894,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-8.
 
+
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `WildcardIndex.scala` re-leído contra 2.0.0. Hallazgos medidos (WI-15, WI-16): `isEmpty` ignora los hijos `prefix*` y reinsertar `prefix*` reemplaza el subárbol; la elección entre `prefix*` solapados (A7) depende del orden de un HashMap de Scala: Q-UTIL-21 (propuesta).
 
 ---
 
@@ -937,6 +943,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-10 (estructuras concurrentes; aquí no thread-safe), Q-UTIL-15 (nuevo: `drop` de id ausente).
 
 
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `MessageBuffer.scala` re-leído contra 2.0.0: sin cambios de comportamiento; `drop` de un id ausente lanza NullPointerException (MB-DROP-ABSENT). Q-UTIL-15 (b) aceptada: Rust devuelve 0 (divergencia autorizada y documentada).
+
 ---
 
 ## AC-UTIL-011 — TokenBucket / NanoTimeTokenBucket
@@ -979,6 +987,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-10.
 
+
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `TokenBucket.scala` re-leído contra 2.0.0 y medido: los mensajes de `require` incluyen el prefijo `requirement failed: ` y la excepción de `offer` con coste negativo no (TB-12). Toda la aritmética del tiempo hace wrapping de Long.
 
 ---
 
@@ -1031,6 +1041,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-10, Q-UTIL-11 (cancelación/interrupciones), Q-X-4 (runtime).
 
 
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `BoundedBlockingQueue.scala` re-leído contra 2.0.0: sin cambios de comportamiento. El spec tiene 62 bloques `in` (no 79): los ~8 que rechazan `null` no tienen contraparte en Rust.
+
 ---
 
 ## AC-UTIL-013 — StablePriorityQueue / StablePriorityBlockingQueue / PriorityQueueStabilizer
@@ -1064,6 +1076,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-10.
 
+
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `StablePriorityQueue.scala` y `StablePriorityDispatcherSpec` re-leídos contra 2.0.0: sin cambios de comportamiento.
 
 ---
 
@@ -1109,6 +1123,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-11 (tipos dependientes sin equivalente); sin posibilidad de oráculo útil (el comportamiento depende del tipado).
 
 
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `TypedMultiMap.scala` re-leído contra 2.0.0: sin cambios de comportamiento. Equivalente: `TypedKey` con tipo asociado.
+
 ---
 
 ## AC-UTIL-015.1 — Switch (interruptor atómico con acciones bajo lock)
@@ -1144,6 +1160,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-10, Q-UTIL-11, Q-X-5.
 
 
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `LockUtil.scala` de 2.0.0 sólo define `Switch` (144 líneas). El lock es el monitor del propio objeto (re-entrante).
+
 ---
 
 ## AC-UTIL-015.2 — ReentrantGuard (deprecado desde 1.2.1)
@@ -1171,6 +1189,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11.
 
+
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** ELIMINADO EN 2.0.0 (no es una exclusión, Q-UTIL-11): `ReentrantGuard` ya no existe en `LockUtil.scala` ni en el jar (caso RG-01).
 
 ---
 
@@ -1314,6 +1334,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11, Q-UTIL-14 (hash).
 
+
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `ImmutableIntMap.scala` re-leído contra 2.0.0 (líneas 26-167): sin cambios de comportamiento; `hashCode` es `Arrays.hashCode` del array (1281 para {10 -> 10}).
 
 ---
 
@@ -1825,6 +1847,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-14 (hash de Scala), Q-UTIL-8 (UTF-16), Q-UTIL-11. Fila propuesta como equivalente directo (no exclusión).
 
 
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `FrequencySketch.scala` de 2.0.0 añade `require(widthLong <= Int.MaxValue, "computed width (...) exceeds Int.MaxValue; reduce capacity or widthMultiplier")` (el ancho se calcula en Long) y limita el tamaño de reinicio a Int.MaxValue; no estaba en 1.7.1. Q-UTIL-14 (a): MurmurHash3 y String.hashCode exactos.
+
 ---
 
 ## AC-UTIL-017.2 — FrequencyList (lista de frecuencias LFU, con recencia global y envejecimiento dinámico opcionales)
@@ -1866,6 +1890,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-11 (equivalente propuesto).
 
 
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `FrequencyList.scala` re-leído contra 2.0.0: sin cambios de comportamiento.
+
 ---
 
 ## AC-UTIL-017.3 — RecencyList (LRU por reloj)
@@ -1898,6 +1924,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11.
 
+
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `RecencyList.scala` re-leído contra 2.0.0: sin cambios de comportamiento.
 
 ---
 
@@ -1935,6 +1963,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-11.
 
 
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `SegmentedRecencyList.scala` re-leído contra 2.0.0: sin cambios de comportamiento.
+
 ---
 
 ## AC-UTIL-017.5 — DoubleLinkedList (lista intrusiva con operaciones "obtener u insertar")
@@ -1969,6 +1999,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11.
 
+
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `DoubleLinkedList.scala` re-leído contra 2.0.0: sin cambios de comportamiento.
 
 ---
 

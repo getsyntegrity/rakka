@@ -468,3 +468,4 @@ BQ-C5 offer with a timeout gives up on a full queue and succeeds when room appea
 BQ-C6 poll with a timeout returns null on an empty queue and the element when one arrives
 BQ-C7 iterator remove drops the element it returned, by identity
 BQ-C8 the iterator is a snapshot
+RG-01 ReentrantGuard is absent from the 2.0.0 jar
