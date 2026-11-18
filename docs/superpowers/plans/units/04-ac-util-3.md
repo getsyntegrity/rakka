@@ -1,6 +1,6 @@
 # Spec 04 — AC-UTIL (3/3)
 
-**Estado:** bloqueada. **Filas:** 6. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias. **Filas:** 8. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -17,8 +17,8 @@ Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1.
 
 Decisiones:
 
-- Bloqueantes: `Q-UTIL-12`.
-- Propuestas aún sin decisión del Owner: `Q-UTIL-10`, `Q-UTIL-11`, `Q-UTIL-13`, `Q-UTIL-8`.
+- Bloqueantes: ninguna.
+- Propuestas aún sin decisión del Owner: ninguna.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -36,6 +36,15 @@ Filas: AC-UTIL-021, AC-UTIL-022, AC-UTIL-023, AC-UTIL-024, AC-UTIL-025, AC-UTIL-
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
+### Tarea 2: Clock / NanoClock / ScheduledClock (reloj interno basado en nanoTime) (+1 filas)
+
+Filas: AC-UTIL-027, AC-UTIL-028. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
 ## Trazabilidad contrato → aserción → validación
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
@@ -46,6 +55,8 @@ Filas: AC-UTIL-021, AC-UTIL-022, AC-UTIL-023, AC-UTIL-024, AC-UTIL-025, AC-UTIL-
 | AC-UTIL-024 | Helpers.compareIdentityHash / identityHashComparator (orden por… | orden por dirección/ID único del objeto; en Rust no existe identityHashCode estable | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:307 ;… | Q-UTIL-10 |
 | AC-UTIL-025 | Helpers.currentTimeMillisToUTCString y Helpers.timestamp (formato de hora para… | `fn current_time_millis_to_utc_string(i64) -> String` y `fn timestamp(i64) -> String` | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:283-317 | Q-UTIL-10 |
 | AC-UTIL-026 | Helpers.isWindows (detección de SO por os.name) | `cfg!(windows)` | derivada del código (ver bloque de contrato) | Q-UTIL-13 |
+| AC-UTIL-027 | Clock / NanoClock / ScheduledClock (reloj interno basado en nanoTime) | Clock con extensión y config | - (fila creada por la decisión Q-UTIL-11 el 2026-11-18; tests por localizar) | Q-UTIL-11 |
+| AC-UTIL-028 | SWARUtil (lectura/escritura multibyte y patrones SWAR sobre byte[]) | funciones de bytes de `bytes`/Rust nativo | - (fila creada por la decisión Q-UTIL-11 el 2026-11-18; tests por localizar) | Q-UTIL-11 |
 
 ## Gates y criterio de cierre
 

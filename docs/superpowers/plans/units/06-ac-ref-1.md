@@ -23,7 +23,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-REF-009.3.
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-REF-1`, `Q-REF-2`, `Q-REF-3`, `Q-REF-4`, `Q-REF-5`, `Q-REF-6`, `Q-X-2`, `Q-X-3`, `Q-X-8`.
+- Propuestas aún sin decisión del Owner: `Q-REF-1`, `Q-REF-2`, `Q-REF-3`, `Q-REF-4`, `Q-REF-5`, `Q-REF-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

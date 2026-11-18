@@ -1,6 +1,6 @@
 # Spec 03 — AC-UTIL (2/3)
 
-**Estado:** bloqueada. **Filas:** 30. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias. **Filas:** 30. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -16,8 +16,8 @@ Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1.
 
 Decisiones:
 
-- Bloqueantes: `Q-UTIL-6`.
-- Propuestas aún sin decisión del Owner: `Q-CFG-11`, `Q-CFG-5`, `Q-CFG-7`, `Q-CFG-8`, `Q-UTIL-11`, `Q-UTIL-14`, `Q-UTIL-16`, `Q-UTIL-8`, `Q-UTIL-9`, `Q-X-2`, `Q-X-4`.
+- Bloqueantes: ninguna.
+- Propuestas aún sin decisión del Owner: ninguna.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

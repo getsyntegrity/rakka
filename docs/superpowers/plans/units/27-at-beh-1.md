@@ -1,6 +1,6 @@
 # Spec 27 — AT-BEH (1/1)
 
-**Estado:** bloqueada. **Filas:** 26. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 26. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -18,8 +18,8 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 Decisiones:
 
-- Bloqueantes: `Q-T-BEH-1`.
-- Propuestas aún sin decisión del Owner: `Q-T-BEH-2`, `Q-T-BEH-3`, `Q-T-BEH-4`, `Q-T-BEH-5`, `Q-T-BEH-6`, `Q-T-CTX-2`, `Q-T-TMR-1`, `Q-X-3`, `Q-X-5`, `Q-X-6`, `Q-X-7`.
+- Bloqueantes: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-T-BEH-2`, `Q-T-BEH-3`, `Q-T-BEH-4`, `Q-T-BEH-5`, `Q-T-BEH-6`, `Q-T-CTX-2`, `Q-T-TMR-1`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

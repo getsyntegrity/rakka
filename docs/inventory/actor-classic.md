@@ -6,7 +6,7 @@ Este documento resume `docs/inventory/actor-classic.tsv`, que es la definición 
 
 `pekko-actor` es mucho más que "actores que se mandan mensajes". Además del núcleo (direcciones y paths, referencias, la celda que ejecuta cada actor, supervisión, DeathWatch, mailboxes y dispatchers) trae su propio sistema de configuración por claves, un bus de eventos con logging, un scheduler de timers, patrones (ask, pipe, circuit breaker, backoff), una máquina de estados finitos (FSM), routers, el apagado coordinado (CoordinatedShutdown), serialización, red no bloqueante (`pekko.io`: TCP, UDP y DNS) y una API Java paralela a la de Scala. El testkit clásico (`testkit/`) no es parte del módulo pero se incluye porque sin él no se pueden portar las specs que fijan el comportamiento.
 
-En total el inventario tiene **523 filas** (tras el cierre documental del 2026-10-31; el inventario inicial tenía 322; 507 tras la revisión del 2026-10-30). Varias filas del inventario inicial se descompusieron en hijos `<ID>.<n>` (el padre desaparece y una referencia a un padre significa todos sus hijos) y se agregaron las omisiones detectadas; la lista está en `docs/inventory/contracts/*.md`, secciones "Descomposiciones" y "Omisiones agregadas".
+En total el inventario tiene **525 filas** (tras el cierre documental del 2026-10-31; el inventario inicial tenía 322; 507 tras la revisión del 2026-10-30). Varias filas del inventario inicial se descompusieron en hijos `<ID>.<n>` (el padre desaparece y una referencia a un padre significa todos sus hijos) y se agregaron las omisiones detectadas; la lista está en `docs/inventory/contracts/*.md`, secciones "Descomposiciones" y "Omisiones agregadas".
 
 ## Cómo se contó
 
@@ -24,7 +24,7 @@ El orden de la tabla es el orden sugerido de implementación. La idea es ir de l
 
 | # | Unidad | Qué cubre | Filas | extracted / listed | Depende de |
 |---|---|---|---|---|---|
-| 1 | UTIL | Timeout, helpers, Done, excepciones base, ByteString, colas e índices de apoyo | 67 | 67 / 0 | — |
+| 1 | UTIL | Timeout, helpers, Done, excepciones base, ByteString, colas e índices de apoyo | 69 | 67 / 2 | — |
 | 2 | CFG | Carga de config HOCON, `Settings`, cada sección de `reference.conf`, Deploy, reflexión por nombre | 29 | 29 / 0 | UTIL |
 | 3 | PATH | `Address`, `ActorPath`, parseo y validación de nombres, paths especiales | 16 | 16 / 0 | UTIL |
 | 4 | REF | `ActorRef`, `tell`/`forward`/`sender`, `Props`, `actorOf`, selección, deadLetters, refs internos | 32 | 32 / 0 | PATH, CFG |
@@ -45,7 +45,7 @@ El orden de la tabla es el orden sugerido de implementación. La idea es ir de l
 | 19 | SER | Serialización (sólo la parte local) | 23 | 23 / 0 | EXT |
 | 20 | IO | `pekko.io`: TCP, UDP, DNS | 35 | 35 / 0 | SYS |
 | 21 | JAPI | API Java (`AbstractActor`, builders, interfaces funcionales, TypedActor) | 21 | 21 / 0 | — |
-| | **Total** | | **523** | **523 / 0** | |
+| | **Total** | | **525** | **523 / 2** | |
 
 Hay un ciclo real que el orden tiene que romper: la celda (CELL) necesita el EventStream para publicar errores y el scheduler para ReceiveTimeout, y el `ActorSystem` (SYS) es quien crea ambos. Por eso SCH y EVT aparecen antes que CELL, pero sólo en su forma mínima (programar una tarea, publicar un evento). Lo mismo pasa con el testkit: las specs de CELL, SUP y DW usan `TestProbe` y `EventFilter`, que a su vez necesitan un sistema andando. La propuesta es construir un TK mínimo (probe con `expectMsg`, `expectTerminated` y captura de logs) junto con SYS, y validar CELL/SUP/DW después con las specs portadas. PATH, CFG y la parte de valores de REF se validan con tests comunes y con el oráculo (`tools/oracle`, los jars oficiales), sin sistema de actores.
 
@@ -96,7 +96,7 @@ Hay 313 filas de Classic con una decisión `Q-` en la columna `notes` (los hijos
 
 ## Qué no se terminó
 
-Tras la revisión de contratos, 523 de 523 filas están en `extracted` (cierre documental 2026-10-31) y 0 siguen en `listed`; el motivo de cada una está en su `notes` y en la sección "Filas que siguen listed" del archivo de contratos de su grupo. `listed` significa que el contrato todavía no es verificable y la fila no puede ejecutarse. Las citas de specs indican la línea del título del test y, para las filas `extracted`, el bloque de contrato cita además las aserciones. No se leyeron los filtros MiMa ni todos los internos de `ByteString`.
+Tras la revisión de contratos, 523 de 525 filas están en `extracted` (cierre documental 2026-10-31) y 2 siguen en `listed` (AC-UTIL-027 y 028, creadas el 2026-11-18 por Q-UTIL-11); el motivo de cada una está en su `notes` y en la sección "Filas que siguen listed" del archivo de contratos de su grupo. `listed` significa que el contrato todavía no es verificable y la fila no puede ejecutarse. Las citas de specs indican la línea del título del test y, para las filas `extracted`, el bloque de contrato cita además las aserciones. No se leyeron los filtros MiMa ni todos los internos de `ByteString`.
 
 
 Las columnas `impl` y `validation` avanzan unidad por unidad. Estado: 484 filas `pending`, 16 `partial` y 7 `done` en `impl` (el recuento exacto sale de `docs/inventory/actor-classic.tsv`). Lo implementado es AC-PATH y la parte del núcleo de AC-UTIL; los `partial` son pendientes reales (decisiones `Q-` abiertas del Owner o piezas diferidas) y no se cierran por tener tests verdes. El orden de implementación está en `docs/implementation-order.md`, las specs ejecutables en `docs/superpowers/plans/units/` y las reglas de trabajo en `AGENTS.md`.

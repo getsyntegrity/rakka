@@ -7,15 +7,15 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | Filas | done | partial | pending | % done | % done + partial |
 |---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 523 | 11 | 68 | 444 | 2.1 % | 15.1 % |
+| Classic (`rakka-actor`) | 525 | 11 | 68 | 446 | 2.1 % | 15.0 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0.0 % | 0.0 % |
-| **Total** | 783 | 11 | 68 | 704 | 1.4 % | 10.1 % |
+| **Total** | 785 | 11 | 68 | 706 | 1.4 % | 10.1 % |
 
 ## Por ola
 
 | Ola | Filas | done | partial | pending | % done | % done + partial |
 |---|---|---|---|---|---|---|
-| 0 - valores sin runtime | 59 | 1 | 6 | 52 | 1.7 % | 11.9 % |
+| 0 - valores sin runtime | 61 | 1 | 6 | 54 | 1.6 % | 11.5 % |
 | 1 - configuracion, eventos y scheduler | 70 | 3 | 13 | 54 | 4.3 % | 22.9 % |
 | 2 - nucleo del runtime Classic | 134 | 7 | 42 | 85 | 5.2 % | 36.6 % |
 | 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 6 | 39 | 0.0 % | 13.3 % |
@@ -35,7 +35,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P03 UTIL-ESTRUCTURAS | 0 | 16 | 0 | 0 | 16 | 0.0 % | 0.0 % | sí |
 | P04 UTIL-BYTES | 0 | 9 | 0 | 0 | 9 | 0.0 % | 0.0 % | sí |
 | P05 UTIL-GLOB | 0 | 1 | 0 | 0 | 1 | 0.0 % | 0.0 % | sí |
-| P06 UTIL-PLATAFORMA | 0 | 6 | 0 | 0 | 6 | 0.0 % | 0.0 % | sí |
+| P06 UTIL-PLATAFORMA | 0 | 8 | 0 | 0 | 8 | 0.0 % | 0.0 % | sí |
 | P07 CFG-HOCON | 1 | 12 | 0 | 0 | 12 | 0.0 % | 0.0 % | parcial |
 | P08 CFG-AJUSTES | 1 | 10 | 0 | 0 | 10 | 0.0 % | 0.0 % | no |
 | P09 CFG-ENTORNO | 1 | 3 | 0 | 0 | 3 | 0.0 % | 0.0 % | no |
@@ -142,7 +142,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-SUP | 22 | 1 | 7 | 14 | 4.5 % | 36.4 % | sí |
 | AC-SYS | 27 | 0 | 6 | 21 | 0.0 % | 22.2 % | sí |
 | AC-TK | 27 | 0 | 0 | 27 | 0.0 % | 0.0 % | no |
-| AC-UTIL | 67 | 1 | 6 | 60 | 1.5 % | 10.4 % | sí |
+| AC-UTIL | 69 | 1 | 6 | 62 | 1.4 % | 10.1 % | sí |
 | AT-ADP | 13 | 0 | 0 | 13 | 0.0 % | 0.0 % | no |
 | AT-ASK | 4 | 0 | 0 | 4 | 0.0 % | 0.0 % | no |
 | AT-BEH | 26 | 0 | 0 | 26 | 0.0 % | 0.0 % | no |

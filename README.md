@@ -4,9 +4,9 @@ Port a Rust de los actores de [Apache Pekko](https://pekko.apache.org/) 2.0.0: C
 
 Estado: la **documentación de migración** (inventario, contratos, decisiones y 50 specs preliminares, aún pendientes de revisión de atomicidad y dependencias) está completa hasta donde permiten las decisiones abiertas del Owner; el código implementado es poco. Documentación completa no es implementación ni paridad.
 
-- **Inventario:** 783 filas (523 Classic, 260 Typed) revisadas contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 y reancladas a 2.0.0 (547 filas marcadas "revisar contra 2.0.0", ver `docs/inventory/pekko-2.0.0-reanchor.md`); 783 `extracted` y 0 `listed` (cierre documental 2026-10-31; `extracted` significa contrato leído y aserciones citadas, no implementación).
+- **Inventario:** 785 filas (525 Classic, 260 Typed) revisadas contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 y reancladas a 2.0.0 (547 filas marcadas "revisar contra 2.0.0", ver `docs/inventory/pekko-2.0.0-reanchor.md`); 783 `extracted` y 2 `listed` (AC-UTIL-027 y 028, creadas por Q-UTIL-11) (cierre documental 2026-10-31; `extracted` significa contrato leído y aserciones citadas, no implementación).
 - **Implementado:** AC-PATH y la parte del núcleo de AC-UTIL (`Timeout`, `Done`/`NotUsed`, excepciones base, `Helpers`), con filas `partial` por decisiones abiertas. Nada más: no hay HOCON, actores, mailboxes ni sistema.
-- **Decisiones:** `docs/decisions.md` (218 decisiones: 8 bloqueantes, 202 propuestas, 7 aceptadas, 0 aceptadas con cambios, 1 rechazadas).
+- **Decisiones:** `docs/decisions.md` (219 decisiones: 0 bloqueantes, 158 propuestas, 48 aceptadas, 10 aceptadas con cambios, 3 rechazadas).
 
 - Alcance y estado por funcionalidad: `docs/inventory/`
 - Cierre documental 2026-10-31: plan final de 77 unidades (P05 particionada el 2026-11-01) `docs/unit-plan.md` (asignación fila→unidad en `docs/unit-rows.tsv`), ciclos y costuras `docs/cycles.md`, paquete de decisiones para el Owner `docs/owner-decision-package.md`.

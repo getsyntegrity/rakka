@@ -1,6 +1,6 @@
 # Spec 20 — AC-FSM (1/1)
 
-**Estado:** bloqueada. **Filas:** 11. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 11. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -15,8 +15,8 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 Decisiones:
 
-- Bloqueantes: `Q-FSM-4`.
-- Propuestas aún sin decisión del Owner: `Q-CS-7`, `Q-FSM-1`, `Q-FSM-2`, `Q-FSM-3`, `Q-RT-8`, `Q-X-3`, `Q-X-4`, `Q-X-5`.
+- Bloqueantes: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-CS-7`, `Q-FSM-1`, `Q-FSM-2`, `Q-FSM-3`, `Q-RT-8`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
