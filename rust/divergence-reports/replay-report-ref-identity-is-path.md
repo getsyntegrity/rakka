@@ -1,6 +1,6 @@
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-939l44d_/target-ref-identity-is-path/release/examples/classic-parity`
+Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-c5f9c6on/target-ref-identity-is-path/release/examples/classic-parity`
 
 Passed: 1024/1045
 

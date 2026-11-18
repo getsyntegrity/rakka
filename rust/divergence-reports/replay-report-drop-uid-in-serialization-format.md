@@ -1,6 +1,6 @@
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-939l44d_/target-drop-uid-in-serialization-format/release/examples/classic-parity`
+Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-c5f9c6on/target-drop-uid-in-serialization-format/release/examples/classic-parity`
 
 Passed: 1002/1045
 

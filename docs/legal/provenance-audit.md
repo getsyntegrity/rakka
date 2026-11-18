@@ -42,13 +42,13 @@ Fuera de la tabla por archivo: `rust/app-cases/` (grabaciones de la salida de Pe
 | Archivo | Estado |
 |---|---|
 | `jstring.rs` | **Reescrito** (especificación `cleanroom/jstring-spec.md`, bitácora `jstring-log.md`, similitud `jstring-similarity.md`). El archivo anterior se borró del árbol; sigue en el historial de git. |
-| `uri.rs` | Pendiente (`cleanroom/uri-spec.md`). |
+| `uri.rs` | **Reescrito** (especificación `cleanroom/uri-spec.md`, bitácora `uri-log.md`, similitud `uri-similarity.md`). El archivo anterior se borró del árbol; sigue en el historial de git. |
 
 ## Historial de git
 
 - `6410d2a` (2026-10-30, «Initial import: pekko-rs scaffold, inventory, oracle and AC-PATH») y `2600f48` (renombrado a rakka): origen de `uri.rs` y `jstring.rs` con los encabezados citados.
 - `60f586e` (2026-11-18, «import pekko-rust-pilot»): trajo `jdk_uri.rs`, `jdk_int.rs`, `jdk_tables.rs` y `GenTables.java` (borrados luego en `c9e91a9`).
-- El historial **no se reescribe**: esos archivos siguen en commits ya publicados. Mitigación: no se publica ningún release hasta cerrar las reescrituras (Q-PATH-6) y la decisión de qué hacer con el historial queda para el Owner con asesoría legal.
+- El historial **no se reescribe**: esos archivos siguen en commits ya publicados. Mitigación: no se publica ningún release hasta cerrar las reescrituras (Q-PATH-6; cerradas el 2026-11-18, pendiente la decisión del Owner sobre el historial) y la decisión de qué hacer con el historial queda para el Owner con asesoría legal.
 
 ## Dependencias
 
