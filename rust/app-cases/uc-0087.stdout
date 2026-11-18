@@ -1,0 +1,1 @@
+GL-04 star positions -> ok [*a]/[ba]=true [*a]/[ab]=false [a*a]/[aa]=true [a*a]/[a]=false [*ab*]/[xxabyy]=true [*ab*]/[xxaybb]=false [?*]/[]=false [?*]/[a]=true [*?]/[a]=true [a**b]/[ab]=true [*?*?*]/[ab]=true [*?*?*]/[a]=false

@@ -1,0 +1,1 @@
+GL-U16-01 ? vs astral -> ok [?]/[\uD83D\uDE00]=false [??]/[\uD83D\uDE00]=true [???]/[\uD83D\uDE00]=false [*]/[\uD83D\uDE00]=true [a?b]/[a\uD83D\uDE00b]=false [a??b]/[a\uD83D\uDE00b]=true

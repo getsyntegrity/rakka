@@ -6,7 +6,7 @@
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13.
+Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13.
 
 ## Prerrequisitos
 
@@ -66,7 +66,7 @@ Filas: AC-UTIL-011, AC-UTIL-012, AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTI
 
 ### Tarea 5: OptionVal (Option sin allocación) (+5 filas)
 
-Filas: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.5, AC-UTIL-016.6. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.5, AC-UTIL-016.8. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -106,7 +106,7 @@ Filas: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.4, AC-UTIL-016.5
 | AC-UTIL-016.3 | Collections (EmptyImmutableSeq, PartialImmutableValuesIterable) | `Vec`/iteradores nativos | derivada del código (ver bloque de contrato) | Q-UTIL-11 |
 | AC-UTIL-016.4 | ImmutableIntMap (mapa Int->Int inmutable) | `BTreeMap<i32,i32>` persistente | actor-tests/src/test/scala/org/apache/pekko/util/ImmutableIntMapSpec.scala:25-156 | Q-UTIL-11, Q-UTIL-14 |
 | AC-UTIL-016.5 | PrettyDuration (formateo legible de duraciones) | `pretty(Duration, include_nanos, precision) -> String` | actor-tests/src/test/scala/org/apache/pekko/util/PrettyDurationSpec.scala:25-58 | Q-UTIL-9 |
-| AC-UTIL-016.6 | Glob (matching `?`/`*` sin regex) | `glob_matches(pattern: &str, input: &str) -> bool` (greedy con backtracking de un solo… | actor-tests/src/test/scala/org/apache/pekko/util/GlobSpec.scala:33-91 | Q-UTIL-8 |
+| AC-UTIL-016.8 | LineNumbers (extracción de nombre de archivo/línea desde bytecode de lambdas) | n/a: depende de bytecode JVM; propuesta: `std::panic::Location` donde se use | actor-tests/src/test/scala-2/org/apache/pekko/util/LineNumberSpec.scala:22-66 ;… | Q-UTIL-11, Q-UTIL-16 |
 
 ## Gates y criterio de cierre
 

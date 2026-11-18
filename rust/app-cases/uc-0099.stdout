@@ -1,0 +1,1 @@
+GL-05 wildcards in the input -> ok [*]/[*]=true [?]/[?]=true [*]/[?]=true [a*]/[a*]=true [a*b]/[a*b]=true [a*b]/[a*]=false [*a]/[**a]=false [?*]/[**]=true [*?]/[?*]=true [**]/[*]=true

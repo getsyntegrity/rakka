@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/{Timeout,Helpers}.scala, Done.scala, NotUsed.scala and PekkoException.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/{Timeout,Helpers,Glob}.scala, Done.scala, NotUsed.scala and PekkoException.scala (Apache-2.0).
 //! Cases of the AC-UTIL (core) oracle (`UtilCoreOracle.java`, converted from the deprecated jshell script): each
 //! rebuilds one oracle case with the Rust API and renders it with the oracle's line format.
 
@@ -6,6 +6,7 @@ use std::hash::{BuildHasher, RandomState};
 use std::time::Duration;
 
 use rakka_actor::actor::IllegalArgumentError;
+use rakka_actor::util::glob_matches;
 use rakka_actor::util::helpers::{Requiring, base64, base64_append, to_root_lower_case};
 use rakka_actor::util::{TimeUnit, Timeout};
 use rakka_actor::{ConfigurationException, Done, NotUsed, PekkoException};
@@ -337,5 +338,207 @@ pub fn rust_lines() -> Vec<(String, String)> {
         exception(e.java_class(), e.message(), None),
     );
 
+    // ---- Glob (AC-UTIL-016.6), slice P05
+    let astral = "\u{1F600}";
+    let glob_case = |id: &str, pairs: &[(&str, &str)]| -> (String, String) {
+        let shown = |s: &str| {
+            if s.encode_utf16().count() > 40 {
+                format!("{}x", s.encode_utf16().count())
+            } else {
+                esc(s)
+            }
+        };
+        let results: Vec<String> = pairs
+            .iter()
+            .map(|(pattern, input)| {
+                format!(
+                    "[{}]/[{}]={}",
+                    shown(pattern),
+                    shown(input),
+                    glob_matches(pattern, input)
+                )
+            })
+            .collect();
+        (id.to_owned(), ok(results.join(" ")))
+    };
+    let stars_then_b = |count: usize| format!("{}*b", "*a".repeat(count));
+    let stars_then_a = |count: usize| format!("{}*a", "*a".repeat(count));
+    let stars_only = |count: usize| format!("{}*", "*a".repeat(count));
+    let mut glob_cases: Vec<(String, String)> = vec![
+        glob_case(
+            "GL-01 literals",
+            &[
+                ("abc", "abc"),
+                ("abc", "abd"),
+                ("", ""),
+                ("", "a"),
+                ("a", ""),
+            ],
+        ),
+        glob_case(
+            "GL-02 question mark",
+            &[
+                ("a?c", "abc"),
+                ("a?c", "ac"),
+                ("a?c", "abbc"),
+                ("???", "abc"),
+            ],
+        ),
+        glob_case(
+            "GL-03 star",
+            &[
+                ("*", ""),
+                ("*", "anything"),
+                ("a*", "a"),
+                ("a*c", "abbbc"),
+                ("a*c", "abbbd"),
+                ("**", "ab"),
+                ("*b*", "abc"),
+            ],
+        ),
+        glob_case(
+            "GL-04 star positions",
+            &[
+                ("*a", "ba"),
+                ("*a", "ab"),
+                ("a*a", "aa"),
+                ("a*a", "a"),
+                ("*ab*", "xxabyy"),
+                ("*ab*", "xxaybb"),
+                ("?*", ""),
+                ("?*", "a"),
+                ("*?", "a"),
+                ("a**b", "ab"),
+                ("*?*?*", "ab"),
+                ("*?*?*", "a"),
+            ],
+        ),
+    ];
+    let glob_u16 = [
+        (
+            "GL-U16-01 ? vs astral",
+            vec![
+                ("?".to_owned(), astral.to_owned()),
+                ("??".to_owned(), astral.to_owned()),
+                ("???".to_owned(), astral.to_owned()),
+                ("*".to_owned(), astral.to_owned()),
+                ("a?b".to_owned(), format!("a{astral}b")),
+                ("a??b".to_owned(), format!("a{astral}b")),
+            ],
+        ),
+        (
+            "GL-U16-02 literal astral",
+            vec![
+                (astral.to_owned(), astral.to_owned()),
+                (format!("?{astral}"), format!("x{astral}")),
+                (format!("*{astral}"), format!("ab{astral}")),
+                (format!("{astral}*"), format!("{astral}ab")),
+                ("?".to_owned(), "\u{e9}".to_owned()),
+                ("\u{e9}".to_owned(), "\u{e9}".to_owned()),
+                ("\u{e9}?".to_owned(), "\u{e9}a".to_owned()),
+            ],
+        ),
+    ];
+    for (id, pairs) in &glob_u16 {
+        let borrowed: Vec<(&str, &str)> = pairs
+            .iter()
+            .map(|(a, b)| (a.as_str(), b.as_str()))
+            .collect();
+        glob_cases.push(glob_case(id, &borrowed));
+    }
+    glob_cases.push(glob_case(
+        "GL-U16-03 line breaks",
+        &[
+            ("a?b", "a\nb"),
+            ("a*b", "a\r\nb"),
+            ("*", "\n"),
+            ("?", "\n"),
+            ("a?b", "a\u{2028}b"),
+            ("a?", "a\u{85}"),
+        ],
+    ));
+    glob_cases.push(glob_case(
+        "GL-U16-04 case and metachars",
+        &[
+            ("A", "a"),
+            ("a.c", "abc"),
+            ("a.c", "a.c"),
+            ("[a]", "a"),
+            ("[a]", "[a]"),
+            ("a\\", "a\\"),
+            ("\\Q*\\E", "\\Qxx\\E"),
+            ("(a)", "(a)"),
+            ("a+", "aa"),
+        ],
+    ));
+    for len in 0..=4 {
+        let mut row = Vec::new();
+        for pattern in strings_of("ab*?", len) {
+            let mut bits = String::new();
+            for input_len in 0..=4 {
+                for input in strings_of("ab", input_len) {
+                    bits.push(if glob_matches(&pattern, &input) {
+                        'T'
+                    } else {
+                        'F'
+                    });
+                }
+            }
+            row.push(format!("[{pattern}]={bits}"));
+        }
+        glob_cases.push((
+            format!("GL-EXH patterns of length {len}"),
+            ok(row.join(" ")),
+        ));
+    }
+    let (a36, a2000, a12) = ("a".repeat(36), "a".repeat(2000), "a".repeat(12));
+    let (b12, b20) = (stars_then_b(12), stars_then_b(20));
+    glob_cases.push(glob_case(
+        "GL-PERF 12 stars vs 36 a",
+        &[
+            (&b12, &a36),
+            (&stars_only(12), &a36),
+            (&stars_then_a(12), &a12),
+        ],
+    ));
+    glob_cases.push(glob_case(
+        "GL-PERF 20 stars vs 2000 a",
+        &[
+            (&b20, &a2000),
+            (&stars_then_a(20), &a2000),
+            (&stars_then_a(20), &"a".repeat(19)),
+        ],
+    ));
+    glob_cases.push(glob_case(
+        "GL-05 wildcards in the input",
+        &[
+            ("*", "*"),
+            ("?", "?"),
+            ("*", "?"),
+            ("a*", "a*"),
+            ("a*b", "a*b"),
+            ("a*b", "a*"),
+            ("*a", "**a"),
+            ("?*", "**"),
+            ("*?", "?*"),
+            ("**", "*"),
+        ],
+    ));
+    for (id, result) in glob_cases {
+        lines.push((esc(&id), esc(&format!("{id} -> {result}"))));
+    }
+
     lines
+}
+
+/// Every string over `alphabet` that has exactly `length` characters, in lexicographic order of the alphabet.
+fn strings_of(alphabet: &str, length: usize) -> Vec<String> {
+    let mut all = vec![String::new()];
+    for _ in 0..length {
+        all = all
+            .iter()
+            .flat_map(|prefix| alphabet.chars().map(move |c| format!("{prefix}{c}")))
+            .collect();
+    }
+    all
 }

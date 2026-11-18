@@ -1,0 +1,1 @@
+GL-02 question mark -> ok [a?c]/[abc]=true [a?c]/[ac]=false [a?c]/[abbc]=false [???]/[abc]=true

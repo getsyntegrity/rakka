@@ -1,0 +1,1 @@
+GL-U16-02 literal astral -> ok [\uD83D\uDE00]/[\uD83D\uDE00]=true [?\uD83D\uDE00]/[x\uD83D\uDE00]=true [*\uD83D\uDE00]/[ab\uD83D\uDE00]=true [\uD83D\uDE00*]/[\uD83D\uDE00ab]=true [?]/[\u00E9]=true [\u00E9]/[\u00E9]=true [\u00E9?]/[\u00E9a]=true

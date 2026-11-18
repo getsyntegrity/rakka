@@ -269,6 +269,25 @@ MUTANTS = {
         '"{msg}"',
         "`requiring` fails with the bare message: the `requirement failed: ` prefix of Predef.require is lost",
     ),
+    # --- slice P05: Glob ---
+    "glob-trailing-star-unmatched": (
+        "src/util/glob.rs",
+        "pattern[p..].iter().all(|&unit| unit == STAR)",
+        "p == pattern.len()",
+        "trailing `*`s are not allowed to match nothing: `a*` no longer matches `a`",
+    ),
+    "glob-question-rejects-surrogate-unit": (
+        "src/util/glob.rs",
+        "Some(&unit) if unit == ANY_ONE || unit == input[i] => {",
+        "Some(&unit) if (unit == ANY_ONE && !(0xD800..0xE000).contains(&input[i])) || unit == input[i] => {",
+        "`?` refuses a UTF-16 surrogate unit, so a code point outside the BMP can no longer be matched by `??`",
+    ),
+    "glob-star-in-input-not-literal": (
+        "src/util/glob.rs",
+        "Some(&unit) if unit == ANY_ONE || unit == input[i] => {",
+        "Some(&unit) if unit != STAR && (unit == ANY_ONE || unit == input[i]) => {",
+        "a `*` in the pattern never matches a literal `*` of the input first (it always starts a run), unlike Glob.scala:51",
+    ),
     "lossy-stdin-decoder": (
         "examples/classic-parity/json.rs",
         "String::from_utf16(&out).map_err(|_| OUT_OF_DOMAIN.to_string())",
