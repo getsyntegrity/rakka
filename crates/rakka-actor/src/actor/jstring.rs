@@ -1,109 +1,157 @@
-// Reproduces the observable behavior of OpenJDK 21 java.lang.String.compareTo, Integer.valueOf
-// (radix 10) and Character.digit (GPL-2.0 WITH Classpath-exception-2.0); the BMP digit table
-// lists the values Character.digit reports on Java 21 (Unicode Nd data). Whether this file is
-// derived from OpenJDK, and its licensing, is pending Owner decision Q-PATH-6.
-//! The bits of `java.lang.String` semantics that are observable through Pekko.
+// Clean-room implementation from docs/legal/cleanroom/jstring-spec.md (Apache-2.0).
+//! Java-compatible string helpers: UTF-16 ordering and `Integer.valueOf` parsing.
 
 use std::cmp::Ordering;
 
 use super::errors::NumberFormatError;
 
-/// `String.compareTo`: lexicographic order of UTF-16 code units.
+/// Orders two strings like `java.lang.String.compareTo`: UTF-16 code unit by code unit, unsigned.
 pub(crate) fn compare_utf16(a: &str, b: &str) -> Ordering {
     a.encode_utf16().cmp(b.encode_utf16())
 }
 
-/// `Integer.valueOf(s)` (radix 10). Fails with `NumberFormatException`.
-///
-/// Like Java it reads UTF-16 code units, so only BMP decimal digits count:
-/// `Character.digit(char, 10)` accepts any Unicode `Nd` char of the BMP.
+/// Parses like `Integer.valueOf(String)` in base 10, accepting BMP decimal digits (category Nd).
 pub(crate) fn parse_int(s: &str) -> Result<i32, NumberFormatError> {
-    let error = || NumberFormatError::new(format!("For input string: \"{s}\""));
+    let fail = || NumberFormatError::new(format!("For input string: \"{s}\""));
     let units: Vec<u16> = s.encode_utf16().collect();
     let (negative, digits) = match units.split_first() {
-        None => return Err(error()),
-        Some((&first, rest)) if first == u16::from(b'-') => (true, rest),
-        Some((&first, rest)) if first == u16::from(b'+') => (false, rest),
-        Some(_) => (false, &units[..]),
+        Some((&SIGN_MINUS, rest)) => (true, rest),
+        Some((&SIGN_PLUS, rest)) => (false, rest),
+        _ => (false, units.as_slice()),
     };
     if digits.is_empty() {
-        return Err(error());
+        return Err(fail());
     }
-    let mut value: i64 = 0;
+    // Accumulate as a negative number so that i32::MIN fits.
+    let mut value: i32 = 0;
     for &unit in digits {
-        let digit = decimal_digit(unit).ok_or_else(error)?;
-        value = value * 10 + i64::from(digit);
-        if value > i64::from(i32::MAX) + 1 {
-            return Err(error());
-        }
+        let digit = decimal_digit_value(unit).ok_or_else(fail)?;
+        value = value
+            .checked_mul(10)
+            .and_then(|v| v.checked_sub(digit))
+            .ok_or_else(fail)?;
     }
-    let value = if negative { -value } else { value };
-    i32::try_from(value).map_err(|_| error())
+    if negative {
+        Ok(value)
+    } else {
+        value.checked_neg().ok_or_else(fail)
+    }
 }
 
-/// Code points of digit zero of every BMP `Nd` run (each run is 0..=9), as
-/// reported by `Character.digit` on Java 21.
-const BMP_DIGIT_ZEROS: [u16; 37] = [
+const SIGN_MINUS: u16 = b'-' as u16;
+const SIGN_PLUS: u16 = b'+' as u16;
+
+/// First code point of each run of ten consecutive Nd (decimal digit) characters in the Basic Multilingual Plane.
+/// Generated from UnicodeData.txt of Unicode 13.0.0 (https://www.unicode.org/Public/13.0.0/ucd/UnicodeData.txt):
+/// lines with general category `Nd` and code point <= U+FFFF.
+const DIGIT_SERIES_STARTS: [u16; 37] = [
     0x0030, 0x0660, 0x06F0, 0x07C0, 0x0966, 0x09E6, 0x0A66, 0x0AE6, 0x0B66, 0x0BE6, 0x0C66, 0x0CE6,
     0x0D66, 0x0DE6, 0x0E50, 0x0ED0, 0x0F20, 0x1040, 0x1090, 0x17E0, 0x1810, 0x1946, 0x19D0, 0x1A80,
     0x1A90, 0x1B50, 0x1BB0, 0x1C40, 0x1C50, 0xA620, 0xA8D0, 0xA900, 0xA9D0, 0xA9F0, 0xAA50, 0xABF0,
     0xFF10,
 ];
 
-fn decimal_digit(unit: u16) -> Option<u8> {
-    BMP_DIGIT_ZEROS
+/// Value 0..=9 of a UTF-16 code unit that is a decimal digit, or `None`.
+fn decimal_digit_value(unit: u16) -> Option<i32> {
+    DIGIT_SERIES_STARTS
         .iter()
-        .find(|&&zero| (zero..zero + 10).contains(&unit))
-        .map(|&zero| (unit - zero) as u8)
+        .find(|&&start| (start..start + 10).contains(&unit))
+        .map(|&start| i32::from(unit - start))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn parse_int_accepts_signs_and_unicode_decimal_digits() {
-        for (s, v) in [
-            ("5", 5),
-            ("+5", 5),
-            ("-5", -5),
-            ("0", 0),
-            ("007", 7),
-            ("2147483647", i32::MAX),
-            ("-2147483648", i32::MIN),
-            ("\u{665}", 5),
-            ("\u{FF15}", 5),
-            ("\u{966}\u{967}", 1),
-        ] {
-            assert_eq!(parse_int(s), Ok(v), "{s}");
-        }
+    fn err(s: &str) -> String {
+        parse_int(s).unwrap_err().message().to_string()
     }
 
     #[test]
-    fn parse_int_rejects_with_the_java_message() {
-        for s in [
-            "",
-            "+",
-            "-",
-            "+-5",
-            "abc",
-            "5?x",
-            "1#2",
-            "2147483648",
-            "-2147483649",
-            "99999999999",
-            " 5",
-            "\u{1D7CE}",
-            "\u{B2}",
-        ] {
-            let e = parse_int(s).unwrap_err();
-            assert_eq!(e.message(), format!("For input string: \"{s}\""));
-        }
+    fn compare_equal_prefix_and_basic() {
+        assert_eq!(compare_utf16("abc", "abc"), Ordering::Equal);
+        assert_eq!(compare_utf16("ab", "abc"), Ordering::Less);
+        assert_eq!(compare_utf16("abd", "abc"), Ordering::Greater);
+        assert_eq!(compare_utf16("", ""), Ordering::Equal);
+        assert_eq!(compare_utf16("", "a"), Ordering::Less);
     }
 
     #[test]
-    fn compares_by_utf16_code_units_not_utf8_bytes() {
+    fn compare_supplementary_is_below_high_bmp() {
+        // U+10000 starts with surrogate D800 in UTF-16, below U+FF61.
+        assert_eq!(compare_utf16("\u{10000}", "\u{FF61}"), Ordering::Less);
         assert_eq!(compare_utf16("\u{FF61}", "\u{10000}"), Ordering::Greater);
-        assert_eq!("\u{FF61}".cmp("\u{10000}"), Ordering::Less);
+        // Plain BMP below the surrogates keeps code point order.
+        assert_eq!(compare_utf16("\u{10000}", "\u{E000}"), Ordering::Less);
+        assert_eq!(compare_utf16("\u{D7FF}", "\u{10000}"), Ordering::Less);
+        // Two supplementary characters compare by code point.
+        assert_eq!(compare_utf16("\u{10000}", "\u{10001}"), Ordering::Less);
+        // Prefix with a supplementary character.
+        assert_eq!(compare_utf16("a", "a\u{10000}"), Ordering::Less);
+    }
+
+    #[test]
+    fn parse_plain_and_signed() {
+        assert_eq!(parse_int("0").unwrap(), 0);
+        assert_eq!(parse_int("123").unwrap(), 123);
+        assert_eq!(parse_int("-5").unwrap(), -5);
+        assert_eq!(parse_int("+7").unwrap(), 7);
+        assert_eq!(parse_int("-0").unwrap(), 0);
+        assert_eq!(parse_int("000042").unwrap(), 42);
+    }
+
+    #[test]
+    fn parse_limits() {
+        assert_eq!(parse_int("2147483647").unwrap(), i32::MAX);
+        assert_eq!(parse_int("-2147483648").unwrap(), i32::MIN);
+        assert_eq!(err("2147483648"), "For input string: \"2147483648\"");
+        assert_eq!(err("-2147483649"), "For input string: \"-2147483649\"");
+        assert_eq!(
+            err("99999999999999999999999"),
+            "For input string: \"99999999999999999999999\""
+        );
+        assert_eq!(
+            parse_int("0000000000000000000002147483647").unwrap(),
+            i32::MAX
+        );
+    }
+
+    #[test]
+    fn parse_rejects_non_numbers() {
+        for s in [
+            "", "-", "+", "--1", "+-1", "-+1", "1a", "a1", " 1", "1 ", "%31", "1.0", "0x1",
+        ] {
+            assert_eq!(err(s), format!("For input string: \"{s}\""), "input {s:?}");
+        }
+    }
+
+    #[test]
+    fn parse_non_ascii_digits() {
+        // Oracle: pekko://sys/a#<digit> gives uid 5 for both.
+        assert_eq!(parse_int("\u{0665}").unwrap(), 5);
+        assert_eq!(parse_int("\u{FF15}").unwrap(), 5);
+        assert_eq!(parse_int("\u{FF11}\u{0662}3").unwrap(), 123);
+        assert_eq!(parse_int("-\u{FF19}").unwrap(), -9);
+    }
+
+    #[test]
+    fn parse_supplementary_digit_is_not_a_digit() {
+        // U+1D7D8 MATHEMATICAL DOUBLE-STRUCK DIGIT ZERO is Nd but outside the BMP.
+        assert!(parse_int("\u{1D7D8}").is_err());
+        assert!(parse_int("1\u{1D7D9}").is_err());
+    }
+
+    #[test]
+    fn parse_digit_series_boundaries() {
+        // Just outside series: U+065F, U+066A, U+FF0F, U+FF1A are not digits.
+        for c in [
+            '\u{065F}', '\u{066A}', '\u{FF0F}', '\u{FF1A}', '\u{002F}', '\u{003A}',
+        ] {
+            assert!(parse_int(&c.to_string()).is_err(), "{c:?}");
+        }
+        // A series that starts mid-block: Kayah Li is A900..A909, Myanmar Shan 1090..1099.
+        assert_eq!(parse_int("\u{A909}").unwrap(), 9);
+        assert_eq!(parse_int("\u{1099}").unwrap(), 9);
+        assert_eq!(parse_int("\u{1946}").unwrap(), 0);
     }
 }
