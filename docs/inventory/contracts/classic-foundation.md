@@ -2052,6 +2052,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-11, Q-X-4.
 
+**Actualización P77 (2026-11-18, Pekko 2.0.0).** `util/FutureConverters.scala` y `JavaConverterScala3InlineTest.java` están eliminados en 2.0.0 (MiMa `future-converters.excludes`: se usa `scala.jdk.javaapi.FutureConverters`): eliminado en 2.0.0, no es exclusión. Equivalente aceptado por Q-UTIL-11 y Q-X-4 (A): un único `Future` de Rust; sin tipo ni caso grabado (A1 es una prueba de compilación, A2 delega en la biblioteca). Cierre pendiente de Q-UTIL-27.
+
 
 ---
 
@@ -2086,6 +2088,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Decisiones.** Q-UTIL-1 (resuelta por el Owner), Q-UTIL-11.
 
+**Actualización P77 (2026-11-18, Pekko 2.0.0).** `OptionConverters`, `FunctionConverters` y `JavaDurationConverters` están eliminados en 2.0.0 (MiMa `javaapi-option`, `function-converters`, `java-duration-converters`); `Timeout.create(java.time.Duration)` usa `scala.jdk.DurationConverters.toScala` (`FiniteDuration(seconds, SECONDS)` si no hay nanos; `seconds*1e9+nanos` si caben en un `Long`, si no `IllegalArgumentException("Java duration PT...S cannot be expressed as a Scala duration")`). Medido en los casos grabados uc-0537..uc-0549 (FR-DUR-01..13) y TO-NEG-04/05; `TryFrom<std::time::Duration> for Timeout` ya los reproducía (caracterización). Sin cubrir: Timeout -> `java.time.Duration` (`toJava`, usada por Actor.scala:158, AbstractActor.scala:173, CachePolicy.scala:33, OptimalSizeExploringResizer.scala:273: filas de otras unidades) e `Optional*`/`FunctionConverters` (equivalente `Option<T>`/closures, sin caso). Estado reconciliado: impl=partial, validation=oracle. Cierre pendiente de Q-UTIL-27.
+
 
 ---
 
@@ -2118,6 +2122,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Oráculo / validación prevista.** Ninguna para el shim; los consumidores de `fold/reduce/find` se validan en sus filas.
 
 **Decisiones.** Q-UTIL-11.
+
+**Actualización P77 (2026-11-18, Pekko 2.0.0).** `util/ccompat/*` y `compat/Future` están eliminados en 2.0.0 (MiMa `remove-scala-2.12-support.excludes`): eliminado en 2.0.0, no es exclusión (respuesta del Owner a Q-UTIL-11, 2026-11-18). Sin tipo ni caso; `fold/reduce/find` sobre futuros se valida en sus consumidores (AC-DSP-017.2). Cierre pendiente de Q-UTIL-27.
 
 
 ---
