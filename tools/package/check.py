@@ -105,21 +105,33 @@ if os.path.exists("docs/unit-plan.md"):
     for line in unit_plan.stdout.splitlines():
         if line.startswith("FAIL"): fail.append("unit-plan: " + line[5:])
     check(unit_plan.returncode == 0 or any(l.startswith("FAIL") for l in unit_plan.stdout.splitlines()), "unit_plan.py --check crashed: " + unit_plan.stderr[-300:])
-# attribution: every Rust source of crates/ that ports Pekko names its Pekko 2.0.0 source files (Apache-2.0 NOTICE obligations)
-# lib.rs/mod.rs only wire modules. uri.rs and jstring.rs replicate JDK behaviour (their provenance is decision Q-PATH-6): they must say so.
-JDK_SOURCES = {"crates/rakka-actor/src/actor/uri.rs", "crates/rakka-actor/src/actor/jstring.rs"}
+# provenance (decision Q-X-18, docs/legal/provenance-audit.md)
+# 1. every Rust source of crates/ names where it comes from: either the Pekko 2.0.0 files it derives from, or the clean-room specification it implements.
+# 2. nothing in crates/, tools/ or oracle/ mentions OpenJDK, the GPL or the Classpath exception (those words live only in docs/legal/).
+# PENDING_CLEANROOM lists the files still waiting for their clean-room rewrite (Q-PATH-6); it must only shrink and ends empty.
+PENDING_CLEANROOM = {"crates/rakka-actor/src/actor/uri.rs", "crates/rakka-actor/src/actor/jstring.rs"}
 for rs in sorted(glob.glob("crates/*/src/**/*.rs", recursive=True)):
-    if os.path.basename(rs) in ("lib.rs", "mod.rs"): continue
+    if os.path.basename(rs) in ("lib.rs", "mod.rs") or rs in PENDING_CLEANROOM: continue
     head = "".join(open(rs, encoding="utf-8").readlines()[:8])
-    if rs in JDK_SOURCES:
-        check("OpenJDK" in head, f"{rs}: header must state its relation to the JDK (decision Q-PATH-6)")
-        continue
     m = re.search(r"Derived from Apache Pekko 2\.0\.0 ([^\n]*?) \(Apache-2\.0\)\.", head)
-    check(m is not None, f"{rs}: missing attribution header `// Derived from Apache Pekko 2.0.0 <path> (Apache-2.0).`")
+    cleanroom = re.search(r"Clean-room implementation from (docs/legal/cleanroom/[\w.-]+-spec\.md) \(Apache-2\.0\)\.", head)
+    check(m is not None or cleanroom is not None, f"{rs}: missing attribution header (`// Derived from Apache Pekko 2.0.0 <path> (Apache-2.0).` or `// Clean-room implementation from docs/legal/cleanroom/<file>-spec.md (Apache-2.0).`)")
+    if cleanroom: check(os.path.isfile(cleanroom.group(1)), f"{rs}: the clean-room specification {cleanroom.group(1)} does not exist")
     if m:
         paths = re.findall(r"[\w-]+/src/(?:main|test)/[\w/.-]+\.(?:scala|java)", m.group(1))
         check(bool(paths), f"{rs}: attribution header names no Pekko source file")
         for p in paths: check(os.path.isfile("upstream/pekko/" + p), f"{rs}: attribution names {p}, which does not exist in upstream/pekko")
+FORBIDDEN = re.compile(r"OpenJDK|\bGPL|Classpath[ -]exception")
+for root in ("crates", "tools", "oracle"):
+    for dp, dn, fn in os.walk(root):
+        dn[:] = [d for d in dn if d not in ("target", "__pycache__", "node_modules", ".git")]
+        for name in fn:
+            path = os.path.join(dp, name)
+            if path in PENDING_CLEANROOM or path in ("tools/package/check.py", "tools/package/generate.py") or not name.endswith((".rs", ".toml", ".py", ".sh", ".java", ".md", ".txt", ".golden", ".tsv", ".jsonl")): continue
+            try: text = open(path, encoding="utf-8").read()
+            except UnicodeDecodeError: continue
+            hit = FORBIDDEN.search(text)
+            check(hit is None, f"{path}: mentions {hit.group(0) if hit else ''!r}; GPL sources are not read or ported, only docs/legal/ may talk about them")
 # docs/progress.md is generated: its totals must match the inventory
 prog_path = "docs/progress.md"
 check(os.path.exists(prog_path), "docs/progress.md missing (run tools/package/generate.py)")

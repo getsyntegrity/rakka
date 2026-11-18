@@ -30,6 +30,7 @@ Port a Rust de los módulos de actores de Apache Pekko 2.0.0: `rakka-actor` (Cla
 | Tests | `cargo test --workspace` |
 | Lint | `cargo clippy --workspace --all-targets -- -D warnings` |
 | Formato | `cargo fmt --all --check` |
+| Licencias | `cargo deny check licenses` (`deny.toml`: solo Apache-2.0, MIT, BSD-2/3, ISC, Unicode-3.0, Zlib) |
 | Oráculo | `oracle/run.sh <comando>` (JDK 17) + `rust-anything app record/replay` (Q-X-12); replay: `python3.12 tools/parity/replay.py` |
 | Paquete documental | `uv run tools/package/generate.py` y `uv run tools/package/check.py` (`.python-version` fija 3.12; el `python3` del sistema, 3.9, no sirve: f-strings anidados). Sin uv: `python3.12 tools/package/check.py`. Tests: `uv run python -m unittest discover -s tools/package/tests`. Replay: `uv run tools/parity/replay.py` |
 
@@ -55,8 +56,10 @@ Ninguna diferencia semántica con Pekko se acepta sin decisión explícita del O
 ## Reglas de calidad
 
 - **TDD estricto por comportamiento: RED → GREEN → REFACTOR.** Cada comportamiento empieza con un test que falla por la razón correcta; se guarda la evidencia real (comando y salida del fallo) antes de escribir el código de producción, después la del GREEN. No se inventa evidencia ni se declara RED sin haberlo observado.
-- **Gates por slice (Q-X-14):** replay completo contra Pekko 2.0.0, tests, `cargo clippy -- -D warnings`, `cargo fmt --check`, cobertura de producción **≥95 % por crate** con `cargo llvm-cov` (sin exclusiones; sustituye al 90 % de líneas nuevas anterior) y mutantes nuevos en cada slice. En cada hito (supervisión, Classic, Typed) o refactor grande: regresión completa de mutantes y fuzzers. Comando, resultado y líneas no cubiertas (con motivo) se documentan en el PR.
+- **Gates por slice (Q-X-14):** replay completo contra Pekko 2.0.0, tests, `cargo clippy -- -D warnings`, `cargo fmt --check`, `cargo deny check licenses`, cobertura de producción **≥95 % por crate** con `cargo llvm-cov` (sin exclusiones; sustituye al 90 % de líneas nuevas anterior) y mutantes nuevos en cada slice. En cada hito (supervisión, Classic, Typed) o refactor grande: regresión completa de mutantes y fuzzers. Comando, resultado y líneas no cubiertas (con motivo) se documentan en el PR.
 - **Nombres que expresan propósito.** Variables, parámetros, campos, funciones, tipos, módulos, archivos y tests dicen qué hacen. Se evitan nombres genéricos (`data`, `tmp`, `helper`, `util2`), abreviaturas ambiguas y los identificadores de specs (`AC-CFG-001`, `T3`) como sustituto del significado; el identificador de la fila va en comentarios o docs, no en el nombre.
+
+- **Procedencia (Q-X-18).** Está **prohibido leer o portar código de OpenJDK u otras fuentes GPL/LGPL o sin licencia**: la conducta del JDK se toma sólo de su documentación pública (Javadoc de Java SE), de los RFC y estándares, y del oráculo (casos grabados). Todo archivo de `crates/` lleva un encabezado `Derived from Apache Pekko 2.0.0 <paths> (Apache-2.0)` o `Clean-room implementation from docs/legal/cleanroom/<archivo>-spec.md (Apache-2.0)`; `check.py` falla si falta, o si algún archivo de `crates/`, `tools/` u `oracle/` menciona OpenJDK, GPL o Classpath exception (sólo `docs/legal/` puede). Lo derivado de fuentes dudosas se reescribe en sala limpia (`docs/legal/provenance-audit.md`, `docs/legal/cleanroom/`). No se publica ningún release hasta cerrar las reescrituras pendientes.
 
 ## Índice de skills
 

@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 1.7.1 actor/src/main/scala/org/apache/pekko/Done.scala and NotUsed.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/Done.scala and NotUsed.scala (Apache-2.0).
 //! `Done` and `NotUsed` (AC-UTIL-003), plan docs/superpowers/plans/2026-10-30-ac-util-core.md.
 
 use std::collections::HashSet;
