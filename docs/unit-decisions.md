@@ -997,11 +997,12 @@ Sin decisiones asociadas a sus filas en `contract-map.tsv`.
 
 ## P76 UTIL-EQUIVALENCIAS
 
-5 filas; 1 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 0 propuestas.
+5 filas; 2 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-UTIL-11 | accepted_with_changes (2026-11-18): aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y… | 5: AC-UTIL-016.1, AC-UTIL-016.18, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-019 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
+| Q-UTIL-20 | propuesta | 5: AC-UTIL-016.1, AC-UTIL-016.18, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-019 | — | — | `classic-foundation` |
 
 ## P77 UTIL-FRONTERAS
 
@@ -1021,4 +1022,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 464 (230 respondidas, 0 bloqueantes, 234 propuestas).
+Total de pares unidad–decisión: 465 (230 respondidas, 0 bloqueantes, 235 propuestas).

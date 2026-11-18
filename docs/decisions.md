@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 222 decisiones: 0 bloqueantes, 160 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 223 decisiones: 0 bloqueantes, 161 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1826,6 +1826,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) reproducir el algoritmo 0 (el que corre sin opciones de JVM); (b) reproducir el algoritmo 1 (Latin-1 con signo; los caracteres > U+00FF dependen de la representación interna); (c) aceptar sólo texto ASCII y devolver `None` para el resto (lo implementado).
 - **Recomendación:** (c): la función no tiene consumidores y los dos algoritmos discrepan entre sí.
 - **Filas afectadas:** AC-UTIL-020
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-UTIL-20 — Cierre de las filas de equivalencia (OptionVal, ConstantFun, Collections, Unused, anotaciones de API) sin tipo ni oraculo propios
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** util/OptionVal.scala:23-94, util/ConstantFun.scala:26-91, util/Collections.scala:22-94 y las cuatro anotaciones de java/org/apache/pekko/annotation: en 2.0.0 siguen sin test propio salvo ConstantFunJavaTest (A1/A2: identidad por referencia, inobservable en Rust); util/Unused.scala no existe en 2.0.0; Collections.EmptyImmutableSeq.iterator ya es Iterator.empty de Scala (el mensaje 'next on empty iterator' es de la biblioteca de Scala y lo observa ByteIterator, P04) y 2.0.0 anade IterableOps.collectToImmutableSeq (sin consumidores en main).
+- **Alternativas:** (a) cerrar OptionVal, ConstantFun, Unused y las anotaciones como `done` con equivalente documentado (Option<T>, closures/std::convert::identity, prefijo `_`, visibilidad/traits sellados/cargo-semver-checks) y sin oraculo, y cerrar Collections junto con ByteIterator (P04); (b) escribir tipos propios (OptionVal, constantes de ConstantFun, EmptyImmutableSeq) y caracterizarlos con oraculo aunque no tengan consumidor; (c) excluir alguna fila (requiere autorizacion explicita).
+- **Recomendación:** (a): Q-UTIL-11 (a) ya acepta el equivalente documentado; falta confirmar que ello basta para cerrar `impl`/`validation` sin casos grabados porque las aserciones A# son 'no afirmadas por spec' o inobservables en Rust.
+- **Filas afectadas:** AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.18, AC-UTIL-019
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 

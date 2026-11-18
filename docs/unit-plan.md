@@ -314,7 +314,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Filas (5; impl: pending 5):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.18, AC-UTIL-019.
 - **Tipo:** Tipo: **resolucion documental**. Una respuesta del Owner no acredita por si sola implementacion, validacion ni equivalencia: las filas conservan `impl`/`validation` en `pending` y sus decisiones abiertas hasta que exista evidencia en las unidades consumidoras.
 - **Exclusiones/costuras:** no hay codigo propio previsto en esta unidad: `Option<T>`, closures, iteradores, prefijo `_` y visibilidad/`sealed` se materializan en las unidades consumidoras (P03 usa OptionVal; P04 usa Collections). `cargo semver-checks` (019) no esta verificado como herramienta del repositorio.
-- **Decisiones:** 1 distintas en sus filas; respondidas: Q-UTIL-11. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P76). <!-- generated:unit-decisions -->
+- **Decisiones:** 2 distintas en sus filas; respondidas: Q-UTIL-11; propuestas sin respuesta: Q-UTIL-20. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P76). <!-- generated:unit-decisions -->
 - **Dependencias:** ninguna.
 - **Archivos previstos:** sin archivo Rust previsto (resolucion documental).
 - **Tests/oraculo:** Ninguno propio: A1/A2 de ConstantFun no tienen sentido en Rust; el resto no tiene test en Pekko. La evidencia vendra de las unidades consumidoras.
