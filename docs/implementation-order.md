@@ -30,7 +30,7 @@ Fases: 1 valores sin concurrencia (PATH, UTIL, CFG); 2 runtime Classic (REF, MBX
 | Unidad | Filas pendientes | Specs (orden de ejecución) |
 |---|---|---|
 | AC-PATH | 13 | 01 |
-| AC-UTIL | 52 | 02, 03 |
+| AC-UTIL | 51 | 02, 03 |
 | AC-CFG | 29 | 04 |
 | AC-REF | 31 | 05, 06 |
 | AC-MBX | 23 | 07 |

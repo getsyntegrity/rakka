@@ -161,3 +161,26 @@ PV-11 equal strings are never checked
 PV-12 public require against the current version
 PV-13 the exception
 PV-14 many required versions against 2.0.0
+VR-01 three digits (spec)
+VR-02 more than three digits
+VR-03 two digits (spec)
+VR-04 one digit (spec)
+VR-05 qualifier (spec)
+VR-06 non digits (spec)
+VR-07 dynver (spec)
+VR-08 no digits (spec)
+VR-09 qualifier matrix (raw compareTo, row vs column)
+VR-10 antisymmetry of the matrix
+VR-11 qualifier on one side only
+VR-12 qualifier text order (raw String.compareTo)
+VR-13 equals and hashCode
+VR-14 hashCode agrees with equals
+VR-15 malformed strings
+VR-16 numbers out of int range
+VR-17 negative and wrapping numbers
+VR-18 digits outside ASCII
+VR-19 equal strings short-circuit
+VR-20 version field and Zero
+VR-21 public constructor parses lazily
+VR-22 parse exceptions
+VR-23 sorting

@@ -326,6 +326,25 @@ MUTANTS = {
         "(None, Some(_)) => Ok(()),",
         "a requirement on a final version is satisfied by an M/RC of the same patch",
     ),
+    # --- slice P67: Version ---
+    "version-final-below-qualified": (
+        "src/util/version.rs",
+        "(true, false) => 1,",
+        "(true, false) => compare_to_raw(&self.rest, &other.rest),",
+        "the 1.7.1 defect (Q-UTIL-6 rejected by the Owner): a version without qualifier compares below the same version with one",
+    ),
+    "version-dynver-count-ignored": (
+        "src/util/version.rs",
+        "for (a, b) in self.numbers.iter().zip(&other.numbers) {",
+        "for (a, b) in self.numbers.iter().zip(&other.numbers).take(3) {",
+        "the dynver commit count (fourth number) is not compared: 1.0.10+3-hash equals 1.0.10+10-hash apart from the text of the rest",
+    ),
+    "version-difference-saturates": (
+        "src/util/version.rs",
+        "let diff = a.wrapping_sub(*b);",
+        "let diff = a.saturating_sub(*b);",
+        "the difference of two numbers saturates instead of wrapping like Int subtraction: 2147483647.0.0 against -1.0.0 is positive",
+    ),
     # --- slice P05: Glob ---
     "glob-trailing-star-unmatched": (
         "src/util/glob.rs",

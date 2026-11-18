@@ -145,3 +145,25 @@
 {"name": "uc-0145", "args": ["util-core-case"], "stdin": "PV-12 public require against the current version"}
 {"name": "uc-0146", "args": ["util-core-case"], "stdin": "PV-13 the exception"}
 {"name": "uc-0147", "args": ["util-core-case"], "stdin": "PV-14 many required versions against 2.0.0"}
+{"name": "uc-0148", "args": ["util-core-case"], "stdin": "VR-01 three digits (spec)"}
+{"name": "uc-0149", "args": ["util-core-case"], "stdin": "VR-02 more than three digits"}
+{"name": "uc-0150", "args": ["util-core-case"], "stdin": "VR-03 two digits (spec)"}
+{"name": "uc-0151", "args": ["util-core-case"], "stdin": "VR-04 one digit (spec)"}
+{"name": "uc-0152", "args": ["util-core-case"], "stdin": "VR-05 qualifier (spec)"}
+{"name": "uc-0153", "args": ["util-core-case"], "stdin": "VR-06 non digits (spec)"}
+{"name": "uc-0154", "args": ["util-core-case"], "stdin": "VR-07 dynver (spec)"}
+{"name": "uc-0155", "args": ["util-core-case"], "stdin": "VR-08 no digits (spec)"}
+{"name": "uc-0156", "args": ["util-core-case"], "stdin": "VR-09 qualifier matrix (raw compareTo, row vs column)"}
+{"name": "uc-0157", "args": ["util-core-case"], "stdin": "VR-10 antisymmetry of the matrix"}
+{"name": "uc-0158", "args": ["util-core-case"], "stdin": "VR-11 qualifier on one side only"}
+{"name": "uc-0159", "args": ["util-core-case"], "stdin": "VR-12 qualifier text order (raw String.compareTo)"}
+{"name": "uc-0160", "args": ["util-core-case"], "stdin": "VR-13 equals and hashCode"}
+{"name": "uc-0161", "args": ["util-core-case"], "stdin": "VR-14 hashCode agrees with equals"}
+{"name": "uc-0162", "args": ["util-core-case"], "stdin": "VR-15 malformed strings"}
+{"name": "uc-0163", "args": ["util-core-case"], "stdin": "VR-16 numbers out of int range"}
+{"name": "uc-0164", "args": ["util-core-case"], "stdin": "VR-17 negative and wrapping numbers"}
+{"name": "uc-0165", "args": ["util-core-case"], "stdin": "VR-18 digits outside ASCII"}
+{"name": "uc-0166", "args": ["util-core-case"], "stdin": "VR-19 equal strings short-circuit"}
+{"name": "uc-0167", "args": ["util-core-case"], "stdin": "VR-20 version field and Zero"}
+{"name": "uc-0168", "args": ["util-core-case"], "stdin": "VR-22 parse exceptions"}
+{"name": "uc-0169", "args": ["util-core-case"], "stdin": "VR-23 sorting"}

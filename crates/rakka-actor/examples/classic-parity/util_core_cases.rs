@@ -20,7 +20,7 @@ use rakka_actor::util::helpers::{
     to_root_lower_case,
 };
 use rakka_actor::util::swar::{self, ByteOrder};
-use rakka_actor::util::{TimeUnit, Timeout};
+use rakka_actor::util::{TimeUnit, Timeout, Version};
 use rakka_actor::{ConfigurationException, Done, NotUsed, PekkoException};
 
 /// Golden cases that depend on an open Owner question or on a Java-only facade: not produced
@@ -45,6 +45,10 @@ pub const PENDING: &[(&str, &str)] = &[
     (
         "EX-SUB ConfigurationException isA PekkoException",
         "Q-UTIL-4",
+    ),
+    (
+        "VR-21 public constructor parses lazily",
+        "Java-only facade: `new Version(s)` defers parsing; Rust parses on construction (AC-UTIL-005.2)",
     ),
     (
         "LC \\uA7C0",
@@ -568,6 +572,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
 
     // ---- Slice P66: UTIL-PEKKOVERSION (AC-UTIL-005.1)
     for (id, result) in pekko_version_cases() {
+        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+    }
+
+    // ---- Slice P67: UTIL-VERSION (AC-UTIL-005.2)
+    for (id, result) in version_cases() {
         lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
     }
 
@@ -1630,5 +1639,510 @@ fn pekko_version_cases() -> Vec<(String, String)> {
         }
     }
     add("PV-14 many required versions against 2.0.0", matrix);
+    cases
+}
+
+/// `VersionOracle.parse`: `ok`, or `<Exception>[<message>]`.
+fn version_parse(v: &str) -> String {
+    match Version::parse(v) {
+        Ok(_) => "ok".to_owned(),
+        Err(e) => format!("{}[{}]", e.java_class(), e.message()),
+    }
+}
+
+/// `VersionOracle.cmp`: the raw `compareTo`, or the exception of building either side.
+fn version_cmp(a: &str, b: &str) -> String {
+    match (Version::parse(a), Version::parse(b)) {
+        (Ok(x), Ok(y)) => x.pekko_compare(&y).to_string(),
+        (Err(e), _) | (_, Err(e)) => format!("{}[{}]", e.java_class(), e.message()),
+    }
+}
+
+/// `VersionOracle.rel`.
+fn version_rel(pairs: &[&str]) -> String {
+    join(pairs.iter().map(|pair| {
+        let (x, y) = pair.split_once('|').expect("pair needs a bar");
+        let eq = match (Version::parse(x), Version::parse(y)) {
+            (Ok(a), Ok(b)) => (a == b).to_string(),
+            _ => "-".to_owned(),
+        };
+        format!("[{}]/[{}]={} eq={eq}", esc(x), esc(y), version_cmp(x, y))
+    }))
+}
+
+/// `VersionOracle.parse` of every string, as `[v]=outcome`.
+fn version_parses(vs: &[&str]) -> String {
+    join(vs.iter().map(|v| format!("[{v}]={}", version_parse(v))))
+}
+
+const VERSION_MATRIX: [&str; 19] = [
+    "1.2",
+    "1.2.0",
+    "1.2-M1",
+    "1.2.0-M1",
+    "1.2-M2",
+    "1.2.0-RC1",
+    "1.2-RC1",
+    "1.2.1",
+    "1.2.0-SNAPSHOT",
+    "1.2.0+3-abc",
+    "1.2.0+10-abc",
+    "1.2.0-3-abc",
+    "1.2.0-",
+    "1.2.0-M",
+    "1.2.0-m1",
+    "1",
+    "1-M1",
+    "foo",
+    "1.2.0-M1-x",
+];
+
+/// The cases of `VersionOracle.java` (slice P67).
+fn version_cases() -> Vec<(String, String)> {
+    let mut cases: Vec<(String, String)> = Vec::new();
+    let mut add = |id: &str, line: String| cases.push((id.to_owned(), line));
+    let v = |s: &str| Version::parse(s).expect("valid version");
+
+    add(
+        "VR-01 three digits (spec)",
+        version_rel(&[
+            "1.2.3|1.2.3",
+            "1.2.3|1.2.4",
+            "1.2.4|1.2.3",
+            "3.2.1|1.2.3",
+            "3.2.1|3.3.1",
+            "3.2.0|3.2.1",
+            "1.2.3|1.3.3",
+            "1.3.3|1.2.3",
+            "10.0.0|9.9.9",
+            "0.0.10|0.0.9",
+        ]),
+    );
+    add(
+        "VR-02 more than three digits",
+        version_parses(&[
+            "1.2.3.4",
+            "1.2.3.4.5",
+            "1.2.3.4-M1",
+            "1.2.3.",
+            "1.2.3..",
+            "1.2.3.4.",
+            "1.2.3.x",
+        ]),
+    );
+    add(
+        "VR-03 two digits (spec)",
+        version_rel(&[
+            "1.2|1.2.0",
+            "1.2.0|1.2",
+            "1.2|1.3",
+            "1.2.1|1.2",
+            "1.2|1.2.1",
+            "2.4|2.3",
+            "3.2|3.2.7",
+            "3.2.7|3.2",
+            "1.2|1.2",
+            "1.10|1.9",
+        ]),
+    );
+    add(
+        "VR-04 one digit (spec)",
+        version_rel(&[
+            "1|1.0",
+            "1.0|1",
+            "1|1.0.0",
+            "1.0.0|1",
+            "1.0|1.0.0",
+            "3|2",
+            "2b|2a",
+            "2a|2b",
+            "2020-09-07|2020-08-30",
+            "2020-08-30|2020-09-07",
+            "2|2",
+            "10|9",
+            "99999999999|99999999998",
+            "99999999999|1",
+        ]),
+    );
+    add(
+        "VR-05 qualifier (spec)",
+        version_rel(&[
+            "1.2.3-M1|1.2.3-M1",
+            "1.2.0-M1|1.2-M1",
+            "1.2-M1|1.2.0-M1",
+            "1.2-M1|1.2.0",
+            "1.2.0|1.2-M1",
+            "1.2.3-M2|1.2.3-M1",
+            "1.2.3-M1|1.2.3-M2",
+            "1.2.3-M1|1.2.3",
+            "1.2.3|1.2.3-M1",
+        ]),
+    );
+    add(
+        "VR-06 non digits (spec)",
+        version_parses(&[
+            "1.x.3", "1.2x.3", "1.2.x", "1.2.3x", "x.3", "1.x", "1.2x", "x.y.z", "1.2.3-x",
+            "1.2.3-1x",
+        ]),
+    );
+    add(
+        "VR-07 dynver (spec)",
+        version_rel(&[
+            "1.0.10+3-1234abcd|1.0.10+10-1234abcd",
+            "1.0.10+10-1234abcd|1.0.10+3-1234abcd",
+            "1.0.10+3-1234abcd|1.0.10+3-1234abcd",
+            "1.0.10+3-1234abcd|1.0.10+3-1234abce",
+            "1.0.10-3-1234abcd|1.0.10-10-1234abcd",
+            "1.0.10-10-1234abcd|1.0.10+3-1234abcd",
+            "1.0+3-1234abcd|1.0.0+3-1234abcd",
+            "1.0+3-1234abcd|1.0+10-1234abcd",
+            "HEAD+20140707-1030|HEAD+20140707-1030",
+            "HEAD+20140707-1030|HEAD+20140707-1031",
+            "HEAD+20140707-1030|1.0.0",
+            "1.0.10+3-1234abcd|1.0.10",
+            "1.0.10|1.0.10+3-1234abcd",
+            "1.0.10-SNAPSHOT|1.0.10+3-1234abcd",
+            "1.0.10+3-1234abcd|1.0.10-SNAPSHOT",
+            "1.0.10+99999999999-abc|1.0.10+3-abc",
+            "1.0.10+3|1.0.10+3",
+            "1.0.10+3|1.0.10+4",
+            "1.0.10+3-|1.0.10+3-a",
+        ]),
+    );
+    add(
+        "VR-08 no digits (spec)",
+        version_rel(&[
+            "foo|foo",
+            "foo|bar",
+            "bar|foo",
+            "foo|1.2.3",
+            "1.2.3|foo",
+            "foo|0.0.0",
+            "1-foo|01-foo",
+            "1-foo|02-foo",
+            "02-foo|1-foo",
+            "2-foo|1-foo",
+            "foo|Foo",
+            "Foo|foo",
+            "foo|foo1",
+            "foo1|foo",
+        ]),
+    );
+    add(
+        "VR-09 qualifier matrix (raw compareTo, row vs column)",
+        join(VERSION_MATRIX.iter().map(|a| {
+            let row: String = VERSION_MATRIX
+                .iter()
+                .map(|c| format!("{},", version_cmp(a, c)))
+                .collect();
+            format!("[{a}]:{row}")
+        })),
+    );
+    let mut broken = 0;
+    let mut bad = Vec::new();
+    for a in VERSION_MATRIX {
+        for c in VERSION_MATRIX {
+            if v(a).pekko_compare(&v(c)).signum() != -v(c).pekko_compare(&v(a)).signum() {
+                broken += 1;
+                bad.push(format!("[{a}]/[{c}]"));
+            }
+        }
+    }
+    add(
+        "VR-10 antisymmetry of the matrix",
+        format!(
+            "pairs={} broken={broken} {}",
+            VERSION_MATRIX.len() * VERSION_MATRIX.len(),
+            bad.join(" ").trim()
+        ),
+    );
+    add(
+        "VR-11 qualifier on one side only",
+        version_rel(&[
+            "1.2.0|1.2.0-M1",
+            "1.2.0-M1|1.2.0",
+            "1.2.0|1.2-M1",
+            "1.2-M1|1.2.0",
+            "1.2.0|1.2.0-RC1",
+            "1.2.0-RC1|1.2.0",
+            "1.2.0|1.2.0-SNAPSHOT",
+            "1.2.0-SNAPSHOT|1.2.0",
+            "1.2|1.2-M1",
+            "1.2-M1|1.2",
+            "1|1-M1",
+            "1-M1|1",
+            "1.2.3|1.2.3-M1",
+            "1.2.3-M1|1.2.3",
+            "1.2.3|1.2.3-",
+            "1.2.3-|1.2.3",
+            "2.0.0|1.9.9-M1",
+            "1.9.9-M1|2.0.0",
+            "1.2.0-M1|1.2.1",
+            "1.2.1|1.2.0-M1",
+        ]),
+    );
+    add(
+        "VR-12 qualifier text order (raw String.compareTo)",
+        version_rel(&[
+            "1.2.0-M1|1.2.0-M2",
+            "1.2.0-M2|1.2.0-M1",
+            "1.2.0-M1|1.2.0-M10",
+            "1.2.0-M10|1.2.0-M1",
+            "1.2.0-M9|1.2.0-M10",
+            "1.2.0-M1|1.2.0-RC1",
+            "1.2.0-RC1|1.2.0-M1",
+            "1.2.0-a|1.2.0-B",
+            "1.2.0-B|1.2.0-a",
+            "1.2.0-abc|1.2.0-abd",
+            "1.2.0-ab|1.2.0-abcd",
+            "1.2.0-abcd|1.2.0-ab",
+            "1.2.0-\u{e9}|1.2.0-e",
+            "1.2.0-\u{1F600}|1.2.0-\u{ffff}",
+            "1.2.0-\u{ffff}|1.2.0-\u{1F600}",
+            "1.2.0-M1|1.2.0-m1",
+        ]),
+    );
+    let hashed: String = join(
+        [
+            "1.2",
+            "1.2.0",
+            "1",
+            "1.0",
+            "1.0.0",
+            "1.2-M1",
+            "1.2.0-M1",
+            "1.2.3",
+            "foo",
+            "bar",
+            "1.0.10+3-abc",
+            "1.0.10+10-abc",
+            "0.0.0",
+            "0",
+            "x",
+        ]
+        .iter()
+        .map(|s| format!("[{s}]={}", v(s).hash_code())),
+    );
+    add(
+        "VR-13 equals and hashCode",
+        format!(
+            "{hashed} zero={} {}",
+            Version::zero().hash_code(),
+            Version::zero().version()
+        ),
+    );
+    let mut disagree = Vec::new();
+    for x in VERSION_MATRIX {
+        for y in VERSION_MATRIX {
+            if v(x) == v(y) && v(x).hash_code() != v(y).hash_code() {
+                disagree.push(format!("[{x}]/[{y}]"));
+            }
+        }
+    }
+    add(
+        "VR-14 hashCode agrees with equals",
+        format!(
+            "pairs={} equal-but-different-hash={} {}",
+            VERSION_MATRIX.len() * VERSION_MATRIX.len(),
+            disagree.len(),
+            disagree.join(" ")
+        ),
+    );
+    add(
+        "VR-15 malformed strings",
+        join(
+            [
+                "",
+                ".",
+                "..",
+                "...",
+                "1.",
+                "1..",
+                ".1",
+                "..1",
+                "1..2",
+                ".1.2",
+                "1.2.",
+                " 1.2",
+                "1.2 ",
+                "1. 2",
+                "-1",
+                "+1",
+                "1.-2",
+                "1.+2",
+                "-1.2",
+                "-1.2.3",
+                "1.-2.3",
+                "1.2.-3",
+                "1.2.+3",
+                "1.2.3-",
+                "1.2.3+",
+                "1.2.3-+",
+                "1.2.3+-",
+                "1.2-",
+                "1.2+",
+                "1-",
+                "1+",
+                "1.",
+                "a",
+                "a.b",
+                "a.b.c",
+                "1.2.3-M1+5",
+                "1.2.3+5-M1",
+                "1.2.3+5-",
+                "1.2.3+-5-x",
+                "1.2.3--5-x",
+                "1.2.3-5",
+                "1.2.3-5-",
+                "1.2.3-5x-y",
+                "1.2.3-x-5",
+                "v1.2.3",
+                "1.2.3\n",
+                "\n",
+                " ",
+                "1.2.3 ",
+            ]
+            .iter()
+            .map(|s| format!("[{}]={}", esc(s), esc(&version_parse(s)))),
+        ),
+    );
+    add(
+        "VR-16 numbers out of int range",
+        version_rel(&[
+            "2147483647.0.0|1.0.0",
+            "2147483648.0.0|1.0.0",
+            "1.2147483648.0|1.0.0",
+            "1.0.2147483648|1.0.0",
+            "1.2.3-2147483648-x|1.2.3",
+            "2147483647|2147483646",
+            "2147483648|2147483647",
+            "2147483648|2147483649",
+            "99999999999|99999999999",
+            "99999999999.1.1|1.1.1",
+            "1.2.99999999999-M1|1.2.1",
+            "1.99999999999-M1|1.2",
+            "1.2+2147483648-x|1.2",
+        ]),
+    );
+    add(
+        "VR-17 negative and wrapping numbers",
+        version_rel(&[
+            "-1.2.3|1.2.3",
+            "1.2.3|-1.2.3",
+            "-1.2.3|-1.2.3",
+            "-1.2.3|-2.2.3",
+            "2147483647.0.0|-1.0.0",
+            "-1.0.0|2147483647.0.0",
+            "-2147483648.0.0|2147483647.0.0",
+            "2147483647.0.0|-2147483648.0.0",
+            "1.2147483647.0|1.-1.0",
+            "1.-1.0|1.2147483647.0",
+            "1.2.-3|1.2.3",
+            "1.2.3|1.2.-3",
+            "1.2.-2147483648|1.2.2147483647",
+            "1.2.2147483647|1.2.-2147483648",
+        ]),
+    );
+    add(
+        "VR-18 digits outside ASCII",
+        version_rel(&[
+            "\u{662}.\u{665}.\u{665}|2.5.5",
+            "2.5.5|\u{662}.\u{665}.\u{665}",
+            "2.5.\u{665}|2.5.5",
+            "\u{ff12}.\u{ff15}.\u{ff15}|2.5.5",
+            "\u{662}|2",
+            "2|\u{662}",
+            "\u{662}b|2b",
+            "\u{662}b|\u{663}b",
+            "1.2.3-M\u{661}|1.2.3-M1",
+            "1.\u{662}|1.2",
+            "1.\u{662}-M1|1.2-M1",
+        ]),
+    );
+    add(
+        "VR-19 equal strings short-circuit",
+        version_rel(&[
+            "1.2.3|1.2.3",
+            "foo|foo",
+            "1.2.3-M1|1.2.3-M1",
+            "99999999999|99999999999",
+            "1.2.0+3-abc|1.2.0+3-abc",
+            "-1.2.3|-1.2.3",
+        ]),
+    );
+    let mut fields: Vec<String> = ["1.2", "1.2.0-M1", "foo", "2020-09-07", "1.0.10+3-abc"]
+        .iter()
+        .map(|s| format!("[{}]=[{}]", v(s).version(), v(s)))
+        .collect();
+    fields.push(format!("zero=[{}]", Version::zero()));
+    fields.push(format!("1.2>zero={}", version_cmp("1.2", "0.0.0")));
+    fields.push(format!("zero>foo={}", version_cmp("0.0.0", "foo")));
+    fields.push(format!("0=zero:{}", version_cmp("0", "0.0.0")));
+    add("VR-20 version field and Zero", fields.join(" "));
+    add(
+        "VR-22 parse exceptions",
+        join(
+            [
+                "",
+                "1.2.3.4",
+                "1.x.3",
+                "1.2x",
+                "x.3",
+                "1.2.3x",
+                "1.",
+                ".",
+                "1.2.3.4.5",
+                "99999999999.1",
+                "1.99999999999.1",
+            ]
+            .iter()
+            .map(|s| match Version::parse(s) {
+                Ok(_) => format!("[{s}]=ok"),
+                Err(e) => format!(
+                    "[{s}]=java.lang.{} cause=null msg=[{}]",
+                    e.java_class(),
+                    e.message()
+                ),
+            }),
+        ),
+    );
+    let mut sorted: Vec<Version> = [
+        "1.2.0",
+        "1.2.0-RC1",
+        "1.2.0-M2",
+        "1.2.0-M1",
+        "1.1.9",
+        "1.2.1",
+        "1.2.0+3-abc",
+        "1.2.0+10-abc",
+        "1.2",
+        "1.2-M1",
+        "1.10.0",
+        "1.9.0",
+    ]
+    .iter()
+    .map(|s| v(s))
+    .collect();
+    sorted.sort_by(|a, b| a.pekko_compare(b).cmp(&0));
+    let (mut max, mut min) = (&sorted[0], &sorted[0]);
+    for item in &sorted {
+        if item.pekko_compare(max) > 0 {
+            max = item;
+        }
+        if item.pekko_compare(min) < 0 {
+            min = item;
+        }
+    }
+    add(
+        "VR-23 sorting",
+        format!(
+            "{} max={max} min={min}",
+            sorted
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(" ")
+        ),
+    );
     cases
 }

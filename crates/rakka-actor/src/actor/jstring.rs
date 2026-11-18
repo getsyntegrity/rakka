@@ -38,6 +38,25 @@ pub(crate) fn parse_int(s: &str) -> Result<i32, NumberFormatError> {
     }
 }
 
+/// `Character.isDigit` of a UTF-16 unit: a decimal digit (category Nd) of the Basic Multilingual Plane.
+pub(crate) fn is_digit(unit: u16) -> bool {
+    decimal_digit_value(unit).is_some()
+}
+
+/// `String.compareTo`: the difference of the first two UTF-16 units that differ, else of the lengths.
+pub(crate) fn compare_to_raw(a: &str, b: &str) -> i32 {
+    let (mut left, mut right) = (a.encode_utf16(), b.encode_utf16());
+    loop {
+        match (left.next(), right.next()) {
+            (Some(x), Some(y)) if x != y => return i32::from(x) - i32::from(y),
+            (Some(_), Some(_)) => {}
+            (Some(_), None) => return 1 + left.count() as i32,
+            (None, Some(_)) => return -1 - right.count() as i32,
+            (None, None) => return 0,
+        }
+    }
+}
+
 const SIGN_MINUS: u16 = b'-' as u16;
 const SIGN_PLUS: u16 = b'+' as u16;
 
@@ -65,6 +84,26 @@ mod tests {
 
     fn err(s: &str) -> String {
         parse_int(s).unwrap_err().message().to_string()
+    }
+
+    #[test]
+    fn compare_to_raw_is_the_unit_or_length_difference() {
+        assert_eq!(compare_to_raw("a", "a"), 0);
+        assert_eq!(compare_to_raw("a", "B"), 31);
+        assert_eq!(compare_to_raw("ab", "abcd"), -2);
+        assert_eq!(compare_to_raw("abcd", "ab"), 2);
+        assert_eq!(compare_to_raw("", "x"), -1);
+        assert_eq!(compare_to_raw("x", ""), 1);
+        assert_eq!(compare_to_raw("\u{1F600}", "\u{ffff}"), 0xD83D - 0xFFFF);
+    }
+
+    #[test]
+    fn is_digit_accepts_decimal_digits_of_any_script() {
+        assert!(is_digit(u16::from(b'7')));
+        assert!(is_digit(0x0662));
+        assert!(is_digit(0xFF15));
+        assert!(!is_digit(u16::from(b'x')));
+        assert!(!is_digit(u16::from(b'-')));
     }
 
     #[test]

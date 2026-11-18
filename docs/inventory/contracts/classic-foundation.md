@@ -437,9 +437,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 - A7 dynver: :77-92. Sin dígitos: `foo == foo`, `foo != bar`, `foo < 1.2.3`, `foo > bar`, `1-foo != 01-foo`, `1-foo > 02-foo`: :94-102.
 - A8 antisimetría de compareTo con rest vacío en un lado: NO afirmada por spec; **medido con el jar 1.7.1 (JDK 11)**: `Version("1.2.0").compareTo(Version("1.2-M1")) = -2` **y** `Version("1.2-M1").compareTo(Version("1.2.0")) = -1` (ambos negativos: el `if (rest == "" && other.rest != "") diff = 1` de Version.scala:170-171 queda sobrescrito por el `else` de la línea 172-175 en la comparación `"".compareTo(rest)`); además `1.2.0` vs `1.2.0-RC1` = -3 y `1.2.0-RC1` vs `1.2.0` = -1, `1.2-M1` vs `1.2-M2` = -1. VersionSpec.scala:56-64 sólo prueba `1.2-M1 < 1.2.0` (compatible con el defecto). Confirma Q-UTIL-6.
 
-**Oráculo.** Posible con jar pekko-actor (clase pública en org.apache.pekko.util); sin escenario aún.
+**Actualización P67 (2026-11-18, Pekko 2.0.0).** El defecto de A8 (medido con 1.7.1) está CORREGIDO en 2.0.0 (`Version.scala:169-175`: `if (rest == "" && other.rest != "") 1 else if (other.rest == "" && rest != "") -1 else rest.compareTo(other.rest)`); el Owner rechazó la alternativa bug-compatible (Q-UTIL-6) y pidió medirlo con el jar 2.0.0: `Version("1.2.0").compareTo(Version("1.2-M1")) = 1`, `Version("1.2-M1").compareTo(Version("1.2.0")) = -1`, 0 pares no antisimétricos sobre 19 versiones (VR-05, VR-10, VR-11), y `hashCode` coincide con `equals` (VR-14). La medición coincide con la descripción del Owner y con la lectura de la fuente. Además fija: `split('.')` descarta vacíos finales (`1.` y `1.2.3.` válidas; `.`, `..` -> "Only 3 digits"; `.1`, `1..2` -> `NumberFormatException: For input string: ""`), diferencias de `Int` con wrap (`2147483647.0.0` frente a `-1.0.0` da `-2147483648`), calificador vacío (`1.2.3-`) igual a sin calificador, dígitos Nd aceptados (`٢.٥.٥` == `2.5.5`), resto comparado con `String.compareTo` bruto (`M9` frente a `M10` = 8), y que `new Version(s)` parsea de forma perezosa (VR-21, sin equivalente en Rust). En Rust: `rakka_actor::util::{Version, VersionError}`.
 
-**Decisiones.** Q-UTIL-6, Q-X-9.
+**Oráculo.** Casos VR-01..VR-23 (`VersionOracle.java`, uc-0148..uc-0169); VR-21 queda como PENDING (fachada Java).
+
+**Decisiones.** Q-UTIL-6 (rechazada: 2.0.0 corregido), Q-X-9.
 
 
 ---
