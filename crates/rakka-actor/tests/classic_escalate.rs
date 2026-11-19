@@ -1,35 +1,21 @@
 //! Slice 3b-3: `Escalate`. Three levels: `g` (grandparent) -> `p` (supervisor whose decider escalates) -> `c` (throws in `receive`).
 //! Every expectation was recorded from Pekko 2.0.0 first (`cases/scenario-3b3.jsonl`, `rust/app-cases/`); the scenario name is in each test.
 
+#[allow(dead_code)] // each test binary uses only some of the shared helpers
+mod common;
+use common::{RunningSystem, owned_strings, snapshot_of, wait_until};
+
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
-use rakka_actor::actor::system::ActorSystem;
 use rakka_actor::dispatch::{Failed, Terminated};
 
 type Log = Arc<Mutex<Vec<String>>>;
 type Decide = Arc<dyn Fn(&Throwable) -> Directive + Send + Sync>;
 type Slot = Arc<Mutex<Option<ActorRef>>>;
-
-fn wait_until(what: &str, cond: impl Fn() -> bool) {
-    let end = Instant::now() + Duration::from_secs(10);
-    while !cond() {
-        assert!(Instant::now() < end, "timed out waiting for {what}");
-        std::thread::sleep(Duration::from_millis(2));
-    }
-}
-
-fn snap(log: &Log) -> Vec<String> {
-    log.lock().unwrap().clone()
-}
-
-fn strs(v: &[&str]) -> Vec<String> {
-    v.iter().map(|s| s.to_string()).collect()
-}
 
 const ISE: &str = "decide java.lang.IllegalStateException: esc";
 
@@ -184,7 +170,7 @@ impl Actor for Top {
 }
 
 struct Tree {
-    _system: ActorSystem,
+    _system: RunningSystem,
     g: Log,
     p: Log,
     c: Log,
@@ -200,7 +186,7 @@ fn tree_with(
     max: i32,
     second: bool,
 ) -> Tree {
-    let system = ActorSystem::create("sys").unwrap();
+    let system = RunningSystem::create("sys");
     let (g, p) = (Log::default(), Log::default());
     let logs: [Log; 3] = Default::default();
     let slots: [Slot; 3] = Default::default();
@@ -231,7 +217,8 @@ fn tree_with(
             .unwrap();
     }
     wait_until("c started", || {
-        snap(&logs[0]) == ["pre-start"] && (!second || snap(&logs[1]) == ["pre-start"])
+        snapshot_of(&logs[0]) == ["pre-start"]
+            && (!second || snapshot_of(&logs[1]) == ["pre-start"])
     });
     let (mid, kid) = (
         mid.lock().unwrap().clone().unwrap(),
@@ -269,24 +256,28 @@ fn escalated_failure_reaches_the_grandparent_which_resumes_the_parent() {
     for m in ["m1", "esc", "q-0", "q-1"] {
         tell(&t.kid, m);
     }
-    wait_until("c processed the queued messages", || snap(&t.c).len() == 5);
-    wait_until("g decided", || !snap(&t.g).is_empty());
+    wait_until("c processed the queued messages", || {
+        snapshot_of(&t.c).len() == 5
+    });
+    wait_until("g decided", || !snapshot_of(&t.g).is_empty());
     tell(&t.mid, "pm");
-    wait_until("p processes messages again", || snap(&t.p).len() == 3);
+    wait_until("p processes messages again", || {
+        snapshot_of(&t.p).len() == 3
+    });
 
     assert_eq!(
-        snap(&t.g),
-        strs(&["decide java.lang.IllegalStateException: esc -> Resume"]),
+        snapshot_of(&t.g),
+        owned_strings(&["decide java.lang.IllegalStateException: esc -> Resume"]),
         "the grandparent's decider sees the child's exception"
     );
     assert_eq!(
-        snap(&t.p),
-        strs(&["pre-start", &format!("{ISE} -> Escalate"), "pm"]),
+        snapshot_of(&t.p),
+        owned_strings(&["pre-start", &format!("{ISE} -> Escalate"), "pm"]),
         "p: no restart hooks, no post-stop"
     );
     assert_eq!(
-        snap(&t.c),
-        strs(&["pre-start", "m1", "esc", "q-0", "q-1"]),
+        snapshot_of(&t.c),
+        owned_strings(&["pre-start", "m1", "esc", "q-0", "q-1"]),
         "the failed message is lost, the queued ones are processed"
     );
     assert!(
@@ -305,13 +296,13 @@ fn grandparent_restart_replaces_the_parent_and_stops_its_child() {
     for m in ["m1", "esc", "q-0", "q-1"] {
         tell(&t.kid, m);
     }
-    wait_until("p restarted", || snap(&t.p).len() == 6);
+    wait_until("p restarted", || snapshot_of(&t.p).len() == 6);
     tell(&t.mid, "pm");
-    wait_until("the new instance receives", || snap(&t.p).len() == 7);
+    wait_until("the new instance receives", || snapshot_of(&t.p).len() == 7);
 
     assert_eq!(
-        snap(&t.p),
-        strs(&[
+        snapshot_of(&t.p),
+        owned_strings(&[
             "pre-start",
             &format!("{ISE} -> Escalate"),
             "pre-restart java.lang.IllegalStateException: esc / Failed", // the message preRestart sees is the escalated `Failed`
@@ -322,8 +313,8 @@ fn grandparent_restart_replaces_the_parent_and_stops_its_child() {
         ])
     );
     assert_eq!(
-        snap(&t.c),
-        strs(&["pre-start", "m1", "esc", "post-stop"]),
+        snapshot_of(&t.c),
+        owned_strings(&["pre-start", "m1", "esc", "post-stop"]),
         "c is stopped by p's preRestart; the queued messages are dead letters"
     );
     assert!(
@@ -331,8 +322,8 @@ fn grandparent_restart_replaces_the_parent_and_stops_its_child() {
         "the reference to p stays valid (no Terminated, same uid)"
     );
     assert_eq!(
-        snap(&t.g),
-        strs(&["decide java.lang.IllegalStateException: esc -> Restart"]),
+        snapshot_of(&t.g),
+        owned_strings(&["decide java.lang.IllegalStateException: esc -> Restart"]),
         "no Terminated for a restart"
     );
 }
@@ -346,22 +337,25 @@ fn grandparent_stop_terminates_the_parent_and_its_child() {
     for m in ["m1", "esc", "q-0", "q-1"] {
         tell(&t.kid, m);
     }
-    wait_until("g saw p terminate", || snap(&t.g).len() == 2);
+    wait_until("g saw p terminate", || snapshot_of(&t.g).len() == 2);
     wait_until("c stopped", || {
-        snap(&t.c).last().map(String::as_str) == Some("post-stop")
+        snapshot_of(&t.c).last().map(String::as_str) == Some("post-stop")
     });
     assert_eq!(
-        snap(&t.g),
-        strs(&[
+        snapshot_of(&t.g),
+        owned_strings(&[
             "decide java.lang.IllegalStateException: esc -> Stop",
             "terminated p"
         ])
     );
     assert_eq!(
-        snap(&t.p),
-        strs(&["pre-start", &format!("{ISE} -> Escalate"), "post-stop"])
+        snapshot_of(&t.p),
+        owned_strings(&["pre-start", &format!("{ISE} -> Escalate"), "post-stop"])
     );
-    assert_eq!(snap(&t.c), strs(&["pre-start", "m1", "esc", "post-stop"]));
+    assert_eq!(
+        snapshot_of(&t.c),
+        owned_strings(&["pre-start", "m1", "esc", "post-stop"])
+    );
 }
 
 // ---- the cause the supervisor above sees is the child's own ---------------------------------------------------------------------------
@@ -371,14 +365,14 @@ fn grandparent_stop_terminates_the_parent_and_its_child() {
 fn the_escalated_cause_keeps_its_class_and_message() {
     let t = tree(|_| Directive::Resume);
     tell(&t.kid, "kill");
-    wait_until("g decided", || !snap(&t.g).is_empty());
+    wait_until("g decided", || !snapshot_of(&t.g).is_empty());
     assert_eq!(
-        snap(&t.g),
-        strs(&["decide org.apache.pekko.actor.ActorKilledException: Kill -> Resume"])
+        snapshot_of(&t.g),
+        owned_strings(&["decide org.apache.pekko.actor.ActorKilledException: Kill -> Resume"])
     );
     assert_eq!(
-        snap(&t.p),
-        strs(&[
+        snapshot_of(&t.p),
+        owned_strings(&[
             "pre-start",
             "decide org.apache.pekko.actor.ActorKilledException: Kill -> Escalate"
         ])
@@ -390,18 +384,18 @@ fn the_escalated_cause_keeps_its_class_and_message() {
 fn the_default_decider_of_the_grandparent_applies_to_the_escalated_cause() {
     let t = tree(rakka_actor::actor::supervision::default_decider);
     tell(&t.kid, "esc");
-    wait_until("p restarted", || snap(&t.p).len() == 6);
+    wait_until("p restarted", || snapshot_of(&t.p).len() == 6);
     assert_eq!(
-        snap(&t.g),
-        strs(&["decide java.lang.IllegalStateException: esc -> Restart"])
+        snapshot_of(&t.g),
+        owned_strings(&["decide java.lang.IllegalStateException: esc -> Restart"])
     );
 
     let t = tree(rakka_actor::actor::supervision::default_decider);
     tell(&t.kid, "kill");
-    wait_until("p stopped", || snap(&t.g).len() == 2);
+    wait_until("p stopped", || snapshot_of(&t.g).len() == 2);
     assert_eq!(
-        snap(&t.g),
-        strs(&[
+        snapshot_of(&t.g),
+        owned_strings(&[
             "decide org.apache.pekko.actor.ActorKilledException: Kill -> Stop",
             "terminated p"
         ])
@@ -417,12 +411,12 @@ fn the_grandparent_sees_only_the_failures_the_parent_escalates() {
     for m in ["m1", "loc", "m2", "esc", "m3"] {
         tell(&t.kid, m);
     }
-    wait_until("c done", || snap(&t.c).len() == 6);
-    wait_until("g decided", || !snap(&t.g).is_empty());
-    assert_eq!(snap(&t.g).len(), 1, "one escalated failure only");
+    wait_until("c done", || snapshot_of(&t.c).len() == 6);
+    wait_until("g decided", || !snapshot_of(&t.g).is_empty());
+    assert_eq!(snapshot_of(&t.g).len(), 1, "one escalated failure only");
     assert_eq!(
-        snap(&t.p),
-        strs(&[
+        snapshot_of(&t.p),
+        owned_strings(&[
             "pre-start",
             "decide java.lang.IllegalStateException: loc -> Resume",
             &format!("{ISE} -> Escalate")
@@ -433,14 +427,14 @@ fn the_grandparent_sees_only_the_failures_the_parent_escalates() {
     for m in ["m1", "loc", "m2"] {
         tell(&t.kid, m);
     }
-    wait_until("c done", || snap(&t.c).len() == 4);
+    wait_until("c done", || snapshot_of(&t.c).len() == 4);
     assert!(
-        snap(&t.g).is_empty(),
+        snapshot_of(&t.g).is_empty(),
         "nothing escalated: the grandparent never decides"
     );
     assert_eq!(
-        snap(&t.p),
-        strs(&[
+        snapshot_of(&t.p),
+        owned_strings(&[
             "pre-start",
             "decide java.lang.IllegalStateException: loc -> Resume"
         ])
@@ -454,9 +448,9 @@ fn every_escalation_is_decided_again_by_the_grandparent() {
     for m in ["esc", "m1", "esc", "m2"] {
         tell(&t.kid, m);
     }
-    wait_until("c done", || snap(&t.c).len() == 5);
-    wait_until("g decided twice", || snap(&t.g).len() == 2);
-    assert_eq!(snap(&t.p).len(), 3);
+    wait_until("c done", || snapshot_of(&t.c).len() == 5);
+    wait_until("g decided twice", || snapshot_of(&t.g).len() == 2);
+    assert_eq!(snapshot_of(&t.p).len(), 3);
 }
 
 // ---- f-*: the other children of the escalating parent ----------------------------------------------------------------------------------
@@ -467,15 +461,15 @@ fn a_healthy_sibling_is_resumed_with_its_parent() {
     let t = tree_with(|_| Directive::Resume, -1, true);
     let c2 = t.slots[1].lock().unwrap().clone().unwrap();
     tell(&c2, "a");
-    wait_until("a", || snap(&t.c2).len() == 2);
+    wait_until("a", || snapshot_of(&t.c2).len() == 2);
     for m in ["m1", "esc", "q-0", "q-1"] {
         tell(&t.kid, m);
     }
     tell(&c2, "b");
     wait_until("c and c2 done", || {
-        snap(&t.c).len() == 5 && snap(&t.c2).len() == 3
+        snapshot_of(&t.c).len() == 5 && snapshot_of(&t.c2).len() == 3
     });
-    assert_eq!(snap(&t.c2), strs(&["pre-start", "a", "b"]));
+    assert_eq!(snapshot_of(&t.c2), owned_strings(&["pre-start", "a", "b"]));
 }
 
 /// f-restart-healthy-sibling / f-stop-healthy-sibling: the sibling dies with its parent.
@@ -485,15 +479,15 @@ fn a_healthy_sibling_dies_with_its_restarted_or_stopped_parent() {
         let t = tree_with(move |_| directive, -1, true);
         let c2 = t.slots[1].lock().unwrap().clone().unwrap();
         tell(&c2, "a");
-        wait_until("a", || snap(&t.c2).len() == 2);
+        wait_until("a", || snapshot_of(&t.c2).len() == 2);
         tell(&t.kid, "esc");
         wait_until("both children stopped", || {
-            snap(&t.c).last().map(String::as_str) == Some("post-stop")
-                && snap(&t.c2).last().map(String::as_str) == Some("post-stop")
+            snapshot_of(&t.c).last().map(String::as_str) == Some("post-stop")
+                && snapshot_of(&t.c2).last().map(String::as_str) == Some("post-stop")
         });
         assert_eq!(
-            snap(&t.c2),
-            strs(&["pre-start", "a", "post-stop"]),
+            snapshot_of(&t.c2),
+            owned_strings(&["pre-start", "a", "post-stop"]),
             "{directive:?}"
         );
     }
@@ -506,15 +500,18 @@ fn a_healthy_sibling_dies_with_its_restarted_or_stopped_parent() {
 fn the_grandparents_retry_limit_counts_restarts_of_the_parent() {
     let t = tree_with(|_| Directive::Restart, 1, false);
     tell(&t.kid, "esc");
-    wait_until("p restarted", || snap(&t.p).len() == 6);
+    wait_until("p restarted", || snapshot_of(&t.p).len() == 6);
     tell(&t.mid, "mk");
     wait_until("d created", || t.slots[2].lock().unwrap().is_some());
     let d = t.slots[2].lock().unwrap().clone().unwrap();
-    wait_until("d started", || snap(&t.d) == ["pre-start"]);
+    wait_until("d started", || snapshot_of(&t.d) == ["pre-start"]);
     tell(&d, "esc");
-    wait_until("p stopped by the limit", || snap(&t.g).len() == 3);
-    assert_eq!(snap(&t.g)[2], "terminated p");
-    assert_eq!(snap(&t.d), strs(&["pre-start", "esc", "post-stop"]));
+    wait_until("p stopped by the limit", || snapshot_of(&t.g).len() == 3);
+    assert_eq!(snapshot_of(&t.g)[2], "terminated p");
+    assert_eq!(
+        snapshot_of(&t.d),
+        owned_strings(&["pre-start", "esc", "post-stop"])
+    );
 }
 
 /// g01-g-max-zero-stops-p
@@ -522,10 +519,10 @@ fn the_grandparents_retry_limit_counts_restarts_of_the_parent() {
 fn a_zero_limit_at_the_grandparent_stops_the_parent_at_the_first_escalation() {
     let t = tree_with(|_| Directive::Restart, 0, false);
     tell(&t.kid, "esc");
-    wait_until("p stopped", || snap(&t.g).len() == 2);
+    wait_until("p stopped", || snapshot_of(&t.g).len() == 2);
     assert_eq!(
-        snap(&t.p),
-        strs(&["pre-start", &format!("{ISE} -> Escalate"), "post-stop"]),
+        snapshot_of(&t.p),
+        owned_strings(&["pre-start", &format!("{ISE} -> Escalate"), "post-stop"]),
         "no restart hooks"
     );
 }
