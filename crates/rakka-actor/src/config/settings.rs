@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt;
 
-use super::{Config, ConfigError};
+use super::{Config, ConfigError, ProviderSelection};
 use crate::ConfigurationException;
 use crate::util::Timeout;
 use crate::util::helpers::to_root_lower_case;
@@ -89,6 +89,8 @@ pub struct Settings {
     config: Config,
     /// `ConfigVersion` (`pekko.version`).
     pub config_version: String,
+    /// `ProviderSelectionType` (`pekko.actor.provider`). A `BootstrapSetup.actorRefProvider` takes priority over it (AC-CFG-015).
+    pub provider_selection: ProviderSelection,
     /// `SupervisorStrategyClass` (`pekko.actor.guardian-supervisor-strategy`): a name for the registry (Q-X-2).
     pub supervisor_strategy_class: String,
     /// `CreationTimeout`.
@@ -169,6 +171,8 @@ impl Settings {
         config.check_valid(&reference, &["pekko"])?;
 
         let config_version = config.get_string("pekko.version")?;
+        let provider_selection =
+            ProviderSelection::from_identifier(&config.get_string("pekko.actor.provider")?);
         let supervisor_strategy_class =
             config.get_string("pekko.actor.guardian-supervisor-strategy")?;
         let creation_timeout = config.get_millis_duration("pekko.actor.creation-timeout")?;
@@ -260,6 +264,7 @@ impl Settings {
             name: name.to_owned(),
             config,
             config_version,
+            provider_selection,
             supervisor_strategy_class,
             creation_timeout,
             unstarted_push_timeout,
@@ -294,6 +299,15 @@ impl Settings {
             coordinated_shutdown_run_by_actor_system_terminate: run_by_terminate,
             default_virtual_nodes_factor,
         })
+    }
+    /// `ProviderClass`: the class name of the selected provider (`ActorSystem.scala:419`).
+    pub fn provider_class(&self) -> &str {
+        self.provider_selection.fqcn()
+    }
+
+    /// `HasCluster`: whether the selected provider is the cluster one (`ActorSystem.scala:421`).
+    pub fn has_cluster(&self) -> bool {
+        self.provider_selection.has_cluster()
     }
 
     /// `settings.config`: the configuration the settings were read from.
@@ -394,6 +408,35 @@ mod tests {
                 .resolve()
                 .unwrap(),
         )
+    }
+
+    // ProviderSelectionSpec.scala:38-67: `Settings.ProviderClass` and `HasCluster` follow `pekko.actor.provider`.
+    #[test]
+    fn the_provider_class_and_cluster_flag_follow_the_provider_key() {
+        let default = Settings::new("sys", Config::default_reference()).unwrap();
+        assert_eq!(default.provider_selection, ProviderSelection::Local);
+        for (key, class, cluster) in [
+            (
+                "local",
+                "org.apache.pekko.actor.LocalActorRefProvider",
+                false,
+            ),
+            (
+                "remote",
+                "org.apache.pekko.remote.RemoteActorRefProvider",
+                false,
+            ),
+            (
+                "cluster",
+                "org.apache.pekko.cluster.ClusterActorRefProvider",
+                true,
+            ),
+            ("other.ActorRefProvider", "other.ActorRefProvider", false),
+        ] {
+            let s = settings_with(&format!("pekko.actor.provider = \"{key}\"")).unwrap();
+            assert_eq!(s.provider_class(), class, "{key}");
+            assert_eq!(s.has_cluster(), cluster, "{key}");
+        }
     }
 
     #[test]

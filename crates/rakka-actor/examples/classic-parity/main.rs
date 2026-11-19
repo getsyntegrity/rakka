@@ -15,6 +15,7 @@ mod fronteras_cases;
 mod json;
 mod path_address_cases;
 mod path_case;
+mod provider_selection_cases;
 mod scenario;
 mod structures_cases;
 mod text_escape;
@@ -129,6 +130,15 @@ fn main() -> ExitCode {
         }
         "dynamic-access-case" => {
             return oracle_case(&mut out, &input, dynamic_access_cases::rust_lines());
+        }
+        "provider-selection-ids" => print_ids(&mut out, provider_selection_cases::rust_lines()),
+        "provider-selection-all" => {
+            for (_, line) in provider_selection_cases::rust_lines() {
+                writeln!(out, "{line}").ok();
+            }
+        }
+        "provider-selection-case" => {
+            return oracle_case(&mut out, &input, provider_selection_cases::rust_lines());
         }
         "config-settings-ids" => print_ids(&mut out, config_settings_cases::rust_lines()),
         "config-settings-all" => {

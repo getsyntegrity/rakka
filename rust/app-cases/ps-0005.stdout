@@ -1,0 +1,1 @@
+SEL-05 provider = org.apache.pekko.cluster.ClusterActorRefProvider -> ok identifier=cluster fqcn=org.apache.pekko.cluster.ClusterActorRefProvider hasCluster=true ProviderClass=org.apache.pekko.cluster.ClusterActorRefProvider HasCluster=true

@@ -18,3 +18,9 @@ PRV-04 provider org.apache.pekko.actor.LocalActorRefProvider
 CNF-07 createInstanceFor name with surrounding spaces
 ON-07 classIsOnClasspath name differing only in case
 ON-08 classIsOnClasspath name with a trailing space
+PRV-05 provider remote
+PRV-06 provider cluster
+PRV-07 provider local
+PRV-08 provider LOCAL (case differs)
+PRV-09 provider other.ActorRefProvider
+PRV-10 provider empty string

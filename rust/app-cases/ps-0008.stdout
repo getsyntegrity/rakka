@@ -1,0 +1,1 @@
+SEL-08 provider = LOCAL (case differs) -> ok identifier=custom fqcn=LOCAL hasCluster=false ProviderClass=LOCAL HasCluster=false

@@ -6,7 +6,7 @@
 
 use std::convert::Infallible;
 
-use rakka_actor::config::{CreateError, FactoryRegistry};
+use rakka_actor::config::{CreateError, FactoryRegistry, ProviderSelection};
 
 use crate::text_escape::escape_non_ascii_units;
 
@@ -49,6 +49,12 @@ fn provider_loads(name: &str) -> String {
             error.message()
         ),
     }
+}
+
+/// The provider named by the value of `pekko.actor.provider` (a short name or a class name): the selection gives the class
+/// name that is looked up (`ActorSystem.scala:137-144`).
+fn provider_value_loads(value: &str) -> String {
+    provider_loads(ProviderSelection::from_identifier(value).fqcn())
 }
 
 fn on_classpath(name: &str) -> String {
@@ -131,6 +137,30 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "ON-08 classIsOnClasspath name with a trailing space".to_owned(),
             on_classpath("org.apache.pekko.actor.Actor "),
+        ),
+        (
+            "PRV-05 provider remote".to_owned(),
+            provider_value_loads("remote"),
+        ),
+        (
+            "PRV-06 provider cluster".to_owned(),
+            provider_value_loads("cluster"),
+        ),
+        (
+            "PRV-07 provider local".to_owned(),
+            provider_value_loads("local"),
+        ),
+        (
+            "PRV-08 provider LOCAL (case differs)".to_owned(),
+            provider_value_loads("LOCAL"),
+        ),
+        (
+            "PRV-09 provider other.ActorRefProvider".to_owned(),
+            provider_value_loads("other.ActorRefProvider"),
+        ),
+        (
+            "PRV-10 provider empty string".to_owned(),
+            provider_value_loads(""),
         ),
     ];
     cases

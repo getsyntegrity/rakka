@@ -2845,12 +2845,14 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 - A3 Cluster: hasCluster true; equivalencia nombre corto/FQCN: :53-59.
 - A4 Custom("other.ActorRefProvider"): fqcn sin cambios y hasCluster false: :61-67.
 
-**Oráculo.** No aplica.
+**Oráculo.** `oracle/run.sh provider-selection-all|provider-selection-case|provider-selection-ids` (`ProviderSelectionOracle.java`, familia `provider-selection`, casos `ps-*`, 25): construye `new ActorSystem.Settings(..)` de Pekko 2.0.0 con cada valor de `pekko.actor.provider` y lee `ProviderSelectionType`, `ProviderClass` y `HasCluster`. SEL-01..13 (A1..A4: `local`, `remote`, `cluster`, los nombres de clase de remote y cluster, `other.ActorRefProvider`, el nombre de clase de Local, mayúsculas, espacios, cadena vacía y un número), EQ-01..06 (`ProviderSelection("remote") == ProviderSelection(RemoteActorRefProvider)` y su par de cluster, A2 y A3) y SEL-14..19 (un valor que no es texto: una lista, una lista vacía y un objeto fallan con `WrongType` desde `getString`, `null` con `ConfigException.Null`, y un booleano o un decimal se leen como su texto). Además, `oracle/run.sh dynamic-access-case` PRV-05..10 (familia `dynamic-access`, casos `da-0021..da-0026`): el proveedor que `ActorSystem` carga por nombre corto o por otra cadena (`ActorSystem.scala:996-1011`).
 
 **Decisiones.** Q-CFG-9, Q-X-2.
 
 
 ---
+
+**Actualización P09 (2026-11-19, Pekko 2.0.0).** Rust: `config::ProviderSelection` (`Local`, `Remote`, `Cluster`, `Custom(String)`; `from_identifier`, `identifier`, `fqcn`, `has_cluster`; `config/provider_selection.rs`) y `Settings::provider_selection`, `provider_class()` y `has_cluster()` (`Settings::new` lee `pekko.actor.provider` justo después de `pekko.version`, como el constructor Scala). 25 casos `ps-0001..ps-0025` y 6 casos `da-0021..da-0026` grabados contra Pekko 2.0.0: A1, A2, A3 y A4 cubiertas; un nombre que no es exactamente `local`, `remote` o `cluster` (o la clase de remote o cluster) es `Custom`, también el nombre de clase de Local, sin plegar mayúsculas ni recortar. Queda `partial` por (1) Q-CFG-31 (propuesta): el error de un proveedor no registrado es `ClassNotFoundException` (lo da `FactoryRegistry`, AC-CFG-016) y no `ConfigurationException`, como dicen Q-X-2 y Q-CFG-9 (a); (2) AC-SYS-018 (P25): el sistema aún no crea el proveedor, así que "crear el sistema con Remote/Cluster/Custom no registrado falla" solo se verifica con el registro; Q-CFG-9 (c) (proveedores registrados por el usuario) llega con el registro de fábricas del sistema; (3) AC-CFG-015 (PR 3): la prioridad de `BootstrapSetup.actorRefProvider` sobre la configuración (`ActorSystem.scala:410-414`).
 
 ## AC-CFG-009 — guardian-supervisor-strategy, creation-timeout, unstarted-push-timeout, typed.timeout
 

@@ -8,6 +8,7 @@ mod error;
 mod exact_decimal;
 mod model;
 mod parse;
+mod provider_selection;
 mod reference;
 mod resolve;
 mod settings;
@@ -23,6 +24,10 @@ pub use dynamic_access::{ClassNotFoundError, CreateError, FactoryRegistry};
 pub use error::{ConfigError, ConfigErrorKind};
 pub use model::Number;
 pub use parse::Resources;
+pub use provider_selection::{
+    CLUSTER_ACTOR_REF_PROVIDER, LOCAL_ACTOR_REF_PROVIDER, ProviderSelection,
+    REMOTE_ACTOR_REF_PROVIDER,
+};
 pub use reference::{ACTOR_REFERENCE_CONF, TYPED_REFERENCE_CONF};
 pub use settings::{
     DEFAULT_LOGGER, DEFAULT_LOGGING_FILTER, SLF4J_LOGGER, SLF4J_LOGGING_FILTER, Settings,

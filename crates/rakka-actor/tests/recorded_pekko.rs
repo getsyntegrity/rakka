@@ -19,6 +19,8 @@ mod json;
 mod path_address_cases;
 #[path = "../examples/classic-parity/path_case.rs"]
 mod path_case;
+#[path = "../examples/classic-parity/provider_selection_cases.rs"]
+mod provider_selection_cases;
 #[path = "../examples/classic-parity/scenario.rs"]
 mod scenario;
 #[path = "../examples/classic-parity/structures_cases.rs"]
@@ -359,6 +361,16 @@ fn recorded_config_hocon_cases_match_pekko() {
         "config-hocon.txt",
         config_hocon_cases::rust_lines(),
         unproduced,
+    );
+}
+
+#[test]
+fn recorded_provider_selection_cases_match_pekko() {
+    oracle_family_matches_pekko(
+        "provider-selection-case",
+        "provider-selection.txt",
+        provider_selection_cases::rust_lines(),
+        Vec::new(),
     );
 }
 

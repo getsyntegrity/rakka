@@ -1,0 +1,1 @@
+SEL-04 provider = org.apache.pekko.remote.RemoteActorRefProvider -> ok identifier=remote fqcn=org.apache.pekko.remote.RemoteActorRefProvider hasCluster=false ProviderClass=org.apache.pekko.remote.RemoteActorRefProvider HasCluster=false

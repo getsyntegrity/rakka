@@ -876,6 +876,61 @@ MUTANTS = {
         '        "java.lang.NoClassDefFoundError"\n    }',
         "the failure for an unknown name is reported as a NoClassDefFoundError instead of a ClassNotFoundException",
     ),
+    # --- slice P09 (AC-CFG-008): ProviderSelection and pekko.actor.provider ---
+    "provider-remote-short-name-ignored": (
+        "src/config/provider_selection.rs",
+        '            "remote" | REMOTE_ACTOR_REF_PROVIDER => ProviderSelection::Remote,\n',
+        '            REMOTE_ACTOR_REF_PROVIDER => ProviderSelection::Remote,\n',
+        "`remote` is not recognised as the short name of the remote provider and becomes a custom class name",
+    ),
+    "provider-cluster-class-name-ignored": (
+        "src/config/provider_selection.rs",
+        '"cluster" | CLUSTER_ACTOR_REF_PROVIDER => ProviderSelection::Cluster,',
+        '"cluster" => ProviderSelection::Cluster,',
+        "the class name of the cluster provider is a custom provider instead of the same selection as `cluster`",
+    ),
+    "provider-remote-has-cluster": (
+        "src/config/provider_selection.rs",
+        'matches!(self, ProviderSelection::Cluster)',
+        'matches!(self, ProviderSelection::Cluster | ProviderSelection::Remote)',
+        "the remote provider reports a cluster",
+    ),
+    "provider-local-class-name-is-local": (
+        "src/config/provider_selection.rs",
+        '"local" => ProviderSelection::Local,',
+        '"local" | LOCAL_ACTOR_REF_PROVIDER => ProviderSelection::Local,',
+        "the class name of the local provider selects Local, but Pekko 2.0.0 takes it as a custom class name",
+    ),
+    "provider-selection-trims-the-value": (
+        "src/config/provider_selection.rs",
+        '        match provider {\n',
+        '        match provider.trim() {\n',
+        "` local` or `cluster ` select Local and Cluster (Pekko compares the exact string)",
+    ),
+    "provider-selection-ignores-case": (
+        "src/config/provider_selection.rs",
+        '        match provider {\n',
+        '        match provider.to_ascii_lowercase().as_str() {\n',
+        "`LOCAL` and `Remote` select Local and Remote (Pekko compares the exact string)",
+    ),
+    "provider-custom-identifier-changed": (
+        "src/config/provider_selection.rs",
+        'ProviderSelection::Custom(_) => "custom",',
+        'ProviderSelection::Custom(_) => "other",',
+        "a custom provider has another identifier than `custom`",
+    ),
+    "settings-provider-class-is-the-identifier": (
+        "src/config/settings.rs",
+        '        self.provider_selection.fqcn()\n',
+        '        self.provider_selection.identifier()\n',
+        "`Settings.ProviderClass` is the short identifier instead of the class name",
+    ),
+    "settings-has-cluster-always-false": (
+        "src/config/settings.rs",
+        '        self.provider_selection.has_cluster()\n',
+        '        false\n',
+        "`Settings.HasCluster` is false for the cluster provider",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
