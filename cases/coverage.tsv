@@ -2319,3 +2319,11 @@ ch-0571	oracle-config-hocon	AC-CFG-017.7	cited
 ch-0572	oracle-config-hocon	AC-CFG-017.7	cited
 ch-0573	oracle-config-hocon	AC-CFG-017.7	cited
 ch-0574	oracle-config-hocon	AC-CFG-017.7	cited
+init-prestart-text	scenario-3b7	AC-CELL-002.2,AC-SUP-017	cited
+init-grandchild-text	scenario-3b7	AC-CELL-002.2,AC-SUP-017	cited
+postr-text	scenario-3b7	AC-CELL-007.4,AC-SUP-017	cited
+postr-then-works	scenario-3b7	AC-CELL-007.4,AC-SUP-017	cited
+init-1t-prestart-text	scenario-3b7	AC-CELL-002.2,AC-SUP-017	cited
+init-1t-grandchild-text	scenario-3b7	AC-CELL-002.2,AC-SUP-017	cited
+postr-1t-text	scenario-3b7	AC-CELL-007.4,AC-SUP-017	cited
+postr-1t-then-works	scenario-3b7	AC-CELL-007.4,AC-SUP-017	cited

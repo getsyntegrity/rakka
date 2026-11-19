@@ -301,6 +301,8 @@ struct Behavior {
     /// `supervisor: {"max": n, "log-decisions": bool, "decider": {<exception message>: "resume"|"restart"|"stop"|"escalate"}}`
     supervisor: Option<SupervisorCfg>,
     throw_in_prestart: bool,
+    /// `throw-in-post-restart`: `postRestart` records its event and then throws IllegalStateException("post-restart")
+    throw_in_post_restart: bool,
     /// `constructor-fails-from: n`: the actor factory throws IllegalStateException("ctor") from the n-th instance on
     constructor_fails_from: Option<u64>,
     ignore_terminated: bool,
@@ -355,6 +357,10 @@ impl Behavior {
                 }
             }),
             throw_in_prestart: matches!(v.get("throw-in-prestart"), Some(Value::Bool(true))),
+            throw_in_post_restart: matches!(
+                v.get("throw-in-post-restart"),
+                Some(Value::Bool(true))
+            ),
             constructor_fails_from: match v.get("constructor-fails-from") {
                 Some(Value::Number(n)) => Some(*n as u64),
                 _ => None,
@@ -485,6 +491,9 @@ impl Actor for Scripted {
             },
         );
         self.ctx.life(format!("{}:post-restart", self.label));
+        if self.cfg.throw_in_post_restart {
+            throw(Throwable::illegal_state("post-restart"));
+        }
         self.pre_start(c); // default postRestart
     }
 

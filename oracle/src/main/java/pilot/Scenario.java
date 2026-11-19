@@ -161,6 +161,7 @@ final class Scenario {
     @Override public void postRestart(Throwable reason) throws Exception {
       ctx.add(label, "{\"ev\":\"post-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + "}");
       ctx.life.add(label + ":post-restart");
+      if (Boolean.TRUE.equals(cfg.get("throw-in-post-restart"))) throw new IllegalStateException("post-restart"); // `throw-in-post-restart`
       super.postRestart(reason); // default: preStart
     }
     @Override public void postStop() {
