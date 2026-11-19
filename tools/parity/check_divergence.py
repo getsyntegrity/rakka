@@ -692,6 +692,30 @@ MUTANTS = {
         "if mantissa_digits < 2 {",
         "5 s written as `5.` or `.5` is rejected; Double.parseDouble accepts both",
     ),
+    "hocon-size-negative-zero-is-an-error": (
+        "src/config/units.rs",
+        "if negative && !bytes.is_zero() {",
+        "if negative {",
+        "-0.5 B (BigDecimal truncates to 0) is rejected as a negative memory size",
+    ),
+    "hocon-size-range-message-shows-input": (
+        "src/config/units.rs",
+        "for a 64-bit long: '{exact}'",
+        "for a 64-bit long: '{num}'",
+        "the out-of-range message prints the input text instead of the exact product BigInteger (11150372599265311569558933316709551578284032)",
+    ),
+    "hocon-size-fraction-rounds-instead-of-truncating": (
+        "src/config/exact_decimal.rs",
+        "product.divide_by_ten();",
+        "product.times_ten();",
+        "the decimal places of a size are not dropped by truncation (8.2 MB is 8200000, 0.9 B is 0)",
+    ),
+    "hocon-size-exponent-sign-flipped": (
+        "src/config/exact_decimal.rs",
+        "let scale = i64::try_from(fraction.len()).ok()? - exponent;",
+        "let scale = i64::try_from(fraction.len()).ok()? + exponent;",
+        "1e3 B and 1e-3 kB scale the wrong way",
+    ),
     "hocon-render-small-double-in-decimal-form": (
         "src/config/model.rs",
         "if (-3..7).contains(&exponent) {",

@@ -1,0 +1,1 @@
+SIZE-DEC NaN B -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse size-in-bytes number 'NaN']

@@ -3,6 +3,7 @@
 //! HOCON configuration (Q-X-1 (A): an own parser): `Config` with `withFallback`, late-bound substitutions, typed getters, durations and memory sizes.
 
 mod error;
+mod exact_decimal;
 mod model;
 mod parse;
 mod reference;
