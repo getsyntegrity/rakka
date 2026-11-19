@@ -19,7 +19,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-15`, `Q-CFG-30`, `Q-DSP-3`, `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-21`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`, `Q-UTIL-27`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-15`, `Q-DSP-3`, `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-21`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`, `Q-UTIL-27`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

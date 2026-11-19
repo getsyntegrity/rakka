@@ -163,7 +163,14 @@ fn oracle_family_matches_pekko(
         let line = produced
             .get(id)
             .unwrap_or_else(|| panic!("no Rust case for {id}"));
-        assert_eq!(format!("{line}\n"), c.stdout, "case {} ({id})", c.name);
+        let produced_line = format!("{line}\n");
+        assert!(
+            produced_line == c.stdout || only_jdk17_double_text_differs(&c.stdout, &produced_line),
+            "case {} ({id}): expected {:?}, got {:?}",
+            c.name,
+            c.stdout,
+            produced_line
+        );
     }
     // Every id the oracle has is either recorded or explicitly listed as not produced (PENDING / UNIT_TESTED).
     let oracle_ids = fs::read_to_string(
@@ -184,6 +191,144 @@ fn oracle_family_matches_pekko(
         oracle_ids.lines().count(),
         "stale not-produced list for {command}"
     );
+}
+
+/// A decimal number as `Double.toString` writes it: `-?D+.D+(E-?D+)?`, not glued to a letter, digit or point.
+fn double_texts(text: &str) -> (Vec<&str>, Vec<&str>) {
+    let bytes = text.as_bytes();
+    let (mut pieces, mut numbers, mut piece_start, mut i) = (Vec::new(), Vec::new(), 0, 0);
+    while i < bytes.len() {
+        let glued_before = i > 0
+            && (bytes[i - 1].is_ascii_alphanumeric()
+                || bytes[i - 1] == b'_'
+                || bytes[i - 1] == b'.');
+        let start = i;
+        let mut j = if bytes[i] == b'-' { i + 1 } else { i };
+        let digits_from = j;
+        while j < bytes.len() && bytes[j].is_ascii_digit() {
+            j += 1;
+        }
+        let whole_len = j - digits_from;
+        if glued_before || whole_len == 0 || j >= bytes.len() || bytes[j] != b'.' {
+            i += 1;
+            continue;
+        }
+        let fraction_from = j + 1;
+        j = fraction_from;
+        while j < bytes.len() && bytes[j].is_ascii_digit() {
+            j += 1;
+        }
+        if j == fraction_from {
+            i += 1;
+            continue;
+        }
+        if j < bytes.len() && bytes[j] == b'E' {
+            let mut k = j + 1;
+            if k < bytes.len() && bytes[k] == b'-' {
+                k += 1;
+            }
+            let power_from = k;
+            while k < bytes.len() && bytes[k].is_ascii_digit() {
+                k += 1;
+            }
+            if k > power_from {
+                j = k;
+            }
+        }
+        if j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'.') {
+            i += 1;
+            continue;
+        }
+        pieces.push(&text[piece_start..start]);
+        numbers.push(&text[start..j]);
+        piece_start = j;
+        i = j;
+    }
+    pieces.push(&text[piece_start..]);
+    (pieces, numbers)
+}
+
+/// Significant digits (no leading or trailing zeros) and decimal exponent of the first one.
+fn significant_digits(number: &str) -> (String, i32) {
+    let unsigned = number.trim_start_matches('-');
+    let (mantissa, power) = unsigned.split_once('E').unwrap_or((unsigned, "0"));
+    let (whole, fraction) = mantissa.split_once('.').expect("a point");
+    let all = format!("{whole}{fraction}");
+    let leading = all.len() - all.trim_start_matches('0').len();
+    let exponent =
+        whole.len() as i32 - 1 - leading as i32 + power.parse::<i32>().expect("exponent");
+    (all.trim_matches('0').to_owned(), exponent)
+}
+
+/// Q-CFG-30, in-process version of `tools/parity/na_q_cfg_30.py`: the recorded JDK 17 output and ours differ in exactly
+/// one number, both identify the same double, share the layout, and JDK 17 shows 16 or 17 digits (JDK 17 sometimes
+/// prints a text that is not the shortest closest one; JDK 19+ and rakka do). The replay (`replay.py`) applies the
+/// full signature with an independent shortest-digits computation; this test only needs to tell that case from a real
+/// difference without a second implementation of the algorithm.
+fn only_jdk17_double_text_differs(oracle: &str, rakka: &str) -> bool {
+    let ((oracle_pieces, oracle_numbers), (rakka_pieces, rakka_numbers)) =
+        (double_texts(oracle), double_texts(rakka));
+    if oracle_pieces != rakka_pieces || oracle_numbers.len() != rakka_numbers.len() {
+        return false;
+    }
+    let differing: Vec<_> = oracle_numbers
+        .iter()
+        .zip(&rakka_numbers)
+        .filter(|(o, r)| o != r)
+        .collect();
+    let [(oracle_number, rakka_number)] = differing[..] else {
+        return false;
+    };
+    let same_double = match (oracle_number.parse::<f64>(), rakka_number.parse::<f64>()) {
+        (Ok(o), Ok(r)) => o.to_bits() == r.to_bits(),
+        _ => false,
+    };
+    let (oracle_digits, oracle_exponent) = significant_digits(oracle_number);
+    let (rakka_digits, rakka_exponent) = significant_digits(rakka_number);
+    same_double
+        && oracle_number.contains('E') == rakka_number.contains('E')
+        && oracle_exponent == rakka_exponent
+        && (16..=17).contains(&oracle_digits.len())
+        && rakka_digits.len() <= oracle_digits.len()
+}
+
+#[test]
+fn only_a_jdk17_double_text_difference_is_tolerated() {
+    let line = |number: &str| format!("NUM-SHORT x -> ok {number}\n");
+    // the five bugs of the Fork D sample and 2e23
+    assert!(only_jdk17_double_text_differs(
+        &line("9.841100260380799E18"),
+        &line("9.8411002603808E18")
+    ));
+    assert!(only_jdk17_double_text_differs(
+        &line("1.9999999999999998E23"),
+        &line("2.0E23")
+    ));
+    // a different double, another layout, a 15-digit oracle text, another part of the line, two numbers
+    assert!(!only_jdk17_double_text_differs(
+        &line("9.841100260380799E18"),
+        &line("9.841100260380801E18")
+    ));
+    assert!(!only_jdk17_double_text_differs(
+        &line("9.999999999999999E22"),
+        &line("1.0E23")
+    ));
+    assert!(!only_jdk17_double_text_differs(
+        &line("9841100260380799000.0"),
+        &line("9.8411002603808E18")
+    ));
+    assert!(!only_jdk17_double_text_differs(
+        &line("1.00000000000001E1"),
+        &line("1.0000000000000099E1")
+    ));
+    assert!(!only_jdk17_double_text_differs(
+        "a 9.841100260380799E18\n",
+        "b 9.8411002603808E18\n"
+    ));
+    assert!(!only_jdk17_double_text_differs(
+        "9.841100260380799E18 2.3851354565708683E25",
+        "9.8411002603808E18 2.3851354565708684E25"
+    ));
 }
 
 #[test]

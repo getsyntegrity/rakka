@@ -18,6 +18,7 @@ import replay_lib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CRATE = os.path.join(ROOT, "crates", "rakka-actor")
+TOOLS = os.path.dirname(os.path.abspath(__file__))
 PARITY = os.path.join("release", "examples", "classic-parity")
 REPORTS = os.path.join(ROOT, "rust", "divergence-reports")
 CASES_REPORT = os.path.join(ROOT, "rust", "app-cases", "replay-report.md")
@@ -651,7 +652,7 @@ MUTANTS = {
         "render keeps a whole double as a double (1.0, 5.0E18) instead of the long Typesafe shows (1, 5000000000000000000)",
     ),
     "hocon-render-single-digit-double-not-two-digit": (
-        "src/config/model.rs",
+        "src/config/double_text.rs",
         "if !sci.contains('.') {",
         "if false {",
         "Double.toString shows Double.MIN_VALUE as 4.9E-324 (exact value rounded to two digits), not the shortest 5.0E-324",
@@ -717,7 +718,7 @@ MUTANTS = {
         "1e3 B and 1e-3 kB scale the wrong way",
     ),
     "hocon-render-small-double-in-decimal-form": (
-        "src/config/model.rs",
+        "src/config/double_text.rs",
         "if (-3..7).contains(&exponent) {",
         "if (-30..70).contains(&exponent) {",
         "Double.toString threshold: 1e-7 and 1.23456789E7 must use the E notation",
@@ -807,6 +808,84 @@ MUTANTS = {
         "self.st.lock().unwrap().actor = None;",
         "after a postRestart failure the new instance is dropped, so its final postStop is lost",
     ),
+    # --- Q-CFG-30: shortest digits of a rendered double, exact ties go to the even digit ---
+    "double-tie-breaks-to-odd": (
+        "src/config/double_text.rs",
+        "let even = if lower % 2 == 0 { lower } else { upper };",
+        "let even = if lower % 2 == 1 { lower } else { upper };",
+        "an exact tie between two shortest candidates takes the odd last digit (what JDK 17 never does and JDK 19+ forbids)",
+    ),
+    "double-tie-breaks-to-larger": (
+        "src/config/double_text.rs",
+        "let even = if lower % 2 == 0 { lower } else { upper };",
+        "let even = upper;",
+        "an exact tie takes the larger candidate, which is what Display of Rust does (357 of 380 849 random doubles)",
+    ),
+    "double-tie-ignored": (
+        "src/config/double_text.rs",
+        "if let Some(even) = even_digits_of_exact_tie(d.abs(), &digits, exponent) {",
+        "if let Some(even) = even_digits_of_exact_tie(d.abs(), &digits, exponent).filter(|_| false) {",
+        "the tie rule is never applied: the digits are exactly what the standard library gives",
+    ),
+    "double-tie-needs-no-equal-distance": (
+        "src/config/double_text.rs",
+        "    if below != above {\n        return None;\n    }\n",
+        "",
+        "any value whose exact expansion has one digit more than the shortest is treated as a tie, so a closest candidate with an odd digit is replaced by a farther even one",
+    ),
+    "double-tie-result-not-checked": (
+        "src/config/double_text.rs",
+        "same_power && identifies_value)",
+        "same_power)",
+        "the even candidate replaces the digits even when it no longer identifies the double (the lower side of a power of two is narrower)",
+    ),
+}
+
+# Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
+# name -> (file in tools/parity, old, new, why)
+TOOL_MUTANTS = {
+    "na-q-cfg-30-ignores-the-double": (
+        "na_q_cfg_30.py",
+        "same_double = oracle.double() is not None and oracle.double() == rakka.double()  # (a)",
+        "same_double = True  # (a)",
+        "condition a: a different double one ulp away is accepted as the same value",
+    ),
+    "na-q-cfg-30-rakka-need-not-be-the-jdk-19-text": (
+        "na_q_cfg_30.py",
+        "same_double and _is_jdk19_result(rakka) and not _is_jdk19_result(oracle) and same_layout  # (b) (c)",
+        "same_double and not _is_jdk19_result(oracle) and same_layout  # (b) (c)",
+        "condition b: a tie that rakka resolves to the odd digit is hidden as a JDK 17 difference",
+    ),
+    "na-q-cfg-30-oracle-may-be-the-jdk-19-text": (
+        "na_q_cfg_30.py",
+        "same_double and _is_jdk19_result(rakka) and not _is_jdk19_result(oracle) and same_layout  # (b) (c)",
+        "same_double and _is_jdk19_result(rakka) and same_layout  # (b) (c)",
+        "condition c: an oracle that already prints the JDK 19+ text is accepted (any difference elsewhere in the number passes)",
+    ),
+    "na-q-cfg-30-ignores-the-notation": (
+        "na_q_cfg_30.py",
+        "same_layout = oracle.scientific == rakka.scientific and oracle.exponent == rakka.exponent  # (d)",
+        "same_layout = oracle.exponent == rakka.exponent  # (d)",
+        "condition d: decimal notation against E notation is accepted",
+    ),
+    "na-q-cfg-30-ignores-the-exponent": (
+        "na_q_cfg_30.py",
+        "same_layout = oracle.scientific == rakka.scientific and oracle.exponent == rakka.exponent  # (d)",
+        "same_layout = oracle.scientific == rakka.scientific  # (d)",
+        "condition d: digits on another power of ten are accepted",
+    ),
+    "na-q-cfg-30-ignores-the-rest-of-the-document": (
+        "na_q_cfg_30.py",
+        "if oracle_pieces != rakka_pieces or len(oracle_numbers) != len(rakka_numbers):  # (e) the rest of the output",
+        "if len(oracle_numbers) != len(rakka_numbers):  # (e) the rest of the output",
+        "condition e: a difference outside the numbers is accepted",
+    ),
+    "na-q-cfg-30-accepts-several-different-numbers": (
+        "na_q_cfg_30.py",
+        "    if len(different) != 1:\n        return False\n",
+        "    if not different:\n        return False\n",
+        "condition e: two numbers that differ are looked at only for the first",
+    ),
 }
 
 
@@ -877,6 +956,29 @@ def run_mutant(scratch, name, rel, old, new, why):
     return classify(r, binary)
 
 
+def run_tool_mutant(scratch, name, rel, old, new, why):
+    """A mutant of tools/parity itself: a scratch copy is patched and the unit tests of the tools must fail."""
+    work = os.path.join(scratch, name)
+    shutil.copytree(TOOLS, work, ignore=shutil.ignore_patterns("__pycache__"))
+    path = os.path.join(work, rel)
+    src = open(path).read()
+    if src.count(old) != 1:
+        return PATCH_ERROR, None, None, f"pattern occurs {src.count(old)} times in {rel}"
+    patched = src.replace(old, new)
+    open(path, "w").write(patched)
+    print("".join(difflib.unified_diff(src.splitlines(True), patched.splitlines(True), f"a/tools/parity/{rel}", f"b/tools/parity/{rel}")))
+    try:
+        r = sh([sys.executable, "-I", "-m", "unittest", "discover", "-s", work, "-p", "test_*.py"], timeout=300)
+    except subprocess.TimeoutExpired:
+        return TIMEOUT, None, None, "unit tests of the tools"
+    tail = (r.stderr.strip().splitlines() or ["(no output)"])[-1]
+    if r.returncode == 0:
+        return UNDETECTED, None, None, tail
+    if "Ran 0 tests" in r.stderr or "ModuleNotFoundError" in r.stderr or "SyntaxError" in r.stderr:
+        return HARNESS_ERROR, None, None, r.stderr[-300:]
+    return DETECTED, None, None, tail
+
+
 # `--selftest` adds a mutant that changes nothing observable (a whitespace edit): it MUST come out UNDETECTED, so the run must exit non-zero.
 EQUIVALENT = {"selftest-equivalent-whitespace"}
 SELFTEST = {"selftest-equivalent-whitespace": (
@@ -892,7 +994,12 @@ def check_patterns():
         if n != 1:
             bad += 1
             print(f"STALE {name}: {n} occurrences in {rel}")
-    print(f"{len(MUTANTS) + len(SELFTEST)} mutant patterns checked, {bad} stale")
+    for name, (rel, old, new, _why) in TOOL_MUTANTS.items():
+        n = open(os.path.join(TOOLS, rel)).read().count(old)
+        if n != 1 or old == new:
+            bad += 1
+            print(f"STALE {name}: {n} occurrences in tools/parity/{rel}")
+    print(f"{len(MUTANTS) + len(SELFTEST) + len(TOOL_MUTANTS)} mutant patterns checked, {bad} stale")
     sys.exit(2 if bad else 0)
 
 
@@ -902,9 +1009,10 @@ def main():
         check_patterns()
     selftest = "--selftest" in args
     only = [a for a in args if not a.startswith("--")]  # optional: run just these mutants (the control still runs)
-    mutants = dict(SELFTEST) if selftest else dict(MUTANTS)
+    mutants = dict(SELFTEST) if selftest else {**MUTANTS, **TOOL_MUTANTS}
     for n in only:
         assert n in mutants, f"unknown mutant {n}"
+    tool_only = bool(only) and all(n in TOOL_MUTANTS for n in only)
     os.makedirs(REPORTS, exist_ok=True)
     scratch = tempfile.mkdtemp(prefix="pekko-mutants-")
     results = {}
@@ -913,17 +1021,21 @@ def main():
             if only and name not in only:
                 continue
             print(f"=== mutant {name}: {why}", flush=True)
-            res = run_mutant(scratch, name, rel, old, new, why)
+            res = (run_tool_mutant if name in TOOL_MUTANTS else run_mutant)(scratch, name, rel, old, new, why)
             results[name] = res
             print(f"{res[0]}  {res[3]}\n", flush=True)
-        try:
-            control_binary = os.path.join(ROOT, "target", PARITY)
-            c = replay(control_binary)
-            c_out, c_pass, c_total, c_line = classify(c, control_binary)
-            control_ok = c_out == UNDETECTED
-        except subprocess.TimeoutExpired:
-            control_ok, c_pass, c_total, c_line = False, None, None, "TIMEOUT"
-        print(f"=== control (unmodified rakka-actor): exit={c.returncode if c_pass is not None else '?'}  {c_line}", flush=True)
+        c = None
+        if tool_only:   # the tool mutants need no replay: the control would only repeat the last full run
+            control_ok, c_pass, c_total, c_line = True, None, None, "skipped (tool mutants only)"
+        else:
+            try:
+                control_binary = os.path.join(ROOT, "target", PARITY)
+                c = replay(control_binary)
+                c_out, c_pass, c_total, c_line = classify(c, control_binary)
+                control_ok = c_out == UNDETECTED
+            except subprocess.TimeoutExpired:
+                control_ok, c_pass, c_total, c_line = False, None, None, "TIMEOUT"
+        print(f"=== control (unmodified rakka-actor): exit={c.returncode if c is not None and c_pass is not None else '?'}  {c_line}", flush=True)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     # a replay of a different corpus size would make the pass counts incomparable

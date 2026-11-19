@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 238 decisiones: 0 bloqueantes, 176 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 238 decisiones: 0 bloqueantes, 175 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -436,16 +436,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) validar sólo contra el reference de `pekko-actor` mientras `rakka-actor-typed` no aporte el suyo (las claves extra de typed se aceptan). (b) `Settings::new_with_reference(name, config, reference)` y que Typed pase el fusionado. (c) validar siempre contra typed sobre actor.
 - **Recomendación:** (a). Clasificación: arquitectura. Consecuencias observables: una configuración de Typed sin las claves de typed no se rechaza hasta que Typed pase su reference (b). Bloquea: nada; reversible.
 - **Filas afectadas:** AC-CFG-002, AC-CFG-019
-- **Unidades afectadas:** CFG
-- **Origen:** classic-foundation
-
-### Q-CFG-30 — Dígitos de Double.toString en el render de números (JDK 17 no siempre da la cadena más corta)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** D-BUG-01 (refinement-01): el render de un número muestra su valor (Typesafe: un double entero que cabe en long se muestra como long; el resto con Double.toString de Java). Rust usa los dígitos más cortos que identifican el double, con la regla de 2 cifras de Java para 1 dígito. Medido con 380 849 doubles aleatorios no enteros contra Double.toString de JDK 17: 362 (0,09 %) difieren, todos con 16-17 cifras significativas (JDK 17 emite a veces un dígito de más; arreglado en JDK 19).
-- **Alternativas:** (a) aceptar la diferencia (sólo afecta a literales con 16-17 cifras significativas en un render). (b) reproducir el algoritmo FloatingDecimal de JDK 17: exige leer código de OpenJDK, prohibido por Q-X-18; sólo sería posible con una especificación de sala limpia.
-- **Recomendación:** (a). Clasificación: comportamiento observable menor. Consecuencia: render de un literal de 16-17 cifras significativas puede diferir en la última cifra de JDK 17; no afecta a getters ni a reference.conf.
-- **Filas afectadas:** AC-CFG-017.1;AC-UTIL-002.5
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 
@@ -2113,6 +2103,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-30 — Dígitos de Double.toString en el render de números (JDK 17 no siempre da la cadena más corta)
+
+- **Estado:** aceptada
+- **Evidencia:** D-BUG-01 (refinement-01): el render de un número muestra su valor (Typesafe: un double entero que cabe en long se muestra como long; el resto con Double.toString de Java). Rust usa los dígitos más cortos que identifican el double, con la regla de 2 cifras de Java para 1 dígito. Medido con 380 849 doubles aleatorios no enteros (semilla 42) contra JDK 17: 362 difieren. Medido después contra JDK 27 (semántica de JDK 19+, Javadoc de Double.toString): 357 son EMPATES EXACTOS (el valor está a mitad de camino entre dos candidatos de la misma longitud; JDK 17 y JDK 19+ eligen la última cifra par, `Display` de Rust la mayor) y eran un fallo de rakko, no de JDK; 5 son bugs de JDK 17 (JDK 19+ coincide con rakko; JDK-4511638), a los que se suma `2e23` (JDK 17 imprime 1.9999999999999998E23). Nota sobre D-BUG-01: esos 357 empates se atribuyeron mal a JDK en la medición de D-BUG-01; eran un fallo del render de rakko (desempate por redondeo hacia arriba de la std de Rust), corregido en Q-CFG-30.
+- **Alternativas:** (a) rakko sigue JDK 19+: dígitos más cortos, el más cercano al valor exacto y la cifra par en un empate exacto (el empate se detecta con aritmética entera: el valor exacto es mantisa·2^exp); el replay clasifica como NA:Q-CFG-30 solo los casos con la firma del bug de JDK 17. (b) reproducir el algoritmo FloatingDecimal de JDK 17: exige leer código de OpenJDK, prohibido por Q-X-18. (c) aceptar los 357 empates como diferencia: descartada, es un fallo de rakko.
+- **Recomendación:** (a). Clasificación: comportamiento observable menor. Consecuencia: el render de un double sigue la semántica de JDK 19+ (cadena más corta); difiere de JDK ≤ 18 en unos 5 de 380 849 dobles aleatorios (≈0,0013 %) y en valores como 2e23, solo en la última cifra; no afecta a getters ni a reference.conf.
+- **Filas afectadas:** AC-CFG-017.1;AC-UTIL-002.5
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a) con la premisa corregida: 357 de las 362 diferencias eran empates exactos mal resueltos por rakko (se corrigen: cifra par) y 5 son bugs de JDK 17; el replay las clasifica como NA:Q-CFG-30 por firma, sin listas de casos. (Owner (respuesta en el hilo de la tarea Q-CFG-30), 2026-11-19)
 
 ### Q-EVT-1 — Nombres de clase JVM en mensajes observables (dead letters, canales Debug, `class`/`interface`)
 

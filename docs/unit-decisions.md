@@ -97,11 +97,12 @@
 
 ## P07 CFG-HOCON
 
-12 filas; 12 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 6 propuestas.
+12 filas; 12 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CFG-3 | accepted (2026-11-18): aceptar (a): se implementa checkValid porque Q-X-1 es parser propio. | 1: AC-CFG-019 | Bloquea: AC-CFG-019 (y la parte fail-fast de AC-CFG-002). | Puede avanzar: lectura de cada clave en Settings. | `classic-foundation` |
+| Q-CFG-30 | accepted (2026-11-19): aceptar (a) con la premisa corregida: 357 de las 362 diferencias eran empates exactos mal resueltos por rakko (se corrigen: cifra par) y 5 son bugs de JDK 17;… | 2: AC-CFG-017.1, AC-UTIL-002.5 | — | — | `classic-foundation` |
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 9: AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.6 … (+3) | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-CFG-5 | accepted_with_changes (2026-11-18): aceptar (a) con el valor "2.0.0" (la referencia pasó de 1.7.1 a 2.0.0, Q-X-11). | 1: AC-CFG-003 | Bloquea: AC-CFG-003, AC-UTIL-005.1; puede avanzar: el resto. | — | `classic-foundation` |
 | Q-CFG-6 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-CFG-001 | Bloquea: AC-CFG-001 (carga por defecto); puede avanzar: `ActorSystem::new(config)` con config explícita. | — | `classic-foundation` |
@@ -112,7 +113,6 @@
 | Q-CFG-16 | propuesta | 1: AC-CFG-001 | — | — | `classic-foundation` |
 | Q-CFG-18 | propuesta | 1: AC-CFG-019 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
 | Q-CFG-19 | propuesta | 1: AC-CFG-019 | Bloquea: nada; reversible. | — | `classic-foundation` |
-| Q-CFG-30 | propuesta | 2: AC-CFG-017.1, AC-UTIL-002.5 | — | — | `classic-foundation` |
 
 ## P08 CFG-AJUSTES
 
@@ -1042,4 +1042,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 485 (231 respondidas, 0 bloqueantes, 254 propuestas).
+Total de pares unidad–decisión: 485 (232 respondidas, 0 bloqueantes, 253 propuestas).

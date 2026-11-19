@@ -2,6 +2,7 @@
 // Original implementation: the HOCON behaviour was measured against Typesafe Config 1.4.9 (Apache-2.0, the library Pekko uses) with the oracle; none of its code was copied.
 //! HOCON configuration (Q-X-1 (A): an own parser): `Config` with `withFallback`, late-bound substitutions, typed getters, durations and memory sizes.
 
+mod double_text;
 mod error;
 mod exact_decimal;
 mod model;
