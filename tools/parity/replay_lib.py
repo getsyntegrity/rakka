@@ -3,8 +3,14 @@
 An out-of-domain case (cases/not-applicable.tsv, decision Q-X-17) is neither skipped nor counted as a pass:
 it must (1) diverge in the replay, because the Rust harness does not produce Pekko's output, and (2) be rejected
 by the harness with an explicit error (exit 2, stdout empty, stderr naming the domain), never decoded lossily.
+
+A second, separate category is NA:Q-CFG-30 (decision Q-CFG-30): a divergence that is only the JDK 17 bug in
+`Double.toString`, recognised by its signature (na_q_cfg_30.py), never by case id. It is reported apart and is
+neither a pass nor a divergence.
 """
 import csv, os, re, subprocess
+
+import na_q_cfg_30
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REPORT = os.path.join(ROOT, "rust", "app-cases", "replay-report.md")
@@ -41,24 +47,40 @@ def rejects_explicitly(binary, case):
     return r.returncode == 2 and r.stdout == b"" and REJECTION.encode() in r.stderr
 
 
+def case_outputs(binary, case):
+    """-> (recorded Pekko stdout, stdout of `binary` for the same input) of a recorded case."""
+    base = os.path.join(ROOT, "rust", "app-cases", case)
+    import tomllib
+    args = tomllib.load(open(base + ".toml", "rb"))["args"]
+    recorded = open(base + ".stdout", "rb").read()
+    produced = subprocess.run([binary, *args], input=open(base + ".stdin", "rb").read(), capture_output=True, timeout=60)
+    return recorded, produced.stdout
+
+
 def evaluate(binary, result):
-    """-> dict(ok, line, applicable_failing, na_problems, passed, total). `ok` means every applicable case matches
-    Pekko and every NOT_APPLICABLE case is rejected explicitly."""
+    """-> dict(ok, line, applicable_failing, na_problems, passed, total, na_q_cfg_30, other_na). `ok` means every
+    applicable case matches Pekko, every NOT_APPLICABLE case is rejected explicitly, and what is left over is only
+    NA:Q-CFG-30 (reported apart: not a pass, not a divergence)."""
     m = SUMMARY.search(result.stdout)
     if not m:
-        return dict(ok=None, line=(result.stdout.strip() or result.stderr.strip())[-300:], applicable_failing=[], na_problems=[], passed=None, total=None)
+        return dict(ok=None, line=(result.stdout.strip() or result.stderr.strip())[-300:], applicable_failing=[], na_problems=[], passed=None, total=None,
+                    na_q_cfg_30=[], other_na=0)
     passed, total = int(m.group(1)), int(m.group(2))
     na = load_not_applicable()
     failing = failing_cases() if passed < total else []
-    applicable_failing = [c for c in failing if c not in na]
+    unexplained = [c for c in failing if c not in na]
+    na_q_cfg_30_cases = [c for c in unexplained if na_q_cfg_30.is_q_cfg_30(*case_outputs(binary, c))]
+    applicable_failing = [c for c in unexplained if c not in na_q_cfg_30_cases]
     problems = []
     for case in na:
         if case not in failing:
             problems.append(f"{case}: listed as NOT_APPLICABLE but the replay matches it (stale list)")
         if not rejects_explicitly(binary, case):
             problems.append(f"{case}: the harness did not reject the out-of-domain input explicitly")
-    applicable_total = total - len(na)
+    applicable_total = total - len(na) - len(na_q_cfg_30_cases)
     applicable_passed = applicable_total - len(applicable_failing)
-    line = f"{applicable_passed}/{applicable_total} applicable + {len(na)} not applicable"
+    line = (f"{applicable_passed}/{applicable_total} applicable + {len(na_q_cfg_30_cases)} NA:Q-CFG-30 + "
+            f"{len(na)} not applicable (diverge {len(applicable_failing)})")
     return dict(ok=not applicable_failing and not problems, line=line, applicable_failing=applicable_failing,
-                na_problems=problems, passed=applicable_passed, total=applicable_total)
+                na_problems=problems, passed=applicable_passed, total=applicable_total,
+                na_q_cfg_30=na_q_cfg_30_cases, other_na=len(na))

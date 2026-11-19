@@ -21,7 +21,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-14`, `Q-CFG-15`, `Q-CFG-16`, `Q-CFG-17`, `Q-CFG-18`, `Q-CFG-19`, `Q-CFG-30`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-14`, `Q-CFG-15`, `Q-CFG-16`, `Q-CFG-17`, `Q-CFG-18`, `Q-CFG-19`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

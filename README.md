@@ -6,7 +6,7 @@ Estado: la **documentación de migración** (inventario, contratos, decisiones y
 
 - **Inventario:** 785 filas (525 Classic, 260 Typed) revisadas contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 y reancladas a 2.0.0 (547 filas marcadas "revisar contra 2.0.0", ver `docs/inventory/pekko-2.0.0-reanchor.md`); 785 `extracted` y 0 `listed` (AC-UTIL-027 y 028, creadas por Q-UTIL-11, se extrajeron en P06) (cierre documental 2026-10-31; `extracted` significa contrato leído y aserciones citadas, no implementación).
 - **Implementado:** AC-PATH y la parte del núcleo de AC-UTIL (`Timeout`, `Done`/`NotUsed`, excepciones base, `Helpers`, `Glob`, plataforma: `Clock`, `SWARUtil`, `fast_hash`), con filas `partial` por decisiones abiertas. Nada más: no hay HOCON, actores, mailboxes ni sistema.
-- **Decisiones:** `docs/decisions.md` (238 decisiones: 0 bloqueantes, 176 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas).
+- **Decisiones:** `docs/decisions.md` (238 decisiones: 0 bloqueantes, 175 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas).
 
 - Alcance y estado por funcionalidad: `docs/inventory/`
 - Cierre documental 2026-10-31: plan final de 77 unidades (P05 particionada el 2026-11-01) `docs/unit-plan.md` (asignación fila→unidad en `docs/unit-rows.tsv`), ciclos y costuras `docs/cycles.md`, paquete de decisiones para el Owner `docs/owner-decision-package.md`.
@@ -16,3 +16,7 @@ Estado: la **documentación de migración** (inventario, contratos, decisiones y
 - Cómo trabajar en el repo: `AGENTS.md`
 
 Licencia: Apache-2.0. Derivado de Apache Pekko (ver `NOTICE`).
+
+## Compatibilidad
+
+- **Render de `double` (Q-CFG-30).** El render de un `double` sigue la semántica de JDK 19+ (cadena más corta; entre las más cortas, la más cercana al valor y, en un empate exacto, la cifra par); difiere de JDK ≤ 18 en ~0,1 % de valores, solo en la última cifra. Ver Q-CFG-30 en `docs/decisions.md`. El oráculo corre en JDK 17: el replay clasifica esas diferencias como `NA:Q-CFG-30` por su firma, nunca por número de caso.
