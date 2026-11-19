@@ -1,6 +1,6 @@
 # App replay
 
-Build: `/Users/pablogore/Projects/rakka/target/release/examples/classic-parity`
+Build: `/Users/pablogore/Projects/rakka-wt-r0e/target/release/examples/classic-parity`
 
 Passed: 2008/2009
 
