@@ -385,7 +385,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** ProviderSelection, Setup/BootstrapSetup y DynamicAccess (registro de fabricas).
 - **Filas (3; impl: pending 3):** asignacion explicita en `docs/unit-rows.tsv`: AC-CFG-008, AC-CFG-015, AC-CFG-016.
 - **Exclusiones/costuras:** Q-X-2 (registro de fabricas) abierta; CFG-008 queda partial hasta que el proveedor exista (P26).
-- **Decisiones:** 4 distintas en sus filas; respondidas: Q-CFG-13, Q-CFG-9, Q-X-10, Q-X-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P09). <!-- generated:unit-decisions -->
+- **Decisiones:** 5 distintas en sus filas; respondidas: Q-CFG-13, Q-CFG-9, Q-X-10, Q-X-2; propuestas sin respuesta: Q-CFG-31. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P09). <!-- generated:unit-decisions -->
 - **Dependencias:** P08.
 - **Archivos previstos:** `crates/rakka-actor/src/config/{setup,dynamic_access}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** unidad.
@@ -458,7 +458,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Colas de mailbox (unbounded, bounded, prioridad, deque, control-aware) y vista de solo lectura.
 - **Filas (12; impl: pending 12):** asignacion explicita en `docs/unit-rows.tsv`: AC-MBX-004, AC-MBX-005, AC-MBX-006, AC-MBX-007, AC-MBX-008, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012, AC-MBX-015, AC-MBX-019, AC-MBX-022.
 - **Exclusiones/costuras:** MBX-013/014/020 (seleccion) a P28; MBX-019 expone vista interna, Q-RT-4 (bloqueante) decide su forma.
-- **Decisiones:** 9 distintas en sus filas; respondidas: Q-X-2, Q-X-4; propuestas sin respuesta: 7 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P13). <!-- generated:unit-decisions -->
+- **Decisiones:** 10 distintas en sus filas; respondidas: Q-X-2, Q-X-4; propuestas sin respuesta: 8 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P13). <!-- generated:unit-decisions -->
 - **Dependencias:** P03, P08, P09.
 - **Archivos previstos:** `crates/rakka-actor/src/dispatch/mailbox/*.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs *MailboxSpec 1:1.
@@ -491,7 +491,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Registro de dispatchers, ejecutores (fork-join, pool, pinned, affinity, virtual), batching y contextos de ejecucion.
 - **Filas (19; impl: pending 19):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-018.4, AC-UTIL-018.5, AC-DSP-004, AC-DSP-005, AC-DSP-006, AC-DSP-008, AC-DSP-009, AC-DSP-010, AC-DSP-011, AC-DSP-013, AC-DSP-014, AC-DSP-015, AC-DSP-016.1, AC-DSP-016.2, AC-DSP-017.1, AC-DSP-017.2, AC-DSP-018, AC-DSP-019, AC-DSP-022.
 - **Exclusiones/costuras:** Q-DSP-1 decide los ejecutores; DSP-007 (seleccion por actor) a P28. Desde 2026-11-01 incluye AC-UTIL-018.4 y AC-UTIL-018.5 (proceden de P05). **Requiere subdivision (registrado, no aplicado):** 19 filas heterogeneas (configuracion y busqueda de dispatchers, pools de hilos, ejecucion/batching y contextos de ejecucion); atomicidad no acreditada y la unidad NO esta lista para implementar. 018.4 y AC-DSP-017.1 describen la misma pieza (SameThreadExecutionContextSpec:40-66); la direccion de su dependencia no la fija ningun contrato (`Future.scala:104` muestra que `ExecutionContexts.parasitic` usa `SameThreadExecutionContext()`); se implementa una sola vez. La regla de `reportFailure` de `parasitic` (biblioteca de Scala) esta sin medir.
-- **Decisiones:** 11 distintas en sus filas; respondidas: Q-UTIL-11, Q-X-1, Q-X-2, Q-X-4, Q-X-5; propuestas sin respuesta: Q-DSP-1, Q-DSP-2, Q-DSP-3, Q-DSP-4, Q-DSP-6, Q-DSP-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P16). <!-- generated:unit-decisions -->
+- **Decisiones:** 12 distintas en sus filas; respondidas: Q-UTIL-11, Q-X-1, Q-X-2, Q-X-4, Q-X-5; propuestas sin respuesta: 7 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P16). <!-- generated:unit-decisions -->
 - **Dependencias:** P08, P09, P15.
 - **Archivos previstos:** `crates/rakka-actor/src/dispatch/{dispatchers,executors}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** DispatchersSpec + unidad.

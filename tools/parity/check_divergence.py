@@ -839,6 +839,43 @@ MUTANTS = {
         "same_power)",
         "the even candidate replaces the digits even when it no longer identifies the double (the lower side of a power of two is narrower)",
     ),
+    # --- slice P09 (AC-CFG-016): FactoryRegistry, the by-name lookup of DynamicAccess ---
+    "registry-lookup-ignores-case": (
+        "src/config/dynamic_access.rs",
+        "self.factories.get(name).ok_or_else(|| ClassNotFoundError {",
+        "self.factories.iter().find(|(key, _)| key.eq_ignore_ascii_case(name)).map(|(_, factory)| factory).ok_or_else(|| ClassNotFoundError {",
+        "a class name is matched without regard to case, so `unboundedmailbox` finds `UnboundedMailbox` (Class.forName is exact)",
+    ),
+    "registry-lookup-trims-the-name": (
+        "src/config/dynamic_access.rs",
+        "self.factories.get(name).ok_or_else(|| ClassNotFoundError {",
+        "self.factories.get(name.trim()).ok_or_else(|| ClassNotFoundError {",
+        "a name with surrounding spaces finds the class it spells (Class.forName does not trim)",
+    ),
+    "registry-contains-ignores-case": (
+        "src/config/dynamic_access.rs",
+        "self.factories.contains_key(name)",
+        "self.factories.keys().any(|key| key.eq_ignore_ascii_case(name))",
+        "classIsOnClasspath answers true for a name that differs only in case",
+    ),
+    "registry-contains-trims-the-name": (
+        "src/config/dynamic_access.rs",
+        "self.factories.contains_key(name)",
+        "self.factories.contains_key(name.trim())",
+        "classIsOnClasspath answers true for a name with a trailing space",
+    ),
+    "class-not-found-drops-the-name": (
+        "src/config/dynamic_access.rs",
+        "            name: name.to_owned(),\n",
+        "            name: String::new(),\n",
+        "the ClassNotFoundException does not carry the class name that was asked for",
+    ),
+    "class-not-found-is-another-java-class": (
+        "src/config/dynamic_access.rs",
+        '        "java.lang.ClassNotFoundException"\n    }',
+        '        "java.lang.NoClassDefFoundError"\n    }',
+        "the failure for an unknown name is reported as a NoClassDefFoundError instead of a ClassNotFoundException",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

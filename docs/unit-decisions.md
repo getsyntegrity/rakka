@@ -137,14 +137,15 @@
 
 ## P09 CFG-ENTORNO
 
-3 filas; 4 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 0 propuestas.
+3 filas; 5 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CFG-13 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-CFG-015 | Bloquea: nada; (a) es suficiente. | — | `classic-foundation` |
-| Q-CFG-9 | accepted (2026-11-18): aceptar (a)+(c). | 1: AC-CFG-008 | Bloquea: AC-CFG-008; puede avanzar: provider `local`. | — | `classic-foundation` |
+| Q-CFG-9 | accepted (2026-11-18): aceptar (a)+(c). | 2: AC-CFG-008, AC-CFG-016 | Bloquea: AC-CFG-008; puede avanzar: provider `local`. | — | `classic-foundation` |
 | Q-X-10 | accepted (2026-11-18): autoriza el alcance (A): sólo actor y actor-typed locales (sin remoting, cluster, persistence, streams ni HTTP). | 1: AC-CFG-008 | — | — | `transversal` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 2: AC-CFG-008, AC-CFG-016 | — | — | `transversal` |
+| Q-CFG-31 | propuesta | 2: AC-CFG-008, AC-CFG-016 | Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 
 ## P10 CFG-DEPLOY
 
@@ -184,12 +185,13 @@
 
 ## P13 MBX-COLAS
 
-12 filas; 9 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 7 propuestas.
+12 filas; 10 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 8 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-MBX-004 | — | — | `transversal` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-MBX-007 | — | — | `transversal` |
+| Q-CFG-31 | propuesta | 1: AC-MBX-004 | Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 | Q-DSP-2 | propuesta | 1: AC-MBX-004 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-1 | propuesta | 5: AC-MBX-007, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
 | Q-MBX-2 | propuesta | 2: AC-MBX-011, AC-MBX-015 | — | — | `classic-dispatch` |
@@ -225,7 +227,7 @@
 
 ## P16 DSP-EJECUTORES
 
-19 filas; 11 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 6 propuestas.
+19 filas; 12 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 7 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -234,6 +236,7 @@
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-DSP-010 | — | — | `transversal` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 5: AC-DSP-006, AC-DSP-008, AC-DSP-013, AC-UTIL-018.4, AC-UTIL-018.5 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-DSP-016.1 | — | — | `transversal` |
+| Q-CFG-31 | propuesta | 2: AC-DSP-004, AC-DSP-010 | Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 | Q-DSP-1 | propuesta | 9: AC-DSP-005, AC-DSP-006, AC-DSP-008, AC-DSP-009, AC-DSP-010, AC-DSP-011 … (+3) | Bloquea la implementación de AC-DSP-008/009/013/014/019; puede avanzar: lectura/validación de claves y las funciones puras `scaledPoolSize` y `resolveMinimumRunnable`. | — | `classic-dispatch` |
 | Q-DSP-2 | propuesta | 3: AC-DSP-004, AC-DSP-006, AC-DSP-010 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-DSP-3 | propuesta | 4: AC-DSP-016.1, AC-DSP-017.1, AC-DSP-017.2, AC-DSP-018 | Bloquea sólo AC-DSP-017.2. | — | `classic-dispatch` |
@@ -1042,4 +1045,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 485 (232 respondidas, 0 bloqueantes, 253 propuestas).
+Total de pares unidad–decisión: 488 (232 respondidas, 0 bloqueantes, 256 propuestas).

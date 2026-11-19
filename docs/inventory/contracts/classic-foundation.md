@@ -3238,12 +3238,14 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 - A4 `classIsOnClasspath` falso/verdadero: :72-75.
 - A5 `getObjectFor` y el cast: derivadas del código ReflectiveDynamicAccess.scala:69-87 (*no afirmadas por spec*).
 
-**Oráculo.** No aplica.
+**Oráculo.** `oracle/run.sh dynamic-access-all|dynamic-access-case|dynamic-access-ids` (`DynamicAccessOracle.java`, familia `dynamic-access`, casos `da-*`, 20): CNF-01..07 (`createInstanceFor` de un nombre inexistente, vacío, con otra capitalización o con espacios: A2, `ClassNotFoundException` con el nombre), ON-01..08 (`classIsOnClasspath`: A4), INST-01 (`createInstanceFor` de una clase con constructor por defecto: A1) y PRV-01..04 (`pekko.actor.provider` con `foo.NonExisting`, Remote, Cluster y Local al crear un `ActorSystem`: `ActorSystem.scala:996-1011` relanza la excepción sin envolver). Sin oráculo, por ser reflexión JVM sin equivalente en Rust (Q-X-2): A3 (constructores alternativos por firma), los *handles* de constructor y de campo `MODULE$` y A5 (`getObjectFor`); DynamicAccessSpec.scala:40-48, :50-57, :59-70, :72-75 y :102-109 se portan como tests unitarios (`config/dynamic_access.rs`).
 
 **Decisiones.** Q-X-2.
 
 
 ---
+
+**Actualización P09 (2026-11-19, Pekko 2.0.0).** Rust: `config::FactoryRegistry<F>` (`config/dynamic_access.rs`): `register` (reemplaza y devuelve la fábrica anterior), `contains` (= `classIsOnClasspath`), `lookup`, `create(nombre, argumentos)` y `names`; `ClassNotFoundError` (clase `java.lang.ClassNotFoundException`, mensaje = el nombre pedido, coincidencia exacta sin plegar mayúsculas ni recortar) y `CreateError::{ClassNotFound, Construction}` (el error de la fábrica se devuelve sin envolver). 20 casos grabados `da-0001..da-0020` y 11 tests unitarios. Queda `partial`: Q-CFG-31 (propuesta) corrige la redacción de Q-X-2 y de Q-CFG-9 (a): Pekko lanza `ClassNotFoundException`, no `ConfigurationException`; A3 y A5 no tienen equivalente; los FQCN de `reference.conf` se preinstalan cuando exista cada consumidor (AC-MBX-004, AC-DSP-004/010, AC-SCH-010, AC-EVT-016, AC-EXT-003, AC-SER-001.2), que transforma el error como Pekko.
 
 ## AC-CFG-017.1 — Combinación y sustitución: withFallback, resolve tardío, `${?x}` opcional, `+=`, autorreferencia, ciclos
 

@@ -8,6 +8,8 @@ mod bytes_cases;
 mod config_hocon_cases;
 #[path = "../examples/classic-parity/config_settings_cases.rs"]
 mod config_settings_cases;
+#[path = "../examples/classic-parity/dynamic_access_cases.rs"]
+mod dynamic_access_cases;
 #[path = "../examples/classic-parity/fronteras_cases.rs"]
 mod fronteras_cases;
 #[path = "../examples/classic-parity/json.rs"]
@@ -357,6 +359,16 @@ fn recorded_config_hocon_cases_match_pekko() {
         "config-hocon.txt",
         config_hocon_cases::rust_lines(),
         unproduced,
+    );
+}
+
+#[test]
+fn recorded_dynamic_access_cases_match_pekko() {
+    oracle_family_matches_pekko(
+        "dynamic-access-case",
+        "dynamic-access.txt",
+        dynamic_access_cases::rust_lines(),
+        Vec::new(),
     );
 }
 

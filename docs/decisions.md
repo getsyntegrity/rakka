@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 238 decisiones: 0 bloqueantes, 175 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 239 decisiones: 0 bloqueantes, 176 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -436,6 +436,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) validar sólo contra el reference de `pekko-actor` mientras `rakka-actor-typed` no aporte el suyo (las claves extra de typed se aceptan). (b) `Settings::new_with_reference(name, config, reference)` y que Typed pase el fusionado. (c) validar siempre contra typed sobre actor.
 - **Recomendación:** (a). Clasificación: arquitectura. Consecuencias observables: una configuración de Typed sin las claves de typed no se rechaza hasta que Typed pase su reference (b). Bloquea: nada; reversible.
 - **Filas afectadas:** AC-CFG-002, AC-CFG-019
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-31 — Error de un nombre de clase no registrado: ClassNotFoundException que lleva el nombre (corrige la redacción de Q-X-2 y de Q-CFG-9 (a))
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Q-X-2 (aceptada con cambios, 2026-11-18) dice "el error de nombre no registrado es ConfigurationException del crate, como en Pekko" y Q-CFG-9 (a) "un error de configuración que nombra la clase"; en Pekko 2.0.0 no es así para DynamicAccess ni para el proveedor. ReflectiveDynamicAccess.getClassFor usa Class.forName (ReflectiveDynamicAccess.scala:44) y devuelve Failure(ClassNotFoundException) (DynamicAccessSpec.scala:50-57). ActorSystemImpl carga el proveedor con dynamicAccess.createInstanceFor[ActorRefProvider](ProviderClass, arguments).get y su catch solo detiene el scheduler y relanza la misma excepción (ActorSystem.scala:996-1011). Medido con el oráculo (Pekko 2.0.0, JDK 17, casos da-0014..da-0017 de la familia dynamic-access): pekko.actor.provider = foo.NonExisting, org.apache.pekko.remote.RemoteActorRefProvider y org.apache.pekko.cluster.ClusterActorRefProvider lanzan ClassNotFoundException con el FQCN como mensaje; LocalActorRefProvider crea el sistema. Los consumidores que envuelven el fallo de carga lo hacen con tipos distintos: Dispatchers lo envuelve en ConfigurationException (Dispatchers.scala:274-281, MessageDispatcherConfigurator); Mailboxes, al cargar un tipo de requirement, en ConfigurationException (Mailboxes.scala:86-96) y, al crear el MailboxType, en IllegalArgumentException (Mailboxes.scala:235-243).
+- **Alternativas:** (a) Dos capas. Capa 1: FactoryRegistry::lookup (y create) devuelve un error ClassNotFound, equivalente a ClassNotFoundException, que lleva el nombre; el registro no usa ConfigurationException. Capa 2: cada consumidor transforma el error como Pekko 2.0.0: la resolución del proveedor lo propaga sin envolver; Dispatchers (y el requirement de Mailboxes) lo envuelven en ConfigurationException y la creación del MailboxType en IllegalArgumentException, cuando se implementen (otras unidades; queda anotado en sus filas). Se mantienen Q-X-2 (A) y Q-CFG-9 (c). (b) Mantener el texto literal de Q-X-2 y de Q-CFG-9 (a): el registro y la resolución del proveedor devuelven ConfigurationException (diferencia deliberada con Pekko para el proveedor, que el oráculo no confirma).
+- **Recomendación:** (a). Clasificación: comportamiento observable (tipo de error). Consecuencia: un proveedor desconocido, remote o cluster falla con el tipo y el mensaje de Pekko; Cada consumidor que Pekko envuelve conserva su tipo (ConfigurationException en Dispatchers; IllegalArgumentException al crear un MailboxType). Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible.
+- **Filas afectadas:** AC-CFG-008;AC-CFG-016
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 

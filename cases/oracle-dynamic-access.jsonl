@@ -1,0 +1,20 @@
+{"name": "da-0001", "args": ["dynamic-access-case"], "stdin": "CNF-01 createInstanceFor foo.NonExistingClass"}
+{"name": "da-0002", "args": ["dynamic-access-case"], "stdin": "CNF-02 createInstanceFor org.apache.pekko.actor.foo.NonExistingClass"}
+{"name": "da-0003", "args": ["dynamic-access-case"], "stdin": "CNF-03 createInstanceFor empty name"}
+{"name": "da-0004", "args": ["dynamic-access-case"], "stdin": "CNF-04 createInstanceFor name differing only in case"}
+{"name": "da-0005", "args": ["dynamic-access-case"], "stdin": "CNF-05 createInstanceFor the provider org.apache.pekko.remote.RemoteActorRefProvider"}
+{"name": "da-0006", "args": ["dynamic-access-case"], "stdin": "CNF-06 createInstanceFor the provider org.apache.pekko.cluster.ClusterActorRefProvider"}
+{"name": "da-0007", "args": ["dynamic-access-case"], "stdin": "ON-01 classIsOnClasspath i.just.made.it.up.to.hurt.Myself"}
+{"name": "da-0008", "args": ["dynamic-access-case"], "stdin": "ON-02 classIsOnClasspath org.apache.pekko.actor.Actor"}
+{"name": "da-0009", "args": ["dynamic-access-case"], "stdin": "ON-03 classIsOnClasspath org.apache.pekko.remote.RemoteActorRefProvider"}
+{"name": "da-0010", "args": ["dynamic-access-case"], "stdin": "ON-04 classIsOnClasspath org.apache.pekko.cluster.ClusterActorRefProvider"}
+{"name": "da-0011", "args": ["dynamic-access-case"], "stdin": "ON-05 classIsOnClasspath org.apache.pekko.actor.LocalActorRefProvider"}
+{"name": "da-0012", "args": ["dynamic-access-case"], "stdin": "ON-06 classIsOnClasspath empty name"}
+{"name": "da-0013", "args": ["dynamic-access-case"], "stdin": "INST-01 createInstanceFor org.apache.pekko.dispatch.UnboundedMailbox"}
+{"name": "da-0014", "args": ["dynamic-access-case"], "stdin": "PRV-01 provider foo.NonExisting"}
+{"name": "da-0015", "args": ["dynamic-access-case"], "stdin": "PRV-02 provider org.apache.pekko.remote.RemoteActorRefProvider"}
+{"name": "da-0016", "args": ["dynamic-access-case"], "stdin": "PRV-03 provider org.apache.pekko.cluster.ClusterActorRefProvider"}
+{"name": "da-0017", "args": ["dynamic-access-case"], "stdin": "PRV-04 provider org.apache.pekko.actor.LocalActorRefProvider"}
+{"name": "da-0018", "args": ["dynamic-access-case"], "stdin": "CNF-07 createInstanceFor name with surrounding spaces"}
+{"name": "da-0019", "args": ["dynamic-access-case"], "stdin": "ON-07 classIsOnClasspath name differing only in case"}
+{"name": "da-0020", "args": ["dynamic-access-case"], "stdin": "ON-08 classIsOnClasspath name with a trailing space"}

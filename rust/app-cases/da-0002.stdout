@@ -1,0 +1,1 @@
+CNF-02 createInstanceFor org.apache.pekko.actor.foo.NonExistingClass -> ERR ClassNotFoundException [org.apache.pekko.actor.foo.NonExistingClass]
