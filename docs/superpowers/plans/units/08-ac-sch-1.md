@@ -9,7 +9,6 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 ## Prerrequisitos
 
 - Spec 07 `AC-DSP-1` (`07-ac-dsp-1.md`), por las filas AC-DSP-001, AC-DSP-016.1, AC-DSP-016.2.
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-002.4.
 - Spec 03 `AC-CFG-1` (`03-ac-cfg-1.md`), por las filas AC-CFG-001, AC-CFG-016.
 - Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-017. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-016.
