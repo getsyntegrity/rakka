@@ -100,3 +100,68 @@ fn java_duration_to_string(seconds: u64, nanos: u32) -> String {
     }
     text + "S"
 }
+
+/// `Timeout.toString` matches Pekko's case class auto-generated form:
+/// `Timeout(<length> <unit>)` where `<unit>` is the lowercase plural name of the
+/// largest unit that divides the nanosecond value exactly. Zero always displays as
+/// `0 days`, matching Scala's `Duration.Zero`.
+impl std::fmt::Display for Timeout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Timeout({})", self.duration_text())
+    }
+}
+
+impl Timeout {
+    fn duration_text(&self) -> String {
+        let nanos = self.0;
+        if nanos == 0 {
+            return "0 days".to_owned();
+        }
+        let abs = nanos.unsigned_abs();
+        let (length, unit_name) = Self::best_unit(abs);
+        format!("{length} {unit_name}")
+    }
+
+    /// Pick the largest TimeUnit whose nanosecond divisor divides `abs_nanos` exactly.
+    fn best_unit(abs_nanos: u64) -> (u64, &'static str) {
+        let units: &[(u64, &str)] = &[
+            (86_400_000_000_000, "days"),
+            (3_600_000_000_000, "hours"),
+            (60_000_000_000, "minutes"),
+            (1_000_000_000, "seconds"),
+            (1_000_000, "milliseconds"),
+            (1_000, "microseconds"),
+            (1, "nanoseconds"),
+        ];
+        for &(div, name) in units {
+            if abs_nanos.is_multiple_of(div) {
+                return (abs_nanos / div, name);
+            }
+        }
+        unreachable!()
+    }
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::*;
+
+    #[test]
+    fn timeout_display_positive_milliseconds() {
+        let t = Timeout::of(100, TimeUnit::Milliseconds).unwrap();
+        assert_eq!(format!("{t}"), "Timeout(100 milliseconds)");
+    }
+
+    #[test]
+    fn timeout_display_zero_is_days() {
+        assert_eq!(format!("{}", Timeout::ZERO), "Timeout(0 days)");
+    }
+
+    #[test]
+    fn timeout_display_one_second_uses_largest_unit() {
+        // Q-UTIL-2 (accepted a): Display picks the largest unit that divides evenly,
+        // so 1_000_000_000 ns displays as "1 seconds" rather than "1000 milliseconds".
+        let t = Timeout::of(1000, TimeUnit::Milliseconds).unwrap();
+        assert_eq!(format!("{t}"), "Timeout(1 seconds)");
+    }
+}
