@@ -1,8 +1,8 @@
 # App replay
 
-Build: `/Users/pablogore/Projects/rakka-wt-p08/target/release/examples/classic-parity`
+Build: `/Users/pablogore/Projects/rakka-wt-d02/target/release/examples/classic-parity`
 
-Passed: 2221/2222
+Passed: 2303/2304
 
 Fallback rate: not reported by this build
 

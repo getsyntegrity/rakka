@@ -1477,6 +1477,52 @@ ch-0525	config-hocon	NUM-RENDER 1234567.0
 ch-0526	config-hocon	NUM-RENDER 12345678.5
 ch-0527	config-hocon	NUM-RENDER -2.5e-5
 ch-0528	config-hocon	NUM-RENDER 0.30000000000000004
+ch-0529	config-hocon	NUMLEX 1.
+ch-0530	config-hocon	NUMLEX .5
+ch-0531	config-hocon	NUMLEX -.5
+ch-0532	config-hocon	NUMLEX 1.e5
+ch-0533	config-hocon	NUMLEX 1e5
+ch-0534	config-hocon	NUMLEX 1E5
+ch-0535	config-hocon	NUMLEX 1e
+ch-0536	config-hocon	NUMLEX 1e+
+ch-0537	config-hocon	NUMLEX 1e+5
+ch-0538	config-hocon	NUMLEX -1
+ch-0539	config-hocon	NUMLEX --1
+ch-0540	config-hocon	NUMLEX +1
+ch-0541	config-hocon	NUMLEX 00
+ch-0542	config-hocon	NUMLEX 007
+ch-0543	config-hocon	NUMLEX 1.5.2
+ch-0544	config-hocon	NUMLEX 1.2.3
+ch-0545	config-hocon	NUMLEX 0x10
+ch-0546	config-hocon	NUMLEX 1_000
+ch-0547	config-hocon	NUMLEX 99999999999999999999
+ch-0548	config-hocon	NUMLEX -99999999999999999999
+ch-0549	config-hocon	NUMLEX 9223372036854775807
+ch-0550	config-hocon	NUMLEX 9223372036854775808
+ch-0551	config-hocon	NUMLEX -9223372036854775808
+ch-0552	config-hocon	NUMLEX -9223372036854775809
+ch-0553	config-hocon	NUMLEX 1+2
+ch-0554	config-hocon	NUMLEX 1 2
+ch-0555	config-hocon	NUMLEX 1-2
+ch-0556	config-hocon	NUMLEX 1.5abc
+ch-0557	config-hocon	NUMLEX 123abc
+ch-0558	config-hocon	NUMLEX abc123
+ch-0559	config-hocon	NUMLEX -
+ch-0560	config-hocon	NUMLEX -a
+ch-0561	config-hocon	NUMLEX 1e400
+ch-0562	config-hocon	NUMLEX 1e-400
+ch-0563	config-hocon	NUMLEX 0.0e0
+ch-0564	config-hocon	NUMLEX 1..2
+ch-0565	config-hocon	NUMLEX 1.e
+ch-0566	config-hocon	NUMLEX 3.14
+ch-0567	config-hocon	NUMLEX 1E+5
+ch-0568	config-hocon	NUMLEX -0
+ch-0569	config-hocon	NUMLEX - 1
+ch-0570	config-hocon	NUMLEX 1 .5
+ch-0571	config-hocon	NUMLEX -.
+ch-0572	config-hocon	NUMLEX -e5
+ch-0573	config-hocon	NUMLEX 1.5e
+ch-0574	config-hocon	NUMLEX -1.5E-3
 cs-0001	config-settings	SET-DEFAULT the reference configuration
 cs-0002	config-settings	SET-A9 dispatcher and mailbox keys of ConfigSpec
 cs-0003	config-settings	SET-EXT default library-extensions and extensions

@@ -55,6 +55,7 @@ final class ConfigHoconOracle {
     registerCheckValidAndRender();
     registerReferenceKeys();
     registerNumberRendering();
+    registerNumberLexing();
   }
 
   static void registerHandWritten() {
@@ -363,6 +364,24 @@ final class ConfigHoconOracle {
     for (String t : NUM_RENDER_TEXTS) {
       final String text = t;
       run("NUM-RENDER " + text, () -> parse("x = " + text).getValue("x").render(ConfigRenderOptions.concise()));
+    }
+  }
+
+  // ---- NUMLEX: which literals are numbers (D-BUG-02). Result: value type, concise render, getString; errors only by class (the text is D-BUG-13). ----
+  static final String[] NUM_LEX_TEXTS = {"1.", ".5", "-.5", "1.e5", "1e5", "1E5", "1e", "1e+", "1e+5", "-1", "--1", "+1", "00", "007", "1.5.2", "1.2.3", "0x10", "1_000", "99999999999999999999", "-99999999999999999999", "9223372036854775807", "9223372036854775808", "-9223372036854775808", "-9223372036854775809", "1+2", "1 2", "1-2", "1.5abc", "123abc", "abc123", "-", "-a", "1e400", "1e-400", "0.0e0", "1..2", "1.e", "3.14", "1E+5", "-0", "- 1", "1 .5", "-.", "-e5", "1.5e", "-1.5E-3"};
+
+  static void registerNumberLexing() {
+    for (String t : NUM_LEX_TEXTS) {
+      final String text = t;
+      run("NUMLEX " + text, () -> {
+        try {
+          Config c = parse("x = " + text);
+          ConfigValue v = c.getValue("x");
+          return v.valueType() + " " + v.render(ConfigRenderOptions.concise()) + " " + c.getString("x");
+        } catch (ConfigException e) {
+          return "error " + e.getClass().getSimpleName();
+        }
+      });
     }
   }
 }

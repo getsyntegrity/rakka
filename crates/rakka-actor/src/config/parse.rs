@@ -181,6 +181,13 @@ fn lex(src: &str) -> Result<Vec<T>, ConfigError> {
                 let text: String = chars[s..i].iter().collect();
                 let tok = match Number::parse(&text) {
                     Some(n) => Tok::Number(n),
+                    // Not a number after all: it is plain text, but `+` is reserved (`1+2`, `1e+`).
+                    None if text.contains('+') => {
+                        return Err(parse_err(
+                            line,
+                            "Reserved character '+' is not allowed outside quotes",
+                        ));
+                    }
                     None => Tok::Unquoted(text),
                 };
                 out.push(T { tok, line });
