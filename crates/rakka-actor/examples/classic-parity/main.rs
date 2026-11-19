@@ -16,7 +16,9 @@ mod path_address_cases;
 mod path_case;
 mod scenario;
 mod structures_cases;
+mod text_escape;
 mod util_core_cases;
+mod xorshift;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;
