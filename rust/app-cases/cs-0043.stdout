@@ -1,0 +1,1 @@
+SET-LDSD log-dead-letters-suspend-duration = 5 foo -> ERR BadValue [String: 1: Invalid value at 'pekko.log-dead-letters-suspend-duration': Could not parse time unit 'foo' (try ns, us, ms, s, m, h, d)]

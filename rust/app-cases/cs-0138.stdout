@@ -1,0 +1,1 @@
+SET-SER prefix = a string -> ERR ValidationFailed [String: 1: pekko.actor.no-serialization-verification-needed-class-prefix: Wrong value type at 'pekko.actor.no-serialization-verification-needed-class-prefix', expecting: list but got: string]

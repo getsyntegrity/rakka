@@ -1,0 +1,1 @@
+SET-CS terminate-actor-system = off with the default run-by-actor-system-terminate -> ERR ConfigurationException [pekko.coordinated-shutdown.run-by-actor-system-terminate=on and pekko.coordinated-shutdown.terminate-actor-system=off is not a supported configuration combination.]

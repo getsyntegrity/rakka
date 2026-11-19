@@ -1,0 +1,1 @@
+SET-INVALID several problems are reported together -> ERR ValidationFailed [String: 2: pekko.loggers: Wrong value type at 'pekko.loggers', expecting: list but got: number]

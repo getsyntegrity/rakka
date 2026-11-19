@@ -1,0 +1,1 @@
+SET-JVM jvm-exit-on-fatal-error = 3 -> ERR WrongType [String: 1: pekko.jvm-exit-on-fatal-error has type NUMBER rather than BOOLEAN]

@@ -57,6 +57,9 @@ public final class Cli {
       case "config-hocon-ids" -> System.out.print(String.join("\n", ConfigHoconOracle.ids()) + "\n");
       case "config-hocon-all" -> ConfigHoconOracle.ids().forEach(id -> System.out.println(ConfigHoconOracle.line(id)));
       case "config-hocon-case" -> System.out.println(ConfigHoconOracle.line(oneLine()));
+      case "config-settings-ids" -> System.out.print(String.join("\n", ConfigSettingsOracle.ids()) + "\n");
+      case "config-settings-all" -> ConfigSettingsOracle.ids().forEach(id -> System.out.println(ConfigSettingsOracle.line(id)));
+      case "config-settings-case" -> System.out.println(ConfigSettingsOracle.line(oneLine()));
       case "path-address-ids" -> System.out.print(String.join("\n", PathAddressOracle.ids()) + "\n");
       case "util-core-ids" -> System.out.print(String.join("\n", UtilCoreOracle.ids()) + "\n");
       case "path-address-all" -> PathAddressOracle.ids().forEach(id -> System.out.println(PathAddressOracle.line(id)));

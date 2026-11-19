@@ -1,0 +1,1 @@
+SET-LDDS log-dead-letters-during-shutdown = 1 -> ERR WrongType [String: 1: pekko.log-dead-letters-during-shutdown has type NUMBER rather than BOOLEAN]
