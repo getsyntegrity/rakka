@@ -1,0 +1,4 @@
+bin.name = "classic-parity"
+args = ["config-hocon-case"]
+status.code = 0
+fs.sandbox = true

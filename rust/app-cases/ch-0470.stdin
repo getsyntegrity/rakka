@@ -1,0 +1,1 @@
+KEY actor-typed pekko.actor.serialization-bindings."org.apache.pekko.actor.typed.ActorRef"

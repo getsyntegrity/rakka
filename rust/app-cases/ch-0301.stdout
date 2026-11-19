@@ -1,0 +1,1 @@
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.UnboundedDequeBasedMessageQueueSemantics" -> ok STRING "pekko.actor.mailbox.unbounded-deque-based"

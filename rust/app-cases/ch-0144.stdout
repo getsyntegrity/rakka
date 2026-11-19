@@ -1,0 +1,1 @@
+SPECIAL-08 duration getter on infinite fails -> ERR BadValue [String: 1: Invalid value at 'x': No number in duration value 'infinite']

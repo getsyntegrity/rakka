@@ -1,0 +1,1 @@
+KEY actor pekko.io.dns.async-dns.provider-object -> ok STRING "org.apache.pekko.io.dns.internal.AsyncDnsProvider"

@@ -1,0 +1,1 @@
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-max -> ok NUMBER 64

@@ -1,0 +1,1 @@
+DUR-ERR 5 foo -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse time unit 'foo' (try ns, us, ms, s, m, h, d)]

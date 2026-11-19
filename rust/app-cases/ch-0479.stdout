@@ -1,0 +1,1 @@
+KEY actor-typed pekko.actor.typed.library-extensions -> ok LIST ["org.apache.pekko.actor.typed.receptionist.Receptionist$"]

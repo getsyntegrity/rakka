@@ -1,0 +1,1 @@
+KEY actor pekko.actor.serializers.primitive-int -> ok STRING "org.apache.pekko.serialization.IntSerializer"

@@ -1,0 +1,1 @@
+KEY actor pekko.actor.deployment."/IO-DNS/async-dns".router -> ok STRING "round-robin-pool"

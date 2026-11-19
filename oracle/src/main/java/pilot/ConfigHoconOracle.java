@@ -52,6 +52,7 @@ final class ConfigHoconOracle {
     if (registered) return;
     registered = true;
     registerHandWritten();
+    registerCheckValidAndRender();
     registerReferenceKeys();
   }
 
@@ -228,6 +229,76 @@ final class ConfigHoconOracle {
     });
   }
 
+  // ---- CV and RW: checkValid (AC-CFG-019) and renderWithRedactions (AC-UTIL-002.5), added with slice P07 -----------------------
+  static String cv(String reference, String config, String... restrict) {
+    parse(config).resolve().checkValid(parse(reference).resolve(), restrict);
+    return "valid";
+  }
+
+  /** Pekko's ConfigOps.renderWithRedactions (Helpers.scala), with the user name that the case itself supplies. */
+  static String redacted(Config c) {
+    String username = System.getProperty("user.name");
+    return c.root().render(ConfigRenderOptions.defaults().setShowEnvVariableValues(false)).replace(username, "<username>");
+  }
+
+  static void registerCheckValidAndRender() {
+    run("CV-01 a config equal to the reference is valid", () -> cv("pekko { a = 1, b = abc }", "pekko { a = 1, b = abc }", "pekko"));
+    run("CV-02 a key missing from the config", () -> cv("pekko { a = 1, b = abc }", "pekko { a = 1 }", "pekko"));
+    run("CV-03 string where a number is expected is accepted (a string can be converted)", () -> cv("pekko { a = 1 }", "pekko { a = abc }", "pekko"));
+    run("CV-04 object where a number is expected", () -> cv("pekko { a = 1 }", "pekko { a { x = 1 } }", "pekko"));
+    run("CV-05 number where an object is expected", () -> cv("pekko { a { x = 1 } }", "pekko { a = 2 }", "pekko"));
+    run("CV-06 number where a list is expected", () -> cv("pekko { a = [1] }", "pekko { a = 2 }", "pekko"));
+    run("CV-07 numeric-keyed object where a list is expected", () -> cv("pekko { a = [1] }", "pekko { a { \"0\" = 1 } }", "pekko"));
+    run("CV-08 number where a string is expected", () -> cv("pekko { a = abc }", "pekko { a = 2 }", "pekko"));
+    run("CV-09 boolean where a number is expected", () -> cv("pekko { a = 1 }", "pekko { a = true }", "pekko"));
+    run("CV-10 list where a number is expected", () -> cv("pekko { a = 1 }", "pekko { a = [1] }", "pekko"));
+    run("CV-11 several problems are reported together", () -> cv("pekko { a = 1, b = 2, c { d = 1 } }", "pekko { a { x = 1 }, c = 3 }", "pekko"));
+    run("CV-12 problems outside the restricted path are not checked", () -> cv("pekko { a = 1 }\nother { b = 1 }", "pekko { a = 1 }", "pekko"));
+    run("CV-13 no restriction checks the whole reference", () -> cv("pekko { a = 1 }\nother { b = 1 }", "pekko { a = 1 }"));
+    run("CV-14 null where a number is expected is accepted", () -> cv("pekko { a = 1 }", "pekko { a = null }", "pekko"));
+    run("CV-15 extra keys in the config are accepted", () -> cv("pekko { a = 1 }", "pekko { a = 1, z = 2 }", "pekko"));
+    run("CV-16 withoutPath drops a key of the reference", () -> {
+      Config reference = parse("pekko { a = 1, internal-dispatcher = abc }").resolve().withoutPath("pekko.internal-dispatcher");
+      parse("pekko { a = 1, internal-dispatcher { x = 1 } }").resolve().checkValid(reference, "pekko");
+      return "valid";
+    });
+    run("CV-17 the same without withoutPath fails", () -> {
+      Config reference = parse("pekko { a = 1, internal-dispatcher { y = 1 } }").resolve();
+      parse("pekko { a = 1, internal-dispatcher = abc }").resolve().checkValid(reference, "pekko");
+      return "valid";
+    });
+    run("CV-18 an unresolved config fails", () -> {
+      parse("pekko { a = ${b} }").checkValid(parse("pekko { a = 1 }").resolve(), "pekko");
+      return "valid";
+    });
+    run("CV-19 the real reference.conf of pekko-actor is valid against itself", () -> {
+      Config reference = ConfigFactory.parseURL(referenceOf("pekko-actor")).resolve();
+      reference.checkValid(reference, "pekko");
+      return "valid";
+    });
+    run("CV-20 the real reference.conf is valid for an application that overrides some keys", () -> {
+      Config reference = ConfigFactory.parseURL(referenceOf("pekko-actor")).resolve();
+      Config app = parse("pekko.loglevel = DEBUG\npekko.log-dead-letters = off\npekko.actor.provider = local");
+      app.withFallback(reference).resolve().checkValid(reference, "pekko");
+      return "valid";
+    });
+    run("CV-21 the real reference.conf fails when a key it defines is an object in the application", () -> {
+      Config reference = ConfigFactory.parseURL(referenceOf("pekko-actor")).resolve();
+      Config app = parse("pekko.loglevel { x = 1 }");
+      app.withFallback(reference).resolve().checkValid(reference, "pekko");
+      return "valid";
+    });
+    run("RW-01 render of scalars, nested objects, lists, null and empty values", () ->
+      redacted(parse("a = 1\nb = hello\nc { d = [1, 2], e = \"x y\" }\nl = []\no {}\nn = null\nf = 1.5\nbool = true\nw = 1.0").resolve()));
+    run("RW-02 an environment variable value is not shown", () -> redacted(parse("x = ${PATH}").resolve()));
+    run("RW-03 the user name is replaced", () ->
+      redacted(parse("x = \"home of " + System.getProperty("user.name") + "\"").resolve()));
+    run("RW-04 render of an unresolved config", () -> redacted(parse("a = 1\nb = ${a}")));
+    run("RW-05 render of a merge of two configs", () -> redacted(parse("a.x = 1").withFallback(parse("a.y = 2\nb = 3")).resolve()));
+    run("RW-06 keys that need quotes and escapes in strings", () ->
+      redacted(parse("\"a.b\" = 1\n\"c d\" = \"q\\\"uote\\nline\"").resolve()));
+  }
+
   // ---- KEY: every leaf key of the reference.conf files of pekko-actor and pekko-actor-typed 2.0.0 (Q-X-1 prerequisite) ------
   /** Leaves of the resolved value at {@code path}: an object is expanded, anything else (list, scalar, null) is a leaf. */
   private static void leaves(ConfigValue v, List<String> path, TreeMap<String, ConfigValue> out) {
@@ -243,7 +314,7 @@ final class ConfigHoconOracle {
     }
   }
 
-  private static URL referenceOf(String artifactPrefix) {
+  static URL referenceOf(String artifactPrefix) {
     try {
       for (URL u : Collections.list(ConfigHoconOracle.class.getClassLoader().getResources("reference.conf"))) {
         if (u.toString().contains("/" + artifactPrefix + "_2.13-2.0.0.jar!")) return u;

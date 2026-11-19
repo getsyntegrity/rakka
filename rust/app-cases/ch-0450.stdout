@@ -1,0 +1,1 @@
+KEY actor pekko.library-extensions -> ok LIST ["org.apache.pekko.serialization.SerializationExtension$"]

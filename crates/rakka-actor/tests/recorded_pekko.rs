@@ -4,6 +4,8 @@
 
 #[path = "../examples/classic-parity/bytes_cases.rs"]
 mod bytes_cases;
+#[path = "../examples/classic-parity/config_hocon_cases.rs"]
+mod config_hocon_cases;
 #[path = "../examples/classic-parity/fronteras_cases.rs"]
 mod fronteras_cases;
 #[path = "../examples/classic-parity/json.rs"]
@@ -189,6 +191,20 @@ fn recorded_path_address_cases_match_pekko() {
         "path-address-case",
         "path-address.txt",
         path_address_cases::rust_lines(),
+        unproduced,
+    );
+}
+
+#[test]
+fn recorded_config_hocon_cases_match_pekko() {
+    let unproduced = config_hocon_cases::PENDING
+        .iter()
+        .map(|(id, _)| *id)
+        .collect();
+    oracle_family_matches_pekko(
+        "config-hocon-case",
+        "config-hocon.txt",
+        config_hocon_cases::rust_lines(),
         unproduced,
     );
 }

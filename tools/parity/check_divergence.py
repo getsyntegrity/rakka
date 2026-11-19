@@ -540,6 +540,49 @@ MUTANTS = {
         "seconds / 60",
         "the overflow message prints the minutes of the duration without taking them modulo the hour (PT2562047H153722867M...)",
     ),
+    # --- slice P07: HOCON parser, resolver, units, checkValid and render ---
+    "hocon-self-reference-forgets-lower-layer": (
+        "src/config/resolve.rs",
+        "                Some(v) => Ok(Some(v.clone())),",
+        "                Some(_) => Ok(None),",
+        "a key that refers to itself (`x = ${?x} [..]`, `x += ..`) ignores what the layers below set, so library-extensions of the application replace the defaults",
+    ),
+    "hocon-duration-floors-negative": (
+        "src/config/units.rs",
+        "clamp(total / i128::from(target.nanos()))",
+        "clamp(total.div_euclid(i128::from(target.nanos())))",
+        "a negative duration is converted by flooring instead of truncating toward zero (-1500 us is -2 ms, not -1 ms)",
+    ),
+    "hocon-size-accepts-uppercase-kb": (
+        "src/config/units.rs",
+        '&["kB", "kilobyte", "kilobytes"],',
+        '&["kB", "KB", "kilobyte", "kilobytes"],',
+        "`1 KB` is accepted as a size although the HOCON library rejects it (only kB is the decimal kilobyte)",
+    ),
+    "hocon-boolean-on-ignores-case": (
+        "src/config/mod.rs",
+        'Kind::Str(s) if matches!(s.as_str(), "true" | "yes" | "on") => Ok(true),',
+        'Kind::Str(s) if matches!(s.to_lowercase().as_str(), "true" | "yes" | "on") => Ok(true),',
+        "the quoted string \"ON\" is read as a boolean although only the lowercase spellings are",
+    ),
+    "hocon-check-valid-string-reference-needs-string": (
+        "src/config/validate.rs",
+        "        Kind::Str(_) => true,",
+        "        Kind::Str(_) => matches!(value.kind, Kind::Str(_)),",
+        "checkValid rejects a number where the reference has a string, so a valid application config (`pekko.log-dead-letters = 10`) fails to start",
+    ),
+    "hocon-check-valid-list-accepts-number": (
+        "src/config/validate.rs",
+        "Kind::List(_) => matches!(value.kind, Kind::List(_) | Kind::Obj(_)),",
+        "Kind::List(_) => matches!(value.kind, Kind::List(_) | Kind::Obj(_) | Kind::Num(_)),",
+        "checkValid accepts a number where the reference has a list, hiding a mistyped key until it is read",
+    ),
+    "hocon-render-shows-environment-values": (
+        "src/config/validate.rs",
+        "Kind::Str(_) if v.line == 0 =>",
+        "Kind::Str(_) if v.line == u32::MAX =>",
+        "renderWithRedactions prints the value of an environment variable (a secret) in Settings.toString and error messages",
+    ),
 }
 
 

@@ -4,6 +4,7 @@
 //! `docs/inventory/actor-classic.tsv` and validated by its scenarios.
 
 pub mod actor;
+pub mod config;
 pub mod dispatch;
 mod done;
 pub mod event;

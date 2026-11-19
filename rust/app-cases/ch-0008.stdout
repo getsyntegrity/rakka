@@ -1,0 +1,1 @@
+FB-08 explicit config only (no fallback) does not see reference keys -> ok false

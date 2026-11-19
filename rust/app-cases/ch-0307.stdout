@@ -1,0 +1,1 @@
+KEY actor pekko.actor.no-serialization-verification-needed-class-prefix -> ok LIST ["org.apache.pekko."]

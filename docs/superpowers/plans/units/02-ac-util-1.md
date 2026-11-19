@@ -19,7 +19,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-DSP-3`, `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-21`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`, `Q-UTIL-27`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-15`, `Q-DSP-3`, `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-21`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`, `Q-UTIL-27`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -79,7 +79,7 @@ Filas: AC-UTIL-020, AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contrato
 |---|---|---|---|---|
 | AC-UTIL-001 | Timeout (duración para ask/resolveOne) | `pub struct Timeout(i64)` Copy: nanosegundos con signo, invariante único \|nanos\| <=… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorTimeoutSpec.scala:34-45… | Q-UTIL-1, Q-UTIL-2 |
 | AC-UTIL-002.4 | ConfigOps.getMillisDuration / getNanosDuration | `Config::get_millis_duration(path) -> Result<Duration, ConfigError>` y… | derivada del código (ver bloque de contrato) | Q-CFG-4, Q-X-1, Q-X-9 |
-| AC-UTIL-002.5 | ConfigOps.renderWithRedactions (toString de Settings con datos sensibles… | `Config::render_with_redactions(&self) -> String` | derivada del código (ver bloque de contrato) | Q-CFG-4 |
+| AC-UTIL-002.5 | ConfigOps.renderWithRedactions (toString de Settings con datos sensibles… | `Config::render_with_redactions(&self) -> String` | derivada del código (ver bloque de contrato) | Q-CFG-15, Q-CFG-4 |
 | AC-UTIL-004.2 | ConfigurationException | `struct ConfigurationException` (tipo separado) con `From` a PekkoException si hace falta | derivada del código (ver bloque de contrato) | Q-UTIL-17, Q-UTIL-3, Q-UTIL-4, Q-X-9 |
 | AC-UTIL-006.1 | ByteString inmutable (ByteString1C, ByteString1, ByteStrings; factories,… | `rakka_actor::util::byte_string::ByteString` (newtype sobre `bytes::Bytes`):… | actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:372-696 ;… | Q-UTIL-12, Q-UTIL-14, Q-UTIL-23, Q-UTIL-8 |
 | AC-UTIL-006.4 | ByteIterator (lectura de primitivos con byte order, getBytes, take/drop) | `ByteIterator` (cursor sobre `Bytes`; `next_byte`, `head`, `len`, `size`,… | actor-tests/src/test/scala/org/apache/pekko/util/ByteIteratorSpec.scala:24-93 ;… | Q-UTIL-12, Q-UTIL-23, Q-UTIL-24 |

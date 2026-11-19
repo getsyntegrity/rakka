@@ -8,6 +8,7 @@
 //! ```
 
 mod bytes_cases;
+mod config_hocon_cases;
 mod fronteras_cases;
 mod json;
 mod path_address_cases;
@@ -107,6 +108,15 @@ fn main() -> ExitCode {
             return oracle_case(&mut out, &input, path_address_cases::rust_lines());
         }
         "util-core-case" => return oracle_case(&mut out, &input, util_core_cases::rust_lines()),
+        "config-hocon-ids" => print_ids(&mut out, config_hocon_cases::rust_lines()),
+        "config-hocon-all" => {
+            for (_, line) in config_hocon_cases::rust_lines() {
+                writeln!(out, "{line}").ok();
+            }
+        }
+        "config-hocon-case" => {
+            return oracle_case(&mut out, &input, config_hocon_cases::rust_lines());
+        }
         "path-from-string-lines" => {
             let mut buf = String::new();
             for line in input.split('\n').filter(|l| !l.is_empty()) {

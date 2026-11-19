@@ -1,5 +1,5 @@
 # source: Typesafe Config 1.4.9 (config-1.4.9.jar), the HOCON library of Apache Pekko 2.0.0 (oracle/pom.xml, JDK 17); reference.conf files of pekko-actor_2.13-2.0.0 and pekko-actor-typed_2.13-2.0.0 (identical to upstream/pekko/{actor,actor-typed}/src/main/resources/reference.conf); not Pekko code
-# generated: oracle/run.sh config-hocon-all (oracle/src/main/java/pilot/ConfigHoconOracle.java, md5 6e908fd35a946cb6197ee4ea80138321) on 2026-11-18; re-recorded with the oracle CLI (Q-CFG-4); KEY lines = every leaf key of both reference.conf files
+# generated: oracle/run.sh config-hocon-all (oracle/src/main/java/pilot/ConfigHoconOracle.java, md5 7bc58ecf161a2aac41e081712e6667b7) on 2026-11-18; re-recorded with the oracle CLI (Q-CFG-4); KEY lines = every leaf key of both reference.conf files; CV and RW lines added with slice P07
 FB-01 receiver scalar wins over fallback scalar -> ok 1
 FB-02 objects merge key by key, receiver wins on conflict -> ok 1,2,3
 FB-03 scalar in receiver replaces object in fallback -> ok NUMBER
@@ -161,6 +161,33 @@ REF-07 unquoted key with hyphens -> ok 8
 REF-08 comment styles # and // -> ok 3
 REF-09 triple-quoted string keeps newlines -> ok a\u000Ab
 REF-10 duplicate keys: later object merges, later scalar wins -> ok 1,2,2
+CV-01 a config equal to the reference is valid -> ok valid
+CV-02 a key missing from the config -> ERR ValidationFailed [String: 1: pekko.b: No setting at 'pekko.b', expecting: string]
+CV-03 string where a number is expected is accepted (a string can be converted) -> ok valid
+CV-04 object where a number is expected -> ERR ValidationFailed [String: 1: pekko.a: Wrong value type at 'pekko.a', expecting: number but got: object with keys [x]]
+CV-05 number where an object is expected -> ERR ValidationFailed [String: 1: pekko.a: Wrong value type at 'pekko.a', expecting: object with keys [x] but got: number]
+CV-06 number where a list is expected -> ERR ValidationFailed [String: 1: pekko.a: Wrong value type at 'pekko.a', expecting: list but got: number]
+CV-07 numeric-keyed object where a list is expected -> ok valid
+CV-08 number where a string is expected -> ok valid
+CV-09 boolean where a number is expected -> ERR ValidationFailed [String: 1: pekko.a: Wrong value type at 'pekko.a', expecting: number but got: boolean]
+CV-10 list where a number is expected -> ERR ValidationFailed [String: 1: pekko.a: Wrong value type at 'pekko.a', expecting: number but got: list]
+CV-11 several problems are reported together -> ERR ValidationFailed [String: 1: pekko.a: Wrong value type at 'pekko.a', expecting: number but got: object with keys [x], String: 1: pekko.b: No setting at 'pekko.b', expecting: number, String: 1: pekko.c: Wrong value type at 'pekko.c', expecting: object with keys [d] but got: number]
+CV-12 problems outside the restricted path are not checked -> ok valid
+CV-13 no restriction checks the whole reference -> ERR ValidationFailed [String: 1: other: No setting at 'other', expecting: object with keys [b]]
+CV-14 null where a number is expected is accepted -> ok valid
+CV-15 extra keys in the config are accepted -> ok valid
+CV-16 withoutPath drops a key of the reference -> ok valid
+CV-17 the same without withoutPath fails -> ERR ValidationFailed [String: 1: pekko.internal-dispatcher: Wrong value type at 'pekko.internal-dispatcher', expecting: object with keys [y] but got: string]
+CV-18 an unresolved config fails -> ERR NotResolved [need to Config#resolve() each config before using it, see the API docs for Config#resolve()]
+CV-19 the real reference.conf of pekko-actor is valid against itself -> ok valid
+CV-20 the real reference.conf is valid for an application that overrides some keys -> ok valid
+CV-21 the real reference.conf fails when a key it defines is an object in the application -> ok valid
+RW-01 render of scalars, nested objects, lists, null and empty values -> ok {\u000A    # String: 1\u000A    "a" : 1,\u000A    # String: 2\u000A    "b" : "hello",\u000A    # String: 8\u000A    "bool" : true,\u000A    # String: 3\u000A    "c" : {\u000A        # String: 3\u000A        "d" : [\u000A            # String: 3\u000A            1,\u000A            # String: 3\u000A            2\u000A        ],\u000A        # String: 3\u000A        "e" : "x y"\u000A    },\u000A    # String: 7\u000A    "f" : 1.5,\u000A    # String: 4\u000A    "l" : [],\u000A    # String: 6\u000A    "n" : null,\u000A    # String: 5\u000A    "o" : {},\u000A    # String: 9\u000A    "w" : 1\u000A}\u000A
+RW-02 an environment variable value is not shown -> ok {\u000A    # env variables\u000A    "x" : "<env variable>"\u000A}\u000A
+RW-03 the user name is replaced -> ok {\u000A    # String: 1\u000A    "x" : "home of <username>"\u000A}\u000A
+RW-04 render of an unresolved config -> ok {\u000A    # String: 1\u000A    "a" : 1,\u000A    # String: 2\u000A    "b" : ${a}\u000A}\u000A
+RW-05 render of a merge of two configs -> ok {\u000A    # String: 1\u000A    "a" : {\u000A        # String: 1\u000A        "x" : 1,\u000A        # String: 1\u000A        "y" : 2\u000A    },\u000A    # String: 2\u000A    "b" : 3\u000A}\u000A
+RW-06 keys that need quotes and escapes in strings -> ok {\u000A    # String: 1\u000A    "a.b" : 1,\u000A    # String: 2\u000A    "c d" : "q\"uote\nline"\u000A}\u000A
 KEY actor pekko.actor.allow-java-serialization -> ok STRING "off"
 KEY actor pekko.actor.creation-timeout -> ok STRING "20s"
 KEY actor pekko.actor.debug.autoreceive -> ok STRING "off"

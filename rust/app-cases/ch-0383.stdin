@@ -1,0 +1,1 @@
+KEY actor pekko.coordinated-shutdown.reason-overrides."org.apache.pekko.actor.CoordinatedShutdown$ClusterJoinUnsuccessfulReason$".exit-code

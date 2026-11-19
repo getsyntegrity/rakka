@@ -1,0 +1,1 @@
+KEY actor-typed pekko.use-slf4j -> ok STRING "on"

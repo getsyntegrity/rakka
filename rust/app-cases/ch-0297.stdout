@@ -1,0 +1,1 @@
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.ControlAwareMessageQueueSemantics" -> ok STRING "pekko.actor.mailbox.unbounded-control-aware-queue-based"

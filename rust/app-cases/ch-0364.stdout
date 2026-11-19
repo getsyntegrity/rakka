@@ -1,0 +1,1 @@
+KEY actor pekko.coordinated-shutdown.close-actor-system-timeout -> ok STRING "60 s"

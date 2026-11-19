@@ -1,0 +1,1 @@
+KEY actor pekko.actor.router.type-mapping.tail-chopping-group -> ok STRING "org.apache.pekko.routing.TailChoppingGroup"

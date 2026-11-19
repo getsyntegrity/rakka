@@ -1,0 +1,1 @@
+KEY actor pekko.io.dns.async-dns.search-domains -> ok STRING "default"

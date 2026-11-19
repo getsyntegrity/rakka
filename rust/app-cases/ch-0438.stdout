@@ -1,0 +1,1 @@
+KEY actor pekko.io.udp.management-dispatcher -> ok STRING "pekko.actor.internal-dispatcher"

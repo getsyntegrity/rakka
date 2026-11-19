@@ -1,0 +1,1 @@
+KEY actor pekko.actor.deployment.default.resizer.messages-per-resize -> ok NUMBER 10

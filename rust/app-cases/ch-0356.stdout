@@ -1,0 +1,1 @@
+KEY actor pekko.actor.warn-on-no-serialization-verification -> ok STRING "on"

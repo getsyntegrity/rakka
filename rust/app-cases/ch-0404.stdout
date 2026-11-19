@@ -1,0 +1,1 @@
+KEY actor pekko.io.dns.inet-address.provider-object -> ok STRING "org.apache.pekko.io.InetAddressDnsProvider"

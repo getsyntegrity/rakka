@@ -1,0 +1,1 @@
+KEY actor pekko.actor.debug.autoreceive -> ok STRING "off"

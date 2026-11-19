@@ -1,0 +1,1 @@
+CV-17 the same without withoutPath fails -> ERR ValidationFailed [String: 1: pekko.internal-dispatcher: Wrong value type at 'pekko.internal-dispatcher', expecting: object with keys [y] but got: string]

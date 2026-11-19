@@ -1,0 +1,1 @@
+KEY actor pekko.actor.router.type-mapping.broadcast-group -> ok STRING "org.apache.pekko.routing.BroadcastGroup"

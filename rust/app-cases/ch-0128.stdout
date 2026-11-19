@@ -1,0 +1,1 @@
+TYPE-05 object where string expected -> ERR WrongType [String: 1: a has type OBJECT rather than STRING]

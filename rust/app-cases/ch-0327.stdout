@@ -1,0 +1,1 @@
+KEY actor pekko.actor.serialization-bindings."java.lang.Integer" -> ok STRING "primitive-int"
