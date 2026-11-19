@@ -130,7 +130,7 @@ Fuera de la tabla por archivo: `rust/app-cases/` (grabaciones de la salida de Pe
 | `crates/rakka-actor/tests/fixtures/pekko-2.0.0-identity-cases.txt` | OK | Escrito desde cero (casos propios o comparación con los casos grabados). | Ninguna |
 | `crates/rakka-actor/tests/helpers_spec.rs` | OK | Casos de un spec de Pekko (Apache-2.0) con encabezado. | Ninguna |
 | `crates/rakka-actor/tests/local_actor_ref_provider_spec.rs` | OK | Casos de un spec de Pekko (Apache-2.0) con encabezado. | Ninguna |
-| `crates/rakka-actor/tests/oracle/config-hocon.golden` | OK con aviso | Salida grabada de com.typesafe:config 1.4.9 (Apache-2.0; dependencia de Pekko, no incluida). No se copió su código. | Ninguna; se regraba con el CLI del oráculo (Q-CFG-4) |
+| `crates/rakka-actor/tests/oracle/config-hocon.golden` | OK con aviso | Salida grabada de com.typesafe:config 1.4.9 (Apache-2.0; dependencia de Pekko, no incluida). No se copió su código. | Ninguna; regrabado con el CLI del oráculo (Q-CFG-4, 2026-11-18); incluye los valores de `reference.conf` de 2.0.0 (Apache-2.0), no el texto del archivo |
 | `crates/rakka-actor/tests/pekko_exception_spec.rs` | OK | Casos de un spec de Pekko (Apache-2.0) con encabezado. | Ninguna |
 | `crates/rakka-actor/tests/recorded_pekko.rs` | OK | Escrito desde cero (casos propios o comparación con los casos grabados). | Ninguna |
 | `crates/rakka-actor/tests/relative_actor_path_spec.rs` | OK | Casos de un spec de Pekko (Apache-2.0) con encabezado. | Ninguna |

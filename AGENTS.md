@@ -11,7 +11,7 @@ Port a Rust de los módulos de actores de Apache Pekko 2.0.0: `rakka-actor` (Cla
 - `rust/divergence-reports/` y `docs/evidence/pilot/` — evidencia del piloto (reportes por mutante, `INVENTORY.md`, `REPORT-3b.md`, `MIGRATION-README.md`).
 - `upstream/pekko/` — submódulo fijado en v2.0.0 (`9fbd2283…`; Scala 2.13.18, Config 1.4.9, JDK mínima 17). **Sólo lectura.** Ver `docs/upstream.md`. Las citas `path:line` del inventario apuntan a 2.0.0; `docs/inventory/pekko-2.0.0-reanchor.md` resume el reanclaje desde 1.7.1.
 - `crates/rakka-actor-typed/` — Typed (vacío hasta el slice correspondiente).
-- `crates/rakka-actor/tests/oracle/config-hocon.golden` — único golden jshell que queda (CFG, sin consumidor); se convierte a casos `rust-anything` cuando una unidad tome CFG. Los de PATH y UTIL ya son casos grabados.
+- `crates/rakka-actor/tests/oracle/config-hocon.golden` — golden de HOCON grabado con el CLI del oráculo (`oracle/run.sh config-hocon-all`, Q-CFG-4), con los casos de contrato y una línea `KEY` por clave de los `reference.conf` de 2.0.0 (`docs/evidence/config-hocon-golden.md`); P07 lo convierte a casos `rust-anything`. Los de PATH y UTIL ya son casos grabados.
 - `tools/oracle/` (jshell, jars 1.7.1) se eliminó (Q-X-12); su historia está en git.
 - `docs/inventory/` — inventario de alcance (`actor-classic.tsv`, `actor-typed.tsv` + resúmenes `.md`) y `contracts/` (contrato, fuente `path:line`, aserciones y oráculo de cada fila). Es la definición de "100%". Convenciones en `docs/inventory/README.md`.
 - `docs/decisions.md` (+ `docs/decisions/register.tsv`) — registro único de decisiones del Owner: autorizadas, propuestas y bloqueantes.

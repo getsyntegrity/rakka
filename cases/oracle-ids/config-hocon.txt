@@ -1,0 +1,469 @@
+FB-01 receiver scalar wins over fallback scalar
+FB-02 objects merge key by key, receiver wins on conflict
+FB-03 scalar in receiver replaces object in fallback
+FB-04 object in receiver over scalar in fallback keeps the receiver object
+FB-05 substitution is late-bound: override of referenced key is seen
+FB-06 resolving the fallback first freezes the substitution
+FB-07 chain of three: first receiver wins
+FB-08 explicit config only (no fallback) does not see reference keys
+FB-09 hasPath on null value is false
+FB-10 hasPathOrNull on null value is true
+SUB-01 optional substitution of a missing path leaves the key absent
+SUB-02 optional substitution concatenated with an array (reference.conf:78)
+SUB-03 same, with the optional path defined by the application
+SUB-04 required substitution of a missing path fails
+SUB-05 self-reference concatenates strings
+SUB-06 += appends to an existing list
+SUB-07 += on a missing key creates the list
+SUB-08 substitution to an unset environment variable, optional
+SUB-09 substitution to an unset environment variable, required
+SUB-10 cyclic substitution fails
+SUB-11 substitution inside a quoted string is not substituted
+SUB-12 a getter on an unresolved config fails
+SUB-13 substitution of an object merges with a later object
+SUB-14 reference.conf:878 shape: key set to another key's list
+INC-01 include of a missing file is ignored
+INC-02 required include of a missing file fails
+INC-03 file() include of a missing file is ignored
+INC-04 classpath() include of a missing resource is ignored
+DUR-MS 10 ms
+DUR-NS 10 ms
+DUR-MS 10ms
+DUR-NS 10ms
+DUR-MS 10 milliseconds
+DUR-NS 10 milliseconds
+DUR-MS 1 us
+DUR-NS 1 us
+DUR-MS 1us
+DUR-NS 1us
+DUR-MS 5 ns
+DUR-NS 5 ns
+DUR-MS 1 d
+DUR-NS 1 d
+DUR-MS 1d
+DUR-NS 1d
+DUR-MS 2 minutes
+DUR-NS 2 minutes
+DUR-MS 5 minutes
+DUR-NS 5 minutes
+DUR-MS 5s
+DUR-NS 5s
+DUR-MS 5 s
+DUR-NS 5 s
+DUR-MS 1 h
+DUR-NS 1 h
+DUR-MS 100
+DUR-NS 100
+DUR-MS 1.5 s
+DUR-NS 1.5 s
+DUR-MS 0.5 ms
+DUR-NS 0.5 ms
+DUR-MS -1s
+DUR-NS -1s
+DUR-MS 0
+DUR-NS 0
+DUR-MS 1 hour
+DUR-NS 1 hour
+DUR-MS 1 day
+DUR-NS 1 day
+DUR-ERR 5 foo
+DUR-ERR 
+DUR-ERR abc
+DUR-ERR 1 s s
+DUR-ERR infinite
+DUR-ERR off
+DUR-SCI scientific notation is accepted
+DUR-UNQUOTED 5 minutes
+DUR-NUMBER bare number is milliseconds
+DUR-ROUND 1 ns in millis truncates toward zero
+DUR-ROUND 999999 ns in millis truncates toward zero
+DUR-ROUND -1500 us in millis truncates toward zero
+DUR-LARGE overflow
+DUR-LARGE 292 years in ns still fits
+SIZE 128 KiB
+SIZE 128KiB
+SIZE 128 K
+SIZE 128 k
+SIZE 1 MB
+SIZE 1MB
+SIZE 1 kB
+SIZE 1 KB
+SIZE 512
+SIZE 512 B
+SIZE 512 bytes
+SIZE 1.5 KiB
+SIZE 1 GiB
+SIZE 1 MiB
+SIZE 1 g
+SIZE 0
+SIZE -1 KiB
+SIZE 1 TiB
+SIZE 256 MiB
+SIZE-ERR unlimited
+SIZE-ERR 128 XiB
+SIZE-ERR 
+SIZE-ERR KiB
+SIZE-ERR 1 KiB KiB
+SIZE-ERR 8 EiB
+SIZE-ERR 8388608 TiB
+SIZE-NUMBER bare number is bytes
+SIZE-MEMORY getMemorySize
+BOOL on
+BOOL off
+BOOL yes
+BOOL no
+BOOL true
+BOOL false
+BOOL "on"
+BOOL "off"
+BOOL "true"
+BOOL "yes"
+BOOL "maybe"
+BOOL 1
+BOOL "ON"
+TYPE-01 missing key
+TYPE-02 string where int expected
+TYPE-03 quoted number as int
+TYPE-04 int where string expected
+TYPE-05 object where string expected
+TYPE-06 list where string expected
+TYPE-07 null where string expected
+TYPE-08 long beyond int
+TYPE-09 double as int
+TYPE-10 whole double as int
+TYPE-11 getConfig on scalar
+TYPE-12 getString of boolean
+TYPE-13 getDouble of int
+SPECIAL-01 log-dead-letters = on is a boolean
+SPECIAL-02 log-dead-letters = 10 is a number
+SPECIAL-03 infinite is a string
+SPECIAL-04 unlimited is a string
+SPECIAL-05 off is a string by getString
+SPECIAL-06 on is a string by getString
+SPECIAL-07 5 minutes unquoted is a string
+SPECIAL-08 duration getter on infinite fails
+LIST-01 string list
+LIST-02 empty list
+LIST-03 mixed list as string list coerces
+LIST-04 list of objects
+LIST-05 numeric-keyed object as list
+LIST-06 trailing comma allowed
+LIST-07 missing comma between elements on one line fails
+REF-01 library-extensions default (line 78)
+REF-02 library-extensions with application value first
+REF-03 max-decompressed-size = unlimited (line 863)
+REF-04 direct-buffer-size = 128 KiB (line 966)
+REF-05 log-dead-letters-suspend-duration = 5 minutes (line 68)
+REF-06 key with dots in quotes is one key
+REF-07 unquoted key with hyphens
+REF-08 comment styles # and //
+REF-09 triple-quoted string keeps newlines
+REF-10 duplicate keys: later object merges, later scalar wins
+KEY actor pekko.actor.allow-java-serialization
+KEY actor pekko.actor.creation-timeout
+KEY actor pekko.actor.debug.autoreceive
+KEY actor pekko.actor.debug.event-stream
+KEY actor pekko.actor.debug.fsm
+KEY actor pekko.actor.debug.lifecycle
+KEY actor pekko.actor.debug.receive
+KEY actor pekko.actor.debug.router-misconfiguration
+KEY actor pekko.actor.debug.unhandled
+KEY actor pekko.actor.default-blocking-io-dispatcher.executor
+KEY actor pekko.actor.default-blocking-io-dispatcher.thread-pool-executor.fixed-pool-size
+KEY actor pekko.actor.default-blocking-io-dispatcher.thread-pool-executor.virtual-thread-start-number
+KEY actor pekko.actor.default-blocking-io-dispatcher.thread-pool-executor.virtualize
+KEY actor pekko.actor.default-blocking-io-dispatcher.throughput
+KEY actor pekko.actor.default-blocking-io-dispatcher.type
+KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.fair-work-distribution.threshold
+KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.idle-cpu-level
+KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.parallelism-factor
+KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.parallelism-max
+KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.parallelism-min
+KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.queue-selector
+KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.rejection-handler
+KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.task-queue-size
+KEY actor pekko.actor.default-dispatcher.attempt-teamwork
+KEY actor pekko.actor.default-dispatcher.default-executor.fallback
+KEY actor pekko.actor.default-dispatcher.executor
+KEY actor pekko.actor.default-dispatcher.fork-join-executor.maximum-pool-size
+KEY actor pekko.actor.default-dispatcher.fork-join-executor.minimum-runnable
+KEY actor pekko.actor.default-dispatcher.fork-join-executor.parallelism-factor
+KEY actor pekko.actor.default-dispatcher.fork-join-executor.parallelism-max
+KEY actor pekko.actor.default-dispatcher.fork-join-executor.parallelism-min
+KEY actor pekko.actor.default-dispatcher.fork-join-executor.task-peeking-mode
+KEY actor pekko.actor.default-dispatcher.fork-join-executor.virtual-thread-start-number
+KEY actor pekko.actor.default-dispatcher.fork-join-executor.virtualize
+KEY actor pekko.actor.default-dispatcher.mailbox-requirement
+KEY actor pekko.actor.default-dispatcher.shutdown-timeout
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.allow-core-timeout
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-factor
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-max
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-min
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.fixed-pool-size
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.keep-alive-time
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.max-pool-size-factor
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.max-pool-size-max
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.max-pool-size-min
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.task-queue-size
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.task-queue-type
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.virtual-thread-start-number
+KEY actor pekko.actor.default-dispatcher.thread-pool-executor.virtualize
+KEY actor pekko.actor.default-dispatcher.throughput
+KEY actor pekko.actor.default-dispatcher.throughput-deadline-time
+KEY actor pekko.actor.default-dispatcher.type
+KEY actor pekko.actor.default-dispatcher.virtual-thread-executor.fallback
+KEY actor pekko.actor.default-dispatcher.virtual-thread-executor.virtual-thread-start-number
+KEY actor pekko.actor.default-mailbox.mailbox-capacity
+KEY actor pekko.actor.default-mailbox.mailbox-push-timeout-time
+KEY actor pekko.actor.default-mailbox.mailbox-type
+KEY actor pekko.actor.default-mailbox.stash-capacity
+KEY actor pekko.actor.deployment."/IO-DNS/async-dns".mailbox
+KEY actor pekko.actor.deployment."/IO-DNS/async-dns".nr-of-instances
+KEY actor pekko.actor.deployment."/IO-DNS/async-dns".router
+KEY actor pekko.actor.deployment."/IO-DNS/async-dns/*".dispatcher
+KEY actor pekko.actor.deployment."/IO-DNS/inet-address".mailbox
+KEY actor pekko.actor.deployment."/IO-DNS/inet-address".nr-of-instances
+KEY actor pekko.actor.deployment."/IO-DNS/inet-address".router
+KEY actor pekko.actor.deployment."/IO-DNS/inet-address/*".dispatcher
+KEY actor pekko.actor.deployment.default.dispatcher
+KEY actor pekko.actor.deployment.default.mailbox
+KEY actor pekko.actor.deployment.default.nr-of-instances
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.action-interval
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.chance-of-exploration
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.chance-of-ramping-down-when-full
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.downsize-after-underutilized-for
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.downsize-ratio
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.enabled
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.explore-step-size
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.lower-bound
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.optimization-range
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.upper-bound
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.weight-of-latest-metric
+KEY actor pekko.actor.deployment.default.resizer.backoff-rate
+KEY actor pekko.actor.deployment.default.resizer.backoff-threshold
+KEY actor pekko.actor.deployment.default.resizer.enabled
+KEY actor pekko.actor.deployment.default.resizer.lower-bound
+KEY actor pekko.actor.deployment.default.resizer.messages-per-resize
+KEY actor pekko.actor.deployment.default.resizer.pressure-threshold
+KEY actor pekko.actor.deployment.default.resizer.rampup-rate
+KEY actor pekko.actor.deployment.default.resizer.upper-bound
+KEY actor pekko.actor.deployment.default.routees.paths
+KEY actor pekko.actor.deployment.default.router
+KEY actor pekko.actor.deployment.default.tail-chopping-router.interval
+KEY actor pekko.actor.deployment.default.virtual-nodes-factor
+KEY actor pekko.actor.deployment.default.within
+KEY actor pekko.actor.guardian-supervisor-strategy
+KEY actor pekko.actor.internal-dispatcher.executor
+KEY actor pekko.actor.internal-dispatcher.fork-join-executor.minimum-runnable
+KEY actor pekko.actor.internal-dispatcher.fork-join-executor.parallelism-factor
+KEY actor pekko.actor.internal-dispatcher.fork-join-executor.parallelism-max
+KEY actor pekko.actor.internal-dispatcher.fork-join-executor.parallelism-min
+KEY actor pekko.actor.internal-dispatcher.throughput
+KEY actor pekko.actor.internal-dispatcher.type
+KEY actor pekko.actor.mailbox.bounded-control-aware-queue-based.mailbox-type
+KEY actor pekko.actor.mailbox.bounded-deque-based.mailbox-type
+KEY actor pekko.actor.mailbox.bounded-queue-based.mailbox-type
+KEY actor pekko.actor.mailbox.logger-queue.mailbox-type
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.BoundedControlAwareMessageQueueSemantics"
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.BoundedDequeBasedMessageQueueSemantics"
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.BoundedMessageQueueSemantics"
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.ControlAwareMessageQueueSemantics"
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.DequeBasedMessageQueueSemantics"
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.MultipleConsumerSemantics"
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.UnboundedControlAwareMessageQueueSemantics"
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.UnboundedDequeBasedMessageQueueSemantics"
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.UnboundedMessageQueueSemantics"
+KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.event.LoggerMessageQueueSemantics"
+KEY actor pekko.actor.mailbox.unbounded-control-aware-queue-based.mailbox-type
+KEY actor pekko.actor.mailbox.unbounded-deque-based.mailbox-type
+KEY actor pekko.actor.mailbox.unbounded-queue-based.mailbox-type
+KEY actor pekko.actor.no-serialization-verification-needed-class-prefix
+KEY actor pekko.actor.provider
+KEY actor pekko.actor.router.type-mapping.balancing-pool
+KEY actor pekko.actor.router.type-mapping.broadcast-group
+KEY actor pekko.actor.router.type-mapping.broadcast-pool
+KEY actor pekko.actor.router.type-mapping.consistent-hashing-group
+KEY actor pekko.actor.router.type-mapping.consistent-hashing-pool
+KEY actor pekko.actor.router.type-mapping.from-code
+KEY actor pekko.actor.router.type-mapping.random-group
+KEY actor pekko.actor.router.type-mapping.random-pool
+KEY actor pekko.actor.router.type-mapping.round-robin-group
+KEY actor pekko.actor.router.type-mapping.round-robin-pool
+KEY actor pekko.actor.router.type-mapping.scatter-gather-group
+KEY actor pekko.actor.router.type-mapping.scatter-gather-pool
+KEY actor pekko.actor.router.type-mapping.smallest-mailbox-pool
+KEY actor pekko.actor.router.type-mapping.tail-chopping-group
+KEY actor pekko.actor.router.type-mapping.tail-chopping-pool
+KEY actor pekko.actor.serialization-bindings."[B"
+KEY actor pekko.actor.serialization-bindings."java.io.Serializable"
+KEY actor pekko.actor.serialization-bindings."java.lang.Boolean"
+KEY actor pekko.actor.serialization-bindings."java.lang.Integer"
+KEY actor pekko.actor.serialization-bindings."java.lang.Long"
+KEY actor pekko.actor.serialization-bindings."java.lang.String"
+KEY actor pekko.actor.serialization-bindings."org.apache.pekko.util.ByteString$ByteString1"
+KEY actor pekko.actor.serialization-bindings."org.apache.pekko.util.ByteString$ByteString1C"
+KEY actor pekko.actor.serialization-bindings."org.apache.pekko.util.ByteString$ByteString2"
+KEY actor pekko.actor.serialization-bindings."org.apache.pekko.util.ByteString$ByteStrings"
+KEY actor pekko.actor.serialization-bindings."scala.Boolean"
+KEY actor pekko.actor.serialization-bindings."scala.Int"
+KEY actor pekko.actor.serialization-bindings."scala.Long"
+KEY actor pekko.actor.serialization-identifiers."org.apache.pekko.serialization.ByteArraySerializer"
+KEY actor pekko.actor.serialization-identifiers."org.apache.pekko.serialization.JavaSerializer"
+KEY actor pekko.actor.serialization-identifiers.primitive-boolean
+KEY actor pekko.actor.serialization-identifiers.primitive-bytestring
+KEY actor pekko.actor.serialization-identifiers.primitive-int
+KEY actor pekko.actor.serialization-identifiers.primitive-long
+KEY actor pekko.actor.serialization-identifiers.primitive-string
+KEY actor pekko.actor.serialization-max-nesting-depth
+KEY actor pekko.actor.serialize-creators
+KEY actor pekko.actor.serialize-messages
+KEY actor pekko.actor.serializers.bytes
+KEY actor pekko.actor.serializers.java
+KEY actor pekko.actor.serializers.primitive-boolean
+KEY actor pekko.actor.serializers.primitive-bytestring
+KEY actor pekko.actor.serializers.primitive-int
+KEY actor pekko.actor.serializers.primitive-long
+KEY actor pekko.actor.serializers.primitive-string
+KEY actor pekko.actor.unstarted-push-timeout
+KEY actor pekko.actor.warn-about-java-serializer-usage
+KEY actor pekko.actor.warn-on-no-serialization-verification
+KEY actor pekko.circuit-breaker.default.call-timeout
+KEY actor pekko.circuit-breaker.default.exception-allowlist
+KEY actor pekko.circuit-breaker.default.exponential-backoff
+KEY actor pekko.circuit-breaker.default.max-failures
+KEY actor pekko.circuit-breaker.default.max-reset-timeout
+KEY actor pekko.circuit-breaker.default.random-factor
+KEY actor pekko.circuit-breaker.default.reset-timeout
+KEY actor pekko.coordinated-shutdown.close-actor-system-timeout
+KEY actor pekko.coordinated-shutdown.default-phase-timeout
+KEY actor pekko.coordinated-shutdown.exit-code
+KEY actor pekko.coordinated-shutdown.exit-jvm
+KEY actor pekko.coordinated-shutdown.phases.actor-system-terminate.depends-on
+KEY actor pekko.coordinated-shutdown.phases.actor-system-terminate.timeout
+KEY actor pekko.coordinated-shutdown.phases.before-actor-system-terminate.depends-on
+KEY actor pekko.coordinated-shutdown.phases.before-cluster-shutdown.depends-on
+KEY actor pekko.coordinated-shutdown.phases.cluster-exiting-done.depends-on
+KEY actor pekko.coordinated-shutdown.phases.cluster-exiting.depends-on
+KEY actor pekko.coordinated-shutdown.phases.cluster-exiting.timeout
+KEY actor pekko.coordinated-shutdown.phases.cluster-leave.depends-on
+KEY actor pekko.coordinated-shutdown.phases.cluster-sharding-shutdown-region.depends-on
+KEY actor pekko.coordinated-shutdown.phases.cluster-sharding-shutdown-region.timeout
+KEY actor pekko.coordinated-shutdown.phases.cluster-shutdown.depends-on
+KEY actor pekko.coordinated-shutdown.phases.service-requests-done.depends-on
+KEY actor pekko.coordinated-shutdown.phases.service-stop.depends-on
+KEY actor pekko.coordinated-shutdown.phases.service-unbind.depends-on
+KEY actor pekko.coordinated-shutdown.reason-overrides."org.apache.pekko.actor.CoordinatedShutdown$ClusterDowningReason$".exit-code
+KEY actor pekko.coordinated-shutdown.reason-overrides."org.apache.pekko.actor.CoordinatedShutdown$ClusterJoinUnsuccessfulReason$".exit-code
+KEY actor pekko.coordinated-shutdown.run-by-actor-system-terminate
+KEY actor pekko.coordinated-shutdown.run-by-jvm-shutdown-hook
+KEY actor pekko.coordinated-shutdown.terminate-actor-system
+KEY actor pekko.daemonic
+KEY actor pekko.extensions
+KEY actor pekko.fail-mixed-versions
+KEY actor pekko.home
+KEY actor pekko.io.dns.async-dns.cache-cleanup-interval
+KEY actor pekko.io.dns.async-dns.id-generator-policy
+KEY actor pekko.io.dns.async-dns.nameservers
+KEY actor pekko.io.dns.async-dns.ndots
+KEY actor pekko.io.dns.async-dns.negative-ttl
+KEY actor pekko.io.dns.async-dns.positive-ttl
+KEY actor pekko.io.dns.async-dns.provider-object
+KEY actor pekko.io.dns.async-dns.resolve-timeout
+KEY actor pekko.io.dns.async-dns.search-domains
+KEY actor pekko.io.dns.dispatcher
+KEY actor pekko.io.dns.inet-address.cache-cleanup-interval
+KEY actor pekko.io.dns.inet-address.negative-ttl
+KEY actor pekko.io.dns.inet-address.positive-ttl
+KEY actor pekko.io.dns.inet-address.provider-object
+KEY actor pekko.io.dns.resolver
+KEY actor pekko.io.pinned-dispatcher.executor
+KEY actor pekko.io.pinned-dispatcher.thread-pool-executor.allow-core-timeout
+KEY actor pekko.io.pinned-dispatcher.type
+KEY actor pekko.io.tcp.batch-accept-limit
+KEY actor pekko.io.tcp.direct-buffer-pool-limit
+KEY actor pekko.io.tcp.direct-buffer-size
+KEY actor pekko.io.tcp.file-io-dispatcher
+KEY actor pekko.io.tcp.file-io-transferTo-limit
+KEY actor pekko.io.tcp.finish-connect-retries
+KEY actor pekko.io.tcp.management-dispatcher
+KEY actor pekko.io.tcp.max-channels
+KEY actor pekko.io.tcp.max-received-message-size
+KEY actor pekko.io.tcp.nr-of-selectors
+KEY actor pekko.io.tcp.register-timeout
+KEY actor pekko.io.tcp.selector-association-retries
+KEY actor pekko.io.tcp.selector-dispatcher
+KEY actor pekko.io.tcp.trace-logging
+KEY actor pekko.io.tcp.windows-connection-abort-workaround-enabled
+KEY actor pekko.io.tcp.worker-dispatcher
+KEY actor pekko.io.udp-connected.direct-buffer-pool-limit
+KEY actor pekko.io.udp-connected.direct-buffer-size
+KEY actor pekko.io.udp-connected.management-dispatcher
+KEY actor pekko.io.udp-connected.max-channels
+KEY actor pekko.io.udp-connected.nr-of-selectors
+KEY actor pekko.io.udp-connected.receive-throughput
+KEY actor pekko.io.udp-connected.select-timeout
+KEY actor pekko.io.udp-connected.selector-association-retries
+KEY actor pekko.io.udp-connected.selector-dispatcher
+KEY actor pekko.io.udp-connected.trace-logging
+KEY actor pekko.io.udp-connected.worker-dispatcher
+KEY actor pekko.io.udp.direct-buffer-pool-limit
+KEY actor pekko.io.udp.direct-buffer-size
+KEY actor pekko.io.udp.management-dispatcher
+KEY actor pekko.io.udp.max-channels
+KEY actor pekko.io.udp.nr-of-selectors
+KEY actor pekko.io.udp.receive-throughput
+KEY actor pekko.io.udp.select-timeout
+KEY actor pekko.io.udp.selector-association-retries
+KEY actor pekko.io.udp.selector-dispatcher
+KEY actor pekko.io.udp.trace-logging
+KEY actor pekko.io.udp.worker-dispatcher
+KEY actor pekko.java-flight-recorder.enabled
+KEY actor pekko.jvm-exit-on-fatal-error
+KEY actor pekko.jvm-shutdown-hooks
+KEY actor pekko.library-extensions
+KEY actor pekko.log-config-on-start
+KEY actor pekko.log-dead-letters
+KEY actor pekko.log-dead-letters-during-shutdown
+KEY actor pekko.log-dead-letters-suspend-duration
+KEY actor pekko.logger-startup-timeout
+KEY actor pekko.loggers
+KEY actor pekko.loggers-dispatcher
+KEY actor pekko.logging-filter
+KEY actor pekko.loglevel
+KEY actor pekko.scheduled-clock-interval
+KEY actor pekko.scheduler.error-on-tick-duration-verification-failed
+KEY actor pekko.scheduler.implementation
+KEY actor pekko.scheduler.shutdown-timeout
+KEY actor pekko.scheduler.tick-duration
+KEY actor pekko.scheduler.ticks-per-wheel
+KEY actor pekko.serialization.max-decompressed-size
+KEY actor pekko.serialization.protobuf.allowed-classes
+KEY actor pekko.serialization.protobuf.whitelist-class
+KEY actor pekko.stdout-loglevel
+KEY actor-typed pekko.actor.serialization-bindings."org.apache.pekko.actor.typed.ActorRef"
+KEY actor-typed pekko.actor.serialization-bindings."org.apache.pekko.actor.typed.internal.adapter.ActorRefAdapter"
+KEY actor-typed pekko.actor.serialization-bindings."org.apache.pekko.actor.typed.internal.receptionist.DefaultServiceKey"
+KEY actor-typed pekko.actor.serialization-identifiers."org.apache.pekko.actor.typed.internal.MiscMessageSerializer"
+KEY actor-typed pekko.actor.serialization-identifiers."org.apache.pekko.actor.typed.internal.receptionist.ServiceKeySerializer"
+KEY actor-typed pekko.actor.serializers.service-key
+KEY actor-typed pekko.actor.serializers.typed-misc
+KEY actor-typed pekko.actor.typed.default-mailbox.mailbox-type
+KEY actor-typed pekko.actor.typed.extensions
+KEY actor-typed pekko.actor.typed.library-extensions
+KEY actor-typed pekko.actor.typed.restart-stash-capacity
+KEY actor-typed pekko.library-extensions
+KEY actor-typed pekko.reliable-delivery.consumer-controller.flow-control-window
+KEY actor-typed pekko.reliable-delivery.consumer-controller.only-flow-control
+KEY actor-typed pekko.reliable-delivery.consumer-controller.resend-interval-max
+KEY actor-typed pekko.reliable-delivery.consumer-controller.resend-interval-min
+KEY actor-typed pekko.reliable-delivery.producer-controller.chunk-large-messages
+KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.request-timeout
+KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.resend-first-interval
+KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.retry-attempts
+KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.buffer-size
+KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.chunk-large-messages
+KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.request-timeout
+KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.resend-first-interval
+KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.retry-attempts
+KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.internal-ask-timeout
+KEY actor-typed pekko.use-slf4j
