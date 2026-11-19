@@ -13,7 +13,7 @@
 
 ## P01 PATH
 
-16 filas; 7 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 0 propuestas.
+16 filas; 8 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -24,6 +24,7 @@
 | Q-PATH-5 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-PATH-009 | Bloquea: AC-PATH-009 (cierre); puede avanzar: AC-PATH-007/008. | — | `classic-foundation` |
 | Q-PATH-6 | accepted_with_changes (2026-11-18): aceptar (b): reescritura en sala limpia de uri.rs y jstring.rs desde RFC 2396/3986/3629 y los casos grabados, por un agente que no lee los archivos actuales… | 7: AC-PATH-002, AC-PATH-004, AC-PATH-005, AC-PATH-006, AC-PATH-007, AC-PATH-011 … (+1) | Bloquea: publicación de uri.rs/jstring.rs; puede avanzar: el resto de PATH. | — | `classic-foundation` |
 | Q-UTIL-14 | accepted (2026-11-18): aceptar (a) para FrequencySketch, incluida la validación de desbordamiento de 2.0.0, y (b) para el resto. | 2: AC-PATH-001, AC-PATH-014 | Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*. | — | `classic-foundation` |
+| Q-PATH-7 | propuesta | 1: AC-PATH-004 | — | — | `classic-foundation` |
 
 ## P02 UTIL-NUCLEO
 
@@ -96,7 +97,7 @@
 
 ## P07 CFG-HOCON
 
-12 filas; 10 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 4 propuestas.
+12 filas; 12 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 6 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -109,11 +110,13 @@
 | Q-CFG-14 | propuesta | 2: AC-CFG-001, AC-CFG-017.6 | Bloquea: nada; las filas quedan `partial` hasta medir los mensajes de file/url. | — | `classic-foundation` |
 | Q-CFG-15 | propuesta | 9: AC-CFG-001, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5 … (+3) | — | — | `classic-foundation` |
 | Q-CFG-16 | propuesta | 1: AC-CFG-001 | — | — | `classic-foundation` |
+| Q-CFG-18 | propuesta | 1: AC-CFG-019 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
+| Q-CFG-19 | propuesta | 1: AC-CFG-019 | Bloquea: nada; reversible. | — | `classic-foundation` |
 | Q-CFG-30 | propuesta | 2: AC-CFG-017.1, AC-UTIL-002.5 | — | — | `classic-foundation` |
 
 ## P08 CFG-AJUSTES
 
-10 filas; 10 decisiones distintas en sus filas: 10 respondidas, 0 bloqueantes, 0 propuestas.
+10 filas; 14 decisiones distintas en sus filas: 10 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -123,10 +126,14 @@
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 2: AC-CFG-002, AC-CFG-005 | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-CFG-7 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-CFG-007 | Bloquea: AC-CFG-007 y AC-UTIL-016.11 (impl); puede avanzar: aceptar y validar las claves. | — | `classic-foundation` |
 | Q-CFG-8 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-CFG-006 | Bloquea: AC-CFG-006 y AC-EXT-003; puede avanzar: AC-EXT-001.*, AC-EXT-002. | — | `classic-foundation` |
-| Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 3: AC-CFG-004, AC-CFG-006, AC-CFG-009 | — | — | `transversal` |
+| Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 4: AC-CFG-004, AC-CFG-006, AC-CFG-009, AC-CFG-018 | — | — | `transversal` |
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-CFG-010 | — | — | `transversal` |
 | Q-X-6 | accepted (2026-11-18): aceptar (A). | 1: AC-CFG-011 | — | — | `transversal` |
 | Q-X-7 | accepted (2026-11-18): aceptar (A). | 3: AC-CFG-004, AC-CFG-011, AC-CFG-018 | — | — | `transversal` |
+| Q-CFG-15 | propuesta | 9: AC-CFG-002, AC-CFG-004, AC-CFG-005, AC-CFG-006, AC-CFG-007, AC-CFG-009 … (+3) | — | — | `classic-foundation` |
+| Q-CFG-17 | propuesta | 2: AC-CFG-002, AC-CFG-010 | Bloquea: nada; AC-CFG-010 queda `partial` hasta AC-SER. | — | `classic-foundation` |
+| Q-CFG-18 | propuesta | 1: AC-CFG-002 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
+| Q-CFG-19 | propuesta | 1: AC-CFG-002 | Bloquea: nada; reversible. | — | `classic-foundation` |
 
 ## P09 CFG-ENTORNO
 
@@ -1035,4 +1042,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 478 (231 respondidas, 0 bloqueantes, 247 propuestas).
+Total de pares unidad–decisión: 485 (231 respondidas, 0 bloqueantes, 254 propuestas).

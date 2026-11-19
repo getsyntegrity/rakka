@@ -7,6 +7,7 @@ mod model;
 mod parse;
 mod reference;
 mod resolve;
+mod settings;
 mod units;
 mod validate;
 
@@ -19,6 +20,10 @@ pub use error::{ConfigError, ConfigErrorKind};
 pub use model::Number;
 pub use parse::Resources;
 pub use reference::{ACTOR_REFERENCE_CONF, TYPED_REFERENCE_CONF};
+pub use settings::{
+    DEFAULT_LOGGER, DEFAULT_LOGGING_FILTER, SLF4J_LOGGER, SLF4J_LOGGING_FILTER, Settings,
+    SettingsError, SuspendDuration, amend_slf4j_config, normalize_extension_name,
+};
 
 use model::{Kind, Obj, Val, join_path, merge_obj, quote};
 
@@ -195,6 +200,22 @@ impl Config {
         )
         .and_then(|c| c.resolve())
         .expect("the embedded reference.conf is valid")
+    }
+
+    /// What `ConfigFactory.defaultReference()` gives when `pekko-actor-typed` is on the classpath: its `reference.conf`
+    /// over the one of `pekko-actor`, resolved.
+    #[doc(hidden)]
+    pub fn default_reference_with_typed() -> Config {
+        let actor = Config::parse_string_with(
+            ACTOR_REFERENCE_CONF,
+            &[("version", reference::VERSION_CONF)],
+        )
+        .expect("the embedded reference.conf is valid");
+        Config::parse_string(TYPED_REFERENCE_CONF)
+            .expect("the embedded typed reference.conf is valid")
+            .with_fallback(&actor)
+            .resolve()
+            .expect("the embedded reference.conf files resolve")
     }
 
     /// `ConfigFactory.load()` with the sources of Q-CFG-6 (a): the application file (default `application.conf` in the

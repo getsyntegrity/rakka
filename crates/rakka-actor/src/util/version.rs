@@ -11,7 +11,9 @@ use crate::util::hash_code;
 /// What `Version(String)` can throw.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum VersionError {
+    /// The text is not a valid version (wrong shape).
     IllegalArgument(IllegalArgumentError),
+    /// A component of the version text is not a number.
     NumberFormat(NumberFormatError),
 }
 

@@ -1,6 +1,6 @@
 # Spec 01 — AC-PATH (1/1)
 
-**Estado:** sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias. **Filas:** 13. **Tareas:** 3 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 13. **Tareas:** 3 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -15,7 +15,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-PATH-003, AC-PATH-012, AC-PAT
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-PATH-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -57,7 +57,7 @@ Filas: AC-PATH-016. Contratos y aserciones: `docs/inventory/contracts/classic-fo
 |---|---|---|---|---|
 | AC-PATH-001 | Address: protocol, system, host?, port?; alcance local vs global; toString y… | `pub struct Address { protocol, system, host: Option<String>, port: Option<i32> }` con… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:195-212 ;… | Q-PATH-3, Q-PATH-4, Q-UTIL-14 |
 | AC-PATH-002 | Orden de Address (addressOrdering) | `Address::pekko_compare(&self, &Address) -> Ordering` (sin `impl Ord`) | actor-tests/src/test/scala/org/apache/pekko/actor/AddressSpec.scala:26-37 | Q-PATH-1, Q-PATH-6 |
-| AC-PATH-004 | AddressFromURIString / parse (semántica de java.net.URI) | parser propio del subconjunto RFC 2396 (`uri.rs`) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:41-49,204 ;… | Q-PATH-4, Q-PATH-6 |
+| AC-PATH-004 | AddressFromURIString / parse (semántica de java.net.URI) | parser propio del subconjunto RFC 2396 (`uri.rs`) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:41-49,204 ;… | Q-PATH-4, Q-PATH-6, Q-PATH-7 |
 | AC-PATH-005 | RelativeActorPath (extractor de paths relativos) | `fn relative_actor_path(&str) -> Option<Vec<String>>` | actor-tests/src/test/scala/org/apache/pekko/actor/RelativeActorPathSpec.scala:27-40 | Q-PATH-6 |
 | AC-PATH-006 | ActorPathExtractor (Address + elementos desde URI absoluta) | función de parseo | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:26-49 | Q-PATH-6 |
 | AC-PATH-007 | ActorPath.fromString | `ActorPath::from_string(&str) -> Result<ActorPath, MalformedUrl>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:26-57 | Q-PATH-4, Q-PATH-6 |

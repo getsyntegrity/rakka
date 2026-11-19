@@ -29,6 +29,7 @@ use std::hash::{Hash, Hasher};
 
 /// A key type and the type of the values stored under it.
 pub trait TypedKey: Clone + Eq + Hash {
+    /// The type of the values stored under this key.
     type Value: Clone + Eq + Hash;
 }
 

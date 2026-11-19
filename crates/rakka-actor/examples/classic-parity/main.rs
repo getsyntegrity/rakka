@@ -9,13 +9,16 @@
 
 mod bytes_cases;
 mod config_hocon_cases;
+mod config_settings_cases;
 mod fronteras_cases;
 mod json;
 mod path_address_cases;
 mod path_case;
 mod scenario;
 mod structures_cases;
+mod text_escape;
 mod util_core_cases;
+mod xorshift;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;
@@ -116,6 +119,15 @@ fn main() -> ExitCode {
         }
         "config-hocon-case" => {
             return oracle_case(&mut out, &input, config_hocon_cases::rust_lines());
+        }
+        "config-settings-ids" => print_ids(&mut out, config_settings_cases::rust_lines()),
+        "config-settings-all" => {
+            for (_, line) in config_settings_cases::rust_lines() {
+                writeln!(out, "{line}").ok();
+            }
+        }
+        "config-settings-case" => {
+            return oracle_case(&mut out, &input, config_settings_cases::rust_lines());
         }
         "path-from-string-lines" => {
             let mut buf = String::new();

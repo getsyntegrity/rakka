@@ -164,6 +164,32 @@ pub enum QueueEvent {
 
 type Listener = Arc<dyn Fn(QueueEvent) + Send + Sync>;
 
+/// Time left before `deadline`, `None` once it has passed. `Some(None)` means there is no deadline: Java saturates a
+/// timeout past `Long.MAX_VALUE` nanoseconds and waits for as long as it takes, and `Instant` cannot hold such a point.
+pub(crate) fn remaining_until(deadline: Option<Instant>) -> Option<Option<Duration>> {
+    match deadline {
+        None => Some(None),
+        Some(deadline) => deadline.checked_duration_since(Instant::now()).map(Some),
+    }
+}
+
+/// Parks on `condvar` for at most `remaining` (for as long as it takes when `None`) and hands the guard back.
+pub(crate) fn wait_up_to<'a, T>(
+    condvar: &Condvar,
+    guard: MutexGuard<'a, T>,
+    remaining: Option<Duration>,
+) -> MutexGuard<'a, T> {
+    match remaining {
+        Some(remaining) => {
+            condvar
+                .wait_timeout(guard, remaining)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0
+        }
+        None => condvar.wait(guard).unwrap_or_else(PoisonError::into_inner),
+    }
+}
+
 struct Inner<E> {
     backing: Box<dyn BackingQueue<E>>,
 }
@@ -299,7 +325,7 @@ impl<E: QueueElement + 'static> BoundedBlockingQueue<E> {
 
     /// `offer(e, timeout, unit)`: adds the element, waiting up to `timeout` for room; false on timeout.
     pub fn offer_timeout(&self, element: E, timeout: Duration) -> bool {
-        let deadline = Instant::now() + timeout;
+        let deadline = Instant::now().checked_add(timeout);
         let mut guard = self.lock();
         loop {
             if guard.backing.len() < self.max_capacity {
@@ -310,34 +336,26 @@ impl<E: QueueElement + 'static> BoundedBlockingQueue<E> {
                 self.signal_not_empty();
                 return true;
             }
-            let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
+            let Some(remaining) = remaining_until(deadline) else {
                 return false;
             };
             self.emit(QueueEvent::AwaitNotFull);
-            guard = self
-                .not_full
-                .wait_timeout(guard, remaining)
-                .unwrap_or_else(PoisonError::into_inner)
-                .0;
+            guard = wait_up_to(&self.not_full, guard, remaining);
         }
     }
 
     /// `poll(timeout, unit)`: removes the head, waiting up to `timeout` for one; `None` on timeout.
     pub fn poll_timeout(&self, timeout: Duration) -> Option<E> {
-        let deadline = Instant::now() + timeout;
+        let deadline = Instant::now().checked_add(timeout);
         let mut guard = self.lock();
         loop {
             if let Some(element) = guard.backing.poll() {
                 self.signal_not_full();
                 return Some(element);
             }
-            let remaining = deadline.checked_duration_since(Instant::now())?;
+            let remaining = remaining_until(deadline)?;
             self.emit(QueueEvent::AwaitNotEmpty);
-            guard = self
-                .not_empty
-                .wait_timeout(guard, remaining)
-                .unwrap_or_else(PoisonError::into_inner)
-                .0;
+            guard = wait_up_to(&self.not_empty, guard, remaining);
         }
     }
 

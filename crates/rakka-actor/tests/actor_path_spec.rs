@@ -163,7 +163,7 @@ fn detect_valid_and_invalid_chars_in_host_names() {
         Address::remote("pekko", "sys", "is_valid.org", 0),
         Address::remote("pekko", "sys", "fu.is_valid.org", 0),
     ];
-    assert!(!valid.iter().all(Address::has_invalid_host_characters));
+    assert!(!valid.iter().any(Address::has_invalid_host_characters));
 
     let invalid = [
         Address::remote("pekko", "sys", "in_valid", 0),
@@ -186,11 +186,6 @@ fn not_fail_fast_if_the_check_is_called_on_valid_chars_in_host_names() {
 
 #[test]
 fn fail_fast_if_the_check_is_called_when_invalid_chars_are_in_host_names() {
-    for host in ["localhost", "is_valid.org", "fu.is_valid.org"] {
-        Address::remote("pekko", "sys", host, 0)
-            .check_host_characters()
-            .unwrap();
-    }
     for host in ["in_valid", "invalid._org"] {
         let err = Address::remote("pekko", "sys", host, 0)
             .check_host_characters()

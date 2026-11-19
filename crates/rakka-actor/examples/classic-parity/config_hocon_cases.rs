@@ -3,24 +3,13 @@
 //! Rust `Config` API and renders it with the oracle's line format. The `KEY` cases list every leaf key of the
 //! embedded `reference.conf` files.
 
+use crate::text_escape::escape_non_ascii_units;
 use rakka_actor::config::{ACTOR_REFERENCE_CONF, Config, ConfigError, TYPED_REFERENCE_CONF};
 use rakka_actor::util::TimeUnit;
 
 /// Oracle ids Rust does not produce on purpose: `(id, reason)`. Each must exist in the oracle.
 #[allow(dead_code)]
 pub const PENDING: &[(&str, &str)] = &[];
-
-fn esc(s: &str) -> String {
-    let mut out = String::new();
-    for unit in s.encode_utf16() {
-        if (0x20..=0x7e).contains(&unit) {
-            out.push(char::from(u8::try_from(unit).expect("ASCII")));
-        } else {
-            out.push_str(&format!("\\u{unit:04X}"));
-        }
-    }
-    out
-}
 
 fn parse(text: &str) -> Result<Config, ConfigError> {
     Config::parse_string(text)
@@ -67,7 +56,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
             Ok(v) => format!("ok {v}"),
             Err(e) => format!("ERR {} [{}]", e.kind().java_name(), e.message()),
         };
-        lines.push((esc(&id), esc(&format!("{id} -> {line}"))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {line}")),
+        ));
     };
     let s = |v: &str| v.to_owned();
 

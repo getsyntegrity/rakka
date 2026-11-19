@@ -464,6 +464,24 @@ MUTANTS = {
         "(a.seq_num.wrapping_sub(b.seq_num) as i64) > 0,",
         "elements of equal priority come out last in first out instead of first in first out",
     ),
+    "bounded-queue-poll-deadline-overflows": (
+        "src/util/bounded_blocking_queue.rs",
+        "        let deadline = Instant::now().checked_add(timeout);\n        let mut guard = self.lock();\n        loop {\n            if let Some(element) = guard.backing.poll() {",
+        "        let deadline = Some(Instant::now() + timeout);\n        let mut guard = self.lock();\n        loop {\n            if let Some(element) = guard.backing.poll() {",
+        "poll(Long.MAX_VALUE, ...) adds the timeout to Instant::now() unchecked and panics instead of waiting without a deadline (BQ-C9, BQ-C10)",
+    ),
+    "bounded-queue-offer-deadline-overflows": (
+        "src/util/bounded_blocking_queue.rs",
+        "        let deadline = Instant::now().checked_add(timeout);\n        let mut guard = self.lock();\n        loop {\n            if guard.backing.len() < self.max_capacity {",
+        "        let deadline = Some(Instant::now() + timeout);\n        let mut guard = self.lock();\n        loop {\n            if guard.backing.len() < self.max_capacity {",
+        "offer(e, Long.MAX_VALUE, ...) on a full queue panics on the deadline arithmetic instead of waiting for room (BQ-C11)",
+    ),
+    "bounded-queue-no-deadline-means-expired": (
+        "src/util/bounded_blocking_queue.rs",
+        "        None => Some(None),\n",
+        "        None => None,\n",
+        "a timeout too large for an Instant is treated as already expired: poll returns null at once instead of waiting for the element (BQ-C9)",
+    ),
     "int-map-hash-starts-at-zero": (
         "src/util/immutable_int_map.rs",
         ".fold(1_i32,",
@@ -549,8 +567,8 @@ MUTANTS = {
     ),
     "hocon-duration-floors-negative": (
         "src/config/units.rs",
-        "clamp(total / i128::from(target.nanos()))",
-        "clamp(total.div_euclid(i128::from(target.nanos())))",
+        "            ns / target.nanos()\n        }\n        NumRepr::Float",
+        "            ns.div_euclid(target.nanos())\n        }\n        NumRepr::Float",
         "a negative duration is converted by flooring instead of truncating toward zero (-1500 us is -2 ms, not -1 ms)",
     ),
     "hocon-size-accepts-uppercase-kb": (
@@ -606,6 +624,78 @@ MUTANTS = {
         "if (-3..7).contains(&exponent) {",
         "if (-30..70).contains(&exponent) {",
         "Double.toString threshold: 1e-7 and 1.23456789E7 must use the E notation",
+    ),
+    "settings-log-dead-letters-on-is-zero": (
+        "src/config/settings.rs",
+        '"on" | "true" => i32::MAX,',
+        '"on" | "true" => 0,',
+        "`pekko.log-dead-letters = on` logs nothing instead of every dead letter",
+    ),
+    "settings-log-dead-letters-case-sensitive": (
+        "src/config/settings.rs",
+        'match to_root_lower_case(&config.get_string("pekko.log-dead-letters")?).as_str() {',
+        'match config.get_string("pekko.log-dead-letters")?.as_str() {',
+        "`ON`, `Off` and `TRUE` are no longer read as the switch positions of log-dead-letters (Pekko lower-cases first)",
+    ),
+    "settings-suspend-infinite-case-sensitive": (
+        "src/config/settings.rs",
+        'match to_root_lower_case(&config.get_string(key)?).as_str() {',
+        'match config.get_string(key)?.as_str() {',
+        "`log-dead-letters-suspend-duration = Infinite` is read as a duration and fails to start",
+    ),
+    "settings-home-empty-is-some": (
+        "src/config/settings.rs",
+        '            "" => None,',
+        '            "" => Some(String::new()),',
+        "an empty pekko.home becomes Some(\"\") instead of None",
+    ),
+    "settings-coordinated-shutdown-combination-accepted": (
+        "src/config/settings.rs",
+        "if run_by_terminate && !terminate {",
+        "if false && run_by_terminate && !terminate {",
+        "run-by-actor-system-terminate=on with terminate-actor-system=off starts instead of failing fast",
+    ),
+    "settings-version-check-skipped": (
+        "src/config/settings.rs",
+        "        super::check_pekko_version(&config)?;",
+        "",
+        "a configuration written for another Pekko version starts without the ConfigurationException",
+    ),
+    "settings-check-valid-skipped": (
+        "src/config/settings.rs",
+        '        config.check_valid(&reference, &["pekko"])?;',
+        "        let _ = &reference;",
+        "a mistyped key (`pekko.log-dead-letters = true`) is no longer reported by the validation of the whole configuration",
+    ),
+    "settings-debug-lifecycle-reads-fsm": (
+        "src/config/settings.rs",
+        'let debug_lifecycle = config.get_boolean("pekko.actor.debug.lifecycle")?;',
+        'let debug_lifecycle = config.get_boolean("pekko.actor.debug.fsm")?;',
+        "the lifecycle debug flag follows the fsm key",
+    ),
+    "amend-ignores-the-registry": (
+        "src/config/settings.rs",
+        "&& is_registered(SLF4J_LOGGER)\n        {",
+        "&& (is_registered(SLF4J_LOGGER) || true)\n        {",
+        "use-slf4j adds the Slf4j logger even when no factory of that name is registered, so the system cannot start its loggers",
+    ),
+    "amend-keeps-the-default-logger": (
+        "src/config/settings.rs",
+        "filter(|l| l != DEFAULT_LOGGER)",
+        "filter(|l| l != SLF4J_LOGGER)",
+        "the default logger is not removed when the Slf4j logger takes over, so every event is logged twice",
+    ),
+    "amend-always-replaces-the-filter": (
+        "src/config/settings.rs",
+        "        configured_filter == SLF4J_LOGGING_FILTER || configured_filter != DEFAULT_LOGGING_FILTER;",
+        "        configured_filter == SLF4J_LOGGING_FILTER;",
+        "a custom logging filter is overwritten by the Slf4j one",
+    ),
+    "duration-does-not-saturate-before-converting": (
+        "src/config/units.rs",
+        "            let ns = clamp(i128::from(n) * i128::from(unit_ns));\n            ns / target.nanos()",
+        "            clamp(i128::from(n) * i128::from(unit_ns) / i128::from(target.nanos()))",
+        "a duration larger than the Long nanoseconds is converted without saturating first, so `106752 d` is an error as milliseconds instead of 9223372036854",
     ),
 }
 

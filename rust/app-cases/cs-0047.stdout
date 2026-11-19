@@ -1,0 +1,1 @@
+SET-LDSD log-dead-letters-suspend-duration = 9223372036854775808 d -> ERR BadValue [String: 1: Invalid value at 'pekko.log-dead-letters-suspend-duration': Could not parse duration number '9223372036854775808']

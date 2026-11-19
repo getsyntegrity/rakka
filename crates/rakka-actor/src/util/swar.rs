@@ -14,7 +14,9 @@
 /// `java.nio.ByteOrder`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ByteOrder {
+    /// Most significant byte first.
     BigEndian,
+    /// Least significant byte first.
     LittleEndian,
 }
 

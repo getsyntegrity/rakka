@@ -11,6 +11,7 @@ use crate::util::clock::{Clock, NanoClock};
 
 /// `def currentTime: Long`: the current time in nanoseconds, monotonic and possibly wrapping.
 pub trait TokenBucketClock {
+    /// The current time in nanoseconds.
     fn current_time(&self) -> i64;
 }
 
@@ -254,13 +255,8 @@ mod tests {
     /// `Random`: offered with perfect timing, the bucket emits exactly when the ideal one does.
     #[test]
     fn behave_exactly_as_the_ideal_token_bucket_if_offer_is_called_with_perfect_timing() {
-        let mut state = 0x2545_F491_4F6C_DD1D_u64;
-        let mut random_below = |bound: i64| {
-            state ^= state >> 12;
-            state ^= state << 25;
-            state ^= state >> 27;
-            ((state.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 33) % bound as u64) as i64
-        };
+        let mut random = crate::util::test_random::XorshiftStar::new(0x2545_F491_4F6C_DD1D);
+        let mut random_below = |bound: i64| random.below(bound as u64) as i64;
         for capacity in [0_i64, 1, 5, 10] {
             for period in [1_i64, 3, 5] {
                 for arrival_period in [1_i64, 3, 5] {

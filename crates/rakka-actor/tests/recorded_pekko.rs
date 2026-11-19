@@ -6,6 +6,8 @@
 mod bytes_cases;
 #[path = "../examples/classic-parity/config_hocon_cases.rs"]
 mod config_hocon_cases;
+#[path = "../examples/classic-parity/config_settings_cases.rs"]
+mod config_settings_cases;
 #[path = "../examples/classic-parity/fronteras_cases.rs"]
 mod fronteras_cases;
 #[path = "../examples/classic-parity/json.rs"]
@@ -19,8 +21,12 @@ mod path_case;
 mod scenario;
 #[path = "../examples/classic-parity/structures_cases.rs"]
 mod structures_cases;
+#[path = "../examples/classic-parity/text_escape.rs"]
+mod text_escape;
 #[path = "../examples/classic-parity/util_core_cases.rs"]
 mod util_core_cases;
+#[path = "../examples/classic-parity/xorshift.rs"]
+mod xorshift;
 
 use std::fs;
 use std::path::PathBuf;
@@ -205,6 +211,20 @@ fn recorded_config_hocon_cases_match_pekko() {
         "config-hocon-case",
         "config-hocon.txt",
         config_hocon_cases::rust_lines(),
+        unproduced,
+    );
+}
+
+#[test]
+fn recorded_config_settings_cases_match_pekko() {
+    let unproduced = config_settings_cases::PENDING
+        .iter()
+        .map(|(id, _)| *id)
+        .collect();
+    oracle_family_matches_pekko(
+        "config-settings-case",
+        "config-settings.txt",
+        config_settings_cases::rust_lines(),
         unproduced,
     );
 }

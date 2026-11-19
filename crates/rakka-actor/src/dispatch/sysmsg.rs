@@ -5,7 +5,7 @@
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::fault::Throwable;
 
-#[allow(dead_code)] // `Supervise` carries data the supervision slice will consume
+#[allow(dead_code)] // `Supervise` fields are stored for parity with Pekko but nothing reads them yet
 pub(crate) enum SystemMessage {
     Create,
     Terminate,
@@ -47,15 +47,20 @@ pub(crate) enum SystemMessage {
 /// `org.apache.pekko.dispatch.sysmsg.Failed`: the message a supervisor was processing when it escalated (`preRestart` receives it).
 #[derive(Clone)]
 pub struct Failed {
+    /// The child that failed.
     pub child: ActorRef,
+    /// What the child threw.
     pub cause: Throwable,
 }
 
 /// `org.apache.pekko.actor.Terminated`, delivered to watchers as an ordinary message.
 #[derive(Clone)]
 pub struct Terminated {
+    /// The actor that terminated.
     pub actor: ActorRef,
+    /// `existenceConfirmed`: the termination was observed, not inferred from a missing actor.
     pub existence_confirmed: bool,
+    /// `addressTerminated`: the whole address went away (remoting; always `false` for local actors).
     pub address_terminated: bool,
 }
 

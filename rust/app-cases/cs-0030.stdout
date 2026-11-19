@@ -1,0 +1,1 @@
+SET-LDL log-dead-letters = [1] -> ERR ValidationFailed [String: 1: pekko.log-dead-letters: Wrong value type at 'pekko.log-dead-letters', expecting: number but got: list]

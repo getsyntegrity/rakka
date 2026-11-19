@@ -17,8 +17,11 @@ use std::hash::Hash;
 /// sender, noSender)`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Dropped<M, R> {
+    /// The dropped message.
     pub message: M,
+    /// Why it was dropped.
     pub reason: String,
+    /// Who sent it.
     pub sender: R,
 }
 
@@ -111,6 +114,7 @@ impl<I, M, R> Default for MessageBufferMap<I, M, R> {
 }
 
 impl<I: Eq + Hash, M, R> MessageBufferMap<I, M, R> {
+    /// An empty map.
     pub fn new() -> Self {
         Self::default()
     }

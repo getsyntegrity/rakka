@@ -1,0 +1,1 @@
+SET-LDSD log-dead-letters-suspend-duration = [1] -> ERR WrongType [String: 1: pekko.log-dead-letters-suspend-duration has type LIST rather than STRING]

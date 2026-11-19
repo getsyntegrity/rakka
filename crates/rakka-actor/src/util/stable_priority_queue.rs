@@ -11,6 +11,8 @@ use std::cmp::Ordering;
 use std::sync::{Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
+use super::bounded_blocking_queue::{remaining_until, wait_up_to};
+
 type Order<E> = Box<dyn Fn(&E, &E) -> Ordering + Send + Sync>;
 
 struct Wrapped<E> {
@@ -184,18 +186,14 @@ impl<E> StablePriorityBlockingQueue<E> {
 
     /// `poll(timeout)`: waits up to `timeout` for an element.
     pub fn poll_timeout(&self, timeout: Duration) -> Option<E> {
-        let deadline = Instant::now() + timeout;
+        let deadline = Instant::now().checked_add(timeout);
         let mut queue = self.lock();
         loop {
             if let Some(head) = queue.poll() {
                 return Some(head);
             }
-            let remaining = deadline.checked_duration_since(Instant::now())?;
-            queue = self
-                .not_empty
-                .wait_timeout(queue, remaining)
-                .unwrap_or_else(PoisonError::into_inner)
-                .0;
+            let remaining = remaining_until(deadline)?;
+            queue = wait_up_to(&self.not_empty, queue, remaining);
         }
     }
 
@@ -297,5 +295,12 @@ mod tests {
             order,
             vec![(1, "y1"), (1, "y2"), (2, "z1"), (3, "x1"), (3, "x2")]
         );
+    }
+
+    #[test]
+    fn poll_with_an_unrepresentable_timeout_returns_the_head_at_once() {
+        let queue = StablePriorityBlockingQueue::new(11, |a: &u32, b: &u32| a.cmp(b));
+        queue.offer(7);
+        assert_eq!(queue.poll_timeout(Duration::MAX), Some(7));
     }
 }

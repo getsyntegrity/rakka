@@ -54,7 +54,7 @@ fn base64_treats_negative_numbers_as_unsigned_bit_patterns() {
 #[test]
 fn to_root_lower_case_folds_like_java_with_the_root_locale() {
     // Helpers.scala:40: s.toLowerCase(Locale.ROOT); oracle cases LC-*. Characters are all older than
-    // Unicode 10 (the Unicode of the JDK 11 that produced the golden).
+    // Unicode 10, so the result does not depend on the Unicode version of the JDK (JDK 17 implements 13).
     assert_eq!(to_root_lower_case("Hello WORLD 123"), "hello world 123");
     assert_eq!(to_root_lower_case("TITLE"), "title"); // no Turkish dotless i under Locale.ROOT
     assert_eq!(to_root_lower_case(""), "");

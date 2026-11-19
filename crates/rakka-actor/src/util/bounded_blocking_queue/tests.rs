@@ -769,3 +769,20 @@ fn several_producers_and_consumers_lose_and_duplicate_nothing() {
     expected.sort_unstable();
     assert_eq!(all, expected);
 }
+
+// A timeout too large for an `Instant` (Java saturates it to Long.MAX_VALUE nanoseconds) means "no deadline":
+// when the call can finish at once it must finish, not panic on the deadline arithmetic.
+
+#[test]
+fn poll_with_an_unrepresentable_timeout_returns_the_head_at_once() {
+    let context = new_queue(1);
+    context.queue.put(s("head"));
+    assert_eq!(context.queue.poll_timeout(Duration::MAX), Some(s("head")));
+}
+
+#[test]
+fn offer_with_an_unrepresentable_timeout_succeeds_at_once_when_there_is_room() {
+    let context = new_queue(1);
+    assert!(context.queue.offer_timeout(s("a"), Duration::MAX));
+    assert_eq!(context.queue.to_vec(), vec![s("a")]);
+}

@@ -1,0 +1,1 @@
+AMEND use-slf4j = yes, pekko-slf4j on the classpath -> ok loggers=[org.apache.pekko.event.slf4j.Slf4jLogger] logging-filter=org.apache.pekko.event.slf4j.Slf4jLoggingFilter
