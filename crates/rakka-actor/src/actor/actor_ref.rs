@@ -24,6 +24,7 @@ pub(crate) trait InternalActorRef: Send + Sync {
 pub struct ActorRef(pub(crate) Arc<dyn InternalActorRef>);
 
 impl ActorRef {
+    /// The path of the actor this reference points to.
     pub fn path(&self) -> &ActorPath {
         self.0.path()
     }
@@ -38,6 +39,7 @@ impl ActorRef {
         self.0.tell(std::sync::Arc::new(msg), sender.cloned());
     }
 
+    /// Type-erased [`ActorRef::tell`]: the message is already an [`AnyMessage`] and the sender is owned.
     pub fn tell_any(&self, msg: AnyMessage, sender: Option<ActorRef>) {
         self.0.tell(msg, sender);
     }

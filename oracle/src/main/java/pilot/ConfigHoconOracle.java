@@ -54,6 +54,7 @@ final class ConfigHoconOracle {
     registerHandWritten();
     registerCheckValidAndRender();
     registerReferenceKeys();
+    registerNumberRendering();
   }
 
   static void registerHandWritten() {
@@ -351,6 +352,17 @@ final class ConfigHoconOracle {
     for (Map.Entry<String, ConfigValue> e : keys.entrySet()) {
       final ConfigValue v = e.getValue();
       run("KEY " + label + " " + e.getKey(), () -> v.valueType() + " " + v.render(ConfigRenderOptions.concise()));
+    }
+  }
+
+  // ---- NUM-RENDER: how a parsed number is rendered (D-BUG-01). Registered last so the numbering of the older ids is stable. ----
+  static final String[] NUM_RENDER_TEXTS = {"1.50", "1e-7", "12345678.9", "-0", "010", "1e400", "1.5e-3", "5e18", "1e18",
+      "1.0", "100.0", "0.1", "1E5", "1e2", "123456789012345678", "-1.50", "0.0", "1e+2", "-0.0", "9223372036854775807", "1e19", "-1e19", "9223372036854775808.0", "1.7976931348623157e308", "4.9e-324", "123456.789", "0.001", "0.0001", "1234567.0", "12345678.5", "-2.5e-5", "0.30000000000000004"};
+
+  static void registerNumberRendering() {
+    for (String t : NUM_RENDER_TEXTS) {
+      final String text = t;
+      run("NUM-RENDER " + text, () -> parse("x = " + text).getValue("x").render(ConfigRenderOptions.concise()));
     }
   }
 }

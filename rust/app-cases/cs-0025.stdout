@@ -1,0 +1,1 @@
+SET-LDL log-dead-letters = no -> ERR WrongType [String: 1: pekko.log-dead-letters has type STRING rather than NUMBER]

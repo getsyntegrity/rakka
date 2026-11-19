@@ -1,0 +1,1 @@
+SET-EXT library-extensions += and extensions set by the application -> ok library-extensions=[org.apache.pekko.serialization.SerializationExtension$, org.apache.pekko.actor.typed.internal.adapter.ActorSystemAdapter$LoadTypedExtensions, my.Ext] extensions=[a.B, c.D$]

@@ -8,11 +8,14 @@ use std::fmt;
 /// A JVM exception as seen by Pekko: class name and optional message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Throwable {
+    /// The JVM class name, e.g. `java.lang.IllegalStateException`.
     pub class: String,
+    /// `getMessage`; `None` when the exception has no message.
     pub message: Option<String>,
 }
 
 impl Throwable {
+    /// A throwable of `class` with an optional `message`.
     pub fn new(class: impl Into<String>, message: Option<&str>) -> Self {
         Throwable {
             class: class.into(),

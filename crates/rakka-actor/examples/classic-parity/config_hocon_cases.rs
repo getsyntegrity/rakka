@@ -3,24 +3,13 @@
 //! Rust `Config` API and renders it with the oracle's line format. The `KEY` cases list every leaf key of the
 //! embedded `reference.conf` files.
 
+use crate::text_escape::escape_non_ascii_units;
 use rakka_actor::config::{ACTOR_REFERENCE_CONF, Config, ConfigError, TYPED_REFERENCE_CONF};
 use rakka_actor::util::TimeUnit;
 
 /// Oracle ids Rust does not produce on purpose: `(id, reason)`. Each must exist in the oracle.
 #[allow(dead_code)]
 pub const PENDING: &[(&str, &str)] = &[];
-
-fn esc(s: &str) -> String {
-    let mut out = String::new();
-    for unit in s.encode_utf16() {
-        if (0x20..=0x7e).contains(&unit) {
-            out.push(char::from(u8::try_from(unit).expect("ASCII")));
-        } else {
-            out.push_str(&format!("\\u{unit:04X}"));
-        }
-    }
-    out
-}
 
 fn parse(text: &str) -> Result<Config, ConfigError> {
     Config::parse_string(text)
@@ -67,7 +56,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
             Ok(v) => format!("ok {v}"),
             Err(e) => format!("ERR {} [{}]", e.kind().java_name(), e.message()),
         };
-        lines.push((esc(&id), esc(&format!("{id} -> {line}"))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {line}")),
+        ));
     };
     let s = |v: &str| v.to_owned();
 
@@ -890,6 +882,47 @@ pub fn rust_lines() -> Vec<(String, String)> {
                 );
             }
         }
+    }
+
+    // --- NUM-RENDER: how a parsed number is rendered (D-BUG-01)
+    for t in [
+        "1.50",
+        "1e-7",
+        "12345678.9",
+        "-0",
+        "010",
+        "1e400",
+        "1.5e-3",
+        "5e18",
+        "1e18",
+        "1.0",
+        "100.0",
+        "0.1",
+        "1E5",
+        "1e2",
+        "123456789012345678",
+        "-1.50",
+        "0.0",
+        "1e+2",
+        "-0.0",
+        "9223372036854775807",
+        "1e19",
+        "-1e19",
+        "9223372036854775808.0",
+        "1.7976931348623157e308",
+        "4.9e-324",
+        "123456.789",
+        "0.001",
+        "0.0001",
+        "1234567.0",
+        "12345678.5",
+        "-2.5e-5",
+        "0.30000000000000004",
+    ] {
+        case(
+            format!("NUM-RENDER {t}"),
+            (|| Ok(parse(&format!("x = {t}"))?.get_value("x")?.render_concise()))(),
+        );
     }
     lines
 }

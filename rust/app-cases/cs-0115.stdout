@@ -1,0 +1,1 @@
+SET-LOG loggers-dispatcher = my-dispatcher -> ok LoggersDispatcher=my-dispatcher

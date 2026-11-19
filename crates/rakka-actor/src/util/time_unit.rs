@@ -3,12 +3,19 @@
 /// `java.util.concurrent.TimeUnit`, as taken by `Timeout(length, unit)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TimeUnit {
+    /// `NANOSECONDS`.
     Nanoseconds,
+    /// `MICROSECONDS`.
     Microseconds,
+    /// `MILLISECONDS`.
     Milliseconds,
+    /// `SECONDS`.
     Seconds,
+    /// `MINUTES`.
     Minutes,
+    /// `HOURS`.
     Hours,
+    /// `DAYS`.
     Days,
 }
 

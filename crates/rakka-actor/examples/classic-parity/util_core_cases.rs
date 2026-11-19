@@ -2,6 +2,8 @@
 //! Cases of the AC-UTIL (core) oracle (`UtilCoreOracle.java`, converted from the deprecated jshell script): each
 //! rebuilds one oracle case with the Rust API and renders it with the oracle's line format.
 
+use crate::text_escape::escape_non_ascii_units;
+use crate::xorshift::{Xorshift64, xorshift64_star_next};
 use std::hash::{BuildHasher, RandomState};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -98,19 +100,6 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
 ];
 
-/// `esc` of the script: every UTF-16 unit outside printable ASCII becomes `\uXXXX`.
-fn esc(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for unit in s.encode_utf16() {
-        if (0x20..=0x7e).contains(&unit) {
-            out.push(char::from(unit as u8));
-        } else {
-            out.push_str(&format!("\\u{unit:04X}"));
-        }
-    }
-    out
-}
-
 /// Units in `TimeUnit.values()` order with the longest `length` that stays within 2^63-1 ns
 /// (the oracle prints it as `length=`).
 const UNITS: [(&str, TimeUnit, i64); 7] = [
@@ -158,8 +147,12 @@ fn exception(class: &str, message: &str, cause: Option<String>) -> String {
 
 pub fn rust_lines() -> Vec<(String, String)> {
     let mut lines: Vec<(String, String)> = Vec::new();
-    let mut case =
-        |id: String, line: String| lines.push((esc(&id), esc(&format!("{id} -> {line}"))));
+    let mut case = |id: String, line: String| {
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {line}")),
+        ))
+    };
 
     // ---- Timeout (AC-UTIL-001)
     case("TO-01 Timeout.zero".into(), ok(nanos(Timeout::ZERO)));
@@ -299,8 +292,11 @@ pub fn rust_lines() -> Vec<(String, String)> {
         "\u{1C90}",
     ] {
         case(
-            format!("LC {}", esc(s)),
-            ok(format!("[{}]", esc(&to_root_lower_case(s)))),
+            format!("LC {}", escape_non_ascii_units(s)),
+            ok(format!(
+                "[{}]",
+                escape_non_ascii_units(&to_root_lower_case(s))
+            )),
         );
     }
 
@@ -395,7 +391,7 @@ pub fn rust_lines() -> Vec<(String, String)> {
             if s.encode_utf16().count() > 40 {
                 format!("{}x", s.encode_utf16().count())
             } else {
-                esc(s)
+                escape_non_ascii_units(s)
             }
         };
         let results: Vec<String> = pairs
@@ -575,62 +571,98 @@ pub fn rust_lines() -> Vec<(String, String)> {
         ],
     ));
     for (id, result) in glob_cases {
-        lines.push((esc(&id), esc(&format!("{id} -> {result}"))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {result}")),
+        ));
     }
 
     // ---- Slice P06: UTIL-PLATAFORMA (AC-UTIL-020, 023..028)
     for (id, result) in platform_cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
+        ));
     }
 
     // ---- Slice P65: UTIL-HASHCODE (AC-UTIL-016.15)
     for (id, result) in hash_code_cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {result}"))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {result}")),
+        ));
     }
 
     // ---- Slice P66: UTIL-PEKKOVERSION (AC-UTIL-005.1)
     for (id, result) in pekko_version_cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
+        ));
     }
 
     // ---- Slice P67: UTIL-VERSION (AC-UTIL-005.2)
     for (id, result) in version_cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
+        ));
     }
 
     // ---- Slice P68: UTIL-PRETTYDURATION (AC-UTIL-016.5)
     for (id, result) in pretty_duration_cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
+        ));
     }
 
     // ---- Slice P69: UTIL-UUID-ORDEN (AC-UTIL-016.14)
     for (id, result) in uuid_order_cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
+        ));
     }
 
     // ---- Slice P70: UTIL-RELOJ (AC-UTIL-016.16)
     for (id, result) in wall_clock_cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
+        ));
     }
 
     // ---- Slice P75: UTIL-ORIGEN-CLOSURES (AC-UTIL-016.8)
     for (id, result) in line_numbers_cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
+        ));
     }
 
     // ---- Slice P03: UTIL-ESTRUCTURAS (AC-UTIL-007..014, 015.1, 016.4, 017.1..017.5)
     for (id, result) in crate::structures_cases::cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
+        ));
     }
 
     // ---- Slice P04: UTIL-BYTES (AC-UTIL-006.1..006.7, 016.3, 022)
     for (id, result) in crate::bytes_cases::cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {}", ok(result)))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
+        ));
     }
 
     // ---- Slice P77: UTIL-FRONTERAS (AC-UTIL-018.2)
     for (id, line) in crate::fronteras_cases::cases() {
-        lines.push((esc(&id), esc(&format!("{id} -> {line}"))));
+        lines.push((
+            escape_non_ascii_units(&id),
+            escape_non_ascii_units(&format!("{id} -> {line}")),
+        ));
     }
 
     lines
@@ -678,18 +710,6 @@ impl CapturingScheduler {
             .unwrap()
             .as_ref()
             .expect("a scheduled task"))();
-    }
-}
-
-/// xorshift64, as `PlatformOracle.Gen`.
-struct Gen(u64);
-
-impl Gen {
-    fn next(&mut self) -> u64 {
-        self.0 ^= self.0 << 13;
-        self.0 ^= self.0 >> 7;
-        self.0 ^= self.0 << 17;
-        self.0
     }
 }
 
@@ -803,7 +823,7 @@ fn swar_cases() -> Vec<(String, String)> {
             ));
         }
     }
-    let mut generator = Gen(0x9E37_79B9_7F4A_7C15);
+    let mut generator = Xorshift64(0x9E37_79B9_7F4A_7C15);
     for i in 0..200_u32 {
         let word = generator.next();
         let probe = generator.next() as u8;
@@ -1187,7 +1207,7 @@ fn platform_cases() -> Vec<(String, String)> {
                 let shown = if t.len() > 40 {
                     format!("{}x", t.len())
                 } else {
-                    esc(t)
+                    escape_non_ascii_units(t)
                 };
                 format!("[{shown}]={}", fast_hash(t).expect("ASCII text"))
             })
@@ -1336,7 +1356,7 @@ fn hash_code_cases() -> Vec<(String, String)> {
             let shown = if t.len() > 40 {
                 format!("{}x", t.len())
             } else {
-                esc(t)
+                escape_non_ascii_units(t)
             };
             format!("[{shown}]={}", hash(23, *t))
         })),
@@ -1445,8 +1465,8 @@ fn require_pairs(pairs: &[&str]) -> String {
         let (required, current) = pair.split_once('|').expect("pair needs a bar");
         format!(
             "[{}]/[{}]={}",
-            esc(required),
-            esc(current),
+            escape_non_ascii_units(required),
+            escape_non_ascii_units(current),
             require_outcome("lib", required, current)
         )
     }))
@@ -1462,7 +1482,7 @@ fn pekko_version_cases() -> Vec<(String, String)> {
         format!(
             "current=[{}] conf=[{}]",
             pekko_version::CURRENT,
-            esc(&format!("pekko.version = \"{}\"\n", pekko_version::CURRENT))
+            escape_non_ascii_units(&format!("pekko.version = \"{}\"\n", pekko_version::CURRENT))
         ),
     );
     add(
@@ -1719,7 +1739,12 @@ fn version_rel(pairs: &[&str]) -> String {
             (Ok(a), Ok(b)) => (a == b).to_string(),
             _ => "-".to_owned(),
         };
-        format!("[{}]/[{}]={} eq={eq}", esc(x), esc(y), version_cmp(x, y))
+        format!(
+            "[{}]/[{}]={} eq={eq}",
+            escape_non_ascii_units(x),
+            escape_non_ascii_units(y),
+            version_cmp(x, y)
+        )
     }))
 }
 
@@ -2056,7 +2081,13 @@ fn version_cases() -> Vec<(String, String)> {
                 "1.2.3 ",
             ]
             .iter()
-            .map(|s| format!("[{}]={}", esc(s), esc(&version_parse(s)))),
+            .map(|s| {
+                format!(
+                    "[{}]={}",
+                    escape_non_ascii_units(s),
+                    escape_non_ascii_units(&version_parse(s))
+                )
+            }),
         ),
     );
     add(
@@ -2240,10 +2271,7 @@ fn pretty_sweep(seed: u64, count: usize, vary_precision: bool) -> String {
     let mut x = seed;
     let mut out = Vec::with_capacity(count);
     for _ in 0..count {
-        x ^= x >> 12;
-        x ^= x << 25;
-        x ^= x >> 27;
-        let r = x.wrapping_mul(0x2545_F491_4F6C_DD1D);
+        let r = xorshift64_star_next(&mut x);
         let bits = ((r >> 58) & 63) as u32;
         let magnitude = ((r << 1) >> 1) >> (63 - bits);
         let n = if (r >> 57) & 1 == 0 {
@@ -2534,14 +2562,6 @@ fn uu_timestamp(x: JavaUuid) -> String {
     }
 }
 
-/// `UuidOrderOracle.next`: xorshift64*.
-fn uu_next(state: &mut u64) -> u64 {
-    *state ^= *state >> 12;
-    *state ^= *state << 25;
-    *state ^= *state >> 27;
-    state.wrapping_mul(0x2545_F491_4F6C_DD1D)
-}
-
 /// `UuidOrderOracle.sweep`.
 fn uu_sweep(seed: u64, pairs: usize, versions: &[u64], tie_heavy: bool) -> String {
     let mut state = seed;
@@ -2549,22 +2569,22 @@ fn uu_sweep(seed: u64, pairs: usize, versions: &[u64], tie_heavy: bool) -> Strin
     let mut h: i32 = 17;
     let mut all: Vec<JavaUuid> = Vec::new();
     let versioned = |state: &mut u64| {
-        let rest = uu_next(state);
-        let v = versions[((uu_next(state) >> 1) % versions.len() as u64) as usize];
+        let rest = xorshift64_star_next(state);
+        let v = versions[((xorshift64_star_next(state) >> 1) % versions.len() as u64) as usize];
         uu_with_version(rest, v)
     };
     for i in 0..pairs {
         let m1 = versioned(&mut state);
-        let l1 = uu_next(&mut state);
+        let l1 = xorshift64_star_next(&mut state);
         let mode = if tie_heavy { i % 4 } else { 0 };
         let (m2, l2) = match mode {
             0 => {
                 let m2 = versioned(&mut state);
-                (m2, uu_next(&mut state))
+                (m2, xorshift64_star_next(&mut state))
             }
-            1 => (m1, uu_next(&mut state)),
+            1 => (m1, xorshift64_star_next(&mut state)),
             2 => {
-                let bit = (uu_next(&mut state) >> 1) % 128;
+                let bit = (xorshift64_star_next(&mut state) >> 1) % 128;
                 if bit < 64 {
                     (m1 ^ (1 << bit), l1)
                 } else {
@@ -2867,9 +2887,9 @@ fn uuid_order_cases() -> Vec<(String, String)> {
         let vs = [1_u64, 4, 3, 1, 4];
         let mut l: Vec<JavaUuid> = Vec::new();
         for i in 0..24 {
-            let rest = (uu_next(&mut state) & 0x0000_0000_00FF_FFFF)
+            let rest = (xorshift64_star_next(&mut state) & 0x0000_0000_00FF_FFFF)
                 | if i % 2 == 0 { 0 } else { 0x8000_0000_0000_0000 };
-            let lsb = uu_next(&mut state);
+            let lsb = xorshift64_star_next(&mut state);
             l.push(uu(fw(rest, vs[i % vs.len()]), lsb));
         }
         l.sort();

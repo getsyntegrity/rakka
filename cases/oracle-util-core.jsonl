@@ -547,3 +547,6 @@
 {"name": "uc-0547", "args": ["util-core-case"], "stdin": "FR-DUR-11 create(ofSeconds(Long.MAX_VALUE, 999999999))"}
 {"name": "uc-0548", "args": ["util-core-case"], "stdin": "FR-DUR-12 create(ofSeconds(61, 1))"}
 {"name": "uc-0549", "args": ["util-core-case"], "stdin": "FR-DUR-13 create(ofSeconds(9223372036, 854775807)) eq Timeout(Long.MaxValue ns)"}
+{"name": "uc-0550", "args": ["util-core-case"], "stdin": "BQ-C9 poll with Long.MAX_VALUE nanoseconds waits until an element arrives"}
+{"name": "uc-0551", "args": ["util-core-case"], "stdin": "BQ-C10 poll with Long.MAX_VALUE days saturates and waits until an element arrives"}
+{"name": "uc-0552", "args": ["util-core-case"], "stdin": "BQ-C11 offer with Long.MAX_VALUE nanoseconds on a full queue waits until there is room"}

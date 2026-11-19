@@ -295,5 +295,8 @@ final class UtilCoreOracle {
 
     // ---- Slice P77 (2026-11-18): UTIL-FRONTERAS (AC-UTIL-018.2)
     FronterasOracle.register();
+
+    // ---- Refinement 01 (C-BUG-01): timeouts too large for an Instant
+    QueuesOracle.registerUnboundedTimeouts();
   }
 }

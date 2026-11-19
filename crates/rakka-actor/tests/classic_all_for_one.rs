@@ -1,32 +1,19 @@
 //! Slice 3b-5: `AllForOneStrategy`. A supervisor with two children, `c1` fails and `c2` is healthy.
 //! Every expectation was recorded from Pekko 2.0.0 first (`cases/scenario-3b5.jsonl`, `rust/app-cases/`); the scenario names are in each test.
 
+#[allow(dead_code)] // each test binary uses only some of the shared helpers
+mod common;
+use common::{RunningSystem, owned_strings, snapshot_of, wait_until};
+
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::supervision::{AllForOneStrategy, Directive, SupervisorStrategy};
-use rakka_actor::actor::system::ActorSystem;
 
 type Log = Arc<Mutex<Vec<String>>>;
-
-fn wait_until(what: &str, cond: impl Fn() -> bool) {
-    let end = Instant::now() + Duration::from_secs(10);
-    while !cond() {
-        assert!(Instant::now() < end, "timed out waiting for {what}");
-        std::thread::sleep(Duration::from_millis(2));
-    }
-}
-
-fn snap(log: &Log) -> Vec<String> {
-    log.lock().unwrap().clone()
-}
-
-fn strs(v: &[&str]) -> Vec<String> {
-    v.iter().map(|s| s.to_string()).collect()
-}
 
 /// records lifecycle, messages (`msg#n`, `n` per instance) and what `preRestart` was told; throws `IllegalStateException(msg)` on `b*`
 struct Kid {
@@ -106,7 +93,7 @@ impl Actor for Sup {
 }
 
 struct Fixture {
-    sys: ActorSystem,
+    sys: RunningSystem,
     c1: ActorRef,
     c2: ActorRef,
     l1: Log,
@@ -114,7 +101,7 @@ struct Fixture {
 }
 
 fn fixture(name: &str, max: i32) -> Fixture {
-    let sys = ActorSystem::create(name).unwrap();
+    let sys = RunningSystem::create(name);
     let (l1, l2) = (Log::default(), Log::default());
     let refs = Arc::new(Mutex::new(Vec::new()));
     let (logs, r) = ([l1.clone(), l2.clone()], refs.clone());
@@ -159,16 +146,19 @@ impl Drop for Fixture {
 fn resume_applies_to_the_failed_child_only() {
     let f = fixture("afo-resume", -1);
     say(&f.c2, &["a"]);
-    wait_until("a", || snap(&f.l2).len() == 2);
+    wait_until("a", || snapshot_of(&f.l2).len() == 2);
     say(&f.c1, &["m1", "bres", "m2"]);
     say(&f.c2, &["b"]);
     wait_until("both done", || {
-        snap(&f.l1).len() == 4 && snap(&f.l2).len() == 3
+        snapshot_of(&f.l1).len() == 4 && snapshot_of(&f.l2).len() == 3
     });
-    assert_eq!(snap(&f.l1), strs(&["pre-start", "m1#1", "bres#2", "m2#3"]));
     assert_eq!(
-        snap(&f.l2),
-        strs(&["pre-start", "a#1", "b#2"]),
+        snapshot_of(&f.l1),
+        owned_strings(&["pre-start", "m1#1", "bres#2", "m2#3"])
+    );
+    assert_eq!(
+        snapshot_of(&f.l2),
+        owned_strings(&["pre-start", "a#1", "b#2"]),
         "the healthy child saw nothing"
     );
 }
@@ -180,19 +170,19 @@ fn restart_replaces_every_child() {
     let f = fixture("afo-restart", -1);
     let (r1, r2) = (f.c1.clone(), f.c2.clone());
     say(&f.c2, &["a"]);
-    wait_until("a", || snap(&f.l2).len() == 2);
+    wait_until("a", || snapshot_of(&f.l2).len() == 2);
     say(&f.c1, &["m1", "brst"]);
     wait_until("both restarted", || {
-        snap(&f.l1).len() == 7 && snap(&f.l2).len() == 6
+        snapshot_of(&f.l1).len() == 7 && snapshot_of(&f.l2).len() == 6
     });
     say(&f.c1, &["m2"]);
     say(&f.c2, &["b"]);
     wait_until("new instances work", || {
-        snap(&f.l1).len() == 8 && snap(&f.l2).len() == 7
+        snapshot_of(&f.l1).len() == 8 && snapshot_of(&f.l2).len() == 7
     });
     assert_eq!(
-        snap(&f.l1),
-        strs(&[
+        snapshot_of(&f.l1),
+        owned_strings(&[
             "pre-start",
             "m1#1",
             "brst#2",
@@ -204,8 +194,8 @@ fn restart_replaces_every_child() {
         ])
     );
     assert_eq!(
-        snap(&f.l2),
-        strs(&[
+        snapshot_of(&f.l2),
+        owned_strings(&[
             "pre-start",
             "a#1",
             "pre-restart brst / None",
@@ -226,8 +216,11 @@ fn restart_replaces_every_child() {
 fn restart_keeps_the_messages_queued_behind_the_failure() {
     let f = fixture("afo-queued", -1);
     say(&f.c1, &["brst", "q0", "q1"]);
-    wait_until("c1", || snap(&f.l1).len() == 8);
-    assert_eq!(snap(&f.l1)[6..], strs(&["q0#1", "q1#2"])[..]);
+    wait_until("c1", || snapshot_of(&f.l1).len() == 8);
+    assert_eq!(
+        snapshot_of(&f.l1)[6..],
+        owned_strings(&["q0#1", "q1#2"])[..]
+    );
 }
 
 /// o04-stop-both, o06-stop-queued-dead: Stop applies to every child, not only the failed one.
@@ -235,19 +228,19 @@ fn restart_keeps_the_messages_queued_behind_the_failure() {
 fn stop_terminates_every_child() {
     let f = fixture("afo-stop", -1);
     say(&f.c2, &["a"]);
-    wait_until("a", || snap(&f.l2).len() == 2);
+    wait_until("a", || snapshot_of(&f.l2).len() == 2);
     say(&f.c1, &["m1", "bstp", "q0"]);
     wait_until("both stopped", || {
-        snap(&f.l1).last().map(String::as_str) == Some("post-stop")
-            && snap(&f.l2).last().map(String::as_str) == Some("post-stop")
+        snapshot_of(&f.l1).last().map(String::as_str) == Some("post-stop")
+            && snapshot_of(&f.l2).last().map(String::as_str) == Some("post-stop")
     });
     assert_eq!(
-        snap(&f.l1),
-        strs(&["pre-start", "m1#1", "bstp#2", "post-stop"])
+        snapshot_of(&f.l1),
+        owned_strings(&["pre-start", "m1#1", "bstp#2", "post-stop"])
     );
     assert_eq!(
-        snap(&f.l2),
-        strs(&["pre-start", "a#1", "post-stop"]),
+        snapshot_of(&f.l2),
+        owned_strings(&["pre-start", "a#1", "post-stop"]),
         "the healthy child is stopped too"
     );
 }
@@ -259,30 +252,33 @@ fn an_exhausted_restart_limit_stops_both_children() {
     let f = fixture("afo-max0", 0);
     say(&f.c1, &["brst"]);
     wait_until("both stopped", || {
-        snap(&f.l1).last().map(String::as_str) == Some("post-stop")
-            && snap(&f.l2).last().map(String::as_str) == Some("post-stop")
+        snapshot_of(&f.l1).last().map(String::as_str) == Some("post-stop")
+            && snapshot_of(&f.l2).last().map(String::as_str) == Some("post-stop")
     });
     assert_eq!(
-        snap(&f.l1),
-        strs(&["pre-start", "brst#1", "post-stop"]),
+        snapshot_of(&f.l1),
+        owned_strings(&["pre-start", "brst#1", "post-stop"]),
         "no restart hooks"
     );
-    assert_eq!(snap(&f.l2), strs(&["pre-start", "post-stop"]));
+    assert_eq!(
+        snapshot_of(&f.l2),
+        owned_strings(&["pre-start", "post-stop"])
+    );
 
     // max 1: c1's failure restarts both; then the healthy c2 fails and its restart is refused: both stop
     let f = fixture("afo-max1", 1);
     say(&f.c1, &["brst"]);
     wait_until("both restarted", || {
-        snap(&f.l1).len() == 6 && snap(&f.l2).len() == 5
+        snapshot_of(&f.l1).len() == 6 && snapshot_of(&f.l2).len() == 5
     });
     say(&f.c2, &["brst"]);
     wait_until("both stopped", || {
-        snap(&f.l1).last().map(String::as_str) == Some("post-stop")
-            && snap(&f.l2).last().map(String::as_str) == Some("post-stop")
+        snapshot_of(&f.l1).last().map(String::as_str) == Some("post-stop")
+            && snapshot_of(&f.l2).last().map(String::as_str) == Some("post-stop")
     });
     assert_eq!(
-        snap(&f.l1),
-        strs(&[
+        snapshot_of(&f.l1),
+        owned_strings(&[
             "pre-start",
             "brst#1",
             "pre-restart brst / brst",
@@ -293,8 +289,8 @@ fn an_exhausted_restart_limit_stops_both_children() {
         ])
     );
     assert_eq!(
-        snap(&f.l2),
-        strs(&[
+        snapshot_of(&f.l2),
+        owned_strings(&[
             "pre-start",
             "pre-restart brst / None",
             "post-stop",
@@ -312,18 +308,18 @@ fn resume_does_not_count_and_a_negative_limit_is_unlimited() {
     let f = fixture("afo-count", 1);
     say(&f.c1, &["bres", "bres", "brst"]);
     wait_until("restarted", || {
-        snap(&f.l1).len() == 8 && snap(&f.l2).len() == 5
+        snapshot_of(&f.l1).len() == 8 && snapshot_of(&f.l2).len() == 5
     });
     say(&f.c2, &["brst"]);
     wait_until("stopped", || {
-        snap(&f.l1).last().map(String::as_str) == Some("post-stop")
+        snapshot_of(&f.l1).last().map(String::as_str) == Some("post-stop")
     });
 
     let f = fixture("afo-unlimited", -1);
     say(&f.c1, &["brst", "brst"]);
     say(&f.c2, &["brst"]);
     wait_until("three restarts", || {
-        snap(&f.l1).len() >= 12 && snap(&f.l2).len() >= 12
+        snapshot_of(&f.l1).len() >= 12 && snapshot_of(&f.l2).len() >= 12
     });
     assert!(!f.c1.is_terminated() && !f.c2.is_terminated());
 }

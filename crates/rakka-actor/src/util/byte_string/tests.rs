@@ -10,19 +10,21 @@ use bytes::{Bytes, BytesMut};
 
 use super::*;
 use crate::util::swar::ByteOrder::{BigEndian, LittleEndian};
+use crate::util::test_random::XorshiftStar;
 
-struct Generator(u64);
+struct Generator(XorshiftStar);
 
 impl Generator {
+    fn new(seed: u64) -> Self {
+        Self(XorshiftStar::new(seed))
+    }
+
     fn next(&mut self) -> u64 {
-        self.0 ^= self.0 >> 12;
-        self.0 ^= self.0 << 25;
-        self.0 ^= self.0 >> 27;
-        self.0.wrapping_mul(0x2545_F491_4F6C_DD1D)
+        self.0.next_u64()
     }
 
     fn below(&mut self, bound: usize) -> usize {
-        ((self.next() >> 33) % bound as u64) as usize
+        self.0.below(bound as u64) as usize
     }
 
     fn bytes(&mut self, max_len: usize) -> Vec<u8> {
@@ -111,7 +113,7 @@ fn slice_patterns_clamp_and_empty_when_from_is_after_until() {
 
 #[test]
 fn sizes_and_sequencing_of_concatenations() {
-    let mut g = Generator(0x1234);
+    let mut g = Generator::new(0x1234);
     for _ in 0..200 {
         let (a, b) = (g.bytes(20), g.bytes(20));
         let (x, y) = (ByteString::from_array(&a), ByteString::from_array(&b));
@@ -131,7 +133,7 @@ fn sizes_and_sequencing_of_concatenations() {
 
 #[test]
 fn behaves_like_a_vector() {
-    let mut g = Generator(77);
+    let mut g = Generator::new(77);
     for _ in 0..300 {
         let data = g.bytes(30);
         let value = ByteString::from_array(&data);
@@ -363,7 +365,7 @@ fn decode_string_range_is_clamped() {
 
 #[test]
 fn base64_round_trips_and_reports_malformed_input() {
-    let mut g = Generator(5);
+    let mut g = Generator::new(5);
     for _ in 0..200 {
         let value = ByteString::from_array(&g.bytes(40));
         let encoded = value.encode_base64();
@@ -508,7 +510,7 @@ fn slices_are_found_prefixes_and_suffixes_match() {
 
 #[test]
 fn searches_agree_with_the_standard_library() {
-    let mut g = Generator(99);
+    let mut g = Generator::new(99);
     for _ in 0..300 {
         let data: Vec<u8> = (0..g.below(25)).map(|_| g.below(4) as u8).collect();
         let needle: Vec<u8> = (0..g.below(4)).map(|_| g.below(4) as u8).collect();
@@ -571,7 +573,7 @@ fn builder_appends_collections_and_byte_strings() {
 
 #[test]
 fn builder_writes_primitives_like_a_byte_buffer() {
-    let mut g = Generator(31);
+    let mut g = Generator::new(31);
     for _ in 0..100 {
         let (short, int, long) = (g.next() as i16, g.next() as i32, g.next() as i64);
         let (float, double) = (f32::from_bits(g.next() as u32), f64::from_bits(g.next()));
@@ -722,7 +724,7 @@ fn reading_across_every_split_matches_the_array_reader() {
 
 #[test]
 fn iterator_reads_primitives_in_both_orders() {
-    let mut g = Generator(8);
+    let mut g = Generator::new(8);
     for _ in 0..100 {
         let data: Vec<u8> = (0..27).map(|_| g.next() as u8).collect();
         for order in [BigEndian, LittleEndian] {

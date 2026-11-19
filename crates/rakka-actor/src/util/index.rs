@@ -269,13 +269,10 @@ mod tests {
             .map(|worker| {
                 let (index, go) = (index.clone(), go.clone());
                 std::thread::spawn(move || {
-                    let mut state = 0x9E37_79B9_7F4A_7C15_u64 ^ (worker + 1);
-                    let mut next = |bound: i32| {
-                        state ^= state >> 12;
-                        state ^= state << 25;
-                        state ^= state >> 27;
-                        ((state.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 33) % bound as u64) as i32
-                    };
+                    let mut random = crate::util::test_random::XorshiftStar::new(
+                        0x9E37_79B9_7F4A_7C15_u64 ^ (worker + 1),
+                    );
+                    let mut next = |bound: i32| random.below(bound as u64) as i32;
                     go.wait();
                     for _ in 0..tasks_per_thread {
                         match next(4) {

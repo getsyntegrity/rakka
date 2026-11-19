@@ -1,8 +1,8 @@
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-b87a6ub3/target-hocon-duration-floors-negative/release/examples/classic-parity`
+Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-zlxslczp/target-hocon-duration-floors-negative/release/examples/classic-parity`
 
-Passed: 2007/2009
+Passed: 2219/2222
 
 Fallback rate: not reported by this build
 
@@ -17,6 +17,17 @@ stdout:
 ```diff
 - DUR-ROUND -1500 us in millis truncates toward zero -> ok -1
 + DUR-ROUND -1500 us in millis truncates toward zero -> ok -2
+```
+
+### cs-0048
+
+Arguments: `config-settings-case`
+
+stdout:
+
+```diff
+- SET-LDSD log-dead-letters-suspend-duration = -9223372036854775808 d -> ok LogDeadLettersSuspendDuration=-9223372036854ms
++ SET-LDSD log-dead-letters-suspend-duration = -9223372036854775808 d -> ERR BadValue [Invalid value at 'pekko.log-dead-letters-suspend-duration': requirement failed: Duration is limited to +-(2^63-1)ns (ca. 292 years)]
 ```
 
 ### ok-user-info-lone-surrog

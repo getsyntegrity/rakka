@@ -2,6 +2,7 @@
 // each rebuilds one oracle case with the Rust API and renders it with the oracle's line format, so
 // `path-address-case` prints exactly what Pekko 2.0.0 (JDK 17) printed for the same case id.
 
+use crate::text_escape::escape_non_ascii_units;
 use std::hash::{BuildHasher, RandomState};
 
 use rakka_actor::actor::{
@@ -20,6 +21,17 @@ pub const PENDING: &[(&str, &str)] = &[
     (
         "CMPA-17 sort [pekko://a, akka://a@h:2, akka://a@h:1, pekko://a@:0, pekko://a:3]",
         "Q-PATH-1",
+    ),
+    // Pekko lets the NumberFormatException of an out-of-range embedded IPv4 octet escape from
+    // AddressFromURIString.apply; `Address::parse` reports MalformedURLException. Fixing it changes
+    // the public signature of `Address::parse`.
+    (
+        "AD-NFE-01 [pekko://sys@[::1.2.3.99999999999]:1]",
+        "Q-PATH-7",
+    ),
+    (
+        "AD-NFE-02 [pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1]",
+        "Q-PATH-7",
     ),
 ];
 
@@ -68,19 +80,6 @@ fn units_to_text(units: &[u16]) -> String {
         }
     }
     text
-}
-
-/// `esc` of the script: every UTF-16 unit outside printable ASCII as `\uXXXX`.
-fn esc(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for unit in s.encode_utf16() {
-        if (0x20..=0x7e).contains(&unit) {
-            out.push(char::from(unit as u8));
-        } else {
-            out.push_str(&format!("\\u{unit:04X}"));
-        }
-    }
-    out
 }
 
 fn list<S: AsRef<str>>(items: &[S]) -> String {
@@ -1045,8 +1044,8 @@ pub fn rust_lines() -> Vec<(String, String)> {
                 Ok(s) => format!("ok {s}"),
                 Err(JavaErr(class, msg)) => format!("ERR {class} [{msg}]"),
             };
-            let line = esc(&format!("{id} -> {outcome}"));
-            (esc(&id), line)
+            let line = escape_non_ascii_units(&format!("{id} -> {outcome}"));
+            (escape_non_ascii_units(&id), line)
         })
         .collect()
 }

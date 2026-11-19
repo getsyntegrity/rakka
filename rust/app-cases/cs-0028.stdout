@@ -1,0 +1,1 @@
+SET-LDL log-dead-letters = 3000000000 -> ERR WrongType [String: 1: pekko.log-dead-letters has type out-of-range value 3000000000 rather than 32-bit integer]

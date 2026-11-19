@@ -1,8 +1,11 @@
 //! Public-API contracts of the Classic runtime that the recorded scenarios do not reach directly.
 //! Expected values follow Pekko 2.0.0 sources (`DeadLetterActorRef`, `EventStream`, exception formats).
 
+#[allow(dead_code)] // each test binary uses only some of the shared helpers
+mod common;
+use common::{RunningSystem, path_of, settle_for_absence, wait_until};
+
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, PoisonPill, Props};
@@ -10,18 +13,6 @@ use rakka_actor::actor::system::{ActorSystem, Settings};
 use rakka_actor::actor::{ActorError, ErrorClass};
 use rakka_actor::dispatch::Terminated;
 use rakka_actor::event::{Channel, DeadLetter};
-
-fn wait_until(what: &str, cond: impl Fn() -> bool) {
-    let end = Instant::now() + Duration::from_secs(10);
-    while !cond() {
-        assert!(Instant::now() < end, "timed out waiting for {what}");
-        std::thread::sleep(Duration::from_millis(2));
-    }
-}
-
-fn settle() {
-    std::thread::sleep(Duration::from_millis(150));
-}
 
 /// Stores every message of type `T` it receives.
 struct Collect<T>(Arc<Mutex<Vec<T>>>);
@@ -50,12 +41,6 @@ fn collector<T: Clone + Send + Sync + 'static>(
     )
 }
 
-fn shutdown(sys: &ActorSystem) {
-    sys.terminate()
-        .wait(Duration::from_secs(10))
-        .expect("terminated");
-}
-
 #[test]
 fn exceptions_render_like_java_with_their_jvm_class_names() {
     let cases = [
@@ -80,7 +65,7 @@ fn exceptions_render_like_java_with_their_jvm_class_names() {
 
 #[test]
 fn actor_ref_debug_shows_the_full_path() {
-    let sys = ActorSystem::create("t-debug").unwrap();
+    let sys = RunningSystem::create("t-debug");
     let (a, _) = collector::<String>(&sys, "a");
     let shown = format!("{a:?}");
     assert!(
@@ -88,7 +73,6 @@ fn actor_ref_debug_shows_the_full_path() {
         "{shown}"
     );
     assert_eq!(sys.to_string(), "pekko://t-debug");
-    shutdown(&sys);
 }
 
 #[test]
@@ -97,7 +81,7 @@ fn system_exposes_its_name_root_path_settings_and_dead_letters() {
         parallelism: 3,
         throughput: 7,
     };
-    let sys = ActorSystem::create_with_settings("t-meta", settings).unwrap();
+    let sys = RunningSystem::create_with_settings("t-meta", settings);
     assert_eq!(sys.name(), "t-meta");
     assert_eq!(sys.root_path().to_string(), "pekko://t-meta/");
     assert_eq!(
@@ -112,12 +96,11 @@ fn system_exposes_its_name_root_path_settings_and_dead_letters() {
         !sys.dead_letters().is_terminated(),
         "deadLetters never terminates"
     );
-    shutdown(&sys);
 }
 
 #[test]
 fn unsubscribed_actors_stop_receiving_events() {
-    let sys = ActorSystem::create("t-unsub").unwrap();
+    let sys = RunningSystem::create("t-unsub");
     let (sub, got) = collector::<DeadLetter>(&sys, "sub");
     sys.event_stream().subscribe(&sub, Channel::DeadLetter);
     let ghost = sys
@@ -132,14 +115,13 @@ fn unsubscribed_actors_stop_receiving_events() {
     wait_until("first dead letter", || got.lock().unwrap().len() == 1);
     sys.event_stream().unsubscribe(&sub);
     ghost.tell("two".to_string(), None);
-    settle();
+    settle_for_absence();
     assert_eq!(got.lock().unwrap().len(), 1, "no event after unsubscribe");
-    shutdown(&sys);
 }
 
 #[test]
 fn dead_letters_republishes_a_dead_letter_as_is_and_ignores_suppressed_messages() {
-    let sys = ActorSystem::create("t-dl").unwrap();
+    let sys = RunningSystem::create("t-dl");
     let (sub, got) = collector::<DeadLetter>(&sys, "sub");
     sys.event_stream().subscribe(&sub, Channel::DeadLetter);
     // suppressed (DeadLetterSuppression): PoisonPill is not published
@@ -155,21 +137,24 @@ fn dead_letters_republishes_a_dead_letter_as_is_and_ignores_suppressed_messages(
     sys.dead_letters().tell("plain".to_string(), Some(&sub));
     sys.dead_letters().tell("anon".to_string(), None);
     wait_until("3 dead letters", || got.lock().unwrap().len() == 3);
-    settle();
+    settle_for_absence();
     let got = got.lock().unwrap();
     assert_eq!(got.len(), 3, "PoisonPill must not be published");
     let text = |d: &DeadLetter| d.message.downcast_ref::<String>().cloned().unwrap();
-    let path = |r: &ActorRef| r.path().to_string();
     assert_eq!(text(&got[0]), "payload");
     assert_eq!(
-        (path(&got[0].sender), path(&got[0].recipient)),
+        (path_of(&got[0].sender), path_of(&got[0].recipient)),
         (
             "pekko://t-dl/user/sub".into(),
             "pekko://t-dl/user/sub".into()
         )
     );
     assert_eq!(
-        (text(&got[1]), path(&got[1].sender), path(&got[1].recipient)),
+        (
+            text(&got[1]),
+            path_of(&got[1].sender),
+            path_of(&got[1].recipient)
+        ),
         (
             "plain".into(),
             "pekko://t-dl/user/sub".into(),
@@ -177,7 +162,11 @@ fn dead_letters_republishes_a_dead_letter_as_is_and_ignores_suppressed_messages(
         )
     );
     assert_eq!(
-        (text(&got[2]), path(&got[2].sender), path(&got[2].recipient)),
+        (
+            text(&got[2]),
+            path_of(&got[2].sender),
+            path_of(&got[2].recipient)
+        ),
         (
             "anon".into(),
             "pekko://t-dl/deadLetters".into(),
@@ -185,7 +174,6 @@ fn dead_letters_republishes_a_dead_letter_as_is_and_ignores_suppressed_messages(
         )
     );
     drop(got);
-    shutdown(&sys);
 }
 
 /// Watches the target it is told about (`Watch(ref)` as a `ActorRef` message).
@@ -206,7 +194,7 @@ impl Actor for Watcher {
 
 #[test]
 fn watching_dead_letters_is_answered_with_an_unconfirmed_terminated() {
-    let sys = ActorSystem::create("t-watch-dl").unwrap();
+    let sys = RunningSystem::create("t-watch-dl");
     let log = Arc::new(Mutex::new(Vec::new()));
     let l = log.clone();
     let w = sys
@@ -219,7 +207,6 @@ fn watching_dead_letters_is_answered_with_an_unconfirmed_terminated() {
     let t = log.lock().unwrap()[0].clone();
     assert_eq!(t.actor, sys.dead_letters());
     assert!(!t.existence_confirmed && !t.address_terminated);
-    shutdown(&sys);
 }
 
 #[test]
@@ -233,7 +220,7 @@ fn stopping_an_actor_that_is_not_top_level_stops_it_directly() {
             );
         }
     }
-    let sys = ActorSystem::create("t-stop-nested").unwrap();
+    let sys = RunningSystem::create("t-stop-nested");
     let slot = Arc::new(Mutex::new(None));
     let s = slot.clone();
     let _p = sys
@@ -243,5 +230,4 @@ fn stopping_an_actor_that_is_not_top_level_stops_it_directly() {
     let kid = slot.lock().unwrap().clone().unwrap();
     sys.stop(&kid);
     wait_until("child stopped", || kid.is_terminated());
-    shutdown(&sys);
 }
