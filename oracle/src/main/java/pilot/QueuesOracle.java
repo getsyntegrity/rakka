@@ -191,6 +191,44 @@ final class QueuesOracle {
     }
   }
 
+  /** Registered last in the util-core list so that the ids recorded before them keep their numbers. */
+  static void registerUnboundedTimeouts() {
+    // A timeout that saturates to Long.MAX_VALUE nanoseconds is "wait without a deadline": the call must not fail.
+    run("BQ-C9 poll with Long.MAX_VALUE nanoseconds waits until an element arrives", () -> {
+      BoundedBlockingQueue<String> q = new BoundedBlockingQueue<>(1, new LinkedList<>());
+      String[] got = new String[1];
+      Thread consumer = new Thread(() -> { got[0] = q.poll(Long.MAX_VALUE, TimeUnit.NANOSECONDS); });
+      consumer.start();
+      awaitParked(consumer);
+      q.put("z");
+      consumer.join();
+      return "got=" + got[0];
+    });
+
+    run("BQ-C10 poll with Long.MAX_VALUE days saturates and waits until an element arrives", () -> {
+      BoundedBlockingQueue<String> q = new BoundedBlockingQueue<>(1, new LinkedList<>());
+      String[] got = new String[1];
+      Thread consumer = new Thread(() -> { got[0] = q.poll(Long.MAX_VALUE, TimeUnit.DAYS); });
+      consumer.start();
+      awaitParked(consumer);
+      q.put("z");
+      consumer.join();
+      return "got=" + got[0];
+    });
+
+    run("BQ-C11 offer with Long.MAX_VALUE nanoseconds on a full queue waits until there is room", () -> {
+      BoundedBlockingQueue<String> q = new BoundedBlockingQueue<>(1, new LinkedList<>());
+      q.put("a");
+      boolean[] result = new boolean[1];
+      Thread producer = new Thread(() -> { result[0] = q.offer("c", Long.MAX_VALUE, TimeUnit.NANOSECONDS); });
+      producer.start();
+      awaitParked(producer);
+      q.take();
+      producer.join();
+      return "later=" + b(result[0]) + " content=" + list(Arrays.asList(q.toArray()));
+    });
+  }
+
   static void register() {
     run("BQ-C1 one producer, one consumer through capacity 3 keep FIFO", () -> {
       BoundedBlockingQueue<Integer> q = new BoundedBlockingQueue<>(3, new LinkedList<>());

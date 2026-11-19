@@ -464,6 +464,24 @@ MUTANTS = {
         "(a.seq_num.wrapping_sub(b.seq_num) as i64) > 0,",
         "elements of equal priority come out last in first out instead of first in first out",
     ),
+    "bounded-queue-poll-deadline-overflows": (
+        "src/util/bounded_blocking_queue.rs",
+        "        let deadline = Instant::now().checked_add(timeout);\n        let mut guard = self.lock();\n        loop {\n            if let Some(element) = guard.backing.poll() {",
+        "        let deadline = Some(Instant::now() + timeout);\n        let mut guard = self.lock();\n        loop {\n            if let Some(element) = guard.backing.poll() {",
+        "poll(Long.MAX_VALUE, ...) adds the timeout to Instant::now() unchecked and panics instead of waiting without a deadline (BQ-C9, BQ-C10)",
+    ),
+    "bounded-queue-offer-deadline-overflows": (
+        "src/util/bounded_blocking_queue.rs",
+        "        let deadline = Instant::now().checked_add(timeout);\n        let mut guard = self.lock();\n        loop {\n            if guard.backing.len() < self.max_capacity {",
+        "        let deadline = Some(Instant::now() + timeout);\n        let mut guard = self.lock();\n        loop {\n            if guard.backing.len() < self.max_capacity {",
+        "offer(e, Long.MAX_VALUE, ...) on a full queue panics on the deadline arithmetic instead of waiting for room (BQ-C11)",
+    ),
+    "bounded-queue-no-deadline-means-expired": (
+        "src/util/bounded_blocking_queue.rs",
+        "        None => Some(None),\n",
+        "        None => None,\n",
+        "a timeout too large for an Instant is treated as already expired: poll returns null at once instead of waiting for the element (BQ-C9)",
+    ),
     "int-map-hash-starts-at-zero": (
         "src/util/immutable_int_map.rs",
         ".fold(1_i32,",
