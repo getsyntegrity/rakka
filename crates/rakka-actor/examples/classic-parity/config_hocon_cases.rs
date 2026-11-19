@@ -932,5 +932,70 @@ pub fn rust_lines() -> Vec<(String, String)> {
             (|| Ok(parse(&format!("x = {t}"))?.get_value("x")?.render_concise()))(),
         );
     }
+
+    // --- NUMLEX: which literals are numbers (D-BUG-02)
+    for t in [
+        "1.",
+        ".5",
+        "-.5",
+        "1.e5",
+        "1e5",
+        "1E5",
+        "1e",
+        "1e+",
+        "1e+5",
+        "-1",
+        "--1",
+        "+1",
+        "00",
+        "007",
+        "1.5.2",
+        "1.2.3",
+        "0x10",
+        "1_000",
+        "99999999999999999999",
+        "-99999999999999999999",
+        "9223372036854775807",
+        "9223372036854775808",
+        "-9223372036854775808",
+        "-9223372036854775809",
+        "1+2",
+        "1 2",
+        "1-2",
+        "1.5abc",
+        "123abc",
+        "abc123",
+        "-",
+        "-a",
+        "1e400",
+        "1e-400",
+        "0.0e0",
+        "1..2",
+        "1.e",
+        "3.14",
+        "1E+5",
+        "-0",
+        "- 1",
+        "1 .5",
+        "-.",
+        "-e5",
+        "1.5e",
+        "-1.5E-3",
+    ] {
+        case(
+            format!("NUMLEX {t}"),
+            Ok((|| -> Result<String, ConfigError> {
+                let c = parse(&format!("x = {t}"))?;
+                let v = c.get_value("x")?;
+                Ok(format!(
+                    "{} {} {}",
+                    v.value_type().name(),
+                    v.render_concise(),
+                    c.get_string("x")?
+                ))
+            })()
+            .unwrap_or_else(|e| format!("error {}", e.kind().java_name()))),
+        );
+    }
     lines
 }

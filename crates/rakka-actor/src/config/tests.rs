@@ -499,10 +499,36 @@ fn leaves_and_numbers() {
     let n = Number::parse("1e2").unwrap();
     assert_eq!((n.text(), n.as_f64()), ("1e2", 100.0));
     assert_eq!(Number::parse("12").unwrap().as_f64(), 12.0);
-    for bad in ["", "-", "1.", "1e", "1e+", "1.2.3", "x", "1 2", "--1"] {
-        assert!(Number::parse(bad).is_none(), "{bad:?}");
+    // Not numbers for Typesafe Config 1.4.9 (oracle cases `NUMLEX *`): text, not a number. An integer literal must fit a long.
+    for text in [
+        "",
+        "-",
+        "-.",
+        "1e",
+        "1e+",
+        "1.2.3",
+        "x",
+        "1 2",
+        "--1",
+        "-e5",
+        "99999999999999999999",
+        "-99999999999999999999",
+        "9223372036854775808",
+        "-9223372036854775809",
+    ] {
+        assert!(Number::parse(text).is_none(), "{text:?}");
     }
-    assert!(Number::parse("99999999999999999999").unwrap().as_f64() > 9e19);
+    // Numbers for Typesafe Config: Double.parseDouble accepts a bare trailing point and no integer digits after `-`.
+    for text in [
+        "1.",
+        "1.e5",
+        "-.5",
+        "9223372036854775807",
+        "-9223372036854775808",
+        "1e400",
+    ] {
+        assert!(Number::parse(text).is_some(), "{text:?}");
+    }
     assert_eq!(ConfigErrorKind::BadPath.java_name(), "BadPath");
     assert_eq!(
         err_of(p("a = 1").get_int("b")).to_string(),
@@ -541,4 +567,19 @@ fn render_shows_the_value_of_a_number_not_its_text() {
             "{text}"
         );
     }
+}
+
+#[test]
+fn a_plus_inside_a_number_like_run_is_a_reserved_character() {
+    for text in ["x = 1+2", "x = 1e+"] {
+        assert_eq!(
+            err_of(Config::parse_string(text)).kind(),
+            ConfigErrorKind::Parse,
+            "{text}"
+        );
+    }
+    assert_eq!(
+        p("x = 1e+5").get_value("x").unwrap().render_concise(),
+        "100000"
+    );
 }

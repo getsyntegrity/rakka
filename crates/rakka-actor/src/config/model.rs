@@ -69,31 +69,33 @@ pub(crate) enum NumRepr {
 pub(crate) type Num = Number;
 
 impl Number {
-    /// Parses the HOCON number grammar (`-?digits[.digits][e[+-]digits]`); `None` if the text is not a number.
+    /// Parses a number token the way Typesafe Config 1.4.9 does: text that holds a `.`, `e` or `E` must be a valid
+    /// Java `Double.parseDouble` literal (`1.`, `1.e5`, `-.5` are; `1e` is not), anything else must fit a `long`
+    /// (`99999999999999999999` is not a number, it is text). `None` means the token is plain text.
     pub(crate) fn parse(text: &str) -> Option<Number> {
         let b = text.as_bytes();
         let mut i = 0;
         if i < b.len() && b[i] == b'-' {
             i += 1;
         }
-        let d0 = i;
+        let int_start = i;
         while i < b.len() && b[i].is_ascii_digit() {
             i += 1;
         }
-        if i == d0 {
-            return None;
-        }
+        let int_digits = i - int_start;
         let mut is_float = false;
+        let mut fraction_digits = 0;
         if i < b.len() && b[i] == b'.' {
             is_float = true;
             i += 1;
-            let f0 = i;
+            let fraction_start = i;
             while i < b.len() && b[i].is_ascii_digit() {
                 i += 1;
             }
-            if i == f0 {
-                return None;
-            }
+            fraction_digits = i - fraction_start;
+        }
+        if int_digits == 0 && fraction_digits == 0 {
+            return None;
         }
         if i < b.len() && (b[i] == b'e' || b[i] == b'E') {
             is_float = true;
@@ -101,11 +103,11 @@ impl Number {
             if i < b.len() && (b[i] == b'+' || b[i] == b'-') {
                 i += 1;
             }
-            let e0 = i;
+            let exponent_start = i;
             while i < b.len() && b[i].is_ascii_digit() {
                 i += 1;
             }
-            if i == e0 {
+            if i == exponent_start {
                 return None;
             }
         }
@@ -115,10 +117,7 @@ impl Number {
         let repr = if is_float {
             NumRepr::Float(text.parse().ok()?)
         } else {
-            match text.parse::<i64>() {
-                Ok(v) => NumRepr::Int(v),
-                Err(_) => NumRepr::Float(text.parse().ok()?),
-            }
+            NumRepr::Int(text.parse::<i64>().ok()?)
         };
         Some(Number {
             text: text.to_owned(),

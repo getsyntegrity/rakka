@@ -601,6 +601,24 @@ MUTANTS = {
         "if false {",
         "Double.toString shows Double.MIN_VALUE as 4.9E-324 (exact value rounded to two digits), not the shortest 5.0E-324",
     ),
+    "hocon-number-lexer-accepts-plus-text": (
+        "src/config/parse.rs",
+        "None if text.contains('+') => {",
+        "None if false => {",
+        "a number-like run with a '+' that is not a number (1+2, 1e+) is accepted as text; Typesafe Config rejects the reserved character",
+    ),
+    "hocon-integer-overflow-is-number": (
+        "src/config/model.rs",
+        "NumRepr::Int(text.parse::<i64>().ok()?)",
+        "text.parse::<i64>().map(NumRepr::Int).unwrap_or_else(|_| NumRepr::Float(text.parse().unwrap_or(0.0)))",
+        "an integer literal that does not fit a long (99999999999999999999) becomes a number; Typesafe Config keeps it as text",
+    ),
+    "hocon-number-needs-fraction-digits": (
+        "src/config/model.rs",
+        "if int_digits == 0 && fraction_digits == 0 {",
+        "if int_digits == 0 || fraction_digits == 0 {",
+        "1. and 1.e5 are text; Double.parseDouble accepts a bare trailing point so Typesafe Config makes them numbers",
+    ),
     "hocon-render-small-double-in-decimal-form": (
         "src/config/model.rs",
         "if (-3..7).contains(&exponent) {",
