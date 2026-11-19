@@ -6,7 +6,7 @@ Estado: la **documentación de migración** (inventario, contratos, decisiones y
 
 - **Inventario:** 785 filas (525 Classic, 260 Typed) revisadas contra el código, los cuerpos de los specs y `reference.conf` de Pekko 1.7.1 y reancladas a 2.0.0 (547 filas marcadas "revisar contra 2.0.0", ver `docs/inventory/pekko-2.0.0-reanchor.md`); 785 `extracted` y 0 `listed` (AC-UTIL-027 y 028, creadas por Q-UTIL-11, se extrajeron en P06) (cierre documental 2026-10-31; `extracted` significa contrato leído y aserciones citadas, no implementación).
 - **Implementado:** AC-PATH y la parte del núcleo de AC-UTIL (`Timeout`, `Done`/`NotUsed`, excepciones base, `Helpers`, `Glob`, plataforma: `Clock`, `SWARUtil`, `fast_hash`), con filas `partial` por decisiones abiertas. Nada más: no hay HOCON, actores, mailboxes ni sistema.
-- **Decisiones:** `docs/decisions.md` (236 decisiones: 0 bloqueantes, 174 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas).
+- **Decisiones:** `docs/decisions.md` (237 decisiones: 0 bloqueantes, 175 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas).
 
 - Alcance y estado por funcionalidad: `docs/inventory/`
 - Cierre documental 2026-10-31: plan final de 77 unidades (P05 particionada el 2026-11-01) `docs/unit-plan.md` (asignación fila→unidad en `docs/unit-rows.tsv`), ciclos y costuras `docs/cycles.md`, paquete de decisiones para el Owner `docs/owner-decision-package.md`.
