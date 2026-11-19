@@ -1,0 +1,1 @@
+KEY actor pekko.actor.serializers.primitive-bytestring -> ok STRING "org.apache.pekko.serialization.ByteStringSerializer"

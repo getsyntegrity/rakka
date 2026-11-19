@@ -1,0 +1,496 @@
+{"name": "ch-0001", "args": ["config-hocon-case"], "stdin": "FB-01 receiver scalar wins over fallback scalar"}
+{"name": "ch-0002", "args": ["config-hocon-case"], "stdin": "FB-02 objects merge key by key, receiver wins on conflict"}
+{"name": "ch-0003", "args": ["config-hocon-case"], "stdin": "FB-03 scalar in receiver replaces object in fallback"}
+{"name": "ch-0004", "args": ["config-hocon-case"], "stdin": "FB-04 object in receiver over scalar in fallback keeps the receiver object"}
+{"name": "ch-0005", "args": ["config-hocon-case"], "stdin": "FB-05 substitution is late-bound: override of referenced key is seen"}
+{"name": "ch-0006", "args": ["config-hocon-case"], "stdin": "FB-06 resolving the fallback first freezes the substitution"}
+{"name": "ch-0007", "args": ["config-hocon-case"], "stdin": "FB-07 chain of three: first receiver wins"}
+{"name": "ch-0008", "args": ["config-hocon-case"], "stdin": "FB-08 explicit config only (no fallback) does not see reference keys"}
+{"name": "ch-0009", "args": ["config-hocon-case"], "stdin": "FB-09 hasPath on null value is false"}
+{"name": "ch-0010", "args": ["config-hocon-case"], "stdin": "FB-10 hasPathOrNull on null value is true"}
+{"name": "ch-0011", "args": ["config-hocon-case"], "stdin": "SUB-01 optional substitution of a missing path leaves the key absent"}
+{"name": "ch-0012", "args": ["config-hocon-case"], "stdin": "SUB-02 optional substitution concatenated with an array (reference.conf:78)"}
+{"name": "ch-0013", "args": ["config-hocon-case"], "stdin": "SUB-03 same, with the optional path defined by the application"}
+{"name": "ch-0014", "args": ["config-hocon-case"], "stdin": "SUB-04 required substitution of a missing path fails"}
+{"name": "ch-0015", "args": ["config-hocon-case"], "stdin": "SUB-05 self-reference concatenates strings"}
+{"name": "ch-0016", "args": ["config-hocon-case"], "stdin": "SUB-06 += appends to an existing list"}
+{"name": "ch-0017", "args": ["config-hocon-case"], "stdin": "SUB-07 += on a missing key creates the list"}
+{"name": "ch-0018", "args": ["config-hocon-case"], "stdin": "SUB-08 substitution to an unset environment variable, optional"}
+{"name": "ch-0019", "args": ["config-hocon-case"], "stdin": "SUB-09 substitution to an unset environment variable, required"}
+{"name": "ch-0020", "args": ["config-hocon-case"], "stdin": "SUB-10 cyclic substitution fails"}
+{"name": "ch-0021", "args": ["config-hocon-case"], "stdin": "SUB-11 substitution inside a quoted string is not substituted"}
+{"name": "ch-0022", "args": ["config-hocon-case"], "stdin": "SUB-12 a getter on an unresolved config fails"}
+{"name": "ch-0023", "args": ["config-hocon-case"], "stdin": "SUB-13 substitution of an object merges with a later object"}
+{"name": "ch-0024", "args": ["config-hocon-case"], "stdin": "SUB-14 reference.conf:878 shape: key set to another key's list"}
+{"name": "ch-0025", "args": ["config-hocon-case"], "stdin": "INC-01 include of a missing file is ignored"}
+{"name": "ch-0026", "args": ["config-hocon-case"], "stdin": "INC-02 required include of a missing file fails"}
+{"name": "ch-0027", "args": ["config-hocon-case"], "stdin": "INC-03 file() include of a missing file is ignored"}
+{"name": "ch-0028", "args": ["config-hocon-case"], "stdin": "INC-04 classpath() include of a missing resource is ignored"}
+{"name": "ch-0029", "args": ["config-hocon-case"], "stdin": "DUR-MS 10 ms"}
+{"name": "ch-0030", "args": ["config-hocon-case"], "stdin": "DUR-NS 10 ms"}
+{"name": "ch-0031", "args": ["config-hocon-case"], "stdin": "DUR-MS 10ms"}
+{"name": "ch-0032", "args": ["config-hocon-case"], "stdin": "DUR-NS 10ms"}
+{"name": "ch-0033", "args": ["config-hocon-case"], "stdin": "DUR-MS 10 milliseconds"}
+{"name": "ch-0034", "args": ["config-hocon-case"], "stdin": "DUR-NS 10 milliseconds"}
+{"name": "ch-0035", "args": ["config-hocon-case"], "stdin": "DUR-MS 1 us"}
+{"name": "ch-0036", "args": ["config-hocon-case"], "stdin": "DUR-NS 1 us"}
+{"name": "ch-0037", "args": ["config-hocon-case"], "stdin": "DUR-MS 1us"}
+{"name": "ch-0038", "args": ["config-hocon-case"], "stdin": "DUR-NS 1us"}
+{"name": "ch-0039", "args": ["config-hocon-case"], "stdin": "DUR-MS 5 ns"}
+{"name": "ch-0040", "args": ["config-hocon-case"], "stdin": "DUR-NS 5 ns"}
+{"name": "ch-0041", "args": ["config-hocon-case"], "stdin": "DUR-MS 1 d"}
+{"name": "ch-0042", "args": ["config-hocon-case"], "stdin": "DUR-NS 1 d"}
+{"name": "ch-0043", "args": ["config-hocon-case"], "stdin": "DUR-MS 1d"}
+{"name": "ch-0044", "args": ["config-hocon-case"], "stdin": "DUR-NS 1d"}
+{"name": "ch-0045", "args": ["config-hocon-case"], "stdin": "DUR-MS 2 minutes"}
+{"name": "ch-0046", "args": ["config-hocon-case"], "stdin": "DUR-NS 2 minutes"}
+{"name": "ch-0047", "args": ["config-hocon-case"], "stdin": "DUR-MS 5 minutes"}
+{"name": "ch-0048", "args": ["config-hocon-case"], "stdin": "DUR-NS 5 minutes"}
+{"name": "ch-0049", "args": ["config-hocon-case"], "stdin": "DUR-MS 5s"}
+{"name": "ch-0050", "args": ["config-hocon-case"], "stdin": "DUR-NS 5s"}
+{"name": "ch-0051", "args": ["config-hocon-case"], "stdin": "DUR-MS 5 s"}
+{"name": "ch-0052", "args": ["config-hocon-case"], "stdin": "DUR-NS 5 s"}
+{"name": "ch-0053", "args": ["config-hocon-case"], "stdin": "DUR-MS 1 h"}
+{"name": "ch-0054", "args": ["config-hocon-case"], "stdin": "DUR-NS 1 h"}
+{"name": "ch-0055", "args": ["config-hocon-case"], "stdin": "DUR-MS 100"}
+{"name": "ch-0056", "args": ["config-hocon-case"], "stdin": "DUR-NS 100"}
+{"name": "ch-0057", "args": ["config-hocon-case"], "stdin": "DUR-MS 1.5 s"}
+{"name": "ch-0058", "args": ["config-hocon-case"], "stdin": "DUR-NS 1.5 s"}
+{"name": "ch-0059", "args": ["config-hocon-case"], "stdin": "DUR-MS 0.5 ms"}
+{"name": "ch-0060", "args": ["config-hocon-case"], "stdin": "DUR-NS 0.5 ms"}
+{"name": "ch-0061", "args": ["config-hocon-case"], "stdin": "DUR-MS -1s"}
+{"name": "ch-0062", "args": ["config-hocon-case"], "stdin": "DUR-NS -1s"}
+{"name": "ch-0063", "args": ["config-hocon-case"], "stdin": "DUR-MS 0"}
+{"name": "ch-0064", "args": ["config-hocon-case"], "stdin": "DUR-NS 0"}
+{"name": "ch-0065", "args": ["config-hocon-case"], "stdin": "DUR-MS 1 hour"}
+{"name": "ch-0066", "args": ["config-hocon-case"], "stdin": "DUR-NS 1 hour"}
+{"name": "ch-0067", "args": ["config-hocon-case"], "stdin": "DUR-MS 1 day"}
+{"name": "ch-0068", "args": ["config-hocon-case"], "stdin": "DUR-NS 1 day"}
+{"name": "ch-0069", "args": ["config-hocon-case"], "stdin": "DUR-ERR 5 foo"}
+{"name": "ch-0070", "args": ["config-hocon-case"], "stdin": "DUR-ERR "}
+{"name": "ch-0071", "args": ["config-hocon-case"], "stdin": "DUR-ERR abc"}
+{"name": "ch-0072", "args": ["config-hocon-case"], "stdin": "DUR-ERR 1 s s"}
+{"name": "ch-0073", "args": ["config-hocon-case"], "stdin": "DUR-ERR infinite"}
+{"name": "ch-0074", "args": ["config-hocon-case"], "stdin": "DUR-ERR off"}
+{"name": "ch-0075", "args": ["config-hocon-case"], "stdin": "DUR-SCI scientific notation is accepted"}
+{"name": "ch-0076", "args": ["config-hocon-case"], "stdin": "DUR-UNQUOTED 5 minutes"}
+{"name": "ch-0077", "args": ["config-hocon-case"], "stdin": "DUR-NUMBER bare number is milliseconds"}
+{"name": "ch-0078", "args": ["config-hocon-case"], "stdin": "DUR-ROUND 1 ns in millis truncates toward zero"}
+{"name": "ch-0079", "args": ["config-hocon-case"], "stdin": "DUR-ROUND 999999 ns in millis truncates toward zero"}
+{"name": "ch-0080", "args": ["config-hocon-case"], "stdin": "DUR-ROUND -1500 us in millis truncates toward zero"}
+{"name": "ch-0081", "args": ["config-hocon-case"], "stdin": "DUR-LARGE overflow"}
+{"name": "ch-0082", "args": ["config-hocon-case"], "stdin": "DUR-LARGE 292 years in ns still fits"}
+{"name": "ch-0083", "args": ["config-hocon-case"], "stdin": "SIZE 128 KiB"}
+{"name": "ch-0084", "args": ["config-hocon-case"], "stdin": "SIZE 128KiB"}
+{"name": "ch-0085", "args": ["config-hocon-case"], "stdin": "SIZE 128 K"}
+{"name": "ch-0086", "args": ["config-hocon-case"], "stdin": "SIZE 128 k"}
+{"name": "ch-0087", "args": ["config-hocon-case"], "stdin": "SIZE 1 MB"}
+{"name": "ch-0088", "args": ["config-hocon-case"], "stdin": "SIZE 1MB"}
+{"name": "ch-0089", "args": ["config-hocon-case"], "stdin": "SIZE 1 kB"}
+{"name": "ch-0090", "args": ["config-hocon-case"], "stdin": "SIZE 1 KB"}
+{"name": "ch-0091", "args": ["config-hocon-case"], "stdin": "SIZE 512"}
+{"name": "ch-0092", "args": ["config-hocon-case"], "stdin": "SIZE 512 B"}
+{"name": "ch-0093", "args": ["config-hocon-case"], "stdin": "SIZE 512 bytes"}
+{"name": "ch-0094", "args": ["config-hocon-case"], "stdin": "SIZE 1.5 KiB"}
+{"name": "ch-0095", "args": ["config-hocon-case"], "stdin": "SIZE 1 GiB"}
+{"name": "ch-0096", "args": ["config-hocon-case"], "stdin": "SIZE 1 MiB"}
+{"name": "ch-0097", "args": ["config-hocon-case"], "stdin": "SIZE 1 g"}
+{"name": "ch-0098", "args": ["config-hocon-case"], "stdin": "SIZE 0"}
+{"name": "ch-0099", "args": ["config-hocon-case"], "stdin": "SIZE -1 KiB"}
+{"name": "ch-0100", "args": ["config-hocon-case"], "stdin": "SIZE 1 TiB"}
+{"name": "ch-0101", "args": ["config-hocon-case"], "stdin": "SIZE 256 MiB"}
+{"name": "ch-0102", "args": ["config-hocon-case"], "stdin": "SIZE-ERR unlimited"}
+{"name": "ch-0103", "args": ["config-hocon-case"], "stdin": "SIZE-ERR 128 XiB"}
+{"name": "ch-0104", "args": ["config-hocon-case"], "stdin": "SIZE-ERR "}
+{"name": "ch-0105", "args": ["config-hocon-case"], "stdin": "SIZE-ERR KiB"}
+{"name": "ch-0106", "args": ["config-hocon-case"], "stdin": "SIZE-ERR 1 KiB KiB"}
+{"name": "ch-0107", "args": ["config-hocon-case"], "stdin": "SIZE-ERR 8 EiB"}
+{"name": "ch-0108", "args": ["config-hocon-case"], "stdin": "SIZE-ERR 8388608 TiB"}
+{"name": "ch-0109", "args": ["config-hocon-case"], "stdin": "SIZE-NUMBER bare number is bytes"}
+{"name": "ch-0110", "args": ["config-hocon-case"], "stdin": "SIZE-MEMORY getMemorySize"}
+{"name": "ch-0111", "args": ["config-hocon-case"], "stdin": "BOOL on"}
+{"name": "ch-0112", "args": ["config-hocon-case"], "stdin": "BOOL off"}
+{"name": "ch-0113", "args": ["config-hocon-case"], "stdin": "BOOL yes"}
+{"name": "ch-0114", "args": ["config-hocon-case"], "stdin": "BOOL no"}
+{"name": "ch-0115", "args": ["config-hocon-case"], "stdin": "BOOL true"}
+{"name": "ch-0116", "args": ["config-hocon-case"], "stdin": "BOOL false"}
+{"name": "ch-0117", "args": ["config-hocon-case"], "stdin": "BOOL \"on\""}
+{"name": "ch-0118", "args": ["config-hocon-case"], "stdin": "BOOL \"off\""}
+{"name": "ch-0119", "args": ["config-hocon-case"], "stdin": "BOOL \"true\""}
+{"name": "ch-0120", "args": ["config-hocon-case"], "stdin": "BOOL \"yes\""}
+{"name": "ch-0121", "args": ["config-hocon-case"], "stdin": "BOOL \"maybe\""}
+{"name": "ch-0122", "args": ["config-hocon-case"], "stdin": "BOOL 1"}
+{"name": "ch-0123", "args": ["config-hocon-case"], "stdin": "BOOL \"ON\""}
+{"name": "ch-0124", "args": ["config-hocon-case"], "stdin": "TYPE-01 missing key"}
+{"name": "ch-0125", "args": ["config-hocon-case"], "stdin": "TYPE-02 string where int expected"}
+{"name": "ch-0126", "args": ["config-hocon-case"], "stdin": "TYPE-03 quoted number as int"}
+{"name": "ch-0127", "args": ["config-hocon-case"], "stdin": "TYPE-04 int where string expected"}
+{"name": "ch-0128", "args": ["config-hocon-case"], "stdin": "TYPE-05 object where string expected"}
+{"name": "ch-0129", "args": ["config-hocon-case"], "stdin": "TYPE-06 list where string expected"}
+{"name": "ch-0130", "args": ["config-hocon-case"], "stdin": "TYPE-07 null where string expected"}
+{"name": "ch-0131", "args": ["config-hocon-case"], "stdin": "TYPE-08 long beyond int"}
+{"name": "ch-0132", "args": ["config-hocon-case"], "stdin": "TYPE-09 double as int"}
+{"name": "ch-0133", "args": ["config-hocon-case"], "stdin": "TYPE-10 whole double as int"}
+{"name": "ch-0134", "args": ["config-hocon-case"], "stdin": "TYPE-11 getConfig on scalar"}
+{"name": "ch-0135", "args": ["config-hocon-case"], "stdin": "TYPE-12 getString of boolean"}
+{"name": "ch-0136", "args": ["config-hocon-case"], "stdin": "TYPE-13 getDouble of int"}
+{"name": "ch-0137", "args": ["config-hocon-case"], "stdin": "SPECIAL-01 log-dead-letters = on is a boolean"}
+{"name": "ch-0138", "args": ["config-hocon-case"], "stdin": "SPECIAL-02 log-dead-letters = 10 is a number"}
+{"name": "ch-0139", "args": ["config-hocon-case"], "stdin": "SPECIAL-03 infinite is a string"}
+{"name": "ch-0140", "args": ["config-hocon-case"], "stdin": "SPECIAL-04 unlimited is a string"}
+{"name": "ch-0141", "args": ["config-hocon-case"], "stdin": "SPECIAL-05 off is a string by getString"}
+{"name": "ch-0142", "args": ["config-hocon-case"], "stdin": "SPECIAL-06 on is a string by getString"}
+{"name": "ch-0143", "args": ["config-hocon-case"], "stdin": "SPECIAL-07 5 minutes unquoted is a string"}
+{"name": "ch-0144", "args": ["config-hocon-case"], "stdin": "SPECIAL-08 duration getter on infinite fails"}
+{"name": "ch-0145", "args": ["config-hocon-case"], "stdin": "LIST-01 string list"}
+{"name": "ch-0146", "args": ["config-hocon-case"], "stdin": "LIST-02 empty list"}
+{"name": "ch-0147", "args": ["config-hocon-case"], "stdin": "LIST-03 mixed list as string list coerces"}
+{"name": "ch-0148", "args": ["config-hocon-case"], "stdin": "LIST-04 list of objects"}
+{"name": "ch-0149", "args": ["config-hocon-case"], "stdin": "LIST-05 numeric-keyed object as list"}
+{"name": "ch-0150", "args": ["config-hocon-case"], "stdin": "LIST-06 trailing comma allowed"}
+{"name": "ch-0151", "args": ["config-hocon-case"], "stdin": "LIST-07 missing comma between elements on one line fails"}
+{"name": "ch-0152", "args": ["config-hocon-case"], "stdin": "REF-01 library-extensions default (line 78)"}
+{"name": "ch-0153", "args": ["config-hocon-case"], "stdin": "REF-02 library-extensions with application value first"}
+{"name": "ch-0154", "args": ["config-hocon-case"], "stdin": "REF-03 max-decompressed-size = unlimited (line 863)"}
+{"name": "ch-0155", "args": ["config-hocon-case"], "stdin": "REF-04 direct-buffer-size = 128 KiB (line 966)"}
+{"name": "ch-0156", "args": ["config-hocon-case"], "stdin": "REF-05 log-dead-letters-suspend-duration = 5 minutes (line 68)"}
+{"name": "ch-0157", "args": ["config-hocon-case"], "stdin": "REF-06 key with dots in quotes is one key"}
+{"name": "ch-0158", "args": ["config-hocon-case"], "stdin": "REF-07 unquoted key with hyphens"}
+{"name": "ch-0159", "args": ["config-hocon-case"], "stdin": "REF-08 comment styles # and //"}
+{"name": "ch-0160", "args": ["config-hocon-case"], "stdin": "REF-09 triple-quoted string keeps newlines"}
+{"name": "ch-0161", "args": ["config-hocon-case"], "stdin": "REF-10 duplicate keys: later object merges, later scalar wins"}
+{"name": "ch-0162", "args": ["config-hocon-case"], "stdin": "CV-01 a config equal to the reference is valid"}
+{"name": "ch-0163", "args": ["config-hocon-case"], "stdin": "CV-02 a key missing from the config"}
+{"name": "ch-0164", "args": ["config-hocon-case"], "stdin": "CV-03 string where a number is expected is accepted (a string can be converted)"}
+{"name": "ch-0165", "args": ["config-hocon-case"], "stdin": "CV-04 object where a number is expected"}
+{"name": "ch-0166", "args": ["config-hocon-case"], "stdin": "CV-05 number where an object is expected"}
+{"name": "ch-0167", "args": ["config-hocon-case"], "stdin": "CV-06 number where a list is expected"}
+{"name": "ch-0168", "args": ["config-hocon-case"], "stdin": "CV-07 numeric-keyed object where a list is expected"}
+{"name": "ch-0169", "args": ["config-hocon-case"], "stdin": "CV-08 number where a string is expected"}
+{"name": "ch-0170", "args": ["config-hocon-case"], "stdin": "CV-09 boolean where a number is expected"}
+{"name": "ch-0171", "args": ["config-hocon-case"], "stdin": "CV-10 list where a number is expected"}
+{"name": "ch-0172", "args": ["config-hocon-case"], "stdin": "CV-11 several problems are reported together"}
+{"name": "ch-0173", "args": ["config-hocon-case"], "stdin": "CV-12 problems outside the restricted path are not checked"}
+{"name": "ch-0174", "args": ["config-hocon-case"], "stdin": "CV-13 no restriction checks the whole reference"}
+{"name": "ch-0175", "args": ["config-hocon-case"], "stdin": "CV-14 null where a number is expected is accepted"}
+{"name": "ch-0176", "args": ["config-hocon-case"], "stdin": "CV-15 extra keys in the config are accepted"}
+{"name": "ch-0177", "args": ["config-hocon-case"], "stdin": "CV-16 withoutPath drops a key of the reference"}
+{"name": "ch-0178", "args": ["config-hocon-case"], "stdin": "CV-17 the same without withoutPath fails"}
+{"name": "ch-0179", "args": ["config-hocon-case"], "stdin": "CV-18 an unresolved config fails"}
+{"name": "ch-0180", "args": ["config-hocon-case"], "stdin": "CV-19 the real reference.conf of pekko-actor is valid against itself"}
+{"name": "ch-0181", "args": ["config-hocon-case"], "stdin": "CV-20 the real reference.conf is valid for an application that overrides some keys"}
+{"name": "ch-0182", "args": ["config-hocon-case"], "stdin": "CV-21 the real reference.conf fails when a key it defines is an object in the application"}
+{"name": "ch-0183", "args": ["config-hocon-case"], "stdin": "RW-01 render of scalars, nested objects, lists, null and empty values"}
+{"name": "ch-0184", "args": ["config-hocon-case"], "stdin": "RW-02 an environment variable value is not shown"}
+{"name": "ch-0185", "args": ["config-hocon-case"], "stdin": "RW-03 the user name is replaced"}
+{"name": "ch-0186", "args": ["config-hocon-case"], "stdin": "RW-04 render of an unresolved config"}
+{"name": "ch-0187", "args": ["config-hocon-case"], "stdin": "RW-05 render of a merge of two configs"}
+{"name": "ch-0188", "args": ["config-hocon-case"], "stdin": "RW-06 keys that need quotes and escapes in strings"}
+{"name": "ch-0189", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.allow-java-serialization"}
+{"name": "ch-0190", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.creation-timeout"}
+{"name": "ch-0191", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.debug.autoreceive"}
+{"name": "ch-0192", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.debug.event-stream"}
+{"name": "ch-0193", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.debug.fsm"}
+{"name": "ch-0194", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.debug.lifecycle"}
+{"name": "ch-0195", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.debug.receive"}
+{"name": "ch-0196", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.debug.router-misconfiguration"}
+{"name": "ch-0197", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.debug.unhandled"}
+{"name": "ch-0198", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-blocking-io-dispatcher.executor"}
+{"name": "ch-0199", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-blocking-io-dispatcher.thread-pool-executor.fixed-pool-size"}
+{"name": "ch-0200", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-blocking-io-dispatcher.thread-pool-executor.virtual-thread-start-number"}
+{"name": "ch-0201", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-blocking-io-dispatcher.thread-pool-executor.virtualize"}
+{"name": "ch-0202", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-blocking-io-dispatcher.throughput"}
+{"name": "ch-0203", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-blocking-io-dispatcher.type"}
+{"name": "ch-0204", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.fair-work-distribution.threshold"}
+{"name": "ch-0205", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.idle-cpu-level"}
+{"name": "ch-0206", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.parallelism-factor"}
+{"name": "ch-0207", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.parallelism-max"}
+{"name": "ch-0208", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.parallelism-min"}
+{"name": "ch-0209", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.queue-selector"}
+{"name": "ch-0210", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.rejection-handler"}
+{"name": "ch-0211", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.task-queue-size"}
+{"name": "ch-0212", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.attempt-teamwork"}
+{"name": "ch-0213", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.default-executor.fallback"}
+{"name": "ch-0214", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.executor"}
+{"name": "ch-0215", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.fork-join-executor.maximum-pool-size"}
+{"name": "ch-0216", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.fork-join-executor.minimum-runnable"}
+{"name": "ch-0217", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.fork-join-executor.parallelism-factor"}
+{"name": "ch-0218", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.fork-join-executor.parallelism-max"}
+{"name": "ch-0219", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.fork-join-executor.parallelism-min"}
+{"name": "ch-0220", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.fork-join-executor.task-peeking-mode"}
+{"name": "ch-0221", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.fork-join-executor.virtual-thread-start-number"}
+{"name": "ch-0222", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.fork-join-executor.virtualize"}
+{"name": "ch-0223", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.mailbox-requirement"}
+{"name": "ch-0224", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.shutdown-timeout"}
+{"name": "ch-0225", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.allow-core-timeout"}
+{"name": "ch-0226", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-factor"}
+{"name": "ch-0227", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-max"}
+{"name": "ch-0228", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-min"}
+{"name": "ch-0229", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.fixed-pool-size"}
+{"name": "ch-0230", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.keep-alive-time"}
+{"name": "ch-0231", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.max-pool-size-factor"}
+{"name": "ch-0232", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.max-pool-size-max"}
+{"name": "ch-0233", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.max-pool-size-min"}
+{"name": "ch-0234", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.task-queue-size"}
+{"name": "ch-0235", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.task-queue-type"}
+{"name": "ch-0236", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.virtual-thread-start-number"}
+{"name": "ch-0237", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.thread-pool-executor.virtualize"}
+{"name": "ch-0238", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.throughput"}
+{"name": "ch-0239", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.throughput-deadline-time"}
+{"name": "ch-0240", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.type"}
+{"name": "ch-0241", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.virtual-thread-executor.fallback"}
+{"name": "ch-0242", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-dispatcher.virtual-thread-executor.virtual-thread-start-number"}
+{"name": "ch-0243", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-mailbox.mailbox-capacity"}
+{"name": "ch-0244", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-mailbox.mailbox-push-timeout-time"}
+{"name": "ch-0245", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-mailbox.mailbox-type"}
+{"name": "ch-0246", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.default-mailbox.stash-capacity"}
+{"name": "ch-0247", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.\"/IO-DNS/async-dns\".mailbox"}
+{"name": "ch-0248", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.\"/IO-DNS/async-dns\".nr-of-instances"}
+{"name": "ch-0249", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.\"/IO-DNS/async-dns\".router"}
+{"name": "ch-0250", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.\"/IO-DNS/async-dns/*\".dispatcher"}
+{"name": "ch-0251", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.\"/IO-DNS/inet-address\".mailbox"}
+{"name": "ch-0252", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.\"/IO-DNS/inet-address\".nr-of-instances"}
+{"name": "ch-0253", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.\"/IO-DNS/inet-address\".router"}
+{"name": "ch-0254", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.\"/IO-DNS/inet-address/*\".dispatcher"}
+{"name": "ch-0255", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.dispatcher"}
+{"name": "ch-0256", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.mailbox"}
+{"name": "ch-0257", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.nr-of-instances"}
+{"name": "ch-0258", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.action-interval"}
+{"name": "ch-0259", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.chance-of-exploration"}
+{"name": "ch-0260", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.chance-of-ramping-down-when-full"}
+{"name": "ch-0261", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.downsize-after-underutilized-for"}
+{"name": "ch-0262", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.downsize-ratio"}
+{"name": "ch-0263", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.enabled"}
+{"name": "ch-0264", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.explore-step-size"}
+{"name": "ch-0265", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.lower-bound"}
+{"name": "ch-0266", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.optimization-range"}
+{"name": "ch-0267", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.upper-bound"}
+{"name": "ch-0268", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.weight-of-latest-metric"}
+{"name": "ch-0269", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.resizer.backoff-rate"}
+{"name": "ch-0270", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.resizer.backoff-threshold"}
+{"name": "ch-0271", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.resizer.enabled"}
+{"name": "ch-0272", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.resizer.lower-bound"}
+{"name": "ch-0273", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.resizer.messages-per-resize"}
+{"name": "ch-0274", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.resizer.pressure-threshold"}
+{"name": "ch-0275", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.resizer.rampup-rate"}
+{"name": "ch-0276", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.resizer.upper-bound"}
+{"name": "ch-0277", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.routees.paths"}
+{"name": "ch-0278", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.router"}
+{"name": "ch-0279", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.tail-chopping-router.interval"}
+{"name": "ch-0280", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.virtual-nodes-factor"}
+{"name": "ch-0281", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.deployment.default.within"}
+{"name": "ch-0282", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.guardian-supervisor-strategy"}
+{"name": "ch-0283", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.internal-dispatcher.executor"}
+{"name": "ch-0284", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.internal-dispatcher.fork-join-executor.minimum-runnable"}
+{"name": "ch-0285", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.internal-dispatcher.fork-join-executor.parallelism-factor"}
+{"name": "ch-0286", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.internal-dispatcher.fork-join-executor.parallelism-max"}
+{"name": "ch-0287", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.internal-dispatcher.fork-join-executor.parallelism-min"}
+{"name": "ch-0288", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.internal-dispatcher.throughput"}
+{"name": "ch-0289", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.internal-dispatcher.type"}
+{"name": "ch-0290", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.bounded-control-aware-queue-based.mailbox-type"}
+{"name": "ch-0291", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.bounded-deque-based.mailbox-type"}
+{"name": "ch-0292", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.bounded-queue-based.mailbox-type"}
+{"name": "ch-0293", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.logger-queue.mailbox-type"}
+{"name": "ch-0294", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.dispatch.BoundedControlAwareMessageQueueSemantics\""}
+{"name": "ch-0295", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.dispatch.BoundedDequeBasedMessageQueueSemantics\""}
+{"name": "ch-0296", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.dispatch.BoundedMessageQueueSemantics\""}
+{"name": "ch-0297", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.dispatch.ControlAwareMessageQueueSemantics\""}
+{"name": "ch-0298", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.dispatch.DequeBasedMessageQueueSemantics\""}
+{"name": "ch-0299", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.dispatch.MultipleConsumerSemantics\""}
+{"name": "ch-0300", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.dispatch.UnboundedControlAwareMessageQueueSemantics\""}
+{"name": "ch-0301", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.dispatch.UnboundedDequeBasedMessageQueueSemantics\""}
+{"name": "ch-0302", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.dispatch.UnboundedMessageQueueSemantics\""}
+{"name": "ch-0303", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.requirements.\"org.apache.pekko.event.LoggerMessageQueueSemantics\""}
+{"name": "ch-0304", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.unbounded-control-aware-queue-based.mailbox-type"}
+{"name": "ch-0305", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.unbounded-deque-based.mailbox-type"}
+{"name": "ch-0306", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.mailbox.unbounded-queue-based.mailbox-type"}
+{"name": "ch-0307", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.no-serialization-verification-needed-class-prefix"}
+{"name": "ch-0308", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.provider"}
+{"name": "ch-0309", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.balancing-pool"}
+{"name": "ch-0310", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.broadcast-group"}
+{"name": "ch-0311", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.broadcast-pool"}
+{"name": "ch-0312", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.consistent-hashing-group"}
+{"name": "ch-0313", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.consistent-hashing-pool"}
+{"name": "ch-0314", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.from-code"}
+{"name": "ch-0315", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.random-group"}
+{"name": "ch-0316", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.random-pool"}
+{"name": "ch-0317", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.round-robin-group"}
+{"name": "ch-0318", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.round-robin-pool"}
+{"name": "ch-0319", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.scatter-gather-group"}
+{"name": "ch-0320", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.scatter-gather-pool"}
+{"name": "ch-0321", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.smallest-mailbox-pool"}
+{"name": "ch-0322", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.tail-chopping-group"}
+{"name": "ch-0323", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.router.type-mapping.tail-chopping-pool"}
+{"name": "ch-0324", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"[B\""}
+{"name": "ch-0325", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"java.io.Serializable\""}
+{"name": "ch-0326", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"java.lang.Boolean\""}
+{"name": "ch-0327", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"java.lang.Integer\""}
+{"name": "ch-0328", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"java.lang.Long\""}
+{"name": "ch-0329", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"java.lang.String\""}
+{"name": "ch-0330", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"org.apache.pekko.util.ByteString$ByteString1\""}
+{"name": "ch-0331", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"org.apache.pekko.util.ByteString$ByteString1C\""}
+{"name": "ch-0332", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"org.apache.pekko.util.ByteString$ByteString2\""}
+{"name": "ch-0333", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"org.apache.pekko.util.ByteString$ByteStrings\""}
+{"name": "ch-0334", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"scala.Boolean\""}
+{"name": "ch-0335", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"scala.Int\""}
+{"name": "ch-0336", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-bindings.\"scala.Long\""}
+{"name": "ch-0337", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-identifiers.\"org.apache.pekko.serialization.ByteArraySerializer\""}
+{"name": "ch-0338", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-identifiers.\"org.apache.pekko.serialization.JavaSerializer\""}
+{"name": "ch-0339", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-identifiers.primitive-boolean"}
+{"name": "ch-0340", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-identifiers.primitive-bytestring"}
+{"name": "ch-0341", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-identifiers.primitive-int"}
+{"name": "ch-0342", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-identifiers.primitive-long"}
+{"name": "ch-0343", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-identifiers.primitive-string"}
+{"name": "ch-0344", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialization-max-nesting-depth"}
+{"name": "ch-0345", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialize-creators"}
+{"name": "ch-0346", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serialize-messages"}
+{"name": "ch-0347", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serializers.bytes"}
+{"name": "ch-0348", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serializers.java"}
+{"name": "ch-0349", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serializers.primitive-boolean"}
+{"name": "ch-0350", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serializers.primitive-bytestring"}
+{"name": "ch-0351", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serializers.primitive-int"}
+{"name": "ch-0352", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serializers.primitive-long"}
+{"name": "ch-0353", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.serializers.primitive-string"}
+{"name": "ch-0354", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.unstarted-push-timeout"}
+{"name": "ch-0355", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.warn-about-java-serializer-usage"}
+{"name": "ch-0356", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.actor.warn-on-no-serialization-verification"}
+{"name": "ch-0357", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.circuit-breaker.default.call-timeout"}
+{"name": "ch-0358", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.circuit-breaker.default.exception-allowlist"}
+{"name": "ch-0359", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.circuit-breaker.default.exponential-backoff"}
+{"name": "ch-0360", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.circuit-breaker.default.max-failures"}
+{"name": "ch-0361", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.circuit-breaker.default.max-reset-timeout"}
+{"name": "ch-0362", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.circuit-breaker.default.random-factor"}
+{"name": "ch-0363", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.circuit-breaker.default.reset-timeout"}
+{"name": "ch-0364", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.close-actor-system-timeout"}
+{"name": "ch-0365", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.default-phase-timeout"}
+{"name": "ch-0366", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.exit-code"}
+{"name": "ch-0367", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.exit-jvm"}
+{"name": "ch-0368", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.actor-system-terminate.depends-on"}
+{"name": "ch-0369", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.actor-system-terminate.timeout"}
+{"name": "ch-0370", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.before-actor-system-terminate.depends-on"}
+{"name": "ch-0371", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.before-cluster-shutdown.depends-on"}
+{"name": "ch-0372", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.cluster-exiting-done.depends-on"}
+{"name": "ch-0373", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.cluster-exiting.depends-on"}
+{"name": "ch-0374", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.cluster-exiting.timeout"}
+{"name": "ch-0375", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.cluster-leave.depends-on"}
+{"name": "ch-0376", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.cluster-sharding-shutdown-region.depends-on"}
+{"name": "ch-0377", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.cluster-sharding-shutdown-region.timeout"}
+{"name": "ch-0378", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.cluster-shutdown.depends-on"}
+{"name": "ch-0379", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.service-requests-done.depends-on"}
+{"name": "ch-0380", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.service-stop.depends-on"}
+{"name": "ch-0381", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.phases.service-unbind.depends-on"}
+{"name": "ch-0382", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.reason-overrides.\"org.apache.pekko.actor.CoordinatedShutdown$ClusterDowningReason$\".exit-code"}
+{"name": "ch-0383", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.reason-overrides.\"org.apache.pekko.actor.CoordinatedShutdown$ClusterJoinUnsuccessfulReason$\".exit-code"}
+{"name": "ch-0384", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.run-by-actor-system-terminate"}
+{"name": "ch-0385", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.run-by-jvm-shutdown-hook"}
+{"name": "ch-0386", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.coordinated-shutdown.terminate-actor-system"}
+{"name": "ch-0387", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.daemonic"}
+{"name": "ch-0388", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.extensions"}
+{"name": "ch-0389", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.fail-mixed-versions"}
+{"name": "ch-0390", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.home"}
+{"name": "ch-0391", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.async-dns.cache-cleanup-interval"}
+{"name": "ch-0392", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.async-dns.id-generator-policy"}
+{"name": "ch-0393", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.async-dns.nameservers"}
+{"name": "ch-0394", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.async-dns.ndots"}
+{"name": "ch-0395", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.async-dns.negative-ttl"}
+{"name": "ch-0396", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.async-dns.positive-ttl"}
+{"name": "ch-0397", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.async-dns.provider-object"}
+{"name": "ch-0398", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.async-dns.resolve-timeout"}
+{"name": "ch-0399", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.async-dns.search-domains"}
+{"name": "ch-0400", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.dispatcher"}
+{"name": "ch-0401", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.inet-address.cache-cleanup-interval"}
+{"name": "ch-0402", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.inet-address.negative-ttl"}
+{"name": "ch-0403", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.inet-address.positive-ttl"}
+{"name": "ch-0404", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.inet-address.provider-object"}
+{"name": "ch-0405", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.dns.resolver"}
+{"name": "ch-0406", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.pinned-dispatcher.executor"}
+{"name": "ch-0407", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.pinned-dispatcher.thread-pool-executor.allow-core-timeout"}
+{"name": "ch-0408", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.pinned-dispatcher.type"}
+{"name": "ch-0409", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.batch-accept-limit"}
+{"name": "ch-0410", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.direct-buffer-pool-limit"}
+{"name": "ch-0411", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.direct-buffer-size"}
+{"name": "ch-0412", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.file-io-dispatcher"}
+{"name": "ch-0413", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.file-io-transferTo-limit"}
+{"name": "ch-0414", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.finish-connect-retries"}
+{"name": "ch-0415", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.management-dispatcher"}
+{"name": "ch-0416", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.max-channels"}
+{"name": "ch-0417", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.max-received-message-size"}
+{"name": "ch-0418", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.nr-of-selectors"}
+{"name": "ch-0419", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.register-timeout"}
+{"name": "ch-0420", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.selector-association-retries"}
+{"name": "ch-0421", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.selector-dispatcher"}
+{"name": "ch-0422", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.trace-logging"}
+{"name": "ch-0423", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.windows-connection-abort-workaround-enabled"}
+{"name": "ch-0424", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.tcp.worker-dispatcher"}
+{"name": "ch-0425", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.direct-buffer-pool-limit"}
+{"name": "ch-0426", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.direct-buffer-size"}
+{"name": "ch-0427", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.management-dispatcher"}
+{"name": "ch-0428", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.max-channels"}
+{"name": "ch-0429", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.nr-of-selectors"}
+{"name": "ch-0430", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.receive-throughput"}
+{"name": "ch-0431", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.select-timeout"}
+{"name": "ch-0432", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.selector-association-retries"}
+{"name": "ch-0433", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.selector-dispatcher"}
+{"name": "ch-0434", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.trace-logging"}
+{"name": "ch-0435", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp-connected.worker-dispatcher"}
+{"name": "ch-0436", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.direct-buffer-pool-limit"}
+{"name": "ch-0437", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.direct-buffer-size"}
+{"name": "ch-0438", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.management-dispatcher"}
+{"name": "ch-0439", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.max-channels"}
+{"name": "ch-0440", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.nr-of-selectors"}
+{"name": "ch-0441", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.receive-throughput"}
+{"name": "ch-0442", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.select-timeout"}
+{"name": "ch-0443", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.selector-association-retries"}
+{"name": "ch-0444", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.selector-dispatcher"}
+{"name": "ch-0445", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.trace-logging"}
+{"name": "ch-0446", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.io.udp.worker-dispatcher"}
+{"name": "ch-0447", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.java-flight-recorder.enabled"}
+{"name": "ch-0448", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.jvm-exit-on-fatal-error"}
+{"name": "ch-0449", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.jvm-shutdown-hooks"}
+{"name": "ch-0450", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.library-extensions"}
+{"name": "ch-0451", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.log-config-on-start"}
+{"name": "ch-0452", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.log-dead-letters"}
+{"name": "ch-0453", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.log-dead-letters-during-shutdown"}
+{"name": "ch-0454", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.log-dead-letters-suspend-duration"}
+{"name": "ch-0455", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.logger-startup-timeout"}
+{"name": "ch-0456", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.loggers"}
+{"name": "ch-0457", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.loggers-dispatcher"}
+{"name": "ch-0458", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.logging-filter"}
+{"name": "ch-0459", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.loglevel"}
+{"name": "ch-0460", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.scheduled-clock-interval"}
+{"name": "ch-0461", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.scheduler.error-on-tick-duration-verification-failed"}
+{"name": "ch-0462", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.scheduler.implementation"}
+{"name": "ch-0463", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.scheduler.shutdown-timeout"}
+{"name": "ch-0464", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.scheduler.tick-duration"}
+{"name": "ch-0465", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.scheduler.ticks-per-wheel"}
+{"name": "ch-0466", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.serialization.max-decompressed-size"}
+{"name": "ch-0467", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.serialization.protobuf.allowed-classes"}
+{"name": "ch-0468", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.serialization.protobuf.whitelist-class"}
+{"name": "ch-0469", "args": ["config-hocon-case"], "stdin": "KEY actor pekko.stdout-loglevel"}
+{"name": "ch-0470", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.serialization-bindings.\"org.apache.pekko.actor.typed.ActorRef\""}
+{"name": "ch-0471", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.serialization-bindings.\"org.apache.pekko.actor.typed.internal.adapter.ActorRefAdapter\""}
+{"name": "ch-0472", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.serialization-bindings.\"org.apache.pekko.actor.typed.internal.receptionist.DefaultServiceKey\""}
+{"name": "ch-0473", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.serialization-identifiers.\"org.apache.pekko.actor.typed.internal.MiscMessageSerializer\""}
+{"name": "ch-0474", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.serialization-identifiers.\"org.apache.pekko.actor.typed.internal.receptionist.ServiceKeySerializer\""}
+{"name": "ch-0475", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.serializers.service-key"}
+{"name": "ch-0476", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.serializers.typed-misc"}
+{"name": "ch-0477", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.typed.default-mailbox.mailbox-type"}
+{"name": "ch-0478", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.typed.extensions"}
+{"name": "ch-0479", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.typed.library-extensions"}
+{"name": "ch-0480", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.actor.typed.restart-stash-capacity"}
+{"name": "ch-0481", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.library-extensions"}
+{"name": "ch-0482", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.consumer-controller.flow-control-window"}
+{"name": "ch-0483", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.consumer-controller.only-flow-control"}
+{"name": "ch-0484", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.consumer-controller.resend-interval-max"}
+{"name": "ch-0485", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.consumer-controller.resend-interval-min"}
+{"name": "ch-0486", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.producer-controller.chunk-large-messages"}
+{"name": "ch-0487", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.request-timeout"}
+{"name": "ch-0488", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.resend-first-interval"}
+{"name": "ch-0489", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.retry-attempts"}
+{"name": "ch-0490", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.buffer-size"}
+{"name": "ch-0491", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.chunk-large-messages"}
+{"name": "ch-0492", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.request-timeout"}
+{"name": "ch-0493", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.resend-first-interval"}
+{"name": "ch-0494", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.retry-attempts"}
+{"name": "ch-0495", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.internal-ask-timeout"}
+{"name": "ch-0496", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.use-slf4j"}

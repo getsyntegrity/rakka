@@ -1,0 +1,1 @@
+SUB-10 cyclic substitution fails -> ERR UnresolvedSubstitution [String: 2: Could not resolve substitution to a value: ${a} was part of a cycle of substitutions involving ${b}, ${a}, ${b}]

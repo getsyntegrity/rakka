@@ -159,6 +159,33 @@ REF-07 unquoted key with hyphens
 REF-08 comment styles # and //
 REF-09 triple-quoted string keeps newlines
 REF-10 duplicate keys: later object merges, later scalar wins
+CV-01 a config equal to the reference is valid
+CV-02 a key missing from the config
+CV-03 string where a number is expected is accepted (a string can be converted)
+CV-04 object where a number is expected
+CV-05 number where an object is expected
+CV-06 number where a list is expected
+CV-07 numeric-keyed object where a list is expected
+CV-08 number where a string is expected
+CV-09 boolean where a number is expected
+CV-10 list where a number is expected
+CV-11 several problems are reported together
+CV-12 problems outside the restricted path are not checked
+CV-13 no restriction checks the whole reference
+CV-14 null where a number is expected is accepted
+CV-15 extra keys in the config are accepted
+CV-16 withoutPath drops a key of the reference
+CV-17 the same without withoutPath fails
+CV-18 an unresolved config fails
+CV-19 the real reference.conf of pekko-actor is valid against itself
+CV-20 the real reference.conf is valid for an application that overrides some keys
+CV-21 the real reference.conf fails when a key it defines is an object in the application
+RW-01 render of scalars, nested objects, lists, null and empty values
+RW-02 an environment variable value is not shown
+RW-03 the user name is replaced
+RW-04 render of an unresolved config
+RW-05 render of a merge of two configs
+RW-06 keys that need quotes and escapes in strings
 KEY actor pekko.actor.allow-java-serialization
 KEY actor pekko.actor.creation-timeout
 KEY actor pekko.actor.debug.autoreceive

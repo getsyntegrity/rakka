@@ -1,0 +1,1 @@
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.explore-step-size -> ok NUMBER 0.1

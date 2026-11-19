@@ -1,0 +1,1 @@
+KEY actor pekko.actor.deployment."/IO-DNS/async-dns".nr-of-instances -> ok NUMBER 1

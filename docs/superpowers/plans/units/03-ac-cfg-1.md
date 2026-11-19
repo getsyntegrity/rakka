@@ -1,6 +1,6 @@
 # Spec 03 — AC-CFG (1/1)
 
-**Estado:** sin decisiones abiertas; spec preliminar, pendiente de revisión de atomicidad y dependencias. **Filas:** 29. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 29. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
@@ -21,7 +21,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: ninguna.
+- Propuestas aún sin decisión del Owner: `Q-CFG-14`, `Q-CFG-15`, `Q-CFG-16`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -79,7 +79,7 @@ Filas: AC-CFG-017.6, AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-CFG-001 | Carga de configuración: ConfigFactory.load + reference.conf como fallback;… | crate de HOCON (p. ej. `hocon` o parser propio) + `reference.conf` embebido con… | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:31-206 ;… | Q-CFG-6, Q-X-1 |
+| AC-CFG-001 | Carga de configuración: ConfigFactory.load + reference.conf como fallback;… | crate de HOCON (p. ej. `hocon` o parser propio) + `reference.conf` embebido con… | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:31-206 ;… | Q-CFG-14, Q-CFG-16, Q-CFG-6, Q-X-1 |
 | AC-CFG-002 | ActorSystem.Settings: lectura fail-fast de todas las claves pekko.* al crear… | `struct Settings` construido con `TryFrom<&Config>` | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:34-184 | Q-CFG-3, Q-CFG-4 |
 | AC-CFG-003 | Chequeo pekko.version vs versión del binario | comparar con `env!("CARGO_PKG_VERSION")` o constante "1.7.1" | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:42-43 | Q-CFG-5 |
 | AC-CFG-004 | Claves de logging: loggers, logging-filter, loggers-dispatcher,… | campos de Settings | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:185,212,220 | Q-CFG-10, Q-X-2, Q-X-7 |
@@ -98,15 +98,15 @@ Filas: AC-CFG-017.6, AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos
 | AC-CFG-014 | pekko.actor.router.type-mapping (alias de routers) | tabla estática nombre→constructor | actor-tests/src/test/scala/org/apache/pekko/actor/DeployerSpec.scala:231:231-246 | Q-X-2 |
 | AC-CFG-015 | BootstrapSetup / ActorSystemSetup / Setup (config programática: classLoader,… | builder `ActorSystem::builder().config(..).setup(T)` con `TypeMap` | actor-tests/src/test/scala/org/apache/pekko/actor/setup/ActorSystemSetupSpec.scala:31-78… | Q-CFG-13 |
 | AC-CFG-016 | DynamicAccess / ReflectiveDynamicAccess (instanciar clases por FQCN desde… | registro estático `name -> fn(&Settings,&Config) -> Box<dyn T>` poblado por el usuario o… | actor-tests/src/test/scala/org/apache/pekko/actor/DynamicAccessSpec.scala:53,63,72,85… | Q-X-2 |
-| AC-CFG-017.1 | Combinación y sustitución: withFallback, resolve tardío, `${?x}` opcional,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden FB-01..08, SUB-01..14, REF-01..02 | Q-CFG-4, Q-X-1 |
-| AC-CFG-017.2 | Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden DUR-MS-*, DUR-NS-*, DUR-ERR-*, DUR-SCI-*, DUR-ROUND-*, DUR-LARGE-*, DUR-NUMBER,… | Q-CFG-4, Q-X-1 |
-| AC-CFG-017.3 | Tamaños en memoria: `128 KiB`, `K`, `kB`, `MB`, número sin unidad = bytes;… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden SIZE-*, SIZE-ERR-*, SIZE-MEMORY, SIZE-NUMBER | Q-CFG-4, Q-X-1 |
-| AC-CFG-017.4 | Booleanos `on/off/yes/no/true/false` con y sin comillas; `ON`, `1`, `maybe`… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden BOOL-*; ConfigSpec.scala:44-97 | Q-CFG-4, Q-X-1 |
+| AC-CFG-017.1 | Combinación y sustitución: withFallback, resolve tardío, `${?x}` opcional,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden FB-01..08, SUB-01..14, REF-01..02 | Q-CFG-15, Q-CFG-4, Q-X-1 |
+| AC-CFG-017.2 | Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden DUR-MS-*, DUR-NS-*, DUR-ERR-*, DUR-SCI-*, DUR-ROUND-*, DUR-LARGE-*, DUR-NUMBER,… | Q-CFG-15, Q-CFG-4, Q-X-1 |
+| AC-CFG-017.3 | Tamaños en memoria: `128 KiB`, `K`, `kB`, `MB`, número sin unidad = bytes;… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden SIZE-*, SIZE-ERR-*, SIZE-MEMORY, SIZE-NUMBER | Q-CFG-15, Q-CFG-4, Q-X-1 |
+| AC-CFG-017.4 | Booleanos `on/off/yes/no/true/false` con y sin comillas; `ON`, `1`, `maybe`… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden BOOL-*; ConfigSpec.scala:44-97 | Q-CFG-15, Q-CFG-4, Q-X-1 |
 | AC-CFG-017.5 | Literales que Pekko interpreta por su cuenta: `infinite`, `unlimited`,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden SPECIAL-*, REF-03 | Q-CFG-4, Q-X-1 |
-| AC-CFG-017.6 | Includes: `include "version"` inexistente se ignora; `required(...)`… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden INC-01..04 | Q-CFG-4, Q-X-1 |
-| AC-CFG-017.7 | Sintaxis del archivo: comentarios `#` y `//`, claves con guiones y puntos,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden REF-04..10, LIST-*, TYPE-* | Q-CFG-4, Q-X-1 |
+| AC-CFG-017.6 | Includes: `include "version"` inexistente se ignora; `required(...)`… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden INC-01..04 | Q-CFG-14, Q-CFG-4, Q-X-1 |
+| AC-CFG-017.7 | Sintaxis del archivo: comentarios `#` y `//`, claves con guiones y puntos,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden REF-04..10, LIST-*, TYPE-* | Q-CFG-15, Q-CFG-4, Q-X-1 |
 | AC-CFG-018 | Settings.amendSlf4jConfig: `pekko.use-slf4j` agrega… | función `amend_logging_backend(&Config, &FactoryRegistry) -> Config` (Q-X-7) | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:187-205 | Q-CFG-10, Q-X-7 |
-| AC-CFG-019 | Validación de la config contra reference.conf (`checkValid` con… | `Config::check_valid(&reference, &["pekko"]) -> Result<(), ConfigError>` | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:31-206 (config de… | Q-CFG-3 |
+| AC-CFG-019 | Validación de la config contra reference.conf (`checkValid` con… | `Config::check_valid(&reference, &["pekko"]) -> Result<(), ConfigError>` | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:31-206 (config de… | Q-CFG-15, Q-CFG-3, Q-X-1 |
 | AC-CFG-020 | Combinación no soportada coordinated-shutdown:… | validación en `Settings::from_config` | actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:573-583 | - |
 
 ## Gates y criterio de cierre

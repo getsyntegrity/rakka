@@ -1,0 +1,1 @@
+REF-10 duplicate keys: later object merges, later scalar wins -> ok 1,2,2

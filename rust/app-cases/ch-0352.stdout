@@ -1,0 +1,1 @@
+KEY actor pekko.actor.serializers.primitive-long -> ok STRING "org.apache.pekko.serialization.LongSerializer"

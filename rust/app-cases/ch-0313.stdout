@@ -1,0 +1,1 @@
+KEY actor pekko.actor.router.type-mapping.consistent-hashing-pool -> ok STRING "org.apache.pekko.routing.ConsistentHashingPool"

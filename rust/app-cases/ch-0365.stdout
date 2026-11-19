@@ -1,0 +1,1 @@
+KEY actor pekko.coordinated-shutdown.default-phase-timeout -> ok STRING "5 s"

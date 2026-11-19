@@ -1,0 +1,1 @@
+KEY actor pekko.serialization.protobuf.allowed-classes -> ok LIST ["com.google.protobuf.GeneratedMessage","com.google.protobuf.GeneratedMessageV3","scalapb.GeneratedMessageCompanion","org.apache.pekko.protobufv3.internal.GeneratedMessage"]

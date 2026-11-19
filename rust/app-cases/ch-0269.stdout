@@ -1,0 +1,1 @@
+KEY actor pekko.actor.deployment.default.resizer.backoff-rate -> ok NUMBER 0.1

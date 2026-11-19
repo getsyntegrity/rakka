@@ -1,0 +1,1 @@
+RW-06 keys that need quotes and escapes in strings -> ok {\u000A    # String: 1\u000A    "a.b" : 1,\u000A    # String: 2\u000A    "c d" : "q\"uote\nline"\u000A}\u000A

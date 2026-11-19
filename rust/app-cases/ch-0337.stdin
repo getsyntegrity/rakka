@@ -1,0 +1,1 @@
+KEY actor pekko.actor.serialization-identifiers."org.apache.pekko.serialization.ByteArraySerializer"

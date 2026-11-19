@@ -1,0 +1,1 @@
+CV-18 an unresolved config fails -> ERR NotResolved [need to Config#resolve() each config before using it, see the API docs for Config#resolve()]

@@ -1,0 +1,1 @@
+KEY actor pekko.io.pinned-dispatcher.executor -> ok STRING "thread-pool-executor"

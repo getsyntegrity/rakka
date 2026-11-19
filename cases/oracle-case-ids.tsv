@@ -946,3 +946,499 @@ uc-0546	util-core	FR-DUR-10 create(ofSeconds(3600, 500000000))
 uc-0547	util-core	FR-DUR-11 create(ofSeconds(Long.MAX_VALUE, 999999999))
 uc-0548	util-core	FR-DUR-12 create(ofSeconds(61, 1))
 uc-0549	util-core	FR-DUR-13 create(ofSeconds(9223372036, 854775807)) eq Timeout(Long.MaxValue ns)
+ch-0001	config-hocon	FB-01 receiver scalar wins over fallback scalar
+ch-0002	config-hocon	FB-02 objects merge key by key, receiver wins on conflict
+ch-0003	config-hocon	FB-03 scalar in receiver replaces object in fallback
+ch-0004	config-hocon	FB-04 object in receiver over scalar in fallback keeps the receiver object
+ch-0005	config-hocon	FB-05 substitution is late-bound: override of referenced key is seen
+ch-0006	config-hocon	FB-06 resolving the fallback first freezes the substitution
+ch-0007	config-hocon	FB-07 chain of three: first receiver wins
+ch-0008	config-hocon	FB-08 explicit config only (no fallback) does not see reference keys
+ch-0009	config-hocon	FB-09 hasPath on null value is false
+ch-0010	config-hocon	FB-10 hasPathOrNull on null value is true
+ch-0011	config-hocon	SUB-01 optional substitution of a missing path leaves the key absent
+ch-0012	config-hocon	SUB-02 optional substitution concatenated with an array (reference.conf:78)
+ch-0013	config-hocon	SUB-03 same, with the optional path defined by the application
+ch-0014	config-hocon	SUB-04 required substitution of a missing path fails
+ch-0015	config-hocon	SUB-05 self-reference concatenates strings
+ch-0016	config-hocon	SUB-06 += appends to an existing list
+ch-0017	config-hocon	SUB-07 += on a missing key creates the list
+ch-0018	config-hocon	SUB-08 substitution to an unset environment variable, optional
+ch-0019	config-hocon	SUB-09 substitution to an unset environment variable, required
+ch-0020	config-hocon	SUB-10 cyclic substitution fails
+ch-0021	config-hocon	SUB-11 substitution inside a quoted string is not substituted
+ch-0022	config-hocon	SUB-12 a getter on an unresolved config fails
+ch-0023	config-hocon	SUB-13 substitution of an object merges with a later object
+ch-0024	config-hocon	SUB-14 reference.conf:878 shape: key set to another key's list
+ch-0025	config-hocon	INC-01 include of a missing file is ignored
+ch-0026	config-hocon	INC-02 required include of a missing file fails
+ch-0027	config-hocon	INC-03 file() include of a missing file is ignored
+ch-0028	config-hocon	INC-04 classpath() include of a missing resource is ignored
+ch-0029	config-hocon	DUR-MS 10 ms
+ch-0030	config-hocon	DUR-NS 10 ms
+ch-0031	config-hocon	DUR-MS 10ms
+ch-0032	config-hocon	DUR-NS 10ms
+ch-0033	config-hocon	DUR-MS 10 milliseconds
+ch-0034	config-hocon	DUR-NS 10 milliseconds
+ch-0035	config-hocon	DUR-MS 1 us
+ch-0036	config-hocon	DUR-NS 1 us
+ch-0037	config-hocon	DUR-MS 1us
+ch-0038	config-hocon	DUR-NS 1us
+ch-0039	config-hocon	DUR-MS 5 ns
+ch-0040	config-hocon	DUR-NS 5 ns
+ch-0041	config-hocon	DUR-MS 1 d
+ch-0042	config-hocon	DUR-NS 1 d
+ch-0043	config-hocon	DUR-MS 1d
+ch-0044	config-hocon	DUR-NS 1d
+ch-0045	config-hocon	DUR-MS 2 minutes
+ch-0046	config-hocon	DUR-NS 2 minutes
+ch-0047	config-hocon	DUR-MS 5 minutes
+ch-0048	config-hocon	DUR-NS 5 minutes
+ch-0049	config-hocon	DUR-MS 5s
+ch-0050	config-hocon	DUR-NS 5s
+ch-0051	config-hocon	DUR-MS 5 s
+ch-0052	config-hocon	DUR-NS 5 s
+ch-0053	config-hocon	DUR-MS 1 h
+ch-0054	config-hocon	DUR-NS 1 h
+ch-0055	config-hocon	DUR-MS 100
+ch-0056	config-hocon	DUR-NS 100
+ch-0057	config-hocon	DUR-MS 1.5 s
+ch-0058	config-hocon	DUR-NS 1.5 s
+ch-0059	config-hocon	DUR-MS 0.5 ms
+ch-0060	config-hocon	DUR-NS 0.5 ms
+ch-0061	config-hocon	DUR-MS -1s
+ch-0062	config-hocon	DUR-NS -1s
+ch-0063	config-hocon	DUR-MS 0
+ch-0064	config-hocon	DUR-NS 0
+ch-0065	config-hocon	DUR-MS 1 hour
+ch-0066	config-hocon	DUR-NS 1 hour
+ch-0067	config-hocon	DUR-MS 1 day
+ch-0068	config-hocon	DUR-NS 1 day
+ch-0069	config-hocon	DUR-ERR 5 foo
+ch-0070	config-hocon	DUR-ERR 
+ch-0071	config-hocon	DUR-ERR abc
+ch-0072	config-hocon	DUR-ERR 1 s s
+ch-0073	config-hocon	DUR-ERR infinite
+ch-0074	config-hocon	DUR-ERR off
+ch-0075	config-hocon	DUR-SCI scientific notation is accepted
+ch-0076	config-hocon	DUR-UNQUOTED 5 minutes
+ch-0077	config-hocon	DUR-NUMBER bare number is milliseconds
+ch-0078	config-hocon	DUR-ROUND 1 ns in millis truncates toward zero
+ch-0079	config-hocon	DUR-ROUND 999999 ns in millis truncates toward zero
+ch-0080	config-hocon	DUR-ROUND -1500 us in millis truncates toward zero
+ch-0081	config-hocon	DUR-LARGE overflow
+ch-0082	config-hocon	DUR-LARGE 292 years in ns still fits
+ch-0083	config-hocon	SIZE 128 KiB
+ch-0084	config-hocon	SIZE 128KiB
+ch-0085	config-hocon	SIZE 128 K
+ch-0086	config-hocon	SIZE 128 k
+ch-0087	config-hocon	SIZE 1 MB
+ch-0088	config-hocon	SIZE 1MB
+ch-0089	config-hocon	SIZE 1 kB
+ch-0090	config-hocon	SIZE 1 KB
+ch-0091	config-hocon	SIZE 512
+ch-0092	config-hocon	SIZE 512 B
+ch-0093	config-hocon	SIZE 512 bytes
+ch-0094	config-hocon	SIZE 1.5 KiB
+ch-0095	config-hocon	SIZE 1 GiB
+ch-0096	config-hocon	SIZE 1 MiB
+ch-0097	config-hocon	SIZE 1 g
+ch-0098	config-hocon	SIZE 0
+ch-0099	config-hocon	SIZE -1 KiB
+ch-0100	config-hocon	SIZE 1 TiB
+ch-0101	config-hocon	SIZE 256 MiB
+ch-0102	config-hocon	SIZE-ERR unlimited
+ch-0103	config-hocon	SIZE-ERR 128 XiB
+ch-0104	config-hocon	SIZE-ERR 
+ch-0105	config-hocon	SIZE-ERR KiB
+ch-0106	config-hocon	SIZE-ERR 1 KiB KiB
+ch-0107	config-hocon	SIZE-ERR 8 EiB
+ch-0108	config-hocon	SIZE-ERR 8388608 TiB
+ch-0109	config-hocon	SIZE-NUMBER bare number is bytes
+ch-0110	config-hocon	SIZE-MEMORY getMemorySize
+ch-0111	config-hocon	BOOL on
+ch-0112	config-hocon	BOOL off
+ch-0113	config-hocon	BOOL yes
+ch-0114	config-hocon	BOOL no
+ch-0115	config-hocon	BOOL true
+ch-0116	config-hocon	BOOL false
+ch-0117	config-hocon	BOOL "on"
+ch-0118	config-hocon	BOOL "off"
+ch-0119	config-hocon	BOOL "true"
+ch-0120	config-hocon	BOOL "yes"
+ch-0121	config-hocon	BOOL "maybe"
+ch-0122	config-hocon	BOOL 1
+ch-0123	config-hocon	BOOL "ON"
+ch-0124	config-hocon	TYPE-01 missing key
+ch-0125	config-hocon	TYPE-02 string where int expected
+ch-0126	config-hocon	TYPE-03 quoted number as int
+ch-0127	config-hocon	TYPE-04 int where string expected
+ch-0128	config-hocon	TYPE-05 object where string expected
+ch-0129	config-hocon	TYPE-06 list where string expected
+ch-0130	config-hocon	TYPE-07 null where string expected
+ch-0131	config-hocon	TYPE-08 long beyond int
+ch-0132	config-hocon	TYPE-09 double as int
+ch-0133	config-hocon	TYPE-10 whole double as int
+ch-0134	config-hocon	TYPE-11 getConfig on scalar
+ch-0135	config-hocon	TYPE-12 getString of boolean
+ch-0136	config-hocon	TYPE-13 getDouble of int
+ch-0137	config-hocon	SPECIAL-01 log-dead-letters = on is a boolean
+ch-0138	config-hocon	SPECIAL-02 log-dead-letters = 10 is a number
+ch-0139	config-hocon	SPECIAL-03 infinite is a string
+ch-0140	config-hocon	SPECIAL-04 unlimited is a string
+ch-0141	config-hocon	SPECIAL-05 off is a string by getString
+ch-0142	config-hocon	SPECIAL-06 on is a string by getString
+ch-0143	config-hocon	SPECIAL-07 5 minutes unquoted is a string
+ch-0144	config-hocon	SPECIAL-08 duration getter on infinite fails
+ch-0145	config-hocon	LIST-01 string list
+ch-0146	config-hocon	LIST-02 empty list
+ch-0147	config-hocon	LIST-03 mixed list as string list coerces
+ch-0148	config-hocon	LIST-04 list of objects
+ch-0149	config-hocon	LIST-05 numeric-keyed object as list
+ch-0150	config-hocon	LIST-06 trailing comma allowed
+ch-0151	config-hocon	LIST-07 missing comma between elements on one line fails
+ch-0152	config-hocon	REF-01 library-extensions default (line 78)
+ch-0153	config-hocon	REF-02 library-extensions with application value first
+ch-0154	config-hocon	REF-03 max-decompressed-size = unlimited (line 863)
+ch-0155	config-hocon	REF-04 direct-buffer-size = 128 KiB (line 966)
+ch-0156	config-hocon	REF-05 log-dead-letters-suspend-duration = 5 minutes (line 68)
+ch-0157	config-hocon	REF-06 key with dots in quotes is one key
+ch-0158	config-hocon	REF-07 unquoted key with hyphens
+ch-0159	config-hocon	REF-08 comment styles # and //
+ch-0160	config-hocon	REF-09 triple-quoted string keeps newlines
+ch-0161	config-hocon	REF-10 duplicate keys: later object merges, later scalar wins
+ch-0162	config-hocon	CV-01 a config equal to the reference is valid
+ch-0163	config-hocon	CV-02 a key missing from the config
+ch-0164	config-hocon	CV-03 string where a number is expected is accepted (a string can be converted)
+ch-0165	config-hocon	CV-04 object where a number is expected
+ch-0166	config-hocon	CV-05 number where an object is expected
+ch-0167	config-hocon	CV-06 number where a list is expected
+ch-0168	config-hocon	CV-07 numeric-keyed object where a list is expected
+ch-0169	config-hocon	CV-08 number where a string is expected
+ch-0170	config-hocon	CV-09 boolean where a number is expected
+ch-0171	config-hocon	CV-10 list where a number is expected
+ch-0172	config-hocon	CV-11 several problems are reported together
+ch-0173	config-hocon	CV-12 problems outside the restricted path are not checked
+ch-0174	config-hocon	CV-13 no restriction checks the whole reference
+ch-0175	config-hocon	CV-14 null where a number is expected is accepted
+ch-0176	config-hocon	CV-15 extra keys in the config are accepted
+ch-0177	config-hocon	CV-16 withoutPath drops a key of the reference
+ch-0178	config-hocon	CV-17 the same without withoutPath fails
+ch-0179	config-hocon	CV-18 an unresolved config fails
+ch-0180	config-hocon	CV-19 the real reference.conf of pekko-actor is valid against itself
+ch-0181	config-hocon	CV-20 the real reference.conf is valid for an application that overrides some keys
+ch-0182	config-hocon	CV-21 the real reference.conf fails when a key it defines is an object in the application
+ch-0183	config-hocon	RW-01 render of scalars, nested objects, lists, null and empty values
+ch-0184	config-hocon	RW-02 an environment variable value is not shown
+ch-0185	config-hocon	RW-03 the user name is replaced
+ch-0186	config-hocon	RW-04 render of an unresolved config
+ch-0187	config-hocon	RW-05 render of a merge of two configs
+ch-0188	config-hocon	RW-06 keys that need quotes and escapes in strings
+ch-0189	config-hocon	KEY actor pekko.actor.allow-java-serialization
+ch-0190	config-hocon	KEY actor pekko.actor.creation-timeout
+ch-0191	config-hocon	KEY actor pekko.actor.debug.autoreceive
+ch-0192	config-hocon	KEY actor pekko.actor.debug.event-stream
+ch-0193	config-hocon	KEY actor pekko.actor.debug.fsm
+ch-0194	config-hocon	KEY actor pekko.actor.debug.lifecycle
+ch-0195	config-hocon	KEY actor pekko.actor.debug.receive
+ch-0196	config-hocon	KEY actor pekko.actor.debug.router-misconfiguration
+ch-0197	config-hocon	KEY actor pekko.actor.debug.unhandled
+ch-0198	config-hocon	KEY actor pekko.actor.default-blocking-io-dispatcher.executor
+ch-0199	config-hocon	KEY actor pekko.actor.default-blocking-io-dispatcher.thread-pool-executor.fixed-pool-size
+ch-0200	config-hocon	KEY actor pekko.actor.default-blocking-io-dispatcher.thread-pool-executor.virtual-thread-start-number
+ch-0201	config-hocon	KEY actor pekko.actor.default-blocking-io-dispatcher.thread-pool-executor.virtualize
+ch-0202	config-hocon	KEY actor pekko.actor.default-blocking-io-dispatcher.throughput
+ch-0203	config-hocon	KEY actor pekko.actor.default-blocking-io-dispatcher.type
+ch-0204	config-hocon	KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.fair-work-distribution.threshold
+ch-0205	config-hocon	KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.idle-cpu-level
+ch-0206	config-hocon	KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.parallelism-factor
+ch-0207	config-hocon	KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.parallelism-max
+ch-0208	config-hocon	KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.parallelism-min
+ch-0209	config-hocon	KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.queue-selector
+ch-0210	config-hocon	KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.rejection-handler
+ch-0211	config-hocon	KEY actor pekko.actor.default-dispatcher.affinity-pool-executor.task-queue-size
+ch-0212	config-hocon	KEY actor pekko.actor.default-dispatcher.attempt-teamwork
+ch-0213	config-hocon	KEY actor pekko.actor.default-dispatcher.default-executor.fallback
+ch-0214	config-hocon	KEY actor pekko.actor.default-dispatcher.executor
+ch-0215	config-hocon	KEY actor pekko.actor.default-dispatcher.fork-join-executor.maximum-pool-size
+ch-0216	config-hocon	KEY actor pekko.actor.default-dispatcher.fork-join-executor.minimum-runnable
+ch-0217	config-hocon	KEY actor pekko.actor.default-dispatcher.fork-join-executor.parallelism-factor
+ch-0218	config-hocon	KEY actor pekko.actor.default-dispatcher.fork-join-executor.parallelism-max
+ch-0219	config-hocon	KEY actor pekko.actor.default-dispatcher.fork-join-executor.parallelism-min
+ch-0220	config-hocon	KEY actor pekko.actor.default-dispatcher.fork-join-executor.task-peeking-mode
+ch-0221	config-hocon	KEY actor pekko.actor.default-dispatcher.fork-join-executor.virtual-thread-start-number
+ch-0222	config-hocon	KEY actor pekko.actor.default-dispatcher.fork-join-executor.virtualize
+ch-0223	config-hocon	KEY actor pekko.actor.default-dispatcher.mailbox-requirement
+ch-0224	config-hocon	KEY actor pekko.actor.default-dispatcher.shutdown-timeout
+ch-0225	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.allow-core-timeout
+ch-0226	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-factor
+ch-0227	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-max
+ch-0228	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.core-pool-size-min
+ch-0229	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.fixed-pool-size
+ch-0230	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.keep-alive-time
+ch-0231	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.max-pool-size-factor
+ch-0232	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.max-pool-size-max
+ch-0233	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.max-pool-size-min
+ch-0234	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.task-queue-size
+ch-0235	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.task-queue-type
+ch-0236	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.virtual-thread-start-number
+ch-0237	config-hocon	KEY actor pekko.actor.default-dispatcher.thread-pool-executor.virtualize
+ch-0238	config-hocon	KEY actor pekko.actor.default-dispatcher.throughput
+ch-0239	config-hocon	KEY actor pekko.actor.default-dispatcher.throughput-deadline-time
+ch-0240	config-hocon	KEY actor pekko.actor.default-dispatcher.type
+ch-0241	config-hocon	KEY actor pekko.actor.default-dispatcher.virtual-thread-executor.fallback
+ch-0242	config-hocon	KEY actor pekko.actor.default-dispatcher.virtual-thread-executor.virtual-thread-start-number
+ch-0243	config-hocon	KEY actor pekko.actor.default-mailbox.mailbox-capacity
+ch-0244	config-hocon	KEY actor pekko.actor.default-mailbox.mailbox-push-timeout-time
+ch-0245	config-hocon	KEY actor pekko.actor.default-mailbox.mailbox-type
+ch-0246	config-hocon	KEY actor pekko.actor.default-mailbox.stash-capacity
+ch-0247	config-hocon	KEY actor pekko.actor.deployment."/IO-DNS/async-dns".mailbox
+ch-0248	config-hocon	KEY actor pekko.actor.deployment."/IO-DNS/async-dns".nr-of-instances
+ch-0249	config-hocon	KEY actor pekko.actor.deployment."/IO-DNS/async-dns".router
+ch-0250	config-hocon	KEY actor pekko.actor.deployment."/IO-DNS/async-dns/*".dispatcher
+ch-0251	config-hocon	KEY actor pekko.actor.deployment."/IO-DNS/inet-address".mailbox
+ch-0252	config-hocon	KEY actor pekko.actor.deployment."/IO-DNS/inet-address".nr-of-instances
+ch-0253	config-hocon	KEY actor pekko.actor.deployment."/IO-DNS/inet-address".router
+ch-0254	config-hocon	KEY actor pekko.actor.deployment."/IO-DNS/inet-address/*".dispatcher
+ch-0255	config-hocon	KEY actor pekko.actor.deployment.default.dispatcher
+ch-0256	config-hocon	KEY actor pekko.actor.deployment.default.mailbox
+ch-0257	config-hocon	KEY actor pekko.actor.deployment.default.nr-of-instances
+ch-0258	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.action-interval
+ch-0259	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.chance-of-exploration
+ch-0260	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.chance-of-ramping-down-when-full
+ch-0261	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.downsize-after-underutilized-for
+ch-0262	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.downsize-ratio
+ch-0263	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.enabled
+ch-0264	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.explore-step-size
+ch-0265	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.lower-bound
+ch-0266	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.optimization-range
+ch-0267	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.upper-bound
+ch-0268	config-hocon	KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.weight-of-latest-metric
+ch-0269	config-hocon	KEY actor pekko.actor.deployment.default.resizer.backoff-rate
+ch-0270	config-hocon	KEY actor pekko.actor.deployment.default.resizer.backoff-threshold
+ch-0271	config-hocon	KEY actor pekko.actor.deployment.default.resizer.enabled
+ch-0272	config-hocon	KEY actor pekko.actor.deployment.default.resizer.lower-bound
+ch-0273	config-hocon	KEY actor pekko.actor.deployment.default.resizer.messages-per-resize
+ch-0274	config-hocon	KEY actor pekko.actor.deployment.default.resizer.pressure-threshold
+ch-0275	config-hocon	KEY actor pekko.actor.deployment.default.resizer.rampup-rate
+ch-0276	config-hocon	KEY actor pekko.actor.deployment.default.resizer.upper-bound
+ch-0277	config-hocon	KEY actor pekko.actor.deployment.default.routees.paths
+ch-0278	config-hocon	KEY actor pekko.actor.deployment.default.router
+ch-0279	config-hocon	KEY actor pekko.actor.deployment.default.tail-chopping-router.interval
+ch-0280	config-hocon	KEY actor pekko.actor.deployment.default.virtual-nodes-factor
+ch-0281	config-hocon	KEY actor pekko.actor.deployment.default.within
+ch-0282	config-hocon	KEY actor pekko.actor.guardian-supervisor-strategy
+ch-0283	config-hocon	KEY actor pekko.actor.internal-dispatcher.executor
+ch-0284	config-hocon	KEY actor pekko.actor.internal-dispatcher.fork-join-executor.minimum-runnable
+ch-0285	config-hocon	KEY actor pekko.actor.internal-dispatcher.fork-join-executor.parallelism-factor
+ch-0286	config-hocon	KEY actor pekko.actor.internal-dispatcher.fork-join-executor.parallelism-max
+ch-0287	config-hocon	KEY actor pekko.actor.internal-dispatcher.fork-join-executor.parallelism-min
+ch-0288	config-hocon	KEY actor pekko.actor.internal-dispatcher.throughput
+ch-0289	config-hocon	KEY actor pekko.actor.internal-dispatcher.type
+ch-0290	config-hocon	KEY actor pekko.actor.mailbox.bounded-control-aware-queue-based.mailbox-type
+ch-0291	config-hocon	KEY actor pekko.actor.mailbox.bounded-deque-based.mailbox-type
+ch-0292	config-hocon	KEY actor pekko.actor.mailbox.bounded-queue-based.mailbox-type
+ch-0293	config-hocon	KEY actor pekko.actor.mailbox.logger-queue.mailbox-type
+ch-0294	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.BoundedControlAwareMessageQueueSemantics"
+ch-0295	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.BoundedDequeBasedMessageQueueSemantics"
+ch-0296	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.BoundedMessageQueueSemantics"
+ch-0297	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.ControlAwareMessageQueueSemantics"
+ch-0298	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.DequeBasedMessageQueueSemantics"
+ch-0299	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.MultipleConsumerSemantics"
+ch-0300	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.UnboundedControlAwareMessageQueueSemantics"
+ch-0301	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.UnboundedDequeBasedMessageQueueSemantics"
+ch-0302	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.dispatch.UnboundedMessageQueueSemantics"
+ch-0303	config-hocon	KEY actor pekko.actor.mailbox.requirements."org.apache.pekko.event.LoggerMessageQueueSemantics"
+ch-0304	config-hocon	KEY actor pekko.actor.mailbox.unbounded-control-aware-queue-based.mailbox-type
+ch-0305	config-hocon	KEY actor pekko.actor.mailbox.unbounded-deque-based.mailbox-type
+ch-0306	config-hocon	KEY actor pekko.actor.mailbox.unbounded-queue-based.mailbox-type
+ch-0307	config-hocon	KEY actor pekko.actor.no-serialization-verification-needed-class-prefix
+ch-0308	config-hocon	KEY actor pekko.actor.provider
+ch-0309	config-hocon	KEY actor pekko.actor.router.type-mapping.balancing-pool
+ch-0310	config-hocon	KEY actor pekko.actor.router.type-mapping.broadcast-group
+ch-0311	config-hocon	KEY actor pekko.actor.router.type-mapping.broadcast-pool
+ch-0312	config-hocon	KEY actor pekko.actor.router.type-mapping.consistent-hashing-group
+ch-0313	config-hocon	KEY actor pekko.actor.router.type-mapping.consistent-hashing-pool
+ch-0314	config-hocon	KEY actor pekko.actor.router.type-mapping.from-code
+ch-0315	config-hocon	KEY actor pekko.actor.router.type-mapping.random-group
+ch-0316	config-hocon	KEY actor pekko.actor.router.type-mapping.random-pool
+ch-0317	config-hocon	KEY actor pekko.actor.router.type-mapping.round-robin-group
+ch-0318	config-hocon	KEY actor pekko.actor.router.type-mapping.round-robin-pool
+ch-0319	config-hocon	KEY actor pekko.actor.router.type-mapping.scatter-gather-group
+ch-0320	config-hocon	KEY actor pekko.actor.router.type-mapping.scatter-gather-pool
+ch-0321	config-hocon	KEY actor pekko.actor.router.type-mapping.smallest-mailbox-pool
+ch-0322	config-hocon	KEY actor pekko.actor.router.type-mapping.tail-chopping-group
+ch-0323	config-hocon	KEY actor pekko.actor.router.type-mapping.tail-chopping-pool
+ch-0324	config-hocon	KEY actor pekko.actor.serialization-bindings."[B"
+ch-0325	config-hocon	KEY actor pekko.actor.serialization-bindings."java.io.Serializable"
+ch-0326	config-hocon	KEY actor pekko.actor.serialization-bindings."java.lang.Boolean"
+ch-0327	config-hocon	KEY actor pekko.actor.serialization-bindings."java.lang.Integer"
+ch-0328	config-hocon	KEY actor pekko.actor.serialization-bindings."java.lang.Long"
+ch-0329	config-hocon	KEY actor pekko.actor.serialization-bindings."java.lang.String"
+ch-0330	config-hocon	KEY actor pekko.actor.serialization-bindings."org.apache.pekko.util.ByteString$ByteString1"
+ch-0331	config-hocon	KEY actor pekko.actor.serialization-bindings."org.apache.pekko.util.ByteString$ByteString1C"
+ch-0332	config-hocon	KEY actor pekko.actor.serialization-bindings."org.apache.pekko.util.ByteString$ByteString2"
+ch-0333	config-hocon	KEY actor pekko.actor.serialization-bindings."org.apache.pekko.util.ByteString$ByteStrings"
+ch-0334	config-hocon	KEY actor pekko.actor.serialization-bindings."scala.Boolean"
+ch-0335	config-hocon	KEY actor pekko.actor.serialization-bindings."scala.Int"
+ch-0336	config-hocon	KEY actor pekko.actor.serialization-bindings."scala.Long"
+ch-0337	config-hocon	KEY actor pekko.actor.serialization-identifiers."org.apache.pekko.serialization.ByteArraySerializer"
+ch-0338	config-hocon	KEY actor pekko.actor.serialization-identifiers."org.apache.pekko.serialization.JavaSerializer"
+ch-0339	config-hocon	KEY actor pekko.actor.serialization-identifiers.primitive-boolean
+ch-0340	config-hocon	KEY actor pekko.actor.serialization-identifiers.primitive-bytestring
+ch-0341	config-hocon	KEY actor pekko.actor.serialization-identifiers.primitive-int
+ch-0342	config-hocon	KEY actor pekko.actor.serialization-identifiers.primitive-long
+ch-0343	config-hocon	KEY actor pekko.actor.serialization-identifiers.primitive-string
+ch-0344	config-hocon	KEY actor pekko.actor.serialization-max-nesting-depth
+ch-0345	config-hocon	KEY actor pekko.actor.serialize-creators
+ch-0346	config-hocon	KEY actor pekko.actor.serialize-messages
+ch-0347	config-hocon	KEY actor pekko.actor.serializers.bytes
+ch-0348	config-hocon	KEY actor pekko.actor.serializers.java
+ch-0349	config-hocon	KEY actor pekko.actor.serializers.primitive-boolean
+ch-0350	config-hocon	KEY actor pekko.actor.serializers.primitive-bytestring
+ch-0351	config-hocon	KEY actor pekko.actor.serializers.primitive-int
+ch-0352	config-hocon	KEY actor pekko.actor.serializers.primitive-long
+ch-0353	config-hocon	KEY actor pekko.actor.serializers.primitive-string
+ch-0354	config-hocon	KEY actor pekko.actor.unstarted-push-timeout
+ch-0355	config-hocon	KEY actor pekko.actor.warn-about-java-serializer-usage
+ch-0356	config-hocon	KEY actor pekko.actor.warn-on-no-serialization-verification
+ch-0357	config-hocon	KEY actor pekko.circuit-breaker.default.call-timeout
+ch-0358	config-hocon	KEY actor pekko.circuit-breaker.default.exception-allowlist
+ch-0359	config-hocon	KEY actor pekko.circuit-breaker.default.exponential-backoff
+ch-0360	config-hocon	KEY actor pekko.circuit-breaker.default.max-failures
+ch-0361	config-hocon	KEY actor pekko.circuit-breaker.default.max-reset-timeout
+ch-0362	config-hocon	KEY actor pekko.circuit-breaker.default.random-factor
+ch-0363	config-hocon	KEY actor pekko.circuit-breaker.default.reset-timeout
+ch-0364	config-hocon	KEY actor pekko.coordinated-shutdown.close-actor-system-timeout
+ch-0365	config-hocon	KEY actor pekko.coordinated-shutdown.default-phase-timeout
+ch-0366	config-hocon	KEY actor pekko.coordinated-shutdown.exit-code
+ch-0367	config-hocon	KEY actor pekko.coordinated-shutdown.exit-jvm
+ch-0368	config-hocon	KEY actor pekko.coordinated-shutdown.phases.actor-system-terminate.depends-on
+ch-0369	config-hocon	KEY actor pekko.coordinated-shutdown.phases.actor-system-terminate.timeout
+ch-0370	config-hocon	KEY actor pekko.coordinated-shutdown.phases.before-actor-system-terminate.depends-on
+ch-0371	config-hocon	KEY actor pekko.coordinated-shutdown.phases.before-cluster-shutdown.depends-on
+ch-0372	config-hocon	KEY actor pekko.coordinated-shutdown.phases.cluster-exiting-done.depends-on
+ch-0373	config-hocon	KEY actor pekko.coordinated-shutdown.phases.cluster-exiting.depends-on
+ch-0374	config-hocon	KEY actor pekko.coordinated-shutdown.phases.cluster-exiting.timeout
+ch-0375	config-hocon	KEY actor pekko.coordinated-shutdown.phases.cluster-leave.depends-on
+ch-0376	config-hocon	KEY actor pekko.coordinated-shutdown.phases.cluster-sharding-shutdown-region.depends-on
+ch-0377	config-hocon	KEY actor pekko.coordinated-shutdown.phases.cluster-sharding-shutdown-region.timeout
+ch-0378	config-hocon	KEY actor pekko.coordinated-shutdown.phases.cluster-shutdown.depends-on
+ch-0379	config-hocon	KEY actor pekko.coordinated-shutdown.phases.service-requests-done.depends-on
+ch-0380	config-hocon	KEY actor pekko.coordinated-shutdown.phases.service-stop.depends-on
+ch-0381	config-hocon	KEY actor pekko.coordinated-shutdown.phases.service-unbind.depends-on
+ch-0382	config-hocon	KEY actor pekko.coordinated-shutdown.reason-overrides."org.apache.pekko.actor.CoordinatedShutdown$ClusterDowningReason$".exit-code
+ch-0383	config-hocon	KEY actor pekko.coordinated-shutdown.reason-overrides."org.apache.pekko.actor.CoordinatedShutdown$ClusterJoinUnsuccessfulReason$".exit-code
+ch-0384	config-hocon	KEY actor pekko.coordinated-shutdown.run-by-actor-system-terminate
+ch-0385	config-hocon	KEY actor pekko.coordinated-shutdown.run-by-jvm-shutdown-hook
+ch-0386	config-hocon	KEY actor pekko.coordinated-shutdown.terminate-actor-system
+ch-0387	config-hocon	KEY actor pekko.daemonic
+ch-0388	config-hocon	KEY actor pekko.extensions
+ch-0389	config-hocon	KEY actor pekko.fail-mixed-versions
+ch-0390	config-hocon	KEY actor pekko.home
+ch-0391	config-hocon	KEY actor pekko.io.dns.async-dns.cache-cleanup-interval
+ch-0392	config-hocon	KEY actor pekko.io.dns.async-dns.id-generator-policy
+ch-0393	config-hocon	KEY actor pekko.io.dns.async-dns.nameservers
+ch-0394	config-hocon	KEY actor pekko.io.dns.async-dns.ndots
+ch-0395	config-hocon	KEY actor pekko.io.dns.async-dns.negative-ttl
+ch-0396	config-hocon	KEY actor pekko.io.dns.async-dns.positive-ttl
+ch-0397	config-hocon	KEY actor pekko.io.dns.async-dns.provider-object
+ch-0398	config-hocon	KEY actor pekko.io.dns.async-dns.resolve-timeout
+ch-0399	config-hocon	KEY actor pekko.io.dns.async-dns.search-domains
+ch-0400	config-hocon	KEY actor pekko.io.dns.dispatcher
+ch-0401	config-hocon	KEY actor pekko.io.dns.inet-address.cache-cleanup-interval
+ch-0402	config-hocon	KEY actor pekko.io.dns.inet-address.negative-ttl
+ch-0403	config-hocon	KEY actor pekko.io.dns.inet-address.positive-ttl
+ch-0404	config-hocon	KEY actor pekko.io.dns.inet-address.provider-object
+ch-0405	config-hocon	KEY actor pekko.io.dns.resolver
+ch-0406	config-hocon	KEY actor pekko.io.pinned-dispatcher.executor
+ch-0407	config-hocon	KEY actor pekko.io.pinned-dispatcher.thread-pool-executor.allow-core-timeout
+ch-0408	config-hocon	KEY actor pekko.io.pinned-dispatcher.type
+ch-0409	config-hocon	KEY actor pekko.io.tcp.batch-accept-limit
+ch-0410	config-hocon	KEY actor pekko.io.tcp.direct-buffer-pool-limit
+ch-0411	config-hocon	KEY actor pekko.io.tcp.direct-buffer-size
+ch-0412	config-hocon	KEY actor pekko.io.tcp.file-io-dispatcher
+ch-0413	config-hocon	KEY actor pekko.io.tcp.file-io-transferTo-limit
+ch-0414	config-hocon	KEY actor pekko.io.tcp.finish-connect-retries
+ch-0415	config-hocon	KEY actor pekko.io.tcp.management-dispatcher
+ch-0416	config-hocon	KEY actor pekko.io.tcp.max-channels
+ch-0417	config-hocon	KEY actor pekko.io.tcp.max-received-message-size
+ch-0418	config-hocon	KEY actor pekko.io.tcp.nr-of-selectors
+ch-0419	config-hocon	KEY actor pekko.io.tcp.register-timeout
+ch-0420	config-hocon	KEY actor pekko.io.tcp.selector-association-retries
+ch-0421	config-hocon	KEY actor pekko.io.tcp.selector-dispatcher
+ch-0422	config-hocon	KEY actor pekko.io.tcp.trace-logging
+ch-0423	config-hocon	KEY actor pekko.io.tcp.windows-connection-abort-workaround-enabled
+ch-0424	config-hocon	KEY actor pekko.io.tcp.worker-dispatcher
+ch-0425	config-hocon	KEY actor pekko.io.udp-connected.direct-buffer-pool-limit
+ch-0426	config-hocon	KEY actor pekko.io.udp-connected.direct-buffer-size
+ch-0427	config-hocon	KEY actor pekko.io.udp-connected.management-dispatcher
+ch-0428	config-hocon	KEY actor pekko.io.udp-connected.max-channels
+ch-0429	config-hocon	KEY actor pekko.io.udp-connected.nr-of-selectors
+ch-0430	config-hocon	KEY actor pekko.io.udp-connected.receive-throughput
+ch-0431	config-hocon	KEY actor pekko.io.udp-connected.select-timeout
+ch-0432	config-hocon	KEY actor pekko.io.udp-connected.selector-association-retries
+ch-0433	config-hocon	KEY actor pekko.io.udp-connected.selector-dispatcher
+ch-0434	config-hocon	KEY actor pekko.io.udp-connected.trace-logging
+ch-0435	config-hocon	KEY actor pekko.io.udp-connected.worker-dispatcher
+ch-0436	config-hocon	KEY actor pekko.io.udp.direct-buffer-pool-limit
+ch-0437	config-hocon	KEY actor pekko.io.udp.direct-buffer-size
+ch-0438	config-hocon	KEY actor pekko.io.udp.management-dispatcher
+ch-0439	config-hocon	KEY actor pekko.io.udp.max-channels
+ch-0440	config-hocon	KEY actor pekko.io.udp.nr-of-selectors
+ch-0441	config-hocon	KEY actor pekko.io.udp.receive-throughput
+ch-0442	config-hocon	KEY actor pekko.io.udp.select-timeout
+ch-0443	config-hocon	KEY actor pekko.io.udp.selector-association-retries
+ch-0444	config-hocon	KEY actor pekko.io.udp.selector-dispatcher
+ch-0445	config-hocon	KEY actor pekko.io.udp.trace-logging
+ch-0446	config-hocon	KEY actor pekko.io.udp.worker-dispatcher
+ch-0447	config-hocon	KEY actor pekko.java-flight-recorder.enabled
+ch-0448	config-hocon	KEY actor pekko.jvm-exit-on-fatal-error
+ch-0449	config-hocon	KEY actor pekko.jvm-shutdown-hooks
+ch-0450	config-hocon	KEY actor pekko.library-extensions
+ch-0451	config-hocon	KEY actor pekko.log-config-on-start
+ch-0452	config-hocon	KEY actor pekko.log-dead-letters
+ch-0453	config-hocon	KEY actor pekko.log-dead-letters-during-shutdown
+ch-0454	config-hocon	KEY actor pekko.log-dead-letters-suspend-duration
+ch-0455	config-hocon	KEY actor pekko.logger-startup-timeout
+ch-0456	config-hocon	KEY actor pekko.loggers
+ch-0457	config-hocon	KEY actor pekko.loggers-dispatcher
+ch-0458	config-hocon	KEY actor pekko.logging-filter
+ch-0459	config-hocon	KEY actor pekko.loglevel
+ch-0460	config-hocon	KEY actor pekko.scheduled-clock-interval
+ch-0461	config-hocon	KEY actor pekko.scheduler.error-on-tick-duration-verification-failed
+ch-0462	config-hocon	KEY actor pekko.scheduler.implementation
+ch-0463	config-hocon	KEY actor pekko.scheduler.shutdown-timeout
+ch-0464	config-hocon	KEY actor pekko.scheduler.tick-duration
+ch-0465	config-hocon	KEY actor pekko.scheduler.ticks-per-wheel
+ch-0466	config-hocon	KEY actor pekko.serialization.max-decompressed-size
+ch-0467	config-hocon	KEY actor pekko.serialization.protobuf.allowed-classes
+ch-0468	config-hocon	KEY actor pekko.serialization.protobuf.whitelist-class
+ch-0469	config-hocon	KEY actor pekko.stdout-loglevel
+ch-0470	config-hocon	KEY actor-typed pekko.actor.serialization-bindings."org.apache.pekko.actor.typed.ActorRef"
+ch-0471	config-hocon	KEY actor-typed pekko.actor.serialization-bindings."org.apache.pekko.actor.typed.internal.adapter.ActorRefAdapter"
+ch-0472	config-hocon	KEY actor-typed pekko.actor.serialization-bindings."org.apache.pekko.actor.typed.internal.receptionist.DefaultServiceKey"
+ch-0473	config-hocon	KEY actor-typed pekko.actor.serialization-identifiers."org.apache.pekko.actor.typed.internal.MiscMessageSerializer"
+ch-0474	config-hocon	KEY actor-typed pekko.actor.serialization-identifiers."org.apache.pekko.actor.typed.internal.receptionist.ServiceKeySerializer"
+ch-0475	config-hocon	KEY actor-typed pekko.actor.serializers.service-key
+ch-0476	config-hocon	KEY actor-typed pekko.actor.serializers.typed-misc
+ch-0477	config-hocon	KEY actor-typed pekko.actor.typed.default-mailbox.mailbox-type
+ch-0478	config-hocon	KEY actor-typed pekko.actor.typed.extensions
+ch-0479	config-hocon	KEY actor-typed pekko.actor.typed.library-extensions
+ch-0480	config-hocon	KEY actor-typed pekko.actor.typed.restart-stash-capacity
+ch-0481	config-hocon	KEY actor-typed pekko.library-extensions
+ch-0482	config-hocon	KEY actor-typed pekko.reliable-delivery.consumer-controller.flow-control-window
+ch-0483	config-hocon	KEY actor-typed pekko.reliable-delivery.consumer-controller.only-flow-control
+ch-0484	config-hocon	KEY actor-typed pekko.reliable-delivery.consumer-controller.resend-interval-max
+ch-0485	config-hocon	KEY actor-typed pekko.reliable-delivery.consumer-controller.resend-interval-min
+ch-0486	config-hocon	KEY actor-typed pekko.reliable-delivery.producer-controller.chunk-large-messages
+ch-0487	config-hocon	KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.request-timeout
+ch-0488	config-hocon	KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.resend-first-interval
+ch-0489	config-hocon	KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.retry-attempts
+ch-0490	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.buffer-size
+ch-0491	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.chunk-large-messages
+ch-0492	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.request-timeout
+ch-0493	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.resend-first-interval
+ch-0494	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.retry-attempts
+ch-0495	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.internal-ask-timeout
+ch-0496	config-hocon	KEY actor-typed pekko.use-slf4j

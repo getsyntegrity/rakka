@@ -1,0 +1,1 @@
+KEY actor pekko.scheduler.tick-duration -> ok STRING "10ms"

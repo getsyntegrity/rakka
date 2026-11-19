@@ -1,0 +1,1 @@
+KEY actor pekko.actor.deployment.default.optimal-size-exploring-resizer.chance-of-ramping-down-when-full -> ok NUMBER 0.2

@@ -1,0 +1,1 @@
+KEY actor pekko.coordinated-shutdown.run-by-actor-system-terminate -> ok STRING "on"

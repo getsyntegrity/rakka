@@ -1,0 +1,1 @@
+CV-06 number where a list is expected -> ERR ValidationFailed [String: 1: pekko.a: Wrong value type at 'pekko.a', expecting: list but got: number]

@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 230 decisiones: 0 bloqueantes, 168 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 233 decisiones: 0 bloqueantes, 171 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -378,6 +378,36 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Filas afectadas:** AC-CELL-028 ; AC-CELL-029
 - **Unidades afectadas:** CELL
 - **Origen:** classic-cell
+
+### Q-CFG-14 — Includes de HOCON sin classpath: `include "x"`, `classpath(...)`, `url(...)`, `file(...)` y `required(...)` en rakka
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** reference.conf:11 (`include "version"`); casos grabados INC-01..04 (include ausente se ignora; `required("x")` ausente falla con `IO` y la lista de tres intentos `.conf/.json/.properties` con el texto `resource not found on classpath`); `Config.parseString` de Typesafe Config 1.4.9 con Pekko 2.0.0 (JDK 17). Sin medir: los mensajes de `required(file(..))`, `required(classpath(..))` y `url(..)`.
+- **Alternativas:** (a) `include "x"` y `classpath("x")` buscan en una tabla de recursos embebidos que pasa quien llama (`parse_string_with`); `file("p")` lee del sistema de archivos; `url(..)` no se admite; un `required` ausente falla con el texto medido (el de `file` es una suposición sin medir). (b) además un directorio de búsqueda configurable para los nombres sin envoltorio. (c) sólo ignorar todos los includes.
+- **Recomendación:** (a). Clasificación: arquitectura (no hay classpath en Rust; Q-CFG-6 (a) lo descarta). Consecuencias observables: un `include` que en la JVM resolvería por classpath se ignora o falla según `required`. Bloquea: nada; las filas quedan `partial` hasta medir los mensajes de file/url.
+- **Filas afectadas:** AC-CFG-001, AC-CFG-017.6
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-15 — Descripción de origen de los valores de configuración en errores y en el render (`String: N`, archivo, `env variables`)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Casos grabados: todos los mensajes de error llevan el prefijo `String: <línea>: ` (texto) y `renderWithRedactions` imprime `# String: <línea>` antes de cada valor, `# env variables` y `"<env variable>"` para variables de entorno (RW-01..06); un archivo sería `<ruta>: <línea>` (no medido: el oráculo sólo carga texto y los dos reference.conf desde jar).
+- **Alternativas:** (a) reproducir el formato de Typesafe: `String: N` para texto, `<ruta>: N` para archivos, `env variables`; el render con comentarios de origen. (b) mensajes y render sin descripción de origen (más cortos, distintos de los medidos). (c) (a) para texto y entorno y, para archivos, el formato `<ruta>: N` sin medir.
+- **Recomendación:** (c). Clasificación: representación. Consecuencias observables: los textos de `ConfigError::message()` y de `Settings.toString`; con (b) cambian todos. P07 implementa (a) para texto y entorno; la ruta de archivo queda sin implementar (los valores de `Config::load` dicen `String: N`).
+- **Filas afectadas:** AC-UTIL-002.5, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.7, AC-CFG-019
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-16 — Sobrescritura de la configuración por variables de entorno con prefijo (completa Q-CFG-6 (a), que no fija el prefijo)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Q-CFG-6 (a): `application.conf` del directorio de trabajo + variables de entorno con prefijo + reference.conf embebido. Typesafe Config no tiene prefijo propio: sólo `${VAR}` / `${?VAR}` (casos SUB-08, SUB-09) y, con la propiedad de sistema `config.override_with_env_vars`, las variables `CONFIG_FORCE_*`.
+- **Alternativas:** (a) sólo sustituciones `${VAR}` y `${?VAR}` (hecho en P07) y ninguna sobrescritura automática. (b) la convención de Typesafe: con un indicador, `CONFIG_FORCE_a_b__c=1` sobrescribe `a.b-c`. (c) un prefijo propio (`RAKKA_`) con `__` como separador de ruta.
+- **Recomendación:** (a). Clasificación: arquitectura. Consecuencias observables: con (a) un despliegue no puede cambiar claves sin editar el archivo. P07 implementa (a); `Config::load` no lee variables con prefijo.
+- **Filas afectadas:** AC-CFG-001
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
 
 ### Q-CS-1 — Fases: errores de config/validacion como Result y orden entre fases independientes
 

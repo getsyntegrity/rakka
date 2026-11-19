@@ -1,0 +1,1 @@
+KEY actor pekko.actor.serialization-max-nesting-depth -> ok NUMBER 32

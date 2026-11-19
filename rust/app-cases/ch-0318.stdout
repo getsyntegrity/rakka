@@ -1,0 +1,1 @@
+KEY actor pekko.actor.router.type-mapping.round-robin-pool -> ok STRING "org.apache.pekko.routing.RoundRobinPool"

@@ -1,0 +1,1 @@
+CV-11 several problems are reported together -> ERR ValidationFailed [String: 1: pekko.a: Wrong value type at 'pekko.a', expecting: number but got: object with keys [x], String: 1: pekko.b: No setting at 'pekko.b', expecting: number, String: 1: pekko.c: Wrong value type at 'pekko.c', expecting: object with keys [d] but got: number]

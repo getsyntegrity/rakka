@@ -1,0 +1,1 @@
+KEY actor pekko.io.tcp.max-channels -> ok NUMBER 256000

@@ -1,0 +1,1 @@
+KEY actor pekko.io.tcp.worker-dispatcher -> ok STRING "pekko.actor.internal-dispatcher"

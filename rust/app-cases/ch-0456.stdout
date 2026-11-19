@@ -1,0 +1,1 @@
+KEY actor pekko.loggers -> ok LIST ["org.apache.pekko.event.Logging$DefaultLogger"]

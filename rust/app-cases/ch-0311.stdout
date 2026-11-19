@@ -1,0 +1,1 @@
+KEY actor pekko.actor.router.type-mapping.broadcast-pool -> ok STRING "org.apache.pekko.routing.BroadcastPool"

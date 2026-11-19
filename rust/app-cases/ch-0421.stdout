@@ -1,0 +1,1 @@
+KEY actor pekko.io.tcp.selector-dispatcher -> ok STRING "pekko.io.pinned-dispatcher"

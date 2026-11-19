@@ -1,0 +1,1 @@
+SUB-12 a getter on an unresolved config fails -> ERR NotResolved [b has not been resolved, you need to call Config#resolve(), see API docs for Config#resolve()]

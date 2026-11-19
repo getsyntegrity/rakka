@@ -1,0 +1,1 @@
+TYPE-02 string where int expected -> ERR WrongType [String: 1: a has type STRING rather than NUMBER]

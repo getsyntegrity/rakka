@@ -1,0 +1,1 @@
+KEY actor-typed pekko.actor.serialization-identifiers."org.apache.pekko.actor.typed.internal.MiscMessageSerializer" -> ok NUMBER 24

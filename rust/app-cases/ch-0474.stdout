@@ -1,0 +1,1 @@
+KEY actor-typed pekko.actor.serialization-identifiers."org.apache.pekko.actor.typed.internal.receptionist.ServiceKeySerializer" -> ok NUMBER 26

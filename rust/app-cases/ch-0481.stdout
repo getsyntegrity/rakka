@@ -1,0 +1,1 @@
+KEY actor-typed pekko.library-extensions -> ok LIST ["org.apache.pekko.serialization.SerializationExtension$","org.apache.pekko.actor.typed.internal.adapter.ActorSystemAdapter$LoadTypedExtensions"]

@@ -1,0 +1,1 @@
+KEY actor pekko.coordinated-shutdown.phases.cluster-shutdown.depends-on -> ok LIST ["cluster-exiting-done"]

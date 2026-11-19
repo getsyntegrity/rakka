@@ -1,0 +1,1 @@
+KEY actor pekko.actor.serializers.java -> ok STRING "org.apache.pekko.serialization.JavaSerializer"

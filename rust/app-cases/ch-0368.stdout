@@ -1,0 +1,1 @@
+KEY actor pekko.coordinated-shutdown.phases.actor-system-terminate.depends-on -> ok LIST ["before-actor-system-terminate"]

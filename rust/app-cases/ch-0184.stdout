@@ -1,0 +1,1 @@
+RW-02 an environment variable value is not shown -> ok {\u000A    # env variables\u000A    "x" : "<env variable>"\u000A}\u000A

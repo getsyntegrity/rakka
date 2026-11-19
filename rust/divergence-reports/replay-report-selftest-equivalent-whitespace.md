@@ -1,8 +1,8 @@
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-c6s2x7ux/target-selftest-equivalent-whitespace/release/examples/classic-parity`
+Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-bul1qsuh/target-selftest-equivalent-whitespace/release/examples/classic-parity`
 
-Passed: 1044/1045
+Passed: 2008/2009
 
 Fallback rate: not reported by this build
 

@@ -1,0 +1,1 @@
+KEY actor-typed pekko.reliable-delivery.producer-controller.durable-queue.resend-first-interval -> ok STRING "1s"
