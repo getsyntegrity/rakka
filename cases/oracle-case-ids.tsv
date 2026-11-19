@@ -949,6 +949,7 @@ uc-0549	util-core	FR-DUR-13 create(ofSeconds(9223372036, 854775807)) eq Timeout(
 uc-0550	util-core	BQ-C9 poll with Long.MAX_VALUE nanoseconds waits until an element arrives
 uc-0551	util-core	BQ-C10 poll with Long.MAX_VALUE days saturates and waits until an element arrives
 uc-0552	util-core	BQ-C11 offer with Long.MAX_VALUE nanoseconds on a full queue waits until there is room
+uc-0553	util-core	BQ-C12 offer with Long.MAX_VALUE days saturates and waits until there is room
 ch-0001	config-hocon	FB-01 receiver scalar wins over fallback scalar
 ch-0002	config-hocon	FB-02 objects merge key by key, receiver wins on conflict
 ch-0003	config-hocon	FB-03 scalar in receiver replaces object in fallback

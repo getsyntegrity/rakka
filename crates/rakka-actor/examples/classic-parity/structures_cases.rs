@@ -1971,6 +1971,10 @@ fn concurrent_cases() -> Vec<(String, String)> {
         offer_with_unbounded_timeout(Duration::from_nanos(i64::MAX as u64)),
     );
     add(
+        "BQ-C12 offer with Long.MAX_VALUE days saturates and waits until there is room",
+        offer_with_unbounded_timeout(Duration::MAX),
+    );
+    add(
         "BQ-C7 iterator remove drops the element it returned, by identity",
         iterator_remove_by_identity(),
     );
@@ -2206,6 +2210,14 @@ impl Parked {
         }
     }
 
+    fn not_empty_waiters(&self) -> usize {
+        self.not_empty.load(Ordering::SeqCst)
+    }
+
+    fn not_full_waiters(&self) -> usize {
+        self.not_full.load(Ordering::SeqCst)
+    }
+
     fn wait_not_empty_above(&self, before: usize) {
         while self.not_empty.load(Ordering::SeqCst) <= before {
             thread::yield_now();
@@ -2310,13 +2322,18 @@ fn poll_with_unbounded_timeout(timeout: Duration) -> String {
         let queue = parked.queue.clone();
         thread::spawn(move || queue.poll_timeout(timeout))
     };
-    parked.wait_not_empty_above(0);
+    // A consumer that died (panicked on the deadline arithmetic) is reported, not waited for.
+    while parked.not_empty_waiters() == 0 && !consumer.is_finished() {
+        thread::yield_now();
+    }
     parked.queue.put(item("z"));
-    let got = consumer
-        .join()
-        .expect("no panic")
-        .map_or_else(|| "null".to_owned(), |i| i.to_string());
-    format!("got={got}")
+    match consumer.join() {
+        Ok(taken) => format!(
+            "got={}",
+            taken.map_or_else(|| "null".to_owned(), |i| i.to_string())
+        ),
+        Err(_) => "consumer panicked".to_owned(),
+    }
 }
 
 fn offer_with_unbounded_timeout(timeout: Duration) -> String {
@@ -2326,14 +2343,18 @@ fn offer_with_unbounded_timeout(timeout: Duration) -> String {
         let queue = parked.queue.clone();
         thread::spawn(move || queue.offer_timeout(item("c"), timeout))
     };
-    parked.wait_not_full_above(0);
+    while parked.not_full_waiters() == 0 && !producer.is_finished() {
+        thread::yield_now();
+    }
     parked.queue.take();
-    let later = producer.join().expect("no panic");
-    format!(
-        "later={} content={}",
-        b(later),
-        show_items(parked.queue.to_vec())
-    )
+    match producer.join() {
+        Ok(later) => format!(
+            "later={} content={}",
+            b(later),
+            show_items(parked.queue.to_vec())
+        ),
+        Err(_) => "producer panicked".to_owned(),
+    }
 }
 
 fn iterator_remove_by_identity() -> String {
