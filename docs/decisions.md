@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 234 decisiones: 0 bloqueantes, 172 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 237 decisiones: 0 bloqueantes, 175 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -395,7 +395,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Evidencia:** Casos grabados: todos los mensajes de error llevan el prefijo `String: <línea>: ` (texto) y `renderWithRedactions` imprime `# String: <línea>` antes de cada valor, `# env variables` y `"<env variable>"` para variables de entorno (RW-01..06); un archivo sería `<ruta>: <línea>` (no medido: el oráculo sólo carga texto y los dos reference.conf desde jar).
 - **Alternativas:** (a) reproducir el formato de Typesafe: `String: N` para texto, `<ruta>: N` para archivos, `env variables`; el render con comentarios de origen. (b) mensajes y render sin descripción de origen (más cortos, distintos de los medidos). (c) (a) para texto y entorno y, para archivos, el formato `<ruta>: N` sin medir.
 - **Recomendación:** (c). Clasificación: representación. Consecuencias observables: los textos de `ConfigError::message()` y de `Settings.toString`; con (b) cambian todos. P07 implementa (a) para texto y entorno; la ruta de archivo queda sin implementar (los valores de `Config::load` dicen `String: N`).
-- **Filas afectadas:** AC-UTIL-002.5, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.7, AC-CFG-019
+- **Filas afectadas:** AC-UTIL-002.5, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.7, AC-CFG-019, AC-CFG-002, AC-CFG-004, AC-CFG-005, AC-CFG-006, AC-CFG-007, AC-CFG-009, AC-CFG-010, AC-CFG-011, AC-CFG-018
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 
@@ -406,6 +406,36 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) sólo sustituciones `${VAR}` y `${?VAR}` (hecho en P07) y ninguna sobrescritura automática. (b) la convención de Typesafe: con un indicador, `CONFIG_FORCE_a_b__c=1` sobrescribe `a.b-c`. (c) un prefijo propio (`RAKKA_`) con `__` como separador de ruta.
 - **Recomendación:** (a). Clasificación: arquitectura. Consecuencias observables: con (a) un despliegue no puede cambiar claves sin editar el archivo. P07 implementa (a); `Config::load` no lee variables con prefijo.
 - **Filas afectadas:** AC-CFG-001
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-17 — Texto, tipo y lugar del error de `serialize-messages=on` / `serialize-creators=on` (concreta Q-CFG-11 (a), aceptada con cambios: error de configuración hasta que exista AC-SER)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Q-CFG-11: con la opción en `on` el arranque falla con un error de configuración. Pekko 2.0.0 acepta ambas claves en `on` (casos del oráculo `SET-SER serialize-messages = on`, `serialize-creators = on` y las dos: `ok SerializeAllMessages=true ..`), de modo que no hay texto de Pekko que copiar; la decisión no fijó el texto ni el lugar del error entre los demás.
+- **Alternativas:** (a) `ConfigurationException` `pekko.actor.serialize-messages=on is not supported yet: the serialization checks need the serialization module (AC-SER).` (la clave de `serialize-creators` si sólo ésta está en `on`), devuelta por `Settings::new` después de todos los demás errores, también del chequeo de versión. (b) el mismo error antes de leer el resto de las claves. (c) un tipo de error propio (`SettingsError::Unsupported`) en lugar de `ConfigurationException`.
+- **Recomendación:** (a). Clasificación: representación. Consecuencias observables: sólo el texto de un arranque con la opción en `on`; los tres casos del oráculo con `on` no se comparan (`PENDING` en `config_settings_cases.rs`) y se prueban con tests unitarios. Bloquea: nada; AC-CFG-010 queda `partial` hasta AC-SER.
+- **Filas afectadas:** AC-CFG-010, AC-CFG-002
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-18 — Mensajes de `checkValid` que dependen del orden de un HashMap de la JVM y del origen de una clave ausente
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Medido con `new ActorSystem.Settings(..)` y no grabado: `expecting: object with keys [lifecycle, unhandled, receive, fsm, router-misconfiguration, autoreceive, event-stream]` (orden de iteración del HashMap de Typesafe Config 1.4.9 para `pekko.actor.debug`) y `String: 783: pekko.actor.debug.receive: No setting at 'pekko.actor.debug.receive', expecting: string` (origen = el del objeto padre en la config comprobada: una línea, un rango como `String: 3-112` al fusionar dos archivos, o la ruta del jar para `version.conf`). Rust: claves en orden alfabético y `String: 1-132` (origen de la raíz). Q-CFG-4 (aceptada) pide los mensajes de Config 1.4.9 como contrato.
+- **Alternativas:** (a) conservar el texto de Rust (claves ordenadas, origen de la raíz) y documentarlo como divergencia de texto, no de categoría ni de clave citada. (b) reproducir el orden de iteración del HashMap de Java (`String.hashCode`, capacidad de la tabla) y el origen del objeto padre. (c) no listar las claves esperadas.
+- **Recomendación:** (a). Clasificación: representación. Consecuencias observables: sólo el texto de `ValidationFailed` cuando un objeto de la config es de otro tipo o falta una clave; con (b) el texto coincide con la JVM a cambio de simular el HashMap. Bloquea: nada; las filas quedan `partial`.
+- **Filas afectadas:** AC-CFG-002, AC-CFG-019
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-19 — Reference contra el que `Settings::new` valida la configuración (¿incluye el de pekko-actor-typed?)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Pekko valida contra `ConfigFactory.defaultReference(classLoader)`: todos los `reference.conf` del classpath. Con `pekko-actor-typed` presente, una configuración sin `pekko.use-slf4j` ni las claves de typed falla con `ValidationFailed` (caso del oráculo: la base de todos los casos `SET-*` es typed sobre actor). `Settings::new` valida contra `Config::default_reference()` (sólo `pekko-actor`) porque `rakka-actor-typed` aún no existe.
+- **Alternativas:** (a) validar sólo contra el reference de `pekko-actor` mientras `rakka-actor-typed` no aporte el suyo (las claves extra de typed se aceptan). (b) `Settings::new_with_reference(name, config, reference)` y que Typed pase el fusionado. (c) validar siempre contra typed sobre actor.
+- **Recomendación:** (a). Clasificación: arquitectura. Consecuencias observables: una configuración de Typed sin las claves de typed no se rechaza hasta que Typed pase su reference (b). Bloquea: nada; reversible.
+- **Filas afectadas:** AC-CFG-002, AC-CFG-019
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 

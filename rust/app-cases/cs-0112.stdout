@@ -1,0 +1,1 @@
+SET-LOG loggers = list of objects -> ERR WrongType [String: 1: pekko.loggers has type list of OBJECT rather than list of STRING]

@@ -1,0 +1,1 @@
+SET-CS terminate-actor-system = on run-by-actor-system-terminate = on -> ok CoordinatedShutdownTerminateActorSystem=true CoordinatedShutdownRunByActorSystemTerminate=true

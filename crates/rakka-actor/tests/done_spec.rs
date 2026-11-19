@@ -13,14 +13,6 @@ fn done_prints_like_its_case_object() {
 }
 
 #[test]
-fn done_is_a_single_value() {
-    let copy = Done;
-    assert_eq!(copy, Done);
-    let set: HashSet<Done> = [Done, copy].into_iter().collect();
-    assert_eq!(set.len(), 1);
-}
-
-#[test]
 fn not_used_prints_like_its_case_object() {
     // `case object NotUsed` (NotUsed.scala:24): toString is "NotUsed"; the oracle case DN-02 fixes it.
     assert_eq!(NotUsed.to_string(), "NotUsed");

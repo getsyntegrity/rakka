@@ -1,0 +1,1 @@
+SET-JVM daemonic = abc -> ERR WrongType [String: 1: pekko.daemonic has type STRING rather than BOOLEAN]

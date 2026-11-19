@@ -1,0 +1,1 @@
+AMEND use-slf4j = maybe, pekko-slf4j not on the classpath -> ERR WrongType [String: 1: pekko.use-slf4j has type STRING rather than BOOLEAN]

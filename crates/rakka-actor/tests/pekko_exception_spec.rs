@@ -7,6 +7,11 @@ use std::fmt;
 
 use rakka_actor::{ConfigurationException, PekkoException};
 
+/// True when both references point at the very same object (data address, ignoring vtables).
+fn same_instance(a: &(dyn Error + 'static), b: &(dyn Error + 'static)) -> bool {
+    std::ptr::eq(a as *const _ as *const u8, b as *const _ as *const u8)
+}
+
 #[derive(Debug)]
 struct Inner(&'static str);
 
@@ -52,11 +57,7 @@ fn a_cloned_exception_shares_the_cause() {
     // Pekko passes one exception instance around by reference; the clone sees the same cause.
     let e = PekkoException::with_cause("boom", Inner("inner"));
     let c = e.clone();
-    let (a, b) = (e.cause().unwrap(), c.cause().unwrap());
-    assert!(std::ptr::eq(
-        a as *const _ as *const u8,
-        b as *const _ as *const u8
-    ));
+    assert!(same_instance(e.cause().unwrap(), c.cause().unwrap()));
 }
 
 #[test]
@@ -79,10 +80,7 @@ fn configuration_exception_has_the_same_constructors_and_its_own_class() {
         Some("why")
     );
     let c = caused.clone();
-    assert!(std::ptr::eq(
-        caused.cause().unwrap() as *const _ as *const u8,
-        c.cause().unwrap() as *const _ as *const u8
-    ));
+    assert!(same_instance(caused.cause().unwrap(), c.cause().unwrap()));
 }
 
 #[test]

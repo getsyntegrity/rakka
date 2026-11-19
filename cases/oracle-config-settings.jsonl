@@ -1,0 +1,213 @@
+{"name": "cs-0001", "args": ["config-settings-case"], "stdin": "SET-DEFAULT the reference configuration"}
+{"name": "cs-0002", "args": ["config-settings-case"], "stdin": "SET-A9 dispatcher and mailbox keys of ConfigSpec"}
+{"name": "cs-0003", "args": ["config-settings-case"], "stdin": "SET-EXT default library-extensions and extensions"}
+{"name": "cs-0004", "args": ["config-settings-case"], "stdin": "SET-EXT library-extensions += and extensions set by the application"}
+{"name": "cs-0005", "args": ["config-settings-case"], "stdin": "SET-EXT library-extensions replaced by the application"}
+{"name": "cs-0006", "args": ["config-settings-case"], "stdin": "SET-EXT extensions of a wrong type"}
+{"name": "cs-0007", "args": ["config-settings-case"], "stdin": "SET-PROVIDER default provider key"}
+{"name": "cs-0008", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = on"}
+{"name": "cs-0009", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = off"}
+{"name": "cs-0010", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = true"}
+{"name": "cs-0011", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = false"}
+{"name": "cs-0012", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = ON"}
+{"name": "cs-0013", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = Off"}
+{"name": "cs-0014", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = TRUE"}
+{"name": "cs-0015", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = False"}
+{"name": "cs-0016", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = \"ON\""}
+{"name": "cs-0017", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = \"off\""}
+{"name": "cs-0018", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = 10"}
+{"name": "cs-0019", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = 0"}
+{"name": "cs-0020", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = 5"}
+{"name": "cs-0021", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = -1"}
+{"name": "cs-0022", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = 2147483647"}
+{"name": "cs-0023", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = \"5\""}
+{"name": "cs-0024", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = yes"}
+{"name": "cs-0025", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = no"}
+{"name": "cs-0026", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = 1.5"}
+{"name": "cs-0027", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = abc"}
+{"name": "cs-0028", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = 3000000000"}
+{"name": "cs-0029", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = \"\""}
+{"name": "cs-0030", "args": ["config-settings-case"], "stdin": "SET-LDL log-dead-letters = [1]"}
+{"name": "cs-0031", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = infinite"}
+{"name": "cs-0032", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = Infinite"}
+{"name": "cs-0033", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = INFINITE"}
+{"name": "cs-0034", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = inf"}
+{"name": "cs-0035", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 5s"}
+{"name": "cs-0036", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 1 minute"}
+{"name": "cs-0037", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 0"}
+{"name": "cs-0038", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 100"}
+{"name": "cs-0039", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = -1s"}
+{"name": "cs-0040", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = off"}
+{"name": "cs-0041", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = unlimited"}
+{"name": "cs-0042", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 1.5s"}
+{"name": "cs-0043", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 5 foo"}
+{"name": "cs-0044", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 106752 d"}
+{"name": "cs-0045", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 106751 d"}
+{"name": "cs-0046", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 9223372036854775807 d"}
+{"name": "cs-0047", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 9223372036854775808 d"}
+{"name": "cs-0048", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = -9223372036854775808 d"}
+{"name": "cs-0049", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 1ns"}
+{"name": "cs-0050", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 999999ns"}
+{"name": "cs-0051", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = \"infinite\""}
+{"name": "cs-0052", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = \"\""}
+{"name": "cs-0053", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = [1]"}
+{"name": "cs-0054", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = on"}
+{"name": "cs-0055", "args": ["config-settings-case"], "stdin": "SET-LDSD log-dead-letters-suspend-duration = 2562047 h"}
+{"name": "cs-0056", "args": ["config-settings-case"], "stdin": "SET-LDDS log-dead-letters-during-shutdown = on"}
+{"name": "cs-0057", "args": ["config-settings-case"], "stdin": "SET-LDDS log-dead-letters-during-shutdown = off"}
+{"name": "cs-0058", "args": ["config-settings-case"], "stdin": "SET-LDDS log-dead-letters-during-shutdown = true"}
+{"name": "cs-0059", "args": ["config-settings-case"], "stdin": "SET-LDDS log-dead-letters-during-shutdown = false"}
+{"name": "cs-0060", "args": ["config-settings-case"], "stdin": "SET-LDDS log-dead-letters-during-shutdown = yes"}
+{"name": "cs-0061", "args": ["config-settings-case"], "stdin": "SET-LDDS log-dead-letters-during-shutdown = abc"}
+{"name": "cs-0062", "args": ["config-settings-case"], "stdin": "SET-LDDS log-dead-letters-during-shutdown = 1"}
+{"name": "cs-0063", "args": ["config-settings-case"], "stdin": "SET-LDDS log-dead-letters-during-shutdown = \"on\""}
+{"name": "cs-0064", "args": ["config-settings-case"], "stdin": "SET-DEBUG receive = on"}
+{"name": "cs-0065", "args": ["config-settings-case"], "stdin": "SET-DEBUG autoreceive = on"}
+{"name": "cs-0066", "args": ["config-settings-case"], "stdin": "SET-DEBUG lifecycle = on"}
+{"name": "cs-0067", "args": ["config-settings-case"], "stdin": "SET-DEBUG fsm = on"}
+{"name": "cs-0068", "args": ["config-settings-case"], "stdin": "SET-DEBUG event-stream = on"}
+{"name": "cs-0069", "args": ["config-settings-case"], "stdin": "SET-DEBUG unhandled = on"}
+{"name": "cs-0070", "args": ["config-settings-case"], "stdin": "SET-DEBUG router-misconfiguration = on"}
+{"name": "cs-0071", "args": ["config-settings-case"], "stdin": "SET-DEBUG all seven on"}
+{"name": "cs-0072", "args": ["config-settings-case"], "stdin": "SET-DEBUG receive of a wrong type"}
+{"name": "cs-0073", "args": ["config-settings-case"], "stdin": "SET-DEBUG lifecycle quoted"}
+{"name": "cs-0074", "args": ["config-settings-case"], "stdin": "SET-JVM daemonic = on"}
+{"name": "cs-0075", "args": ["config-settings-case"], "stdin": "SET-JVM jvm-exit-on-fatal-error = off"}
+{"name": "cs-0076", "args": ["config-settings-case"], "stdin": "SET-JVM jvm-shutdown-hooks = off"}
+{"name": "cs-0077", "args": ["config-settings-case"], "stdin": "SET-JVM fail-mixed-versions = off"}
+{"name": "cs-0078", "args": ["config-settings-case"], "stdin": "SET-JVM daemonic = abc"}
+{"name": "cs-0079", "args": ["config-settings-case"], "stdin": "SET-JVM jvm-exit-on-fatal-error = 3"}
+{"name": "cs-0080", "args": ["config-settings-case"], "stdin": "SET-JVM all flipped"}
+{"name": "cs-0081", "args": ["config-settings-case"], "stdin": "SET-HOME home = \"/opt/pekko\""}
+{"name": "cs-0082", "args": ["config-settings-case"], "stdin": "SET-HOME home = \"\""}
+{"name": "cs-0083", "args": ["config-settings-case"], "stdin": "SET-HOME home = \" \""}
+{"name": "cs-0084", "args": ["config-settings-case"], "stdin": "SET-HOME home = x"}
+{"name": "cs-0085", "args": ["config-settings-case"], "stdin": "SET-HOME home = [1]"}
+{"name": "cs-0086", "args": ["config-settings-case"], "stdin": "SET-HOME home = 5"}
+{"name": "cs-0087", "args": ["config-settings-case"], "stdin": "SET-HOME home = null"}
+{"name": "cs-0088", "args": ["config-settings-case"], "stdin": "SET-SCHEDULER implementation = my.Sched"}
+{"name": "cs-0089", "args": ["config-settings-case"], "stdin": "SET-SCHEDULER implementation = [1]"}
+{"name": "cs-0090", "args": ["config-settings-case"], "stdin": "SET-TO creation-timeout = 1s"}
+{"name": "cs-0091", "args": ["config-settings-case"], "stdin": "SET-TO creation-timeout = 2500ms"}
+{"name": "cs-0092", "args": ["config-settings-case"], "stdin": "SET-TO creation-timeout = 0"}
+{"name": "cs-0093", "args": ["config-settings-case"], "stdin": "SET-TO creation-timeout = -1s"}
+{"name": "cs-0094", "args": ["config-settings-case"], "stdin": "SET-TO creation-timeout = abc"}
+{"name": "cs-0095", "args": ["config-settings-case"], "stdin": "SET-TO creation-timeout = 1.5 minutes"}
+{"name": "cs-0096", "args": ["config-settings-case"], "stdin": "SET-TO creation-timeout = off"}
+{"name": "cs-0097", "args": ["config-settings-case"], "stdin": "SET-TO creation-timeout = 1 d"}
+{"name": "cs-0098", "args": ["config-settings-case"], "stdin": "SET-TO creation-timeout = 100"}
+{"name": "cs-0099", "args": ["config-settings-case"], "stdin": "SET-TO unstarted-push-timeout = 500ms"}
+{"name": "cs-0100", "args": ["config-settings-case"], "stdin": "SET-TO unstarted-push-timeout = 1 minute"}
+{"name": "cs-0101", "args": ["config-settings-case"], "stdin": "SET-TO unstarted-push-timeout = -5ms"}
+{"name": "cs-0102", "args": ["config-settings-case"], "stdin": "SET-TO unstarted-push-timeout = x"}
+{"name": "cs-0103", "args": ["config-settings-case"], "stdin": "SET-TO logger-startup-timeout = 7s"}
+{"name": "cs-0104", "args": ["config-settings-case"], "stdin": "SET-TO logger-startup-timeout = 1ms"}
+{"name": "cs-0105", "args": ["config-settings-case"], "stdin": "SET-TO logger-startup-timeout = 0"}
+{"name": "cs-0106", "args": ["config-settings-case"], "stdin": "SET-TO logger-startup-timeout = never"}
+{"name": "cs-0107", "args": ["config-settings-case"], "stdin": "SET-LOG loggers = []"}
+{"name": "cs-0108", "args": ["config-settings-case"], "stdin": "SET-LOG loggers = two names"}
+{"name": "cs-0109", "args": ["config-settings-case"], "stdin": "SET-LOG loggers with a repeated name"}
+{"name": "cs-0110", "args": ["config-settings-case"], "stdin": "SET-LOG loggers = a string"}
+{"name": "cs-0111", "args": ["config-settings-case"], "stdin": "SET-LOG loggers = numbers"}
+{"name": "cs-0112", "args": ["config-settings-case"], "stdin": "SET-LOG loggers = list of objects"}
+{"name": "cs-0113", "args": ["config-settings-case"], "stdin": "SET-LOG logging-filter = x.Filter"}
+{"name": "cs-0114", "args": ["config-settings-case"], "stdin": "SET-LOG logging-filter = a number"}
+{"name": "cs-0115", "args": ["config-settings-case"], "stdin": "SET-LOG loggers-dispatcher = my-dispatcher"}
+{"name": "cs-0116", "args": ["config-settings-case"], "stdin": "SET-LOG loglevel = DEBUG"}
+{"name": "cs-0117", "args": ["config-settings-case"], "stdin": "SET-LOG stdout-loglevel = DEBUG"}
+{"name": "cs-0118", "args": ["config-settings-case"], "stdin": "SET-LOG loglevel = OFF"}
+{"name": "cs-0119", "args": ["config-settings-case"], "stdin": "SET-LOG stdout-loglevel = OFF"}
+{"name": "cs-0120", "args": ["config-settings-case"], "stdin": "SET-LOG loglevel = debug"}
+{"name": "cs-0121", "args": ["config-settings-case"], "stdin": "SET-LOG stdout-loglevel = debug"}
+{"name": "cs-0122", "args": ["config-settings-case"], "stdin": "SET-LOG loglevel = \"WARNING\""}
+{"name": "cs-0123", "args": ["config-settings-case"], "stdin": "SET-LOG stdout-loglevel = \"WARNING\""}
+{"name": "cs-0124", "args": ["config-settings-case"], "stdin": "SET-LOG loglevel = 5"}
+{"name": "cs-0125", "args": ["config-settings-case"], "stdin": "SET-LOG stdout-loglevel = 5"}
+{"name": "cs-0126", "args": ["config-settings-case"], "stdin": "SET-LOG loglevel = off"}
+{"name": "cs-0127", "args": ["config-settings-case"], "stdin": "SET-LOG stdout-loglevel = off"}
+{"name": "cs-0128", "args": ["config-settings-case"], "stdin": "SET-LOG log-config-on-start = on"}
+{"name": "cs-0129", "args": ["config-settings-case"], "stdin": "SET-LOG log-config-on-start = off"}
+{"name": "cs-0130", "args": ["config-settings-case"], "stdin": "SET-LOG log-config-on-start = true"}
+{"name": "cs-0131", "args": ["config-settings-case"], "stdin": "SET-LOG log-config-on-start = abc"}
+{"name": "cs-0132", "args": ["config-settings-case"], "stdin": "SET-LOG log-config-on-start = 1"}
+{"name": "cs-0133", "args": ["config-settings-case"], "stdin": "SET-GUARDIAN guardian-supervisor-strategy = StoppingSupervisorStrategy"}
+{"name": "cs-0134", "args": ["config-settings-case"], "stdin": "SET-GUARDIAN guardian-supervisor-strategy = a list"}
+{"name": "cs-0135", "args": ["config-settings-case"], "stdin": "SET-SER allow-java-serialization = on"}
+{"name": "cs-0136", "args": ["config-settings-case"], "stdin": "SET-SER serialize-messages = off with prefix []"}
+{"name": "cs-0137", "args": ["config-settings-case"], "stdin": "SET-SER prefix with a repeated entry"}
+{"name": "cs-0138", "args": ["config-settings-case"], "stdin": "SET-SER prefix = a string"}
+{"name": "cs-0139", "args": ["config-settings-case"], "stdin": "SET-SER serialize-messages = abc"}
+{"name": "cs-0140", "args": ["config-settings-case"], "stdin": "SET-CS terminate-actor-system = on run-by-actor-system-terminate = on"}
+{"name": "cs-0141", "args": ["config-settings-case"], "stdin": "SET-CS terminate-actor-system = on run-by-actor-system-terminate = off"}
+{"name": "cs-0142", "args": ["config-settings-case"], "stdin": "SET-CS terminate-actor-system = off run-by-actor-system-terminate = on"}
+{"name": "cs-0143", "args": ["config-settings-case"], "stdin": "SET-CS terminate-actor-system = off run-by-actor-system-terminate = off"}
+{"name": "cs-0144", "args": ["config-settings-case"], "stdin": "SET-CS terminate-actor-system = off with the default run-by-actor-system-terminate"}
+{"name": "cs-0145", "args": ["config-settings-case"], "stdin": "SET-CS run-by-actor-system-terminate = off alone"}
+{"name": "cs-0146", "args": ["config-settings-case"], "stdin": "SET-CS terminate-actor-system = abc"}
+{"name": "cs-0147", "args": ["config-settings-case"], "stdin": "SET-CS the unsupported combination is reported before the version check"}
+{"name": "cs-0148", "args": ["config-settings-case"], "stdin": "SET-CS the unsupported combination is reported before a bad virtual-nodes-factor"}
+{"name": "cs-0149", "args": ["config-settings-case"], "stdin": "SET-VNF virtual-nodes-factor = 3"}
+{"name": "cs-0150", "args": ["config-settings-case"], "stdin": "SET-VNF virtual-nodes-factor = 0"}
+{"name": "cs-0151", "args": ["config-settings-case"], "stdin": "SET-VNF virtual-nodes-factor = -2"}
+{"name": "cs-0152", "args": ["config-settings-case"], "stdin": "SET-VNF virtual-nodes-factor = abc"}
+{"name": "cs-0153", "args": ["config-settings-case"], "stdin": "SET-VNF virtual-nodes-factor = 1.5"}
+{"name": "cs-0154", "args": ["config-settings-case"], "stdin": "SET-VNF virtual-nodes-factor = \"7\""}
+{"name": "cs-0155", "args": ["config-settings-case"], "stdin": "SET-VERSION pekko.version = \"2.0.0\""}
+{"name": "cs-0156", "args": ["config-settings-case"], "stdin": "SET-VERSION pekko.version = \"1.7.1\""}
+{"name": "cs-0157", "args": ["config-settings-case"], "stdin": "SET-VERSION pekko.version = \"\""}
+{"name": "cs-0158", "args": ["config-settings-case"], "stdin": "SET-VERSION pekko.version = \"2.0.0-M1\""}
+{"name": "cs-0159", "args": ["config-settings-case"], "stdin": "SET-VERSION pekko.version = 2"}
+{"name": "cs-0160", "args": ["config-settings-case"], "stdin": "SET-VERSION pekko.version = [1]"}
+{"name": "cs-0161", "args": ["config-settings-case"], "stdin": "SET-INVALID a key of the reference is an object in the application"}
+{"name": "cs-0162", "args": ["config-settings-case"], "stdin": "SET-INVALID creation-timeout is a list"}
+{"name": "cs-0163", "args": ["config-settings-case"], "stdin": "SET-INVALID creation-timeout is an object"}
+{"name": "cs-0164", "args": ["config-settings-case"], "stdin": "SET-INVALID several problems are reported together"}
+{"name": "cs-0165", "args": ["config-settings-case"], "stdin": "SET-INVALID internal-dispatcher as a dispatcher name is allowed"}
+{"name": "cs-0166", "args": ["config-settings-case"], "stdin": "SET-INVALID internal-dispatcher removed from the application"}
+{"name": "cs-0167", "args": ["config-settings-case"], "stdin": "SET-INVALID an unresolved configuration"}
+{"name": "cs-0168", "args": ["config-settings-case"], "stdin": "SET-INVALID the application adds unknown keys"}
+{"name": "cs-0169", "args": ["config-settings-case"], "stdin": "AMEND the reference configuration, pekko-slf4j on the classpath"}
+{"name": "cs-0170", "args": ["config-settings-case"], "stdin": "AMEND the reference configuration, pekko-slf4j not on the classpath"}
+{"name": "cs-0171", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on, pekko-slf4j on the classpath"}
+{"name": "cs-0172", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on, pekko-slf4j not on the classpath"}
+{"name": "cs-0173", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = off, pekko-slf4j on the classpath"}
+{"name": "cs-0174", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = off, pekko-slf4j not on the classpath"}
+{"name": "cs-0175", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = true, pekko-slf4j on the classpath"}
+{"name": "cs-0176", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = true, pekko-slf4j not on the classpath"}
+{"name": "cs-0177", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = yes, pekko-slf4j on the classpath"}
+{"name": "cs-0178", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = yes, pekko-slf4j not on the classpath"}
+{"name": "cs-0179", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = quoted on, pekko-slf4j on the classpath"}
+{"name": "cs-0180", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = quoted on, pekko-slf4j not on the classpath"}
+{"name": "cs-0181", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = maybe, pekko-slf4j on the classpath"}
+{"name": "cs-0182", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = maybe, pekko-slf4j not on the classpath"}
+{"name": "cs-0183", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = a list, pekko-slf4j on the classpath"}
+{"name": "cs-0184", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = a list, pekko-slf4j not on the classpath"}
+{"name": "cs-0185", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = null, pekko-slf4j on the classpath"}
+{"name": "cs-0186", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = null, pekko-slf4j not on the classpath"}
+{"name": "cs-0187", "args": ["config-settings-case"], "stdin": "AMEND slf4j logger already configured with the default filter, pekko-slf4j on the classpath"}
+{"name": "cs-0188", "args": ["config-settings-case"], "stdin": "AMEND slf4j logger already configured with the default filter, pekko-slf4j not on the classpath"}
+{"name": "cs-0189", "args": ["config-settings-case"], "stdin": "AMEND slf4j logger already configured with the slf4j filter, pekko-slf4j on the classpath"}
+{"name": "cs-0190", "args": ["config-settings-case"], "stdin": "AMEND slf4j logger already configured with the slf4j filter, pekko-slf4j not on the classpath"}
+{"name": "cs-0191", "args": ["config-settings-case"], "stdin": "AMEND slf4j logger already configured with a custom filter, pekko-slf4j on the classpath"}
+{"name": "cs-0192", "args": ["config-settings-case"], "stdin": "AMEND slf4j logger already configured with a custom filter, pekko-slf4j not on the classpath"}
+{"name": "cs-0193", "args": ["config-settings-case"], "stdin": "AMEND slf4j logger and the default logger, pekko-slf4j on the classpath"}
+{"name": "cs-0194", "args": ["config-settings-case"], "stdin": "AMEND slf4j logger and the default logger, pekko-slf4j not on the classpath"}
+{"name": "cs-0195", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with the default logger and a custom one, pekko-slf4j on the classpath"}
+{"name": "cs-0196", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with the default logger and a custom one, pekko-slf4j not on the classpath"}
+{"name": "cs-0197", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with a custom filter, pekko-slf4j on the classpath"}
+{"name": "cs-0198", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with a custom filter, pekko-slf4j not on the classpath"}
+{"name": "cs-0199", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with the slf4j filter, pekko-slf4j on the classpath"}
+{"name": "cs-0200", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with the slf4j filter, pekko-slf4j not on the classpath"}
+{"name": "cs-0201", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with no loggers, pekko-slf4j on the classpath"}
+{"name": "cs-0202", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with no loggers, pekko-slf4j not on the classpath"}
+{"name": "cs-0203", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with only a custom logger, pekko-slf4j on the classpath"}
+{"name": "cs-0204", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with only a custom logger, pekko-slf4j not on the classpath"}
+{"name": "cs-0205", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with the default logger twice, pekko-slf4j on the classpath"}
+{"name": "cs-0206", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = on with the default logger twice, pekko-slf4j not on the classpath"}
+{"name": "cs-0207", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = off with the slf4j logger, pekko-slf4j on the classpath"}
+{"name": "cs-0208", "args": ["config-settings-case"], "stdin": "AMEND use-slf4j = off with the slf4j logger, pekko-slf4j not on the classpath"}
+{"name": "cs-0209", "args": ["config-settings-case"], "stdin": "AMEND loggers is a string, pekko-slf4j on the classpath"}
+{"name": "cs-0210", "args": ["config-settings-case"], "stdin": "AMEND loggers is a string, pekko-slf4j not on the classpath"}
+{"name": "cs-0211", "args": ["config-settings-case"], "stdin": "AMEND logging-filter is a list, pekko-slf4j on the classpath"}
+{"name": "cs-0212", "args": ["config-settings-case"], "stdin": "AMEND logging-filter is a list, pekko-slf4j not on the classpath"}
+{"name": "cs-0213", "args": ["config-settings-case"], "stdin": "AMEND the amended configuration is amended again without change"}

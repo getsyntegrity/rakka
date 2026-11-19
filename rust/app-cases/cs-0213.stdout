@@ -1,0 +1,1 @@
+AMEND the amended configuration is amended again without change -> ok loggers=[org.apache.pekko.event.slf4j.Slf4jLogger] logging-filter=org.apache.pekko.event.slf4j.Slf4jLoggingFilter
