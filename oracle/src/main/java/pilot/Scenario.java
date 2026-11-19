@@ -89,7 +89,16 @@ final class Scenario {
     private final Map<String, Object> cfg;
     private final Ctx ctx;
 
-    Scripted(String label, Map<String, Object> cfg, Ctx ctx) { this.label = label; this.cfg = cfg; this.ctx = ctx; }
+    Scripted(String label, Map<String, Object> cfg, Ctx ctx) {
+      this.label = label; this.cfg = cfg; this.ctx = ctx;
+      // `constructor-fails-from: n`: the actor factory throws IllegalStateException("ctor") from the n-th instance of this behaviour on
+      // (1 = always; 2 = the first instance works and the one made by a restart fails)
+      Object from = cfg.get("constructor-fails-from");
+      if (from != null) {
+        int instance = ((java.util.concurrent.atomic.AtomicInteger) cfg.computeIfAbsent("_instances", k -> new java.util.concurrent.atomic.AtomicInteger())).incrementAndGet();
+        if (instance >= ((Number) from).intValue()) throw new IllegalStateException("ctor");
+      }
+    }
 
     private long received = 0; // per instance: a restarted actor starts again at 0
 
@@ -99,7 +108,7 @@ final class Scenario {
       if (Boolean.TRUE.equals(cfg.get("throw-in-prestart"))) throw new IllegalStateException("init");
     }
 
-    /** `supervisor: {"strategy": "one-for-one"|"all-for-one", "hold": gate, "max": n, "log-decisions": bool, "decider": {"<exception message>": "resume"|"restart"|"stop"|"escalate"}}`: a OneForOneStrategy for this actor's children.
+    /** `supervisor: {"decider-throws": bool, "strategy": "one-for-one"|"all-for-one", "hold": gate, "max": n, "log-decisions": bool, "decider": {"<exception message>": "resume"|"restart"|"stop"|"escalate"}}`: a OneForOneStrategy for this actor's children.
      *  Exceptions not in the map get Pekko's default decider. */
     @SuppressWarnings("unchecked")
     @Override public SupervisorStrategy supervisorStrategy() {
@@ -109,6 +118,8 @@ final class Scenario {
       Map<String, Object> dec = (Map<String, Object>) sup.get("decider");
       scala.PartialFunction<Throwable, SupervisorStrategy.Directive> decider =
           DeciderBuilder.match(Throwable.class, e -> {
+            // `decider-throws`: the decider itself fails while deciding about a child's failure
+            if (Boolean.TRUE.equals(sup.get("decider-throws"))) throw new IllegalStateException("decider");
             Object d = dec == null ? null : dec.get(e.getMessage());
             SupervisorStrategy.Directive chosen;
             if (d == null) chosen = SupervisorStrategy.defaultDecider().apply(e);

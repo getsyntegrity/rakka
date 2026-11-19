@@ -48,6 +48,8 @@ struct CellState {
     failed: bool,
     /// the message being processed when it failed (`currentMessage`), handed to `preRestart`
     failed_message: Option<AnyMessage>,
+    /// the instance a restart replaced: Pekko keeps it in `_actor` until the factory has produced the new one
+    replaced_actor: Option<Box<dyn Actor>>,
     /// the cause of a `Recreate` that waits for the children to die (`Recreation(cause)`)
     recreate_cause: Option<Throwable>,
     /// `ChildRestartStats` of the children this actor supervises, by child
@@ -415,7 +417,15 @@ impl ActorCell {
     }
 
     fn create(self: &Arc<Self>) {
-        let actor = self.props.new_actor();
+        // `newActor()` runs the user's factory: a throw there is an `ActorInitializationException`, like one in `preStart`
+        let actor = match catch_unwind(AssertUnwindSafe(|| self.props.new_actor())) {
+            Ok(actor) => actor,
+            Err(payload) => {
+                let cause = self.creation_failure(&throwable_of(payload));
+                self.handle_invoke_failure(cause, None);
+                return;
+            }
+        };
         self.st.lock().unwrap().actor = Some(actor);
         if self.with_actor(|a, ctx| a.pre_start(ctx)).is_err() {
             // the half-built actor is dropped (so `postStop` never runs) and the supervisor decides (default: stop)
@@ -426,6 +436,32 @@ impl ActorCell {
             );
             self.handle_invoke_failure(cause, None);
         }
+    }
+
+    /// `ActorInitializationException(self, "exception during creation, root cause message: [..]", cause)` (`ActorCell.create`).
+    fn creation_failure(&self, root_cause: &Throwable) -> Throwable {
+        let root_message = root_cause
+            .message
+            .as_deref()
+            .unwrap_or("No message available");
+        Throwable::new(
+            "org.apache.pekko.actor.ActorInitializationException",
+            Some(&format!(
+                "{}: exception during creation, root cause message: [{root_message}]",
+                self.path
+            )),
+        )
+    }
+
+    /// `PostRestartException(self, e, originalCause)`: its message names the class of the failure that caused the restart.
+    fn post_restart_failure(&self, original_cause: &Throwable) -> Throwable {
+        Throwable::new(
+            "org.apache.pekko.actor.PostRestartException",
+            Some(&format!(
+                "{}: exception post restart (class {})",
+                self.path, original_cause.class
+            )),
+        )
     }
 
     /// `supervisorStrategy` of the current instance (the default one while there is none, e.g. during a restart).
@@ -449,12 +485,30 @@ impl ActorCell {
             return; // not (or no longer) our child: the failure is dropped
         }
         let strategy = self.current_strategy();
-        match strategy.decide(&cause) {
+        // a decider that throws is handled like `Escalate` (Pekko: `throw f.cause` inside `handleFailure`): this actor fails with
+        // the exception the decider threw, and the child that failed is not suspended again
+        let decision = match catch_unwind(AssertUnwindSafe(|| strategy.decide(&cause))) {
+            Ok(decision) => decision,
+            Err(payload) => {
+                self.fail_while_deciding(child, cause, throwable_of(payload));
+                return;
+            }
+        };
+        match decision {
             Directive::Resume => child.send_system(SystemMessage::Resume { cause: Some(cause) }),
             Directive::Restart => self.process_failure(true, child, cause, &strategy),
             Directive::Stop => self.process_failure(false, child, cause, &strategy),
             Directive::Escalate => self.escalate(child, cause),
         }
+    }
+
+    /// `handleInvokeFailure` after the exception `thrown` escaped `handleFailure(Failed(child, cause))`.
+    fn fail_while_deciding(self: &Arc<Self>, child: ActorRef, cause: Throwable, thrown: Throwable) {
+        let failed: AnyMessage = Arc::new(Failed {
+            child: child.clone(),
+            cause,
+        });
+        self.fail(thrown, Some(failed), Some(child));
     }
 
     /// `processFailure`: a restart is only granted while every affected child is within its limit, otherwise they are stopped.
@@ -541,7 +595,10 @@ impl ActorCell {
         }
         let message = self.st.lock().unwrap().failed_message.clone();
         let _ = self.with_actor(|a, ctx| a.pre_restart(ctx, &cause, message.as_ref())); // failures here are only logged in Pekko
-        self.st.lock().unwrap().actor = None;
+        {
+            let mut st = self.st.lock().unwrap();
+            st.replaced_actor = st.actor.take();
+        }
         if self.children.lock().unwrap().set_recreation_reason() {
             self.st.lock().unwrap().recreate_cause = Some(cause);
         } else {
@@ -565,7 +622,17 @@ impl ActorCell {
     /// `finishRecreate`: resume the mailbox, create the fresh instance and run its `postRestart`.
     fn finish_recreate(self: &Arc<Self>, cause: Throwable) {
         self.resume_after_failure(true);
-        let fresh = self.props.new_actor();
+        let replaced = self.st.lock().unwrap().replaced_actor.take();
+        let fresh = match catch_unwind(AssertUnwindSafe(|| self.props.new_actor())) {
+            Ok(fresh) => fresh,
+            Err(_) => {
+                // the old instance stays in place, so it is stopped (and post-stopped) with the cell
+                self.st.lock().unwrap().actor = replaced;
+                let failure = self.post_restart_failure(&cause);
+                self.handle_invoke_failure(failure, None);
+                return;
+            }
+        };
         self.st.lock().unwrap().actor = Some(fresh);
         if self
             .with_actor(|a, ctx| a.post_restart(ctx, &cause))
