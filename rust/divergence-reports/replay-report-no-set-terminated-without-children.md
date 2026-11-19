@@ -1,8 +1,8 @@
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-3pr9tpx_/target-no-set-terminated-without-children/release/examples/classic-parity`
+Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-d49wkcrb/target-no-set-terminated-without-children/release/examples/classic-parity`
 
-Passed: 1040/1045
+Passed: 2005/2010
 
 Fallback rate: not reported by this build
 
