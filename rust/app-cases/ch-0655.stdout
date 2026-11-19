@@ -1,0 +1,1 @@
+DUR-SAT NS 0x10 ms -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse duration number '0x10']
