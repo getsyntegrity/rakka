@@ -63,6 +63,9 @@ public final class Cli {
       case "dynamic-access-ids" -> System.out.print(String.join("\n", DynamicAccessOracle.ids()) + "\n");
       case "dynamic-access-all" -> DynamicAccessOracle.ids().forEach(id -> System.out.println(DynamicAccessOracle.line(id)));
       case "dynamic-access-case" -> System.out.println(DynamicAccessOracle.line(oneLine()));
+      case "provider-selection-ids" -> System.out.print(String.join("\n", ProviderSelectionOracle.ids()) + "\n");
+      case "provider-selection-all" -> ProviderSelectionOracle.ids().forEach(id -> System.out.println(ProviderSelectionOracle.line(id)));
+      case "provider-selection-case" -> System.out.println(ProviderSelectionOracle.line(oneLine()));
       case "path-address-ids" -> System.out.print(String.join("\n", PathAddressOracle.ids()) + "\n");
       case "util-core-ids" -> System.out.print(String.join("\n", UtilCoreOracle.ids()) + "\n");
       case "path-address-all" -> PathAddressOracle.ids().forEach(id -> System.out.println(PathAddressOracle.line(id)));

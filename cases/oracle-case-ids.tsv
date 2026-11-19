@@ -2004,3 +2004,34 @@ da-0017	dynamic-access	PRV-04 provider org.apache.pekko.actor.LocalActorRefProvi
 da-0018	dynamic-access	CNF-07 createInstanceFor name with surrounding spaces
 da-0019	dynamic-access	ON-07 classIsOnClasspath name differing only in case
 da-0020	dynamic-access	ON-08 classIsOnClasspath name with a trailing space
+da-0021	dynamic-access	PRV-05 provider remote
+da-0022	dynamic-access	PRV-06 provider cluster
+da-0023	dynamic-access	PRV-07 provider local
+da-0024	dynamic-access	PRV-08 provider LOCAL (case differs)
+da-0025	dynamic-access	PRV-09 provider other.ActorRefProvider
+da-0026	dynamic-access	PRV-10 provider empty string
+ps-0001	provider-selection	SEL-01 provider = local
+ps-0002	provider-selection	SEL-02 provider = remote
+ps-0003	provider-selection	SEL-03 provider = cluster
+ps-0004	provider-selection	SEL-04 provider = org.apache.pekko.remote.RemoteActorRefProvider
+ps-0005	provider-selection	SEL-05 provider = org.apache.pekko.cluster.ClusterActorRefProvider
+ps-0006	provider-selection	SEL-06 provider = other.ActorRefProvider
+ps-0007	provider-selection	SEL-07 provider = org.apache.pekko.actor.LocalActorRefProvider (the class name of Local is Custom)
+ps-0008	provider-selection	SEL-08 provider = LOCAL (case differs)
+ps-0009	provider-selection	SEL-09 provider = Remote (case differs)
+ps-0010	provider-selection	SEL-10 provider = " local" (leading space)
+ps-0011	provider-selection	SEL-11 provider = "cluster " (trailing space)
+ps-0012	provider-selection	SEL-12 provider = empty string
+ps-0013	provider-selection	SEL-13 provider = 5 (a number)
+ps-0014	provider-selection	EQ-01 remote equals org.apache.pekko.remote.RemoteActorRefProvider
+ps-0015	provider-selection	EQ-02 cluster equals org.apache.pekko.cluster.ClusterActorRefProvider
+ps-0016	provider-selection	EQ-03 local equals org.apache.pekko.actor.LocalActorRefProvider
+ps-0017	provider-selection	EQ-04 two Custom with the same name
+ps-0018	provider-selection	EQ-05 two Custom with different names
+ps-0019	provider-selection	EQ-06 remote equals cluster
+ps-0020	provider-selection	SEL-14 provider = [local] (a list)
+ps-0021	provider-selection	SEL-15 provider = [] (an empty list)
+ps-0022	provider-selection	SEL-16 provider = {a=1} (an object)
+ps-0023	provider-selection	SEL-17 provider = null
+ps-0024	provider-selection	SEL-18 provider = true (a boolean)
+ps-0025	provider-selection	SEL-19 provider = 1.5 (a decimal number)

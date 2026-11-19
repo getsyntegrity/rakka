@@ -1,0 +1,25 @@
+{"name": "ps-0001", "args": ["provider-selection-case"], "stdin": "SEL-01 provider = local"}
+{"name": "ps-0002", "args": ["provider-selection-case"], "stdin": "SEL-02 provider = remote"}
+{"name": "ps-0003", "args": ["provider-selection-case"], "stdin": "SEL-03 provider = cluster"}
+{"name": "ps-0004", "args": ["provider-selection-case"], "stdin": "SEL-04 provider = org.apache.pekko.remote.RemoteActorRefProvider"}
+{"name": "ps-0005", "args": ["provider-selection-case"], "stdin": "SEL-05 provider = org.apache.pekko.cluster.ClusterActorRefProvider"}
+{"name": "ps-0006", "args": ["provider-selection-case"], "stdin": "SEL-06 provider = other.ActorRefProvider"}
+{"name": "ps-0007", "args": ["provider-selection-case"], "stdin": "SEL-07 provider = org.apache.pekko.actor.LocalActorRefProvider (the class name of Local is Custom)"}
+{"name": "ps-0008", "args": ["provider-selection-case"], "stdin": "SEL-08 provider = LOCAL (case differs)"}
+{"name": "ps-0009", "args": ["provider-selection-case"], "stdin": "SEL-09 provider = Remote (case differs)"}
+{"name": "ps-0010", "args": ["provider-selection-case"], "stdin": "SEL-10 provider = \" local\" (leading space)"}
+{"name": "ps-0011", "args": ["provider-selection-case"], "stdin": "SEL-11 provider = \"cluster \" (trailing space)"}
+{"name": "ps-0012", "args": ["provider-selection-case"], "stdin": "SEL-12 provider = empty string"}
+{"name": "ps-0013", "args": ["provider-selection-case"], "stdin": "SEL-13 provider = 5 (a number)"}
+{"name": "ps-0014", "args": ["provider-selection-case"], "stdin": "EQ-01 remote equals org.apache.pekko.remote.RemoteActorRefProvider"}
+{"name": "ps-0015", "args": ["provider-selection-case"], "stdin": "EQ-02 cluster equals org.apache.pekko.cluster.ClusterActorRefProvider"}
+{"name": "ps-0016", "args": ["provider-selection-case"], "stdin": "EQ-03 local equals org.apache.pekko.actor.LocalActorRefProvider"}
+{"name": "ps-0017", "args": ["provider-selection-case"], "stdin": "EQ-04 two Custom with the same name"}
+{"name": "ps-0018", "args": ["provider-selection-case"], "stdin": "EQ-05 two Custom with different names"}
+{"name": "ps-0019", "args": ["provider-selection-case"], "stdin": "EQ-06 remote equals cluster"}
+{"name": "ps-0020", "args": ["provider-selection-case"], "stdin": "SEL-14 provider = [local] (a list)"}
+{"name": "ps-0021", "args": ["provider-selection-case"], "stdin": "SEL-15 provider = [] (an empty list)"}
+{"name": "ps-0022", "args": ["provider-selection-case"], "stdin": "SEL-16 provider = {a=1} (an object)"}
+{"name": "ps-0023", "args": ["provider-selection-case"], "stdin": "SEL-17 provider = null"}
+{"name": "ps-0024", "args": ["provider-selection-case"], "stdin": "SEL-18 provider = true (a boolean)"}
+{"name": "ps-0025", "args": ["provider-selection-case"], "stdin": "SEL-19 provider = 1.5 (a decimal number)"}

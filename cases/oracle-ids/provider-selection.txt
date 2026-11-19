@@ -1,0 +1,25 @@
+SEL-01 provider = local
+SEL-02 provider = remote
+SEL-03 provider = cluster
+SEL-04 provider = org.apache.pekko.remote.RemoteActorRefProvider
+SEL-05 provider = org.apache.pekko.cluster.ClusterActorRefProvider
+SEL-06 provider = other.ActorRefProvider
+SEL-07 provider = org.apache.pekko.actor.LocalActorRefProvider (the class name of Local is Custom)
+SEL-08 provider = LOCAL (case differs)
+SEL-09 provider = Remote (case differs)
+SEL-10 provider = " local" (leading space)
+SEL-11 provider = "cluster " (trailing space)
+SEL-12 provider = empty string
+SEL-13 provider = 5 (a number)
+EQ-01 remote equals org.apache.pekko.remote.RemoteActorRefProvider
+EQ-02 cluster equals org.apache.pekko.cluster.ClusterActorRefProvider
+EQ-03 local equals org.apache.pekko.actor.LocalActorRefProvider
+EQ-04 two Custom with the same name
+EQ-05 two Custom with different names
+EQ-06 remote equals cluster
+SEL-14 provider = [local] (a list)
+SEL-15 provider = [] (an empty list)
+SEL-16 provider = {a=1} (an object)
+SEL-17 provider = null
+SEL-18 provider = true (a boolean)
+SEL-19 provider = 1.5 (a decimal number)

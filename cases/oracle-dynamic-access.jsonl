@@ -18,3 +18,9 @@
 {"name": "da-0018", "args": ["dynamic-access-case"], "stdin": "CNF-07 createInstanceFor name with surrounding spaces"}
 {"name": "da-0019", "args": ["dynamic-access-case"], "stdin": "ON-07 classIsOnClasspath name differing only in case"}
 {"name": "da-0020", "args": ["dynamic-access-case"], "stdin": "ON-08 classIsOnClasspath name with a trailing space"}
+{"name": "da-0021", "args": ["dynamic-access-case"], "stdin": "PRV-05 provider remote"}
+{"name": "da-0022", "args": ["dynamic-access-case"], "stdin": "PRV-06 provider cluster"}
+{"name": "da-0023", "args": ["dynamic-access-case"], "stdin": "PRV-07 provider local"}
+{"name": "da-0024", "args": ["dynamic-access-case"], "stdin": "PRV-08 provider LOCAL (case differs)"}
+{"name": "da-0025", "args": ["dynamic-access-case"], "stdin": "PRV-09 provider other.ActorRefProvider"}
+{"name": "da-0026", "args": ["dynamic-access-case"], "stdin": "PRV-10 provider empty string"}

@@ -119,5 +119,12 @@ final class DynamicAccessOracle {
     run("CNF-07 createInstanceFor name with surrounding spaces", () -> created(" " + UNBOUNDED_MAILBOX + " "));
     run("ON-07 classIsOnClasspath name differing only in case", () -> onClasspath("org.apache.pekko.actor.actor"));
     run("ON-08 classIsOnClasspath name with a trailing space", () -> onClasspath("org.apache.pekko.actor.Actor "));
+    // AC-CFG-008: the provider named by a short name or by any other string (ProviderSelection, ActorSystem.scala:137-144).
+    run("PRV-05 provider remote", () -> providerLoads("remote"));
+    run("PRV-06 provider cluster", () -> providerLoads("cluster"));
+    run("PRV-07 provider local", () -> providerLoads("local"));
+    run("PRV-08 provider LOCAL (case differs)", () -> providerLoads("LOCAL"));
+    run("PRV-09 provider other.ActorRefProvider", () -> providerLoads("other.ActorRefProvider"));
+    run("PRV-10 provider empty string", () -> providerLoads(""));
   }
 }

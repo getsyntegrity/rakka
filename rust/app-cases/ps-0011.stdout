@@ -1,0 +1,1 @@
+SEL-11 provider = "cluster " (trailing space) -> ok identifier=custom fqcn=cluster  hasCluster=false ProviderClass=cluster  HasCluster=false

@@ -1,0 +1,1 @@
+SEL-01 provider = local -> ok identifier=local fqcn=org.apache.pekko.actor.LocalActorRefProvider hasCluster=false ProviderClass=org.apache.pekko.actor.LocalActorRefProvider HasCluster=false

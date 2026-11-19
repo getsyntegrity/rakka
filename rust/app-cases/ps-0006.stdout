@@ -1,0 +1,1 @@
+SEL-06 provider = other.ActorRefProvider -> ok identifier=custom fqcn=other.ActorRefProvider hasCluster=false ProviderClass=other.ActorRefProvider HasCluster=false
