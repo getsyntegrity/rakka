@@ -1,0 +1,1 @@
+AMEND use-slf4j = a list, pekko-slf4j not on the classpath

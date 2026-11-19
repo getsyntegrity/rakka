@@ -1,0 +1,1 @@
+AMEND use-slf4j = quoted on, pekko-slf4j not on the classpath

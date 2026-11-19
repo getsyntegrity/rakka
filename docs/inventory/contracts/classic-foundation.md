@@ -2631,6 +2631,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `config::Settings::new(name, Config)` (`config/settings.rs`): `check_valid` contra `Config::default_reference()` sin `pekko.actor.internal-dispatcher` (AC-CFG-019), lectura de las claves en el orden del constructor Scala y primer error; el resultado de `Settings::new` coincide con `new ActorSystem.Settings(..)` de Pekko 2.0.0 en 213 casos grabados `cs-*` (SET-DEFAULT, SET-A9, SET-PROVIDER, SET-SCHEDULER, SET-VNF, SET-VERSION, SET-INVALID): A1, A2, A4..A8 y A10 y los valores por defecto de A9; los de A3 (scheduler) los dan los casos KEY de P07. Queda `partial`: Q-CFG-15 (propuesta) afecta a los textos de error con `String: N` y a `toString`; Q-CFG-18 y Q-CFG-19 (propuestas): texto de `expecting: object with keys [..]` y origen de una clave ausente sin grabar, y reference contra el que se valida; `ActorSystem::create_with_settings` aún no recibe estos `Settings` (AC-SYS); `ProviderSelection` es AC-CFG-008; A9 pertenece a AC-DSP/AC-MBX.
+
 ## AC-CFG-003 — Chequeo pekko.version vs versión del binario
 
 *unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
@@ -2666,6 +2668,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 ---
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config::check_pekko_version` (mensaje `Pekko JAR version [..] does not match the provided config version [..]`; `pekko.version` = 2.0.0 por Q-CFG-5 (a)) probado con tests unitarios; sin caso grabado (el oráculo no crea un ActorSystem aquí). Queda `partial`: sin caso grabado contra el oráculo (la condición del build no es observable en él); sólo tests unitarios.
+
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::new` comprueba la versión como último paso (`check_pekko_version`, después de la combinación de coordinated-shutdown y de `virtual-nodes-factor`); casos grabados cs-* SET-VERSION (cinco con `ConfigurationException` o la versión correcta, sin descripción de origen) y SET-DEFAULT (A1) contra `new ActorSystem.Settings(..)` de Pekko 2.0.0: A1 y A2 cubiertas. No cambia de estado (`partial`): `ActorSystem::create_with_settings` aún no construye estos `Settings` (AC-SYS).
 
 ## AC-CFG-004 — Claves de logging: loggers, logging-filter, loggers-dispatcher, logger-startup-timeout, loglevel, stdout-loglevel, log-config-on-start
 
@@ -2705,6 +2709,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: campos `log_level`, `stdout_log_level`, `loggers`, `loggers_dispatcher`, `logging_filter`, `logger_start_timeout`, `log_config_on_start` de `Settings`; casos grabados cs-* SET-DEFAULT, SET-LOG, SET-TO logger-startup-timeout (A1, A6). Queda `partial`: A2..A5 (LoggerSpec) necesitan los loggers como actores (AC-EVT-011/016, Q-X-7), sin implementar; Q-CFG-15 (propuesta) afecta a los textos de error grabados (`String: N`).
+
 ## AC-CFG-005 — Claves de dead letters: log-dead-letters (on/off/N), log-dead-letters-during-shutdown, log-dead-letters-suspend-duration
 
 *unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
@@ -2737,6 +2743,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 ---
+
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::log_dead_letters` (i32 de Pekko: `off`/`false` 0, `on`/`true` `i32::MAX`, otro `getInt`), `log_dead_letters_during_shutdown` y `SuspendDuration::{Infinite, Finite}`; casos grabados cs-* SET-LDL (23), SET-LDSD (25), SET-LDDS (8): A1 y A3. Hallazgo: `log-dead-letters = true`/`false` sin comillas no pasa `checkValid` (el reference tiene un número: `ValidationFailed`); `on`/`off` y `"true"` sí. Queda `partial`: A2 (DeadLetterSuspensionSpec) necesita el log de dead letters (AC-EVT-009); Q-CFG-15 (propuesta) afecta a los textos de error grabados.
 
 ## AC-CFG-006 — Claves de extensiones: library-extensions y extensions
 
@@ -2772,6 +2780,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::extension_names` (biblioteca primero, luego las del usuario, sin el `$` de objeto Scala y sin repetidos, Q-CFG-8 (b)) con tests unitarios; casos grabados cs-* SET-EXT (las listas que Pekko lee de `pekko.library-extensions` y `pekko.extensions`, incluido `+=`). Queda `partial`: A1..A5 (ExtensionSpec) necesitan el cargador de extensiones (AC-EXT-003) y el registro de fábricas (Q-X-2), sin implementar; Q-CFG-15 (propuesta) afecta a un texto de error grabado.
+
 ## AC-CFG-007 — Claves JVM: daemonic, jvm-exit-on-fatal-error, jvm-shutdown-hooks, fail-mixed-versions, java-flight-recorder.enabled, home
 
 *unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
@@ -2804,6 +2814,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 ---
+
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::{daemonicity, jvm_exit_on_fatal_error, jvm_shutdown_hooks, fail_mixed_versions, home}` aceptadas y guardadas sin efecto (Q-CFG-7 (a)); casos grabados cs-* SET-JVM y SET-HOME: A1 y A3 (`home`). `java-flight-recorder.enabled` no lo lee `Settings` en Pekko (lo lee FlightRecorderLoader, AC-UTIL-016.11). Queda `partial`: A2 (hooks de JVM, CoordinatedShutdownSpec) pertenece a AC-CS-007; Q-CFG-15 (propuesta) afecta a los textos de error grabados.
 
 ## AC-CFG-008 — pekko.actor.provider y ProviderSelection (local | remote | cluster | FQCN)
 
@@ -2876,6 +2888,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::{supervisor_strategy_class, creation_timeout, unstarted_push_timeout}` (el nombre del configurador se resuelve por registro, Q-X-2); casos grabados cs-* SET-GUARDIAN y SET-TO (A1, A3). ⚠ `pekko.actor.typed.timeout` no existe en 2.0.0 (TypedActor se eliminó: ni `reference.conf` ni los casos KEY de P07 la tienen), la parte `typed.timeout` del contrato no aplica. Queda `partial`: A2 (StoppingSupervisorStrategy en el guardián, ActorSystemSpec) necesita el sistema con guardianes configurables (AC-SUP-014, AC-REF-020); Q-CFG-15 (propuesta) afecta a los textos de error grabados.
+
 ## AC-CFG-010 — serialize-messages, serialize-creators, no-serialization-verification-needed-class-prefix
 
 *unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
@@ -2914,6 +2928,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 ---
+
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::{allow_java_serialization, serialize_all_messages, serialize_all_creators, no_serialization_verification_needed_class_prefix}`; casos grabados cs-* SET-SER. Q-CFG-11 (aceptada con cambios): con `serialize-messages` o `serialize-creators` en `on`, `Settings::new` falla con `ConfigurationException` (Pekko las acepta: los tres casos SET-SER `on` del oráculo no se comparan, quedan en `PENDING` con su motivo; tests unitarios); el texto del error es Q-CFG-17 (propuesta). Queda `partial`: A1..A6 (DispatchSpec, SerializeSpec) necesitan AC-SER; Q-CFG-15 (propuesta) afecta a los textos de error grabados.
 
 ## AC-CFG-011 — pekko.actor.debug: receive, autoreceive, lifecycle, fsm, event-stream, unhandled, router-misconfiguration
 
@@ -2957,6 +2973,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 ---
+
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: los siete campos de depuración de `Settings` (`add_logging_receive`, `debug_auto_receive`, `debug_lifecycle`, `fsm_debug_event`, `debug_event_stream`, `debug_unhandled_message`, `debug_router_misconfiguration`); casos grabados cs-* SET-DEBUG (una bandera por caso y las siete): A1. Queda `partial`: A2..A5 (LoggingReceiveSpec) y A6 viven en los componentes que emiten los eventos (AC-EVT-019, AC-CELL, AC-DW, AC-FSM), sin implementar; Q-CFG-15 (propuesta) afecta a un texto de error grabado.
 
 ## AC-CFG-012.1 — Parseo de pekko.actor.deployment: Config por entrada con fallback a `default`, dispatcher y mailbox
 
@@ -3499,6 +3517,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `config::amend_slf4j_config(&Config, is_registered)` (`is_registered` es `dynamicAccess.classIsOnClasspath`: si hay una fábrica registrada con ese nombre, Q-X-2/Q-X-7 (A)); 45 casos grabados cs-* AMEND (22 configuraciones por 2 estados del classpath, más una doble aplicación) contra `Settings.amendSlf4jConfig` de Pekko 2.0.0: A1, A2 y A3. Queda `partial`: Q-CFG-15 (propuesta) afecta a los textos de error grabados; `ActorSystem::create_with_settings` aún no llama a esta función (AC-SYS) y el registro de fábricas (AC-CFG-016) no existe: el predicado es un parámetro.
+
 ## AC-CFG-019 — Validación de la config contra reference.conf (`checkValid` con `internal-dispatcher` excluido)
 
 *unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
@@ -3532,6 +3552,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::check_valid` y `without_path`; casos grabados CV-01..21 (incluida la validación del reference.conf real de pekko-actor) pasan. La llamada desde `Settings` (con `internal-dispatcher` excluido) llega con ActorSystem. Queda `partial`: afectada por Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por CV-01..21 grabados.
 
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::new` llama a `Config::check_valid` con el reference de `Config::default_reference()` sin `pekko.actor.internal-dispatcher`; casos grabados cs-* SET-INVALID (`internal-dispatcher` como nombre de dispatcher permitido, tipos erróneos, varios problemas a la vez, config sin resolver). No cambia de estado (`partial`): Q-CFG-15 (propuesta) afecta a los textos con `String: N`; Q-CFG-18 y Q-CFG-19 (propuestas): orden de claves de `expecting: object with keys [..]`, origen de una clave ausente y reference contra el que se valida.
+
 ## AC-CFG-020 — Combinación no soportada coordinated-shutdown: run-by-actor-system-terminate=on con terminate-actor-system=off
 
 *unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
@@ -3562,6 +3584,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 ---
+
+**Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::new` falla con `ConfigurationException` con el texto exacto de Pekko cuando `run-by-actor-system-terminate=on` y `terminate-actor-system=off`; casos grabados cs-* SET-CS (cuatro combinaciones, la clave sola con el otro valor por defecto, el orden respecto del chequeo de versión y de `virtual-nodes-factor`): A1 y A2. Sin decisión propuesta que afecte a sus expected (ninguno lleva `String: N`). Queda `partial` sólo por la integración: A1 afirma que `ActorSystem(..)` lanza la excepción y `ActorSystem::create_with_settings` aún no construye estos `Settings` (AC-SYS); A3 pertenece a AC-CS-006.
 
 ## AC-PATH-001 — Address: protocol, system, host?, port?; alcance local vs global; toString y hostPort
 

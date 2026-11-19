@@ -1,0 +1,1 @@
+AMEND logging-filter is a list, pekko-slf4j not on the classpath -> ERR WrongType [String: 2: pekko.logging-filter has type LIST rather than STRING]

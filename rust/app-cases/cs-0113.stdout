@@ -1,0 +1,1 @@
+SET-LOG logging-filter = x.Filter -> ok LoggingFilter=x.Filter
