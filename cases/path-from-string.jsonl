@@ -181,4 +181,4 @@
 {"name": "cov56-uid-lone-minus", "args": ["path-from-string"], "stdin": "\"pekko://sys/user/a#-\""}
 {"name": "cov57-uid-min-int", "args": ["path-from-string"], "stdin": "\"pekko://sys/user/a#-2147483648\""}
 {"name": "cov58-uid-overflow", "args": ["path-from-string"], "stdin": "\"pekko://sys/user/a#2147483648\""}
-{"name": "nfe-uri-ipv6-embedded-ipv4-int-overflow", "args": ["path-from-string"], "stdin": "\"pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1/x\""}
+{"name": "nfe-uri-ipv6-v4-int-overflow", "args": ["path-from-string"], "stdin": "\"pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1/x\""}

@@ -152,6 +152,7 @@ case("life-two-stop-ons", [spawn("a", "stop-on", msg="bye"), spawn("b", "stop-on
 
 
 def main():
+    assert len({n[:24] for n in CASES}) == len(CASES), "case names must differ in the first 24 chars (rust-anything truncates recording names)"
     out = os.path.join(ROOT, "cases", "scenario-2b.jsonl")
     with open(out, "w", encoding="ascii") as f:
         for name, sc in CASES.items():
