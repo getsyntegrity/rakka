@@ -352,7 +352,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Address/ActorPath completos (filas partial restantes) con los goldens de PATH.
 - **Filas (16; impl: done 7, partial 8, pending 1):** asignacion explicita en `docs/unit-rows.tsv`: AC-PATH-001, AC-PATH-002, AC-PATH-003, AC-PATH-004, AC-PATH-005, AC-PATH-006, AC-PATH-007, AC-PATH-008, AC-PATH-009, AC-PATH-010, AC-PATH-011, AC-PATH-012, AC-PATH-013, AC-PATH-014, AC-PATH-015, AC-PATH-016.
 - **Exclusiones/costuras:** Las 7 filas done no se tocan; PATH-015 (paths especiales) usa solo constantes, el proveedor llega en P26.
-- **Decisiones:** 7 distintas en sus filas; respondidas: 7 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P01). <!-- generated:unit-decisions -->
+- **Decisiones:** 8 distintas en sus filas; respondidas: 7 (ver detalle); propuestas sin respuesta: Q-PATH-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P01). <!-- generated:unit-decisions -->
 - **Dependencias:** P02, P07.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{address,path,uri,jstring,errors}.rs` (existentes: implementados parcialmente); tests existentes en `crates/rakka-actor/tests/`.
 - **Tests/oraculo:** unidad + oraculo jars (golden existente).

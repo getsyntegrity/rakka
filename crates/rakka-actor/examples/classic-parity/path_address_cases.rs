@@ -21,6 +21,17 @@ pub const PENDING: &[(&str, &str)] = &[
         "CMPA-17 sort [pekko://a, akka://a@h:2, akka://a@h:1, pekko://a@:0, pekko://a:3]",
         "Q-PATH-1",
     ),
+    // Pekko lets the NumberFormatException of an out-of-range embedded IPv4 octet escape from
+    // AddressFromURIString.apply; `Address::parse` reports MalformedURLException. Fixing it changes
+    // the public signature of `Address::parse`.
+    (
+        "AD-NFE-01 [pekko://sys@[::1.2.3.99999999999]:1]",
+        "Q-PATH-7",
+    ),
+    (
+        "AD-NFE-02 [pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1]",
+        "Q-PATH-7",
+    ),
 ];
 
 /// Golden cases that observe reference identity (Java `eq`), which the public

@@ -290,6 +290,10 @@ final class PathAddressOracle {
     
     // ---------------------------------------------------------------- AD: AddressFromURIString.apply / parse (parser domain)
     for (int i = 0; i < adIn.length; i++) { String s = adIn[i]; run(String.format("AD-%02d [", i + 1) + s + "]", () -> addr(AddressFromURIString$.MODULE$.apply(s))); }
+    // AddressFromURIString.apply catches only URISyntaxException: an IPv6 literal with an out-of-range embedded IPv4 octet
+    // escapes as NumberFormatException (the same parser ActorPath.fromString already reports as NFE).
+    run("AD-NFE-01 [pekko://sys@[::1.2.3.99999999999]:1]", () -> addr(AddressFromURIString$.MODULE$.apply("pekko://sys@[::1.2.3.99999999999]:1")));
+    run("AD-NFE-02 [pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1]", () -> addr(AddressFromURIString$.MODULE$.apply("pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1")));
     run("AD-PARSE [pekko://sys@h:1]", () -> addr(AddressFromURIString$.MODULE$.parse("pekko://sys@h:1")));
     run("AD-PARSE [pekko://sys:1]", () -> addr(AddressFromURIString$.MODULE$.parse("pekko://sys:1")));
     
