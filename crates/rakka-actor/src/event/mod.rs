@@ -1,5 +1,6 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/event/EventStream.scala, actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala and actor/src/main/scala/org/apache/pekko/actor/Actor.scala (Apache-2.0).
-//! The event stream (just what slice 2b needs): dead letters and unhandled messages.
+//! The event stream (`EventStream`), reduced to the two channels the Classic runtime publishes on: dead letters
+//! and unhandled messages.
 
 use std::sync::{Arc, Mutex};
 
@@ -9,23 +10,31 @@ use crate::actor::props::AnyMessage;
 /// `org.apache.pekko.actor.DeadLetter`
 #[derive(Clone)]
 pub struct DeadLetter {
+    /// The undeliverable message.
     pub message: AnyMessage,
+    /// Who sent it (`deadLetters` when nobody did).
     pub sender: ActorRef,
+    /// The actor it was addressed to.
     pub recipient: ActorRef,
 }
 
 /// `org.apache.pekko.actor.UnhandledMessage`
 #[derive(Clone)]
 pub struct UnhandledMessage {
+    /// The message the actor did not handle.
     pub message: AnyMessage,
+    /// Who sent it.
     pub sender: ActorRef,
+    /// The actor that left it unhandled.
     pub recipient: ActorRef,
 }
 
 /// The event classes a subscriber can ask for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Channel {
+    /// Subscribes to [`DeadLetter`] events.
     DeadLetter,
+    /// Subscribes to [`UnhandledMessage`] events.
     UnhandledMessage,
 }
 

@@ -44,6 +44,7 @@ impl Clock for NanoClock {
 /// The part of `Scheduler` that `ScheduledClock` uses: `scheduleWithFixedDelay(initialDelay, delay)(task)`.
 /// AC-SCH implements it for the real scheduler.
 pub trait FixedDelayScheduler {
+    /// Runs `task` after `initial_delay` and then repeatedly with `delay` between the end of one run and the start of the next.
     fn schedule_with_fixed_delay(
         &self,
         initial_delay: Duration,
@@ -148,7 +149,9 @@ impl Clock for ScheduledClock {
 /// What `Clock.createExtension` builds: a [`ScheduledClock`] when the interval is positive, a
 /// [`NanoClock`] otherwise.
 pub enum SelectedClock {
+    /// The scheduler interval was not positive: read `System.nanoTime` directly.
     Nano(NanoClock),
+    /// A clock that is refreshed by the scheduler.
     Scheduled(Arc<ScheduledClock>),
 }
 

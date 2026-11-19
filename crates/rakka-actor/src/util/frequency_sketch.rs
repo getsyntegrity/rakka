@@ -98,6 +98,7 @@ mod sealed {
 
 /// `FrequencySketch.Hasher[A]`: the hash function of the element type (sealed, like Pekko's).
 pub trait Hasher<A: ?Sized>: sealed::Sealed {
+    /// The 32-bit hash of `value`.
     fn hash(&self, value: &A) -> i32;
 }
 
@@ -111,6 +112,7 @@ pub struct StringHasher {
 pub const DEFAULT_SEED: i32 = 135_283_237;
 
 impl StringHasher {
+    /// A hasher that mixes `seed` into every hash.
     pub const fn new(seed: i32) -> Self {
         Self { seed }
     }
@@ -349,6 +351,7 @@ impl<A: ?Sized, H: Hasher<A>> FrequencySketch<A, H> {
 
 /// An element whose `hashCode` is the JVM's (what `FastFrequencySketch` uses).
 pub trait JavaHashCode {
+    /// The value `hashCode()` would return on the JVM.
     fn java_hash_code(&self) -> i32;
 }
 
