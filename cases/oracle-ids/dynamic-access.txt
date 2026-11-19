@@ -1,0 +1,20 @@
+CNF-01 createInstanceFor foo.NonExistingClass
+CNF-02 createInstanceFor org.apache.pekko.actor.foo.NonExistingClass
+CNF-03 createInstanceFor empty name
+CNF-04 createInstanceFor name differing only in case
+CNF-05 createInstanceFor the provider org.apache.pekko.remote.RemoteActorRefProvider
+CNF-06 createInstanceFor the provider org.apache.pekko.cluster.ClusterActorRefProvider
+ON-01 classIsOnClasspath i.just.made.it.up.to.hurt.Myself
+ON-02 classIsOnClasspath org.apache.pekko.actor.Actor
+ON-03 classIsOnClasspath org.apache.pekko.remote.RemoteActorRefProvider
+ON-04 classIsOnClasspath org.apache.pekko.cluster.ClusterActorRefProvider
+ON-05 classIsOnClasspath org.apache.pekko.actor.LocalActorRefProvider
+ON-06 classIsOnClasspath empty name
+INST-01 createInstanceFor org.apache.pekko.dispatch.UnboundedMailbox
+PRV-01 provider foo.NonExisting
+PRV-02 provider org.apache.pekko.remote.RemoteActorRefProvider
+PRV-03 provider org.apache.pekko.cluster.ClusterActorRefProvider
+PRV-04 provider org.apache.pekko.actor.LocalActorRefProvider
+CNF-07 createInstanceFor name with surrounding spaces
+ON-07 classIsOnClasspath name differing only in case
+ON-08 classIsOnClasspath name with a trailing space

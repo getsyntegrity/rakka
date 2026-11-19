@@ -1984,3 +1984,23 @@ cs-0210	config-settings	AMEND loggers is a string, pekko-slf4j not on the classp
 cs-0211	config-settings	AMEND logging-filter is a list, pekko-slf4j on the classpath
 cs-0212	config-settings	AMEND logging-filter is a list, pekko-slf4j not on the classpath
 cs-0213	config-settings	AMEND the amended configuration is amended again without change
+da-0001	dynamic-access	CNF-01 createInstanceFor foo.NonExistingClass
+da-0002	dynamic-access	CNF-02 createInstanceFor org.apache.pekko.actor.foo.NonExistingClass
+da-0003	dynamic-access	CNF-03 createInstanceFor empty name
+da-0004	dynamic-access	CNF-04 createInstanceFor name differing only in case
+da-0005	dynamic-access	CNF-05 createInstanceFor the provider org.apache.pekko.remote.RemoteActorRefProvider
+da-0006	dynamic-access	CNF-06 createInstanceFor the provider org.apache.pekko.cluster.ClusterActorRefProvider
+da-0007	dynamic-access	ON-01 classIsOnClasspath i.just.made.it.up.to.hurt.Myself
+da-0008	dynamic-access	ON-02 classIsOnClasspath org.apache.pekko.actor.Actor
+da-0009	dynamic-access	ON-03 classIsOnClasspath org.apache.pekko.remote.RemoteActorRefProvider
+da-0010	dynamic-access	ON-04 classIsOnClasspath org.apache.pekko.cluster.ClusterActorRefProvider
+da-0011	dynamic-access	ON-05 classIsOnClasspath org.apache.pekko.actor.LocalActorRefProvider
+da-0012	dynamic-access	ON-06 classIsOnClasspath empty name
+da-0013	dynamic-access	INST-01 createInstanceFor org.apache.pekko.dispatch.UnboundedMailbox
+da-0014	dynamic-access	PRV-01 provider foo.NonExisting
+da-0015	dynamic-access	PRV-02 provider org.apache.pekko.remote.RemoteActorRefProvider
+da-0016	dynamic-access	PRV-03 provider org.apache.pekko.cluster.ClusterActorRefProvider
+da-0017	dynamic-access	PRV-04 provider org.apache.pekko.actor.LocalActorRefProvider
+da-0018	dynamic-access	CNF-07 createInstanceFor name with surrounding spaces
+da-0019	dynamic-access	ON-07 classIsOnClasspath name differing only in case
+da-0020	dynamic-access	ON-08 classIsOnClasspath name with a trailing space

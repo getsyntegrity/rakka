@@ -1,0 +1,1 @@
+CNF-01 createInstanceFor foo.NonExistingClass -> ERR ClassNotFoundException [foo.NonExistingClass]

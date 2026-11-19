@@ -10,6 +10,7 @@
 mod bytes_cases;
 mod config_hocon_cases;
 mod config_settings_cases;
+mod dynamic_access_cases;
 mod fronteras_cases;
 mod json;
 mod path_address_cases;
@@ -119,6 +120,15 @@ fn main() -> ExitCode {
         }
         "config-hocon-case" => {
             return oracle_case(&mut out, &input, config_hocon_cases::rust_lines());
+        }
+        "dynamic-access-ids" => print_ids(&mut out, dynamic_access_cases::rust_lines()),
+        "dynamic-access-all" => {
+            for (_, line) in dynamic_access_cases::rust_lines() {
+                writeln!(out, "{line}").ok();
+            }
+        }
+        "dynamic-access-case" => {
+            return oracle_case(&mut out, &input, dynamic_access_cases::rust_lines());
         }
         "config-settings-ids" => print_ids(&mut out, config_settings_cases::rust_lines()),
         "config-settings-all" => {
