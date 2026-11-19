@@ -1,10 +1,12 @@
 # Spec 03 — AC-CFG (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 29. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 28. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
+
+Filas ya `done` en esta unidad (no se reabren): AC-CFG-017.5.
 
 ## Prerrequisitos
 
@@ -59,16 +61,16 @@ Filas: AC-CFG-012.2, AC-CFG-012.3, AC-CFG-012.4, AC-CFG-013, AC-CFG-014, AC-CFG-
 
 ### Tarea 4: DynamicAccess / ReflectiveDynamicAccess (instanciar clases por FQCN desde config) (+5 filas)
 
-Filas: AC-CFG-016, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-CFG-016, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.6. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 5: Includes: `include "version"` inexistente se ignora; `required(...)` inexistente falla (+4 filas)
+### Tarea 5: Sintaxis del archivo: comentarios `#` y `//`, claves con guiones y puntos, comillas… (+3 filas)
 
-Filas: AC-CFG-017.6, AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -79,7 +81,7 @@ Filas: AC-CFG-017.6, AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-CFG-001 | Carga de configuración: ConfigFactory.load + reference.conf como fallback;… | crate de HOCON (p. ej. `hocon` o parser propio) + `reference.conf` embebido con… | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:31-206 ;… | Q-CFG-14, Q-CFG-16, Q-CFG-6, Q-X-1 |
+| AC-CFG-001 | Carga de configuración: ConfigFactory.load + reference.conf como fallback;… | crate de HOCON (p. ej. `hocon` o parser propio) + `reference.conf` embebido con… | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:31-206 ;… | Q-CFG-14, Q-CFG-15, Q-CFG-16, Q-CFG-6, Q-X-1 |
 | AC-CFG-002 | ActorSystem.Settings: lectura fail-fast de todas las claves pekko.* al crear… | `struct Settings` construido con `TryFrom<&Config>` | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:34-184 | Q-CFG-3, Q-CFG-4 |
 | AC-CFG-003 | Chequeo pekko.version vs versión del binario | comparar con `env!("CARGO_PKG_VERSION")` o constante "1.7.1" | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:42-43 | Q-CFG-5 |
 | AC-CFG-004 | Claves de logging: loggers, logging-filter, loggers-dispatcher,… | campos de Settings | actor-tests/src/test/scala/org/apache/pekko/event/LoggerSpec.scala:185,212,220 | Q-CFG-10, Q-X-2, Q-X-7 |
@@ -102,11 +104,10 @@ Filas: AC-CFG-017.6, AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos
 | AC-CFG-017.2 | Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden DUR-MS-*, DUR-NS-*, DUR-ERR-*, DUR-SCI-*, DUR-ROUND-*, DUR-LARGE-*, DUR-NUMBER,… | Q-CFG-15, Q-CFG-4, Q-X-1 |
 | AC-CFG-017.3 | Tamaños en memoria: `128 KiB`, `K`, `kB`, `MB`, número sin unidad = bytes;… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden SIZE-*, SIZE-ERR-*, SIZE-MEMORY, SIZE-NUMBER | Q-CFG-15, Q-CFG-4, Q-X-1 |
 | AC-CFG-017.4 | Booleanos `on/off/yes/no/true/false` con y sin comillas; `ON`, `1`, `maybe`… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden BOOL-*; ConfigSpec.scala:44-97 | Q-CFG-15, Q-CFG-4, Q-X-1 |
-| AC-CFG-017.5 | Literales que Pekko interpreta por su cuenta: `infinite`, `unlimited`,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden SPECIAL-*, REF-03 | Q-CFG-4, Q-X-1 |
 | AC-CFG-017.6 | Includes: `include "version"` inexistente se ignora; `required(...)`… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden INC-01..04 | Q-CFG-14, Q-CFG-4, Q-X-1 |
 | AC-CFG-017.7 | Sintaxis del archivo: comentarios `#` y `//`, claves con guiones y puntos,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden REF-04..10, LIST-*, TYPE-* | Q-CFG-15, Q-CFG-4, Q-X-1 |
 | AC-CFG-018 | Settings.amendSlf4jConfig: `pekko.use-slf4j` agrega… | función `amend_logging_backend(&Config, &FactoryRegistry) -> Config` (Q-X-7) | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:187-205 | Q-CFG-10, Q-X-7 |
-| AC-CFG-019 | Validación de la config contra reference.conf (`checkValid` con… | `Config::check_valid(&reference, &["pekko"]) -> Result<(), ConfigError>` | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:31-206 (config de… | Q-CFG-15, Q-CFG-3, Q-X-1 |
+| AC-CFG-019 | Validación de la config contra reference.conf (`checkValid` con… | `Config::check_valid(&reference, &["pekko"]) -> Result<(), ConfigError>` | actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:31-206 (config de… | Q-CFG-15, Q-CFG-3 |
 | AC-CFG-020 | Combinación no soportada coordinated-shutdown:… | validación en `Settings::from_config` | actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:573-583 | - |
 
 ## Gates y criterio de cierre

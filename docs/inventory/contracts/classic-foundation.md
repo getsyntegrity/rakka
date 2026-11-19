@@ -185,7 +185,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::get_millis_duration` / `get_nanos_duration` (`config/mod.rs`) sobre un parser HOCON propio; casos grabados ch-* (DUR-MS/NS/ERR/ROUND/LARGE/UNQUOTED/NUMBER). Queda `partial` porque Q-X-1 sigue abierta (parser propio).
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::get_millis_duration` / `get_nanos_duration` (`config/mod.rs`) sobre un parser HOCON propio; casos grabados ch-* (DUR-MS/NS/ERR/ROUND/LARGE/UNQUOTED/NUMBER). Pasa a `done` (reevaluación 2026-11-19): A1 y A2 cubiertas por los casos grabados DUR-* (ch-*); Q-X-1 y Q-CFG-4 están aceptadas y sus condiciones se cumplieron en #243; Q-X-9 es un grupo cuyos miembros Q-UTIL-1..5 ya están respondidos.
 
 ## AC-UTIL-002.5 — ConfigOps.renderWithRedactions (toString de Settings con datos sensibles ocultos)
 
@@ -218,7 +218,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::render_with_redactions`; casos grabados RW-01..06 (formato con `# String: N`, `# env variables`, `<env variable>`, `<username>`). Queda `partial`: Q-CFG-4 sigue abierta y la descripción de origen de archivos no se reproduce (Q-CFG-15 propuesta).
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::render_with_redactions`; casos grabados RW-01..06 (formato con `# String: N`, `# env variables`, `<env variable>`, `<username>`). Queda `partial`: depende de Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida (RW-01..06 cubren el texto y el entorno).
 
 ## AC-UTIL-003.1 — Done (singleton de finalización sin valor)
 
@@ -2587,7 +2587,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::parse_string`, `with_fallback`, `resolve`, `default_reference` (reference.conf embebido) y `Config::load(ruta)` (Q-CFG-6 (a): application.conf configurable sobre el reference embebido). Casos grabados KEY (308 claves de los reference.conf de actor y actor-typed) y SUB/FB/REF. Queda `partial`: Q-X-1 abierta, sin sobrescritura por variables con prefijo (Q-CFG-16) ni includes con classpath (Q-CFG-14).
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::parse_string`, `with_fallback`, `resolve`, `default_reference` (reference.conf embebido) y `Config::load(ruta)` (Q-CFG-6 (a): application.conf configurable sobre el reference embebido). Casos grabados KEY (308 claves de los reference.conf de actor y actor-typed) y SUB/FB/REF. Queda `partial`: Q-CFG-14 (includes con classpath) y Q-CFG-16 (variables con prefijo) propuestas; Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida; y `Config::load` (A5) no tiene caso grabado contra el oráculo.
 
 ## AC-CFG-002 — ActorSystem.Settings: lectura fail-fast de todas las claves pekko.* al crear el sistema
 
@@ -2665,7 +2665,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config::check_pekko_version` (mensaje `Pekko JAR version [..] does not match the provided config version [..]`; `pekko.version` = 2.0.0 por Q-CFG-5 (a)) probado con tests unitarios; sin caso grabado (el oráculo no crea un ActorSystem aquí). Queda `partial`.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config::check_pekko_version` (mensaje `Pekko JAR version [..] does not match the provided config version [..]`; `pekko.version` = 2.0.0 por Q-CFG-5 (a)) probado con tests unitarios; sin caso grabado (el oráculo no crea un ActorSystem aquí). Queda `partial`: sin caso grabado contra el oráculo (la condición del build no es observable en él); sólo tests unitarios.
 
 ## AC-CFG-004 — Claves de logging: loggers, logging-filter, loggers-dispatcher, logger-startup-timeout, loglevel, stdout-loglevel, log-config-on-start
 
@@ -3259,7 +3259,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config/{parse,resolve}.rs`; casos grabados FB-01..10, SUB-01..14, REF-01..02 pasan (parser propio). Queda `partial`: Q-X-1 sigue abierta.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config/{parse,resolve}.rs`; casos grabados FB-01..10, SUB-01..14, REF-01..02 pasan (parser propio). Queda `partial`: afectada por Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (FB, SUB, REF-01..02, KEY).
 
 ## AC-CFG-017.2 — Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos, notación científica, truncado, desborde
 
@@ -3293,7 +3293,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config/units.rs` (`get_duration`); casos grabados DUR-* pasan. Queda `partial`: Q-X-1 sigue abierta.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config/units.rs` (`get_duration`); casos grabados DUR-* pasan. Queda `partial`: afectada por Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (DUR-*).
 
 ## AC-CFG-017.3 — Tamaños en memoria: `128 KiB`, `K`, `kB`, `MB`, número sin unidad = bytes; `KB` falla
 
@@ -3327,7 +3327,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config/units.rs` (`get_bytes`, `get_memory_size`); casos grabados SIZE-* pasan (los tamaños fraccionarios usan f64, los enteros i128). Queda `partial`: Q-X-1 sigue abierta.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config/units.rs` (`get_bytes`, `get_memory_size`); casos grabados SIZE-* pasan (los tamaños fraccionarios usan f64, los enteros i128). Queda `partial`: afectada por Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (SIZE-*).
 
 ## AC-CFG-017.4 — Booleanos `on/off/yes/no/true/false` con y sin comillas; `ON`, `1`, `maybe` fallan
 
@@ -3361,7 +3361,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::get_boolean`; casos grabados BOOL-* pasan. Queda `partial`: Q-X-1 sigue abierta.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::get_boolean`; casos grabados BOOL-* pasan. Queda `partial`: afectada por Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (BOOL-*).
 
 ## AC-CFG-017.5 — Literales que Pekko interpreta por su cuenta: `infinite`, `unlimited`, `forever`, `never`, `default`, `on/off` en log-dead-letters
 
@@ -3395,7 +3395,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: literales como `infinite`/`unlimited` son cadenas (`get_value`, `get_string`); casos grabados SPECIAL-*, REF-03 pasan. Queda `partial`: Q-X-1 sigue abierta.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: literales como `infinite`/`unlimited` son cadenas (`get_value`, `get_string`); casos grabados SPECIAL-*, REF-03 pasan. Pasa a `done` (reevaluación 2026-11-19): A1 y A2 cubiertas por los casos grabados SPECIAL-*, REF-03 y KEY; Q-X-1 y Q-CFG-4 aceptadas con condiciones cumplidas (#243); ninguna propuesta abierta la lista como afectada.
 
 ## AC-CFG-017.6 — Includes: `include "version"` inexistente se ignora; `required(...)` inexistente falla
 
@@ -3429,7 +3429,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: includes (`include "x"`, `required(..)`, `file(..)`, `classpath(..)`); casos grabados INC-01..04 pasan; los mensajes de `required(file/url)` no están medidos (Q-CFG-14 propuesta). Queda `partial`.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: includes (`include "x"`, `required(..)`, `file(..)`, `classpath(..)`); casos grabados INC-01..04 pasan; los mensajes de `required(file/url)` no están medidos (Q-CFG-14 propuesta). Queda `partial`: Q-CFG-14 (propuesta) sobre includes sin classpath, `url()` y los mensajes de `required(file/url)` sin medir. INC-01..04 están grabados.
 
 ## AC-CFG-017.7 — Sintaxis del archivo: comentarios `#` y `//`, claves con guiones y puntos, comillas triples, claves duplicadas, listas con coma final, errores de getters tipados
 
@@ -3463,7 +3463,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: sintaxis (comentarios, claves con comillas y guiones, comillas triples, claves duplicadas, listas), getters tipados y sus errores; casos grabados TYPE-*, LIST-*, REF-04..10 pasan. Queda `partial`: Q-X-1 sigue abierta.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: sintaxis (comentarios, claves con comillas y guiones, comillas triples, claves duplicadas, listas), getters tipados y sus errores; casos grabados TYPE-*, LIST-*, REF-04..10 pasan. Queda `partial`: afectada por Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (REF-04..10, LIST-*, TYPE-*).
 
 ## AC-CFG-018 — Settings.amendSlf4jConfig: `pekko.use-slf4j` agrega Slf4jLogger/Slf4jLoggingFilter a loggers
 
@@ -3530,7 +3530,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::check_valid` y `without_path`; casos grabados CV-01..21 (incluida la validación del reference.conf real de pekko-actor) pasan. La llamada desde `Settings` (con `internal-dispatcher` excluido) llega con ActorSystem. Queda `partial`: Q-X-1 sigue abierta.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::check_valid` y `without_path`; casos grabados CV-01..21 (incluida la validación del reference.conf real de pekko-actor) pasan. La llamada desde `Settings` (con `internal-dispatcher` excluido) llega con ActorSystem. Queda `partial`: afectada por Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por CV-01..21 grabados.
 
 ## AC-CFG-020 — Combinación no soportada coordinated-shutdown: run-by-actor-system-terminate=on con terminate-actor-system=off
 

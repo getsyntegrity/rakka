@@ -96,7 +96,7 @@
 
 ## P07 CFG-HOCON
 
-12 filas; 8 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 3 propuestas.
+12 filas; 9 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -104,9 +104,10 @@
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 9: AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.6 … (+3) | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-CFG-5 | accepted_with_changes (2026-11-18): aceptar (a) con el valor "2.0.0" (la referencia pasó de 1.7.1 a 2.0.0, Q-X-11). | 1: AC-CFG-003 | Bloquea: AC-CFG-003, AC-UTIL-005.1; puede avanzar: el resto. | — | `classic-foundation` |
 | Q-CFG-6 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-CFG-001 | Bloquea: AC-CFG-001 (carga por defecto); puede avanzar: `ActorSystem::new(config)` con config explícita. | — | `classic-foundation` |
-| Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 10: AC-CFG-001, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5 … (+4) | — | — | `transversal` |
+| Q-UTIL-1 | rejected (2026-10-31): rechazar: la recomendación (a) (std::time::Duration, sólo valores positivos) NO se adopta. ALTERNATIVA ELEGIDA Y VIGENTE: preservar el dominio de Pekko, es… | 1: AC-UTIL-002.4 | — | — | `classic-foundation` |
+| Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 9: AC-CFG-001, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5 … (+3) | — | — | `transversal` |
 | Q-CFG-14 | propuesta | 2: AC-CFG-001, AC-CFG-017.6 | Bloquea: nada; las filas quedan `partial` hasta medir los mensajes de file/url. | — | `classic-foundation` |
-| Q-CFG-15 | propuesta | 7: AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.7, AC-CFG-019 … (+1) | — | — | `classic-foundation` |
+| Q-CFG-15 | propuesta | 8: AC-CFG-001, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.7 … (+2) | — | — | `classic-foundation` |
 | Q-CFG-16 | propuesta | 1: AC-CFG-001 | — | — | `classic-foundation` |
 
 ## P08 CFG-AJUSTES
@@ -1029,8 +1030,8 @@ Sin decisiones asociadas a sus filas en `contract-map.tsv`.
 
 Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas filas la citan pero ninguna de sus decisiones individuales es un miembro. **No se les asigna ningún miembro automáticamente** y haberlas desligado de la agrupación no prueba que no necesiten decisiones individuales: su revisión semántica está pendiente.
 
-- Q-X-9 (Q-UTIL-1, Q-UTIL-2, Q-UTIL-3, Q-UTIL-4, Q-UTIL-5): 9 filas: AC-ASK-001.1, AC-ASK-005, AC-CS-003.1, AC-UTIL-002.4, AC-UTIL-005.2, AT-ASK-001, AT-ASK-002, AT-CTX-012, AT-DLV-003.3
+- Q-X-9 (Q-UTIL-1, Q-UTIL-2, Q-UTIL-3, Q-UTIL-4, Q-UTIL-5): 8 filas: AC-ASK-001.1, AC-ASK-005, AC-CS-003.1, AC-UTIL-005.2, AT-ASK-001, AT-ASK-002, AT-CTX-012, AT-DLV-003.3
 
 ## Totales
 
-Total de pares unidad–decisión: 476 (230 respondidas, 0 bloqueantes, 246 propuestas).
+Total de pares unidad–decisión: 477 (231 respondidas, 0 bloqueantes, 246 propuestas).

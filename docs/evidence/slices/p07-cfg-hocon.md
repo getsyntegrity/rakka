@@ -1,6 +1,6 @@
 # Evidencia del slice P07 (CFG-HOCON), 2026-11-18
 
-Filas: AC-UTIL-002.4, 002.5, AC-CFG-001, 003, 017.1..017.7 y 019 (12). **Las 12 quedan `partial`**: el Owner mantiene abierta Q-X-1 (parser propio) y P07 queda en `partial` como prevé el plan; además Q-CFG-4 sigue abierta. Cada fila explica su límite en su nota del inventario. Decisiones aplicadas: Q-X-1 (A) (parser propio, sin darla por resuelta), Q-CFG-3 (a) (`checkValid` propio), Q-CFG-4 (a) (categorías y textos de error medidos; el render sí se reproduce, no sólo se aproxima), Q-CFG-5 (a) (`pekko.version` = 2.0.0), Q-CFG-6 (a) (application.conf configurable sobre el reference embebido, sin classpath). Decisiones nuevas, `proposed` en `docs/owner-batch-02.md` (### P07): Q-CFG-14 (includes sin classpath), Q-CFG-15 (descripción de origen en errores y render), Q-CFG-16 (prefijo de variables de entorno que sobrescriben la config).
+Filas: AC-UTIL-002.4, 002.5, AC-CFG-001, 003, 017.1..017.7 y 019 (12). **Reevaluación 2026-11-19 (Owner): Q-X-1 y Q-CFG-4 están aceptadas; lo abierto eran sus condiciones, cumplidas en #243. Resultado: 2 `done` (AC-UTIL-002.4, AC-CFG-017.5) y 10 `partial`** por las propuestas Q-CFG-14, 15 y 16 y por falta de caso grabado (AC-CFG-001 `Config::load`, AC-CFG-003). Cada fila explica su límite en su nota del inventario. Decisiones aplicadas: Q-X-1 (A) (parser propio, sin darla por resuelta), Q-CFG-3 (a) (`checkValid` propio), Q-CFG-4 (a) (categorías y textos de error medidos; el render sí se reproduce, no sólo se aproxima), Q-CFG-5 (a) (`pekko.version` = 2.0.0), Q-CFG-6 (a) (application.conf configurable sobre el reference embebido, sin classpath). Decisiones nuevas, `proposed` en `docs/owner-batch-02.md` (### P07): Q-CFG-14 (includes sin classpath), Q-CFG-15 (descripción de origen en errores y render), Q-CFG-16 (prefijo de variables de entorno que sobrescriben la config).
 
 ## Diseño
 
@@ -66,7 +66,7 @@ detected 7/7
 
 ## Límites conocidos (por eso `partial`)
 
-- Q-X-1 abierta: el parser propio cumple los 496 casos, pero la decisión sigue en manos del Owner.
+- Q-X-1 aceptada con condición cumplida (#243); P07 queda `partial` por Q-CFG-14, 15 y 16 (propuestas) y por AC-CFG-001/003 sin caso grabado completo.
 - Medido sólo en el caso de dos sustituciones: el texto de un ciclo de sustituciones (`involving ${b}, ${a}, ${b}`).
 - Sin medir: `required(file(..))`, `required(classpath(..))`, `url(..)` (Q-CFG-14); descripción de origen de archivos (Q-CFG-15); sobrescritura por variables con prefijo (Q-CFG-16); números enteros mayores que i128 y tamaños fraccionarios con más de 53 bits de precisión.
 - `Config::check_valid` está medido contra el oráculo; su llamada desde `Settings` (con `internal-dispatcher` excluido, AC-CFG-019) llega con ActorSystem. AC-CFG-003 (`check_pekko_version`) y `Config::load` sólo tienen tests unitarios, sin caso grabado.

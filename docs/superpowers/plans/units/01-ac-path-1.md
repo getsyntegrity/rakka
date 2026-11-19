@@ -10,7 +10,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-PATH-003, AC-PATH-012, AC-PAT
 
 ## Prerrequisitos
 
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-002.4, AC-UTIL-002.5. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-002.5. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
