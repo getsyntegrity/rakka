@@ -131,6 +131,25 @@ impl Number {
         &self.text
     }
 
+    /// What `render` shows for the number: the *value*, not the original text (`1.50` is `1.5`, `010` is `10`).
+    ///
+    /// Typesafe Config turns a floating-point literal into a `long` when the double is a whole number that a `long`
+    /// holds exactly (`1.0` is `1`, `5e18` is `5000000000000000000`); every other double is shown with Java's
+    /// `Double.toString` (`1e-7` is `1.0E-7`, `1e400` is `Infinity`).
+    pub(crate) fn render(&self) -> String {
+        match self.repr {
+            NumRepr::Int(v) => v.to_string(),
+            NumRepr::Float(f) => {
+                let whole = f as i64; // saturating, like Java's `(long) d`
+                if whole as f64 == f {
+                    whole.to_string()
+                } else {
+                    java_double_to_string(f)
+                }
+            }
+        }
+    }
+
     /// The value as a double.
     pub fn as_f64(&self) -> f64 {
         match self.repr {
@@ -224,4 +243,52 @@ pub(crate) fn quote(s: &str) -> String {
     }
     out.push('"');
     out
+}
+
+/// `Double.toString` of Java: plain decimal for `1e-3 <= |d| < 1e7`, otherwise `d.dddE<exp>`; always at least one
+/// digit after the point. The digits are the shortest that identify the double.
+fn java_double_to_string(d: f64) -> String {
+    if d.is_nan() {
+        return "NaN".to_owned();
+    }
+    if d.is_infinite() {
+        return if d > 0.0 { "Infinity" } else { "-Infinity" }.to_owned();
+    }
+    if d == 0.0 {
+        return if d.is_sign_negative() { "-0.0" } else { "0.0" }.to_owned();
+    }
+    // `{:e}` gives the shortest round-trip digits as `d.ddde<exp>`. When that is a single digit, Java shows the exact
+    // value rounded to two digits (`Double.MIN_VALUE` is `4.9E-324`, not `5.0E-324`; `1e-7` stays `1.0E-7`).
+    let mut sci = format!("{:e}", d.abs());
+    if !sci.contains('.') {
+        sci = format!("{:.1e}", d.abs());
+    }
+    let (mantissa, exponent) = sci.split_once('e').expect("`{:e}` always has an exponent");
+    let exponent: i32 = exponent.parse().expect("`{:e}` exponent is an integer");
+    let mut digits: String = mantissa.chars().filter(|c| *c != '.').collect();
+    if digits.len() == 2 && digits.ends_with('0') {
+        digits.pop(); // the exact value rounds to one digit: `8.0e-1` is `0.8`
+    }
+    let sign = if d < 0.0 { "-" } else { "" };
+    if (-3..7).contains(&exponent) {
+        let point = exponent + 1; // digits before the decimal point (<= 0 means a leading `0.000`)
+        let body = if point <= 0 {
+            format!(
+                "0.{}{}",
+                "0".repeat(usize::try_from(-point).expect("non-negative")),
+                digits
+            )
+        } else {
+            let point = usize::try_from(point).expect("positive");
+            if digits.len() <= point {
+                format!("{}{}.0", digits, "0".repeat(point - digits.len()))
+            } else {
+                format!("{}.{}", &digits[..point], &digits[point..])
+            }
+        };
+        format!("{sign}{body}")
+    } else {
+        let rest = if digits.len() > 1 { &digits[1..] } else { "0" };
+        format!("{sign}{}.{rest}E{exponent}", &digits[..1])
+    }
 }

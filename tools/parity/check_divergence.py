@@ -583,6 +583,30 @@ MUTANTS = {
         "Kind::Str(_) if v.line == u32::MAX =>",
         "renderWithRedactions prints the value of an environment variable (a secret) in Settings.toString and error messages",
     ),
+    "hocon-render-shows-number-text": (
+        "src/config/mod.rs",
+        "Kind::Num(n) => n.render(),",
+        "Kind::Num(n) => n.text().to_owned(),",
+        "render prints the original text of a number (1.50, 010, 1e-7) instead of its value (1.5, 10, 1.0E-7)",
+    ),
+    "hocon-render-whole-double-stays-double": (
+        "src/config/model.rs",
+        "if whole as f64 == f {",
+        "if false {",
+        "render keeps a whole double as a double (1.0, 5.0E18) instead of the long Typesafe shows (1, 5000000000000000000)",
+    ),
+    "hocon-render-single-digit-double-not-two-digit": (
+        "src/config/model.rs",
+        "if !sci.contains('.') {",
+        "if false {",
+        "Double.toString shows Double.MIN_VALUE as 4.9E-324 (exact value rounded to two digits), not the shortest 5.0E-324",
+    ),
+    "hocon-render-small-double-in-decimal-form": (
+        "src/config/model.rs",
+        "if (-3..7).contains(&exponent) {",
+        "if (-30..70).contains(&exponent) {",
+        "Double.toString threshold: 1e-7 and 1.23456789E7 must use the E notation",
+    ),
 }
 
 

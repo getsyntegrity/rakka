@@ -21,7 +21,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-14`, `Q-CFG-15`, `Q-CFG-16`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-14`, `Q-CFG-15`, `Q-CFG-16`, `Q-CFG-30`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -98,7 +98,7 @@ Filas: AC-CFG-017.6, AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos
 | AC-CFG-014 | pekko.actor.router.type-mapping (alias de routers) | tabla estática nombre→constructor | actor-tests/src/test/scala/org/apache/pekko/actor/DeployerSpec.scala:231:231-246 | Q-X-2 |
 | AC-CFG-015 | BootstrapSetup / ActorSystemSetup / Setup (config programática: classLoader,… | builder `ActorSystem::builder().config(..).setup(T)` con `TypeMap` | actor-tests/src/test/scala/org/apache/pekko/actor/setup/ActorSystemSetupSpec.scala:31-78… | Q-CFG-13 |
 | AC-CFG-016 | DynamicAccess / ReflectiveDynamicAccess (instanciar clases por FQCN desde… | registro estático `name -> fn(&Settings,&Config) -> Box<dyn T>` poblado por el usuario o… | actor-tests/src/test/scala/org/apache/pekko/actor/DynamicAccessSpec.scala:53,63,72,85… | Q-X-2 |
-| AC-CFG-017.1 | Combinación y sustitución: withFallback, resolve tardío, `${?x}` opcional,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden FB-01..08, SUB-01..14, REF-01..02 | Q-CFG-15, Q-CFG-4, Q-X-1 |
+| AC-CFG-017.1 | Combinación y sustitución: withFallback, resolve tardío, `${?x}` opcional,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden FB-01..08, SUB-01..14, REF-01..02 | Q-CFG-15, Q-CFG-30, Q-CFG-4, Q-X-1 |
 | AC-CFG-017.2 | Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos,… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden DUR-MS-*, DUR-NS-*, DUR-ERR-*, DUR-SCI-*, DUR-ROUND-*, DUR-LARGE-*, DUR-NUMBER,… | Q-CFG-15, Q-CFG-4, Q-X-1 |
 | AC-CFG-017.3 | Tamaños en memoria: `128 KiB`, `K`, `kB`, `MB`, número sin unidad = bytes;… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden SIZE-*, SIZE-ERR-*, SIZE-MEMORY, SIZE-NUMBER | Q-CFG-15, Q-CFG-4, Q-X-1 |
 | AC-CFG-017.4 | Booleanos `on/off/yes/no/true/false` con y sin comillas; `ON`, `1`, `maybe`… | parser HOCON + helpers `get_duration_or_infinite`, `get_size_or_unlimited` | golden BOOL-*; ConfigSpec.scala:44-97 | Q-CFG-15, Q-CFG-4, Q-X-1 |

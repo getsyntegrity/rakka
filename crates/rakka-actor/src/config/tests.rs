@@ -510,3 +510,35 @@ fn leaves_and_numbers() {
     );
     assert_eq!(ValueType::Boolean.name(), "BOOLEAN");
 }
+
+/// The render shows the number's *value*, as Typesafe Config 1.4.9 does (expected strings recorded by the oracle,
+/// cases `NUM-RENDER *`): whole doubles that a `long` holds become integers, the rest uses Java's `Double.toString`.
+#[test]
+fn render_shows_the_value_of_a_number_not_its_text() {
+    let expected = [
+        ("1.50", "1.5"),
+        ("010", "10"),
+        ("-0", "0"),
+        ("1.0", "1"),
+        ("5e18", "5000000000000000000"),
+        ("9223372036854775808.0", "9223372036854775807"),
+        ("1e19", "1.0E19"),
+        ("1e-7", "1.0E-7"),
+        ("1.5e-3", "0.0015"),
+        ("0.0001", "1.0E-4"),
+        ("12345678.9", "1.23456789E7"),
+        ("1e400", "Infinity"),
+        ("4.9e-324", "4.9E-324"),
+        ("0.30000000000000004", "0.30000000000000004"),
+    ];
+    for (text, rendered) in expected {
+        assert_eq!(
+            p(&format!("x = {text}"))
+                .get_value("x")
+                .unwrap()
+                .render_concise(),
+            rendered,
+            "{text}"
+        );
+    }
+}

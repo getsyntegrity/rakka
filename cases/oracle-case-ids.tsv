@@ -1442,3 +1442,35 @@ ch-0493	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.produc
 ch-0494	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.retry-attempts
 ch-0495	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.internal-ask-timeout
 ch-0496	config-hocon	KEY actor-typed pekko.use-slf4j
+ch-0497	config-hocon	NUM-RENDER 1.50
+ch-0498	config-hocon	NUM-RENDER 1e-7
+ch-0499	config-hocon	NUM-RENDER 12345678.9
+ch-0500	config-hocon	NUM-RENDER -0
+ch-0501	config-hocon	NUM-RENDER 010
+ch-0502	config-hocon	NUM-RENDER 1e400
+ch-0503	config-hocon	NUM-RENDER 1.5e-3
+ch-0504	config-hocon	NUM-RENDER 5e18
+ch-0505	config-hocon	NUM-RENDER 1e18
+ch-0506	config-hocon	NUM-RENDER 1.0
+ch-0507	config-hocon	NUM-RENDER 100.0
+ch-0508	config-hocon	NUM-RENDER 0.1
+ch-0509	config-hocon	NUM-RENDER 1E5
+ch-0510	config-hocon	NUM-RENDER 1e2
+ch-0511	config-hocon	NUM-RENDER 123456789012345678
+ch-0512	config-hocon	NUM-RENDER -1.50
+ch-0513	config-hocon	NUM-RENDER 0.0
+ch-0514	config-hocon	NUM-RENDER 1e+2
+ch-0515	config-hocon	NUM-RENDER -0.0
+ch-0516	config-hocon	NUM-RENDER 9223372036854775807
+ch-0517	config-hocon	NUM-RENDER 1e19
+ch-0518	config-hocon	NUM-RENDER -1e19
+ch-0519	config-hocon	NUM-RENDER 9223372036854775808.0
+ch-0520	config-hocon	NUM-RENDER 1.7976931348623157e308
+ch-0521	config-hocon	NUM-RENDER 4.9e-324
+ch-0522	config-hocon	NUM-RENDER 123456.789
+ch-0523	config-hocon	NUM-RENDER 0.001
+ch-0524	config-hocon	NUM-RENDER 0.0001
+ch-0525	config-hocon	NUM-RENDER 1234567.0
+ch-0526	config-hocon	NUM-RENDER 12345678.5
+ch-0527	config-hocon	NUM-RENDER -2.5e-5
+ch-0528	config-hocon	NUM-RENDER 0.30000000000000004

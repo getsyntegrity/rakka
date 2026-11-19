@@ -3,8 +3,8 @@ AC-UTIL-001	UTIL	classic	AC-UTIL-1	2	extracted	partial	actor-tests/src/test/scal
 AC-UTIL-002.1	UTIL	classic	(implementada)		extracted	done	derivada del código	existente		docs/inventory/contracts/classic-foundation.md
 AC-UTIL-002.2	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-7	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-002.3	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-3,Q-X-9	docs/inventory/contracts/classic-foundation.md
-AC-UTIL-002.4	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-CFG-4,Q-UTIL-1,Q-X-1,Q-X-9	docs/inventory/contracts/classic-foundation.md
-AC-UTIL-002.5	UTIL	classic	AC-UTIL-1	2	extracted	partial	derivada del código	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4	docs/inventory/contracts/classic-foundation.md
+AC-UTIL-002.4	UTIL	classic	AC-UTIL-1	2	extracted	partial	derivada del código	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-4,Q-UTIL-1,Q-X-1,Q-X-9	docs/inventory/contracts/classic-foundation.md
+AC-UTIL-002.5	UTIL	classic	AC-UTIL-1	2	extracted	partial	derivada del código	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-30,Q-CFG-4	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-003.1	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-5,Q-X-9	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-003.2	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-5,Q-X-9	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-004.1	UTIL	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/PekkoExceptionSpec.scala:32-44	existente	Q-UTIL-17,Q-UTIL-3,Q-X-9	docs/inventory/contracts/classic-foundation.md
@@ -87,7 +87,7 @@ AC-CFG-013	CFG	classic	AC-CFG-1	3	extracted	pending	actor-tests/src/test/scala/o
 AC-CFG-014	CFG	classic	AC-CFG-1	3	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/DeployerSpec.scala:231:231-246	casos rust-anything contra Pekko 2.0.0 (	Q-X-2	docs/inventory/contracts/classic-foundation.md
 AC-CFG-015	CFG	classic	AC-CFG-1	3	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/setup/ActorSystemSetupSpec.scala:31-78 ;…	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-13	docs/inventory/contracts/classic-foundation.md
 AC-CFG-016	CFG	classic	AC-CFG-1	3	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/DynamicAccessSpec.scala:53,63,72,85 (DynamicAccessSpec.scala:34-76)	casos rust-anything contra Pekko 2.0.0 (	Q-X-2	docs/inventory/contracts/classic-foundation.md
-AC-CFG-017.1	CFG	classic	AC-CFG-1	3	extracted	partial	golden FB-01..08, SUB-01..14, REF-01..02	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
+AC-CFG-017.1	CFG	classic	AC-CFG-1	3	extracted	partial	golden FB-01..08, SUB-01..14, REF-01..02	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-30,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
 AC-CFG-017.2	CFG	classic	AC-CFG-1	3	extracted	partial	golden DUR-MS-*, DUR-NS-*, DUR-ERR-*, DUR-SCI-*, DUR-ROUND-*, DUR-LARGE-*, DUR-NUMBER, DUR-UNQUOTED	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
 AC-CFG-017.3	CFG	classic	AC-CFG-1	3	extracted	partial	golden SIZE-*, SIZE-ERR-*, SIZE-MEMORY, SIZE-NUMBER	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
 AC-CFG-017.4	CFG	classic	AC-CFG-1	3	extracted	partial	golden BOOL-*; ConfigSpec.scala:44-97	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md

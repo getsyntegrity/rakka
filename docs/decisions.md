@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 233 decisiones: 0 bloqueantes, 171 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 234 decisiones: 0 bloqueantes, 172 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -406,6 +406,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) sólo sustituciones `${VAR}` y `${?VAR}` (hecho en P07) y ninguna sobrescritura automática. (b) la convención de Typesafe: con un indicador, `CONFIG_FORCE_a_b__c=1` sobrescribe `a.b-c`. (c) un prefijo propio (`RAKKA_`) con `__` como separador de ruta.
 - **Recomendación:** (a). Clasificación: arquitectura. Consecuencias observables: con (a) un despliegue no puede cambiar claves sin editar el archivo. P07 implementa (a); `Config::load` no lee variables con prefijo.
 - **Filas afectadas:** AC-CFG-001
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-30 — Dígitos de Double.toString en el render de números (JDK 17 no siempre da la cadena más corta)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** D-BUG-01 (refinement-01): el render de un número muestra su valor (Typesafe: un double entero que cabe en long se muestra como long; el resto con Double.toString de Java). Rust usa los dígitos más cortos que identifican el double, con la regla de 2 cifras de Java para 1 dígito. Medido con 380 849 doubles aleatorios no enteros contra Double.toString de JDK 17: 362 (0,09 %) difieren, todos con 16-17 cifras significativas (JDK 17 emite a veces un dígito de más; arreglado en JDK 19).
+- **Alternativas:** (a) aceptar la diferencia (sólo afecta a literales con 16-17 cifras significativas en un render). (b) reproducir el algoritmo FloatingDecimal de JDK 17: exige leer código de OpenJDK, prohibido por Q-X-18; sólo sería posible con una especificación de sala limpia.
+- **Recomendación:** (a). Clasificación: comportamiento observable menor. Consecuencia: render de un literal de 16-17 cifras significativas puede diferir en la última cifra de JDK 17; no afecta a getters ni a reference.conf.
+- **Filas afectadas:** AC-CFG-017.1;AC-UTIL-002.5
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 
