@@ -202,6 +202,8 @@ struct SupervisorCfg {
     log_decisions: bool,
     hold: Option<String>,
     all_for_one: bool,
+    /// `decider-throws`: the decider itself fails (IllegalStateException "decider") while deciding
+    decider_throws: bool,
 }
 
 /// Everything the actors record, shared with the harness thread.
@@ -299,6 +301,8 @@ struct Behavior {
     /// `supervisor: {"max": n, "log-decisions": bool, "decider": {<exception message>: "resume"|"restart"|"stop"|"escalate"}}`
     supervisor: Option<SupervisorCfg>,
     throw_in_prestart: bool,
+    /// `constructor-fails-from: n`: the actor factory throws IllegalStateException("ctor") from the n-th instance on
+    constructor_fails_from: Option<u64>,
     ignore_terminated: bool,
     numbered: bool,
 }
@@ -347,9 +351,14 @@ impl Behavior {
                     hold,
                     all_for_one: sp.get("strategy").and_then(Value::as_str).as_deref()
                         == Some("all-for-one"),
+                    decider_throws: matches!(sp.get("decider-throws"), Some(Value::Bool(true))),
                 }
             }),
             throw_in_prestart: matches!(v.get("throw-in-prestart"), Some(Value::Bool(true))),
+            constructor_fails_from: match v.get("constructor-fails-from") {
+                Some(Value::Number(n)) => Some(*n as u64),
+                _ => None,
+            },
             ignore_terminated: matches!(v.get("ignore-terminated"), Some(Value::Bool(true))),
             numbered: matches!(v.get("numbered"), Some(Value::Bool(true))),
             count: match v.get("count") {
@@ -391,7 +400,9 @@ impl Actor for Scripted {
                 log_decisions: log,
                 hold,
                 all_for_one,
+                decider_throws,
             }) => {
+                let decider_throws = *decider_throws;
                 let (decider, log, ctx, label, hold) = (
                     decider.clone(),
                     *log,
@@ -400,6 +411,9 @@ impl Actor for Scripted {
                     hold.clone(),
                 );
                 let decide = move |e: &Throwable| {
+                    if decider_throws {
+                        throw(Throwable::illegal_state("decider"));
+                    }
                     let chosen = match e
                         .message
                         .as_ref()
@@ -591,11 +605,21 @@ fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) ->
                 ctx.clone(),
                 label.unwrap_or_else(|| "_".into()),
             );
-            Props::new(move || Scripted {
-                label: l.clone(),
-                cfg: cfg.clone(),
-                ctx: ctx2.clone(),
-                received: 0,
+            let instances = AtomicU64::new(0);
+            Props::new(move || {
+                let instance = instances.fetch_add(1, Ordering::SeqCst) + 1;
+                if cfg
+                    .constructor_fails_from
+                    .is_some_and(|from| instance >= from)
+                {
+                    throw(Throwable::illegal_state("ctor"));
+                }
+                Scripted {
+                    label: l.clone(),
+                    cfg: cfg.clone(),
+                    ctx: ctx2.clone(),
+                    received: 0,
+                }
             })
         }
     }
@@ -893,22 +917,7 @@ fn step(
     match op.as_str() {
         "spawn" => {
             let lbl = label("as");
-            let props = match st.get("behavior") {
-                None => Props::new(|| Noop),
-                Some(b) => {
-                    let (cfg, ctx2, l) = (
-                        Behavior::parse(b),
-                        ctx.clone(),
-                        lbl.clone().unwrap_or_else(|| "_".into()),
-                    );
-                    Props::new(move || Scripted {
-                        label: l.clone(),
-                        cfg: cfg.clone(),
-                        ctx: ctx2.clone(),
-                        received: 0,
-                    })
-                }
-            };
+            let props = props_for(ctx, st.get("behavior"), lbl.clone());
             let result = match st.get("name") {
                 Some(Value::Null) => {
                     return Err("null actor names cannot be expressed in Rust".into());

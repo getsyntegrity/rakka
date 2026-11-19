@@ -133,8 +133,8 @@ MUTANTS = {
     ),
     "exception-stops-instead-of-restarting": (
         'src/actor/cell.rs',
-        'match strategy.decide(&cause) {',
-        'match { let _ = strategy.decide(&cause); Directive::Stop } {',
+        'match decision {',
+        'match { let _ = decision; Directive::Stop } {',
         "every failure stops the child (the old pre-supervision behaviour)",
     ),
     "post-restart-not-called": (
@@ -600,6 +600,43 @@ MUTANTS = {
         "Kind::Str(_) if v.line == 0 =>",
         "Kind::Str(_) if v.line == u32::MAX =>",
         "renderWithRedactions prints the value of an environment variable (a secret) in Settings.toString and error messages",
+    ),
+    # --- refinement 01, A-BUG-03: an exception escaping the actor factory or the decider ---
+    "factory-failure-not-reported": (
+        "src/actor/cell.rs",
+        "let cause = self.creation_failure(&throwable_of(payload));",
+        "let cause = self.creation_failure(&throwable_of(payload));\n                return drop(cause);",
+        "an exception thrown by the actor factory is swallowed: the supervisor never hears about the failed child",
+    ),
+    "creation-failure-without-root-cause": (
+        "src/actor/cell.rs",
+        '"{}: exception during creation, root cause message: [{root_message}]",',
+        '"{}: exception during creation [{root_message}]",',
+        "the ActorInitializationException text loses the `root cause message: [...]` part",
+    ),
+    "decider-failure-ignored": (
+        "src/actor/cell.rs",
+        "self.fail_while_deciding(child, cause, throwable_of(payload));",
+        "drop(payload);",
+        "a decider that throws leaves the failed child suspended forever: its supervisor does not fail",
+    ),
+    "decider-failure-without-failed-message": (
+        "src/actor/cell.rs",
+        "self.fail(thrown, Some(failed), Some(child));",
+        "self.fail(thrown, None, None);",
+        "a supervisor that failed while deciding forgets the Failed message (preRestart sees none) and suspends the child again",
+    ),
+    "restart-factory-failure-drops-old-instance": (
+        "src/actor/cell.rs",
+        "self.st.lock().unwrap().actor = replaced;",
+        "drop(replaced);",
+        "when the factory throws during a restart the old instance is dropped, so the final postStop is lost",
+    ),
+    "post-restart-failure-names-wrong-class": (
+        "src/actor/cell.rs",
+        "self.path, original_cause.class",
+        'self.path, "java.lang.Exception"',
+        "the PostRestartException text names a fixed class instead of the failure that caused the restart",
     ),
     "hocon-render-shows-number-text": (
         "src/config/mod.rs",
