@@ -1982,6 +1982,18 @@ fn concurrent_cases() -> Vec<(String, String)> {
         poll_with_timeout(),
     );
     add(
+        "BQ-C9 poll with Long.MAX_VALUE nanoseconds waits until an element arrives",
+        poll_with_unbounded_timeout(Duration::from_nanos(i64::MAX as u64)),
+    );
+    add(
+        "BQ-C10 poll with Long.MAX_VALUE days saturates and waits until an element arrives",
+        poll_with_unbounded_timeout(Duration::MAX),
+    );
+    add(
+        "BQ-C11 offer with Long.MAX_VALUE nanoseconds on a full queue waits until there is room",
+        offer_with_unbounded_timeout(Duration::from_nanos(i64::MAX as u64)),
+    );
+    add(
         "BQ-C7 iterator remove drops the element it returned, by identity",
         iterator_remove_by_identity(),
     );
@@ -2312,6 +2324,39 @@ fn poll_with_timeout() -> String {
         .expect("no panic")
         .map_or_else(|| "null".to_owned(), |i| i.to_string());
     format!("empty={empty} got={got}")
+}
+
+/// A timeout past what an `Instant` can hold is "no deadline" (Java saturates it to `Long.MAX_VALUE` nanoseconds).
+fn poll_with_unbounded_timeout(timeout: Duration) -> String {
+    let parked = Parked::new(1);
+    let consumer = {
+        let queue = parked.queue.clone();
+        thread::spawn(move || queue.poll_timeout(timeout))
+    };
+    parked.wait_not_empty_above(0);
+    parked.queue.put(item("z"));
+    let got = consumer
+        .join()
+        .expect("no panic")
+        .map_or_else(|| "null".to_owned(), |i| i.to_string());
+    format!("got={got}")
+}
+
+fn offer_with_unbounded_timeout(timeout: Duration) -> String {
+    let parked = Parked::new(1);
+    parked.queue.put(item("a"));
+    let producer = {
+        let queue = parked.queue.clone();
+        thread::spawn(move || queue.offer_timeout(item("c"), timeout))
+    };
+    parked.wait_not_full_above(0);
+    parked.queue.take();
+    let later = producer.join().expect("no panic");
+    format!(
+        "later={} content={}",
+        b(later),
+        show_items(parked.queue.to_vec())
+    )
 }
 
 fn iterator_remove_by_identity() -> String {

@@ -568,3 +568,6 @@ FR-DUR-10 create(ofSeconds(3600, 500000000))
 FR-DUR-11 create(ofSeconds(Long.MAX_VALUE, 999999999))
 FR-DUR-12 create(ofSeconds(61, 1))
 FR-DUR-13 create(ofSeconds(9223372036, 854775807)) eq Timeout(Long.MaxValue ns)
+BQ-C9 poll with Long.MAX_VALUE nanoseconds waits until an element arrives
+BQ-C10 poll with Long.MAX_VALUE days saturates and waits until an element arrives
+BQ-C11 offer with Long.MAX_VALUE nanoseconds on a full queue waits until there is room
