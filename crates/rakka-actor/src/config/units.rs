@@ -1,7 +1,7 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/Helpers.scala and actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala (Apache-2.0).
 //! Durations (`5 s`, `10ms`) and memory sizes (`128 KiB`, `1 MB`).
 
-use super::model::{NumRepr, Number};
+use super::exact_decimal;
 use crate::util::TimeUnit;
 
 /// Splits `"<number> <unit>"`: the unit is the trailing run of ASCII letters.
@@ -188,21 +188,15 @@ pub(crate) fn parse_size(input: &str) -> Result<i64, String> {
     let mult = size_multiplier(unit_text).ok_or_else(|| {
         format!("Could not parse size-in-bytes unit '{unit_text}' ({SIZE_UNITS_HINT})")
     })?;
-    let number = Number::parse(num)
+    let (negative, bytes) = exact_decimal::scaled_product(num, mult)
         .ok_or_else(|| format!("Could not parse size-in-bytes number '{num}'"))?;
-    let bytes: i128 = match number.repr {
-        NumRepr::Int(n) => i128::from(n)
-            .checked_mul(i128::try_from(mult).unwrap_or(i128::MAX))
-            .ok_or_else(|| {
-                format!("size-in-bytes value is out of range for a 64-bit long: '{num}'")
-            })?,
-        NumRepr::Float(f) => (f * mult as f64) as i128,
-    };
-    if bytes < 0 {
+    let exact = bytes.to_decimal_string();
+    if negative && !bytes.is_zero() {
         return Err(format!(
-            "Attempt to construct memory size with negative number: {bytes}"
+            "Attempt to construct memory size with negative number: -{exact}"
         ));
     }
-    i64::try_from(bytes)
-        .map_err(|_| format!("size-in-bytes value is out of range for a 64-bit long: '{bytes}'"))
+    exact
+        .parse::<i64>()
+        .map_err(|_| format!("size-in-bytes value is out of range for a 64-bit long: '{exact}'"))
 }
