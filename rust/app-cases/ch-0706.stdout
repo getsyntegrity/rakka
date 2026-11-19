@@ -1,0 +1,1 @@
+DUR-SAT DAY -9223372036854775809 ns -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse duration number '-9223372036854775809']

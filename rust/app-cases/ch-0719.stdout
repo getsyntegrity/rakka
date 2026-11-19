@@ -1,0 +1,1 @@
+DUR-SAT NS 1.2.3 s -> ERR BadValue [String: 1: Invalid value at 'x': Could not parse duration number '1.2.3']

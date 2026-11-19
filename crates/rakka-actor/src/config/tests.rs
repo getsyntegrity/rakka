@@ -299,6 +299,7 @@ fn durations_millis_nanos_and_units() {
         9_223_286_400_000_000_000
     );
     // The number is turned into nanoseconds first and saturates at the `Long` limit (oracle: P08 SET-LDSD cases).
+    // Typesafe Config saturates at Long.MAX_VALUE nanoseconds before converting (oracle cases `DUR-SAT *`).
     let huge = p("x = 9223372036854775807 d");
     assert_eq!(
         huge.get_millis_duration("x").unwrap().as_nanos(),
@@ -308,6 +309,31 @@ fn durations_millis_nanos_and_units() {
     assert_eq!(
         err_of(too_big.get_millis_duration("x")).message(),
         "String: 1: Invalid value at 'x': Could not parse duration number '9223372036854775808'"
+    );
+    assert_eq!(huge.get_duration("x", TimeUnit::Days).unwrap(), 106_751);
+    assert_eq!(
+        p("x = -106753 d")
+            .get_duration("x", TimeUnit::Milliseconds)
+            .unwrap(),
+        -9_223_372_036_854
+    );
+    assert_eq!(
+        p("x = \"+5 s\"")
+            .get_duration("x", TimeUnit::Milliseconds)
+            .unwrap(),
+        5_000
+    );
+    assert_eq!(
+        p("x = \".5 s\"")
+            .get_duration("x", TimeUnit::Milliseconds)
+            .unwrap(),
+        500
+    );
+    assert_eq!(
+        p("x = \"Infinity ms\"")
+            .get_duration("x", TimeUnit::Milliseconds)
+            .unwrap(),
+        9_223_372_036_854
     );
 }
 
