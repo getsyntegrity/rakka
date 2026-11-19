@@ -11,6 +11,7 @@ use crate::util::clock::{Clock, NanoClock};
 
 /// `def currentTime: Long`: the current time in nanoseconds, monotonic and possibly wrapping.
 pub trait TokenBucketClock {
+    /// The current time in nanoseconds.
     fn current_time(&self) -> i64;
 }
 

@@ -12,9 +12,13 @@
 /// How to read and write the previous/next links of a node of type `N` (`getPrevious`, `getNext`,
 /// `setPrevious`, `setNext`).
 pub trait Links<N> {
+    /// The node before `node`, if any.
     fn previous(&self, node: &N) -> Option<N>;
+    /// The node after `node`, if any.
     fn next(&self, node: &N) -> Option<N>;
+    /// Sets the node before `node`.
     fn set_previous(&mut self, node: &N, previous: Option<N>);
+    /// Sets the node after `node`.
     fn set_next(&mut self, node: &N, next: Option<N>);
 }
 
@@ -35,6 +39,7 @@ impl<N> Default for DoubleLinkedList<N> {
 }
 
 impl<N: Clone + PartialEq> DoubleLinkedList<N> {
+    /// An empty list.
     pub fn new() -> Self {
         Self::default()
     }
@@ -268,6 +273,7 @@ pub struct LinkTable {
 }
 
 impl LinkTable {
+    /// An empty link table.
     pub fn new() -> Self {
         Self::default()
     }
@@ -315,6 +321,7 @@ impl<T> Default for Slab<T> {
 }
 
 impl<T> Slab<T> {
+    /// Stores `value` in a free slot (or a new one) and returns its index.
     pub fn insert(&mut self, value: T) -> usize {
         match self.free.pop() {
             Some(index) => {
@@ -334,12 +341,14 @@ impl<T> Slab<T> {
         self.entries[index].take().expect("the node is in the slab")
     }
 
+    /// The value at `index`, which must be occupied (panics otherwise).
     pub fn get(&self, index: usize) -> &T {
         self.entries[index]
             .as_ref()
             .expect("the node is in the slab")
     }
 
+    /// Mutable access to the value at `index`, which must be occupied (panics otherwise).
     pub fn get_mut(&mut self, index: usize) -> &mut T {
         self.entries[index]
             .as_mut()

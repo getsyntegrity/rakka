@@ -8,6 +8,7 @@ use crate::actor::IllegalArgumentError;
 /// non-finite values (Q-UTIL-9 (a)).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PekkoDuration {
+    /// A finite duration.
     Finite(Timeout),
     /// `Duration.Inf`.
     Inf,
