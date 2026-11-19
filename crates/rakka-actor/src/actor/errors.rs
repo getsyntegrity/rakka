@@ -86,18 +86,21 @@ macro_rules! java_error_enum {
         $(#[$doc])*
         #[derive(Clone, Debug, PartialEq, Eq)]
         pub enum $name {
-            $($variant($inner)),+
+            $(#[doc = concat!("The `", stringify!($variant), "` case.")] $variant($inner)),+
         }
 
         impl $name {
+            /// The JVM class name the wrapped error stands for, e.g. `IllegalArgumentException`.
             pub fn java_class(&self) -> &'static str {
                 match self { $(Self::$variant(e) => e.java_class()),+ }
             }
 
+            /// The message of the wrapped error (`getMessage`).
             pub fn message(&self) -> &str {
                 match self { $(Self::$variant(e) => e.message()),+ }
             }
 
+            /// The message as UTF-16 code units, which keeps lone surrogates that a Rust `str` cannot hold.
             pub fn message_utf16(&self) -> Vec<u16> {
                 match self { $(Self::$variant(e) => e.message_utf16()),+ }
             }
@@ -137,12 +140,16 @@ java_error_enum!(
 /// renders like `Throwable.toString`: `<JVM class name>: <message>`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorError {
+    /// `InvalidActorNameException`.
     InvalidActorName(InvalidActorNameError),
+    /// `java.lang.IllegalStateException`.
     IllegalState(IllegalStateError),
+    /// `java.lang.IllegalArgumentException`.
     IllegalArgument(IllegalArgumentError),
 }
 
 impl ActorError {
+    /// The message of the wrapped error (`getMessage`).
     pub fn message(&self) -> &str {
         match self {
             Self::InvalidActorName(e) => e.message(),
@@ -151,6 +158,7 @@ impl ActorError {
         }
     }
 
+    /// The message as UTF-16 code units.
     pub fn message_utf16(&self) -> Vec<u16> {
         match self {
             Self::InvalidActorName(e) => e.message_utf16(),
@@ -209,6 +217,7 @@ impl ErrorClass {
 }
 
 impl ActorError {
+    /// Which JVM exception class this error stands for.
     pub fn class(&self) -> ErrorClass {
         match self {
             ActorError::InvalidActorName(_) => ErrorClass::InvalidActorName,
@@ -217,6 +226,7 @@ impl ActorError {
         }
     }
 
+    /// Builds the error of `class` with `message`.
     pub fn new(class: ErrorClass, message: impl Into<String>) -> ActorError {
         let message = message.into();
         match class {

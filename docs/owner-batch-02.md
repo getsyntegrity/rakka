@@ -46,6 +46,12 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Q-CFG-15 — Descripción de origen de los valores en errores y en el render (`String: N`, archivo, `env variables`) | (c) formato de Typesafe para texto y entorno (medido); `<ruta>: N` para archivos sin medir | Los textos de `ConfigError::message()` y de `Settings.toString` (`# String: N`, `# env variables`) | Casos grabados RW-01..06 y todos los errores de getters (línea de origen) | medio: el texto es visible en cada error de configuración; con (b) cambian todos |
 | Q-CFG-16 — Sobrescritura por variables de entorno con prefijo (completa Q-CFG-6 (a), que no fija el prefijo) | (a) sólo `${VAR}` / `${?VAR}`; sin sobrescritura automática | Un despliegue no puede cambiar claves sin editar el archivo; `Config::load` no lee variables con prefijo | Casos SUB-08, SUB-09; Typesafe sólo ofrece `CONFIG_FORCE_*` con una propiedad de sistema | bajo: punto de entrada añadible sin romper la config explícita |
 
+### P01 PATH (refinamiento 01)
+
+| Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
+|---|---|---|---|---|
+| Q-PATH-7 — `Address::parse` con octeto IPv4 embebido fuera de rango: NumberFormatException de Pekko vs MalformedURLException | (a) error que distinga NumberFormat de MalformedUrl (cambia la firma pública de `Address::parse`) | `Address::parse("pekko://sys@[::1.2.3.99999999999]:1")` da MalformedURLException; Pekko lanza NumberFormatException (`Error at index 9 in: "99999999999"`) | Oráculo AD-NFE-01/02 (medido); `ActorPath::from_string` ya coincide | Quien capture el tipo de error de `Address::parse` verá otra clase; si se deja como está, la diferencia sigue sin documentarse |
+
 ### P08 CFG-AJUSTES
 
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |

@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 236 decisiones: 0 bloqueantes, 174 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 237 decisiones: 0 bloqueantes, 175 propuestas, 49 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -878,6 +878,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Filas afectadas:** AC-MBX-009,AC-MBX-010
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
+
+### Q-PATH-7 — Address.parse / AddressFromURIString.apply con un octeto IPv4 embebido fuera de rango en un literal IPv6: NumberFormatException de Pekko vs MalformedURLException
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Address.scala:186-188 captura sólo URISyntaxException; medido con el oráculo 2.0.0 (AD-NFE-01 `pekko://sys@[::1.2.3.99999999999]:1`, AD-NFE-02 `pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1`): `java.lang.NumberFormatException: Error at index 9 in: "99999999999"` / `"2147483648"`. `ActorPath::from_string` ya reproduce la NFE (casos nfe-uri-ipv6-*); `Address::parse` (address.rs) la convierte en MalformedUrlError con `uri::parse(s).ok()`. Rust hoy: MalformedURLException.
+- **Alternativas:** (a) `Address::parse` devuelve un error propio que distingue NumberFormat de MalformedUrl (cambia la firma pública `Result<Address, MalformedUrlError>`); (b) mantener MalformedUrlError y documentar la diferencia; (c) añadir la variante sólo en un enum de error `#[non_exhaustive]` nuevo.
+- **Recomendación:** (a): paridad con Pekko 2.0.0; es una diferencia observable y cambia la API pública, por lo que requiere decisión del Owner. Hasta entonces AD-NFE-01/02 están en `PENDING` del arnés y AC-PATH-004 queda `partial`.
+- **Filas afectadas:** AC-PATH-004
+- **Unidades afectadas:** PATH
+- **Origen:** classic-foundation
 
 ### Q-REF-1 — Representación de "sin sender" y valor de sender() fuera de un mensaje
 

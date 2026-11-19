@@ -661,7 +661,7 @@ cov55-uid-lone-plus	path-from-string	-	none
 cov56-uid-lone-minus	path-from-string	-	none
 cov57-uid-min-int	path-from-string	-	none
 cov58-uid-overflow	path-from-string	-	none
-nfe-uri-ipv6-embedded-ipv4-int-overflow	path-from-string	-	none
+nfe-uri-ipv6-v4-int-overflow	path-from-string	-	none
 sysname-ok-0	scenario-2a	AC-SYS-012	cited
 sysname-ok-1	scenario-2a	AC-SYS-001.1,AC-SYS-012	same-group
 sysname-ok-2	scenario-2a	AC-SYS-001.1,AC-SYS-012	same-group

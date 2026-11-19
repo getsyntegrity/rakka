@@ -24,7 +24,9 @@ pub struct Kill;
 /// `org.apache.pekko.actor.Actor`. Hooks default to no-ops; `receive` returns whether the message was
 /// handled (`false` is Pekko's `unhandled`, which publishes an `UnhandledMessage` on the event stream).
 pub trait Actor: Send + 'static {
+    /// Called before the first message and after the actor is created (`preStart`); on a restart `post_restart` calls it by default.
     fn pre_start(&mut self, _ctx: &mut ActorContext) {}
+    /// Called when the actor stops, for any reason (`postStop`).
     fn post_stop(&mut self, _ctx: &mut ActorContext) {}
     /// `supervisorStrategy`: how this actor handles the failures of its children.
     fn supervisor_strategy(&self) -> SupervisorStrategy {
@@ -46,6 +48,7 @@ pub trait Actor: Send + 'static {
     fn post_restart(&mut self, ctx: &mut ActorContext, _reason: &Throwable) {
         self.pre_start(ctx);
     }
+    /// Handles one message and returns whether it was handled; `false` is Pekko's `unhandled`, which publishes an `UnhandledMessage`. A panic inside `receive` is the actor's failure and goes to the supervisor.
     fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
         false
     }
@@ -58,6 +61,7 @@ pub struct Props {
 }
 
 impl Props {
+    /// Props that build a new instance with `f` every time the actor is created or restarted.
     pub fn new<A: Actor, F: Fn() -> A + Send + Sync + 'static>(f: F) -> Props {
         Props {
             factory: Arc::new(move || Box::new(f())),
@@ -75,6 +79,7 @@ pub struct ActorContext<'a> {
 }
 
 impl ActorContext<'_> {
+    /// A reference to the actor this context belongs to (`self`).
     pub fn self_ref(&self) -> ActorRef {
         self.cell.self_ref()
     }

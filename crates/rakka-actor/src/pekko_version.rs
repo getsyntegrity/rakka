@@ -38,7 +38,9 @@ impl std::error::Error for UnsupportedPekkoVersion {}
 /// What `PekkoVersion.require` can throw.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RequireError {
+    /// The checked version is older than the required one.
     Unsupported(UnsupportedPekkoVersion),
+    /// A component of the version text is not a number.
     NumberFormat(NumberFormatError),
 }
 

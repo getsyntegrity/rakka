@@ -8,8 +8,11 @@ use super::ByteStringError;
 /// A charset known to the crate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Charset {
+    /// `UTF-8`.
     Utf8,
+    /// `US-ASCII`.
     UsAscii,
+    /// `ISO-8859-1`.
     Iso8859_1,
 }
 
