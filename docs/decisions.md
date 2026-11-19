@@ -395,7 +395,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Evidencia:** Casos grabados: todos los mensajes de error llevan el prefijo `String: <línea>: ` (texto) y `renderWithRedactions` imprime `# String: <línea>` antes de cada valor, `# env variables` y `"<env variable>"` para variables de entorno (RW-01..06); un archivo sería `<ruta>: <línea>` (no medido: el oráculo sólo carga texto y los dos reference.conf desde jar).
 - **Alternativas:** (a) reproducir el formato de Typesafe: `String: N` para texto, `<ruta>: N` para archivos, `env variables`; el render con comentarios de origen. (b) mensajes y render sin descripción de origen (más cortos, distintos de los medidos). (c) (a) para texto y entorno y, para archivos, el formato `<ruta>: N` sin medir.
 - **Recomendación:** (c). Clasificación: representación. Consecuencias observables: los textos de `ConfigError::message()` y de `Settings.toString`; con (b) cambian todos. P07 implementa (a) para texto y entorno; la ruta de archivo queda sin implementar (los valores de `Config::load` dicen `String: N`).
-- **Filas afectadas:** AC-UTIL-002.5, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.7, AC-CFG-019
+- **Filas afectadas:** AC-UTIL-002.5, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.7, AC-CFG-019
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 
