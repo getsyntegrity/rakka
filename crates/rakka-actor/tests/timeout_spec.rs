@@ -3,9 +3,8 @@
 //!
 //! Domain (Owner decision on Q-UTIL-1): negative, zero and positive durations within
 //! `FiniteDuration`'s range, `[-(2^63-1), 2^63-1]` ns. `Long.MinValue` ns is rejected. The
-//! edge values below were measured on the official Pekko 1.7.1 jars with
-//! `scala-library-2.13.18` (jshell probe, `Timeout.apply` and `Timeout.create`), not deduced
-//! from this crate.
+//! edge values below are what the Pekko 2.0.0 oracle returns (oracle cases `TO-*`, JDK 17,
+//! `Timeout.apply` and `Timeout.create`), not deduced from this crate.
 
 use std::collections::HashSet;
 use std::hash::{BuildHasher, RandomState};
