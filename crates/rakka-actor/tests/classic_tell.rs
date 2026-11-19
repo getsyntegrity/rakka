@@ -5,8 +5,8 @@
 mod common;
 use common::{RunningSystem, path_of, wait_until};
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, PoisonPill, Props};
@@ -154,17 +154,22 @@ fn unhandled_messages_are_published_with_sender_and_recipient() {
 #[test]
 fn single_thread_dispatcher_runs_throughput_messages_per_turn() {
     // observed on Pekko 2.0.0: with throughput 3, two actors alternate in turns of 3 messages
-    struct Gate(Arc<(Mutex<bool>, Condvar)>);
+    struct Gate(Arc<(Mutex<bool>, Condvar)>, Arc<AtomicUsize>);
     impl Actor for Gate {
+        fn pre_start(&mut self, _c: &mut ActorContext) {
+            self.1.fetch_add(1, Ordering::SeqCst);
+        }
         fn receive(&mut self, _c: &mut ActorContext, _m: &AnyMessage) -> bool {
             let g = self.0.0.lock().unwrap();
             drop(self.0.1.wait_while(g, |open| !*open).unwrap());
             true
         }
     }
-    struct Tagged(&'static str, Arc<Mutex<Vec<String>>>);
+    struct Tagged(&'static str, Arc<Mutex<Vec<String>>>, Arc<AtomicUsize>);
     impl Actor for Tagged {
-        fn pre_start(&mut self, _c: &mut ActorContext) {}
+        fn pre_start(&mut self, _c: &mut ActorContext) {
+            self.2.fetch_add(1, Ordering::SeqCst);
+        }
         fn receive(&mut self, _c: &mut ActorContext, m: &AnyMessage) -> bool {
             self.1.lock().unwrap().push(format!(
                 "{}{}",
@@ -184,15 +189,22 @@ fn single_thread_dispatcher_runs_throughput_messages_per_turn() {
     let order = Arc::new(Mutex::new(Vec::new()));
     let gate: Arc<(Mutex<bool>, Condvar)> = Arc::default();
     let g2 = gate.clone();
-    let g = sys.actor_of(Props::new(move || Gate(g2.clone()))).unwrap();
+    let started = Arc::new(AtomicUsize::new(0));
+    let (s_g, s_a, s_b) = (started.clone(), started.clone(), started.clone());
+    let g = sys
+        .actor_of(Props::new(move || Gate(g2.clone(), s_g.clone())))
+        .unwrap();
     let (o_a, o_b) = (order.clone(), order.clone());
     let a = sys
-        .actor_of(Props::new(move || Tagged("a", o_a.clone())))
+        .actor_of(Props::new(move || Tagged("a", o_a.clone(), s_a.clone())))
         .unwrap();
     let b = sys
-        .actor_of(Props::new(move || Tagged("b", o_b.clone())))
+        .actor_of(Props::new(move || Tagged("b", o_b.clone(), s_b.clone())))
         .unwrap();
-    std::thread::sleep(Duration::from_millis(100)); // let Create run (the scenarios use a pre-start barrier)
+    // pre-start barrier: all three actors are created before the first message (as in the recorded scenarios)
+    wait_until("three actors started", || {
+        started.load(Ordering::SeqCst) == 3
+    });
     g.tell(0usize, None);
     for i in 0..7usize {
         a.tell(i, None);
