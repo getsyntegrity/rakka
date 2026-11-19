@@ -197,7 +197,7 @@ CASES = [
     ("cov56-uid-lone-minus", "pekko://sys/user/a#-"),
     ("cov57-uid-min-int", "pekko://sys/user/a#-2147483648"),
     ("cov58-uid-overflow", "pekko://sys/user/a#2147483648"),
-    ("nfe-uri-ipv6-embedded-ipv4-int-overflow", "pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1/x"),
+    ("nfe-uri-ipv6-v4-int-overflow", "pekko://sys@[1:2:3:4:5:6:1.2.3.2147483648]:1/x"),
 ]
 
 
@@ -206,6 +206,7 @@ def main():
     os.makedirs(os.path.dirname(out), exist_ok=True)
     names = [n for n, _ in CASES]
     assert len(names) == len(set(names)), "duplicate case names"
+    assert len({n[:24] for n in names}) == len(names), "case names must differ in the first 24 chars (rust-anything truncates recording names)"
     with open(out, "w", encoding="ascii") as f:
         for name, text in CASES:
             lit = json.dumps(text, ensure_ascii=True)  # the JSON string literal the CLI reads on stdin
