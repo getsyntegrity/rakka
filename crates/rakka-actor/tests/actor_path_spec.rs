@@ -186,11 +186,6 @@ fn not_fail_fast_if_the_check_is_called_on_valid_chars_in_host_names() {
 
 #[test]
 fn fail_fast_if_the_check_is_called_when_invalid_chars_are_in_host_names() {
-    for host in ["localhost", "is_valid.org", "fu.is_valid.org"] {
-        Address::remote("pekko", "sys", host, 0)
-            .check_host_characters()
-            .unwrap();
-    }
     for host in ["in_valid", "invalid._org"] {
         let err = Address::remote("pekko", "sys", host, 0)
             .check_host_characters()
