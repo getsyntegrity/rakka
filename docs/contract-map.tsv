@@ -91,7 +91,7 @@ AC-CFG-017.1	CFG	classic	AC-CFG-1	3	extracted	partial	golden FB-01..08, SUB-01..
 AC-CFG-017.2	CFG	classic	AC-CFG-1	3	extracted	partial	golden DUR-MS-*, DUR-NS-*, DUR-ERR-*, DUR-SCI-*, DUR-ROUND-*, DUR-LARGE-*, DUR-NUMBER, DUR-UNQUOTED	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
 AC-CFG-017.3	CFG	classic	AC-CFG-1	3	extracted	partial	golden SIZE-*, SIZE-ERR-*, SIZE-MEMORY, SIZE-NUMBER	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
 AC-CFG-017.4	CFG	classic	AC-CFG-1	3	extracted	partial	golden BOOL-*; ConfigSpec.scala:44-97	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
-AC-CFG-017.5	CFG	classic	(implementada)		extracted	done	golden SPECIAL-*, REF-03	existente	Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
+AC-CFG-017.5	CFG	classic	AC-CFG-1	3	extracted	partial	golden SPECIAL-*, REF-03	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
 AC-CFG-017.6	CFG	classic	AC-CFG-1	3	extracted	partial	golden INC-01..04	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-14,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
 AC-CFG-017.7	CFG	classic	AC-CFG-1	3	extracted	partial	golden REF-04..10, LIST-*, TYPE-*	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-4,Q-X-1	docs/inventory/contracts/classic-foundation.md
 AC-CFG-018	CFG	classic	AC-CFG-1	3	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/config/ConfigSpec.scala:187-205	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-10,Q-X-7	docs/inventory/contracts/classic-foundation.md

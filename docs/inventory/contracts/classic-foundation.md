@@ -3395,7 +3395,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ---
 
-**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: literales como `infinite`/`unlimited` son cadenas (`get_value`, `get_string`); casos grabados SPECIAL-*, REF-03 pasan. Pasa a `done` (reevaluación 2026-11-19): A1 y A2 cubiertas por los casos grabados SPECIAL-*, REF-03 y KEY; Q-X-1 y Q-CFG-4 aceptadas con condiciones cumplidas (#243); ninguna propuesta abierta la lista como afectada.
+**Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: literales como `infinite`/`unlimited` son cadenas (`get_value`, `get_string`); casos grabados SPECIAL-*, REF-03 pasan. Queda `partial` (corregido 2026-11-19): afectada por Q-CFG-15 (propuesta): el expected de SPECIAL-08 es `ERR BadValue [String: 1: Invalid value at 'x': ...]` y `String: 1:` es la descripción de origen que decide Q-CFG-15. Sus aserciones A1 y A2 están cubiertas por casos grabados (SPECIAL-*, REF-03, KEY).
 
 ## AC-CFG-017.6 — Includes: `include "version"` inexistente se ignora; `required(...)` inexistente falla
 
