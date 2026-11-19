@@ -427,13 +427,10 @@ impl ActorCell {
             }
         };
         self.st.lock().unwrap().actor = Some(actor);
-        if self.with_actor(|a, ctx| a.pre_start(ctx)).is_err() {
+        if let Err(root_cause) = self.with_actor(|a, ctx| a.pre_start(ctx)) {
             // the half-built actor is dropped (so `postStop` never runs) and the supervisor decides (default: stop)
             self.st.lock().unwrap().actor = None;
-            let cause = Throwable::new(
-                "org.apache.pekko.actor.ActorInitializationException",
-                Some("exception during creation"),
-            );
+            let cause = self.creation_failure(&root_cause);
             self.handle_invoke_failure(cause, None);
         }
     }
@@ -638,12 +635,9 @@ impl ActorCell {
             .with_actor(|a, ctx| a.post_restart(ctx, &cause))
             .is_err()
         {
-            self.st.lock().unwrap().actor = None;
-            let e = Throwable::new(
-                "org.apache.pekko.actor.PostRestartException",
-                Some("exception post restart"),
-            );
-            self.handle_invoke_failure(e, None);
+            // the new instance stays in place (Pekko keeps `_actor`): it gets its `postStop` when the actor stops
+            let failure = self.post_restart_failure(&cause);
+            self.handle_invoke_failure(failure, None);
         }
     }
 

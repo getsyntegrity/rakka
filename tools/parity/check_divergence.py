@@ -734,6 +734,19 @@ MUTANTS = {
         "            clamp(i128::from(n) * i128::from(unit_ns) / i128::from(target.nanos()))",
         "a duration larger than the Long nanoseconds is converted without saturating first, so `106752 d` is an error as milliseconds instead of 9223372036854",
     ),
+    # --- refinement 01, A-BUG-01/02: text of ActorInitializationException (preStart) and PostRestartException (postRestart) ---
+    "prestart-failure-fixed-text": (
+        "src/actor/cell.rs",
+        "let cause = self.creation_failure(&root_cause);",
+        'let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", Some("exception during creation"));\n            let _ = root_cause;',
+        "a preStart failure reports a fixed 'exception during creation' text without the path and the root cause message",
+    ),
+    "post-restart-failure-drops-new-instance": (
+        "src/actor/cell.rs",
+        "// the new instance stays in place (Pekko keeps `_actor`): it gets its `postStop` when the actor stops",
+        "self.st.lock().unwrap().actor = None;",
+        "after a postRestart failure the new instance is dropped, so its final postStop is lost",
+    ),
 }
 
 
