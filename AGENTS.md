@@ -84,3 +84,14 @@ La lectura obligatoria está en el "Índice de skills". Reglas esenciales (el de
 
 - Trabajo local: no push, no PR, no publicar sin autorización del Owner para esa rama.
 - Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de atribución de `docs/upstream.md`.
+
+## Reglas para agentes y subagentes (Owner, 2026-11-19)
+
+Valen para toda sesión que trabaje en el repositorio, y la instrucción de cada subagente debe incluirlas.
+
+- **Decisiones del Owner.** No aceptar ni responder ninguna decisión `Q-*` (tampoco las ya respondidas). Toda decisión nueva se anota como `Q-<ÁREA>-n` en `docs/owner-batch-02.md` y en su `*.decisions.tsv` con estado `proposed`. `docs/decisions/owner-decisions.tsv` solo lo edita el Owner.
+- **Ramas.** No borrar ninguna rama, ni local ni remota, ni siquiera las `slice/*` ya mergeadas.
+- **Bloqueos.** Si el clasificador de permisos o este archivo bloquean una acción, no buscarla por otro camino ni con una variante más estrecha: parar e informar al Owner.
+- **Push y PR.** Si un `git push` o un `gh pr create` se bloquea o se cuelga, parar e informar; no se busca otra vía ni se reintenta con otro comando.
+- **Merge.** Solo dentro del flujo autorizado (rama propia, PR a `feat/pekko-rust-pilot-migration`) y solo si todas las verificaciones locales salen verdes (el repositorio no tiene CI): replay, tests, clippy, fmt, `cargo deny`, cobertura por crate, mutantes con control y `tools/package/check.py`. Si alguna falla, no se mergea.
+- **Verificación independiente.** El esperado de cada caso grabado debe venir del oráculo (Pekko 2.0.0 en la JVM), nunca de la implementación Rust; el Owner puede volver a ejecutarlo contra el oráculo y comparar byte a byte.
