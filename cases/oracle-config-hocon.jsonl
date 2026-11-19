@@ -494,3 +494,35 @@
 {"name": "ch-0494", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.retry-attempts"}
 {"name": "ch-0495", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.internal-ask-timeout"}
 {"name": "ch-0496", "args": ["config-hocon-case"], "stdin": "KEY actor-typed pekko.use-slf4j"}
+{"name": "ch-0497", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1.50"}
+{"name": "ch-0498", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1e-7"}
+{"name": "ch-0499", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 12345678.9"}
+{"name": "ch-0500", "args": ["config-hocon-case"], "stdin": "NUM-RENDER -0"}
+{"name": "ch-0501", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 010"}
+{"name": "ch-0502", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1e400"}
+{"name": "ch-0503", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1.5e-3"}
+{"name": "ch-0504", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 5e18"}
+{"name": "ch-0505", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1e18"}
+{"name": "ch-0506", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1.0"}
+{"name": "ch-0507", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 100.0"}
+{"name": "ch-0508", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 0.1"}
+{"name": "ch-0509", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1E5"}
+{"name": "ch-0510", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1e2"}
+{"name": "ch-0511", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 123456789012345678"}
+{"name": "ch-0512", "args": ["config-hocon-case"], "stdin": "NUM-RENDER -1.50"}
+{"name": "ch-0513", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 0.0"}
+{"name": "ch-0514", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1e+2"}
+{"name": "ch-0515", "args": ["config-hocon-case"], "stdin": "NUM-RENDER -0.0"}
+{"name": "ch-0516", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 9223372036854775807"}
+{"name": "ch-0517", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1e19"}
+{"name": "ch-0518", "args": ["config-hocon-case"], "stdin": "NUM-RENDER -1e19"}
+{"name": "ch-0519", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 9223372036854775808.0"}
+{"name": "ch-0520", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1.7976931348623157e308"}
+{"name": "ch-0521", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 4.9e-324"}
+{"name": "ch-0522", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 123456.789"}
+{"name": "ch-0523", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 0.001"}
+{"name": "ch-0524", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 0.0001"}
+{"name": "ch-0525", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 1234567.0"}
+{"name": "ch-0526", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 12345678.5"}
+{"name": "ch-0527", "args": ["config-hocon-case"], "stdin": "NUM-RENDER -2.5e-5"}
+{"name": "ch-0528", "args": ["config-hocon-case"], "stdin": "NUM-RENDER 0.30000000000000004"}

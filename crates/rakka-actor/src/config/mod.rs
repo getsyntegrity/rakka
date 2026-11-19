@@ -94,13 +94,7 @@ pub(crate) fn render_concise(v: &Val) -> String {
     match &v.kind {
         Kind::Null => "null".to_owned(),
         Kind::Bool(b) => b.to_string(),
-        Kind::Num(n) => match n.repr {
-            // The render shows a whole double without its fraction (`1.0` is `1`).
-            model::NumRepr::Float(f) if f.is_finite() && f == f.trunc() && f.abs() < 1e18 => {
-                format!("{}", f as i64)
-            }
-            _ => n.text().to_owned(),
-        },
+        Kind::Num(n) => n.render(),
         Kind::Str(s) => quote(s),
         Kind::List(l) => format!(
             "[{}]",

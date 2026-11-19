@@ -97,7 +97,7 @@
 
 ## P07 CFG-HOCON
 
-12 filas; 11 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 5 propuestas.
+12 filas; 12 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 6 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -112,6 +112,7 @@
 | Q-CFG-16 | propuesta | 1: AC-CFG-001 | — | — | `classic-foundation` |
 | Q-CFG-18 | propuesta | 1: AC-CFG-019 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
 | Q-CFG-19 | propuesta | 1: AC-CFG-019 | Bloquea: nada; reversible. | — | `classic-foundation` |
+| Q-CFG-30 | propuesta | 2: AC-CFG-017.1, AC-UTIL-002.5 | — | — | `classic-foundation` |
 
 ## P08 CFG-AJUSTES
 
@@ -1041,4 +1042,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 484 (231 respondidas, 0 bloqueantes, 253 propuestas).
+Total de pares unidad–decisión: 485 (231 respondidas, 0 bloqueantes, 254 propuestas).
