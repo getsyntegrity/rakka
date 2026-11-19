@@ -3,7 +3,7 @@ AC-UTIL-001	UTIL	classic	AC-UTIL-1	2	extracted	partial	actor-tests/src/test/scal
 AC-UTIL-002.1	UTIL	classic	(implementada)		extracted	done	derivada del código	existente		docs/inventory/contracts/classic-foundation.md
 AC-UTIL-002.2	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-7	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-002.3	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-3,Q-X-9	docs/inventory/contracts/classic-foundation.md
-AC-UTIL-002.4	UTIL	classic	AC-UTIL-1	2	extracted	partial	derivada del código	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-4,Q-UTIL-1,Q-X-1,Q-X-9	docs/inventory/contracts/classic-foundation.md
+AC-UTIL-002.4	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-CFG-4,Q-UTIL-1,Q-X-1,Q-X-9	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-002.5	UTIL	classic	AC-UTIL-1	2	extracted	partial	derivada del código	casos rust-anything contra Pekko 2.0.0 (	Q-CFG-15,Q-CFG-30,Q-CFG-4	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-003.1	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-5,Q-X-9	docs/inventory/contracts/classic-foundation.md
 AC-UTIL-003.2	UTIL	classic	(implementada)		extracted	done	derivada del código	existente	Q-UTIL-5,Q-X-9	docs/inventory/contracts/classic-foundation.md

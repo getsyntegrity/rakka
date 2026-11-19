@@ -298,10 +298,36 @@ fn durations_millis_nanos_and_units() {
         big.get_nanos_duration("x").unwrap().as_nanos(),
         9_223_286_400_000_000_000
     );
+    // Typesafe Config saturates at Long.MAX_VALUE nanoseconds before converting (oracle cases `DUR-SAT *`).
     let huge = p("x = 9223372036854775807 d");
     assert_eq!(
-        err_of(huge.get_millis_duration("x")).kind(),
-        ConfigErrorKind::BadValue
+        huge.get_millis_duration("x").unwrap().as_nanos(),
+        9_223_372_036_854_000_000
+    );
+    assert_eq!(huge.get_duration("x", TimeUnit::Days).unwrap(), 106_751);
+    assert_eq!(
+        p("x = -106753 d")
+            .get_duration("x", TimeUnit::Milliseconds)
+            .unwrap(),
+        -9_223_372_036_854
+    );
+    assert_eq!(
+        p("x = \"+5 s\"")
+            .get_duration("x", TimeUnit::Milliseconds)
+            .unwrap(),
+        5_000
+    );
+    assert_eq!(
+        p("x = \".5 s\"")
+            .get_duration("x", TimeUnit::Milliseconds)
+            .unwrap(),
+        500
+    );
+    assert_eq!(
+        p("x = \"Infinity ms\"")
+            .get_duration("x", TimeUnit::Milliseconds)
+            .unwrap(),
+        9_223_372_036_854
     );
 }
 

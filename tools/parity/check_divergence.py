@@ -549,8 +549,8 @@ MUTANTS = {
     ),
     "hocon-duration-floors-negative": (
         "src/config/units.rs",
-        "clamp(total / i128::from(target.nanos()))",
-        "clamp(total.div_euclid(i128::from(target.nanos())))",
+        "Ok(total_ns / target.nanos())",
+        "Ok(total_ns.div_euclid(target.nanos()))",
         "a negative duration is converted by flooring instead of truncating toward zero (-1500 us is -2 ms, not -1 ms)",
     ),
     "hocon-size-accepts-uppercase-kb": (
@@ -618,6 +618,24 @@ MUTANTS = {
         "if int_digits == 0 && fraction_digits == 0 {",
         "if int_digits == 0 || fraction_digits == 0 {",
         "1. and 1.e5 are text; Double.parseDouble accepts a bare trailing point so Typesafe Config makes them numbers",
+    ),
+    "hocon-duration-converts-before-saturating": (
+        "src/config/units.rs",
+        "DurationNumber::Whole(n) => clamp(i128::from(n) * i128::from(unit_ns)),",
+        "DurationNumber::Whole(n) => return Ok(clamp(i128::from(n) * i128::from(unit_ns) / i128::from(target.nanos()))),",
+        "a duration saturates after converting to the target unit (106752 d in ms is 9223372800000) instead of at Long.MAX nanoseconds (9223372036854)",
+    ),
+    "hocon-duration-nan-is-an-error": (
+        "src/config/units.rs",
+        "\"NaN\" => return Some(f64::NAN),",
+        "\"NaN\" => return None,",
+        "a duration of NaN is rejected; Typesafe Config parses it as a double and the cast to long makes it 0",
+    ),
+    "hocon-duration-trailing-point-is-an-error": (
+        "src/config/units.rs",
+        "if mantissa_digits == 0 {",
+        "if mantissa_digits < 2 {",
+        "5 s written as `5.` or `.5` is rejected; Double.parseDouble accepts both",
     ),
     "hocon-render-small-double-in-decimal-form": (
         "src/config/model.rs",

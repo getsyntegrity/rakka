@@ -997,5 +997,53 @@ pub fn rust_lines() -> Vec<(String, String)> {
             .unwrap_or_else(|e| format!("error {}", e.kind().java_name()))),
         );
     }
+
+    // --- DUR-SAT: durations saturate at Long.MAX_VALUE / MIN_VALUE nanoseconds before the target unit (D-BUG-09)
+    for t in [
+        "106752 d",
+        "106751 d",
+        "-106752 d",
+        "-106753 d",
+        "9223372036854775807 ms",
+        "9223372036854775807 s",
+        "1e30 s",
+        "-1e30 s",
+        "1e18 ns",
+        "9.3e18 ns",
+        "9.3e18 us",
+        ".5 s",
+        "+5 s",
+        "+5.5 s",
+        "-.5 s",
+        "5. s",
+        "NaN ms",
+        "Infinity ms",
+        "-Infinity ms",
+        "+Infinity ms",
+        "0x10 ms",
+        "1E3 ms",
+        "5e-1 s",
+        "0.0000005 s",
+        "1.5 ns",
+        "-1.5 ns",
+        "2.9 ns",
+        "106751.99 d",
+        "92233720368 s",
+        "92233720369 s",
+        "9223372036854775807",
+        "-9223372036854775808 ns",
+        "-9223372036854775809 ns",
+        "3e-10 d",
+        "+ ms",
+        "- s",
+        "1.2.3 s",
+        "1e s",
+        "5 +s",
+    ] {
+        case(format!("DUR-SAT NS {t}"), dur(t, TimeUnit::Nanoseconds));
+        case(format!("DUR-SAT MS {t}"), dur(t, TimeUnit::Milliseconds));
+        case(format!("DUR-SAT SEC {t}"), dur(t, TimeUnit::Seconds));
+        case(format!("DUR-SAT DAY {t}"), dur(t, TimeUnit::Days));
+    }
     lines
 }

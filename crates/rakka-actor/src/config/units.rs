@@ -39,18 +39,78 @@ pub(crate) fn parse_duration(input: &str, target: TimeUnit) -> Result<i64, Strin
         format!("Could not parse time unit '{unit_text}' (try ns, us, ms, s, m, h, d)")
     })?;
     let number =
-        Number::parse(num).ok_or_else(|| format!("Could not parse duration number '{num}'"))?;
+        duration_number(num).ok_or_else(|| format!("Could not parse duration number '{num}'"))?;
     let unit_ns = unit.nanos();
-    Ok(match number.repr {
-        NumRepr::Int(n) => {
-            let total = i128::from(n) * i128::from(unit_ns);
-            clamp(total / i128::from(target.nanos()))
+    // Typesafe Config first turns the value into a `long` count of nanoseconds, saturating at `Long.MAX_VALUE` and
+    // `Long.MIN_VALUE`, and only then converts it to the requested unit (so `106752 d` in ms is `9223372036854`).
+    let total_ns = match number {
+        DurationNumber::Whole(n) => clamp(i128::from(n) * i128::from(unit_ns)),
+        DurationNumber::Fractional(f) => (f * unit_ns as f64) as i64, // saturating, NaN is 0, like Java's `(long)`
+    };
+    Ok(total_ns / target.nanos())
+}
+
+/// The number of a duration: `[+-]?[0-9]+` is a `long` (`Long.parseLong`), anything else must be a Java double literal.
+enum DurationNumber {
+    Whole(i64),
+    Fractional(f64),
+}
+
+fn duration_number(text: &str) -> Option<DurationNumber> {
+    let unsigned = text.strip_prefix(['+', '-']).unwrap_or(text);
+    if !unsigned.is_empty() && unsigned.bytes().all(|b| b.is_ascii_digit()) {
+        return text.parse().ok().map(DurationNumber::Whole);
+    }
+    java_double(text).map(DurationNumber::Fractional)
+}
+
+/// `Double.parseDouble` for the characters that can reach it here: an optional sign, `NaN`, `Infinity`, or
+/// `digits[.digits][e[+-]digits]` (`5.`, `.5` and `1e3` included).
+fn java_double(text: &str) -> Option<f64> {
+    let unsigned = text.strip_prefix(['+', '-']).unwrap_or(text);
+    match unsigned {
+        "NaN" => return Some(f64::NAN),
+        "Infinity" => {
+            return Some(if text.starts_with('-') {
+                f64::NEG_INFINITY
+            } else {
+                f64::INFINITY
+            });
         }
-        NumRepr::Float(f) => {
-            let ns = (f * unit_ns as f64) as i64;
-            ns / target.nanos()
+        _ => {}
+    }
+    let bytes = unsigned.as_bytes();
+    let digits = |from: usize| {
+        bytes[from..]
+            .iter()
+            .take_while(|b| b.is_ascii_digit())
+            .count()
+    };
+    let mut i = digits(0);
+    let mut mantissa_digits = i;
+    if bytes.get(i) == Some(&b'.') {
+        let fraction = digits(i + 1);
+        mantissa_digits += fraction;
+        i += 1 + fraction;
+    }
+    if mantissa_digits == 0 {
+        return None;
+    }
+    if matches!(bytes.get(i), Some(b'e' | b'E')) {
+        i += 1;
+        if matches!(bytes.get(i), Some(b'+' | b'-')) {
+            i += 1;
         }
-    })
+        let exponent = digits(i);
+        if exponent == 0 {
+            return None;
+        }
+        i += exponent;
+    }
+    if i != bytes.len() {
+        return None;
+    }
+    text.parse().ok()
 }
 
 fn clamp(v: i128) -> i64 {
