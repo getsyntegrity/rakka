@@ -3,4 +3,4 @@
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
-exec "$JAVA_HOME/bin/java" -Xshare:auto -XX:TieredStopAtLevel=1 -cp "$here/target/classes:$here/target/lib/*" pilot.Cli "$@"
+exec "$JAVA_HOME/bin/java" -Xshare:auto -XX:TieredStopAtLevel=1 -Dslf4j.internal.verbosity=ERROR -cp "$here/target/classes:$here/target/lib/*" pilot.Cli "$@"

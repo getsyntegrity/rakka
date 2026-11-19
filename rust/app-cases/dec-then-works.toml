@@ -1,0 +1,4 @@
+bin.name = "classic-parity"
+args = ["scenario"]
+status.code = 0
+fs.sandbox = true
