@@ -40,7 +40,7 @@ No usar `-race`/sanitizers ni correr workbench salvo pedido explícito.
 
 - `feat/pekko-rust-pilot-migration` es la rama de integración y la rama por defecto del repositorio. Las ramas de trabajo salen de `origin/feat/pekko-rust-pilot-migration` (nunca de otra rama de trabajo) y sus PR apuntan a ella.
 - `main` y `develop` están discontinuadas: no se ramifica desde ellas ni se apunta ningún PR a ellas. Quedan como referencia histórica hasta que el Owner decida archivarlas.
-- No hay push directo a `feat/pekko-rust-pilot-migration` salvo pedido explícito del Owner, ni force push, ni borrado de ramas sin autorización. Los merges los decide el Owner.
+- No hay push directo a `feat/pekko-rust-pilot-migration` salvo pedido explícito del Owner, ni force push, ni borrado de ramas sin autorización. Los merges los decide el Owner, salvo el merge de PR de `slice/*`, `fix/*` o `chore/*` contra la rama de integración con todas las verificaciones locales en verde, que está autorizado (ver "Reglas para agentes y subagentes"); los PR que el Owner reserve (p. ej. los que modifican este archivo) los mergea él.
 - Antes de ramificar: verificar `git status`, preservar los cambios existentes y actualizar las referencias remotas (`git fetch --all --prune`).
 
 ## Flujo por unidad
@@ -82,7 +82,8 @@ La lectura obligatoria está en el "Índice de skills". Reglas esenciales (el de
 
 ## Reglas
 
-- Trabajo local: no push, no PR, no publicar sin autorización del Owner para esa rama.
+- Push y PR: autorizados (Owner, 2026-11-19) para ramas `slice/*`, `fix/*` y `chore/*`, con PR contra `feat/pekko-rust-pilot-migration`. Nunca push a `main` ni a `develop`, ni directo a `feat/pekko-rust-pilot-migration`; sin force push. Cualquier otra rama o destino requiere autorización del Owner.
+- Las decisiones `Q-*` siguen siendo del Owner (ver "Reglas para agentes y subagentes").
 - Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de atribución de `docs/upstream.md`.
 
 ## Reglas para agentes y subagentes (Owner, 2026-11-19)
