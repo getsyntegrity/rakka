@@ -1,8 +1,11 @@
 //! Slice 3b, part 1: failure handling with the default supervisor strategy, through the public API.
 //! Every expectation was recorded from Pekko 2.0.0 first (`cases/scenario-3b1.jsonl`, `rust/app-cases/`).
 
+#[allow(dead_code)] // each test binary uses only some of the shared helpers
+mod common;
+use common::{RunningSystem, owned_strings, settle_for_absence, snapshot_of, wait_until};
+
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
@@ -11,26 +14,6 @@ use rakka_actor::actor::system::ActorSystem;
 use rakka_actor::dispatch::Terminated;
 
 type Log = Arc<Mutex<Vec<String>>>;
-
-fn wait_until(what: &str, cond: impl Fn() -> bool) {
-    let end = Instant::now() + Duration::from_secs(10);
-    while !cond() {
-        assert!(Instant::now() < end, "timed out waiting for {what}");
-        std::thread::sleep(Duration::from_millis(2));
-    }
-}
-
-fn settle() {
-    std::thread::sleep(Duration::from_millis(150));
-}
-
-fn snapshot(log: &Log) -> Vec<String> {
-    log.lock().unwrap().clone()
-}
-
-fn strs(v: &[&str]) -> Vec<String> {
-    v.iter().map(|s| s.to_string()).collect()
-}
 
 /// Records lifecycle hooks and string messages; throws `IllegalStateException(msg)` on `boom`.
 struct Probe {
@@ -107,24 +90,20 @@ fn probe(sys: &ActorSystem, name: &str) -> (ActorRef, Log) {
     )
 }
 
-fn shutdown(sys: &ActorSystem) {
-    sys.terminate()
-        .wait(Duration::from_secs(10))
-        .expect("terminated");
-}
-
 #[test]
 fn an_exception_in_receive_restarts_the_actor_with_a_fresh_instance() {
     // oracle: r01-restart-lifecycle, r02-state-resets
-    let sys = ActorSystem::create("f-restart").unwrap();
+    let sys = RunningSystem::create("f-restart");
     let (a, log) = probe(&sys, "a");
     for m in ["hi", "boom", "after"] {
         a.tell(m.to_string(), None);
     }
-    wait_until("restart and the next message", || snapshot(&log).len() == 8);
+    wait_until("restart and the next message", || {
+        snapshot_of(&log).len() == 8
+    });
     assert_eq!(
-        snapshot(&log),
-        strs(&[
+        snapshot_of(&log),
+        owned_strings(&[
             "pre-start",
             "hi#1",
             "boom#2",
@@ -135,27 +114,27 @@ fn an_exception_in_receive_restarts_the_actor_with_a_fresh_instance() {
             "after#1", // the counter lives in the instance: a restart resets it
         ])
     );
-    shutdown(&sys);
 }
 
 #[test]
 fn the_failed_message_is_lost_and_the_rest_of_the_mailbox_is_kept_in_order() {
     // oracle: r03-failing-message-lost, r05-mailbox-kept-in-order
-    let sys = ActorSystem::create("f-mailbox").unwrap();
+    let sys = RunningSystem::create("f-mailbox");
     let (a, log) = probe(&sys, "a");
     for m in ["q0", "boom", "r0", "r1"] {
         a.tell(m.to_string(), None);
     }
-    wait_until("r1", || snapshot(&log).iter().any(|e| e.starts_with("r1")));
-    let got = snapshot(&log);
-    assert_eq!(&got[got.len() - 2..], &strs(&["r0#1", "r1#2"]));
-    shutdown(&sys);
+    wait_until("r1", || {
+        snapshot_of(&log).iter().any(|e| e.starts_with("r1"))
+    });
+    let got = snapshot_of(&log);
+    assert_eq!(&got[got.len() - 2..], &owned_strings(&["r0#1", "r1#2"]));
 }
 
 #[test]
 fn restarting_does_not_notify_watchers_and_keeps_the_reference_valid() {
     // oracle: r06-watcher-not-notified, r11-restart-keeps-identity
-    let sys = ActorSystem::create("f-watch").unwrap();
+    let sys = RunningSystem::create("f-watch");
     let (a, log) = probe(&sys, "a");
     let (w, wlog) = probe(&sys, "w");
     struct Watch(ActorRef, Log);
@@ -177,11 +156,10 @@ fn restarting_does_not_notify_watchers_and_keeps_the_reference_valid() {
         .unwrap();
     a.tell("boom".to_string(), None);
     a.tell("z".to_string(), None);
-    wait_until("z", || snapshot(&log).iter().any(|e| e.starts_with("z")));
-    settle();
-    assert!(!snapshot(&wlog).contains(&"terminated".to_string()));
+    wait_until("z", || snapshot_of(&log).iter().any(|e| e.starts_with("z")));
+    settle_for_absence();
+    assert!(!snapshot_of(&wlog).contains(&"terminated".to_string()));
     assert!(!a.is_terminated());
-    shutdown(&sys);
 }
 
 #[test]
@@ -209,35 +187,38 @@ fn restart_stops_the_children_and_does_not_recreate_them() {
             }
         }
     }
-    let sys = ActorSystem::create("f-kids").unwrap();
+    let sys = RunningSystem::create("f-kids");
     let log = Log::default();
     let l = log.clone();
     let p = sys
         .actor_of_named(Props::new(move || Parent(l.clone())), "p")
         .unwrap();
     p.tell("spawn".to_string(), None);
-    wait_until("kid started", || snapshot(&log) == strs(&["pre-start"]));
+    wait_until("kid started", || {
+        snapshot_of(&log) == owned_strings(&["pre-start"])
+    });
     p.tell("boom".to_string(), None);
     wait_until("kid stopped", || {
-        snapshot(&log) == strs(&["pre-start", "post-stop"])
+        snapshot_of(&log) == owned_strings(&["pre-start", "post-stop"])
     });
     p.tell("count".to_string(), None);
     wait_until("count", || {
-        snapshot(&log).iter().any(|e| e.starts_with("children="))
+        snapshot_of(&log).iter().any(|e| e.starts_with("children="))
     });
-    assert_eq!(snapshot(&log).last().unwrap(), "children=0");
-    shutdown(&sys);
+    assert_eq!(snapshot_of(&log).last().unwrap(), "children=0");
 }
 
 #[test]
 fn kill_stops_the_actor_without_restart_hooks_and_notifies_watchers() {
     // oracle: k01-kill-stops, k02-kill-no-restart-hooks, k03-after-kill-dead-letters
-    let sys = ActorSystem::create("f-kill").unwrap();
+    let sys = RunningSystem::create("f-kill");
     let (a, log) = probe(&sys, "a");
     a.tell(Kill, None);
     wait_until("stopped", || a.is_terminated());
-    assert_eq!(snapshot(&log), strs(&["pre-start", "post-stop"]));
-    shutdown(&sys);
+    assert_eq!(
+        snapshot_of(&log),
+        owned_strings(&["pre-start", "post-stop"])
+    );
 }
 
 #[test]
@@ -255,7 +236,7 @@ fn an_unhandled_terminated_stops_the_watcher_with_death_pact() {
             msg.is::<Terminated>() && self.2
         }
     }
-    let sys = ActorSystem::create("f-pact").unwrap();
+    let sys = RunningSystem::create("f-pact");
     let (x, _) = probe(&sys, "x");
     let (y, _) = probe(&sys, "y");
     let (lw, lh) = (Log::default(), Log::default());
@@ -276,20 +257,19 @@ fn an_unhandled_terminated_stops_the_watcher_with_death_pact() {
     sys.stop(&y);
     wait_until("DeathPact stop", || ignoring.is_terminated());
     assert_eq!(
-        snapshot(&lw),
-        strs(&["post-stop"]),
+        snapshot_of(&lw),
+        owned_strings(&["post-stop"]),
         "stopped, not restarted"
     );
-    settle();
+    settle_for_absence();
     assert!(!handling.is_terminated());
-    assert!(snapshot(&lh).is_empty());
-    shutdown(&sys);
+    assert!(snapshot_of(&lh).is_empty());
 }
 
 #[test]
 fn a_failing_pre_start_stops_the_actor_and_post_stop_is_not_called() {
     // oracle: i01-prestart-failure-stops, i03-prestart-fail-dead-letters
-    let sys = ActorSystem::create("f-init").unwrap();
+    let sys = RunningSystem::create("f-init");
     let log = Log::default();
     let l = log.clone();
     let a = sys
@@ -302,6 +282,5 @@ fn a_failing_pre_start_stops_the_actor_and_post_stop_is_not_called() {
         )
         .unwrap();
     wait_until("stopped", || a.is_terminated());
-    assert_eq!(snapshot(&log), strs(&["pre-start"]));
-    shutdown(&sys);
+    assert_eq!(snapshot_of(&log), owned_strings(&["pre-start"]));
 }
