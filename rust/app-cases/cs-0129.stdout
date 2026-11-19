@@ -1,0 +1,1 @@
+SET-LOG log-config-on-start = off -> ok LogConfigOnStart=false

@@ -1,0 +1,1 @@
+SET-CS the unsupported combination is reported before the version check -> ERR ConfigurationException [pekko.coordinated-shutdown.run-by-actor-system-terminate=on and pekko.coordinated-shutdown.terminate-actor-system=off is not a supported configuration combination.]

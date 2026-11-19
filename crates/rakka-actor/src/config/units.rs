@@ -38,13 +38,21 @@ pub(crate) fn parse_duration(input: &str, target: TimeUnit) -> Result<i64, Strin
     let unit = duration_unit(unit_text).ok_or_else(|| {
         format!("Could not parse time unit '{unit_text}' (try ns, us, ms, s, m, h, d)")
     })?;
+    // A text of digits only is read as a `Long` (it fails if it does not fit); anything else is read as a `Double`.
+    let digits = num.strip_prefix(['+', '-']).unwrap_or(num);
+    let integer_text = !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit());
+    if integer_text && num.parse::<i64>().is_err() {
+        return Err(format!("Could not parse duration number '{num}'"));
+    }
     let number =
         Number::parse(num).ok_or_else(|| format!("Could not parse duration number '{num}'"))?;
     let unit_ns = unit.nanos();
     Ok(match number.repr {
         NumRepr::Int(n) => {
-            let total = i128::from(n) * i128::from(unit_ns);
-            clamp(total / i128::from(target.nanos()))
+            // Typesafe Config turns the number into nanoseconds first (saturating at the `Long` limits, like
+            // `TimeUnit.toNanos`) and only then into the requested unit.
+            let ns = clamp(i128::from(n) * i128::from(unit_ns));
+            ns / target.nanos()
         }
         NumRepr::Float(f) => {
             let ns = (f * unit_ns as f64) as i64;

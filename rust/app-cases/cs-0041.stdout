@@ -1,0 +1,1 @@
+SET-LDSD log-dead-letters-suspend-duration = unlimited -> ERR BadValue [String: 1: Invalid value at 'pekko.log-dead-letters-suspend-duration': No number in duration value 'unlimited']

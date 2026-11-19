@@ -1,0 +1,1 @@
+SET-HOME home = null -> ERR Null [String: 1: Configuration key 'pekko.home' is set to null but expected STRING]

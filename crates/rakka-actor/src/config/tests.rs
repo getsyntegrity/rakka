@@ -298,10 +298,16 @@ fn durations_millis_nanos_and_units() {
         big.get_nanos_duration("x").unwrap().as_nanos(),
         9_223_286_400_000_000_000
     );
+    // The number is turned into nanoseconds first and saturates at the `Long` limit (oracle: P08 SET-LDSD cases).
     let huge = p("x = 9223372036854775807 d");
     assert_eq!(
-        err_of(huge.get_millis_duration("x")).kind(),
-        ConfigErrorKind::BadValue
+        huge.get_millis_duration("x").unwrap().as_nanos(),
+        9_223_372_036_854_000_000
+    );
+    let too_big = p("x = 9223372036854775808 d");
+    assert_eq!(
+        err_of(too_big.get_millis_duration("x")).message(),
+        "String: 1: Invalid value at 'x': Could not parse duration number '9223372036854775808'"
     );
 }
 

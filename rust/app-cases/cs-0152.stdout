@@ -1,0 +1,1 @@
+SET-VNF virtual-nodes-factor = abc -> ERR WrongType [String: 1: pekko.actor.deployment.default.virtual-nodes-factor has type STRING rather than NUMBER]

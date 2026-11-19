@@ -1,36 +1,19 @@
 //! Slice 3b-2: `OneForOneStrategy` with a configurable decider (Resume / Restart / Stop) and its restart limit.
 //! Every expectation was recorded from Pekko 2.0.0 first (`cases/scenario-3b2.jsonl`, `rust/app-cases/`).
 
+#[allow(dead_code)] // each test binary uses only some of the shared helpers
+mod common;
+use common::{RunningSystem, owned_strings, settle_for_absence, snapshot_of, wait_until};
+
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
-use rakka_actor::actor::system::ActorSystem;
 
 type Log = Arc<Mutex<Vec<String>>>;
-
-fn wait_until(what: &str, cond: impl Fn() -> bool) {
-    let end = Instant::now() + Duration::from_secs(10);
-    while !cond() {
-        assert!(Instant::now() < end, "timed out waiting for {what}");
-        std::thread::sleep(Duration::from_millis(2));
-    }
-}
-
-fn settle() {
-    std::thread::sleep(Duration::from_millis(150));
-}
-
-fn snap(log: &Log) -> Vec<String> {
-    log.lock().unwrap().clone()
-}
-
-fn strs(v: &[&str]) -> Vec<String> {
-    v.iter().map(|s| s.to_string()).collect()
-}
 
 /// Records its lifecycle and messages (`msg#n`, `n` counts per instance); throws `IllegalStateException(msg)` on `b*` messages
 /// and `ActorKilledException` on `kill-me`.
@@ -112,7 +95,7 @@ impl Actor for Sup {
 }
 
 struct Fixture {
-    sys: ActorSystem,
+    sys: RunningSystem,
     c1: ActorRef,
     c2: ActorRef,
     l1: Log,
@@ -120,7 +103,7 @@ struct Fixture {
 }
 
 fn fixture(name: &str, max: i32) -> Fixture {
-    let sys = ActorSystem::create(name).unwrap();
+    let sys = RunningSystem::create(name);
     let (l1, l2) = (Log::default(), Log::default());
     let refs = Arc::new(Mutex::new(Vec::new()));
     let (logs, r) = ([l1.clone(), l2.clone()], refs.clone());
@@ -165,10 +148,10 @@ fn resume_keeps_the_instance_and_state_and_drops_only_the_failed_message() {
     // oracle: a01-resume-keeps-state, a02-resume-next-queued, a03-resume-message-lost, a04-resume-ref-alive
     let f = fixture("s-resume", -1);
     say(&f.c1, &["q0", "q1", "bres", "r0", "r1"]);
-    wait_until("r1", || snap(&f.l1).len() == 6);
+    wait_until("r1", || snapshot_of(&f.l1).len() == 6);
     assert_eq!(
-        snap(&f.l1),
-        strs(&["pre-start", "q0#1", "q1#2", "bres#3", "r0#4", "r1#5"]),
+        snapshot_of(&f.l1),
+        owned_strings(&["pre-start", "q0#1", "q1#2", "bres#3", "r0#4", "r1#5"]),
         "no restart hooks, counter keeps counting"
     );
     assert!(!f.c1.is_terminated());
@@ -179,10 +162,10 @@ fn restart_replaces_the_instance_and_continues_with_the_queued_messages() {
     // oracle: a05-restart-resets-state, a06-restart-next-queued, a07-restart-message-lost, a08-restart-ref-alive
     let f = fixture("s-restart", -1);
     say(&f.c1, &["q0", "brst", "r0", "r1"]);
-    wait_until("r1", || snap(&f.l1).len() == 9);
+    wait_until("r1", || snapshot_of(&f.l1).len() == 9);
     assert_eq!(
-        snap(&f.l1),
-        strs(&[
+        snapshot_of(&f.l1),
+        owned_strings(&[
             "pre-start",
             "q0#1",
             "brst#2",
@@ -203,10 +186,10 @@ fn a_decider_can_restart_what_the_default_would_stop() {
     let f = fixture("s-override", -1);
     say(&f.c1, &["kill-me", "after"]);
     wait_until("after", || {
-        snap(&f.l1).iter().any(|e| e.starts_with("after"))
+        snapshot_of(&f.l1).iter().any(|e| e.starts_with("after"))
     });
     assert!(
-        snap(&f.l1).contains(&"post-restart".to_string()),
+        snapshot_of(&f.l1).contains(&"post-restart".to_string()),
         "restarted although ActorKilledException stops by default"
     );
     assert!(!f.c1.is_terminated());
@@ -217,8 +200,10 @@ fn unmapped_exceptions_use_the_default_decider() {
     // oracle: a12-unmapped-default-restart
     let f = fixture("s-default", -1);
     say(&f.c1, &["m1", "other", "m2"]);
-    wait_until("m2", || snap(&f.l1).iter().any(|e| e.starts_with("m2")));
-    assert_eq!(snap(&f.l1).last().unwrap(), "m2#1");
+    wait_until("m2", || {
+        snapshot_of(&f.l1).iter().any(|e| e.starts_with("m2"))
+    });
+    assert_eq!(snapshot_of(&f.l1).last().unwrap(), "m2#1");
 }
 
 #[test]
@@ -227,10 +212,10 @@ fn stop_stops_the_child_and_dead_letters_what_was_queued() {
     let f = fixture("s-stop", -1);
     say(&f.c1, &["m1", "bstp", "q0", "q1"]);
     wait_until("stopped", || f.c1.is_terminated());
-    settle();
+    settle_for_absence();
     assert_eq!(
-        snap(&f.l1),
-        strs(&["pre-start", "m1#1", "bstp#2", "post-stop"])
+        snapshot_of(&f.l1),
+        owned_strings(&["pre-start", "m1#1", "bstp#2", "post-stop"])
     );
 }
 
@@ -242,11 +227,11 @@ fn the_healthy_sibling_is_not_affected_by_any_directive() {
         say(&f.c2, &["a"]);
         say(&f.c1, &["m1", bad, "m2"]);
         say(&f.c2, &["b", "c"]);
-        wait_until("sibling", || snap(&f.l2).len() == 4);
-        settle();
+        wait_until("sibling", || snapshot_of(&f.l2).len() == 4);
+        settle_for_absence();
         assert_eq!(
-            snap(&f.l2),
-            strs(&["pre-start", "a#1", "b#2", "c#3"]),
+            snapshot_of(&f.l2),
+            owned_strings(&["pre-start", "a#1", "b#2", "c#3"]),
             "{tag}: sibling saw nothing but its own messages"
         );
         assert!(!f.c2.is_terminated());
@@ -259,10 +244,10 @@ fn a_sequence_of_directives_on_one_child() {
     let f = fixture("s-seq", -1);
     say(&f.c1, &["m1", "bres", "m2", "brst", "m3", "bstp"]);
     wait_until("stopped", || f.c1.is_terminated());
-    wait_until("log", || snap(&f.l1).len() == 12);
+    wait_until("log", || snapshot_of(&f.l1).len() == 12);
     assert_eq!(
-        snap(&f.l1),
-        strs(&[
+        snapshot_of(&f.l1),
+        owned_strings(&[
             "pre-start",
             "m1#1",
             "bres#2",
@@ -282,7 +267,7 @@ fn a_sequence_of_directives_on_one_child() {
 // ---- maxNrOfRetries -------------------------------------------------------------------------------------------------------------
 
 fn restarts_in(log: &Log) -> usize {
-    snap(log)
+    snapshot_of(log)
         .iter()
         .filter(|e| e.starts_with("pre-restart"))
         .count()
@@ -295,8 +280,8 @@ fn zero_retries_stop_the_child_at_its_first_failure() {
     say(&f.c1, &["brst"]);
     wait_until("stopped", || f.c1.is_terminated());
     assert_eq!(
-        snap(&f.l1),
-        strs(&["pre-start", "brst#1", "post-stop"]),
+        snapshot_of(&f.l1),
+        owned_strings(&["pre-start", "brst#1", "post-stop"]),
         "stopped without any restart hook"
     );
 }
@@ -308,13 +293,13 @@ fn the_last_allowed_restart_runs_and_the_first_beyond_the_limit_stops() {
         let f = fixture(&format!("s-max{max}"), max);
         say(&f.c1, &vec!["brst"; max as usize + 1]);
         wait_until("stopped", || f.c1.is_terminated());
-        wait_until("events", || snap(&f.l1).len() == expected_events);
+        wait_until("events", || snapshot_of(&f.l1).len() == expected_events);
         assert_eq!(
             restarts_in(&f.l1),
             max as usize,
             "max {max}: exactly {max} restarts, then a stop"
         );
-        assert_eq!(snap(&f.l1).last().unwrap(), "post-stop");
+        assert_eq!(snapshot_of(&f.l1).last().unwrap(), "post-stop");
     }
 }
 
@@ -324,7 +309,9 @@ fn resume_and_stop_directives_do_not_consume_the_limit() {
     let f = fixture("s-nocount", 1);
     say(&f.c1, &["bres", "bres", "bres", "brst", "ok"]);
     say(&f.c2, &["bstp"]);
-    wait_until("ok", || snap(&f.l1).iter().any(|e| e.starts_with("ok")));
+    wait_until("ok", || {
+        snapshot_of(&f.l1).iter().any(|e| e.starts_with("ok"))
+    });
     assert!(
         !f.c1.is_terminated(),
         "three resumes then one restart is within a limit of 1"
@@ -340,7 +327,7 @@ fn the_limit_is_counted_per_child() {
     wait_until("c1 restarted", || restarts_in(&f.l1) == 1);
     say(&f.c2, &["brst"]);
     wait_until("c2 restarted", || {
-        restarts_in(&f.l2) == 1 && snap(&f.l2).len() == 6
+        restarts_in(&f.l2) == 1 && snapshot_of(&f.l2).len() == 6
     });
     say(&f.c1, &["brst"]);
     wait_until("c1 stopped", || f.c1.is_terminated());
@@ -358,7 +345,9 @@ fn a_negative_limit_never_stops_the_child() {
     for max in [-1, -5] {
         let f = fixture(&format!("s-unl{}", -max), max);
         say(&f.c1, &["brst", "brst", "brst", "brst", "brst", "ok"]);
-        wait_until("ok", || snap(&f.l1).iter().any(|e| e.starts_with("ok")));
+        wait_until("ok", || {
+            snapshot_of(&f.l1).iter().any(|e| e.starts_with("ok"))
+        });
         assert_eq!(restarts_in(&f.l1), 5);
         assert!(!f.c1.is_terminated());
     }
