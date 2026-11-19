@@ -712,15 +712,10 @@ mod tests {
         let items = 1000_u32;
         let weights: Vec<f64> = (1..=items).map(|rank| 1.0 / f64::from(rank)).collect();
         let total: f64 = weights.iter().sum();
-        let mut state = 0x9E37_79B9_7F4A_7C15_u64;
+        let mut random = crate::util::test_random::XorshiftStar::new(0x9E37_79B9_7F4A_7C15);
         let mut exact = vec![0_i32; items as usize];
         for _ in 0..2000 {
-            state ^= state >> 12;
-            state ^= state << 25;
-            state ^= state >> 27;
-            let mut target = (state.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 11) as f64
-                / (1_u64 << 53) as f64
-                * total;
+            let mut target = (random.next_u64() >> 11) as f64 / (1_u64 << 53) as f64 * total;
             let rank = weights
                 .iter()
                 .position(|w| {

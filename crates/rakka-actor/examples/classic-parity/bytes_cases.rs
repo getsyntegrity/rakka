@@ -3,6 +3,7 @@
 //! scripts of `bytes.tsv`, run by an interpreter per family that mirrors the Java one operation by
 //! operation and prints one token per operation. Slice P04.
 
+use crate::xorshift::XorshiftStar;
 use std::collections::HashMap;
 
 use bytes::{Buf, BytesMut};
@@ -83,33 +84,9 @@ where
     t[from..].iter().map(|w| parse(w)).collect()
 }
 
-/// xorshift64*, as in the oracle.
-struct Rng(u64);
-
-impl Rng {
-    fn new(seed: i64) -> Self {
-        Self(if seed == 0 {
-            0x9E37_79B9_7F4A_7C15
-        } else {
-            seed as u64
-        })
-    }
-
-    fn next(&mut self) -> u64 {
-        self.0 ^= self.0 >> 12;
-        self.0 ^= self.0 << 25;
-        self.0 ^= self.0 >> 27;
-        self.0.wrapping_mul(0x2545_F491_4F6C_DD1D)
-    }
-
-    fn below(&mut self, bound: usize) -> usize {
-        ((self.next() >> 33) % bound as u64) as usize
-    }
-}
-
 trait Interp {
     fn op(&mut self, t: &[&str]) -> Out;
-    fn random(&mut self, r: &mut Rng) -> Vec<String>;
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String>;
     fn epilogue(&self) -> Vec<Vec<String>>;
 }
 
@@ -132,7 +109,7 @@ fn run_script(interp: &mut dyn Interp, script: &str) -> String {
         }
         let t: Vec<&str> = text.split(' ').collect();
         if t[0] == "rand" {
-            let mut r = Rng::new(parse(t[1]));
+            let mut r = XorshiftStar::new(parse(t[1]));
             for _ in 0..parse::<usize>(t[2]) {
                 let op = interp.random(&mut r);
                 let refs: Vec<&str> = op.iter().map(String::as_str).collect();
@@ -241,7 +218,7 @@ impl Interp for StringInterp {
             }
             "unsafe" => self.bind(t[1], ByteString::from_array_unsafe(hex(t[2]))),
             "rnd" => {
-                let mut r = Rng::new(parse(t[2]));
+                let mut r = XorshiftStar::new(parse(t[2]));
                 let pool = hex(t[4]);
                 let count: usize = parse(t[3]);
                 let bytes = (0..count)
@@ -407,7 +384,7 @@ impl Interp for StringInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         let names = ["a", "b", "c"];
         let (x, y, z) = (names[r.below(3)], names[r.below(3)], names[r.below(3)]);
         let n = (r.below(16) as i32 - 3).to_string();
@@ -501,8 +478,8 @@ impl Interp for BuilderInterp {
         ok("ok")
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
-        let endian = |r: &mut Rng| if r.below(2) == 0 { "BE" } else { "LE" };
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
+        let endian = |r: &mut XorshiftStar| if r.below(2) == 0 { "BE" } else { "LE" };
         match r.below(7) {
             0 => words(&["byte", &(r.below(256) as i32 - 128).to_string()]),
             1 => {
@@ -712,7 +689,7 @@ impl Interp for IteratorInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         match r.below(8) {
             0 => words(&["next"]),
             1 => words(&["take", &(r.below(10) as i32 - 2).to_string()]),
@@ -809,7 +786,7 @@ impl Interp for StreamInterp {
         ok("ok")
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         match r.below(4) {
             0 => words(&["read"]),
             1 => {

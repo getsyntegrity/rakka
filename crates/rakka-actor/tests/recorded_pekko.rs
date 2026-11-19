@@ -19,8 +19,12 @@ mod path_case;
 mod scenario;
 #[path = "../examples/classic-parity/structures_cases.rs"]
 mod structures_cases;
+#[path = "../examples/classic-parity/text_escape.rs"]
+mod text_escape;
 #[path = "../examples/classic-parity/util_core_cases.rs"]
 mod util_core_cases;
+#[path = "../examples/classic-parity/xorshift.rs"]
+mod xorshift;
 
 use std::fs;
 use std::path::PathBuf;

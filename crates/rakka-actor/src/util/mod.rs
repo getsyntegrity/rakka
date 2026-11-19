@@ -23,6 +23,29 @@ pub mod swar;
 pub mod switch;
 #[cfg(test)]
 mod test_clock;
+/// Deterministic pseudo-random numbers for the unit tests (xorshift64*), so no test needs a copy of the generator.
+#[cfg(test)]
+mod test_random {
+    pub(crate) struct XorshiftStar(u64);
+
+    impl XorshiftStar {
+        pub(crate) fn new(seed: u64) -> Self {
+            Self(seed)
+        }
+
+        pub(crate) fn next_u64(&mut self) -> u64 {
+            self.0 ^= self.0 >> 12;
+            self.0 ^= self.0 << 25;
+            self.0 ^= self.0 >> 27;
+            self.0.wrapping_mul(0x2545_F491_4F6C_DD1D)
+        }
+
+        /// Uniform-ish value in `0..bound` from the high bits.
+        pub(crate) fn below(&mut self, bound: u64) -> u64 {
+            (self.next_u64() >> 33) % bound
+        }
+    }
+}
 mod time_unit;
 mod timeout;
 pub mod token_bucket;
