@@ -250,13 +250,8 @@ mod tests {
 
     #[test]
     fn behave_like_a_reference_map_on_a_thousand_random_operations() {
-        let mut state = 0x9E37_79B9_7F4A_7C15_u64;
-        let mut next = |bound: u64| {
-            state ^= state >> 12;
-            state ^= state << 25;
-            state ^= state >> 27;
-            (state.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 33) % bound
-        };
+        let mut random = crate::util::test_random::XorshiftStar::new(0x9E37_79B9_7F4A_7C15);
+        let mut next = |bound: u64| random.below(bound);
         let mut map = ImmutableIntMap::empty();
         let mut reference = BTreeMap::new();
         for _ in 0..1000 {

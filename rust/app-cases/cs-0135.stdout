@@ -1,0 +1,1 @@
+SET-SER allow-java-serialization = on -> ok AllowJavaSerialization=true

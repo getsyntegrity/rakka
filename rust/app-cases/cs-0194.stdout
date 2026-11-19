@@ -1,0 +1,1 @@
+AMEND slf4j logger and the default logger, pekko-slf4j not on the classpath -> ok loggers=[org.apache.pekko.event.slf4j.Slf4jLogger, org.apache.pekko.event.Logging$DefaultLogger] logging-filter=org.apache.pekko.event.slf4j.Slf4jLoggingFilter

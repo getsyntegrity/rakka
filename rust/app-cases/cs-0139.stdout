@@ -1,0 +1,1 @@
+SET-SER serialize-messages = abc -> ERR WrongType [String: 1: pekko.actor.serialize-messages has type STRING rather than BOOLEAN]

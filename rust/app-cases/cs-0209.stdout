@@ -1,0 +1,1 @@
+AMEND loggers is a string, pekko-slf4j on the classpath -> ERR WrongType [String: 2: pekko.loggers has type STRING rather than LIST]

@@ -1,0 +1,1 @@
+AMEND slf4j logger already configured with the slf4j filter, pekko-slf4j not on the classpath

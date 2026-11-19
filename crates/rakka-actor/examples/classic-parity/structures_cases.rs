@@ -4,6 +4,7 @@
 //! family that mirrors the Java one operation by operation; the concurrent cases are coded here and in
 //! the oracle and print invariants only. Slice P03.
 
+use crate::xorshift::XorshiftStar;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
@@ -71,33 +72,9 @@ where
         .unwrap_or_else(|e| panic!("bad number {text}: {e:?}"))
 }
 
-/// xorshift64*, as in the oracle.
-struct Rng(u64);
-
-impl Rng {
-    fn new(seed: i64) -> Self {
-        Self(if seed == 0 {
-            0x9E37_79B9_7F4A_7C15
-        } else {
-            seed as u64
-        })
-    }
-
-    fn next(&mut self) -> u64 {
-        self.0 ^= self.0 >> 12;
-        self.0 ^= self.0 << 25;
-        self.0 ^= self.0 >> 27;
-        self.0.wrapping_mul(0x2545_F491_4F6C_DD1D)
-    }
-
-    fn below(&mut self, bound: usize) -> usize {
-        ((self.next() >> 33) % bound as u64) as usize
-    }
-}
-
 trait Interp {
     fn op(&mut self, t: &[&str]) -> Out;
-    fn random(&mut self, r: &mut Rng) -> Vec<String>;
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String>;
     fn epilogue(&self) -> Vec<Vec<String>>;
 }
 
@@ -120,7 +97,7 @@ fn run_script(interp: &mut dyn Interp, script: &str) -> String {
         }
         let t: Vec<&str> = text.split(' ').collect();
         if t[0] == "rand" {
-            let mut r = Rng::new(parse(t[1]));
+            let mut r = XorshiftStar::new(parse(t[1]));
             for _ in 0..parse::<usize>(t[2]) {
                 let op = interp.random(&mut r);
                 let refs: Vec<&str> = op.iter().map(String::as_str).collect();
@@ -254,7 +231,7 @@ impl Interp for IndexInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         let key = format!("k{}", r.below(4));
         let value = r.below(6).to_string();
         match r.below(6) {
@@ -337,7 +314,7 @@ impl Interp for IntMapInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         let key = INT_KEYS[r.below(INT_KEYS.len())].to_string();
         let value = (r.below(5) as i32 - 2).to_string();
         match r.below(7) {
@@ -446,7 +423,7 @@ impl Interp for TypedMultiMapInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         let key = format!("k{}", r.below(3));
         let value = r.below(4).to_string();
         match r.below(9) {
@@ -512,7 +489,7 @@ impl Interp for WildcardInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         if r.below(3) == 0 {
             let len = r.below(4);
             let inserted = if len == 0 {
@@ -604,7 +581,7 @@ impl Interp for SubclassifiedInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         let key = SUBCLASS_KEYS[r.below(SUBCLASS_KEYS.len())].to_string();
         let value = format!("v{}", r.below(3));
         match r.below(7) {
@@ -708,7 +685,7 @@ impl Interp for MessageBufferInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         let id = format!("id{}", r.below(3));
         let m = format!("m{}", r.below(6));
         let s = format!("s{}", r.below(3));
@@ -839,7 +816,7 @@ impl Interp for SwitchInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         vec![SWITCH_OPS[r.below(SWITCH_OPS.len())].to_owned()]
     }
 
@@ -929,7 +906,7 @@ impl Interp for TokenBucketInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         if !self.started {
             self.started = true;
             return vec![
@@ -1043,7 +1020,7 @@ impl Interp for StableInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         match r.below(3) {
             0 | 1 => {
                 let prio = r.below(5).to_string();
@@ -1219,7 +1196,7 @@ impl Interp for BoundedInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         let x = BOUNDED_ITEMS[r.below(BOUNDED_ITEMS.len())].to_owned();
         match r.below(14) {
             0..=2 => vec!["offer".into(), x],
@@ -1384,7 +1361,7 @@ impl Interp for SketchInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         let pool = 40;
         let rank = {
             let bound = r.below(pool) + 1;
@@ -1453,7 +1430,7 @@ fn seconds(text: &str) -> Duration {
 
 const POOL: [&str; 8] = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
-fn pick(r: &mut Rng) -> String {
+fn pick(r: &mut XorshiftStar) -> String {
     POOL[r.below(POOL.len())].to_owned()
 }
 
@@ -1515,7 +1492,7 @@ impl Interp for RecencyInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         match r.below(16) {
             0 => words(&["tick"]),
             1..=4 => vec!["u".into(), pick(r)],
@@ -1629,7 +1606,7 @@ impl Interp for FrequencyInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         match r.below(18) {
             0 => words(&["tick"]),
             1..=5 => vec!["u".into(), pick(r)],
@@ -1746,7 +1723,7 @@ impl Interp for SegmentedInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         match r.below(10) {
             0 => words(&["tick"]),
             1..=4 => vec!["u".into(), pick(r)],
@@ -1914,7 +1891,7 @@ impl Interp for DoubleListInterp {
         }
     }
 
-    fn random(&mut self, r: &mut Rng) -> Vec<String> {
+    fn random(&mut self, r: &mut XorshiftStar) -> Vec<String> {
         let choice = r.below(8);
         if self.linked.is_empty() || choice < 2 {
             let name = format!("n{}", self.created);
@@ -2015,7 +1992,7 @@ fn index_in_parallel() -> String {
         .map(|i| {
             let (index, go, upper) = (index.clone(), go.clone(), upper_always_filled.clone());
             thread::spawn(move || {
-                let mut r = Rng::new(1000 + i);
+                let mut r = XorshiftStar::new(1000 + i);
                 go.wait();
                 for _ in 0..tasks_per_thread {
                     match r.below(4) {

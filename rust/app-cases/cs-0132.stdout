@@ -1,0 +1,1 @@
+SET-LOG log-config-on-start = 1 -> ERR WrongType [String: 1: pekko.log-config-on-start has type NUMBER rather than BOOLEAN]

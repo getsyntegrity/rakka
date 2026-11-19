@@ -1,0 +1,216 @@
+SET-DEFAULT the reference configuration
+SET-A9 dispatcher and mailbox keys of ConfigSpec
+SET-EXT default library-extensions and extensions
+SET-EXT library-extensions += and extensions set by the application
+SET-EXT library-extensions replaced by the application
+SET-EXT extensions of a wrong type
+SET-PROVIDER default provider key
+SET-LDL log-dead-letters = on
+SET-LDL log-dead-letters = off
+SET-LDL log-dead-letters = true
+SET-LDL log-dead-letters = false
+SET-LDL log-dead-letters = ON
+SET-LDL log-dead-letters = Off
+SET-LDL log-dead-letters = TRUE
+SET-LDL log-dead-letters = False
+SET-LDL log-dead-letters = "ON"
+SET-LDL log-dead-letters = "off"
+SET-LDL log-dead-letters = 10
+SET-LDL log-dead-letters = 0
+SET-LDL log-dead-letters = 5
+SET-LDL log-dead-letters = -1
+SET-LDL log-dead-letters = 2147483647
+SET-LDL log-dead-letters = "5"
+SET-LDL log-dead-letters = yes
+SET-LDL log-dead-letters = no
+SET-LDL log-dead-letters = 1.5
+SET-LDL log-dead-letters = abc
+SET-LDL log-dead-letters = 3000000000
+SET-LDL log-dead-letters = ""
+SET-LDL log-dead-letters = [1]
+SET-LDSD log-dead-letters-suspend-duration = infinite
+SET-LDSD log-dead-letters-suspend-duration = Infinite
+SET-LDSD log-dead-letters-suspend-duration = INFINITE
+SET-LDSD log-dead-letters-suspend-duration = inf
+SET-LDSD log-dead-letters-suspend-duration = 5s
+SET-LDSD log-dead-letters-suspend-duration = 1 minute
+SET-LDSD log-dead-letters-suspend-duration = 0
+SET-LDSD log-dead-letters-suspend-duration = 100
+SET-LDSD log-dead-letters-suspend-duration = -1s
+SET-LDSD log-dead-letters-suspend-duration = off
+SET-LDSD log-dead-letters-suspend-duration = unlimited
+SET-LDSD log-dead-letters-suspend-duration = 1.5s
+SET-LDSD log-dead-letters-suspend-duration = 5 foo
+SET-LDSD log-dead-letters-suspend-duration = 106752 d
+SET-LDSD log-dead-letters-suspend-duration = 106751 d
+SET-LDSD log-dead-letters-suspend-duration = 9223372036854775807 d
+SET-LDSD log-dead-letters-suspend-duration = 9223372036854775808 d
+SET-LDSD log-dead-letters-suspend-duration = -9223372036854775808 d
+SET-LDSD log-dead-letters-suspend-duration = 1ns
+SET-LDSD log-dead-letters-suspend-duration = 999999ns
+SET-LDSD log-dead-letters-suspend-duration = "infinite"
+SET-LDSD log-dead-letters-suspend-duration = ""
+SET-LDSD log-dead-letters-suspend-duration = [1]
+SET-LDSD log-dead-letters-suspend-duration = on
+SET-LDSD log-dead-letters-suspend-duration = 2562047 h
+SET-LDDS log-dead-letters-during-shutdown = on
+SET-LDDS log-dead-letters-during-shutdown = off
+SET-LDDS log-dead-letters-during-shutdown = true
+SET-LDDS log-dead-letters-during-shutdown = false
+SET-LDDS log-dead-letters-during-shutdown = yes
+SET-LDDS log-dead-letters-during-shutdown = abc
+SET-LDDS log-dead-letters-during-shutdown = 1
+SET-LDDS log-dead-letters-during-shutdown = "on"
+SET-DEBUG receive = on
+SET-DEBUG autoreceive = on
+SET-DEBUG lifecycle = on
+SET-DEBUG fsm = on
+SET-DEBUG event-stream = on
+SET-DEBUG unhandled = on
+SET-DEBUG router-misconfiguration = on
+SET-DEBUG all seven on
+SET-DEBUG receive of a wrong type
+SET-DEBUG lifecycle quoted
+SET-JVM daemonic = on
+SET-JVM jvm-exit-on-fatal-error = off
+SET-JVM jvm-shutdown-hooks = off
+SET-JVM fail-mixed-versions = off
+SET-JVM daemonic = abc
+SET-JVM jvm-exit-on-fatal-error = 3
+SET-JVM all flipped
+SET-HOME home = "/opt/pekko"
+SET-HOME home = ""
+SET-HOME home = " "
+SET-HOME home = x
+SET-HOME home = [1]
+SET-HOME home = 5
+SET-HOME home = null
+SET-SCHEDULER implementation = my.Sched
+SET-SCHEDULER implementation = [1]
+SET-TO creation-timeout = 1s
+SET-TO creation-timeout = 2500ms
+SET-TO creation-timeout = 0
+SET-TO creation-timeout = -1s
+SET-TO creation-timeout = abc
+SET-TO creation-timeout = 1.5 minutes
+SET-TO creation-timeout = off
+SET-TO creation-timeout = 1 d
+SET-TO creation-timeout = 100
+SET-TO unstarted-push-timeout = 500ms
+SET-TO unstarted-push-timeout = 1 minute
+SET-TO unstarted-push-timeout = -5ms
+SET-TO unstarted-push-timeout = x
+SET-TO logger-startup-timeout = 7s
+SET-TO logger-startup-timeout = 1ms
+SET-TO logger-startup-timeout = 0
+SET-TO logger-startup-timeout = never
+SET-LOG loggers = []
+SET-LOG loggers = two names
+SET-LOG loggers with a repeated name
+SET-LOG loggers = a string
+SET-LOG loggers = numbers
+SET-LOG loggers = list of objects
+SET-LOG logging-filter = x.Filter
+SET-LOG logging-filter = a number
+SET-LOG loggers-dispatcher = my-dispatcher
+SET-LOG loglevel = DEBUG
+SET-LOG stdout-loglevel = DEBUG
+SET-LOG loglevel = OFF
+SET-LOG stdout-loglevel = OFF
+SET-LOG loglevel = debug
+SET-LOG stdout-loglevel = debug
+SET-LOG loglevel = "WARNING"
+SET-LOG stdout-loglevel = "WARNING"
+SET-LOG loglevel = 5
+SET-LOG stdout-loglevel = 5
+SET-LOG loglevel = off
+SET-LOG stdout-loglevel = off
+SET-LOG log-config-on-start = on
+SET-LOG log-config-on-start = off
+SET-LOG log-config-on-start = true
+SET-LOG log-config-on-start = abc
+SET-LOG log-config-on-start = 1
+SET-GUARDIAN guardian-supervisor-strategy = StoppingSupervisorStrategy
+SET-GUARDIAN guardian-supervisor-strategy = a list
+SET-SER allow-java-serialization = on
+SET-SER serialize-messages = on
+SET-SER serialize-creators = on
+SET-SER serialize-messages and serialize-creators = on
+SET-SER serialize-messages = off with prefix []
+SET-SER prefix with a repeated entry
+SET-SER prefix = a string
+SET-SER serialize-messages = abc
+SET-CS terminate-actor-system = on run-by-actor-system-terminate = on
+SET-CS terminate-actor-system = on run-by-actor-system-terminate = off
+SET-CS terminate-actor-system = off run-by-actor-system-terminate = on
+SET-CS terminate-actor-system = off run-by-actor-system-terminate = off
+SET-CS terminate-actor-system = off with the default run-by-actor-system-terminate
+SET-CS run-by-actor-system-terminate = off alone
+SET-CS terminate-actor-system = abc
+SET-CS the unsupported combination is reported before the version check
+SET-CS the unsupported combination is reported before a bad virtual-nodes-factor
+SET-VNF virtual-nodes-factor = 3
+SET-VNF virtual-nodes-factor = 0
+SET-VNF virtual-nodes-factor = -2
+SET-VNF virtual-nodes-factor = abc
+SET-VNF virtual-nodes-factor = 1.5
+SET-VNF virtual-nodes-factor = "7"
+SET-VERSION pekko.version = "2.0.0"
+SET-VERSION pekko.version = "1.7.1"
+SET-VERSION pekko.version = ""
+SET-VERSION pekko.version = "2.0.0-M1"
+SET-VERSION pekko.version = 2
+SET-VERSION pekko.version = [1]
+SET-INVALID a key of the reference is an object in the application
+SET-INVALID creation-timeout is a list
+SET-INVALID creation-timeout is an object
+SET-INVALID several problems are reported together
+SET-INVALID internal-dispatcher as a dispatcher name is allowed
+SET-INVALID internal-dispatcher removed from the application
+SET-INVALID an unresolved configuration
+SET-INVALID the application adds unknown keys
+AMEND the reference configuration, pekko-slf4j on the classpath
+AMEND the reference configuration, pekko-slf4j not on the classpath
+AMEND use-slf4j = on, pekko-slf4j on the classpath
+AMEND use-slf4j = on, pekko-slf4j not on the classpath
+AMEND use-slf4j = off, pekko-slf4j on the classpath
+AMEND use-slf4j = off, pekko-slf4j not on the classpath
+AMEND use-slf4j = true, pekko-slf4j on the classpath
+AMEND use-slf4j = true, pekko-slf4j not on the classpath
+AMEND use-slf4j = yes, pekko-slf4j on the classpath
+AMEND use-slf4j = yes, pekko-slf4j not on the classpath
+AMEND use-slf4j = quoted on, pekko-slf4j on the classpath
+AMEND use-slf4j = quoted on, pekko-slf4j not on the classpath
+AMEND use-slf4j = maybe, pekko-slf4j on the classpath
+AMEND use-slf4j = maybe, pekko-slf4j not on the classpath
+AMEND use-slf4j = a list, pekko-slf4j on the classpath
+AMEND use-slf4j = a list, pekko-slf4j not on the classpath
+AMEND use-slf4j = null, pekko-slf4j on the classpath
+AMEND use-slf4j = null, pekko-slf4j not on the classpath
+AMEND slf4j logger already configured with the default filter, pekko-slf4j on the classpath
+AMEND slf4j logger already configured with the default filter, pekko-slf4j not on the classpath
+AMEND slf4j logger already configured with the slf4j filter, pekko-slf4j on the classpath
+AMEND slf4j logger already configured with the slf4j filter, pekko-slf4j not on the classpath
+AMEND slf4j logger already configured with a custom filter, pekko-slf4j on the classpath
+AMEND slf4j logger already configured with a custom filter, pekko-slf4j not on the classpath
+AMEND slf4j logger and the default logger, pekko-slf4j on the classpath
+AMEND slf4j logger and the default logger, pekko-slf4j not on the classpath
+AMEND use-slf4j = on with the default logger and a custom one, pekko-slf4j on the classpath
+AMEND use-slf4j = on with the default logger and a custom one, pekko-slf4j not on the classpath
+AMEND use-slf4j = on with a custom filter, pekko-slf4j on the classpath
+AMEND use-slf4j = on with a custom filter, pekko-slf4j not on the classpath
+AMEND use-slf4j = on with the slf4j filter, pekko-slf4j on the classpath
+AMEND use-slf4j = on with the slf4j filter, pekko-slf4j not on the classpath
+AMEND use-slf4j = on with no loggers, pekko-slf4j on the classpath
+AMEND use-slf4j = on with no loggers, pekko-slf4j not on the classpath
+AMEND use-slf4j = on with only a custom logger, pekko-slf4j on the classpath
+AMEND use-slf4j = on with only a custom logger, pekko-slf4j not on the classpath
+AMEND use-slf4j = on with the default logger twice, pekko-slf4j on the classpath
+AMEND use-slf4j = on with the default logger twice, pekko-slf4j not on the classpath
+AMEND use-slf4j = off with the slf4j logger, pekko-slf4j on the classpath
+AMEND use-slf4j = off with the slf4j logger, pekko-slf4j not on the classpath
+AMEND loggers is a string, pekko-slf4j on the classpath
+AMEND loggers is a string, pekko-slf4j not on the classpath
+AMEND logging-filter is a list, pekko-slf4j on the classpath
+AMEND logging-filter is a list, pekko-slf4j not on the classpath
+AMEND the amended configuration is amended again without change

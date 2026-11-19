@@ -1,0 +1,1 @@
+SET-TO logger-startup-timeout = never -> ERR BadValue [String: 1: Invalid value at 'pekko.logger-startup-timeout': No number in duration value 'never']

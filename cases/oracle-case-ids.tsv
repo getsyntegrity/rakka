@@ -1445,3 +1445,216 @@ ch-0493	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.produc
 ch-0494	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.durable-queue.retry-attempts
 ch-0495	config-hocon	KEY actor-typed pekko.reliable-delivery.work-pulling.producer-controller.internal-ask-timeout
 ch-0496	config-hocon	KEY actor-typed pekko.use-slf4j
+cs-0001	config-settings	SET-DEFAULT the reference configuration
+cs-0002	config-settings	SET-A9 dispatcher and mailbox keys of ConfigSpec
+cs-0003	config-settings	SET-EXT default library-extensions and extensions
+cs-0004	config-settings	SET-EXT library-extensions += and extensions set by the application
+cs-0005	config-settings	SET-EXT library-extensions replaced by the application
+cs-0006	config-settings	SET-EXT extensions of a wrong type
+cs-0007	config-settings	SET-PROVIDER default provider key
+cs-0008	config-settings	SET-LDL log-dead-letters = on
+cs-0009	config-settings	SET-LDL log-dead-letters = off
+cs-0010	config-settings	SET-LDL log-dead-letters = true
+cs-0011	config-settings	SET-LDL log-dead-letters = false
+cs-0012	config-settings	SET-LDL log-dead-letters = ON
+cs-0013	config-settings	SET-LDL log-dead-letters = Off
+cs-0014	config-settings	SET-LDL log-dead-letters = TRUE
+cs-0015	config-settings	SET-LDL log-dead-letters = False
+cs-0016	config-settings	SET-LDL log-dead-letters = "ON"
+cs-0017	config-settings	SET-LDL log-dead-letters = "off"
+cs-0018	config-settings	SET-LDL log-dead-letters = 10
+cs-0019	config-settings	SET-LDL log-dead-letters = 0
+cs-0020	config-settings	SET-LDL log-dead-letters = 5
+cs-0021	config-settings	SET-LDL log-dead-letters = -1
+cs-0022	config-settings	SET-LDL log-dead-letters = 2147483647
+cs-0023	config-settings	SET-LDL log-dead-letters = "5"
+cs-0024	config-settings	SET-LDL log-dead-letters = yes
+cs-0025	config-settings	SET-LDL log-dead-letters = no
+cs-0026	config-settings	SET-LDL log-dead-letters = 1.5
+cs-0027	config-settings	SET-LDL log-dead-letters = abc
+cs-0028	config-settings	SET-LDL log-dead-letters = 3000000000
+cs-0029	config-settings	SET-LDL log-dead-letters = ""
+cs-0030	config-settings	SET-LDL log-dead-letters = [1]
+cs-0031	config-settings	SET-LDSD log-dead-letters-suspend-duration = infinite
+cs-0032	config-settings	SET-LDSD log-dead-letters-suspend-duration = Infinite
+cs-0033	config-settings	SET-LDSD log-dead-letters-suspend-duration = INFINITE
+cs-0034	config-settings	SET-LDSD log-dead-letters-suspend-duration = inf
+cs-0035	config-settings	SET-LDSD log-dead-letters-suspend-duration = 5s
+cs-0036	config-settings	SET-LDSD log-dead-letters-suspend-duration = 1 minute
+cs-0037	config-settings	SET-LDSD log-dead-letters-suspend-duration = 0
+cs-0038	config-settings	SET-LDSD log-dead-letters-suspend-duration = 100
+cs-0039	config-settings	SET-LDSD log-dead-letters-suspend-duration = -1s
+cs-0040	config-settings	SET-LDSD log-dead-letters-suspend-duration = off
+cs-0041	config-settings	SET-LDSD log-dead-letters-suspend-duration = unlimited
+cs-0042	config-settings	SET-LDSD log-dead-letters-suspend-duration = 1.5s
+cs-0043	config-settings	SET-LDSD log-dead-letters-suspend-duration = 5 foo
+cs-0044	config-settings	SET-LDSD log-dead-letters-suspend-duration = 106752 d
+cs-0045	config-settings	SET-LDSD log-dead-letters-suspend-duration = 106751 d
+cs-0046	config-settings	SET-LDSD log-dead-letters-suspend-duration = 9223372036854775807 d
+cs-0047	config-settings	SET-LDSD log-dead-letters-suspend-duration = 9223372036854775808 d
+cs-0048	config-settings	SET-LDSD log-dead-letters-suspend-duration = -9223372036854775808 d
+cs-0049	config-settings	SET-LDSD log-dead-letters-suspend-duration = 1ns
+cs-0050	config-settings	SET-LDSD log-dead-letters-suspend-duration = 999999ns
+cs-0051	config-settings	SET-LDSD log-dead-letters-suspend-duration = "infinite"
+cs-0052	config-settings	SET-LDSD log-dead-letters-suspend-duration = ""
+cs-0053	config-settings	SET-LDSD log-dead-letters-suspend-duration = [1]
+cs-0054	config-settings	SET-LDSD log-dead-letters-suspend-duration = on
+cs-0055	config-settings	SET-LDSD log-dead-letters-suspend-duration = 2562047 h
+cs-0056	config-settings	SET-LDDS log-dead-letters-during-shutdown = on
+cs-0057	config-settings	SET-LDDS log-dead-letters-during-shutdown = off
+cs-0058	config-settings	SET-LDDS log-dead-letters-during-shutdown = true
+cs-0059	config-settings	SET-LDDS log-dead-letters-during-shutdown = false
+cs-0060	config-settings	SET-LDDS log-dead-letters-during-shutdown = yes
+cs-0061	config-settings	SET-LDDS log-dead-letters-during-shutdown = abc
+cs-0062	config-settings	SET-LDDS log-dead-letters-during-shutdown = 1
+cs-0063	config-settings	SET-LDDS log-dead-letters-during-shutdown = "on"
+cs-0064	config-settings	SET-DEBUG receive = on
+cs-0065	config-settings	SET-DEBUG autoreceive = on
+cs-0066	config-settings	SET-DEBUG lifecycle = on
+cs-0067	config-settings	SET-DEBUG fsm = on
+cs-0068	config-settings	SET-DEBUG event-stream = on
+cs-0069	config-settings	SET-DEBUG unhandled = on
+cs-0070	config-settings	SET-DEBUG router-misconfiguration = on
+cs-0071	config-settings	SET-DEBUG all seven on
+cs-0072	config-settings	SET-DEBUG receive of a wrong type
+cs-0073	config-settings	SET-DEBUG lifecycle quoted
+cs-0074	config-settings	SET-JVM daemonic = on
+cs-0075	config-settings	SET-JVM jvm-exit-on-fatal-error = off
+cs-0076	config-settings	SET-JVM jvm-shutdown-hooks = off
+cs-0077	config-settings	SET-JVM fail-mixed-versions = off
+cs-0078	config-settings	SET-JVM daemonic = abc
+cs-0079	config-settings	SET-JVM jvm-exit-on-fatal-error = 3
+cs-0080	config-settings	SET-JVM all flipped
+cs-0081	config-settings	SET-HOME home = "/opt/pekko"
+cs-0082	config-settings	SET-HOME home = ""
+cs-0083	config-settings	SET-HOME home = " "
+cs-0084	config-settings	SET-HOME home = x
+cs-0085	config-settings	SET-HOME home = [1]
+cs-0086	config-settings	SET-HOME home = 5
+cs-0087	config-settings	SET-HOME home = null
+cs-0088	config-settings	SET-SCHEDULER implementation = my.Sched
+cs-0089	config-settings	SET-SCHEDULER implementation = [1]
+cs-0090	config-settings	SET-TO creation-timeout = 1s
+cs-0091	config-settings	SET-TO creation-timeout = 2500ms
+cs-0092	config-settings	SET-TO creation-timeout = 0
+cs-0093	config-settings	SET-TO creation-timeout = -1s
+cs-0094	config-settings	SET-TO creation-timeout = abc
+cs-0095	config-settings	SET-TO creation-timeout = 1.5 minutes
+cs-0096	config-settings	SET-TO creation-timeout = off
+cs-0097	config-settings	SET-TO creation-timeout = 1 d
+cs-0098	config-settings	SET-TO creation-timeout = 100
+cs-0099	config-settings	SET-TO unstarted-push-timeout = 500ms
+cs-0100	config-settings	SET-TO unstarted-push-timeout = 1 minute
+cs-0101	config-settings	SET-TO unstarted-push-timeout = -5ms
+cs-0102	config-settings	SET-TO unstarted-push-timeout = x
+cs-0103	config-settings	SET-TO logger-startup-timeout = 7s
+cs-0104	config-settings	SET-TO logger-startup-timeout = 1ms
+cs-0105	config-settings	SET-TO logger-startup-timeout = 0
+cs-0106	config-settings	SET-TO logger-startup-timeout = never
+cs-0107	config-settings	SET-LOG loggers = []
+cs-0108	config-settings	SET-LOG loggers = two names
+cs-0109	config-settings	SET-LOG loggers with a repeated name
+cs-0110	config-settings	SET-LOG loggers = a string
+cs-0111	config-settings	SET-LOG loggers = numbers
+cs-0112	config-settings	SET-LOG loggers = list of objects
+cs-0113	config-settings	SET-LOG logging-filter = x.Filter
+cs-0114	config-settings	SET-LOG logging-filter = a number
+cs-0115	config-settings	SET-LOG loggers-dispatcher = my-dispatcher
+cs-0116	config-settings	SET-LOG loglevel = DEBUG
+cs-0117	config-settings	SET-LOG stdout-loglevel = DEBUG
+cs-0118	config-settings	SET-LOG loglevel = OFF
+cs-0119	config-settings	SET-LOG stdout-loglevel = OFF
+cs-0120	config-settings	SET-LOG loglevel = debug
+cs-0121	config-settings	SET-LOG stdout-loglevel = debug
+cs-0122	config-settings	SET-LOG loglevel = "WARNING"
+cs-0123	config-settings	SET-LOG stdout-loglevel = "WARNING"
+cs-0124	config-settings	SET-LOG loglevel = 5
+cs-0125	config-settings	SET-LOG stdout-loglevel = 5
+cs-0126	config-settings	SET-LOG loglevel = off
+cs-0127	config-settings	SET-LOG stdout-loglevel = off
+cs-0128	config-settings	SET-LOG log-config-on-start = on
+cs-0129	config-settings	SET-LOG log-config-on-start = off
+cs-0130	config-settings	SET-LOG log-config-on-start = true
+cs-0131	config-settings	SET-LOG log-config-on-start = abc
+cs-0132	config-settings	SET-LOG log-config-on-start = 1
+cs-0133	config-settings	SET-GUARDIAN guardian-supervisor-strategy = StoppingSupervisorStrategy
+cs-0134	config-settings	SET-GUARDIAN guardian-supervisor-strategy = a list
+cs-0135	config-settings	SET-SER allow-java-serialization = on
+cs-0136	config-settings	SET-SER serialize-messages = off with prefix []
+cs-0137	config-settings	SET-SER prefix with a repeated entry
+cs-0138	config-settings	SET-SER prefix = a string
+cs-0139	config-settings	SET-SER serialize-messages = abc
+cs-0140	config-settings	SET-CS terminate-actor-system = on run-by-actor-system-terminate = on
+cs-0141	config-settings	SET-CS terminate-actor-system = on run-by-actor-system-terminate = off
+cs-0142	config-settings	SET-CS terminate-actor-system = off run-by-actor-system-terminate = on
+cs-0143	config-settings	SET-CS terminate-actor-system = off run-by-actor-system-terminate = off
+cs-0144	config-settings	SET-CS terminate-actor-system = off with the default run-by-actor-system-terminate
+cs-0145	config-settings	SET-CS run-by-actor-system-terminate = off alone
+cs-0146	config-settings	SET-CS terminate-actor-system = abc
+cs-0147	config-settings	SET-CS the unsupported combination is reported before the version check
+cs-0148	config-settings	SET-CS the unsupported combination is reported before a bad virtual-nodes-factor
+cs-0149	config-settings	SET-VNF virtual-nodes-factor = 3
+cs-0150	config-settings	SET-VNF virtual-nodes-factor = 0
+cs-0151	config-settings	SET-VNF virtual-nodes-factor = -2
+cs-0152	config-settings	SET-VNF virtual-nodes-factor = abc
+cs-0153	config-settings	SET-VNF virtual-nodes-factor = 1.5
+cs-0154	config-settings	SET-VNF virtual-nodes-factor = "7"
+cs-0155	config-settings	SET-VERSION pekko.version = "2.0.0"
+cs-0156	config-settings	SET-VERSION pekko.version = "1.7.1"
+cs-0157	config-settings	SET-VERSION pekko.version = ""
+cs-0158	config-settings	SET-VERSION pekko.version = "2.0.0-M1"
+cs-0159	config-settings	SET-VERSION pekko.version = 2
+cs-0160	config-settings	SET-VERSION pekko.version = [1]
+cs-0161	config-settings	SET-INVALID a key of the reference is an object in the application
+cs-0162	config-settings	SET-INVALID creation-timeout is a list
+cs-0163	config-settings	SET-INVALID creation-timeout is an object
+cs-0164	config-settings	SET-INVALID several problems are reported together
+cs-0165	config-settings	SET-INVALID internal-dispatcher as a dispatcher name is allowed
+cs-0166	config-settings	SET-INVALID internal-dispatcher removed from the application
+cs-0167	config-settings	SET-INVALID an unresolved configuration
+cs-0168	config-settings	SET-INVALID the application adds unknown keys
+cs-0169	config-settings	AMEND the reference configuration, pekko-slf4j on the classpath
+cs-0170	config-settings	AMEND the reference configuration, pekko-slf4j not on the classpath
+cs-0171	config-settings	AMEND use-slf4j = on, pekko-slf4j on the classpath
+cs-0172	config-settings	AMEND use-slf4j = on, pekko-slf4j not on the classpath
+cs-0173	config-settings	AMEND use-slf4j = off, pekko-slf4j on the classpath
+cs-0174	config-settings	AMEND use-slf4j = off, pekko-slf4j not on the classpath
+cs-0175	config-settings	AMEND use-slf4j = true, pekko-slf4j on the classpath
+cs-0176	config-settings	AMEND use-slf4j = true, pekko-slf4j not on the classpath
+cs-0177	config-settings	AMEND use-slf4j = yes, pekko-slf4j on the classpath
+cs-0178	config-settings	AMEND use-slf4j = yes, pekko-slf4j not on the classpath
+cs-0179	config-settings	AMEND use-slf4j = quoted on, pekko-slf4j on the classpath
+cs-0180	config-settings	AMEND use-slf4j = quoted on, pekko-slf4j not on the classpath
+cs-0181	config-settings	AMEND use-slf4j = maybe, pekko-slf4j on the classpath
+cs-0182	config-settings	AMEND use-slf4j = maybe, pekko-slf4j not on the classpath
+cs-0183	config-settings	AMEND use-slf4j = a list, pekko-slf4j on the classpath
+cs-0184	config-settings	AMEND use-slf4j = a list, pekko-slf4j not on the classpath
+cs-0185	config-settings	AMEND use-slf4j = null, pekko-slf4j on the classpath
+cs-0186	config-settings	AMEND use-slf4j = null, pekko-slf4j not on the classpath
+cs-0187	config-settings	AMEND slf4j logger already configured with the default filter, pekko-slf4j on the classpath
+cs-0188	config-settings	AMEND slf4j logger already configured with the default filter, pekko-slf4j not on the classpath
+cs-0189	config-settings	AMEND slf4j logger already configured with the slf4j filter, pekko-slf4j on the classpath
+cs-0190	config-settings	AMEND slf4j logger already configured with the slf4j filter, pekko-slf4j not on the classpath
+cs-0191	config-settings	AMEND slf4j logger already configured with a custom filter, pekko-slf4j on the classpath
+cs-0192	config-settings	AMEND slf4j logger already configured with a custom filter, pekko-slf4j not on the classpath
+cs-0193	config-settings	AMEND slf4j logger and the default logger, pekko-slf4j on the classpath
+cs-0194	config-settings	AMEND slf4j logger and the default logger, pekko-slf4j not on the classpath
+cs-0195	config-settings	AMEND use-slf4j = on with the default logger and a custom one, pekko-slf4j on the classpath
+cs-0196	config-settings	AMEND use-slf4j = on with the default logger and a custom one, pekko-slf4j not on the classpath
+cs-0197	config-settings	AMEND use-slf4j = on with a custom filter, pekko-slf4j on the classpath
+cs-0198	config-settings	AMEND use-slf4j = on with a custom filter, pekko-slf4j not on the classpath
+cs-0199	config-settings	AMEND use-slf4j = on with the slf4j filter, pekko-slf4j on the classpath
+cs-0200	config-settings	AMEND use-slf4j = on with the slf4j filter, pekko-slf4j not on the classpath
+cs-0201	config-settings	AMEND use-slf4j = on with no loggers, pekko-slf4j on the classpath
+cs-0202	config-settings	AMEND use-slf4j = on with no loggers, pekko-slf4j not on the classpath
+cs-0203	config-settings	AMEND use-slf4j = on with only a custom logger, pekko-slf4j on the classpath
+cs-0204	config-settings	AMEND use-slf4j = on with only a custom logger, pekko-slf4j not on the classpath
+cs-0205	config-settings	AMEND use-slf4j = on with the default logger twice, pekko-slf4j on the classpath
+cs-0206	config-settings	AMEND use-slf4j = on with the default logger twice, pekko-slf4j not on the classpath
+cs-0207	config-settings	AMEND use-slf4j = off with the slf4j logger, pekko-slf4j on the classpath
+cs-0208	config-settings	AMEND use-slf4j = off with the slf4j logger, pekko-slf4j not on the classpath
+cs-0209	config-settings	AMEND loggers is a string, pekko-slf4j on the classpath
+cs-0210	config-settings	AMEND loggers is a string, pekko-slf4j not on the classpath
+cs-0211	config-settings	AMEND logging-filter is a list, pekko-slf4j on the classpath
+cs-0212	config-settings	AMEND logging-filter is a list, pekko-slf4j not on the classpath
+cs-0213	config-settings	AMEND the amended configuration is amended again without change
