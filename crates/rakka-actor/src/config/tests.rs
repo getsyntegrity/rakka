@@ -609,3 +609,32 @@ fn a_plus_inside_a_number_like_run_is_a_reserved_character() {
         "100000"
     );
 }
+
+/// Sizes are exact decimal arithmetic (oracle cases `SIZE-DEC *`): no `f64` rounding, exact product in the range message.
+#[test]
+fn fractional_sizes_are_exact_and_range_errors_show_the_exact_product() {
+    let bytes = |text: &str| p(&format!("x = \"{text}\"")).get_bytes("x");
+    assert_eq!(bytes("8.2 MB").unwrap(), 8_200_000);
+    assert_eq!(bytes("8.2 MiB").unwrap(), 8_598_323);
+    assert_eq!(bytes("8388607.9 TiB").unwrap(), 9_223_371_926_903_613_030);
+    assert_eq!(bytes("-0.5 B").unwrap(), 0);
+    assert_eq!(bytes("1e-3 kB").unwrap(), 1);
+    assert_eq!(bytes("+5.5 kB").unwrap(), 5_500);
+    assert_eq!(bytes(".5 kB").unwrap(), 500);
+    assert_eq!(bytes("5. kB").unwrap(), 5_000);
+    assert_eq!(bytes("1e-30 GB").unwrap(), 0);
+    assert_eq!(
+        bytes("123456789012345678901234567890123456789012345678901e-30 B")
+            .unwrap_err()
+            .kind(),
+        ConfigErrorKind::BadValue
+    );
+    let message = |text: &str| err_of(bytes(text)).message().to_owned();
+    assert!(
+        message("9223372036854775807 YiB")
+            .ends_with("'11150372599265311569558933316709551578284032'")
+    );
+    assert!(message("-1.5 KiB").ends_with("negative number: -1536"));
+    assert!(message("1e B").ends_with("Could not parse size-in-bytes number '1e'"));
+    assert!(message("NaN B").ends_with("Could not parse size-in-bytes number 'NaN'"));
+}

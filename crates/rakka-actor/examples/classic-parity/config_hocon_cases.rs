@@ -1045,5 +1045,58 @@ pub fn rust_lines() -> Vec<(String, String)> {
         case(format!("DUR-SAT SEC {t}"), dur(t, TimeUnit::Seconds));
         case(format!("DUR-SAT DAY {t}"), dur(t, TimeUnit::Days));
     }
+
+    // --- SIZE-DEC: sizes are exact decimal arithmetic, and out-of-range messages show the exact product (D-BUG-10)
+    for t in [
+        "8.2 MB",
+        "8.2 MiB",
+        "0.1 GB",
+        "1.5 KiB",
+        "-1.5 KiB",
+        "-0.5 B",
+        "0.9 B",
+        "1.1 kB",
+        "8388607.9 TiB",
+        "8388608 TiB",
+        "8 EiB",
+        "7.99 EiB",
+        "9223372036854775807 YiB",
+        "9223372036854775807 B",
+        "9223372036854775808 B",
+        "-9223372036854775808 B",
+        "-9223372036854775809 B",
+        "+5 B",
+        "+5.5 kB",
+        ".5 kB",
+        "5. kB",
+        "1e3 B",
+        "1E3 kB",
+        "1e-3 kB",
+        "2.5e2 B",
+        "1e30 B",
+        "1e-30 GB",
+        "NaN B",
+        "Infinity B",
+        "0x10 B",
+        "1.2.3 B",
+        "1e B",
+        "00012 B",
+        "0.000000000000000000000000001 YiB",
+        "123456789012345678901234567890123456789012345678901e-30 B",
+        "1 YiB",
+        "0 YiB",
+        "8.0 EiB",
+        "9.2233720368547758 EB",
+        "9.223372036854775807 EB",
+        "9.223372036854775808 EB",
+        "-9.223372036854775808 EB",
+        "-9.223372036854775809 EB",
+        "0.5 kB",
+        "2.5 MB",
+        "1023.9 B",
+        "12345678.9 kB",
+    ] {
+        case(format!("SIZE-DEC {t}"), size(t));
+    }
     lines
 }
