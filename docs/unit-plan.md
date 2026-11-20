@@ -396,7 +396,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Deployer: parseo pekko.actor.deployment, lookup con comodines, Deploy/Scope.
 - **Filas (3; impl: pending 3):** asignacion explicita en `docs/unit-rows.tsv`: AC-CFG-012.1, AC-CFG-012.2, AC-CFG-013.
 - **Exclusiones/costuras:** CFG-012.3/.4 (RouterConfig y resizers) se difieren a P37 (RT-CONFIG); aqui el campo router es un valor opaco (costura DEPLOY-S1).
-- **Decisiones:** 4 distintas en sus filas; respondidas: Q-CFG-12, Q-CFG-4, Q-UTIL-8, Q-X-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P10). <!-- generated:unit-decisions -->
+- **Decisiones:** 5 distintas en sus filas; respondidas: Q-CFG-12, Q-CFG-4, Q-UTIL-8, Q-X-2; propuestas sin respuesta: Q-CFG-35. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P10). <!-- generated:unit-decisions -->
 - **Dependencias:** P01, P03, P07.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{deploy,deployer}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs DeployerSpec parciales + unidad.

@@ -36,7 +36,7 @@ pub use settings::{
 };
 pub use setup::{ActorSystemSetup, BootstrapSetup, Setup};
 
-use model::{Kind, Obj, Val, join_path, merge_obj, quote};
+use model::{Kind, NumRepr, Obj, Val, join_path, merge_obj, quote};
 
 use crate::ConfigurationException;
 use crate::util::{TimeUnit, Timeout};
@@ -193,6 +193,20 @@ impl Config {
             root: merge_obj(&self.root, &other.root),
             origin: self.origin.clone(),
         }
+    }
+
+    /// `root.render(ConfigRenderOptions.concise())`: the whole configuration as compact JSON-like text.
+    pub fn render_concise(&self) -> String {
+        render_concise(&Val {
+            line: 0,
+            kind: Kind::Obj(self.root.clone()),
+        })
+    }
+
+    /// `equals`: the two configurations hold the same values, whatever text they were read from (the origin of a value is
+    /// not part of its identity, and a whole number equals the same number written as a decimal).
+    pub fn same_value(&self, other: &Config) -> bool {
+        same_object(&self.root, &other.root)
     }
 
     /// `resolve()`: substitutions are replaced by the values they point to.
@@ -621,5 +635,45 @@ pub fn check_pekko_version(config: &Config) -> Result<(), ConfigurationException
             "Pekko JAR version [{}] does not match the provided config version [{config_version}]",
             crate::pekko_version::CURRENT
         )))
+    }
+}
+
+fn same_object(a: &Obj, b: &Obj) -> bool {
+    a.len() == b.len()
+        && a.iter().all(|(key, stack)| {
+            matches!(
+                (stack.first(), b.get(key).and_then(|other| other.first())),
+                (Some(x), Some(y)) if same_value_of(x, y)
+            )
+        })
+}
+
+fn same_value_of(a: &Val, b: &Val) -> bool {
+    match (&a.kind, &b.kind) {
+        (Kind::Num(x), Kind::Num(y)) => same_number(x, y),
+        (Kind::List(x), Kind::List(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(p, q)| same_value_of(p, q))
+        }
+        (Kind::Obj(x), Kind::Obj(y)) => same_object(x, y),
+        (x, y) => x == y,
+    }
+}
+
+/// A whole number equals another whole number with the same `long` value; any other number equals a number that is not
+/// whole with the same `double` value.
+fn same_number(a: &Number, b: &Number) -> bool {
+    let whole = |f: f64| (f as i64) as f64 == f;
+    match (&a.repr, &b.repr) {
+        (NumRepr::Int(x), NumRepr::Int(y)) => x == y,
+        (NumRepr::Int(x), NumRepr::Float(f)) | (NumRepr::Float(f), NumRepr::Int(x)) => {
+            whole(*f) && *f as i64 == *x
+        }
+        (NumRepr::Float(f), NumRepr::Float(g)) => {
+            if whole(*f) {
+                whole(*g) && *f as i64 == *g as i64
+            } else {
+                !whole(*g) && f == g
+            }
+        }
     }
 }

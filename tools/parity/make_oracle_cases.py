@@ -13,7 +13,7 @@ import json, os, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RUST = os.path.join(ROOT, "target", "release", "examples", "classic-parity")
 ORACLE = os.path.join(ROOT, "oracle", "run.sh")
-FAMILIES = {"path-address": "pa", "util-core": "uc", "config-hocon": "ch", "config-settings": "cs", "dynamic-access": "da", "provider-selection": "ps", "actor-system-setup": "as"}
+FAMILIES = {"path-address": "pa", "util-core": "uc", "config-hocon": "ch", "config-settings": "cs", "dynamic-access": "da", "provider-selection": "ps", "actor-system-setup": "as", "deploy": "dp"}
 
 
 def ids(cmd):

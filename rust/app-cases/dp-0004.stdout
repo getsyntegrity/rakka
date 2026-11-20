@@ -1,0 +1,1 @@
+DP-04 withTags keeps the other fields -> ok path="/a" config={} router=NoRouter scope=NoScopeGiven dispatcher="d" mailbox="m" tags=[t1, t2]

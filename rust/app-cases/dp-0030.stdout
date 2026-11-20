@@ -1,0 +1,1 @@
+FB-09 dispatcher and mailbox are decided one by one -> ok path="/a" config={} router=NoRouter scope=NoScopeGiven dispatcher="mine" mailbox="their-mailbox" tags=[]

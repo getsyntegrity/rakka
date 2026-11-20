@@ -69,6 +69,9 @@ public final class Cli {
       case "actor-system-setup-ids" -> System.out.print(String.join("\n", ActorSystemSetupOracle.ids()) + "\n");
       case "actor-system-setup-all" -> ActorSystemSetupOracle.ids().forEach(id -> System.out.println(ActorSystemSetupOracle.line(id)));
       case "actor-system-setup-case" -> System.out.println(ActorSystemSetupOracle.line(oneLine()));
+      case "deploy-ids" -> System.out.print(String.join("\n", DeployOracle.ids()) + "\n");
+      case "deploy-all" -> DeployOracle.ids().forEach(id -> System.out.println(DeployOracle.line(id)));
+      case "deploy-case" -> System.out.println(DeployOracle.line(oneLine()));
       case "path-address-ids" -> System.out.print(String.join("\n", PathAddressOracle.ids()) + "\n");
       case "util-core-ids" -> System.out.print(String.join("\n", UtilCoreOracle.ids()) + "\n");
       case "path-address-all" -> PathAddressOracle.ids().forEach(id -> System.out.println(PathAddressOracle.line(id)));

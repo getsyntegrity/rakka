@@ -152,7 +152,7 @@
 
 ## P10 CFG-DEPLOY
 
-3 filas; 4 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 0 propuestas.
+3 filas; 5 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -160,6 +160,7 @@
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 1: AC-CFG-012.1 | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-UTIL-8 | accepted (2026-11-18): aceptar (c). Autoriza no reproducir makePattern bit a bit. | 1: AC-CFG-012.2 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 2: AC-CFG-012.1, AC-CFG-013 | — | — | `transversal` |
+| Q-CFG-35 | propuesta | 1: AC-CFG-013 | Bloquea: el cierre de AC-CFG-013; puede avanzar: todo el comportamiento de datos. Reversible. | — | `classic-foundation` |
 
 ## P11 EVT-BUS
 
@@ -1050,4 +1051,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 493 (232 respondidas, 0 bloqueantes, 261 propuestas).
+Total de pares unidad–decisión: 494 (232 respondidas, 0 bloqueantes, 262 propuestas).

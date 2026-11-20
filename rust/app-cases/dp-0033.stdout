@@ -1,0 +1,1 @@
+FB-12 no scope given takes the scope of the other -> ok path="/a" config={} router=NoRouter scope=Local dispatcher="" mailbox="" tags=[]
