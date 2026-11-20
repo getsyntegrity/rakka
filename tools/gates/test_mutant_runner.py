@@ -245,10 +245,49 @@ class BudgetKill(unittest.TestCase):
             self.assertEqual(mr.execute_mutant("m", result_file, lambda: mr.TIMED_OUT, lambda: 3.0, budget_limited=True)["outcome"], "BUDGET_EXHAUSTED")
             self.assertEqual(mr.execute_mutant("m", result_file, lambda: mr.TIMED_OUT, lambda: 3.0, budget_limited=False)["outcome"], "TIMEOUT")
 
-    def test_the_limit_applies_only_when_the_remaining_budget_is_below_the_per_mutant_timeout(self):
+    def test_a_timeout_counts_as_budget_only_when_the_time_given_was_less_than_a_normal_mutant_needs(self):
         self.assertTrue(mr.is_budget_limited(remaining_seconds=100))
+        self.assertTrue(mr.is_budget_limited(remaining_seconds=mr.GENUINE_TIMEOUT_SECONDS - 1))
+        self.assertFalse(mr.is_budget_limited(remaining_seconds=mr.GENUINE_TIMEOUT_SECONDS))
         self.assertFalse(mr.is_budget_limited(remaining_seconds=None))
         self.assertFalse(mr.is_budget_limited(remaining_seconds=mr.PER_MUTANT_TIMEOUT + 1))
+
+    def test_a_hung_mutant_given_the_default_budget_is_a_timeout_error_not_pending_forever(self):
+        default_budget = mr.DEFAULT_MAX_MINUTES * 60
+        self.assertGreaterEqual(default_budget - 5, mr.GENUINE_TIMEOUT_SECONDS)   # a mutant started at the beginning of a default run
+        with tempfile.TemporaryDirectory() as root:
+            record = mr.execute_mutant("m", os.path.join(root, "m.json"), lambda: mr.TIMED_OUT, lambda: 1790.0,
+                                       budget_limited=mr.is_budget_limited(default_budget - 5))
+            self.assertEqual(record["outcome"], "TIMEOUT")
+
+
+class ControlFirst(unittest.TestCase):
+    def guarded(self, store, control_code, budget_limited=False):
+        started = []
+        control, report = mr.run_guarded(store, "k", lambda: control_code, lambda: started.append(1) or {"ran": 1}, budget_limited=budget_limited)
+        return control, report, started
+
+    def test_with_a_clean_control_the_mutants_run_after_it(self):
+        with tempfile.TemporaryDirectory() as root:
+            control, report, started = self.guarded(mr.ResultStore(root), 0)
+            self.assertEqual((control, report, started), ("CLEAN", {"ran": 1}, [1]))
+
+    def test_with_a_failing_control_no_mutant_runs_so_nothing_can_be_stored_as_detected(self):
+        with tempfile.TemporaryDirectory() as root:
+            control, report, started = self.guarded(mr.ResultStore(root), 1)
+            self.assertEqual((control, report, started), ("FAILED", None, []))
+
+    def test_with_a_control_the_budget_could_not_finish_no_mutant_runs_and_the_run_is_incomplete(self):
+        with tempfile.TemporaryDirectory() as root:
+            control, report, started = self.guarded(mr.ResultStore(root), mr.TIMED_OUT, budget_limited=True)
+            self.assertEqual((control, report, started), ("UNVERIFIED", None, []))
+
+    def test_a_detected_result_written_while_the_control_was_failing_cannot_exist(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = mr.ResultStore(root)
+            self.guarded(store, 1)
+            self.assertFalse(store.is_fresh("control-k"))
+            self.assertEqual([name for name in os.listdir(root) if not name.startswith("control-")], [])
 
 
 class ControlKey(unittest.TestCase):

@@ -29,6 +29,7 @@ DEFAULT_MAX_MUTANTS = 40
 DEFAULT_MAX_MINUTES = 30
 HARNESS_VERSION = 1       # bump when the semantics of this runner change: it invalidates every stored result
 PER_MUTANT_TIMEOUT = 1800
+GENUINE_TIMEOUT_SECONDS = 600   # a mutant needs ~150 s even with the full replay: given at least this long, running out of time is a real hang
 TIMED_OUT = -999
 CRATE = "crates/rakka-actor/"
 PY = "python3.12"
@@ -201,7 +202,7 @@ def ensure_control(store, control_key, run_control, budget_limited=False):
 
 def is_budget_limited(remaining_seconds):
     """True when the time budget, not the per-mutant limit, bounds this mutant's timeout."""
-    return remaining_seconds is not None and remaining_seconds < PER_MUTANT_TIMEOUT
+    return remaining_seconds is not None and remaining_seconds < GENUINE_TIMEOUT_SECONDS
 
 
 def control_key(root, harness, toolchain):
@@ -214,6 +215,15 @@ def control_key(root, harness, toolchain):
             path = os.path.join(directory, filename)
             digest.update(f"{os.path.relpath(path, root)}:{file_digest(path)};".encode())
     return digest.hexdigest()
+
+
+def run_guarded(store, control_key_value, run_control, run_mutants, budget_limited=False):
+    """Control first: mutants run, and so can be stored as DETECTED, only against a crate whose unmutated replay is clean.
+    -> (control verdict, mutant report or None when the control was FAILED or UNVERIFIED)."""
+    control = ensure_control(store, control_key_value, run_control, budget_limited)
+    if control != "CLEAN":
+        return control, None
+    return control, run_mutants()
 
 
 def execute_mutant(name, result_file, launch, elapsed, budget_limited=False):
@@ -378,14 +388,20 @@ def main(argv):
         launch = lambda: run_cancellable(command, mutant_timeout(remaining), os.path.join(STORE_DIR, "logs", name + ".log"), cwd=ROOT)
         return execute_mutant(name, result_file, launch, lambda: time.time() - started, budget_limited=is_budget_limited(remaining))
 
-    report = run_plan(ordered, keys, store, execute, time.time, max_mutants, budget_seconds)
+    ckey = control_key(ROOT, harness, toolchain)
+    run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], mutant_timeout(budget_seconds), os.path.join(STORE_DIR, "logs", "control.log"), cwd=ROOT)
+
+    def run_mutants():
+        left = None if budget_seconds is None else budget_seconds - (time.time() - run_started)   # the control's time counts against the budget
+        return run_plan(ordered, keys, store, execute, time.time, max_mutants, left)
+
+    control, report = run_guarded(store, ckey, run_control, run_mutants, budget_limited=is_budget_limited(budget_seconds))
+    if report is None:   # nothing ran: report what is already proved and what is pending
+        report = run_plan(ordered, keys, store, execute, time.time, 0, None)
+        report["stopped_by"] = f"control {control}"
     outcomes = {**report["outcomes"], **{n: "STALE_PATTERN" for n in stale}}
     undetected = [n for n, o in outcomes.items() if o == "UNDETECTED"]
     errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
-    ckey = control_key(ROOT, harness, toolchain)
-    remaining_for_control = None if budget_seconds is None else budget_seconds - (time.time() - run_started)
-    run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], mutant_timeout(remaining_for_control), os.path.join(STORE_DIR, "logs", "control.log"), cwd=ROOT)
-    control = ensure_control(store, ckey, run_control, budget_limited=is_budget_limited(remaining_for_control))
     detected = sum(1 for o in outcomes.values() if o == "DETECTED")
     text = summary_text(len(all_mutants), detected, undetected, errors, report["pending"], report["stopped_by"], control)
     print(text)
