@@ -70,6 +70,21 @@ def import_edges(root):
     return edges
 
 
+def find_stale_patterns(table, root, base=CRATE):
+    """Mutants whose `old` text no longer occurs exactly once in their file: the code they target changed or disappeared.
+    They are never run and never DETECTED; the run reports them as errors until they are rewritten or removed."""
+    stale = []
+    for name, (rel, old, _new, _why) in table.items():
+        try:
+            with open(os.path.join(root, base, rel), encoding="utf-8") as fh:
+                occurrences = fh.read().count(old)
+        except OSError:
+            occurrences = 0
+        if occurrences != 1:
+            stale.append(name)
+    return stale
+
+
 def order_mutants(names, mutant_files, changed, edges):
     """[(name, 'changed'|'neighbour'|'other')], stable inside each class."""
     changed = set(changed)
@@ -237,17 +252,28 @@ def summary_text(total, detected, undetected, errors, pending, stopped_by, contr
 
 # ---------- process control ----------
 
-def _kill_group(process):
-    for sig in (signal.SIGTERM, signal.SIGKILL):
-        try:
-            os.killpg(process.pid, sig)
-        except ProcessLookupError:
-            return
-        try:
-            process.wait(timeout=5)
-            return
-        except subprocess.TimeoutExpired:
-            continue
+def _leader_has_exited(pid):
+    """True once the group leader is dead (a zombie), WITHOUT reaping it: the zombie keeps the pid (and so the group id) reserved, so the
+    signals below can only ever reach our own group, never a foreign process that got the same pid. (`os.waitid` does not exist on macOS.)"""
+    state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+    return state == "" or state.startswith("Z")
+
+
+def _kill_group(process, term_grace=5.0, after_leader_grace=1.0):
+    """SIGTERM to the group, then SIGKILL to whatever is still in it (descendants may ignore SIGTERM or outlive the leader)."""
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):   # macOS answers EPERM for a group holding only our zombie leader: it is empty
+        pass
+    deadline = time.time() + term_grace
+    while not _leader_has_exited(process.pid) and time.time() < deadline:
+        time.sleep(0.1)
+    time.sleep(after_leader_grace)       # descendants get the same chance to exit cleanly
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    process.wait()                       # reap the leader last
 
 
 def run_cancellable(command, timeout, log_path, cwd=None):
@@ -291,7 +317,8 @@ def main(argv):
     all_mutants = {**cd.MUTANTS, **cd.TOOL_MUTANTS}
     files = {n: (("tools/parity/" if n in cd.TOOL_MUTANTS else CRATE) + m[0]) for n, m in all_mutants.items()}
     edges = import_edges(ROOT)
-    ordered = order_mutants(list(all_mutants), files, [c for c in git_changed(option(argv, "--base", DEFAULT_BASE, str))], edges)
+    stale = find_stale_patterns(cd.MUTANTS, ROOT) + find_stale_patterns(cd.TOOL_MUTANTS, ROOT, "tools/parity/")
+    ordered = order_mutants([n for n in all_mutants if n not in stale], files, [c for c in git_changed(option(argv, "--base", DEFAULT_BASE, str))], edges)
     toolchain = subprocess.run(["rustc", "-V"], capture_output=True, text=True).stdout.strip()
     harness = harness_fingerprint(ROOT)
     keys = {n: mutant_key(n, all_mutants[n][:3], neighbourhood_hash(ROOT, files[n], edges), harness, {"fast_kill": fast_kill}, toolchain) for n in all_mutants}
@@ -315,7 +342,7 @@ def main(argv):
         return execute_mutant(name, result_file, launch, lambda: time.time() - started)
 
     report = run_plan(ordered, keys, store, execute, time.time, max_mutants, budget_seconds)
-    outcomes = report["outcomes"]
+    outcomes = {**report["outcomes"], **{n: "STALE_PATTERN" for n in stale}}
     undetected = [n for n, o in outcomes.items() if o == "UNDETECTED"]
     errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
     control_key = hashlib.sha256((harness + neighbourhood_hash(ROOT, CRATE + "src/lib.rs", edges) + "".join(sorted(neighbourhood_hash(ROOT, f, edges) for f in set(files.values())))).encode()).hexdigest()
@@ -324,8 +351,27 @@ def main(argv):
     detected = sum(1 for o in outcomes.values() if o == "DETECTED")
     text = summary_text(len(all_mutants), detected, undetected, errors, report["pending"], report["stopped_by"], control)
     print(text)
+    if stale:
+        print(f"STALE patterns, not executed ({len(stale)}): " + ", ".join(stale[:6]) + (" ..." if len(stale) > 6 else ""))
     return exit_code(undetected, errors, report["pending"], control)
 
 
+VERDICTS = {0: "PASS", 1: "FAIL", 2: "ERROR", 3: "INCOMPLETE", 143: "CANCELLED"}   # proposed Q-X-20, not yet accepted by the Owner
+
+
+def verdict(code):
+    return VERDICTS.get(code, "ERROR")
+
+
+def run_as_script(argv):
+    """Runs main(), prints the one-line verdict and exits with its code (143 after a cancellation, checkpoints already on disk)."""
+    try:
+        code = main(argv)
+    except SystemExit as stop:
+        code = stop.code if isinstance(stop.code, int) else 2
+    print(f"VERDICT {verdict(code)} (exit {code})")
+    sys.exit(code)
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    run_as_script(sys.argv[1:])

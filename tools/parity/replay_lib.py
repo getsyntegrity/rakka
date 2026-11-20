@@ -57,6 +57,31 @@ def case_outputs(binary, case):
     return recorded, produced.stdout
 
 
+def diverges_only_in_mutant(mutant_binary, control_binary, case, cases_dir=None, timeout=60):
+    """True only when the divergence from Pekko on `case` is demonstrated and caused by the mutation: the unmutated build
+    reproduces the recorded Pekko status code and stdout (the two things `rust-anything app replay` compares) and the mutant does not.
+    False in every other situation (hang, unreadable recording, missing binary, control that already differs): the caller must then
+    run the full replay; this function never concludes that a mutant survived."""
+    import tomllib
+    base = os.path.join(cases_dir or os.path.join(ROOT, "rust", "app-cases"), case)
+    try:
+        with open(base + ".toml", "rb") as fh:
+            recording = tomllib.load(fh)
+        args, expected_code = recording["args"], recording["status"]["code"]
+        with open(base + ".stdin", "rb") as fh:
+            stdin = fh.read()
+        with open(base + ".stdout", "rb") as fh:
+            expected_stdout = fh.read()
+        outcome = {}
+        for label, binary in (("control", control_binary), ("mutant", mutant_binary)):
+            run = subprocess.run([binary, *args], input=stdin, capture_output=True, timeout=timeout)
+            outcome[label] = (run.returncode, run.stdout)
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+        return False
+    recorded = (expected_code, expected_stdout)
+    return outcome["control"] == recorded and outcome["mutant"] != recorded
+
+
 def evaluate(binary, result):
     """-> dict(ok, line, applicable_failing, na_problems, passed, total, na_q_cfg_30, other_na). `ok` means every
     applicable case matches Pekko, every NOT_APPLICABLE case is rejected explicitly, and what is left over is only

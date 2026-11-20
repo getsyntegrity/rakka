@@ -1396,7 +1396,7 @@ def run_mutant(scratch, name, rel, old, new, why):
     if FAST_KILL:
         killer = fast_kill(binary, name)
         if killer:   # one recorded applicable case diverges: the same criterion as a full replay, without its ~130 s
-            return DETECTED, None, None, f"fast-kill: recorded case {killer} diverges from Pekko"
+            return DETECTED, None, None, f"fast-kill: on recorded case {killer} the unmutated build matches Pekko and the mutant does not"
     try:
         r = replay(binary)
     except subprocess.TimeoutExpired:
@@ -1420,15 +1420,31 @@ def known_killers(name):
     return [c for c in listed if c not in not_applicable][:FAST_KILL_CANDIDATES]
 
 
-def fast_kill(binary, name):
-    """First known killer case whose output differs from the recorded Pekko output (and is not the Q-CFG-30 JDK signature), else None.
-    Never a verdict of 'undetected': a miss only means the full replay must decide."""
-    for case in known_killers(name):
+_control_binary = None
+
+
+def control_binary_for_fast_kill():
+    """The unmutated parity binary of the current tree (built once per process), or None when it cannot be built."""
+    global _control_binary
+    if _control_binary is None:
+        path = os.path.join(ROOT, "target", PARITY)
         try:
-            recorded, produced = replay_lib.case_outputs(binary, case)
-        except (OSError, subprocess.TimeoutExpired, KeyError):
-            continue
-        if recorded != produced and not replay_lib.na_q_cfg_30.is_q_cfg_30(recorded, produced):
+            built = sh(["cargo", "build", "--release", "-p", "rakka-actor", "--example", "classic-parity"], timeout=BUILD_TIMEOUT, cwd=ROOT)
+            _control_binary = path if built.returncode == 0 and os.path.exists(path) else ""
+        except subprocess.TimeoutExpired:
+            _control_binary = ""
+    return _control_binary or None
+
+
+def fast_kill(binary, name):
+    """First known killer case on which the divergence from the recorded Pekko output is demonstrated (the unmutated build agrees
+    with Pekko, the mutant does not; see replay_lib.diverges_only_in_mutant), else None.
+    Never a verdict of 'undetected': a miss only means the full replay must decide."""
+    control = control_binary_for_fast_kill()
+    if control is None:
+        return None
+    for case in known_killers(name):
+        if replay_lib.diverges_only_in_mutant(binary, control, case):
             return case
     return None
 

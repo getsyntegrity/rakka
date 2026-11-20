@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 248 decisiones: 0 bloqueantes, 180 propuestas, 55 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 249 decisiones: 0 bloqueantes, 181 propuestas, 55 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -2026,6 +2026,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) Seguir en JDK 17 (Q-X-16) con excepciones por familia: hoy NUM-RENDER y NUM-SHORT en JDK 21. (b) Pasar el oráculo y todo el corpus a JDK 21 y regrabarlo. (c) Pasar a JDK 25 LTS y regrabarlo.
 - **Recomendación:** (b), sin regrabar nada hasta que el Owner responda. Clasificación: infraestructura del oráculo; no cambia el contrato de Pekko 2.0.0, pero puede cambiar los esperados de los casos que dependen de la JDK (p. ej. el texto de excepciones del JDK y el render de doubles). Bloquea: nada hoy; deja de mezclar JDK 17 y 21 y elimina la excepción de #266 y el clasificador NA:Q-CFG-30 si se elige (b) o (c). Reversible.
 - **Filas afectadas:** todas las filas con casos grabados
+- **Unidades afectadas:** todas
+- **Origen:** classic-foundation
+
+### Q-X-20 — Veredictos del gate MILESTONE: PASS, INCOMPLETE, FAIL, ERROR y CANCELLED
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** PR #310 (borrador): el gate de mutantes midió 7 s de build y 132 s de replay por mutante (~7,5 h para 206) y se canceló por costo; el runner con presupuesto (tools/gates/mutant_runner.py) deja resultados parciales. Q-X-14 pide regresión completa de mutantes y fuzzers en cada hito, sin definir qué veredicto produce una corrida parcial, un error del arnés o una cancelación. Hoy el runner sale con 0 (completo y limpio), 1 (mutante sobreviviente o control fallido), 2 (error/parche obsoleto/rechazo) y 3 (pendientes). Los mapas a los veredictos propuestos son 0=PASS, 3=INCOMPLETE, 1=FAIL, 2=ERROR y 143=CANCELLED.
+- **Alternativas:** (a) Política propuesta: MILESTONE exhaustivo es PASS únicamente si se completaron todos los controles requeridos (todos los mutantes con resultado fresco DETECTED, control limpio y fuzzers). MILESTONE limitado (presupuesto) es INCOMPLETE mientras queden mutantes pendientes. Un mutante sobreviviente es FAIL, salvo clasificación justificada y revisada. Un error de compilación, del arnés o de parche (incluido un patrón obsoleto) es ERROR, nunca DETECTED. La cancelación es CANCELLED y conserva los checkpoints válidos. (b) Mantener el comportamiento actual: un MILESTONE limitado puede declararse cumplido con la regresión parcial. (c) Exigir siempre la corrida exhaustiva en cada hito sin presupuesto.
+- **Recomendación:** (a). Clasificación: política de verificación; no cambia el contrato de Pekko 2.0.0. Consecuencias observables: sólo la clasificación del resultado del gate y qué puede citar un PR de hito como evidencia. Bloquea: declarar cumplida la regresión de mutantes de un hito con una corrida limitada. Puede avanzar: PR de slice con el gate PR.
+- **Filas afectadas:** ninguna fila del inventario (política de gates)
 - **Unidades afectadas:** todas
 - **Origen:** classic-foundation
 

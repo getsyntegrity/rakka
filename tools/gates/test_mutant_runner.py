@@ -42,6 +42,21 @@ class ImportGraph(unittest.TestCase):
             self.assertNotIn("crates/rakka-actor/src/util/timeout.rs", edges["crates/rakka-actor/src/actor/user.rs"])
 
 
+class StalePatterns(unittest.TestCase):
+    def test_a_mutant_whose_pattern_no_longer_occurs_exactly_once_is_stale_and_never_valid(self):
+        with tempfile.TemporaryDirectory() as root:
+            write(root, "crates/rakka-actor/src/a.rs", "let x = 1;\\nlet y = 2;\\nlet y = 2;\\n")
+            table = {"ok": ("src/a.rs", "let x = 1;", "let x = 2;", "w"), "gone": ("src/a.rs", "let z = 3;", "n", "w"),
+                     "ambiguous": ("src/a.rs", "let y = 2;", "n", "w"), "missing-file": ("src/none.rs", "x", "n", "w")}
+            self.assertEqual(mr.find_stale_patterns(table, root), ["gone", "ambiguous", "missing-file"])
+
+    def test_stale_mutants_are_reported_as_errors_and_keep_the_run_from_passing(self):
+        outcomes = {"gone": "STALE_PATTERN", "fine": "DETECTED"}
+        errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
+        self.assertEqual(errors, ["gone"])
+        self.assertEqual(mr.exit_code(undetected=[], errors=errors, pending=[], control="CLEAN"), 2)
+
+
 class Ordering(unittest.TestCase):
     def test_changed_file_first_then_its_neighbours_then_the_rest(self):
         files = {"m-cell": "crates/rakka-actor/src/actor/cell.rs", "m-queue": "crates/rakka-actor/src/dispatch/queue.rs", "m-clock": "crates/rakka-actor/src/util/clock.rs"}
@@ -217,6 +232,21 @@ class Summary(unittest.TestCase):
         self.assertEqual(mr.exit_code(undetected=[], errors=[], pending=[], control="FAILED"), 1)
 
 
+class Verdicts(unittest.TestCase):
+    def test_exit_codes_map_to_the_proposed_q_x_20_verdicts(self):
+        self.assertEqual([mr.verdict(c) for c in (0, 1, 2, 3, 143)], ["PASS", "FAIL", "ERROR", "INCOMPLETE", "CANCELLED"])
+
+    def test_an_unknown_exit_code_is_an_error_never_a_pass(self):
+        self.assertEqual(mr.verdict(77), "ERROR")
+
+    def test_a_cancelled_runner_prints_cancelled_and_exits_143(self):
+        driver = (f"import sys; sys.path.insert(0, {HERE!r}); import mutant_runner as mr;"
+                  "mr.main = lambda argv: sys.exit(143); mr.run_as_script([])")
+        result = subprocess.run([sys.executable, "-c", driver], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 143)
+        self.assertIn("VERDICT CANCELLED", result.stdout)
+
+
 class Cancellation(unittest.TestCase):
     def test_terminating_the_runner_kills_the_child_and_its_grandchildren(self):
         with tempfile.TemporaryDirectory() as root:
@@ -240,6 +270,32 @@ class Cancellation(unittest.TestCase):
                 time.sleep(0.05)
             os.kill(grandchild, signal.SIGKILL)
             self.fail("the grandchild survived the cancellation")
+
+    def test_a_descendant_that_ignores_sigterm_is_killed_after_the_group_leader_exits(self):
+        with tempfile.TemporaryDirectory() as root:
+            pid_file = os.path.join(root, "stubborn.pid")
+            script = f"(trap '' TERM; exec sleep 300) & echo $! > {pid_file}; sleep 300"
+            code = mr.run_cancellable(["sh", "-c", script], 1, os.path.join(root, "out.log"))
+            self.assertEqual(code, mr.TIMED_OUT)
+            stubborn = int(open(pid_file).read())
+            for _ in range(100):
+                try:
+                    os.kill(stubborn, 0)
+                except ProcessLookupError:
+                    return
+                time.sleep(0.05)
+            os.kill(stubborn, signal.SIGKILL)
+            self.fail("a descendant that ignores SIGTERM survived the leader")
+
+    def test_a_process_outside_the_group_is_never_signalled(self):
+        with tempfile.TemporaryDirectory() as root:
+            bystander = subprocess.Popen(["sleep", "300"])
+            try:
+                mr.run_cancellable(["sleep", "30"], 1, os.path.join(root, "out.log"))
+                self.assertIsNone(bystander.poll())
+            finally:
+                bystander.kill()
+                bystander.wait()
 
     def test_a_child_that_exceeds_its_timeout_is_killed_and_reported(self):
         with tempfile.TemporaryDirectory() as root:
