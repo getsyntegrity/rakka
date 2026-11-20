@@ -1,0 +1,1 @@
+TS-33 toString with two substitutions -> ok Deploy(/a, Config(SimpleConfigObject({"a":${b},"a":${c}})), NoRouter, NoScopeGiven, , , Set())

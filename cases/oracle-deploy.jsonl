@@ -42,3 +42,38 @@
 {"name": "dp-0042", "args": ["deploy-case"], "stdin": "RT-02 a router over no router"}
 {"name": "dp-0043", "args": ["deploy-case"], "stdin": "RT-03 no router over no router"}
 {"name": "dp-0044", "args": ["deploy-case"], "stdin": "RT-04 a router over another router keeps its class"}
+{"name": "dp-0045", "args": ["deploy-case"], "stdin": "TS-01 toString of Deploy()"}
+{"name": "dp-0046", "args": ["deploy-case"], "stdin": "TS-02 toString of Deploy.local"}
+{"name": "dp-0047", "args": ["deploy-case"], "stdin": "TS-03 toString with path, dispatcher and mailbox"}
+{"name": "dp-0048", "args": ["deploy-case"], "stdin": "TS-04 toString with a nested configuration"}
+{"name": "dp-0049", "args": ["deploy-case"], "stdin": "TS-05 toString with numbers of every shape"}
+{"name": "dp-0050", "args": ["deploy-case"], "stdin": "TS-06 toString with null and booleans"}
+{"name": "dp-0051", "args": ["deploy-case"], "stdin": "TS-07 toString with keys that need quotes"}
+{"name": "dp-0052", "args": ["deploy-case"], "stdin": "TS-08 toString with escapes in strings"}
+{"name": "dp-0053", "args": ["deploy-case"], "stdin": "TS-09 toString with Unicode and astral text"}
+{"name": "dp-0054", "args": ["deploy-case"], "stdin": "TS-10 toString with a path of the form a.b.c"}
+{"name": "dp-0055", "args": ["deploy-case"], "stdin": "TS-11 toString with an unresolved substitution"}
+{"name": "dp-0056", "args": ["deploy-case"], "stdin": "TS-12 toString with an unresolved optional substitution and a concatenation"}
+{"name": "dp-0057", "args": ["deploy-case"], "stdin": "TS-13 toString with one tag"}
+{"name": "dp-0058", "args": ["deploy-case"], "stdin": "TS-14 toString with four tags in insertion order"}
+{"name": "dp-0059", "args": ["deploy-case"], "stdin": "TS-15 toString with four tags in the opposite insertion order"}
+{"name": "dp-0060", "args": ["deploy-case"], "stdin": "TS-16 toString with five tags"}
+{"name": "dp-0061", "args": ["deploy-case"], "stdin": "TS-17 toString with five tags in another insertion order"}
+{"name": "dp-0062", "args": ["deploy-case"], "stdin": "TS-18 toString with twelve tags"}
+{"name": "dp-0063", "args": ["deploy-case"], "stdin": "TS-19 toString with repeated tags"}
+{"name": "dp-0064", "args": ["deploy-case"], "stdin": "TS-20 toString after withFallback"}
+{"name": "dp-0065", "args": ["deploy-case"], "stdin": "TS-21 toString with the empty object and the empty list"}
+{"name": "dp-0066", "args": ["deploy-case"], "stdin": "TS-22 toString with durations and sizes kept as strings"}
+{"name": "dp-0067", "args": ["deploy-case"], "stdin": "TS-23 toString with numeric and mixed keys"}
+{"name": "dp-0068", "args": ["deploy-case"], "stdin": "TS-24 toString with non-ASCII digit keys"}
+{"name": "dp-0069", "args": ["deploy-case"], "stdin": "TS-25 toString with keys that differ in UTF-16 order and code point order"}
+{"name": "dp-0070", "args": ["deploy-case"], "stdin": "TS-26 toString with concatenations of substitutions"}
+{"name": "dp-0071", "args": ["deploy-case"], "stdin": "TS-27 toString with a substitution after and before an object"}
+{"name": "dp-0072", "args": ["deploy-case"], "stdin": "TS-28 toString with substitution paths that need quotes"}
+{"name": "dp-0073", "args": ["deploy-case"], "stdin": "TS-29 toString with a substitution under an object"}
+{"name": "dp-0074", "args": ["deploy-case"], "stdin": "TS-30 toString with a substitution over a number"}
+{"name": "dp-0075", "args": ["deploy-case"], "stdin": "TS-31 toString with a number over a substitution"}
+{"name": "dp-0076", "args": ["deploy-case"], "stdin": "TS-32 toString with objects around a substitution"}
+{"name": "dp-0077", "args": ["deploy-case"], "stdin": "TS-33 toString with two substitutions"}
+{"name": "dp-0078", "args": ["deploy-case"], "stdin": "TS-34 toString with a substitution and a nested key"}
+{"name": "dp-0079", "args": ["deploy-case"], "stdin": "TS-35 toString with an optional substitution over an object"}

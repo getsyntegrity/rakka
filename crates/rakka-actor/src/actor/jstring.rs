@@ -71,7 +71,7 @@ const DIGIT_SERIES_STARTS: [u16; 37] = [
 ];
 
 /// Value 0..=9 of a UTF-16 code unit that is a decimal digit, or `None`.
-fn decimal_digit_value(unit: u16) -> Option<i32> {
+pub(crate) fn decimal_digit_value(unit: u16) -> Option<i32> {
     DIGIT_SERIES_STARTS
         .iter()
         .find(|&&start| (start..start + 10).contains(&unit))

@@ -683,3 +683,44 @@ fn a_whole_configuration_renders_as_compact_sorted_text() {
         "{\"n\":{\"a\":true,\"b\":[1,2]},\"x\":1,\"y\":\"s\"}"
     );
 }
+
+// Expected texts measured with `ConfigRenderOptions.concise()` in Typesafe Config 1.4.9 (DeployOracle TS-23..TS-35).
+#[test]
+fn render_concise_lists_digit_keys_first_by_numeric_value_then_the_others_by_utf16_order() {
+    let rendered = p(
+        "\"10\" = 1, \"9\" = 2, \"2\" = 3, \"007\" = 4, a = 5, B = 6, _ = 7, \"-1\" = 9, \"\" = 0",
+    )
+    .render_concise();
+    assert_eq!(
+        rendered,
+        "{\"2\":3,\"007\":4,\"9\":2,\"10\":1,\"\":0,\"-1\":9,\"B\":6,\"_\":7,\"a\":5}"
+    );
+    let unicode = p(r#""١٢" = 1, "3" = 2, "１" = 3"#).render_concise();
+    assert_eq!(unicode, "{\"\u{FF11}\":3,\"3\":2,\"\u{661}\u{662}\":1}");
+    let utf16 = p(r#""￿" = 1, "😀" = 2, "" = 3"#).render_concise();
+    assert_eq!(utf16, "{\"\u{1F600}\":2,\"\u{E000}\":3,\"\u{FFFF}\":1}");
+}
+
+#[test]
+fn render_concise_shows_unresolved_substitutions_and_concatenations() {
+    let rendered = p("a = ${?b}, c = ${d} suffix, e = \"x\" ${f}, g = ${x} ${y}, h = ${x}${y}")
+        .render_concise();
+    assert_eq!(
+        rendered,
+        "{\"a\":${?b},\"c\":${d}\" suffix\",\"e\":\"x \"${f},\"g\":${x}\" \"${y},\"h\":${x}${y}}"
+    );
+}
+
+#[test]
+fn render_concise_shows_every_layer_of_an_unresolved_key_oldest_first() {
+    assert_eq!(
+        p("a = {x = 1}\na = ${b}\na = {z = 3}").render_concise(),
+        "{\"a\":{\"x\":1},\"a\":${b},\"a\":{\"z\":3}}"
+    );
+    assert_eq!(p("a = ${b}\na = 2").render_concise(), "{\"a\":2}");
+}
+
+#[test]
+fn a_pair_of_surrogate_escapes_is_one_astral_character() {
+    assert_eq!(p(r#"a = "😀""#).get_string("a").unwrap(), "\u{1F600}");
+}

@@ -2121,6 +2121,41 @@ dp-0041	deploy	RT-01 no router takes a router
 dp-0042	deploy	RT-02 a router over no router
 dp-0043	deploy	RT-03 no router over no router
 dp-0044	deploy	RT-04 a router over another router keeps its class
+dp-0045	deploy	TS-01 toString of Deploy()
+dp-0046	deploy	TS-02 toString of Deploy.local
+dp-0047	deploy	TS-03 toString with path, dispatcher and mailbox
+dp-0048	deploy	TS-04 toString with a nested configuration
+dp-0049	deploy	TS-05 toString with numbers of every shape
+dp-0050	deploy	TS-06 toString with null and booleans
+dp-0051	deploy	TS-07 toString with keys that need quotes
+dp-0052	deploy	TS-08 toString with escapes in strings
+dp-0053	deploy	TS-09 toString with Unicode and astral text
+dp-0054	deploy	TS-10 toString with a path of the form a.b.c
+dp-0055	deploy	TS-11 toString with an unresolved substitution
+dp-0056	deploy	TS-12 toString with an unresolved optional substitution and a concatenation
+dp-0057	deploy	TS-13 toString with one tag
+dp-0058	deploy	TS-14 toString with four tags in insertion order
+dp-0059	deploy	TS-15 toString with four tags in the opposite insertion order
+dp-0060	deploy	TS-16 toString with five tags
+dp-0061	deploy	TS-17 toString with five tags in another insertion order
+dp-0062	deploy	TS-18 toString with twelve tags
+dp-0063	deploy	TS-19 toString with repeated tags
+dp-0064	deploy	TS-20 toString after withFallback
+dp-0065	deploy	TS-21 toString with the empty object and the empty list
+dp-0066	deploy	TS-22 toString with durations and sizes kept as strings
+dp-0067	deploy	TS-23 toString with numeric and mixed keys
+dp-0068	deploy	TS-24 toString with non-ASCII digit keys
+dp-0069	deploy	TS-25 toString with keys that differ in UTF-16 order and code point order
+dp-0070	deploy	TS-26 toString with concatenations of substitutions
+dp-0071	deploy	TS-27 toString with a substitution after and before an object
+dp-0072	deploy	TS-28 toString with substitution paths that need quotes
+dp-0073	deploy	TS-29 toString with a substitution under an object
+dp-0074	deploy	TS-30 toString with a substitution over a number
+dp-0075	deploy	TS-31 toString with a number over a substitution
+dp-0076	deploy	TS-32 toString with objects around a substitution
+dp-0077	deploy	TS-33 toString with two substitutions
+dp-0078	deploy	TS-34 toString with a substitution and a nested key
+dp-0079	deploy	TS-35 toString with an optional substitution over an object
 dr-0001	deployer	DL-01 a single wildcard as last element
 dr-0002	deployer	DL-02 a single wildcard as first element
 dr-0003	deployer	DL-03 a terminal double wildcard needs at least the prefix

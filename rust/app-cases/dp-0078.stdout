@@ -1,0 +1,1 @@
+TS-34 toString with a substitution and a nested key -> ok Deploy(/a, Config(SimpleConfigObject({"a":{"b":${c},"b":{"d":1},"e":2}})), NoRouter, NoScopeGiven, , , Set())
