@@ -217,6 +217,43 @@ class MutantResultCollection(unittest.TestCase):
             self.assertEqual(mr.execute_mutant("m", os.path.join(root, "m.json"), lambda: mr.TIMED_OUT, lambda: 9.0)["outcome"], "TIMEOUT")
 
 
+class BudgetKill(unittest.TestCase):
+    def test_a_mutant_cut_by_the_time_budget_is_pending_and_never_stored(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = mr.ResultStore(root)
+            def execute(name):
+                return {"outcome": "BUDGET_EXHAUSTED", "seconds": 1.0} if name == "b" else {"outcome": "DETECTED", "seconds": 1.0}
+            report = mr.run_plan([(n, "other") for n in "abc"], {n: "key-" + n for n in "abc"}, store, execute, clock=lambda: 0.0, max_mutants=None, max_seconds=60)
+            self.assertEqual((report["ran"], report["pending"], report["stopped_by"]), (1, ["b", "c"], "time budget"))
+            self.assertIsNone(store.get("key-b"))
+            self.assertNotIn("b", report["outcomes"])
+
+    def test_the_clamped_timeout_firing_means_budget_exhausted_while_the_normal_one_is_a_timeout(self):
+        with tempfile.TemporaryDirectory() as root:
+            result_file = os.path.join(root, "m.json")
+            self.assertEqual(mr.execute_mutant("m", result_file, lambda: mr.TIMED_OUT, lambda: 3.0, budget_limited=True)["outcome"], "BUDGET_EXHAUSTED")
+            self.assertEqual(mr.execute_mutant("m", result_file, lambda: mr.TIMED_OUT, lambda: 3.0, budget_limited=False)["outcome"], "TIMEOUT")
+
+    def test_the_limit_applies_only_when_the_remaining_budget_is_below_the_per_mutant_timeout(self):
+        self.assertTrue(mr.is_budget_limited(remaining_seconds=100))
+        self.assertFalse(mr.is_budget_limited(remaining_seconds=None))
+        self.assertFalse(mr.is_budget_limited(remaining_seconds=mr.PER_MUTANT_TIMEOUT + 1))
+
+
+class ControlKey(unittest.TestCase):
+    def test_any_crate_file_the_toolchain_or_the_harness_changes_the_control_key(self):
+        with tempfile.TemporaryDirectory() as root:
+            mini_repo(root)
+            write(root, "crates/rakka-actor/Cargo.toml", "[package]\\n")
+            write(root, "crates/rakka-actor/src/deep/no_mutants.rs", "// no mutant targets this file\\n")
+            reference = mr.control_key(root, "h", "rustc 1")
+            self.assertEqual(reference, mr.control_key(root, "h", "rustc 1"))
+            self.assertNotEqual(reference, mr.control_key(root, "h", "rustc 2"))
+            self.assertNotEqual(reference, mr.control_key(root, "h2", "rustc 1"))
+            write(root, "crates/rakka-actor/src/deep/no_mutants.rs", "// edited\\n")
+            self.assertNotEqual(reference, mr.control_key(root, "h", "rustc 1"))
+
+
 class Summary(unittest.TestCase):
     def test_summary_is_compact_even_with_hundreds_of_problems(self):
         text = mr.summary_text(total=206, detected=100, undetected=[f"u{i}" for i in range(80)], errors=[f"e{i}" for i in range(26)], pending=[], stopped_by=None, control="CLEAN")
@@ -238,6 +275,14 @@ class Verdicts(unittest.TestCase):
 
     def test_an_unknown_exit_code_is_an_error_never_a_pass(self):
         self.assertEqual(mr.verdict(77), "ERROR")
+
+    def test_ctrl_c_is_a_cancellation_not_a_traceback(self):
+        driver = (f"import sys; sys.path.insert(0, {HERE!r}); import mutant_runner as mr;"
+                  "mr.main = lambda argv: (_ for _ in ()).throw(KeyboardInterrupt()); mr.run_as_script([])")
+        result = subprocess.run([sys.executable, "-c", driver], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 143)
+        self.assertIn("VERDICT CANCELLED", result.stdout)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_a_cancelled_runner_prints_cancelled_and_exits_143(self):
         driver = (f"import sys; sys.path.insert(0, {HERE!r}); import mutant_runner as mr;"

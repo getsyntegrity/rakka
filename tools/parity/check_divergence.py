@@ -1496,6 +1496,20 @@ def check_patterns():
     sys.exit(2 if bad else 0)
 
 
+def run_control_replay():
+    """Replays the unmodified crate: builds the parity binary of the CURRENT tree first (a leftover binary would certify old code).
+    -> (control_ok, passed, total, line, replay result or None)."""
+    control_binary = control_binary_for_fast_kill()
+    if control_binary is None:
+        return False, None, None, "could not build the unmodified parity binary", None
+    try:
+        c = replay(control_binary)
+    except subprocess.TimeoutExpired:
+        return False, None, None, "TIMEOUT", None
+    c_out, c_pass, c_total, c_line = classify(c, control_binary)
+    return c_out == UNDETECTED, c_pass, c_total, c_line, c
+
+
 def main():
     args = sys.argv[1:]
     if "--check-patterns" in args:
@@ -1529,13 +1543,7 @@ def main():
         elif tool_only:   # the tool mutants need no replay: the control would only repeat the last full run
             control_ok, c_pass, c_total, c_line = True, None, None, "skipped (tool mutants only)"
         else:
-            try:
-                control_binary = os.path.join(ROOT, "target", PARITY)
-                c = replay(control_binary)
-                c_out, c_pass, c_total, c_line = classify(c, control_binary)
-                control_ok = c_out == UNDETECTED
-            except subprocess.TimeoutExpired:
-                control_ok, c_pass, c_total, c_line = False, None, None, "TIMEOUT"
+            control_ok, c_pass, c_total, c_line, c = run_control_replay()
         print(f"=== control (unmodified rakka-actor): exit={c.returncode if c is not None and c_pass is not None else '?'}  {c_line}", flush=True)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)

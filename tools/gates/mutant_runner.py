@@ -192,15 +192,32 @@ def ensure_control(store, control_key, run_control):
     return "CLEAN" if code == 0 else "FAILED"
 
 
-def execute_mutant(name, result_file, launch, elapsed):
+def is_budget_limited(remaining_seconds):
+    """True when the time budget, not the per-mutant limit, bounds this mutant's timeout."""
+    return remaining_seconds is not None and remaining_seconds < PER_MUTANT_TIMEOUT
+
+
+def control_key(root, harness, toolchain):
+    """Key of the unmutated-crate control: every file of the crate (a regression in a file no mutant targets must invalidate it), the harness and rustc."""
+    digest = hashlib.sha256(f"{harness};{toolchain};".encode())
+    crate = os.path.join(root, CRATE)
+    for directory, subdirs, names in os.walk(crate):
+        subdirs[:] = sorted(d for d in subdirs if d != "target")
+        for filename in sorted(names):
+            path = os.path.join(directory, filename)
+            digest.update(f"{os.path.relpath(path, root)}:{file_digest(path)};".encode())
+    return digest.hexdigest()
+
+
+def execute_mutant(name, result_file, launch, elapsed, budget_limited=False):
     """Runs one mutant through `launch()` (its exit code). A result file from an earlier run is deleted first, so a child that
     dies without writing is a HARNESS_ERROR and never inherits an old verdict."""
     if os.path.exists(result_file):
         os.unlink(result_file)
     code = launch()
     seconds = round(elapsed(), 1)
-    if code == TIMED_OUT:
-        return {"outcome": "TIMEOUT", "seconds": seconds}
+    if code == TIMED_OUT:   # killed by the shrinking time budget: not a verdict on the mutant, it stays pending
+        return {"outcome": "BUDGET_EXHAUSTED" if budget_limited else "TIMEOUT", "seconds": seconds}
     try:
         with open(result_file) as fh:
             outcome, passed, total, line = json.load(fh)["mutants"][name]
@@ -226,6 +243,10 @@ def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds):
             pending.append(name)
             continue
         record = execute(name)
+        if record["outcome"] == "BUDGET_EXHAUSTED":
+            stopped_by = "time budget"
+            pending.append(name)
+            continue
         store.put(keys[name], {**record, "name": name})
         outcomes[name] = record["outcome"]
         ran += 1
@@ -339,15 +360,15 @@ def main(argv):
         command = [PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), name, "--skip-control", f"--result-json={result_file}"] + ([] if fast_kill else ["--no-fast-kill"])
         remaining = None if budget_seconds is None else budget_seconds - (started - run_started)
         launch = lambda: run_cancellable(command, mutant_timeout(remaining), os.path.join(STORE_DIR, "logs", name + ".log"), cwd=ROOT)
-        return execute_mutant(name, result_file, launch, lambda: time.time() - started)
+        return execute_mutant(name, result_file, launch, lambda: time.time() - started, budget_limited=is_budget_limited(remaining))
 
     report = run_plan(ordered, keys, store, execute, time.time, max_mutants, budget_seconds)
     outcomes = {**report["outcomes"], **{n: "STALE_PATTERN" for n in stale}}
     undetected = [n for n, o in outcomes.items() if o == "UNDETECTED"]
     errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
-    control_key = hashlib.sha256((harness + neighbourhood_hash(ROOT, CRATE + "src/lib.rs", edges) + "".join(sorted(neighbourhood_hash(ROOT, f, edges) for f in set(files.values())))).encode()).hexdigest()
+    ckey = control_key(ROOT, harness, toolchain)
     run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], PER_MUTANT_TIMEOUT, os.path.join(STORE_DIR, "logs", "control.log"), cwd=ROOT)
-    control = ensure_control(store, control_key, run_control)
+    control = ensure_control(store, ckey, run_control)
     detected = sum(1 for o in outcomes.values() if o == "DETECTED")
     text = summary_text(len(all_mutants), detected, undetected, errors, report["pending"], report["stopped_by"], control)
     print(text)
@@ -369,6 +390,8 @@ def run_as_script(argv):
         code = main(argv)
     except SystemExit as stop:
         code = stop.code if isinstance(stop.code, int) else 2
+    except KeyboardInterrupt:      # Ctrl-C: the process group was already killed by run_cancellable and the checkpoints are on disk
+        code = 143
     print(f"VERDICT {verdict(code)} (exit {code})")
     sys.exit(code)
 
