@@ -1,0 +1,1 @@
+DS-24 every entry is read before one is deployed -> ok ERR WrongType [String: 3: dispatcher has type LIST rather than STRING]

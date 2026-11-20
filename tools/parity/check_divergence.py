@@ -1120,6 +1120,73 @@ MUTANTS = {
         '"Actor name in deployment [{path}] must be empty"',
         "the message of an empty element of a deployment path is wrong",
     ),
+    # --- slice P10 (AC-CFG-012.1): the Deployer built from pekko.actor.deployment ---
+    "deployer-entry-ignores-the-default-section": (
+        "src/actor/deployer.rs",
+        "let deployment = entry.with_fallback(default);",
+        "let deployment = entry.clone();",
+        "an entry is read without the default section as its fallback",
+    ),
+    "deployer-default-wins-over-the-entry": (
+        "src/actor/deployer.rs",
+        "let deployment = entry.with_fallback(default);",
+        "let deployment = default.with_fallback(entry);",
+        "the default section overrides the values of the entry",
+    ),
+    "deployer-router-is-never-named": (
+        "src/actor/deployer.rs",
+        "name => RouterConfig::opaque(name),",
+        "_ => RouterConfig::NoRouter,",
+        "a router that is not from-code is dropped instead of kept by its configured name",
+    ),
+    "deployer-from-code-is-a-named-router": (
+        "src/actor/deployer.rs",
+        '"from-code" => RouterConfig::NoRouter,',
+        '"from-code" => RouterConfig::opaque("from-code"),',
+        "from-code is kept as a router instead of meaning no router",
+    ),
+    "deployer-dispatcher-ignores-the-default-section": (
+        "src/actor/deployer.rs",
+        'let dispatcher = deployment.get_string("dispatcher")?;',
+        'let dispatcher = entry.get_string("dispatcher")?;',
+        "the dispatcher of an entry is read without the default section",
+    ),
+    "deployer-mailbox-ignores-the-default-section": (
+        "src/actor/deployer.rs",
+        'let mailbox = deployment.get_string("mailbox")?;',
+        'let mailbox = entry.get_string("mailbox")?;',
+        "the mailbox of an entry is read without the default section",
+    ),
+    "deployer-dispatcher-and-mailbox-are-swapped": (
+        "src/actor/deployer.rs",
+        "            &dispatcher,\n            &mailbox,\n",
+        "            &mailbox,\n            &dispatcher,\n",
+        "the dispatcher is stored as the mailbox and the mailbox as the dispatcher",
+    ),
+    "deployer-entry-scope-is-local": (
+        "src/actor/deployer.rs",
+        "            Scope::NoScopeGiven,\n            &dispatcher,",
+        "            Scope::Local,\n            &dispatcher,",
+        "the deployments read from the configuration have the local scope",
+    ),
+    "deployer-configuration-errors-are-swallowed": (
+        "src/actor/deployer.rs",
+        "            .collect::<Result<Vec<_>, _>>()?;",
+        "            .filter_map(Result::ok)\n            .collect::<Vec<_>>();",
+        "an entry with a value of the wrong type is skipped instead of failing the construction",
+    ),
+    "deployer-rejected-paths-are-swallowed": (
+        "src/actor/deployer.rs",
+        "            deployer.deploy(deploy)?;",
+        "            let _ = deployer.deploy(deploy);",
+        "an entry with an invalid path is skipped instead of failing the construction",
+    ),
+    "deployer-entries-go-in-reverse-alphabetical-order": (
+        "src/actor/deployer.rs",
+        "            .object_entries()\n            .into_iter()\n",
+        "            .object_entries()\n            .into_iter()\n            .rev()\n",
+        "of several keys that give one path the first in alphabetical order wins instead of the last (the temporary policy)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

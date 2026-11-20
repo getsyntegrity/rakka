@@ -1,0 +1,1 @@
+DS-19 a double wildcard suffix -> ok ERR IllegalArgumentException [double wildcard can't be used as a suffix (e.g. /user/actor**), only as a full subPath element (e.g. /user/actor/**)]

@@ -1,0 +1,38 @@
+{"name": "ds-0001", "args": ["deployer-settings-case"], "stdin": "DS-01 an empty section keeps only the entries of reference.conf"}
+{"name": "ds-0002", "args": ["deployer-settings-case"], "stdin": "DS-02 an entry without values takes everything from default"}
+{"name": "ds-0003", "args": ["deployer-settings-case"], "stdin": "DS-03 an undefined service is not found"}
+{"name": "ds-0004", "args": ["deployer-settings-case"], "stdin": "DS-04 the dispatcher of an entry"}
+{"name": "ds-0005", "args": ["deployer-settings-case"], "stdin": "DS-05 the mailbox of an entry"}
+{"name": "ds-0006", "args": ["deployer-settings-case"], "stdin": "DS-06 the dispatcher of default is the fallback"}
+{"name": "ds-0007", "args": ["deployer-settings-case"], "stdin": "DS-07 the mailbox of default is the fallback"}
+{"name": "ds-0008", "args": ["deployer-settings-case"], "stdin": "DS-08 a router that is not from-code"}
+{"name": "ds-0009", "args": ["deployer-settings-case"], "stdin": "DS-09 from-code written out"}
+{"name": "ds-0010", "args": ["deployer-settings-case"], "stdin": "DS-10 another router name"}
+{"name": "ds-0011", "args": ["deployer-settings-case"], "stdin": "DS-11 the router of default reaches every entry"}
+{"name": "ds-0012", "args": ["deployer-settings-case"], "stdin": "DS-12 single wildcard entries"}
+{"name": "ds-0013", "args": ["deployer-settings-case"], "stdin": "DS-13 a double wildcard and a prefix wildcard"}
+{"name": "ds-0014", "args": ["deployer-settings-case"], "stdin": "DS-14 entries that are not objects are ignored"}
+{"name": "ds-0015", "args": ["deployer-settings-case"], "stdin": "DS-15 default itself is not a deployment"}
+{"name": "ds-0016", "args": ["deployer-settings-case"], "stdin": "DS-16 more values of an entry are kept in its configuration"}
+{"name": "ds-0017", "args": ["deployer-settings-case"], "stdin": "DS-17 a router with a resizer section"}
+{"name": "ds-0018", "args": ["deployer-settings-case"], "stdin": "DS-18 an invalid path with a non-ASCII letter"}
+{"name": "ds-0019", "args": ["deployer-settings-case"], "stdin": "DS-19 a double wildcard suffix"}
+{"name": "ds-0020", "args": ["deployer-settings-case"], "stdin": "DS-20 an empty element in the path"}
+{"name": "ds-0021", "args": ["deployer-settings-case"], "stdin": "DS-21 a dispatcher of the wrong type"}
+{"name": "ds-0022", "args": ["deployer-settings-case"], "stdin": "DS-22 a router of the wrong type"}
+{"name": "ds-0023", "args": ["deployer-settings-case"], "stdin": "DS-23 a mailbox of the wrong type"}
+{"name": "ds-0024", "args": ["deployer-settings-case"], "stdin": "DS-24 every entry is read before one is deployed"}
+{"name": "ds-0025", "args": ["deployer-settings-case"], "stdin": "DS-25 an invalid path after valid entries"}
+{"name": "ds-0026", "args": ["deployer-settings-case"], "stdin": "DS-26 non-ASCII text in a value"}
+{"name": "ds-0027", "args": ["deployer-settings-case"], "stdin": "DS-27 a pair of surrogates in a value"}
+{"name": "ds-0028", "args": ["deployer-settings-case"], "stdin": "DS-28 every valid symbol in a key"}
+{"name": "ds-0029", "args": ["deployer-settings-case"], "stdin": "DS-29 the root and the empty key are no deployments"}
+{"name": "ds-0030", "args": ["deployer-settings-case"], "stdin": "DS-30 a key without a leading slash loses its first element"}
+{"name": "ds-0031", "args": ["deployer-settings-case"], "stdin": "DS-31 a key with a trailing slash"}
+{"name": "ds-0032", "args": ["deployer-settings-case"], "stdin": "DS-32 a value with a space"}
+{"name": "ds-0033", "args": ["deployer-settings-case"], "stdin": "DS-33 an entry that overrides every default key"}
+{"name": "ds-0034", "args": ["deployer-settings-case"], "stdin": "DS-34 an entry whose dispatcher and mailbox are empty text"}
+{"name": "ds-0035", "args": ["deployer-settings-case"], "stdin": "DS-35 lookup of an actor path"}
+{"name": "ds-0036", "args": ["deployer-settings-case"], "stdin": "CO-01 /a and /a/ give the same path"}
+{"name": "ds-0037", "args": ["deployer-settings-case"], "stdin": "CO-02 three keys with one path"}
+{"name": "ds-0038", "args": ["deployer-settings-case"], "stdin": "CO-03 two trailing slash keys"}

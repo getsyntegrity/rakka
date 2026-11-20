@@ -2181,3 +2181,41 @@ dr-0057	deployer	DL-58 an empty element lookup
 dr-0058	deployer	DL-59 a long path
 dr-0059	deployer	DC-01 concurrent deploys of different paths are all kept
 dr-0060	deployer	DC-02 concurrent deploys of one path keep one of them
+ds-0001	deployer-settings	DS-01 an empty section keeps only the entries of reference.conf
+ds-0002	deployer-settings	DS-02 an entry without values takes everything from default
+ds-0003	deployer-settings	DS-03 an undefined service is not found
+ds-0004	deployer-settings	DS-04 the dispatcher of an entry
+ds-0005	deployer-settings	DS-05 the mailbox of an entry
+ds-0006	deployer-settings	DS-06 the dispatcher of default is the fallback
+ds-0007	deployer-settings	DS-07 the mailbox of default is the fallback
+ds-0008	deployer-settings	DS-08 a router that is not from-code
+ds-0009	deployer-settings	DS-09 from-code written out
+ds-0010	deployer-settings	DS-10 another router name
+ds-0011	deployer-settings	DS-11 the router of default reaches every entry
+ds-0012	deployer-settings	DS-12 single wildcard entries
+ds-0013	deployer-settings	DS-13 a double wildcard and a prefix wildcard
+ds-0014	deployer-settings	DS-14 entries that are not objects are ignored
+ds-0015	deployer-settings	DS-15 default itself is not a deployment
+ds-0016	deployer-settings	DS-16 more values of an entry are kept in its configuration
+ds-0017	deployer-settings	DS-17 a router with a resizer section
+ds-0018	deployer-settings	DS-18 an invalid path with a non-ASCII letter
+ds-0019	deployer-settings	DS-19 a double wildcard suffix
+ds-0020	deployer-settings	DS-20 an empty element in the path
+ds-0021	deployer-settings	DS-21 a dispatcher of the wrong type
+ds-0022	deployer-settings	DS-22 a router of the wrong type
+ds-0023	deployer-settings	DS-23 a mailbox of the wrong type
+ds-0024	deployer-settings	DS-24 every entry is read before one is deployed
+ds-0025	deployer-settings	DS-25 an invalid path after valid entries
+ds-0026	deployer-settings	DS-26 non-ASCII text in a value
+ds-0027	deployer-settings	DS-27 a pair of surrogates in a value
+ds-0028	deployer-settings	DS-28 every valid symbol in a key
+ds-0029	deployer-settings	DS-29 the root and the empty key are no deployments
+ds-0030	deployer-settings	DS-30 a key without a leading slash loses its first element
+ds-0031	deployer-settings	DS-31 a key with a trailing slash
+ds-0032	deployer-settings	DS-32 a value with a space
+ds-0033	deployer-settings	DS-33 an entry that overrides every default key
+ds-0034	deployer-settings	DS-34 an entry whose dispatcher and mailbox are empty text
+ds-0035	deployer-settings	DS-35 lookup of an actor path
+ds-0036	deployer-settings	CO-01 /a and /a/ give the same path
+ds-0037	deployer-settings	CO-02 three keys with one path
+ds-0038	deployer-settings	CO-03 two trailing slash keys

@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 244 decisiones: 0 bloqueantes, 181 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 245 decisiones: 0 bloqueantes, 182 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -486,6 +486,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) `Display` con el formato exacto de Pekko, claves ordenadas, tags en orden de inserción hasta 4 y ordenados desde 5 (divergencia documentada), router por su nombre de clase hasta P37. (b) No implementar `Display`: `toString` queda fuera del contrato de Rust y se documenta. (c) `Display` propio y legible, sin pretender el formato de Pekko.
 - **Recomendación:** (a). Clasificación: texto de diagnóstico, no comportamiento de datos. Consecuencia: `toString` solo se compara en los casos con config, router y tags deterministas; AC-CFG-013 queda `partial` hasta que el Owner decida. Bloquea: el cierre de AC-CFG-013; puede avanzar: todo el comportamiento de datos. Reversible.
 - **Filas afectadas:** AC-CFG-013
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-36 — Orden en que `Deployer` despliega las entradas de `pekko.actor.deployment` cuando varias claves dan el mismo path
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Pekko 2.0.0 itera `config.root.asScala` (Deployer.scala:236-241) y llama a `deploy` por entrada; si dos claves dan el mismo path tras `split("/").drop(1)` (p. ej. `/svc`, `/svc/` y `/svc//`, o una clave sin `/` inicial) gana la última desplegada. `SimpleConfigObject.entrySet()` (Typesafe Config 1.4.9, comprobado con `javap`) construye un `java.util.HashSet` de `SimpleImmutableEntry`, así que el orden es el de un `HashSet` cuyo hash mezcla el de la clave y el del valor de cada entrada (más el tamaño de la tabla). Medido en el oráculo (`docs/evidence/slices/p10-from-settings-collisions-probe.java`, 99 conjuntos de 2 a 4 claves en colisión, con el dispatcher de cada entrada igual a su clave): el ganador no depende del orden en que se escribe la configuración (0 de 99), y el último en orden alfabético de claves (lo que daría el `BTreeMap` de Rust) difiere del ganador de Pekko en 53 de los 99. Corrección a la primera medición, que atribuía el orden solo a las claves: el ganador depende también de los valores (`docs/evidence/slices/p10-from-settings-value-dependence-probe.java`: las mismas tres claves `/svc`, `/svc/`, `/svc//` con dispatchers `d1,d2,d3` dan `/svc`, con `aaa,bbb,ccc` dan `/svc//` y con `x,y,z` dan `/svc/`). Un modelo con un `HashMap` de las claves acierta 47 de 99 (azar). Hoy `Deployer::from_settings` despliega en orden alfabético de claves (`BTreeMap` de `Config`) y gana la última. Casos grabados: CO-01 a CO-03 coinciden con Pekko por casualidad; CO-04 y CO-05 divergen y quedan pendientes en el gemelo Rust.
+- **Alternativas:** (a) Orden alfabético de claves, gana la última: es lo implementado, sencillo y determinista; difiere de Pekko cuando varias claves dan el mismo path (53 de 99 en la medición). (b) Reproducir el orden de Pekko: emular `HashSet` de entradas de Java (hash de clave XOR hash del valor, es decir `hashCode` de cada `ConfigValue` de Typesafe Config, objetos anidados incluidos, y el tamaño de la tabla), validado con fuzz diferencial; paridad exacta pero acoplada a internos de Typesafe Config 1.4.9 y de `HashSet`, y de coste alto. (c) Rechazar las colisiones con un error: descartada por el Owner (Pekko las acepta). (d) Otra regla determinista (p. ej. gana la clave más corta, la más larga o la primera): igual de ajena a Pekko que (a).
+- **Recomendación:** (a) mientras ninguna configuración real tenga claves en colisión, que son casi seguro errores de configuración (barras finales o clave sin `/` inicial); (b) solo si el Owner quiere paridad total. Clasificación: divergencia funcional acotada a configuraciones ambiguas. Bloquea: el cierre de AC-CFG-012.1; puede avanzar: todo el resto. Reversible.
+- **Filas afectadas:** AC-CFG-012.1
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 

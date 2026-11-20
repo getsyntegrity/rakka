@@ -2982,7 +2982,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ## AC-CFG-012.1 — Parseo de pekko.actor.deployment: Config por entrada con fallback a `default`, dispatcher y mailbox
 
-*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+*unidad CFG · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
 
 **Contrato observable.** Cada subsección de `pekko.actor.deployment` (menos `default`) se convierte en un `Deploy` con `config = entrada.withFallback(default)`, `dispatcher`/`mailbox` leídos de la config con default "" y `scope = NoScopeGiven`.
 
@@ -3007,9 +3007,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 - A3 dispatcher `my-dispatcher`: :114-127. A4 mailbox `my-mailbox`: :129-142.
 - A5 `nr-of-instances=boom` -> WrongType: :144-161.
 
-**Oráculo.** Sí para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
+**Oráculo.** Sí: `oracle/run.sh deployer-settings-ids|deployer-settings-all|deployer-settings-case` (`DeployerSettingsOracle.java`, 40 ids: 35 `DS` de paridad y 5 `CO` de claves en colisión; el Rust produce 38). Para el formato HOCON y los lectores tipados: golden de 161 casos con el jar config-1.4.9 (tools/oracle/config-hocon.jsh). Para los defaults de reference.conf: el propio archivo es la fuente (se embebe sin cambios).
 
-**Decisiones.** Q-CFG-4.
+**Decisiones.** Q-CFG-4, Q-CFG-36 (propuesta).
+
+**Actualización P10 PR 3 (2026-11-20).** Rust: `Deployer::from_settings(&Settings)` y `DeployerError` (`actor/deployer.rs`). Se leen todas las entradas (objetos distintos de `default`) antes de desplegar la primera, como el `flatMap` estricto de Pekko: un error de configuración gana a un path inválido (DS-24). Cada entrada es `entrada.withFallback(default)`; `dispatcher` y `mailbox` salen de esa configuración; el scope es `NoScopeGiven`; una entrada que no es objeto se ignora. Un router distinto de `from-code` conserva solo el nombre configurado (`RouterConfig::Opaque`): type-mapping, pools, validaciones (incluida A5, `nr-of-instances = boom`) y los errores de construcción de routers son de AC-CFG-012.3/P37. Claves que dan el mismo path: orden alfabético, gana la última, política **temporal** autorizada por el Owner (Q-CFG-36, propuesta): Pekko usa el orden de un `HashSet` de entradas de Java que depende de clave y valor; CO-04 y CO-05 divergen y están pendientes en el gemelo Rust. Sigue `partial`: falta la integración con `ActorSystem`/provider (AC-SYS-016) y los routers reales (P37).
 
 
 ---

@@ -1,0 +1,1 @@
+DS-23 a mailbox of the wrong type -> ok ERR WrongType [String: 2: mailbox has type OBJECT rather than STRING]

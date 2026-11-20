@@ -1,0 +1,1 @@
+DS-25 an invalid path after valid entries -> ok ERR InvalidActorNameException [Invalid actor path element [not ok] (in path [/not ok]), illegal character [ ] at position: 3. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

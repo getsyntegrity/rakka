@@ -1,0 +1,45 @@
+# Scripts of the DeployerSettings oracle (DeployerSettingsOracle.java) and of its Rust twin (deployer_settings_cases.rs): id<TAB>section<TAB>operations.
+# The section is the body of `pekko.actor.deployment { ... }` over the reference configuration; \n is a new line and \uXXXX one UTF-16 unit.
+# Operations (separated by "; "): find A/B/C (Deployer.lookup of the elements, "-" none, "" the empty element) and lookup URI (an ActorPath).
+# The result is the error of building the Deployer (ERR <Exception> [<message>]), or one token per operation: none | the deployment found.
+# CO-* cases collide on one path: Rust follows the temporary alphabetical policy of Q-CFG-36 (proposed), so those that differ from Pekko are pending in the twin.
+DS-01 an empty section keeps only the entries of reference.conf		find IO-DNS/inet-address; find IO-DNS/inet-address/x; find IO-DNS/async-dns; find service1; find default
+DS-02 an entry without values takes everything from default	"/service1" {}	find service1
+DS-03 an undefined service is not found	"/service1" {}	find undefined; find -; find service1/x
+DS-04 the dispatcher of an entry	"/service3" { dispatcher = my-dispatcher }	find service3
+DS-05 the mailbox of an entry	"/service4" { mailbox = my-mailbox }	find service4
+DS-06 the dispatcher of default is the fallback	default.dispatcher = shared\n"/inherits" {}\n"/overrides" { dispatcher = own }	find inherits; find overrides
+DS-07 the mailbox of default is the fallback	default.mailbox = shared-box\n"/inherits" {}\n"/overrides" { mailbox = own-box }	find inherits; find overrides
+DS-08 a router that is not from-code	"/pool" { router = round-robin-pool, nr-of-instances = 3 }	find pool
+DS-09 from-code written out	"/code" { router = from-code }	find code
+DS-10 another router name	"/random" { router = random-pool }\n"/smallest" { router = smallest-mailbox-pool }	find random; find smallest
+DS-11 the router of default reaches every entry	default.router = round-robin-pool\n"/a" {}\n"/b" { router = from-code }	find a; find b
+DS-12 single wildcard entries	"/some/*" { dispatcher = d1 }\n"/*/other" { dispatcher = d2 }	find some/x; find x/other; find some; find some/x/y
+DS-13 a double wildcard and a prefix wildcard	"/double/**" { dispatcher = d1 }\n"/pre/ab*" { dispatcher = d2 }\n"/q" {}	find double/a/b; find double; find pre/abc; find pre/a
+DS-14 entries that are not objects are ignored	"/scalar" = 5\n"/nothing" = null\n"/list" = [1, 2]\n"/text" = "s"\n"/real" {}	find scalar; find nothing; find list; find text; find real
+DS-15 default itself is not a deployment	"/a" {}	find default; find a
+DS-16 more values of an entry are kept in its configuration	"/rich" { nr-of-instances = 4, within = 7 seconds, custom.key = value, resizer { lower-bound = 2 } }	find rich
+DS-17 a router with a resizer section	"/pooled" { router = round-robin-pool, resizer.lower-bound = 2 }	find pooled
+DS-18 an invalid path with a non-ASCII letter	"/gul/ub\u00E5t" {}	
+DS-19 a double wildcard suffix	"/c**" {}	
+DS-20 an empty element in the path	"/a//b" {}	
+DS-21 a dispatcher of the wrong type	"/bad" { dispatcher = [1] }	
+DS-22 a router of the wrong type	"/bad" { router = { a = 1 } }	
+DS-23 a mailbox of the wrong type	"/bad" { mailbox = { a = 1 } }	
+DS-24 every entry is read before one is deployed	"/a b" {}\n"/z" { dispatcher = [1] }	
+DS-25 an invalid path after valid entries	"/ok" {}\n"/not ok" {}	
+DS-26 non-ASCII text in a value	"/uni" { dispatcher = "d\u00E5\u00E9", mailbox = "\u00FC" }	find uni
+DS-27 a pair of surrogates in a value	"/emoji" { dispatcher = "x\uD83D\uDE00" }	find emoji
+DS-28 every valid symbol in a key	"/a-b_c.d*e+f:g@h&i=j,k!l~m';n" {}	find a-b_c.d*e+f:g@h&i=j,k!l~m';n
+DS-29 the root and the empty key are no deployments	"/" {}\n"" {}\n"//" {}	find -; find ""
+DS-30 a key without a leading slash loses its first element	"a/b" {}	find b; find a/b
+DS-31 a key with a trailing slash	"/t/" { dispatcher = d }	find t
+DS-32 a value with a space	"/x/y" { dispatcher = "a b" }	find x/y
+DS-33 an entry that overrides every default key	"/all" { dispatcher = d, mailbox = m, router = from-code, nr-of-instances = 2, within = 1 second, virtual-nodes-factor = 5 }	find all
+DS-34 an entry whose dispatcher and mailbox are empty text	"/empty" { dispatcher = "", mailbox = "" }	find empty
+DS-35 lookup of an actor path	"/service1" { dispatcher = d1 }	lookup pekko://sys/user/service1; lookup pekko://sys/system/service1; lookup pekko://sys/service1
+CO-01 /a and /a/ give the same path	"/a" { dispatcher = plain }\n"/a/" { dispatcher = slash }	find a
+CO-02 three keys with one path	"/svc" { dispatcher = plain }\n"/svc/" { dispatcher = one }\n"/svc//" { dispatcher = two }	find svc
+CO-03 two trailing slash keys	"/svc/" { dispatcher = one }\n"/svc//" { dispatcher = two }	find svc
+CO-04 a plain key and three slashes	"/svc" { dispatcher = plain }\n"/svc///" { dispatcher = three }	find svc
+CO-05 two and three slashes	"/svc//" { dispatcher = two }\n"/svc///" { dispatcher = three }	find svc
