@@ -1202,23 +1202,30 @@ def classify(r, binary):
 
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
-UNIT_MUTANTS = {"deployer-deploy-swaps-a-stale-snapshot": "actor::deployer"}
+UNIT_MUTANTS = {"deployer-deploy-swaps-a-stale-snapshot": ("actor::deployer", "a_deployment_that_loses_the_swap_is_retried_on_the_newer_index_and_nothing_is_lost")}
 
 
 def run_unit_mutant(scratch, name, work):
+    """Runs the unit tests of the module on the mutated copy. DETECTED needs the expected test to fail (a compile error or
+    some other failing test is not enough) and the same tests to pass on the unmutated tree (the control)."""
+    module, expected_test = UNIT_MUTANTS[name]
+    def cargo_test(manifest, target):
+        return sh(["cargo", "test", "--manifest-path", manifest, "--target-dir", target, "--lib", module], timeout=BUILD_TIMEOUT)
     try:
-        r = sh(["cargo", "test", "--manifest-path", os.path.join(work, "Cargo.toml"),
-                "--target-dir", os.path.join(scratch, "target-" + name), "--lib", UNIT_MUTANTS[name]], timeout=BUILD_TIMEOUT)
+        control = cargo_test(os.path.join(ROOT, "crates", "rakka-actor", "Cargo.toml"), os.path.join(scratch, "target-control-" + name))
+        r = cargo_test(os.path.join(work, "Cargo.toml"), os.path.join(scratch, "target-" + name))
     except subprocess.TimeoutExpired:
         return TIMEOUT, None, None, "cargo test"
+    if control.returncode != 0:
+        return HARNESS_ERROR, None, None, "the unit tests fail on the unmutated tree"
     summary = next((l for l in r.stdout.splitlines() if l.startswith("test result:")), "(no test result)")
     if "could not compile" in r.stderr:
         return BUILD_ERROR, None, None, r.stderr[-600:]
     if r.returncode == 0:
         return UNDETECTED, None, None, summary
-    if "test result: FAILED" in r.stdout:
+    if "test result: FAILED" in r.stdout and f"{expected_test} ... FAILED" in r.stdout:
         return DETECTED, None, None, summary
-    return HARNESS_ERROR, None, None, r.stderr[-300:]
+    return HARNESS_ERROR, None, None, "failed, but not the expected test: " + summary
 
 
 def run_mutant(scratch, name, rel, old, new, why):
