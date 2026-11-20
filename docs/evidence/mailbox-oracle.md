@@ -24,13 +24,41 @@ Estabilidad: 25 corridas idénticas (8 JVM concurrentes incluidas) y 32 más, ba
 
 | # | ADR | Observado en 2.0.0 |
 |---|---|---|
-| 1 | §7b carrera 5: "o se procesa o va a dead letters; nunca ambos" | **CC-05**: un productor que ya leyó el mailbox antes de `swapMailbox` y encola después de `cleanUp` deja el mensaje **varado** en la cola vieja cerrada: ni procesado ni dead letter (`dispatch` lee `receiver.mailbox` y luego encola, Dispatcher.scala:80-84; `unregister` hace `swapMailbox` → `becomeClosed` → `cleanUp`, AbstractDispatcher.scala:282-284; `enqueue` no comprueba el cierre). Existe una tercera salida; el diseño Rust debe decidir si la replica (paridad) o la cierra (decisión del Owner, no se cambia aquí). |
+| 1 | §7b carrera 5: "o se procesa o va a dead letters; nunca ambos" | **CC-05/CC-05a** y el experimento natural: existe una tercera salida, **varado**, reproducible sin ganchos (ver «CC-05: ventana de cierre»). Clasificada como carrera sin garantía contractual; decisión propuesta en Q-MBX-8. |
 | 2 | §1 "Watch sobre cerrado" | **OR-05**: `Suspend`/`Resume` tras el cierre se publican como `DeadLetter`; un `Watch` **no**: lo contesta el `deadLetters` con `Terminated` al observador. |
 | 3 | §7b `becomeClosed` borra `scheduled` y suspensión | Confirmado (ST-05: `raw=10 → 1`). `setAsIdle` sobre `Closed` devuelve `true` y deja `Closed` (ST-07). |
 | 4 | §1 `canBeScheduled` | Confirmado (ST-08): suspendido sólo con mensajes de sistema; cerrado nunca. |
 | 5 | §5 shim para instanciar `Mailbox` | Basta una subclase Java con `DefaultSystemMessageQueue.super.*`; no hace falta Scala ni reflexión. |
 
 Otros hechos: `resume` en 0 devuelve `true` y no baja de 0 (ST-03); sistema y usuario: el `Suspend` encolado **después** de mensajes de usuario se procesa **antes** de ellos tras el turno en vuelo (OR-02); con `throughput = 2` dos actores en un hilo alternan en bloques de 2 (SC-01) y con deadline la ráfaga termina tras el primer mensaje lento (SC-02); `cleanUp` envía primero lo que el hook reenvió y luego lo pendiente (CC-04).
+
+## CC-05: ventana de cierre (informe)
+
+**Secuencia en Pekko 2.0.0.** Un emisor ejecuta `Dispatcher.dispatch` (Dispatcher.scala:80-84): lee `receiver.mailbox` (volátil), llama `mbox.enqueue` (sin comprobar cierre) y luego `registerForExecution`. En paralelo, `unregister` (AbstractDispatcher.scala:279-285) hace `swapMailbox(deadLetterMailbox)` → `becomeClosed()` → `cleanUp()`, y `cleanUp` drena la cola vieja a dead letters (Mailbox.scala:354-368). Un emisor que ya leyó la referencia vieja y cuyo `add` ocurre **después** del drenaje deja el mensaje en una cola cerrada y sin dueño: no se procesa (`canBeScheduledForExecution` es falso para `Closed`) ni llega a dead letters.
+
+**Evidencia JVM.**
+- Forzada y determinista (golden): **CC-05** (el `add` ocurre tras `cleanUp`: `received=[] deadLetters=[] queued=1`) y **CC-05a** (el mismo emisor, pero el `add` ocurre justo antes del drenaje: `deadLetters=[straggler]`). El único factor que cambia el resultado es el orden entre `q.add` y el drenaje.
+- Natural, sin ganchos (no entra en el golden: sus conteos varían): `oracle/run.sh mailbox-stress <<< N`. Por ensayo: un actor, 4 emisores × 300 envíos liberados junto con `stop`. Ejecuciones con SHA upstream `9fbd2283…`, JDK 17, 3 JVM concurrentes en un Mac de 16 núcleos:
+
+| Corrida | Ensayos | Envíos | Recibidos | Dead letters | Varados | Ensayos con varado | No contabilizados |
+|---|---|---|---|---|---|---|---|
+| 1 | 3 000 | 3,6 M | 297 130 | 3 302 870 | 0 | 0 | 0 |
+| 2 | 30 000 | 36 M | 3 677 991 | 32 322 008 | 1 | 1 | 0 |
+| 3 | 30 000 | 36 M | 4 158 270 | 31 841 729 | 1 | 1 | 0 |
+| 4 | 30 000 | 36 M | 3 839 681 | 32 160 317 | 2 | 2 | 0 |
+
+  En los 93 000 ensayos (111,6 M de envíos): 4 mensajes varados (1 cada ~2,8·10^7 envíos), recibidos + dead letters + varados = enviados en todos los ensayos. El hallazgo **no es un artefacto de los ganchos**. Límites: la frecuencia depende de máquina y carga; el experimento cuenta los varados leyendo `numberOfMessages` de la cola vieja tras `cleanUp`, no distingue cuál emisor ni su hilo.
+
+**Garantías públicas.** El doc de Pekko (`general/message-delivery-reliability.md:315-321`) dice que la entrega a dead letters es «best-effort; it may fail even within the local JVM (e.g. during actor termination)» y que sirve para depuración, no para entrega garantizada; la regla general es at-most-once (:41). Un mensaje varado no viola ninguna garantía publicada. Lo que Pekko sí garantiza (y el corpus ya valida con `await-accounted` en escenarios secuenciales): lo enviado con *happens-before* anterior al cierre se recibe o es dead letter, sin duplicar.
+
+**Clasificación (evidencia, no decisión).** Carrera interna upstream, observable en la práctica, **sin garantía contractual** (opción 2/3 del encargo; no es un error del oráculo: reproducida con y sin ganchos). La reproducción exacta no es exigida por ningún contrato.
+
+**Alternativas.**
+- **A — replicar** (cola vieja sin comprobar cierre): reproduce el varado, pero ningún contrato lo exige y degrada la depuración con dead letters; el piloto Rust hoy tiene el comportamiento opuesto.
+- **B — cerrar la ventana** (comprobar `closed` y encolar de forma atómica; el piloto ya lo hace bajo `Mutex`, cell.rs:212-218): Rust produce siempre dead letter para ese emisor. Observable que cambia: desaparece el resultado «varado», un subconjunto de lo que Pekko puede producir; no es una violación de paridad estricta porque Pekko no lo garantiza. Con el diseño atómico del ADR (PR 4) hay que conservarlo: comprobar el estado y encolar sin dejar un hueco.
+- **C — aceptar el conjunto**: el oráculo admite {recibido, dead letter, varado} para el emisor en vuelo y exige las invariantes que sí valen (nunca procesar tras el cierre, nunca duplicar, nada se pierde si hay *happens-before*). Validación sin ocultar errores: contabilidad exacta `recibidos + dead letters + varados = enviados`, con el varado tolerado sólo en el lado Pekko.
+
+**Recomendación:** implementar **B** y validar con **C** (propuesta `Q-MBX-8`, estado `proposed`, en `classic-dispatch.decisions.tsv`; no es decisión del Owner). Consecuencia para Rust: el diseño del PR 4 no debe introducir un `enqueue` sin comprobación de cierre; una cola de usuario separada del estado (D4) exige un protocolo que cierre la ventana (p. ej. comprobar el estado tras encolar y reenviar a dead letters si quedó cerrado).
 
 ## Escenarios del encargo y cobertura
 

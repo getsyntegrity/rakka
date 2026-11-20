@@ -67,6 +67,7 @@ final class MailboxOracle {
     void onEnqueue(Object msg) throws Exception {}
     void onDequeue(Envelope result) {}
     void onCleanUp() {}
+    volatile HookQueue queue; // the queue these hooks are attached to
     final CountDownLatch cleaned = new CountDownLatch(1); // counted down when cleanUp has moved everything to dead letters
   }
   static volatile Hooks nextHooks = new Hooks();
@@ -74,7 +75,7 @@ final class MailboxOracle {
   static final class HookQueue implements MessageQueue {
     final ConcurrentLinkedQueue<Envelope> q = new ConcurrentLinkedQueue<>();
     final Hooks hooks;
-    HookQueue(Hooks h) { hooks = h == null ? new Hooks() : h; }
+    HookQueue(Hooks h) { hooks = h == null ? new Hooks() : h; hooks.queue = this; }
     public void enqueue(ActorRef r, Envelope e) {
       try { hooks.onEnqueue(e.message()); } catch (Exception x) { throw new RuntimeException(x); }
       q.add(e);
@@ -144,7 +145,11 @@ final class MailboxOracle {
     while (!c.getAsBoolean()) { if (System.nanoTime() > end) throw new IllegalStateException("condition not reached"); Thread.onSpinWait(); }
   }
 
-  static Mailbox box(ActorRef r) { return ((ActorCell) ((ActorRefWithCell) r).underlying()).mailbox(); }
+  /** The mailbox of the started actor: a RepointableActorRef answers with its UnstartedCell until the real ActorCell is attached. */
+  static Mailbox box(ActorRef r) {
+    awaitUntil(() -> ((ActorRefWithCell) r).underlying() instanceof ActorCell);
+    return ((ActorCell) ((ActorRefWithCell) r).underlying()).mailbox();
+  }
   static InternalActorRef in(ActorRef r) { return (InternalActorRef) r; }
   static String view(Mailbox m) { return st(m).replace(" raw=" + m.currentStatus(), "") + " queued=" + m.numberOfMessages(); }
   static void idle(ActorRef r) { awaitUntil(() -> !box(r).isScheduled()); }
@@ -332,6 +337,21 @@ final class MailboxOracle {
       }
     });
 
+    run("MBX-CC-05a producer that enqueues before cleanUp drains the old queue is dead-lettered", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        CountDownLatch inEnqueue = new CountDownLatch(1), proceed = new CountDownLatch(1);
+        Hooks h = new Hooks() {
+          @Override void onEnqueue(Object m) throws Exception { if ("straggler".equals(m)) { inEnqueue.countDown(); proceed.await(); } }
+          @Override void onCleanUp() { proceed.countDown(); awaitUntil(() -> queue.hasMessages()); } // the straggler's add lands just before the drain
+        };
+        ActorRef a = e.spawn("w", h);
+        Mailbox old = box(a); Thread t = new Thread(() -> a.tell("straggler", ActorRef.noSender())); t.start(); inEnqueue.await();
+        in(a).stop(); h.cleaned.await(); t.join(); awaitUntil(() -> in(a).isTerminated());
+        a.tell("marker", ActorRef.noSender()); awaitUntil(() -> e.dead.contains("marker"));
+        e.dead.remove("marker");
+        return "received=" + e.log + " deadLetters=" + e.dead + " oldMailbox=" + view(old);
+      }
+    });
     run("MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two", () -> {
       try (Env e = new Env(2, "0ms")) {
         ActorRef g = e.spawn("g", null), x = e.spawn("x", null), y = e.spawn("y", null); Block b = new Block(); g.tell(b, ActorRef.noSender()); b.entered.await();
@@ -358,6 +378,29 @@ final class MailboxOracle {
         return "suspendedWithWork: " + s + " | afterStop deadLetters=" + e.dead;
       }
     });
+  }
+
+  /** Not a golden case (its counts vary run to run): `n` actors, each hit by 4 producers (300 sends each) released together with
+   *  `stop`. Every send is either processed, dead-lettered, or left in the old closed queue (CC-05's outcome); the three must add up. */
+  static String stress(int n) throws Exception {
+    long received = 0, dead = 0, stranded = 0, sent = 0, trialsWithStranded = 0, unaccounted = 0;
+    try (Env e = new Env(5, "0ms")) {
+      for (int trial = 0; trial < n; trial++) {
+        e.log.clear(); e.dead.clear();
+        Hooks h = new Hooks(); ActorRef a = e.spawn("s" + trial, h); Mailbox old = box(a);
+        CyclicBarrier go = new CyclicBarrier(5); List<Thread> ts = new ArrayList<>();
+        for (int p = 0; p < 4; p++) { Thread th = new Thread(() -> { try { go.await(); } catch (Exception x) { throw new RuntimeException(x); }
+            for (int i = 0; i < 300; i++) a.tell("m", ActorRef.noSender()); }); ts.add(th); th.start(); }
+        go.await(); in(a).stop();
+        for (Thread th : ts) th.join();
+        h.cleaned.await(); awaitUntil(() -> in(a).isTerminated());
+        a.tell("marker", ActorRef.noSender()); awaitUntil(() -> e.dead.contains("marker")); e.dead.remove("marker");
+        long r = e.log.size(), d = e.dead.size(), st = old.numberOfMessages();
+        received += r; dead += d; stranded += st; sent += 1200; if (st > 0) trialsWithStranded++; if (r + d + st != 1200) unaccounted++;
+      }
+    }
+    return "trials=" + n + " sent=" + sent + " received=" + received + " deadLettered=" + dead + " strandedInOldQueue=" + stranded
+        + " trialsWithStranded=" + trialsWithStranded + " trialsNotAccountedFor=" + unaccounted;
   }
 
   /** Two threads released together by a barrier, 50 operations each. */

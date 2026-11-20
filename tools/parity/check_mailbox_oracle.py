@@ -67,7 +67,8 @@ def selftest():
     swapped = [l.replace("r:x1, r:x2, r:y1", "r:x2, r:x1, r:y1") for l in golden]
     lost = [l.replace("deadLetters=[u2, u3, u4, after]", "deadLetters=[u2, u3, after]") for l in golden]
     state = [l.replace("suspendCount=100", "suspendCount=99") for l in golden]
-    mutants = {"reordered messages": swapped, "lost dead letter": lost, "lost suspend increment": state, "dropped case": golden[1:]}
+    boundary = [l.replace("deadLetters=[straggler] oldMailbox=closed scheduled=false suspendCount=0 queued=0", "deadLetters=[] oldMailbox=closed scheduled=false suspendCount=0 queued=1") for l in golden]
+    mutants = {"reordered messages": swapped, "lost dead letter": lost, "lost suspend increment": state, "straggler stranded instead of dead-lettered": boundary, "dropped case": golden[1:]}
     unchanged = [name for name, m in mutants.items() if m == golden]
     if unchanged:
         sys.exit(f"selftest: mutants that do not change the golden: {unchanged}")

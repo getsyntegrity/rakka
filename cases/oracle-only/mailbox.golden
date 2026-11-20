@@ -20,6 +20,7 @@ MBX-CC-02 message enqueued at the last empty dequeue of a turn is not stranded -
 MBX-CC-03 concurrent Suspend/Resume system messages lose no increments -> afterSuspends: open scheduled=false suspendCount=100 queued=1 log=[r:block] | afterResumes: open scheduled=false suspendCount=0 queued=0 log=[r:block, r:u]
 MBX-CC-04 dead-letter forwarding during cleanUp -> deadLetters=[in-cleanup, Suspend, pending] received=[r:block]
 MBX-CC-05 producer that read the mailbox before it closed strands its message -> received=[] deadLetters=[] oldMailbox=closed scheduled=false suspendCount=0 queued=1 (neither processed nor dead-lettered)
+MBX-CC-05a producer that enqueues before cleanUp drains the old queue is dead-lettered -> received=[] deadLetters=[straggler] oldMailbox=closed scheduled=false suspendCount=0 queued=0
 MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two -> [r:block, r:x1, r:x2, r:y1, r:y2, r:x3, r:x4, r:y3, r:y4, r:x5, r:x6, r:y5, r:y6]
 MBX-SC-02 throughput-deadline-time ends the turn after a slow message -> [r:block, r:sleep-x1, r:sleep-y1, r:sleep-x2, r:sleep-y2, r:sleep-x3, r:sleep-y3]
 MBX-SC-03 actor suspended with queued work does not reschedule itself -> suspendedWithWork: open scheduled=false suspendCount=1 queued=3 log=[r:block] | afterStop deadLetters=[u2, u3, u4]
