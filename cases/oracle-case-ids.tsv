@@ -2036,3 +2036,44 @@ ps-0022	provider-selection	SEL-16 provider = {a=1} (an object)
 ps-0023	provider-selection	SEL-17 provider = null
 ps-0024	provider-selection	SEL-18 provider = true (a boolean)
 ps-0025	provider-selection	SEL-19 provider = 1.5 (a decimal number)
+as-0001	actor-system-setup	AS-01 store and retrieve a setup
+as-0002	actor-system-setup	AS-02 get on an empty setup
+as-0003	actor-system-setup	AS-03 replace the setup of the same class
+as-0004	actor-system-setup	AS-04 and with a repeated class
+as-0005	actor-system-setup	AS-05 and with two different classes
+as-0006	actor-system-setup	AS-06 create with several setups
+as-0007	actor-system-setup	AS-07 create with two setups of the same class
+as-0008	actor-system-setup	AS-08 the Java API
+as-0009	actor-system-setup	AS-09 withSetup leaves the original setup unchanged
+as-0010	actor-system-setup	AS-10 and on an ActorSystemSetup equals withSetup
+as-0011	actor-system-setup	TS-01 toString of an empty setup
+as-0012	actor-system-setup	TS-02 toString with one setup
+as-0013	actor-system-setup	TS-03 toString with two setups in insertion order
+as-0014	actor-system-setup	TS-04 toString after replacing the first setup keeps its position
+as-0015	actor-system-setup	TS-05 toString with four setups
+as-0016	actor-system-setup	TS-06 toString of create with a repeated class
+as-0017	actor-system-setup	TS-07 toString with a BootstrapSetup
+as-0018	actor-system-setup	BS-01 BootstrapSetup()
+as-0019	actor-system-setup	BS-02 BootstrapSetup.create()
+as-0020	actor-system-setup	BS-03 BootstrapSetup(config)
+as-0021	actor-system-setup	BS-04 BootstrapSetup.create(config)
+as-0022	actor-system-setup	BS-05 withConfig
+as-0023	actor-system-setup	BS-06 withActorRefProvider(Remote)
+as-0024	actor-system-setup	BS-07 withActorRefProvider(Cluster)
+as-0025	actor-system-setup	BS-08 withActorRefProvider(Local)
+as-0026	actor-system-setup	BS-09 withActorRefProvider(Custom)
+as-0027	actor-system-setup	BS-10 withConfig then withActorRefProvider keeps the config
+as-0028	actor-system-setup	BS-11 withActorRefProvider then withConfig keeps the provider
+as-0029	actor-system-setup	BS-12 withConfig twice replaces the config
+as-0030	actor-system-setup	BS-13 withers leave the original unchanged
+as-0031	actor-system-setup	BS-14 a BootstrapSetup stored in an ActorSystemSetup
+as-0032	actor-system-setup	PR-01 no setup uses the configuration (local)
+as-0033	actor-system-setup	PR-02 an empty BootstrapSetup equals none
+as-0034	actor-system-setup	PR-03 the provider of the BootstrapSetup wins over the configuration (Remote over local)
+as-0035	actor-system-setup	PR-04 the provider of the BootstrapSetup wins (Cluster over remote)
+as-0036	actor-system-setup	PR-05 the provider of the BootstrapSetup wins (Local over a custom class)
+as-0037	actor-system-setup	PR-06 a Custom provider of the BootstrapSetup is selected through its identifier
+as-0038	actor-system-setup	PR-07 a BootstrapSetup with only a config keeps the configured provider
+as-0039	actor-system-setup	PR-08 other setups do not affect the provider
+as-0040	actor-system-setup	PR-09 the setup is available from Settings.setup
+as-0041	actor-system-setup	PR-10 Settings without a setup has an empty one

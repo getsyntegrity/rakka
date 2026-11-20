@@ -2,6 +2,8 @@
 //! library, so that the recorded behaviour also counts as verified by `cargo test`/`cargo llvm-cov`.
 //! The harness code (JSON, scenario runner, path rendering) is shared with the `classic-parity` CLI.
 
+#[path = "../examples/classic-parity/actor_system_setup_cases.rs"]
+mod actor_system_setup_cases;
 #[path = "../examples/classic-parity/bytes_cases.rs"]
 mod bytes_cases;
 #[path = "../examples/classic-parity/config_hocon_cases.rs"]
@@ -371,6 +373,20 @@ fn recorded_provider_selection_cases_match_pekko() {
         "provider-selection.txt",
         provider_selection_cases::rust_lines(),
         Vec::new(),
+    );
+}
+
+#[test]
+fn recorded_actor_system_setup_cases_match_pekko() {
+    let unproduced = actor_system_setup_cases::PENDING
+        .iter()
+        .map(|(id, _)| *id)
+        .collect();
+    oracle_family_matches_pekko(
+        "actor-system-setup-case",
+        "actor-system-setup.txt",
+        actor_system_setup_cases::rust_lines(),
+        unproduced,
     );
 }
 

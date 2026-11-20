@@ -1,0 +1,1 @@
+PR-10 Settings without a setup has an empty one -> ok DummySetup=absent DummySetup2=absent ActorSystemSettings()

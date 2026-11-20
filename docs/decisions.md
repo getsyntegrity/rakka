@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 239 decisiones: 0 bloqueantes, 176 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 242 decisiones: 0 bloqueantes, 179 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -446,6 +446,36 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) Dos capas. Capa 1: FactoryRegistry::lookup (y create) devuelve un error ClassNotFound, equivalente a ClassNotFoundException, que lleva el nombre; el registro no usa ConfigurationException. Capa 2: cada consumidor transforma el error como Pekko 2.0.0: la resolución del proveedor lo propaga sin envolver; Dispatchers (y el requirement de Mailboxes) lo envuelven en ConfigurationException y la creación del MailboxType en IllegalArgumentException, cuando se implementen (otras unidades; queda anotado en sus filas). Se mantienen Q-X-2 (A) y Q-CFG-9 (c). (b) Mantener el texto literal de Q-X-2 y de Q-CFG-9 (a): el registro y la resolución del proveedor devuelven ConfigurationException (diferencia deliberada con Pekko para el proveedor, que el oráculo no confirma).
 - **Recomendación:** (a). Clasificación: comportamiento observable (tipo de error). Consecuencia: un proveedor desconocido, remote o cluster falla con el tipo y el mensaje de Pekko; Cada consumidor que Pekko envuelve conserva su tipo (ConfigurationException en Dispatchers; IllegalArgumentException al crear un MailboxType). Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible.
 - **Filas afectadas:** AC-CFG-008;AC-CFG-016
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-32 — BootstrapSetup sin classLoader ni defaultExecutionContext (campos de la JVM sin equivalente en Rust)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** BootstrapSetup tiene cuatro campos (ActorSystem.scala:160-178): classLoader, config, defaultExecutionContext y actorRefProvider, con sus withers. ActorSystem.apply usa classLoader (findClassLoader() por defecto) y defaultExecutionContext (ActorSystem.scala:278-281). En Rust no hay ClassLoader (la carga por nombre es el registro de Q-X-2 y FactoryRegistry; Q-SYS-6, propuesta, recomienda no tener sobrecargas con ClassLoader) y el tipo del ejecutor lo define AC-DSP-006 (Q-X-4). Medido con el oráculo (casos BS-15 y BS-16, no producidos por Rust): withClassloader y withDefaultExecutionContext devuelven una copia que guarda el valor.
+- **Alternativas:** (a) BootstrapSetup tiene por ahora solo `config` y `actorRefProvider`; `classLoader` no existe (registro de fábricas) y `defaultExecutionContext` se añade con AC-DSP-006 cuando exista el tipo del ejecutor. (b) Tipos opacos sin efecto (`ClassLoaderHandle`, `ExecutorHandle`) que se guardan y se devuelven. (c) Excluir los dos campos (requiere autorización explícita del Owner).
+- **Recomendación:** (a). Clasificación: arquitectura y exclusión de alcance parcial. Consecuencia observable: no existen `withClassloader` ni `withDefaultExecutionContext`; el resto de BootstrapSetup se comporta como Pekko. Bloquea: el cierre de AC-CFG-015 (queda partial); puede avanzar: lo demás. Reversible.
+- **Filas afectadas:** AC-CFG-015;AC-SYS-001.2;AC-DSP-006
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-33 — Orden y nombres de ActorSystemSetup.toString (Display)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** ActorSystemSetup.toString lista `setups.keys.map(_.getName).mkString(",")` (ActorSystemSetup.scala:94). `setups` es un Map inmutable de Scala: con hasta cuatro setups conserva el orden de inserción (un setup reemplazado conserva su posición; casos TS-03..TS-06 del oráculo), y desde cinco es un HashMap ordenado por `Class.hashCode`, que depende de la identidad del objeto Class y cambia entre ejecuciones de la JVM: no es reproducible. Los nombres son nombres de clase de Java; en Rust cada tipo declara el suyo con `Setup::class_name()` (BootstrapSetup devuelve `org.apache.pekko.actor.BootstrapSetup`) y por defecto es `std::any::type_name`.
+- **Alternativas:** (a) Orden de inserción siempre, con `class_name()` por tipo. (b) Orden alfabético de los nombres. (c) No ofrecer `Display` (solo `Debug` sin contrato).
+- **Recomendación:** (a). Clasificación: comportamiento observable menor (solo diagnóstico). Consecuencia: con más de cuatro setups el orden de Pekko no es reproducible y Rust usa el de inserción; con cuatro o menos coincide con Pekko. Bloquea: nada. Reversible.
+- **Filas afectadas:** AC-CFG-015
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-34 — Un `Custom` de `BootstrapSetup.withActorRefProvider` se lee por su `identifier` y queda como el nombre de clase `custom` (bug de Pekko 2.0.0)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Custom(fqcn) tiene identifier "custom" (ActorSystem.scala:118) y Settings lee el proveedor del setup con `setup.get[BootstrapSetup].flatMap(_.actorRefProvider).map(_.identifier).getOrElse(getString("pekko.actor.provider"))` (ActorSystem.scala:411-414) y lo pasa por `ProviderSelection(providerSelectionSetup)` (ActorSystem.scala:417): "custom" no es ninguno de los nombres conocidos y vuelve a ser `Custom("custom")`, así que se pierde la clase. Caso grabado as-0037 (PR-06): `BootstrapSetup().withActorRefProvider(Custom("other.ActorRefProvider"))` da `identifier=custom ProviderClass=custom HasCluster=false`; con Local, Remote o Cluster (as-0034..as-0036, PR-03..05) la selección sí se conserva, y por texto (`pekko.actor.provider = other.ActorRefProvider`, ps-0006) tampoco se pierde. Parece un bug de Pekko 2.0.0: nada documenta esa pérdida.
+- **Alternativas:** (a) Reproducir el comportamiento de Pekko 2.0.0 (Q-X-11): un `Custom` del setup acaba como la clase `custom`; el código lleva un comentario que lo marca como paridad deliberada. (b) Conservar el FQCN del `Custom` del setup (corrige el bug; es una diferencia deliberada con Pekko que el oráculo no confirma).
+- **Recomendación:** (a). Clasificación: comportamiento observable (bug de Pekko reproducido). Consecuencia: un proveedor personalizado solo es utilizable por configuración de texto, no por `BootstrapSetup`, como en Pekko 2.0.0. Bloquea: el cierre de AC-CFG-015 y AC-CFG-008 (quedan partial); puede avanzar: el resto. Reversible.
+- **Filas afectadas:** AC-CFG-015;AC-CFG-008
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 

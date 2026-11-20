@@ -385,7 +385,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** ProviderSelection, Setup/BootstrapSetup y DynamicAccess (registro de fabricas).
 - **Filas (3; impl: pending 3):** asignacion explicita en `docs/unit-rows.tsv`: AC-CFG-008, AC-CFG-015, AC-CFG-016.
 - **Exclusiones/costuras:** Q-X-2 (registro de fabricas) abierta; CFG-008 queda partial hasta que el proveedor exista (P26).
-- **Decisiones:** 5 distintas en sus filas; respondidas: Q-CFG-13, Q-CFG-9, Q-X-10, Q-X-2; propuestas sin respuesta: Q-CFG-31. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P09). <!-- generated:unit-decisions -->
+- **Decisiones:** 8 distintas en sus filas; respondidas: Q-CFG-13, Q-CFG-9, Q-X-10, Q-X-2; propuestas sin respuesta: Q-CFG-31, Q-CFG-32, Q-CFG-33, Q-CFG-34. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P09). <!-- generated:unit-decisions -->
 - **Dependencias:** P08.
 - **Archivos previstos:** `crates/rakka-actor/src/config/{setup,dynamic_access}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** unidad.
@@ -491,7 +491,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Registro de dispatchers, ejecutores (fork-join, pool, pinned, affinity, virtual), batching y contextos de ejecucion.
 - **Filas (19; impl: pending 19):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-018.4, AC-UTIL-018.5, AC-DSP-004, AC-DSP-005, AC-DSP-006, AC-DSP-008, AC-DSP-009, AC-DSP-010, AC-DSP-011, AC-DSP-013, AC-DSP-014, AC-DSP-015, AC-DSP-016.1, AC-DSP-016.2, AC-DSP-017.1, AC-DSP-017.2, AC-DSP-018, AC-DSP-019, AC-DSP-022.
 - **Exclusiones/costuras:** Q-DSP-1 decide los ejecutores; DSP-007 (seleccion por actor) a P28. Desde 2026-11-01 incluye AC-UTIL-018.4 y AC-UTIL-018.5 (proceden de P05). **Requiere subdivision (registrado, no aplicado):** 19 filas heterogeneas (configuracion y busqueda de dispatchers, pools de hilos, ejecucion/batching y contextos de ejecucion); atomicidad no acreditada y la unidad NO esta lista para implementar. 018.4 y AC-DSP-017.1 describen la misma pieza (SameThreadExecutionContextSpec:40-66); la direccion de su dependencia no la fija ningun contrato (`Future.scala:104` muestra que `ExecutionContexts.parasitic` usa `SameThreadExecutionContext()`); se implementa una sola vez. La regla de `reportFailure` de `parasitic` (biblioteca de Scala) esta sin medir.
-- **Decisiones:** 12 distintas en sus filas; respondidas: Q-UTIL-11, Q-X-1, Q-X-2, Q-X-4, Q-X-5; propuestas sin respuesta: 7 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P16). <!-- generated:unit-decisions -->
+- **Decisiones:** 13 distintas en sus filas; respondidas: Q-UTIL-11, Q-X-1, Q-X-2, Q-X-4, Q-X-5; propuestas sin respuesta: 8 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P16). <!-- generated:unit-decisions -->
 - **Dependencias:** P08, P09, P15.
 - **Archivos previstos:** `crates/rakka-actor/src/dispatch/{dispatchers,executors}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** DispatchersSpec + unidad.
@@ -602,7 +602,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** ActorSystem: constructores, arranque, jerarquia de guardianes y guardian de usuario.
 - **Filas (12; impl: pending 12):** asignacion explicita en `docs/unit-rows.tsv`: AC-SYS-001.1, AC-SYS-001.2, AC-SYS-002, AC-SYS-003.1, AC-SYS-003.2, AC-SYS-007, AC-SYS-008, AC-SYS-009, AC-SYS-013, AC-SYS-020, AC-SYS-023, AC-SUP-014.
 - **Exclusiones/costuras:** Costura SYS-S1: hooks de terminacion via trait TerminationHooks (P39); registro de extensiones via ExtensionRegistry (P30). (2026-11-01) Declara P67 (AC-SYS-020 consume util.Version, 005.2); AC-SYS-020 -> AC-UTIL-016.9 (P72) es una costura hacia adelante.
-- **Decisiones:** 10 distintas en sus filas; respondidas: 7 (ver detalle); propuestas sin respuesta: Q-SYS-3, Q-SYS-4, Q-SYS-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P25). <!-- generated:unit-decisions -->
+- **Decisiones:** 11 distintas en sus filas; respondidas: 7 (ver detalle); propuestas sin respuesta: Q-CFG-32, Q-SYS-3, Q-SYS-4, Q-SYS-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P25). <!-- generated:unit-decisions -->
 - **Dependencias:** P10, P16, P20, P22, P23, P67.
 - **Archivos previstos:** `crates/rakka-actor/src/system/{system,guardians}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorSystemSpec parcial + oraculo.
