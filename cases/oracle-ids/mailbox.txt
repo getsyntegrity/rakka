@@ -1,0 +1,26 @@
+MBX-ST-01 open to scheduled
+MBX-ST-02 scheduled to idle
+MBX-ST-03 open to suspended and resumed
+MBX-ST-04 suspended and scheduled
+MBX-ST-05 open to closed
+MBX-ST-06 closed ignores resume and suspend
+MBX-ST-07 closed refuses scheduling
+MBX-ST-08 canBeScheduledForExecution matrix
+MBX-SQ-01 system queue drains earliest first
+MBX-SQ-02 sentinel NoMessage closes the system queue
+MBX-TK-01 Mailbox is a plain Runnable, not a ForkJoinTask
+MBX-OR-01 user messages are FIFO
+MBX-OR-02 system message queued behind user messages runs before them, drained after the turn's message
+MBX-OR-03 suspension keeps user messages pending; nested suspend needs balanced resume
+MBX-OR-04 messages sent while terminating and after termination go to dead letters
+MBX-OR-05 system messages after close go to dead letters (Watch is answered)
+MBX-CL-01 closed mailbox of a stopped actor
+MBX-CC-01 eight producers on a one-thread pool: no loss, per-sender order, serial execution
+MBX-CC-02 message enqueued at the last empty dequeue of a turn is not stranded
+MBX-CC-03 concurrent Suspend/Resume system messages lose no increments
+MBX-CC-04 dead-letter forwarding during cleanUp
+MBX-CC-05 producer that read the mailbox before it closed strands its message
+MBX-CC-05a producer that enqueues before cleanUp drains the old queue is dead-lettered
+MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two
+MBX-SC-02 throughput-deadline-time ends the turn after a slow message
+MBX-SC-03 actor suspended with queued work does not reschedule itself
