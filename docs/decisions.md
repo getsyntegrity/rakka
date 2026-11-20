@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 242 decisiones: 0 bloqueantes, 179 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 243 decisiones: 0 bloqueantes, 180 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -2017,6 +2017,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** (a): Q-UTIL-11 (a) y Q-X-4 (A) ya aceptan el equivalente y el Owner marcó ccompat como `eliminado en 2.0.0`; falta confirmar que ello cierra `impl`/`validation` de las tres filas sin conversores propios (las aserciones A1/A2 son pruebas de compilación o delegan en la biblioteca de Scala).
 - **Filas afectadas:** AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3
 - **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+
+### Q-X-19 — Fijar el oráculo en JDK 21 (o 25 LTS) y regrabar todo el corpus, para dejar de mezclar JDK 17 y 21
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Q-X-16 (aceptada) fija el oráculo en JDK 17, pero #266 regrabó con JDK 21.0.13.1 los 77 casos NUM-RENDER (ch-0497..0528) y NUM-SHORT (ch-0778..0822): 70 salieron idénticos y 7 distintos (los antiguos NA:Q-CFG-30), así que el corpus mezcla dos JDK. Q-CFG-30: la representación más corta de un double cambió en JDK 19+; Rakka coincide con JDK 19+ (0 diferencias sobre 380 849 dobles con JDK 27, 5 con JDK 17) y el clasificador NA:Q-CFG-30 existe solo para esa diferencia. Hoy `oracle/run.sh` usa JDK 17 y los casos nuevos de P09 no dependen de la JDK (uc-0553 da el mismo stdout y stderr con JDK 17 y JDK 27). JDK 21 no está instalado en la máquina donde se midió; la disponibilidad de JDK 25 no se ha comprobado.
+- **Alternativas:** (a) Seguir en JDK 17 (Q-X-16) con excepciones por familia: hoy NUM-RENDER y NUM-SHORT en JDK 21. (b) Pasar el oráculo y todo el corpus a JDK 21 y regrabarlo. (c) Pasar a JDK 25 LTS y regrabarlo.
+- **Recomendación:** (b), sin regrabar nada hasta que el Owner responda. Clasificación: infraestructura del oráculo; no cambia el contrato de Pekko 2.0.0, pero puede cambiar los esperados de los casos que dependen de la JDK (p. ej. el texto de excepciones del JDK y el render de doubles). Bloquea: nada hoy; deja de mezclar JDK 17 y 21 y elimina la excepción de #266 y el clasificador NA:Q-CFG-30 si se elige (b) o (c). Reversible.
+- **Filas afectadas:** todas las filas con casos grabados
+- **Unidades afectadas:** todas
 - **Origen:** classic-foundation
 
 ## 6. Respuestas del Owner por unidad
