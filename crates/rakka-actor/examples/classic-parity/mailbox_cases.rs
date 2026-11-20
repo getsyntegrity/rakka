@@ -64,11 +64,11 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-CC-05 producer that read the mailbox before it closed strands its message",
-        "needs the user queue and the dispatcher on the actor cell (ADR-0001 steps 3-6)",
+        "Q-MBX-8 (accepted): Pekko strands the late message, Rust dead-letters it by design; covered by dispatch::mailbox_close and tests/classic_mailbox_close.rs",
     ),
     (
         "MBX-CC-05a producer that enqueues before cleanUp drains the old queue is dead-lettered",
-        "needs the user queue and the dispatcher on the actor cell (ADR-0001 steps 3-6)",
+        "Q-MBX-8 (accepted): same dead-letter outcome as Pekko; the forced interleaving is a unit test of dispatch::mailbox_close (the cell does not accept a hook queue yet)",
     ),
     (
         "MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two",

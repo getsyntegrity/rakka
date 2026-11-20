@@ -25,6 +25,30 @@ CASES_REPORT = os.path.join(ROOT, "rust", "app-cases", "replay-report.md")
 
 # name -> (file, old, new, why it is a realistic bug)
 MUTANTS = {
+    "mailbox-suspension-does-not-stop-user-messages": (
+        "src/actor/cell.rs",
+        "        while budget > 0 && self.status.should_process_message() {",
+        "        while budget > 0 && !self.status.is_closed() {",
+        "a suspended actor keeps processing user messages (the turn only checks `Closed`, not the suspend count)",
+    ),
+    "mailbox-throughput-off-by-one": (
+        "src/actor/cell.rs",
+        "self.system.settings.throughput.max(1)",
+        "(self.system.settings.throughput.max(1) + 1)",
+        "a turn processes one message more than `throughput`, breaking the fairness between actors on one thread",
+    ),
+    "mailbox-dead-user-messages-not-published": (
+        "src/actor/cell.rs",
+        "        for env in dead {",
+        "        for env in dead.into_iter().take(0) {",
+        "a user message sent to a closed mailbox is dropped instead of published as a dead letter",
+    ),
+    "mailbox-dead-system-message-not-answered": (
+        "src/actor/cell.rs",
+        "                Self::dead_system_message(msg);\n                return;",
+        "                drop(msg);\n                return;",
+        "a system message sent to a terminated actor is dropped, so a `Watch` is never answered with `Terminated` (DeathWatch hole)",
+    ),
     "mailbox-queue-is-lifo": (
         "src/dispatch/message_queue.rs",
         "        self.queue.lock().unwrap().pop_front()\n",
