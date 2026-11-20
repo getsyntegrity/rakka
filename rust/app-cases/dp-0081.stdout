@@ -1,0 +1,1 @@
+TS-37 toString with an exponent number before a substitution -> ok Deploy(/a, Config(SimpleConfigObject({"a":"1e2 "${x}})), NoRouter, NoScopeGiven, , , Set())

@@ -156,39 +156,120 @@ fn compare_render_keys(a: &str, b: &str) -> std::cmp::Ordering {
     }
 }
 
-/// An unresolved concatenation: its pieces one after another, with the white space that touches a string joined to it.
+/// An unresolved concatenation as Typesafe Config prints it: white space next to a list or an object is dropped, adjacent
+/// lists and adjacent objects are fused, and a run of two or more plain values and white space becomes one string made of
+/// their original texts (a number keeps its digits, `true` and `null` their names); a lone plain value keeps its type.
 fn render_concatenation(pieces: &[Piece]) -> String {
-    let mut out = String::new();
-    let mut text = String::new();
-    let mut in_text = false;
-    for piece in pieces {
-        let as_text = match piece {
-            Piece::Ws(white) => Some(white.as_str()),
+    let is_container = |piece: &Piece| {
+        matches!(
+            piece,
             Piece::V(Val {
-                kind: Kind::Str(s), ..
-            }) => Some(s.as_str()),
-            Piece::V(_) => None,
-        };
-        match (as_text, piece) {
-            (Some(t), _) => {
-                text.push_str(t);
-                in_text = true;
-            }
-            (None, Piece::V(v)) => {
-                if in_text {
-                    out.push_str(&quote(&text));
-                    text.clear();
-                    in_text = false;
-                }
-                out.push_str(&render_concise(v));
-            }
-            (None, Piece::Ws(_)) => {}
+                kind: Kind::List(_) | Kind::Obj(_),
+                ..
+            })
+        )
+    };
+    let mut kept: Vec<&Piece> = Vec::new();
+    for (position, piece) in pieces.iter().enumerate() {
+        let touches_container = matches!(piece, Piece::Ws(_))
+            && (position
+                .checked_sub(1)
+                .is_some_and(|before| is_container(&pieces[before]))
+                || pieces.get(position + 1).is_some_and(is_container));
+        if !touches_container {
+            kept.push(piece);
         }
     }
-    if in_text {
-        out.push_str(&quote(&text));
+    let mut out = String::new();
+    let mut position = 0;
+    while position < kept.len() {
+        match kept[position] {
+            Piece::V(Val {
+                kind: Kind::List(first),
+                ..
+            }) => {
+                let mut items: Vec<&Val> = first.iter().collect();
+                while let Some(Piece::V(Val {
+                    kind: Kind::List(next),
+                    ..
+                })) = kept.get(position + 1)
+                {
+                    items.extend(next.iter());
+                    position += 1;
+                }
+                let rendered: Vec<String> = items.into_iter().map(render_concise).collect();
+                out.push_str(&format!("[{}]", rendered.join(",")));
+            }
+            Piece::V(Val {
+                kind: Kind::Obj(first),
+                ..
+            }) => {
+                let mut fused = first.clone();
+                while let Some(Piece::V(Val {
+                    kind: Kind::Obj(next),
+                    ..
+                })) = kept.get(position + 1)
+                {
+                    fused = merge_obj(next, &fused);
+                    position += 1;
+                }
+                out.push_str(&render_concise(&Val::new(0, Kind::Obj(fused))));
+            }
+            Piece::V(
+                value @ Val {
+                    kind: Kind::Subst(_),
+                    ..
+                },
+            ) => out.push_str(&render_concise(value)),
+            _ => {
+                let start = position;
+                while kept
+                    .get(position + 1)
+                    .is_some_and(|next| plain_text(next).is_some())
+                {
+                    position += 1;
+                }
+                if position == start {
+                    if let Piece::V(value) = kept[start] {
+                        out.push_str(&render_concise(value));
+                    } else {
+                        out.push_str(&quote(&plain_text(kept[start]).unwrap_or_default()));
+                    }
+                } else {
+                    let text: String = kept[start..=position]
+                        .iter()
+                        .filter_map(|piece| plain_text(piece))
+                        .collect();
+                    out.push_str(&quote(&text));
+                }
+            }
+        }
+        position += 1;
     }
     out
+}
+
+/// The original text of a white space or plain-value piece, `None` for lists, objects and substitutions.
+fn plain_text(piece: &Piece) -> Option<String> {
+    match piece {
+        Piece::Ws(white) => Some(white.clone()),
+        Piece::V(Val {
+            kind: Kind::Str(text),
+            ..
+        }) => Some(text.clone()),
+        Piece::V(Val {
+            kind: Kind::Num(number),
+            ..
+        }) => Some(number.text().to_owned()),
+        Piece::V(Val {
+            kind: Kind::Bool(flag),
+            ..
+        }) => Some(flag.to_string()),
+        Piece::V(Val {
+            kind: Kind::Null, ..
+        }) => Some("null".to_owned()),
+        Piece::V(_) => None,
+    }
 }
 
 /// An immutable HOCON configuration.

@@ -77,3 +77,26 @@
 {"name": "dp-0077", "args": ["deploy-case"], "stdin": "TS-33 toString with two substitutions"}
 {"name": "dp-0078", "args": ["deploy-case"], "stdin": "TS-34 toString with a substitution and a nested key"}
 {"name": "dp-0079", "args": ["deploy-case"], "stdin": "TS-35 toString with an optional substitution over an object"}
+{"name": "dp-0080", "args": ["deploy-case"], "stdin": "TS-36 toString with a number with a trailing zero before a substitution"}
+{"name": "dp-0081", "args": ["deploy-case"], "stdin": "TS-37 toString with an exponent number before a substitution"}
+{"name": "dp-0082", "args": ["deploy-case"], "stdin": "TS-38 toString with a boolean and two spaces before a substitution"}
+{"name": "dp-0083", "args": ["deploy-case"], "stdin": "TS-39 toString with null before a substitution"}
+{"name": "dp-0084", "args": ["deploy-case"], "stdin": "TS-40 toString with a number after a substitution"}
+{"name": "dp-0085", "args": ["deploy-case"], "stdin": "TS-41 toString with several numbers and a substitution"}
+{"name": "dp-0086", "args": ["deploy-case"], "stdin": "TS-42 toString with a number with leading zeros between substitutions"}
+{"name": "dp-0087", "args": ["deploy-case"], "stdin": "TS-43 toString with adjacent lists before a substitution"}
+{"name": "dp-0088", "args": ["deploy-case"], "stdin": "TS-44 toString with adjacent objects before a substitution"}
+{"name": "dp-0089", "args": ["deploy-case"], "stdin": "TS-45 toString with lists around a substitution"}
+{"name": "dp-0090", "args": ["deploy-case"], "stdin": "TS-46 toString with adjacent objects after a substitution"}
+{"name": "dp-0091", "args": ["deploy-case"], "stdin": "TS-47 toString with adjacent lists after a substitution"}
+{"name": "dp-0092", "args": ["deploy-case"], "stdin": "TS-48 toString with adjacent objects that repeat a key"}
+{"name": "dp-0093", "args": ["deploy-case"], "stdin": "TS-49 toString with adjacent objects that merge a nested key"}
+{"name": "dp-0094", "args": ["deploy-case"], "stdin": "TS-50 toString with substitution paths of digits"}
+{"name": "dp-0095", "args": ["deploy-case"], "stdin": "TS-51 toString with substitution paths that start with a hyphen or look like keywords"}
+{"name": "dp-0096", "args": ["deploy-case"], "stdin": "TS-52 toString with substitution paths that need quotes"}
+{"name": "dp-0097", "args": ["deploy-case"], "stdin": "TS-53 toString with substitution paths of non-ASCII letters"}
+{"name": "dp-0098", "args": ["deploy-case"], "stdin": "TS-54 toString with a substitution path of an astral character"}
+{"name": "dp-0099", "args": ["deploy-case"], "stdin": "TS-55 toString with a lone number between substitutions"}
+{"name": "dp-0100", "args": ["deploy-case"], "stdin": "TS-56 toString with a lone boolean between substitutions"}
+{"name": "dp-0101", "args": ["deploy-case"], "stdin": "TS-57 toString with a string, a number and a substitution"}
+{"name": "dp-0102", "args": ["deploy-case"], "stdin": "TS-58 toString with a substitution path of an astral letter"}

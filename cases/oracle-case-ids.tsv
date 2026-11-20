@@ -2156,6 +2156,29 @@ dp-0076	deploy	TS-32 toString with objects around a substitution
 dp-0077	deploy	TS-33 toString with two substitutions
 dp-0078	deploy	TS-34 toString with a substitution and a nested key
 dp-0079	deploy	TS-35 toString with an optional substitution over an object
+dp-0080	deploy	TS-36 toString with a number with a trailing zero before a substitution
+dp-0081	deploy	TS-37 toString with an exponent number before a substitution
+dp-0082	deploy	TS-38 toString with a boolean and two spaces before a substitution
+dp-0083	deploy	TS-39 toString with null before a substitution
+dp-0084	deploy	TS-40 toString with a number after a substitution
+dp-0085	deploy	TS-41 toString with several numbers and a substitution
+dp-0086	deploy	TS-42 toString with a number with leading zeros between substitutions
+dp-0087	deploy	TS-43 toString with adjacent lists before a substitution
+dp-0088	deploy	TS-44 toString with adjacent objects before a substitution
+dp-0089	deploy	TS-45 toString with lists around a substitution
+dp-0090	deploy	TS-46 toString with adjacent objects after a substitution
+dp-0091	deploy	TS-47 toString with adjacent lists after a substitution
+dp-0092	deploy	TS-48 toString with adjacent objects that repeat a key
+dp-0093	deploy	TS-49 toString with adjacent objects that merge a nested key
+dp-0094	deploy	TS-50 toString with substitution paths of digits
+dp-0095	deploy	TS-51 toString with substitution paths that start with a hyphen or look like keywords
+dp-0096	deploy	TS-52 toString with substitution paths that need quotes
+dp-0097	deploy	TS-53 toString with substitution paths of non-ASCII letters
+dp-0098	deploy	TS-54 toString with a substitution path of an astral character
+dp-0099	deploy	TS-55 toString with a lone number between substitutions
+dp-0100	deploy	TS-56 toString with a lone boolean between substitutions
+dp-0101	deploy	TS-57 toString with a string, a number and a substitution
+dp-0102	deploy	TS-58 toString with a substitution path of an astral letter
 dr-0001	deployer	DL-01 a single wildcard as last element
 dr-0002	deployer	DL-02 a single wildcard as first element
 dr-0003	deployer	DL-03 a terminal double wildcard needs at least the prefix
