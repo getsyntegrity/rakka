@@ -35,27 +35,41 @@ Hallazgos medidos en el oráculo: `deploy a/b` guarda `b` (se descarta el primer
 
 ## Replay externo completo (`python3.12 tools/parity/replay.py`)
 
-**2772/2772 aplicables + 0 NA:Q-CFG-30 + 1 no aplicable, divergen 0** (2713 + 60 = 2773).
+**2772/2772 aplicables + 0 NA:Q-CFG-30 + 1 no aplicable, divergen 0** (2713 + 60 = 2773); repetido sobre el árbol final tras la revisión (control de los mutantes, CLEAN 2772/2772).
 
-## Mutantes (9 nuevos, `tools/parity/check_divergence.py`)
+## Mutantes (10, `tools/parity/check_divergence.py`)
+
+Tras la revisión independiente se reescribió `deploy` como el `compareAndSet` literal de Pekko (instantánea, índice nuevo, intercambio solo si la instantánea sigue vigente, si no se reintenta) y se relanzaron **todos** los mutantes de `deployer.rs` sobre el árbol final:
 
 | Mutante | Resultado | Pasan |
 |---|---|---|
 | deployer-lookup-keeps-the-guardian | DETECTED | 2766/2772 |
 | deployer-deploy-keeps-the-first-element | DETECTED | 2712/2772 |
 | deployer-accepts-an-empty-element | DETECTED | 2766/2772 |
-| deployer-skips-the-validation-of-the-elements | DETECTED | 2765/2772 |
-| deployer-validation-message-omits-the-path | DETECTED | 2765/2772 |
-| deployer-split-keeps-the-trailing-empty-parts | DETECTED | 2768/2772 |
+| deployer-skips-the-validation-of-the-elements | DETECTED | 2764/2772 |
+| deployer-validation-message-omits-the-path | DETECTED | 2764/2772 |
+| deployer-split-keeps-the-trailing-empty-parts | DETECTED | 2769/2772 |
 | deployer-deploy-forgets-the-previous-deployments | DETECTED | 2757/2772 |
-| deployer-deploy-loses-concurrent-updates | DETECTED | 2771/2772 |
+| deployer-deploy-stores-nothing | DETECTED | 2727/2772 |
+| deployer-empty-element-message-is-wrong | DETECTED | 2766/2772 |
+| deployer-deploy-swaps-a-stale-snapshot | DETECTED (test unitario) | - |
 
-8 DETECTED, control CLEAN 2772/2772. Un noveno (`deployer-split-of-only-slashes-has-an-empty-part`) **sobrevivió y era equivalente**: la rama que vaciaba `[""]` para `"/"` no es observable tras `drop(1)`. Se eliminó la rama y el mutante, se cambió el test y se relanzaron `split-keeps-the-trailing-empty-parts`, `keeps-the-first-element` y `loses-concurrent-updates` sobre el código final: DETECTED los tres, control CLEAN. Los otros 5 se ejecutaron antes de simplificar el helper (sus parches no tocan ese código). Patrones: 183, 0 obsoletos. El de concurrencia depende de una carrera real (8 hilos, barrera): salió DETECTED en las 2 ejecuciones (diverge 1 caso de 2772); es probabilístico por naturaleza y no es un resultado determinista. No se repitió la batería completa de mutantes (ningún archivo con mutantes previos cambió salvo un comentario en `config/mod.rs`).
+10/10 DETECTED, control CLEAN 2772/2772. Patrones: 185, 0 obsoletos. El mutante de **actualización perdida** (`swaps-a-stale-snapshot`) ya **no depende del scheduler**: lo mata el test unitario determinista `a_deployment_that_loses_the_swap_is_retried_on_the_newer_index_and_nothing_is_lost` (una sola hebra, sin sleeps), que usa el hook privado `deploy_between_read_and_swap` para hacer otra alta justo entre la lectura y el intercambio. En producción el hook es una clausura vacía. El harness (`UNIT_MUTANTS`) ejecuta ese test en lugar del replay para ese mutante; la salida del mutante fue `test result: FAILED`. DC-01/DC-02 quedan en el replay como comprobación del estado final, no como matador. (Un mutante anterior, equivalente, se eliminó en la primera versión.)
+
+## Revisión independiente de #277 (agente nuevo, sin el contexto de la implementación), SHA `1a8e13f`: APPROVE WITH MINORS
+
+Sin bloqueantes. Atendido en este SHA: **F1** (menor, real: mis `\uXXXX` de DL-36 y DL-51 se habían convertido en caracteres literales al escribir el archivo y el espacio se perdía al tokenizar; casos vacuos) corregido, el archivo es ahora ASCII puro y `dr-0036` se regrabó con el oráculo (valida ahora `/ ` y `b c`); **F3** (`lookup` esperaba al `Mutex` durante el `insert`) resuelto con la instantánea y el intercambio breve; **F7** (sin mutante del texto del elemento vacío ni de "no guarda") añadidos; **F8** (determinismo) resuelto arriba; **F9** y **F10** (encabezado y líneas en blanco); **F11** (el hueco DL-41 se menciona en la cabecera de `deployer.tsv`).
+
+Documentado y **no resuelto** (decisión del Owner o de otros slices):
+- **F2 / Q-UTIL-21 (hechos medidos por el revisor contra el `WildcardIndex` real de Pekko):** con dos `prefix*` solapados el ganador sigue el orden de hash del `HashMap` de Scala, no el de inserción: `p*`/`pq*` da `p*` y `s*`/`st*` da `st*` en las dos órdenes de inserción; `a*`/`ab*` da `a*`, `x*`/`xy*` da `x*`, `m*`/`mn*` da `m*`, `b*`/`bc*` da `bc*`. Rust elige el primero insertado, así que difiere de Pekko en una de las dos órdenes de cada par. El orden es determinista (`String.hashCode` en el trie CHAMP). Ningún caso grabado lo cubre; no se decidió nada (Q-UTIL-21 sigue propuesta).
+- **F4:** `Deployer` es `private[pekko]` en Pekko y aquí es público (`pub use`): fija superficie semver; decidir `pub(crate)` o `#[doc(hidden)]` antes del primer release. `lookup` devuelve un `Deploy` clonado (Pekko devuelve una referencia compartida): un `Arc<Deploy>` en el índice lo abarataría.
+- **F5 (para P10 3/3):** `from_settings` es compatible (`Deployer::new()` y `deploy` por entrada, abortando en el primer `Err`), pero Pekko itera `config.root` en el orden del `HashMap` de Typesafe Config: ese orden decide qué alta gana entre `/a` y `/a/` (ambas dan `["a"]`) y el caso de Q-UTIL-21. 012.1 debe replicarlo o registrar una `Q`.
+- **F12 (nit):** desplegar `/`, `""` o un elemento clona el índice entero sin cambiar nada.
 
 ## Gates
 
 - `cargo test --workspace` verde (410 unitarios de la lib + integración); `clippy --all-targets -D warnings`, `cargo fmt --all --check`, `cargo deny check licenses`: ok.
-- Cobertura (`cargo llvm-cov --workspace --summary-only`): líneas **98,20 %**, regiones 98,35 %, funciones 98,35 %; `actor/deployer.rs` y `actor/deploy.rs` 0 líneas, 0 regiones y 0 funciones sin cubrir; sin líneas nuevas sin cubrir (318 regiones sin cubrir, las mismas que la base).
+- Cobertura (`cargo llvm-cov --workspace --summary-only`): líneas **98,20 %**, regiones 98,35 %, funciones 98,35 %; `actor/deployer.rs` y `actor/deploy.rs` 0 líneas, 0 regiones y 0 funciones sin cubrir; sin líneas nuevas sin cubrir (regiones sin cubrir del workspace: 319 frente a 318 en la base de #276; la diferencia está fuera de `deployer.rs`, que tiene 0; no la investigué más).
 - `python3.12 tools/package/check.py`: 0 fallos (tras `generate.py`).
 
 ## Etapas de Rust-Anything ejecutadas
@@ -67,4 +81,4 @@ CLI (el MCP no se usó): `rust-anything app record` (60 casos contra `oracle/run
 - AC-CFG-012.2 queda `partial/oracle`: 012.1 (PR 3) y Q-UTIL-21 abiertos.
 - `RouterConfig::Opaque` en la API pública: pendiente de P37.
 - Q-CFG-35 (`Display` de `Deploy`) sigue propuesta; no se decidió ninguna `Q-*`.
-- La detección del mutante de concurrencia es probabilística.
+- Q-UTIL-21 (arriba) y el orden de iteración de 012.1 (F5): diferencias conocidas respecto de Pekko que no se han resuelto.

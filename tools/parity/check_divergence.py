@@ -1098,15 +1098,27 @@ MUTANTS = {
     ),
     "deployer-deploy-forgets-the-previous-deployments": (
         "src/actor/deployer.rs",
-        "let updated = current.insert(elements, deploy)?;",
-        "let updated = WildcardIndex::new().insert(elements, deploy)?;",
+        "let updated = Arc::new(snapshot.insert(elements, deploy.clone())?);",
+        "let updated = Arc::new(WildcardIndex::new().insert(elements, deploy.clone())?);",
         "every deploy starts from an empty index",
     ),
-    "deployer-deploy-loses-concurrent-updates": (
+    "deployer-deploy-swaps-a-stale-snapshot": (
         "src/actor/deployer.rs",
-        "        let mut current = self\n            .deployments\n            .lock()\n            .unwrap_or_else(PoisonError::into_inner);\n        let updated = current.insert(elements, deploy)?;\n        *current = Arc::new(updated);\n",
-        "        let snapshot = Arc::clone(\n            &self\n                .deployments\n                .lock()\n                .unwrap_or_else(PoisonError::into_inner),\n        );\n        let updated = snapshot.insert(elements, deploy)?;\n        *self\n            .deployments\n            .lock()\n            .unwrap_or_else(PoisonError::into_inner) = Arc::new(updated);\n",
-        "the new index is built from a snapshot taken before the lock is held, so two concurrent deploys lose one",
+        "if Arc::ptr_eq(&current, &snapshot) {",
+        "if true {",
+        "the new index replaces the current one even when another deploy swapped in meanwhile, so that deploy is lost (killed by a deterministic unit test, see UNIT_MUTANTS)",
+    ),
+    "deployer-deploy-stores-nothing": (
+        "src/actor/deployer.rs",
+        "                *current = updated;\n",
+        "                drop(updated);\n",
+        "a valid deployment is reported as done but never stored",
+    ),
+    "deployer-empty-element-message-is-wrong": (
+        "src/actor/deployer.rs",
+        '"Actor name in deployment [{path}] must not be empty"',
+        '"Actor name in deployment [{path}] must be empty"',
+        "the message of an empty element of a deployment path is wrong",
     ),
 }
 
@@ -1188,6 +1200,27 @@ def classify(r, binary):
     return DETECTED, ev["passed"], ev["total"], detail
 
 
+# Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
+# unit test (no threads, no sleeps) that the harness runs instead of the replay.
+UNIT_MUTANTS = {"deployer-deploy-swaps-a-stale-snapshot": "actor::deployer"}
+
+
+def run_unit_mutant(scratch, name, work):
+    try:
+        r = sh(["cargo", "test", "--manifest-path", os.path.join(work, "Cargo.toml"),
+                "--target-dir", os.path.join(scratch, "target-" + name), "--lib", UNIT_MUTANTS[name]], timeout=BUILD_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return TIMEOUT, None, None, "cargo test"
+    summary = next((l for l in r.stdout.splitlines() if l.startswith("test result:")), "(no test result)")
+    if "could not compile" in r.stderr:
+        return BUILD_ERROR, None, None, r.stderr[-600:]
+    if r.returncode == 0:
+        return UNDETECTED, None, None, summary
+    if "test result: FAILED" in r.stdout:
+        return DETECTED, None, None, summary
+    return HARNESS_ERROR, None, None, r.stderr[-300:]
+
+
 def run_mutant(scratch, name, rel, old, new, why):
     # a scratch workspace holds the copied crate (it inherits version/edition from the workspace)
     ws = os.path.join(scratch, name)
@@ -1207,6 +1240,8 @@ def run_mutant(scratch, name, rel, old, new, why):
     if patched == src and name not in EQUIVALENT:
         return PATCH_ERROR, None, None, "patch did not change the file"
     print("".join(difflib.unified_diff(src.splitlines(True), patched.splitlines(True), f"a/rakka-actor/{rel}", f"b/rakka-actor/{rel}")))
+    if name in UNIT_MUTANTS:
+        return run_unit_mutant(scratch, name, work)
     try:
         b = sh(["cargo", "build", "--release", "--manifest-path", os.path.join(work, "Cargo.toml"),
                 "--target-dir", os.path.join(scratch, "target-" + name), "--example", "classic-parity"], timeout=BUILD_TIMEOUT)

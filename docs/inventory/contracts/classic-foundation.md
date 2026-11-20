@@ -3045,8 +3045,6 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Actualización P10 PR 2 (2026-11-20).** Rust: `actor::Deployer` (`actor/deployer.rs`) con `deploy`, `lookup` y `lookup_path`. `deploy` divide con la semántica de `String.split("/")` de Java (se conserva el vacío inicial, se pierden los finales, `"/"` no da ningún elemento), descarta el primero, rechaza un elemento vacío y valida los demás antes de tocar el índice; el índice se reemplaza entero bajo un `Mutex` (equivale al reintento del `compareAndSet`: no se pierde ninguna alta). Sigue `partial`: falta AC-CFG-012.1 (leer `pekko.actor.deployment`) y AC-UTIL-009 sigue `partial` por Q-UTIL-21 (orden entre dos `prefix*` que coinciden).
 
-
-
 **Decisiones.** Q-UTIL-8.
 
 
