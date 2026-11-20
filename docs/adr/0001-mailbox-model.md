@@ -97,7 +97,7 @@ Observables sin acceso privado a Pekko (el oráculo Java ya usa `ActorSystem`; `
 
 ## 7. Preguntas exactas para el Owner (propuestas; se registrarán como `proposed`)
 
-Las letras (a, a′, b, c) remiten a las opciones de cada `Q-MBX-n` en `docs/owner-batch-02.md`.
+Las letras (a, a′, b, c) remiten a las opciones de cada `Q-MBX-n` en `docs/inventory/contracts/classic-dispatch.decisions.tsv`.
 
 1. **Q-MBX-6.** Dado Q-X-4 (A), ¿se confirma que el turno de mailbox es un trabajo del pool propio, con `throughput` y `throughput-deadline-time` **por dispatcher** y reloj inyectable? (sí/no)
 2. **Q-MBX-1.** ¿Se aprueba (c)? Concretamente: (i) nombre de la API awaitable (`try_tell` o `tell_async`); (ii) `tell` con `push-timeout>0` bloquea el hilo del emisor (paridad) también dentro de un worker del pool, con aviso de agotamiento del pool; (iii) `<0` espera sin límite como Pekko.
