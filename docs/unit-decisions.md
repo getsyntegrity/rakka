@@ -42,7 +42,7 @@
 
 ## P03 UTIL-ESTRUCTURAS
 
-16 filas; 9 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 1 propuestas.
+16 filas; 10 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -54,7 +54,8 @@
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-UTIL-012 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-UTIL-015.1 | — | — | `transversal` |
 | Q-X-6 | accepted (2026-11-18): aceptar (A). | 1: AC-UTIL-008 | — | — | `transversal` |
-| Q-UTIL-21 | propuesta | 1: AC-UTIL-009 | Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila. | — | `classic-foundation` |
+| Q-UTIL-21 | propuesta | 1: AC-UTIL-009 | Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-20 (paridad observable estricta); esta ficha se conserva por trazabilidad. | — | `classic-foundation` |
+| Q-X-20 | propuesta | 1: AC-UTIL-009 | Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible. | — | `classic-foundation` |
 
 ## P04 UTIL-BYTES
 
@@ -152,7 +153,7 @@
 
 ## P10 CFG-DEPLOY
 
-3 filas; 7 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 3 propuestas.
+3 filas; 8 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -160,9 +161,10 @@
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 1: AC-CFG-012.1 | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-UTIL-8 | accepted (2026-11-18): aceptar (c). Autoriza no reproducir makePattern bit a bit. | 1: AC-CFG-012.2 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 2: AC-CFG-012.1, AC-CFG-013 | — | — | `transversal` |
-| Q-CFG-35 | propuesta | 1: AC-CFG-013 | Bloquea: el cierre de AC-CFG-013; puede avanzar: todo el comportamiento de datos. Reversible. | — | `classic-foundation` |
-| Q-CFG-36 | propuesta | 1: AC-CFG-012.1 | Bloquea: el cierre de AC-CFG-012.1; puede avanzar: todo el resto. Reversible. | — | `classic-foundation` |
-| Q-UTIL-21 | propuesta | 1: AC-CFG-012.2 | Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila. | — | `classic-foundation` |
+| Q-CFG-35 | propuesta | 1: AC-CFG-013 | Bloquea: el cierre de AC-CFG-013; puede avanzar: todo el comportamiento de datos. Reversible. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-20 (paridad observable estricta); esta ficha se conserva por… | — | `classic-foundation` |
+| Q-CFG-36 | propuesta | 1: AC-CFG-012.1 | Bloquea: el cierre de AC-CFG-012.1; puede avanzar: todo el resto. Reversible. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-20 (paridad observable estricta); esta ficha se conserva por trazabilidad. | — | `classic-foundation` |
+| Q-UTIL-21 | propuesta | 1: AC-CFG-012.2 | Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-20 (paridad observable estricta); esta ficha se conserva por trazabilidad. | — | `classic-foundation` |
+| Q-X-20 | propuesta | 3: AC-CFG-012.1, AC-CFG-012.2, AC-CFG-013 | Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible. | — | `classic-foundation` |
 
 ## P11 EVT-BUS
 
@@ -1053,4 +1055,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 496 (232 respondidas, 0 bloqueantes, 264 propuestas).
+Total de pares unidad–decisión: 498 (232 respondidas, 0 bloqueantes, 266 propuestas).
