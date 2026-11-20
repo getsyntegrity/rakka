@@ -1,0 +1,1 @@
+DL-49 an exact path and a root double wildcard -> ok ok | ok | some(/a/b@d1) | some(/**@d2) | some(/**@d2)

@@ -1,0 +1,1 @@
+DL-31 an empty element in the middle -> ok ERR InvalidActorNameException [Actor name in deployment [/a//b] must not be empty] | none | none

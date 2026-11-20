@@ -1,0 +1,1 @@
+DL-30 trailing slashes are dropped by split -> ok ok | ok | ok | some(/a/@d1) | some(/b//@d2) | some(/c///@d3)

@@ -1,0 +1,1 @@
+DL-20 a path without leading slash loses its first element -> ok ok | some(a/b@d1) | none | none

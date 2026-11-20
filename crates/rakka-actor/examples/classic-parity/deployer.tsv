@@ -1,0 +1,65 @@
+# Scripts of the Deployer oracle (DeployerOracle.java) and of its Rust twin (deployer_cases.rs): id<TAB>script.
+# A script is operations separated by ';', words by single spaces; \uXXXX is one UTF-16 unit and "" the empty string.
+#   deploy PATH   Deployer.deploy(Deploy(PATH, dispatcher = "d<n>")), n = the order of the deploy operation (1-based)
+#   find A/B/C    Deployer.lookup(Iterable): the elements are PATH.split("/", -1); "-" is no element at all
+#   lookup URI    Deployer.lookup(ActorPath) of the path parsed from URI
+# (A lone surrogate in a path is outside the &str domain of the Rust API, Q-X-17: no script uses one.)
+# Each operation prints one token: ok | ERR <Exception> [<message>] | some(<path>@<dispatcher>) | none
+DL-01 a single wildcard as last element	deploy /some/*; find some/x; find some; find some/x/y; find other/x
+DL-02 a single wildcard as first element	deploy /*/some; find a/some; find a/other; find some
+DL-03 a terminal double wildcard needs at least the prefix	deploy /double/**; find double; find double/a; find double/a/b/c; find other
+DL-04 the more specific double wildcard wins	deploy /double/**; deploy /double/more/**; find double/more/x; find double/other/x; find double/more; find double
+DL-05 an exact element beats a single wildcard	deploy /a/*; deploy /a/b; find a/b; find a/c
+DL-06 a single wildcard beats a double wildcard	deploy /a/**; deploy /a/*; find a/x; find a/x/y
+DL-07 a prefix wildcard matches by prefix	deploy /q; deploy /a/ab*; find a/abc; find a/ab; find a/a; find a/xab
+DL-08 a prefix wildcard inserted again replaces the subtree of the prefix	deploy /q; deploy /a/p*/x; deploy /a/p*/y; find a/pq/x; find a/pq/y
+DL-09 deploying the same path again replaces the deployment	deploy /a; deploy /a; find a
+DL-10 an index with only prefix wildcards finds nothing	deploy /a*; find ab; find a
+DL-11 a double wildcard suffix is an IllegalArgumentException and changes nothing	deploy /a/b; deploy /c**; find a/b; find c; deploy /c**/d; find c/d
+DL-12 a double wildcard suffix inside a longer path	deploy /a/b**/c; deploy /a/b/**; find a/b/c
+DL-13 a double wildcard in the middle is a plain element	deploy /a/**/c; find a/x/c; find a/**/c
+DL-14 the wildcards looked up as elements	deploy /a/*; deploy /b/**; find a/*; find a/**; find b/*; find b/**
+DL-15 a single wildcard in the middle	deploy /a/*/c; find a/x/c; find a/x/d; find a/c
+DL-16 a single wildcard alone	deploy /*; find a; find a/b; find ""; find -
+DL-17 the exact path wins over a double wildcard higher up	deploy /a/**; deploy /a/b/c; find a/b/c; find a/b/d; find a/b
+DL-18 a double wildcard higher up is the alternative after a failed branch	deploy /a/**; deploy /a/b/c/d; find a/b/x; find a/b/c; find a/b/c/d
+DL-19 the single wildcard tree falls back to the double wildcard tree	deploy /a/b; deploy /a/**; find a/b; find a/c; find a/b/c
+DL-20 a path without leading slash loses its first element	deploy a/b; find b; find a/b; find a
+DL-21 the root path is no deployment	deploy /; find -; find ""
+DL-22 the empty path is no deployment	deploy ""; find -; find ""
+DL-23 a one-element path is no deployment	deploy a; find a; find -; find ""
+DL-24 the guardian of an actor path is dropped by lookup	deploy /service1; lookup pekko://sys/user/service1; lookup pekko://sys/system/service1; lookup pekko://sys/service1; lookup pekko://sys; lookup pekko://sys/user; lookup pekko://sys/user/service1/x
+DL-25 a nested actor path	deploy /a/b/c; lookup pekko://sys/user/a/b/c; lookup pekko://sys/user/a/b; lookup pekko://sys/user/a/b/c/d
+DL-26 lookup of elements drops nothing	deploy /a; find user/a; find a; find -
+DL-27 a deployment under the guardian name	deploy /user/a; lookup pekko://sys/user/user/a; lookup pekko://sys/user/a; find user/a; find a
+DL-28 a remote and a local actor path look the same	deploy /a; lookup pekko://other@host:2552/user/a; lookup pekko://sys/user/a
+DL-29 the uid and the encoding of an actor path	deploy /a%20b; lookup pekko://sys/user/a%20b#123; lookup pekko://sys/user/a%20b
+DL-30 trailing slashes are dropped by split	deploy /a/; deploy /b//; deploy /c///; find a; find b; find c
+DL-31 an empty element in the middle	deploy /a//b; find a/b; find a
+DL-32 an empty element after the guardian	deploy //a; find a
+DL-33 an empty second element without a leading slash	deploy a//b; find b
+DL-34 only slashes	deploy //; deploy ///; deploy ////; find -; find ""
+DL-35 two empty elements	deploy ///a; find a
+DL-36 a space is not a valid element	deploy / ; deploy /a/b c; find a/b
+DL-37 a non-ASCII letter names the element and the path	deploy /gul/ubåt; find gul/ubåt
+DL-38 a dollar sign cannot start an element	deploy /$a; deploy /a$; find a$
+DL-39 percent encoding in an element	deploy /a%20b; deploy /a%2; deploy /a%zz; deploy /a%; find a%20b
+DL-40 a surrogate pair is two illegal units	deploy /a😀
+DL-42 every valid symbol	deploy /a-b_c.d*e+f:g@h&i=j,k!l~m';n; find a-b_c.d*e+f:g@h&i=j,k!l~m';n
+DL-43 the first invalid element is the one reported	deploy /ok/å/é
+DL-44 an empty element before an invalid one	deploy /a//å
+DL-45 an invalid element before an empty one	deploy /å//a
+DL-46 a failed deploy leaves the previous deployments alone	deploy /a/b; deploy /a/å; deploy /a//c; find a/b; find a/x
+DL-47 a double wildcard at the root	deploy /**; find x/y/z; find x; find -; find ""
+DL-48 a double wildcard at the root and a deeper one	deploy /**; deploy /a/**; find a/b; find c; find a
+DL-49 an exact path and a root double wildcard	deploy /a/b; deploy /**; find a/b; find a/c; find z
+DL-50 a single wildcard before a double wildcard	deploy /*/x; deploy /a/**; find a/x; find a/y; find b/x
+DL-51 lookup elements outside the validation	deploy /a/*; find a/å; find a/%; find a/ 
+DL-52 a prefix wildcard looks up non-ASCII text	deploy /q; deploy /p*; find på; find p; find å
+DL-53 a prefix wildcard and a single wildcard	deploy /a/p*; deploy /a/*; find a/pq; find a/x
+DL-54 a prefix wildcard and an exact element	deploy /a/p*; deploy /a/pq; find a/pq; find a/pr; find a/x
+DL-55 a single wildcard and a later double wildcard	deploy /q; deploy /a/*; find a/å; deploy /b/**; find b/c
+DL-56 a path with the guardian only and a wildcard	deploy /user/**; lookup pekko://sys/user/user/a; lookup pekko://sys/user/a
+DL-57 deploying in a deployer already holding many deployments	deploy /a/b; deploy /a/c; deploy /a/d; deploy /e/*; deploy /e/f/**; find a/b; find a/c; find a/d; find e/x; find e/f/g/h; find e/f
+DL-58 an empty element lookup	deploy /a/*; find a/""; deploy /b; find ""
+DL-59 a long path	deploy /a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z; find a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z; find a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y

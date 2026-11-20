@@ -1059,6 +1059,55 @@ MUTANTS = {
         "    a.iter()",
         "a configuration equals another one that has more keys",
     ),
+    # --- slice P10 (AC-CFG-012.2): Deployer.deploy and Deployer.lookup ---
+    "deployer-lookup-keeps-the-guardian": (
+        "src/actor/deployer.rs",
+        "self.lookup(path.elements().into_iter().skip(1))",
+        "self.lookup(path.elements())",
+        "lookup of an actor path does not drop the guardian (user, system), so /user/a is looked up as user/a",
+    ),
+    "deployer-deploy-keeps-the-first-element": (
+        "src/actor/deployer.rs",
+        "parts.get(1..).unwrap_or_default()",
+        "parts.get(0..).unwrap_or_default()",
+        "deploy does not drop the first element of the path, so /a/b is stored as (empty)/a/b",
+    ),
+    "deployer-accepts-an-empty-element": (
+        "src/actor/deployer.rs",
+        "            if element.is_empty() {\n                return Err(InvalidActorNameError::new(",
+        "            if element.is_empty() && false {\n                return Err(InvalidActorNameError::new(",
+        "an empty element of a deployment path is not rejected",
+    ),
+    "deployer-skips-the-validation-of-the-elements": (
+        "src/actor/deployer.rs",
+        "            validate_path_element(element, Some(&path))?;\n",
+        "",
+        "an element with an illegal character is accepted",
+    ),
+    "deployer-validation-message-omits-the-path": (
+        "src/actor/deployer.rs",
+        "validate_path_element(element, Some(&path))?;",
+        "validate_path_element(element, None)?;",
+        "the message of an invalid element does not name the path of the deployment",
+    ),
+    "deployer-split-keeps-the-trailing-empty-parts": (
+        "src/actor/deployer.rs",
+        "while parts.last().is_some_and(|part| part.is_empty()) {",
+        "while false && parts.last().is_some_and(|part| part.is_empty()) {",
+        "split keeps the empty parts at the end, so a path ending in / has an empty element",
+    ),
+    "deployer-deploy-forgets-the-previous-deployments": (
+        "src/actor/deployer.rs",
+        "let updated = current.insert(elements, deploy)?;",
+        "let updated = WildcardIndex::new().insert(elements, deploy)?;",
+        "every deploy starts from an empty index",
+    ),
+    "deployer-deploy-loses-concurrent-updates": (
+        "src/actor/deployer.rs",
+        "        let mut current = self\n            .deployments\n            .lock()\n            .unwrap_or_else(PoisonError::into_inner);\n        let updated = current.insert(elements, deploy)?;\n        *current = Arc::new(updated);\n",
+        "        let snapshot = Arc::clone(\n            &self\n                .deployments\n                .lock()\n                .unwrap_or_else(PoisonError::into_inner),\n        );\n        let updated = snapshot.insert(elements, deploy)?;\n        *self\n            .deployments\n            .lock()\n            .unwrap_or_else(PoisonError::into_inner) = Arc::new(updated);\n",
+        "the new index is built from a snapshot taken before the lock is held, so two concurrent deploys lose one",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

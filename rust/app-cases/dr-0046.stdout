@@ -1,0 +1,1 @@
+DL-47 a double wildcard at the root -> ok ok | some(/**@d1) | some(/**@d1) | none | some(/**@d1)

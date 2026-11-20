@@ -1,0 +1,1 @@
+DL-19 the single wildcard tree falls back to the double wildcard tree -> ok ok | ok | some(/a/b@d1) | some(/a/**@d2) | some(/a/**@d2)

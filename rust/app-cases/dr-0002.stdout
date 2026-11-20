@@ -1,0 +1,1 @@
+DL-02 a single wildcard as first element -> ok ok | some(/*/some@d1) | none | none

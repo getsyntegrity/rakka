@@ -1,0 +1,1 @@
+DL-43 the first invalid element is the one reported -> ok ERR InvalidActorNameException [Invalid actor path element [\u00E5] (in path [/ok/\u00E5/\u00E9]), illegal character [\u00E5] at position: 0. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

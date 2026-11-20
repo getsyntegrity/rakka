@@ -1,0 +1,1 @@
+DL-12 a double wildcard suffix inside a longer path -> ok ERR IllegalArgumentException [double wildcard can't be used as a suffix (e.g. /user/actor**), only as a full subPath element (e.g. /user/actor/**)] | ok | some(/a/b/**@d2)

@@ -1,0 +1,1 @@
+DL-55 a single wildcard and a later double wildcard -> ok ok | ok | some(/a/*@d2) | ok | some(/b/**@d3)

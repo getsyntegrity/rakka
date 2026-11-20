@@ -1,0 +1,60 @@
+DL-01 a single wildcard as last element
+DL-02 a single wildcard as first element
+DL-03 a terminal double wildcard needs at least the prefix
+DL-04 the more specific double wildcard wins
+DL-05 an exact element beats a single wildcard
+DL-06 a single wildcard beats a double wildcard
+DL-07 a prefix wildcard matches by prefix
+DL-08 a prefix wildcard inserted again replaces the subtree of the prefix
+DL-09 deploying the same path again replaces the deployment
+DL-10 an index with only prefix wildcards finds nothing
+DL-11 a double wildcard suffix is an IllegalArgumentException and changes nothing
+DL-12 a double wildcard suffix inside a longer path
+DL-13 a double wildcard in the middle is a plain element
+DL-14 the wildcards looked up as elements
+DL-15 a single wildcard in the middle
+DL-16 a single wildcard alone
+DL-17 the exact path wins over a double wildcard higher up
+DL-18 a double wildcard higher up is the alternative after a failed branch
+DL-19 the single wildcard tree falls back to the double wildcard tree
+DL-20 a path without leading slash loses its first element
+DL-21 the root path is no deployment
+DL-22 the empty path is no deployment
+DL-23 a one-element path is no deployment
+DL-24 the guardian of an actor path is dropped by lookup
+DL-25 a nested actor path
+DL-26 lookup of elements drops nothing
+DL-27 a deployment under the guardian name
+DL-28 a remote and a local actor path look the same
+DL-29 the uid and the encoding of an actor path
+DL-30 trailing slashes are dropped by split
+DL-31 an empty element in the middle
+DL-32 an empty element after the guardian
+DL-33 an empty second element without a leading slash
+DL-34 only slashes
+DL-35 two empty elements
+DL-36 a space is not a valid element
+DL-37 a non-ASCII letter names the element and the path
+DL-38 a dollar sign cannot start an element
+DL-39 percent encoding in an element
+DL-40 a surrogate pair is two illegal units
+DL-42 every valid symbol
+DL-43 the first invalid element is the one reported
+DL-44 an empty element before an invalid one
+DL-45 an invalid element before an empty one
+DL-46 a failed deploy leaves the previous deployments alone
+DL-47 a double wildcard at the root
+DL-48 a double wildcard at the root and a deeper one
+DL-49 an exact path and a root double wildcard
+DL-50 a single wildcard before a double wildcard
+DL-51 lookup elements outside the validation
+DL-52 a prefix wildcard looks up non-ASCII text
+DL-53 a prefix wildcard and a single wildcard
+DL-54 a prefix wildcard and an exact element
+DL-55 a single wildcard and a later double wildcard
+DL-56 a path with the guardian only and a wildcard
+DL-57 deploying in a deployer already holding many deployments
+DL-58 an empty element lookup
+DL-59 a long path
+DC-01 concurrent deploys of different paths are all kept
+DC-02 concurrent deploys of one path keep one of them

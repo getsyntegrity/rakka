@@ -3016,7 +3016,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ## AC-CFG-012.2 — Deployer.lookup/deploy: búsqueda por path con comodines (`*`, `prefix*`, `**` terminal)
 
-*unidad CFG · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+*unidad CFG · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
 
 **Contrato observable.** `lookup(path)` descarta el primer elemento (el guardián), busca en el `WildcardIndex` y devuelve el Deploy cuyo `path` es el patrón insertado; `deploy(d)` inserta con CAS.
 
@@ -3041,7 +3041,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 - A3 path inválido (`ubåt`) lanza InvalidActorNameException con ambos fragmentos: :163-182.
 - A4 mensaje de elemento vacío: derivada del código Deployer.scala:260 (*no afirmada por spec*).
 
-**Oráculo.** No aplica.
+**Oráculo.** Sí: `oracle/run.sh deployer-ids|deployer-all|deployer-case` (`DeployerOracle.java`, 60 ids: 58 guiones `DL` de `deployer.tsv` y 2 de concurrencia `DC` con barrera). Ejecuta el `Deployer` real de Pekko 2.0.0 con su índice vaciado por reflexión (el constructor ya despliega las entradas `/IO-DNS/*` de `reference.conf`, que es AC-CFG-012.1). Un sustituto UTF-16 suelto en una ruta está fuera del dominio `&str` (Q-X-17): ningún guion lo usa (la pareja de sustitutos sí, DL-40).
+
+**Actualización P10 PR 2 (2026-11-20).** Rust: `actor::Deployer` (`actor/deployer.rs`) con `deploy`, `lookup` y `lookup_path`. `deploy` divide con la semántica de `String.split("/")` de Java (se conserva el vacío inicial, se pierden los finales, `"/"` no da ningún elemento), descarta el primero, rechaza un elemento vacío y valida los demás antes de tocar el índice; el índice se reemplaza entero bajo un `Mutex` (equivale al reintento del `compareAndSet`: no se pierde ninguna alta). Sigue `partial`: falta AC-CFG-012.1 (leer `pekko.actor.deployment`) y AC-UTIL-009 sigue `partial` por Q-UTIL-21 (orden entre dos `prefix*` que coinciden).
+
+
 
 **Decisiones.** Q-UTIL-8.
 

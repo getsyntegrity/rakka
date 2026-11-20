@@ -1,0 +1,1 @@
+DL-07 a prefix wildcard matches by prefix -> ok ok | ok | some(/a/ab*@d2) | some(/a/ab*@d2) | none | none

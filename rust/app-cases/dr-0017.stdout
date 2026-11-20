@@ -1,0 +1,1 @@
+DL-17 the exact path wins over a double wildcard higher up -> ok ok | ok | some(/a/b/c@d2) | some(/a/**@d1) | none

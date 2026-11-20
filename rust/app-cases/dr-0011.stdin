@@ -1,0 +1,1 @@
+DL-11 a double wildcard suffix is an IllegalArgumentException and changes nothing

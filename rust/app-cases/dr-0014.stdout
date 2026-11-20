@@ -1,0 +1,1 @@
+DL-14 the wildcards looked up as elements -> ok ok | ok | some(/a/*@d1) | some(/a/*@d1) | some(/b/**@d2) | some(/b/**@d2)
