@@ -95,7 +95,7 @@ Observables sin acceso privado a Pekko (el oráculo Java ya usa `ActorSystem`; `
 9. Control-aware — tras Q-MBX-3.
 10. `Mailboxes` (registro, `requirements`, lookup) — tras Q-MBX-2.
 
-## 7. Preguntas exactas para el Owner (estado: 1, 5, 6 y 8 respondidas el 2026-11-20; 2, 3 y 4 siguen abiertas)
+## 7. Preguntas exactas para el Owner (estado: 1, 5 y 6 respondidas el 2026-11-20; 7 resuelta en la práctica; 2, 3 y 4 siguen abiertas; Q-MBX-8, aceptada también, nació después y no figura en esta lista)
 
 Las letras (a, a′, b, c) remiten a las opciones de cada `Q-MBX-n` en `docs/inventory/contracts/classic-dispatch.decisions.tsv`.
 
