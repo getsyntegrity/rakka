@@ -6,6 +6,7 @@ mod address;
 pub(crate) mod cell;
 pub(crate) mod children;
 mod deploy;
+mod deployer;
 mod errors;
 pub mod fault;
 pub(crate) mod jstring;
@@ -18,6 +19,7 @@ pub(crate) mod uri;
 pub use actor_ref::ActorRef;
 pub use address::Address;
 pub use deploy::{Deploy, NO_DISPATCHER_GIVEN, NO_MAILBOX_GIVEN, RouterConfig, Scope};
+pub use deployer::Deployer;
 pub use errors::{
     ActorError, ChildError, ErrorClass, FromStringError, IllegalArgumentError, IllegalStateError,
     InvalidActorNameError, MalformedUrlError, NumberFormatError, UnsupportedOperationError,

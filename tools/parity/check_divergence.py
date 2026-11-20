@@ -1059,6 +1059,67 @@ MUTANTS = {
         "    a.iter()",
         "a configuration equals another one that has more keys",
     ),
+    # --- slice P10 (AC-CFG-012.2): Deployer.deploy and Deployer.lookup ---
+    "deployer-lookup-keeps-the-guardian": (
+        "src/actor/deployer.rs",
+        "self.lookup(path.elements().into_iter().skip(1))",
+        "self.lookup(path.elements())",
+        "lookup of an actor path does not drop the guardian (user, system), so /user/a is looked up as user/a",
+    ),
+    "deployer-deploy-keeps-the-first-element": (
+        "src/actor/deployer.rs",
+        "parts.get(1..).unwrap_or_default()",
+        "parts.get(0..).unwrap_or_default()",
+        "deploy does not drop the first element of the path, so /a/b is stored as (empty)/a/b",
+    ),
+    "deployer-accepts-an-empty-element": (
+        "src/actor/deployer.rs",
+        "            if element.is_empty() {\n                return Err(InvalidActorNameError::new(",
+        "            if element.is_empty() && false {\n                return Err(InvalidActorNameError::new(",
+        "an empty element of a deployment path is not rejected",
+    ),
+    "deployer-skips-the-validation-of-the-elements": (
+        "src/actor/deployer.rs",
+        "            validate_path_element(element, Some(&path))?;\n",
+        "",
+        "an element with an illegal character is accepted",
+    ),
+    "deployer-validation-message-omits-the-path": (
+        "src/actor/deployer.rs",
+        "validate_path_element(element, Some(&path))?;",
+        "validate_path_element(element, None)?;",
+        "the message of an invalid element does not name the path of the deployment",
+    ),
+    "deployer-split-keeps-the-trailing-empty-parts": (
+        "src/actor/deployer.rs",
+        "while parts.last().is_some_and(|part| part.is_empty()) {",
+        "while false && parts.last().is_some_and(|part| part.is_empty()) {",
+        "split keeps the empty parts at the end, so a path ending in / has an empty element",
+    ),
+    "deployer-deploy-forgets-the-previous-deployments": (
+        "src/actor/deployer.rs",
+        "let updated = Arc::new(snapshot.insert(elements, deploy.clone())?);",
+        "let updated = Arc::new(WildcardIndex::new().insert(elements, deploy.clone())?);",
+        "every deploy starts from an empty index",
+    ),
+    "deployer-deploy-swaps-a-stale-snapshot": (
+        "src/actor/deployer.rs",
+        "if Arc::ptr_eq(&current, &snapshot) {",
+        "if true {",
+        "the new index replaces the current one even when another deploy swapped in meanwhile, so that deploy is lost (killed by a deterministic unit test, see UNIT_MUTANTS)",
+    ),
+    "deployer-deploy-stores-nothing": (
+        "src/actor/deployer.rs",
+        "                *current = updated;\n",
+        "                drop(updated);\n",
+        "a valid deployment is reported as done but never stored",
+    ),
+    "deployer-empty-element-message-is-wrong": (
+        "src/actor/deployer.rs",
+        '"Actor name in deployment [{path}] must not be empty"',
+        '"Actor name in deployment [{path}] must be empty"',
+        "the message of an empty element of a deployment path is wrong",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -1139,6 +1200,34 @@ def classify(r, binary):
     return DETECTED, ev["passed"], ev["total"], detail
 
 
+# Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
+# unit test (no threads, no sleeps) that the harness runs instead of the replay.
+UNIT_MUTANTS = {"deployer-deploy-swaps-a-stale-snapshot": ("actor::deployer", "a_deployment_that_loses_the_swap_is_retried_on_the_newer_index_and_nothing_is_lost")}
+
+
+def run_unit_mutant(scratch, name, work):
+    """Runs the unit tests of the module on the mutated copy. DETECTED needs the expected test to fail (a compile error or
+    some other failing test is not enough) and the same tests to pass on the unmutated tree (the control)."""
+    module, expected_test = UNIT_MUTANTS[name]
+    def cargo_test(manifest, target):
+        return sh(["cargo", "test", "--manifest-path", manifest, "--target-dir", target, "--lib", module], timeout=BUILD_TIMEOUT)
+    try:
+        control = cargo_test(os.path.join(ROOT, "crates", "rakka-actor", "Cargo.toml"), os.path.join(scratch, "target-control-" + name))
+        r = cargo_test(os.path.join(work, "Cargo.toml"), os.path.join(scratch, "target-" + name))
+    except subprocess.TimeoutExpired:
+        return TIMEOUT, None, None, "cargo test"
+    if control.returncode != 0:
+        return HARNESS_ERROR, None, None, "the unit tests fail on the unmutated tree"
+    summary = next((l for l in r.stdout.splitlines() if l.startswith("test result:")), "(no test result)")
+    if "could not compile" in r.stderr:
+        return BUILD_ERROR, None, None, r.stderr[-600:]
+    if r.returncode == 0:
+        return UNDETECTED, None, None, summary
+    if "test result: FAILED" in r.stdout and f"{expected_test} ... FAILED" in r.stdout:
+        return DETECTED, None, None, summary
+    return HARNESS_ERROR, None, None, "failed, but not the expected test: " + summary
+
+
 def run_mutant(scratch, name, rel, old, new, why):
     # a scratch workspace holds the copied crate (it inherits version/edition from the workspace)
     ws = os.path.join(scratch, name)
@@ -1158,6 +1247,8 @@ def run_mutant(scratch, name, rel, old, new, why):
     if patched == src and name not in EQUIVALENT:
         return PATCH_ERROR, None, None, "patch did not change the file"
     print("".join(difflib.unified_diff(src.splitlines(True), patched.splitlines(True), f"a/rakka-actor/{rel}", f"b/rakka-actor/{rel}")))
+    if name in UNIT_MUTANTS:
+        return run_unit_mutant(scratch, name, work)
     try:
         b = sh(["cargo", "build", "--release", "--manifest-path", os.path.join(work, "Cargo.toml"),
                 "--target-dir", os.path.join(scratch, "target-" + name), "--example", "classic-parity"], timeout=BUILD_TIMEOUT)

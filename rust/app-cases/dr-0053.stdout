@@ -1,0 +1,1 @@
+DL-54 a prefix wildcard and an exact element -> ok ok | ok | some(/a/pq@d2) | some(/a/p*@d1) | none

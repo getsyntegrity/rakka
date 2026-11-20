@@ -1,0 +1,1 @@
+DL-06 a single wildcard beats a double wildcard -> ok ok | ok | some(/a/*@d2) | some(/a/**@d1)

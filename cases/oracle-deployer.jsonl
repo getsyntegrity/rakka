@@ -1,0 +1,60 @@
+{"name": "dr-0001", "args": ["deployer-case"], "stdin": "DL-01 a single wildcard as last element"}
+{"name": "dr-0002", "args": ["deployer-case"], "stdin": "DL-02 a single wildcard as first element"}
+{"name": "dr-0003", "args": ["deployer-case"], "stdin": "DL-03 a terminal double wildcard needs at least the prefix"}
+{"name": "dr-0004", "args": ["deployer-case"], "stdin": "DL-04 the more specific double wildcard wins"}
+{"name": "dr-0005", "args": ["deployer-case"], "stdin": "DL-05 an exact element beats a single wildcard"}
+{"name": "dr-0006", "args": ["deployer-case"], "stdin": "DL-06 a single wildcard beats a double wildcard"}
+{"name": "dr-0007", "args": ["deployer-case"], "stdin": "DL-07 a prefix wildcard matches by prefix"}
+{"name": "dr-0008", "args": ["deployer-case"], "stdin": "DL-08 a prefix wildcard inserted again replaces the subtree of the prefix"}
+{"name": "dr-0009", "args": ["deployer-case"], "stdin": "DL-09 deploying the same path again replaces the deployment"}
+{"name": "dr-0010", "args": ["deployer-case"], "stdin": "DL-10 an index with only prefix wildcards finds nothing"}
+{"name": "dr-0011", "args": ["deployer-case"], "stdin": "DL-11 a double wildcard suffix is an IllegalArgumentException and changes nothing"}
+{"name": "dr-0012", "args": ["deployer-case"], "stdin": "DL-12 a double wildcard suffix inside a longer path"}
+{"name": "dr-0013", "args": ["deployer-case"], "stdin": "DL-13 a double wildcard in the middle is a plain element"}
+{"name": "dr-0014", "args": ["deployer-case"], "stdin": "DL-14 the wildcards looked up as elements"}
+{"name": "dr-0015", "args": ["deployer-case"], "stdin": "DL-15 a single wildcard in the middle"}
+{"name": "dr-0016", "args": ["deployer-case"], "stdin": "DL-16 a single wildcard alone"}
+{"name": "dr-0017", "args": ["deployer-case"], "stdin": "DL-17 the exact path wins over a double wildcard higher up"}
+{"name": "dr-0018", "args": ["deployer-case"], "stdin": "DL-18 a double wildcard higher up is the alternative after a failed branch"}
+{"name": "dr-0019", "args": ["deployer-case"], "stdin": "DL-19 the single wildcard tree falls back to the double wildcard tree"}
+{"name": "dr-0020", "args": ["deployer-case"], "stdin": "DL-20 a path without leading slash loses its first element"}
+{"name": "dr-0021", "args": ["deployer-case"], "stdin": "DL-21 the root path is no deployment"}
+{"name": "dr-0022", "args": ["deployer-case"], "stdin": "DL-22 the empty path is no deployment"}
+{"name": "dr-0023", "args": ["deployer-case"], "stdin": "DL-23 a one-element path is no deployment"}
+{"name": "dr-0024", "args": ["deployer-case"], "stdin": "DL-24 the guardian of an actor path is dropped by lookup"}
+{"name": "dr-0025", "args": ["deployer-case"], "stdin": "DL-25 a nested actor path"}
+{"name": "dr-0026", "args": ["deployer-case"], "stdin": "DL-26 lookup of elements drops nothing"}
+{"name": "dr-0027", "args": ["deployer-case"], "stdin": "DL-27 a deployment under the guardian name"}
+{"name": "dr-0028", "args": ["deployer-case"], "stdin": "DL-28 a remote and a local actor path look the same"}
+{"name": "dr-0029", "args": ["deployer-case"], "stdin": "DL-29 the uid and the encoding of an actor path"}
+{"name": "dr-0030", "args": ["deployer-case"], "stdin": "DL-30 trailing slashes are dropped by split"}
+{"name": "dr-0031", "args": ["deployer-case"], "stdin": "DL-31 an empty element in the middle"}
+{"name": "dr-0032", "args": ["deployer-case"], "stdin": "DL-32 an empty element after the guardian"}
+{"name": "dr-0033", "args": ["deployer-case"], "stdin": "DL-33 an empty second element without a leading slash"}
+{"name": "dr-0034", "args": ["deployer-case"], "stdin": "DL-34 only slashes"}
+{"name": "dr-0035", "args": ["deployer-case"], "stdin": "DL-35 two empty elements"}
+{"name": "dr-0036", "args": ["deployer-case"], "stdin": "DL-36 a space is not a valid element"}
+{"name": "dr-0037", "args": ["deployer-case"], "stdin": "DL-37 a non-ASCII letter names the element and the path"}
+{"name": "dr-0038", "args": ["deployer-case"], "stdin": "DL-38 a dollar sign cannot start an element"}
+{"name": "dr-0039", "args": ["deployer-case"], "stdin": "DL-39 percent encoding in an element"}
+{"name": "dr-0040", "args": ["deployer-case"], "stdin": "DL-40 a surrogate pair is two illegal units"}
+{"name": "dr-0041", "args": ["deployer-case"], "stdin": "DL-42 every valid symbol"}
+{"name": "dr-0042", "args": ["deployer-case"], "stdin": "DL-43 the first invalid element is the one reported"}
+{"name": "dr-0043", "args": ["deployer-case"], "stdin": "DL-44 an empty element before an invalid one"}
+{"name": "dr-0044", "args": ["deployer-case"], "stdin": "DL-45 an invalid element before an empty one"}
+{"name": "dr-0045", "args": ["deployer-case"], "stdin": "DL-46 a failed deploy leaves the previous deployments alone"}
+{"name": "dr-0046", "args": ["deployer-case"], "stdin": "DL-47 a double wildcard at the root"}
+{"name": "dr-0047", "args": ["deployer-case"], "stdin": "DL-48 a double wildcard at the root and a deeper one"}
+{"name": "dr-0048", "args": ["deployer-case"], "stdin": "DL-49 an exact path and a root double wildcard"}
+{"name": "dr-0049", "args": ["deployer-case"], "stdin": "DL-50 a single wildcard before a double wildcard"}
+{"name": "dr-0050", "args": ["deployer-case"], "stdin": "DL-51 lookup elements outside the validation"}
+{"name": "dr-0051", "args": ["deployer-case"], "stdin": "DL-52 a prefix wildcard looks up non-ASCII text"}
+{"name": "dr-0052", "args": ["deployer-case"], "stdin": "DL-53 a prefix wildcard and a single wildcard"}
+{"name": "dr-0053", "args": ["deployer-case"], "stdin": "DL-54 a prefix wildcard and an exact element"}
+{"name": "dr-0054", "args": ["deployer-case"], "stdin": "DL-55 a single wildcard and a later double wildcard"}
+{"name": "dr-0055", "args": ["deployer-case"], "stdin": "DL-56 a path with the guardian only and a wildcard"}
+{"name": "dr-0056", "args": ["deployer-case"], "stdin": "DL-57 deploying in a deployer already holding many deployments"}
+{"name": "dr-0057", "args": ["deployer-case"], "stdin": "DL-58 an empty element lookup"}
+{"name": "dr-0058", "args": ["deployer-case"], "stdin": "DL-59 a long path"}
+{"name": "dr-0059", "args": ["deployer-case"], "stdin": "DC-01 concurrent deploys of different paths are all kept"}
+{"name": "dr-0060", "args": ["deployer-case"], "stdin": "DC-02 concurrent deploys of one path keep one of them"}

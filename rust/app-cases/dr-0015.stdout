@@ -1,0 +1,1 @@
+DL-15 a single wildcard in the middle -> ok ok | some(/a/*/c@d1) | none | none

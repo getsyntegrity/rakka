@@ -1,0 +1,1 @@
+DL-51 lookup elements outside the validation -> ok ok | some(/a/*@d1) | some(/a/*@d1) | some(/a/*@d1)

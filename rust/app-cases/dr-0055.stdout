@@ -1,0 +1,1 @@
+DL-56 a path with the guardian only and a wildcard -> ok ok | some(/user/**@d1) | none

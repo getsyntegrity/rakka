@@ -1,0 +1,1 @@
+DL-05 an exact element beats a single wildcard -> ok ok | ok | some(/a/b@d2) | some(/a/*@d1)
