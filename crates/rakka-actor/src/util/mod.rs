@@ -16,6 +16,7 @@ pub mod line_numbers;
 pub mod message_buffer;
 mod pretty_duration;
 pub mod recency_list;
+mod scala_hash_order;
 pub mod segmented_recency_list;
 pub mod stable_priority_queue;
 pub mod subclassified_index;

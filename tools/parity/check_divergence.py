@@ -1108,6 +1108,37 @@ MUTANTS = {
         "if true {",
         "the new index replaces the current one even when another deploy swapped in meanwhile, so that deploy is lost (killed by a deterministic unit test, see UNIT_MUTANTS)",
     ),
+    # --- Q-UTIL-21 / Q-X-20: the choice among overlapping `prefix*` entries follows the iteration order of Scala's HashMap ---
+    "wildcard-suffix-children-keep-insertion-order": (
+        "src/util/wildcard_index.rs",
+        "            updated.sort_suffix_children_in_hash_map_order();\n",
+        "",
+        "overlapping prefix* entries are tried in insertion order instead of the HashMap order",
+    ),
+    "hash-map-order-skips-the-improve-scrambling": (
+        "src/util/scala_hash_order.rs",
+        ".map(|(position, key)| (position, improve(string_hash_code(key))))",
+        ".map(|(position, key)| (position, string_hash_code(key) as u32))",
+        "the trie consumes the raw String.hashCode instead of the scrambled one",
+    ),
+    "hash-map-order-reads-the-bits-from-the-top": (
+        "src/util/scala_hash_order.rs",
+        "groups[((entry.1 >> shift) & 0x1f) as usize].push(entry);",
+        "groups[(((entry.1.reverse_bits()) >> shift) & 0x1f) as usize].push(entry);",
+        "the five-bit chunks are taken from the most significant end",
+    ),
+    "hash-map-order-puts-child-nodes-before-lone-entries": (
+        "src/util/scala_hash_order.rs",
+        "    for group in groups.iter().filter(|group| group.len() == 1) {\n        out.push(group[0].0);\n    }\n    for group in groups.into_iter().filter(|group| group.len() > 1) {\n        node_order(group, shift + BITS_PER_LEVEL, out);\n    }\n",
+        "    for group in groups.iter().filter(|group| group.len() > 1) {\n        node_order(group.clone(), shift + BITS_PER_LEVEL, out);\n    }\n    for group in groups.iter().filter(|group| group.len() == 1) {\n        out.push(group[0].0);\n    }\n",
+        "a node iterates its children before its own entries",
+    ),
+    "hash-map-order-reverses-colliding-keys": (
+        "src/util/scala_hash_order.rs",
+        "out.extend(entries.into_iter().map(|(position, _)| position));",
+        "out.extend(entries.into_iter().rev().map(|(position, _)| position));",
+        "keys with the same scrambled hash iterate in reverse insertion order",
+    ),
     "deployer-deploy-stores-nothing": (
         "src/actor/deployer.rs",
         "                *current = updated;\n",

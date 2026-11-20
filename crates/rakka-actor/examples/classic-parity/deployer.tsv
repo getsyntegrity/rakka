@@ -63,3 +63,79 @@ DL-56 a path with the guardian only and a wildcard	deploy /user/**; lookup pekko
 DL-57 deploying in a deployer already holding many deployments	deploy /a/b; deploy /a/c; deploy /a/d; deploy /e/*; deploy /e/f/**; find a/b; find a/c; find a/d; find e/x; find e/f/g/h; find e/f
 DL-58 an empty element lookup	deploy /a/*; find a/""; deploy /b; find ""
 DL-59 a long path	deploy /a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z; find a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z; find a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y
+DL-60 2 overlapping prefixes of pqzzz in a shuffled order	deploy /a/q; deploy /a/pq*; deploy /a/pqzz*; find a/pqzzz; find a/pqzzzx
+DL-61 2 overlapping prefixes of pqzzz in the reverse order	deploy /a/q; deploy /a/pqzz*; deploy /a/pq*; find a/pqzzz; find a/pqzzzx
+DL-62 3 overlapping prefixes of pqzzz in a shuffled order	deploy /a/q; deploy /a/pqz*; deploy /a/pq*; deploy /a/pqzz*; find a/pqzzz; find a/pqzzzx
+DL-63 3 overlapping prefixes of pqzzz in the reverse order	deploy /a/q; deploy /a/pqzz*; deploy /a/pq*; deploy /a/pqz*; find a/pqzzz; find a/pqzzzx
+DL-64 5 overlapping prefixes of pqzzz in a shuffled order	deploy /a/q; deploy /a/pqzz*; deploy /a/pqzzz*; deploy /a/pq*; deploy /a/pqz*; deploy /a/p*; find a/pqzzz; find a/pqzzzx
+DL-65 5 overlapping prefixes of pqzzz in the reverse order	deploy /a/q; deploy /a/p*; deploy /a/pqz*; deploy /a/pq*; deploy /a/pqzzz*; deploy /a/pqzz*; find a/pqzzz; find a/pqzzzx
+DL-66 2 overlapping prefixes of abczzz in a shuffled order	deploy /a/q; deploy /a/abczzz*; deploy /a/a*; find a/abczzz; find a/abczzzx
+DL-67 2 overlapping prefixes of abczzz in the reverse order	deploy /a/q; deploy /a/a*; deploy /a/abczzz*; find a/abczzz; find a/abczzzx
+DL-68 3 overlapping prefixes of abczzz in a shuffled order	deploy /a/q; deploy /a/abc*; deploy /a/abczz*; deploy /a/abcz*; find a/abczzz; find a/abczzzx
+DL-69 3 overlapping prefixes of abczzz in the reverse order	deploy /a/q; deploy /a/abcz*; deploy /a/abczz*; deploy /a/abc*; find a/abczzz; find a/abczzzx
+DL-70 5 overlapping prefixes of abczzz in a shuffled order	deploy /a/q; deploy /a/a*; deploy /a/abc*; deploy /a/abczz*; deploy /a/ab*; deploy /a/abczzz*; find a/abczzz; find a/abczzzx
+DL-71 5 overlapping prefixes of abczzz in the reverse order	deploy /a/q; deploy /a/abczzz*; deploy /a/ab*; deploy /a/abczz*; deploy /a/abc*; deploy /a/a*; find a/abczzz; find a/abczzzx
+DL-72 2 overlapping prefixes of userzzz in a shuffled order	deploy /a/q; deploy /a/user*; deploy /a/userzz*; find a/userzzz; find a/userzzzx
+DL-73 2 overlapping prefixes of userzzz in the reverse order	deploy /a/q; deploy /a/userzz*; deploy /a/user*; find a/userzzz; find a/userzzzx
+DL-74 3 overlapping prefixes of userzzz in a shuffled order	deploy /a/q; deploy /a/userz*; deploy /a/user*; deploy /a/userzzz*; find a/userzzz; find a/userzzzx
+DL-75 3 overlapping prefixes of userzzz in the reverse order	deploy /a/q; deploy /a/userzzz*; deploy /a/user*; deploy /a/userz*; find a/userzzz; find a/userzzzx
+DL-76 5 overlapping prefixes of userzzz in a shuffled order	deploy /a/q; deploy /a/userzzz*; deploy /a/user*; deploy /a/userz*; deploy /a/use*; deploy /a/u*; find a/userzzz; find a/userzzzx
+DL-77 5 overlapping prefixes of userzzz in the reverse order	deploy /a/q; deploy /a/u*; deploy /a/use*; deploy /a/userz*; deploy /a/user*; deploy /a/userzzz*; find a/userzzz; find a/userzzzx
+DL-78 2 overlapping prefixes of workerzzz in a shuffled order	deploy /a/q; deploy /a/worker*; deploy /a/wo*; find a/workerzzz; find a/workerzzzx
+DL-79 2 overlapping prefixes of workerzzz in the reverse order	deploy /a/q; deploy /a/wo*; deploy /a/worker*; find a/workerzzz; find a/workerzzzx
+DL-80 3 overlapping prefixes of workerzzz in a shuffled order	deploy /a/q; deploy /a/wor*; deploy /a/w*; deploy /a/worker*; find a/workerzzz; find a/workerzzzx
+DL-81 3 overlapping prefixes of workerzzz in the reverse order	deploy /a/q; deploy /a/worker*; deploy /a/w*; deploy /a/wor*; find a/workerzzz; find a/workerzzzx
+DL-82 5 overlapping prefixes of workerzzz in a shuffled order	deploy /a/q; deploy /a/workerz*; deploy /a/workerzzz*; deploy /a/wo*; deploy /a/work*; deploy /a/w*; find a/workerzzz; find a/workerzzzx
+DL-83 5 overlapping prefixes of workerzzz in the reverse order	deploy /a/q; deploy /a/w*; deploy /a/work*; deploy /a/wo*; deploy /a/workerzzz*; deploy /a/workerz*; find a/workerzzz; find a/workerzzzx
+DL-84 2 overlapping prefixes of stzzz in a shuffled order	deploy /a/q; deploy /a/st*; deploy /a/stz*; find a/stzzz; find a/stzzzx
+DL-85 2 overlapping prefixes of stzzz in the reverse order	deploy /a/q; deploy /a/stz*; deploy /a/st*; find a/stzzz; find a/stzzzx
+DL-86 3 overlapping prefixes of stzzz in a shuffled order	deploy /a/q; deploy /a/stzz*; deploy /a/s*; deploy /a/stzzz*; find a/stzzz; find a/stzzzx
+DL-87 3 overlapping prefixes of stzzz in the reverse order	deploy /a/q; deploy /a/stzzz*; deploy /a/s*; deploy /a/stzz*; find a/stzzz; find a/stzzzx
+DL-88 5 overlapping prefixes of stzzz in a shuffled order	deploy /a/q; deploy /a/stzz*; deploy /a/stzzz*; deploy /a/st*; deploy /a/stz*; deploy /a/s*; find a/stzzz; find a/stzzzx
+DL-89 5 overlapping prefixes of stzzz in the reverse order	deploy /a/q; deploy /a/s*; deploy /a/stz*; deploy /a/st*; deploy /a/stzzz*; deploy /a/stzz*; find a/stzzz; find a/stzzzx
+DL-90 2 overlapping prefixes of mnxyz in a shuffled order	deploy /a/q; deploy /a/mn*; deploy /a/mnxyz*; find a/mnxyz; find a/mnxyzx
+DL-91 2 overlapping prefixes of mnxyz in the reverse order	deploy /a/q; deploy /a/mnxyz*; deploy /a/mn*; find a/mnxyz; find a/mnxyzx
+DL-92 3 overlapping prefixes of mnxyz in a shuffled order	deploy /a/q; deploy /a/mnxy*; deploy /a/m*; deploy /a/mnxyz*; find a/mnxyz; find a/mnxyzx
+DL-93 3 overlapping prefixes of mnxyz in the reverse order	deploy /a/q; deploy /a/mnxyz*; deploy /a/m*; deploy /a/mnxy*; find a/mnxyz; find a/mnxyzx
+DL-94 5 overlapping prefixes of mnxyz in a shuffled order	deploy /a/q; deploy /a/mnxy*; deploy /a/mnxyz*; deploy /a/mn*; deploy /a/mnx*; deploy /a/m*; find a/mnxyz; find a/mnxyzx
+DL-95 5 overlapping prefixes of mnxyz in the reverse order	deploy /a/q; deploy /a/m*; deploy /a/mnx*; deploy /a/mn*; deploy /a/mnxyz*; deploy /a/mnxy*; find a/mnxyz; find a/mnxyzx
+DL-96 2 overlapping prefixes of service in a shuffled order	deploy /a/q; deploy /a/se*; deploy /a/ser*; find a/service; find a/servicex
+DL-97 2 overlapping prefixes of service in the reverse order	deploy /a/q; deploy /a/ser*; deploy /a/se*; find a/service; find a/servicex
+DL-98 3 overlapping prefixes of service in a shuffled order	deploy /a/q; deploy /a/serv*; deploy /a/ser*; deploy /a/servi*; find a/service; find a/servicex
+DL-99 3 overlapping prefixes of service in the reverse order	deploy /a/q; deploy /a/servi*; deploy /a/ser*; deploy /a/serv*; find a/service; find a/servicex
+DL-100 5 overlapping prefixes of service in a shuffled order	deploy /a/q; deploy /a/servic*; deploy /a/serv*; deploy /a/servi*; deploy /a/ser*; deploy /a/se*; find a/service; find a/servicex
+DL-101 5 overlapping prefixes of service in the reverse order	deploy /a/q; deploy /a/se*; deploy /a/ser*; deploy /a/servi*; deploy /a/serv*; deploy /a/servic*; find a/service; find a/servicex
+DL-102 2 overlapping prefixes of dispatcherx in a shuffled order	deploy /a/q; deploy /a/dispatch*; deploy /a/dispatc*; find a/dispatcherx; find a/dispatcherxx
+DL-103 2 overlapping prefixes of dispatcherx in the reverse order	deploy /a/q; deploy /a/dispatc*; deploy /a/dispatch*; find a/dispatcherx; find a/dispatcherxx
+DL-104 3 overlapping prefixes of dispatcherx in a shuffled order	deploy /a/q; deploy /a/d*; deploy /a/dispa*; deploy /a/di*; find a/dispatcherx; find a/dispatcherxx
+DL-105 3 overlapping prefixes of dispatcherx in the reverse order	deploy /a/q; deploy /a/di*; deploy /a/dispa*; deploy /a/d*; find a/dispatcherx; find a/dispatcherxx
+DL-106 5 overlapping prefixes of dispatcherx in a shuffled order	deploy /a/q; deploy /a/dispatche*; deploy /a/d*; deploy /a/dispatch*; deploy /a/dis*; deploy /a/dispatcher*; find a/dispatcherx; find a/dispatcherxx
+DL-107 5 overlapping prefixes of dispatcherx in the reverse order	deploy /a/q; deploy /a/dispatcher*; deploy /a/dis*; deploy /a/dispatch*; deploy /a/d*; deploy /a/dispatche*; find a/dispatcherx; find a/dispatcherxx
+DL-108 2 overlapping prefixes of akkapekko in a shuffled order	deploy /a/q; deploy /a/akkapekko*; deploy /a/akka*; find a/akkapekko; find a/akkapekkox
+DL-109 2 overlapping prefixes of akkapekko in the reverse order	deploy /a/q; deploy /a/akka*; deploy /a/akkapekko*; find a/akkapekko; find a/akkapekkox
+DL-110 3 overlapping prefixes of akkapekko in a shuffled order	deploy /a/q; deploy /a/akkape*; deploy /a/ak*; deploy /a/akkapekk*; find a/akkapekko; find a/akkapekkox
+DL-111 3 overlapping prefixes of akkapekko in the reverse order	deploy /a/q; deploy /a/akkapekk*; deploy /a/ak*; deploy /a/akkape*; find a/akkapekko; find a/akkapekkox
+DL-112 5 overlapping prefixes of akkapekko in a shuffled order	deploy /a/q; deploy /a/akkapekk*; deploy /a/akkapekko*; deploy /a/akkape*; deploy /a/akkapek*; deploy /a/akk*; find a/akkapekko; find a/akkapekkox
+DL-113 5 overlapping prefixes of akkapekko in the reverse order	deploy /a/q; deploy /a/akk*; deploy /a/akkapek*; deploy /a/akkape*; deploy /a/akkapekko*; deploy /a/akkapekk*; find a/akkapekko; find a/akkapekkox
+DL-114 2 overlapping prefixes of routees in a shuffled order	deploy /a/q; deploy /a/route*; deploy /a/routees*; find a/routees; find a/routeesx
+DL-115 2 overlapping prefixes of routees in the reverse order	deploy /a/q; deploy /a/routees*; deploy /a/route*; find a/routees; find a/routeesx
+DL-116 3 overlapping prefixes of routees in a shuffled order	deploy /a/q; deploy /a/ro*; deploy /a/r*; deploy /a/rou*; find a/routees; find a/routeesx
+DL-117 3 overlapping prefixes of routees in the reverse order	deploy /a/q; deploy /a/rou*; deploy /a/r*; deploy /a/ro*; find a/routees; find a/routeesx
+DL-118 5 overlapping prefixes of routees in a shuffled order	deploy /a/q; deploy /a/routees*; deploy /a/rout*; deploy /a/route*; deploy /a/ro*; deploy /a/r*; find a/routees; find a/routeesx
+DL-119 5 overlapping prefixes of routees in the reverse order	deploy /a/q; deploy /a/r*; deploy /a/ro*; deploy /a/route*; deploy /a/rout*; deploy /a/routees*; find a/routees; find a/routeesx
+DL-120 2 overlapping prefixes of zeta in a shuffled order	deploy /a/q; deploy /a/zet*; deploy /a/ze*; find a/zeta; find a/zetax
+DL-121 2 overlapping prefixes of zeta in the reverse order	deploy /a/q; deploy /a/ze*; deploy /a/zet*; find a/zeta; find a/zetax
+DL-122 3 overlapping prefixes of zeta in a shuffled order	deploy /a/q; deploy /a/zet*; deploy /a/zeta*; deploy /a/z*; find a/zeta; find a/zetax
+DL-123 3 overlapping prefixes of zeta in the reverse order	deploy /a/q; deploy /a/z*; deploy /a/zeta*; deploy /a/zet*; find a/zeta; find a/zetax
+DL-124 4 overlapping prefixes of zeta in a shuffled order	deploy /a/q; deploy /a/z*; deploy /a/zet*; deploy /a/zeta*; deploy /a/ze*; find a/zeta; find a/zetax
+DL-125 4 overlapping prefixes of zeta in the reverse order	deploy /a/q; deploy /a/ze*; deploy /a/zeta*; deploy /a/zet*; deploy /a/z*; find a/zeta; find a/zetax
+DL-126 2 overlapping prefixes of orders in a shuffled order	deploy /a/q; deploy /a/order*; deploy /a/orde*; find a/orders; find a/ordersx
+DL-127 2 overlapping prefixes of orders in the reverse order	deploy /a/q; deploy /a/orde*; deploy /a/order*; find a/orders; find a/ordersx
+DL-128 3 overlapping prefixes of orders in a shuffled order	deploy /a/q; deploy /a/or*; deploy /a/order*; deploy /a/orde*; find a/orders; find a/ordersx
+DL-129 3 overlapping prefixes of orders in the reverse order	deploy /a/q; deploy /a/orde*; deploy /a/order*; deploy /a/or*; find a/orders; find a/ordersx
+DL-130 5 overlapping prefixes of orders in a shuffled order	deploy /a/q; deploy /a/o*; deploy /a/ord*; deploy /a/order*; deploy /a/or*; deploy /a/orders*; find a/orders; find a/ordersx
+DL-131 5 overlapping prefixes of orders in the reverse order	deploy /a/q; deploy /a/orders*; deploy /a/or*; deploy /a/order*; deploy /a/ord*; deploy /a/o*; find a/orders; find a/ordersx
+DL-132 two prefixes with the same hash code, short first	deploy /a/q; deploy /a/bvmxiku*; deploy /a/bvmxikudrlnvgcneunetqmtswnkyfbflscxdksgeqwbcxgzthmnhmuntxiajllwoxnwfvdg*; find a/bvmxikudrlnvgcneunetqmtswnkyfbflscxdksgeqwbcxgzthmnhmuntxiajllwoxnwfvdgzz
+DL-133 two prefixes with the same hash code, long first	deploy /a/q; deploy /a/bvmxikudrlnvgcneunetqmtswnkyfbflscxdksgeqwbcxgzthmnhmuntxiajllwoxnwfvdg*; deploy /a/bvmxiku*; find a/bvmxikudrlnvgcneunetqmtswnkyfbflscxdksgeqwbcxgzthmnhmuntxiajllwoxnwfvdgzz
+DL-134 two prefixes with the same hash code among others, short first	deploy /a/q; deploy /a/bvm*; deploy /a/bvmxiku*; deploy /a/bv*; deploy /a/bvmxikudrlnvgcneunetqmtswnkyfbflscxdksgeqwbcxgzthmnhmuntxiajllwoxnwfvdg*; find a/bvmxikudrlnvgcneunetqmtswnkyfbflscxdksgeqwbcxgzthmnhmuntxiajllwoxnwfvdgzz
+DL-135 two prefixes with the same hash code among others, long first	deploy /a/q; deploy /a/bvm*; deploy /a/bvmxikudrlnvgcneunetqmtswnkyfbflscxdksgeqwbcxgzthmnhmuntxiajllwoxnwfvdg*; deploy /a/bv*; deploy /a/bvmxiku*; find a/bvmxikudrlnvgcneunetqmtswnkyfbflscxdksgeqwbcxgzthmnhmuntxiajllwoxnwfvdgzz

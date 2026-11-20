@@ -2179,8 +2179,84 @@ dr-0055	deployer	DL-56 a path with the guardian only and a wildcard
 dr-0056	deployer	DL-57 deploying in a deployer already holding many deployments
 dr-0057	deployer	DL-58 an empty element lookup
 dr-0058	deployer	DL-59 a long path
-dr-0059	deployer	DC-01 concurrent deploys of different paths are all kept
-dr-0060	deployer	DC-02 concurrent deploys of one path keep one of them
+dr-0059	deployer	DL-60 2 overlapping prefixes of pqzzz in a shuffled order
+dr-0060	deployer	DL-61 2 overlapping prefixes of pqzzz in the reverse order
+dr-0061	deployer	DL-62 3 overlapping prefixes of pqzzz in a shuffled order
+dr-0062	deployer	DL-63 3 overlapping prefixes of pqzzz in the reverse order
+dr-0063	deployer	DL-64 5 overlapping prefixes of pqzzz in a shuffled order
+dr-0064	deployer	DL-65 5 overlapping prefixes of pqzzz in the reverse order
+dr-0065	deployer	DL-66 2 overlapping prefixes of abczzz in a shuffled order
+dr-0066	deployer	DL-67 2 overlapping prefixes of abczzz in the reverse order
+dr-0067	deployer	DL-68 3 overlapping prefixes of abczzz in a shuffled order
+dr-0068	deployer	DL-69 3 overlapping prefixes of abczzz in the reverse order
+dr-0069	deployer	DL-70 5 overlapping prefixes of abczzz in a shuffled order
+dr-0070	deployer	DL-71 5 overlapping prefixes of abczzz in the reverse order
+dr-0071	deployer	DL-72 2 overlapping prefixes of userzzz in a shuffled order
+dr-0072	deployer	DL-73 2 overlapping prefixes of userzzz in the reverse order
+dr-0073	deployer	DL-74 3 overlapping prefixes of userzzz in a shuffled order
+dr-0074	deployer	DL-75 3 overlapping prefixes of userzzz in the reverse order
+dr-0075	deployer	DL-76 5 overlapping prefixes of userzzz in a shuffled order
+dr-0076	deployer	DL-77 5 overlapping prefixes of userzzz in the reverse order
+dr-0077	deployer	DL-78 2 overlapping prefixes of workerzzz in a shuffled order
+dr-0078	deployer	DL-79 2 overlapping prefixes of workerzzz in the reverse order
+dr-0079	deployer	DL-80 3 overlapping prefixes of workerzzz in a shuffled order
+dr-0080	deployer	DL-81 3 overlapping prefixes of workerzzz in the reverse order
+dr-0081	deployer	DL-82 5 overlapping prefixes of workerzzz in a shuffled order
+dr-0082	deployer	DL-83 5 overlapping prefixes of workerzzz in the reverse order
+dr-0083	deployer	DL-84 2 overlapping prefixes of stzzz in a shuffled order
+dr-0084	deployer	DL-85 2 overlapping prefixes of stzzz in the reverse order
+dr-0085	deployer	DL-86 3 overlapping prefixes of stzzz in a shuffled order
+dr-0086	deployer	DL-87 3 overlapping prefixes of stzzz in the reverse order
+dr-0087	deployer	DL-88 5 overlapping prefixes of stzzz in a shuffled order
+dr-0088	deployer	DL-89 5 overlapping prefixes of stzzz in the reverse order
+dr-0089	deployer	DL-90 2 overlapping prefixes of mnxyz in a shuffled order
+dr-0090	deployer	DL-91 2 overlapping prefixes of mnxyz in the reverse order
+dr-0091	deployer	DL-92 3 overlapping prefixes of mnxyz in a shuffled order
+dr-0092	deployer	DL-93 3 overlapping prefixes of mnxyz in the reverse order
+dr-0093	deployer	DL-94 5 overlapping prefixes of mnxyz in a shuffled order
+dr-0094	deployer	DL-95 5 overlapping prefixes of mnxyz in the reverse order
+dr-0095	deployer	DL-96 2 overlapping prefixes of service in a shuffled order
+dr-0096	deployer	DL-97 2 overlapping prefixes of service in the reverse order
+dr-0097	deployer	DL-98 3 overlapping prefixes of service in a shuffled order
+dr-0098	deployer	DL-99 3 overlapping prefixes of service in the reverse order
+dr-0099	deployer	DL-100 5 overlapping prefixes of service in a shuffled order
+dr-0100	deployer	DL-101 5 overlapping prefixes of service in the reverse order
+dr-0101	deployer	DL-102 2 overlapping prefixes of dispatcherx in a shuffled order
+dr-0102	deployer	DL-103 2 overlapping prefixes of dispatcherx in the reverse order
+dr-0103	deployer	DL-104 3 overlapping prefixes of dispatcherx in a shuffled order
+dr-0104	deployer	DL-105 3 overlapping prefixes of dispatcherx in the reverse order
+dr-0105	deployer	DL-106 5 overlapping prefixes of dispatcherx in a shuffled order
+dr-0106	deployer	DL-107 5 overlapping prefixes of dispatcherx in the reverse order
+dr-0107	deployer	DL-108 2 overlapping prefixes of akkapekko in a shuffled order
+dr-0108	deployer	DL-109 2 overlapping prefixes of akkapekko in the reverse order
+dr-0109	deployer	DL-110 3 overlapping prefixes of akkapekko in a shuffled order
+dr-0110	deployer	DL-111 3 overlapping prefixes of akkapekko in the reverse order
+dr-0111	deployer	DL-112 5 overlapping prefixes of akkapekko in a shuffled order
+dr-0112	deployer	DL-113 5 overlapping prefixes of akkapekko in the reverse order
+dr-0113	deployer	DL-114 2 overlapping prefixes of routees in a shuffled order
+dr-0114	deployer	DL-115 2 overlapping prefixes of routees in the reverse order
+dr-0115	deployer	DL-116 3 overlapping prefixes of routees in a shuffled order
+dr-0116	deployer	DL-117 3 overlapping prefixes of routees in the reverse order
+dr-0117	deployer	DL-118 5 overlapping prefixes of routees in a shuffled order
+dr-0118	deployer	DL-119 5 overlapping prefixes of routees in the reverse order
+dr-0119	deployer	DL-120 2 overlapping prefixes of zeta in a shuffled order
+dr-0120	deployer	DL-121 2 overlapping prefixes of zeta in the reverse order
+dr-0121	deployer	DL-122 3 overlapping prefixes of zeta in a shuffled order
+dr-0122	deployer	DL-123 3 overlapping prefixes of zeta in the reverse order
+dr-0123	deployer	DL-124 4 overlapping prefixes of zeta in a shuffled order
+dr-0124	deployer	DL-125 4 overlapping prefixes of zeta in the reverse order
+dr-0125	deployer	DL-126 2 overlapping prefixes of orders in a shuffled order
+dr-0126	deployer	DL-127 2 overlapping prefixes of orders in the reverse order
+dr-0127	deployer	DL-128 3 overlapping prefixes of orders in a shuffled order
+dr-0128	deployer	DL-129 3 overlapping prefixes of orders in the reverse order
+dr-0129	deployer	DL-130 5 overlapping prefixes of orders in a shuffled order
+dr-0130	deployer	DL-131 5 overlapping prefixes of orders in the reverse order
+dr-0131	deployer	DL-132 two prefixes with the same hash code, short first
+dr-0132	deployer	DL-133 two prefixes with the same hash code, long first
+dr-0133	deployer	DL-134 two prefixes with the same hash code among others, short first
+dr-0134	deployer	DL-135 two prefixes with the same hash code among others, long first
+dr-0135	deployer	DC-01 concurrent deploys of different paths are all kept
+dr-0136	deployer	DC-02 concurrent deploys of one path keep one of them
 ds-0001	deployer-settings	DS-01 an empty section keeps only the entries of reference.conf
 ds-0002	deployer-settings	DS-02 an entry without values takes everything from default
 ds-0003	deployer-settings	DS-03 an undefined service is not found
