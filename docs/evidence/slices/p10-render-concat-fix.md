@@ -22,3 +22,13 @@ Los 8 DETECTED (casos que divergen entre paréntesis), control CLEAN 2944/2944: 
 - **D6** surrogate suelto en un valor (Q-X-17).
 - Letras y dígitos de la regla D4 se aproximan con `char::is_alphabetic` / `is_numeric` frente a `Character.isLetterOrDigit`: puede diferir en categorías raras (`No`, `Nl`); el fuzz usa `é` y un carácter astral, no toda la tabla.
 No se declara paridad completa de `render_concise` mientras estén abiertas.
+
+## Veredicto independiente y hallazgos abiertos (HEAD 483ee6c: APPROVE para D2, D3 y D4)
+
+El revisor repitió el corpus (102/102 idénticos), los 91 casos del revisor anterior, 391 entradas propias y unas 13 000 generadas, y tres semillas nuevas del fuzzer (101, 202, 303: 0 diferencias). Reejecutó 3 de los 8 mutantes (2 DETECTED con control CLEAN; el tercero lo detuvo por tiempo). No verificó cobertura, gates ni check.py.
+
+Abiertas, sin corregir y no aceptadas:
+- **D4b** (en alcance, baja): la regla de letra o dígito de `${...}` usa `is_alphabetic`/`is_numeric` y deja sin comillas elementos que Java cita: `²`, `Ⅷ`, `①`, `½`, `aͅ`, `कि`, `ः` (Nl, No y Other_Alphabetic). Arreglo: comprobar la categoría general L* o Nd; requiere una tabla de categorías (decisión de dependencia pendiente).
+- **D5 ampliada** (parser): escalar mezclado con lista u objeto (`a=[1] x`, `a={b=1} x y`: Pekko descarta el escalar), lista con objeto (`a=${1.2}[]{}` da WrongType en Pekko), `a{b=1} {c=2}` y `a {} ${x}` (Pekko da error de parseo), tabulador literal dentro de comillas (error en Pekko), U+FEFF dentro de texto sin comillas y en claves.
+- **D7** (apilado de capas): una clave cuyo valor posterior es una lista con una sustitución sin resolver conserva la capa anterior en Pekko y Rust la descarta (`x=${?x}, x=[${?x}]`, `x={k=1}, x=[${?x}]`). Es lógica de fusión anterior a este PR.
+- El fuzzer es estrecho (sin mezclas escalar/contenedor, sin BOM, sin `+=`, sin capas); el harness es de una línea por entrada, así que no prueba saltos de línea reales dentro de listas u objetos.
