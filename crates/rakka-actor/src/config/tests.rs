@@ -724,3 +724,61 @@ fn render_concise_shows_every_layer_of_an_unresolved_key_oldest_first() {
 fn a_pair_of_surrogate_escapes_is_one_astral_character() {
     assert_eq!(p(r#"a = "😀""#).get_string("a").unwrap(), "\u{1F600}");
 }
+
+// D2, D3 and D4 of PR-C. Expected texts from `Deploy.toString` of Pekko 2.0.0 (DeployOracle TS-36..TS-57).
+#[test]
+fn render_concise_keeps_the_original_text_of_plain_values_joined_with_white_space() {
+    assert_eq!(p("a = 1.50 ${x}").render_concise(), "{\"a\":\"1.50 \"${x}}");
+    assert_eq!(p("a = 1e2 ${x}").render_concise(), "{\"a\":\"1e2 \"${x}}");
+    assert_eq!(
+        p("a = true  ${x}").render_concise(),
+        "{\"a\":\"true  \"${x}}"
+    );
+    assert_eq!(p("a = null ${x}").render_concise(), "{\"a\":\"null \"${x}}");
+    assert_eq!(p("a = ${x} 1.50").render_concise(), "{\"a\":${x}\" 1.50\"}");
+    assert_eq!(p("a = ${x}007${y}").render_concise(), "{\"a\":${x}7${y}}");
+}
+
+#[test]
+fn render_concise_keeps_the_type_of_a_lone_plain_value_between_substitutions() {
+    assert_eq!(p("a = ${x}1${y}").render_concise(), "{\"a\":${x}1${y}}");
+    assert_eq!(
+        p("a = ${x}true${y}").render_concise(),
+        "{\"a\":${x}true${y}}"
+    );
+}
+
+#[test]
+fn render_concise_fuses_adjacent_lists_and_objects_and_drops_the_white_space_around_them() {
+    assert_eq!(p("a = [1] [2] ${x}").render_concise(), "{\"a\":[1,2]${x}}");
+    assert_eq!(p("a = [1] ${x} [2]").render_concise(), "{\"a\":[1]${x}[2]}");
+    assert_eq!(p("a = ${x} [1] [2]").render_concise(), "{\"a\":${x}[1,2]}");
+    assert_eq!(
+        p("a = {x=1} {y=2} ${z}").render_concise(),
+        "{\"a\":{\"x\":1,\"y\":2}${z}}"
+    );
+    assert_eq!(
+        p("a = {x=1} {x=2} ${z}").render_concise(),
+        "{\"a\":{\"x\":2}${z}}"
+    );
+    assert_eq!(
+        p("a = {x={k=1}} {x={j=2}} ${z}").render_concise(),
+        "{\"a\":{\"x\":{\"j\":2,\"k\":1}}${z}}"
+    );
+}
+
+#[test]
+fn render_concise_prints_substitution_path_elements_bare_unless_they_hold_other_characters() {
+    assert_eq!(
+        p("a = ${1}, b = ${a.007}, c = ${a.1.2}").render_concise(),
+        "{\"a\":${1},\"b\":${a.007},\"c\":${a.1.2}}"
+    );
+    assert_eq!(
+        p("a = ${a.-1} ${true} ${null.x}").render_concise(),
+        "{\"a\":${a.-1}\" \"${true}\" \"${null.x}}"
+    );
+    assert_eq!(
+        p(r#"a = ${"q k"} ${""} ${"1"} ${"a-b"} ${"😀"}"#).render_concise(),
+        "{\"a\":${\"q k\"}\" \"${\"\"}\" \"${1}\" \"${a-b}\" \"${\"\u{1F600}\"}}"
+    );
+}

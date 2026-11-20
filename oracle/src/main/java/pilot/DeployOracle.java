@@ -196,5 +196,28 @@ final class DeployOracle {
     run("TS-33 toString with two substitutions", () -> deploy("/a", "a = ${b}\na = ${c}", NO_ROUTER, NO_SCOPE, "", "").toString());
     run("TS-34 toString with a substitution and a nested key", () -> deploy("/a", "a.b = ${c}\na.b.d = 1\na.e = 2", NO_ROUTER, NO_SCOPE, "", "").toString());
     run("TS-35 toString with an optional substitution over an object", () -> deploy("/a", "a = {x = 1}\na = ${?b}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-36 toString with a number with a trailing zero before a substitution", () -> deploy("/a", "a = 1.50 ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-37 toString with an exponent number before a substitution", () -> deploy("/a", "a = 1e2 ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-38 toString with a boolean and two spaces before a substitution", () -> deploy("/a", "a = true  ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-39 toString with null before a substitution", () -> deploy("/a", "a = null ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-40 toString with a number after a substitution", () -> deploy("/a", "a = ${x} 1.50", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-41 toString with several numbers and a substitution", () -> deploy("/a", "a = 1   2 ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-42 toString with a number with leading zeros between substitutions", () -> deploy("/a", "a = ${x}007${y}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-43 toString with adjacent lists before a substitution", () -> deploy("/a", "a = [1] [2] ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-44 toString with adjacent objects before a substitution", () -> deploy("/a", "a = {x=1} {y=2} ${z}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-45 toString with lists around a substitution", () -> deploy("/a", "a = [1] ${x} [2]", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-46 toString with adjacent objects after a substitution", () -> deploy("/a", "a = ${x} {b=1} {c=2}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-47 toString with adjacent lists after a substitution", () -> deploy("/a", "a = ${x} [1] [2]", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-48 toString with adjacent objects that repeat a key", () -> deploy("/a", "a = {x=1} {x=2} ${z}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-49 toString with adjacent objects that merge a nested key", () -> deploy("/a", "a = {x={k=1}} {x={j=2}} ${z}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-50 toString with substitution paths of digits", () -> deploy("/a", "a = ${1}, b = ${a.007}, c = ${a.1.2}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-51 toString with substitution paths that start with a hyphen or look like keywords", () -> deploy("/a", "a = ${a.-1} ${-} ${-a} ${1-a} ${a.1e5} ${true} ${null.x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-52 toString with substitution paths that need quotes", () -> deploy("/a", "a = ${\"q k\"} ${\"\"} ${\"\\u00e9.x\"} ${\"1\"} ${\"a-b\"} ${\"_c\"} ${\"a b\".c}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-53 toString with substitution paths of non-ASCII letters", () -> deploy("/a", "a = ${\"\\u00e9\"} ${\"\\u03a91\"}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-54 toString with a substitution path of an astral character", () -> deploy("/a", "a = ${\"\\uD83D\\uDE00\"}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-55 toString with a lone number between substitutions", () -> deploy("/a", "a = ${x}1${y}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-56 toString with a lone boolean between substitutions", () -> deploy("/a", "a = ${x}true${y}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-57 toString with a string, a number and a substitution", () -> deploy("/a", "a = \"q\" 1 ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-58 toString with a substitution path of an astral letter", () -> deploy("/a", "a = ${\"\\uD835\\uDC00\"} ${\"\\u00e9\\uD835\\uDC00\"}", NO_ROUTER, NO_SCOPE, "", "").toString());
   }
 }

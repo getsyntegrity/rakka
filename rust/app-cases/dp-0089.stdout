@@ -1,0 +1,1 @@
+TS-45 toString with lists around a substitution -> ok Deploy(/a, Config(SimpleConfigObject({"a":[1]${x}[2]})), NoRouter, NoScopeGiven, , , Set())

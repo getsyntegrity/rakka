@@ -1,0 +1,1 @@
+TS-42 toString with a number with leading zeros between substitutions -> ok Deploy(/a, Config(SimpleConfigObject({"a":${x}7${y}})), NoRouter, NoScopeGiven, , , Set())

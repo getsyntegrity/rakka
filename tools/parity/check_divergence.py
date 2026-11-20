@@ -1108,6 +1108,55 @@ MUTANTS = {
         "if true {",
         "the new index replaces the current one even when another deploy swapped in meanwhile, so that deploy is lost (killed by a deterministic unit test, see UNIT_MUTANTS)",
     ),
+    # --- P10 PR-C fixes D2, D3, D4: concatenations and substitution paths in the concise render ---
+    "concatenation-drops-the-text-of-null": (
+        "src/config/mod.rs",
+        '}) => Some("null".to_owned()),',
+        '}) => Some(String::new()),',
+        "a null inside a concatenation of plain values contributes no text",
+    ),
+    "concatenation-number-loses-trailing-zeros": (
+        "src/config/mod.rs",
+        "}) => Some(number.text().to_owned()),",
+        "}) => Some(number.text().trim_end_matches('0').to_owned()),",
+        "a number inside a concatenation of plain values is shown without its trailing zeros",
+    ),
+    "concatenation-keeps-white-space-next-to-containers": (
+        "src/config/mod.rs",
+        "        let touches_container = matches!(piece, Piece::Ws(_))\n",
+        "        let touches_container = false && matches!(piece, Piece::Ws(_))\n",
+        "white space next to a list or an object is kept as a string",
+    ),
+    "concatenation-does-not-fuse-adjacent-lists": (
+        "src/config/mod.rs",
+        "                    items.extend(next.iter());\n",
+        "                    let _ = next;\n",
+        "the second of two adjacent lists is lost",
+    ),
+    "concatenation-fuses-objects-in-the-wrong-order": (
+        "src/config/mod.rs",
+        "fused = merge_obj(next, &fused);",
+        "fused = merge_obj(&fused, next);",
+        "of two adjacent objects the first wins on a repeated key",
+    ),
+    "concatenation-quotes-a-lone-plain-value": (
+        "src/config/mod.rs",
+        "if let Piece::V(value) = kept[start] {",
+        "if let (Piece::V(value), false) = (kept[start], true) {",
+        "a lone number between substitutions is printed as a string",
+    ),
+    "substitution-path-quotes-digit-elements": (
+        "src/config/model.rs",
+        "(c.is_alphabetic() || c.is_numeric())",
+        "(c.is_alphabetic())",
+        "a path element made of digits is printed with quotes",
+    ),
+    "substitution-path-leaves-astral-elements-bare": (
+        "src/config/model.rs",
+        "(c as u32) <= 0xFFFF && ",
+        "",
+        "a path element with an astral letter is printed without quotes",
+    ),
     # --- P10 PR-C: Deploy.toString and the concise render of a configuration ---
     "render-keys-sort-as-plain-strings": (
         "src/config/mod.rs",

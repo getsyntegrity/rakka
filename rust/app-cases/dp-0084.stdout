@@ -1,0 +1,1 @@
+TS-40 toString with a number after a substitution -> ok Deploy(/a, Config(SimpleConfigObject({"a":${x}" 1.50"})), NoRouter, NoScopeGiven, , , Set())

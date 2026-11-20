@@ -50,7 +50,11 @@ impl Subst {
         format!(
             "${{{}{}}}",
             if self.optional { "?" } else { "" },
-            join_path(&self.path)
+            self.path
+                .iter()
+                .map(|segment| render_substitution_segment(segment))
+                .collect::<Vec<_>>()
+                .join(".")
         )
     }
 }
@@ -215,6 +219,20 @@ pub(crate) fn join_path(segments: &[String]) -> String {
         .map(|s| render_segment(s))
         .collect::<Vec<_>>()
         .join(".")
+}
+
+/// A path element inside `${...}` as Typesafe Config prints it: quoted only when it is empty or has a character that is not
+/// a letter, a digit, `-` or `_` (so `1`, `-1`, `007`, `true` and `1e5` stay bare). Letters and digits are the BMP ones, as
+/// `Character.isLetterOrDigit(char)` sees UTF-16 units.
+fn render_substitution_segment(segment: &str) -> String {
+    let bare = |c: char| {
+        (c as u32) <= 0xFFFF && (c.is_alphabetic() || c.is_numeric()) || c == '-' || c == '_'
+    };
+    if !segment.is_empty() && segment.chars().all(bare) {
+        segment.to_owned()
+    } else {
+        quote(segment)
+    }
 }
 
 fn render_segment(s: &str) -> String {
