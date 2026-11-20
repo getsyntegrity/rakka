@@ -1,0 +1,1 @@
+DS-20 an empty element in the path -> ok ERR InvalidActorNameException [Actor name in deployment [/a//b] must not be empty]

@@ -1,0 +1,1 @@
+DS-18 an invalid path with a non-ASCII letter -> ok ERR InvalidActorNameException [Invalid actor path element [ub\u00E5t] (in path [/gul/ub\u00E5t]), illegal character [\u00E5] at position: 2. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

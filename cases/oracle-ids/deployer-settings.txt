@@ -1,0 +1,40 @@
+DS-01 an empty section keeps only the entries of reference.conf
+DS-02 an entry without values takes everything from default
+DS-03 an undefined service is not found
+DS-04 the dispatcher of an entry
+DS-05 the mailbox of an entry
+DS-06 the dispatcher of default is the fallback
+DS-07 the mailbox of default is the fallback
+DS-08 a router that is not from-code
+DS-09 from-code written out
+DS-10 another router name
+DS-11 the router of default reaches every entry
+DS-12 single wildcard entries
+DS-13 a double wildcard and a prefix wildcard
+DS-14 entries that are not objects are ignored
+DS-15 default itself is not a deployment
+DS-16 more values of an entry are kept in its configuration
+DS-17 a router with a resizer section
+DS-18 an invalid path with a non-ASCII letter
+DS-19 a double wildcard suffix
+DS-20 an empty element in the path
+DS-21 a dispatcher of the wrong type
+DS-22 a router of the wrong type
+DS-23 a mailbox of the wrong type
+DS-24 every entry is read before one is deployed
+DS-25 an invalid path after valid entries
+DS-26 non-ASCII text in a value
+DS-27 a pair of surrogates in a value
+DS-28 every valid symbol in a key
+DS-29 the root and the empty key are no deployments
+DS-30 a key without a leading slash loses its first element
+DS-31 a key with a trailing slash
+DS-32 a value with a space
+DS-33 an entry that overrides every default key
+DS-34 an entry whose dispatcher and mailbox are empty text
+DS-35 lookup of an actor path
+CO-01 /a and /a/ give the same path
+CO-02 three keys with one path
+CO-03 two trailing slash keys
+CO-04 a plain key and three slashes
+CO-05 two and three slashes

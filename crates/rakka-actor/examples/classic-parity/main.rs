@@ -13,6 +13,7 @@ mod config_hocon_cases;
 mod config_settings_cases;
 mod deploy_cases;
 mod deployer_cases;
+mod deployer_settings_cases;
 mod dynamic_access_cases;
 mod fronteras_cases;
 mod json;
@@ -166,6 +167,15 @@ fn main() -> ExitCode {
             }
         }
         "deployer-case" => return oracle_case(&mut out, &input, deployer_cases::rust_lines()),
+        "deployer-settings-ids" => print_ids(&mut out, deployer_settings_cases::rust_lines()),
+        "deployer-settings-all" => {
+            for (_, line) in deployer_settings_cases::rust_lines() {
+                writeln!(out, "{line}").ok();
+            }
+        }
+        "deployer-settings-case" => {
+            return oracle_case(&mut out, &input, deployer_settings_cases::rust_lines());
+        }
         "config-settings-ids" => print_ids(&mut out, config_settings_cases::rust_lines()),
         "config-settings-all" => {
             for (_, line) in config_settings_cases::rust_lines() {

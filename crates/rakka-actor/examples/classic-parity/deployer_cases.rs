@@ -24,7 +24,7 @@ fn deployment(path: &str, dispatcher: &str) -> Deploy {
 }
 
 /// One UTF-16 unit as text, spelling an unpaired surrogate as the `\uXXXX` escape the oracle prints for it.
-fn units_to_text(units: &[u16]) -> String {
+pub fn units_to_text(units: &[u16]) -> String {
     char::decode_utf16(units.iter().copied())
         .map(|unit| match unit {
             Ok(c) => c.to_string(),
@@ -35,7 +35,7 @@ fn units_to_text(units: &[u16]) -> String {
 
 /// A word of a script with its `\uXXXX` escapes decoded (a lone surrogate stays an escape, which `esc` leaves alone);
 /// `""` is the empty string.
-fn word(text: &str) -> String {
+pub fn word(text: &str) -> String {
     if text == "\"\"" {
         return String::new();
     }
@@ -66,7 +66,7 @@ fn word(text: &str) -> String {
     units_to_text(&decoded)
 }
 
-fn elements(text: &str) -> Vec<String> {
+pub fn elements(text: &str) -> Vec<String> {
     if text == "-" {
         return Vec::new();
     }

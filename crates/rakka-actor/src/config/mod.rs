@@ -349,6 +349,27 @@ impl Config {
             .ok_or_else(|| self.missing(path))
     }
 
+    /// The entries of the root object whose value is an object (a scalar or a null entry is skipped), sorted by key: what
+    /// `config.root.asScala` gives for `case (key, value: ConfigObject)`.
+    pub(crate) fn object_entries(&self) -> Vec<(String, Config)> {
+        self.root
+            .iter()
+            .filter_map(|(key, stack)| match stack.first() {
+                Some(Val {
+                    line,
+                    kind: Kind::Obj(entries),
+                }) => Some((
+                    key.clone(),
+                    Config {
+                        root: entries.clone(),
+                        origin: format!("String: {line}"),
+                    },
+                )),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// The keys of the root object, sorted.
     pub fn root_keys(&self) -> Vec<String> {
         self.root.keys().cloned().collect()

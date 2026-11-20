@@ -41,7 +41,8 @@ impl Scope {
 pub enum RouterConfig {
     /// `NoRouter`.
     NoRouter,
-    /// A router named by its class, whose settings and merge rules belong to the routing module.
+    /// A router that is only named, by the name it was configured with (`round-robin-pool`, or a class name), not by the
+    /// class that name maps to; its settings and merge rules belong to the routing module, which will translate the name.
     Opaque(String),
 }
 

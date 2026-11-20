@@ -14,6 +14,8 @@ mod config_settings_cases;
 mod deploy_cases;
 #[path = "../examples/classic-parity/deployer_cases.rs"]
 mod deployer_cases;
+#[path = "../examples/classic-parity/deployer_settings_cases.rs"]
+mod deployer_settings_cases;
 #[path = "../examples/classic-parity/dynamic_access_cases.rs"]
 mod dynamic_access_cases;
 #[path = "../examples/classic-parity/fronteras_cases.rs"]
@@ -377,6 +379,19 @@ fn recorded_provider_selection_cases_match_pekko() {
         "provider-selection.txt",
         provider_selection_cases::rust_lines(),
         Vec::new(),
+    );
+}
+
+#[test]
+fn recorded_deployer_settings_cases_match_pekko() {
+    oracle_family_matches_pekko(
+        "deployer-settings-case",
+        "deployer-settings.txt",
+        deployer_settings_cases::rust_lines(),
+        deployer_settings_cases::PENDING
+            .iter()
+            .map(|(id, _)| *id)
+            .collect(),
     );
 }
 

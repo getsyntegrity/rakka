@@ -1,12 +1,67 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/Deployer.scala (Apache-2.0).
-//! `Deployer.deploy` and `Deployer.lookup` (AC-CFG-012.2, `Deployer.scala:252-268`): the deployments of an actor system
-//! by path, found with the wildcards `*`, `prefix*` and a terminal `**`. Reading `pekko.actor.deployment` into deployments
-//! (`parseConfig`, AC-CFG-012.1) and building the routers (AC-CFG-012.3/.4) are other slices.
+//! The `Deployer` (`Deployer.scala:225-276`): the deployments of an actor system by path, found with the wildcards `*`,
+//! `prefix*` and a terminal `**`, and read from `pekko.actor.deployment`. A router that is not `from-code` is only named
+//! here; building routers (type mapping, pools, resizers) belongs to the routing module.
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use crate::actor::{ActorError, ActorPath, Deploy, InvalidActorNameError, validate_path_element};
+use crate::actor::{
+    ActorError, ActorPath, Deploy, InvalidActorNameError, RouterConfig, Scope,
+    validate_path_element,
+};
+use crate::config::{Config, ConfigError, Settings};
 use crate::util::wildcard_index::WildcardIndex;
+
+/// What building a [`Deployer`] from settings can throw: a configuration error from reading `pekko.actor.deployment`, or the
+/// rejection of one deployment path by [`Deployer::deploy`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DeployerError {
+    /// `ConfigException` (a missing key or a value of the wrong type).
+    Config(ConfigError),
+    /// `InvalidActorNameException` or `IllegalArgumentException` from `deploy`.
+    Deploy(ActorError),
+}
+
+impl DeployerError {
+    /// The message of the wrapped error (`getMessage`).
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Config(e) => e.message(),
+            Self::Deploy(e) => e.message(),
+        }
+    }
+
+    /// The JVM class of the wrapped error, without the package.
+    pub fn simple_class_name(&self) -> &'static str {
+        match self {
+            Self::Config(e) => e.kind().java_name().rsplit('.').next().unwrap_or_default(),
+            Self::Deploy(e) => e.class().java_name().rsplit('.').next().unwrap_or_default(),
+        }
+    }
+}
+
+impl std::fmt::Display for DeployerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Config(e) => e.fmt(f),
+            Self::Deploy(e) => e.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for DeployerError {}
+
+impl From<ConfigError> for DeployerError {
+    fn from(e: ConfigError) -> Self {
+        Self::Config(e)
+    }
+}
+
+impl From<ActorError> for DeployerError {
+    fn from(e: ActorError) -> Self {
+        Self::Deploy(e)
+    }
+}
 
 /// `Deployer`: maps actor paths to deployments. Its index is an immutable snapshot that `deploy` replaces as a whole
 /// (the `Mutex` only guards the swap, never the building of the new index), so a lookup never waits for a deploy, never
@@ -20,6 +75,47 @@ impl Deployer {
     /// A deployer without deployments.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// `new Deployer(settings, dynamicAccess)`: the deployments of `pekko.actor.deployment`.
+    pub fn from_settings(settings: &Settings) -> Result<Self, DeployerError> {
+        let section = settings.config().get_config("pekko.actor.deployment")?;
+        let default = section.get_config("default")?;
+        // `flatMap` over the entries reads every one of them before `foreach(deploy)` adds the first: a configuration
+        // error in any entry is thrown before any path is rejected. The entries are taken in the alphabetical order of
+        // their keys: a temporary policy, where Pekko uses the iteration order of a JVM `HashSet` of entries (hash of key
+        // and value).
+        let deploys = section
+            .object_entries()
+            .into_iter()
+            .filter(|(key, _)| key != "default")
+            .map(|(key, entry)| Self::parse_config(&key, &entry, &default))
+            .collect::<Result<Vec<_>, _>>()?;
+        let deployer = Self::new();
+        for deploy in deploys {
+            deployer.deploy(deploy)?;
+        }
+        Ok(deployer)
+    }
+
+    /// `parseConfig(key, config)`: the entry over `default`, with the router named but not built (`from-code` is no
+    /// router; any other is kept by the name that is configured, which is all the routing module will need to build it).
+    fn parse_config(key: &str, entry: &Config, default: &Config) -> Result<Deploy, ConfigError> {
+        let deployment = entry.with_fallback(default);
+        let router = match deployment.get_string("router")?.as_str() {
+            "from-code" => RouterConfig::NoRouter,
+            name => RouterConfig::opaque(name),
+        };
+        let dispatcher = deployment.get_string("dispatcher")?;
+        let mailbox = deployment.get_string("mailbox")?;
+        Ok(Deploy::new(
+            key,
+            deployment,
+            router,
+            Scope::NoScopeGiven,
+            &dispatcher,
+            &mailbox,
+        ))
     }
 
     /// `deploy(d)`.
@@ -137,6 +233,189 @@ mod tests {
         deployer
             .lookup_path(&path)
             .map(|deploy| deploy.path().to_owned())
+    }
+
+    fn settings_with(deployment: &str) -> Settings {
+        let user = Config::parse_string(&format!("pekko.actor.deployment {{\n{deployment}\n}}"))
+            .expect("a valid configuration");
+        let config = user
+            .with_fallback(&Config::default_reference())
+            .resolve()
+            .expect("a resolvable configuration");
+        Settings::new("deployer-test", config).expect("valid settings")
+    }
+
+    fn deployer_with_deployment(deployment: &str) -> Deployer {
+        Deployer::from_settings(&settings_with(deployment)).expect("a valid deployment section")
+    }
+
+    fn build_error(deployment: &str) -> DeployerError {
+        Deployer::from_settings(&settings_with(deployment))
+            .expect_err("a rejected deployment section")
+    }
+
+    #[test]
+    fn an_entry_without_values_takes_everything_from_default() {
+        let deployer = deployer_with_deployment("/service1 {}");
+        let deploy = deployer
+            .lookup(["service1"])
+            .expect("the entry is deployed");
+        assert_eq!(deploy.path(), "/service1");
+        assert_eq!(deploy.router_config(), &RouterConfig::NoRouter);
+        assert_eq!(deploy.scope(), &Scope::NoScopeGiven);
+        assert_eq!(deploy.dispatcher(), "");
+        assert_eq!(deploy.mailbox(), "");
+        assert_eq!(deploy.config().get_string("router").unwrap(), "from-code");
+        assert_eq!(deploy.config().get_int("nr-of-instances").unwrap(), 1);
+    }
+
+    #[test]
+    fn an_entry_that_is_not_defined_is_not_found() {
+        assert!(
+            deployer_with_deployment("/service1 {}")
+                .lookup(["undefined"])
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn the_dispatcher_and_the_mailbox_of_an_entry_are_read_from_its_configuration() {
+        let deployer = deployer_with_deployment(
+            "/service3 { dispatcher = my-dispatcher }\n/service4 { mailbox = my-mailbox }",
+        );
+        let with_dispatcher = deployer.lookup(["service3"]).unwrap();
+        assert_eq!(with_dispatcher.dispatcher(), "my-dispatcher");
+        assert_eq!(with_dispatcher.mailbox(), "");
+        let with_mailbox = deployer.lookup(["service4"]).unwrap();
+        assert_eq!(with_mailbox.dispatcher(), "");
+        assert_eq!(with_mailbox.mailbox(), "my-mailbox");
+    }
+
+    #[test]
+    fn the_dispatcher_of_default_is_the_fallback_of_every_entry_and_the_entry_wins() {
+        let deployer = deployer_with_deployment(
+            "default.dispatcher = shared\n/inherits {}\n/overrides { dispatcher = own }",
+        );
+        assert_eq!(
+            deployer.lookup(["inherits"]).unwrap().dispatcher(),
+            "shared"
+        );
+        assert_eq!(deployer.lookup(["overrides"]).unwrap().dispatcher(), "own");
+    }
+
+    #[test]
+    fn the_default_entry_itself_is_not_a_deployment() {
+        assert!(
+            deployer_with_deployment("/a {}")
+                .lookup(["default"])
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn the_entries_of_the_reference_configuration_are_deployed() {
+        let deployer = deployer_with_deployment("/a {}");
+        let resolver = deployer.lookup(["IO-DNS", "inet-address"]).unwrap();
+        assert_eq!(resolver.mailbox(), "unbounded");
+        assert_eq!(
+            resolver.router_config(),
+            &RouterConfig::opaque("consistent-hashing-pool")
+        );
+        let nested = deployer.lookup(["IO-DNS", "inet-address", "any"]).unwrap();
+        assert_eq!(
+            nested.dispatcher(),
+            "pekko.actor.default-blocking-io-dispatcher"
+        );
+    }
+
+    #[test]
+    fn a_router_that_is_not_from_code_keeps_the_configured_name() {
+        let deployer = deployer_with_deployment("/pool { router = round-robin-pool }");
+        assert_eq!(
+            deployer.lookup(["pool"]).unwrap().router_config(),
+            &RouterConfig::opaque("round-robin-pool")
+        );
+    }
+
+    #[test]
+    fn an_entry_that_is_not_an_object_is_ignored() {
+        let deployer = deployer_with_deployment("/scalar = 5\n/nothing = null\n/real {}");
+        assert!(deployer.lookup(["scalar"]).is_none());
+        assert!(deployer.lookup(["nothing"]).is_none());
+        assert!(deployer.lookup(["real"]).is_some());
+    }
+
+    #[test]
+    fn the_wildcards_of_the_entries_are_looked_up_like_any_deployment() {
+        let deployer = deployer_with_deployment(
+            "\"/some/*\" { dispatcher = d1 }\n\"/double/**\" { dispatcher = d2 }",
+        );
+        assert_eq!(deployer.lookup(["some", "x"]).unwrap().dispatcher(), "d1");
+        assert_eq!(
+            deployer.lookup(["double", "a", "b"]).unwrap().dispatcher(),
+            "d2"
+        );
+        assert!(deployer.lookup(["double"]).is_none());
+    }
+
+    #[test]
+    fn a_value_of_the_wrong_type_is_a_configuration_error() {
+        let error = build_error("/bad { dispatcher = [1] }");
+        assert_eq!(error.simple_class_name(), "WrongType");
+        let error = build_error("/bad { router = { a = 1 } }");
+        assert_eq!(error.simple_class_name(), "WrongType");
+    }
+
+    #[test]
+    fn an_invalid_deployment_path_is_rejected_when_the_deployer_is_built() {
+        let error = build_error("\"/gul/ub\u{e5}t\" {}");
+        assert_eq!(error.simple_class_name(), "InvalidActorNameException");
+        assert!(
+            error.message().contains("[ub\u{e5}t]") && error.message().contains("[/gul/ub\u{e5}t]")
+        );
+        let error = build_error("\"/c**\" {}");
+        assert_eq!(error.simple_class_name(), "IllegalArgumentException");
+    }
+
+    #[test]
+    fn the_error_of_building_a_deployer_displays_the_wrapped_error() {
+        let wrong_type = build_error("/bad { dispatcher = [1] }");
+        assert_eq!(
+            wrong_type.to_string(),
+            format!("WrongType: {}", wrong_type.message())
+        );
+        assert!(
+            wrong_type
+                .message()
+                .ends_with("dispatcher has type LIST rather than STRING")
+        );
+        let invalid_name = build_error("\"/a//b\" {}");
+        assert_eq!(
+            invalid_name.to_string(),
+            "org.apache.pekko.actor.InvalidActorNameException: Actor name in deployment [/a//b] must not be empty"
+        );
+    }
+
+    #[test]
+    fn every_entry_is_read_before_any_is_deployed_so_a_configuration_error_wins_over_an_invalid_path()
+     {
+        let error = build_error("\"/a b\" {}\n/z { dispatcher = [1] }");
+        assert_eq!(error.simple_class_name(), "WrongType");
+    }
+
+    // Temporary policy: Pekko deploys the entries in the iteration order of a JVM `HashSet` of entries (hash of key and
+    // value); here they go in the alphabetical order of their keys, so of several keys that give the same path the last one
+    // wins. This test pins the Rust policy, not Pekko's behaviour.
+    #[test]
+    fn of_several_keys_with_the_same_path_the_last_in_alphabetical_order_wins() {
+        let deployer = deployer_with_deployment(
+            "\"/svc\" { dispatcher = plain }\n\"/svc/\" { dispatcher = slash }\n\"/svc//\" { dispatcher = two }",
+        );
+        assert_eq!(deployer.lookup(["svc"]).unwrap().dispatcher(), "two");
+        let deployer = deployer_with_deployment(
+            "\"/a/\" { dispatcher = slash }\n\"/a\" { dispatcher = plain }",
+        );
+        assert_eq!(deployer.lookup(["a"]).unwrap().dispatcher(), "slash");
     }
 
     #[test]

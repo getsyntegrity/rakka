@@ -1,0 +1,4 @@
+bin.name = "classic-parity"
+args = ["deployer-settings-case"]
+status.code = 0
+fs.sandbox = true
