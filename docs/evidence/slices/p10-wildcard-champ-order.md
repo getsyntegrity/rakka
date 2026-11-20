@@ -14,9 +14,20 @@ Filas: AC-UTIL-009 (A7), AC-CFG-012.2 (B1/B2 de `p10-strict-parity-matrix.md`). 
 - Colisión completa: `tools/parity/find_prefix_hash_collision.py` encontró dos prefijos de un mismo elemento con igual `hashCode` (263630388). Pekko, con ambos órdenes de inserción, elige el primero insertado (DL-132/133); Rust igual.
 - Fuzz diferencial nuevo (`wildcard-winners` en el oráculo y el gemelo; `fuzz_wildcard_order.py`): seeds 1, 2 y 3, 20 000 conjuntos cada una, **0 diferencias**.
 
-## Mutantes nuevos (5)
+## Mutantes nuevos (5): todos DETECTED, control CLEAN
 
-Ver el resultado en la descripción del PR (comando `tools/parity/check_divergence.py <nombre>`): `wildcard-suffix-children-keep-insertion-order`, `hash-map-order-skips-the-improve-scrambling`, `hash-map-order-reads-the-bits-from-the-top`, `hash-map-order-puts-child-nodes-before-lone-entries`, `hash-map-order-reverses-colliding-keys`.
+`tools/parity/check_divergence.py <nombre>` (un único proceso; el nombre repetido en la línea de comandos se ejecutó una sola vez, sin duplicados):
+
+| Mutante | Resultado | Casos que divergen |
+|---|---|---|
+| wildcard-suffix-children-keep-insertion-order | DETECTED | 45 |
+| hash-map-order-skips-the-improve-scrambling | DETECTED | 54 |
+| hash-map-order-reads-the-bits-from-the-top | DETECTED | 48 |
+| hash-map-order-puts-child-nodes-before-lone-entries | DETECTED | 10 |
+| hash-map-order-reverses-colliding-keys | DETECTED | 2 (DL-132/133) |
+| control sin modificar | CLEAN | 0 de 2886 |
+
+Ninguno es equivalente. Reportes en `rust/divergence-reports/`. Cobertura (`tools/parity/coverage.sh`): 98,27 % del crate; `scala_hash_order.rs` 100 %, `wildcard_index.rs` 99,6 %.
 
 ## Límites
 
