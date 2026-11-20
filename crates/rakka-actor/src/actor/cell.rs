@@ -17,22 +17,30 @@ use crate::actor::system::SystemInner;
 use crate::actor::validate_path_element;
 use crate::actor::{ActorError, ErrorClass};
 use crate::dispatch::dispatcher::Dispatcher;
+use crate::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 use crate::dispatch::sysmsg::{Failed, SystemMessage, Terminated};
 use crate::event::UnhandledMessage;
 use crate::util::helpers::base64_append;
 
-struct Envelope {
-    message: AnyMessage,
-    sender: Option<ActorRef>,
-}
-
-#[derive(Default)]
 struct MbState {
     sys: VecDeque<SystemMessage>,
-    user: VecDeque<Envelope>,
+    /// the user messages (`Mailbox.messageQueue`): the default `UnboundedMailbox` queue
+    queue: Box<dyn MessageQueue>,
     suspend: u32,
     closed: bool,
     scheduled: bool,
+}
+
+impl MbState {
+    fn new(scheduled: bool) -> Self {
+        MbState {
+            sys: VecDeque::new(),
+            queue: UnboundedMailbox.create(),
+            suspend: 0,
+            closed: false,
+            scheduled,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -150,10 +158,7 @@ impl ActorCell {
             props,
             dispatcher,
             me: me.clone(),
-            mb: Mutex::new(MbState {
-                scheduled: true, /* not attached yet */
-                ..MbState::default()
-            }),
+            mb: Mutex::new(MbState::new(true /* scheduled: not attached yet */)),
             children: Mutex::new(Children::Empty),
             name_counter: AtomicU64::new(0),
             st: Mutex::new(CellState::default()),
@@ -188,7 +193,7 @@ impl ActorCell {
     }
 
     fn can_run(mb: &MbState) -> bool {
-        !mb.sys.is_empty() || (!mb.closed && mb.suspend == 0 && !mb.user.is_empty())
+        !mb.sys.is_empty() || (!mb.closed && mb.suspend == 0 && mb.queue.has_messages())
     }
 
     // ---- dispatch ----
@@ -217,7 +222,7 @@ impl ActorCell {
                 .publish_dead_letter(env.message, env.sender, self.self_ref());
             return;
         }
-        mb.user.push_back(env);
+        mb.queue.enqueue(env);
         let go = !mb.scheduled && mb.suspend == 0;
         if go {
             mb.scheduled = true;
@@ -262,11 +267,11 @@ impl ActorCell {
                 break;
             }
             let env = {
-                let mut mb = cell.mb.lock().unwrap();
+                let mb = cell.mb.lock().unwrap();
                 if mb.closed || mb.suspend > 0 {
                     None
                 } else {
-                    mb.user.pop_front()
+                    mb.queue.dequeue()
                 }
             };
             match env {
@@ -667,15 +672,17 @@ impl ActorCell {
         let _ = self.with_actor(|a, ctx| a.post_stop(ctx)); // post-stop failures are only logged in Pekko
         self.st.lock().unwrap().actor = None;
         // dispatcher.detach: close the mailbox, hand what is left to dead letters
-        let (sys, user) = {
+        let leftovers = UnboundedMailbox.create();
+        let sys = {
             let mut mb = self.mb.lock().unwrap();
             mb.closed = true;
-            (std::mem::take(&mut mb.sys), std::mem::take(&mut mb.user))
+            mb.queue.clean_up(&*leftovers); // `cleanUp`: published below, outside the lock
+            std::mem::take(&mut mb.sys)
         };
         for m in sys {
             Self::dead_system_message(m);
         }
-        for env in user {
+        while let Some(env) = leftovers.dequeue() {
             self.system
                 .publish_dead_letter(env.message, env.sender, self.self_ref());
         }

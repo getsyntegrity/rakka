@@ -8,6 +8,9 @@ MBX-ST-07 closed refuses scheduling -> schedule=false idle=true closed scheduled
 MBX-ST-08 canBeScheduledForExecution matrix -> open: FTTT withSystemMessage=true; scheduled: FTTT withSystemMessage=true; suspended: FTFT withSystemMessage=true; suspended+scheduled: FTFT withSystemMessage=true; closed: FFFF withSystemMessage=false;
 MBX-SQ-01 system queue drains earliest first -> has=true drain=[Suspend, Resume, Terminate] | after has=false drain=[]
 MBX-SQ-02 sentinel NoMessage closes the system queue -> drain=[Suspend] | afterSentinel has=false drain=[] (actor==null: dropped, not forwarded)
+MBX-MQ-01 default queue is FIFO and counts -> new: n=0 has=false | enqueue n=1 has=true n=2 has=true n=3 has=true | dequeue [a, b, c] then null | after n=0 has=false
+MBX-MQ-02 default queue stays FIFO when enqueue and dequeue interleave -> first=a rest=[b, c]
+MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order -> source n=0 has=false | target n=3 has=true order [a, b, c]
 MBX-TK-01 Mailbox is a plain Runnable, not a ForkJoinTask -> forkJoinTask=false runnable=true
 MBX-OR-01 user messages are FIFO -> [r:1, r:2, r:3, r:4, r:5, r:6, r:7, r:8]
 MBX-OR-02 system message queued behind user messages runs before them, drained after the turn's message -> inTurn: open scheduled=true suspendCount=0 queued=0 | queued: open scheduled=true suspendCount=0 queued=2 | afterTurn: open scheduled=false suspendCount=1 queued=2 log=[r:block] | afterResume: open scheduled=false suspendCount=0 queued=0 log=[r:block, r:u2, r:u3]

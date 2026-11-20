@@ -25,6 +25,30 @@ CASES_REPORT = os.path.join(ROOT, "rust", "app-cases", "replay-report.md")
 
 # name -> (file, old, new, why it is a realistic bug)
 MUTANTS = {
+    "mailbox-queue-is-lifo": (
+        "src/dispatch/message_queue.rs",
+        "        self.queue.lock().unwrap().pop_front()\n",
+        "        self.queue.lock().unwrap().pop_back()\n",
+        "the default queue hands out the newest message first, reversing every actor's message order (MBX-MQ-01, MBX-MQ-02)",
+    ),
+    "mailbox-clean-up-reversed": (
+        "src/dispatch/message_queue.rs",
+        "        while let Some(envelope) = self.dequeue() {",
+        "        while let Some(envelope) = { let newest = self.queue.lock().unwrap().pop_back(); newest } {",
+        "cleanUp ships the pending messages to dead letters newest first (MBX-MQ-03)",
+    ),
+    "mailbox-queue-count-off-by-one": (
+        "src/dispatch/message_queue.rs",
+        "        self.queue.lock().unwrap().len()\n",
+        "        self.queue.lock().unwrap().len() + 1\n",
+        "numberOfMessages reports one message too many (MBX-MQ-01, MBX-MQ-03)",
+    ),
+    "mailbox-close-forgets-queued-messages": (
+        "src/actor/cell.rs",
+        "            mb.queue.clean_up(&*leftovers); // `cleanUp`: published below, outside the lock\n",
+        "",
+        "closing the mailbox forgets to move the queued user messages to dead letters, so they vanish silently (found by the dead-letter scenarios)",
+    ),
     "mailbox-close-keeps-status-bits": (
         "src/dispatch/mailbox_status.rs",
         "            if self.update(status, Self::CLOSED) {",
