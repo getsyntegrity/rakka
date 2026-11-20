@@ -69,7 +69,7 @@ Documentado y **no resuelto** (decisión del Owner o de otros slices):
 ## Gates
 
 - `cargo test --workspace` verde (410 unitarios de la lib + integración); `clippy --all-targets -D warnings`, `cargo fmt --all --check`, `cargo deny check licenses`: ok.
-- Cobertura (`cargo llvm-cov --workspace --summary-only`): líneas **98,20 %**, regiones 98,35 %, funciones 98,35 %; `actor/deployer.rs` y `actor/deploy.rs` 0 líneas, 0 regiones y 0 funciones sin cubrir; sin líneas nuevas sin cubrir (regiones sin cubrir del workspace: 319 frente a 318 en la base de #276; la diferencia está fuera de `deployer.rs`, que tiene 0; no la investigué más).
+- Cobertura (`cargo llvm-cov --workspace --summary-only`): líneas 98,35 % (217 sin cubrir), regiones 98,20 % (318 sin cubrir), funciones 98,35 %; `actor/deployer.rs` y `actor/deploy.rs` 0 sin cubrir. Medido por archivo en la base `9b6d5cc` y en este HEAD (`--json`): **217 líneas y 318 regiones sin cubrir en ambos, idénticos archivo por archivo** salvo el archivo nuevo `deployer.rs` (0 sin cubrir). Una medición intermedia dio 218 líneas y 319 regiones: no se repitió en dos mediciones posteriores del HEAD ni coincide con ningún archivo tocado por el PR (el único otro archivo de producción con cambios es un comentario de `config/mod.rs`); era una medición inestable, no un efecto del diff.
 - `python3.12 tools/package/check.py`: 0 fallos (tras `generate.py`).
 
 ## Etapas de Rust-Anything ejecutadas
@@ -82,3 +82,19 @@ CLI (el MCP no se usó): `rust-anything app record` (60 casos contra `oracle/run
 - `RouterConfig::Opaque` en la API pública: pendiente de P37.
 - Q-CFG-35 (`Display` de `Deploy`) sigue propuesta; no se decidió ninguna `Q-*`.
 - Q-UTIL-21 (arriba) y el orden de iteración de 012.1 (F5): diferencias conocidas respecto de Pekko que no se han resuelto.
+
+## Q-UTIL-21 (evidencia directa de Pekko 2.0.0; sin decidir)
+
+Pregunta: con dos entradas `prefix*` que coinciden con el mismo elemento (p. ej. `/a/p*` y `/a/pq*` para `pqzzz`), ¿cuál devuelve `lookup`? Pekko lo decide en `WildcardTree.findWithSingleWildcard` (`WildcardIndex.scala`): `wildcardSuffixChildren.collectFirst { case (key, branch) if nextElement.startsWith(key) => branch }`, donde `wildcardSuffixChildren` es un `scala.collection.immutable.HashMap` (CHAMP).
+
+**Medición** (`docs/evidence/slices/p10-deployer-q-util-21-probe.java`, ejecutada contra los jars de Pekko 2.0.0 del oráculo, JDK 17): 10 conjuntos de prefijos solapados, cada uno insertado en el `WildcardIndex` real en orden directo y en orden inverso, y comparado con el primer prefijo coincidente al iterar un `immutable.HashMap` de Scala con las mismas claves. Resultado: **10/10** conjuntos con el ganador de Pekko igual al primero coincidente en el orden de iteración del `HashMap`, y **independiente del orden de inserción** en los 10. Ejemplos (ganador de Pekko; orden de iteración): `[p, pq]` → `p*` (p, pq); `[s, st]` → `st*` (st, s); `[b, bc]` → `bc*` (bc, b); `[ab, abc, a]` → `abc*` (abc, a, ab); `[user, us, u]` → `u*` (u, us, user); `[worker, work, wo]` → `work*` (work, wo, worker). No es "el más largo" ni "el más corto" ni "el primero insertado": es el orden de hash de las claves (`String.hashCode` por el trie CHAMP), determinista y reproducible, pero sin significado para el usuario.
+
+**Rust hoy:** gana el primero insertado (`wildcard_index.rs`); difiere de Pekko en una de las dos órdenes de inserción de cada par. Ningún caso grabado lo cubre.
+
+**Alternativas (decide el Owner; no se ha implementado ninguna):**
+1. **Mantener "primero insertado" y documentar la divergencia.** Cero código; es lo que propone Q-UTIL-21 (a) y lo que describe la opción (c) de Q-UTIL-8 (aceptada, que dice fijar el orden de `prefix*` por inserción). Riesgo: una configuración con prefijos solapados se resuelve distinto que en Pekko. Para `from_settings` (012.1) el orden de inserción además dependería del orden de iteración de la configuración.
+2. **Reproducir el orden del `HashMap` de Scala 2.13** (`String.hashCode` en UTF-16, la función `improve` de `immutable.HashMap` y el recorrido CHAMP por bitmap, nodos de colisión incluidos) y elegir el primero coincidente en ese orden. Paridad exacta e independiente del orden de inserción, validable con un fuzz diferencial contra la JVM (el probe de arriba es la base). Coste: unas 100 líneas y un fuzz propio, y acoplar el crate a un detalle interno de Scala.
+3. **"El más específico" (prefijo más largo gana).** Determinista y predecible, coincide con lo que promete el contrato de AC-UTIL-009, pero difiere de Pekko (`[p, pq]` daría `pq*`, Pekko da `p*`) en una fracción mayor de casos que la opción 1 y es una política nueva.
+4. **Rechazar el alta de un `prefix*` que solape a otro ya presente** (error en `deploy`). Evita la ambigüedad, pero Pekko lo acepta: cambia el contrato observable.
+
+**Recomendación técnica (no vinculante):** la 2 si el objetivo es paridad total (Q-X-11: Pekko es la fuente de verdad); la 1 si el Owner acepta la divergencia por ser configuraciones de uso improbable. No cambiar el estado de la `Q` ni implementar nada sin autorización.
