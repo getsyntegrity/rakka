@@ -17,30 +17,19 @@ use crate::actor::system::SystemInner;
 use crate::actor::validate_path_element;
 use crate::actor::{ActorError, ErrorClass};
 use crate::dispatch::dispatcher::Dispatcher;
+use crate::dispatch::mailbox_close::enqueue_unless_closed;
+use crate::dispatch::mailbox_status::MailboxStatus;
 use crate::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 use crate::dispatch::sysmsg::{Failed, SystemMessage, Terminated};
 use crate::event::UnhandledMessage;
 use crate::util::helpers::base64_append;
 
-struct MbState {
-    sys: VecDeque<SystemMessage>,
-    /// the user messages (`Mailbox.messageQueue`): the default `UnboundedMailbox` queue
-    queue: Box<dyn MessageQueue>,
-    suspend: u32,
+/// The system-message queue as it was before ADR-0001 step 4b (Q-MBX-5 is still open): FIFO, with its own `closed` flag so that a
+/// system message sent after the actor terminated is answered as a dead one instead of being stranded.
+#[derive(Default)]
+struct SystemQueue {
+    messages: VecDeque<SystemMessage>,
     closed: bool,
-    scheduled: bool,
-}
-
-impl MbState {
-    fn new(scheduled: bool) -> Self {
-        MbState {
-            sys: VecDeque::new(),
-            queue: UnboundedMailbox.create(),
-            suspend: 0,
-            closed: false,
-            scheduled,
-        }
-    }
 }
 
 #[derive(Default)]
@@ -88,7 +77,11 @@ pub(crate) struct ActorCell {
     /// the dispatcher this actor's mailbox runs on (`internal-dispatcher` for guardians)
     dispatcher: Arc<Dispatcher>,
     me: Weak<ActorCell>,
-    mb: Mutex<MbState>,
+    /// the atomic mailbox state (Open/Closed, Scheduled, suspend count)
+    status: MailboxStatus,
+    system_queue: Mutex<SystemQueue>,
+    /// the user messages (`Mailbox.messageQueue`): the default `UnboundedMailbox` queue
+    queue: Box<dyn MessageQueue>,
     children: Mutex<Children>,
     name_counter: AtomicU64,
     st: Mutex<CellState>,
@@ -114,7 +107,7 @@ impl InternalActorRef for LocalActorRef {
         self.0.system_dispatch(SystemMessage::Terminate);
     }
     fn is_terminated(&self) -> bool {
-        self.0.mb.lock().unwrap().closed
+        self.0.status.is_closed()
     }
 }
 
@@ -158,12 +151,22 @@ impl ActorCell {
             props,
             dispatcher,
             me: me.clone(),
-            mb: Mutex::new(MbState::new(true /* scheduled: not attached yet */)),
+            status: {
+                let status = MailboxStatus::new();
+                status.set_as_scheduled(); // not attached yet: nothing runs before `start`
+                status
+            },
+            system_queue: Mutex::new(SystemQueue::default()),
+            queue: UnboundedMailbox.create(),
             children: Mutex::new(Children::Empty),
             name_counter: AtomicU64::new(0),
             st: Mutex::new(CellState::default()),
         });
-        cell.mb.lock().unwrap().sys.push_back(SystemMessage::Create);
+        cell.system_queue
+            .lock()
+            .unwrap()
+            .messages
+            .push_back(SystemMessage::Create);
         parent.send_system(SystemMessage::Supervise {
             child: cell.self_ref(),
             is_async: false,
@@ -173,17 +176,8 @@ impl ActorCell {
 
     /// `ActorCell.start()`: attach to the dispatcher.
     pub(crate) fn start(self: &Arc<Self>) {
-        let go = {
-            let mut mb = self.mb.lock().unwrap();
-            mb.scheduled = false;
-            Self::can_run(&mb) && {
-                mb.scheduled = true;
-                true
-            }
-        };
-        if go {
-            self.dispatcher.execute(self.clone());
-        }
+        self.status.set_as_idle();
+        self.register_for_execution(false, false);
     }
 
     pub(crate) fn self_ref(&self) -> ActorRef {
@@ -192,44 +186,43 @@ impl ActorCell {
         )))
     }
 
-    fn can_run(mb: &MbState) -> bool {
-        !mb.sys.is_empty() || (!mb.closed && mb.suspend == 0 && mb.queue.has_messages())
-    }
-
     // ---- dispatch ----
 
-    pub(crate) fn system_dispatch(self: &Arc<Self>, msg: SystemMessage) {
-        let mut mb = self.mb.lock().unwrap();
-        if mb.closed {
-            drop(mb);
-            Self::dead_system_message(msg);
-            return;
-        }
-        mb.sys.push_back(msg);
-        let go = !mb.scheduled;
-        mb.scheduled = true;
-        drop(mb);
-        if go {
+    /// `MessageDispatcher.registerForExecution`: schedules a turn when the state allows it. `set_as_scheduled` is the only door,
+    /// so at most one turn runs at a time.
+    fn register_for_execution(self: &Arc<Self>, message_hint: bool, system_message_hint: bool) {
+        let can_run = self.status.can_be_scheduled_for_execution(
+            message_hint,
+            system_message_hint,
+            || !self.system_queue.lock().unwrap().messages.is_empty(),
+            || self.queue.has_messages(),
+        );
+        if can_run && self.status.set_as_scheduled() {
             self.dispatcher.execute(self.clone());
         }
+    }
+
+    pub(crate) fn system_dispatch(self: &Arc<Self>, msg: SystemMessage) {
+        {
+            let mut system_queue = self.system_queue.lock().unwrap();
+            if system_queue.closed {
+                drop(system_queue);
+                Self::dead_system_message(msg);
+                return;
+            }
+            system_queue.messages.push_back(msg);
+        }
+        self.register_for_execution(false, true);
     }
 
     fn enqueue_user(self: &Arc<Self>, env: Envelope) {
-        let mut mb = self.mb.lock().unwrap();
-        if mb.closed {
-            drop(mb);
+        let dead = enqueue_unless_closed(&self.status, &*self.queue, env);
+        if dead.is_empty() {
+            self.register_for_execution(true, false);
+        }
+        for env in dead {
             self.system
                 .publish_dead_letter(env.message, env.sender, self.self_ref());
-            return;
-        }
-        mb.queue.enqueue(env);
-        let go = !mb.scheduled && mb.suspend == 0;
-        if go {
-            mb.scheduled = true;
-        }
-        drop(mb);
-        if go {
-            self.dispatcher.execute(self.clone());
         }
     }
 
@@ -245,50 +238,50 @@ impl ActorCell {
         }
     }
 
-    /// `Mailbox.run`: all system messages, then user messages up to the throughput limit,
-    /// system messages being drained again after each user message.
+    /// `Mailbox.run`: all system messages, then user messages up to the throughput limit, system messages being drained again
+    /// after each user message; then idle again and re-register if work is left.
     pub(crate) fn run_mailbox(cell: &Arc<ActorCell>) {
-        let mut budget = cell.system.settings.throughput.max(1);
+        if !cell.status.is_closed() {
+            cell.process_all_system_messages();
+            cell.process_mailbox();
+        }
+        cell.status.set_as_idle();
+        cell.register_for_execution(false, false);
+    }
+
+    /// `Mailbox.processAllSystemMessages`: a message found after the mailbox closed is handled as a dead one.
+    fn process_all_system_messages(self: &Arc<Self>) {
         loop {
-            loop {
-                let batch: Vec<SystemMessage> = cell.mb.lock().unwrap().sys.drain(..).collect();
-                if batch.is_empty() {
-                    break;
-                }
-                for m in batch {
-                    if cell.mb.lock().unwrap().closed {
-                        Self::dead_system_message(m);
-                    } else {
-                        cell.system_invoke(m);
-                    }
-                }
-            }
-            if budget == 0 {
+            let batch: Vec<SystemMessage> = self
+                .system_queue
+                .lock()
+                .unwrap()
+                .messages
+                .drain(..)
+                .collect();
+            if batch.is_empty() {
                 break;
             }
-            let env = {
-                let mb = cell.mb.lock().unwrap();
-                if mb.closed || mb.suspend > 0 {
-                    None
+            for m in batch {
+                if self.status.is_closed() {
+                    Self::dead_system_message(m);
                 } else {
-                    mb.queue.dequeue()
-                }
-            };
-            match env {
-                None => break,
-                Some(e) => {
-                    cell.invoke(e);
-                    budget -= 1;
+                    self.system_invoke(m);
                 }
             }
         }
-        let again = {
-            let mut mb = cell.mb.lock().unwrap();
-            mb.scheduled = Self::can_run(&mb);
-            mb.scheduled
-        };
-        if again {
-            cell.dispatcher.execute(cell.clone());
+    }
+
+    /// `Mailbox.processMailbox`: up to `throughput` user messages while the mailbox is neither suspended nor closed.
+    fn process_mailbox(self: &Arc<Self>) {
+        let mut budget = self.system.settings.throughput.max(1);
+        while budget > 0 && self.status.should_process_message() {
+            let Some(env) = self.queue.dequeue() else {
+                break;
+            };
+            self.invoke(env);
+            budget -= 1;
+            self.process_all_system_messages();
         }
     }
 
@@ -330,7 +323,7 @@ impl ActorCell {
             st.failed_message = message;
             st.perpetrator = perpetrator.clone();
         }
-        self.mb.lock().unwrap().suspend += 1; // suspendNonRecursive
+        self.status.suspend(); // suspendNonRecursive
         for k in self
             .children
             .lock()
@@ -566,7 +559,7 @@ impl ActorCell {
 
     /// `faultSuspend`: suspend this actor and, recursively, its children (the failed parent's whole subtree waits for the decision).
     fn fault_suspend(self: &Arc<Self>) {
-        self.mb.lock().unwrap().suspend += 1;
+        self.status.suspend();
         for k in self.children.lock().unwrap().children() {
             k.send_system(SystemMessage::Suspend);
         }
@@ -610,9 +603,7 @@ impl ActorCell {
 
     /// `resumeNonRecursive` + `clearFailed` (a child that was only suspended along with its parent keeps its own failure state).
     fn resume_after_failure(&self, clear_failed: bool) {
-        let mut mb = self.mb.lock().unwrap();
-        mb.suspend = mb.suspend.saturating_sub(1);
-        drop(mb);
+        self.status.resume();
         if clear_failed {
             let mut st = self.st.lock().unwrap();
             st.failed = false;
@@ -659,7 +650,7 @@ impl ActorCell {
         };
         if waiting {
             if !was_terminating {
-                self.mb.lock().unwrap().suspend += 1; // suspendNonRecursive
+                self.status.suspend(); // suspendNonRecursive
             }
         } else {
             *self.children.lock().unwrap() = Children::Terminated; // setTerminated()
@@ -673,11 +664,12 @@ impl ActorCell {
         self.st.lock().unwrap().actor = None;
         // dispatcher.detach: close the mailbox, hand what is left to dead letters
         let leftovers = UnboundedMailbox.create();
+        self.status.become_closed();
+        self.queue.clean_up(&*leftovers); // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8)
         let sys = {
-            let mut mb = self.mb.lock().unwrap();
-            mb.closed = true;
-            mb.queue.clean_up(&*leftovers); // `cleanUp`: published below, outside the lock
-            std::mem::take(&mut mb.sys)
+            let mut system_queue = self.system_queue.lock().unwrap();
+            system_queue.closed = true;
+            std::mem::take(&mut system_queue.messages)
         };
         for m in sys {
             Self::dead_system_message(m);
