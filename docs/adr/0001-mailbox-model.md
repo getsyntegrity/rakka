@@ -1,7 +1,7 @@
 # ADR-0001 (aceptada parcialmente) — Modelo de mailbox de Rakka Classic frente a Pekko 2.0.0
 
-- **Estado:** **aceptada parcialmente** (Owner, 2026-11-20, `docs/decisions/owner-decisions.tsv`): la arquitectura de la **opción B** (Q-MBX-9), la **secuencia de 10 PR** de §6 (Q-MBX-10) y el protocolo de cierre **B + C** frente a CC-05 (Q-MBX-8). **Siguen propuestas, sin decisión del Owner:** Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 y Q-MBX-6 (§7, §7c). No modifica el runtime.
-- **Issue:** getsyntegrity/rakka#282 (02/09). Resuelve en propuesta Q-MBX-6 y Q-MBX-1/2/3 (y toca Q-MBX-5).
+- **Estado:** **aceptada parcialmente** (Owner, 2026-11-20, `docs/decisions/owner-decisions.tsv`): la arquitectura de la **opción B** (Q-MBX-9), la **secuencia de 10 PR** de §6 (Q-MBX-10), el protocolo de cierre **B + C** frente a CC-05 (Q-MBX-8), la cola de sistema con **`Mutex<Vec>` invertido** (Q-MBX-5) y el **pool propio** con `throughput`/`throughput-deadline-time` por dispatcher y reloj inyectable (Q-MBX-6). **Siguen propuestas, sin decisión del Owner:** Q-MBX-1, Q-MBX-2 y Q-MBX-3 (§7, §7c). No modifica el runtime.
+- **Issue:** getsyntegrity/rakka#282 (02/09). Q-MBX-5, Q-MBX-6 y Q-MBX-8 quedaron aceptadas por el Owner (2026-11-20); Q-MBX-1/2/3 siguen propuestas.
 - **Fuente de verdad:** Apache Pekko 2.0.0 (`9fbd2283b1cf701c90a1223bf621942c191db61f`). Citas `path:line` sobre `actor/src/main/scala/org/apache/pekko/dispatch/`.
 - **Base del piloto:** `feat/pekko-rust-pilot-migration` @ `cb39023`; `crates/rakka-actor/src/actor/cell.rs`, `dispatch/dispatcher.rs`.
 - **Verificación:** citas de Mailbox.scala/Mailboxes.scala y D1–D7 contrastadas contra el submódulo en `9fbd2283…` y el código del piloto (ver §8).
@@ -95,19 +95,19 @@ Observables sin acceso privado a Pekko (el oráculo Java ya usa `ActorSystem`; `
 9. Control-aware — tras Q-MBX-3.
 10. `Mailboxes` (registro, `requirements`, lookup) — tras Q-MBX-2.
 
-## 7. Preguntas exactas para el Owner (propuestas; se registrarán como `proposed`)
+## 7. Preguntas exactas para el Owner (estado: 1, 5 y 6 respondidas el 2026-11-20; 7 resuelta en la práctica; 2, 3 y 4 siguen abiertas; Q-MBX-8, aceptada también, nació después y no figura en esta lista)
 
 Las letras (a, a′, b, c) remiten a las opciones de cada `Q-MBX-n` en `docs/inventory/contracts/classic-dispatch.decisions.tsv`.
 
-1. **Q-MBX-6.** Dado Q-X-4 (A), ¿se confirma que el turno de mailbox es un trabajo del pool propio, con `throughput` y `throughput-deadline-time` **por dispatcher** y reloj inyectable? (sí/no)
+1. **Q-MBX-6** — **aceptada (2026-11-20)**. Dado Q-X-4 (A), ¿se confirma que el turno de mailbox es un trabajo del pool propio, con `throughput` y `throughput-deadline-time` **por dispatcher** y reloj inyectable? (sí/no)
 2. **Q-MBX-1.** ¿Se aprueba (c)? Concretamente: (i) nombre de la API awaitable (`try_tell` o `tell_async`); (ii) `tell` con `push-timeout>0` bloquea el hilo del emisor (paridad) también dentro de un worker del pool, con aviso de agotamiento del pool; (iii) `<0` espera sin límite como Pekko.
 3. **Q-MBX-2.** ¿Se aprueba (a′) (conjunto abierto de semánticas con implicancia codificada)?
 4. **Q-MBX-3.** ¿Se aprueba (b)+(c) (registro por `TypeId` en el sistema + predicado en el `MailboxType`)? ¿Cómo declara el usuario un mensaje de control: por registro de tipo o por un trait opcional en el sobre?
-5. **Q-MBX-5.** ¿Se acepta `Mutex<Vec>` invertido (sin `unsafe`) para la cola de sistema, aun con peor contención que el Treiber de Pekko?
-6. **Secuencia.** ¿Se aprueba la opción B y el orden de PR de la sección 6 (con el PR 1 antes de tocar runtime)?
-7. **Oráculo.** ¿Se autoriza un shim Scala/Java mínimo en `oracle/` para instanciar `Mailbox` y medir transiciones de estado, o se prefiere medir sólo por comportamiento?
+5. **Q-MBX-5** — **aceptada (2026-11-20)**. ¿Se acepta `Mutex<Vec>` invertido (sin `unsafe`) para la cola de sistema, aun con peor contención que el Treiber de Pekko?
+6. **Secuencia** — **aceptada (Q-MBX-9 y Q-MBX-10, 2026-11-20)**. ¿Se aprueba la opción B y el orden de PR de la sección 6 (con el PR 1 antes de tocar runtime)?
+7. **Oráculo** — **resuelta en la práctica** (PR 1, #295: basta una subclase Java sin reflexión). ¿Se autoriza un shim Scala/Java mínimo en `oracle/` para instanciar `Mailbox` y medir transiciones de estado, o se prefiere medir sólo por comportamiento?
 
-Decisiones nuevas se anotan como `Q-MBX-n` con estado `proposed` en `docs/owner-batch-02.md` y su `*.decisions.tsv`; `docs/decisions/owner-decisions.tsv` no se toca.
+Decisiones nuevas se anotan como `Q-MBX-n` con estado `proposed` en su `*.decisions.tsv`; las respuestas del Owner se registran en `docs/decisions/owner-decisions.tsv` (Q-MBX-5, 6, 8, 9 y 10 el 2026-11-20).
 
 ## 7b. Diseño de `MailboxStatus`: transiciones observables y carreras
 
@@ -134,15 +134,15 @@ Carreras que los escenarios deben forzar (con inyección de pausas/barreras, no 
 
 Con `AtomicU32` el diseño usa la misma máscara que Pekko por simplicidad, pero el contrato probado es la tabla anterior, no los valores numéricos.
 
-## 7c. Propuestas por decisión (recomendaciones, **no** decisiones aprobadas)
+## 7c. Propuestas por decisión (recomendaciones; Q-MBX-5 y Q-MBX-6 fueron aceptadas el 2026-11-20, las demás **no** son decisiones aprobadas)
 
 | Q | Recomendación | Garantía/riesgo clave |
 |---|---|---|
-| Q-MBX-6 | Turno de mailbox = trabajo del pool propio (Q-X-4 A, ya aceptada); `throughput`/`deadline` por dispatcher, `Clock` inyectable. | Equidad medible con 1 hilo; riesgo: pool agotado por emisores bloqueados. |
+| Q-MBX-6 | **Aceptada (2026-11-20).** Turno de mailbox = trabajo del pool propio (Q-X-4 A, ya aceptada); `throughput`/`deadline` por dispatcher, `Clock` inyectable. | Equidad medible con 1 hilo; riesgo: pool agotado por emisores bloqueados. |
 | Q-MBX-1 | Paridad bloqueante de Pekko en `tell`; añadir API awaitable **adicional** (no sustituye). El bloqueo ocurre **fuera** de todo lock de estado. | Evita deadlock: la cola acotada tiene su propia sincronización; el estado es atómico (D4). Un `put` sin timeout (<0) puede bloquear para siempre, como en Pekko. |
 | Q-MBX-2 | Conjunto abierto de semánticas con implicancia codificada (a′). | Necesario por el marcador de usuario de `ActorMailboxSpec`. |
 | Q-MBX-3 | Registro explícito de tipos de control + predicado en `MailboxType`; sujeto a validar contra `ControlAwareDispatcherSpec`. | Sólo los tipos registrados son control. |
-| Q-MBX-5 | `Mutex<Vec>` invertido al drenar, con centinela de cierre, sin `unsafe`; se acepta si preserva el orden más-antiguo-primero y el desvío al `deadLetterMailbox`. | Más contención que el Treiber; se mide antes de cambiar. |
+| Q-MBX-5 | **Aceptada (2026-11-20).** `Mutex<Vec>` invertido al drenar, con centinela de cierre, sin `unsafe`; preserva el orden más-antiguo-primero y el desvío al `deadLetterMailbox`. | Más contención que el Treiber; se mide antes de cambiar. |
 
 Conservación del piloto: cada PR mantiene `LocalActorRef::tell/send_system` y el replay verde; el `Mutex<MbState>` actual sigue siendo la implementación hasta el PR 4, y sólo se reemplaza tras tener los diferenciales (PR 1) y `MailboxStatus` (PR 2).
 

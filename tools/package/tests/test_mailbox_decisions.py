@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""ADR-0001 mailbox decisions as the Owner answered them on 2026-11-20: only Q-MBX-8, Q-MBX-9 and Q-MBX-10 are accepted.
+"""ADR-0001 mailbox decisions as the Owner answered them on 2026-11-20: Q-MBX-5, 6, 8, 9 and 10 are accepted.
 
-Q-MBX-1, 2, 3, 5 and 6 stay proposed until the Owner answers them. Reads the generated register of the working tree.
+Q-MBX-1, 2 and 3 stay proposed until the Owner answers them. Reads the generated register of the working tree.
 """
 import csv, io, os, unittest
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
-ACCEPTED = ("Q-MBX-8", "Q-MBX-9", "Q-MBX-10")
-STILL_PROPOSED = ("Q-MBX-1", "Q-MBX-2", "Q-MBX-3", "Q-MBX-5", "Q-MBX-6")
+ACCEPTED = ("Q-MBX-5", "Q-MBX-6", "Q-MBX-8", "Q-MBX-9", "Q-MBX-10")
+STILL_PROPOSED = ("Q-MBX-1", "Q-MBX-2", "Q-MBX-3")
 
 
 def register():
