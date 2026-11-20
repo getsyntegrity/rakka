@@ -10,14 +10,14 @@ MBX-SQ-01 system queue drains earliest first -> has=true drain=[Suspend, Resume,
 MBX-SQ-02 sentinel NoMessage closes the system queue -> drain=[Suspend] | afterSentinel has=false drain=[] (actor==null: dropped, not forwarded)
 MBX-TK-01 Mailbox is a plain Runnable, not a ForkJoinTask -> forkJoinTask=false runnable=true
 MBX-OR-01 user messages are FIFO -> [r:1, r:2, r:3, r:4, r:5, r:6, r:7, r:8]
-MBX-OR-02 system message overtakes queued user messages, drained after every user message -> inTurn: open scheduled=true suspendCount=0 queued=0 | queued: open scheduled=true suspendCount=0 queued=2 | afterTurn: open scheduled=false suspendCount=1 queued=2 log=[r:block] | afterResume: open scheduled=false suspendCount=0 queued=0 log=[r:block, r:u2, r:u3]
+MBX-OR-02 system message queued behind user messages runs before them, drained after the turn's message -> inTurn: open scheduled=true suspendCount=0 queued=0 | queued: open scheduled=true suspendCount=0 queued=2 | afterTurn: open scheduled=false suspendCount=1 queued=2 log=[r:block] | afterResume: open scheduled=false suspendCount=0 queued=0 log=[r:block, r:u2, r:u3]
 MBX-OR-03 suspension keeps user messages pending; nested suspend needs balanced resume -> suspended: open scheduled=false suspendCount=2 queued=2 log=[] | oneResume: open scheduled=false suspendCount=1 queued=2 log=[] | twoResumes: open scheduled=false suspendCount=0 queued=0 log=[r:u1, r:u2]
 MBX-OR-04 messages sent while terminating and after termination go to dead letters -> received=[r:block] deadLetters=[u2, u3, u4, after] oldMailbox=closed scheduled=false suspendCount=0 queued=0
 MBX-OR-05 system messages after close go to dead letters (Watch is answered) -> deadLetters=[Suspend, Resume] watcherLog=[terminated]
 MBX-CL-01 closed mailbox of a stopped actor -> old: closed scheduled=false suspendCount=0 raw=1 resume=false suspend=false schedule=false closed scheduled=false suspendCount=0 raw=1 | cellNow closed=true same=false
-MBX-CC-01 eight producers: one turn at a time, per-sender order -> received=400 maxInFlight=1 perSenderOrdered=true
+MBX-CC-01 eight producers on a one-thread pool: no loss, per-sender order, serial execution -> received=400 maxInFlight=1 perSenderOrdered=true
 MBX-CC-02 message enqueued at the last empty dequeue of a turn is not stranded -> log=[r:first, r:late] open scheduled=false suspendCount=0 queued=0
-MBX-CC-03 concurrent suspend and resume lose no increments -> afterSuspends: open scheduled=false suspendCount=100 queued=1 log=[r:block] | afterResumes: open scheduled=false suspendCount=0 queued=0 log=[r:block, r:u]
+MBX-CC-03 concurrent Suspend/Resume system messages lose no increments -> afterSuspends: open scheduled=false suspendCount=100 queued=1 log=[r:block] | afterResumes: open scheduled=false suspendCount=0 queued=0 log=[r:block, r:u]
 MBX-CC-04 dead-letter forwarding during cleanUp -> deadLetters=[in-cleanup, Suspend, pending] received=[r:block]
 MBX-CC-05 producer that read the mailbox before it closed strands its message -> received=[] deadLetters=[] oldMailbox=closed scheduled=false suspendCount=0 queued=1 (neither processed nor dead-lettered)
 MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two -> [r:block, r:x1, r:x2, r:y1, r:y2, r:x3, r:x4, r:y3, r:y4, r:x5, r:x6, r:y5, r:y6]

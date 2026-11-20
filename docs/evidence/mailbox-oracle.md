@@ -18,7 +18,7 @@ Sincronización: sólo se espera una condición observable (evento, mailbox ocio
 
 Dispatcher `t-disp`: `thread-pool-executor` con `fixed-pool-size = 1` (FIFO, un hilo), `throughput` por caso (5 salvo SC-01 = 2 y SC-02 = 100 con deadline 30 ms); actores internos y listener en el dispatcher por defecto. **Normalización: ninguna.** El orden de mensajes, las pérdidas y los estados de cierre se imprimen tal cual. `raw=` es la codificación entera de Pekko (informativa; el contrato es la tabla de transiciones del ADR §7b).
 
-Estabilidad: 25 corridas idénticas (8 JVM concurrentes incluidas). Dos fuentes de no-determinismo reales detectadas y corregidas durante la construcción: (a) `Mailbox.isClosed` es verdadero **antes** de que termine `cleanUp` (se espera ahora la señal de fin de `cleanUp`); (b) el primer `dequeue` vacío ocurre en el turno de creación (el hook se ata a un mensaje ya entregado).
+Estabilidad: 25 corridas idénticas (8 JVM concurrentes incluidas) y 32 más, bajo carga, en la revisión independiente. Dos fuentes de no-determinismo reales detectadas y corregidas durante la construcción: (a) `Mailbox.isClosed` es verdadero **antes** de que termine `cleanUp` (se espera ahora la señal de fin de `cleanUp`); (b) el primer `dequeue` vacío ocurre en el turno de creación (el hook se ata a un mensaje ya entregado).
 
 ## Hallazgos frente al ADR-0001 (el upstream manda)
 
@@ -40,6 +40,7 @@ A (transiciones): ST-01…ST-08, CL-01. B (orden): OR-01…OR-05, SQ-01/02. C (c
 
 - §7b carrera 6 (ejecución que entra en pánico): caso **nuevo de Rust**, sin oráculo (`MailboxTaskSubmissionSpec` sólo fija TK-01); se cubre en el PR 6.
 - Rechazo del pool y reintento único de `registerForExecution` (D5, Dispatcher.scala:146-171): requiere un executor que rechace; PR 6.
-- Doble agendado forzado en el instante exacto del CAS: sólo se observa el invariante (CC-01, `maxInFlight=1`); no hay punto de enganche público en `setAsScheduled`.
+- Exclusión mutua de turnos: CC-01 corre en un pool de un hilo, así que `maxInFlight=1` no prueba por sí solo el flag `Scheduled` (sólo ausencia de pérdida, orden por emisor y ejecución serial). Falta una variante en pool multi-hilo, no determinista en el hilo, y un punto de enganche en `setAsScheduled`. CC-03 ejerce el CAS de `systemEnqueue` desde dos hilos; `Mailbox.suspend` lo llama sólo el hilo del actor.
+- Los esperas sin tope (`await` de latches propios) pueden colgar la corrida si Pekko regresara; el verificador las corta a los 300 s.
 - Colas acotadas, prioridad, control-aware, deque/stash, `Mailboxes`, `UnstartedCell`: PR 7–10.
 - Cobertura y mutantes de producción: no se repiten (no cambia código Rust de `crates/`).

@@ -46,7 +46,6 @@ final class MailboxOracle {
 
   // ---- instrument 1: a bare Mailbox ------------------------------------------------------------------------------------------
   static final class Probe extends Mailbox implements DefaultSystemMessageQueue {
-    final ConcurrentLinkedQueue<Envelope> q = new ConcurrentLinkedQueue<>();
     Probe() { super(new HookQueue(null)); }
     @Override public void systemEnqueue(ActorRef r, SystemMessage m) { DefaultSystemMessageQueue.super.systemEnqueue(r, m); }
     @Override public SystemMessage systemDrain(SystemMessage n) { return DefaultSystemMessageQueue.super.systemDrain(n); }
@@ -181,7 +180,7 @@ final class MailboxOracle {
       return "resume=" + m.resume() + " suspend=" + m.suspend() + " " + st(m);
     });
     run("MBX-ST-07 closed refuses scheduling", () -> {
-      Probe m = new Probe(); m.becomeClosed(); m.q.add(Envelope.apply("u", Nobody$.MODULE$, null));
+      Probe m = new Probe(); m.becomeClosed();
       return "schedule=" + m.setAsScheduled() + " idle=" + m.setAsIdle() + " " + st(m) + " canBe=" + m.canBeScheduledForExecution(true, true);
     });
     run("MBX-ST-08 canBeScheduledForExecution matrix", () -> {
@@ -223,7 +222,7 @@ final class MailboxOracle {
         return e.log.toString();
       }
     });
-    run("MBX-OR-02 system message overtakes queued user messages, drained after every user message", () -> {
+    run("MBX-OR-02 system message queued behind user messages runs before them, drained after the turn's message", () -> {
       try (Env e = new Env(5, "0ms")) {
         ActorRef a = e.spawn("w", null); Block b = new Block();
         a.tell(b, ActorRef.noSender()); b.entered.await();
@@ -279,7 +278,7 @@ final class MailboxOracle {
       }
     });
 
-    run("MBX-CC-01 eight producers: one turn at a time, per-sender order", () -> {
+    run("MBX-CC-01 eight producers on a one-thread pool: no loss, per-sender order, serial execution", () -> {
       try (Env e = new Env(5, "0ms")) {
         ActorRef a = e.spawn("w", null); CyclicBarrier go = new CyclicBarrier(8); List<Thread> ts = new ArrayList<>();
         for (int p = 0; p < 8; p++) { int id = p; Thread t = new Thread(() -> { try { go.await(); } catch (Exception x) { throw new RuntimeException(x); }
@@ -299,7 +298,7 @@ final class MailboxOracle {
         return "log=" + e.log + " " + view(box(a));
       }
     });
-    run("MBX-CC-03 concurrent suspend and resume lose no increments", () -> {
+    run("MBX-CC-03 concurrent Suspend/Resume system messages lose no increments", () -> {
       try (Env e = new Env(5, "0ms")) {
         ActorRef a = e.spawn("w", null); Block b = new Block(); a.tell(b, ActorRef.noSender()); b.entered.await(); sendAll(a, "u");
         hammer(() -> in(a).suspend());
@@ -326,7 +325,9 @@ final class MailboxOracle {
         ActorRef a = e.spawn("w", h);
         Mailbox old = box(a); Thread t = new Thread(() -> a.tell("straggler", ActorRef.noSender())); t.start(); inEnqueue.await();
         in(a).stop(); h.cleaned.await(); awaitUntil(() -> in(a).isTerminated());
-        proceed.countDown(); t.join(); idle(a);
+        proceed.countDown(); t.join();
+        a.tell("marker", ActorRef.noSender()); awaitUntil(() -> e.dead.contains("marker")); // drains the asynchronous listener before reading
+        e.dead.remove("marker");
         return "received=" + e.log + " deadLetters=" + e.dead + " oldMailbox=" + view(old) + " (neither processed nor dead-lettered)";
       }
     });
