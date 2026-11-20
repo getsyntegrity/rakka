@@ -134,7 +134,7 @@ os.makedirs("docs/decisions", exist_ok=True)
 with open("docs/decisions/register.tsv", "w", encoding="utf-8", newline="") as o:
     o.write("\t".join(["id", "title", "status", "recommendation", "affected_rows", "units", "source", "decided_on", "decided_by", "decision"]) + "\n")
     for d in sorted(DEC, key=lambda d: d["id"]):
-        o.write("\t".join([d["id"], d["title"], d["status"], d["recommendation"], d["affected_rows"], d["units"], d["group"], d["decided_on"], d["decided_by"], d["decision"]]).replace("\n", " ") + "\n")
+        o.write("\t".join([d["id"], d["title"], d["status"], d["recommendation"], d["affected_rows"], d["units"], d["group"], d["decided_on"], d["decided_by"], d["decision"]]).replace("\n", " ").rstrip("\t") + "\n")  # empty answer columns of an unanswered decision are omitted, not left as dangling tabs
 
 with open("docs/decisions.md", "w", encoding="utf-8") as o:
     o.write("# Registro único de decisiones del Owner\n\n")

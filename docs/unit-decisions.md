@@ -253,11 +253,12 @@
 
 ## P17 REF-MUERTOS
 
-4 filas; 1 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 1 propuestas.
+4 filas; 2 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-MBX-5 | propuesta | 2: AC-MBX-003, AC-MBX-021 | — | — | `classic-dispatch` |
+| Q-MBX-8 | propuesta | 1: AC-MBX-003 | — | — | `classic-dispatch` |
 
 ## P18 CELL-HIJOS
 
@@ -1053,4 +1054,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 496 (232 respondidas, 0 bloqueantes, 264 propuestas).
+Total de pares unidad–decisión: 497 (232 respondidas, 0 bloqueantes, 265 propuestas).

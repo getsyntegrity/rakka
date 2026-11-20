@@ -16,7 +16,9 @@ class IndependentDecisions(PackageSandbox):
     def register(self):
         lines = self.read("docs/decisions/register.tsv").splitlines()
         header = lines[0].split("\t")
-        return {fields[0]: dict(zip(header, fields)) for fields in (line.split("\t") for line in lines[1:])}
+        # trailing empty columns (the answer of an unanswered decision) are omitted by the generator
+        padded = (fields + [""] * (len(header) - len(fields)) for fields in (line.split("\t") for line in lines[1:]))
+        return {fields[0]: dict(zip(header, fields)) for fields in padded}
 
     def status_counts(self):
         counts = {}
