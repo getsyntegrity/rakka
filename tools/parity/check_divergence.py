@@ -25,6 +25,25 @@ CASES_REPORT = os.path.join(ROOT, "rust", "app-cases", "replay-report.md")
 
 # name -> (file, old, new, why it is a realistic bug)
 MUTANTS = {
+    "mailbox-close-keeps-status-bits": (
+        "src/dispatch/mailbox_status.rs",
+        "            if self.update(status, Self::CLOSED) {",
+        "            if self.update(status, status | Self::CLOSED) {",
+        "closing ORs the Closed bit into the word instead of replacing it, so a closed mailbox keeps its Scheduled bit and suspend "
+        "count and `isClosed` (== Closed) stops being true (MBX-ST-05)",
+    ),
+    "mailbox-suspended-cannot-be-scheduled": (
+        "src/dispatch/mailbox_status.rs",
+        "            if status & Self::SHOULD_SCHEDULE_MASK != Self::OPEN {",
+        "            if status != Self::OPEN {",
+        "a suspended mailbox refuses to be scheduled, so system messages sent to a suspended actor are never processed (MBX-ST-04)",
+    ),
+    "mailbox-suspended-ignores-system-hint": (
+        "src/dispatch/mailbox_status.rs",
+        "            _ => has_system_message_hint || has_system_messages(),",
+        "            _ => has_system_messages(),",
+        "a suspended mailbox ignores the system-message hint of the sender and waits for the queue to show the message (MBX-ST-04, ST-08)",
+    ),
     "utf8-lossy-decoder": (
         "src/actor/uri.rs",
         "decode_utf8_lossy_into(&octets, &mut out);",

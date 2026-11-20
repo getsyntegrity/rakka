@@ -1,0 +1,8 @@
+{"name": "mb-0001", "args": ["mailbox-case"], "stdin": "MBX-ST-01 open to scheduled"}
+{"name": "mb-0002", "args": ["mailbox-case"], "stdin": "MBX-ST-02 scheduled to idle"}
+{"name": "mb-0003", "args": ["mailbox-case"], "stdin": "MBX-ST-03 open to suspended and resumed"}
+{"name": "mb-0004", "args": ["mailbox-case"], "stdin": "MBX-ST-04 suspended and scheduled"}
+{"name": "mb-0005", "args": ["mailbox-case"], "stdin": "MBX-ST-05 open to closed"}
+{"name": "mb-0006", "args": ["mailbox-case"], "stdin": "MBX-ST-06 closed ignores resume and suspend"}
+{"name": "mb-0007", "args": ["mailbox-case"], "stdin": "MBX-ST-07 closed refuses scheduling"}
+{"name": "mb-0008", "args": ["mailbox-case"], "stdin": "MBX-ST-08 canBeScheduledForExecution matrix"}
