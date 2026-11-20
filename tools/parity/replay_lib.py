@@ -57,6 +57,9 @@ def case_outputs(binary, case):
     return recorded, produced.stdout
 
 
+DEMONSTRATION_RUNS = 2
+
+
 def diverges_only_in_mutant(mutant_binary, control_binary, case, cases_dir=None, timeout=60):
     """True only when the divergence from Pekko on `case` is demonstrated and caused by the mutation: the unmutated build
     reproduces the recorded Pekko status code and stdout (the two things `rust-anything app replay` compares) and the mutant does not.
@@ -74,12 +77,16 @@ def diverges_only_in_mutant(mutant_binary, control_binary, case, cases_dir=None,
             expected_stdout = fh.read()
         outcome = {}
         for label, binary in (("control", control_binary), ("mutant", mutant_binary)):
-            run = subprocess.run([binary, *args], input=stdin, capture_output=True, timeout=timeout)
-            outcome[label] = (run.returncode, run.stdout)
+            outcome[label] = []
+            for _attempt in range(DEMONSTRATION_RUNS):   # a timing-dependent case must not decide on one sample
+                run = subprocess.run([binary, *args], input=stdin, capture_output=True, timeout=timeout)
+                outcome[label].append((run.returncode, run.stdout))
     except (OSError, ValueError, KeyError, subprocess.SubprocessError):
         return False
     recorded = (expected_code, expected_stdout)
-    return outcome["control"] == recorded and outcome["mutant"] != recorded
+    control_always_matches = all(sample == recorded for sample in outcome["control"])
+    mutant_always_diverges_the_same_way = all(sample != recorded and sample == outcome["mutant"][0] for sample in outcome["mutant"])
+    return control_always_matches and mutant_always_diverges_the_same_way
 
 
 def evaluate(binary, result):

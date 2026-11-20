@@ -57,7 +57,8 @@ def import_edges(root):
             edges[b].add(a)
 
     for f in files:
-        text = open(f, encoding="utf-8", errors="replace").read()
+        with open(f, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
         here = rel(f)
         directory = os.path.relpath(os.path.dirname(f), src_root)
         parent = [] if directory == "." else directory.split(os.sep)
@@ -100,7 +101,8 @@ def order_mutants(names, mutant_files, changed, edges):
 
 def file_digest(path):
     try:
-        return hashlib.sha256(open(path, "rb").read()).hexdigest()
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
     except OSError:
         return "absent"
 
@@ -112,7 +114,8 @@ def neighbourhood_hash(root, rel_file, edges):
 
 def divergence_logic_digest(path):
     """check_divergence.py with the MUTANTS/TOOL_MUTANTS literals emptied: adding a mutant must not invalidate the others (the patch is in each key)."""
-    tree = ast.parse(open(path, encoding="utf-8").read())
+    with open(path, encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in ("MUTANTS", "TOOL_MUTANTS") for t in node.targets):
             node.value = ast.Dict(keys=[], values=[])
@@ -149,13 +152,15 @@ class ResultStore:
 
     def get(self, key):
         try:
-            return json.load(open(self._path(key)))
+            with open(self._path(key)) as fh:
+                return json.load(fh)
         except (OSError, ValueError):
             return None
 
     def put(self, key, record):
         tmp = self._path(key) + f".{os.getpid()}.tmp"
-        json.dump(record, open(tmp, "w"))
+        with open(tmp, "w") as fh:
+            json.dump(record, fh)
         os.replace(tmp, self._path(key))     # atomic: a cancelled run never leaves a half-written checkpoint
 
     def is_fresh(self, key):
@@ -182,12 +187,14 @@ def mutant_timeout(remaining_seconds):
     return max(1, min(PER_MUTANT_TIMEOUT, int(remaining_seconds)))
 
 
-def ensure_control(store, control_key, run_control):
+def ensure_control(store, control_key, run_control, budget_limited=False):
     """'CLEAN' when the unmutated crate replays clean for this state: from the checkpoint, or by running `run_control()` (exit code) now.
     Called on every run, including a resumed one that executes no mutant: a DETECTED result proves nothing if the control never passed."""
     if store.is_fresh("control-" + control_key):
         return "CLEAN"
     code = run_control()
+    if code == TIMED_OUT and budget_limited:   # the time budget ended before the control could: unverified (INCOMPLETE), neither passed nor failed
+        return "UNVERIFIED"
     store.put("control-" + control_key, {"outcome": "DETECTED" if code == 0 else "FAILED"})
     return "CLEAN" if code == 0 else "FAILED"
 
@@ -254,11 +261,11 @@ def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds):
 
 
 def exit_code(undetected, errors, pending, control):
-    if undetected or control != "CLEAN":
+    if undetected or control == "FAILED":
         return 1
     if errors:
         return 2
-    return 3 if pending else 0
+    return 3 if pending or control == "UNVERIFIED" else 0
 
 
 def summary_text(total, detected, undetected, errors, pending, stopped_by, control):
@@ -320,8 +327,17 @@ def git_changed(base):
     return sorted(set(out) | {line[3:] for line in status})
 
 
+class UsageError(Exception):
+    pass
+
+
 def option(argv, flag, default=None, cast=int):
-    return cast(argv[argv.index(flag) + 1]) if flag in argv else default
+    if flag not in argv:
+        return default
+    try:
+        return cast(argv[argv.index(flag) + 1])
+    except (IndexError, ValueError):
+        raise UsageError(f"{flag} needs a valid value") from None
 
 
 def main(argv):
@@ -367,8 +383,9 @@ def main(argv):
     undetected = [n for n, o in outcomes.items() if o == "UNDETECTED"]
     errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
     ckey = control_key(ROOT, harness, toolchain)
-    run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], PER_MUTANT_TIMEOUT, os.path.join(STORE_DIR, "logs", "control.log"), cwd=ROOT)
-    control = ensure_control(store, ckey, run_control)
+    remaining_for_control = None if budget_seconds is None else budget_seconds - (time.time() - run_started)
+    run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], mutant_timeout(remaining_for_control), os.path.join(STORE_DIR, "logs", "control.log"), cwd=ROOT)
+    control = ensure_control(store, ckey, run_control, budget_limited=is_budget_limited(remaining_for_control))
     detected = sum(1 for o in outcomes.values() if o == "DETECTED")
     text = summary_text(len(all_mutants), detected, undetected, errors, report["pending"], report["stopped_by"], control)
     print(text)
@@ -388,6 +405,9 @@ def run_as_script(argv):
     """Runs main(), prints the one-line verdict and exits with its code (143 after a cancellation, checkpoints already on disk)."""
     try:
         code = main(argv)
+    except UsageError as problem:
+        print(f"refused: {problem}")
+        code = 2
     except SystemExit as stop:
         code = stop.code if isinstance(stop.code, int) else 2
     except KeyboardInterrupt:      # Ctrl-C: the process group was already killed by run_cancellable and the checkpoints are on disk

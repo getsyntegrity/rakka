@@ -51,6 +51,16 @@ class FastKillCriterion(unittest.TestCase):
         broken_control = make_binary(self.dir, "control2", 'printf "not pekko"')
         self.assertFalse(self.check(make_binary(self.dir, "m", 'printf "other"'), control=broken_control))
 
+    def test_a_divergence_that_does_not_repeat_is_not_demonstrated(self):
+        counter = os.path.join(self.dir, "counter")
+        flaky = make_binary(self.dir, "flaky", f'n=$(cat {counter} 2>/dev/null || echo 0); echo $((n+1)) > {counter}; if [ $((n % 2)) = 0 ]; then printf "other"; else printf "pekko"; fi')
+        self.assertFalse(self.check(flaky))
+
+    def test_a_control_that_does_not_repeat_its_match_is_not_trusted(self):
+        counter = os.path.join(self.dir, "counter2")
+        flaky_control = make_binary(self.dir, "flaky-control", f'n=$(cat {counter} 2>/dev/null || echo 0); echo $((n+1)) > {counter}; if [ $((n % 2)) = 0 ]; then printf "pekko"; else printf "not pekko"; fi')
+        self.assertFalse(self.check(make_binary(self.dir, "m", 'printf "other"'), control=flaky_control))
+
     def test_a_mutant_that_hangs_is_not_detected_by_the_fast_path(self):
         self.assertFalse(self.check(make_binary(self.dir, "m", "sleep 30"), timeout=1))
 

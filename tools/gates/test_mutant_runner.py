@@ -182,6 +182,17 @@ class ControlVerification(unittest.TestCase):
             self.assertEqual(mr.ensure_control(store, "k", lambda: 1), "FAILED")
             self.assertEqual(mr.ensure_control(store, "k", lambda: 0), "CLEAN")
 
+    def test_a_control_cut_by_the_time_budget_is_unverified_not_failed_and_is_not_stored(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = mr.ResultStore(root)
+            self.assertEqual(mr.ensure_control(store, "k", lambda: mr.TIMED_OUT, budget_limited=True), "UNVERIFIED")
+            self.assertFalse(store.is_fresh("control-k"))
+            self.assertEqual(mr.ensure_control(store, "k2", lambda: mr.TIMED_OUT, budget_limited=False), "FAILED")
+
+    def test_an_unverified_control_makes_the_run_incomplete_not_a_failure(self):
+        self.assertEqual(mr.exit_code(undetected=[], errors=[], pending=[], control="UNVERIFIED"), 3)
+        self.assertEqual(mr.exit_code(undetected=["x"], errors=[], pending=[], control="UNVERIFIED"), 1)
+
     def test_an_interrupted_control_is_not_recorded_as_passed(self):
         with tempfile.TemporaryDirectory() as root:
             store = mr.ResultStore(root)
