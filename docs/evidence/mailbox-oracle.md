@@ -38,7 +38,7 @@ Otros hechos: `resume` en 0 devuelve `true` y no baja de 0 (ST-03); sistema y us
 
 **Evidencia JVM.**
 - Forzada y determinista (golden): **CC-05** (el `add` ocurre tras `cleanUp`: `received=[] deadLetters=[] queued=1`) y **CC-05a** (el mismo emisor, pero el `add` ocurre justo antes del drenaje: `deadLetters=[straggler]`). El único factor que cambia el resultado es el orden entre `q.add` y el drenaje.
-- Natural, sin ganchos (no entra en el golden: sus conteos varían): `oracle/run.sh mailbox-stress <<< N`. Por ensayo: un actor, 4 emisores × 300 envíos liberados junto con `stop`. Ejecuciones con SHA upstream `9fbd2283…`, JDK 17, 3 JVM concurrentes en un Mac de 16 núcleos:
+- Natural, sin ganchos (no entra en el golden: sus conteos varían): `oracle/run.sh mailbox-stress <<< N`. Por ensayo: un actor, 4 emisores × 300 envíos liberados junto con `stop`. Ejecuciones con SHA upstream `9fbd2283…`, JDK 17, Mac de 16 núcleos; la corrida 1 se hizo sola y las corridas 2–4 como 3 JVM concurrentes:
 
 | Corrida | Ensayos | Envíos | Recibidos | Dead letters | Varados | Ensayos con varado | No contabilizados |
 |---|---|---|---|---|---|---|---|
@@ -51,7 +51,7 @@ Otros hechos: `resume` en 0 devuelve `true` y no baja de 0 (ST-03); sistema y us
 
 **Garantías públicas.** El doc de Pekko (`general/message-delivery-reliability.md:315-321`) dice que la entrega a dead letters es «best-effort; it may fail even within the local JVM (e.g. during actor termination)» y que sirve para depuración, no para entrega garantizada; la regla general es at-most-once (:41). Un mensaje varado no viola ninguna garantía publicada. Lo que Pekko sí garantiza (y el corpus ya valida con `await-accounted` en escenarios secuenciales): lo enviado con *happens-before* anterior al cierre se recibe o es dead letter, sin duplicar.
 
-**Clasificación (evidencia, no decisión).** Carrera interna upstream, observable en la práctica, **sin garantía contractual** (opción 2/3 del encargo; no es un error del oráculo: reproducida con y sin ganchos). La reproducción exacta no es exigida por ningún contrato.
+**Clasificación (evidencia, no decisión).** Carrera interna upstream, observable en la práctica, **sin garantía contractual** (ni un error del oráculo —reproducida con y sin ganchos— ni algo que Rakka deba reproducir por contrato). La reproducción exacta no es exigida por ningún contrato.
 
 **Alternativas.**
 - **A — replicar** (cola vieja sin comprobar cierre): reproduce el varado, pero ningún contrato lo exige y degrada la depuración con dead letters; el piloto Rust hoy tiene el comportamiento opuesto.
