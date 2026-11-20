@@ -1,6 +1,6 @@
 # ADR-0001 (propuesta) — Modelo de mailbox de Rakka Classic frente a Pekko 2.0.0
 
-- **Estado:** propuesta. Sin decisión del Owner. No modifica el runtime.
+- **Estado:** **aceptada parcialmente** (Owner, 2026-11-20, `docs/decisions/owner-decisions.tsv`): la arquitectura de la **opción B** (Q-MBX-9), la **secuencia de 10 PR** de §6 (Q-MBX-10) y el protocolo de cierre **B + C** frente a CC-05 (Q-MBX-8). **Siguen propuestas, sin decisión del Owner:** Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 y Q-MBX-6 (§7, §7c). No modifica el runtime.
 - **Issue:** getsyntegrity/rakka#282 (02/09). Resuelve en propuesta Q-MBX-6 y Q-MBX-1/2/3 (y toca Q-MBX-5).
 - **Fuente de verdad:** Apache Pekko 2.0.0 (`9fbd2283b1cf701c90a1223bf621942c191db61f`). Citas `path:line` sobre `actor/src/main/scala/org/apache/pekko/dispatch/`.
 - **Base del piloto:** `feat/pekko-rust-pilot-migration` @ `cb39023`; `crates/rakka-actor/src/actor/cell.rs`, `dispatch/dispatcher.rs`.
@@ -83,7 +83,7 @@ Observables sin acceso privado a Pekko (el oráculo Java ya usa `ActorSystem`; `
 6. Control-aware y prioridad/estable (`ControlAwareDispatcherSpec`, `PriorityDispatcherSpec`, `StablePriorityDispatcherSpec`).
 7. Deque: `enqueue_first` vía Stash (`ActorWithBoundedStashSpec.scala:119-133`).
 
-## 6. Secuencia de PR (≤400 líneas autoradas cada uno; ninguno rompe el piloto)
+## 6. Secuencia de PR (≤400 líneas autoradas cada uno; ninguno rompe el piloto) — aceptada (Q-MBX-10); el PR 1 está integrado (#295, oráculo en `docs/evidence/mailbox-oracle.md`)
 1. Oráculo + casos grabados de transiciones de estado y orden sistema/usuario (sin runtime).
 2. `MailboxStatus` puro con tests unitarios (RED→GREEN) y replay.
 3. `trait MessageQueue` + `UnboundedMailbox` por defecto; `ActorCell` la usa (refactor sin cambio observable; D1 base).
@@ -129,7 +129,7 @@ Carreras que los escenarios deben forzar (con inyección de pausas/barreras, no 
 2. **Doble agendado:** N productores llaman `registerForExecution` a la vez → un solo turno (I2).
 3. **`suspend` durante un turno y `resume` concurrente:** el contador termina balanceado; el actor reanuda sólo al llegar a 0.
 4. **`becomeClosed` vs. `systemEnqueue`:** el mensaje de sistema llega al `deadLetterMailbox`, nunca se pierde (centinela `NoMessage`).
-5. **`becomeClosed` vs. `enqueue` de usuario:** o se procesa o va a dead letters; nunca ambos. Que no haya ventana en la que se pierda depende del orden `swapMailbox`/`cleanUp` de Pekko: el escenario debe **observarlo** en el oráculo, no suponerlo.
+5. **`becomeClosed` vs. `enqueue` de usuario** (**caracterizado en el PR 1**: CC-05/CC-05a y `mailbox-stress` muestran una tercera salida en Pekko 2.0.0, el mensaje **varado**, sin garantía contractual; Q-MBX-8 acepta que Rust la cierre —el mensaje siempre es dead letter— y que el oráculo tolere el resultado de Pekko sólo en esa carrera): o se procesa o va a dead letters; nunca ambos. Que no haya ventana en la que se pierda depende del orden `swapMailbox`/`cleanUp` de Pekko: el escenario debe **observarlo** en el oráculo, no suponerlo.
 6. **Ejecución que entra en pánico:** el mailbox vuelve a ser agendable (caso **nuevo** de Rust; `MailboxTaskSubmissionSpec` no lo prueba: su reenvío tras fallo usa un `Runnable` simple, no `Mailbox`). `run` limpia `scheduled` en `finally`.
 
 Con `AtomicU32` el diseño usa la misma máscara que Pekko por simplicidad, pero el contrato probado es la tabla anterior, no los valores numéricos.
