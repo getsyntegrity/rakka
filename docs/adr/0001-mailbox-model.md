@@ -29,7 +29,7 @@
 
 ## 2. Estado del piloto
 
-`ActorCell.mb: Mutex<MbState { sys: VecDeque<SystemMessage>, user: VecDeque<Envelope>, suspend: u32, closed: bool, scheduled: bool }>` (cell.rs:29-36,83).
+`ActorCell.mb: Mutex<MbState { sys: VecDeque<SystemMessage>, user: VecDeque<Envelope>, suspend: u32, closed: bool, scheduled: bool }>` (cell.rs:29-35,83).
 
 Lo que ya coincide en lo observable:
 - Sistema antes que usuario y drenaje completo tras cada mensaje de usuario (cell.rs:245-288).
@@ -64,7 +64,7 @@ Divergencias y huecos (todas hoy invisibles porque el piloto sólo usa la cola F
 
 **C — Mailbox como tarea async.** Contradice Q-X-4 (A) (aceptada por el Owner 2026-11-18); sólo como adaptador opcional futuro.
 
-Riesgos de B: más superficie atómica (mitigada con tests de estado puros y diferenciales); el timeout bloqueante en un worker del pool puede agotar el pool (igual que Pekko; documentar); `Mailbox` debe reenviarse como un `Arc` nuevo por turno, no un objeto de tarea reutilizado (lección de `MailboxTaskSubmissionSpec`).
+Riesgos de B: más superficie atómica (mitigada con tests de estado puros y diferenciales); el timeout bloqueante en un worker del pool puede agotar el pool (igual que Pekko; documentar); el mailbox **no** debe ser un tipo con semántica propia de tarea de pool (en Pekko, no `ForkJoinTask`; `MailboxTaskSubmissionSpec` sólo fija eso). Pekko reenvía el mismo objeto `Mailbox` durante toda la vida del actor; en Rust se reenvía un `Arc` del mailbox, sin estado de tarea propio.
 
 ## 4. Costuras (seams) propuestas
 1. `MailboxStatus` — puro, sin actores: tabla de transiciones.
@@ -96,6 +96,9 @@ Observables sin acceso privado a Pekko (el oráculo Java ya usa `ActorSystem`; `
 10. `Mailboxes` (registro, `requirements`, lookup) — tras Q-MBX-2.
 
 ## 7. Preguntas exactas para el Owner (propuestas; se registrarán como `proposed`)
+
+Las letras (a, a′, b, c) remiten a las opciones de cada `Q-MBX-n` en `docs/owner-batch-02.md`.
+
 1. **Q-MBX-6.** Dado Q-X-4 (A), ¿se confirma que el turno de mailbox es un trabajo del pool propio, con `throughput` y `throughput-deadline-time` **por dispatcher** y reloj inyectable? (sí/no)
 2. **Q-MBX-1.** ¿Se aprueba (c)? Concretamente: (i) nombre de la API awaitable (`try_tell` o `tell_async`); (ii) `tell` con `push-timeout>0` bloquea el hilo del emisor (paridad) también dentro de un worker del pool, con aviso de agotamiento del pool; (iii) `<0` espera sin límite como Pekko.
 3. **Q-MBX-2.** ¿Se aprueba (a′) (conjunto abierto de semánticas con implicancia codificada)?
@@ -127,7 +130,7 @@ Carreras que los escenarios deben forzar (con inyección de pausas/barreras, no 
 3. **`suspend` durante un turno y `resume` concurrente:** el contador termina balanceado; el actor reanuda sólo al llegar a 0.
 4. **`becomeClosed` vs. `systemEnqueue`:** el mensaje de sistema llega al `deadLetterMailbox`, nunca se pierde (centinela `NoMessage`).
 5. **`becomeClosed` vs. `enqueue` de usuario:** o se procesa o va a dead letters; nunca ambos. Que no haya ventana en la que se pierda depende del orden `swapMailbox`/`cleanUp` de Pekko: el escenario debe **observarlo** en el oráculo, no suponerlo.
-6. **Ejecución que entra en pánico:** el mailbox vuelve a ser agendable (`MailboxTaskSubmissionSpec`).
+6. **Ejecución que entra en pánico:** el mailbox vuelve a ser agendable (caso **nuevo** de Rust; `MailboxTaskSubmissionSpec` no lo prueba: su reenvío tras fallo usa un `Runnable` simple, no `Mailbox`). `run` limpia `scheduled` en `finally`.
 
 Con `AtomicU32` el diseño usa la misma máscara que Pekko por simplicidad, pero el contrato probado es la tabla anterior, no los valores numéricos.
 
@@ -152,13 +155,13 @@ Alcance de este PR: sólo documentación (`docs/adr/0001-mailbox-model.md`). `sc
 Confirmado (salida de shell del Owner, 2026-11-20):
 - **Cierre/`detach`** (cell.rs:668-686, `finish_terminate`): bajo el lock se marca `closed = true` y se vacían `sys` y `user`; cada mensaje de sistema pasa por `dead_system_message` (sólo `Watch` produce efecto; el resto se descarta) y cada mensaje de usuario va a `publish_dead_letter`. Confirma D3: no hay `deadLetterMailbox` ni reenvío de los demás mensajes de sistema.
 - **Dispatchers** (system.rs:266-268): se crean exactamente dos, `Dispatcher::start(name, settings.parallelism)` e `internal-dispatcher` con 4 hilos fijos. `throughput` es un único `usize` en `Settings` (system.rs:65, default 5); no hay throughput por dispatcher ni deadline (confirma D2, D6).
-- **`MailboxTaskSubmissionSpec`**: fija que el mailbox se envía al pool como `Runnable` simple (no `ForkJoinTask`) y que se reenvía tras una ejecución fallida; un `ForkJoinTask` enviado como `Runnable` conserva su semántica de finalización y cancelación. Para Rust: cada turno se reenvía como un `Arc` nuevo, y una ejecución que entra en pánico debe dejar el mailbox re-agendable (a cubrir con un caso en el PR 6).
+- **`MailboxTaskSubmissionSpec`**: fija sólo que `Mailbox` no es un `ForkJoinTask` (:73-76) y que el pool conserva la cancelación/finalización de un `ForkJoinTask` enviado como `Runnable`; su caso de reenvío tras fallo usa un `Runnable` de control, no `Mailbox`. Para Rust: una ejecución que entra en pánico debe dejar el mailbox re-agendable; es un caso nuevo a cubrir en el PR 6, no derivado de ese spec.
 - **Ubicación del ADR:** `docs/adr/` existe sólo con este archivo; `docs/` no tiene otra convención de ADR (hay `proposals/`, `research/`, `evidence/`). Se mantiene `docs/adr/` salvo indicación del Owner.
 
 Verificado contra el código (2026-11-20):
-- **D1–D7 confirmados** en `cell.rs` (MbState :29-35, `can_run` :190, `enqueue_user` :212, `dead_system_message` :232, `finish_terminate` :665) y `dispatcher.rs`: `execute` hace `let _ = tx.send(..)` y tras `shutdown` (`tx.take()`) no agenda ni reporta, dejando `scheduled = true` (D5).
+- **D1–D7 confirmados** en `cell.rs` (MbState :29-35, `can_run` :190, `enqueue_user` :212, `dead_system_message` :232, `finish_terminate` :666) y `dispatcher.rs`: `execute` hace `let _ = tx.send(..)` y tras `shutdown` (`tx.take()`) no agenda ni reporta, dejando `scheduled = true` (D5).
 - **Corrección respecto de la redacción previa:** `becomeClosed` fija `Closed` exacto y por tanto borra `scheduled` y la cuenta de suspensión (§7b).
-- **Cobertura real del piloto** (`crates/rakka-actor/tests/`): throughput por turno (`classic_tell.rs::single_thread_dispatcher_runs_throughput_messages_per_turn`), usuario → dead letters tras cierre (`classic_tell.rs`, `classic_supervision.rs::stop_stops_the_child_and_dead_letters_what_was_queued`), suspensión de hijos (`classic_suspension.rs`), `Watch` sobre muerto (`classic_api.rs`), y `dispatcher.rs::shutdown_is_idempotent`. **Sin tests** de: reenvío de mensajes de sistema distintos de `Watch` a dead letters (D3), `throughput-deadline-time`, bounded/prioridad/control-aware/deque en el mailbox, carreras de estado, ni reintento ante rechazo del pool.
+- **Cobertura real del piloto** (`crates/rakka-actor/tests/`): throughput por turno (`classic_tell.rs::single_thread_dispatcher_runs_throughput_messages_per_turn`), usuario → dead letters tras cierre (`classic_tell.rs`, `classic_supervision.rs::stop_stops_the_child_and_dead_letters_what_was_queued`), suspensión de hijos (`classic_suspension.rs`), `Watch` sobre muerto (`classic_hierarchy.rs::watching_a_dead_actor_notifies_each_watch_without_confirming_existence`), y, en `src/`, `dispatcher.rs::shutdown_is_idempotent`. **Sin tests** de: reenvío de mensajes de sistema distintos de `Watch` a dead letters (D3), `throughput-deadline-time`, bounded/prioridad/control-aware/deque en el mailbox, carreras de estado, ni reintento ante rechazo del pool.
 - Gates: el PR sólo cambia documentación. `tools/package/check.py` sobre el árbol final: `rows=785 citation_problems=0 failures=0`; `cargo fmt --all --check`: limpio. Sin cambios de código: replay, clippy, deny, cobertura y mutantes no se ven afectados.
 
 Pendiente: cuerpos de `ActorModelSpec` ("one at a time", "suspended", "queueing from multiple threads") para fijar los escenarios del PR 1.
