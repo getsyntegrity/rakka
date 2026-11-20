@@ -480,7 +480,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Estado atomico del mailbox, ejecucion con prioridad de sistema, throughput, attach/detach y suspend/resume de dispatcher.
 - **Filas (7; impl: pending 7):** asignacion explicita en `docs/unit-rows.tsv`: AC-MBX-001, AC-MBX-002, AC-CELL-013.1, AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-023.
 - **Exclusiones/costuras:** Costura DISPATCH-S1: la celda se sustituye por trait CellInvoke {invoke, system_invoke}; DSP-023 usa suspend/resume sin restart real.
-- **Decisiones:** 4 distintas en sus filas; respondidas: Q-X-4; propuestas sin respuesta: Q-DSP-5, Q-MBX-5, Q-MBX-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P15). <!-- generated:unit-decisions -->
+- **Decisiones:** 6 distintas en sus filas; respondidas: Q-MBX-10, Q-MBX-9, Q-X-4; propuestas sin respuesta: Q-DSP-5, Q-MBX-5, Q-MBX-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P15). <!-- generated:unit-decisions -->
 - **Dependencias:** P08, P13, P14.
 - **Archivos previstos:** `crates/rakka-actor/src/dispatch/{mailbox,dispatcher}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** Dispatchers/Mailbox specs 1:1.
@@ -502,7 +502,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** deadLetters, EmptyLocalActorRef y mailbox cerrado: el sumidero de cartas muertas.
 - **Filas (4; impl: pending 4):** asignacion explicita en `docs/unit-rows.tsv`: AC-REF-015, AC-REF-016, AC-MBX-003, AC-MBX-021.
 - **Exclusiones/costuras:** Watch->DWN de REF-015/016 usa la interfaz DeathWatchSink (DW-S1); la vigilancia real llega en P23.
-- **Decisiones:** 2 distintas en sus filas; propuestas sin respuesta: Q-MBX-5, Q-MBX-8. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P17). <!-- generated:unit-decisions -->
+- **Decisiones:** 4 distintas en sus filas; respondidas: Q-MBX-10, Q-MBX-8, Q-MBX-9; propuestas sin respuesta: Q-MBX-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P17). <!-- generated:unit-decisions -->
 - **Dependencias:** P11, P14, P15.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/dead_letters.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** unidad + oraculo de comportamiento.

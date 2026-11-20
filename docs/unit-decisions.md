@@ -222,10 +222,12 @@
 
 ## P15 MBX-NUCLEO
 
-7 filas; 4 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 3 propuestas.
+7 filas; 6 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-MBX-10 | accepted (2026-11-20): aceptar (a): la secuencia de 10 PR del ADR-0001 §6. Los PR 4-10 siguen condicionados a las decisiones Q-MBX pendientes que cada uno cita. | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
+| Q-MBX-9 | accepted (2026-11-20): aceptar (B): estado del mailbox separado de las colas de sistema y de usuario (ADR-0001). No aprueba Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 ni Q-MBX-6. | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-CELL-013.1, AC-DSP-001, AC-MBX-001 | — | — | `transversal` |
 | Q-DSP-5 | propuesta | 2: AC-DSP-003, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-MBX-5 | propuesta | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
@@ -253,12 +255,14 @@
 
 ## P17 REF-MUERTOS
 
-4 filas; 2 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 2 propuestas.
+4 filas; 4 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-MBX-10 | accepted (2026-11-20): aceptar (a): la secuencia de 10 PR del ADR-0001 §6. Los PR 4-10 siguen condicionados a las decisiones Q-MBX pendientes que cada uno cita. | 1: AC-MBX-003 | — | — | `classic-dispatch` |
+| Q-MBX-8 | accepted (2026-11-20): aceptar (b)+(c): Rust implementa un protocolo de cierre que impide el mensaje varado de CC-05 (el mensaje siempre es dead letter); el oráculo JVM acepta los… | 1: AC-MBX-003 | — | — | `classic-dispatch` |
+| Q-MBX-9 | accepted (2026-11-20): aceptar (B): estado del mailbox separado de las colas de sistema y de usuario (ADR-0001). No aprueba Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 ni Q-MBX-6. | 1: AC-MBX-003 | — | — | `classic-dispatch` |
 | Q-MBX-5 | propuesta | 2: AC-MBX-003, AC-MBX-021 | — | — | `classic-dispatch` |
-| Q-MBX-8 | propuesta | 1: AC-MBX-003 | — | — | `classic-dispatch` |
 
 ## P18 CELL-HIJOS
 
@@ -1054,4 +1058,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 497 (232 respondidas, 0 bloqueantes, 265 propuestas).
+Total de pares unidad–decisión: 501 (237 respondidas, 0 bloqueantes, 264 propuestas).

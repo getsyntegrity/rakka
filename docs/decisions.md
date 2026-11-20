@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 246 decisiones: 0 bloqueantes, 183 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 248 decisiones: 0 bloqueantes, 182 propuestas, 53 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -936,16 +936,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) paridad: `gen(a).wrapping_sub(gen(b))`; (b) `i32::cmp` (corrige el desborde pero invierte el orden cuando |a-b| > 2^31-1); (c) restar en i64
 - **Recomendación:** [Clasificación: divergencia funcional menor] (a) paridad con el desborde envolvente y documentarlo; un usuario que necesite prioridades extremas debe usar un comparador propio. Consecuencia observable: con prioridades como Int.MinValue frente a Int.MaxValue el orden es el de Pekko (incorrecto). Si el Owner prefiere (b) se anota Q: en la columna notes. Bloquea sólo el cierre de AC-MBX-009/010 en el borde; el resto puede avanzar.
 - **Filas afectadas:** AC-MBX-009,AC-MBX-010
-- **Unidades afectadas:** MBX
-- **Origen:** classic-dispatch
-
-### Q-MBX-8 — Ventana de cierre del mailbox: mensaje de un emisor que ya leyó el mailbox y encola tras `cleanUp` (varado) vs. dead letter
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Dispatcher.scala:80-84 (`dispatch` lee `receiver.mailbox`, luego `enqueue`, sin comprobar cierre); AbstractDispatcher.scala:279-285 (`unregister`: `swapMailbox` → `becomeClosed` → `cleanUp`); Mailbox.scala:354-368; docs message-delivery-reliability.md:315-321 (entrega a dead letters «best-effort; may fail even within the local JVM (e.g. during actor termination)»). Oráculo JVM (docs/evidence/mailbox-oracle.md): CC-05 (forzado: varado) y CC-05a (forzado: dead letter); experimento natural `oracle/run.sh mailbox-stress`: 4 mensajes varados en 4 de 93 000 ensayos (111,6 M envíos), contabilidad exacta
-- **Alternativas:** (a) replicar: la cola vieja no comprueba el cierre y el mensaje queda varado; (b) cerrar la ventana: comprobar `closed` y encolar de forma atómica, de modo que el mensaje siempre sea dead letter (el piloto actual ya lo hace bajo `Mutex`); (c) aceptar el conjunto {recibido, dead letter, varado} en el oráculo para el emisor en vuelo, sin imponer orden donde Pekko no lo garantiza
-- **Recomendación:** [Clasificación: carrera upstream sin garantía contractual] Implementar (b) y validar con (c): el oráculo acepta {recibido, dead letter, varado} para el emisor en vuelo y Rust sólo produce un subconjunto (nunca procesa tras el cierre, nunca duplica, nunca pierde un mensaje enviado con happens-before anterior al cierre). No replicar (a): ningún contrato lo exige y degrada la depuración con dead letters. Consecuencia observable: Rust nunca deja varado ese mensaje; Pekko lo deja varado una vez cada ~2,8·10^7 envíos en el experimento
-- **Filas afectadas:** AC-MBX-003
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 
@@ -2227,6 +2217,39 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** FSM
 - **Origen:** classic-patterns
 - **Respuesta del Owner:** aceptar (a) replicar. Condición: antes, grabar un escenario del oráculo contra 2.0.0 que lo confirme; si el oráculo contradice la lectura del código, gana el oráculo. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-MBX-8 — Ventana de cierre del mailbox: mensaje de un emisor que ya leyó el mailbox y encola tras `cleanUp` (varado) vs. dead letter
+
+- **Estado:** aceptada
+- **Evidencia:** Dispatcher.scala:80-84 (`dispatch` lee `receiver.mailbox`, luego `enqueue`, sin comprobar cierre); AbstractDispatcher.scala:279-285 (`unregister`: `swapMailbox` → `becomeClosed` → `cleanUp`); Mailbox.scala:354-368; docs message-delivery-reliability.md:315-321 (entrega a dead letters «best-effort; may fail even within the local JVM (e.g. during actor termination)»). Oráculo JVM (docs/evidence/mailbox-oracle.md): CC-05 (forzado: varado) y CC-05a (forzado: dead letter); experimento natural `oracle/run.sh mailbox-stress`: 4 mensajes varados en 4 de 93 000 ensayos (111,6 M envíos), contabilidad exacta
+- **Alternativas:** (a) replicar: la cola vieja no comprueba el cierre y el mensaje queda varado; (b) cerrar la ventana: comprobar `closed` y encolar de forma atómica, de modo que el mensaje siempre sea dead letter (el piloto actual ya lo hace bajo `Mutex`); (c) aceptar el conjunto {recibido, dead letter, varado} en el oráculo para el emisor en vuelo, sin imponer orden donde Pekko no lo garantiza
+- **Recomendación:** [Clasificación: carrera upstream sin garantía contractual] Implementar (b) y validar con (c): el oráculo acepta {recibido, dead letter, varado} para el emisor en vuelo y Rust sólo produce un subconjunto (nunca procesa tras el cierre, nunca duplica, nunca pierde un mensaje enviado con happens-before anterior al cierre). No replicar (a): ningún contrato lo exige y degrada la depuración con dead letters. Consecuencia observable: Rust nunca deja varado ese mensaje; Pekko lo deja varado una vez cada ~2,8·10^7 envíos en el experimento
+- **Filas afectadas:** AC-MBX-003
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** aceptar (b)+(c): Rust implementa un protocolo de cierre que impide el mensaje varado de CC-05 (el mensaje siempre es dead letter); el oráculo JVM acepta los resultados concurrentes que Pekko permite en esa carrera (incluido el varado), y sólo en ese escenario caracterizado: no admite duplicación, procesamiento posterior al cierre ni pérdida de un mensaje con garantía de entrega aplicable. Evidencia: CC-05/CC-05a y `oracle/run.sh mailbox-stress` (docs/evidence/mailbox-oracle.md). (Owner (instrucción en la sesión), 2026-11-20)
+
+### Q-MBX-9 — Arquitectura del mailbox Rust (ADR-0001, opción B): estado atómico separado de las colas de sistema y usuario
+
+- **Estado:** aceptada
+- **Evidencia:** docs/adr/0001-mailbox-model.md §2-§4 (D1-D7); Mailbox.scala:40-56,125-237 (estado como entero con CAS) y :454-527 (cola de sistema separada); piloto: `Mutex<MbState>` único en cell.rs:29-35
+- **Alternativas:** (A) conservar `Mutex<MbState>` y sólo añadir una cola abstracta; (B) separar `MailboxStatus` (atómico, misma codificación que Pekko), cola de sistema con centinela de cierre y `trait MessageQueue` para la cola de usuario; (C) mailbox como tarea async (contradice Q-X-4 A)
+- **Recomendación:** (B): permite colas acotadas bloqueantes sin bloquear bajo el lock del consumidor (D4) y fija las transiciones probadas por el oráculo (ST-01…08, CC-01…05a). (A) sólo como paso intermedio; (C) descartada
+- **Filas afectadas:** AC-MBX-001,AC-MBX-002,AC-MBX-003
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** aceptar (B): estado del mailbox separado de las colas de sistema y de usuario (ADR-0001). No aprueba Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 ni Q-MBX-6. (Owner (instrucción en la sesión), 2026-11-20)
+
+### Q-MBX-10 — Secuencia incremental de 10 PR del mailbox (ADR-0001 §6)
+
+- **Estado:** aceptada
+- **Evidencia:** docs/adr/0001-mailbox-model.md §6; PR 1 integrado en #295 (oráculo JVM)
+- **Alternativas:** (a) la secuencia del ADR (oráculo → `MailboxStatus` → `MessageQueue` → estado atómico + cola de sistema → `deadLetterMailbox` → dispatcher con throughput/deadline → acotadas → deque/prioridad → control-aware → `Mailboxes`); (b) otro orden o un único PR grande
+- **Recomendación:** (a): cada PR ≤400 líneas, ninguno rompe el piloto y los PR 4-10 quedan condicionados a las decisiones Q-MBX pendientes que cada uno cita (Q-MBX-5 y 6 para los PR 4-6; Q-MBX-1/2/3 para los PR 7-10)
+- **Filas afectadas:** AC-MBX-001,AC-MBX-002,AC-MBX-003
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** aceptar (a): la secuencia de 10 PR del ADR-0001 §6. Los PR 4-10 siguen condicionados a las decisiones Q-MBX pendientes que cada uno cita. (Owner (instrucción en la sesión), 2026-11-20)
 
 ### Q-PATH-1 — Cómo ordenar listas de Address con un comparador que no es orden total
 

@@ -24,7 +24,7 @@ Estabilidad: 25 corridas idénticas (8 JVM concurrentes incluidas) y 32 más, ba
 
 | # | ADR | Observado en 2.0.0 |
 |---|---|---|
-| 1 | §7b carrera 5: "o se procesa o va a dead letters; nunca ambos" | **CC-05/CC-05a** y el experimento natural: existe una tercera salida, **varado**, reproducible sin ganchos (ver «CC-05: ventana de cierre»). Clasificada como carrera sin garantía contractual; decisión propuesta en Q-MBX-8. |
+| 1 | §7b carrera 5: "o se procesa o va a dead letters; nunca ambos" | **CC-05/CC-05a** y el experimento natural: existe una tercera salida, **varado**, reproducible sin ganchos (ver «CC-05: ventana de cierre»). Clasificada como carrera sin garantía contractual; decisión **aceptada por el Owner el 2026-11-20** (Q-MBX-8: B + C). |
 | 2 | §1 "Watch sobre cerrado" | **OR-05**: `Suspend`/`Resume` tras el cierre se publican como `DeadLetter`; un `Watch` **no**: lo contesta el `deadLetters` con `Terminated` al observador. |
 | 3 | §7b `becomeClosed` borra `scheduled` y suspensión | Confirmado (ST-05: `raw=10 → 1`). `setAsIdle` sobre `Closed` devuelve `true` y deja `Closed` (ST-07). |
 | 4 | §1 `canBeScheduled` | Confirmado (ST-08): suspendido sólo con mensajes de sistema; cerrado nunca. |
@@ -58,7 +58,7 @@ Otros hechos: `resume` en 0 devuelve `true` y no baja de 0 (ST-03); sistema y us
 - **B — cerrar la ventana** (comprobar `closed` y encolar de forma atómica; el piloto ya lo hace bajo `Mutex`, cell.rs:212-218): Rust produce siempre dead letter para ese emisor. Observable que cambia: desaparece el resultado «varado», un subconjunto de lo que Pekko puede producir; no es una violación de paridad estricta porque Pekko no lo garantiza. Con el diseño atómico del ADR (PR 4) hay que conservarlo: comprobar el estado y encolar sin dejar un hueco.
 - **C — aceptar el conjunto**: el oráculo admite {recibido, dead letter, varado} para el emisor en vuelo y exige las invariantes que sí valen (nunca procesar tras el cierre, nunca duplicar, nada se pierde si hay *happens-before*). Validación sin ocultar errores: contabilidad exacta `recibidos + dead letters + varados = enviados`, con el varado tolerado sólo en el lado Pekko.
 
-**Recomendación:** implementar **B** y validar con **C** (propuesta `Q-MBX-8`, estado `proposed`, en `classic-dispatch.decisions.tsv`; no es decisión del Owner). Consecuencia para Rust: el diseño del PR 4 no debe introducir un `enqueue` sin comprobación de cierre; una cola de usuario separada del estado (D4) exige un protocolo que cierre la ventana (p. ej. comprobar el estado tras encolar y reenviar a dead letters si quedó cerrado).
+**Recomendación:** implementar **B** y validar con **C** (`Q-MBX-8`, **aceptada por el Owner el 2026-11-20**: B + C, registrada en `docs/decisions/owner-decisions.tsv`). Consecuencia para Rust: el diseño del PR 4 no debe introducir un `enqueue` sin comprobación de cierre; una cola de usuario separada del estado (D4) exige un protocolo que cierre la ventana (p. ej. comprobar el estado tras encolar y reenviar a dead letters si quedó cerrado).
 
 ## Escenarios del encargo y cobertura
 
