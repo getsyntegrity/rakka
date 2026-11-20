@@ -11,7 +11,7 @@ rust/divergence-reports/. Finally the unmodified port is replayed again as the c
 Exit code: 0 every mutant DETECTED and the control clean; 1 a mutant went UNDETECTED or the control failed;
 2 the experiment is invalid (patch, build, harness error or timeout). `--selftest` runs an equivalent mutant that must exit 1.
 """
-import difflib, os, re, shutil, subprocess, sys, tempfile
+import difflib, json, os, re, shutil, signal, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import replay_lib
@@ -1393,12 +1393,44 @@ def run_mutant(scratch, name, rel, old, new, why):
     binary = os.path.join(scratch, "target-" + name, PARITY)
     if not os.path.exists(binary):
         return BUILD_ERROR, None, None, "mutated binary missing"
+    if FAST_KILL:
+        killer = fast_kill(binary, name)
+        if killer:   # one recorded applicable case diverges: the same criterion as a full replay, without its ~130 s
+            return DETECTED, None, None, f"fast-kill: recorded case {killer} diverges from Pekko"
     try:
         r = replay(binary)
     except subprocess.TimeoutExpired:
         return TIMEOUT, None, None, "rust-anything replay"
     shutil.copy(CASES_REPORT, os.path.join(REPORTS, f"replay-report-{name}.md"))
     return classify(r, binary)
+
+
+FAST_KILL = True
+FAST_KILL_CANDIDATES = 8
+
+
+def known_killers(name):
+    """Cases the committed report of an earlier full replay of this mutant listed as divergent, minus the NOT_APPLICABLE ones."""
+    try:
+        with open(os.path.join(REPORTS, f"replay-report-{name}.md"), encoding="utf-8") as fh:
+            listed = re.findall(r"(?m)^### (\S+)\s*$", fh.read())
+    except OSError:
+        return []
+    not_applicable = replay_lib.load_not_applicable()
+    return [c for c in listed if c not in not_applicable][:FAST_KILL_CANDIDATES]
+
+
+def fast_kill(binary, name):
+    """First known killer case whose output differs from the recorded Pekko output (and is not the Q-CFG-30 JDK signature), else None.
+    Never a verdict of 'undetected': a miss only means the full replay must decide."""
+    for case in known_killers(name):
+        try:
+            recorded, produced = replay_lib.case_outputs(binary, case)
+        except (OSError, subprocess.TimeoutExpired, KeyError):
+            continue
+        if recorded != produced and not replay_lib.na_q_cfg_30.is_q_cfg_30(recorded, produced):
+            return case
+    return None
 
 
 def run_tool_mutant(scratch, name, rel, old, new, why):
@@ -1452,9 +1484,15 @@ def main():
     args = sys.argv[1:]
     if "--check-patterns" in args:
         check_patterns()
+    global FAST_KILL
     selftest = "--selftest" in args
-    only = [a for a in args if not a.startswith("--")]  # optional: run just these mutants (the control still runs)
+    skip_control, control_only = "--skip-control" in args, "--control-only" in args
+    FAST_KILL = "--no-fast-kill" not in args
+    result_json = next((a.split("=", 1)[1] for a in args if a.startswith("--result-json=")), None)
+    only = [a for a in args if not a.startswith("--")]  # optional: run just these mutants (the control still runs unless --skip-control)
     mutants = dict(SELFTEST) if selftest else {**MUTANTS, **TOOL_MUTANTS}
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))   # cancellation runs the `finally` below: scratch removed, children killed
+    c_pass = c_total = None
     for n in only:
         assert n in mutants, f"unknown mutant {n}"
     tool_only = bool(only) and all(n in TOOL_MUTANTS for n in only)
@@ -1463,14 +1501,16 @@ def main():
     results = {}
     try:
         for name, (rel, old, new, why) in mutants.items():
-            if only and name not in only:
+            if control_only or (only and name not in only):
                 continue
             print(f"=== mutant {name}: {why}", flush=True)
             res = (run_tool_mutant if name in TOOL_MUTANTS else run_mutant)(scratch, name, rel, old, new, why)
             results[name] = res
             print(f"{res[0]}  {res[3]}\n", flush=True)
         c = None
-        if tool_only:   # the tool mutants need no replay: the control would only repeat the last full run
+        if skip_control:   # the caller (tools/gates) runs the control once for a whole batch
+            control_ok, c_pass, c_total, c_line = True, None, None, "skipped (--skip-control)"
+        elif tool_only:   # the tool mutants need no replay: the control would only repeat the last full run
             control_ok, c_pass, c_total, c_line = True, None, None, "skipped (tool mutants only)"
         else:
             try:
@@ -1491,7 +1531,10 @@ def main():
     table = "\n".join(rows)
     counts = {k: sum(1 for r in results.values() if r[0] == k) for k in (DETECTED, UNDETECTED, PATCH_ERROR, BUILD_ERROR, HARNESS_ERROR, TIMEOUT)}
     print("\n" + table + f"\n\ncorpus sizes seen: {sorted(sizes)}  outcomes: {counts}  detected {counts[DETECTED]}/{len(results)}")
-    if not selftest and not only:
+    if result_json:
+        with open(result_json, "w") as fh:
+            json.dump({"mutants": {n: list(r) for n, r in results.items()}, "control": None if skip_control else control_ok}, fh)
+    if not selftest and not only and not skip_control and not control_only:
         with open(os.path.join(REPORTS, "SUMMARY.md"), "w") as fh:
             fh.write(table + f"\n\noutcomes: {counts}\n")
     errors = counts[PATCH_ERROR] + counts[BUILD_ERROR] + counts[HARNESS_ERROR] + counts[TIMEOUT]

@@ -2,6 +2,7 @@
 """Tiered gate runner: FAST (inner loop), PR (the mandatory per-slice gates), MILESTONE (PR + full mutants + fuzzers).
 
   python3.12 tools/gates/gates.py fast|pr|milestone [--base REF] [--no-reuse] [--list]
+                                  [--max-mutants N] [--max-minutes M] [--authorize-full-mutants]   (MILESTONE mutants, see mutant_runner.py)
 
 Three rules, none of which weakens a gate:
   * Evidence reuse by content: a gate that already passed is not re-run only when the git tree ids of every path it reads,
@@ -65,7 +66,7 @@ PARITY_INPUTS = RUST_INPUTS + ("cases", "tools/parity", "oracle")
 FUZZ_COUNTS = [("fuzz_diff.py", 100000), ("fuzz_scenarios.py", 1500), ("fuzz_tell.py", 1000), ("fuzz_hier.py", 1000)]
 
 
-def tier_gates(tier, selected_mutants):
+def tier_gates(tier, selected_mutants, mutant_args=()):
     fast = [
         Gate("fmt", ["cargo", "fmt", "--all", "--check"], RUST_INPUTS),
         Gate("package-check", [PY, "tools/package/check.py"], ("docs", "tools/package", "crates", "tools", "oracle", "AGENTS.md")),
@@ -84,7 +85,8 @@ def tier_gates(tier, selected_mutants):
         return fast
     if tier == "pr":
         return fast + pr_extra + [mutants]
-    full_mutants = Gate("mutants", [PY, "tools/parity/check_divergence.py"], PARITY_INPUTS)
+    # budgeted + resumable (tools/gates/mutant_runner.py): never all 206 without --authorize-full-mutants
+    full_mutants = Gate("mutants", [PY, "tools/gates/mutant_runner.py", *mutant_args], PARITY_INPUTS)
     fuzz = [Gate("fuzz-" + s[5:-3], [PY, "-u", f"tools/parity/{s}", "--count", str(n), "--seed", str(seed)], PARITY_INPUTS)
             for s, n in FUZZ_COUNTS for seed in (1, 2, 3)]
     return fast + pr_extra + [full_mutants] + fuzz
@@ -138,7 +140,12 @@ def main(argv):
         sys.path.insert(0, os.path.join(ROOT, "tools", "parity"))
         import check_divergence
         selected = select_mutants(changed_files(base), check_divergence.MUTANTS, check_divergence.TOOL_MUTANTS)
-    gates = tier_gates(tiers[0], selected)
+    mutant_args = []
+    for flag in ("--max-mutants", "--max-minutes", "--base"):
+        if flag in argv:
+            mutant_args += [flag, argv[argv.index(flag) + 1]]
+    mutant_args += [f for f in ("--authorize-full-mutants", "--no-fast-kill") if f in argv]
+    gates = tier_gates(tiers[0], selected, mutant_args)
     if "--list" in argv:
         for g in gates:
             print(g.name, " ".join(g.command) if not g.skip_reason else f"(skip: {g.skip_reason})")
