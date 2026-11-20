@@ -11,6 +11,7 @@ mod actor_system_setup_cases;
 mod bytes_cases;
 mod config_hocon_cases;
 mod config_settings_cases;
+mod deploy_cases;
 mod dynamic_access_cases;
 mod fronteras_cases;
 mod json;
@@ -150,6 +151,13 @@ fn main() -> ExitCode {
         "actor-system-setup-case" => {
             return oracle_case(&mut out, &input, actor_system_setup_cases::rust_lines());
         }
+        "deploy-ids" => print_ids(&mut out, deploy_cases::rust_lines()),
+        "deploy-all" => {
+            for (_, line) in deploy_cases::rust_lines() {
+                writeln!(out, "{line}").ok();
+            }
+        }
+        "deploy-case" => return oracle_case(&mut out, &input, deploy_cases::rust_lines()),
         "config-settings-ids" => print_ids(&mut out, config_settings_cases::rust_lines()),
         "config-settings-all" => {
             for (_, line) in config_settings_cases::rust_lines() {

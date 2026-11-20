@@ -1,0 +1,44 @@
+{"name": "dp-0001", "args": ["deploy-case"], "stdin": "DP-01 Deploy() has the defaults"}
+{"name": "dp-0002", "args": ["deploy-case"], "stdin": "DP-02 Deploy.local has the local scope"}
+{"name": "dp-0003", "args": ["deploy-case"], "stdin": "DP-03 the fields are kept as given"}
+{"name": "dp-0004", "args": ["deploy-case"], "stdin": "DP-04 withTags keeps the other fields"}
+{"name": "dp-0005", "args": ["deploy-case"], "stdin": "DP-05 equal when the seven fields are equal"}
+{"name": "dp-0006", "args": ["deploy-case"], "stdin": "DP-06 different path"}
+{"name": "dp-0007", "args": ["deploy-case"], "stdin": "DP-07 different dispatcher"}
+{"name": "dp-0008", "args": ["deploy-case"], "stdin": "DP-08 different mailbox"}
+{"name": "dp-0009", "args": ["deploy-case"], "stdin": "DP-09 different scope"}
+{"name": "dp-0010", "args": ["deploy-case"], "stdin": "DP-10 different router"}
+{"name": "dp-0011", "args": ["deploy-case"], "stdin": "DP-11 different tags"}
+{"name": "dp-0012", "args": ["deploy-case"], "stdin": "DP-12 same tags"}
+{"name": "dp-0013", "args": ["deploy-case"], "stdin": "DP-13 different configuration"}
+{"name": "dp-0014", "args": ["deploy-case"], "stdin": "DP-14 same configuration from other text"}
+{"name": "dp-0015", "args": ["deploy-case"], "stdin": "DP-15 same configuration written as a path or as an object"}
+{"name": "dp-0016", "args": ["deploy-case"], "stdin": "DP-16 the whole number 1 equals 1.0"}
+{"name": "dp-0017", "args": ["deploy-case"], "stdin": "DP-17 the number 1.5 does not equal the string 1.5"}
+{"name": "dp-0018", "args": ["deploy-case"], "stdin": "DP-18 lists of the same elements"}
+{"name": "dp-0019", "args": ["deploy-case"], "stdin": "DP-19 lists in another order"}
+{"name": "dp-0020", "args": ["deploy-case"], "stdin": "DP-20 an empty object is not a missing key"}
+{"name": "dp-0021", "args": ["deploy-case"], "stdin": "DP-21 one more key in the other configuration"}
+{"name": "dp-0022", "args": ["deploy-case"], "stdin": "FB-01 the path of the receiver is kept"}
+{"name": "dp-0023", "args": ["deploy-case"], "stdin": "FB-02 an empty path of the receiver is kept"}
+{"name": "dp-0024", "args": ["deploy-case"], "stdin": "FB-03 the configuration of the receiver wins and the rest is merged"}
+{"name": "dp-0025", "args": ["deploy-case"], "stdin": "FB-04 a given dispatcher wins"}
+{"name": "dp-0026", "args": ["deploy-case"], "stdin": "FB-05 an empty dispatcher takes the other one"}
+{"name": "dp-0027", "args": ["deploy-case"], "stdin": "FB-06 two empty dispatchers stay empty"}
+{"name": "dp-0028", "args": ["deploy-case"], "stdin": "FB-07 a given mailbox wins"}
+{"name": "dp-0029", "args": ["deploy-case"], "stdin": "FB-08 an empty mailbox takes the other one"}
+{"name": "dp-0030", "args": ["deploy-case"], "stdin": "FB-09 dispatcher and mailbox are decided one by one"}
+{"name": "dp-0031", "args": ["deploy-case"], "stdin": "FB-10 the tags are not carried"}
+{"name": "dp-0032", "args": ["deploy-case"], "stdin": "FB-11 the scope of the receiver wins when it is local"}
+{"name": "dp-0033", "args": ["deploy-case"], "stdin": "FB-12 no scope given takes the scope of the other"}
+{"name": "dp-0034", "args": ["deploy-case"], "stdin": "FB-13 the router of the receiver wins"}
+{"name": "dp-0035", "args": ["deploy-case"], "stdin": "FB-14 no router takes the router of the other"}
+{"name": "dp-0036", "args": ["deploy-case"], "stdin": "FB-15 chained fallbacks"}
+{"name": "dp-0037", "args": ["deploy-case"], "stdin": "SC-01 local keeps itself over no scope given"}
+{"name": "dp-0038", "args": ["deploy-case"], "stdin": "SC-02 local keeps itself over local"}
+{"name": "dp-0039", "args": ["deploy-case"], "stdin": "SC-03 no scope given takes local"}
+{"name": "dp-0040", "args": ["deploy-case"], "stdin": "SC-04 no scope given over no scope given"}
+{"name": "dp-0041", "args": ["deploy-case"], "stdin": "RT-01 no router takes a router"}
+{"name": "dp-0042", "args": ["deploy-case"], "stdin": "RT-02 a router over no router"}
+{"name": "dp-0043", "args": ["deploy-case"], "stdin": "RT-03 no router over no router"}
+{"name": "dp-0044", "args": ["deploy-case"], "stdin": "RT-04 a router over another router keeps its class"}

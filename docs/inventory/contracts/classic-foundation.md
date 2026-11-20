@@ -3139,11 +3139,13 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 - A2 dispatcher/mailbox sólo se rellenan cuando la config los define: DeployerSpec.scala:114-142.
 - A3 `withFallback` pierde los tags: NO afirmada por spec; hallazgo del código Deployer.scala:109-117 (los tags de `this` no se copian al resultado).
 
-**Oráculo.** No aplica.
+**Oráculo.** Sí: `oracle/run.sh deploy-ids|deploy-all|deploy-case` (`DeployOracle.java`, 44 ids `DP`/`FB`/`SC`/`RT`): valores por defecto, igualdad de los siete campos, `Deploy.withFallback`, `Scope.withFallback` y `RouterConfig.withFallback` de `NoRouter`. Un router se imprime solo por su clase; `toString` no se graba (Q-CFG-35, propuesta).
 
-**Decisiones.** Q-CFG-12
+**Decisiones.** Q-CFG-12, Q-CFG-35 (propuesta)
 
 
+
+**Actualización P10 PR 1 (2026-11-20, Pekko 2.0.0).** Rust: `actor::{Deploy, Scope, RouterConfig}` (`actor/deploy.rs`) y `Config::same_value` / `Config::render_concise`. `Scope` solo tiene `Local` y `NoScopeGiven` (`#[non_exhaustive]`): ningún consumidor define otro scope en el módulo actor, así que no hay objeto de rasgo; se añadirá cuando exista el consumidor (scope remoto). `RouterConfig` tiene `NoRouter` y un router solo nombrado (`Opaque`); la fusión de dos pools reales (`overrideUnsetConfig`) y su `toString` son del módulo de routing (P37). La igualdad de `Deploy` compara la configuración por valores (`Config.equals` ignora el origen y el texto, y `1` es igual a `1.0`), no con `PartialEq` derivado, que incluye la línea de origen. 44 casos `dp-0001..dp-0044` grabados contra Pekko 2.0.0 y 9 + 2 tests unitarios: A1, A2 y A3 cubiertas. Queda `partial`: Q-CFG-35 (propuesta: `toString`); la fusión de pools reales y el `toString` del router (P37); y la integración con `Props.deploy` y el merge de `AC-SYS-016` (el sistema aún no existe).
 ---
 
 ## AC-CFG-014 — pekko.actor.router.type-mapping (alias de routers)

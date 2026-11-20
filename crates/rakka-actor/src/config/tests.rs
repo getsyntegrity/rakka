@@ -644,3 +644,42 @@ fn fractional_sizes_are_exact_and_range_errors_show_the_exact_product() {
     assert!(message("1e B").ends_with("Could not parse size-in-bytes number '1e'"));
     assert!(message("NaN B").ends_with("Could not parse size-in-bytes number 'NaN'"));
 }
+
+/// `Config.equals` compares values, not the text or the line they came from; the expected results are the ones the
+/// oracle printed for the same pairs.
+#[test]
+fn two_configurations_with_the_same_values_are_the_same_whatever_their_text() {
+    let same = |a: &str, b: &str| p(a).same_value(&p(b));
+    assert!(same("x = 1", "\n\n  x = 1  "));
+    assert!(same("a.b = 1", "a { b = 1 }"));
+    assert!(same("x = [1, 2]", "x = [1,2]"));
+    assert!(same("x = 1", "x = 1.0"));
+    assert!(same("x = 2.0", "x = 2"));
+    assert!(!same("x = 1", "x = 2"));
+    assert!(!same("x = 1.5", "x = \"1.5\""));
+    assert!(!same("x = 1.5", "x = 1.25"));
+    assert!(!same("x = [1, 2]", "x = [2, 1]"));
+    assert!(!same("x = [1, 2]", "x = [1, 2, 3]"));
+    assert!(!same("x = {}", ""));
+    assert!(!same("a = 1", "b = 1"));
+    assert!(!same("x = null", "x = 1"));
+    assert!(same("x = null", "x = null"));
+    assert!(same("x = 1.5", "x = 1.5"));
+    assert!(same("x = 1.0", "x = 1.0"));
+    assert!(same("x = 1", "x = 1"));
+    assert!(!same("x = 1.0", "x = 1.5"));
+    assert!(!same("x = 1.5", "x = 1.0"));
+    assert!(!same("x = 2.0", "x = 1"));
+    assert!(!same("x = 1.5", "x = 1"));
+    assert!(!same("x = 1.0", "x = 2.0"));
+    assert!(same("a { b { c = true } }", "a.b.c = true"));
+}
+
+#[test]
+fn a_whole_configuration_renders_as_compact_sorted_text() {
+    assert_eq!(Config::empty().render_concise(), "{}");
+    assert_eq!(
+        p("y = \"s\"\nx = 1\nn { b = [1, 2], a = true }").render_concise(),
+        "{\"n\":{\"a\":true,\"b\":[1,2]},\"x\":1,\"y\":\"s\"}"
+    );
+}

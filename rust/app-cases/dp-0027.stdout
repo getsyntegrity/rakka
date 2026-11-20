@@ -1,0 +1,1 @@
+FB-06 two empty dispatchers stay empty -> ok path="/a" config={} router=NoRouter scope=NoScopeGiven dispatcher="" mailbox="" tags=[]

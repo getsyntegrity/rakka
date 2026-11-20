@@ -1,0 +1,1 @@
+FB-08 an empty mailbox takes the other one -> ok path="/a" config={} router=NoRouter scope=NoScopeGiven dispatcher="" mailbox="theirs" tags=[]

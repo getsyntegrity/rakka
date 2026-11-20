@@ -73,3 +73,8 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
 |---|---|---|---|---|
 | Q-X-19 — Fijar el oráculo en JDK 21 (o 25 LTS) y regrabar todo el corpus, para dejar de mezclar JDK 17 y 21 | (b) pasar todo a JDK 21 y regrabar (alternativas: (a) seguir en 17 con excepciones por familia; (c) JDK 25 LTS) | Los esperados que dependen de la JDK pueden cambiar al regrabar; el corpus deja de mezclar JDK 17 y 21 | #266 (77 casos regrabados con JDK 21: 70 idénticos, 7 distintos), Q-CFG-30 (render de doubles de JDK 19+), Q-X-16 | Una regrabación completa puede mover esperados que hoy pasan; hay que revisar cada diferencia contra la fuente de Pekko 2.0.0 antes de aceptarla |
+
+### P10 CFG-DEPLOY (AC-CFG-013, AC-CFG-012.2, AC-CFG-012.1)
+| Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
+|---|---|---|---|---|
+| Q-CFG-35 — `toString` de `Deploy`: formato de `Config.toString`, orden de los tags y texto del router | (a) `Display` con el formato exacto de Pekko (claves ordenadas, tags en orden de inserción hasta 4 y ordenados desde 5, router por nombre de clase hasta P37) | `toString` de un `Deploy` coincide con Pekko salvo con más de 4 tags y con routers reales | `Deployer.scala:163`; medido en la JVM: `Deploy(/a, Config(SimpleConfigObject({"a":5,...})), NoRouter, NoScopeGiven, , , Set())`, claves ordenadas, JDK 17 y 27 idénticos | Un texto distinto en un mensaje de diagnóstico; no afecta a los datos |

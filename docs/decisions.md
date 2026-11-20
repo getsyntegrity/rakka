@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 243 decisiones: 0 bloqueantes, 180 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 244 decisiones: 0 bloqueantes, 181 propuestas, 50 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -476,6 +476,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) Reproducir el comportamiento de Pekko 2.0.0 (Q-X-11): un `Custom` del setup acaba como la clase `custom`; el código lleva un comentario que lo marca como paridad deliberada. (b) Conservar el FQCN del `Custom` del setup (corrige el bug; es una diferencia deliberada con Pekko que el oráculo no confirma).
 - **Recomendación:** (a). Clasificación: comportamiento observable (bug de Pekko reproducido). Consecuencia: un proveedor personalizado solo es utilizable por configuración de texto, no por `BootstrapSetup`, como en Pekko 2.0.0. Bloquea: el cierre de AC-CFG-015 y AC-CFG-008 (quedan partial); puede avanzar: el resto. Reversible.
 - **Filas afectadas:** AC-CFG-015;AC-CFG-008
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+
+### Q-CFG-35 — `toString` de `Deploy`: formato de `Config.toString`, orden de los tags y texto del router
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** `Deploy.toString = s"Deploy($path, $config, $routerConfig, $scope, $dispatcher, $mailbox, $tags)"` (Deployer.scala:163). Medido en la JVM (sonda fuera del corpus, JDK 17 y JDK 27 idénticos): `Deploy(/a, Config(SimpleConfigObject({"a":5,"apple":2,"b":4,"mango":3,"zebra":1})), NoRouter, NoScopeGiven, , , Set())`; las claves de la configuración salen ordenadas (no dependen de un HashMap), con la forma `Config(SimpleConfigObject(` + render conciso + `))`. Lo que sí no es determinista o no es de este crate: (1) los `tags` son un `Set` de Scala, que con más de 4 elementos sale en orden de hash; (2) el texto de un router real (`RoundRobinPool(...)`) lo define el módulo de routing (P37); (3) el texto de los scopes. Hoy `Deploy` solo tiene `Debug`; ningún caso graba `toString`. Una versión anterior de este plan atribuyó el problema al orden de claves de la JVM: no es cierto, lo desmiente la medición.
+- **Alternativas:** (a) `Display` con el formato exacto de Pekko, claves ordenadas, tags en orden de inserción hasta 4 y ordenados desde 5 (divergencia documentada), router por su nombre de clase hasta P37. (b) No implementar `Display`: `toString` queda fuera del contrato de Rust y se documenta. (c) `Display` propio y legible, sin pretender el formato de Pekko.
+- **Recomendación:** (a). Clasificación: texto de diagnóstico, no comportamiento de datos. Consecuencia: `toString` solo se compara en los casos con config, router y tags deterministas; AC-CFG-013 queda `partial` hasta que el Owner decida. Bloquea: el cierre de AC-CFG-013; puede avanzar: todo el comportamiento de datos. Reversible.
+- **Filas afectadas:** AC-CFG-013
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 

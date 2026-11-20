@@ -992,6 +992,73 @@ MUTANTS = {
         'Some(selection) => selection.fqcn().to_owned(),',
         "a custom provider of the setup keeps its class name (Pekko 2.0.0 reads it through its identifier, so it becomes `custom`)",
     ),
+    # --- slice P10 (AC-CFG-013): Deploy, Scope and the router slot ---
+    "deploy-fallback-prefers-the-other-dispatcher": (
+        "src/actor/deploy.rs",
+        "dispatcher: if self.dispatcher == NO_DISPATCHER_GIVEN {\n                other.dispatcher.clone()\n            } else {\n                self.dispatcher.clone()\n            },",
+        "dispatcher: other.dispatcher.clone(),",
+        "withFallback takes the dispatcher of the other deploy even when the receiver names one",
+    ),
+    "deploy-fallback-never-takes-the-other-mailbox": (
+        "src/actor/deploy.rs",
+        "mailbox: if self.mailbox == NO_MAILBOX_GIVEN {\n                other.mailbox.clone()\n            } else {\n                self.mailbox.clone()\n            },",
+        "mailbox: self.mailbox.clone(),",
+        "withFallback keeps an empty mailbox instead of taking the one of the other deploy",
+    ),
+    "deploy-fallback-takes-the-path-of-the-other": (
+        "src/actor/deploy.rs",
+        "path: self.path.clone(),\n            config: self.config.with_fallback(&other.config),",
+        "path: other.path.clone(),\n            config: self.config.with_fallback(&other.config),",
+        "withFallback takes the path of the other deploy instead of keeping its own",
+    ),
+    "deploy-fallback-keeps-the-tags": (
+        "src/actor/deploy.rs",
+        "            },\n            tags: BTreeSet::new(),\n        }",
+        "            },\n            tags: self.tags.clone(),\n        }",
+        "withFallback carries the tags of the receiver, which Pekko drops",
+    ),
+    "local-scope-lets-the-other-win": (
+        "src/actor/deploy.rs",
+        "Scope::Local => Scope::Local,",
+        "Scope::Local => other.clone(),",
+        "LocalScope.withFallback returns the other scope instead of itself",
+    ),
+    "no-scope-given-keeps-itself": (
+        "src/actor/deploy.rs",
+        "Scope::NoScopeGiven => other.clone(),",
+        "Scope::NoScopeGiven => Scope::NoScopeGiven,",
+        "NoScopeGiven.withFallback returns itself instead of the other scope",
+    ),
+    "no-router-keeps-itself": (
+        "src/actor/deploy.rs",
+        "RouterConfig::NoRouter => other.clone(),",
+        "RouterConfig::NoRouter => RouterConfig::NoRouter,",
+        "NoRouter.withFallback returns itself instead of the other router",
+    ),
+    "router-takes-the-other-router": (
+        "src/actor/deploy.rs",
+        "RouterConfig::Opaque(_) => self.clone(),",
+        "RouterConfig::Opaque(_) => other.clone(),",
+        "a router.withFallback returns the other router instead of itself",
+    ),
+    "deploy-equality-compares-the-text-of-the-configuration": (
+        "src/actor/deploy.rs",
+        "self.config.same_value(&other.config)",
+        "self.config == other.config",
+        "two deploys whose configuration was read from different text are not equal",
+    ),
+    "config-equality-compares-numbers-by-their-text": (
+        "src/config/mod.rs",
+        "whole(*f) && *f as i64 == *x",
+        "false",
+        "the whole number 1 and 1.0 are not the same configuration value",
+    ),
+    "config-equality-ignores-the-extra-keys-of-the-other": (
+        "src/config/mod.rs",
+        "    a.len() == b.len()\n        && a.iter()",
+        "    a.iter()",
+        "a configuration equals another one that has more keys",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

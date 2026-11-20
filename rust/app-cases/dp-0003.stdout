@@ -1,0 +1,1 @@
+DP-03 the fields are kept as given -> ok path="/user/a" config={"x":1,"y":"s"} router=RoundRobinPool scope=Local dispatcher="my-dispatcher" mailbox="my-mailbox" tags=[]

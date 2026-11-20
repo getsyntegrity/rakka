@@ -2077,3 +2077,47 @@ as-0038	actor-system-setup	PR-07 a BootstrapSetup with only a config keeps the c
 as-0039	actor-system-setup	PR-08 other setups do not affect the provider
 as-0040	actor-system-setup	PR-09 the setup is available from Settings.setup
 as-0041	actor-system-setup	PR-10 Settings without a setup has an empty one
+dp-0001	deploy	DP-01 Deploy() has the defaults
+dp-0002	deploy	DP-02 Deploy.local has the local scope
+dp-0003	deploy	DP-03 the fields are kept as given
+dp-0004	deploy	DP-04 withTags keeps the other fields
+dp-0005	deploy	DP-05 equal when the seven fields are equal
+dp-0006	deploy	DP-06 different path
+dp-0007	deploy	DP-07 different dispatcher
+dp-0008	deploy	DP-08 different mailbox
+dp-0009	deploy	DP-09 different scope
+dp-0010	deploy	DP-10 different router
+dp-0011	deploy	DP-11 different tags
+dp-0012	deploy	DP-12 same tags
+dp-0013	deploy	DP-13 different configuration
+dp-0014	deploy	DP-14 same configuration from other text
+dp-0015	deploy	DP-15 same configuration written as a path or as an object
+dp-0016	deploy	DP-16 the whole number 1 equals 1.0
+dp-0017	deploy	DP-17 the number 1.5 does not equal the string 1.5
+dp-0018	deploy	DP-18 lists of the same elements
+dp-0019	deploy	DP-19 lists in another order
+dp-0020	deploy	DP-20 an empty object is not a missing key
+dp-0021	deploy	DP-21 one more key in the other configuration
+dp-0022	deploy	FB-01 the path of the receiver is kept
+dp-0023	deploy	FB-02 an empty path of the receiver is kept
+dp-0024	deploy	FB-03 the configuration of the receiver wins and the rest is merged
+dp-0025	deploy	FB-04 a given dispatcher wins
+dp-0026	deploy	FB-05 an empty dispatcher takes the other one
+dp-0027	deploy	FB-06 two empty dispatchers stay empty
+dp-0028	deploy	FB-07 a given mailbox wins
+dp-0029	deploy	FB-08 an empty mailbox takes the other one
+dp-0030	deploy	FB-09 dispatcher and mailbox are decided one by one
+dp-0031	deploy	FB-10 the tags are not carried
+dp-0032	deploy	FB-11 the scope of the receiver wins when it is local
+dp-0033	deploy	FB-12 no scope given takes the scope of the other
+dp-0034	deploy	FB-13 the router of the receiver wins
+dp-0035	deploy	FB-14 no router takes the router of the other
+dp-0036	deploy	FB-15 chained fallbacks
+dp-0037	deploy	SC-01 local keeps itself over no scope given
+dp-0038	deploy	SC-02 local keeps itself over local
+dp-0039	deploy	SC-03 no scope given takes local
+dp-0040	deploy	SC-04 no scope given over no scope given
+dp-0041	deploy	RT-01 no router takes a router
+dp-0042	deploy	RT-02 a router over no router
+dp-0043	deploy	RT-03 no router over no router
+dp-0044	deploy	RT-04 a router over another router keeps its class

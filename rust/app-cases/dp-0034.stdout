@@ -1,0 +1,1 @@
+FB-13 the router of the receiver wins -> ok path="/a" config={} router=RoundRobinPool scope=NoScopeGiven dispatcher="" mailbox="" tags=[]

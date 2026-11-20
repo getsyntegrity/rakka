@@ -186,7 +186,7 @@ impl Settings {
         // (ActorSystem.scala:410-414): a setup's selection is read through its identifier, so a custom provider of the setup
         // becomes the class name "custom".
         // reproduce Pekko 2.0.0: Custom tiene identifier "custom" y Settings lee .identifier del setup (ActorSystem.scala:118,
-        // 411-417); ProviderClass queda "custom" (Q-CFG-34)
+        // 411-417); ProviderClass queda "custom"
         let provider_identifier = match setup
             .get::<BootstrapSetup>()
             .and_then(BootstrapSetup::actor_ref_provider)

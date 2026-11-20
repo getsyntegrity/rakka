@@ -1,0 +1,44 @@
+DP-01 Deploy() has the defaults
+DP-02 Deploy.local has the local scope
+DP-03 the fields are kept as given
+DP-04 withTags keeps the other fields
+DP-05 equal when the seven fields are equal
+DP-06 different path
+DP-07 different dispatcher
+DP-08 different mailbox
+DP-09 different scope
+DP-10 different router
+DP-11 different tags
+DP-12 same tags
+DP-13 different configuration
+DP-14 same configuration from other text
+DP-15 same configuration written as a path or as an object
+DP-16 the whole number 1 equals 1.0
+DP-17 the number 1.5 does not equal the string 1.5
+DP-18 lists of the same elements
+DP-19 lists in another order
+DP-20 an empty object is not a missing key
+DP-21 one more key in the other configuration
+FB-01 the path of the receiver is kept
+FB-02 an empty path of the receiver is kept
+FB-03 the configuration of the receiver wins and the rest is merged
+FB-04 a given dispatcher wins
+FB-05 an empty dispatcher takes the other one
+FB-06 two empty dispatchers stay empty
+FB-07 a given mailbox wins
+FB-08 an empty mailbox takes the other one
+FB-09 dispatcher and mailbox are decided one by one
+FB-10 the tags are not carried
+FB-11 the scope of the receiver wins when it is local
+FB-12 no scope given takes the scope of the other
+FB-13 the router of the receiver wins
+FB-14 no router takes the router of the other
+FB-15 chained fallbacks
+SC-01 local keeps itself over no scope given
+SC-02 local keeps itself over local
+SC-03 no scope given takes local
+SC-04 no scope given over no scope given
+RT-01 no router takes a router
+RT-02 a router over no router
+RT-03 no router over no router
+RT-04 a router over another router keeps its class
