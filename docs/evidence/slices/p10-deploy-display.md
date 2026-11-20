@@ -18,3 +18,19 @@ render-keys-sort-as-plain-strings, render-numeric-keys-compare-as-text, render-s
 - Router: se imprime el nombre de clase dado; Pekko imprime el `toString` del router real (P37). Solo hay casos con `NoRouter`.
 - `Scope` solo tiene `Local` y `NoScopeGiven`. Un surrogate suelto en una clave queda fuera del dominio `&str` (Q-X-17).
 - El orden de `HashSet` de los tags asume el mismo trie que `HashMap` (medido: TS-16..18 coinciden).
+
+## Divergencias abiertas halladas por la revisión independiente (HEAD 4d62b3f)
+
+El corpus grabado (79 casos) coincide, pero el revisor encontró, con unas 160 entradas propias contra el `Deploy.toString` real, diferencias que **bloquean el merge**. Siguen sin corregir y no están aceptadas:
+
+- **D1** Claves de igual valor numérico (`"7"` y `"007"`): Pekko desempata por el orden de iteración de su `HashMap`, Rust alfabéticamente. Depende del mismo emulador de `HashMap` de Java que PR-D.
+- **D2** Concatenación de escalares no string con espacios (`a = 1.50 ${x}`, `1e2`, `0x10`, `true  `, `null`): Pekko convierte el escalar a su texto original y lo une al espacio (`"1.50 "${x}`); Rust imprime el valor tipado y un `" "` aparte.
+- **D3** Listas u objetos adyacentes en una concatenación (`[1] [2] ${x}`): Pekko los fusiona y descarta el espacio (`[1,2]${x}`); Rust conserva las piezas.
+- **D4** Cita de los elementos de una ruta de sustitución (`${1}`, `${a.007}`, `${a.-1}`, `${true}`): Pekko no cita lo que empieza por dígito o `-`; Rust sí (`Subst::display`).
+- **D5** (parser) `${"a\"b"}` da error en Rust; `a=[1] x` da error en Rust y `{"a":[1]}` en Pekko; `a=1 [2] ${x}` da WrongType en Pekko y `ok` en Rust.
+- **D6** (Q-X-17) Un surrogate suelto en un valor (no solo en una clave) se lee como U+FFFD.
+- Sin mutante: el manejo de dígitos Unicode en `compare_render_keys` y el desempate D1.
+- `with_tags` con un `HashSet` da orden no determinista para 2 a 4 tags; en Pekko el orden depende de cómo se construyó el `Set`.
+- Cobertura: el criterio es por crate (98,38 %); `config/parse.rs` aislado está en 93,6 %.
+
+Por tanto este PR **no** afirma que `render_concise` sea equivalente a Typesafe Config 1.4.9; solo que lo es en los 79 casos del corpus y en las entradas que el revisor comprobó igual. Las correcciones de D2 a D4 y el nuevo corpus van en commits siguientes de este mismo PR.
