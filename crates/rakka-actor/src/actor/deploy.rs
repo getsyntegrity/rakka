@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/Deployer.scala (Apache-2.0).
 //! `Deploy` and `Scope`: the final, combinable description of how an actor is deployed
-//! (`Deployer.scala:28-205`), and the router slot it carries.
+//! (`Deployer.scala:28-164` and `:173-220`), and the router slot it carries.
 
 use std::collections::BTreeSet;
 
@@ -33,8 +33,11 @@ impl Scope {
 }
 
 /// The router of a [`Deploy`]. Only what the deployer needs to carry a router around: no router (`NoRouter`, the
-/// default and what `from-code` means) or a router that is named but not built here.
+/// default and what `from-code` means) or a router that is named but not built here. Two named routers are equal when
+/// their class names are, whatever their settings: comparing real routers is the job of the routing module, which will
+/// replace the named router (hence `non_exhaustive`).
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RouterConfig {
     /// `NoRouter`.
     NoRouter,

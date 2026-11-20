@@ -55,6 +55,7 @@ fn router(r: &RouterConfig) -> String {
     match r {
         RouterConfig::NoRouter => "NoRouter".to_owned(),
         RouterConfig::Opaque(class_name) => class_name.clone(),
+        _ => "other".to_owned(),
     }
 }
 

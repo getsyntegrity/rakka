@@ -8,9 +8,9 @@ Fila: AC-CFG-013. **Resultado: `partial`, validación `oracle`** (antes `pending
 
 ## Contrato y citas de Pekko 2.0.0
 
-`Deployer.scala:28-155` (`Deploy`, `withFallback` en `:104-112`, igualdad en `:134-147`), `:157-205` (`Scope`, `LocalScope`, `NoScopeGiven`), `RouterConfig.scala:94` y `:373` (`withFallback` por defecto y el de `NoRouter`). Specs: `DeployerSpec.scala:93-142` (el `Deploy` leído de la configuración; es del PR 3).
+`Deployer.scala:28-164` (`Deploy`, `withFallback` en `:109-117`, igualdad en `:146-156`, `toString` en `:163`), `:173-220` (`Scope`, `LocalScope`, `NoScopeGiven`), `RouterConfig.scala:94` y `:373` (`withFallback` por defecto y el de `NoRouter`). Specs: `DeployerSpec.scala:93-142` (el `Deploy` leído de la configuración; es del PR 3).
 
-Dos hallazgos del contrato verificados en el código de 2.0.0: (1) `withFallback` no copia los `tags` (`Deployer.scala:105-112`; el contrato decía `:109-117`); (2) el `path` del resultado es el de `this`.
+Dos hallazgos del contrato verificados en el código de 2.0.0: (1) `withFallback` no copia los `tags` (`Deployer.scala:109-117`, como cita el contrato); (2) el `path` del resultado es el de `this`.
 
 ## Decisiones de diseño
 
@@ -90,4 +90,16 @@ Q-CFG-35 (`proposed`): `toString` de `Deploy`. Ninguna decisión aceptada se mod
 
 ## Límites conocidos
 
-Un router se compara solo por su clase. `Pool.withFallback(Pool)` (que fusiona resizer, estrategia de supervisión y dispatcher) no está cubierto: Rust devuelve el receptor y el oráculo se imprime por clase, así que esa fusión queda sin verificar hasta P37.
+Un router se compara solo por su clase, también en la igualdad de `Deploy` (dos pools de la misma clase con otros ajustes son iguales en Rust y distintos en Pekko; los casos del oráculo solo distinguen clases). `Config::render_concise` muestra un valor sin resolver como `"<unresolved>"` donde Pekko muestra la sustitución (`${y}`), y `Config::same_value` está pensado para configuraciones resueltas. `Pool.withFallback(Pool)` (que fusiona resizer, estrategia de supervisión y dispatcher) no está cubierto: Rust devuelve el receptor y el oráculo se imprime por clase, así que esa fusión queda sin verificar hasta P37.
+
+## Revisión posterior (diferenciales fuera del corpus)
+
+Sondas contra el jar de Typesafe Config 1.4.9 (JDK 17), con un programa Java y un binario Rust de usar y tirar fuera del repositorio: `Config::same_value` frente a `Config.equals` en 43 pares (nulls, `-0.0` y `0`, `1e2` y `100`, enteros extremos frente a su decimal, claves duplicadas y fusionadas, listas, objetos vacíos, claves extra): **43/43 iguales**. `Config::render_concise` frente a `root().render(concise)` en 29 configuraciones (números, escapes, unicode, caracteres de control, claves con espacios y puntos, orden de claves): **29/29 iguales**. Única diferencia hallada: valores sin resolver (arriba). Esos pares no están grabados en el corpus.
+
+## Valores sin resolver (`${y}` frente a `"<unresolved>"`): clasificación
+
+**Fuera del contrato de AC-CFG-013** (un `Deploy` no renderiza su configuración y los casos del corpus solo usan configuraciones resueltas) y **pendiente de decisión del Owner**: ninguna decisión lo nombra. Q-CFG-4 (aceptada) dice "render sin exigir igualdad textual" para el render de `Config`, pero no trata los valores sin resolver; no se declara cubierta ni aceptada. Hoy está documentada en el comentario de `Config::render_concise` y de `Config::same_value`.
+
+## Repetición de mutantes tras la revisión
+
+Tras la revisión (citas corregidas, `RouterConfig` marcado `non_exhaustive` y comentarios) se repitieron los dos mutantes que tocan esa definición, `no-router-keeps-itself` y `router-takes-the-other-router`: DETECTED (2710/2712 y 2709/2712), control CLEAN **2712/2712 aplicables + 1 NA**. Los otros 9 no se repitieron: el cambio no altera su comportamiento.

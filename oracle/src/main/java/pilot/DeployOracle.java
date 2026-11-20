@@ -16,7 +16,7 @@ import org.apache.pekko.routing.RouterConfig;
 
 /**
  * Oracle for unit P10, row AC-CFG-013 (Deploy, Scope, LocalScope, NoScopeGiven and withFallback): what the real classes of
- * Apache Pekko 2.0.0 do (Deployer.scala:28-205, RouterConfig.scala:94,373). A router is printed by its class only
+ * Apache Pekko 2.0.0 do (Deployer.scala:28-164 and 173-220, RouterConfig.scala:94,373). A router is printed by its class only
  * (the merge of two real pools belongs to the routing module); {@code toString} of a Deploy is not recorded.
  *
  * Output contract (one deterministic line per case): {@code <CASE-ID> -> ok <result>} or {@code <CASE-ID> -> ERR <Exception> [<message>]}.
@@ -84,13 +84,13 @@ final class DeployOracle {
   private static void register() {
     if (registered) return;
     registered = true;
-    // Deployer.scala:28-47, 62-70
+    // Deployer.scala:28-50, 68-75
     run("DP-01 Deploy() has the defaults", () -> show(Deploy.apply("", ConfigFactory.empty(), NO_ROUTER, NO_SCOPE, "", "")));
     run("DP-02 Deploy.local has the local scope", () -> show(Deploy.local()));
     run("DP-03 the fields are kept as given", () ->
         show(deploy("/user/a", "x = 1, y = \"s\"", new RoundRobinPool(1), LOCAL, "my-dispatcher", "my-mailbox")));
     run("DP-04 withTags keeps the other fields", () -> show(plain("/a", "d", "m").withTags(tags("t2", "t1"))));
-    // Deployer.scala:134-147 (equality over the seven fields)
+    // Deployer.scala:146-156 (equality over the seven fields)
     run("DP-05 equal when the seven fields are equal", () ->
         String.valueOf(deploy("/a", "x = 1", new RandomPool(1), LOCAL, "d", "m").equals(deploy("/a", "x = 1", new RandomPool(1), LOCAL, "d", "m"))));
     run("DP-06 different path", () -> String.valueOf(plain("/a", "", "").equals(plain("/b", "", ""))));
@@ -120,7 +120,7 @@ final class DeployOracle {
         String.valueOf(deploy("/a", "x = {}", NO_ROUTER, NO_SCOPE, "", "").equals(deploy("/a", "", NO_ROUTER, NO_SCOPE, "", ""))));
     run("DP-21 one more key in the other configuration", () ->
         String.valueOf(deploy("/a", "x = 1", NO_ROUTER, NO_SCOPE, "", "").equals(deploy("/a", "x = 1, y = 2", NO_ROUTER, NO_SCOPE, "", ""))));
-    // Deployer.scala:104-112
+    // Deployer.scala:109-117
     run("FB-01 the path of the receiver is kept", () -> show(plain("/a", "", "").withFallback(plain("/b", "", ""))));
     run("FB-02 an empty path of the receiver is kept", () -> show(plain("", "", "").withFallback(plain("/b", "", ""))));
     run("FB-03 the configuration of the receiver wins and the rest is merged", () ->
@@ -143,7 +143,7 @@ final class DeployOracle {
         show(plain("/a", "", "").withFallback(deploy("/b", "", new RandomPool(1), NO_SCOPE, "", ""))));
     run("FB-15 chained fallbacks", () ->
         show(plain("/a", "", "").withFallback(plain("/b", "d", "")).withFallback(plain("/c", "e", "m"))));
-    // Deployer.scala:176-196
+    // Deployer.scala:173-220
     run("SC-01 local keeps itself over no scope given", () -> scope(LOCAL.withFallback(NO_SCOPE)));
     run("SC-02 local keeps itself over local", () -> scope(LOCAL.withFallback(LOCAL)));
     run("SC-03 no scope given takes local", () -> scope(NO_SCOPE.withFallback(LOCAL)));

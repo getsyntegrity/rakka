@@ -195,7 +195,8 @@ impl Config {
         }
     }
 
-    /// `root.render(ConfigRenderOptions.concise())`: the whole configuration as compact JSON-like text.
+    /// `root.render(ConfigRenderOptions.concise())`: the whole configuration as compact JSON-like text. A value that is
+    /// not resolved yet (a substitution) is shown as `"<unresolved>"`, where Pekko shows the substitution (`${y}`).
     pub fn render_concise(&self) -> String {
         render_concise(&Val {
             line: 0,
@@ -204,7 +205,8 @@ impl Config {
     }
 
     /// `equals`: the two configurations hold the same values, whatever text they were read from (the origin of a value is
-    /// not part of its identity, and a whole number equals the same number written as a decimal).
+    /// not part of its identity, and a whole number equals the same number written as a decimal). Meant for resolved
+    /// configurations: two unresolved values are the same only when they are identical, line included.
     pub fn same_value(&self, other: &Config) -> bool {
         same_object(&self.root, &other.root)
     }
