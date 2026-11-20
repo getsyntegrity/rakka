@@ -1,3 +1,4 @@
+// Probe of Q-UTIL-21: run as Q21b.java (see docs/evidence/slices/p10-deployer.md).
 import java.util.*;
 import org.apache.pekko.util.WildcardIndex; import org.apache.pekko.util.WildcardIndex$; import org.apache.pekko.util.WildcardTree$;
 import scala.collection.immutable.HashMap;
@@ -24,9 +25,9 @@ public class Q21b {
   }
   public static void main(String[] a) {
     String[][] sets = {{"p","pq"},{"s","st"},{"a","ab"},{"x","xy"},{"m","mn"},{"b","bc"},{"ab","abc","a"},{"user","us","u"},{"worker","work","wo"},{"a","b","ab"}};
-    int agree = 0, total = 0, insertionFirstWins = 0, longestWins = 0;
+    int agree = 0, total = 0, longestWins = 0;
     for (String[] s : sets) {
-      String probe = s[s.length>2?1:1] + "zzz"; // longest string + suffix: matches every prefix
+      String probe;
       String longest = Arrays.stream(s).max(Comparator.comparingInt(String::length)).get();
       probe = longest + "zzz";
       List<String> fwd = Arrays.asList(s), rev = new ArrayList<>(fwd); java.util.Collections.reverse(rev);
@@ -34,10 +35,9 @@ public class Q21b {
       String h = hashmapFirst(fwd, probe);
       boolean eq = h.startsWith(r1 + " ") && r1.equals(r2);
       total++; if (eq) agree++;
-      if (r1.equals(fwd.get(0) + "*")) insertionFirstWins++;
       if (r1.equals(longest + "*")) longestWins++;
       System.out.println(fwd + " probe=" + probe + " | pekko fwd=" + r1 + " rev=" + r2 + " | HashMap first: " + h + " | orderIndependent=" + r1.equals(r2));
     }
-    System.out.println("pekko result == first match in Scala HashMap iteration (and order independent): " + agree + "/" + total);
+    System.out.println("pekko result == first match in Scala HashMap iteration (and order independent): " + agree + "/" + total + "; the longest prefix is the winner in " + longestWins + "/" + total);
   }
 }
