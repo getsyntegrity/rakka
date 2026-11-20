@@ -1,7 +1,7 @@
 # ADR-0001 (aceptada parcialmente) — Modelo de mailbox de Rakka Classic frente a Pekko 2.0.0
 
-- **Estado:** **aceptada parcialmente** (Owner, 2026-11-20, `docs/decisions/owner-decisions.tsv`): la arquitectura de la **opción B** (Q-MBX-9), la **secuencia de 10 PR** de §6 (Q-MBX-10) y el protocolo de cierre **B + C** frente a CC-05 (Q-MBX-8). **Siguen propuestas, sin decisión del Owner:** Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 y Q-MBX-6 (§7, §7c). No modifica el runtime.
-- **Issue:** getsyntegrity/rakka#282 (02/09). Resuelve en propuesta Q-MBX-6 y Q-MBX-1/2/3 (y toca Q-MBX-5).
+- **Estado:** **aceptada parcialmente** (Owner, 2026-11-20, `docs/decisions/owner-decisions.tsv`): la arquitectura de la **opción B** (Q-MBX-9), la **secuencia de 10 PR** de §6 (Q-MBX-10), el protocolo de cierre **B + C** frente a CC-05 (Q-MBX-8), la cola de sistema con **`Mutex<Vec>` invertido** (Q-MBX-5) y el **pool propio** con `throughput`/`throughput-deadline-time` por dispatcher y reloj inyectable (Q-MBX-6). **Siguen propuestas, sin decisión del Owner:** Q-MBX-1, Q-MBX-2 y Q-MBX-3 (§7, §7c). No modifica el runtime.
+- **Issue:** getsyntegrity/rakka#282 (02/09). Q-MBX-5, Q-MBX-6 y Q-MBX-8 quedaron aceptadas por el Owner (2026-11-20); Q-MBX-1/2/3 siguen propuestas.
 - **Fuente de verdad:** Apache Pekko 2.0.0 (`9fbd2283b1cf701c90a1223bf621942c191db61f`). Citas `path:line` sobre `actor/src/main/scala/org/apache/pekko/dispatch/`.
 - **Base del piloto:** `feat/pekko-rust-pilot-migration` @ `cb39023`; `crates/rakka-actor/src/actor/cell.rs`, `dispatch/dispatcher.rs`.
 - **Verificación:** citas de Mailbox.scala/Mailboxes.scala y D1–D7 contrastadas contra el submódulo en `9fbd2283…` y el código del piloto (ver §8).
@@ -134,7 +134,7 @@ Carreras que los escenarios deben forzar (con inyección de pausas/barreras, no 
 
 Con `AtomicU32` el diseño usa la misma máscara que Pekko por simplicidad, pero el contrato probado es la tabla anterior, no los valores numéricos.
 
-## 7c. Propuestas por decisión (recomendaciones, **no** decisiones aprobadas)
+## 7c. Propuestas por decisión (recomendaciones; Q-MBX-5 y Q-MBX-6 fueron aceptadas el 2026-11-20, las demás **no** son decisiones aprobadas)
 
 | Q | Recomendación | Garantía/riesgo clave |
 |---|---|---|

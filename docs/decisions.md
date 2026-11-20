@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 248 decisiones: 0 bloqueantes, 182 propuestas, 53 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 248 decisiones: 0 bloqueantes, 180 propuestas, 55 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -907,26 +907,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** [RESUELTA POR LECTURA 2026-10-31; Clasificación: representación que conserva el contrato] El spec del mailbox no estable nunca ejerce empates y la implementación no los especifica, de modo que Rust no debe afirmar ningún orden entre iguales (b: BinaryHeap sin secuencia); el estable sí lleva secuencia (FIFO afirmado). No requiere decisión del Owner salvo que se quiera endurecer el contrato (a, rechazado por diferir sólo hacia más estricto). No bloquea nada.
 - **Filas afectadas:** AC-MBX-009,AC-MBX-010
 - **Unidades afectadas:** MBX
-- **Origen:** classic-dispatch
-
-### Q-MBX-5 — Aislamiento de tipos de mensajes de sistema vs. usuario en el mailbox (lista de sistema CAS + deadLetterMailbox)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Mailbox.scala:340-354,454-503 (cola de sistema = lista enlazada LIFO con CAS; `systemDrain` la invierte a EarliestFirst; centinela NoMessage tras cleanUp); Mailboxes.scala:54-72; Mailbox.scala:289-333 (sistema siempre antes que usuario)
-- **Alternativas:** (a) cola de sistema separada Treiber-stack o Mutex<Vec> invertido al drenar; (b) canal único con prioridad
-- **Recomendación:** [Clasificación: arquitectura] (a) conservar dos colas (sistema y usuario); la de sistema es un stack Treiber o Mutex<Vec> invertido al drenar; el sistema siempre se drena entero antes de cada mensaje de usuario y tras cada mensaje. Consecuencia observable: ningún mensaje de usuario se procesa con un mensaje de sistema pendiente. No bloquea; puede avanzar AC-MBX-001/002/003/021.
-- **Filas afectadas:** AC-MBX-001,AC-MBX-002,AC-MBX-003
-- **Unidades afectadas:** MBX
-- **Origen:** classic-dispatch
-
-### Q-MBX-6 — Modelo de ejecución del mailbox (hilo + ForkJoinTask vs. tarea async): tareas por turno, fairness y `throughput`
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Mailbox.scala:230-280; Dispatcher.scala:42-160; DispatcherActorSpec.scala:84-141 (equidad: throughput=101 con 1 hilo; throughput=2 con deadline 100 ms); DispatcherActorsSpec.scala:44-69
-- **Alternativas:** (a) tarea tokio por mailbox que procesa N mensajes y hace yield_now; (b) pool propio work-stealing; ver Q-X-4
-- **Recomendación:** [Clasificación: arquitectura, subordinada a Q-X-4] Si Q-X-4 elige (A) pools de hilos propios: el turno de mailbox es un trabajo del pool, igual que en Pekko (paridad total de throughput/equidad). Si se elige un runtime async: (a) tarea por mailbox que procesa N mensajes y hace yield_now (el throughput pasa a ser el número máximo de mensajes por poll). Consecuencia observable: en ambos casos se conserva "máx max(throughput,1) mensajes por turno y corte por deadline". Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar.
-- **Filas afectadas:** AC-MBX-002,AC-DSP-002,AC-DSP-003
-- **Unidades afectadas:** MBX,DSP
 - **Origen:** classic-dispatch
 
 ### Q-MBX-7 — PriorityGenerator.compare: resta de Int con desbordamiento
@@ -2217,6 +2197,28 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** FSM
 - **Origen:** classic-patterns
 - **Respuesta del Owner:** aceptar (a) replicar. Condición: antes, grabar un escenario del oráculo contra 2.0.0 que lo confirme; si el oráculo contradice la lectura del código, gana el oráculo. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-MBX-5 — Aislamiento de tipos de mensajes de sistema vs. usuario en el mailbox (lista de sistema CAS + deadLetterMailbox)
+
+- **Estado:** aceptada
+- **Evidencia:** Mailbox.scala:340-354,454-503 (cola de sistema = lista enlazada LIFO con CAS; `systemDrain` la invierte a EarliestFirst; centinela NoMessage tras cleanUp); Mailboxes.scala:54-72; Mailbox.scala:289-333 (sistema siempre antes que usuario)
+- **Alternativas:** (a) cola de sistema separada Treiber-stack o Mutex<Vec> invertido al drenar; (b) canal único con prioridad
+- **Recomendación:** [Clasificación: arquitectura] (a) conservar dos colas (sistema y usuario); la de sistema es un stack Treiber o Mutex<Vec> invertido al drenar; el sistema siempre se drena entero antes de cada mensaje de usuario y tras cada mensaje. Consecuencia observable: ningún mensaje de usuario se procesa con un mensaje de sistema pendiente. No bloquea; puede avanzar AC-MBX-001/002/003/021.
+- **Filas afectadas:** AC-MBX-001,AC-MBX-002,AC-MBX-003
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** aceptar (a) con `Mutex<Vec>` invertido al drenar: la cola de mensajes de sistema es FIFO observable (más antiguo primero), con centinela de cierre y sin `unsafe`; preserva las invariantes de Pekko 2.0.0 (el sistema se drena entero antes de cada mensaje de usuario y tras cada uno; un mensaje de sistema enviado después de la terminación va al `deadLetterMailbox`). Las carreras se validan con el oráculo JVM y pruebas concurrentes. No aprueba Q-MBX-1, Q-MBX-2 ni Q-MBX-3. (Owner (instrucción en la sesión), 2026-11-20)
+
+### Q-MBX-6 — Modelo de ejecución del mailbox (hilo + ForkJoinTask vs. tarea async): tareas por turno, fairness y `throughput`
+
+- **Estado:** aceptada
+- **Evidencia:** Mailbox.scala:230-280; Dispatcher.scala:42-160; DispatcherActorSpec.scala:84-141 (equidad: throughput=101 con 1 hilo; throughput=2 con deadline 100 ms); DispatcherActorsSpec.scala:44-69
+- **Alternativas:** (a) tarea tokio por mailbox que procesa N mensajes y hace yield_now; (b) pool propio work-stealing; ver Q-X-4
+- **Recomendación:** [Clasificación: arquitectura, subordinada a Q-X-4] Si Q-X-4 elige (A) pools de hilos propios: el turno de mailbox es un trabajo del pool, igual que en Pekko (paridad total de throughput/equidad). Si se elige un runtime async: (a) tarea por mailbox que procesa N mensajes y hace yield_now (el throughput pasa a ser el número máximo de mensajes por poll). Consecuencia observable: en ambos casos se conserva "máx max(throughput,1) mensajes por turno y corte por deadline". Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar.
+- **Filas afectadas:** AC-MBX-002,AC-DSP-002,AC-DSP-003
+- **Unidades afectadas:** MBX,DSP
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** aceptar (b): pool de hilos propio, coherente con Q-X-4 (A); el turno de mailbox es un trabajo del pool; `throughput` y `throughput-deadline-time` son configurables por dispatcher; se introduce un reloj inyectable para pruebas deterministas. No aprueba Q-MBX-1, Q-MBX-2 ni Q-MBX-3. (Owner (instrucción en la sesión), 2026-11-20)
 
 ### Q-MBX-8 — Ventana de cierre del mailbox: mensaje de un emisor que ya leyó el mailbox y encola tras `cleanUp` (varado) vs. dead letter
 
