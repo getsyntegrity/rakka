@@ -1,0 +1,1 @@
+MBX-MQ-02 default queue stays FIFO when enqueue and dequeue interleave

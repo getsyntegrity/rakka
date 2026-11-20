@@ -56,6 +56,14 @@ final class MailboxOracle {
     return (m.isClosed() ? "closed" : "open") + " scheduled=" + m.isScheduled() + " suspendCount=" + m.suspendCount() + " raw=" + m.currentStatus();
   }
 
+  static MessageQueue defaultQueue() { return new UnboundedMailbox().create(scala.Option.empty(), scala.Option.empty()); }
+  static String counts(MessageQueue q) { return "n=" + q.numberOfMessages() + " has=" + q.hasMessages(); }
+  static List<String> drain(MessageQueue q) {
+    List<String> out = new ArrayList<>();
+    for (Envelope e; (e = q.dequeue()) != null; ) out.add((String) e.message());
+    return out;
+  }
+
   static String names(SystemMessage head) {
     List<String> l = new ArrayList<>();
     for (SystemMessage m = head; m != null; m = m.next()) l.add(m.getClass().getSimpleName());
@@ -217,6 +225,24 @@ final class MailboxOracle {
       return "drain=" + d + " | afterSentinel has=" + m.hasSystemMessages() + " drain=" + names(m.systemDrain(null)) + " (actor==null: dropped, not forwarded)";
     });
 
+    run("MBX-MQ-01 default queue is FIFO and counts", () -> {
+      MessageQueue q = defaultQueue(); StringBuilder sb = new StringBuilder("new: " + counts(q) + " | enqueue");
+      for (String m : new String[] {"a", "b", "c"}) { q.enqueue(Nobody$.MODULE$, Envelope.apply(m, Nobody$.MODULE$, null)); sb.append(' ').append(counts(q)); }
+      return sb + " | dequeue " + drain(q) + " then " + (q.dequeue() == null ? "null" : "message") + " | after " + counts(q);
+    });
+    run("MBX-MQ-02 default queue stays FIFO when enqueue and dequeue interleave", () -> {
+      MessageQueue q = defaultQueue();
+      q.enqueue(Nobody$.MODULE$, Envelope.apply("a", Nobody$.MODULE$, null)); q.enqueue(Nobody$.MODULE$, Envelope.apply("b", Nobody$.MODULE$, null));
+      String first = (String) q.dequeue().message();
+      q.enqueue(Nobody$.MODULE$, Envelope.apply("c", Nobody$.MODULE$, null));
+      return "first=" + first + " rest=" + drain(q);
+    });
+    run("MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order", () -> {
+      MessageQueue q = defaultQueue(), dead = defaultQueue();
+      for (String m : new String[] {"a", "b", "c"}) q.enqueue(Nobody$.MODULE$, Envelope.apply(m, Nobody$.MODULE$, null));
+      q.cleanUp(Nobody$.MODULE$, dead);
+      return "source " + counts(q) + " | target " + counts(dead) + " order " + drain(dead);
+    });
     run("MBX-TK-01 Mailbox is a plain Runnable, not a ForkJoinTask", () ->
         "forkJoinTask=" + java.util.concurrent.ForkJoinTask.class.isAssignableFrom(Mailbox.class) + " runnable=" + Runnable.class.isAssignableFrom(Mailbox.class));
     run("MBX-OR-01 user messages are FIFO", () -> {

@@ -2227,3 +2227,6 @@ mb-0005	mailbox	MBX-ST-05 open to closed
 mb-0006	mailbox	MBX-ST-06 closed ignores resume and suspend
 mb-0007	mailbox	MBX-ST-07 closed refuses scheduling
 mb-0008	mailbox	MBX-ST-08 canBeScheduledForExecution matrix
+mb-0009	mailbox	MBX-MQ-01 default queue is FIFO and counts
+mb-0010	mailbox	MBX-MQ-02 default queue stays FIFO when enqueue and dequeue interleave
+mb-0011	mailbox	MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order

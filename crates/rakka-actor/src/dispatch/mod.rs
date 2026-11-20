@@ -2,5 +2,6 @@
 
 pub(crate) mod dispatcher;
 pub mod mailbox_status;
+pub mod message_queue;
 pub(crate) mod sysmsg;
 pub use sysmsg::{Failed, Terminated};
