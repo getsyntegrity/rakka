@@ -1,0 +1,1 @@
+TS-09 toString with Unicode and astral text -> ok Deploy(/\u00E9\uD83D\uDE00, Config(SimpleConfigObject({"a":"\u00E9\uD83D\uDE00","\u00E9":1})), NoRouter, NoScopeGiven, d\u00E9, m\uD83D\uDE00, Set())

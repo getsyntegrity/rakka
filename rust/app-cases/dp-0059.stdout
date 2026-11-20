@@ -1,0 +1,1 @@
+TS-15 toString with four tags in the opposite insertion order -> ok Deploy(/a, Config(SimpleConfigObject({})), NoRouter, NoScopeGiven, , , Set(t2, t4, t1, t3))

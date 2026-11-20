@@ -1,0 +1,1 @@
+TS-29 toString with a substitution under an object -> ok Deploy(/a, Config(SimpleConfigObject({"a":${b},"a":{"y":2}})), NoRouter, NoScopeGiven, , , Set())

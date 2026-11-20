@@ -1108,6 +1108,49 @@ MUTANTS = {
         "if true {",
         "the new index replaces the current one even when another deploy swapped in meanwhile, so that deploy is lost (killed by a deterministic unit test, see UNIT_MUTANTS)",
     ),
+    # --- P10 PR-C: Deploy.toString and the concise render of a configuration ---
+    "render-keys-sort-as-plain-strings": (
+        "src/config/mod.rs",
+        "        (Some(_), None) => std::cmp::Ordering::Less,\n        (None, Some(_)) => std::cmp::Ordering::Greater,\n",
+        "        (Some(_), None) => std::cmp::Ordering::Greater,\n        (None, Some(_)) => std::cmp::Ordering::Less,\n",
+        "keys made of digits are listed after the other keys instead of before",
+    ),
+    "render-numeric-keys-compare-as-text": (
+        "src/config/mod.rs",
+        "a.len().cmp(&b.len()).then_with(|| a.cmp(&b))",
+        "a.cmp(&b)",
+        "the digit keys 9 and 10 are ordered as text",
+    ),
+    "render-shows-only-the-top-layer-of-a-key": (
+        "src/config/mod.rs",
+        ".flat_map(|(k, stack)| stack.iter().rev().map(move |layer| (k, layer)))",
+        ".filter_map(|(k, stack)| stack.first().map(|layer| (k, layer)))",
+        "an unresolved key shows only its highest-priority layer",
+    ),
+    "render-concatenation-keeps-white-space-as-a-separate-string": (
+        "src/config/mod.rs",
+        "            Piece::Ws(white) => Some(white.as_str()),\n",
+        "            Piece::Ws(_) => None,\n",
+        "the white space between a substitution and a string is dropped from the concatenation",
+    ),
+    "tags-are-listed-sorted": (
+        "src/actor/deploy.rs",
+        "return format!(\"Set({})\", tags.join(\", \"));",
+        "let mut sorted = tags.to_vec();\n        sorted.sort();\n        return format!(\"Set({})\", sorted.join(\", \"));",
+        "up to four tags are listed in alphabetical order instead of insertion order",
+    ),
+    "five-tags-print-as-a-small-set": (
+        "src/actor/deploy.rs",
+        "if tags.len() <= 4 {",
+        "if tags.len() <= 5 {",
+        "five tags are printed in insertion order as a Set instead of a HashSet in hash order",
+    ),
+    "surrogate-escape-pair-becomes-two-replacement-characters": (
+        "src/config/parse.rs",
+        "if (0xD800..0xDC00).contains(&code) {",
+        "if (0xD800..0xDC00).contains(&code) && false {",
+        "a pair of surrogate escapes is read as two replacement characters",
+    ),
     # --- Q-UTIL-21 / Q-X-20: the choice among overlapping `prefix*` entries follows the iteration order of Scala's HashMap ---
     "wildcard-suffix-children-keep-insertion-order": (
         "src/util/wildcard_index.rs",
