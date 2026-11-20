@@ -72,6 +72,11 @@ class Tiers(unittest.TestCase):
     def test_fast_is_a_subset_of_pr(self):
         self.assertTrue({g.name for g in gates.tier_gates("fast", [])} < {g.name for g in gates.tier_gates("pr", [])})
 
+    def test_the_milestone_mutants_gate_is_invalidated_by_its_own_runner_and_by_the_recordings(self):
+        gate = next(g for g in gates.tier_gates("milestone", []) if g.name == "mutants")
+        self.assertIn("tools/gates", gate.inputs)
+        self.assertIn("rust/app-cases", gate.inputs)
+
     def test_milestone_runs_every_mutant_and_pr_only_the_selected_ones(self):
         mutants_gate = lambda tier, sel: next(g for g in gates.tier_gates(tier, sel) if g.name == "mutants")
         self.assertEqual(mutants_gate("pr", ["a", "b"]).command[-2:], ["a", "b"])

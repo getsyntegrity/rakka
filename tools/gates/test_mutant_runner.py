@@ -89,9 +89,19 @@ class EvidenceInvalidation(unittest.TestCase):
 
 class BudgetAndAuthorization(unittest.TestCase):
     def test_full_run_without_authorization_is_refused(self):
-        self.assertIn("authorize", mr.authorization_error(max_mutants=206, authorized=False))
-        self.assertIsNone(mr.authorization_error(max_mutants=mr.DEFAULT_MAX_MUTANTS, authorized=False))
-        self.assertIsNone(mr.authorization_error(max_mutants=206, authorized=True))
+        self.assertIn("authorize", mr.authorization_error(max_mutants=206, max_minutes=30, authorized=False))
+        self.assertIsNone(mr.authorization_error(max_mutants=mr.DEFAULT_MAX_MUTANTS, max_minutes=mr.DEFAULT_MAX_MINUTES, authorized=False))
+        self.assertIsNone(mr.authorization_error(max_mutants=206, max_minutes=100000, authorized=True))
+
+    def test_raising_the_time_cap_needs_the_same_authorization_as_raising_the_count_cap(self):
+        self.assertIn("authorize", mr.authorization_error(max_mutants=10, max_minutes=100000, authorized=False))
+        self.assertIsNone(mr.authorization_error(max_mutants=10, max_minutes=mr.DEFAULT_MAX_MINUTES, authorized=False))
+
+    def test_the_time_of_one_mutant_is_clamped_to_the_remaining_budget(self):
+        self.assertEqual(mr.mutant_timeout(remaining_seconds=100), 100)
+        self.assertEqual(mr.mutant_timeout(remaining_seconds=99999), mr.PER_MUTANT_TIMEOUT)
+        self.assertEqual(mr.mutant_timeout(remaining_seconds=None), mr.PER_MUTANT_TIMEOUT)
+        self.assertEqual(mr.mutant_timeout(remaining_seconds=0), 1)
 
     def run_plan(self, store, names, **kw):
         ran = []
@@ -135,6 +145,61 @@ class BudgetAndAuthorization(unittest.TestCase):
                 mr.run_plan([(n, "other") for n in "abc"], {n: "key-" + n for n in "abc"}, store, execute, clock=lambda: 0.0, max_mutants=None, max_seconds=None)
             self.assertTrue(store.is_fresh("key-a"))
             self.assertFalse(store.is_fresh("key-b"))
+
+
+class ControlVerification(unittest.TestCase):
+    def test_a_control_that_never_passed_is_run_even_when_no_mutant_ran(self):
+        with tempfile.TemporaryDirectory() as root:
+            store, calls = mr.ResultStore(root), []
+            self.assertEqual(mr.ensure_control(store, "k", lambda: calls.append(1) or 0), "CLEAN")
+            self.assertEqual(calls, [1])
+
+    def test_a_control_that_already_passed_for_this_state_is_not_repeated(self):
+        with tempfile.TemporaryDirectory() as root:
+            store, calls = mr.ResultStore(root), []
+            mr.ensure_control(store, "k", lambda: calls.append(1) or 0)
+            self.assertEqual(mr.ensure_control(store, "k", lambda: calls.append(1) or 0), "CLEAN")
+            self.assertEqual(calls, [1])
+
+    def test_a_failing_control_is_reported_failed_and_retried_next_time(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = mr.ResultStore(root)
+            self.assertEqual(mr.ensure_control(store, "k", lambda: 1), "FAILED")
+            self.assertEqual(mr.ensure_control(store, "k", lambda: 0), "CLEAN")
+
+    def test_an_interrupted_control_is_not_recorded_as_passed(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = mr.ResultStore(root)
+            def interrupted():
+                raise KeyboardInterrupt
+            with self.assertRaises(KeyboardInterrupt):
+                mr.ensure_control(store, "k", interrupted)
+            self.assertFalse(store.is_fresh("control-k"))
+
+
+class MutantResultCollection(unittest.TestCase):
+    def test_a_result_file_left_by_an_earlier_run_is_never_read_as_the_new_outcome(self):
+        with tempfile.TemporaryDirectory() as root:
+            result_file = os.path.join(root, "m.json")
+            with open(result_file, "w") as fh:
+                fh.write('{"mutants": {"m": ["DETECTED", null, null, "old run"]}, "control": null}')
+            record = mr.execute_mutant("m", result_file, lambda: 137, lambda: 5.0)   # the child died without writing a new file
+            self.assertEqual(record["outcome"], "HARNESS_ERROR")
+            self.assertFalse(os.path.exists(result_file))
+
+    def test_the_outcome_the_child_wrote_this_time_is_used(self):
+        with tempfile.TemporaryDirectory() as root:
+            result_file = os.path.join(root, "m.json")
+            def child():
+                with open(result_file, "w") as fh:
+                    fh.write('{"mutants": {"m": ["DETECTED", null, null, "fast-kill: case x"]}, "control": null}')
+                return 0
+            record = mr.execute_mutant("m", result_file, child, lambda: 1.0)
+            self.assertEqual((record["outcome"], record["line"]), ("DETECTED", "fast-kill: case x"))
+
+    def test_a_timeout_is_reported_as_timeout(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(mr.execute_mutant("m", os.path.join(root, "m.json"), lambda: mr.TIMED_OUT, lambda: 9.0)["outcome"], "TIMEOUT")
 
 
 class Summary(unittest.TestCase):

@@ -86,7 +86,7 @@ def tier_gates(tier, selected_mutants, mutant_args=()):
     if tier == "pr":
         return fast + pr_extra + [mutants]
     # budgeted + resumable (tools/gates/mutant_runner.py): never all 206 without --authorize-full-mutants
-    full_mutants = Gate("mutants", [PY, "tools/gates/mutant_runner.py", *mutant_args], PARITY_INPUTS)
+    full_mutants = Gate("mutants", [PY, "tools/gates/mutant_runner.py", *mutant_args], PARITY_INPUTS + ("tools/gates", "rust/app-cases"))
     fuzz = [Gate("fuzz-" + s[5:-3], [PY, "-u", f"tools/parity/{s}", "--count", str(n), "--seed", str(seed)], PARITY_INPUTS)
             for s, n in FUZZ_COUNTS for seed in (1, 2, 3)]
     return fast + pr_extra + [full_mutants] + fuzz
@@ -98,7 +98,9 @@ def git(*args):
 
 def input_state(paths):
     trees = {p: git("rev-parse", f"HEAD:{p}") for p in paths if os.path.exists(os.path.join(ROOT, p))}
-    dirty = bool(git("status", "--porcelain", "--untracked-files=normal", "--", *trees))
+    # files the gates themselves rewrite on every run are not "uncommitted edits" of the inputs
+    generated = (":(exclude)rust/app-cases/replay-report.md", ":(exclude)rust/divergence-reports")
+    dirty = bool(git("status", "--porcelain", "--untracked-files=normal", "--", *trees, *generated))
     return trees, dirty
 
 

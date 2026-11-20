@@ -150,10 +150,48 @@ class ResultStore:
 
 # ---------- budget, authorization, planning ----------
 
-def authorization_error(max_mutants, authorized):
-    if max_mutants is not None and max_mutants > DEFAULT_MAX_MUTANTS and not authorized:
+def authorization_error(max_mutants, max_minutes, authorized):
+    if authorized:
+        return None
+    if max_mutants is not None and max_mutants > DEFAULT_MAX_MUTANTS:
         return f"refused: --max-mutants {max_mutants} exceeds the default cap of {DEFAULT_MAX_MUTANTS}; a larger run needs --authorize-full-mutants (explicit Owner authorization)"
+    if max_minutes is not None and max_minutes > DEFAULT_MAX_MINUTES:
+        return f"refused: --max-minutes {max_minutes} exceeds the default cap of {DEFAULT_MAX_MINUTES}; a longer run needs --authorize-full-mutants (explicit Owner authorization)"
     return None
+
+
+def mutant_timeout(remaining_seconds):
+    """One mutant never outlives the time budget (at least 1 s so the child gets to start and be reported as TIMEOUT)."""
+    if remaining_seconds is None:
+        return PER_MUTANT_TIMEOUT
+    return max(1, min(PER_MUTANT_TIMEOUT, int(remaining_seconds)))
+
+
+def ensure_control(store, control_key, run_control):
+    """'CLEAN' when the unmutated crate replays clean for this state: from the checkpoint, or by running `run_control()` (exit code) now.
+    Called on every run, including a resumed one that executes no mutant: a DETECTED result proves nothing if the control never passed."""
+    if store.is_fresh("control-" + control_key):
+        return "CLEAN"
+    code = run_control()
+    store.put("control-" + control_key, {"outcome": "DETECTED" if code == 0 else "FAILED"})
+    return "CLEAN" if code == 0 else "FAILED"
+
+
+def execute_mutant(name, result_file, launch, elapsed):
+    """Runs one mutant through `launch()` (its exit code). A result file from an earlier run is deleted first, so a child that
+    dies without writing is a HARNESS_ERROR and never inherits an old verdict."""
+    if os.path.exists(result_file):
+        os.unlink(result_file)
+    code = launch()
+    seconds = round(elapsed(), 1)
+    if code == TIMED_OUT:
+        return {"outcome": "TIMEOUT", "seconds": seconds}
+    try:
+        with open(result_file) as fh:
+            outcome, passed, total, line = json.load(fh)["mutants"][name]
+        return {"outcome": outcome, "passed": passed, "total": total, "line": line[:200], "seconds": seconds}
+    except (OSError, ValueError, KeyError):
+        return {"outcome": "HARNESS_ERROR", "seconds": seconds, "line": f"no result (exit {code})"}
 
 
 def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds):
@@ -245,7 +283,7 @@ def main(argv):
     authorized = "--authorize-full-mutants" in argv
     max_mutants = option(argv, "--max-mutants", None if authorized else DEFAULT_MAX_MUTANTS)
     max_minutes = option(argv, "--max-minutes", None if authorized else DEFAULT_MAX_MINUTES)
-    refusal = authorization_error(max_mutants, authorized)
+    refusal = authorization_error(max_mutants, max_minutes, authorized)
     if refusal:
         print(refusal)
         return 2
@@ -265,31 +303,24 @@ def main(argv):
     os.makedirs(os.path.join(STORE_DIR, "logs"), exist_ok=True)
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
 
+    budget_seconds = None if max_minutes is None else max_minutes * 60
+    run_started = time.time()
+
     def execute(name):
         result_file = os.path.join(STORE_DIR, "logs", name + ".json")
         started = time.time()
         command = [PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), name, "--skip-control", f"--result-json={result_file}"] + ([] if fast_kill else ["--no-fast-kill"])
-        code = run_cancellable(command, PER_MUTANT_TIMEOUT, os.path.join(STORE_DIR, "logs", name + ".log"), cwd=ROOT)
-        seconds = round(time.time() - started, 1)
-        if code == TIMED_OUT:
-            return {"outcome": "TIMEOUT", "seconds": seconds}
-        try:
-            outcome, passed, total, line = json.load(open(result_file))["mutants"][name]
-            return {"outcome": outcome, "passed": passed, "total": total, "line": line[:200], "seconds": seconds}
-        except (OSError, ValueError, KeyError):
-            return {"outcome": "HARNESS_ERROR", "seconds": seconds, "line": f"no result (exit {code})"}
+        remaining = None if budget_seconds is None else budget_seconds - (started - run_started)
+        launch = lambda: run_cancellable(command, mutant_timeout(remaining), os.path.join(STORE_DIR, "logs", name + ".log"), cwd=ROOT)
+        return execute_mutant(name, result_file, launch, lambda: time.time() - started)
 
-    report = run_plan(ordered, keys, store, execute, time.time, max_mutants, None if max_minutes is None else max_minutes * 60)
+    report = run_plan(ordered, keys, store, execute, time.time, max_mutants, budget_seconds)
     outcomes = report["outcomes"]
     undetected = [n for n, o in outcomes.items() if o == "UNDETECTED"]
     errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
-    control = "CLEAN"
-    if report["ran"]:
-        control_key = hashlib.sha256((harness + neighbourhood_hash(ROOT, CRATE + "src/lib.rs", edges) + "".join(sorted(neighbourhood_hash(ROOT, f, edges) for f in set(files.values())))).encode()).hexdigest()
-        if not store.is_fresh("control-" + control_key):
-            code = run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], PER_MUTANT_TIMEOUT, os.path.join(STORE_DIR, "logs", "control.log"), cwd=ROOT)
-            control = "CLEAN" if code == 0 else "FAILED"
-            store.put("control-" + control_key, {"outcome": "DETECTED" if code == 0 else "FAILED"})
+    control_key = hashlib.sha256((harness + neighbourhood_hash(ROOT, CRATE + "src/lib.rs", edges) + "".join(sorted(neighbourhood_hash(ROOT, f, edges) for f in set(files.values())))).encode()).hexdigest()
+    run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], PER_MUTANT_TIMEOUT, os.path.join(STORE_DIR, "logs", "control.log"), cwd=ROOT)
+    control = ensure_control(store, control_key, run_control)
     detected = sum(1 for o in outcomes.values() if o == "DETECTED")
     text = summary_text(len(all_mutants), detected, undetected, errors, report["pending"], report["stopped_by"], control)
     print(text)
