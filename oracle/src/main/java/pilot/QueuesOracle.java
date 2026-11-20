@@ -227,6 +227,18 @@ final class QueuesOracle {
       producer.join();
       return "later=" + b(result[0]) + " content=" + list(Arrays.asList(q.toArray()));
     });
+
+    run("BQ-C12 offer with Long.MAX_VALUE days saturates and waits until there is room", () -> {
+      BoundedBlockingQueue<String> q = new BoundedBlockingQueue<>(1, new LinkedList<>());
+      q.put("a");
+      boolean[] result = new boolean[1];
+      Thread producer = new Thread(() -> { result[0] = q.offer("c", Long.MAX_VALUE, TimeUnit.DAYS); });
+      producer.start();
+      awaitParked(producer);
+      q.take();
+      producer.join();
+      return "later=" + b(result[0]) + " content=" + list(Arrays.asList(q.toArray()));
+    });
   }
 
   static void register() {
