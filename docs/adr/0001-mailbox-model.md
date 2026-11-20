@@ -1,4 +1,4 @@
-# ADR-0001 (propuesta) — Modelo de mailbox de Rakka Classic frente a Pekko 2.0.0
+# ADR-0001 (aceptada parcialmente) — Modelo de mailbox de Rakka Classic frente a Pekko 2.0.0
 
 - **Estado:** **aceptada parcialmente** (Owner, 2026-11-20, `docs/decisions/owner-decisions.tsv`): la arquitectura de la **opción B** (Q-MBX-9), la **secuencia de 10 PR** de §6 (Q-MBX-10) y el protocolo de cierre **B + C** frente a CC-05 (Q-MBX-8). **Siguen propuestas, sin decisión del Owner:** Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 y Q-MBX-6 (§7, §7c). No modifica el runtime.
 - **Issue:** getsyntegrity/rakka#282 (02/09). Resuelve en propuesta Q-MBX-6 y Q-MBX-1/2/3 (y toca Q-MBX-5).

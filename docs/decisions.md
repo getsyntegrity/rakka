@@ -2245,7 +2245,7 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Estado:** aceptada
 - **Evidencia:** docs/adr/0001-mailbox-model.md §6; PR 1 integrado en #295 (oráculo JVM)
 - **Alternativas:** (a) la secuencia del ADR (oráculo → `MailboxStatus` → `MessageQueue` → estado atómico + cola de sistema → `deadLetterMailbox` → dispatcher con throughput/deadline → acotadas → deque/prioridad → control-aware → `Mailboxes`); (b) otro orden o un único PR grande
-- **Recomendación:** (a): cada PR ≤400 líneas, ninguno rompe el piloto y los PR 7-10 quedan condicionados a Q-MBX-1/2/3
+- **Recomendación:** (a): cada PR ≤400 líneas, ninguno rompe el piloto y los PR 4-10 quedan condicionados a las decisiones Q-MBX pendientes que cada uno cita (Q-MBX-5 y 6 para los PR 4-6; Q-MBX-1/2/3 para los PR 7-10)
 - **Filas afectadas:** AC-MBX-001,AC-MBX-002,AC-MBX-003
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
