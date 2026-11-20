@@ -550,3 +550,4 @@
 {"name": "uc-0550", "args": ["util-core-case"], "stdin": "BQ-C9 poll with Long.MAX_VALUE nanoseconds waits until an element arrives"}
 {"name": "uc-0551", "args": ["util-core-case"], "stdin": "BQ-C10 poll with Long.MAX_VALUE days saturates and waits until an element arrives"}
 {"name": "uc-0552", "args": ["util-core-case"], "stdin": "BQ-C11 offer with Long.MAX_VALUE nanoseconds on a full queue waits until there is room"}
+{"name": "uc-0553", "args": ["util-core-case"], "stdin": "BQ-C12 offer with Long.MAX_VALUE days saturates and waits until there is room"}
