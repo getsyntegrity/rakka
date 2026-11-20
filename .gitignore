@@ -4,3 +4,4 @@
 /docs.tar.gz
 oracle/target/
 __pycache__/
+/.gates
