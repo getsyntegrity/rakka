@@ -21,7 +21,7 @@ El constructor lee `pekko.actor.deployment`; `default` se descarta; cada entrada
 - `javap` sobre `SimpleConfigObject` (config 1.4.9): `entrySet()` construye un `java.util.HashSet` de `AbstractMap.SimpleImmutableEntry`. Pekko itera ese conjunto, cuyo orden depende del hash de **clave y valor** de cada entrada y del tamaño de la tabla.
 - 99 conjuntos de 2 a 4 claves en colisión (`p10-from-settings-collisions-probe.java`, con el dispatcher de cada entrada igual a su clave): el ganador no depende del orden de escritura (0 de 99) y el último en orden alfabético difiere del ganador de Pekko en **53 de 99**.
 - **Corrección:** la primera medición presentada al Owner atribuía el orden solo a las claves. Es falso: con las mismas tres claves `/svc`, `/svc/`, `/svc//` y dispatchers `d1,d2,d3` gana `/svc`; con `aaa,bbb,ccc` gana `/svc//`; con `x,y,z` gana `/svc/` (`p10-from-settings-value-dependence-probe.java`). La cifra 53/99 vale para ese patrón de valores. Un modelo con `HashMap` de las claves acierta 47/99 (azar). Reproducir el orden exige emular el `hashCode` de los `ConfigValue` y el tamaño de la tabla: alternativa (b) de Q-CFG-36, más cara de lo estimado.
-- Los casos `CO-01` a `CO-03` coinciden con Pekko por casualidad (se graban y pasan); `CO-04` y `CO-05` divergen y están **pendientes** en el gemelo Rust (`PENDING`, con su motivo) y listados en `cases/oracle-ids/deployer-settings.txt`. La política de Rust la fija además el test unitario `of_several_keys_with_the_same_path_the_last_in_alphabetical_order_wins`.
+- Los casos `CO-01` a `CO-03` coinciden con Pekko por casualidad (se graban y pasan); `CO-04` y `CO-05` divergen y están **pendientes** en el gemelo Rust (`PENDING`, con su motivo) y listados en `cases/oracle-ids/deployer-settings.txt`. El orden decide además qué error se informa cuando varias entradas son inválidas (revisor independiente: `/a`,`/b`,`/c` con tipo incorrecto, Pekko `String: 4:`, Rust `String: 2:`; `/a b`,`/c d`,`/e f`, Pekko `[e f]`, Rust `[a b]`), sin casos grabados. La política de Rust la fija además el test unitario `of_several_keys_with_the_same_path_the_last_in_alphabetical_order_wins`.
 
 ## Casos nuevos: 2773 → 2811 (38)
 
@@ -64,6 +64,9 @@ CLI: `rust-anything app record` (38 casos contra `oracle/run.sh`) y el replay (`
 
 ## Divergencias y pendientes
 
+- Pekko lee también `pekko.actor.router.type-mapping` en el constructor (Deployer.scala:229-236); Rust no, de acuerdo con la decisión de no implementar type-mapping: pendiente de P37.
+- Sin mutante propio: la lectura estricta de todas las entradas antes de desplegar (la matan DS-24 y un test unitario) y el descarte de entradas que no son objeto (DS-14 y un test unitario). Ambas están cubiertas por casos y tests, pero no por el harness de mutantes.
+- El oráculo solo usa claves entre comillas; los tests unitarios usan claves sin comillas (el revisor comprobó que coinciden). `Settings::new` rechaza algunas configuraciones inválidas antes de llegar a `from_settings`: no hay casos de eso aquí.
 - Q-CFG-36 (propuesta): orden de claves en colisión; `CO-04` y `CO-05`.
 - Routers (P37): un router desconocido o con valores inválidos se acepta; Pekko lanza. A5 sin cubrir. El `RouterConfig::Opaque` en la API pública sigue pendiente de P37 (riesgo de #276).
 - `Deployer` público frente a `private[pekko]` en Pekko (F4 de #277), Q-UTIL-21 (propuesta) y Q-CFG-35 (propuesta) siguen abiertas.
