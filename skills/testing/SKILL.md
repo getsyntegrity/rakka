@@ -17,7 +17,7 @@ Leer primero `docs/testing-policy.md` completa. Las rutas se resuelven desde la 
 4. **Desarrollar con TDD**: RED real con evidencia (comando y salida) antes del código de producción, GREEN, refactor. Aplica a ambas capas.
 5. **Agregar y ejecutar la integración** en cuanto estén disponibles los componentes reales; no se acumula para el final del proyecto. Debe existir antes de cerrar la unidad.
 6. **Declarar la frontera sustituida** en cada integración que reemplace un colaborador ajeno al escenario.
-7. **Verificar** la trazabilidad contrato → escenario → prueba → evidencia y la cobertura (mínimo 90 % de líneas de producción nuevas o modificadas, combinando ambas capas, según `AGENTS.md`).
+7. **Verificar** la trazabilidad contrato → escenario → prueba → evidencia y la cobertura (cobertura de producción ≥95 % por crate, sin exclusiones, combinando ambas capas, según `AGENTS.md`, Q-X-14).
 8. **Actualizar estados** (`impl`/`validation`) solo si se cumplen las reglas de `AGENTS.md`. Si falta una integración necesaria, la fila queda `partial` con el componente real y la prueba pendiente identificados.
 
 ## Señales de alerta

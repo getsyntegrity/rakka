@@ -84,7 +84,7 @@ Costuras temporales: un doble que cumpla las aserciones del contrato (ver `docs/
 
 Reglas que se mantienen sin cambios:
 
-- Cobertura mínima del 90 % de las líneas de producción nuevas o modificadas, con `cargo llvm-cov` (la cobertura combinada de ambas capas cuenta; no hay un 90 % obligatorio separado por capa; se documentan comando, resultado y líneas sin cubrir). La cobertura de integración no sustituye los unitarios necesarios, ni demuestra paridad, ni permite omitir escenarios contractuales.
+- Cobertura de producción ≥95 % por crate, sin exclusiones (`AGENTS.md`, Q-X-14), con `cargo llvm-cov` (la cobertura combinada de ambas capas cuenta; no hay un porcentaje obligatorio separado por capa; se documentan comando, resultado y líneas sin cubrir). La cobertura de integración no sustituye los unitarios necesarios, ni demuestra paridad, ni permite omitir escenarios contractuales.
 - Una pregunta abierta (`Q:`) impide cerrar el comportamiento afectado: `partial`, no `done`, aunque ambas capas estén verdes.
 
 ## 7. Paridad con Pekko
@@ -102,4 +102,4 @@ Reglas que se mantienen sin cambios:
 - [ ] Los specs de Pekko con actores reales están clasificados como integración.
 - [ ] Hay RED real guardado antes del código y GREEN después.
 - [ ] La trazabilidad contrato → escenario → prueba → evidencia está completa, o la fila queda `partial` con la dependencia pendiente anotada.
-- [ ] Cobertura ≥ 90 % de líneas nuevas/modificadas documentada.
+- [ ] Cobertura de producción ≥ 95 % por crate documentada (comando, resultado y líneas sin cubrir).
