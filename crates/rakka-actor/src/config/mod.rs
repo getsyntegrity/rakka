@@ -12,6 +12,7 @@ mod provider_selection;
 mod reference;
 mod resolve;
 mod settings;
+mod setup;
 mod units;
 mod validate;
 
@@ -33,6 +34,7 @@ pub use settings::{
     DEFAULT_LOGGER, DEFAULT_LOGGING_FILTER, SLF4J_LOGGER, SLF4J_LOGGING_FILTER, Settings,
     SettingsError, SuspendDuration, amend_slf4j_config, normalize_extension_name,
 };
+pub use setup::{ActorSystemSetup, BootstrapSetup, Setup};
 
 use model::{Kind, Obj, Val, join_path, merge_obj, quote};
 

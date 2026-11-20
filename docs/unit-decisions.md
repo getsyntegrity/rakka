@@ -137,7 +137,7 @@
 
 ## P09 CFG-ENTORNO
 
-3 filas; 5 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 1 propuestas.
+3 filas; 8 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -146,6 +146,9 @@
 | Q-X-10 | accepted (2026-11-18): autoriza el alcance (A): sólo actor y actor-typed locales (sin remoting, cluster, persistence, streams ni HTTP). | 1: AC-CFG-008 | — | — | `transversal` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 2: AC-CFG-008, AC-CFG-016 | — | — | `transversal` |
 | Q-CFG-31 | propuesta | 2: AC-CFG-008, AC-CFG-016 | Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
+| Q-CFG-32 | propuesta | 1: AC-CFG-015 | Bloquea: el cierre de AC-CFG-015 (queda partial); puede avanzar: lo demás. Reversible. | — | `classic-foundation` |
+| Q-CFG-33 | propuesta | 1: AC-CFG-015 | Bloquea: nada. Reversible. | — | `classic-foundation` |
+| Q-CFG-34 | propuesta | 2: AC-CFG-008, AC-CFG-015 | Bloquea: el cierre de AC-CFG-015 y AC-CFG-008 (quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 
 ## P10 CFG-DEPLOY
 
@@ -227,7 +230,7 @@
 
 ## P16 DSP-EJECUTORES
 
-19 filas; 12 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 7 propuestas.
+19 filas; 13 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 8 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -237,6 +240,7 @@
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 5: AC-DSP-006, AC-DSP-008, AC-DSP-013, AC-UTIL-018.4, AC-UTIL-018.5 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-DSP-016.1 | — | — | `transversal` |
 | Q-CFG-31 | propuesta | 2: AC-DSP-004, AC-DSP-010 | Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
+| Q-CFG-32 | propuesta | 1: AC-DSP-006 | Bloquea: el cierre de AC-CFG-015 (queda partial); puede avanzar: lo demás. Reversible. | — | `classic-foundation` |
 | Q-DSP-1 | propuesta | 9: AC-DSP-005, AC-DSP-006, AC-DSP-008, AC-DSP-009, AC-DSP-010, AC-DSP-011 … (+3) | Bloquea la implementación de AC-DSP-008/009/013/014/019; puede avanzar: lectura/validación de claves y las funciones puras `scaledPoolSize` y `resolveMinimumRunnable`. | — | `classic-dispatch` |
 | Q-DSP-2 | propuesta | 3: AC-DSP-004, AC-DSP-006, AC-DSP-010 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-DSP-3 | propuesta | 4: AC-DSP-016.1, AC-DSP-017.1, AC-DSP-017.2, AC-DSP-018 | Bloquea sólo AC-DSP-017.2. | — | `classic-dispatch` |
@@ -327,7 +331,7 @@
 
 ## P25 SYS-GUARDIANES
 
-12 filas; 10 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 3 propuestas.
+12 filas; 11 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -338,6 +342,7 @@
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 7: AC-SYS-001.1, AC-SYS-001.2, AC-SYS-002, AC-SYS-007, AC-SYS-008, AC-SYS-009 … (+1) | — | — | `transversal` |
 | Q-X-7 | accepted (2026-11-18): aceptar (A). | 1: AC-SYS-002 | — | — | `transversal` |
 | Q-X-8 | accepted (2026-11-18): aceptar (a): Typed sobre Classic. | 1: AC-SYS-009 | — | — | `transversal` |
+| Q-CFG-32 | propuesta | 1: AC-SYS-001.2 | Bloquea: el cierre de AC-CFG-015 (queda partial); puede avanzar: lo demás. Reversible. | — | `classic-foundation` |
 | Q-SYS-3 | propuesta | 1: AC-SYS-020 | Bloquea: nada (AC-SYS-020/021 pueden implementarse con (a)); si el Owner exige paridad de manifests, queda partial. | — | `classic-system` |
 | Q-SYS-4 | propuesta | 2: AC-SYS-002, AC-SYS-003.2 | Bloquea: sólo AC-SYS-003.2 (sin spec) y la rama de espera de AC-SYS-002; el resto avanza. | — | `classic-system` |
 | Q-SYS-6 | propuesta | 2: AC-SYS-001.2, AC-SYS-013 | Bloquea: nada; AC-SYS-001.2/013/018 avanzan con (a). | — | `classic-system` |
@@ -1045,4 +1050,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 488 (232 respondidas, 0 bloqueantes, 256 propuestas).
+Total de pares unidad–decisión: 493 (232 respondidas, 0 bloqueantes, 261 propuestas).

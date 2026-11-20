@@ -29,7 +29,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-SYS-1`, `Q-SYS-2`, `Q-SYS-3`, `Q-SYS-4`, `Q-SYS-5`, `Q-SYS-6`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-32`, `Q-SYS-1`, `Q-SYS-2`, `Q-SYS-3`, `Q-SYS-4`, `Q-SYS-5`, `Q-SYS-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -88,7 +88,7 @@ Filas: AC-SYS-023, AC-SYS-024, AC-SYS-025. Contratos y aserciones: `docs/invento
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
 | AC-SYS-001.1 | Validación del nombre de ActorSystem (regex y mensaje) | `ActorSystemName::parse(&str) -> Result<ActorSystemName, InvalidSystemName>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:138-165 | Q-X-5 |
-| AC-SYS-001.2 | Constructores de ActorSystem: apply/create y sus sobrecargas, nombre por… | `ActorSystem::builder(name).config(..).execution_context(..).provider(..).build()` y… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:253-264 ;… | Q-SYS-6, Q-X-1, Q-X-4, Q-X-5 |
+| AC-SYS-001.2 | Constructores de ActorSystem: apply/create y sus sobrecargas, nombre por… | `ActorSystem::builder(name).config(..).execution_context(..).provider(..).build()` y… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:253-264 ;… | Q-CFG-32, Q-SYS-6, Q-X-1, Q-X-4, Q-X-5 |
 | AC-SYS-002 | Secuencia de arranque (start): provider.init (guardián raíz, cadena de Watch… | `ActorSystemBuilder::build` ejecuta la secuencia y devuelve `Err` tras terminar el sistema | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:100-110 ;… | Q-SYS-4, Q-X-2, Q-X-5, Q-X-7 |
 | AC-SYS-003.1 | Jerarquía de guardianes "/", "/user", "/system" y su comportamiento ante… | `RootGuardian`, `UserGuardian`, `SystemGuardian` como actores internos | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:68-106 | Q-X-3 |
 | AC-SYS-003.2 | Protocolo de hooks de terminación del guardián de sistema… | `SystemGuardian` con `HashSet<ActorRef>` de hooks; mensajes internos… | derivada del código (ver bloque de contrato) | Q-SYS-4 |

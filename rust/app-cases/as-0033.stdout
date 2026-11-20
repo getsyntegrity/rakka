@@ -1,0 +1,1 @@
+PR-02 an empty BootstrapSetup equals none -> ok identifier=remote ProviderClass=org.apache.pekko.remote.RemoteActorRefProvider HasCluster=false

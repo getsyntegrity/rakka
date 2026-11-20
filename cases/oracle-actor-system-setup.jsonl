@@ -1,0 +1,41 @@
+{"name": "as-0001", "args": ["actor-system-setup-case"], "stdin": "AS-01 store and retrieve a setup"}
+{"name": "as-0002", "args": ["actor-system-setup-case"], "stdin": "AS-02 get on an empty setup"}
+{"name": "as-0003", "args": ["actor-system-setup-case"], "stdin": "AS-03 replace the setup of the same class"}
+{"name": "as-0004", "args": ["actor-system-setup-case"], "stdin": "AS-04 and with a repeated class"}
+{"name": "as-0005", "args": ["actor-system-setup-case"], "stdin": "AS-05 and with two different classes"}
+{"name": "as-0006", "args": ["actor-system-setup-case"], "stdin": "AS-06 create with several setups"}
+{"name": "as-0007", "args": ["actor-system-setup-case"], "stdin": "AS-07 create with two setups of the same class"}
+{"name": "as-0008", "args": ["actor-system-setup-case"], "stdin": "AS-08 the Java API"}
+{"name": "as-0009", "args": ["actor-system-setup-case"], "stdin": "AS-09 withSetup leaves the original setup unchanged"}
+{"name": "as-0010", "args": ["actor-system-setup-case"], "stdin": "AS-10 and on an ActorSystemSetup equals withSetup"}
+{"name": "as-0011", "args": ["actor-system-setup-case"], "stdin": "TS-01 toString of an empty setup"}
+{"name": "as-0012", "args": ["actor-system-setup-case"], "stdin": "TS-02 toString with one setup"}
+{"name": "as-0013", "args": ["actor-system-setup-case"], "stdin": "TS-03 toString with two setups in insertion order"}
+{"name": "as-0014", "args": ["actor-system-setup-case"], "stdin": "TS-04 toString after replacing the first setup keeps its position"}
+{"name": "as-0015", "args": ["actor-system-setup-case"], "stdin": "TS-05 toString with four setups"}
+{"name": "as-0016", "args": ["actor-system-setup-case"], "stdin": "TS-06 toString of create with a repeated class"}
+{"name": "as-0017", "args": ["actor-system-setup-case"], "stdin": "TS-07 toString with a BootstrapSetup"}
+{"name": "as-0018", "args": ["actor-system-setup-case"], "stdin": "BS-01 BootstrapSetup()"}
+{"name": "as-0019", "args": ["actor-system-setup-case"], "stdin": "BS-02 BootstrapSetup.create()"}
+{"name": "as-0020", "args": ["actor-system-setup-case"], "stdin": "BS-03 BootstrapSetup(config)"}
+{"name": "as-0021", "args": ["actor-system-setup-case"], "stdin": "BS-04 BootstrapSetup.create(config)"}
+{"name": "as-0022", "args": ["actor-system-setup-case"], "stdin": "BS-05 withConfig"}
+{"name": "as-0023", "args": ["actor-system-setup-case"], "stdin": "BS-06 withActorRefProvider(Remote)"}
+{"name": "as-0024", "args": ["actor-system-setup-case"], "stdin": "BS-07 withActorRefProvider(Cluster)"}
+{"name": "as-0025", "args": ["actor-system-setup-case"], "stdin": "BS-08 withActorRefProvider(Local)"}
+{"name": "as-0026", "args": ["actor-system-setup-case"], "stdin": "BS-09 withActorRefProvider(Custom)"}
+{"name": "as-0027", "args": ["actor-system-setup-case"], "stdin": "BS-10 withConfig then withActorRefProvider keeps the config"}
+{"name": "as-0028", "args": ["actor-system-setup-case"], "stdin": "BS-11 withActorRefProvider then withConfig keeps the provider"}
+{"name": "as-0029", "args": ["actor-system-setup-case"], "stdin": "BS-12 withConfig twice replaces the config"}
+{"name": "as-0030", "args": ["actor-system-setup-case"], "stdin": "BS-13 withers leave the original unchanged"}
+{"name": "as-0031", "args": ["actor-system-setup-case"], "stdin": "BS-14 a BootstrapSetup stored in an ActorSystemSetup"}
+{"name": "as-0032", "args": ["actor-system-setup-case"], "stdin": "PR-01 no setup uses the configuration (local)"}
+{"name": "as-0033", "args": ["actor-system-setup-case"], "stdin": "PR-02 an empty BootstrapSetup equals none"}
+{"name": "as-0034", "args": ["actor-system-setup-case"], "stdin": "PR-03 the provider of the BootstrapSetup wins over the configuration (Remote over local)"}
+{"name": "as-0035", "args": ["actor-system-setup-case"], "stdin": "PR-04 the provider of the BootstrapSetup wins (Cluster over remote)"}
+{"name": "as-0036", "args": ["actor-system-setup-case"], "stdin": "PR-05 the provider of the BootstrapSetup wins (Local over a custom class)"}
+{"name": "as-0037", "args": ["actor-system-setup-case"], "stdin": "PR-06 a Custom provider of the BootstrapSetup is selected through its identifier"}
+{"name": "as-0038", "args": ["actor-system-setup-case"], "stdin": "PR-07 a BootstrapSetup with only a config keeps the configured provider"}
+{"name": "as-0039", "args": ["actor-system-setup-case"], "stdin": "PR-08 other setups do not affect the provider"}
+{"name": "as-0040", "args": ["actor-system-setup-case"], "stdin": "PR-09 the setup is available from Settings.setup"}
+{"name": "as-0041", "args": ["actor-system-setup-case"], "stdin": "PR-10 Settings without a setup has an empty one"}

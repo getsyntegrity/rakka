@@ -931,6 +931,67 @@ MUTANTS = {
         '        false\n',
         "`Settings.HasCluster` is false for the cluster provider",
     ),
+    # --- slice P09 (AC-CFG-015): Setup, ActorSystemSetup and BootstrapSetup ---
+    "setup-replacement-is-appended-as-a-second-entry": (
+        "src/config/setup.rs",
+        'Some(existing) => *existing = entry,',
+        'Some(_) => self.entries.push(entry),',
+        "a second setup of the same type is added next to the first one, so `get` keeps returning the first",
+    ),
+    "setup-replacement-moves-to-the-end": (
+        "src/config/setup.rs",
+        'Some(existing) => *existing = entry,',
+        'Some(_) => {\n                self.entries.retain(|e| e.type_id != entry.type_id);\n                self.entries.push(entry);\n            }',
+        "a replaced setup loses its position in the list of names",
+    ),
+    "setup-display-sorts-the-names": (
+        "src/config/setup.rs",
+        '        let names: Vec<&str> = self.entries.iter().map(|e| e.class_name).collect();\n',
+        '        let mut names: Vec<&str> = self.entries.iter().map(|e| e.class_name).collect();\n        names.sort_unstable();\n',
+        "the class names are listed in alphabetical order instead of insertion order",
+    ),
+    "setup-display-separator-has-a-space": (
+        "src/config/setup.rs",
+        'names.join(",")',
+        'names.join(", ")',
+        "the class names are separated by a comma and a space",
+    ),
+    "setup-and-keeps-the-first-of-a-type": (
+        "src/config/setup.rs",
+        'ActorSystemSetup::empty().with_setup(self).with_setup(other)',
+        'ActorSystemSetup::empty().with_setup(other).with_setup(self)',
+        "`a and b` keeps `a` when both have the same type (Pekko keeps the last)",
+    ),
+    "bootstrap-with-config-drops-the-provider": (
+        "src/config/setup.rs",
+        '            config: Some(config),\n            ..self',
+        '            config: Some(config),\n            actor_ref_provider: None',
+        "`withConfig` forgets the actor-ref provider",
+    ),
+    "bootstrap-with-provider-drops-the-config": (
+        "src/config/setup.rs",
+        '            actor_ref_provider: Some(provider),\n            ..self',
+        '            actor_ref_provider: Some(provider),\n            config: None',
+        "`withActorRefProvider` forgets the configuration",
+    ),
+    "bootstrap-class-name-is-not-pekkos": (
+        "src/config/setup.rs",
+        '"org.apache.pekko.actor.BootstrapSetup"',
+        '"BootstrapSetup"',
+        "the BootstrapSetup is listed in `toString` under another name than its Java class",
+    ),
+    "settings-ignore-the-provider-of-the-setup": (
+        "src/config/settings.rs",
+        'Some(selection) => selection.identifier().to_owned(),',
+        'Some(_) => config.get_string("pekko.actor.provider")?,',
+        "a BootstrapSetup.actorRefProvider does not take priority over pekko.actor.provider",
+    ),
+    "settings-custom-provider-of-the-setup-keeps-its-class": (
+        "src/config/settings.rs",
+        'Some(selection) => selection.identifier().to_owned(),',
+        'Some(selection) => selection.fqcn().to_owned(),',
+        "a custom provider of the setup keeps its class name (Pekko 2.0.0 reads it through its identifier, so it becomes `custom`)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

@@ -63,6 +63,9 @@ final class ConfigSettingsOracle {
 
   static Config parse(String hocon) { return ConfigFactory.parseString(hocon); }
 
+  /** The base configuration (typed over actor reference.conf, from text); valid after {@link #ids()} was called. */
+  static Config baseConfig() { return base; }
+
   static ActorSystem.Settings settings(Config c) {
     return new ActorSystem.Settings(ConfigSettingsOracle.class.getClassLoader(), c, "oracle");
   }

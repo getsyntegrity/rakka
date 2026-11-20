@@ -1,0 +1,43 @@
+AS-01 store and retrieve a setup
+AS-02 get on an empty setup
+AS-03 replace the setup of the same class
+AS-04 and with a repeated class
+AS-05 and with two different classes
+AS-06 create with several setups
+AS-07 create with two setups of the same class
+AS-08 the Java API
+AS-09 withSetup leaves the original setup unchanged
+AS-10 and on an ActorSystemSetup equals withSetup
+TS-01 toString of an empty setup
+TS-02 toString with one setup
+TS-03 toString with two setups in insertion order
+TS-04 toString after replacing the first setup keeps its position
+TS-05 toString with four setups
+TS-06 toString of create with a repeated class
+TS-07 toString with a BootstrapSetup
+BS-01 BootstrapSetup()
+BS-02 BootstrapSetup.create()
+BS-03 BootstrapSetup(config)
+BS-04 BootstrapSetup.create(config)
+BS-05 withConfig
+BS-06 withActorRefProvider(Remote)
+BS-07 withActorRefProvider(Cluster)
+BS-08 withActorRefProvider(Local)
+BS-09 withActorRefProvider(Custom)
+BS-10 withConfig then withActorRefProvider keeps the config
+BS-11 withActorRefProvider then withConfig keeps the provider
+BS-12 withConfig twice replaces the config
+BS-13 withers leave the original unchanged
+BS-14 a BootstrapSetup stored in an ActorSystemSetup
+BS-15 withClassloader
+BS-16 withDefaultExecutionContext
+PR-01 no setup uses the configuration (local)
+PR-02 an empty BootstrapSetup equals none
+PR-03 the provider of the BootstrapSetup wins over the configuration (Remote over local)
+PR-04 the provider of the BootstrapSetup wins (Cluster over remote)
+PR-05 the provider of the BootstrapSetup wins (Local over a custom class)
+PR-06 a Custom provider of the BootstrapSetup is selected through its identifier
+PR-07 a BootstrapSetup with only a config keeps the configured provider
+PR-08 other setups do not affect the provider
+PR-09 the setup is available from Settings.setup
+PR-10 Settings without a setup has an empty one

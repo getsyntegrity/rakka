@@ -7,6 +7,7 @@
 //! classic-parity scenario-lines           stdin = one scenario JSON per line -> one JSON trace per line
 //! ```
 
+mod actor_system_setup_cases;
 mod bytes_cases;
 mod config_hocon_cases;
 mod config_settings_cases;
@@ -139,6 +140,15 @@ fn main() -> ExitCode {
         }
         "provider-selection-case" => {
             return oracle_case(&mut out, &input, provider_selection_cases::rust_lines());
+        }
+        "actor-system-setup-ids" => print_ids(&mut out, actor_system_setup_cases::rust_lines()),
+        "actor-system-setup-all" => {
+            for (_, line) in actor_system_setup_cases::rust_lines() {
+                writeln!(out, "{line}").ok();
+            }
+        }
+        "actor-system-setup-case" => {
+            return oracle_case(&mut out, &input, actor_system_setup_cases::rust_lines());
         }
         "config-settings-ids" => print_ids(&mut out, config_settings_cases::rust_lines()),
         "config-settings-all" => {

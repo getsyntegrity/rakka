@@ -1,0 +1,1 @@
+PR-01 no setup uses the configuration (local) -> ok identifier=local ProviderClass=org.apache.pekko.actor.LocalActorRefProvider HasCluster=false

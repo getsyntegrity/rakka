@@ -1,0 +1,4 @@
+bin.name = "classic-parity"
+args = ["actor-system-setup-case"]
+status.code = 0
+fs.sandbox = true

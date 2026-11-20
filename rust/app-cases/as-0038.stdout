@@ -1,0 +1,1 @@
+PR-07 a BootstrapSetup with only a config keeps the configured provider -> ok identifier=cluster ProviderClass=org.apache.pekko.cluster.ClusterActorRefProvider HasCluster=true

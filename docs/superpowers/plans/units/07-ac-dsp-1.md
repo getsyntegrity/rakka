@@ -17,7 +17,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-DSP-1`, `Q-DSP-2`, `Q-DSP-3`, `Q-DSP-4`, `Q-DSP-5`, `Q-DSP-6`, `Q-DSP-7`, `Q-MBX-6`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-CFG-32`, `Q-DSP-1`, `Q-DSP-2`, `Q-DSP-3`, `Q-DSP-4`, `Q-DSP-5`, `Q-DSP-6`, `Q-DSP-7`, `Q-MBX-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -80,7 +80,7 @@ Filas: AC-DSP-023. Contratos y aserciones: `docs/inventory/contracts/classic-dis
 | AC-DSP-003 | throughput y throughput-deadline-time | parámetros del loop de mailbox | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatcherActorSpec.scala:84,1… | Q-DSP-5, Q-MBX-6 |
 | AC-DSP-004 | Registro Dispatchers: lookup por id, hasDispatcher, alias (string) con… | `Dispatchers` con `DashMap<String, Arc<dyn Dispatcher>>` | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:162-235… | Q-CFG-31, Q-DSP-2, Q-DSP-4, Q-X-1 |
 | AC-DSP-005 | default-dispatcher (fork-join-executor por defecto,… | dispatcher sobre pool work-stealing | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:178-182 | Q-DSP-1 |
-| AC-DSP-006 | internal-dispatcher, default-blocking-io-dispatcher y ExecutionContext externo… | ids fijos + `Executor` provisto por el usuario (p. ej. handle de tokio) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53,77,1… | Q-DSP-1, Q-DSP-2, Q-X-4 |
+| AC-DSP-006 | internal-dispatcher, default-blocking-io-dispatcher y ExecutionContext externo… | ids fijos + `Executor` provisto por el usuario (p. ej. handle de tokio) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemDispatcherSpec.scala:53,77,1… | Q-CFG-32, Q-DSP-1, Q-DSP-2, Q-X-4 |
 | AC-DSP-007 | Selección del dispatcher de un actor (Props, deployment, "same-as-parent") y… | resolución en el provider | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:273-302… | Q-DSP-2 |
 | AC-DSP-008 | ForkJoinExecutorConfigurator (PekkoForkJoinPool, parallelism,… | runtime multi-hilo work-stealing (tokio o pool propio) con N=parallelism | actor-tests/src/test/scala/org/apache/pekko/dispatch/ForkJoinExecutorConfiguratorSpec.sca… | Q-DSP-1, Q-DSP-6, Q-X-4 |
 | AC-DSP-009 | ThreadPoolExecutorConfigurator y ThreadPoolConfig | pool de hilos propio (sin work stealing) | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:241-247 | Q-DSP-1 |

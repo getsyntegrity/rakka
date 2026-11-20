@@ -1,0 +1,1 @@
+PR-08 other setups do not affect the provider -> ok identifier=remote ProviderClass=org.apache.pekko.remote.RemoteActorRefProvider HasCluster=false

@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt;
 
-use super::{Config, ConfigError, ProviderSelection};
+use super::{ActorSystemSetup, BootstrapSetup, Config, ConfigError, ProviderSelection};
 use crate::ConfigurationException;
 use crate::util::Timeout;
 use crate::util::helpers::to_root_lower_case;
@@ -89,6 +89,8 @@ pub struct Settings {
     config: Config,
     /// `ConfigVersion` (`pekko.version`).
     pub config_version: String,
+    /// `setup`: the programmatic setups the system was created with (`settings.setup`).
+    pub setup: ActorSystemSetup,
     /// `ProviderSelectionType` (`pekko.actor.provider`). A `BootstrapSetup.actorRefProvider` takes priority over it (AC-CFG-015).
     pub provider_selection: ProviderSelection,
     /// `SupervisorStrategyClass` (`pekko.actor.guardian-supervisor-strategy`): a name for the registry (Q-X-2).
@@ -166,13 +168,33 @@ impl Settings {
     /// out (AC-CFG-019), every key is read in the order of the Scala constructor, and the first problem is returned.
     /// With `serialize-messages` or `serialize-creators` on the result is a `ConfigurationException` (Q-CFG-11).
     pub fn new(name: &str, config: Config) -> Result<Settings, SettingsError> {
+        Self::with_setup(name, config, ActorSystemSetup::empty())
+    }
+
+    /// `new Settings(classLoader, config, name, setup)`: like [`Settings::new`], with the programmatic `setup`.
+    pub fn with_setup(
+        name: &str,
+        config: Config,
+        setup: ActorSystemSetup,
+    ) -> Result<Settings, SettingsError> {
         let reference =
             Config::default_reference().without_path("pekko.actor.internal-dispatcher")?;
         config.check_valid(&reference, &["pekko"])?;
 
         let config_version = config.get_string("pekko.version")?;
-        let provider_selection =
-            ProviderSelection::from_identifier(&config.get_string("pekko.actor.provider")?);
+        // `setup.get[BootstrapSetup].flatMap(_.actorRefProvider).map(_.identifier).getOrElse(getString("pekko.actor.provider"))`
+        // (ActorSystem.scala:410-414): a setup's selection is read through its identifier, so a custom provider of the setup
+        // becomes the class name "custom".
+        // reproduce Pekko 2.0.0: Custom tiene identifier "custom" y Settings lee .identifier del setup (ActorSystem.scala:118,
+        // 411-417); ProviderClass queda "custom" (Q-CFG-34)
+        let provider_identifier = match setup
+            .get::<BootstrapSetup>()
+            .and_then(BootstrapSetup::actor_ref_provider)
+        {
+            Some(selection) => selection.identifier().to_owned(),
+            None => config.get_string("pekko.actor.provider")?,
+        };
+        let provider_selection = ProviderSelection::from_identifier(&provider_identifier);
         let supervisor_strategy_class =
             config.get_string("pekko.actor.guardian-supervisor-strategy")?;
         let creation_timeout = config.get_millis_duration("pekko.actor.creation-timeout")?;
@@ -264,6 +286,7 @@ impl Settings {
             name: name.to_owned(),
             config,
             config_version,
+            setup,
             provider_selection,
             supervisor_strategy_class,
             creation_timeout,
@@ -437,6 +460,73 @@ mod tests {
             assert_eq!(s.provider_class(), class, "{key}");
             assert_eq!(s.has_cluster(), cluster, "{key}");
         }
+    }
+
+    // ActorSystem.scala:410-414: a `BootstrapSetup.actorRefProvider` has priority over `pekko.actor.provider`; the setup is
+    // available as `settings.setup` (ActorSystemSetupSpec.scala:67-78).
+    #[test]
+    fn the_provider_of_the_bootstrap_setup_has_priority_over_the_configuration() {
+        let with = |configured: &str, setup: ActorSystemSetup| {
+            let config = Config::parse_string(&format!("pekko.actor.provider = \"{configured}\""))
+                .unwrap()
+                .with_fallback(&typed_base())
+                .resolve()
+                .unwrap();
+            Settings::with_setup("test", config, setup).unwrap()
+        };
+        let bootstrap = BootstrapSetup::new();
+        let remote_over_local = with(
+            "local",
+            ActorSystemSetup::empty().with_setup(
+                bootstrap
+                    .clone()
+                    .with_actor_ref_provider(ProviderSelection::Remote),
+            ),
+        );
+        assert_eq!(
+            remote_over_local.provider_selection,
+            ProviderSelection::Remote
+        );
+        let configured_when_empty = with("remote", ActorSystemSetup::empty().with_setup(bootstrap));
+        assert_eq!(
+            configured_when_empty.provider_selection,
+            ProviderSelection::Remote
+        );
+        let configured_without_setup = with("cluster", ActorSystemSetup::empty());
+        assert_eq!(
+            configured_without_setup.provider_selection,
+            ProviderSelection::Cluster
+        );
+        assert!(configured_without_setup.setup.is_empty());
+    }
+
+    // ActorSystem.scala:410-414: Pekko takes the `identifier` of the setup's selection, so a custom provider becomes the
+    // class name "custom".
+    #[test]
+    fn a_custom_provider_of_the_bootstrap_setup_is_selected_through_its_identifier() {
+        let setup =
+            ActorSystemSetup::empty().with_setup(BootstrapSetup::new().with_actor_ref_provider(
+                ProviderSelection::Custom("other.ActorRefProvider".to_owned()),
+            ));
+        let s = Settings::with_setup("test", Config::default_reference(), setup).unwrap();
+        assert_eq!(
+            s.provider_selection,
+            ProviderSelection::Custom("custom".to_owned())
+        );
+        assert_eq!(s.provider_class(), "custom");
+    }
+
+    #[test]
+    fn the_setup_is_available_from_the_settings() {
+        use crate::config::Setup;
+        struct DummySetup(String);
+        impl Setup for DummySetup {}
+        let setup = ActorSystemSetup::empty().with_setup(DummySetup("Tad Moore".to_owned()));
+        let s = Settings::with_setup("test", Config::default_reference(), setup).unwrap();
+        assert_eq!(
+            s.setup.get::<DummySetup>().map(|d| d.0.as_str()),
+            Some("Tad Moore")
+        );
     }
 
     #[test]

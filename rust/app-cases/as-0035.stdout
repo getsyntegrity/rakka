@@ -1,0 +1,1 @@
+PR-04 the provider of the BootstrapSetup wins (Cluster over remote) -> ok identifier=cluster ProviderClass=org.apache.pekko.cluster.ClusterActorRefProvider HasCluster=true

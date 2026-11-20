@@ -1,0 +1,1 @@
+PR-03 the provider of the BootstrapSetup wins over the configuration (Remote over local) -> ok identifier=remote ProviderClass=org.apache.pekko.remote.RemoteActorRefProvider HasCluster=false
