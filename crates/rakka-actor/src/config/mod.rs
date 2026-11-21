@@ -36,7 +36,8 @@ pub use settings::{
 };
 pub use setup::{ActorSystemSetup, BootstrapSetup, Setup};
 
-use model::{Kind, NumRepr, Obj, Val, join_path, merge_obj, quote};
+use crate::actor::jstring::decimal_digit_value;
+use model::{Kind, NumRepr, Obj, Piece, Val, join_path, merge_obj, quote};
 
 use crate::ConfigurationException;
 use crate::util::{TimeUnit, Timeout};
@@ -112,16 +113,162 @@ pub(crate) fn render_concise(v: &Val) -> String {
             l.iter().map(render_concise).collect::<Vec<_>>().join(",")
         ),
         Kind::Obj(m) => {
-            let fields: Vec<String> = m
+            // an unresolved key keeps every layer of its stack, the lowest priority first
+            let mut entries: Vec<(&String, &Val)> = m
                 .iter()
-                .filter_map(|(k, st)| {
-                    st.first()
-                        .map(|x| format!("{}:{}", quote(k), render_concise(x)))
-                })
+                .flat_map(|(k, stack)| stack.iter().rev().map(move |layer| (k, layer)))
+                .collect();
+            entries.sort_by(|a, b| compare_render_keys(a.0, b.0));
+            let fields: Vec<String> = entries
+                .into_iter()
+                .map(|(k, x)| format!("{}:{}", quote(k), render_concise(x)))
                 .collect();
             format!("{{{}}}", fields.join(","))
         }
-        Kind::Concat(_) | Kind::Subst(_) => "\"<unresolved>\"".to_owned(),
+        Kind::Subst(s) => s.display(),
+        Kind::Concat(pieces) => render_concatenation(pieces),
+    }
+}
+
+/// The order in which a rendered object lists its keys: keys made only of digits first, by numeric value, then the
+/// others like `String.compareTo`.
+fn compare_render_keys(a: &str, b: &str) -> std::cmp::Ordering {
+    // `Character.isDigit` over UTF-16 units, so Unicode decimal digits count and astral ones do not
+    let value = |key: &str| -> Option<Vec<i32>> {
+        let units: Vec<u16> = key.encode_utf16().collect();
+        let digits: Option<Vec<i32>> = units.iter().map(|&u| decimal_digit_value(u)).collect();
+        digits.filter(|d| !d.is_empty())
+    };
+    match (value(a), value(b)) {
+        (Some(a), Some(b)) => {
+            let significant = |d: &[i32]| {
+                d.iter()
+                    .skip_while(|&&x| x == 0)
+                    .copied()
+                    .collect::<Vec<_>>()
+            };
+            let (a, b) = (significant(&a), significant(&b));
+            a.len().cmp(&b.len()).then_with(|| a.cmp(&b))
+        }
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => crate::actor::jstring::compare_utf16(a, b),
+    }
+}
+
+/// An unresolved concatenation as Typesafe Config prints it: white space next to a list or an object is dropped, adjacent
+/// lists and adjacent objects are fused, and a run of two or more plain values and white space becomes one string made of
+/// their original texts (a number keeps its digits, `true` and `null` their names); a lone plain value keeps its type.
+fn render_concatenation(pieces: &[Piece]) -> String {
+    let is_container = |piece: &Piece| {
+        matches!(
+            piece,
+            Piece::V(Val {
+                kind: Kind::List(_) | Kind::Obj(_),
+                ..
+            })
+        )
+    };
+    let mut kept: Vec<&Piece> = Vec::new();
+    for (position, piece) in pieces.iter().enumerate() {
+        let touches_container = matches!(piece, Piece::Ws(_))
+            && (position
+                .checked_sub(1)
+                .is_some_and(|before| is_container(&pieces[before]))
+                || pieces.get(position + 1).is_some_and(is_container));
+        if !touches_container {
+            kept.push(piece);
+        }
+    }
+    let mut out = String::new();
+    let mut position = 0;
+    while position < kept.len() {
+        match kept[position] {
+            Piece::V(Val {
+                kind: Kind::List(first),
+                ..
+            }) => {
+                let mut items: Vec<&Val> = first.iter().collect();
+                while let Some(Piece::V(Val {
+                    kind: Kind::List(next),
+                    ..
+                })) = kept.get(position + 1)
+                {
+                    items.extend(next.iter());
+                    position += 1;
+                }
+                let rendered: Vec<String> = items.into_iter().map(render_concise).collect();
+                out.push_str(&format!("[{}]", rendered.join(",")));
+            }
+            Piece::V(Val {
+                kind: Kind::Obj(first),
+                ..
+            }) => {
+                let mut fused = first.clone();
+                while let Some(Piece::V(Val {
+                    kind: Kind::Obj(next),
+                    ..
+                })) = kept.get(position + 1)
+                {
+                    fused = merge_obj(next, &fused);
+                    position += 1;
+                }
+                out.push_str(&render_concise(&Val::new(0, Kind::Obj(fused))));
+            }
+            Piece::V(
+                value @ Val {
+                    kind: Kind::Subst(_),
+                    ..
+                },
+            ) => out.push_str(&render_concise(value)),
+            _ => {
+                let start = position;
+                while kept
+                    .get(position + 1)
+                    .is_some_and(|next| plain_text(next).is_some())
+                {
+                    position += 1;
+                }
+                if position == start {
+                    if let Piece::V(value) = kept[start] {
+                        out.push_str(&render_concise(value));
+                    } else {
+                        out.push_str(&quote(&plain_text(kept[start]).unwrap_or_default()));
+                    }
+                } else {
+                    let text: String = kept[start..=position]
+                        .iter()
+                        .filter_map(|piece| plain_text(piece))
+                        .collect();
+                    out.push_str(&quote(&text));
+                }
+            }
+        }
+        position += 1;
+    }
+    out
+}
+
+/// The original text of a white space or plain-value piece, `None` for lists, objects and substitutions.
+fn plain_text(piece: &Piece) -> Option<String> {
+    match piece {
+        Piece::Ws(white) => Some(white.clone()),
+        Piece::V(Val {
+            kind: Kind::Str(text),
+            ..
+        }) => Some(text.clone()),
+        Piece::V(Val {
+            kind: Kind::Num(number),
+            ..
+        }) => Some(number.text().to_owned()),
+        Piece::V(Val {
+            kind: Kind::Bool(flag),
+            ..
+        }) => Some(flag.to_string()),
+        Piece::V(Val {
+            kind: Kind::Null, ..
+        }) => Some("null".to_owned()),
+        Piece::V(_) => None,
     }
 }
 

@@ -1,0 +1,1 @@
+TS-56 toString with a lone boolean between substitutions -> ok Deploy(/a, Config(SimpleConfigObject({"a":${x}true${y}})), NoRouter, NoScopeGiven, , , Set())

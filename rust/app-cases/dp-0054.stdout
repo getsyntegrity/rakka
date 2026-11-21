@@ -1,0 +1,1 @@
+TS-10 toString with a path of the form a.b.c -> ok Deploy(/a, Config(SimpleConfigObject({"a":{"b":{"c":1,"d":2}}})), NoRouter, NoScopeGiven, , , Set())

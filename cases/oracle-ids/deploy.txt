@@ -42,3 +42,61 @@ RT-01 no router takes a router
 RT-02 a router over no router
 RT-03 no router over no router
 RT-04 a router over another router keeps its class
+TS-01 toString of Deploy()
+TS-02 toString of Deploy.local
+TS-03 toString with path, dispatcher and mailbox
+TS-04 toString with a nested configuration
+TS-05 toString with numbers of every shape
+TS-06 toString with null and booleans
+TS-07 toString with keys that need quotes
+TS-08 toString with escapes in strings
+TS-09 toString with Unicode and astral text
+TS-10 toString with a path of the form a.b.c
+TS-11 toString with an unresolved substitution
+TS-12 toString with an unresolved optional substitution and a concatenation
+TS-13 toString with one tag
+TS-14 toString with four tags in insertion order
+TS-15 toString with four tags in the opposite insertion order
+TS-16 toString with five tags
+TS-17 toString with five tags in another insertion order
+TS-18 toString with twelve tags
+TS-19 toString with repeated tags
+TS-20 toString after withFallback
+TS-21 toString with the empty object and the empty list
+TS-22 toString with durations and sizes kept as strings
+TS-23 toString with numeric and mixed keys
+TS-24 toString with non-ASCII digit keys
+TS-25 toString with keys that differ in UTF-16 order and code point order
+TS-26 toString with concatenations of substitutions
+TS-27 toString with a substitution after and before an object
+TS-28 toString with substitution paths that need quotes
+TS-29 toString with a substitution under an object
+TS-30 toString with a substitution over a number
+TS-31 toString with a number over a substitution
+TS-32 toString with objects around a substitution
+TS-33 toString with two substitutions
+TS-34 toString with a substitution and a nested key
+TS-35 toString with an optional substitution over an object
+TS-36 toString with a number with a trailing zero before a substitution
+TS-37 toString with an exponent number before a substitution
+TS-38 toString with a boolean and two spaces before a substitution
+TS-39 toString with null before a substitution
+TS-40 toString with a number after a substitution
+TS-41 toString with several numbers and a substitution
+TS-42 toString with a number with leading zeros between substitutions
+TS-43 toString with adjacent lists before a substitution
+TS-44 toString with adjacent objects before a substitution
+TS-45 toString with lists around a substitution
+TS-46 toString with adjacent objects after a substitution
+TS-47 toString with adjacent lists after a substitution
+TS-48 toString with adjacent objects that repeat a key
+TS-49 toString with adjacent objects that merge a nested key
+TS-50 toString with substitution paths of digits
+TS-51 toString with substitution paths that start with a hyphen or look like keywords
+TS-52 toString with substitution paths that need quotes
+TS-53 toString with substitution paths of non-ASCII letters
+TS-54 toString with a substitution path of an astral character
+TS-55 toString with a lone number between substitutions
+TS-56 toString with a lone boolean between substitutions
+TS-57 toString with a string, a number and a substitution
+TS-58 toString with a substitution path of an astral letter

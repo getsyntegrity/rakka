@@ -59,6 +59,13 @@ final class DeployOracle {
     return scala.jdk.javaapi.CollectionConverters.asScala(new HashSet<>(Arrays.asList(names))).toSet();
   }
 
+  /** A Scala immutable Set built element by element, as {@code Set(a, b, ...)} is: up to four elements keep their insertion order. */
+  private static scala.collection.immutable.Set<String> orderedTags(String... names) {
+    scala.collection.immutable.Set<String> set = scala.collection.immutable.Set$.MODULE$.<String>empty();
+    for (String name : names) set = set.$plus(name);
+    return set;
+  }
+
   private static Deploy deploy(String path, String config, RouterConfig router, Scope scope, String dispatcher, String mailbox) {
     return new Deploy(path, conf(config), router, scope, dispatcher, mailbox, tags());
   }
@@ -153,5 +160,64 @@ final class DeployOracle {
     run("RT-02 a router over no router", () -> router(new RoundRobinPool(1).withFallback(NO_ROUTER)));
     run("RT-03 no router over no router", () -> router(NO_ROUTER.withFallback(NO_ROUTER)));
     run("RT-04 a router over another router keeps its class", () -> router(new RoundRobinPool(1).withFallback(new RandomPool(1))));
+    // Deployer.scala:163 (toString): Deploy(path, config, routerConfig, scope, dispatcher, mailbox, tags)
+    run("TS-01 toString of Deploy()", () -> Deploy.apply("", ConfigFactory.empty(), NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-02 toString of Deploy.local", () -> Deploy.local().toString());
+    run("TS-03 toString with path, dispatcher and mailbox", () -> plain("/user/a", "my-dispatcher", "my-mailbox").toString());
+    run("TS-04 toString with a nested configuration", () -> deploy("/a", "x = 1, n { b = [1, 2, {c = true}], a = \"s\" }", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-05 toString with numbers of every shape", () -> deploy("/a", "a = 1, b = 1.0, c = 1e5, d = 1.5e-7, e = 12345678901234567890, f = -0, g = 0.1", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-06 toString with null and booleans", () -> deploy("/a", "a = null, b = true, c = false", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-07 toString with keys that need quotes", () -> deploy("/a", "\"a b\" = 1, \"\" = 2, \"x.y\" = 3, \"1\" = 4", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-08 toString with escapes in strings", () -> deploy("/a", "a = \"q\\\"uote\\n\\t\\\\ \\u00e9 \\u0001 \\u001f\"", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-09 toString with Unicode and astral text", () -> deploy("/\u00e9\uD83D\uDE00", "a = \"\u00e9\uD83D\uDE00\", \"\u00e9\" = 1", NO_ROUTER, NO_SCOPE, "d\u00e9", "m\uD83D\uDE00").toString());
+    run("TS-10 toString with a path of the form a.b.c", () -> deploy("/a", "a.b.c = 1, a.b.d = 2", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-11 toString with an unresolved substitution", () -> deploy("/a", "a = ${b}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-12 toString with an unresolved optional substitution and a concatenation", () -> deploy("/a", "a = ${?b}, c = ${d} suffix, e = \"x\" ${f}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-13 toString with one tag", () -> plain("/a", "", "").withTags(orderedTags("t")).toString());
+    run("TS-14 toString with four tags in insertion order", () -> plain("/a", "", "").withTags(orderedTags("t3", "t1", "t4", "t2")).toString());
+    run("TS-15 toString with four tags in the opposite insertion order", () -> plain("/a", "", "").withTags(orderedTags("t2", "t4", "t1", "t3")).toString());
+    run("TS-16 toString with five tags", () -> plain("/a", "", "").withTags(orderedTags("t3", "t1", "t4", "t2", "t5")).toString());
+    run("TS-17 toString with five tags in another insertion order", () -> plain("/a", "", "").withTags(orderedTags("t5", "t2", "t4", "t1", "t3")).toString());
+    run("TS-18 toString with twelve tags", () -> plain("/a", "", "").withTags(orderedTags("alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa", "lambda", "mu")).toString());
+    run("TS-19 toString with repeated tags", () -> plain("/a", "", "").withTags(orderedTags("b", "a", "b", "c", "a")).toString());
+    run("TS-20 toString after withFallback", () -> deploy("/a", "a = 1", NO_ROUTER, NO_SCOPE, "", "").withFallback(deploy("/b", "b = 2", NO_ROUTER, LOCAL, "d", "m")).toString());
+    run("TS-21 toString with the empty object and the empty list", () -> deploy("/a", "a = {}, b = []", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-22 toString with durations and sizes kept as strings", () -> deploy("/a", "t = 10s, m = 512K", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-23 toString with numeric and mixed keys", () -> deploy("/a", "\"10\" = 1, \"9\" = 2, \"2\" = 3, \"007\" = 4, a = 5, B = 6, _ = 7, \"123456789012345678901234567890\" = 8, \"-1\" = 9", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-24 toString with non-ASCII digit keys", () -> deploy("/a", "\"\\u0661\\u0662\" = 1, \"3\" = 2, \"\\uFF11\" = 3", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-25 toString with keys that differ in UTF-16 order and code point order", () -> deploy("/a", "\"\\uFFFF\" = 1, \"\\uD83D\\uDE00\" = 2, \"\\uE000\" = 3", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-26 toString with concatenations of substitutions", () -> deploy("/a", "a = ${x} ${y}, b = ${x}${y}, c = \"a\" ${x} \"b\", d = foo ${x}bar, e = [${x}, 1], f = {g = ${x}}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-27 toString with a substitution after and before an object", () -> deploy("/a", "a = {x = 1}\na = ${b}\nc = ${d}\nc = {y = 2}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-28 toString with substitution paths that need quotes", () -> deploy("/a", "a = ${b.c.d}, e = ${\"q k\".x}, f = ${?g.h}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-29 toString with a substitution under an object", () -> deploy("/a", "a = ${b}\na = {y = 2}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-30 toString with a substitution over a number", () -> deploy("/a", "a = 1\na = ${b}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-31 toString with a number over a substitution", () -> deploy("/a", "a = ${b}\na = 2", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-32 toString with objects around a substitution", () -> deploy("/a", "a = {x = 1}\na = ${b}\na = {z = 3}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-33 toString with two substitutions", () -> deploy("/a", "a = ${b}\na = ${c}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-34 toString with a substitution and a nested key", () -> deploy("/a", "a.b = ${c}\na.b.d = 1\na.e = 2", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-35 toString with an optional substitution over an object", () -> deploy("/a", "a = {x = 1}\na = ${?b}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-36 toString with a number with a trailing zero before a substitution", () -> deploy("/a", "a = 1.50 ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-37 toString with an exponent number before a substitution", () -> deploy("/a", "a = 1e2 ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-38 toString with a boolean and two spaces before a substitution", () -> deploy("/a", "a = true  ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-39 toString with null before a substitution", () -> deploy("/a", "a = null ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-40 toString with a number after a substitution", () -> deploy("/a", "a = ${x} 1.50", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-41 toString with several numbers and a substitution", () -> deploy("/a", "a = 1   2 ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-42 toString with a number with leading zeros between substitutions", () -> deploy("/a", "a = ${x}007${y}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-43 toString with adjacent lists before a substitution", () -> deploy("/a", "a = [1] [2] ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-44 toString with adjacent objects before a substitution", () -> deploy("/a", "a = {x=1} {y=2} ${z}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-45 toString with lists around a substitution", () -> deploy("/a", "a = [1] ${x} [2]", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-46 toString with adjacent objects after a substitution", () -> deploy("/a", "a = ${x} {b=1} {c=2}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-47 toString with adjacent lists after a substitution", () -> deploy("/a", "a = ${x} [1] [2]", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-48 toString with adjacent objects that repeat a key", () -> deploy("/a", "a = {x=1} {x=2} ${z}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-49 toString with adjacent objects that merge a nested key", () -> deploy("/a", "a = {x={k=1}} {x={j=2}} ${z}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-50 toString with substitution paths of digits", () -> deploy("/a", "a = ${1}, b = ${a.007}, c = ${a.1.2}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-51 toString with substitution paths that start with a hyphen or look like keywords", () -> deploy("/a", "a = ${a.-1} ${-} ${-a} ${1-a} ${a.1e5} ${true} ${null.x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-52 toString with substitution paths that need quotes", () -> deploy("/a", "a = ${\"q k\"} ${\"\"} ${\"\\u00e9.x\"} ${\"1\"} ${\"a-b\"} ${\"_c\"} ${\"a b\".c}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-53 toString with substitution paths of non-ASCII letters", () -> deploy("/a", "a = ${\"\\u00e9\"} ${\"\\u03a91\"}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-54 toString with a substitution path of an astral character", () -> deploy("/a", "a = ${\"\\uD83D\\uDE00\"}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-55 toString with a lone number between substitutions", () -> deploy("/a", "a = ${x}1${y}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-56 toString with a lone boolean between substitutions", () -> deploy("/a", "a = ${x}true${y}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-57 toString with a string, a number and a substitution", () -> deploy("/a", "a = \"q\" 1 ${x}", NO_ROUTER, NO_SCOPE, "", "").toString());
+    run("TS-58 toString with a substitution path of an astral letter", () -> deploy("/a", "a = ${\"\\uD835\\uDC00\"} ${\"\\u00e9\\uD835\\uDC00\"}", NO_ROUTER, NO_SCOPE, "", "").toString());
   }
 }

@@ -60,7 +60,8 @@ fn router(r: &RouterConfig) -> String {
 }
 
 fn show(d: &Deploy) -> String {
-    let names: Vec<&str> = d.tags().iter().map(String::as_str).collect();
+    let mut names: Vec<&str> = d.tags().iter().map(String::as_str).collect();
+    names.sort_unstable();
     format!(
         "path=\"{}\" config={} router={} scope={} dispatcher=\"{}\" mailbox=\"{}\" tags=[{}]",
         d.path(),
@@ -70,6 +71,17 @@ fn show(d: &Deploy) -> String {
         d.dispatcher(),
         d.mailbox(),
         names.join(", ")
+    )
+}
+
+fn with_config_at(config: &str) -> Deploy {
+    deploy(
+        "/a",
+        config,
+        RouterConfig::NoRouter,
+        Scope::NoScopeGiven,
+        "",
+        "",
     )
 }
 
@@ -361,6 +373,177 @@ pub fn rust_lines() -> Vec<(String, String)> {
                 &pool("RoundRobinPool").with_fallback(&pool("RandomPool")),
             )),
         ),
+        (
+            "TS-01 toString of Deploy()",
+            ok(Deploy::default().to_string()),
+        ),
+        (
+            "TS-02 toString of Deploy.local",
+            ok(Deploy::local().to_string()),
+        ),
+        (
+            "TS-03 toString with path, dispatcher and mailbox",
+            ok(plain("/user/a", "my-dispatcher", "my-mailbox").to_string()),
+        ),
+        (
+            "TS-04 toString with a nested configuration",
+            ok(with_config_at("x = 1, n { b = [1, 2, {c = true}], a = \"s\" }").to_string()),
+        ),
+        (
+            "TS-05 toString with numbers of every shape",
+            ok(with_config_at(
+                "a = 1, b = 1.0, c = 1e5, d = 1.5e-7, e = 12345678901234567890, f = -0, g = 0.1",
+            )
+            .to_string()),
+        ),
+        (
+            "TS-06 toString with null and booleans",
+            ok(with_config_at("a = null, b = true, c = false").to_string()),
+        ),
+        (
+            "TS-07 toString with keys that need quotes",
+            ok(with_config_at("\"a b\" = 1, \"\" = 2, \"x.y\" = 3, \"1\" = 4").to_string()),
+        ),
+        (
+            "TS-08 toString with escapes in strings",
+            ok(with_config_at(r#"a = "q\"uote\n\t\\ é \u0001 \u001f""#).to_string()),
+        ),
+        (
+            "TS-09 toString with Unicode and astral text",
+            ok(deploy(
+                "/é😀",
+                "a = \"é😀\", \"é\" = 1",
+                RouterConfig::NoRouter,
+                Scope::NoScopeGiven,
+                "dé",
+                "m😀",
+            )
+            .to_string()),
+        ),
+        (
+            "TS-10 toString with a path of the form a.b.c",
+            ok(with_config_at("a.b.c = 1, a.b.d = 2").to_string()),
+        ),
+        (
+            "TS-11 toString with an unresolved substitution",
+            ok(with_config_at("a = ${b}").to_string()),
+        ),
+        (
+            "TS-12 toString with an unresolved optional substitution and a concatenation",
+            ok(with_config_at("a = ${?b}, c = ${d} suffix, e = \"x\" ${f}").to_string()),
+        ),
+        (
+            "TS-13 toString with one tag",
+            ok(plain("/a", "", "").with_tags(tags(&["t"])).to_string()),
+        ),
+        (
+            "TS-14 toString with four tags in insertion order",
+            ok(plain("/a", "", "")
+                .with_tags(tags(&["t3", "t1", "t4", "t2"]))
+                .to_string()),
+        ),
+        (
+            "TS-15 toString with four tags in the opposite insertion order",
+            ok(plain("/a", "", "")
+                .with_tags(tags(&["t2", "t4", "t1", "t3"]))
+                .to_string()),
+        ),
+        (
+            "TS-16 toString with five tags",
+            ok(plain("/a", "", "")
+                .with_tags(tags(&["t3", "t1", "t4", "t2", "t5"]))
+                .to_string()),
+        ),
+        (
+            "TS-17 toString with five tags in another insertion order",
+            ok(plain("/a", "", "")
+                .with_tags(tags(&["t5", "t2", "t4", "t1", "t3"]))
+                .to_string()),
+        ),
+        (
+            "TS-18 toString with twelve tags",
+            ok(plain("/a", "", "")
+                .with_tags(tags(&[
+                    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",
+                    "kappa", "lambda", "mu",
+                ]))
+                .to_string()),
+        ),
+        (
+            "TS-19 toString with repeated tags",
+            ok(plain("/a", "", "")
+                .with_tags(tags(&["b", "a", "b", "c", "a"]))
+                .to_string()),
+        ),
+        (
+            "TS-20 toString after withFallback",
+            ok(with_config_at("a = 1")
+                .with_fallback(&deploy(
+                    "/b",
+                    "b = 2",
+                    RouterConfig::NoRouter,
+                    Scope::Local,
+                    "d",
+                    "m",
+                ))
+                .to_string()),
+        ),
+        (
+            "TS-21 toString with the empty object and the empty list",
+            ok(with_config_at("a = {}, b = []").to_string()),
+        ),
+        (
+            "TS-22 toString with durations and sizes kept as strings",
+            ok(with_config_at("t = 10s, m = 512K").to_string()),
+        ),
+        ("TS-23 toString with numeric and mixed keys", ok(with_config_at(r####""10" = 1, "9" = 2, "2" = 3, "007" = 4, a = 5, B = 6, _ = 7, "123456789012345678901234567890" = 8, "-1" = 9"####).to_string())),
+        ("TS-24 toString with non-ASCII digit keys", ok(with_config_at(r####""\u0661\u0662" = 1, "3" = 2, "\uFF11" = 3"####).to_string())),
+        ("TS-25 toString with keys that differ in UTF-16 order and code point order", ok(with_config_at(r####""\uFFFF" = 1, "\uD83D\uDE00" = 2, "\uE000" = 3"####).to_string())),
+        ("TS-26 toString with concatenations of substitutions", ok(with_config_at(r####"a = ${x} ${y}, b = ${x}${y}, c = "a" ${x} "b", d = foo ${x}bar, e = [${x}, 1], f = {g = ${x}}"####).to_string())),
+        ("TS-27 toString with a substitution after and before an object", ok(with_config_at(r####"a = {x = 1}
+a = ${b}
+c = ${d}
+c = {y = 2}"####).to_string())),
+        ("TS-28 toString with substitution paths that need quotes", ok(with_config_at(r####"a = ${b.c.d}, e = ${"q k".x}, f = ${?g.h}"####).to_string())),
+        ("TS-29 toString with a substitution under an object", ok(with_config_at(r####"a = ${b}
+a = {y = 2}"####).to_string())),
+        ("TS-30 toString with a substitution over a number", ok(with_config_at(r####"a = 1
+a = ${b}"####).to_string())),
+        ("TS-31 toString with a number over a substitution", ok(with_config_at(r####"a = ${b}
+a = 2"####).to_string())),
+        ("TS-32 toString with objects around a substitution", ok(with_config_at(r####"a = {x = 1}
+a = ${b}
+a = {z = 3}"####).to_string())),
+        ("TS-33 toString with two substitutions", ok(with_config_at(r####"a = ${b}
+a = ${c}"####).to_string())),
+        ("TS-34 toString with a substitution and a nested key", ok(with_config_at(r####"a.b = ${c}
+a.b.d = 1
+a.e = 2"####).to_string())),
+        ("TS-35 toString with an optional substitution over an object", ok(with_config_at(r####"a = {x = 1}
+a = ${?b}"####).to_string())),
+        ("TS-36 toString with a number with a trailing zero before a substitution", ok(with_config_at(r####"a = 1.50 ${x}"####).to_string())),
+        ("TS-37 toString with an exponent number before a substitution", ok(with_config_at(r####"a = 1e2 ${x}"####).to_string())),
+        ("TS-38 toString with a boolean and two spaces before a substitution", ok(with_config_at(r####"a = true  ${x}"####).to_string())),
+        ("TS-39 toString with null before a substitution", ok(with_config_at(r####"a = null ${x}"####).to_string())),
+        ("TS-40 toString with a number after a substitution", ok(with_config_at(r####"a = ${x} 1.50"####).to_string())),
+        ("TS-41 toString with several numbers and a substitution", ok(with_config_at(r####"a = 1   2 ${x}"####).to_string())),
+        ("TS-42 toString with a number with leading zeros between substitutions", ok(with_config_at(r####"a = ${x}007${y}"####).to_string())),
+        ("TS-43 toString with adjacent lists before a substitution", ok(with_config_at(r####"a = [1] [2] ${x}"####).to_string())),
+        ("TS-44 toString with adjacent objects before a substitution", ok(with_config_at(r####"a = {x=1} {y=2} ${z}"####).to_string())),
+        ("TS-45 toString with lists around a substitution", ok(with_config_at(r####"a = [1] ${x} [2]"####).to_string())),
+        ("TS-46 toString with adjacent objects after a substitution", ok(with_config_at(r####"a = ${x} {b=1} {c=2}"####).to_string())),
+        ("TS-47 toString with adjacent lists after a substitution", ok(with_config_at(r####"a = ${x} [1] [2]"####).to_string())),
+        ("TS-48 toString with adjacent objects that repeat a key", ok(with_config_at(r####"a = {x=1} {x=2} ${z}"####).to_string())),
+        ("TS-49 toString with adjacent objects that merge a nested key", ok(with_config_at(r####"a = {x={k=1}} {x={j=2}} ${z}"####).to_string())),
+        ("TS-50 toString with substitution paths of digits", ok(with_config_at(r####"a = ${1}, b = ${a.007}, c = ${a.1.2}"####).to_string())),
+        ("TS-51 toString with substitution paths that start with a hyphen or look like keywords", ok(with_config_at(r####"a = ${a.-1} ${-} ${-a} ${1-a} ${a.1e5} ${true} ${null.x}"####).to_string())),
+        ("TS-52 toString with substitution paths that need quotes", ok(with_config_at(r####"a = ${"q k"} ${""} ${"\u00e9.x"} ${"1"} ${"a-b"} ${"_c"} ${"a b".c}"####).to_string())),
+        ("TS-53 toString with substitution paths of non-ASCII letters", ok(with_config_at(r####"a = ${"\u00e9"} ${"\u03a91"}"####).to_string())),
+        ("TS-54 toString with a substitution path of an astral character", ok(with_config_at(r####"a = ${"\uD83D\uDE00"}"####).to_string())),
+        ("TS-55 toString with a lone number between substitutions", ok(with_config_at(r####"a = ${x}1${y}"####).to_string())),
+        ("TS-56 toString with a lone boolean between substitutions", ok(with_config_at(r####"a = ${x}true${y}"####).to_string())),
+        ("TS-57 toString with a string, a number and a substitution", ok(with_config_at(r####"a = "q" 1 ${x}"####).to_string())),
+        ("TS-58 toString with a substitution path of an astral letter", ok(with_config_at(r####"a = ${"\uD835\uDC00"} ${"\u00e9\uD835\uDC00"}"####).to_string())),
     ];
     cases
         .into_iter()

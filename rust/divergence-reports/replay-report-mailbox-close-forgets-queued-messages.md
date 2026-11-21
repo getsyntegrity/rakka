@@ -1,6 +1,8 @@
+Verdict path: full replay (2822 cases); outcome DETECTED
+
 # App replay
 
-Build: `$TMPDIR/pekko-mutants-v1vgu0u9/target-mailbox-close-forgets-queued-messages/release/examples/classic-parity`
+Build: `$TMPDIR/pekko-mutants-79738-6o9mib8i/target-mailbox-close-forgets-queued-messages/release/examples/classic-parity`
 
 Passed: 2802/2822
 

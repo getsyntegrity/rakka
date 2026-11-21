@@ -257,6 +257,23 @@ fn unescape(chars: &[char], i: &mut usize, line: u32) -> Result<char, ConfigErro
                 .filter(|_| hex.len() == 4)
                 .ok_or_else(|| parse_err(line, format!("Malformed escape \\u{hex}")))?;
             *i += 4;
+            if (0xD800..0xDC00).contains(&code) {
+                // a high surrogate escape followed by a low one is one astral character
+                let low_hex: String = chars.iter().skip(*i + 2).take(4).collect();
+                let low = u32::from_str_radix(&low_hex, 16).ok().filter(|low| {
+                    low_hex.len() == 4
+                        && chars.get(*i) == Some(&'\\')
+                        && chars.get(*i + 1) == Some(&'u')
+                        && (0xDC00..0xE000).contains(low)
+                });
+                if let Some(low) = low {
+                    *i += 6;
+                    return Ok(
+                        char::from_u32(0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00))
+                            .unwrap_or('\u{fffd}'),
+                    );
+                }
+            }
             char::from_u32(code).unwrap_or('\u{fffd}')
         }
         other => {
