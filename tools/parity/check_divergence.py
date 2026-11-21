@@ -25,6 +25,30 @@ CASES_REPORT = os.path.join(ROOT, "rust", "app-cases", "replay-report.md")
 
 # name -> (file, old, new, why it is a realistic bug)
 MUTANTS = {
+    "system-queue-drains-newest-first": (
+        "src/dispatch/system_queue.rs",
+        "            State::Open(messages) => std::mem::take(messages),",
+        "            State::Open(messages) => {\n                let mut newest_first = std::mem::take(messages);\n                newest_first.reverse();\n                newest_first\n            }",
+        "the system messages are handed out newest first, so a Resume can overtake the Suspend sent before it (MBX-SQ-01)",
+    ),
+    "system-queue-reopens-after-clean-up": (
+        "src/dispatch/system_queue.rs",
+        "        match std::mem::replace(&mut *self.state.lock().unwrap(), State::Closed) {",
+        "        match std::mem::replace(&mut *self.state.lock().unwrap(), State::Open(Vec::new())) {",
+        "cleanUp forgets the closing sentinel: a system message sent after the actor terminated is stored in a mailbox nobody runs (MBX-SQ-02)",
+    ),
+    "system-queue-swallows-messages-after-close": (
+        "src/dispatch/system_queue.rs",
+        "            State::Closed => Err(message),",
+        "            State::Closed => Ok(()),",
+        "a system message sent after termination is accepted and lost instead of handed back for dead letters, so a Watch is never answered",
+    ),
+    "system-queue-clean-up-drops-pending": (
+        "src/dispatch/system_queue.rs",
+        "            State::Open(messages) => messages,",
+        "            State::Open(_) => Vec::new(),",
+        "closing the mailbox forgets the system messages that were still pending, so none of them reaches dead letters (MBX-SQ-02)",
+    ),
     "mailbox-suspension-does-not-stop-user-messages": (
         "src/actor/cell.rs",
         "        while budget > 0 && self.status.should_process_message() {",

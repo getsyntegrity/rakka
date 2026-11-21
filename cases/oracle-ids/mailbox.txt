@@ -6,11 +6,11 @@ MBX-ST-05 open to closed
 MBX-ST-06 closed ignores resume and suspend
 MBX-ST-07 closed refuses scheduling
 MBX-ST-08 canBeScheduledForExecution matrix
-MBX-SQ-01 system queue drains earliest first
-MBX-SQ-02 sentinel NoMessage closes the system queue
 MBX-MQ-01 default queue is FIFO and counts
 MBX-MQ-02 default queue stays FIFO when enqueue and dequeue interleave
 MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order
+MBX-SQ-01 system queue drains earliest first
+MBX-SQ-02 sentinel NoMessage closes the system queue
 MBX-TK-01 Mailbox is a plain Runnable, not a ForkJoinTask
 MBX-OR-01 user messages are FIFO
 MBX-OR-02 system message queued behind user messages runs before them, drained after the turn's message
