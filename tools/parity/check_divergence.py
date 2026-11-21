@@ -68,7 +68,7 @@ MUTANTS = {
     ),
     "mailbox-close-forgets-queued-messages": (
         "src/actor/cell.rs",
-        "            mb.queue.clean_up(&*leftovers); // `cleanUp`: published below, outside the lock\n",
+        "        self.queue.clean_up(&*leftovers); // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8)\n",
         "",
         "closing the mailbox forgets to move the queued user messages to dead letters, so they vanish silently (found by the dead-letter scenarios)",
     ),
@@ -125,7 +125,7 @@ MUTANTS = {
     ),
     "throughput-ignored": (
         "src/actor/cell.rs",
-        "let mut budget = cell.system.settings.throughput.max(1);",
+        "let mut budget = self.system.settings.throughput.max(1);",
         "let mut budget = usize::MAX;",
         "an actor drains its whole mailbox in one turn instead of `throughput` messages",
     ),
@@ -218,8 +218,8 @@ MUTANTS = {
     ),
     "failure-does-not-suspend-mailbox": (
         'src/actor/cell.rs',
-        '        self.mb.lock().unwrap().suspend += 1; // suspendNonRecursive\n        for k in',
-        '        for k in',
+        '        self.status.suspend(); // suspendNonRecursive\n        for k in self\n',
+        '        for k in self\n',
         "the failed actor keeps processing its mailbox while its supervisor decides",
     ),
     # --- slice 3b, part 2: OneForOneStrategy, directives, restart limit ---
