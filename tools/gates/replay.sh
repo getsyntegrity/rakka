@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Replay gate: builds the release parity binary the recording is replayed against, then replays every recorded Pekko 2.0.0 case.
+# Replay gate: builds the release parity binary (under the build lock) and replays every recorded Pekko 2.0.0 case against an immutable copy of it.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
-cargo build --release -p rakka-actor --example classic-parity
-python3.12 tools/parity/replay.py
+python3.12 tools/parity/replay.py --build

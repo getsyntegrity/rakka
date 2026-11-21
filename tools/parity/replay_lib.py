@@ -8,7 +8,7 @@ A second, separate category is NA:Q-CFG-30 (decision Q-CFG-30): a divergence tha
 `Double.toString`, recognised by its signature (na_q_cfg_30.py), never by case id. It is reported apart and is
 neither a pass nor a divergence.
 """
-import csv, os, re, subprocess
+import contextlib, csv, dataclasses, fcntl, hashlib, json, os, re, shutil, subprocess, time
 
 import na_q_cfg_30
 
@@ -27,22 +27,315 @@ def load_not_applicable():
     return {r["case"]: r for r in rows}
 
 
-def run_replay(binary, timeout):
-    return subprocess.run(["rust-anything", "app", "replay", ROOT, "--build", binary], stdin=subprocess.DEVNULL,
-                          capture_output=True, text=True, timeout=timeout)
+@dataclasses.dataclass
+class ReplayResult:
+    """Everything one replay produced, taken from that replay alone: the count and the divergent cases from its own process output
+    (`rust-anything app replay --json`), and the report it wrote, read while no other replay of the checkout could overwrite it."""
+    returncode: int
+    passed: object      # None when the output is incomplete or contradicts the tool's contract (a harness error)
+    total: object
+    failures: list      # names of the divergent cases
+    report_text: object # the report of this replay, or None
+    stdout: str
+    stderr: str
+    problem: object = None   # why the output was rejected, or None
 
 
-def failing_cases():
-    """Names of the cases the last replay reported as divergent (from the report, which lists all of them)."""
-    with open(REPORT, encoding="utf-8") as fh:
-        return re.findall(r"(?m)^### (\S+)\s*$", fh.read())
+REPLAY_DEADLINE_ENV = "RAKKA_REPLAY_DEADLINE"    # absolute epoch seconds: the end of the budget of the run that started this process
+EXIT_BUDGET_EXHAUSTED = 75                       # EX_TEMPFAIL: the budget ended while waiting for the replay lock; nothing ran
+
+
+class ReplayLockTimeout(Exception):
+    """The budget of the run ended while another replay of this checkout held the lock."""
+
+
+def replay_deadline():
+    try:
+        return float(os.environ[REPLAY_DEADLINE_ENV])
+    except (KeyError, ValueError):
+        return None
+
+
+@contextlib.contextmanager
+def replay_lock():
+    """One replay at a time per checkout: `rust-anything app replay` always writes rust/app-cases/replay-report.md.
+    Waiting for the lock consumes the budget of the run (REPLAY_DEADLINE_ENV): when it is spent, ReplayLockTimeout; a free lock is
+    taken even after the deadline (only the wait is bounded)."""
+    lock_directory = os.path.join(ROOT, ".gates")
+    os.makedirs(lock_directory, exist_ok=True)
+    deadline = replay_deadline()
+    with open(os.path.join(lock_directory, "replay.lock"), "w") as lock_file:
+        while True:
+            try:
+                fcntl.flock(lock_file, fcntl.LOCK_EX | (fcntl.LOCK_NB if deadline is not None else 0))
+                break
+            except BlockingIOError:
+                if time.time() >= deadline:
+                    raise ReplayLockTimeout("the run budget ended while waiting for the replay lock") from None
+                time.sleep(0.05)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+PUBLISHED_BINARIES_KEPT = 20
+
+
+@contextlib.contextmanager
+def build_lock():
+    """One build of the parity binary at a time per checkout, from the build until its immutable copy has been published."""
+    lock_directory = os.path.join(ROOT, ".gates")
+    os.makedirs(lock_directory, exist_ok=True)
+    with open(os.path.join(lock_directory, "build.lock"), "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+IN_USE_MARKER = ".in-use"
+BINARY_STORE_LOCK = ".registry.lock"
+
+
+class LeasedPath(str):
+    """The path of a published binary copy that carries its lease: while the lease is held (a shared `flock` on `<copy>/.in-use`), no publication
+    prunes the copy. It is released explicitly, on exit of `holding(...)`, or by the OS when the process dies (SIGKILL included)."""
+
+    def __new__(cls, path, descriptor):
+        instance = super().__new__(cls, path)
+        instance._descriptor = descriptor
+        return instance
+
+    def release(self):
+        descriptor, self._descriptor = self._descriptor, None
+        if descriptor is not None:
+            try:
+                os.close(descriptor)       # closing the descriptor releases the lock
+            except OSError:
+                pass
+
+
+def release_lease(path):
+    """Ends one consumer's use of a copy (a plain str, or an already released lease, is a no-op)."""
+    release = getattr(path, "release", None)
+    if release is not None:
+        release()
+
+
+@contextlib.contextmanager
+def holding(path):
+    """Keeps a published copy protected for the whole block: normal exit, error and cancellation all release it."""
+    try:
+        yield path
+    finally:
+        release_lease(path)
+
+
+@contextlib.contextmanager
+def binary_store_lock(store):
+    """Publication, acquisition and pruning of the copies of one store are mutually exclusive: nobody can prune a path between its being obtained and
+    its being protected."""
+    with open(os.path.join(store, BINARY_STORE_LOCK), "a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def copy_is_in_use(directory):
+    """True while some consumer holds a lease on the copy (a probe for an exclusive lock fails)."""
+    descriptor = os.open(os.path.join(directory, IN_USE_MARKER), os.O_RDWR | os.O_CREAT)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return False
+    except BlockingIOError:
+        return True
+    finally:
+        os.close(descriptor)
+
+
+def prune_locked(store, keep, own=None):
+    """Removes the oldest UNUSED copies beyond `keep`; a copy with a lease is never removed and does not count toward the limit. `own` is the copy the
+    caller has just published and holds: it counts as one of the `keep` newest and is never removed. Caller holds the store lock."""
+    copies = sorted((name for name in os.listdir(store) if re.fullmatch(r"[0-9a-f]{64}", name)),
+                    key=lambda name: os.stat(os.path.join(store, name)).st_mtime)
+    unused = [name for name in copies if name == own or not copy_is_in_use(os.path.join(store, name))]
+    for name in unused[:-keep] if keep else unused:
+        if name != own:
+            shutil.rmtree(os.path.join(store, name), ignore_errors=True)
+
+
+def prune_binaries(store, keep):
+    with binary_store_lock(store):
+        prune_locked(store, keep)
+
+
+def publish_binary(source_path, store_directory=None, keep=PUBLISHED_BINARIES_KEPT, after_published=None):
+    """An immutable, content-addressed copy of a built binary (`<store>/<sha256>/<name>`), returned as a LeasedPath: the copy is protected from
+    the moment it is published until the lease is released (`release_lease`, `holding`, or the end of the process), also across processes and
+    when several runs share the same copy. A run classifies with this copy, so a later build that overwrites the shared target/ path cannot
+    change what it executes, and a later publication cannot prune it. Only the unused copies are limited to the newest `keep`."""
+    store = store_directory or os.path.join(ROOT, ".gates", "binaries")
+    os.makedirs(store, exist_ok=True)
+    with binary_store_lock(store):
+        staging = os.path.join(store, f".staging-{os.getpid()}-{os.urandom(4).hex()}.tmp")
+        shutil.copy2(source_path, staging)
+        digest = hashlib.sha256(read_bytes(staging)).hexdigest()     # of the copy itself, whatever the source became meanwhile
+        directory = os.path.join(store, digest)
+        target = os.path.join(directory, os.path.basename(source_path))
+        if os.path.exists(target):
+            os.unlink(staging)
+            os.utime(directory)                                      # recently used
+        else:
+            os.makedirs(directory, exist_ok=True)
+            os.replace(staging, target)
+        if after_published is not None:      # a test seam: the instant between obtaining the path and protecting it
+            after_published()
+        descriptor = os.open(os.path.join(directory, IN_USE_MARKER), os.O_RDWR | os.O_CREAT)
+        fcntl.flock(descriptor, fcntl.LOCK_SH)                       # protected before any pruner can look at it: still inside the store lock
+        prune_locked(store, keep, own=digest)
+    return LeasedPath(target, descriptor)
+
+
+def report_signature():
+    """Identity of the report file as it is now (None when absent): a replay that wrote a report changes it."""
+    try:
+        status = os.stat(REPORT)
+    except OSError:
+        return None
+    return (status.st_mtime_ns, status.st_ino, status.st_size)
+
+
+def read_report_text():
+    try:
+        with open(REPORT, encoding="utf-8") as report_file:
+            return report_file.read()
+    except OSError:
+        return None
+
+
+REPORT_COUNT_LINE = re.compile(r"(?m)^Passed: (\d+)/(\d+)\s*$")
+
+
+def validate_replay_output(returncode, stdout):
+    """-> (passed, total, failure case names, problem). Checks what `rust-anything app replay --json` guarantees (observed on the real tool):
+    always the keys passed/total/skipped/failures; passed + skipped + len(failures) == total; every failure has a case name and a
+    non-empty list of problems; exit 0 <=> no failures; exit 1 <=> failures. Anything else (a partial or contradictory output, a skipped
+    case, another exit code) is rejected: a rejected output is a harness error, never evidence of a clean replay."""
+    try:
+        payload = json.loads(stdout)
+    except ValueError:
+        return None, None, [], "the output is not JSON"
+    if not isinstance(payload, dict):
+        return None, None, [], "the output is not a JSON object"
+    missing = [key for key in ("passed", "total", "skipped", "failures") if key not in payload]
+    if missing:
+        return None, None, [], "missing key(s): " + ", ".join(missing)
+    counts = [payload["passed"], payload["total"], payload["skipped"]]
+    if any(isinstance(count, bool) or not isinstance(count, int) or count < 0 for count in counts):
+        return None, None, [], "passed, total and skipped must be non-negative integers"
+    passed, total, skipped = counts
+    entries = payload["failures"]
+    if not isinstance(entries, list):
+        return None, None, [], "failures is not a list"
+    cases = []
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("case"), str) or not entry["case"]:
+            return None, None, [], "a failure without a case name"
+        if not isinstance(entry.get("problems"), list) or not entry["problems"]:
+            return None, None, [], f"the failure of {entry['case']} lists no problems"
+        cases.append(entry["case"])
+    if len(set(cases)) != len(cases):
+        return None, None, [], "the same case is listed as failing twice"
+    if skipped:
+        return None, None, [], f"{skipped} skipped case(s): they give no evidence"
+    if passed + len(cases) != total:
+        return None, None, [], f"the counts do not add up: passed {passed} + failures {len(cases)} != total {total}"
+    if returncode == 0 and cases:
+        return None, None, [], "exit code 0 but failures are listed"
+    if returncode == 1 and not cases:
+        return None, None, [], "exit code 1 but no failure is listed"
+    if returncode not in (0, 1):
+        return None, None, [], f"exit code {returncode} is not part of the tool's contract"
+    return passed, total, cases, None
+
+
+def report_belongs_to(report_text, passed, total):
+    """False when the report states a `Passed: P/T` line that contradicts the counts of the replay that is being classified."""
+    stated = REPORT_COUNT_LINE.search(report_text)
+    return stated is None or (int(stated.group(1)), int(stated.group(2))) == (passed, total)
+
+
+def parse_replay_output(completed, report_text):
+    passed, total, failures, problem = validate_replay_output(completed.returncode, completed.stdout)
+    if problem is None and report_text is not None and not report_belongs_to(report_text, passed, total):
+        report_text = None
+    if problem is not None:
+        report_text = None       # a rejected replay publishes nothing
+    return ReplayResult(completed.returncode, passed, total, failures, report_text, completed.stdout, completed.stderr, problem)
+
+
+@dataclasses.dataclass
+class DivergenceConfirmation:
+    confirmed: bool
+    reason: str
+    report_text: object = None
+
+
+def confirm_applicable_divergence(mutant_binary, case, timeout=120):
+    """Proves, with the real tool on this one case, that the full replay would also classify `case` as an APPLICABLE divergence for this binary:
+    the case is not NOT_APPLICABLE, the single-case replay (`rust-anything app replay --case`, validated like any replay) fails it, and its
+    difference is not just the NA:Q-CFG-30 signature. Anything else is not a kill: the caller must run the full replay."""
+    if case in load_not_applicable():
+        return DivergenceConfirmation(False, "the case is listed as not applicable")
+    try:
+        result = run_replay(mutant_binary, timeout, case=case)
+    except subprocess.TimeoutExpired:
+        return DivergenceConfirmation(False, "the single-case replay timed out")
+    if result.passed is None:
+        return DivergenceConfirmation(False, f"the single-case replay output was rejected: {result.problem}")
+    if result.failures != [case]:
+        return DivergenceConfirmation(False, "the single-case replay passes this case: the full replay would not fail it")
+    recorded, produced = case_outputs(mutant_binary, case)
+    if na_q_cfg_30.is_q_cfg_30(recorded, produced):
+        return DivergenceConfirmation(False, "the difference is only the NA:Q-CFG-30 signature, which is not an applicable divergence")
+    return DivergenceConfirmation(True, "confirmed by a single-case replay", result.report_text)
+
+
+def run_replay(binary, timeout, case=None):
+    """Runs the recorded replay of `binary` and returns its own evidence. The lock spans from the start of the replay to the reading
+    of its report, so the report a caller publishes is always the report of the replay it classified."""
+    if any(character.isspace() for character in binary):
+        # `rust-anything app replay --build` takes ONE command-line string and would split such a path: refuse before running anything
+        return ReplayResult(2, None, None, [], None, "", "", "the binary path contains whitespace: `rust-anything app replay --build` "
+                                                          "takes one command-line string and would split it")
+    with replay_lock():
+        signature_before = report_signature()
+        command = ["rust-anything", "app", "replay", ROOT, "--build", binary, "--json"] + (["--case", case] if case else [])
+        completed = subprocess.run(command, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout)
+        # an earlier replay's report is never published: it counts only if this replay wrote (changed) the file
+        report_text = read_report_text() if report_signature() != signature_before else None
+    return parse_replay_output(completed, report_text)
+
+
+def read_bytes(path):
+    with open(path, "rb") as source_file:
+        return source_file.read()
+
+
+def load_recorded_args(base):
+    import tomllib
+    with open(base + ".toml", "rb") as recording_file:
+        return tomllib.load(recording_file)["args"]
 
 
 def rejects_explicitly(binary, case):
     base = os.path.join(ROOT, "rust", "app-cases", case)
-    import tomllib
-    args = tomllib.load(open(base + ".toml", "rb"))["args"]
-    stdin = open(base + ".stdin", "rb").read()
+    args = load_recorded_args(base)
+    stdin = read_bytes(base + ".stdin")
     r = subprocess.run([binary, *args], input=stdin, capture_output=True, timeout=60)
     return r.returncode == 2 and r.stdout == b"" and REJECTION.encode() in r.stderr
 
@@ -50,24 +343,56 @@ def rejects_explicitly(binary, case):
 def case_outputs(binary, case):
     """-> (recorded Pekko stdout, stdout of `binary` for the same input) of a recorded case."""
     base = os.path.join(ROOT, "rust", "app-cases", case)
-    import tomllib
-    args = tomllib.load(open(base + ".toml", "rb"))["args"]
-    recorded = open(base + ".stdout", "rb").read()
-    produced = subprocess.run([binary, *args], input=open(base + ".stdin", "rb").read(), capture_output=True, timeout=60)
+    args = load_recorded_args(base)
+    recorded = read_bytes(base + ".stdout")
+    produced = subprocess.run([binary, *args], input=read_bytes(base + ".stdin"), capture_output=True, timeout=60)
     return recorded, produced.stdout
+
+
+DEMONSTRATION_RUNS = 2
+
+
+def diverges_only_in_mutant(mutant_binary, control_binary, case, cases_dir=None, timeout=60):
+    """True only when the divergence from Pekko on `case` is demonstrated and caused by the mutation: the unmutated build
+    reproduces the recorded Pekko status code and stdout (the two things `rust-anything app replay` compares) and the mutant does not.
+    False in every other situation (hang, unreadable recording, missing binary, control that already differs): the caller must then
+    run the full replay; this function never concludes that a mutant survived."""
+    import tomllib
+    base = os.path.join(cases_dir or os.path.join(ROOT, "rust", "app-cases"), case)
+    try:
+        with open(base + ".toml", "rb") as fh:
+            recording = tomllib.load(fh)
+        args, expected_code = recording["args"], recording["status"]["code"]
+        with open(base + ".stdin", "rb") as fh:
+            stdin = fh.read()
+        with open(base + ".stdout", "rb") as fh:
+            expected_stdout = fh.read()
+        outcome = {}
+        for label, binary in (("control", control_binary), ("mutant", mutant_binary)):
+            outcome[label] = []
+            for _attempt in range(DEMONSTRATION_RUNS):   # a timing-dependent case must not decide on one sample
+                run = subprocess.run([binary, *args], input=stdin, capture_output=True, timeout=timeout)
+                outcome[label].append((run.returncode, run.stdout))
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+        return False
+    recorded = (expected_code, expected_stdout)
+    control_always_matches = all(sample == recorded for sample in outcome["control"])
+    mutant_always_diverges_the_same_way = all(sample != recorded and sample == outcome["mutant"][0] for sample in outcome["mutant"])
+    return control_always_matches and mutant_always_diverges_the_same_way
 
 
 def evaluate(binary, result):
     """-> dict(ok, line, applicable_failing, na_problems, passed, total, na_q_cfg_30, other_na). `ok` means every
     applicable case matches Pekko, every NOT_APPLICABLE case is rejected explicitly, and what is left over is only
     NA:Q-CFG-30 (reported apart: not a pass, not a divergence)."""
-    m = SUMMARY.search(result.stdout)
-    if not m:
-        return dict(ok=None, line=(result.stdout.strip() or result.stderr.strip())[-300:], applicable_failing=[], na_problems=[], passed=None, total=None,
-                    na_q_cfg_30=[], other_na=0)
-    passed, total = int(m.group(1)), int(m.group(2))
+    if result.passed is None:
+        reason = result.problem or "output not understood"
+        tail = (result.stdout.strip() or result.stderr.strip())[-200:]
+        return dict(ok=None, line=f"replay output rejected: {reason}; exit {result.returncode}; {tail}", applicable_failing=[], na_problems=[],
+                    passed=None, total=None, na_q_cfg_30=[], other_na=0)
+    passed, total = result.passed, result.total
     na = load_not_applicable()
-    failing = failing_cases() if passed < total else []
+    failing = result.failures if passed < total else []
     unexplained = [c for c in failing if c not in na]
     na_q_cfg_30_cases = [c for c in unexplained if na_q_cfg_30.is_q_cfg_30(*case_outputs(binary, c))]
     applicable_failing = [c for c in unexplained if c not in na_q_cfg_30_cases]
