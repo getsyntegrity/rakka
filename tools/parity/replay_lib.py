@@ -8,7 +8,7 @@ A second, separate category is NA:Q-CFG-30 (decision Q-CFG-30): a divergence tha
 `Double.toString`, recognised by its signature (na_q_cfg_30.py), never by case id. It is reported apart and is
 neither a pass nor a divergence.
 """
-import contextlib, csv, dataclasses, fcntl, json, os, re, subprocess, time
+import contextlib, csv, dataclasses, fcntl, hashlib, json, os, re, shutil, subprocess, time
 
 import na_q_cfg_30
 
@@ -77,6 +77,46 @@ def replay_lock():
             yield
         finally:
             fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+PUBLISHED_BINARIES_KEPT = 20
+
+
+@contextlib.contextmanager
+def build_lock():
+    """One build of the parity binary at a time per checkout, from the build until its immutable copy has been published."""
+    lock_directory = os.path.join(ROOT, ".gates")
+    os.makedirs(lock_directory, exist_ok=True)
+    with open(os.path.join(lock_directory, "build.lock"), "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def publish_binary(source_path, store_directory=None, keep=PUBLISHED_BINARIES_KEPT):
+    """An immutable, content-addressed copy of a built binary (`<store>/<sha256>/<name>`). A run classifies with this copy, so a later build
+    that overwrites the shared target/ path cannot change what it executes. The newest `keep` copies are kept; the one just published never goes."""
+    store = store_directory or os.path.join(ROOT, ".gates", "binaries")
+    os.makedirs(store, exist_ok=True)
+    staging = os.path.join(store, f".staging-{os.getpid()}-{os.urandom(4).hex()}.tmp")
+    shutil.copy2(source_path, staging)
+    digest = hashlib.sha256(read_bytes(staging)).hexdigest()     # of the copy itself, whatever the source became meanwhile
+    directory = os.path.join(store, digest)
+    target = os.path.join(directory, os.path.basename(source_path))
+    if os.path.exists(target):
+        os.unlink(staging)
+        os.utime(directory)                                      # recently used
+    else:
+        os.makedirs(directory, exist_ok=True)
+        os.replace(staging, target)
+    copies = sorted((name for name in os.listdir(store) if re.fullmatch(r"[0-9a-f]{64}", name)),
+                    key=lambda name: os.stat(os.path.join(store, name)).st_mtime)
+    for name in copies[:-keep] if keep else copies:
+        if name != digest:
+            shutil.rmtree(os.path.join(store, name), ignore_errors=True)
+    return target
 
 
 def report_signature():

@@ -1439,8 +1439,10 @@ def control_binary_for_fast_kill():
     if _control_binary is None:
         path = os.path.join(ROOT, "target", PARITY)
         try:
-            built = sh(["cargo", "build", "--release", "-p", "rakka-actor", "--example", "classic-parity"], timeout=BUILD_TIMEOUT, cwd=ROOT)
-            _control_binary = path if built.returncode == 0 and os.path.exists(path) else ""
+            with replay_lib.build_lock():   # build and publish are one step: no other build can swap target/ in between
+                built = sh(["cargo", "build", "--release", "-p", "rakka-actor", "--example", "classic-parity"], timeout=BUILD_TIMEOUT, cwd=ROOT)
+                # the control replays an immutable copy, never the shared target/ path that the next build overwrites
+                _control_binary = replay_lib.publish_binary(path) if built.returncode == 0 and os.path.exists(path) else ""
         except subprocess.TimeoutExpired:
             _control_binary = ""
     return _control_binary or None
