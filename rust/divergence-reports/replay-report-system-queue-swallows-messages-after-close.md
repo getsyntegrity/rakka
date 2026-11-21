@@ -8,7 +8,7 @@ Fallback rate: not reported by this build
 
 ## Failing cases
 
-### i02-prestart-failure-wa
+### i02-prestart-failure-wat
 
 Arguments: `scenario`
 
