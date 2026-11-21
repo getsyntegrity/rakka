@@ -24,7 +24,9 @@ The last lines of the log are a <=12 line summary: read those, never the whole l
 
 Derived-from: none (project tooling, Apache-2.0).
 """
-import ast, hashlib, json, os, re, signal, subprocess, sys, time, traceback
+import ast, hashlib, json, os, re, shutil, signal, subprocess, sys, time, traceback
+
+from gates import UsageError, changed_files
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 STORE_DIR = os.path.join(ROOT, ".gates", "mutants")
@@ -62,8 +64,8 @@ def import_edges(root):
             edges[b].add(a)
 
     for f in files:
-        with open(f, encoding="utf-8", errors="replace") as fh:
-            text = fh.read()
+        with open(f, encoding="utf-8", errors="replace") as source_file:
+            text = source_file.read()
         here = rel(f)
         directory = os.path.relpath(os.path.dirname(f), src_root)
         parent = [] if directory == "." else directory.split(os.sep)
@@ -82,8 +84,8 @@ def find_stale_patterns(table, root, base=CRATE):
     stale = []
     for name, (rel, old, _new, _why) in table.items():
         try:
-            with open(os.path.join(root, base, rel), encoding="utf-8") as fh:
-                occurrences = fh.read().count(old)
+            with open(os.path.join(root, base, rel), encoding="utf-8") as source_file:
+                occurrences = source_file.read().count(old)
         except OSError:
             occurrences = 0
         if occurrences != 1:
@@ -116,8 +118,8 @@ def file_digest(path):
         cache_key = (path, status.st_mtime_ns, status.st_size, status.st_ino)
         if settled and cache_key in _DIGEST_CACHE:
             return _DIGEST_CACHE[cache_key]
-        with open(path, "rb") as fh:
-            digest = hashlib.sha256(fh.read()).hexdigest()
+        with open(path, "rb") as file_to_hash:
+            digest = hashlib.sha256(file_to_hash.read()).hexdigest()
         if settled:
             _DIGEST_CACHE[cache_key] = digest
         return digest
@@ -148,8 +150,8 @@ def divergence_logic_digest(path):
     Parsing the 1500-line file is memoised by its content digest."""
     content_digest = file_digest(path)
     if content_digest not in _LOGIC_DIGEST_CACHE:
-        with open(path, encoding="utf-8") as fh:
-            tree = ast.parse(fh.read())
+        with open(path, encoding="utf-8") as source_file:
+            tree = ast.parse(source_file.read())
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in ("MUTANTS", "TOOL_MUTANTS") for t in node.targets):
                 node.value = ast.Dict(keys=[], values=[])
@@ -187,16 +189,16 @@ class ResultStore:
 
     def get(self, key):
         try:
-            with open(self._path(key)) as fh:
-                return json.load(fh)
+            with open(self._path(key)) as checkpoint_file:
+                return json.load(checkpoint_file)
         except (OSError, ValueError):
             return None
 
     def put(self, key, record):
-        tmp = self._path(key) + f".{os.getpid()}.tmp"
-        with open(tmp, "w") as fh:
-            json.dump(record, fh)
-        os.replace(tmp, self._path(key))     # atomic: a cancelled run never leaves a half-written checkpoint
+        partial_checkpoint_path = self._path(key) + f".{os.getpid()}.tmp"
+        with open(partial_checkpoint_path, "w") as checkpoint_file:
+            json.dump(record, checkpoint_file)
+        os.replace(partial_checkpoint_path, self._path(key))     # atomic: a cancelled run never leaves a half-written checkpoint
 
     def is_fresh(self, key):
         record = self.get(key)
@@ -268,8 +270,8 @@ def execute_mutant(name, result_file, launch, elapsed, budget_limited=False):
     if code == TIMED_OUT:   # killed by the shrinking time budget: not a verdict on the mutant, it stays pending
         return {"outcome": "BUDGET_EXHAUSTED" if budget_limited else "TIMEOUT", "seconds": seconds}
     try:
-        with open(result_file) as fh:
-            outcome, passed, total, line = json.load(fh)["mutants"][name]
+        with open(result_file) as result_json_file:
+            outcome, passed, total, line = json.load(result_json_file)["mutants"][name]
         return {"outcome": outcome, "passed": passed, "total": total, "line": line[:200], "seconds": seconds}
     except (OSError, ValueError, KeyError):
         return {"outcome": "HARNESS_ERROR", "seconds": seconds, "line": f"no result (exit {code})"}
@@ -375,13 +377,7 @@ def run_cancellable(command, timeout, log_path, cwd=None):
 # ---------- driver ----------
 
 def git_changed(base):
-    out = subprocess.run(["git", "diff", "--name-only", f"{base}...HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.split()
-    status = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, capture_output=True, text=True).stdout.splitlines()
-    return sorted(set(out) | {line[3:] for line in status})
-
-
-class UsageError(Exception):
-    pass
+    return changed_files(base)      # shared, NUL-separated parser; an unknown base is a UsageError
 
 
 def option(argv, flag, default=None, cast=int):
@@ -410,6 +406,22 @@ def new_run_directory(base_directory, clock=time.time, pid=os.getpid):
     path = os.path.join(base_directory, name)
     os.makedirs(path)
     return path
+
+
+RUN_DIRECTORY_NAME = re.compile(r"^\d{8}T\d{6}-\d+-[0-9a-f]+$")
+RUN_DIRECTORIES_KEPT = 10
+
+
+def prune_run_directories(base_directory, keep=RUN_DIRECTORIES_KEPT):
+    """Removes all but the newest `keep` run directories (names sort by time); anything not named like a run directory is left alone."""
+    try:
+        runs = sorted(name for name in os.listdir(base_directory) if RUN_DIRECTORY_NAME.match(name))
+    except OSError:
+        return []
+    removed = runs[:-keep] if keep else runs
+    for name in removed:
+        shutil.rmtree(os.path.join(base_directory, name), ignore_errors=True)
+    return removed
 
 
 def mutant_result_file(run_directory, mutant_name):
@@ -442,6 +454,7 @@ def main(argv):
             print(f"{tier:9} {'fresh' if store.is_fresh(keys[n]) else 'stale':5} {n}")
         return 0
     run_directory = new_run_directory(os.path.join(STORE_DIR, "runs"))
+    prune_run_directories(os.path.join(STORE_DIR, "runs"))
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
 
     budget_seconds = None if max_minutes is None else max_minutes * 60

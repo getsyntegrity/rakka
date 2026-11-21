@@ -1511,11 +1511,11 @@ def run_control_replay():
     if control_binary is None:
         return False, None, None, "could not build the unmodified parity binary", None
     try:
-        c = replay(control_binary)
+        control_replay = replay(control_binary)
     except subprocess.TimeoutExpired:
         return False, None, None, "TIMEOUT", None
-    c_out, c_pass, c_total, c_line = classify(c, control_binary)
-    return c_out == UNDETECTED, c_pass, c_total, c_line, c
+    control_outcome, control_passed, control_total, control_line = classify(control_replay, control_binary)
+    return control_outcome == UNDETECTED, control_passed, control_total, control_line, control_replay
 
 
 def main():

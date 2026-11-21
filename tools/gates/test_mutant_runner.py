@@ -438,6 +438,30 @@ class RunIsolation(unittest.TestCase):
             self.assertEqual([name for name in os.listdir(root) if name.endswith(".tmp")], [])
 
 
+class RunDirectoryPruning(unittest.TestCase):
+    def test_only_the_newest_run_directories_are_kept_and_nothing_else_is_touched(self):
+        with tempfile.TemporaryDirectory() as root:
+            runs = os.path.join(root, "runs")
+            names = [f"20260101T0000{index:02d}-1-aaaa" for index in range(15)]
+            for name in names:
+                os.makedirs(os.path.join(runs, name))
+            write(root, "keep-me/unrelated.txt", "not a run directory")
+            removed = mr.prune_run_directories(runs, keep=5)
+            self.assertEqual(sorted(os.listdir(runs)), names[-5:])
+            self.assertEqual(sorted(removed), names[:10])
+            self.assertTrue(os.path.exists(os.path.join(root, "keep-me", "unrelated.txt")))
+
+    def test_pruning_a_missing_or_small_directory_does_nothing(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(mr.prune_run_directories(os.path.join(root, "absent"), keep=5), [])
+            os.makedirs(os.path.join(root, "runs", "only-one"))
+            self.assertEqual(mr.prune_run_directories(os.path.join(root, "runs"), keep=5), [])
+
+    def test_the_changed_files_come_from_the_shared_parser_and_a_bad_base_is_a_usage_error(self):
+        with self.assertRaises(mr.UsageError):
+            mr.git_changed("origin/this-ref-does-not-exist-anywhere")
+
+
 class OptionValues(unittest.TestCase):
     def test_a_value_that_is_another_flag_or_missing_is_a_usage_error(self):
         for argv in (["--max-mutants", "--list"], ["--max-mutants"], ["--base", "--list"], ["--base"]):

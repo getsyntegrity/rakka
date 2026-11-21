@@ -84,6 +84,52 @@ class DirtyCheckPathspecs(unittest.TestCase):
         self.assertIn("rust/app-cases", next(g for g in gates.tier_gates("pr", []) if g.name == "replay").inputs)
 
 
+class RecordingsAndRegeneratedFiles(unittest.TestCase):
+    def test_a_gate_that_reads_the_recordings_declares_the_report_it_rewrites_so_the_others_can_reuse_evidence(self):
+        for gate in gates.tier_gates("milestone", ["x"]):
+            if "rust/app-cases" in gate.inputs:
+                self.assertIn("rust/app-cases/replay-report.md", gate.regenerates, gate.name)
+
+    def test_the_fuzz_gates_do_not_depend_on_the_recordings(self):
+        fuzz = [g for g in gates.tier_gates("milestone", []) if g.name.startswith("fuzz-")]
+        self.assertTrue(fuzz)
+        for gate in fuzz:
+            self.assertNotIn("rust/app-cases", gate.inputs, gate.name)
+
+
+class VerdictLabels(unittest.TestCase):
+    def test_the_mutants_gate_reports_the_runner_verdict_and_any_other_gate_just_fails(self):
+        mutants = next(g for g in gates.tier_gates("milestone", []) if g.name == "mutants")
+        clippy = next(g for g in gates.tier_gates("pr", []) if g.name == "clippy")
+        self.assertEqual([gates.gate_label(mutants, code) for code in (0, 1, 2, 3, 143)], ["PASS", "FAIL", "ERROR", "INCOMPLETE", "CANCELLED"])
+        self.assertEqual([gates.gate_label(clippy, code) for code in (0, 1, 101)], ["PASS", "FAIL", "FAIL"])
+
+    def test_the_failure_line_starts_with_the_given_label(self):
+        line = gates.verdict_line("mutants", 3, 9.0, reused=False, log_path="x.log", log_text="tail", label="INCOMPLETE")
+        self.assertTrue(line.startswith("INCOMPLETE mutants exit=3"))
+        self.assertTrue(gates.verdict_line("test", 101, 1.0, reused=False, log_path="x.log", log_text="t").startswith("FAIL test exit=101"))
+
+    def test_the_tier_summary_names_each_non_passing_gate_with_its_verdict(self):
+        self.assertEqual(gates.summary_line("milestone", [("mutants", "INCOMPLETE"), ("clippy", "FAIL")], 12, "abc"),
+                         "MILESTONE: INCOMPLETE mutants, FAIL clippy (12 gates, HEAD abc)")
+        self.assertEqual(gates.summary_line("pr", [], 9, "abc"), "PR: all gates passed (9 gates, HEAD abc)")
+
+
+class ChangedPaths(unittest.TestCase):
+    def test_paths_with_spaces_and_renames_are_parsed_from_nul_separated_git_output(self):
+        committed = "a b.rs\0src/x.rs\0"
+        working = " M tools/with space.py\0R  new.rs\0old.rs\0?? untracked.txt\0"
+        self.assertEqual(gates.changed_paths_from_git(committed, working),
+                         ["a b.rs", "new.rs", "old.rs", "src/x.rs", "tools/with space.py", "untracked.txt"])
+
+    def test_nothing_changed_is_an_empty_list(self):
+        self.assertEqual(gates.changed_paths_from_git("", ""), [])
+
+    def test_a_base_that_does_not_exist_is_refused_instead_of_silently_ignored(self):
+        with self.assertRaises(gates.UsageError):
+            gates.changed_files("origin/this-ref-does-not-exist-anywhere")
+
+
 class BaseArgument(unittest.TestCase):
     def test_a_valid_base_is_kept_for_the_pr_gate_and_has_a_default(self):
         self.assertEqual(gates.parse_arguments(["pr", "--base", "origin/feat/x"])["base"], "origin/feat/x")
