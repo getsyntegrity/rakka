@@ -1,0 +1,1 @@
+TS-28 toString with substitution paths that need quotes -> ok Deploy(/a, Config(SimpleConfigObject({"a":${b.c.d},"e":${"q k".x},"f":${?g.h}})), NoRouter, NoScopeGiven, , , Set())

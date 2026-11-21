@@ -25,6 +25,7 @@ mod scenario;
 mod structures_cases;
 mod text_escape;
 mod util_core_cases;
+mod wildcard_winners;
 mod xorshift;
 
 use std::io::{Read, Write};
@@ -75,6 +76,11 @@ fn main() -> ExitCode {
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
     match args[0].as_str() {
+        "wildcard-winners" => {
+            for line in input.split('\n').filter(|l| !l.is_empty()) {
+                writeln!(out, "{}", wildcard_winners::winner(line)).ok();
+            }
+        }
         "scenario-lines" => {
             for line in input.split('\n').filter(|l| !l.is_empty()) {
                 match scenario::run(line) {

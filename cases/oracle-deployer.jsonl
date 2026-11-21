@@ -56,5 +56,81 @@
 {"name": "dr-0056", "args": ["deployer-case"], "stdin": "DL-57 deploying in a deployer already holding many deployments"}
 {"name": "dr-0057", "args": ["deployer-case"], "stdin": "DL-58 an empty element lookup"}
 {"name": "dr-0058", "args": ["deployer-case"], "stdin": "DL-59 a long path"}
-{"name": "dr-0059", "args": ["deployer-case"], "stdin": "DC-01 concurrent deploys of different paths are all kept"}
-{"name": "dr-0060", "args": ["deployer-case"], "stdin": "DC-02 concurrent deploys of one path keep one of them"}
+{"name": "dr-0059", "args": ["deployer-case"], "stdin": "DL-60 2 overlapping prefixes of pqzzz in a shuffled order"}
+{"name": "dr-0060", "args": ["deployer-case"], "stdin": "DL-61 2 overlapping prefixes of pqzzz in the reverse order"}
+{"name": "dr-0061", "args": ["deployer-case"], "stdin": "DL-62 3 overlapping prefixes of pqzzz in a shuffled order"}
+{"name": "dr-0062", "args": ["deployer-case"], "stdin": "DL-63 3 overlapping prefixes of pqzzz in the reverse order"}
+{"name": "dr-0063", "args": ["deployer-case"], "stdin": "DL-64 5 overlapping prefixes of pqzzz in a shuffled order"}
+{"name": "dr-0064", "args": ["deployer-case"], "stdin": "DL-65 5 overlapping prefixes of pqzzz in the reverse order"}
+{"name": "dr-0065", "args": ["deployer-case"], "stdin": "DL-66 2 overlapping prefixes of abczzz in a shuffled order"}
+{"name": "dr-0066", "args": ["deployer-case"], "stdin": "DL-67 2 overlapping prefixes of abczzz in the reverse order"}
+{"name": "dr-0067", "args": ["deployer-case"], "stdin": "DL-68 3 overlapping prefixes of abczzz in a shuffled order"}
+{"name": "dr-0068", "args": ["deployer-case"], "stdin": "DL-69 3 overlapping prefixes of abczzz in the reverse order"}
+{"name": "dr-0069", "args": ["deployer-case"], "stdin": "DL-70 5 overlapping prefixes of abczzz in a shuffled order"}
+{"name": "dr-0070", "args": ["deployer-case"], "stdin": "DL-71 5 overlapping prefixes of abczzz in the reverse order"}
+{"name": "dr-0071", "args": ["deployer-case"], "stdin": "DL-72 2 overlapping prefixes of userzzz in a shuffled order"}
+{"name": "dr-0072", "args": ["deployer-case"], "stdin": "DL-73 2 overlapping prefixes of userzzz in the reverse order"}
+{"name": "dr-0073", "args": ["deployer-case"], "stdin": "DL-74 3 overlapping prefixes of userzzz in a shuffled order"}
+{"name": "dr-0074", "args": ["deployer-case"], "stdin": "DL-75 3 overlapping prefixes of userzzz in the reverse order"}
+{"name": "dr-0075", "args": ["deployer-case"], "stdin": "DL-76 5 overlapping prefixes of userzzz in a shuffled order"}
+{"name": "dr-0076", "args": ["deployer-case"], "stdin": "DL-77 5 overlapping prefixes of userzzz in the reverse order"}
+{"name": "dr-0077", "args": ["deployer-case"], "stdin": "DL-78 2 overlapping prefixes of workerzzz in a shuffled order"}
+{"name": "dr-0078", "args": ["deployer-case"], "stdin": "DL-79 2 overlapping prefixes of workerzzz in the reverse order"}
+{"name": "dr-0079", "args": ["deployer-case"], "stdin": "DL-80 3 overlapping prefixes of workerzzz in a shuffled order"}
+{"name": "dr-0080", "args": ["deployer-case"], "stdin": "DL-81 3 overlapping prefixes of workerzzz in the reverse order"}
+{"name": "dr-0081", "args": ["deployer-case"], "stdin": "DL-82 5 overlapping prefixes of workerzzz in a shuffled order"}
+{"name": "dr-0082", "args": ["deployer-case"], "stdin": "DL-83 5 overlapping prefixes of workerzzz in the reverse order"}
+{"name": "dr-0083", "args": ["deployer-case"], "stdin": "DL-84 2 overlapping prefixes of stzzz in a shuffled order"}
+{"name": "dr-0084", "args": ["deployer-case"], "stdin": "DL-85 2 overlapping prefixes of stzzz in the reverse order"}
+{"name": "dr-0085", "args": ["deployer-case"], "stdin": "DL-86 3 overlapping prefixes of stzzz in a shuffled order"}
+{"name": "dr-0086", "args": ["deployer-case"], "stdin": "DL-87 3 overlapping prefixes of stzzz in the reverse order"}
+{"name": "dr-0087", "args": ["deployer-case"], "stdin": "DL-88 5 overlapping prefixes of stzzz in a shuffled order"}
+{"name": "dr-0088", "args": ["deployer-case"], "stdin": "DL-89 5 overlapping prefixes of stzzz in the reverse order"}
+{"name": "dr-0089", "args": ["deployer-case"], "stdin": "DL-90 2 overlapping prefixes of mnxyz in a shuffled order"}
+{"name": "dr-0090", "args": ["deployer-case"], "stdin": "DL-91 2 overlapping prefixes of mnxyz in the reverse order"}
+{"name": "dr-0091", "args": ["deployer-case"], "stdin": "DL-92 3 overlapping prefixes of mnxyz in a shuffled order"}
+{"name": "dr-0092", "args": ["deployer-case"], "stdin": "DL-93 3 overlapping prefixes of mnxyz in the reverse order"}
+{"name": "dr-0093", "args": ["deployer-case"], "stdin": "DL-94 5 overlapping prefixes of mnxyz in a shuffled order"}
+{"name": "dr-0094", "args": ["deployer-case"], "stdin": "DL-95 5 overlapping prefixes of mnxyz in the reverse order"}
+{"name": "dr-0095", "args": ["deployer-case"], "stdin": "DL-96 2 overlapping prefixes of service in a shuffled order"}
+{"name": "dr-0096", "args": ["deployer-case"], "stdin": "DL-97 2 overlapping prefixes of service in the reverse order"}
+{"name": "dr-0097", "args": ["deployer-case"], "stdin": "DL-98 3 overlapping prefixes of service in a shuffled order"}
+{"name": "dr-0098", "args": ["deployer-case"], "stdin": "DL-99 3 overlapping prefixes of service in the reverse order"}
+{"name": "dr-0099", "args": ["deployer-case"], "stdin": "DL-100 5 overlapping prefixes of service in a shuffled order"}
+{"name": "dr-0100", "args": ["deployer-case"], "stdin": "DL-101 5 overlapping prefixes of service in the reverse order"}
+{"name": "dr-0101", "args": ["deployer-case"], "stdin": "DL-102 2 overlapping prefixes of dispatcherx in a shuffled order"}
+{"name": "dr-0102", "args": ["deployer-case"], "stdin": "DL-103 2 overlapping prefixes of dispatcherx in the reverse order"}
+{"name": "dr-0103", "args": ["deployer-case"], "stdin": "DL-104 3 overlapping prefixes of dispatcherx in a shuffled order"}
+{"name": "dr-0104", "args": ["deployer-case"], "stdin": "DL-105 3 overlapping prefixes of dispatcherx in the reverse order"}
+{"name": "dr-0105", "args": ["deployer-case"], "stdin": "DL-106 5 overlapping prefixes of dispatcherx in a shuffled order"}
+{"name": "dr-0106", "args": ["deployer-case"], "stdin": "DL-107 5 overlapping prefixes of dispatcherx in the reverse order"}
+{"name": "dr-0107", "args": ["deployer-case"], "stdin": "DL-108 2 overlapping prefixes of akkapekko in a shuffled order"}
+{"name": "dr-0108", "args": ["deployer-case"], "stdin": "DL-109 2 overlapping prefixes of akkapekko in the reverse order"}
+{"name": "dr-0109", "args": ["deployer-case"], "stdin": "DL-110 3 overlapping prefixes of akkapekko in a shuffled order"}
+{"name": "dr-0110", "args": ["deployer-case"], "stdin": "DL-111 3 overlapping prefixes of akkapekko in the reverse order"}
+{"name": "dr-0111", "args": ["deployer-case"], "stdin": "DL-112 5 overlapping prefixes of akkapekko in a shuffled order"}
+{"name": "dr-0112", "args": ["deployer-case"], "stdin": "DL-113 5 overlapping prefixes of akkapekko in the reverse order"}
+{"name": "dr-0113", "args": ["deployer-case"], "stdin": "DL-114 2 overlapping prefixes of routees in a shuffled order"}
+{"name": "dr-0114", "args": ["deployer-case"], "stdin": "DL-115 2 overlapping prefixes of routees in the reverse order"}
+{"name": "dr-0115", "args": ["deployer-case"], "stdin": "DL-116 3 overlapping prefixes of routees in a shuffled order"}
+{"name": "dr-0116", "args": ["deployer-case"], "stdin": "DL-117 3 overlapping prefixes of routees in the reverse order"}
+{"name": "dr-0117", "args": ["deployer-case"], "stdin": "DL-118 5 overlapping prefixes of routees in a shuffled order"}
+{"name": "dr-0118", "args": ["deployer-case"], "stdin": "DL-119 5 overlapping prefixes of routees in the reverse order"}
+{"name": "dr-0119", "args": ["deployer-case"], "stdin": "DL-120 2 overlapping prefixes of zeta in a shuffled order"}
+{"name": "dr-0120", "args": ["deployer-case"], "stdin": "DL-121 2 overlapping prefixes of zeta in the reverse order"}
+{"name": "dr-0121", "args": ["deployer-case"], "stdin": "DL-122 3 overlapping prefixes of zeta in a shuffled order"}
+{"name": "dr-0122", "args": ["deployer-case"], "stdin": "DL-123 3 overlapping prefixes of zeta in the reverse order"}
+{"name": "dr-0123", "args": ["deployer-case"], "stdin": "DL-124 4 overlapping prefixes of zeta in a shuffled order"}
+{"name": "dr-0124", "args": ["deployer-case"], "stdin": "DL-125 4 overlapping prefixes of zeta in the reverse order"}
+{"name": "dr-0125", "args": ["deployer-case"], "stdin": "DL-126 2 overlapping prefixes of orders in a shuffled order"}
+{"name": "dr-0126", "args": ["deployer-case"], "stdin": "DL-127 2 overlapping prefixes of orders in the reverse order"}
+{"name": "dr-0127", "args": ["deployer-case"], "stdin": "DL-128 3 overlapping prefixes of orders in a shuffled order"}
+{"name": "dr-0128", "args": ["deployer-case"], "stdin": "DL-129 3 overlapping prefixes of orders in the reverse order"}
+{"name": "dr-0129", "args": ["deployer-case"], "stdin": "DL-130 5 overlapping prefixes of orders in a shuffled order"}
+{"name": "dr-0130", "args": ["deployer-case"], "stdin": "DL-131 5 overlapping prefixes of orders in the reverse order"}
+{"name": "dr-0131", "args": ["deployer-case"], "stdin": "DL-132 two prefixes with the same hash code, short first"}
+{"name": "dr-0132", "args": ["deployer-case"], "stdin": "DL-133 two prefixes with the same hash code, long first"}
+{"name": "dr-0133", "args": ["deployer-case"], "stdin": "DL-134 two prefixes with the same hash code among others, short first"}
+{"name": "dr-0134", "args": ["deployer-case"], "stdin": "DL-135 two prefixes with the same hash code among others, long first"}
+{"name": "dr-0135", "args": ["deployer-case"], "stdin": "DC-01 concurrent deploys of different paths are all kept"}
+{"name": "dr-0136", "args": ["deployer-case"], "stdin": "DC-02 concurrent deploys of one path keep one of them"}

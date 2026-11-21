@@ -10,11 +10,13 @@
 //! never a key). Elements are compared as `&str`; `prefix*` is a `starts_with` (Q-UTIL-8 (c): no
 //! `makePattern`, no UTF-16 view of the text).
 //!
-//! The choice between two `prefix*` that both match an element depends on the iteration order of a
-//! Scala `HashMap` (AC-UTIL-009 A7, pending Q-UTIL-21): here the first inserted one wins.
+//! The choice between two `prefix*` that both match an element is the first one in the iteration order of a
+//! Scala `HashMap` (AC-UTIL-009 A7, Q-UTIL-21, Q-X-21): `wildcard_suffix_children` is kept in that order
+//! (`scala_hash_order`), so it does not depend on the order the entries were inserted.
 
 use std::collections::HashMap;
 
+use super::scala_hash_order::iteration_order;
 use crate::actor::IllegalArgumentError;
 
 const DOUBLE_WILDCARD_SUFFIX_MESSAGE: &str = "double wildcard can't be used as a suffix (e.g. /user/actor**), only as a full subPath element (e.g. /user/actor/**)";
@@ -31,7 +33,7 @@ pub struct WildcardIndex<T> {
 pub struct WildcardTree<T> {
     data: Option<T>,
     children: HashMap<String, WildcardTree<T>>,
-    /// The `prefix*` children by prefix, in insertion order.
+    /// The `prefix*` children by prefix, in the iteration order of Scala's `HashMap` (insertion order among equal hashes).
     wildcard_suffix_children: Vec<(String, WildcardTree<T>)>,
 }
 
@@ -139,6 +141,7 @@ impl<T: Clone> WildcardTree<T> {
                 Some((_, existing)) => *existing = child,
                 None => updated.wildcard_suffix_children.push((prefix, child)),
             }
+            updated.sort_suffix_children_in_hash_map_order();
         } else {
             let existing = self.children.get(element).cloned().unwrap_or_default();
             updated
@@ -146,6 +149,24 @@ impl<T: Clone> WildcardTree<T> {
                 .insert(element.to_owned(), existing.insert(rest, data)?);
         }
         Ok(updated)
+    }
+
+    fn sort_suffix_children_in_hash_map_order(&mut self) {
+        let keys: Vec<&str> = self
+            .wildcard_suffix_children
+            .iter()
+            .map(|(prefix, _)| prefix.as_str())
+            .collect();
+        let order = iteration_order(&keys);
+        let mut children: Vec<Option<(String, WildcardTree<T>)>> =
+            std::mem::take(&mut self.wildcard_suffix_children)
+                .into_iter()
+                .map(Some)
+                .collect();
+        self.wildcard_suffix_children = order
+            .into_iter()
+            .filter_map(|position| children[position].take())
+            .collect();
     }
 
     /// `findWithSingleWildcard`: `None` stands for the empty tree.
@@ -341,6 +362,33 @@ mod tests {
         );
         assert_eq!(find(&replaced, &["x", "bb", "c"]), None);
         assert_eq!(find(&replaced, &["x", "bb"]), Some(2));
+    }
+
+    #[test]
+    fn overlapping_suffix_wildcards_resolve_as_the_scala_hash_map_iterates_them() {
+        // winners measured in Pekko 2.0.0 (Q-UTIL-21 probe): the first matching key in the map's iteration order
+        let cases: &[(&[&str], &str, &str)] = &[
+            (&["p", "pq"], "pqzzz", "p"),
+            (&["s", "st"], "stzzz", "st"),
+            (&["ab", "abc", "a"], "abczzz", "abc"),
+            (&["user", "us", "u"], "userzzz", "u"),
+            (&["worker", "work", "wo"], "workerzzz", "work"),
+        ];
+        for (prefixes, element, winner) in cases {
+            for order in [prefixes.to_vec(), prefixes.iter().rev().copied().collect()] {
+                let tree = order
+                    .iter()
+                    .fold(insert(&empty_index(), &["q"], 0), |tree, prefix| {
+                        insert(&tree, &[format!("{prefix}*").as_str()], 1)
+                    });
+                let deepest = insert(&tree, &[format!("{winner}*").as_str(), "x"], 2);
+                assert_eq!(
+                    find(&deepest, &[element, "x"]),
+                    Some(2),
+                    "{prefixes:?} inserted as {order:?}"
+                );
+            }
+        }
     }
 
     #[test]

@@ -1168,6 +1168,80 @@ MUTANTS = {
         "if true {",
         "the new index replaces the current one even when another deploy swapped in meanwhile, so that deploy is lost (killed by a deterministic unit test, see UNIT_MUTANTS)",
     ),
+    # --- P10 PR-C: Deploy.toString and the concise render of a configuration ---
+    "render-keys-sort-as-plain-strings": (
+        "src/config/mod.rs",
+        "        (Some(_), None) => std::cmp::Ordering::Less,\n        (None, Some(_)) => std::cmp::Ordering::Greater,\n",
+        "        (Some(_), None) => std::cmp::Ordering::Greater,\n        (None, Some(_)) => std::cmp::Ordering::Less,\n",
+        "keys made of digits are listed after the other keys instead of before",
+    ),
+    "render-numeric-keys-compare-as-text": (
+        "src/config/mod.rs",
+        "a.len().cmp(&b.len()).then_with(|| a.cmp(&b))",
+        "a.cmp(&b)",
+        "the digit keys 9 and 10 are ordered as text",
+    ),
+    "render-shows-only-the-top-layer-of-a-key": (
+        "src/config/mod.rs",
+        ".flat_map(|(k, stack)| stack.iter().rev().map(move |layer| (k, layer)))",
+        ".filter_map(|(k, stack)| stack.first().map(|layer| (k, layer)))",
+        "an unresolved key shows only its highest-priority layer",
+    ),
+    "render-concatenation-keeps-white-space-as-a-separate-string": (
+        "src/config/mod.rs",
+        "            Piece::Ws(white) => Some(white.as_str()),\n",
+        "            Piece::Ws(_) => None,\n",
+        "the white space between a substitution and a string is dropped from the concatenation",
+    ),
+    "tags-are-listed-sorted": (
+        "src/actor/deploy.rs",
+        "return format!(\"Set({})\", tags.join(\", \"));",
+        "let mut sorted = tags.to_vec();\n        sorted.sort();\n        return format!(\"Set({})\", sorted.join(\", \"));",
+        "up to four tags are listed in alphabetical order instead of insertion order",
+    ),
+    "five-tags-print-as-a-small-set": (
+        "src/actor/deploy.rs",
+        "if tags.len() <= 4 {",
+        "if tags.len() <= 5 {",
+        "five tags are printed in insertion order as a Set instead of a HashSet in hash order",
+    ),
+    "surrogate-escape-pair-becomes-two-replacement-characters": (
+        "src/config/parse.rs",
+        "if (0xD800..0xDC00).contains(&code) {",
+        "if (0xD800..0xDC00).contains(&code) && false {",
+        "a pair of surrogate escapes is read as two replacement characters",
+    ),
+    # --- Q-UTIL-21 / Q-X-21: the choice among overlapping `prefix*` entries follows the iteration order of Scala's HashMap ---
+    "wildcard-suffix-children-keep-insertion-order": (
+        "src/util/wildcard_index.rs",
+        "            updated.sort_suffix_children_in_hash_map_order();\n",
+        "",
+        "overlapping prefix* entries are tried in insertion order instead of the HashMap order",
+    ),
+    "hash-map-order-skips-the-improve-scrambling": (
+        "src/util/scala_hash_order.rs",
+        ".map(|(position, key)| (position, improve(string_hash_code(key))))",
+        ".map(|(position, key)| (position, string_hash_code(key) as u32))",
+        "the trie consumes the raw String.hashCode instead of the scrambled one",
+    ),
+    "hash-map-order-reads-the-bits-from-the-top": (
+        "src/util/scala_hash_order.rs",
+        "groups[((entry.1 >> shift) & 0x1f) as usize].push(entry);",
+        "groups[(((entry.1.reverse_bits()) >> shift) & 0x1f) as usize].push(entry);",
+        "the five-bit chunks are taken from the most significant end",
+    ),
+    "hash-map-order-puts-child-nodes-before-lone-entries": (
+        "src/util/scala_hash_order.rs",
+        "    for group in groups.iter().filter(|group| group.len() == 1) {\n        out.push(group[0].0);\n    }\n    for group in groups.into_iter().filter(|group| group.len() > 1) {\n        node_order(group, shift + BITS_PER_LEVEL, out);\n    }\n",
+        "    for group in groups.iter().filter(|group| group.len() > 1) {\n        node_order(group.clone(), shift + BITS_PER_LEVEL, out);\n    }\n    for group in groups.iter().filter(|group| group.len() == 1) {\n        out.push(group[0].0);\n    }\n",
+        "a node iterates its children before its own entries",
+    ),
+    "hash-map-order-reverses-colliding-keys": (
+        "src/util/scala_hash_order.rs",
+        "out.extend(entries.into_iter().map(|(position, _)| position));",
+        "out.extend(entries.into_iter().rev().map(|(position, _)| position));",
+        "keys with the same scrambled hash iterate in reverse insertion order",
+    ),
     "deployer-deploy-stores-nothing": (
         "src/actor/deployer.rs",
         "                *current = updated;\n",

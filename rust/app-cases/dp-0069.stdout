@@ -1,0 +1,1 @@
+TS-25 toString with keys that differ in UTF-16 order and code point order -> ok Deploy(/a, Config(SimpleConfigObject({"\uD83D\uDE00":2,"\uE000":3,"\uFFFF":1})), NoRouter, NoScopeGiven, , , Set())

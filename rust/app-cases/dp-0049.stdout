@@ -1,0 +1,1 @@
+TS-05 toString with numbers of every shape -> ok Deploy(/a, Config(SimpleConfigObject({"a":1,"b":1,"c":100000,"d":1.5E-7,"e":"12345678901234567890","f":0,"g":0.1})), NoRouter, NoScopeGiven, , , Set())
