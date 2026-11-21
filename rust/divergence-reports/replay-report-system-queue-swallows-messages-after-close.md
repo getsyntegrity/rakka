@@ -8,7 +8,7 @@ Fallback rate: not reported by this build
 
 ## Failing cases
 
-### i02-prestart-failure-wat
+### i02-prestart-failure-wa
 
 Arguments: `scenario`
 
@@ -104,7 +104,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327084) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -131,7 +131,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327088) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -158,7 +158,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327092) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -185,7 +185,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327096) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -212,7 +212,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327100) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -239,7 +239,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327104) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -266,7 +266,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327108) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -293,7 +293,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327112) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -320,7 +320,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327116) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -347,7 +347,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327120) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -374,7 +374,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327124) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -401,7 +401,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327128) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
@@ -428,7 +428,7 @@ stdout:
 stderr:
 
 ```diff
-+ 
++
 + thread 'main' (118327132) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:240:5:
 + assertion `left == right` failed
 +   left: Ok(())
