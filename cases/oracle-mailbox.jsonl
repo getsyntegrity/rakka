@@ -9,3 +9,5 @@
 {"name": "mb-0009", "args": ["mailbox-case"], "stdin": "MBX-MQ-01 default queue is FIFO and counts"}
 {"name": "mb-0010", "args": ["mailbox-case"], "stdin": "MBX-MQ-02 default queue stays FIFO when enqueue and dequeue interleave"}
 {"name": "mb-0011", "args": ["mailbox-case"], "stdin": "MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order"}
+{"name": "mb-0012", "args": ["mailbox-case"], "stdin": "MBX-SQ-01 system queue drains earliest first"}
+{"name": "mb-0013", "args": ["mailbox-case"], "stdin": "MBX-SQ-02 sentinel NoMessage closes the system queue"}

@@ -2364,3 +2364,5 @@ mb-0008	mailbox	MBX-ST-08 canBeScheduledForExecution matrix
 mb-0009	mailbox	MBX-MQ-01 default queue is FIFO and counts
 mb-0010	mailbox	MBX-MQ-02 default queue stays FIFO when enqueue and dequeue interleave
 mb-0011	mailbox	MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order
+mb-0012	mailbox	MBX-SQ-01 system queue drains earliest first
+mb-0013	mailbox	MBX-SQ-02 sentinel NoMessage closes the system queue

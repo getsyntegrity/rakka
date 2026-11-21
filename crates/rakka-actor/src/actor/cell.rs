@@ -2,7 +2,7 @@
 //! `ActorCell`: the engine behind a local actor — mailbox, system-message processing, children,
 //! death watch and the termination sequence. Follows `ActorCell.scala` and `dungeon/*`.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, Weak};
@@ -21,16 +21,9 @@ use crate::dispatch::mailbox_close::enqueue_unless_closed;
 use crate::dispatch::mailbox_status::MailboxStatus;
 use crate::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 use crate::dispatch::sysmsg::{Failed, SystemMessage, Terminated};
+use crate::dispatch::system_queue::SystemQueue;
 use crate::event::UnhandledMessage;
 use crate::util::helpers::base64_append;
-
-/// The system-message queue as it was before ADR-0001 step 4b (Q-MBX-5 is still open): FIFO, with its own `closed` flag so that a
-/// system message sent after the actor terminated is answered as a dead one instead of being stranded.
-#[derive(Default)]
-struct SystemQueue {
-    messages: VecDeque<SystemMessage>,
-    closed: bool,
-}
 
 #[derive(Default)]
 struct CellState {
@@ -79,7 +72,7 @@ pub(crate) struct ActorCell {
     me: Weak<ActorCell>,
     /// the atomic mailbox state (Open/Closed, Scheduled, suspend count)
     status: MailboxStatus,
-    system_queue: Mutex<SystemQueue>,
+    system_queue: SystemQueue<SystemMessage>,
     /// the user messages (`Mailbox.messageQueue`): the default `UnboundedMailbox` queue
     queue: Box<dyn MessageQueue>,
     children: Mutex<Children>,
@@ -156,17 +149,16 @@ impl ActorCell {
                 status.set_as_scheduled(); // not attached yet: nothing runs before `start`
                 status
             },
-            system_queue: Mutex::new(SystemQueue::default()),
+            system_queue: SystemQueue::new(),
             queue: UnboundedMailbox.create(),
             children: Mutex::new(Children::Empty),
             name_counter: AtomicU64::new(0),
             st: Mutex::new(CellState::default()),
         });
-        cell.system_queue
-            .lock()
-            .unwrap()
-            .messages
-            .push_back(SystemMessage::Create);
+        assert!(
+            cell.system_queue.enqueue(SystemMessage::Create).is_ok(),
+            "a new mailbox accepts system messages"
+        );
         parent.send_system(SystemMessage::Supervise {
             child: cell.self_ref(),
             is_async: false,
@@ -194,7 +186,7 @@ impl ActorCell {
         let can_run = self.status.can_be_scheduled_for_execution(
             message_hint,
             system_message_hint,
-            || !self.system_queue.lock().unwrap().messages.is_empty(),
+            || self.system_queue.has_messages(),
             || self.queue.has_messages(),
         );
         if can_run && self.status.set_as_scheduled() {
@@ -203,14 +195,9 @@ impl ActorCell {
     }
 
     pub(crate) fn system_dispatch(self: &Arc<Self>, msg: SystemMessage) {
-        {
-            let mut system_queue = self.system_queue.lock().unwrap();
-            if system_queue.closed {
-                drop(system_queue);
-                Self::dead_system_message(msg);
-                return;
-            }
-            system_queue.messages.push_back(msg);
+        if let Err(msg) = self.system_queue.enqueue(msg) {
+            Self::dead_system_message(msg); // the queue is closed: the actor terminated
+            return;
         }
         self.register_for_execution(false, true);
     }
@@ -252,13 +239,7 @@ impl ActorCell {
     /// `Mailbox.processAllSystemMessages`: a message found after the mailbox closed is handled as a dead one.
     fn process_all_system_messages(self: &Arc<Self>) {
         loop {
-            let batch: Vec<SystemMessage> = self
-                .system_queue
-                .lock()
-                .unwrap()
-                .messages
-                .drain(..)
-                .collect();
+            let batch = self.system_queue.drain();
             if batch.is_empty() {
                 break;
             }
@@ -666,11 +647,7 @@ impl ActorCell {
         let leftovers = UnboundedMailbox.create();
         self.status.become_closed();
         self.queue.clean_up(&*leftovers); // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8)
-        let sys = {
-            let mut system_queue = self.system_queue.lock().unwrap();
-            system_queue.closed = true;
-            std::mem::take(&mut system_queue.messages)
-        };
+        let sys = self.system_queue.clean_up();
         for m in sys {
             Self::dead_system_message(m);
         }
