@@ -27,12 +27,22 @@ Modelo candidato: el `HashSet` final se llena en el orden de iteración del mapa
 - `parseString` de 400 objetos de 2 a 14 claves con valores enteros (`E.java`, semilla 3): el modelo reproduce el orden **400 de 400**, tomando como orden del mapa interno el que da el mismo modelo con el hash de la clave sola (orden de lectura en los desempates).
 - `pekko.actor.deployment` tras `withFallback(defaultReference()).resolve()` con 1 a 12 entradas de dispatcher (`F.java`, 300 casos): el orden de cubos del conjunto final no decrece en **300 de 300**; el orden exacto con el modelo anterior acierta **279 de 300**. Los 21 fallos son desempates dentro de un mismo cubo: ahí manda el orden del mapa interno, que depende de cómo se construyó (lectura, `withFallback`, `resolve`; Typesafe crea nuevos `HashMap` en `mergedWithObject` y `resolve`).
 
-## 5. Lo que falta medir antes de implementar
+## 5. Modelo completo (medido 300/300)
 
-1. El orden del mapa interno tras `mergedWithObject` y `resolve`: leer `SimpleConfigObject.java:261-330` y `AbstractConfigObject`/`ResolveContext` (Apache-2.0) y comprobar con `F.java` ampliado hasta 300/300.
-2. Cubos con 8 o más entradas (tabla grande): el Javadoc de `HashMap` dice que los cubos grandes pueden convertirse en árboles; medir si cambia el orden.
-3. Valores sin resolver y `ConfigDelayedMerge` no aplican: `Settings` entrega una configuración resuelta.
-4. El `Deploy` real añade la parte `default`: no cambia el orden, que sale de las claves de `pekko.actor.deployment`.
+Lectura de `SimpleConfigObject.mergedWithObject` y `modifyMayThrow` (Typesafe Config 1.4.9, Apache-2.0, líneas 255-330): la fusión copia las claves de ambos objetos a un `HashSet` nuevo (primero las del receptor, luego las del fallback), y recorre ese conjunto para llenar un `HashMap` nuevo; `resolve` rehace el mapa recorriéndolo en su orden. El orden final de un objeto se obtiene así, con `orden_por_cubos(elementos, hash)` = ordenar por `(h XOR (h >>> 16)) AND (tabla - 1)` y, a igual cubo, por el orden en que entraron; la tabla es 16 y se duplica mientras haya más de 3/4 de ocupación:
+
+1. Objeto del usuario: `orden_por_cubos(claves en orden de lectura, hash de la clave)`.
+2. `allKeys`: `orden_por_cubos(claves del usuario en el orden 1, seguidas de las claves del fallback que faltan en el orden de su propio objeto, hash de la clave)`.
+3. Mapa interno fusionado: `orden_por_cubos(allKeys, hash de la clave)` (no cambia el orden).
+4. `entrySet()`: `orden_por_cubos(mapa interno, hash de la clave XOR hash del valor)`.
+
+Comprobación: 300 configuraciones de 1 a 12 entradas (`F.java`, `R.java`; claves `/svc`, `/svc/`, `/svc//`, `/w1`...) con el orden de las claves del fallback de `reference.conf` `default, /IO-DNS/async-dns, /IO-DNS/async-dns/*, /IO-DNS/inet-address/*, /IO-DNS/inet-address`: orden exacto en **300 de 300**; objetos leídos con `parseString` (paso 1 y 4): **400 de 400**.
+
+## 5b. Lo que sigue sin medir
+
+1. Cubos con 8 o más entradas (tabla de 64 o más): el Javadoc de `HashMap` dice que los cubos grandes pueden pasar a árboles; medir si cambia el orden.
+2. Objetos de la configuración que pasan por más operaciones (varios `withFallback` encadenados, `include`, sustituciones): cada una rehace el mapa con la misma regla, pero no está medido.
+3. Valores sin resolver no aplican (`Settings` entrega una configuración resuelta).
 
 ## 6. Interfaz propuesta para la implementación (Rust)
 
