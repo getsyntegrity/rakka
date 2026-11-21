@@ -89,6 +89,8 @@ class LeasedCopies(unittest.TestCase):
                   "print(lease, flush=True);"
                   "with_block = replay_lib.holding(lease); with_block.__enter__(); sys.stdin.read()")
         process = subprocess.Popen([sys.executable, "-c", script], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        self.addCleanup(process.stdout.close)             # no pipe of the stand-in consumer outlives the test
+        self.addCleanup(process.stdin.close)
         return process, process.stdout.readline().strip()
 
     def test_a_holder_in_another_process_protects_the_copy(self):
