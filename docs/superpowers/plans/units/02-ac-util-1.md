@@ -19,7 +19,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-15`, `Q-DSP-3`, `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-21`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`, `Q-UTIL-27`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-15`, `Q-DSP-3`, `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-21`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`, `Q-UTIL-27`, `Q-X-21`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -85,7 +85,7 @@ Filas: AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contratos y asercione
 | AC-UTIL-006.8 | ByteString: serialización Java (SerializationProxy, identidades 0/1/2) | sin equivalente directo (serialización Java); depende de Q-X-3/Q-CFG-11 y del módulo… | actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:2461-2527 | Q-CFG-11, Q-UTIL-11, Q-UTIL-12, Q-UTIL-26, Q-X-3 |
 | AC-UTIL-006.6 | ByteString: factorías y conversiones (String, Array, ByteBuffer, Base64,… | `ByteString::from_array[_range\|_unsafe]`, `from_ints`, `from_string[_with_charset\|_in]`,… | actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:420-440 ;… | Q-UTIL-12, Q-UTIL-22 |
 | AC-UTIL-008 | SubclassifiedIndex / Subclassification | Rust no tiene herencia: clasificador por `TypeId` + jerarquía declarada (trait de "canal… | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:172-303 | Q-UTIL-10, Q-X-6 |
-| AC-UTIL-009 | WildcardIndex (matching de paths de deployment con * y **) | trie por elementos de path | actor-tests/src/test/scala/org/apache/pekko/util/WildcardIndexSpec.scala:21:21-99 | Q-UTIL-21, Q-UTIL-8 |
+| AC-UTIL-009 | WildcardIndex (matching de paths de deployment con * y **) | trie por elementos de path | actor-tests/src/test/scala/org/apache/pekko/util/WildcardIndexSpec.scala:21:21-99 | Q-UTIL-21, Q-UTIL-8, Q-X-21 |
 | AC-UTIL-016.1 | OptionVal (Option sin allocación) | `Option<T>` de Rust (ya sin allocación) | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-UTIL-20 |
 | AC-UTIL-016.2 | ConstantFun (funciones constantes/identidad Scala y Java) | closures `const`/`identity` donde se necesiten | actor-tests/src/test/java/org/apache/pekko/util/ConstantFunJavaTest.java:26-48 | Q-UTIL-11, Q-UTIL-20 |
 | AC-UTIL-016.3 | Collections (EmptyImmutableSeq, PartialImmutableValuesIterable) | `Vec`/iteradores nativos | derivada del código (ver bloque de contrato) | Q-UTIL-11, Q-UTIL-20 |

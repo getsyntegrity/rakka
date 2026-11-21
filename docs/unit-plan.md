@@ -160,7 +160,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Estructuras de datos concurrentes/inmutables (Index, WildcardIndex, SubclassifiedIndex, colas, LFU/LRU).
 - **Filas (16; impl: pending 16):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-007, AC-UTIL-008, AC-UTIL-009, AC-UTIL-010, AC-UTIL-011, AC-UTIL-012, AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.4, AC-UTIL-017.1, AC-UTIL-017.2, AC-UTIL-017.3, AC-UTIL-017.4, AC-UTIL-017.5.
 - **Exclusiones/costuras:** UTIL-008/009/012/013 se prueban solo con sus propios specs; el uso por EVT/CFG/MBX es de las unidades consumidoras.
-- **Decisiones:** 9 distintas en sus filas; respondidas: 8 (ver detalle); propuestas sin respuesta: Q-UTIL-21. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P03). <!-- generated:unit-decisions -->
+- **Decisiones:** 10 distintas en sus filas; respondidas: 8 (ver detalle); propuestas sin respuesta: Q-UTIL-21, Q-X-21. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P03). <!-- generated:unit-decisions -->
 - **Dependencias:** P02, P65, P76.
 - **Archivos previstos:** `crates/rakka-actor/src/util/{index,wildcard_index,queues,lfu}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs Pekko 1:1 (Index/WildcardIndex/queues).
@@ -396,7 +396,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Deployer: parseo pekko.actor.deployment, lookup con comodines, Deploy/Scope.
 - **Filas (3; impl: pending 3):** asignacion explicita en `docs/unit-rows.tsv`: AC-CFG-012.1, AC-CFG-012.2, AC-CFG-013.
 - **Exclusiones/costuras:** CFG-012.3/.4 (RouterConfig y resizers) se difieren a P37 (RT-CONFIG); aqui el campo router es un valor opaco (costura DEPLOY-S1).
-- **Decisiones:** 7 distintas en sus filas; respondidas: Q-CFG-12, Q-CFG-4, Q-UTIL-8, Q-X-2; propuestas sin respuesta: Q-CFG-35, Q-CFG-36, Q-UTIL-21. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P10). <!-- generated:unit-decisions -->
+- **Decisiones:** 8 distintas en sus filas; respondidas: Q-CFG-12, Q-CFG-4, Q-UTIL-8, Q-X-2; propuestas sin respuesta: Q-CFG-35, Q-CFG-36, Q-UTIL-21, Q-X-21. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P10). <!-- generated:unit-decisions -->
 - **Dependencias:** P01, P03, P07.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{deploy,deployer}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs DeployerSpec parciales + unidad.
@@ -458,7 +458,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Colas de mailbox (unbounded, bounded, prioridad, deque, control-aware) y vista de solo lectura.
 - **Filas (12; impl: pending 12):** asignacion explicita en `docs/unit-rows.tsv`: AC-MBX-004, AC-MBX-005, AC-MBX-006, AC-MBX-007, AC-MBX-008, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012, AC-MBX-015, AC-MBX-019, AC-MBX-022.
 - **Exclusiones/costuras:** MBX-013/014/020 (seleccion) a P28; MBX-019 expone vista interna, Q-RT-4 (bloqueante) decide su forma.
-- **Decisiones:** 10 distintas en sus filas; respondidas: Q-X-2, Q-X-4; propuestas sin respuesta: 8 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P13). <!-- generated:unit-decisions -->
+- **Decisiones:** 10 distintas en sus filas; respondidas: Q-MBX-6, Q-X-2, Q-X-4; propuestas sin respuesta: 7 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P13). <!-- generated:unit-decisions -->
 - **Dependencias:** P03, P08, P09.
 - **Archivos previstos:** `crates/rakka-actor/src/dispatch/mailbox/*.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs *MailboxSpec 1:1.
@@ -480,7 +480,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Estado atomico del mailbox, ejecucion con prioridad de sistema, throughput, attach/detach y suspend/resume de dispatcher.
 - **Filas (7; impl: pending 7):** asignacion explicita en `docs/unit-rows.tsv`: AC-MBX-001, AC-MBX-002, AC-CELL-013.1, AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-023.
 - **Exclusiones/costuras:** Costura DISPATCH-S1: la celda se sustituye por trait CellInvoke {invoke, system_invoke}; DSP-023 usa suspend/resume sin restart real.
-- **Decisiones:** 4 distintas en sus filas; respondidas: Q-X-4; propuestas sin respuesta: Q-DSP-5, Q-MBX-5, Q-MBX-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P15). <!-- generated:unit-decisions -->
+- **Decisiones:** 6 distintas en sus filas; respondidas: Q-MBX-10, Q-MBX-5, Q-MBX-6, Q-MBX-9, Q-X-4; propuestas sin respuesta: Q-DSP-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P15). <!-- generated:unit-decisions -->
 - **Dependencias:** P08, P13, P14.
 - **Archivos previstos:** `crates/rakka-actor/src/dispatch/{mailbox,dispatcher}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** Dispatchers/Mailbox specs 1:1.
@@ -502,7 +502,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** deadLetters, EmptyLocalActorRef y mailbox cerrado: el sumidero de cartas muertas.
 - **Filas (4; impl: pending 4):** asignacion explicita en `docs/unit-rows.tsv`: AC-REF-015, AC-REF-016, AC-MBX-003, AC-MBX-021.
 - **Exclusiones/costuras:** Watch->DWN de REF-015/016 usa la interfaz DeathWatchSink (DW-S1); la vigilancia real llega en P23.
-- **Decisiones:** 1 distintas en sus filas; propuestas sin respuesta: Q-MBX-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P17). <!-- generated:unit-decisions -->
+- **Decisiones:** 4 distintas en sus filas; respondidas: Q-MBX-10, Q-MBX-5, Q-MBX-8, Q-MBX-9. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P17). <!-- generated:unit-decisions -->
 - **Dependencias:** P11, P14, P15.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/dead_letters.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** unidad + oraculo de comportamiento.
@@ -747,7 +747,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** SmallestMailbox, ConsistentHashing, ScatterGather, TailChopping, BalancingPool/Dispatcher.
 - **Filas (9; impl: pending 9):** asignacion explicita en `docs/unit-rows.tsv`: AC-RT-008, AC-RT-009.1, AC-RT-009.2, AC-RT-009.3, AC-RT-010, AC-RT-011, AC-RT-012, AC-DSP-012, AC-DSP-021.
 - **Exclusiones/costuras:** Q-RT-4 (bloqueante) afecta RT-008.
-- **Decisiones:** 8 distintas en sus filas; respondidas: Q-RT-4, Q-X-3; propuestas sin respuesta: Q-ASK-1, Q-DSP-1, Q-MBX-6, Q-RT-5, Q-RT-6, Q-RT-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P36). <!-- generated:unit-decisions -->
+- **Decisiones:** 8 distintas en sus filas; respondidas: Q-MBX-6, Q-RT-4, Q-X-3; propuestas sin respuesta: Q-ASK-1, Q-DSP-1, Q-RT-5, Q-RT-6, Q-RT-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P36). <!-- generated:unit-decisions -->
 - **Dependencias:** P13, P15, P16, P28, P35.
 - **Archivos previstos:** `crates/rakka-actor/src/routing/*.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** RoutingSpec, ConsistentHashingRouterSpec.

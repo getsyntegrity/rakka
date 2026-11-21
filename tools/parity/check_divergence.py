@@ -11,7 +11,7 @@ rust/divergence-reports/. Finally the unmodified port is replayed again as the c
 Exit code: 0 every mutant DETECTED and the control clean; 1 a mutant went UNDETECTED or the control failed;
 2 the experiment is invalid (patch, build, harness error or timeout). `--selftest` runs an equivalent mutant that must exit 1.
 """
-import difflib, os, re, shutil, subprocess, sys, tempfile
+import atexit, collections, difflib, json, os, re, shutil, signal, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import replay_lib
@@ -21,10 +21,76 @@ CRATE = os.path.join(ROOT, "crates", "rakka-actor")
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 PARITY = os.path.join("release", "examples", "classic-parity")
 REPORTS = os.path.join(ROOT, "rust", "divergence-reports")
-CASES_REPORT = os.path.join(ROOT, "rust", "app-cases", "replay-report.md")
 
 # name -> (file, old, new, why it is a realistic bug)
 MUTANTS = {
+    "mailbox-suspension-does-not-stop-user-messages": (
+        "src/actor/cell.rs",
+        "        while budget > 0 && self.status.should_process_message() {",
+        "        while budget > 0 && !self.status.is_closed() {",
+        "a suspended actor keeps processing user messages (the turn only checks `Closed`, not the suspend count)",
+    ),
+    "mailbox-throughput-off-by-one": (
+        "src/actor/cell.rs",
+        "self.system.settings.throughput.max(1)",
+        "(self.system.settings.throughput.max(1) + 1)",
+        "a turn processes one message more than `throughput`, breaking the fairness between actors on one thread",
+    ),
+    "mailbox-dead-user-messages-not-published": (
+        "src/actor/cell.rs",
+        "        for env in dead {",
+        "        for env in dead.into_iter().take(0) {",
+        "a user message sent to a closed mailbox is dropped instead of published as a dead letter",
+    ),
+    "mailbox-dead-system-message-not-answered": (
+        "src/actor/cell.rs",
+        "                Self::dead_system_message(msg);\n                return;",
+        "                drop(msg);\n                return;",
+        "a system message sent to a terminated actor is dropped, so a `Watch` is never answered with `Terminated` (DeathWatch hole)",
+    ),
+    "mailbox-queue-is-lifo": (
+        "src/dispatch/message_queue.rs",
+        "        self.queue.lock().unwrap().pop_front()\n",
+        "        self.queue.lock().unwrap().pop_back()\n",
+        "the default queue hands out the newest message first, reversing every actor's message order (MBX-MQ-01, MBX-MQ-02)",
+    ),
+    "mailbox-clean-up-reversed": (
+        "src/dispatch/message_queue.rs",
+        "        while let Some(envelope) = self.dequeue() {",
+        "        while let Some(envelope) = { let newest = self.queue.lock().unwrap().pop_back(); newest } {",
+        "cleanUp ships the pending messages to dead letters newest first (MBX-MQ-03)",
+    ),
+    "mailbox-queue-count-off-by-one": (
+        "src/dispatch/message_queue.rs",
+        "        self.queue.lock().unwrap().len()\n",
+        "        self.queue.lock().unwrap().len() + 1\n",
+        "numberOfMessages reports one message too many (MBX-MQ-01, MBX-MQ-03)",
+    ),
+    "mailbox-close-forgets-queued-messages": (
+        "src/actor/cell.rs",
+        "        self.queue.clean_up(&*leftovers); // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8)\n",
+        "",
+        "closing the mailbox forgets to move the queued user messages to dead letters, so they vanish silently (found by the dead-letter scenarios)",
+    ),
+    "mailbox-close-keeps-status-bits": (
+        "src/dispatch/mailbox_status.rs",
+        "            if self.update(status, Self::CLOSED) {",
+        "            if self.update(status, status | Self::CLOSED) {",
+        "closing ORs the Closed bit into the word instead of replacing it, so a closed mailbox keeps its Scheduled bit and suspend "
+        "count and `isClosed` (== Closed) stops being true (MBX-ST-05)",
+    ),
+    "mailbox-suspended-cannot-be-scheduled": (
+        "src/dispatch/mailbox_status.rs",
+        "            if status & Self::SHOULD_SCHEDULE_MASK != Self::OPEN {",
+        "            if status != Self::OPEN {",
+        "a suspended mailbox refuses to be scheduled, so system messages sent to a suspended actor are never processed (MBX-ST-04)",
+    ),
+    "mailbox-suspended-ignores-system-hint": (
+        "src/dispatch/mailbox_status.rs",
+        "            _ => has_system_message_hint || has_system_messages(),",
+        "            _ => has_system_messages(),",
+        "a suspended mailbox ignores the system-message hint of the sender and waits for the queue to show the message (MBX-ST-04, ST-08)",
+    ),
     "utf8-lossy-decoder": (
         "src/actor/uri.rs",
         "decode_utf8_lossy_into(&octets, &mut out);",
@@ -38,12 +104,6 @@ MUTANTS = {
         "",
         "an actor without children forgets `setTerminated()`, so its guardian keeps accepting actorOf after "
         "termination (found by the oracle replay while building slice 2a)",
-    ),
-    "mailbox-is-lifo": (
-        "src/actor/cell.rs",
-        "                } else {\n                    mb.user.pop_front()\n",
-        "                } else {\n                    mb.user.pop_back()\n",
-        "the mailbox hands out the newest message first (breaks per-sender ordering)",
     ),
     "receiver-never-sees-sender": (
         "src/actor/cell.rs",
@@ -59,7 +119,7 @@ MUTANTS = {
     ),
     "throughput-ignored": (
         "src/actor/cell.rs",
-        "let mut budget = cell.system.settings.throughput.max(1);",
+        "let mut budget = self.system.settings.throughput.max(1);",
         "let mut budget = usize::MAX;",
         "an actor drains its whole mailbox in one turn instead of `throughput` messages",
     ),
@@ -152,8 +212,8 @@ MUTANTS = {
     ),
     "failure-does-not-suspend-mailbox": (
         'src/actor/cell.rs',
-        '        self.mb.lock().unwrap().suspend += 1; // suspendNonRecursive\n        for k in',
-        '        for k in',
+        '        self.status.suspend(); // suspendNonRecursive\n        for k in self\n',
+        '        for k in self\n',
         "the failed actor keeps processing its mailbox while its supervisor decides",
     ),
     # --- slice 3b, part 2: OneForOneStrategy, directives, restart limit ---
@@ -1369,6 +1429,8 @@ BUILD_TIMEOUT = 900
 SUMMARY = re.compile(r"(\d+)/(\d+) cases passed")
 
 # Outcome classes. Only DETECTED counts as a caught mutant; everything else is reported separately.
+BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"    # the run's budget ended while waiting for the replay lock: no replay ran
+BUDGET_EXHAUSTED_LINE = "BUDGET_EXHAUSTED: the run budget ended while waiting for the replay lock"
 DETECTED, UNDETECTED, PATCH_ERROR, BUILD_ERROR, HARNESS_ERROR, TIMEOUT = (
     "DETECTED", "UNDETECTED", "PATCH_ERROR", "BUILD_ERROR", "HARNESS_ERROR", "TIMEOUT")
 
@@ -1377,11 +1439,11 @@ def replay(binary):
     return replay_lib.run_replay(binary, REPLAY_TIMEOUT)
 
 
-def classify(r, binary):
+def classify(replay_result, binary):
     """-> (outcome, passed, total, line), counting only applicable cases (NOT_APPLICABLE ones must be rejected
     explicitly, see replay_lib). A mutant is detected only when the replay ran to completion and either an
     applicable case diverged or a NOT_APPLICABLE input was no longer rejected explicitly."""
-    ev = replay_lib.evaluate(binary, r)
+    ev = replay_lib.evaluate(binary, replay_result)
     if ev["ok"] is None:
         return HARNESS_ERROR, None, None, ev["line"]
     detail = ev["line"] + "".join(f"; {p}" for p in ev["na_problems"])
@@ -1449,12 +1511,136 @@ def run_mutant(scratch, name, rel, old, new, why):
     binary = os.path.join(scratch, "target-" + name, PARITY)
     if not os.path.exists(binary):
         return BUILD_ERROR, None, None, "mutated binary missing"
+    if FAST_KILL:
+        try:
+            kill = fast_kill(binary, name)
+        except replay_lib.ReplayLockTimeout:
+            return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
+        if kill:   # a divergence the full replay would also classify as applicable, demonstrated on the real tool for one case
+            publish_fast_kill_report(name, kill)
+            return DETECTED, None, None, (f"fast-kill: case {kill.case} confirmed by a single-case replay; "
+                                          "the unmutated build matches Pekko on it, the mutant does not")
+    return full_replay_verdict(binary, name)
+
+
+def full_replay_verdict(binary, name):
+    """The verdict of a mutant from the full recorded replay: -> (outcome, passed, total, line)."""
     try:
-        r = replay(binary)
+        replay_result = replay(binary)
     except subprocess.TimeoutExpired:
         return TIMEOUT, None, None, "rust-anything replay"
-    shutil.copy(CASES_REPORT, os.path.join(REPORTS, f"replay-report-{name}.md"))
-    return classify(r, binary)
+    except replay_lib.ReplayLockTimeout:
+        return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
+    outcome = classify(replay_result, binary)
+    # the report of THIS replay (read under the checkout lock), never the shared file as it is now; a verdict always rewrites it, so that an
+    # earlier report can never sit under a verdict path that no longer applies
+    scope = "output rejected" if replay_result.passed is None else f"{replay_result.total} cases"
+    publish_mutant_report(name, f"full replay ({scope}); outcome {outcome[0]}",
+                          replay_result.report_text if replay_result.report_text is not None else "(this replay produced no report)\n")
+    if replay_result.passed is not None:
+        write_killers(name, replay_result.failures)
+    return outcome
+
+
+FAST_KILL = True
+FAST_KILL_CANDIDATES = 8
+
+
+def killers_file(name):
+    return os.path.join(REPORTS, f"replay-killers-{name}.txt")
+
+
+def write_killers(name, cases):
+    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it."""
+    with open(killers_file(name), "w", encoding="utf-8") as killers:
+        killers.write("".join(f"{case}\n" for case in cases))
+
+
+def cases_listed_in_report(name):
+    try:
+        with open(os.path.join(REPORTS, f"replay-report-{name}.md"), encoding="utf-8") as report_file:
+            return re.findall(r"(?m)^### (\S+)\s*$", report_file.read())
+    except OSError:
+        return []
+
+
+def preserve_killers(name):
+    """Before a fast-kill replaces the report of a mutant with its own single-case evidence, keep the divergent cases that report listed."""
+    if not os.path.exists(killers_file(name)) and cases_listed_in_report(name):
+        write_killers(name, cases_listed_in_report(name))
+
+
+def known_killers(name):
+    """The divergent cases an earlier full replay of this mutant recorded (the killers file; the report of older runs as a fallback), minus the
+    NOT_APPLICABLE ones."""
+    try:
+        with open(killers_file(name), encoding="utf-8") as killers:
+            listed = [line.strip() for line in killers if line.strip()]
+    except OSError:
+        listed = cases_listed_in_report(name)
+    not_applicable = replay_lib.load_not_applicable()
+    return [case for case in listed if case not in not_applicable][:FAST_KILL_CANDIDATES]
+
+
+_control_binary = None
+
+
+def release_control_binary():
+    """Ends the process's use of the control copy (also done at exit); a later call to control_binary_for_fast_kill() publishes it again."""
+    global _control_binary
+    if _control_binary:
+        replay_lib.release_lease(_control_binary)
+    _control_binary = None
+
+
+atexit.register(release_control_binary)
+
+
+def control_binary_for_fast_kill():
+    """The unmutated parity binary of the current tree (built once per process), or None when it cannot be built."""
+    global _control_binary
+    if _control_binary is None:
+        path = os.path.join(ROOT, "target", PARITY)
+        try:
+            with replay_lib.build_lock():   # build and publish are one step: no other build can swap target/ in between
+                built = sh(["cargo", "build", "--release", "-p", "rakka-actor", "--example", "classic-parity"], timeout=BUILD_TIMEOUT, cwd=ROOT)
+                # the control replays an immutable copy, never the shared target/ path that the next build overwrites
+                _control_binary = replay_lib.publish_binary(path) if built.returncode == 0 and os.path.exists(path) else ""
+        except subprocess.TimeoutExpired:
+            _control_binary = ""
+    return _control_binary or None
+
+
+FastKill = collections.namedtuple("FastKill", "case report_text reason")
+
+
+def fast_kill(binary, name):
+    """The first known killer case whose divergence is DEMONSTRATED: the unmutated build agrees with the recorded Pekko output on it, the
+    mutant does not (replay_lib.diverges_only_in_mutant), AND the real tool, replaying that single case, fails it as an applicable case
+    (replay_lib.confirm_applicable_divergence), i.e. the full replay would classify it the same way. Else None: the full replay decides.
+    Never a verdict of 'undetected'."""
+    control = control_binary_for_fast_kill()
+    if control is None:
+        return None
+    for case in known_killers(name):
+        if not replay_lib.diverges_only_in_mutant(binary, control, case):
+            continue
+        confirmation = replay_lib.confirm_applicable_divergence(binary, case)
+        if confirmation.confirmed:
+            return FastKill(case, confirmation.report_text, "the unmutated build matches Pekko on it")
+    return None
+
+
+def publish_mutant_report(name, verdict_path, report_text):
+    """The per-mutant report always starts with the path that produced the verdict, so that the evidence cannot be mistaken for another one."""
+    with open(os.path.join(REPORTS, f"replay-report-{name}.md"), "w", encoding="utf-8") as report_file:
+        report_file.write(f"Verdict path: {verdict_path}\n\n{report_text}")
+
+
+def publish_fast_kill_report(name, kill):
+    preserve_killers(name)
+    publish_mutant_report(name, f"fast-kill: case {kill.case} confirmed by a single-case replay (`rust-anything app replay --case`); "
+                                f"{kill.reason}; no full replay ran", kill.report_text)
 
 
 def run_tool_mutant(scratch, name, rel, old, new, why):
@@ -1482,6 +1668,25 @@ def run_tool_mutant(scratch, name, rel, old, new, why):
 
 # `--selftest` adds a mutant that changes nothing observable (a whitespace edit): it MUST come out UNDETECTED, so the run must exit non-zero.
 EQUIVALENT = {"selftest-equivalent-whitespace"}
+# Mutants retired from the active set. A retirement is not hiding an error: it needs (1) a pattern that is really obsolete (it no longer occurs in
+# the crate), (2) the retired behaviour still covered by a live mutant that kills every recorded case that killed it, and (3) the Owner's
+# authorisation; the history (the old report under rust/divergence-reports/) stays. tools/gates/test_mutant_patterns.py enforces (1) and (2): a
+# pattern that applies again, or a covering mutant that stops covering, makes the retirement invalid. Any OTHER stale pattern is still an ERROR.
+RETIRED_MUTANTS = {
+    "mailbox-is-lifo": {
+        "file": "src/actor/cell.rs",
+        "old": "                } else {\n                    mb.user.pop_front()\n",
+        "new": "                } else {\n                    mb.user.pop_back()\n",
+        "why": "the mailbox hands out the newest message first (breaks per-sender ordering)",
+        "covered_by": "mailbox-queue-is-lifo",
+        "retired_on": "2026-11-21",
+        "authorized_by": "Owner (Q-X-20 instruction, 2026-11-21)",
+        "evidence": "the code it patched (`mb.user.pop_front()` in cell.rs) was removed by 3d85ae6 (#302): the user queue now lives in dispatch/message_queue.rs, "
+                    "where `mailbox-queue-is-lifo` mutates the same behaviour; all 97 recorded cases that failed the old mutant fail the live one (102 cases); "
+                    "history: rust/divergence-reports/replay-report-mailbox-is-lifo.md, docs/evidence/pilot/REPORT-3b.md",
+    },
+}
+
 SELFTEST = {"selftest-equivalent-whitespace": (
     "src/actor/supervision.rs", "self.count <= max_nr_of_retries", "self.count <= max_nr_of_retries /* same */",
     "self-test of the launcher: an equivalent edit that must NOT be detected")}
@@ -1490,70 +1695,126 @@ SELFTEST = {"selftest-equivalent-whitespace": (
 def check_patterns():
     """`--check-patterns`: every mutant's pattern must occur exactly once (stale patterns after a refactor exit 2)."""
     bad = 0
-    for name, (rel, old, new, _why) in {**MUTANTS, **SELFTEST}.items():
-        n = open(os.path.join(CRATE, rel)).read().count(old)
-        if n != 1:
+    def occurrences(directory, relative_file, pattern):
+        with open(os.path.join(directory, relative_file), encoding="utf-8") as source_file:
+            return source_file.read().count(pattern)
+
+    for name, (relative_file, old, new, _why) in {**MUTANTS, **SELFTEST}.items():
+        found = occurrences(CRATE, relative_file, old)
+        if found != 1:
             bad += 1
-            print(f"STALE {name}: {n} occurrences in {rel}")
-    for name, (rel, old, new, _why) in TOOL_MUTANTS.items():
-        n = open(os.path.join(TOOLS, rel)).read().count(old)
-        if n != 1 or old == new:
+            print(f"STALE {name}: {found} occurrences in {relative_file}")
+    for name, (relative_file, old, new, _why) in TOOL_MUTANTS.items():
+        found = occurrences(TOOLS, relative_file, old)
+        if found != 1 or old == new:
             bad += 1
-            print(f"STALE {name}: {n} occurrences in tools/parity/{rel}")
-    print(f"{len(MUTANTS) + len(SELFTEST) + len(TOOL_MUTANTS)} mutant patterns checked, {bad} stale")
+            print(f"STALE {name}: {found} occurrences in tools/parity/{relative_file}")
+    for name, entry in RETIRED_MUTANTS.items():
+        print(f"RETIRED {name}: covered by {entry['covered_by']} (retired {entry['retired_on']}, {entry['authorized_by']}); history kept")
+    print(f"{len(MUTANTS) + len(SELFTEST) + len(TOOL_MUTANTS)} mutant patterns checked, {bad} stale, {len(RETIRED_MUTANTS)} retired")
     sys.exit(2 if bad else 0)
+
+
+def control_exit_code(control_ok, replayed_cases):
+    """0 the control is clean; 1 it replayed and diverged from Pekko (a real regression); 2 it could not run (build failure, timeout,
+    harness error: `replayed_cases` is None), which says nothing about the code."""
+    if control_ok:
+        return 0
+    return 1 if replayed_cases is not None else 2
+
+
+def final_exit_code(counts, sizes, control_ok, replayed_cases, budget_exhausted):
+    """The exit code of a whole run: the budget code when the run's budget ended while waiting for the replay lock (nothing can be concluded),
+    2 for an invalid experiment, 1 for a surviving mutant or a diverging control, 0 otherwise."""
+    if budget_exhausted:
+        return replay_lib.EXIT_BUDGET_EXHAUSTED
+    errors = counts[PATCH_ERROR] + counts[BUILD_ERROR] + counts[HARNESS_ERROR] + counts[TIMEOUT]
+    if errors or len(sizes) > 1 or control_exit_code(control_ok, replayed_cases) == 2:
+        return 2
+    return 0 if counts[UNDETECTED] == 0 and control_ok else 1
+
+
+SCRATCH_OWNER_MARKER = ".owner-pid"   # the same name as in tools/gates/mutant_runner.py: a later run removes the scratch of a dead owner
+
+
+def make_scratch_directory(parent=None):
+    """A scratch workspace that records its owner, so that a later run can tell a directory left behind by a killed process (SIGKILL cannot
+    be handled) from one a live process is using."""
+    path = tempfile.mkdtemp(prefix=f"pekko-mutants-{os.getpid()}-", dir=parent)     # the owner is in the name from the instant it exists
+    with open(os.path.join(path, SCRATCH_OWNER_MARKER), "w") as owner_file:
+        owner_file.write(str(os.getpid()))
+    return path
+
+
+def run_control_replay():
+    """Replays the unmodified crate: builds the parity binary of the CURRENT tree first (a leftover binary would certify old code).
+    -> (control_ok, passed, total, line, replay result or None)."""
+    control_binary = control_binary_for_fast_kill()
+    if control_binary is None:
+        return False, None, None, "could not build the unmodified parity binary", None
+    try:
+        control_replay = replay(control_binary)
+    except subprocess.TimeoutExpired:
+        return False, None, None, "TIMEOUT", None
+    except replay_lib.ReplayLockTimeout:
+        return False, None, None, BUDGET_EXHAUSTED_LINE, None
+    control_outcome, control_passed, control_total, control_line = classify(control_replay, control_binary)
+    return control_outcome == UNDETECTED, control_passed, control_total, control_line, control_replay
 
 
 def main():
     args = sys.argv[1:]
     if "--check-patterns" in args:
         check_patterns()
+    global FAST_KILL
     selftest = "--selftest" in args
-    only = [a for a in args if not a.startswith("--")]  # optional: run just these mutants (the control still runs)
+    skip_control, control_only = "--skip-control" in args, "--control-only" in args
+    FAST_KILL = "--no-fast-kill" not in args
+    result_json = next((a.split("=", 1)[1] for a in args if a.startswith("--result-json=")), None)
+    only = [a for a in args if not a.startswith("--")]  # optional: run just these mutants (the control still runs unless --skip-control)
     mutants = dict(SELFTEST) if selftest else {**MUTANTS, **TOOL_MUTANTS}
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))   # cancellation runs the `finally` below: scratch removed, children killed
+    control_passed = control_total = None
     for n in only:
         assert n in mutants, f"unknown mutant {n}"
     tool_only = bool(only) and all(n in TOOL_MUTANTS for n in only)
     os.makedirs(REPORTS, exist_ok=True)
-    scratch = tempfile.mkdtemp(prefix="pekko-mutants-")
+    scratch = make_scratch_directory()
     results = {}
     try:
         for name, (rel, old, new, why) in mutants.items():
-            if only and name not in only:
+            if control_only or (only and name not in only):
                 continue
             print(f"=== mutant {name}: {why}", flush=True)
             res = (run_tool_mutant if name in TOOL_MUTANTS else run_mutant)(scratch, name, rel, old, new, why)
             results[name] = res
             print(f"{res[0]}  {res[3]}\n", flush=True)
-        c = None
-        if tool_only:   # the tool mutants need no replay: the control would only repeat the last full run
-            control_ok, c_pass, c_total, c_line = True, None, None, "skipped (tool mutants only)"
+        control_replay_result = None
+        if skip_control:   # the caller (tools/gates) runs the control once for a whole batch
+            control_ok, control_passed, control_total, control_line = True, None, None, "skipped (--skip-control)"
+        elif tool_only:   # the tool mutants need no replay: the control would only repeat the last full run
+            control_ok, control_passed, control_total, control_line = True, None, None, "skipped (tool mutants only)"
         else:
-            try:
-                control_binary = os.path.join(ROOT, "target", PARITY)
-                c = replay(control_binary)
-                c_out, c_pass, c_total, c_line = classify(c, control_binary)
-                control_ok = c_out == UNDETECTED
-            except subprocess.TimeoutExpired:
-                control_ok, c_pass, c_total, c_line = False, None, None, "TIMEOUT"
-        print(f"=== control (unmodified rakka-actor): exit={c.returncode if c is not None and c_pass is not None else '?'}  {c_line}", flush=True)
+            control_ok, control_passed, control_total, control_line, control_replay_result = run_control_replay()
+        print(f"=== control (unmodified rakka-actor): exit={control_replay_result.returncode if control_replay_result is not None and control_passed is not None else '?'}  {control_line}", flush=True)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     # a replay of a different corpus size would make the pass counts incomparable
-    sizes = {t for (_o, _p, t, _l) in results.values() if t is not None} | ({c_total} if c_total else set())
+    sizes = {t for (_o, _p, t, _l) in results.values() if t is not None} | ({control_total} if control_total else set())
     rows = ["| mutant | outcome | passed/total |", "|---|---|---|"]
     rows += [f"| {n} | {o} | {f'{p}/{t}' if p is not None else '-'} |" for n, (o, p, t, _l) in results.items()]
-    rows.append(f"| control (unmodified) | {'CLEAN' if control_ok else 'FAILED'} | {f'{c_pass}/{c_total}' if c_pass is not None else '-'} |")
+    rows.append(f"| control (unmodified) | {'CLEAN' if control_ok else 'FAILED'} | {f'{control_passed}/{control_total}' if control_passed is not None else '-'} |")
     table = "\n".join(rows)
     counts = {k: sum(1 for r in results.values() if r[0] == k) for k in (DETECTED, UNDETECTED, PATCH_ERROR, BUILD_ERROR, HARNESS_ERROR, TIMEOUT)}
     print("\n" + table + f"\n\ncorpus sizes seen: {sorted(sizes)}  outcomes: {counts}  detected {counts[DETECTED]}/{len(results)}")
-    if not selftest and not only:
-        with open(os.path.join(REPORTS, "SUMMARY.md"), "w") as fh:
-            fh.write(table + f"\n\noutcomes: {counts}\n")
-    errors = counts[PATCH_ERROR] + counts[BUILD_ERROR] + counts[HARNESS_ERROR] + counts[TIMEOUT]
-    if errors or len(sizes) > 1:
-        sys.exit(2)          # the experiment itself is invalid: not a verdict on the harness
-    sys.exit(0 if counts[UNDETECTED] == 0 and control_ok else 1)
+    if result_json:
+        with open(result_json, "w") as result_file:
+            json.dump({"mutants": {name: list(result) for name, result in results.items()}, "control": None if skip_control else control_ok}, result_file)
+    if not selftest and not only and not skip_control and not control_only:
+        with open(os.path.join(REPORTS, "SUMMARY.md"), "w") as summary_file:
+            summary_file.write(table + f"\n\noutcomes: {counts}\n")
+    budget_exhausted = any(result[0] == BUDGET_EXHAUSTED for result in results.values()) or control_line == BUDGET_EXHAUSTED_LINE
+    sys.exit(final_exit_code(counts, sizes, control_ok, control_passed, budget_exhausted))
 
 
 if __name__ == "__main__":

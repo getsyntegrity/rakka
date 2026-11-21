@@ -2353,3 +2353,14 @@ ds-0035	deployer-settings	DS-35 lookup of an actor path
 ds-0036	deployer-settings	CO-01 /a and /a/ give the same path
 ds-0037	deployer-settings	CO-02 three keys with one path
 ds-0038	deployer-settings	CO-03 two trailing slash keys
+mb-0001	mailbox	MBX-ST-01 open to scheduled
+mb-0002	mailbox	MBX-ST-02 scheduled to idle
+mb-0003	mailbox	MBX-ST-03 open to suspended and resumed
+mb-0004	mailbox	MBX-ST-04 suspended and scheduled
+mb-0005	mailbox	MBX-ST-05 open to closed
+mb-0006	mailbox	MBX-ST-06 closed ignores resume and suspend
+mb-0007	mailbox	MBX-ST-07 closed refuses scheduling
+mb-0008	mailbox	MBX-ST-08 canBeScheduledForExecution matrix
+mb-0009	mailbox	MBX-MQ-01 default queue is FIFO and counts
+mb-0010	mailbox	MBX-MQ-02 default queue stays FIFO when enqueue and dequeue interleave
+mb-0011	mailbox	MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order

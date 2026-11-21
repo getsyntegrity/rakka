@@ -18,6 +18,7 @@ mod deployer_settings_cases;
 mod dynamic_access_cases;
 mod fronteras_cases;
 mod json;
+mod mailbox_cases;
 mod path_address_cases;
 mod path_case;
 mod provider_selection_cases;
@@ -179,6 +180,13 @@ fn main() -> ExitCode {
             }
         }
         "deployer-case" => return oracle_case(&mut out, &input, deployer_cases::rust_lines()),
+        "mailbox-ids" => print_ids(&mut out, mailbox_cases::rust_lines()),
+        "mailbox-all" => {
+            for (_, line) in mailbox_cases::rust_lines() {
+                writeln!(out, "{line}").ok();
+            }
+        }
+        "mailbox-case" => return oracle_case(&mut out, &input, mailbox_cases::rust_lines()),
         "deployer-settings-ids" => print_ids(&mut out, deployer_settings_cases::rust_lines()),
         "deployer-settings-all" => {
             for (_, line) in deployer_settings_cases::rust_lines() {

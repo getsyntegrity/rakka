@@ -1,0 +1,1 @@
+MBX-ST-03 open to suspended and resumed -> suspend1=true suspend2=false open scheduled=false suspendCount=2 raw=8 | resume1=false open scheduled=false suspendCount=1 raw=4 resume2=true open scheduled=false suspendCount=0 raw=0 | resumeAtZero=true open scheduled=false suspendCount=0 raw=0

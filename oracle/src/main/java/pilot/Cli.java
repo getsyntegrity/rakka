@@ -78,6 +78,10 @@ public final class Cli {
       case "deployer-settings-ids" -> System.out.print(String.join("\n", DeployerSettingsOracle.ids()) + "\n");
       case "deployer-settings-all" -> DeployerSettingsOracle.ids().forEach(id -> System.out.println(DeployerSettingsOracle.line(id)));
       case "deployer-settings-case" -> System.out.println(DeployerSettingsOracle.line(oneLine()));
+      case "mailbox-ids" -> System.out.print(String.join("\n", MailboxOracle.ids()) + "\n");
+      case "mailbox-all" -> { MailboxOracle.ids().forEach(id -> System.out.println(MailboxOracle.line(id))); System.out.flush(); System.exit(0); }
+      case "mailbox-stress" -> { try { System.out.println(MailboxOracle.stress(Integer.parseInt(oneLine().trim()))); } catch (Exception x) { throw new IOException(x); } System.out.flush(); System.exit(0); }
+      case "mailbox-case" -> { System.out.println(MailboxOracle.line(oneLine())); System.out.flush(); System.exit(0); }
       case "path-address-ids" -> System.out.print(String.join("\n", PathAddressOracle.ids()) + "\n");
       case "util-core-ids" -> System.out.print(String.join("\n", UtilCoreOracle.ids()) + "\n");
       case "path-address-all" -> PathAddressOracle.ids().forEach(id -> System.out.println(PathAddressOracle.line(id)));
