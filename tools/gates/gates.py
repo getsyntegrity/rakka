@@ -77,7 +77,7 @@ class Gate:
 RUST_INPUTS = ("crates", "Cargo.toml", "Cargo.lock")
 ORACLE_INPUTS = RUST_INPUTS + ("cases", "tools/parity", "oracle")           # what the differential fuzzers read
 PARITY_INPUTS = ORACLE_INPUTS + ("rust/app-cases",)                          # plus the recordings the replay compares against
-MUTANT_RUNNER_LABELS = ((1, "FAIL"), (2, "ERROR"), (3, "INCOMPLETE"), (143, "CANCELLED"))   # exit codes of tools/gates/mutant_runner.py (Q-X-20, proposed)
+MUTANT_RUNNER_LABELS = ((1, "FAIL"), (2, "ERROR"), (3, "INCOMPLETE"), (143, "CANCELLED"))   # exit codes of tools/gates/mutant_runner.py (Q-X-20, accepted)
 REPLAY_REGENERATED = ("rust/app-cases/replay-report.md", "rust/divergence-reports")
 FUZZ_COUNTS = [("fuzz_diff.py", 100000), ("fuzz_scenarios.py", 1500), ("fuzz_tell.py", 1000), ("fuzz_hier.py", 1000)]
 
