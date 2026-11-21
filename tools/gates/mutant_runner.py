@@ -125,7 +125,7 @@ def divergence_logic_digest(path):
 
 def harness_fingerprint(root):
     digest = hashlib.sha256(f"v{HARNESS_VERSION};".encode())
-    roots = ["cases", "rust/app-cases", "tools/parity", "Cargo.toml", "Cargo.lock", CRATE + "Cargo.toml", CRATE + "examples"]
+    roots = ["cases", "rust/app-cases", "tools/parity", "tools/gates/mutant_runner.py", "Cargo.toml", "Cargo.lock", CRATE + "Cargo.toml", CRATE + "examples"]
     for entry in roots:
         full = os.path.join(root, entry)
         paths = [full] if os.path.isfile(full) else [os.path.join(d, f) for d, _s, fs in os.walk(full) for f in fs]
@@ -243,8 +243,10 @@ def execute_mutant(name, result_file, launch, elapsed, budget_limited=False):
         return {"outcome": "HARNESS_ERROR", "seconds": seconds, "line": f"no result (exit {code})"}
 
 
-def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds):
-    """Runs the not-yet-fresh mutants in order until a budget is spent. Every result is stored before the next mutant starts."""
+def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds, key_now=None):
+    """Runs the not-yet-fresh mutants in order until a budget is spent. Every result is stored before the next mutant starts.
+    `key_now(name)` recomputes a mutant's key from the files as they are now: a result is stored only if the key is the same before
+    and after the run (edits or a branch switch during a long run would otherwise file a verdict under the key of different code)."""
     start = clock()
     ran, pending, fresh_before, stopped_by, outcomes = 0, [], 0, None, {}
     for name, _tier in ordered:
@@ -259,7 +261,14 @@ def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds):
         if stopped_by:
             pending.append(name)
             continue
+        if key_now is not None and key_now(name) != keys[name]:
+            outcomes[name] = "INPUTS_CHANGED"
+            continue
         record = execute(name)
+        if key_now is not None and key_now(name) != keys[name]:
+            outcomes[name] = "INPUTS_CHANGED"
+            ran += 1
+            continue
         if record["outcome"] == "BUDGET_EXHAUSTED":
             stopped_by = "time budget"
             pending.append(name)
@@ -391,9 +400,12 @@ def main(argv):
     ckey = control_key(ROOT, harness, toolchain)
     run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], mutant_timeout(budget_seconds), os.path.join(STORE_DIR, "logs", "control.log"), cwd=ROOT)
 
+    def key_now(name):
+        return mutant_key(name, all_mutants[name][:3], neighbourhood_hash(ROOT, files[name], edges), harness_fingerprint(ROOT), {"fast_kill": fast_kill}, toolchain)
+
     def run_mutants():
         left = None if budget_seconds is None else budget_seconds - (time.time() - run_started)   # the control's time counts against the budget
-        return run_plan(ordered, keys, store, execute, time.time, max_mutants, left)
+        return run_plan(ordered, keys, store, execute, time.time, max_mutants, left, key_now=key_now)
 
     control, report = run_guarded(store, ckey, run_control, run_mutants, budget_limited=is_budget_limited(budget_seconds))
     if report is None:   # nothing ran: report what is already proved and what is pending

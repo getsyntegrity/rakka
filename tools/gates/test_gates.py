@@ -60,6 +60,39 @@ class ConsoleOutput(unittest.TestCase):
         self.assertLessEqual(len(text), gates.MAX_FAILURE_CHARS + 200)
 
 
+class DirtyCheckPathspecs(unittest.TestCase):
+    def test_only_gates_that_regenerate_files_exclude_them_from_the_dirty_check(self):
+        self.assertEqual(gates.status_pathspecs(["crates"], regenerates=()), ["crates"])
+        self.assertEqual(gates.status_pathspecs(["crates"], regenerates=("rust/divergence-reports",)), ["crates", ":(exclude)rust/divergence-reports"])
+
+    def test_with_no_existing_input_there_is_nothing_to_check_instead_of_checking_the_whole_repository(self):
+        self.assertIsNone(gates.status_pathspecs([], regenerates=("rust/divergence-reports",)))
+
+    def test_the_replay_and_mutant_gates_declare_the_files_they_rewrite_and_the_others_declare_none(self):
+        by_name = {g.name: g for g in gates.tier_gates("milestone", ["x"])}
+        for rewriting in ("replay", "mutants"):
+            self.assertIn("rust/app-cases/replay-report.md", by_name[rewriting].regenerates)
+        for plain in ("fmt", "clippy", "deny", "package-check"):
+            self.assertEqual(by_name[plain].regenerates, ())
+
+    def test_the_replay_gate_is_invalidated_by_a_changed_recording(self):
+        self.assertIn("rust/app-cases", next(g for g in gates.tier_gates("pr", []) if g.name == "replay").inputs)
+
+
+class MutantFlagForwarding(unittest.TestCase):
+    def test_flags_with_a_value_are_forwarded_for_the_milestone_tier(self):
+        self.assertEqual(gates.mutant_arguments("milestone", ["milestone", "--max-mutants", "5", "--authorize-full-mutants"]),
+                         ["--max-mutants", "5", "--authorize-full-mutants"])
+
+    def test_a_flag_without_a_value_or_followed_by_another_flag_is_a_usage_error(self):
+        for argv in (["milestone", "--max-minutes"], ["milestone", "--max-mutants", "--no-reuse"]):
+            with self.assertRaises(gates.UsageError):
+                gates.mutant_arguments("milestone", argv)
+
+    def test_other_tiers_do_not_look_at_the_mutant_flags(self):
+        self.assertEqual(gates.mutant_arguments("fast", ["fast", "--max-mutants"]), [])
+
+
 class Tiers(unittest.TestCase):
     def test_every_existing_mandatory_gate_stays_in_the_pr_tier_and_milestone_adds_to_it(self):
         pr = {g.name for g in gates.tier_gates("pr", [])}

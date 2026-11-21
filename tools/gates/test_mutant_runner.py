@@ -13,6 +13,11 @@ def write(root, rel, text):
         fh.write(text)
 
 
+def read_text(path):
+    with open(path) as fh:
+        return fh.read()
+
+
 def mini_repo(root):
     write(root, "crates/rakka-actor/src/lib.rs", "pub mod actor;\npub mod dispatch;\npub mod util;\n")
     write(root, "crates/rakka-actor/src/actor/mod.rs", "pub mod cell;\n")
@@ -290,6 +295,72 @@ class ControlFirst(unittest.TestCase):
             self.assertEqual([name for name in os.listdir(root) if not name.startswith("control-")], [])
 
 
+class InputsChangingDuringTheRun(unittest.TestCase):
+    def plan(self, store, key_now, names="ab"):
+        ran = []
+        def execute(name):
+            ran.append(name)
+            return {"outcome": "DETECTED", "seconds": 1.0}
+        report = mr.run_plan([(n, "other") for n in names], {n: "key-" + n for n in names}, store, execute, clock=lambda: 0.0,
+                             max_mutants=None, max_seconds=None, key_now=key_now)
+        return ran, report
+
+    def test_a_result_is_not_stored_when_the_inputs_changed_while_the_mutant_ran(self):
+        with tempfile.TemporaryDirectory() as root:
+            store, calls = mr.ResultStore(root), {"a": 0}
+            def key_now(name):   # same before the run, different after it
+                calls[name] = calls.get(name, 0) + 1
+                return "key-" + name if calls[name] == 1 else "edited-" + name
+            ran, report = self.plan(store, key_now, names="a")
+            self.assertEqual(ran, ["a"])
+            self.assertEqual(report["outcomes"]["a"], "INPUTS_CHANGED")
+            self.assertIsNone(store.get("key-a"))
+            self.assertIsNone(store.get("edited-a"))
+
+    def test_a_mutant_whose_inputs_already_changed_before_it_starts_is_not_run(self):
+        with tempfile.TemporaryDirectory() as root:
+            ran, report = self.plan(mr.ResultStore(root), lambda name: "edited-" + name, names="a")
+            self.assertEqual(ran, [])
+            self.assertEqual(report["outcomes"]["a"], "INPUTS_CHANGED")
+
+    def test_unchanged_inputs_store_the_result_as_before(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = mr.ResultStore(root)
+            ran, report = self.plan(store, lambda name: "key-" + name)
+            self.assertEqual(ran, ["a", "b"])
+            self.assertTrue(store.is_fresh("key-a") and store.is_fresh("key-b"))
+
+    def test_inputs_changed_is_an_error_that_keeps_the_run_from_passing(self):
+        errors = [n for n, o in {"a": "INPUTS_CHANGED"}.items() if o not in ("DETECTED", "UNDETECTED")]
+        self.assertEqual(mr.exit_code(undetected=[], errors=errors, pending=[], control="CLEAN"), 2)
+
+
+class HarnessFingerprint(unittest.TestCase):
+    def build(self, root, runner_text):
+        write(root, "tools/parity/check_divergence.py", "MUTANTS = {}\nTOOL_MUTANTS = {}\n")
+        write(root, "cases/a.jsonl", "{}\n")
+        write(root, "rust/app-cases/a.stdout", "x")
+        write(root, "Cargo.toml", "[workspace]\n")
+        write(root, "Cargo.lock", "")
+        write(root, "crates/rakka-actor/Cargo.toml", "[package]\n")
+        write(root, "tools/gates/mutant_runner.py", runner_text)
+
+    def test_the_runner_s_own_source_is_part_of_the_fingerprint_so_no_manual_version_bump_is_needed(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.build(root, "# stricter classification\n")
+            before = mr.harness_fingerprint(root)
+            write(root, "tools/gates/mutant_runner.py", "# stricter classification, edited\n")
+            self.assertNotEqual(before, mr.harness_fingerprint(root))
+
+    def test_the_replay_report_the_gates_rewrite_does_not_change_the_fingerprint(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.build(root, "# runner\n")
+            write(root, "rust/app-cases/replay-report.md", "first")
+            before = mr.harness_fingerprint(root)
+            write(root, "rust/app-cases/replay-report.md", "second")
+            self.assertEqual(before, mr.harness_fingerprint(root))
+
+
 class ControlKey(unittest.TestCase):
     def test_any_crate_file_the_toolchain_or_the_harness_changes_the_control_key(self):
         with tempfile.TemporaryDirectory() as root:
@@ -351,10 +422,10 @@ class Cancellation(unittest.TestCase):
                       f"mr.run_cancellable(['sh', '-c', 'sleep 300 & echo $! > {pid_file}; wait'], 600, {os.path.join(root, 'out.log')!r})")
             runner = subprocess.Popen([sys.executable, "-c", driver])
             for _ in range(100):
-                if os.path.exists(pid_file) and open(pid_file).read().strip():
+                if os.path.exists(pid_file) and read_text(pid_file).strip():
                     break
                 time.sleep(0.05)
-            grandchild = int(open(pid_file).read())
+            grandchild = int(read_text(pid_file))
             runner.send_signal(signal.SIGTERM)
             runner.wait(timeout=20)
             for _ in range(100):
@@ -372,7 +443,7 @@ class Cancellation(unittest.TestCase):
             script = f"(trap '' TERM; exec sleep 300) & echo $! > {pid_file}; sleep 300"
             code = mr.run_cancellable(["sh", "-c", script], 1, os.path.join(root, "out.log"))
             self.assertEqual(code, mr.TIMED_OUT)
-            stubborn = int(open(pid_file).read())
+            stubborn = int(read_text(pid_file))
             for _ in range(100):
                 try:
                     os.kill(stubborn, 0)
