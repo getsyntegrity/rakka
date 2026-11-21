@@ -50,6 +50,12 @@ def load_coverage(path):
                 for row in table]
 
 
+def reconcile(entries, recorded_names):
+    """-> (covered cases with no recording, recordings no covered case names), both sorted, comparing recorded names."""
+    covered = {entry.recorded_name: entry.case for entry in entries}
+    return sorted(case for name, case in covered.items() if name not in recorded_names), sorted(set(recorded_names) - set(covered))
+
+
 def row_matches(cited_row, wanted_row):
     return cited_row == wanted_row or cited_row.startswith(wanted_row + ".")
 
