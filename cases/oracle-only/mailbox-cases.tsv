@@ -7,11 +7,11 @@ MBX-ST-05 open to closed	unit	AC-MBX-001	actor/src/main/scala/org/apache/pekko/d
 MBX-ST-06 closed ignores resume and suspend	unit	AC-MBX-001	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:160-211	Probe (bare Mailbox)
 MBX-ST-07 closed refuses scheduling	unit	AC-MBX-001; AC-MBX-003	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:216-237,255-260	Probe (bare Mailbox)
 MBX-ST-08 canBeScheduledForExecution matrix	unit	AC-MBX-001	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:255-260	Probe (bare Mailbox)
-MBX-SQ-01 system queue drains earliest first	unit	AC-MBX-002	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:454-527	Probe (bare Mailbox)
-MBX-SQ-02 sentinel NoMessage closes the system queue	unit	AC-MBX-003	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:500-527	Probe (bare Mailbox)
 MBX-MQ-01 default queue is FIFO and counts	unit	AC-MBX-005; AC-MBX-004	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:376-410,677-696	default UnboundedMailbox queue
 MBX-MQ-02 default queue stays FIFO when enqueue and dequeue interleave	unit	AC-MBX-005; AC-MBX-004	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:376-410,677-696	default UnboundedMailbox queue
 MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order	unit	AC-MBX-003; AC-MBX-004	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:354-368,425-440	default UnboundedMailbox queue
+MBX-SQ-01 system queue drains earliest first	unit	AC-MBX-002	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:454-527	Probe (bare Mailbox)
+MBX-SQ-02 sentinel NoMessage closes the system queue	unit	AC-MBX-003	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:500-527	Probe (bare Mailbox)
 MBX-TK-01 Mailbox is a plain Runnable, not a ForkJoinTask	unit	AC-MBX-002	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:62-75; actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxTaskSubmissionSpec.scala:73-76	class check
 MBX-OR-01 user messages are FIFO	integration	AC-REF-003; AC-CELL-003	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:277-294	real actors + HookQueue
 MBX-OR-02 system message queued behind user messages runs before them, drained after the turn's message	integration	AC-CELL-013.1; AC-MBX-002	actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:262-294,303-345	real actors + HookQueue

@@ -6,18 +6,11 @@ use std::sync::Arc;
 
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
+use rakka_actor::dispatch::system_queue::SystemQueue;
 
 /// Oracle cases Rust does not produce yet, with the reason: they need pieces of ADR-0001 that arrive in later steps.
 #[allow(dead_code)] // read by tests/recorded_pekko.rs
 pub const PENDING: &[(&str, &str)] = &[
-    (
-        "MBX-SQ-01 system queue drains earliest first",
-        "system queue: arrives with the system-message queue (ADR-0001 step 4)",
-    ),
-    (
-        "MBX-SQ-02 sentinel NoMessage closes the system queue",
-        "system queue: arrives with the system-message queue (ADR-0001 step 4)",
-    ),
     (
         "MBX-TK-01 Mailbox is a plain Runnable, not a ForkJoinTask",
         "JVM class property (Mailbox is not a ForkJoinTask): no Rust counterpart",
@@ -216,6 +209,42 @@ fn can_be_scheduled_matrix() -> String {
     line.trim().to_owned()
 }
 
+fn names(names: Vec<&str>) -> String {
+    format!("[{}]", names.join(", "))
+}
+
+fn system_queue_drains_earliest_first() -> String {
+    let queue = SystemQueue::new();
+    for message in ["Suspend", "Resume", "Terminate"] {
+        queue
+            .enqueue(message)
+            .expect("an open queue stores the message");
+    }
+    let has = queue.has_messages();
+    let first = names(queue.drain());
+    format!(
+        "has={has} drain={first} | after has={} drain={}",
+        queue.has_messages(),
+        names(queue.drain())
+    )
+}
+
+fn sentinel_closes_the_system_queue() -> String {
+    let queue = SystemQueue::new();
+    queue
+        .enqueue("Suspend")
+        .expect("an open queue stores the message");
+    let drained = names(queue.clean_up());
+    // the oracle's mailbox has no actor, so the late message is dropped there; here `enqueue` hands it back to the caller
+    let late = queue.enqueue("Resume");
+    assert_eq!(late, Err("Resume"));
+    format!(
+        "drain={drained} | afterSentinel has={} drain={} (actor==null: dropped, not forwarded)",
+        queue.has_messages(),
+        names(queue.drain())
+    )
+}
+
 fn put(queue: &dyn MessageQueue, text: &str) {
     queue.enqueue(Envelope {
         message: Arc::new(text.to_owned()),
@@ -313,6 +342,14 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-ST-08 canBeScheduledForExecution matrix",
             can_be_scheduled_matrix(),
+        ),
+        (
+            "MBX-SQ-01 system queue drains earliest first",
+            system_queue_drains_earliest_first(),
+        ),
+        (
+            "MBX-SQ-02 sentinel NoMessage closes the system queue",
+            sentinel_closes_the_system_queue(),
         ),
         (
             "MBX-MQ-01 default queue is FIFO and counts",

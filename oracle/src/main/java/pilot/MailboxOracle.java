@@ -211,20 +211,6 @@ final class MailboxOracle {
       }
       return sb.toString().trim();
     });
-    run("MBX-SQ-01 system queue drains earliest first", () -> {
-      Probe m = new Probe();
-      m.systemEnqueue(null, new Suspend()); m.systemEnqueue(null, new Resume(null)); m.systemEnqueue(null, new Terminate());
-      boolean has = m.hasSystemMessages();
-      String first = names(m.systemDrain(null));
-      return "has=" + has + " drain=" + first + " | after has=" + m.hasSystemMessages() + " drain=" + names(m.systemDrain(null));
-    });
-    run("MBX-SQ-02 sentinel NoMessage closes the system queue", () -> {
-      Probe m = new Probe(); m.systemEnqueue(null, new Suspend());
-      String d = names(m.systemDrain(NoMessage$.MODULE$));
-      m.systemEnqueue(null, new Resume(null));
-      return "drain=" + d + " | afterSentinel has=" + m.hasSystemMessages() + " drain=" + names(m.systemDrain(null)) + " (actor==null: dropped, not forwarded)";
-    });
-
     run("MBX-MQ-01 default queue is FIFO and counts", () -> {
       MessageQueue q = defaultQueue(); StringBuilder sb = new StringBuilder("new: " + counts(q) + " | enqueue");
       for (String m : new String[] {"a", "b", "c"}) { q.enqueue(Nobody$.MODULE$, Envelope.apply(m, Nobody$.MODULE$, null)); sb.append(' ').append(counts(q)); }
@@ -243,6 +229,20 @@ final class MailboxOracle {
       q.cleanUp(Nobody$.MODULE$, dead);
       return "source " + counts(q) + " | target " + counts(dead) + " order " + drain(dead);
     });
+    run("MBX-SQ-01 system queue drains earliest first", () -> {
+      Probe m = new Probe();
+      m.systemEnqueue(null, new Suspend()); m.systemEnqueue(null, new Resume(null)); m.systemEnqueue(null, new Terminate());
+      boolean has = m.hasSystemMessages();
+      String first = names(m.systemDrain(null));
+      return "has=" + has + " drain=" + first + " | after has=" + m.hasSystemMessages() + " drain=" + names(m.systemDrain(null));
+    });
+    run("MBX-SQ-02 sentinel NoMessage closes the system queue", () -> {
+      Probe m = new Probe(); m.systemEnqueue(null, new Suspend());
+      String d = names(m.systemDrain(NoMessage$.MODULE$));
+      m.systemEnqueue(null, new Resume(null));
+      return "drain=" + d + " | afterSentinel has=" + m.hasSystemMessages() + " drain=" + names(m.systemDrain(null)) + " (actor==null: dropped, not forwarded)";
+    });
+
     run("MBX-TK-01 Mailbox is a plain Runnable, not a ForkJoinTask", () ->
         "forkJoinTask=" + java.util.concurrent.ForkJoinTask.class.isAssignableFrom(Mailbox.class) + " runnable=" + Runnable.class.isAssignableFrom(Mailbox.class));
     run("MBX-OR-01 user messages are FIFO", () -> {
