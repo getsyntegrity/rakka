@@ -17,7 +17,9 @@ python3.12 tools/parity/replay_subset.py --row AC-PATH-007 [--row ...] [--family
 - Un selector que no coincide con nada es un error (exit 2): una selección vacía nunca parece un pass.
 - Se copia sólo el subconjunto a un árbol temporal y se ejecuta el `rust-anything app replay` real sobre él: **no toca** `rust/app-cases/replay-report.md` versionado ni los locks del replay completo.
 - Clasifica igual que `replay.py` (NOT_APPLICABLE Q-X-17, NA:Q-CFG-30), restringido a los casos seleccionados. Exit 0 todo coincide, 1 divergencias, 2 uso/harness. La línea final dice `SUBSET of N cases, not gate evidence`.
-- `coverage.tsv` usa el nombre completo del caso y `rust/app-cases` lo trunca a 24 caracteres (193 casos); la herramienta lo traduce.
+- `coverage.tsv` usa el nombre completo del caso y `rust/app-cases` lo trunca a 24 caracteres y además quita un `-` final (193 casos truncados); la herramienta lo traduce. Un caso de `coverage.tsv` sin grabación (hoy sólo `name-ok-28`) hace que el selector que lo toque se rechace con exit 2 en vez de ejecutar de menos.
+- La ruta del binario se resuelve a absoluta, y si el replay ejecuta un número de casos distinto del seleccionado es error de harness (exit 2).
+- El binario se usa tal cual (sin la copia inmutable de `replay.py`): ejecutar `cargo build` o `--build` antes; es un bucle de desarrollo.
 
 Para la siguiente unidad: tras añadir sus filas al inventario y grabar sus casos con el oráculo (flujo de siempre), regenerar `coverage.tsv` y usar `--row <fila>` en cada ciclo RED/GREEN; el replay completo queda para el gate.
 

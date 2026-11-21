@@ -56,6 +56,10 @@ class SelectsCases(unittest.TestCase):
         with self.assertRaises(subset.SelectionError):
             subset.select_cases(CATALOG, rows=["AC-UTIL-00"])
 
+    def test_a_truncated_name_that_ends_in_a_dash_loses_it_like_rust_anything_does(self):
+        catalog = [entry("i03-watch-old-after-new-exists", "scenario-3b4", ["AC-DW-002"])]   # 24 characters end in "-"
+        self.assertEqual(subset.select_cases(catalog, rows=["AC-DW-002"]), ["i03-watch-old-after-new"])
+
     def test_by_family(self):
         self.assertEqual(subset.select_cases(CATALOG, families=["oracle-util-core"]), ["ut-0001", "ut-0002"])
 
@@ -213,6 +217,22 @@ class EndToEndThroughRustAnythingReplay(unittest.TestCase):
         code, _, err = self.run_tool("--row", "AC-X-001", os.path.join(self.tmp, "a b"))
         self.assertEqual(code, 2)
         self.assertIn("whitespace", err)
+
+    def test_a_relative_binary_path_is_resolved_against_the_callers_directory(self):
+        previous = os.getcwd()
+        self.addCleanup(os.chdir, previous)
+        os.chdir(self.tmp)
+        code, out, err = self.run_tool("--row", "AC-X-001", "./stub.sh")
+        self.assertEqual(code, 0, out + err)
+
+    def test_fewer_cases_replayed_than_selected_is_a_harness_error(self):
+        real_run = subprocess.run
+        short = subprocess.CompletedProcess([], 0, stdout='{"passed": 0, "total": 0, "skipped": 0, "failures": []}', stderr="")
+        with mock.patch.object(subset.subprocess, "run",
+                               side_effect=lambda command, *a, **k: short if command[0] == "rust-anything" else real_run(command, *a, **k)):
+            code, out, _ = self.run_tool("--row", "AC-X-001", self.stub)
+        self.assertEqual(code, 2)
+        self.assertIn("replayed 0 cases but 1 were selected", out)
 
     def test_build_cannot_be_combined_with_an_explicit_binary(self):
         code, _, err = self.run_tool("--row", "AC-X-001", "--build", self.stub)

@@ -40,7 +40,7 @@ class CoverageEntry:
 
     @property
     def recorded_name(self):
-        return self.case[:CASE_NAME_LIMIT]
+        return self.case[:CASE_NAME_LIMIT].rstrip("-")   # rust-anything also drops a dash the cut leaves at the end
 
 
 def load_coverage(path):
@@ -132,7 +132,7 @@ def parse_arguments(arguments):
 def main(arguments):
     options = parse_arguments(arguments)
     default_binary = os.path.join(options.root, "target", "release", "examples", "classic-parity")
-    binary = options.binary or default_binary
+    binary = os.path.abspath(options.binary or default_binary)   # rust-anything runs it from the staged tree, not from here
     try:
         if options.build and options.binary:
             raise SelectionError("--build compiles the default parity binary: it cannot be combined with an explicit binary")
@@ -152,6 +152,9 @@ def main(arguments):
             passed, total, failures, problem = lib.validate_replay_output(completed.returncode, completed.stdout)
             if problem:
                 print(f"HARNESS ERROR: replay output rejected: {problem}; exit {completed.returncode}; {(completed.stderr.strip() or completed.stdout.strip())[-200:]}")
+                return 2
+            if total != len(names):
+                print(f"HARNESS ERROR: replayed {total} cases but {len(names)} were selected")
                 return 2
             verdict = classify(binary, staged_root, set(names), passed, total, failures)
     except SelectionError as problem:
