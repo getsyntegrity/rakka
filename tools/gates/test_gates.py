@@ -79,6 +79,37 @@ class DirtyCheckPathspecs(unittest.TestCase):
         self.assertIn("rust/app-cases", next(g for g in gates.tier_gates("pr", []) if g.name == "replay").inputs)
 
 
+class BaseArgument(unittest.TestCase):
+    def test_a_valid_base_is_kept_for_the_pr_gate_and_has_a_default(self):
+        self.assertEqual(gates.parse_arguments(["pr", "--base", "origin/feat/x"])["base"], "origin/feat/x")
+        self.assertEqual(gates.parse_arguments(["pr"])["base"], gates.DEFAULT_BASE)
+        self.assertEqual(gates.parse_arguments(["milestone", "--base", "origin/x"])["mutant_args"], ["--base", "origin/x"])
+
+    def test_base_without_a_value_or_followed_by_another_flag_is_a_usage_error_in_every_tier(self):
+        for argv in (["pr", "--base"], ["milestone", "--base"], ["fast", "--base"], ["milestone", "--base", "--no-reuse"],
+                     ["pr", "--base", "--list"]):
+            with self.assertRaises(gates.UsageError, msg=argv):
+                gates.parse_arguments(argv)
+
+    def test_a_ref_named_like_a_tier_is_a_value_not_a_second_tier(self):
+        parsed = gates.parse_arguments(["--base", "fast", "pr"])
+        self.assertEqual((parsed["tier"], parsed["base"]), ("pr", "fast"))
+
+    def test_the_tier_is_required_and_unique(self):
+        for argv in ([], ["fast", "pr"], ["--list"]):
+            with self.assertRaises(gates.UsageError, msg=argv):
+                gates.parse_arguments(argv)
+
+    def test_main_reports_refused_with_exit_2_and_no_traceback(self):
+        import io, contextlib
+        for argv in (["milestone", "--base"], ["pr", "--base"], ["milestone", "--base", "--no-reuse"]):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = gates.main(argv)
+            self.assertEqual(code, 2, argv)
+            self.assertIn("refused", out.getvalue())
+
+
 class MutantFlagForwarding(unittest.TestCase):
     def test_flags_with_a_value_are_forwarded_for_the_milestone_tier(self):
         self.assertEqual(gates.mutant_arguments("milestone", ["milestone", "--max-mutants", "5", "--authorize-full-mutants"]),

@@ -8,9 +8,13 @@ Why it exists: measured on `mailbox-queue-is-lifo`, one mutant costs 7 s of buil
 no early exit), i.e. ~7.5 h for the 206 mutants. This runner keeps every guarantee and bounds the cost:
   * Each mutant is its own process (`check_divergence.py <name> --skip-control`) in its own process group; cancelling the runner
     kills the whole group and leaves the results already written.
-  * Results are checkpointed per mutant in .gates/mutants/ under a key of: mutant patch, content of the mutated file and its
-    import neighbours, harness fingerprint (corpus, recordings, check_divergence logic), configuration and rustc version.
-    Only DETECTED results are reused; misses and errors are always retried.
+  * Results are checkpointed per mutant in .gates/mutants/ under a key of: mutant patch, a conservative fingerprint of the
+    WHOLE crate (every file of crates/rakka-actor except target/, plus the root Cargo.toml and Cargo.lock), harness fingerprint (corpus,
+    recordings, this runner, check_divergence logic), configuration and rustc version. The import graph only orders the work.
+    The key is re-checked before a cached DETECTED is accepted and before/after each mutant; the control must still match the state
+    the verdict is issued on; otherwise INPUTS_CHANGED (error, never PASS). Only DETECTED results are reused; misses and errors are retried.
+  * Each run writes its result files and logs into its own directory (.gates/mutants/runs/<stamp>-<pid>-<random>/), so two runs of the
+    same mutant from one checkout never delete, overwrite or read each other's JSON; the checkpoints stay shared and atomic.
   * Order: mutants of the changed files, then their import neighbours, then the rest. The run stops at --max-mutants (default 40)
     or --max-minutes (default 30); anything not proved fresh is reported as pending and the exit code is 3 (not a pass).
   * Asking for more than the default cap needs --authorize-full-mutants.
@@ -100,27 +104,57 @@ def order_mutants(names, mutant_files, changed, edges):
 
 # ---------- evidence keys and checkpoints ----------
 
+_DIGEST_CACHE = {}
+
+
 def file_digest(path):
+    """sha256 of a file's content; a file that has not been touched for 2 s is re-hashed only when its stat changes (the run asks for
+    the same ~6000 files before and after every mutant)."""
     try:
+        status = os.stat(path)
+        settled = time.time() - status.st_mtime > 2
+        cache_key = (path, status.st_mtime_ns, status.st_size, status.st_ino)
+        if settled and cache_key in _DIGEST_CACHE:
+            return _DIGEST_CACHE[cache_key]
         with open(path, "rb") as fh:
-            return hashlib.sha256(fh.read()).hexdigest()
+            digest = hashlib.sha256(fh.read()).hexdigest()
+        if settled:
+            _DIGEST_CACHE[cache_key] = digest
+        return digest
     except OSError:
         return "absent"
 
 
-def neighbourhood_hash(root, rel_file, edges):
-    members = sorted({rel_file} | edges.get(rel_file, set()))
-    return hashlib.sha256("".join(f"{m}:{file_digest(os.path.join(root, m))};" for m in members).encode()).hexdigest()
+def crate_fingerprint(root):
+    """Conservative state of everything a mutant build and replay depend on inside the repository's Rust side: every file of the crate
+    (not its build directory) plus the root manifest and lock file. The import graph only orders the work; it never decides validity."""
+    digest = hashlib.sha256()
+    crate = os.path.join(root, CRATE)
+    for directory, subdirs, names in os.walk(crate):
+        subdirs[:] = sorted(d for d in subdirs if d != "target")
+        for filename in sorted(names):
+            path = os.path.join(directory, filename)
+            digest.update(f"{os.path.relpath(path, root)}:{file_digest(path)};".encode())
+    for build_input in ("Cargo.toml", "Cargo.lock"):
+        digest.update(f"{build_input}:{file_digest(os.path.join(root, build_input))};".encode())
+    return digest.hexdigest()
+
+
+_LOGIC_DIGEST_CACHE = {}
 
 
 def divergence_logic_digest(path):
-    """check_divergence.py with the MUTANTS/TOOL_MUTANTS literals emptied: adding a mutant must not invalidate the others (the patch is in each key)."""
-    with open(path, encoding="utf-8") as fh:
-        tree = ast.parse(fh.read())
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in ("MUTANTS", "TOOL_MUTANTS") for t in node.targets):
-            node.value = ast.Dict(keys=[], values=[])
-    return hashlib.sha256(ast.unparse(tree).encode()).hexdigest()
+    """check_divergence.py with the MUTANTS/TOOL_MUTANTS literals emptied: adding a mutant must not invalidate the others (the patch is in each key).
+    Parsing the 1500-line file is memoised by its content digest."""
+    content_digest = file_digest(path)
+    if content_digest not in _LOGIC_DIGEST_CACHE:
+        with open(path, encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in ("MUTANTS", "TOOL_MUTANTS") for t in node.targets):
+                node.value = ast.Dict(keys=[], values=[])
+        _LOGIC_DIGEST_CACHE[content_digest] = hashlib.sha256(ast.unparse(tree).encode()).hexdigest()
+    return _LOGIC_DIGEST_CACHE[content_digest]
 
 
 def harness_fingerprint(root):
@@ -138,8 +172,8 @@ def harness_fingerprint(root):
     return digest.hexdigest()
 
 
-def mutant_key(name, patch, neighbourhood, harness, config, toolchain):
-    payload = json.dumps({"name": name, "patch": list(patch), "neighbourhood": neighbourhood, "harness": harness, "config": config, "toolchain": toolchain}, sort_keys=True)
+def mutant_key(name, patch, crate_state, harness, config, toolchain):
+    payload = json.dumps({"name": name, "patch": list(patch), "crate": crate_state, "harness": harness, "config": config, "toolchain": toolchain}, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -206,15 +240,8 @@ def is_budget_limited(remaining_seconds):
 
 
 def control_key(root, harness, toolchain):
-    """Key of the unmutated-crate control: every file of the crate (a regression in a file no mutant targets must invalidate it), the harness and rustc."""
-    digest = hashlib.sha256(f"{harness};{toolchain};".encode())
-    crate = os.path.join(root, CRATE)
-    for directory, subdirs, names in os.walk(crate):
-        subdirs[:] = sorted(d for d in subdirs if d != "target")
-        for filename in sorted(names):
-            path = os.path.join(directory, filename)
-            digest.update(f"{os.path.relpath(path, root)}:{file_digest(path)};".encode())
-    return digest.hexdigest()
+    """Key of the unmutated-crate control: the whole crate state (a regression in a file no mutant targets must invalidate it), the harness and rustc."""
+    return hashlib.sha256(f"{harness};{toolchain};{crate_fingerprint(root)}".encode()).hexdigest()
 
 
 def run_guarded(store, control_key_value, run_control, run_mutants, budget_limited=False):
@@ -250,19 +277,21 @@ def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds, key
     start = clock()
     ran, pending, fresh_before, stopped_by, outcomes = 0, [], 0, None, {}
     for name, _tier in ordered:
-        if store.is_fresh(keys[name]):
+        fresh = store.is_fresh(keys[name])
+        if not fresh:
+            if stopped_by is None and max_mutants is not None and ran >= max_mutants:
+                stopped_by = "count budget"
+            if stopped_by is None and max_seconds is not None and clock() - start >= max_seconds:
+                stopped_by = "time budget"
+            if stopped_by:       # pending: it claims no evidence, so there is nothing to re-validate
+                pending.append(name)
+                continue
+        if key_now is not None and key_now(name) != keys[name]:   # a cached DETECTED, or a mutant about to run, must belong to the code as it is now
+            outcomes[name] = "INPUTS_CHANGED"
+            continue
+        if fresh:
             fresh_before += 1
             outcomes[name] = "DETECTED"
-            continue
-        if stopped_by is None and max_mutants is not None and ran >= max_mutants:
-            stopped_by = "count budget"
-        if stopped_by is None and max_seconds is not None and clock() - start >= max_seconds:
-            stopped_by = "time budget"
-        if stopped_by:
-            pending.append(name)
-            continue
-        if key_now is not None and key_now(name) != keys[name]:
-            outcomes[name] = "INPUTS_CHANGED"
             continue
         record = execute(name)
         if key_now is not None and key_now(name) != keys[name]:
@@ -353,10 +382,33 @@ class UsageError(Exception):
 def option(argv, flag, default=None, cast=int):
     if flag not in argv:
         return default
+    position = argv.index(flag) + 1
+    if position >= len(argv) or argv[position].startswith("--"):
+        raise UsageError(f"{flag} needs a valid value")
     try:
-        return cast(argv[argv.index(flag) + 1])
-    except (IndexError, ValueError):
+        return cast(argv[position])
+    except ValueError:
         raise UsageError(f"{flag} needs a valid value") from None
+
+
+def settle_control(outcomes, control_key_when_verified, control_key_now):
+    """The control verified at the start only vouches for the state it ran on: if the crate or harness moved since, the run cannot pass."""
+    if control_key_when_verified == control_key_now:
+        return outcomes
+    return {**outcomes, "(control)": "INPUTS_CHANGED"}
+
+
+def new_run_directory(base_directory, clock=time.time, pid=os.getpid):
+    """A private directory for one run's result files and logs (checkpoints stay shared in the store, keyed by content)."""
+    os.makedirs(base_directory, exist_ok=True)
+    name = f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime(clock()))}-{pid()}-{os.urandom(4).hex()}"
+    path = os.path.join(base_directory, name)
+    os.makedirs(path)
+    return path
+
+
+def mutant_result_file(run_directory, mutant_name):
+    return os.path.join(run_directory, mutant_name + ".json")
 
 
 def main(argv):
@@ -377,31 +429,32 @@ def main(argv):
     ordered = order_mutants([n for n in all_mutants if n not in stale], files, [c for c in git_changed(option(argv, "--base", DEFAULT_BASE, str))], edges)
     toolchain = subprocess.run(["rustc", "-V"], capture_output=True, text=True).stdout.strip()
     harness = harness_fingerprint(ROOT)
-    keys = {n: mutant_key(n, all_mutants[n][:3], neighbourhood_hash(ROOT, files[n], edges), harness, {"fast_kill": fast_kill}, toolchain) for n in all_mutants}
+    crate_state = crate_fingerprint(ROOT)
+    keys = {n: mutant_key(n, all_mutants[n][:3], crate_state, harness, {"fast_kill": fast_kill}, toolchain) for n in all_mutants}
     store = ResultStore(STORE_DIR)
     if "--list" in argv:
         for n, tier in ordered:
             print(f"{tier:9} {'fresh' if store.is_fresh(keys[n]) else 'stale':5} {n}")
         return 0
-    os.makedirs(os.path.join(STORE_DIR, "logs"), exist_ok=True)
+    run_directory = new_run_directory(os.path.join(STORE_DIR, "runs"))
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
 
     budget_seconds = None if max_minutes is None else max_minutes * 60
     run_started = time.time()
 
     def execute(name):
-        result_file = os.path.join(STORE_DIR, "logs", name + ".json")
+        result_file = mutant_result_file(run_directory, name)
         started = time.time()
         command = [PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), name, "--skip-control", f"--result-json={result_file}"] + ([] if fast_kill else ["--no-fast-kill"])
         remaining = None if budget_seconds is None else budget_seconds - (started - run_started)
-        launch = lambda: run_cancellable(command, mutant_timeout(remaining), os.path.join(STORE_DIR, "logs", name + ".log"), cwd=ROOT)
+        launch = lambda: run_cancellable(command, mutant_timeout(remaining), os.path.join(run_directory, name + ".log"), cwd=ROOT)
         return execute_mutant(name, result_file, launch, lambda: time.time() - started, budget_limited=is_budget_limited(remaining))
 
     ckey = control_key(ROOT, harness, toolchain)
-    run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], mutant_timeout(budget_seconds), os.path.join(STORE_DIR, "logs", "control.log"), cwd=ROOT)
+    run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], mutant_timeout(budget_seconds), os.path.join(run_directory, "control.log"), cwd=ROOT)
 
     def key_now(name):
-        return mutant_key(name, all_mutants[name][:3], neighbourhood_hash(ROOT, files[name], edges), harness_fingerprint(ROOT), {"fast_kill": fast_kill}, toolchain)
+        return mutant_key(name, all_mutants[name][:3], crate_fingerprint(ROOT), harness_fingerprint(ROOT), {"fast_kill": fast_kill}, toolchain)
 
     def run_mutants():
         left = None if budget_seconds is None else budget_seconds - (time.time() - run_started)   # the control's time counts against the budget
@@ -409,9 +462,10 @@ def main(argv):
 
     control, report = run_guarded(store, ckey, run_control, run_mutants, budget_limited=is_budget_limited(budget_seconds))
     if report is None:   # nothing ran: report what is already proved and what is pending
-        report = run_plan(ordered, keys, store, execute, time.time, 0, None)
+        report = run_plan(ordered, keys, store, execute, time.time, 0, None, key_now=key_now)
         report["stopped_by"] = f"control {control}"
     outcomes = {**report["outcomes"], **{n: "STALE_PATTERN" for n in stale}}
+    outcomes = settle_control(outcomes, ckey, control_key(ROOT, harness_fingerprint(ROOT), toolchain))
     undetected = [n for n, o in outcomes.items() if o == "UNDETECTED"]
     errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
     detected = sum(1 for o in outcomes.values() if o == "DETECTED")

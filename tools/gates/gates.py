@@ -110,6 +110,29 @@ def status_pathspecs(input_paths, regenerates):
     return [*input_paths, *(":(exclude)" + path for path in regenerates)]
 
 
+TIERS = ("fast", "pr", "milestone")
+VALUE_FLAGS = ("--base", "--max-mutants", "--max-minutes")
+
+
+def parse_arguments(argv):
+    """-> dict(tier, base, no_reuse, list, mutant_args). `--base` is validated for every tier (it needs a value that is not another flag);
+    the value of a value-taking flag is never read as the tier, so a ref named like a tier is fine."""
+    consumed = set()
+    for flag in VALUE_FLAGS:
+        if flag in argv:
+            position = argv.index(flag) + 1
+            if flag == "--base" and (position >= len(argv) or argv[position].startswith("--")):
+                raise UsageError("--base needs a ref")
+            if position < len(argv) and not argv[position].startswith("--"):
+                consumed.update({position - 1, position})
+    positionals = [token for index, token in enumerate(argv) if index not in consumed and not token.startswith("--")]
+    if len(positionals) != 1 or positionals[0] not in TIERS:
+        raise UsageError("expected exactly one tier: fast, pr or milestone")
+    tier = positionals[0]
+    base = argv[argv.index("--base") + 1] if "--base" in argv else DEFAULT_BASE
+    return {"tier": tier, "base": base, "no_reuse": "--no-reuse" in argv, "list": "--list" in argv, "mutant_args": mutant_arguments(tier, argv)}
+
+
 def mutant_arguments(tier, argv):
     """The MILESTONE mutant flags forwarded to tools/gates/mutant_runner.py; a value-taking flag must be followed by a value."""
     if tier != "milestone":
@@ -160,22 +183,19 @@ def changed_files(base):
 
 
 def main(argv):
-    tiers = [a for a in argv if a in ("fast", "pr", "milestone")]
-    if len(tiers) != 1:
-        sys.exit(__doc__)
-    base = argv[argv.index("--base") + 1] if "--base" in argv else DEFAULT_BASE
-    selected = []
-    if tiers[0] == "pr":
-        sys.path.insert(0, os.path.join(ROOT, "tools", "parity"))
-        import check_divergence
-        selected = select_mutants(changed_files(base), check_divergence.MUTANTS, check_divergence.TOOL_MUTANTS)
     try:
-        mutant_args = mutant_arguments(tiers[0], argv)
+        parsed = parse_arguments(argv)
     except UsageError as problem:
         print(f"refused: {problem}")
         return 2
-    gates = tier_gates(tiers[0], selected, mutant_args)
-    if "--list" in argv:
+    tier, base, mutant_args = parsed["tier"], parsed["base"], parsed["mutant_args"]
+    selected = []
+    if tier == "pr":
+        sys.path.insert(0, os.path.join(ROOT, "tools", "parity"))
+        import check_divergence
+        selected = select_mutants(changed_files(base), check_divergence.MUTANTS, check_divergence.TOOL_MUTANTS)
+    gates = tier_gates(tier, selected, mutant_args)
+    if parsed["list"]:
         for g in gates:
             print(g.name, " ".join(g.command) if not g.skip_reason else f"(skip: {g.skip_reason})")
         return 0
@@ -183,11 +203,11 @@ def main(argv):
     head = git("rev-parse", "--short=12", "HEAD")
     failed = []
     for g in gates:
-        line, code = run_gate(g, toolchain, "--no-reuse" not in argv, head)
+        line, code = run_gate(g, toolchain, not parsed["no_reuse"], head)
         print(line, flush=True)
         if code:
             failed.append(g.name)
-    print(f"{tiers[0].upper()}: {'FAILED ' + ', '.join(failed) if failed else 'all gates passed'} ({len(gates)} gates, HEAD {head})")
+    print(f"{tier.upper()}: {'FAILED ' + ', '.join(failed) if failed else 'all gates passed'} ({len(gates)} gates, HEAD {head})")
     return 1 if failed else 0
 
 

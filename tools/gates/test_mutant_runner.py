@@ -72,27 +72,49 @@ class Ordering(unittest.TestCase):
 
 class EvidenceInvalidation(unittest.TestCase):
     def setUp(self):
-        self.base = dict(name="m", patch=("a.rs", "old", "new"), neighbourhood="n1", harness="h1", config={"fast_kill": True}, toolchain="rustc 1")
+        self.base = dict(name="m", patch=("a.rs", "old", "new"), crate_state="c1", harness="h1", config={"fast_kill": True}, toolchain="rustc 1")
 
     def test_same_inputs_same_key(self):
         self.assertEqual(mr.mutant_key(**self.base), mr.mutant_key(**self.base))
 
     def test_every_relevant_input_invalidates(self):
         reference = mr.mutant_key(**self.base)
-        for change in (dict(name="other"), dict(patch=("a.rs", "old", "newer")), dict(neighbourhood="n2"), dict(harness="h2"),
+        for change in (dict(name="other"), dict(patch=("a.rs", "old", "newer")), dict(crate_state="c2"), dict(harness="h2"),
                        dict(config={"fast_kill": False}), dict(toolchain="rustc 2")):
             self.assertNotEqual(reference, mr.mutant_key(**{**self.base, **change}), change)
 
-    def test_neighbourhood_hash_changes_with_a_neighbour_but_not_with_an_unrelated_file(self):
+    def test_a_change_in_a_file_outside_the_mutated_files_neighbourhood_still_changes_the_mutant_key(self):
         with tempfile.TemporaryDirectory() as root:
             mini_repo(root)
-            edges = mr.import_edges(root)
-            cell = "crates/rakka-actor/src/actor/cell.rs"
-            before = mr.neighbourhood_hash(root, cell, edges)
-            write(root, "crates/rakka-actor/src/util/clock.rs", "// edited, unrelated\n")
-            self.assertEqual(before, mr.neighbourhood_hash(root, cell, edges))
-            write(root, "crates/rakka-actor/src/dispatch/queue.rs", "// edited neighbour\n")
-            self.assertNotEqual(before, mr.neighbourhood_hash(root, cell, edges))
+            write(root, "Cargo.toml", "[workspace]\n")
+            write(root, "Cargo.lock", "# lock\n")
+            def key():
+                return mr.mutant_key("m", ("src/actor/cell.rs", "o", "n"), mr.crate_fingerprint(root), "h", {"fast_kill": True}, "rustc 1")
+            before = key()
+            write(root, "crates/rakka-actor/src/util/clock.rs", "// edited, not imported by the mutated file\\n")
+            self.assertNotEqual(before, key())
+
+    def test_the_build_inputs_outside_the_crate_directory_change_the_crate_fingerprint(self):
+        with tempfile.TemporaryDirectory() as root:
+            mini_repo(root)
+            write(root, "Cargo.toml", "[workspace]\\n")
+            write(root, "Cargo.lock", "# lock 1\\n")
+            before = mr.crate_fingerprint(root)
+            write(root, "Cargo.lock", "# lock 2\\n")
+            self.assertNotEqual(before, mr.crate_fingerprint(root))
+            write(root, "Cargo.lock", "# lock 1\\n")
+            self.assertEqual(before, mr.crate_fingerprint(root))
+            write(root, "crates/rakka-actor/target/debug/noise", "build output")
+            self.assertEqual(before, mr.crate_fingerprint(root))   # the build directory is not an input
+
+    def test_the_control_key_reuses_the_same_crate_fingerprint(self):
+        with tempfile.TemporaryDirectory() as root:
+            mini_repo(root)
+            write(root, "Cargo.toml", "[workspace]\\n")
+            write(root, "Cargo.lock", "# lock 1\\n")
+            before = mr.control_key(root, "h", "rustc 1")
+            write(root, "Cargo.lock", "# lock 2\\n")
+            self.assertNotEqual(before, mr.control_key(root, "h", "rustc 1"))
 
     def test_only_a_detected_result_is_fresh_errors_and_misses_are_retried(self):
         with tempfile.TemporaryDirectory() as root:
@@ -333,6 +355,77 @@ class InputsChangingDuringTheRun(unittest.TestCase):
     def test_inputs_changed_is_an_error_that_keeps_the_run_from_passing(self):
         errors = [n for n, o in {"a": "INPUTS_CHANGED"}.items() if o not in ("DETECTED", "UNDETECTED")]
         self.assertEqual(mr.exit_code(undetected=[], errors=errors, pending=[], control="CLEAN"), 2)
+
+
+class CachedEvidenceIsRevalidated(unittest.TestCase):
+    def plan(self, store, key_now):
+        executed = []
+        report = mr.run_plan([("a", "other")], {"a": "key-a"}, store, lambda name: executed.append(name) or {"outcome": "DETECTED", "seconds": 1.0},
+                             clock=lambda: 0.0, max_mutants=None, max_seconds=None, key_now=key_now)
+        return executed, report
+
+    def test_a_cached_detected_is_not_accepted_when_the_current_key_is_different(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = mr.ResultStore(root)
+            store.put("key-a", {"outcome": "DETECTED"})
+            executed, report = self.plan(store, lambda name: "key-for-edited-code")
+            self.assertEqual(executed, [])                      # a resumed run that executes nothing...
+            self.assertEqual(report["outcomes"]["a"], "INPUTS_CHANGED")   # ...still refuses the stale evidence
+            self.assertEqual(report["fresh_before"], 0)
+
+    def test_a_cached_detected_with_the_same_current_key_is_still_reused(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = mr.ResultStore(root)
+            store.put("key-a", {"outcome": "DETECTED"})
+            executed, report = self.plan(store, lambda name: "key-a")
+            self.assertEqual((executed, report["outcomes"]["a"], report["fresh_before"]), ([], "DETECTED", 1))
+
+    def test_the_verified_control_must_still_match_the_state_the_verdict_is_issued_on(self):
+        outcomes = {"a": "DETECTED"}
+        self.assertEqual(mr.settle_control(outcomes, "control-key-1", "control-key-1"), {"a": "DETECTED"})
+        settled = mr.settle_control(outcomes, "control-key-1", "control-key-2")
+        self.assertEqual(settled["(control)"], "INPUTS_CHANGED")
+        errors = [n for n, o in settled.items() if o not in ("DETECTED", "UNDETECTED")]
+        self.assertEqual(mr.exit_code(undetected=[], errors=errors, pending=[], control="CLEAN"), 2)
+        self.assertEqual(outcomes, {"a": "DETECTED"})          # the input mapping is not modified
+
+
+class RunIsolation(unittest.TestCase):
+    def test_every_run_gets_its_own_directory_even_with_the_same_clock_and_pid(self):
+        with tempfile.TemporaryDirectory() as root:
+            first = mr.new_run_directory(root, clock=lambda: 1000.0, pid=lambda: 7)
+            second = mr.new_run_directory(root, clock=lambda: 1000.0, pid=lambda: 7)
+            self.assertNotEqual(first, second)
+            self.assertTrue(os.path.isdir(first) and os.path.isdir(second))
+            self.assertEqual(os.path.dirname(first), os.path.dirname(second))
+
+    def test_two_runs_of_the_same_mutant_do_not_delete_overwrite_or_read_each_others_result(self):
+        with tempfile.TemporaryDirectory() as root:
+            run_a, run_b = (mr.new_run_directory(root) for _ in range(2))
+            file_a, file_b = mr.mutant_result_file(run_a, "m"), mr.mutant_result_file(run_b, "m")
+            self.assertNotEqual(file_a, file_b)
+            with open(file_a, "w") as fh:
+                fh.write('{"mutants": {"m": ["DETECTED", null, null, "run A"]}, "control": null}')
+            record_b = mr.execute_mutant("m", file_b, lambda: 137, lambda: 1.0)   # run B's child dies without writing
+            self.assertEqual(record_b["outcome"], "HARNESS_ERROR")                 # B never reads A's file
+            self.assertTrue(os.path.exists(file_a))                                # and does not delete it
+            self.assertIn("run A", read_text(file_a))
+
+    def test_resumable_checkpoints_stay_shared_between_runs_and_are_written_atomically(self):
+        with tempfile.TemporaryDirectory() as root:
+            first, second = mr.ResultStore(root), mr.ResultStore(root)
+            first.put("k", {"outcome": "DETECTED"})
+            self.assertTrue(second.is_fresh("k"))
+            self.assertEqual([name for name in os.listdir(root) if name.endswith(".tmp")], [])
+
+
+class OptionValues(unittest.TestCase):
+    def test_a_value_that_is_another_flag_or_missing_is_a_usage_error(self):
+        for argv in (["--max-mutants", "--list"], ["--max-mutants"], ["--base", "--list"], ["--base"]):
+            cast = str if argv[0] == "--base" else int
+            with self.assertRaises(mr.UsageError, msg=argv):
+                mr.option(argv, argv[0], None, cast)
+        self.assertEqual(mr.option(["--base", "origin/x"], "--base", None, str), "origin/x")
 
 
 class HarnessFingerprint(unittest.TestCase):
