@@ -186,15 +186,25 @@ def run_gate(gate, toolchain, reuse, head):
     key = evidence_key(gate.command, trees, toolchain, dirty)
     evidence = os.path.join(GATES_DIR, "evidence", f"{gate.name}-{key}.json") if key else None
     if reuse and evidence and os.path.exists(evidence):
-        return verdict_line(gate.name, 0, 0.0, True, json.load(open(evidence))["log"], ""), 0, "PASS"
+        with open(evidence) as evidence_file:
+            recorded_log = json.load(evidence_file)["log"]
+        return verdict_line(gate.name, 0, 0.0, True, recorded_log, ""), 0, "PASS"
     started = time.time()
     with open(os.path.join(ROOT, log_path), "w") as log:
         code = subprocess.run(gate.command, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT).returncode
     seconds = time.time() - started
-    text = open(os.path.join(ROOT, log_path)).read() if code else ""
+    text = ""
+    if code:
+        with open(os.path.join(ROOT, log_path)) as log_file:
+            text = log_file.read()
+    if code == 0 and input_state(gate.inputs, gate.regenerates) != (trees, dirty):
+        # HEAD moved or the inputs were edited while the gate ran: what it proved describes a state that no longer exists, so it is neither
+        # recorded as evidence nor reported as a pass
+        return (f"INPUTS_CHANGED {gate.name}: its inputs changed while it ran; the result is not recorded (log={log_path})", 1, "INPUTS_CHANGED")
     if code == 0 and evidence:
         os.makedirs(os.path.dirname(evidence), exist_ok=True)
-        json.dump({"gate": gate.name, "command": gate.command, "head": head, "log": log_path, "seconds": seconds}, open(evidence, "w"))
+        with open(evidence, "w") as evidence_file:
+            json.dump({"gate": gate.name, "command": gate.command, "head": head, "inputs": trees, "log": log_path, "seconds": seconds}, evidence_file)
     label = gate_label(gate, code)
     return verdict_line(gate.name, code, seconds, False, log_path, text, label), code, label
 

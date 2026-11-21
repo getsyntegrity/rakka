@@ -628,7 +628,8 @@ def run_as_script(argv):
     except Exception:              # the run itself was invalid (disk full, missing git/rustc...): ERROR, never the FAIL of a surviving mutant
         traceback.print_exc()
         code = 2
-    print(f"VERDICT {verdict(code)} (exit {code})")
+    if "--list" not in argv:     # a listing runs nothing: it must never print a verdict that could be read as a pass
+        print(f"VERDICT {verdict(code)} (exit {code})")
     sys.exit(code)
 
 

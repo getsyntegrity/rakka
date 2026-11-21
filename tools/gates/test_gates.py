@@ -1,5 +1,5 @@
 """Unit tests of the gate runner's pure decisions: which mutants a change selects, when evidence may be reused, what reaches the console."""
-import os, tempfile, unittest
+import json, os, tempfile, unittest
 
 import gates
 
@@ -199,6 +199,124 @@ class MutantFlagForwarding(unittest.TestCase):
 
     def test_other_tiers_do_not_look_at_the_mutant_flags(self):
         self.assertEqual(gates.mutant_arguments("fast", ["fast", "--max-mutants"]), [])
+
+
+class EvidenceOnlyForTheStateThatRan(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.saved = (gates.GATES_DIR, gates.ROOT, gates.input_state)
+        gates.ROOT = self.tmp.name
+        gates.GATES_DIR = os.path.join(self.tmp.name, ".gates")
+        self.states = []
+        gates.input_state = lambda paths, regenerates=(): self.states.pop(0)
+        self.gate = gates.Gate("sample", ["true"], ("crates",))
+
+    def tearDown(self):
+        gates.GATES_DIR, gates.ROOT, gates.input_state = self.saved
+        self.tmp.cleanup()
+
+    def evidence_files(self):
+        directory = os.path.join(gates.GATES_DIR, "evidence")
+        return os.listdir(directory) if os.path.isdir(directory) else []
+
+    def test_a_pass_is_recorded_for_the_inputs_it_ran_on_when_they_did_not_change(self):
+        self.states = [({"crates": "t1"}, False), ({"crates": "t1"}, False)]
+        line, code, label = gates.run_gate(self.gate, "rustc 1", True, "head")
+        self.assertEqual((code, label), (0, "PASS"))
+        (evidence_file,) = self.evidence_files()
+        with open(os.path.join(gates.GATES_DIR, "evidence", evidence_file)) as handle:
+            self.assertEqual(json.load(handle)["inputs"], {"crates": "t1"})
+
+    def test_when_the_inputs_change_while_the_gate_runs_nothing_is_recorded_and_it_is_not_a_pass(self):
+        self.states = [({"crates": "t1"}, False), ({"crates": "t2"}, False)]       # HEAD moved or files were edited during the run
+        line, code, label = gates.run_gate(self.gate, "rustc 1", True, "head")
+        self.assertEqual(label, "INPUTS_CHANGED")
+        self.assertNotEqual(code, 0)
+        self.assertTrue(line.startswith("INPUTS_CHANGED sample"), line)
+        self.assertEqual(self.evidence_files(), [])
+
+    def test_inputs_that_become_dirty_during_the_run_are_also_a_change(self):
+        self.states = [({"crates": "t1"}, False), ({"crates": "t1"}, True)]
+        self.assertEqual(gates.run_gate(self.gate, "rustc 1", True, "head")[2], "INPUTS_CHANGED")
+        self.assertEqual(self.evidence_files(), [])
+
+    def test_evidence_of_one_state_is_not_reused_for_another_and_the_stable_one_is(self):
+        self.states = [({"crates": "t1"}, False), ({"crates": "t1"}, False)]
+        gates.run_gate(self.gate, "rustc 1", True, "head")
+        self.states = [({"crates": "t2"}, False), ({"crates": "t2"}, False)]
+        line, code, label = gates.run_gate(self.gate, "rustc 1", True, "head")      # a different state: the gate runs again
+        self.assertNotIn("reused", line)
+        self.states = [({"crates": "t2"}, False)]
+        line, code, label = gates.run_gate(self.gate, "rustc 1", True, "head")      # the same state: reused, nothing runs
+        self.assertIn("reused evidence", line)
+
+    def test_a_failing_gate_stays_a_failure_even_if_its_inputs_changed(self):
+        failing = gates.Gate("sample", ["false"], ("crates",))
+        self.states = [({"crates": "t1"}, False), ({"crates": "t2"}, False)]
+        line, code, label = gates.run_gate(failing, "rustc 1", True, "head")
+        self.assertEqual((code, label), (1, "FAIL"))
+
+
+class MainByItsRealEntry(unittest.TestCase):
+    """gates.main() end to end with stub gates: INCOMPLETE, ERROR, CANCELLED and FAIL of a gate never end in an overall pass."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.saved = (gates.GATES_DIR, gates.ROOT, gates.input_state, gates.git, gates.tier_gates)
+        gates.ROOT = self.tmp.name
+        gates.GATES_DIR = os.path.join(self.tmp.name, ".gates")
+        gates.input_state = lambda paths, regenerates=(): ({}, True)           # dirty: no evidence involved
+        gates.git = lambda *arguments: "abc123"
+
+    def tearDown(self):
+        gates.GATES_DIR, gates.ROOT, gates.input_state, gates.git, gates.tier_gates = self.saved
+        self.tmp.cleanup()
+
+    def run_main(self, mutants_exit_code):
+        script = f"import sys; sys.exit({mutants_exit_code})"
+        stub = [gates.Gate("fmt", ["true"], ()), gates.Gate("mutants", [gates.PY, "-c", script], (), exit_labels=gates.MUTANT_RUNNER_LABELS)]
+        gates.tier_gates = lambda tier, selected, mutant_args: stub
+        import io, contextlib
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = gates.main(["milestone"])
+        return code, out.getvalue()
+
+    def test_a_clean_run_is_the_only_overall_pass(self):
+        code, output = self.run_main(0)
+        self.assertEqual(code, 0)
+        self.assertIn("MILESTONE: all gates passed", output)
+
+    def test_incomplete_error_cancelled_and_fail_of_the_mutants_gate_never_end_in_a_pass(self):
+        for exit_code, label in ((3, "INCOMPLETE"), (2, "ERROR"), (143, "CANCELLED"), (1, "FAIL"), (77, "FAIL")):
+            code, output = self.run_main(exit_code)
+            self.assertEqual(code, 1, label)
+            self.assertNotIn("all gates passed", output, label)
+            self.assertNotIn("PASS mutants", output, label)
+            self.assertIn(f"{label} mutants exit={exit_code}", output, label)
+            self.assertIn(f"MILESTONE: {label} mutants", output, label)
+
+    def test_the_real_command_line_entry_of_the_gate_runner_refuses_bad_usage_without_a_traceback(self):
+        import subprocess, sys
+        script = os.path.join(self.saved[1], "tools", "gates", "gates.py")
+        for arguments, expected in ((["milestone", "--base"], "refused: --base needs a ref"), ([], "refused: expected exactly one tier"),
+                                    (["pr", "--base", "--list"], "refused: --base needs a ref")):
+            result = subprocess.run([sys.executable, script, *arguments], capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 2, arguments)
+            self.assertIn(expected, result.stdout)
+            self.assertNotIn("Traceback", result.stderr)
+
+    def test_the_real_command_line_entry_of_the_mutant_runner_refuses_an_unauthorised_full_run_and_lists_without_running(self):
+        import subprocess, sys
+        script = os.path.join(self.saved[1], "tools", "gates", "mutant_runner.py")
+        refused = subprocess.run([sys.executable, script, "--max-mutants", "999"], capture_output=True, text=True, timeout=120)
+        self.assertEqual(refused.returncode, 2)
+        self.assertIn("authorize-full-mutants", refused.stdout)
+        self.assertIn("VERDICT ERROR (exit 2)", refused.stdout)
+        listed = subprocess.run([sys.executable, script, "--list"], capture_output=True, text=True, timeout=120)
+        self.assertEqual(listed.returncode, 0, listed.stderr[-300:])
+        self.assertGreater(len(listed.stdout.splitlines()), 150)
+        self.assertNotIn("VERDICT PASS", listed.stdout)
 
 
 class Tiers(unittest.TestCase):
