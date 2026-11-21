@@ -1,5 +1,5 @@
 """Unit tests of the gate runner's pure decisions: which mutants a change selects, when evidence may be reused, what reaches the console."""
-import unittest
+import os, tempfile, unittest
 
 import gates
 
@@ -117,10 +117,36 @@ class VerdictLabels(unittest.TestCase):
 
 class ChangedPaths(unittest.TestCase):
     def test_paths_with_spaces_and_renames_are_parsed_from_nul_separated_git_output(self):
-        committed = "a b.rs\0src/x.rs\0"
+        committed = "M\0a b.rs\0A\0src/x.rs\0"
         working = " M tools/with space.py\0R  new.rs\0old.rs\0?? untracked.txt\0"
         self.assertEqual(gates.changed_paths_from_git(committed, working),
                          ["a b.rs", "new.rs", "old.rs", "src/x.rs", "tools/with space.py", "untracked.txt"])
+
+    def test_a_committed_rename_or_copy_contributes_both_its_source_and_its_destination(self):
+        committed = "R100\0src/actor/old name.rs\0src/actor/new.rs\0C75\0src/a.rs\0src/b.rs\0D\0src/gone.rs\0"
+        self.assertEqual(gates.changed_paths_from_git(committed, ""),
+                         ["src/a.rs", "src/actor/new.rs", "src/actor/old name.rs", "src/b.rs", "src/gone.rs"])
+
+    def test_the_pr_gate_selects_the_mutant_of_the_old_path_after_a_committed_rename_in_a_real_git_repository(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as repo:
+            def git(*args):
+                return subprocess.run(["git", "-C", repo, "-c", "user.email=t@example.org", "-c", "user.name=t", *args],
+                                      capture_output=True, text=True, check=True).stdout.strip()
+            git("init", "-q")
+            os.makedirs(os.path.join(repo, "crates", "rakka-actor", "src", "actor"))
+            with open(os.path.join(repo, "crates", "rakka-actor", "src", "actor", "foo.rs"), "w") as source:
+                source.write("pub fn behaviour() {}\n" * 20)
+            git("add", "-A")
+            git("commit", "-q", "-m", "base")
+            base = git("rev-parse", "HEAD")
+            git("mv", "crates/rakka-actor/src/actor/foo.rs", "crates/rakka-actor/src/actor/renamed.rs")
+            git("commit", "-q", "-m", "rename")
+            changed = gates.changed_files(base, repo=repo)
+            self.assertIn("crates/rakka-actor/src/actor/foo.rs", changed)       # the old path
+            self.assertIn("crates/rakka-actor/src/actor/renamed.rs", changed)   # and the new one
+            mutants = {"old-path-mutant": ("src/actor/foo.rs", "o", "n", "w"), "other": ("src/actor/bar.rs", "o", "n", "w")}
+            self.assertEqual(gates.select_mutants(changed, mutants, {}), ["old-path-mutant"])
 
     def test_nothing_changed_is_an_empty_list(self):
         self.assertEqual(gates.changed_paths_from_git("", ""), [])

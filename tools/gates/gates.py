@@ -108,9 +108,9 @@ def tier_gates(tier, selected_mutants, mutant_args=()):
     return fast + pr_extra + [full_mutants] + fuzz
 
 
-def git_raw(*args):
+def git_raw(*args, repo=ROOT):
     """git stdout, unstripped (NUL-separated output must stay intact); a failing git command is a usage error, never an empty answer."""
-    result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+    result = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
     if result.returncode != 0:
         raise UsageError(f"git {' '.join(args)} failed: {result.stderr.strip()[:200]}")
     return result.stdout
@@ -200,8 +200,19 @@ def run_gate(gate, toolchain, reuse, head):
 
 
 def changed_paths_from_git(diff_output, status_output):
-    """Paths from `git diff --name-only -z` and `git status --porcelain -z`: spaces survive, a rename contributes both its new and old path."""
-    paths = {path for path in diff_output.split("\0") if path}
+    """Paths from `git diff --name-status -z` (committed) and `git status --porcelain -z` (working tree): spaces survive, and a rename
+    or copy contributes both its source and its destination, committed or not."""
+    paths = set()
+    diff_tokens = diff_output.split("\0")
+    token = 0
+    while token < len(diff_tokens):
+        status = diff_tokens[token]
+        token += 1
+        if not status:
+            continue
+        path_count = 2 if status[0] in "RC" else 1
+        paths.update(path for path in diff_tokens[token:token + path_count] if path)
+        token += path_count
     entries = status_output.split("\0")
     position = 0
     while position < len(entries):
@@ -217,8 +228,8 @@ def changed_paths_from_git(diff_output, status_output):
     return sorted(paths)
 
 
-def changed_files(base):
-    return changed_paths_from_git(git_raw("diff", "--name-only", "-z", f"{base}...HEAD"), git_raw("status", "--porcelain", "-z"))
+def changed_files(base, repo=ROOT):
+    return changed_paths_from_git(git_raw("diff", "--name-status", "-z", "-M", f"{base}...HEAD", repo=repo), git_raw("status", "--porcelain", "-z", repo=repo))
 
 
 def main(argv):

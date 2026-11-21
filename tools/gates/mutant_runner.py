@@ -24,7 +24,7 @@ The last lines of the log are a <=12 line summary: read those, never the whole l
 
 Derived-from: none (project tooling, Apache-2.0).
 """
-import ast, hashlib, json, os, re, shutil, signal, subprocess, sys, time, traceback
+import ast, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time, traceback
 
 from gates import UsageError, changed_files
 
@@ -399,12 +399,19 @@ def settle_control(outcomes, control_key_when_verified, control_key_now):
     return {**outcomes, "(control)": "INPUTS_CHANGED"}
 
 
+ACTIVE_RUN_MARKER = ".active"
+_ACTIVE_RUN_MARKERS = []
+
+
 def new_run_directory(base_directory, clock=time.time, pid=os.getpid):
     """A private directory for one run's result files and logs (checkpoints stay shared in the store, keyed by content)."""
     os.makedirs(base_directory, exist_ok=True)
     name = f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime(clock()))}-{pid()}-{os.urandom(4).hex()}"
     path = os.path.join(base_directory, name)
     os.makedirs(path)
+    marker = os.open(os.path.join(path, ACTIVE_RUN_MARKER), os.O_RDWR | os.O_CREAT)   # a raw descriptor: flock held until this process exits
+    fcntl.flock(marker, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    _ACTIVE_RUN_MARKERS.append(marker)
     return path
 
 
@@ -412,12 +419,28 @@ RUN_DIRECTORY_NAME = re.compile(r"^\d{8}T\d{6}-\d+-[0-9a-f]+$")
 RUN_DIRECTORIES_KEPT = 10
 
 
+def run_is_active(run_directory):
+    """True while some process holds the run's marker lock (a crashed run releases it, so it counts as finished)."""
+    try:
+        with open(os.path.join(run_directory, ACTIVE_RUN_MARKER), "r+") as marker:
+            try:
+                fcntl.flock(marker, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return True
+            fcntl.flock(marker, fcntl.LOCK_UN)
+            return False
+    except OSError:
+        return False
+
+
 def prune_run_directories(base_directory, keep=RUN_DIRECTORIES_KEPT):
-    """Removes all but the newest `keep` run directories (names sort by time); anything not named like a run directory is left alone."""
+    """Removes all but the newest `keep` FINISHED run directories (names sort by time). An active run keeps its directory however many
+    runs start after it; anything not named like a run directory is left alone."""
     try:
         runs = sorted(name for name in os.listdir(base_directory) if RUN_DIRECTORY_NAME.match(name))
     except OSError:
         return []
+    runs = [name for name in runs if not run_is_active(os.path.join(base_directory, name))]
     removed = runs[:-keep] if keep else runs
     for name in removed:
         shutil.rmtree(os.path.join(base_directory, name), ignore_errors=True)

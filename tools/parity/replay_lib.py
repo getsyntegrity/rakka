@@ -8,7 +8,7 @@ A second, separate category is NA:Q-CFG-30 (decision Q-CFG-30): a divergence tha
 `Double.toString`, recognised by its signature (na_q_cfg_30.py), never by case id. It is reported apart and is
 neither a pass nor a divergence.
 """
-import csv, os, re, subprocess
+import contextlib, csv, dataclasses, fcntl, json, os, re, subprocess
 
 import na_q_cfg_30
 
@@ -27,15 +27,58 @@ def load_not_applicable():
     return {r["case"]: r for r in rows}
 
 
+@dataclasses.dataclass
+class ReplayResult:
+    """Everything one replay produced, taken from that replay alone: the count and the divergent cases from its own process output
+    (`rust-anything app replay --json`), and the report it wrote, read while no other replay of the checkout could overwrite it."""
+    returncode: int
+    passed: object      # None when the output could not be understood
+    total: object
+    failures: list      # names of the divergent cases
+    report_text: object # the report of this replay, or None
+    stdout: str
+    stderr: str
+
+
+@contextlib.contextmanager
+def replay_lock():
+    """One replay at a time per checkout: `rust-anything app replay` always writes rust/app-cases/replay-report.md."""
+    lock_directory = os.path.join(ROOT, ".gates")
+    os.makedirs(lock_directory, exist_ok=True)
+    with open(os.path.join(lock_directory, "replay.lock"), "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def read_report_text():
+    try:
+        with open(REPORT, encoding="utf-8") as report_file:
+            return report_file.read()
+    except OSError:
+        return None
+
+
+def parse_replay_output(completed, report_text):
+    try:
+        payload = json.loads(completed.stdout)
+        passed, total = int(payload["passed"]), int(payload["total"])
+        failures = [failure["case"] for failure in payload.get("failures", [])]
+    except (ValueError, KeyError, TypeError):
+        passed, total, failures = None, None, []
+    return ReplayResult(completed.returncode, passed, total, failures, report_text, completed.stdout, completed.stderr)
+
+
 def run_replay(binary, timeout):
-    return subprocess.run(["rust-anything", "app", "replay", ROOT, "--build", binary], stdin=subprocess.DEVNULL,
-                          capture_output=True, text=True, timeout=timeout)
-
-
-def failing_cases():
-    """Names of the cases the last replay reported as divergent (from the report, which lists all of them)."""
-    with open(REPORT, encoding="utf-8") as fh:
-        return re.findall(r"(?m)^### (\S+)\s*$", fh.read())
+    """Runs the recorded replay of `binary` and returns its own evidence. The lock spans from the start of the replay to the reading
+    of its report, so the report a caller publishes is always the report of the replay it classified."""
+    with replay_lock():
+        completed = subprocess.run(["rust-anything", "app", "replay", ROOT, "--build", binary, "--json"], stdin=subprocess.DEVNULL,
+                                   capture_output=True, text=True, timeout=timeout)
+        report_text = read_report_text()
+    return parse_replay_output(completed, report_text)
 
 
 def rejects_explicitly(binary, case):
@@ -93,13 +136,12 @@ def evaluate(binary, result):
     """-> dict(ok, line, applicable_failing, na_problems, passed, total, na_q_cfg_30, other_na). `ok` means every
     applicable case matches Pekko, every NOT_APPLICABLE case is rejected explicitly, and what is left over is only
     NA:Q-CFG-30 (reported apart: not a pass, not a divergence)."""
-    m = SUMMARY.search(result.stdout)
-    if not m:
+    if result.passed is None:
         return dict(ok=None, line=(result.stdout.strip() or result.stderr.strip())[-300:], applicable_failing=[], na_problems=[], passed=None, total=None,
                     na_q_cfg_30=[], other_na=0)
-    passed, total = int(m.group(1)), int(m.group(2))
+    passed, total = result.passed, result.total
     na = load_not_applicable()
-    failing = failing_cases() if passed < total else []
+    failing = result.failures if passed < total else []
     unexplained = [c for c in failing if c not in na]
     na_q_cfg_30_cases = [c for c in unexplained if na_q_cfg_30.is_q_cfg_30(*case_outputs(binary, c))]
     applicable_failing = [c for c in unexplained if c not in na_q_cfg_30_cases]

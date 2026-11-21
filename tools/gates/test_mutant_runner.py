@@ -451,6 +451,44 @@ class RunDirectoryPruning(unittest.TestCase):
             self.assertEqual(sorted(removed), names[:10])
             self.assertTrue(os.path.exists(os.path.join(root, "keep-me", "unrelated.txt")))
 
+    def test_a_run_that_is_still_active_keeps_its_directory_even_when_more_than_ten_runs_start_after_it(self):
+        import fcntl
+        with tempfile.TemporaryDirectory() as root:
+            runs = os.path.join(root, "runs")
+            names = [f"20260101T0000{index:02d}-1-aaaa" for index in range(15)]
+            for name in names:
+                os.makedirs(os.path.join(runs, name))
+            active_marker = open(os.path.join(runs, names[0], mr.ACTIVE_RUN_MARKER), "w")   # the oldest run is still running
+            try:
+                fcntl.flock(active_marker, fcntl.LOCK_EX)
+                removed = mr.prune_run_directories(runs, keep=5)
+                self.assertIn(names[0], os.listdir(runs))                       # the active run keeps its directory
+                self.assertNotIn(names[0], removed)
+                self.assertEqual(sorted(os.listdir(runs)), [names[0]] + names[-5:])   # the limit applies to the finished runs only
+            finally:
+                active_marker.close()
+            self.assertIn(names[0], mr.prune_run_directories(runs, keep=5))   # once it finished it is prunable like any other
+
+    def test_a_new_run_directory_is_marked_active_for_as_long_as_the_process_lives(self):
+        import fcntl
+        with tempfile.TemporaryDirectory() as root:
+            run = mr.new_run_directory(root)
+            probe = open(os.path.join(run, mr.ACTIVE_RUN_MARKER), "w")
+            try:
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            finally:
+                probe.close()
+
+    def test_a_directory_that_is_not_a_run_is_neither_pruned_nor_counted(self):
+        with tempfile.TemporaryDirectory() as root:
+            runs = os.path.join(root, "runs")
+            os.makedirs(os.path.join(runs, "foreign-directory"))
+            for index in range(3):
+                os.makedirs(os.path.join(runs, f"20260101T0000{index:02d}-1-aaaa"))
+            mr.prune_run_directories(runs, keep=1)
+            self.assertIn("foreign-directory", os.listdir(runs))
+
     def test_pruning_a_missing_or_small_directory_does_nothing(self):
         with tempfile.TemporaryDirectory() as root:
             self.assertEqual(mr.prune_run_directories(os.path.join(root, "absent"), keep=5), [])

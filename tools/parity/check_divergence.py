@@ -21,7 +21,6 @@ CRATE = os.path.join(ROOT, "crates", "rakka-actor")
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 PARITY = os.path.join("release", "examples", "classic-parity")
 REPORTS = os.path.join(ROOT, "rust", "divergence-reports")
-CASES_REPORT = os.path.join(ROOT, "rust", "app-cases", "replay-report.md")
 
 # name -> (file, old, new, why it is a realistic bug)
 MUTANTS = {
@@ -1401,7 +1400,9 @@ def run_mutant(scratch, name, rel, old, new, why):
         r = replay(binary)
     except subprocess.TimeoutExpired:
         return TIMEOUT, None, None, "rust-anything replay"
-    shutil.copy(CASES_REPORT, os.path.join(REPORTS, f"replay-report-{name}.md"))
+    if r.report_text is not None:   # the report of THIS replay (read under the checkout lock), never the shared file as it is now
+        with open(os.path.join(REPORTS, f"replay-report-{name}.md"), "w", encoding="utf-8") as report_file:
+            report_file.write(r.report_text)
     return classify(r, binary)
 
 
