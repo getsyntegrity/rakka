@@ -1200,7 +1200,7 @@ MUTANTS = {
         "if (0xD800..0xDC00).contains(&code) && false {",
         "a pair of surrogate escapes is read as two replacement characters",
     ),
-    # --- Q-UTIL-21 / Q-X-20: the choice among overlapping `prefix*` entries follows the iteration order of Scala's HashMap ---
+    # --- Q-UTIL-21 / Q-X-21: the choice among overlapping `prefix*` entries follows the iteration order of Scala's HashMap ---
     "wildcard-suffix-children-keep-insertion-order": (
         "src/util/wildcard_index.rs",
         "            updated.sort_suffix_children_in_hash_map_order();\n",

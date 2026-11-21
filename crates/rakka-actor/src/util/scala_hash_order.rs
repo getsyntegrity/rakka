@@ -1,5 +1,5 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/util/WildcardIndex.scala (Apache-2.0).
-//! The iteration order of a Scala 2.13 `immutable.HashMap[String, _]` (Q-UTIL-21, Q-X-20), which decides which of
+//! The iteration order of a Scala 2.13 `immutable.HashMap[String, _]` (Q-UTIL-21, Q-X-21), which decides which of
 //! several matching `prefix*` entries `WildcardIndex` returns (`collectFirst` over `wildcardSuffixChildren`).
 //!
 //! Behaviour taken from measurements of the real map (`oracle/run.sh deployer-all`, cases DL-60..), not from any source: the

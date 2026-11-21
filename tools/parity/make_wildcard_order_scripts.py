@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Appends DL-60.. to crates/rakka-actor/examples/classic-parity/deployer.tsv: overlapping `prefix*` deployments (Q-UTIL-21, Q-X-20).
+"""Appends DL-60.. to crates/rakka-actor/examples/classic-parity/deployer.tsv: overlapping `prefix*` deployments (Q-UTIL-21, Q-X-21).
 
 Pekko picks, among the `prefix*` entries that match an element, the first one in the iteration order of a Scala
 `immutable.HashMap`; the scripts insert the same prefixes in a seeded shuffled order and in the reverse order, so a twin that

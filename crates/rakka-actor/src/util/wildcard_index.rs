@@ -11,7 +11,7 @@
 //! `makePattern`, no UTF-16 view of the text).
 //!
 //! The choice between two `prefix*` that both match an element is the first one in the iteration order of a
-//! Scala `HashMap` (AC-UTIL-009 A7, Q-UTIL-21, Q-X-20): `wildcard_suffix_children` is kept in that order
+//! Scala `HashMap` (AC-UTIL-009 A7, Q-UTIL-21, Q-X-21): `wildcard_suffix_children` is kept in that order
 //! (`scala_hash_order`), so it does not depend on the order the entries were inserted.
 
 use std::collections::HashMap;
