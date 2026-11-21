@@ -227,6 +227,10 @@ def confirm_applicable_divergence(mutant_binary, case, timeout=120):
 def run_replay(binary, timeout, case=None):
     """Runs the recorded replay of `binary` and returns its own evidence. The lock spans from the start of the replay to the reading
     of its report, so the report a caller publishes is always the report of the replay it classified."""
+    if any(character.isspace() for character in binary):
+        # `rust-anything app replay --build` takes ONE command-line string and would split such a path: refuse before running anything
+        return ReplayResult(2, None, None, [], None, "", "", "the binary path contains whitespace: `rust-anything app replay --build` "
+                                                          "takes one command-line string and would split it")
     with replay_lock():
         signature_before = report_signature()
         command = ["rust-anything", "app", "replay", ROOT, "--build", binary, "--json"] + (["--case", case] if case else [])

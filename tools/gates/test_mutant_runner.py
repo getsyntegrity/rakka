@@ -55,6 +55,12 @@ class StalePatterns(unittest.TestCase):
                      "ambiguous": ("src/a.rs", "let y = 2;", "n", "w"), "missing-file": ("src/none.rs", "x", "n", "w")}
             self.assertEqual(mr.find_stale_patterns(table, root), ["gone", "ambiguous", "missing-file"])
 
+    def test_a_patch_that_changes_nothing_is_stale_too(self):
+        with tempfile.TemporaryDirectory() as root:
+            write(root, "crates/rakka-actor/src/a.rs", "let x = 1;\n")
+            self.assertEqual(mr.find_stale_patterns({"noop": ("src/a.rs", "let x = 1;", "let x = 1;", "w")}, root), ["noop"])
+            self.assertEqual(mr.find_stale_patterns({"real": ("src/a.rs", "let x = 1;", "let x = 2;", "w")}, root), [])
+
     def test_stale_mutants_are_reported_as_errors_and_keep_the_run_from_passing(self):
         outcomes = {"gone": "STALE_PATTERN", "fine": "DETECTED"}
         errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
@@ -560,6 +566,21 @@ class RecoveryAfterAKilledProcess(unittest.TestCase):
             removed = mr.prune_run_directories(runs, keep=0)                                   # the OS released the killed run's marker...
             self.assertEqual(removed, [os.path.basename(killed_run)])                          # ...so it is just a finished run now
             self.assertTrue(os.path.isdir(alive_run))                                          # and the active one is never pruned
+
+    def test_a_scratch_directory_named_after_its_owner_is_recovered_even_if_the_process_died_before_writing_a_marker(self):
+        with tempfile.TemporaryDirectory() as store, tempfile.TemporaryDirectory() as scratch:
+            write(scratch, f"pekko-mutants-{self.DEAD}-a1b2c3/target/artifact", "a cargo target left by a SIGKILLed child")
+            write(scratch, f"pekko-mutants-{self.ALIVE}-d4e5f6/target/artifact", "a live process is using this")
+            report = mr.recover_after_crash(store, scratch, pid_alive=self.alive)
+            self.assertEqual(report["scratch_removed"], 1)
+            self.assertEqual(os.listdir(scratch), [f"pekko-mutants-{self.ALIVE}-d4e5f6"])
+
+    def test_a_scratch_directory_is_born_with_its_owner_in_its_name_so_there_is_no_unowned_window(self):
+        sys.path.insert(0, os.path.join(mr.ROOT, "tools", "parity"))
+        import check_divergence
+        with tempfile.TemporaryDirectory() as parent:
+            path = check_divergence.make_scratch_directory(parent)
+            self.assertTrue(os.path.basename(path).startswith(f"pekko-mutants-{os.getpid()}-"), path)
 
     def test_a_scratch_directory_made_by_check_divergence_carries_its_owner(self):
         sys.path.insert(0, os.path.join(mr.ROOT, "tools", "parity"))

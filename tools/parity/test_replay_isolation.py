@@ -250,6 +250,23 @@ class ReplayIsolation(unittest.TestCase):
         report = read_text(os.path.join(reports, "replay-report-m5.md"))
         self.assertTrue(report.startswith("Verdict path: full replay (output rejected); outcome HARNESS_ERROR"), report[:100])
 
+    # --- a binary path with whitespace cannot be passed to `--build` ---
+    def test_a_binary_path_with_whitespace_is_rejected_clearly_before_the_tool_runs(self):
+        called = os.path.join(self.tmp.name, "tool-was-called")
+        make_executable(self.tool, f'#!/bin/sh\ntouch "{called}"\n' + PASSING_JSON_ONLY.split("\n", 1)[1])
+        result = replay_lib.run_replay("/Users/some one/rakka/classic-parity", 5)
+        self.assertIsNone(result.passed)
+        self.assertIn("whitespace", result.problem)
+        self.assertFalse(os.path.exists(called))                                   # `--build` would have split the path: the tool never ran
+        verdict = replay_lib.evaluate("/Users/some one/rakka/classic-parity", result)
+        self.assertIsNone(verdict["ok"])
+        self.assertIn("whitespace", verdict["line"])
+
+    def test_a_single_case_confirmation_with_such_a_path_is_not_a_kill(self):
+        confirmation = replay_lib.confirm_applicable_divergence("/Users/some one/rakka/classic-parity", "c-a1")
+        self.assertFalse(confirmation.confirmed)
+        self.assertIn("whitespace", confirmation.reason)
+
     # --- waiting for the lock consumes the run's budget ---
     def hold_the_replay_lock(self):
         import fcntl

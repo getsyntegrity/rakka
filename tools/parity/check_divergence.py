@@ -1587,7 +1587,7 @@ SCRATCH_OWNER_MARKER = ".owner-pid"   # the same name as in tools/gates/mutant_r
 def make_scratch_directory(parent=None):
     """A scratch workspace that records its owner, so that a later run can tell a directory left behind by a killed process (SIGKILL cannot
     be handled) from one a live process is using."""
-    path = tempfile.mkdtemp(prefix="pekko-mutants-", dir=parent)
+    path = tempfile.mkdtemp(prefix=f"pekko-mutants-{os.getpid()}-", dir=parent)     # the owner is in the name from the instant it exists
     with open(os.path.join(path, SCRATCH_OWNER_MARKER), "w") as owner_file:
         owner_file.write(str(os.getpid()))
     return path

@@ -84,13 +84,13 @@ def find_stale_patterns(table, root, base=CRATE):
     """Mutants whose `old` text no longer occurs exactly once in their file: the code they target changed or disappeared.
     They are never run and never DETECTED; the run reports them as errors until they are rewritten or removed."""
     stale = []
-    for name, (rel, old, _new, _why) in table.items():
+    for name, (rel, old, new, _why) in table.items():
         try:
             with open(os.path.join(root, base, rel), encoding="utf-8") as source_file:
                 occurrences = source_file.read().count(old)
         except OSError:
             occurrences = 0
-        if occurrences != 1:
+        if occurrences != 1 or old == new:       # a patch that changes nothing is not a mutant either
             stale.append(name)
     return stale
 
@@ -470,6 +470,7 @@ def run_is_active(run_directory):
 
 
 SCRATCH_OWNER_MARKER = ".owner-pid"
+SCRATCH_OWNER_IN_NAME = re.compile(r"^pekko-mutants-(\d+)-")
 PARTIAL_CHECKPOINT = re.compile(r"^.+\.(\d+)\.tmp$")
 STAGING_BINARY = re.compile(r"^\.staging-(\d+)-[0-9a-f]+\.tmp$")
 
@@ -506,11 +507,15 @@ def recover_after_crash(store_directory, scratch_root, pid_alive=process_is_aliv
     for name in os.listdir(scratch_root) if os.path.isdir(scratch_root) else []:
         if not name.startswith("pekko-mutants-"):
             continue
-        try:
-            with open(os.path.join(scratch_root, name, SCRATCH_OWNER_MARKER)) as owner_file:
-                owner = int(owner_file.read().strip())
-        except (OSError, ValueError):
-            continue       # no marker or not a pid: the owner is unknown, so it is not ours to delete
+        named_owner = SCRATCH_OWNER_IN_NAME.match(name)
+        if named_owner:    # the owner is part of the name from the moment the directory exists: no window without an owner
+            owner = int(named_owner.group(1))
+        else:
+            try:
+                with open(os.path.join(scratch_root, name, SCRATCH_OWNER_MARKER)) as owner_file:
+                    owner = int(owner_file.read().strip())
+            except (OSError, ValueError):
+                continue   # no owner in the name, no marker, or not a pid: the owner is unknown, so it is not ours to delete
         if not pid_alive(owner):
             shutil.rmtree(os.path.join(scratch_root, name), ignore_errors=True)
             report["scratch_removed"] += 1
