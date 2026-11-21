@@ -68,8 +68,8 @@ MUTANTS = {
     ),
     "mailbox-dead-system-message-not-answered": (
         "src/actor/cell.rs",
-        "                Self::dead_system_message(msg);\n                return;",
-        "                drop(msg);\n                return;",
+        "            Self::dead_system_message(msg); // the queue is closed: the actor terminated\n            return;",
+        "            drop(msg); // the queue is closed: the actor terminated\n            return;",
         "a system message sent to a terminated actor is dropped, so a `Watch` is never answered with `Terminated` (DeathWatch hole)",
     ),
     "mailbox-queue-is-lifo": (
