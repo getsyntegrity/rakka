@@ -2,6 +2,7 @@
 """Tiered gate runner: FAST (inner loop), PR (the mandatory per-slice gates), MILESTONE (PR + full mutants + fuzzers).
 
   python3.12 tools/gates/gates.py fast|pr|milestone [--base REF] [--no-reuse] [--list]
+                                  [--max-mutants N] [--max-minutes M] [--authorize-full-mutants]   (MILESTONE mutants, see mutant_runner.py)
 
 Three rules, none of which weakens a gate:
   * Evidence reuse by content: a gate that already passed is not re-run only when the git tree ids of every path it reads,
@@ -24,7 +25,8 @@ PY = "python3.12"
 
 # Changes here can alter what any mutant does or how it is judged: every mutant is selected.
 GLOBAL_MUTANT_TRIGGERS = ("Cargo.toml", "Cargo.lock", "cases/", "rust/app-cases/", "oracle/", "tools/parity/check_divergence.py",
-                          "tools/parity/replay.py", "crates/rakka-actor/Cargo.toml", "crates/rakka-actor/examples/")
+                          "tools/parity/replay.py", "tools/parity/replay_lib.py", "tools/parity/na_q_cfg_30.py",
+                          "crates/rakka-actor/Cargo.toml", "crates/rakka-actor/examples/")
 
 
 def select_mutants(changed_files, mutants, tool_mutants):
@@ -45,11 +47,21 @@ def evidence_key(command, input_trees, toolchain, dirty_inputs):
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def verdict_line(name, exit_code, seconds, reused, log_path, log_text):
+def gate_label(gate, exit_code):
+    return "PASS" if exit_code == 0 else dict(gate.exit_labels).get(exit_code, "FAIL")
+
+
+def summary_line(tier, problems, gate_count, head):
+    """`problems` = [(gate name, verdict label)] of the gates that did not pass."""
+    outcome = ", ".join(f"{label} {name}" for name, label in problems) if problems else "all gates passed"
+    return f"{tier.upper()}: {outcome} ({gate_count} gates, HEAD {head})"
+
+
+def verdict_line(name, exit_code, seconds, reused, log_path, log_text, label="FAIL"):
     if exit_code == 0:
         return f"PASS {name} (reused evidence) log={log_path}" if reused else f"PASS {name} ({seconds:.0f}s) log={log_path}"
     tail = "\n".join(log_text.splitlines()[-20:])[-MAX_FAILURE_CHARS:]
-    return f"FAIL {name} exit={exit_code} ({seconds:.0f}s) log={log_path}\n{tail}"
+    return f"{label} {name} exit={exit_code} ({seconds:.0f}s) log={log_path}\n{tail}"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -58,14 +70,19 @@ class Gate:
     command: list
     inputs: tuple            # repo paths whose git tree ids key the evidence
     skip_reason: str = ""    # non-empty: nothing to run (reported, never silent)
+    regenerates: tuple = ()  # tracked files this gate rewrites on every run: not "uncommitted edits" of its own inputs
+    exit_labels: tuple = ()  # (exit code, verdict label) pairs; any other non-zero code is a plain FAIL
 
 
 RUST_INPUTS = ("crates", "Cargo.toml", "Cargo.lock")
-PARITY_INPUTS = RUST_INPUTS + ("cases", "tools/parity", "oracle")
+ORACLE_INPUTS = RUST_INPUTS + ("cases", "tools/parity", "oracle")           # what the differential fuzzers read
+PARITY_INPUTS = ORACLE_INPUTS + ("rust/app-cases",)                          # plus the recordings the replay compares against
+MUTANT_RUNNER_LABELS = ((1, "FAIL"), (2, "ERROR"), (3, "INCOMPLETE"), (143, "CANCELLED"))   # exit codes of tools/gates/mutant_runner.py (Q-X-20, proposed)
+REPLAY_REGENERATED = ("rust/app-cases/replay-report.md", "rust/divergence-reports")
 FUZZ_COUNTS = [("fuzz_diff.py", 100000), ("fuzz_scenarios.py", 1500), ("fuzz_tell.py", 1000), ("fuzz_hier.py", 1000)]
 
 
-def tier_gates(tier, selected_mutants):
+def tier_gates(tier, selected_mutants, mutant_args=()):
     fast = [
         Gate("fmt", ["cargo", "fmt", "--all", "--check"], RUST_INPUTS),
         Gate("package-check", [PY, "tools/package/check.py"], ("docs", "tools/package", "crates", "tools", "oracle", "AGENTS.md")),
@@ -76,27 +93,86 @@ def tier_gates(tier, selected_mutants):
         Gate("test", ["cargo", "test", "--workspace"], RUST_INPUTS),
         Gate("deny", ["cargo", "deny", "check", "licenses"], ("Cargo.toml", "Cargo.lock", "deny.toml", "crates")),
         Gate("coverage", ["tools/parity/coverage.sh"], RUST_INPUTS + ("tools/parity/coverage.sh",)),
-        Gate("replay", ["tools/gates/replay.sh"], PARITY_INPUTS),
+        Gate("replay", ["tools/gates/replay.sh"], PARITY_INPUTS, regenerates=REPLAY_REGENERATED),
     ]
     mutants = Gate("mutants", [PY, "tools/parity/check_divergence.py", *selected_mutants], PARITY_INPUTS,
-                   "" if selected_mutants else "no mutated file changed since the base")
+                   "" if selected_mutants else "no mutated file changed since the base", REPLAY_REGENERATED, MUTANT_RUNNER_LABELS)
     if tier == "fast":
         return fast
     if tier == "pr":
         return fast + pr_extra + [mutants]
-    full_mutants = Gate("mutants", [PY, "tools/parity/check_divergence.py"], PARITY_INPUTS)
-    fuzz = [Gate("fuzz-" + s[5:-3], [PY, "-u", f"tools/parity/{s}", "--count", str(n), "--seed", str(seed)], PARITY_INPUTS)
+    # budgeted + resumable (tools/gates/mutant_runner.py): never all 206 without --authorize-full-mutants
+    full_mutants = Gate("mutants", [PY, "tools/gates/mutant_runner.py", *mutant_args], PARITY_INPUTS + ("tools/gates",), regenerates=REPLAY_REGENERATED, exit_labels=MUTANT_RUNNER_LABELS)
+    fuzz = [Gate("fuzz-" + s[5:-3], [PY, "-u", f"tools/parity/{s}", "--count", str(n), "--seed", str(seed)], ORACLE_INPUTS)
             for s, n in FUZZ_COUNTS for seed in (1, 2, 3)]
     return fast + pr_extra + [full_mutants] + fuzz
+
+
+def git_raw(*args, repo=ROOT):
+    """git stdout, unstripped (NUL-separated output must stay intact); a failing git command is a usage error, never an empty answer."""
+    result = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise UsageError(f"git {' '.join(args)} failed: {result.stderr.strip()[:200]}")
+    return result.stdout
 
 
 def git(*args):
     return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
 
 
-def input_state(paths):
+class UsageError(Exception):
+    pass
+
+
+def status_pathspecs(input_paths, regenerates):
+    """Pathspecs of the dirty check: the gate's existing inputs minus the files it rewrites itself; None when there is nothing to check
+    (an empty list would make git look at the whole repository)."""
+    if not input_paths:
+        return None
+    return [*input_paths, *(":(exclude)" + path for path in regenerates)]
+
+
+TIERS = ("fast", "pr", "milestone")
+VALUE_FLAGS = ("--base", "--max-mutants", "--max-minutes")
+
+
+def parse_arguments(argv):
+    """-> dict(tier, base, no_reuse, list, mutant_args). `--base` is validated for every tier (it needs a value that is not another flag);
+    the value of a value-taking flag is never read as the tier, so a ref named like a tier is fine."""
+    consumed = set()
+    for flag in VALUE_FLAGS:
+        if flag in argv:
+            position = argv.index(flag) + 1
+            if flag == "--base" and (position >= len(argv) or argv[position].startswith("--")):
+                raise UsageError("--base needs a ref")
+            if position < len(argv) and not argv[position].startswith("--"):
+                consumed.update({position - 1, position})
+    positionals = [token for index, token in enumerate(argv) if index not in consumed and not token.startswith("--")]
+    if len(positionals) != 1 or positionals[0] not in TIERS:
+        raise UsageError("expected exactly one tier: fast, pr or milestone")
+    tier = positionals[0]
+    base = argv[argv.index("--base") + 1] if "--base" in argv else DEFAULT_BASE
+    return {"tier": tier, "base": base, "no_reuse": "--no-reuse" in argv, "list": "--list" in argv, "mutant_args": mutant_arguments(tier, argv)}
+
+
+def mutant_arguments(tier, argv):
+    """The MILESTONE mutant flags forwarded to tools/gates/mutant_runner.py; a value-taking flag must be followed by a value."""
+    if tier != "milestone":
+        return []
+    forwarded = []
+    for flag in ("--max-mutants", "--max-minutes", "--base"):
+        if flag in argv:
+            position = argv.index(flag) + 1
+            if position >= len(argv) or argv[position].startswith("--"):
+                raise UsageError(f"{flag} needs a value")
+            forwarded += [flag, argv[position]]
+    return forwarded + [flag for flag in ("--authorize-full-mutants", "--no-fast-kill") if flag in argv]
+
+
+def input_state(paths, regenerates=()):
     trees = {p: git("rev-parse", f"HEAD:{p}") for p in paths if os.path.exists(os.path.join(ROOT, p))}
-    dirty = bool(git("status", "--porcelain", "--untracked-files=normal", "--", *trees))
+    pathspecs = status_pathspecs(list(trees), regenerates)
+    dirty = bool(pathspecs) and bool(git("status", "--porcelain", "--untracked-files=normal", "--", *pathspecs))
     return trees, dirty
 
 
@@ -105,41 +181,94 @@ def run_gate(gate, toolchain, reuse, head):
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.relpath(os.path.join(log_dir, gate.name + ".log"), ROOT)
     if gate.skip_reason:
-        return f"SKIP {gate.name}: {gate.skip_reason}", 0
-    trees, dirty = input_state(gate.inputs)
+        return f"SKIP {gate.name}: {gate.skip_reason}", 0, "PASS"
+    trees, dirty = input_state(gate.inputs, gate.regenerates)
     key = evidence_key(gate.command, trees, toolchain, dirty)
     evidence = os.path.join(GATES_DIR, "evidence", f"{gate.name}-{key}.json") if key else None
     if reuse and evidence and os.path.exists(evidence):
-        return verdict_line(gate.name, 0, 0.0, True, json.load(open(evidence))["log"], ""), 0
+        with open(evidence) as evidence_file:
+            recorded_log = json.load(evidence_file)["log"]
+        return verdict_line(gate.name, 0, 0.0, True, recorded_log, ""), 0, "PASS"
     started = time.time()
     with open(os.path.join(ROOT, log_path), "w") as log:
         code = subprocess.run(gate.command, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT).returncode
     seconds = time.time() - started
-    text = open(os.path.join(ROOT, log_path)).read() if code else ""
+    text = ""
+    if code:
+        with open(os.path.join(ROOT, log_path)) as log_file:
+            text = log_file.read()
+    if code == 0 and input_state(gate.inputs, gate.regenerates) != (trees, dirty):
+        # HEAD moved or the inputs were edited while the gate ran: what it proved describes a state that no longer exists, so it is neither
+        # recorded as evidence nor reported as a pass
+        return (f"INPUTS_CHANGED {gate.name}: its inputs changed while it ran; the result is not recorded (log={log_path})", 1, "INPUTS_CHANGED")
     if code == 0 and evidence:
         os.makedirs(os.path.dirname(evidence), exist_ok=True)
-        json.dump({"gate": gate.name, "command": gate.command, "head": head, "log": log_path, "seconds": seconds}, open(evidence, "w"))
-    return verdict_line(gate.name, code, seconds, False, log_path, text), code
+        with open(evidence, "w") as evidence_file:
+            json.dump({"gate": gate.name, "command": gate.command, "head": head, "inputs": trees, "log": log_path, "seconds": seconds}, evidence_file)
+    label = gate_label(gate, code)
+    return verdict_line(gate.name, code, seconds, False, log_path, text, label), code, label
 
 
-def changed_files(base):
-    committed = git("diff", "--name-only", f"{base}...HEAD").splitlines()
-    working = git("status", "--porcelain").splitlines()
-    return sorted(set(committed) | {line[3:] for line in working})
+def is_regenerated(path, regenerated):
+    return any(path == entry or path.startswith(entry.rstrip("/") + "/") for entry in regenerated)
+
+
+def changed_paths_from_git(diff_output, status_output, regenerated=REPLAY_REGENERATED):
+    """Paths from `git diff --name-status -z` (committed) and `git status --porcelain -z` (working tree): spaces survive, and a rename
+    or copy contributes both its source and its destination, committed or not. A working-tree change to a file that the gates themselves
+    regenerate on every run (the replay report) is not a change of the code under test: without this, each replay would make the next PR gate
+    select every mutant."""
+    paths = set()
+    diff_tokens = diff_output.split("\0")
+    token = 0
+    while token < len(diff_tokens):
+        status = diff_tokens[token]
+        token += 1
+        if not status:
+            continue
+        path_count = 2 if status[0] in "RC" else 1
+        paths.update(path for path in diff_tokens[token:token + path_count] if path)
+        token += path_count
+    entries = status_output.split("\0")
+    position = 0
+    while position < len(entries):
+        entry = entries[position]
+        position += 1
+        if len(entry) < 4:
+            continue
+        original = None
+        if entry[0] in "RC" or entry[1] in "RC":      # the next entry is the original path
+            if position < len(entries) and entries[position]:
+                original = entries[position]
+            position += 1
+        for path in (entry[3:], original):
+            if path and not is_regenerated(path, regenerated):
+                paths.add(path)
+    return sorted(paths)
+
+
+def changed_files(base, repo=ROOT):
+    return changed_paths_from_git(git_raw("diff", "--name-status", "-z", "-M", f"{base}...HEAD", repo=repo), git_raw("status", "--porcelain", "-z", repo=repo))
 
 
 def main(argv):
-    tiers = [a for a in argv if a in ("fast", "pr", "milestone")]
-    if len(tiers) != 1:
-        sys.exit(__doc__)
-    base = argv[argv.index("--base") + 1] if "--base" in argv else DEFAULT_BASE
+    try:
+        parsed = parse_arguments(argv)
+    except UsageError as problem:
+        print(f"refused: {problem}")
+        return 2
+    tier, base, mutant_args = parsed["tier"], parsed["base"], parsed["mutant_args"]
     selected = []
-    if tiers[0] == "pr":
+    if tier == "pr":
         sys.path.insert(0, os.path.join(ROOT, "tools", "parity"))
         import check_divergence
-        selected = select_mutants(changed_files(base), check_divergence.MUTANTS, check_divergence.TOOL_MUTANTS)
-    gates = tier_gates(tiers[0], selected)
-    if "--list" in argv:
+        try:
+            selected = select_mutants(changed_files(base), check_divergence.MUTANTS, check_divergence.TOOL_MUTANTS)
+        except UsageError as problem:
+            print(f"refused: {problem}")
+            return 2
+    gates = tier_gates(tier, selected, mutant_args)
+    if parsed["list"]:
         for g in gates:
             print(g.name, " ".join(g.command) if not g.skip_reason else f"(skip: {g.skip_reason})")
         return 0
@@ -147,11 +276,11 @@ def main(argv):
     head = git("rev-parse", "--short=12", "HEAD")
     failed = []
     for g in gates:
-        line, code = run_gate(g, toolchain, "--no-reuse" not in argv, head)
+        line, code, label = run_gate(g, toolchain, not parsed["no_reuse"], head)
         print(line, flush=True)
         if code:
-            failed.append(g.name)
-    print(f"{tiers[0].upper()}: {'FAILED ' + ', '.join(failed) if failed else 'all gates passed'} ({len(gates)} gates, HEAD {head})")
+            failed.append((g.name, label))
+    print(summary_line(tier, failed, len(gates), head))
     return 1 if failed else 0
 
 
