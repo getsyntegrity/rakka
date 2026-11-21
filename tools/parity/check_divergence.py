@@ -159,6 +159,12 @@ MUTANTS = {
         "if false {\n            s.push('#');",
         "toSerializationFormat forgets the #uid suffix",
     ),
+    "actor-name-ending-in-an-escape-rejected": (
+        "src/actor/path.rs",
+        "&& pos + 2 < units.len()",
+        "&& pos + 3 < units.len()",
+        "an actor name that ends with a percent escape (\"%41\", \"a%4A\") is rejected: an off-by-one in the bounds check of the hex digits (#315, name-ok-28)",
+    ),
     # --- slice 3a: hierarchy identity and DeathWatch ---
     "ref-identity-is-path": (
         "src/actor/actor_ref.rs",
