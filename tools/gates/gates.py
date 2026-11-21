@@ -14,7 +14,7 @@ Three rules, none of which weakens a gate:
 
 Derived-from: none (project tooling, Apache-2.0).
 """
-import dataclasses, hashlib, json, os, subprocess, sys, time
+import collections, dataclasses, hashlib, json, os, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GATES_DIR = os.path.join(ROOT, ".gates")
@@ -169,11 +169,54 @@ def mutant_arguments(tier, argv):
     return forwarded + [flag for flag in ("--authorize-full-mutants", "--no-fast-kill") if flag in argv]
 
 
+InputState = collections.namedtuple("InputState", "trees dirty fingerprint")
+_CONTENT_DIGEST_CACHE = {}
+
+
+def file_content_digest(path):
+    """sha256 of a file's content ('absent' when it does not exist); a file untouched for 2 s is re-read only when its stat changes."""
+    try:
+        status = os.stat(path)
+    except OSError:
+        return "absent"
+    settled = time.time() - status.st_mtime > 2
+    cache_key = (path, status.st_mtime_ns, status.st_size, status.st_ino)
+    if settled and cache_key in _CONTENT_DIGEST_CACHE:
+        return _CONTENT_DIGEST_CACHE[cache_key]
+    with open(path, "rb") as content_file:
+        digest = hashlib.sha256(content_file.read()).hexdigest()
+    if settled:
+        _CONTENT_DIGEST_CACHE[cache_key] = digest
+    return digest
+
+
+def inputs_fingerprint(paths, regenerates=()):
+    """The effective state of a gate's inputs, local changes included: which declared paths exist, which files are under them (tracked or
+    untracked, not ignored; a tracked file deleted from the working tree is listed and read as absent) and the content of each, minus the files
+    the gate itself regenerates. Appearance, removal, rename and any edit of an input change it, whether or not the tree was already dirty."""
+    digest = hashlib.sha256()
+    for path in paths:
+        digest.update(f"declared:{path}:{os.path.exists(os.path.join(ROOT, path))};".encode())
+    listing = git_raw("ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *paths, repo=ROOT)
+    for name in sorted({entry for entry in listing.split("\0") if entry}):
+        if not is_regenerated(name, regenerates):
+            digest.update(f"{name}:{file_content_digest(os.path.join(ROOT, name))};".encode())
+    return digest.hexdigest()
+
+
 def input_state(paths, regenerates=()):
-    trees = {p: git("rev-parse", f"HEAD:{p}") for p in paths if os.path.exists(os.path.join(ROOT, p))}
+    """-> InputState(trees, dirty, fingerprint): the HEAD tree id of each existing input ('untracked' for one HEAD does not have), whether the
+    inputs have uncommitted changes (the evidence of a gate is reused only for clean inputs), and the fingerprint of their effective content."""
+    trees = {}
+    for path in paths:
+        if os.path.exists(os.path.join(ROOT, path)):
+            try:
+                trees[path] = git("rev-parse", f"HEAD:{path}")
+            except subprocess.CalledProcessError:
+                trees[path] = "untracked"
     pathspecs = status_pathspecs(list(trees), regenerates)
     dirty = bool(pathspecs) and bool(git("status", "--porcelain", "--untracked-files=normal", "--", *pathspecs))
-    return trees, dirty
+    return InputState(trees, dirty, inputs_fingerprint(paths, regenerates))
 
 
 def run_gate(gate, toolchain, reuse, head):
@@ -182,7 +225,8 @@ def run_gate(gate, toolchain, reuse, head):
     log_path = os.path.relpath(os.path.join(log_dir, gate.name + ".log"), ROOT)
     if gate.skip_reason:
         return f"SKIP {gate.name}: {gate.skip_reason}", 0, "PASS"
-    trees, dirty = input_state(gate.inputs, gate.regenerates)
+    state_before = input_state(gate.inputs, gate.regenerates)
+    trees, dirty = state_before[0], state_before[1]
     key = evidence_key(gate.command, trees, toolchain, dirty)
     evidence = os.path.join(GATES_DIR, "evidence", f"{gate.name}-{key}.json") if key else None
     if reuse and evidence and os.path.exists(evidence):
@@ -197,7 +241,7 @@ def run_gate(gate, toolchain, reuse, head):
     if code:
         with open(os.path.join(ROOT, log_path)) as log_file:
             text = log_file.read()
-    if code == 0 and input_state(gate.inputs, gate.regenerates) != (trees, dirty):
+    if code == 0 and input_state(gate.inputs, gate.regenerates) != state_before:
         # HEAD moved or the inputs were edited while the gate ran: what it proved describes a state that no longer exists, so it is neither
         # recorded as evidence nor reported as a pass
         return (f"INPUTS_CHANGED {gate.name}: its inputs changed while it ran; the result is not recorded (log={log_path})", 1, "INPUTS_CHANGED")
