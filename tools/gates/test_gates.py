@@ -8,7 +8,7 @@ MUTANTS = {
     "cell-throughput": ("src/actor/cell.rs", "o", "n", "why"),
     "cell-dead-letters": ("src/actor/cell.rs", "o", "n", "why"),
 }
-TOOL_MUTANTS = {"replay-lib-mutant": ("replay_lib.py", "o", "n", "why")}
+TOOL_MUTANTS = {"fuzz-diff-mutant": ("fuzz_diff.py", "o", "n", "why")}
 
 
 class MutantSelection(unittest.TestCase):
@@ -25,7 +25,12 @@ class MutantSelection(unittest.TestCase):
             self.assertEqual(gates.select_mutants([changed], MUTANTS, TOOL_MUTANTS), everything, changed)
 
     def test_a_tool_file_change_selects_its_tool_mutants(self):
-        self.assertEqual(gates.select_mutants(["tools/parity/replay_lib.py"], MUTANTS, TOOL_MUTANTS), ["replay-lib-mutant"])
+        self.assertEqual(gates.select_mutants(["tools/parity/fuzz_diff.py"], MUTANTS, TOOL_MUTANTS), ["fuzz-diff-mutant"])
+
+    def test_the_helpers_that_decide_whether_a_mutant_is_detected_select_every_mutant(self):
+        everything = list(MUTANTS) + list(TOOL_MUTANTS)
+        for helper in ("tools/parity/replay_lib.py", "tools/parity/na_q_cfg_30.py"):
+            self.assertEqual(gates.select_mutants([helper], MUTANTS, TOOL_MUTANTS), everything, helper)
 
 
 class EvidenceReuse(unittest.TestCase):

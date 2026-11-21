@@ -1496,6 +1496,14 @@ def check_patterns():
     sys.exit(2 if bad else 0)
 
 
+def control_exit_code(control_ok, replayed_cases):
+    """0 the control is clean; 1 it replayed and diverged from Pekko (a real regression); 2 it could not run (build failure, timeout,
+    harness error: `replayed_cases` is None), which says nothing about the code."""
+    if control_ok:
+        return 0
+    return 1 if replayed_cases is not None else 2
+
+
 def run_control_replay():
     """Replays the unmodified crate: builds the parity binary of the CURRENT tree first (a leftover binary would certify old code).
     -> (control_ok, passed, total, line, replay result or None)."""
@@ -1562,7 +1570,7 @@ def main():
         with open(os.path.join(REPORTS, "SUMMARY.md"), "w") as fh:
             fh.write(table + f"\n\noutcomes: {counts}\n")
     errors = counts[PATCH_ERROR] + counts[BUILD_ERROR] + counts[HARNESS_ERROR] + counts[TIMEOUT]
-    if errors or len(sizes) > 1:
+    if errors or len(sizes) > 1 or control_exit_code(control_ok, c_pass) == 2:
         sys.exit(2)          # the experiment itself is invalid: not a verdict on the harness
     sys.exit(0 if counts[UNDETECTED] == 0 and control_ok else 1)
 

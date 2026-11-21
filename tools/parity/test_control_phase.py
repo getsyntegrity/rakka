@@ -30,5 +30,12 @@ class ControlPhase(unittest.TestCase):
         self.assertIn("build", line)
 
 
+class ControlExitCode(unittest.TestCase):
+    def test_a_clean_control_exits_0_a_diverging_one_exits_1_and_one_that_could_not_run_exits_2(self):
+        self.assertEqual(cd.control_exit_code(control_ok=True, replayed_cases=2821), 0)
+        self.assertEqual(cd.control_exit_code(control_ok=False, replayed_cases=2821), 1)   # replayed and diverged: a real regression
+        self.assertEqual(cd.control_exit_code(control_ok=False, replayed_cases=None), 2)   # build failure, timeout or harness error: invalid run
+
+
 if __name__ == "__main__":
     unittest.main()

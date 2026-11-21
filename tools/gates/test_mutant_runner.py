@@ -214,7 +214,26 @@ class ControlVerification(unittest.TestCase):
             store = mr.ResultStore(root)
             self.assertEqual(mr.ensure_control(store, "k", lambda: mr.TIMED_OUT, budget_limited=True), "UNVERIFIED")
             self.assertFalse(store.is_fresh("control-k"))
-            self.assertEqual(mr.ensure_control(store, "k2", lambda: mr.TIMED_OUT, budget_limited=False), "FAILED")
+            self.assertEqual(mr.ensure_control(store, "k2", lambda: mr.TIMED_OUT, budget_limited=False), "ERROR")   # a hung control is an invalid run, not a regression
+
+    def test_only_an_exit_of_1_means_the_control_found_a_divergence_every_other_abnormal_exit_is_an_error(self):
+        for abnormal in (2, 143, 137, 77):
+            with tempfile.TemporaryDirectory() as root:
+                store = mr.ResultStore(root)
+                self.assertEqual(mr.ensure_control(store, "k", lambda code=abnormal: code), "ERROR", abnormal)
+                self.assertEqual(os.listdir(root), [])                  # an invalid run leaves no verdict behind
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(mr.ensure_control(mr.ResultStore(root), "k", lambda: 1), "FAILED")
+
+    def test_a_control_error_is_exit_2_but_a_surviving_mutant_still_wins(self):
+        self.assertEqual(mr.exit_code(undetected=[], errors=[], pending=[], control="ERROR"), 2)
+        self.assertEqual(mr.exit_code(undetected=["x"], errors=[], pending=[], control="ERROR"), 1)
+
+    def test_with_an_erroring_control_no_mutant_runs(self):
+        with tempfile.TemporaryDirectory() as root:
+            started = []
+            control, report = mr.run_guarded(mr.ResultStore(root), "k", lambda: 2, lambda: started.append(1), budget_limited=False)
+            self.assertEqual((control, report, started), ("ERROR", None, []))
 
     def test_an_unverified_control_makes_the_run_incomplete_not_a_failure(self):
         self.assertEqual(mr.exit_code(undetected=[], errors=[], pending=[], control="UNVERIFIED"), 3)
@@ -497,6 +516,14 @@ class Verdicts(unittest.TestCase):
         self.assertEqual(result.returncode, 143)
         self.assertIn("VERDICT CANCELLED", result.stdout)
         self.assertNotIn("Traceback", result.stderr)
+
+    def test_an_unexpected_exception_is_an_error_exit_2_with_the_traceback_not_a_failed_mutation_run(self):
+        driver = (f"import sys; sys.path.insert(0, {HERE!r}); import mutant_runner as mr;"
+                  "mr.main = lambda argv: (_ for _ in ()).throw(OSError('disk full')); mr.run_as_script([])")
+        result = subprocess.run([sys.executable, "-c", driver], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("VERDICT ERROR", result.stdout)
+        self.assertIn("disk full", result.stderr)        # the traceback is kept for diagnosis
 
     def test_a_cancelled_runner_prints_cancelled_and_exits_143(self):
         driver = (f"import sys; sys.path.insert(0, {HERE!r}); import mutant_runner as mr;"

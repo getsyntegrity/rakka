@@ -24,7 +24,7 @@ The last lines of the log are a <=12 line summary: read those, never the whole l
 
 Derived-from: none (project tooling, Apache-2.0).
 """
-import ast, hashlib, json, os, re, signal, subprocess, sys, time
+import ast, hashlib, json, os, re, signal, subprocess, sys, time, traceback
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 STORE_DIR = os.path.join(ROOT, ".gates", "mutants")
@@ -230,8 +230,13 @@ def ensure_control(store, control_key, run_control, budget_limited=False):
     code = run_control()
     if code == TIMED_OUT and budget_limited:   # the time budget ended before the control could: unverified (INCOMPLETE), neither passed nor failed
         return "UNVERIFIED"
-    store.put("control-" + control_key, {"outcome": "DETECTED" if code == 0 else "FAILED"})
-    return "CLEAN" if code == 0 else "FAILED"
+    if code == 0:
+        store.put("control-" + control_key, {"outcome": "DETECTED"})
+        return "CLEAN"
+    if code == 1:   # the control replayed and diverged from Pekko: a real regression of the crate
+        store.put("control-" + control_key, {"outcome": "FAILED"})
+        return "FAILED"
+    return "ERROR"   # could not build/run (exit 2), cancelled (143), hung, killed: an invalid run says nothing about the code, and is not stored
 
 
 def is_budget_limited(remaining_seconds):
@@ -311,7 +316,7 @@ def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds, key
 def exit_code(undetected, errors, pending, control):
     if undetected or control == "FAILED":
         return 1
-    if errors:
+    if errors or control == "ERROR":
         return 2
     return 3 if pending or control == "UNVERIFIED" else 0
 
@@ -494,6 +499,9 @@ def run_as_script(argv):
         code = stop.code if isinstance(stop.code, int) else 2
     except KeyboardInterrupt:      # Ctrl-C: the process group was already killed by run_cancellable and the checkpoints are on disk
         code = 143
+    except Exception:              # the run itself was invalid (disk full, missing git/rustc...): ERROR, never the FAIL of a surviving mutant
+        traceback.print_exc()
+        code = 2
     print(f"VERDICT {verdict(code)} (exit {code})")
     sys.exit(code)
 

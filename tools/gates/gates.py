@@ -25,7 +25,8 @@ PY = "python3.12"
 
 # Changes here can alter what any mutant does or how it is judged: every mutant is selected.
 GLOBAL_MUTANT_TRIGGERS = ("Cargo.toml", "Cargo.lock", "cases/", "rust/app-cases/", "oracle/", "tools/parity/check_divergence.py",
-                          "tools/parity/replay.py", "crates/rakka-actor/Cargo.toml", "crates/rakka-actor/examples/")
+                          "tools/parity/replay.py", "tools/parity/replay_lib.py", "tools/parity/na_q_cfg_30.py",
+                          "crates/rakka-actor/Cargo.toml", "crates/rakka-actor/examples/")
 
 
 def select_mutants(changed_files, mutants, tool_mutants):
