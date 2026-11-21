@@ -1322,11 +1322,11 @@ def replay(binary):
     return replay_lib.run_replay(binary, REPLAY_TIMEOUT)
 
 
-def classify(r, binary):
+def classify(replay_result, binary):
     """-> (outcome, passed, total, line), counting only applicable cases (NOT_APPLICABLE ones must be rejected
     explicitly, see replay_lib). A mutant is detected only when the replay ran to completion and either an
     applicable case diverged or a NOT_APPLICABLE input was no longer rejected explicitly."""
-    ev = replay_lib.evaluate(binary, r)
+    ev = replay_lib.evaluate(binary, replay_result)
     if ev["ok"] is None:
         return HARNESS_ERROR, None, None, ev["line"]
     detail = ev["line"] + "".join(f"; {p}" for p in ev["na_problems"])
@@ -1409,19 +1409,19 @@ def run_mutant(scratch, name, rel, old, new, why):
 def full_replay_verdict(binary, name):
     """The verdict of a mutant from the full recorded replay: -> (outcome, passed, total, line)."""
     try:
-        r = replay(binary)
+        replay_result = replay(binary)
     except subprocess.TimeoutExpired:
         return TIMEOUT, None, None, "rust-anything replay"
     except replay_lib.ReplayLockTimeout:
         return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
-    outcome = classify(r, binary)
+    outcome = classify(replay_result, binary)
     # the report of THIS replay (read under the checkout lock), never the shared file as it is now; a verdict always rewrites it, so that an
     # earlier report can never sit under a verdict path that no longer applies
-    scope = "output rejected" if r.passed is None else f"{r.total} cases"
+    scope = "output rejected" if replay_result.passed is None else f"{replay_result.total} cases"
     publish_mutant_report(name, f"full replay ({scope}); outcome {outcome[0]}",
-                          r.report_text if r.report_text is not None else "(this replay produced no report)\n")
-    if r.passed is not None:
-        write_killers(name, r.failures)
+                          replay_result.report_text if replay_result.report_text is not None else "(this replay produced no report)\n")
+    if replay_result.passed is not None:
+        write_killers(name, replay_result.failures)
     return outcome
 
 
@@ -1621,7 +1621,7 @@ def main():
     only = [a for a in args if not a.startswith("--")]  # optional: run just these mutants (the control still runs unless --skip-control)
     mutants = dict(SELFTEST) if selftest else {**MUTANTS, **TOOL_MUTANTS}
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))   # cancellation runs the `finally` below: scratch removed, children killed
-    c_pass = c_total = None
+    control_passed = control_total = None
     for n in only:
         assert n in mutants, f"unknown mutant {n}"
     tool_only = bool(only) and all(n in TOOL_MUTANTS for n in only)
@@ -1636,32 +1636,32 @@ def main():
             res = (run_tool_mutant if name in TOOL_MUTANTS else run_mutant)(scratch, name, rel, old, new, why)
             results[name] = res
             print(f"{res[0]}  {res[3]}\n", flush=True)
-        c = None
+        control_replay_result = None
         if skip_control:   # the caller (tools/gates) runs the control once for a whole batch
-            control_ok, c_pass, c_total, c_line = True, None, None, "skipped (--skip-control)"
+            control_ok, control_passed, control_total, control_line = True, None, None, "skipped (--skip-control)"
         elif tool_only:   # the tool mutants need no replay: the control would only repeat the last full run
-            control_ok, c_pass, c_total, c_line = True, None, None, "skipped (tool mutants only)"
+            control_ok, control_passed, control_total, control_line = True, None, None, "skipped (tool mutants only)"
         else:
-            control_ok, c_pass, c_total, c_line, c = run_control_replay()
-        print(f"=== control (unmodified rakka-actor): exit={c.returncode if c is not None and c_pass is not None else '?'}  {c_line}", flush=True)
+            control_ok, control_passed, control_total, control_line, control_replay_result = run_control_replay()
+        print(f"=== control (unmodified rakka-actor): exit={control_replay_result.returncode if control_replay_result is not None and control_passed is not None else '?'}  {control_line}", flush=True)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     # a replay of a different corpus size would make the pass counts incomparable
-    sizes = {t for (_o, _p, t, _l) in results.values() if t is not None} | ({c_total} if c_total else set())
+    sizes = {t for (_o, _p, t, _l) in results.values() if t is not None} | ({control_total} if control_total else set())
     rows = ["| mutant | outcome | passed/total |", "|---|---|---|"]
     rows += [f"| {n} | {o} | {f'{p}/{t}' if p is not None else '-'} |" for n, (o, p, t, _l) in results.items()]
-    rows.append(f"| control (unmodified) | {'CLEAN' if control_ok else 'FAILED'} | {f'{c_pass}/{c_total}' if c_pass is not None else '-'} |")
+    rows.append(f"| control (unmodified) | {'CLEAN' if control_ok else 'FAILED'} | {f'{control_passed}/{control_total}' if control_passed is not None else '-'} |")
     table = "\n".join(rows)
     counts = {k: sum(1 for r in results.values() if r[0] == k) for k in (DETECTED, UNDETECTED, PATCH_ERROR, BUILD_ERROR, HARNESS_ERROR, TIMEOUT)}
     print("\n" + table + f"\n\ncorpus sizes seen: {sorted(sizes)}  outcomes: {counts}  detected {counts[DETECTED]}/{len(results)}")
     if result_json:
-        with open(result_json, "w") as fh:
-            json.dump({"mutants": {n: list(r) for n, r in results.items()}, "control": None if skip_control else control_ok}, fh)
+        with open(result_json, "w") as result_file:
+            json.dump({"mutants": {name: list(result) for name, result in results.items()}, "control": None if skip_control else control_ok}, result_file)
     if not selftest and not only and not skip_control and not control_only:
-        with open(os.path.join(REPORTS, "SUMMARY.md"), "w") as fh:
-            fh.write(table + f"\n\noutcomes: {counts}\n")
-    budget_exhausted = any(result[0] == BUDGET_EXHAUSTED for result in results.values()) or c_line == BUDGET_EXHAUSTED_LINE
-    sys.exit(final_exit_code(counts, sizes, control_ok, c_pass, budget_exhausted))
+        with open(os.path.join(REPORTS, "SUMMARY.md"), "w") as summary_file:
+            summary_file.write(table + f"\n\noutcomes: {counts}\n")
+    budget_exhausted = any(result[0] == BUDGET_EXHAUSTED for result in results.values()) or control_line == BUDGET_EXHAUSTED_LINE
+    sys.exit(final_exit_code(counts, sizes, control_ok, control_passed, budget_exhausted))
 
 
 if __name__ == "__main__":

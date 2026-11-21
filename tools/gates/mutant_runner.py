@@ -48,35 +48,36 @@ PY = "python3.12"
 def import_edges(root):
     """file -> set of files related to it through `use crate::a::b` or `mod x;` (undirected, one hop; `super::` is not followed)."""
     src_root = os.path.join(root, CRATE, "src")
-    files = [os.path.join(d, f) for d, _s, fs in os.walk(src_root) for f in fs if f.endswith(".rs")]
-    rel = lambda p: os.path.relpath(p, root)
-    edges = {rel(f): set() for f in files}
+    source_paths = [os.path.join(directory, filename) for directory, _subdirectories, filenames in os.walk(src_root)
+                    for filename in filenames if filename.endswith(".rs")]
+    relative_to_root = lambda path: os.path.relpath(path, root)
+    edges = {relative_to_root(path): set() for path in source_paths}
 
     def resolve(segments):
-        for k in range(len(segments), 0, -1):
-            base = os.path.join(src_root, *segments[:k])
-            for candidate in (base + ".rs", os.path.join(base, "mod.rs")):
-                if rel(candidate) in edges:   # a known file, not merely a path the (case-insensitive) filesystem accepts
-                    return rel(candidate)
+        for prefix_length in range(len(segments), 0, -1):
+            module_base = os.path.join(src_root, *segments[:prefix_length])
+            for candidate in (module_base + ".rs", os.path.join(module_base, "mod.rs")):
+                if relative_to_root(candidate) in edges:   # a known file, not merely a path the (case-insensitive) filesystem accepts
+                    return relative_to_root(candidate)
         return None
 
-    def link(a, b):
-        if b and a != b:
-            edges[a].add(b)
-            edges[b].add(a)
+    def link(importing_file, imported_file):
+        if imported_file and importing_file != imported_file:
+            edges[importing_file].add(imported_file)
+            edges[imported_file].add(importing_file)
 
-    for f in files:
-        with open(f, encoding="utf-8", errors="replace") as source_file:
+    for source_path in source_paths:
+        with open(source_path, encoding="utf-8", errors="replace") as source_file:
             text = source_file.read()
-        here = rel(f)
-        directory = os.path.relpath(os.path.dirname(f), src_root)
-        parent = [] if directory == "." else directory.split(os.sep)
-        stem = os.path.splitext(os.path.basename(f))[0]
-        own = parent if stem in ("mod", "lib", "main") else parent + [stem]
-        for m in re.finditer(r"\bcrate::([A-Za-z0-9_]+(?:::[A-Za-z0-9_]+)*)", text):
-            link(here, resolve(m.group(1).split("::")))
-        for m in re.finditer(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", text):
-            link(here, resolve(own + [m.group(1)]))
+        importing_file = relative_to_root(source_path)
+        directory = os.path.relpath(os.path.dirname(source_path), src_root)
+        parent_modules = [] if directory == "." else directory.split(os.sep)
+        stem = os.path.splitext(os.path.basename(source_path))[0]
+        own_module = parent_modules if stem in ("mod", "lib", "main") else parent_modules + [stem]
+        for use_match in re.finditer(r"\bcrate::([A-Za-z0-9_]+(?:::[A-Za-z0-9_]+)*)", text):
+            link(importing_file, resolve(use_match.group(1).split("::")))
+        for module_match in re.finditer(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", text):
+            link(importing_file, resolve(own_module + [module_match.group(1)]))
     return edges
 
 
@@ -84,9 +85,9 @@ def find_stale_patterns(table, root, base=CRATE):
     """Mutants whose `old` text no longer occurs exactly once in their file: the code they target changed or disappeared.
     They are never run and never DETECTED; the run reports them as errors until they are rewritten or removed."""
     stale = []
-    for name, (rel, old, new, _why) in table.items():
+    for name, (relative_file, old, new, _why) in table.items():
         try:
-            with open(os.path.join(root, base, rel), encoding="utf-8") as source_file:
+            with open(os.path.join(root, base, relative_file), encoding="utf-8") as source_file:
                 occurrences = source_file.read().count(old)
         except OSError:
             occurrences = 0
@@ -98,12 +99,12 @@ def find_stale_patterns(table, root, base=CRATE):
 def order_mutants(names, mutant_files, changed, edges):
     """[(name, 'changed'|'neighbour'|'other')], stable inside each class."""
     changed = set(changed)
-    near = set().union(*(edges.get(c, set()) for c in changed)) if changed else set()
+    near = set().union(*(edges.get(changed_file, set()) for changed_file in changed)) if changed else set()
     def tier(name):
-        f = mutant_files[name]
-        return "changed" if f in changed else "neighbour" if f in near else "other"
+        mutated_file = mutant_files[name]
+        return "changed" if mutated_file in changed else "neighbour" if mutated_file in near else "other"
     ranked = {"changed": 0, "neighbour": 1, "other": 2}
-    return sorted(((n, tier(n)) for n in names), key=lambda pair: ranked[pair[1]])
+    return sorted(((name, tier(name)) for name in names), key=lambda pair: ranked[pair[1]])
 
 
 # ---------- evidence keys and checkpoints ----------
@@ -166,12 +167,13 @@ def harness_fingerprint(root):
     roots = ["cases", "rust/app-cases", "tools/parity", "tools/gates/mutant_runner.py", "Cargo.toml", "Cargo.lock", CRATE + "Cargo.toml", CRATE + "examples"]
     for entry in roots:
         full = os.path.join(root, entry)
-        paths = [full] if os.path.isfile(full) else [os.path.join(d, f) for d, _s, fs in os.walk(full) for f in fs]
-        for p in sorted(paths):
-            name = os.path.relpath(p, root)
+        paths = [full] if os.path.isfile(full) else [os.path.join(directory, filename) for directory, _subdirectories, filenames in os.walk(full)
+                                                      for filename in filenames]
+        for path in sorted(paths):
+            name = os.path.relpath(path, root)
             if name.endswith("replay-report.md") or "__pycache__" in name or name == "tools/parity/check_divergence.py":
                 continue
-            digest.update(f"{name}:{file_digest(p)};".encode())
+            digest.update(f"{name}:{file_digest(path)};".encode())
     digest.update(divergence_logic_digest(os.path.join(root, "tools/parity/check_divergence.py")).encode())
     return digest.hexdigest()
 
@@ -552,18 +554,18 @@ def main(argv):
         return 2
     fast_kill = "--no-fast-kill" not in argv
     all_mutants = {**cd.MUTANTS, **cd.TOOL_MUTANTS}
-    files = {n: (("tools/parity/" if n in cd.TOOL_MUTANTS else CRATE) + m[0]) for n, m in all_mutants.items()}
+    files = {name: (("tools/parity/" if name in cd.TOOL_MUTANTS else CRATE) + mutant[0]) for name, mutant in all_mutants.items()}
     edges = import_edges(ROOT)
     stale = find_stale_patterns(cd.MUTANTS, ROOT) + find_stale_patterns(cd.TOOL_MUTANTS, ROOT, "tools/parity/")
-    ordered = order_mutants([n for n in all_mutants if n not in stale], files, [c for c in git_changed(option(argv, "--base", DEFAULT_BASE, str))], edges)
+    ordered = order_mutants([name for name in all_mutants if name not in stale], files, git_changed(option(argv, "--base", DEFAULT_BASE, str)), edges)
     toolchain = subprocess.run(["rustc", "-V"], capture_output=True, text=True).stdout.strip()
     harness = harness_fingerprint(ROOT)
     crate_state = crate_fingerprint(ROOT)
-    keys = {n: mutant_key(n, all_mutants[n][:3], crate_state, harness, {"fast_kill": fast_kill}, toolchain) for n in all_mutants}
+    keys = {name: mutant_key(name, all_mutants[name][:3], crate_state, harness, {"fast_kill": fast_kill}, toolchain) for name in all_mutants}
     store = ResultStore(STORE_DIR)
     if "--list" in argv:
-        for n, tier in ordered:
-            print(f"{tier:9} {'fresh' if store.is_fresh(keys[n]) else 'stale':5} {n}")
+        for name, tier in ordered:
+            print(f"{tier:9} {'fresh' if store.is_fresh(keys[name]) else 'stale':5} {name}")
         return 0
     recovered = recover_after_crash(STORE_DIR, tempfile.gettempdir(), binaries_directory=os.path.join(ROOT, ".gates", "binaries"))
     if any(recovered.values()):
@@ -600,10 +602,10 @@ def main(argv):
     if report is None:   # nothing ran: report what is already proved and what is pending
         report = run_plan(ordered, keys, store, execute, time.time, 0, None, key_now=key_now)
         report["stopped_by"] = f"control {control}"
-    outcomes = {**report["outcomes"], **{n: "STALE_PATTERN" for n in stale}}
+    outcomes = {**report["outcomes"], **{name: "STALE_PATTERN" for name in stale}}
     outcomes = settle_control(outcomes, ckey, control_key(ROOT, harness_fingerprint(ROOT), toolchain))
-    undetected = [n for n, o in outcomes.items() if o == "UNDETECTED"]
-    errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
+    undetected = [name for name, outcome in outcomes.items() if outcome == "UNDETECTED"]
+    errors = [name for name, outcome in outcomes.items() if outcome not in ("DETECTED", "UNDETECTED")]
     detected = sum(1 for o in outcomes.values() if o == "DETECTED")
     text = summary_text(len(all_mutants), detected, undetected, errors, report["pending"], report["stopped_by"], control, report.get("paths"))
     print(text)
