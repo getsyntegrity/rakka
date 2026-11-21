@@ -1,8 +1,8 @@
-Verdict path: full replay (2822 cases)
+Verdict path: full replay (2822 cases); outcome DETECTED
 
 # App replay
 
-Build: `$TMPDIR/pekko-mutants-9viecc0m/target-throughput-ignored/release/examples/classic-parity`
+Build: `$TMPDIR/pekko-mutants-60748-bqu_o04_/target-throughput-ignored/release/examples/classic-parity`
 
 Passed: 2811/2822
 
