@@ -1,0 +1,1 @@
+TS-46 toString with adjacent objects after a substitution -> ok Deploy(/a, Config(SimpleConfigObject({"a":${x}{"b":1,"c":2}})), NoRouter, NoScopeGiven, , , Set())

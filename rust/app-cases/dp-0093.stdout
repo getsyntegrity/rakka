@@ -1,0 +1,1 @@
+TS-49 toString with adjacent objects that merge a nested key -> ok Deploy(/a, Config(SimpleConfigObject({"a":{"x":{"j":2,"k":1}}${z}})), NoRouter, NoScopeGiven, , , Set())

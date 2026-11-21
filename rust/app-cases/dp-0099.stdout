@@ -1,0 +1,1 @@
+TS-55 toString with a lone number between substitutions -> ok Deploy(/a, Config(SimpleConfigObject({"a":${x}1${y}})), NoRouter, NoScopeGiven, , , Set())

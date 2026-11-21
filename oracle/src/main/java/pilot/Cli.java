@@ -93,6 +93,11 @@ public final class Cli {
         System.out.println(Scenario.run(in));
         System.exit(0); // the actor system's non-daemon threads must not keep the JVM alive
       }
+      case "config-render-lines" -> {
+        for (String line : new String(readAll(System.in), StandardCharsets.UTF_8).split("\n", -1)) {
+          if (!line.isEmpty()) System.out.println(ConfigRenderOracle.line(line));
+        }
+      }
       case "wildcard-winners" -> {
         for (String line : new String(readAll(System.in), StandardCharsets.UTF_8).split("\n")) {
           if (!line.isEmpty()) System.out.println(WildcardWinnersOracle.line(line));

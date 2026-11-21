@@ -1,0 +1,1 @@
+TS-36 toString with a number with a trailing zero before a substitution -> ok Deploy(/a, Config(SimpleConfigObject({"a":"1.50 "${x}})), NoRouter, NoScopeGiven, , , Set())

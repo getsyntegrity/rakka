@@ -1,0 +1,1 @@
+TS-58 toString with a substitution path of an astral letter -> ok Deploy(/a, Config(SimpleConfigObject({"a":${"\uD835\uDC00"}" "${"\u00E9\uD835\uDC00"}})), NoRouter, NoScopeGiven, , , Set())

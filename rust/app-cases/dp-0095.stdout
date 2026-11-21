@@ -1,0 +1,1 @@
+TS-51 toString with substitution paths that start with a hyphen or look like keywords -> ok Deploy(/a, Config(SimpleConfigObject({"a":${a.-1}" "${-}" "${-a}" "${1-a}" "${a.1e5}" "${true}" "${null.x}})), NoRouter, NoScopeGiven, , , Set())

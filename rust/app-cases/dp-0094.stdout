@@ -1,0 +1,1 @@
+TS-50 toString with substitution paths of digits -> ok Deploy(/a, Config(SimpleConfigObject({"a":${1},"b":${a.007},"c":${a.1.2}})), NoRouter, NoScopeGiven, , , Set())
