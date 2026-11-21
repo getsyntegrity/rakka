@@ -24,7 +24,7 @@ The last lines of the log are a <=12 line summary: read those, never the whole l
 
 Derived-from: none (project tooling, Apache-2.0).
 """
-import ast, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time, traceback
+import ast, contextlib, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time, traceback
 
 from gates import UsageError, changed_files
 
@@ -403,15 +403,32 @@ ACTIVE_RUN_MARKER = ".active"
 _ACTIVE_RUN_MARKERS = []
 
 
-def new_run_directory(base_directory, clock=time.time, pid=os.getpid):
+REGISTRY_LOCK_FILE = ".registry.lock"
+
+
+@contextlib.contextmanager
+def registry_lock(base_directory):
+    """Registering a run and pruning runs are mutually exclusive: a prune never sees a directory whose `.active` marker is not locked yet."""
+    with open(os.path.join(base_directory, REGISTRY_LOCK_FILE), "a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def new_run_directory(base_directory, clock=time.time, pid=os.getpid, after_directory_created=None):
     """A private directory for one run's result files and logs (checkpoints stay shared in the store, keyed by content)."""
     os.makedirs(base_directory, exist_ok=True)
     name = f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime(clock()))}-{pid()}-{os.urandom(4).hex()}"
     path = os.path.join(base_directory, name)
-    os.makedirs(path)
-    marker = os.open(os.path.join(path, ACTIVE_RUN_MARKER), os.O_RDWR | os.O_CREAT)   # a raw descriptor: flock held until this process exits
-    fcntl.flock(marker, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    _ACTIVE_RUN_MARKERS.append(marker)
+    with registry_lock(base_directory):
+        os.makedirs(path)
+        if after_directory_created is not None:      # a test seam: the instant between creating the directory and marking it active
+            after_directory_created()
+        marker = os.open(os.path.join(path, ACTIVE_RUN_MARKER), os.O_RDWR | os.O_CREAT)   # a raw descriptor: flock held until this process exits
+        fcntl.flock(marker, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _ACTIVE_RUN_MARKERS.append(marker)
     return path
 
 
@@ -436,14 +453,14 @@ def run_is_active(run_directory):
 def prune_run_directories(base_directory, keep=RUN_DIRECTORIES_KEPT):
     """Removes all but the newest `keep` FINISHED run directories (names sort by time). An active run keeps its directory however many
     runs start after it; anything not named like a run directory is left alone."""
-    try:
-        runs = sorted(name for name in os.listdir(base_directory) if RUN_DIRECTORY_NAME.match(name))
-    except OSError:
+    if not os.path.isdir(base_directory):
         return []
-    runs = [name for name in runs if not run_is_active(os.path.join(base_directory, name))]
-    removed = runs[:-keep] if keep else runs
-    for name in removed:
-        shutil.rmtree(os.path.join(base_directory, name), ignore_errors=True)
+    with registry_lock(base_directory):
+        runs = sorted(name for name in os.listdir(base_directory) if RUN_DIRECTORY_NAME.match(name))
+        runs = [name for name in runs if not run_is_active(os.path.join(base_directory, name))]
+        removed = runs[:-keep] if keep else runs
+        for name in removed:
+            shutil.rmtree(os.path.join(base_directory, name), ignore_errors=True)
     return removed
 
 

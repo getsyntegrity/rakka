@@ -447,7 +447,7 @@ class RunDirectoryPruning(unittest.TestCase):
                 os.makedirs(os.path.join(runs, name))
             write(root, "keep-me/unrelated.txt", "not a run directory")
             removed = mr.prune_run_directories(runs, keep=5)
-            self.assertEqual(sorted(os.listdir(runs)), names[-5:])
+            self.assertEqual(sorted(name for name in os.listdir(runs) if name != mr.REGISTRY_LOCK_FILE), names[-5:])
             self.assertEqual(sorted(removed), names[:10])
             self.assertTrue(os.path.exists(os.path.join(root, "keep-me", "unrelated.txt")))
 
@@ -464,10 +464,35 @@ class RunDirectoryPruning(unittest.TestCase):
                 removed = mr.prune_run_directories(runs, keep=5)
                 self.assertIn(names[0], os.listdir(runs))                       # the active run keeps its directory
                 self.assertNotIn(names[0], removed)
-                self.assertEqual(sorted(os.listdir(runs)), [names[0]] + names[-5:])   # the limit applies to the finished runs only
+                self.assertEqual(sorted(name for name in os.listdir(runs) if name != mr.REGISTRY_LOCK_FILE),
+                                 [names[0]] + names[-5:])   # the limit applies to the finished runs only
             finally:
                 active_marker.close()
             self.assertIn(names[0], mr.prune_run_directories(runs, keep=5))   # once it finished it is prunable like any other
+
+    def test_a_concurrent_prune_cannot_delete_a_run_between_creating_its_directory_and_marking_it_active(self):
+        import threading
+        with tempfile.TemporaryDirectory() as root:
+            pruned = []
+            def prune_while_the_new_run_is_half_registered():
+                # this is the instant the review reproduced: the directory exists, its `.active` marker does not yet
+                pruner = threading.Thread(target=lambda: pruned.extend(mr.prune_run_directories(root, keep=0)))
+                pruner.start()
+                time.sleep(0.4)          # long enough for an unsynchronised prune to run to completion
+                prune_while_the_new_run_is_half_registered.pruner = pruner
+            run = mr.new_run_directory(root, after_directory_created=prune_while_the_new_run_is_half_registered)
+            prune_while_the_new_run_is_half_registered.pruner.join(timeout=10)
+            self.assertFalse(prune_while_the_new_run_is_half_registered.pruner.is_alive())
+            self.assertTrue(os.path.isdir(run), "the prune deleted the run while it was being registered")
+            self.assertTrue(os.path.exists(os.path.join(run, mr.ACTIVE_RUN_MARKER)))
+            self.assertNotIn(os.path.basename(run), pruned)
+
+    def test_pruning_still_removes_old_finished_runs_when_it_does_not_race_with_a_registration(self):
+        with tempfile.TemporaryDirectory() as root:
+            for index in range(12):
+                os.makedirs(os.path.join(root, f"20260101T0000{index:02d}-1-aaaa"))
+            self.assertEqual(len(mr.prune_run_directories(root, keep=10)), 2)
+            self.assertEqual(len(os.listdir(root)), 10 + (1 if os.path.exists(os.path.join(root, mr.REGISTRY_LOCK_FILE)) else 0))
 
     def test_a_new_run_directory_is_marked_active_for_as_long_as_the_process_lives(self):
         import fcntl
