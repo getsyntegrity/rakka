@@ -614,7 +614,7 @@ def main(argv):
     return exit_code(undetected, errors, report["pending"], control)
 
 
-VERDICTS = {0: "PASS", 1: "FAIL", 2: "ERROR", 3: "INCOMPLETE", 143: "CANCELLED"}   # proposed Q-X-20, not yet accepted by the Owner
+VERDICTS = {0: "PASS", 1: "FAIL", 2: "ERROR", 3: "INCOMPLETE", 143: "CANCELLED"}   # Q-X-20, accepted by the Owner (2026-11-21)
 
 
 def verdict(code):

@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 249 decisiones: 0 bloqueantes, 181 propuestas, 55 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 249 decisiones: 0 bloqueantes, 180 propuestas, 56 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -2029,16 +2029,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** todas
 - **Origen:** classic-foundation
 
-### Q-X-20 — Veredictos del gate MILESTONE: PASS, INCOMPLETE, FAIL, ERROR y CANCELLED
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** PR #310 (borrador): el gate de mutantes midió 7 s de build y 132 s de replay por mutante (~7,5 h para 206) y se canceló por costo; el runner con presupuesto (tools/gates/mutant_runner.py) deja resultados parciales. Q-X-14 pide regresión completa de mutantes y fuzzers en cada hito, sin definir qué veredicto produce una corrida parcial, un error del arnés o una cancelación. Hoy el runner sale con 0 (completo y limpio), 1 (mutante sobreviviente o control fallido), 2 (error/parche obsoleto/rechazo) y 3 (pendientes). Los mapas a los veredictos propuestos son 0=PASS, 3=INCOMPLETE, 1=FAIL, 2=ERROR y 143=CANCELLED.
-- **Alternativas:** (a) Política propuesta: MILESTONE exhaustivo es PASS únicamente si se completaron todos los controles requeridos (todos los mutantes con resultado fresco DETECTED, control limpio y fuzzers). MILESTONE limitado (presupuesto) es INCOMPLETE mientras queden mutantes pendientes. Un mutante sobreviviente es FAIL, salvo clasificación justificada y revisada. Un error de compilación, del arnés o de parche (incluido un patrón obsoleto) es ERROR, nunca DETECTED. La cancelación es CANCELLED y conserva los checkpoints válidos. (b) Mantener el comportamiento actual: un MILESTONE limitado puede declararse cumplido con la regresión parcial. (c) Exigir siempre la corrida exhaustiva en cada hito sin presupuesto.
-- **Recomendación:** (a). Clasificación: política de verificación; no cambia el contrato de Pekko 2.0.0. Consecuencias observables: sólo la clasificación del resultado del gate y qué puede citar un PR de hito como evidencia. Bloquea: declarar cumplida la regresión de mutantes de un hito con una corrida limitada. Puede avanzar: PR de slice con el gate PR.
-- **Filas afectadas:** ninguna fila del inventario (política de gates)
-- **Unidades afectadas:** todas
-- **Origen:** classic-foundation
-
 ## 6. Respuestas del Owner por unidad
 
 Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la sección 4).
@@ -2603,4 +2593,15 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** P02
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** aceptar (a): Display de PekkoException y ConfigurationException muestra sólo el mensaje; java_class() queda aparte. (Owner (respuesta tras P02), 2026-11-18)
+
+### Q-X-20 — Veredictos del gate MILESTONE: PASS, INCOMPLETE, FAIL, ERROR y CANCELLED
+
+- **Estado:** aceptada
+- **Evidencia:** PR #310 (borrador): el gate de mutantes midió 7 s de build y 132 s de replay por mutante (~7,5 h para 206) y se canceló por costo; el runner con presupuesto (tools/gates/mutant_runner.py) deja resultados parciales. Q-X-14 pide regresión completa de mutantes y fuzzers en cada hito, sin definir qué veredicto produce una corrida parcial, un error del arnés o una cancelación. Hoy el runner sale con 0 (completo y limpio), 1 (mutante sobreviviente o control fallido), 2 (error/parche obsoleto/rechazo) y 3 (pendientes). Los mapas a los veredictos propuestos son 0=PASS, 3=INCOMPLETE, 1=FAIL, 2=ERROR y 143=CANCELLED.
+- **Alternativas:** (a) Política propuesta: MILESTONE exhaustivo es PASS únicamente si se completaron todos los controles requeridos (todos los mutantes con resultado fresco DETECTED, control limpio y fuzzers). MILESTONE limitado (presupuesto) es INCOMPLETE mientras queden mutantes pendientes. Un mutante sobreviviente es FAIL, salvo clasificación justificada y revisada. Un error de compilación, del arnés o de parche (incluido un patrón obsoleto) es ERROR, nunca DETECTED. La cancelación es CANCELLED y conserva los checkpoints válidos. (b) Mantener el comportamiento actual: un MILESTONE limitado puede declararse cumplido con la regresión parcial. (c) Exigir siempre la corrida exhaustiva en cada hito sin presupuesto.
+- **Recomendación:** (a). Clasificación: política de verificación; no cambia el contrato de Pekko 2.0.0. Consecuencias observables: sólo la clasificación del resultado del gate y qué puede citar un PR de hito como evidencia. Bloquea: declarar cumplida la regresión de mutantes de un hito con una corrida limitada. Puede avanzar: PR de slice con el gate PR.
+- **Filas afectadas:** ninguna fila del inventario (política de gates)
+- **Unidades afectadas:** todas
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** aceptar (a): política de gates FAST / PR / MILESTONE con presupuestos, checkpoints y reutilización segura de evidencia, y veredictos PASS (sólo con todos los controles requeridos completos) / INCOMPLETE (quedan mutantes pendientes) / FAIL (mutante sobreviviente, salvo clasificación justificada y revisada) / ERROR (fallo de compilación, arnés o parche, incluido un patrón obsoleto; nunca DETECTED) / CANCELLED (cancelación, con los checkpoints válidos conservados). JUSTIFICACIÓN: el MILESTONE completo costaba ~7,5 h (206 mutantes x ~132 s de replay completo sin corte temprano) y se canceló por costo; el runner con fast-kill demostrado contra el oráculo (el build sin mutar coincide con Pekko y la herramienta falla ese caso como divergencia aplicable; si no se puede demostrar, replay completo), presupuesto por defecto (40 mutantes / 30 min), checkpoints reanudables por clave (parche + huella del crate + huella del arnés + configuración + rustc) y reutilización de evidencia sólo para entradas limpias conserva las garantías sin ejecutar el exhaustivo. Ningún gate se desactiva: PR contiene todos los gates por slice vigentes. ALCANCE: (1) autoriza actualizar AGENTS.md con esta política, efectiva una vez integrados #308 y #310; (2) autoriza retirar `mailbox-is-lifo` del conjunto activo únicamente tras demostrar que el patrón está obsoleto y que la propiedad FIFO sigue cubierta (`mailbox-queue-is-lifo`), conservando la trazabilidad histórica; cualquier otro patrón obsoleto sigue siendo ERROR; (3) NO autoriza el MILESTONE exhaustivo (206 mutantes + fuzzers) ni el merge: ambos requieren autorización posterior y explícita. (Owner (instrucción en la sesión), 2026-11-21)
 
