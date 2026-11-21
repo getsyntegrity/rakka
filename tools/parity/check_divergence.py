@@ -1572,16 +1572,20 @@ SELFTEST = {"selftest-equivalent-whitespace": (
 def check_patterns():
     """`--check-patterns`: every mutant's pattern must occur exactly once (stale patterns after a refactor exit 2)."""
     bad = 0
-    for name, (rel, old, new, _why) in {**MUTANTS, **SELFTEST}.items():
-        n = open(os.path.join(CRATE, rel)).read().count(old)
-        if n != 1:
+    def occurrences(directory, relative_file, pattern):
+        with open(os.path.join(directory, relative_file), encoding="utf-8") as source_file:
+            return source_file.read().count(pattern)
+
+    for name, (relative_file, old, new, _why) in {**MUTANTS, **SELFTEST}.items():
+        found = occurrences(CRATE, relative_file, old)
+        if found != 1:
             bad += 1
-            print(f"STALE {name}: {n} occurrences in {rel}")
-    for name, (rel, old, new, _why) in TOOL_MUTANTS.items():
-        n = open(os.path.join(TOOLS, rel)).read().count(old)
-        if n != 1 or old == new:
+            print(f"STALE {name}: {found} occurrences in {relative_file}")
+    for name, (relative_file, old, new, _why) in TOOL_MUTANTS.items():
+        found = occurrences(TOOLS, relative_file, old)
+        if found != 1 or old == new:
             bad += 1
-            print(f"STALE {name}: {n} occurrences in tools/parity/{rel}")
+            print(f"STALE {name}: {found} occurrences in tools/parity/{relative_file}")
     for name, entry in RETIRED_MUTANTS.items():
         print(f"RETIRED {name}: covered by {entry['covered_by']} (retired {entry['retired_on']}, {entry['authorized_by']}); history kept")
     print(f"{len(MUTANTS) + len(SELFTEST) + len(TOOL_MUTANTS)} mutant patterns checked, {bad} stale, {len(RETIRED_MUTANTS)} retired")
