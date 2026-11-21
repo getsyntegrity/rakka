@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Differential fuzzer for the choice among overlapping `prefix*` entries (Q-UTIL-21, Q-X-20): real Pekko 2.0.0 vs the Rust port.
+"""Differential fuzzer for the choice among overlapping `prefix*` entries (Q-UTIL-21, Q-X-21): real Pekko 2.0.0 vs the Rust port.
 
 Prefixes are never empty (the Java oracle splits on commas and drops a trailing empty one). Each input is a set of prefixes of one probe element, inserted in a random order (Pekko picks the first match in the
 iteration order of a Scala HashMap, so the order of insertion must not matter except among keys whose scrambled hash is fully

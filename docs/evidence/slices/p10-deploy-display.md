@@ -1,4 +1,4 @@
-# P10 PR-C — `Deploy.toString` y `render_concise` (Q-CFG-35, Q-X-20)
+# P10 PR-C — `Deploy.toString` y `render_concise` (Q-CFG-35, Q-X-21)
 
 Filas: AC-CFG-013. **Resultado: `partial`, validación `oracle`** (Q-CFG-35 sigue `proposed`; el texto de los routers reales espera a P37). Apilado sobre PR-B (#280): usa `scala_hash_order` para el orden de 5 o más tags.
 

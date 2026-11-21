@@ -1,6 +1,6 @@
-# P10 PR-B — orden de los `prefix*` solapados (Q-UTIL-21, Q-X-20)
+# P10 PR-B — orden de los `prefix*` solapados (Q-UTIL-21, Q-X-21)
 
-Filas: AC-UTIL-009 (A7), AC-CFG-012.2 (B1/B2 de `p10-strict-parity-matrix.md`). **Resultado: `partial`, validación `oracle`** (sin cambio de estado: Q-UTIL-21 y Q-X-20 siguen `proposed`).
+Filas: AC-UTIL-009 (A7), AC-CFG-012.2 (B1/B2 de `p10-strict-parity-matrix.md`). **Resultado: `partial`, validación `oracle`** (sin cambio de estado: Q-UTIL-21 y Q-X-21 siguen `proposed`).
 
 ## RED (observado)
 
