@@ -105,12 +105,6 @@ MUTANTS = {
         "an actor without children forgets `setTerminated()`, so its guardian keeps accepting actorOf after "
         "termination (found by the oracle replay while building slice 2a)",
     ),
-    "mailbox-is-lifo": (
-        "src/actor/cell.rs",
-        "                } else {\n                    mb.user.pop_front()\n",
-        "                } else {\n                    mb.user.pop_back()\n",
-        "the mailbox hands out the newest message first (breaks per-sender ordering)",
-    ),
     "receiver-never-sees-sender": (
         "src/actor/cell.rs",
         "self.st.lock().unwrap().sender = env.sender.clone();",
@@ -1551,6 +1545,25 @@ def run_tool_mutant(scratch, name, rel, old, new, why):
 
 # `--selftest` adds a mutant that changes nothing observable (a whitespace edit): it MUST come out UNDETECTED, so the run must exit non-zero.
 EQUIVALENT = {"selftest-equivalent-whitespace"}
+# Mutants retired from the active set. A retirement is not hiding an error: it needs (1) a pattern that is really obsolete (it no longer occurs in
+# the crate), (2) the retired behaviour still covered by a live mutant that kills every recorded case that killed it, and (3) the Owner's
+# authorisation; the history (the old report under rust/divergence-reports/) stays. tools/gates/test_mutant_patterns.py enforces (1) and (2): a
+# pattern that applies again, or a covering mutant that stops covering, makes the retirement invalid. Any OTHER stale pattern is still an ERROR.
+RETIRED_MUTANTS = {
+    "mailbox-is-lifo": {
+        "file": "src/actor/cell.rs",
+        "old": "                } else {\n                    mb.user.pop_front()\n",
+        "new": "                } else {\n                    mb.user.pop_back()\n",
+        "why": "the mailbox hands out the newest message first (breaks per-sender ordering)",
+        "covered_by": "mailbox-queue-is-lifo",
+        "retired_on": "2026-11-21",
+        "authorized_by": "Owner (Q-X-20 instruction, 2026-11-21)",
+        "evidence": "the code it patched (`mb.user.pop_front()` in cell.rs) was removed by 3d85ae6 (#302): the user queue now lives in dispatch/message_queue.rs, "
+                    "where `mailbox-queue-is-lifo` mutates the same behaviour; all 97 recorded cases that failed the old mutant fail the live one (102 cases); "
+                    "history: rust/divergence-reports/replay-report-mailbox-is-lifo.md, docs/evidence/pilot/REPORT-3b.md",
+    },
+}
+
 SELFTEST = {"selftest-equivalent-whitespace": (
     "src/actor/supervision.rs", "self.count <= max_nr_of_retries", "self.count <= max_nr_of_retries /* same */",
     "self-test of the launcher: an equivalent edit that must NOT be detected")}
@@ -1569,7 +1582,9 @@ def check_patterns():
         if n != 1 or old == new:
             bad += 1
             print(f"STALE {name}: {n} occurrences in tools/parity/{rel}")
-    print(f"{len(MUTANTS) + len(SELFTEST) + len(TOOL_MUTANTS)} mutant patterns checked, {bad} stale")
+    for name, entry in RETIRED_MUTANTS.items():
+        print(f"RETIRED {name}: covered by {entry['covered_by']} (retired {entry['retired_on']}, {entry['authorized_by']}); history kept")
+    print(f"{len(MUTANTS) + len(SELFTEST) + len(TOOL_MUTANTS)} mutant patterns checked, {bad} stale, {len(RETIRED_MUTANTS)} retired")
     sys.exit(2 if bad else 0)
 
 
