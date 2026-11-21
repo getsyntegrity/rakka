@@ -113,6 +113,15 @@ class ReplayIsolation(unittest.TestCase):
         make_executable(self.tool, PASSING_JSON_ONLY)
         self.assertEqual(replay_lib.run_replay(self.build_b, 5).passed, 1)   # would block forever if the lock leaked
 
+    def test_reading_a_recorded_case_leaves_no_file_open(self):
+        import gc, warnings
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ResourceWarning)
+            replay_lib.case_outputs(self.build_a, "c-a1")
+            replay_lib.rejects_explicitly(self.build_na, "c-na")
+            gc.collect()
+        self.assertEqual([str(warning.message) for warning in caught if issubclass(warning.category, ResourceWarning)], [])
+
     # --- valid replays keep their classification ---
     def test_a_valid_replay_with_divergences_keeps_its_classification(self):
         result = replay_lib.run_replay(self.build_a, 30)

@@ -144,11 +144,21 @@ def run_replay(binary, timeout):
     return parse_replay_output(completed, report_text)
 
 
+def read_bytes(path):
+    with open(path, "rb") as source_file:
+        return source_file.read()
+
+
+def load_recorded_args(base):
+    import tomllib
+    with open(base + ".toml", "rb") as recording_file:
+        return tomllib.load(recording_file)["args"]
+
+
 def rejects_explicitly(binary, case):
     base = os.path.join(ROOT, "rust", "app-cases", case)
-    import tomllib
-    args = tomllib.load(open(base + ".toml", "rb"))["args"]
-    stdin = open(base + ".stdin", "rb").read()
+    args = load_recorded_args(base)
+    stdin = read_bytes(base + ".stdin")
     r = subprocess.run([binary, *args], input=stdin, capture_output=True, timeout=60)
     return r.returncode == 2 and r.stdout == b"" and REJECTION.encode() in r.stderr
 
@@ -156,10 +166,9 @@ def rejects_explicitly(binary, case):
 def case_outputs(binary, case):
     """-> (recorded Pekko stdout, stdout of `binary` for the same input) of a recorded case."""
     base = os.path.join(ROOT, "rust", "app-cases", case)
-    import tomllib
-    args = tomllib.load(open(base + ".toml", "rb"))["args"]
-    recorded = open(base + ".stdout", "rb").read()
-    produced = subprocess.run([binary, *args], input=open(base + ".stdin", "rb").read(), capture_output=True, timeout=60)
+    args = load_recorded_args(base)
+    recorded = read_bytes(base + ".stdout")
+    produced = subprocess.run([binary, *args], input=read_bytes(base + ".stdin"), capture_output=True, timeout=60)
     return recorded, produced.stdout
 
 
