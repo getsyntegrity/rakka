@@ -148,6 +148,39 @@ class ChangedPaths(unittest.TestCase):
             mutants = {"old-path-mutant": ("src/actor/foo.rs", "o", "n", "w"), "other": ("src/actor/bar.rs", "o", "n", "w")}
             self.assertEqual(gates.select_mutants(changed, mutants, {}), ["old-path-mutant"])
 
+    def test_files_the_gates_regenerate_do_not_count_as_working_tree_changes(self):
+        working = " M rust/app-cases/replay-report.md\0 M rust/divergence-reports/replay-report-x.md\0 M crates/rakka-actor/src/actor/cell.rs\0"
+        self.assertEqual(gates.changed_paths_from_git("", working), ["crates/rakka-actor/src/actor/cell.rs"])
+
+    def test_a_committed_change_to_a_regenerated_file_still_counts(self):
+        self.assertEqual(gates.changed_paths_from_git("M\0rust/app-cases/replay-report.md\0", ""), ["rust/app-cases/replay-report.md"])
+
+    def test_after_a_replay_rewrote_the_report_the_pr_gate_does_not_select_every_mutant(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as repo:
+            def git(*args):
+                return subprocess.run(["git", "-C", repo, "-c", "user.email=t@example.org", "-c", "user.name=t", *args],
+                                      capture_output=True, text=True, check=True).stdout.strip()
+            git("init", "-q")
+            os.makedirs(os.path.join(repo, "rust", "app-cases"))
+            os.makedirs(os.path.join(repo, "crates", "rakka-actor", "src", "actor"))
+            with open(os.path.join(repo, "rust", "app-cases", "replay-report.md"), "w") as report:
+                report.write("# App replay\n")
+            with open(os.path.join(repo, "crates", "rakka-actor", "src", "actor", "foo.rs"), "w") as source:
+                source.write("pub fn behaviour() {}\n")
+            git("add", "-A")
+            git("commit", "-q", "-m", "base")
+            base = git("rev-parse", "HEAD")
+            with open(os.path.join(repo, "rust", "app-cases", "replay-report.md"), "a") as report:
+                report.write("Passed: 2821/2822\n")                 # what every replay does to the tracked report
+            changed = gates.changed_files(base, repo=repo)
+            self.assertNotIn("rust/app-cases/replay-report.md", changed)
+            mutants = {"cell-mutant": ("src/actor/foo.rs", "o", "n", "w")}
+            self.assertEqual(gates.select_mutants(changed, mutants, {}), [])                       # not "all of them"
+            with open(os.path.join(repo, "crates", "rakka-actor", "src", "actor", "foo.rs"), "a") as source:
+                source.write("// a real change\n")
+            self.assertEqual(gates.select_mutants(gates.changed_files(base, repo=repo), mutants, {}), ["cell-mutant"])
+
     def test_nothing_changed_is_an_empty_list(self):
         self.assertEqual(gates.changed_paths_from_git("", ""), [])
 

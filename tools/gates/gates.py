@@ -209,9 +209,15 @@ def run_gate(gate, toolchain, reuse, head):
     return verdict_line(gate.name, code, seconds, False, log_path, text, label), code, label
 
 
-def changed_paths_from_git(diff_output, status_output):
+def is_regenerated(path, regenerated):
+    return any(path == entry or path.startswith(entry.rstrip("/") + "/") for entry in regenerated)
+
+
+def changed_paths_from_git(diff_output, status_output, regenerated=REPLAY_REGENERATED):
     """Paths from `git diff --name-status -z` (committed) and `git status --porcelain -z` (working tree): spaces survive, and a rename
-    or copy contributes both its source and its destination, committed or not."""
+    or copy contributes both its source and its destination, committed or not. A working-tree change to a file that the gates themselves
+    regenerate on every run (the replay report) is not a change of the code under test: without this, each replay would make the next PR gate
+    select every mutant."""
     paths = set()
     diff_tokens = diff_output.split("\0")
     token = 0
@@ -230,11 +236,14 @@ def changed_paths_from_git(diff_output, status_output):
         position += 1
         if len(entry) < 4:
             continue
-        paths.add(entry[3:])
+        original = None
         if entry[0] in "RC" or entry[1] in "RC":      # the next entry is the original path
             if position < len(entries) and entries[position]:
-                paths.add(entries[position])
+                original = entries[position]
             position += 1
+        for path in (entry[3:], original):
+            if path and not is_regenerated(path, regenerated):
+                paths.add(path)
     return sorted(paths)
 
 
