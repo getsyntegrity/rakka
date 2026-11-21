@@ -46,8 +46,9 @@ def main(arguments):
     except subprocess.CalledProcessError as failure:
         print(f"refused: the build failed (exit {failure.returncode})")
         return 2
-    result = lib.run_replay(binary, 900)
-    evaluation = lib.evaluate(binary, result)
+    with lib.holding(binary):         # the copy stays protected through the replay AND the classification (which runs the binary again)
+        result = lib.run_replay(binary, 900)
+        evaluation = lib.evaluate(binary, result)
     if evaluation["ok"] is None:
         print("HARNESS ERROR:", evaluation["line"])
         return 2

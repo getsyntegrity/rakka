@@ -55,10 +55,12 @@ class PublishedBinaries(unittest.TestCase):
         paths = []
         for version in range(6):
             write_executable(self.source, f"#!/bin/sh\necho v{version}\n")
-            paths.append(replay_lib.publish_binary(self.source, self.store, keep=3))
+            lease = replay_lib.publish_binary(self.source, self.store, keep=3)
+            paths.append(str(lease))
+            replay_lib.release_lease(lease)               # nobody uses it any more: only then does the limit apply to it
             time.sleep(0.02)
         self.assertTrue(os.path.exists(paths[-1]))
-        self.assertEqual(len(os.listdir(self.store)), 3)
+        self.assertEqual(len([name for name in os.listdir(self.store) if len(name) == 64]), 3)
 
 
 class BuildLock(unittest.TestCase):

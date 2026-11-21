@@ -95,28 +95,109 @@ def build_lock():
             fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
-def publish_binary(source_path, store_directory=None, keep=PUBLISHED_BINARIES_KEPT):
-    """An immutable, content-addressed copy of a built binary (`<store>/<sha256>/<name>`). A run classifies with this copy, so a later build
-    that overwrites the shared target/ path cannot change what it executes. The newest `keep` copies are kept; the one just published never goes."""
-    store = store_directory or os.path.join(ROOT, ".gates", "binaries")
-    os.makedirs(store, exist_ok=True)
-    staging = os.path.join(store, f".staging-{os.getpid()}-{os.urandom(4).hex()}.tmp")
-    shutil.copy2(source_path, staging)
-    digest = hashlib.sha256(read_bytes(staging)).hexdigest()     # of the copy itself, whatever the source became meanwhile
-    directory = os.path.join(store, digest)
-    target = os.path.join(directory, os.path.basename(source_path))
-    if os.path.exists(target):
-        os.unlink(staging)
-        os.utime(directory)                                      # recently used
-    else:
-        os.makedirs(directory, exist_ok=True)
-        os.replace(staging, target)
+IN_USE_MARKER = ".in-use"
+BINARY_STORE_LOCK = ".registry.lock"
+
+
+class LeasedPath(str):
+    """The path of a published binary copy that carries its lease: while the lease is held (a shared `flock` on `<copy>/.in-use`), no publication
+    prunes the copy. It is released explicitly, on exit of `holding(...)`, or by the OS when the process dies (SIGKILL included)."""
+
+    def __new__(cls, path, descriptor):
+        instance = super().__new__(cls, path)
+        instance._descriptor = descriptor
+        return instance
+
+    def release(self):
+        descriptor, self._descriptor = self._descriptor, None
+        if descriptor is not None:
+            try:
+                os.close(descriptor)       # closing the descriptor releases the lock
+            except OSError:
+                pass
+
+
+def release_lease(path):
+    """Ends one consumer's use of a copy (a plain str, or an already released lease, is a no-op)."""
+    release = getattr(path, "release", None)
+    if release is not None:
+        release()
+
+
+@contextlib.contextmanager
+def holding(path):
+    """Keeps a published copy protected for the whole block: normal exit, error and cancellation all release it."""
+    try:
+        yield path
+    finally:
+        release_lease(path)
+
+
+@contextlib.contextmanager
+def binary_store_lock(store):
+    """Publication, acquisition and pruning of the copies of one store are mutually exclusive: nobody can prune a path between its being obtained and
+    its being protected."""
+    with open(os.path.join(store, BINARY_STORE_LOCK), "a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def copy_is_in_use(directory):
+    """True while some consumer holds a lease on the copy (a probe for an exclusive lock fails)."""
+    descriptor = os.open(os.path.join(directory, IN_USE_MARKER), os.O_RDWR | os.O_CREAT)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return False
+    except BlockingIOError:
+        return True
+    finally:
+        os.close(descriptor)
+
+
+def prune_locked(store, keep, own=None):
+    """Removes the oldest UNUSED copies beyond `keep`; a copy with a lease is never removed and does not count toward the limit. `own` is the copy the
+    caller has just published and holds: it counts as one of the `keep` newest and is never removed. Caller holds the store lock."""
     copies = sorted((name for name in os.listdir(store) if re.fullmatch(r"[0-9a-f]{64}", name)),
                     key=lambda name: os.stat(os.path.join(store, name)).st_mtime)
-    for name in copies[:-keep] if keep else copies:
-        if name != digest:
+    unused = [name for name in copies if name == own or not copy_is_in_use(os.path.join(store, name))]
+    for name in unused[:-keep] if keep else unused:
+        if name != own:
             shutil.rmtree(os.path.join(store, name), ignore_errors=True)
-    return target
+
+
+def prune_binaries(store, keep):
+    with binary_store_lock(store):
+        prune_locked(store, keep)
+
+
+def publish_binary(source_path, store_directory=None, keep=PUBLISHED_BINARIES_KEPT, after_published=None):
+    """An immutable, content-addressed copy of a built binary (`<store>/<sha256>/<name>`), returned as a LeasedPath: the copy is protected from
+    the moment it is published until the lease is released (`release_lease`, `holding`, or the end of the process), also across processes and
+    when several runs share the same copy. A run classifies with this copy, so a later build that overwrites the shared target/ path cannot
+    change what it executes, and a later publication cannot prune it. Only the unused copies are limited to the newest `keep`."""
+    store = store_directory or os.path.join(ROOT, ".gates", "binaries")
+    os.makedirs(store, exist_ok=True)
+    with binary_store_lock(store):
+        staging = os.path.join(store, f".staging-{os.getpid()}-{os.urandom(4).hex()}.tmp")
+        shutil.copy2(source_path, staging)
+        digest = hashlib.sha256(read_bytes(staging)).hexdigest()     # of the copy itself, whatever the source became meanwhile
+        directory = os.path.join(store, digest)
+        target = os.path.join(directory, os.path.basename(source_path))
+        if os.path.exists(target):
+            os.unlink(staging)
+            os.utime(directory)                                      # recently used
+        else:
+            os.makedirs(directory, exist_ok=True)
+            os.replace(staging, target)
+        if after_published is not None:      # a test seam: the instant between obtaining the path and protecting it
+            after_published()
+        descriptor = os.open(os.path.join(directory, IN_USE_MARKER), os.O_RDWR | os.O_CREAT)
+        fcntl.flock(descriptor, fcntl.LOCK_SH)                       # protected before any pruner can look at it: still inside the store lock
+        prune_locked(store, keep, own=digest)
+    return LeasedPath(target, descriptor)
 
 
 def report_signature():

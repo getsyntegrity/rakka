@@ -11,7 +11,7 @@ rust/divergence-reports/. Finally the unmodified port is replayed again as the c
 Exit code: 0 every mutant DETECTED and the control clean; 1 a mutant went UNDETECTED or the control failed;
 2 the experiment is invalid (patch, build, harness error or timeout). `--selftest` runs an equivalent mutant that must exit 1.
 """
-import collections, difflib, json, os, re, shutil, signal, subprocess, sys, tempfile
+import atexit, collections, difflib, json, os, re, shutil, signal, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import replay_lib
@@ -1466,6 +1466,17 @@ def known_killers(name):
 
 
 _control_binary = None
+
+
+def release_control_binary():
+    """Ends the process's use of the control copy (also done at exit); a later call to control_binary_for_fast_kill() publishes it again."""
+    global _control_binary
+    if _control_binary:
+        replay_lib.release_lease(_control_binary)
+    _control_binary = None
+
+
+atexit.register(release_control_binary)
 
 
 def control_binary_for_fast_kill():
