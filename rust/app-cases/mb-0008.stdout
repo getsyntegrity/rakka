@@ -1,0 +1,1 @@
+MBX-ST-08 canBeScheduledForExecution matrix -> open: FTTT withSystemMessage=true; scheduled: FTTT withSystemMessage=true; suspended: FTFT withSystemMessage=true; suspended+scheduled: FTFT withSystemMessage=true; closed: FFFF withSystemMessage=false;

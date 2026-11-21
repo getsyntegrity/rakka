@@ -193,10 +193,11 @@
 
 ## P13 MBX-COLAS
 
-12 filas; 10 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 8 propuestas.
+12 filas; 10 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 7 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-MBX-6 | accepted (2026-11-20): aceptar (b): pool de hilos propio, coherente con Q-X-4 (A); el turno de mailbox es un trabajo del pool; `throughput` y `throughput-deadline-time` son… | 2: AC-MBX-006, AC-MBX-008 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-MBX-004 | — | — | `transversal` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-MBX-007 | — | — | `transversal` |
 | Q-CFG-31 | propuesta | 1: AC-MBX-004 | Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
@@ -205,7 +206,6 @@
 | Q-MBX-2 | propuesta | 2: AC-MBX-011, AC-MBX-015 | — | — | `classic-dispatch` |
 | Q-MBX-3 | propuesta | 1: AC-MBX-012 | Bloquea la implementación de AC-MBX-012 (ambas variantes); el resto puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-4 | propuesta | 2: AC-MBX-009, AC-MBX-010 | — | — | `classic-dispatch` |
-| Q-MBX-6 | propuesta | 2: AC-MBX-006, AC-MBX-008 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-7 | propuesta | 2: AC-MBX-009, AC-MBX-010 | Bloquea sólo el cierre de AC-MBX-009/010 en el borde; el resto puede avanzar. | — | `classic-dispatch` |
 
 ## P14 REF-BASE
@@ -224,14 +224,16 @@
 
 ## P15 MBX-NUCLEO
 
-7 filas; 4 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 3 propuestas.
+7 filas; 6 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-MBX-10 | accepted (2026-11-20): aceptar (a): la secuencia de 10 PR del ADR-0001 §6. Los PR 4-10 siguen condicionados a las decisiones Q-MBX pendientes que cada uno cita. | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
+| Q-MBX-5 | accepted (2026-11-20): aceptar (a) con `Mutex<Vec>` invertido al drenar: la cola de mensajes de sistema es FIFO observable (más antiguo primero), con centinela de cierre y sin… | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
+| Q-MBX-6 | accepted (2026-11-20): aceptar (b): pool de hilos propio, coherente con Q-X-4 (A); el turno de mailbox es un trabajo del pool; `throughput` y `throughput-deadline-time` son… | 5: AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-023, AC-MBX-002 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
+| Q-MBX-9 | accepted (2026-11-20): aceptar (B): estado del mailbox separado de las colas de sistema y de usuario (ADR-0001). No aprueba Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 ni Q-MBX-6. | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-CELL-013.1, AC-DSP-001, AC-MBX-001 | — | — | `transversal` |
 | Q-DSP-5 | propuesta | 2: AC-DSP-003, AC-MBX-002 | — | — | `classic-dispatch` |
-| Q-MBX-5 | propuesta | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
-| Q-MBX-6 | propuesta | 5: AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-023, AC-MBX-002 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
 
 ## P16 DSP-EJECUTORES
 
@@ -255,11 +257,14 @@
 
 ## P17 REF-MUERTOS
 
-4 filas; 1 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 1 propuestas.
+4 filas; 4 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 0 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
-| Q-MBX-5 | propuesta | 2: AC-MBX-003, AC-MBX-021 | — | — | `classic-dispatch` |
+| Q-MBX-10 | accepted (2026-11-20): aceptar (a): la secuencia de 10 PR del ADR-0001 §6. Los PR 4-10 siguen condicionados a las decisiones Q-MBX pendientes que cada uno cita. | 1: AC-MBX-003 | — | — | `classic-dispatch` |
+| Q-MBX-5 | accepted (2026-11-20): aceptar (a) con `Mutex<Vec>` invertido al drenar: la cola de mensajes de sistema es FIFO observable (más antiguo primero), con centinela de cierre y sin… | 2: AC-MBX-003, AC-MBX-021 | — | — | `classic-dispatch` |
+| Q-MBX-8 | accepted (2026-11-20): aceptar (b)+(c): Rust implementa un protocolo de cierre que impide el mensaje varado de CC-05 (el mensaje siempre es dead letter); el oráculo JVM acepta los… | 1: AC-MBX-003 | — | — | `classic-dispatch` |
+| Q-MBX-9 | accepted (2026-11-20): aceptar (B): estado del mailbox separado de las colas de sistema y de usuario (ADR-0001). No aprueba Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 ni Q-MBX-6. | 1: AC-MBX-003 | — | — | `classic-dispatch` |
 
 ## P18 CELL-HIJOS
 
@@ -489,15 +494,15 @@
 
 ## P36 RT-ESTRATEGIAS
 
-9 filas; 8 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 6 propuestas.
+9 filas; 8 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-MBX-6 | accepted (2026-11-20): aceptar (b): pool de hilos propio, coherente con Q-X-4 (A); el turno de mailbox es un trabajo del pool; `throughput` y `throughput-deadline-time` son… | 1: AC-DSP-012 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
 | Q-RT-4 | accepted (2026-11-18): aceptar (a), como vista interna (no API pública estable) en AC-MBX-019. | 1: AC-RT-008 | Bloquea la integracion de AC-RT-008, 013.2 y 014 (reportMessageCount); NO bloquea la logica pura de AC-RT-013.1 (capacity/rampup/backoff), de AC-RT-014 (resize/optimize/explore con carga inyectada) ni los constructores. Es el… | — | `classic-patterns` |
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-RT-009.1 | — | — | `transversal` |
 | Q-ASK-1 | propuesta | 1: AC-RT-010 | Bloquea el diseno de la firma publica de ask/gracefulStop/after/retry (AC-ASK-001.*, 003, 004, 007, 008, 010); puede avanzar la validacion de entradas (AC-ASK-001.2 A3-A5) y los textos con tests de unidad sin runtime. | — | `classic-patterns` |
 | Q-DSP-1 | propuesta | 1: AC-DSP-012 | Bloquea la implementación de AC-DSP-008/009/013/014/019; puede avanzar: lectura/validación de claves y las funciones puras `scaledPoolSize` y `resolveMinimumRunnable`. | — | `classic-dispatch` |
-| Q-MBX-6 | propuesta | 1: AC-DSP-012 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
 | Q-RT-5 | propuesta | 3: AC-RT-009.1, AC-RT-009.2, AC-RT-009.3 | Bloquea la paridad exacta de AC-RT-009.1 A2; AC-RT-009.2/.3 (puras) pueden avanzar y validarse contra el oraculo. | — | `classic-patterns` |
 | Q-RT-6 | propuesta | 2: AC-RT-010, AC-RT-011 | Bloquea solo AC-RT-011 A5; el resto de RT-010/011 puede avanzar. | — | `classic-patterns` |
 | Q-RT-7 | propuesta | 1: AC-RT-012 | Bloquea AC-RT-012; sin AC-DSP-012 no hay forma de validar el reparto, si de los nombres de dispatcher. | — | `classic-patterns` |
@@ -1055,4 +1060,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 498 (232 respondidas, 0 bloqueantes, 266 propuestas).
+Total de pares unidad–decisión: 503 (242 respondidas, 0 bloqueantes, 261 propuestas).

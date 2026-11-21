@@ -1,0 +1,1 @@
+MBX-MQ-01 default queue is FIFO and counts -> new: n=0 has=false | enqueue n=1 has=true n=2 has=true n=3 has=true | dequeue [a, b, c] then null | after n=0 has=false

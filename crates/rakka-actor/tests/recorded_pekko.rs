@@ -23,6 +23,8 @@ mod fronteras_cases;
 #[path = "../examples/classic-parity/json.rs"]
 #[allow(dead_code)]
 mod json;
+#[path = "../examples/classic-parity/mailbox_cases.rs"]
+mod mailbox_cases;
 #[path = "../examples/classic-parity/path_address_cases.rs"]
 mod path_address_cases;
 #[path = "../examples/classic-parity/path_case.rs"]
@@ -379,6 +381,16 @@ fn recorded_provider_selection_cases_match_pekko() {
         "provider-selection.txt",
         provider_selection_cases::rust_lines(),
         Vec::new(),
+    );
+}
+
+#[test]
+fn recorded_mailbox_status_cases_match_pekko() {
+    oracle_family_matches_pekko(
+        "mailbox-case",
+        "mailbox.txt",
+        mailbox_cases::rust_lines(),
+        mailbox_cases::PENDING.iter().map(|(id, _)| *id).collect(),
     );
 }
 
