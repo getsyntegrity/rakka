@@ -11,7 +11,7 @@ rust/divergence-reports/. Finally the unmodified port is replayed again as the c
 Exit code: 0 every mutant DETECTED and the control clean; 1 a mutant went UNDETECTED or the control failed;
 2 the experiment is invalid (patch, build, harness error or timeout). `--selftest` runs an equivalent mutant that must exit 1.
 """
-import difflib, json, os, re, shutil, signal, subprocess, sys, tempfile
+import collections, difflib, json, os, re, shutil, signal, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import replay_lib
@@ -1395,9 +1395,14 @@ def run_mutant(scratch, name, rel, old, new, why):
     if not os.path.exists(binary):
         return BUILD_ERROR, None, None, "mutated binary missing"
     if FAST_KILL:
-        killer = fast_kill(binary, name)
-        if killer:   # one recorded applicable case diverges: the same criterion as a full replay, without its ~130 s
-            return DETECTED, None, None, f"fast-kill: on recorded case {killer} the unmutated build matches Pekko and the mutant does not"
+        try:
+            kill = fast_kill(binary, name)
+        except replay_lib.ReplayLockTimeout:
+            return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
+        if kill:   # a divergence the full replay would also classify as applicable, demonstrated on the real tool for one case
+            publish_fast_kill_report(name, kill)
+            return DETECTED, None, None, (f"fast-kill: case {kill.case} confirmed by a single-case replay; "
+                                          "the unmutated build matches Pekko on it, the mutant does not")
     return full_replay_verdict(binary, name)
 
 
@@ -1410,8 +1415,7 @@ def full_replay_verdict(binary, name):
     except replay_lib.ReplayLockTimeout:
         return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
     if r.report_text is not None:   # the report of THIS replay (read under the checkout lock), never the shared file as it is now
-        with open(os.path.join(REPORTS, f"replay-report-{name}.md"), "w", encoding="utf-8") as report_file:
-            report_file.write(r.report_text)
+        publish_mutant_report(name, f"full replay ({r.total} cases)", r.report_text)
     return classify(r, binary)
 
 
@@ -1448,17 +1452,35 @@ def control_binary_for_fast_kill():
     return _control_binary or None
 
 
+FastKill = collections.namedtuple("FastKill", "case report_text reason")
+
+
 def fast_kill(binary, name):
-    """First known killer case on which the divergence from the recorded Pekko output is demonstrated (the unmutated build agrees
-    with Pekko, the mutant does not; see replay_lib.diverges_only_in_mutant), else None.
-    Never a verdict of 'undetected': a miss only means the full replay must decide."""
+    """The first known killer case whose divergence is DEMONSTRATED: the unmutated build agrees with the recorded Pekko output on it, the
+    mutant does not (replay_lib.diverges_only_in_mutant), AND the real tool, replaying that single case, fails it as an applicable case
+    (replay_lib.confirm_applicable_divergence), i.e. the full replay would classify it the same way. Else None: the full replay decides.
+    Never a verdict of 'undetected'."""
     control = control_binary_for_fast_kill()
     if control is None:
         return None
     for case in known_killers(name):
-        if replay_lib.diverges_only_in_mutant(binary, control, case):
-            return case
+        if not replay_lib.diverges_only_in_mutant(binary, control, case):
+            continue
+        confirmation = replay_lib.confirm_applicable_divergence(binary, case)
+        if confirmation.confirmed:
+            return FastKill(case, confirmation.report_text, "the unmutated build matches Pekko on it")
     return None
+
+
+def publish_mutant_report(name, verdict_path, report_text):
+    """The per-mutant report always starts with the path that produced the verdict, so that the evidence cannot be mistaken for another one."""
+    with open(os.path.join(REPORTS, f"replay-report-{name}.md"), "w", encoding="utf-8") as report_file:
+        report_file.write(f"Verdict path: {verdict_path}\n\n{report_text}")
+
+
+def publish_fast_kill_report(name, kill):
+    publish_mutant_report(name, f"fast-kill: case {kill.case} confirmed by a single-case replay (`rust-anything app replay --case`); "
+                                f"{kill.reason}; no full replay ran", kill.report_text)
 
 
 def run_tool_mutant(scratch, name, rel, old, new, why):

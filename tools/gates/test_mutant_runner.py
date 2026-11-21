@@ -1,5 +1,5 @@
 """Tests of the budgeted, resumable mutant runner: ordering, evidence invalidation, budget, authorization, resume, cancellation, summary."""
-import os, signal, subprocess, sys, tempfile, time, unittest
+import json, os, signal, subprocess, sys, tempfile, time, unittest
 
 import mutant_runner as mr
 
@@ -469,6 +469,38 @@ class BudgetSharedWithTheReplayLockWait(unittest.TestCase):
             store = mr.ResultStore(root)
             self.assertEqual(mr.ensure_control(store, "k", lambda: mr.BUDGET_EXHAUSTED_EXIT, budget_limited=False), "UNVERIFIED")
             self.assertEqual(os.listdir(root), [])
+
+
+class VerdictPathVisibility(unittest.TestCase):
+    def record_for(self, outcome, line):
+        with tempfile.TemporaryDirectory() as root:
+            result_file = os.path.join(root, "m.json")
+            def child():
+                with open(result_file, "w") as handle:
+                    json.dump({"mutants": {"m": [outcome, None, None, line]}, "control": None}, handle)
+                return 0
+            return mr.execute_mutant("m", result_file, child, lambda: 1.0)
+
+    def test_a_record_says_whether_the_verdict_came_from_fast_kill_or_from_the_full_replay(self):
+        self.assertEqual(self.record_for("DETECTED", "fast-kill: case c1 confirmed by a single-case replay")["verdict_path"], "fast-kill")
+        self.assertEqual(self.record_for("DETECTED", "2782/2821 applicable + 0 NA:Q-CFG-30 + 1 not applicable (diverge 39)")["verdict_path"], "full-replay")
+        self.assertEqual(self.record_for("UNDETECTED", "2821/2821 applicable")["verdict_path"], "full-replay")
+        self.assertIsNone(self.record_for("HARNESS_ERROR", "replay output rejected")["verdict_path"])
+
+    def test_the_plan_report_counts_the_paths_of_the_verdicts_it_produced(self):
+        with tempfile.TemporaryDirectory() as root:
+            records = {"a": {"outcome": "DETECTED", "verdict_path": "fast-kill"}, "b": {"outcome": "DETECTED", "verdict_path": "full-replay"},
+                       "c": {"outcome": "DETECTED", "verdict_path": "fast-kill"}}
+            report = mr.run_plan([(n, "other") for n in "abc"], {n: "key-" + n for n in "abc"}, mr.ResultStore(root), lambda name: dict(records[name], seconds=1.0),
+                                 clock=lambda: 0.0, max_mutants=None, max_seconds=None)
+            self.assertEqual(report["paths"], {"fast-kill": 2, "full-replay": 1})
+
+    def test_the_summary_names_the_verdict_paths_and_stays_compact(self):
+        text = mr.summary_text(total=206, detected=3, undetected=[], errors=[], pending=["x"], stopped_by="count budget", control="CLEAN",
+                               paths={"fast-kill": 2, "full-replay": 1})
+        self.assertIn("fast-kill 2", text)
+        self.assertIn("full replay 1", text)
+        self.assertLessEqual(len(text.splitlines()), 12)
 
 
 class RecoveryAfterAKilledProcess(unittest.TestCase):

@@ -276,7 +276,10 @@ def execute_mutant(name, result_file, launch, elapsed, budget_limited=False):
     try:
         with open(result_file) as result_json_file:
             outcome, passed, total, line = json.load(result_json_file)["mutants"][name]
-        return {"outcome": outcome, "passed": passed, "total": total, "line": line[:200], "seconds": seconds}
+        verdict_path = None
+        if outcome in ("DETECTED", "UNDETECTED"):
+            verdict_path = "fast-kill" if line.startswith("fast-kill") else "full-replay"
+        return {"outcome": outcome, "passed": passed, "total": total, "line": line[:200], "seconds": seconds, "verdict_path": verdict_path}
     except (OSError, ValueError, KeyError):
         return {"outcome": "HARNESS_ERROR", "seconds": seconds, "line": f"no result (exit {code})"}
 
@@ -286,7 +289,7 @@ def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds, key
     `key_now(name)` recomputes a mutant's key from the files as they are now: a result is stored only if the key is the same before
     and after the run (edits or a branch switch during a long run would otherwise file a verdict under the key of different code)."""
     start = clock()
-    ran, pending, fresh_before, stopped_by, outcomes = 0, [], 0, None, {}
+    ran, pending, fresh_before, stopped_by, outcomes, paths = 0, [], 0, None, {}, {}
     for name, _tier in ordered:
         fresh = store.is_fresh(keys[name])
         if not fresh:
@@ -315,8 +318,10 @@ def run_plan(ordered, keys, store, execute, clock, max_mutants, max_seconds, key
             continue
         store.put(keys[name], {**record, "name": name})
         outcomes[name] = record["outcome"]
+        if record.get("verdict_path"):
+            paths[record["verdict_path"]] = paths.get(record["verdict_path"], 0) + 1
         ran += 1
-    return {"ran": ran, "pending": pending, "fresh_before": fresh_before, "stopped_by": stopped_by, "outcomes": outcomes}
+    return {"ran": ran, "pending": pending, "fresh_before": fresh_before, "stopped_by": stopped_by, "outcomes": outcomes, "paths": paths}
 
 
 def exit_code(undetected, errors, pending, control):
@@ -327,11 +332,13 @@ def exit_code(undetected, errors, pending, control):
     return 3 if pending or control == "UNVERIFIED" else 0
 
 
-def summary_text(total, detected, undetected, errors, pending, stopped_by, control):
+def summary_text(total, detected, undetected, errors, pending, stopped_by, control, paths=None):
     lines = [f"MUTANTS fresh-detected {detected}/{total}  undetected {len(undetected)}  errors {len(errors)}  pending {len(pending)}  control {control}"]
     for label, names in (("UNDETECTED", undetected), ("ERROR", errors), ("PENDING", pending)):
         if names:
             lines.append(f"{label} ({len(names)}): " + ", ".join(names[:4]) + (" ..." if len(names) > 4 else ""))
+    if paths:
+        lines.append(f"verdict paths (this run): fast-kill {paths.get('fast-kill', 0)}, full replay {paths.get('full-replay', 0)}")
     if stopped_by:
         lines.append(f"stopped by {stopped_by}; rerun the same command to resume (fresh results are kept)")
     return "\n".join(lines)
@@ -593,7 +600,7 @@ def main(argv):
     undetected = [n for n, o in outcomes.items() if o == "UNDETECTED"]
     errors = [n for n, o in outcomes.items() if o not in ("DETECTED", "UNDETECTED")]
     detected = sum(1 for o in outcomes.values() if o == "DETECTED")
-    text = summary_text(len(all_mutants), detected, undetected, errors, report["pending"], report["stopped_by"], control)
+    text = summary_text(len(all_mutants), detected, undetected, errors, report["pending"], report["stopped_by"], control, report.get("paths"))
     print(text)
     if stale:
         print(f"STALE patterns, not executed ({len(stale)}): " + ", ".join(stale[:6]) + (" ..." if len(stale) > 6 else ""))

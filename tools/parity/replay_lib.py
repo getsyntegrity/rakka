@@ -197,13 +197,40 @@ def parse_replay_output(completed, report_text):
     return ReplayResult(completed.returncode, passed, total, failures, report_text, completed.stdout, completed.stderr, problem)
 
 
-def run_replay(binary, timeout):
+@dataclasses.dataclass
+class DivergenceConfirmation:
+    confirmed: bool
+    reason: str
+    report_text: object = None
+
+
+def confirm_applicable_divergence(mutant_binary, case, timeout=120):
+    """Proves, with the real tool on this one case, that the full replay would also classify `case` as an APPLICABLE divergence for this binary:
+    the case is not NOT_APPLICABLE, the single-case replay (`rust-anything app replay --case`, validated like any replay) fails it, and its
+    difference is not just the NA:Q-CFG-30 signature. Anything else is not a kill: the caller must run the full replay."""
+    if case in load_not_applicable():
+        return DivergenceConfirmation(False, "the case is listed as not applicable")
+    try:
+        result = run_replay(mutant_binary, timeout, case=case)
+    except subprocess.TimeoutExpired:
+        return DivergenceConfirmation(False, "the single-case replay timed out")
+    if result.passed is None:
+        return DivergenceConfirmation(False, f"the single-case replay output was rejected: {result.problem}")
+    if result.failures != [case]:
+        return DivergenceConfirmation(False, "the single-case replay passes this case: the full replay would not fail it")
+    recorded, produced = case_outputs(mutant_binary, case)
+    if na_q_cfg_30.is_q_cfg_30(recorded, produced):
+        return DivergenceConfirmation(False, "the difference is only the NA:Q-CFG-30 signature, which is not an applicable divergence")
+    return DivergenceConfirmation(True, "confirmed by a single-case replay", result.report_text)
+
+
+def run_replay(binary, timeout, case=None):
     """Runs the recorded replay of `binary` and returns its own evidence. The lock spans from the start of the replay to the reading
     of its report, so the report a caller publishes is always the report of the replay it classified."""
     with replay_lock():
         signature_before = report_signature()
-        completed = subprocess.run(["rust-anything", "app", "replay", ROOT, "--build", binary, "--json"], stdin=subprocess.DEVNULL,
-                                   capture_output=True, text=True, timeout=timeout)
+        command = ["rust-anything", "app", "replay", ROOT, "--build", binary, "--json"] + (["--case", case] if case else [])
+        completed = subprocess.run(command, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout)
         # an earlier replay's report is never published: it counts only if this replay wrote (changed) the file
         report_text = read_report_text() if report_signature() != signature_before else None
     return parse_replay_output(completed, report_text)

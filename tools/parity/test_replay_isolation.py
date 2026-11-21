@@ -6,13 +6,23 @@ import replay_lib
 
 FAKE_RUST_ANYTHING = r'''#!/bin/sh
 # stand-in for `rust-anything app replay REPO --build BIN --json`; the result depends on the build's file name
-repo="$3"; build=""
+repo="$3"; build=""; case_id=""
 while [ $# -gt 0 ]; do
-  case "$1" in --build) build="$2"; shift;; esac
+  case "$1" in --build) build="$2"; shift;; --case) case_id="$2"; shift;; esac
   shift
 done
 label=$(basename "$build")
 report="$repo/rust/app-cases/replay-report.md"
+if [ -n "$case_id" ]; then
+  if [ "$label" = "build-a" ] || [ "$label" = "build-q" ]; then
+    printf '# App replay\n\nPassed: 0/1\n\n## Failing cases\n\n### %s\n' "$case_id" > "$report"
+    printf '{"build":["%s"],"passed":0,"total":1,"skipped":0,"failures":[{"case":"%s","args":["scenario"],"problems":[{"field":"stdout","detail":"d"}]}],"fallback":null,"report":"%s"}\n' "$build" "$case_id" "$report"
+    exit 1
+  fi
+  printf '# App replay\n\nPassed: 1/1\n' > "$report"
+  printf '{"build":["%s"],"passed":1,"total":1,"skipped":0,"failures":[],"fallback":null,"report":"%s"}\n' "$build" "$report"
+  exit 0
+fi
 if [ "$label" = "build-a" ]; then
   printf '# App replay\n\nPassed: 1/3\n\n## Failing cases\n\n### c-a1\n\n### c-a2\n' > "$report"
   sleep 1.2
@@ -52,20 +62,24 @@ class ReplayIsolation(unittest.TestCase):
         os.makedirs(os.path.join(root, "bin"))
         with open(os.path.join(root, "cases", "not-applicable.tsv"), "w") as na_file:
             na_file.write("case\treason\tdecision\tlink\n")
-        for case in ("c-a1", "c-a2", "c-na"):
+        for case in ("c-a1", "c-a2", "c-na", "c-q"):
             base = os.path.join(root, "rust", "app-cases", case)
             with open(base + ".toml", "w") as recording:
                 recording.write('bin.name = "x"\nargs = ["scenario"]\nstatus.code = 0\n')
             with open(base + ".stdin", "w") as stdin_file:
                 stdin_file.write("input")
             with open(base + ".stdout", "w") as stdout_file:
-                stdout_file.write("pekko")
+                stdout_file.write("NUM-SHORT x -> ok 1.9999999999999998E23" if case == "c-q" else "pekko")
         self.tool = os.path.join(root, "bin", "rust-anything")
         make_executable(self.tool, FAKE_RUST_ANYTHING)
         self.build_a, self.build_b, self.build_na = (os.path.join(root, name) for name in ("build-a", "build-b", "build-na"))
         for build in (self.build_a, self.build_b):
             make_executable(build, '#!/bin/sh\nprintf "mutated"\n')
         make_executable(self.build_na, '#!/bin/sh\necho "input outside the API domain: x" >&2\nexit 2\n')
+        self.build_q = os.path.join(root, "build-q")
+        make_executable(self.build_q, '#!/bin/sh\nprintf "NUM-SHORT x -> ok 2.0E23"\n')    # differs only like the JDK 17 Double.toString bug
+        self.build_control = os.path.join(root, "build-control")
+        make_executable(self.build_control, '#!/bin/sh\nprintf "pekko"\n')                  # the unmutated build: matches the recording
         self.saved = (replay_lib.ROOT, replay_lib.REPORT, replay_lib.NA_FILE, os.environ["PATH"])
         replay_lib.ROOT = root
         replay_lib.REPORT = os.path.join(root, "rust", "app-cases", "replay-report.md")
@@ -121,6 +135,67 @@ class ReplayIsolation(unittest.TestCase):
             replay_lib.rejects_explicitly(self.build_na, "c-na")
             gc.collect()
         self.assertEqual([str(warning.message) for warning in caught if issubclass(warning.category, ResourceWarning)], [])
+
+    # --- fast-kill must demonstrate what the full replay would classify as an applicable divergence ---
+    def test_a_divergence_is_confirmed_when_the_real_single_case_replay_fails_it_as_an_applicable_case(self):
+        confirmation = replay_lib.confirm_applicable_divergence(self.build_a, "c-a1")
+        self.assertTrue(confirmation.confirmed, confirmation.reason)
+        self.assertIn("### c-a1", confirmation.report_text)
+
+    def test_a_divergence_the_single_case_replay_does_not_confirm_is_not_a_kill(self):
+        confirmation = replay_lib.confirm_applicable_divergence(self.build_b, "c-a1")     # the tool passes this case
+        self.assertFalse(confirmation.confirmed)
+        self.assertIn("passes", confirmation.reason)
+
+    def test_a_case_listed_as_not_applicable_is_never_a_kill(self):
+        with open(replay_lib.NA_FILE, "a") as na_file:
+            na_file.write("c-a1\tout of domain\tQ-X-17\tdocs\n")
+        confirmation = replay_lib.confirm_applicable_divergence(self.build_a, "c-a1")
+        self.assertFalse(confirmation.confirmed)
+        self.assertIn("not applicable", confirmation.reason)
+
+    def test_a_difference_that_is_only_the_jdk_17_number_signature_is_not_an_applicable_divergence(self):
+        confirmation = replay_lib.confirm_applicable_divergence(self.build_q, "c-q")
+        self.assertFalse(confirmation.confirmed)
+        self.assertIn("Q-CFG-30", confirmation.reason)
+
+    def test_an_invalid_single_case_output_is_not_a_kill(self):
+        make_executable(self.tool, '#!/bin/sh\necho \'{"passed":0,"total":1}\'\nexit 1\n')
+        confirmation = replay_lib.confirm_applicable_divergence(self.build_a, "c-a1")
+        self.assertFalse(confirmation.confirmed)
+        self.assertIn("rejected", confirmation.reason)
+
+    def test_fast_kill_returns_a_confirmed_case_and_otherwise_falls_back_to_the_full_replay(self):
+        import check_divergence as cd
+        saved = (cd.known_killers, cd.control_binary_for_fast_kill)
+        cd.known_killers = lambda name: ["c-a1"]
+        cd.control_binary_for_fast_kill = lambda: self.build_control
+        try:
+            kill = cd.fast_kill(self.build_a, "some-mutant")
+            self.assertEqual(kill.case, "c-a1")
+            self.assertIn("### c-a1", kill.report_text)
+            self.assertIsNone(cd.fast_kill(self.build_b, "some-mutant"))   # build-b agrees with the tool: nothing to confirm, the full replay decides
+        finally:
+            cd.known_killers, cd.control_binary_for_fast_kill = saved
+
+    def test_every_verdict_report_says_which_path_produced_the_verdict(self):
+        import check_divergence as cd
+        reports = os.path.join(self.tmp.name, "divergence-reports")
+        os.makedirs(reports)
+        saved = (cd.REPORTS, cd.replay)
+        cd.REPORTS = reports
+        cd.replay = lambda binary: replay_lib.run_replay(binary, 30)
+        try:
+            cd.full_replay_verdict(self.build_a, "full-path-mutant")
+            cd.publish_fast_kill_report("fast-path-mutant", cd.FastKill("c-a1", "### c-a1\n", "the unmutated build matches Pekko"))
+        finally:
+            cd.REPORTS, cd.replay = saved
+        full = read_text(os.path.join(reports, "replay-report-full-path-mutant.md"))
+        fast = read_text(os.path.join(reports, "replay-report-fast-path-mutant.md"))
+        self.assertTrue(full.startswith("Verdict path: full replay (3 cases)"), full[:80])
+        self.assertTrue(fast.startswith("Verdict path: fast-kill"), fast[:80])
+        self.assertIn("c-a1", fast.splitlines()[0])
+        self.assertIn("no full replay", fast.splitlines()[0])
 
     # --- waiting for the lock consumes the run's budget ---
     def hold_the_replay_lock(self):
