@@ -197,6 +197,59 @@ class ReplayIsolation(unittest.TestCase):
         self.assertIn("c-a1", fast.splitlines()[0])
         self.assertIn("no full replay", fast.splitlines()[0])
 
+    # --- reports: the killers list survives a fast-kill, every verdict rewrites its report ---
+    def with_reports_directory(self):
+        import check_divergence as cd
+        reports = os.path.join(self.tmp.name, "divergence-reports")
+        os.makedirs(reports, exist_ok=True)
+        self.saved_cd = (cd.REPORTS, cd.replay)
+        cd.REPORTS = reports
+        cd.replay = lambda binary: replay_lib.run_replay(binary, 30)
+        self.addCleanup(lambda: (setattr(cd, "REPORTS", self.saved_cd[0]), setattr(cd, "replay", self.saved_cd[1])))
+        return cd, reports
+
+    def test_a_fast_kill_keeps_the_full_list_of_known_killers_instead_of_shrinking_it_to_the_confirmed_case(self):
+        cd, reports = self.with_reports_directory()
+        with open(os.path.join(reports, "replay-report-m.md"), "w") as earlier:
+            earlier.write("# App replay\n\nPassed: 2/5\n\n### c-a1\n\n### c-a2\n\n### c-q\n")
+        cd.publish_fast_kill_report("m", cd.FastKill("c-a1", "### c-a1\n", "the unmutated build matches Pekko on it"))
+        self.assertEqual(cd.known_killers("m"), ["c-a1", "c-a2", "c-q"])               # not just the one confirmed case
+        self.assertEqual(read_text(os.path.join(reports, "replay-report-m.md")).count("### "), 1)   # the report is the verdict's own evidence
+
+    def test_a_full_replay_records_every_divergent_case_as_a_known_killer_for_the_next_fast_kill(self):
+        cd, reports = self.with_reports_directory()
+        cd.full_replay_verdict(self.build_a, "m2")
+        self.assertEqual(cd.known_killers("m2"), ["c-a1", "c-a2"])
+
+    def test_a_mutant_that_survives_gets_a_report_that_states_its_verdict_and_not_the_old_divergences(self):
+        cd, reports = self.with_reports_directory()
+        with open(os.path.join(reports, "replay-report-m3.md"), "w") as earlier:
+            earlier.write("# App replay\n\nPassed: 1/3\n\n### c-a1\n\n### c-a2\n")
+        outcome = cd.full_replay_verdict(self.build_b, "m3")                              # the replay passes everything: the mutant survives
+        self.assertEqual(outcome[0], cd.UNDETECTED)
+        report = read_text(os.path.join(reports, "replay-report-m3.md"))
+        self.assertTrue(report.startswith("Verdict path: full replay (2 cases); outcome UNDETECTED"), report[:90])
+        self.assertNotIn("### c-a1", report)
+        self.assertEqual(cd.known_killers("m3"), [])
+
+    def test_a_replay_that_produced_no_report_still_states_its_verdict(self):
+        cd, reports = self.with_reports_directory()
+        make_executable(self.tool, PASSING_JSON_ONLY)
+        with open(os.path.join(reports, "replay-report-m4.md"), "w") as earlier:
+            earlier.write("# App replay\n\n### stale\n")
+        cd.full_replay_verdict(self.build_b, "m4")
+        report = read_text(os.path.join(reports, "replay-report-m4.md"))
+        self.assertTrue(report.startswith("Verdict path: full replay (1 cases); outcome UNDETECTED"), report[:90])
+        self.assertIn("produced no report", report)
+        self.assertNotIn("stale", report)
+
+    def test_a_rejected_replay_output_is_also_stated_in_the_report(self):
+        cd, reports = self.with_reports_directory()
+        make_executable(self.tool, '#!/bin/sh\necho \'{"passed":1,"total":3}\'\nexit 1\n')
+        cd.full_replay_verdict(self.build_b, "m5")
+        report = read_text(os.path.join(reports, "replay-report-m5.md"))
+        self.assertTrue(report.startswith("Verdict path: full replay (output rejected); outcome HARNESS_ERROR"), report[:100])
+
     # --- waiting for the lock consumes the run's budget ---
     def hold_the_replay_lock(self):
         import fcntl

@@ -1414,24 +1414,55 @@ def full_replay_verdict(binary, name):
         return TIMEOUT, None, None, "rust-anything replay"
     except replay_lib.ReplayLockTimeout:
         return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
-    if r.report_text is not None:   # the report of THIS replay (read under the checkout lock), never the shared file as it is now
-        publish_mutant_report(name, f"full replay ({r.total} cases)", r.report_text)
-    return classify(r, binary)
+    outcome = classify(r, binary)
+    # the report of THIS replay (read under the checkout lock), never the shared file as it is now; a verdict always rewrites it, so that an
+    # earlier report can never sit under a verdict path that no longer applies
+    scope = "output rejected" if r.passed is None else f"{r.total} cases"
+    publish_mutant_report(name, f"full replay ({scope}); outcome {outcome[0]}",
+                          r.report_text if r.report_text is not None else "(this replay produced no report)\n")
+    if r.passed is not None:
+        write_killers(name, r.failures)
+    return outcome
 
 
 FAST_KILL = True
 FAST_KILL_CANDIDATES = 8
 
 
-def known_killers(name):
-    """Cases the committed report of an earlier full replay of this mutant listed as divergent, minus the NOT_APPLICABLE ones."""
+def killers_file(name):
+    return os.path.join(REPORTS, f"replay-killers-{name}.txt")
+
+
+def write_killers(name, cases):
+    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it."""
+    with open(killers_file(name), "w", encoding="utf-8") as killers:
+        killers.write("".join(f"{case}\n" for case in cases))
+
+
+def cases_listed_in_report(name):
     try:
-        with open(os.path.join(REPORTS, f"replay-report-{name}.md"), encoding="utf-8") as fh:
-            listed = re.findall(r"(?m)^### (\S+)\s*$", fh.read())
+        with open(os.path.join(REPORTS, f"replay-report-{name}.md"), encoding="utf-8") as report_file:
+            return re.findall(r"(?m)^### (\S+)\s*$", report_file.read())
     except OSError:
         return []
+
+
+def preserve_killers(name):
+    """Before a fast-kill replaces the report of a mutant with its own single-case evidence, keep the divergent cases that report listed."""
+    if not os.path.exists(killers_file(name)) and cases_listed_in_report(name):
+        write_killers(name, cases_listed_in_report(name))
+
+
+def known_killers(name):
+    """The divergent cases an earlier full replay of this mutant recorded (the killers file; the report of older runs as a fallback), minus the
+    NOT_APPLICABLE ones."""
+    try:
+        with open(killers_file(name), encoding="utf-8") as killers:
+            listed = [line.strip() for line in killers if line.strip()]
+    except OSError:
+        listed = cases_listed_in_report(name)
     not_applicable = replay_lib.load_not_applicable()
-    return [c for c in listed if c not in not_applicable][:FAST_KILL_CANDIDATES]
+    return [case for case in listed if case not in not_applicable][:FAST_KILL_CANDIDATES]
 
 
 _control_binary = None
@@ -1479,6 +1510,7 @@ def publish_mutant_report(name, verdict_path, report_text):
 
 
 def publish_fast_kill_report(name, kill):
+    preserve_killers(name)
     publish_mutant_report(name, f"fast-kill: case {kill.case} confirmed by a single-case replay (`rust-anything app replay --case`); "
                                 f"{kill.reason}; no full replay ran", kill.report_text)
 
