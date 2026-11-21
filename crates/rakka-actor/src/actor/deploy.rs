@@ -2,9 +2,8 @@
 //! `Deploy` and `Scope`: the final, combinable description of how an actor is deployed
 //! (`Deployer.scala:28-164` and `:173-220`), and the router slot it carries.
 
-use std::collections::BTreeSet;
-
 use crate::config::Config;
+use crate::util::scala_hash_order::iteration_order;
 
 /// `Deploy.NoDispatcherGiven`.
 pub const NO_DISPATCHER_GIVEN: &str = "";
@@ -70,7 +69,8 @@ pub struct Deploy {
     scope: Scope,
     dispatcher: String,
     mailbox: String,
-    tags: BTreeSet<String>,
+    /// The tags in the order they were given, each once (a Scala `Set` of up to four keeps that order).
+    tags: Vec<String>,
 }
 
 impl Default for Deploy {
@@ -83,7 +83,7 @@ impl Default for Deploy {
             scope: Scope::NoScopeGiven,
             dispatcher: NO_DISPATCHER_GIVEN.to_owned(),
             mailbox: NO_MAILBOX_GIVEN.to_owned(),
-            tags: BTreeSet::new(),
+            tags: Vec::new(),
         }
     }
 }
@@ -96,7 +96,54 @@ impl PartialEq for Deploy {
             && self.scope == other.scope
             && self.dispatcher == other.dispatcher
             && self.mailbox == other.mailbox
-            && self.tags == other.tags
+            && same_elements(&self.tags, &other.tags)
+    }
+}
+
+fn same_elements(left: &[String], right: &[String]) -> bool {
+    left.len() == right.len() && left.iter().all(|tag| right.contains(tag))
+}
+
+/// `toString` of the Scala `Set` of tags: up to four elements in insertion order (`Set1..Set4`), more as a `HashSet`.
+fn render_tags(tags: &[String]) -> String {
+    if tags.len() <= 4 {
+        return format!("Set({})", tags.join(", "));
+    }
+    let keys: Vec<&str> = tags.iter().map(String::as_str).collect();
+    let in_hash_order: Vec<&str> = iteration_order(&keys)
+        .into_iter()
+        .map(|i| keys[i])
+        .collect();
+    format!("HashSet({})", in_hash_order.join(", "))
+}
+
+impl std::fmt::Display for Scope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Scope::Local => f.write_str("LocalScope"),
+            Scope::NoScopeGiven => f.write_str("NoScopeGiven"),
+        }
+    }
+}
+
+/// `Deploy.toString` (Deployer.scala:163). The router prints as its class name until the routing module (P37) gives each
+/// router its own text.
+impl std::fmt::Display for Deploy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let router = match &self.router_config {
+            RouterConfig::NoRouter => "NoRouter".to_owned(),
+            RouterConfig::Opaque(class_name) => class_name.clone(),
+        };
+        write!(
+            f,
+            "Deploy({}, Config(SimpleConfigObject({})), {router}, {}, {}, {}, {})",
+            self.path,
+            self.config.render_concise(),
+            self.scope,
+            self.dispatcher,
+            self.mailbox,
+            render_tags(&self.tags)
+        )
     }
 }
 
@@ -117,7 +164,7 @@ impl Deploy {
             scope,
             dispatcher: dispatcher.to_owned(),
             mailbox: mailbox.to_owned(),
-            tags: BTreeSet::new(),
+            tags: Vec::new(),
         }
     }
 
@@ -131,8 +178,14 @@ impl Deploy {
 
     /// `withTags`.
     pub fn with_tags(&self, tags: impl IntoIterator<Item = String>) -> Self {
+        let mut distinct: Vec<String> = Vec::new();
+        for tag in tags {
+            if !distinct.contains(&tag) {
+                distinct.push(tag);
+            }
+        }
         Deploy {
-            tags: tags.into_iter().collect(),
+            tags: distinct,
             ..self.clone()
         }
     }
@@ -168,7 +221,7 @@ impl Deploy {
     }
 
     /// `tags`.
-    pub fn tags(&self) -> &BTreeSet<String> {
+    pub fn tags(&self) -> &[String] {
         &self.tags
     }
 
@@ -189,7 +242,7 @@ impl Deploy {
             } else {
                 self.mailbox.clone()
             },
-            tags: BTreeSet::new(),
+            tags: Vec::new(),
         }
     }
 }
@@ -349,5 +402,67 @@ mod tests {
         assert_eq!(a, b);
         assert_ne!(a, deploy("/a", "d", "m"));
         assert_ne!(a, a.with_tags(["t".to_owned()]));
+    }
+
+    // Expected texts measured with the real `Deploy.toString` of Pekko 2.0.0 (DeployOracle TS-01..TS-35).
+    fn tagged(names: &[&str]) -> Deploy {
+        Deploy::default().with_tags(names.iter().map(|name| (*name).to_owned()))
+    }
+
+    #[test]
+    fn to_string_lists_the_seven_fields_with_the_scope_and_router_names() {
+        assert_eq!(
+            Deploy::default().to_string(),
+            "Deploy(, Config(SimpleConfigObject({})), NoRouter, NoScopeGiven, , , Set())"
+        );
+        assert_eq!(
+            Deploy::local().to_string(),
+            "Deploy(, Config(SimpleConfigObject({})), NoRouter, LocalScope, , , Set())"
+        );
+        let configured = Deploy::new(
+            "/a",
+            conf("x = 1"),
+            RouterConfig::opaque("RoundRobinPool"),
+            Scope::Local,
+            "d",
+            "m",
+        );
+        assert_eq!(
+            configured.to_string(),
+            "Deploy(/a, Config(SimpleConfigObject({\"x\":1})), RoundRobinPool, LocalScope, d, m, Set())"
+        );
+    }
+
+    #[test]
+    fn to_string_keeps_up_to_four_tags_in_insertion_order_and_repeats_once() {
+        assert!(
+            tagged(&["t3", "t1", "t4", "t2"])
+                .to_string()
+                .ends_with("Set(t3, t1, t4, t2))")
+        );
+        assert!(
+            tagged(&["t2", "t4", "t1", "t3"])
+                .to_string()
+                .ends_with("Set(t2, t4, t1, t3))")
+        );
+        assert!(
+            tagged(&["b", "a", "b", "c", "a"])
+                .to_string()
+                .ends_with("Set(b, a, c))")
+        );
+    }
+
+    #[test]
+    fn to_string_lists_five_or_more_tags_in_hash_set_order_whatever_the_insertion_order() {
+        assert!(
+            tagged(&["t3", "t1", "t4", "t2", "t5"])
+                .to_string()
+                .ends_with("HashSet(t3, t2, t1, t4, t5))")
+        );
+        assert!(
+            tagged(&["t5", "t2", "t4", "t1", "t3"])
+                .to_string()
+                .ends_with("HashSet(t3, t2, t1, t4, t5))")
+        );
     }
 }

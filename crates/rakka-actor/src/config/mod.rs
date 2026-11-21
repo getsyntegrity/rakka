@@ -36,7 +36,8 @@ pub use settings::{
 };
 pub use setup::{ActorSystemSetup, BootstrapSetup, Setup};
 
-use model::{Kind, NumRepr, Obj, Val, join_path, merge_obj, quote};
+use crate::actor::jstring::decimal_digit_value;
+use model::{Kind, NumRepr, Obj, Piece, Val, join_path, merge_obj, quote};
 
 use crate::ConfigurationException;
 use crate::util::{TimeUnit, Timeout};
@@ -112,17 +113,82 @@ pub(crate) fn render_concise(v: &Val) -> String {
             l.iter().map(render_concise).collect::<Vec<_>>().join(",")
         ),
         Kind::Obj(m) => {
-            let fields: Vec<String> = m
+            // an unresolved key keeps every layer of its stack, the lowest priority first
+            let mut entries: Vec<(&String, &Val)> = m
                 .iter()
-                .filter_map(|(k, st)| {
-                    st.first()
-                        .map(|x| format!("{}:{}", quote(k), render_concise(x)))
-                })
+                .flat_map(|(k, stack)| stack.iter().rev().map(move |layer| (k, layer)))
+                .collect();
+            entries.sort_by(|a, b| compare_render_keys(a.0, b.0));
+            let fields: Vec<String> = entries
+                .into_iter()
+                .map(|(k, x)| format!("{}:{}", quote(k), render_concise(x)))
                 .collect();
             format!("{{{}}}", fields.join(","))
         }
-        Kind::Concat(_) | Kind::Subst(_) => "\"<unresolved>\"".to_owned(),
+        Kind::Subst(s) => s.display(),
+        Kind::Concat(pieces) => render_concatenation(pieces),
     }
+}
+
+/// The order in which a rendered object lists its keys: keys made only of digits first, by numeric value, then the
+/// others like `String.compareTo`.
+fn compare_render_keys(a: &str, b: &str) -> std::cmp::Ordering {
+    // `Character.isDigit` over UTF-16 units, so Unicode decimal digits count and astral ones do not
+    let value = |key: &str| -> Option<Vec<i32>> {
+        let units: Vec<u16> = key.encode_utf16().collect();
+        let digits: Option<Vec<i32>> = units.iter().map(|&u| decimal_digit_value(u)).collect();
+        digits.filter(|d| !d.is_empty())
+    };
+    match (value(a), value(b)) {
+        (Some(a), Some(b)) => {
+            let significant = |d: &[i32]| {
+                d.iter()
+                    .skip_while(|&&x| x == 0)
+                    .copied()
+                    .collect::<Vec<_>>()
+            };
+            let (a, b) = (significant(&a), significant(&b));
+            a.len().cmp(&b.len()).then_with(|| a.cmp(&b))
+        }
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => crate::actor::jstring::compare_utf16(a, b),
+    }
+}
+
+/// An unresolved concatenation: its pieces one after another, with the white space that touches a string joined to it.
+fn render_concatenation(pieces: &[Piece]) -> String {
+    let mut out = String::new();
+    let mut text = String::new();
+    let mut in_text = false;
+    for piece in pieces {
+        let as_text = match piece {
+            Piece::Ws(white) => Some(white.as_str()),
+            Piece::V(Val {
+                kind: Kind::Str(s), ..
+            }) => Some(s.as_str()),
+            Piece::V(_) => None,
+        };
+        match (as_text, piece) {
+            (Some(t), _) => {
+                text.push_str(t);
+                in_text = true;
+            }
+            (None, Piece::V(v)) => {
+                if in_text {
+                    out.push_str(&quote(&text));
+                    text.clear();
+                    in_text = false;
+                }
+                out.push_str(&render_concise(v));
+            }
+            (None, Piece::Ws(_)) => {}
+        }
+    }
+    if in_text {
+        out.push_str(&quote(&text));
+    }
+    out
 }
 
 /// An immutable HOCON configuration.
