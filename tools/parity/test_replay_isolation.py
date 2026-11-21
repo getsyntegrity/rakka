@@ -122,6 +122,48 @@ class ReplayIsolation(unittest.TestCase):
             gc.collect()
         self.assertEqual([str(warning.message) for warning in caught if issubclass(warning.category, ResourceWarning)], [])
 
+    # --- waiting for the lock consumes the run's budget ---
+    def hold_the_replay_lock(self):
+        import fcntl
+        os.makedirs(os.path.join(self.tmp.name, ".gates"), exist_ok=True)
+        holder = open(os.path.join(self.tmp.name, ".gates", "replay.lock"), "w")
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        return holder
+
+    def test_waiting_for_the_replay_lock_gives_up_when_the_run_budget_is_spent(self):
+        holder = self.hold_the_replay_lock()               # another replay of this checkout is running
+        os.environ[replay_lib.REPLAY_DEADLINE_ENV] = str(time.time() + 0.6)
+        try:
+            started = time.time()
+            with self.assertRaises(replay_lib.ReplayLockTimeout):
+                replay_lib.run_replay(self.build_b, 30)
+            self.assertLess(time.time() - started, 5)       # it waited for the budget, not for the other replay
+        finally:
+            del os.environ[replay_lib.REPLAY_DEADLINE_ENV]
+            holder.close()
+
+    def test_after_a_give_up_the_lock_is_still_usable_and_no_replay_ran(self):
+        holder = self.hold_the_replay_lock()
+        os.environ[replay_lib.REPLAY_DEADLINE_ENV] = str(time.time() + 0.3)
+        try:
+            with self.assertRaises(replay_lib.ReplayLockTimeout):
+                replay_lib.run_replay(self.build_b, 30)
+        finally:
+            del os.environ[replay_lib.REPLAY_DEADLINE_ENV]
+            holder.close()
+        self.assertFalse(os.path.exists(replay_lib.REPORT))            # the replay never started
+        self.assertEqual(replay_lib.run_replay(self.build_b, 30).passed, 2)
+
+    def test_a_spent_budget_does_not_stop_a_replay_that_finds_the_lock_free(self):
+        os.environ[replay_lib.REPLAY_DEADLINE_ENV] = str(time.time() - 100)
+        try:
+            self.assertEqual(replay_lib.run_replay(self.build_b, 30).passed, 2)
+        finally:
+            del os.environ[replay_lib.REPLAY_DEADLINE_ENV]
+
+    def test_the_budget_exit_code_is_not_one_of_the_codes_the_tools_use_for_verdicts(self):
+        self.assertNotIn(replay_lib.EXIT_BUDGET_EXHAUSTED, (0, 1, 2, 3, 143))
+
     # --- valid replays keep their classification ---
     def test_a_valid_replay_with_divergences_keeps_its_classification(self):
         result = replay_lib.run_replay(self.build_a, 30)

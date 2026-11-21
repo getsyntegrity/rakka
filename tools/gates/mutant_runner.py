@@ -35,6 +35,8 @@ DEFAULT_MAX_MUTANTS = 40
 DEFAULT_MAX_MINUTES = 30
 HARNESS_VERSION = 1       # bump when the semantics of this runner change: it invalidates every stored result
 PER_MUTANT_TIMEOUT = 1800
+BUDGET_EXHAUSTED_EXIT = 75                 # a child's exit code: the budget ended while it waited for the replay lock (== replay_lib.EXIT_BUDGET_EXHAUSTED)
+REPLAY_DEADLINE_ENV = "RAKKA_REPLAY_DEADLINE"
 GENUINE_TIMEOUT_SECONDS = 600   # a mutant needs ~150 s even with the full replay: given at least this long, running out of time is a real hang
 TIMED_OUT = -999
 CRATE = "crates/rakka-actor/"
@@ -230,7 +232,7 @@ def ensure_control(store, control_key, run_control, budget_limited=False):
     if store.is_fresh("control-" + control_key):
         return "CLEAN"
     code = run_control()
-    if code == TIMED_OUT and budget_limited:   # the time budget ended before the control could: unverified (INCOMPLETE), neither passed nor failed
+    if code == BUDGET_EXHAUSTED_EXIT or (code == TIMED_OUT and budget_limited):   # the budget ended before the control could: INCOMPLETE
         return "UNVERIFIED"
     if code == 0:
         store.put("control-" + control_key, {"outcome": "DETECTED"})
@@ -267,6 +269,8 @@ def execute_mutant(name, result_file, launch, elapsed, budget_limited=False):
         os.unlink(result_file)
     code = launch()
     seconds = round(elapsed(), 1)
+    if code == BUDGET_EXHAUSTED_EXIT:   # it gave up waiting for the replay lock: no replay ran, the mutant stays pending
+        return {"outcome": "BUDGET_EXHAUSTED", "seconds": seconds}
     if code == TIMED_OUT:   # killed by the shrinking time budget: not a verdict on the mutant, it stays pending
         return {"outcome": "BUDGET_EXHAUSTED" if budget_limited else "TIMEOUT", "seconds": seconds}
     try:
@@ -359,11 +363,19 @@ def _kill_group(process, term_grace=5.0, after_leader_grace=1.0):
     process.wait()                       # reap the leader last
 
 
-def run_cancellable(command, timeout, log_path, cwd=None):
+def child_environment(run_started, budget_seconds, base=None):
+    """The environment of a child process: the absolute deadline of the run's budget, so that its wait for the replay lock consumes that budget."""
+    environment = dict(os.environ if base is None else base)
+    if budget_seconds is not None:
+        environment[REPLAY_DEADLINE_ENV] = str(run_started + budget_seconds)
+    return environment
+
+
+def run_cancellable(command, timeout, log_path, cwd=None, environment=None):
     """Runs `command` in its own process group, output to log_path. Returns its exit code or TIMED_OUT. Any interruption
     (SIGTERM turned into SystemExit, Ctrl-C) kills the whole group before propagating."""
     with open(log_path, "w") as log:
-        process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        process = subprocess.Popen(command, cwd=cwd, env=environment, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             return process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -505,11 +517,13 @@ def main(argv):
         started = time.time()
         command = [PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), name, "--skip-control", f"--result-json={result_file}"] + ([] if fast_kill else ["--no-fast-kill"])
         remaining = None if budget_seconds is None else budget_seconds - (started - run_started)
-        launch = lambda: run_cancellable(command, mutant_timeout(remaining), os.path.join(run_directory, name + ".log"), cwd=ROOT)
+        launch = lambda: run_cancellable(command, mutant_timeout(remaining), os.path.join(run_directory, name + ".log"), cwd=ROOT,
+                                         environment=child_environment(run_started, budget_seconds))
         return execute_mutant(name, result_file, launch, lambda: time.time() - started, budget_limited=is_budget_limited(remaining))
 
     ckey = control_key(ROOT, harness, toolchain)
-    run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], mutant_timeout(budget_seconds), os.path.join(run_directory, "control.log"), cwd=ROOT)
+    run_control = lambda: run_cancellable([PY, os.path.join(ROOT, "tools/parity/check_divergence.py"), "--control-only"], mutant_timeout(budget_seconds), os.path.join(run_directory, "control.log"), cwd=ROOT,
+                                      environment=child_environment(run_started, budget_seconds))
 
     def key_now(name):
         return mutant_key(name, all_mutants[name][:3], crate_fingerprint(ROOT), harness_fingerprint(ROOT), {"fast_kill": fast_kill}, toolchain)

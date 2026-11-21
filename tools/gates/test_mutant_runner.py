@@ -438,6 +438,39 @@ class RunIsolation(unittest.TestCase):
             self.assertEqual([name for name in os.listdir(root) if name.endswith(".tmp")], [])
 
 
+class BudgetSharedWithTheReplayLockWait(unittest.TestCase):
+    def test_the_runner_and_the_parity_tools_agree_on_the_budget_exit_code_and_the_deadline_variable(self):
+        sys.path.insert(0, os.path.join(mr.ROOT, "tools", "parity"))
+        import replay_lib
+        self.assertEqual(mr.BUDGET_EXHAUSTED_EXIT, replay_lib.EXIT_BUDGET_EXHAUSTED)
+        self.assertEqual(mr.REPLAY_DEADLINE_ENV, replay_lib.REPLAY_DEADLINE_ENV)
+
+    def test_children_get_the_absolute_deadline_of_the_run_budget(self):
+        environment = mr.child_environment(run_started=1000.0, budget_seconds=1800, base={"PATH": "/bin"})
+        self.assertEqual(float(environment[mr.REPLAY_DEADLINE_ENV]), 2800.0)
+        self.assertEqual(environment["PATH"], "/bin")
+        self.assertNotIn(mr.REPLAY_DEADLINE_ENV, mr.child_environment(run_started=1000.0, budget_seconds=None, base={"PATH": "/bin"}))
+
+    def test_run_cancellable_hands_the_environment_to_the_child(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = os.path.join(root, "seen")
+            code = mr.run_cancellable(["sh", "-c", f'printf %s "$RAKKA_REPLAY_DEADLINE" > {out}'], 10, os.path.join(root, "log"),
+                                      environment={**os.environ, mr.REPLAY_DEADLINE_ENV: "1234.5"})
+            self.assertEqual(code, 0)
+            self.assertEqual(read_text(out), "1234.5")
+
+    def test_a_child_that_gave_up_waiting_for_the_replay_lock_leaves_the_mutant_pending_even_without_a_clamped_timeout(self):
+        with tempfile.TemporaryDirectory() as root:
+            record = mr.execute_mutant("m", os.path.join(root, "m.json"), lambda: mr.BUDGET_EXHAUSTED_EXIT, lambda: 3.0, budget_limited=False)
+            self.assertEqual(record["outcome"], "BUDGET_EXHAUSTED")
+
+    def test_a_control_that_gave_up_waiting_for_the_replay_lock_is_unverified_and_not_stored(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = mr.ResultStore(root)
+            self.assertEqual(mr.ensure_control(store, "k", lambda: mr.BUDGET_EXHAUSTED_EXIT, budget_limited=False), "UNVERIFIED")
+            self.assertEqual(os.listdir(root), [])
+
+
 class RunDirectoryPruning(unittest.TestCase):
     def test_only_the_newest_run_directories_are_kept_and_nothing_else_is_touched(self):
         with tempfile.TemporaryDirectory() as root:

@@ -8,7 +8,7 @@ A second, separate category is NA:Q-CFG-30 (decision Q-CFG-30): a divergence tha
 `Double.toString`, recognised by its signature (na_q_cfg_30.py), never by case id. It is reported apart and is
 neither a pass nor a divergence.
 """
-import contextlib, csv, dataclasses, fcntl, json, os, re, subprocess
+import contextlib, csv, dataclasses, fcntl, json, os, re, subprocess, time
 
 import na_q_cfg_30
 
@@ -41,13 +41,38 @@ class ReplayResult:
     problem: object = None   # why the output was rejected, or None
 
 
+REPLAY_DEADLINE_ENV = "RAKKA_REPLAY_DEADLINE"    # absolute epoch seconds: the end of the budget of the run that started this process
+EXIT_BUDGET_EXHAUSTED = 75                       # EX_TEMPFAIL: the budget ended while waiting for the replay lock; nothing ran
+
+
+class ReplayLockTimeout(Exception):
+    """The budget of the run ended while another replay of this checkout held the lock."""
+
+
+def replay_deadline():
+    try:
+        return float(os.environ[REPLAY_DEADLINE_ENV])
+    except (KeyError, ValueError):
+        return None
+
+
 @contextlib.contextmanager
 def replay_lock():
-    """One replay at a time per checkout: `rust-anything app replay` always writes rust/app-cases/replay-report.md."""
+    """One replay at a time per checkout: `rust-anything app replay` always writes rust/app-cases/replay-report.md.
+    Waiting for the lock consumes the budget of the run (REPLAY_DEADLINE_ENV): when it is spent, ReplayLockTimeout; a free lock is
+    taken even after the deadline (only the wait is bounded)."""
     lock_directory = os.path.join(ROOT, ".gates")
     os.makedirs(lock_directory, exist_ok=True)
+    deadline = replay_deadline()
     with open(os.path.join(lock_directory, "replay.lock"), "w") as lock_file:
-        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        while True:
+            try:
+                fcntl.flock(lock_file, fcntl.LOCK_EX | (fcntl.LOCK_NB if deadline is not None else 0))
+                break
+            except BlockingIOError:
+                if time.time() >= deadline:
+                    raise ReplayLockTimeout("the run budget ended while waiting for the replay lock") from None
+                time.sleep(0.05)
         try:
             yield
         finally:

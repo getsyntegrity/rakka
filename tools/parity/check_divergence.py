@@ -1312,6 +1312,8 @@ BUILD_TIMEOUT = 900
 SUMMARY = re.compile(r"(\d+)/(\d+) cases passed")
 
 # Outcome classes. Only DETECTED counts as a caught mutant; everything else is reported separately.
+BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"    # the run's budget ended while waiting for the replay lock: no replay ran
+BUDGET_EXHAUSTED_LINE = "BUDGET_EXHAUSTED: the run budget ended while waiting for the replay lock"
 DETECTED, UNDETECTED, PATCH_ERROR, BUILD_ERROR, HARNESS_ERROR, TIMEOUT = (
     "DETECTED", "UNDETECTED", "PATCH_ERROR", "BUILD_ERROR", "HARNESS_ERROR", "TIMEOUT")
 
@@ -1396,10 +1398,17 @@ def run_mutant(scratch, name, rel, old, new, why):
         killer = fast_kill(binary, name)
         if killer:   # one recorded applicable case diverges: the same criterion as a full replay, without its ~130 s
             return DETECTED, None, None, f"fast-kill: on recorded case {killer} the unmutated build matches Pekko and the mutant does not"
+    return full_replay_verdict(binary, name)
+
+
+def full_replay_verdict(binary, name):
+    """The verdict of a mutant from the full recorded replay: -> (outcome, passed, total, line)."""
     try:
         r = replay(binary)
     except subprocess.TimeoutExpired:
         return TIMEOUT, None, None, "rust-anything replay"
+    except replay_lib.ReplayLockTimeout:
+        return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
     if r.report_text is not None:   # the report of THIS replay (read under the checkout lock), never the shared file as it is now
         with open(os.path.join(REPORTS, f"replay-report-{name}.md"), "w", encoding="utf-8") as report_file:
             report_file.write(r.report_text)
@@ -1505,6 +1514,17 @@ def control_exit_code(control_ok, replayed_cases):
     return 1 if replayed_cases is not None else 2
 
 
+def final_exit_code(counts, sizes, control_ok, replayed_cases, budget_exhausted):
+    """The exit code of a whole run: the budget code when the run's budget ended while waiting for the replay lock (nothing can be concluded),
+    2 for an invalid experiment, 1 for a surviving mutant or a diverging control, 0 otherwise."""
+    if budget_exhausted:
+        return replay_lib.EXIT_BUDGET_EXHAUSTED
+    errors = counts[PATCH_ERROR] + counts[BUILD_ERROR] + counts[HARNESS_ERROR] + counts[TIMEOUT]
+    if errors or len(sizes) > 1 or control_exit_code(control_ok, replayed_cases) == 2:
+        return 2
+    return 0 if counts[UNDETECTED] == 0 and control_ok else 1
+
+
 def run_control_replay():
     """Replays the unmodified crate: builds the parity binary of the CURRENT tree first (a leftover binary would certify old code).
     -> (control_ok, passed, total, line, replay result or None)."""
@@ -1515,6 +1535,8 @@ def run_control_replay():
         control_replay = replay(control_binary)
     except subprocess.TimeoutExpired:
         return False, None, None, "TIMEOUT", None
+    except replay_lib.ReplayLockTimeout:
+        return False, None, None, BUDGET_EXHAUSTED_LINE, None
     control_outcome, control_passed, control_total, control_line = classify(control_replay, control_binary)
     return control_outcome == UNDETECTED, control_passed, control_total, control_line, control_replay
 
@@ -1570,10 +1592,8 @@ def main():
     if not selftest and not only and not skip_control and not control_only:
         with open(os.path.join(REPORTS, "SUMMARY.md"), "w") as fh:
             fh.write(table + f"\n\noutcomes: {counts}\n")
-    errors = counts[PATCH_ERROR] + counts[BUILD_ERROR] + counts[HARNESS_ERROR] + counts[TIMEOUT]
-    if errors or len(sizes) > 1 or control_exit_code(control_ok, c_pass) == 2:
-        sys.exit(2)          # the experiment itself is invalid: not a verdict on the harness
-    sys.exit(0 if counts[UNDETECTED] == 0 and control_ok else 1)
+    budget_exhausted = any(result[0] == BUDGET_EXHAUSTED for result in results.values()) or c_line == BUDGET_EXHAUSTED_LINE
+    sys.exit(final_exit_code(counts, sizes, control_ok, c_pass, budget_exhausted))
 
 
 if __name__ == "__main__":
