@@ -17,7 +17,7 @@ python3.12 tools/parity/replay_subset.py --row AC-PATH-007 [--row ...] [--family
 - Un selector que no coincide con nada es un error (exit 2): una selección vacía nunca parece un pass.
 - Se copia sólo el subconjunto a un árbol temporal y se ejecuta el `rust-anything app replay` real sobre él: **no toca** `rust/app-cases/replay-report.md` versionado ni los locks del replay completo.
 - Clasifica igual que `replay.py` (NOT_APPLICABLE Q-X-17, NA:Q-CFG-30), restringido a los casos seleccionados. Exit 0 todo coincide, 1 divergencias, 2 uso/harness. La línea final dice `SUBSET of N cases, not gate evidence`.
-- `coverage.tsv` usa el nombre completo del caso y `rust/app-cases` lo trunca a 24 caracteres y además quita un `-` final (193 casos truncados); la herramienta lo traduce. Un caso de `coverage.tsv` sin grabación (hoy sólo `name-ok-28`) hace que el selector que lo toque se rechace con exit 2 en vez de ejecutar de menos.
+- `coverage.tsv` usa el nombre completo del caso y `rust/app-cases` lo trunca a 24 caracteres y además quita un `-` final (192 casos con nombre distinto); la herramienta lo traduce. Un caso de `coverage.tsv` sin grabación (hoy sólo `name-ok-28`) hace que el selector que lo toque se rechace con exit 2 en vez de ejecutar de menos. Desfase conocido y no resuelto aquí: `rust/app-cases` tiene una grabación que `coverage.tsv` no nombra (`nfe-uri-ipv6-embedded-ip-126`).
 - La ruta del binario se resuelve a absoluta, y si el replay ejecuta un número de casos distinto del seleccionado es error de harness (exit 2).
 - El binario se usa tal cual (sin la copia inmutable de `replay.py`): ejecutar `cargo build` o `--build` antes; es un bucle de desarrollo.
 
@@ -47,6 +47,6 @@ Detección verificada: con un binario deliberadamente alterado (un byte de la sa
 
 ## Verificación
 
-- Tests: `python3.12 -m unittest tools/parity/test_replay_subset.py` desde `tools/parity` (25 tests: selección, staging, y extremo a extremo con el `rust-anything app replay` real y un harness de pruebas). RED observado antes de crear el módulo (`ModuleNotFoundError: replay_subset`).
+- Tests: `python3.12 -m unittest test_replay_subset` desde `tools/parity` (28 tests: selección, staging, y extremo a extremo con el `rust-anything app replay` real y un harness de pruebas). RED observado antes de crear el módulo (`ModuleNotFoundError: replay_subset`).
 - Cobertura del módulo nuevo (líneas y ramas, `coverage.py`): 98 %.
 - `replay_lib.py` no se modifica (disparador global de mutantes): `replay_subset.py` sólo reutiliza sus funciones puras.
