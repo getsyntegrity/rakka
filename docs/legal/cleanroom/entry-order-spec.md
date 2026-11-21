@@ -1,4 +1,4 @@
-# Especificación (sucia): orden de iteración de `config.root` en `Deployer` (Q-CFG-36, Q-X-20)
+# Especificación (sucia): orden de iteración de `config.root` en `Deployer` (Q-CFG-36, Q-X-21)
 
 Rol: especificación. **No contiene código de OpenJDK ni pseudocódigo traducido.** Fuentes permitidas: Javadoc público de `java.util.Map.Entry`, `HashSet`, `HashMap` y `String`; el código de Typesafe Config 1.4.9 (Apache-2.0, `config-1.4.9-sources.jar` de Maven Central; no es OpenJDK); y el oráculo (Pekko 2.0.0 sobre JDK 17). Q-X-18 prohíbe leer código de OpenJDK: el comportamiento de `HashMap`/`HashSet` que no está en el Javadoc se toma **solo de mediciones**. La implementación la hace una sesión que lee esta especificación y no el código de OpenJDK.
 

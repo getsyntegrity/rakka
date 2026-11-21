@@ -1,4 +1,4 @@
-# Sondas del orden de `SimpleConfigObject.entrySet()` (P10 PR-D, Q-CFG-36, Q-X-20)
+# Sondas del orden de `SimpleConfigObject.entrySet()` (P10 PR-D, Q-CFG-36, Q-X-21)
 
 Se ejecutan con el classpath del oráculo (`oracle/target/lib/*`, JDK 17). No forman parte del corpus; su resultado está resumido en `docs/legal/cleanroom/entry-order-spec.md`.
 
