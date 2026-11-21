@@ -1527,6 +1527,18 @@ def final_exit_code(counts, sizes, control_ok, replayed_cases, budget_exhausted)
     return 0 if counts[UNDETECTED] == 0 and control_ok else 1
 
 
+SCRATCH_OWNER_MARKER = ".owner-pid"   # the same name as in tools/gates/mutant_runner.py: a later run removes the scratch of a dead owner
+
+
+def make_scratch_directory(parent=None):
+    """A scratch workspace that records its owner, so that a later run can tell a directory left behind by a killed process (SIGKILL cannot
+    be handled) from one a live process is using."""
+    path = tempfile.mkdtemp(prefix="pekko-mutants-", dir=parent)
+    with open(os.path.join(path, SCRATCH_OWNER_MARKER), "w") as owner_file:
+        owner_file.write(str(os.getpid()))
+    return path
+
+
 def run_control_replay():
     """Replays the unmodified crate: builds the parity binary of the CURRENT tree first (a leftover binary would certify old code).
     -> (control_ok, passed, total, line, replay result or None)."""
@@ -1560,7 +1572,7 @@ def main():
         assert n in mutants, f"unknown mutant {n}"
     tool_only = bool(only) and all(n in TOOL_MUTANTS for n in only)
     os.makedirs(REPORTS, exist_ok=True)
-    scratch = tempfile.mkdtemp(prefix="pekko-mutants-")
+    scratch = make_scratch_directory()
     results = {}
     try:
         for name, (rel, old, new, why) in mutants.items():

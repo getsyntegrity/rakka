@@ -471,6 +471,74 @@ class BudgetSharedWithTheReplayLockWait(unittest.TestCase):
             self.assertEqual(os.listdir(root), [])
 
 
+class RecoveryAfterAKilledProcess(unittest.TestCase):
+    DEAD, ALIVE = 2_000_000_000, os.getpid()
+
+    def alive(self, pid):
+        return pid == self.ALIVE
+
+    def test_a_partial_checkpoint_of_a_dead_process_is_removed_and_everything_else_is_kept(self):
+        with tempfile.TemporaryDirectory() as store, tempfile.TemporaryDirectory() as scratch:
+            for name in (f"abc.{self.DEAD}.tmp", f"abc.{self.ALIVE}.tmp", "abc.json", ".registry.lock", "control-k.json", "notes.tmp"):
+                write(store, name, "x")
+            report = mr.recover_after_crash(store, scratch, pid_alive=self.alive)
+            self.assertEqual(report["checkpoints_removed"], 1)
+            self.assertEqual(sorted(os.listdir(store)), sorted([f"abc.{self.ALIVE}.tmp", "abc.json", ".registry.lock", "control-k.json", "notes.tmp"]))
+
+    def test_scratch_directories_are_removed_only_when_their_owner_is_dead(self):
+        with tempfile.TemporaryDirectory() as store, tempfile.TemporaryDirectory() as scratch:
+            write(scratch, f"pekko-mutants-dead/{mr.SCRATCH_OWNER_MARKER}", str(self.DEAD))
+            write(scratch, f"pekko-mutants-alive/{mr.SCRATCH_OWNER_MARKER}", str(self.ALIVE))
+            write(scratch, "pekko-mutants-unmarked/readme", "a scratch of an older tool version: owner unknown, left alone")
+            write(scratch, "pekko-mutants-garbled/" + mr.SCRATCH_OWNER_MARKER, "not a pid")
+            write(scratch, "some-other-directory/file", "not ours")
+            report = mr.recover_after_crash(store, scratch, pid_alive=self.alive)
+            self.assertEqual(report["scratch_removed"], 1)
+            self.assertEqual(sorted(os.listdir(scratch)), ["pekko-mutants-alive", "pekko-mutants-garbled", "pekko-mutants-unmarked", "some-other-directory"])
+
+    def test_staging_files_of_a_dead_publisher_are_removed_from_the_binary_store(self):
+        with tempfile.TemporaryDirectory() as store, tempfile.TemporaryDirectory() as scratch, tempfile.TemporaryDirectory() as binaries:
+            write(binaries, f".staging-{self.DEAD}-ab12.tmp", "half a binary")
+            write(binaries, f".staging-{self.ALIVE}-cd34.tmp", "being published right now")
+            write(binaries, "0" * 64 + "/classic-parity", "a published binary")
+            report = mr.recover_after_crash(store, scratch, pid_alive=self.alive, binaries_directory=binaries)
+            self.assertEqual(report["staging_removed"], 1)
+            self.assertEqual(sorted(os.listdir(binaries)), sorted([f".staging-{self.ALIVE}-cd34.tmp", "0" * 64]))
+
+    def test_a_run_killed_with_sigkill_is_recovered_by_a_later_run_while_an_active_run_is_protected(self):
+        sys.path.insert(0, os.path.join(mr.ROOT, "tools", "parity"))
+        import check_divergence
+        with tempfile.TemporaryDirectory() as root:
+            runs, store, scratch = (os.path.join(root, name) for name in ("runs", "store", "scratch"))
+            os.makedirs(store)
+            os.makedirs(scratch)
+            alive_run = mr.new_run_directory(runs)                                   # this (living) process owns a run...
+            alive_scratch = check_divergence.make_scratch_directory(scratch)         # ...and a scratch directory
+            driver = (f"import os, signal, sys; sys.path.insert(0, {HERE!r}); sys.path.insert(0, {os.path.join(mr.ROOT, 'tools', 'parity')!r});"
+                      f"import mutant_runner as mr, check_divergence as cd;"
+                      f"run = mr.new_run_directory({runs!r}); open(os.path.join({store!r}, 'key.' + str(os.getpid()) + '.tmp'), 'w').write('{{');"
+                      f"cd.make_scratch_directory({scratch!r}); print(run, flush=True); os.kill(os.getpid(), signal.SIGKILL)")
+            killed = subprocess.run([sys.executable, "-c", driver], capture_output=True, text=True)
+            self.assertEqual(killed.returncode, -signal.SIGKILL)
+            killed_run = killed.stdout.strip()
+            self.assertTrue(os.path.isdir(killed_run))
+            report = mr.recover_after_crash(store, scratch)
+            self.assertEqual((report["checkpoints_removed"], report["scratch_removed"]), (1, 1))
+            self.assertEqual(os.listdir(scratch), [os.path.basename(alive_scratch)])            # the living run's scratch is protected
+            removed = mr.prune_run_directories(runs, keep=0)                                   # the OS released the killed run's marker...
+            self.assertEqual(removed, [os.path.basename(killed_run)])                          # ...so it is just a finished run now
+            self.assertTrue(os.path.isdir(alive_run))                                          # and the active one is never pruned
+
+    def test_a_scratch_directory_made_by_check_divergence_carries_its_owner(self):
+        sys.path.insert(0, os.path.join(mr.ROOT, "tools", "parity"))
+        import check_divergence
+        with tempfile.TemporaryDirectory() as parent:
+            path = check_divergence.make_scratch_directory(parent)
+            self.assertTrue(os.path.basename(path).startswith("pekko-mutants-"))
+            self.assertEqual(read_text(os.path.join(path, check_divergence.SCRATCH_OWNER_MARKER)), str(os.getpid()))
+            self.assertEqual(check_divergence.SCRATCH_OWNER_MARKER, mr.SCRATCH_OWNER_MARKER)
+
+
 class RunDirectoryPruning(unittest.TestCase):
     def test_only_the_newest_run_directories_are_kept_and_nothing_else_is_touched(self):
         with tempfile.TemporaryDirectory() as root:

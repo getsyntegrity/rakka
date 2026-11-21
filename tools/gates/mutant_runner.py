@@ -24,7 +24,7 @@ The last lines of the log are a <=12 line summary: read those, never the whole l
 
 Derived-from: none (project tooling, Apache-2.0).
 """
-import ast, contextlib, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, time, traceback
+import ast, contextlib, fcntl, hashlib, json, os, re, shutil, signal, subprocess, sys, tempfile, time, traceback
 
 from gates import UsageError, changed_files
 
@@ -462,6 +462,54 @@ def run_is_active(run_directory):
         return False
 
 
+SCRATCH_OWNER_MARKER = ".owner-pid"
+PARTIAL_CHECKPOINT = re.compile(r"^.+\.(\d+)\.tmp$")
+STAGING_BINARY = re.compile(r"^\.staging-(\d+)-[0-9a-f]+\.tmp$")
+
+
+def process_is_alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True        # it exists, it is just not ours
+    return True
+
+
+def recover_after_crash(store_directory, scratch_root, pid_alive=process_is_alive, binaries_directory=None):
+    """Removes what a process killed with SIGKILL left behind (it cannot clean up after itself): partial checkpoints, scratch workspaces and
+    half-published binaries whose owner process is dead. Anything owned by a living process, or of unknown owner, is left alone
+    (active runs are protected by their marker lock, see prune_run_directories)."""
+    report = {"checkpoints_removed": 0, "scratch_removed": 0, "staging_removed": 0}
+
+    def sweep(directory, pattern, counter):
+        for name in os.listdir(directory) if os.path.isdir(directory) else []:
+            matched = pattern.match(name)
+            if matched and not pid_alive(int(matched.group(1))):
+                try:
+                    os.unlink(os.path.join(directory, name))
+                    report[counter] += 1
+                except OSError:
+                    pass
+
+    sweep(store_directory, PARTIAL_CHECKPOINT, "checkpoints_removed")
+    if binaries_directory:
+        sweep(binaries_directory, STAGING_BINARY, "staging_removed")
+    for name in os.listdir(scratch_root) if os.path.isdir(scratch_root) else []:
+        if not name.startswith("pekko-mutants-"):
+            continue
+        try:
+            with open(os.path.join(scratch_root, name, SCRATCH_OWNER_MARKER)) as owner_file:
+                owner = int(owner_file.read().strip())
+        except (OSError, ValueError):
+            continue       # no marker or not a pid: the owner is unknown, so it is not ours to delete
+        if not pid_alive(owner):
+            shutil.rmtree(os.path.join(scratch_root, name), ignore_errors=True)
+            report["scratch_removed"] += 1
+    return report
+
+
 def prune_run_directories(base_directory, keep=RUN_DIRECTORIES_KEPT):
     """Removes all but the newest `keep` FINISHED run directories (names sort by time). An active run keeps its directory however many
     runs start after it; anything not named like a run directory is left alone."""
@@ -505,6 +553,10 @@ def main(argv):
         for n, tier in ordered:
             print(f"{tier:9} {'fresh' if store.is_fresh(keys[n]) else 'stale':5} {n}")
         return 0
+    recovered = recover_after_crash(STORE_DIR, tempfile.gettempdir(), binaries_directory=os.path.join(ROOT, ".gates", "binaries"))
+    if any(recovered.values()):
+        print(f"recovered after a killed run: {recovered['checkpoints_removed']} partial checkpoint(s), {recovered['scratch_removed']} scratch "
+              f"workspace(s), {recovered['staging_removed']} half-published binary(ies)")
     run_directory = new_run_directory(os.path.join(STORE_DIR, "runs"))
     prune_run_directories(os.path.join(STORE_DIR, "runs"))
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
