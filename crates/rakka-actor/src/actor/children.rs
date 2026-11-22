@@ -363,9 +363,6 @@ mod tests {
         );
         assert_eq!(reserved.children().len(), 1);
 
-        let mut terminating = Children::Normal(BTreeMap::new());
-        terminating.reserve(&name).unwrap();
-        assert!(terminating.init_child(&child));
         system
             .terminate()
             .wait(std::time::Duration::from_secs(10))

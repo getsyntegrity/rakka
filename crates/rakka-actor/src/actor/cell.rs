@@ -814,7 +814,12 @@ impl ActorCell {
         self.tell_watchers_we_died();
         self.unwatch_watched_actors();
         // the repointable reference holds this cell: let go of it so the pair can be freed (Pekko relies on the GC)
-        *self.outer.lock().unwrap_or_else(PoisonError::into_inner) = None;
+        let released = self
+            .outer
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        drop(released); // outside the lock: it may be the last reference to the repointable
     }
 
     // ---- children ----
