@@ -1,31 +1,34 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala and actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala (Apache-2.0).
-//! The default dispatcher: a fixed pool of threads that run mailboxes.
+//! The default dispatcher: an executor that runs mailboxes (by default a fixed pool of threads).
 //! (Pekko's default is a fork-join pool with `parallelism-min = 8`; scheduling policy is not observable.)
 
 use crate::actor::cell::ActorCell;
 use crate::dispatch::turn::TurnPolicy;
 use crate::util::clock::Clock;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-pub(crate) struct Dispatcher {
-    tx: Mutex<Option<Sender<Arc<ActorCell>>>>,
-    stopped: AtomicBool,
-    /// `throughput` and `throughput-deadline-time` of this dispatcher: what its mailboxes may do in one turn.
-    turn_policy: TurnPolicy,
-    /// `System.nanoTime` in Pekko; injected so that tests can move it by hand.
-    clock: Arc<dyn Clock>,
+/// `java.util.concurrent.RejectedExecutionException`: the executor did not accept the task.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Rejected;
+
+/// The part of `ExecutorService` the dispatcher uses: run one mailbox turn, or refuse. A seam so that tests can make the executor
+/// fail deterministically; the dispatcher's own pool is the only implementation outside tests.
+pub(crate) trait Executor: Send + Sync {
+    /// `executorService.execute(mailbox)`.
+    fn execute(&self, cell: Arc<ActorCell>) -> Result<(), Rejected>;
+    /// Lets the workers finish what is queued and exit; later `execute` calls are rejected.
+    fn shutdown(&self);
 }
 
-impl Dispatcher {
-    pub fn start_with(
-        system_name: &str,
-        parallelism: usize,
-        turn_policy: TurnPolicy,
-        clock: Arc<dyn Clock>,
-    ) -> Arc<Dispatcher> {
+/// A fixed pool of threads fed by an unbounded channel. It rejects only once it has been shut down, like a Java pool does.
+pub(crate) struct ThreadPool {
+    tx: Mutex<Option<Sender<Arc<ActorCell>>>>,
+}
+
+impl ThreadPool {
+    pub(crate) fn start(system_name: &str, parallelism: usize) -> ThreadPool {
         let (tx, rx) = channel::<Arc<ActorCell>>();
         let rx: Arc<Mutex<Receiver<Arc<ActorCell>>>> = Arc::new(Mutex::new(rx));
         for i in 0..parallelism.max(1) {
@@ -44,9 +47,54 @@ impl Dispatcher {
                 })
                 .expect("spawn dispatcher thread");
         }
-        Arc::new(Dispatcher {
+        ThreadPool {
             tx: Mutex::new(Some(tx)),
-            stopped: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Executor for ThreadPool {
+    fn execute(&self, cell: Arc<ActorCell>) -> Result<(), Rejected> {
+        match self.tx.lock().unwrap().as_ref() {
+            Some(tx) => tx.send(cell).map_err(|_| Rejected),
+            None => Err(Rejected),
+        }
+    }
+
+    fn shutdown(&self) {
+        self.tx.lock().unwrap().take();
+    }
+}
+
+pub(crate) struct Dispatcher {
+    executor: Arc<dyn Executor>,
+    /// `throughput` and `throughput-deadline-time` of this dispatcher: what its mailboxes may do in one turn.
+    turn_policy: TurnPolicy,
+    /// `System.nanoTime` in Pekko; injected so that tests can move it by hand.
+    clock: Arc<dyn Clock>,
+}
+
+impl Dispatcher {
+    pub fn start_with(
+        system_name: &str,
+        parallelism: usize,
+        turn_policy: TurnPolicy,
+        clock: Arc<dyn Clock>,
+    ) -> Arc<Dispatcher> {
+        Self::with_executor(
+            Arc::new(ThreadPool::start(system_name, parallelism)),
+            turn_policy,
+            clock,
+        )
+    }
+
+    pub fn with_executor(
+        executor: Arc<dyn Executor>,
+        turn_policy: TurnPolicy,
+        clock: Arc<dyn Clock>,
+    ) -> Arc<Dispatcher> {
+        Arc::new(Dispatcher {
+            executor,
             turn_policy,
             clock,
         })
@@ -60,18 +108,14 @@ impl Dispatcher {
         &*self.clock
     }
 
-    /// `registerForExecution`: queue a mailbox run.
-    pub fn execute(&self, cell: Arc<ActorCell>) {
-        if let Some(tx) = self.tx.lock().unwrap().as_ref() {
-            let _ = tx.send(cell);
-        }
+    /// `executorService.execute(mbox)`.
+    pub fn execute(&self, cell: Arc<ActorCell>) -> Result<(), Rejected> {
+        self.executor.execute(cell)
     }
 
     /// Lets the worker threads exit once the queued runs are done.
     pub fn shutdown(&self) {
-        if !self.stopped.swap(true, Ordering::SeqCst) {
-            self.tx.lock().unwrap().take();
-        }
+        self.executor.shutdown();
     }
 }
 
@@ -91,10 +135,6 @@ mod tests {
         );
         d.shutdown();
         d.shutdown();
-        assert!(
-            d.tx.lock().unwrap().is_none(),
-            "worker channel closed so the threads can exit"
-        );
     }
 }
 

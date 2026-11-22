@@ -17,6 +17,15 @@ pub(crate) trait InternalActorRef: Send + Sync {
     fn stop(&self);
     /// `isTerminated` (internal API in Pekko): the mailbox is closed.
     fn is_terminated(&self) -> bool;
+    /// The mailbox state as a string, for tests of the dispatcher (empty for references that have no mailbox).
+    #[cfg(test)]
+    fn mailbox_view(&self) -> String {
+        String::new()
+    }
+    #[cfg(test)]
+    fn has_system_messages(&self) -> bool {
+        false
+    }
 }
 
 /// `org.apache.pekko.actor.ActorRef`. Equality follows Pekko: same path *and* same uid.
@@ -50,6 +59,16 @@ impl ActorRef {
 
     pub(crate) fn stop(&self) {
         self.0.stop();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn mailbox_view(&self) -> String {
+        self.0.mailbox_view()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn has_system_messages(&self) -> bool {
+        self.0.has_system_messages()
     }
 }
 

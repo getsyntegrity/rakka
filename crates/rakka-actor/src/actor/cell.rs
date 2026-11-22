@@ -17,12 +17,14 @@ use crate::actor::system::SystemInner;
 use crate::actor::validate_path_element;
 use crate::actor::{ActorError, ErrorClass};
 use crate::dispatch::dispatcher::Dispatcher;
+use crate::dispatch::dispatcher::Rejected;
 use crate::dispatch::mailbox_close::enqueue_unless_closed;
 use crate::dispatch::mailbox_status::MailboxStatus;
 use crate::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 use crate::dispatch::sysmsg::{Failed, SystemMessage, Terminated};
 use crate::dispatch::system_queue::SystemQueue;
 use crate::event::UnhandledMessage;
+use crate::event::{ErrorEvent, report_dispatch_failure};
 use crate::util::helpers::base64_append;
 
 #[derive(Default)]
@@ -80,6 +82,16 @@ pub(crate) struct ActorCell {
     st: Mutex<CellState>,
 }
 
+/// The class of the dispatcher that reports a rejected registration (`getClass.getName`).
+const DISPATCHER_CLASS: &str = "org.apache.pekko.dispatch.Dispatcher";
+/// `clazz(actor)` of a cell: Rakka does not know the JVM class of an actor, so the reporter is the `Actor` trait.
+const ACTOR_CLASS: &str = "org.apache.pekko.actor.Actor";
+
+/// `new RejectedExecutionException`.
+fn rejected_execution() -> Throwable {
+    Throwable::new("java.util.concurrent.RejectedExecutionException", None)
+}
+
 /// `LocalActorRef`.
 pub(crate) struct LocalActorRef(pub Arc<ActorCell>);
 
@@ -98,6 +110,14 @@ impl InternalActorRef for LocalActorRef {
     }
     fn stop(&self) {
         self.0.system_dispatch(SystemMessage::Terminate);
+    }
+    #[cfg(test)]
+    fn mailbox_view(&self) -> String {
+        self.0.mailbox_view()
+    }
+    #[cfg(test)]
+    fn has_system_messages(&self) -> bool {
+        self.0.has_system_messages()
     }
     fn is_terminated(&self) -> bool {
         self.0.status.is_closed()
@@ -169,7 +189,30 @@ impl ActorCell {
     /// `ActorCell.start()`: attach to the dispatcher.
     pub(crate) fn start(self: &Arc<Self>) {
         self.status.set_as_idle();
-        self.register_for_execution(false, false);
+        // `Dispatcher.attach` lets a rejection propagate to `actorOf`; here it has been reported by `register_for_execution` only
+        let _ = self.register_for_execution(false, false);
+    }
+
+    /// The state of the mailbox as the oracle prints it: `open|closed scheduled=<b> suspendCount=<n> queued=<n>`.
+    #[cfg(test)]
+    pub(crate) fn mailbox_view(&self) -> String {
+        format!(
+            "{} scheduled={} suspendCount={} queued={}",
+            if self.status.is_closed() {
+                "closed"
+            } else {
+                "open"
+            },
+            self.status.is_scheduled(),
+            self.status.suspend_count(),
+            self.queue.number_of_messages()
+        )
+    }
+
+    /// Whether a system message is waiting (`hasSystemMessages`).
+    #[cfg(test)]
+    pub(crate) fn has_system_messages(&self) -> bool {
+        self.system_queue.has_messages()
     }
 
     pub(crate) fn self_ref(&self) -> ActorRef {
@@ -180,18 +223,56 @@ impl ActorCell {
 
     // ---- dispatch ----
 
-    /// `MessageDispatcher.registerForExecution`: schedules a turn when the state allows it. `set_as_scheduled` is the only door,
-    /// so at most one turn runs at a time.
-    fn register_for_execution(self: &Arc<Self>, message_hint: bool, system_message_hint: bool) {
+    /// `MessageDispatcher.registerForExecution` (`Dispatcher.scala:146-171`): schedules a turn when the state allows it.
+    /// `set_as_scheduled` is the only door, so at most one turn runs at a time. If the executor rejects the mailbox it is
+    /// submitted once more; a second rejection makes the mailbox idle again, publishes an `Error` and returns the rejection.
+    /// `Ok(true)` means a turn was submitted.
+    fn register_for_execution(
+        self: &Arc<Self>,
+        message_hint: bool,
+        system_message_hint: bool,
+    ) -> Result<bool, Rejected> {
         let can_run = self.status.can_be_scheduled_for_execution(
             message_hint,
             system_message_hint,
             || self.system_queue.has_messages(),
             || self.queue.has_messages(),
         );
-        if can_run && self.status.set_as_scheduled() {
-            self.dispatcher.execute(self.clone());
+        if !can_run || !self.status.set_as_scheduled() {
+            return Ok(false);
         }
+        if self.dispatcher.execute(self.clone()).is_ok() {
+            return Ok(true);
+        }
+        match self.dispatcher.execute(self.clone()) {
+            Ok(()) => Ok(true), // retry once
+            Err(rejected) => {
+                self.status.set_as_idle();
+                report_dispatch_failure(
+                    &self.system.events,
+                    ErrorEvent {
+                        cause: rejected_execution(),
+                        log_source: DISPATCHER_CLASS.to_owned(),
+                        log_class: DISPATCHER_CLASS.to_owned(),
+                        message: "registerForExecution was rejected twice!".to_owned(),
+                    },
+                );
+                Err(rejected)
+            }
+        }
+    }
+
+    /// `ActorCell.handleException` for a failed dispatch (`Dispatch.scala:129-141`): the sender swallows the exception and reports it.
+    fn swallow_failed_send(&self, _rejected: Rejected) {
+        report_dispatch_failure(
+            &self.system.events,
+            ErrorEvent {
+                cause: rejected_execution(),
+                log_source: self.path.to_string(),
+                log_class: ACTOR_CLASS.to_owned(),
+                message: "swallowing exception during message send".to_owned(),
+            },
+        );
     }
 
     pub(crate) fn system_dispatch(self: &Arc<Self>, msg: SystemMessage) {
@@ -199,13 +280,17 @@ impl ActorCell {
             self.dead_system_message(msg); // the queue is closed: the actor terminated
             return;
         }
-        self.register_for_execution(false, true);
+        if let Err(rejected) = self.register_for_execution(false, true) {
+            self.swallow_failed_send(rejected);
+        }
     }
 
     fn enqueue_user(self: &Arc<Self>, env: Envelope) {
         let dead = enqueue_unless_closed(&self.status, &*self.queue, env);
-        if dead.is_empty() {
-            self.register_for_execution(true, false);
+        if dead.is_empty()
+            && let Err(rejected) = self.register_for_execution(true, false)
+        {
+            self.swallow_failed_send(rejected);
         }
         for env in dead {
             self.system
@@ -229,7 +314,8 @@ impl ActorCell {
             cell.process_mailbox();
         }
         cell.status.set_as_idle();
-        cell.register_for_execution(false, false);
+        // in Pekko a rejection here escapes `Mailbox.run` into the pool; it has already been reported
+        let _ = cell.register_for_execution(false, false);
     }
 
     /// `Mailbox.processAllSystemMessages`: a message found after the mailbox closed is handled as a dead one.

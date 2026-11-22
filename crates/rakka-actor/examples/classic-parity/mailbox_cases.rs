@@ -71,6 +71,22 @@ pub const PENDING: &[(&str, &str)] = &[
         "Q-MBX-8 (accepted): same dead-letter outcome as Pekko; the forced interleaving is a unit test of dispatch::mailbox_close (the cell does not accept a hook queue yet)",
     ),
     (
+        "MBX-RJ-01 one rejection of the executor is retried once and the message is delivered",
+        "needs an executor that rejects tasks and internal mailbox state: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 6b)",
+    ),
+    (
+        "MBX-RJ-02 two rejections: Error published, mailbox idle, message kept and delivered by the next send",
+        "needs an executor that rejects tasks and internal mailbox state: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 6b)",
+    ),
+    (
+        "MBX-RJ-03 a system message whose scheduling is rejected twice stays queued and runs with the next send",
+        "needs an executor that rejects tasks and internal mailbox state: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 6b)",
+    ),
+    (
+        "MBX-RJ-04 a Terminate whose scheduling is rejected twice terminates the actor with the next send; the message is dead-lettered",
+        "needs an executor that rejects tasks and internal mailbox state: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 6b)",
+    ),
+    (
         "MBX-SC-03 actor suspended with queued work does not reschedule itself",
         "sends the internal Suspend system message and reads the mailbox state, neither reachable from the public API (a later ADR-0001 step)",
     ),

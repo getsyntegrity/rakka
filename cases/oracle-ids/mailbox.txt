@@ -18,6 +18,10 @@ MBX-OR-03 suspension keeps user messages pending; nested suspend needs balanced 
 MBX-OR-04 messages sent while terminating and after termination go to dead letters
 MBX-OR-05 system messages after close go to dead letters (Watch is answered)
 MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is
+MBX-RJ-01 one rejection of the executor is retried once and the message is delivered
+MBX-RJ-02 two rejections: Error published, mailbox idle, message kept and delivered by the next send
+MBX-RJ-03 a system message whose scheduling is rejected twice stays queued and runs with the next send
+MBX-RJ-04 a Terminate whose scheduling is rejected twice terminates the actor with the next send; the message is dead-lettered
 MBX-CL-01 closed mailbox of a stopped actor
 MBX-CC-01 eight producers on a one-thread pool: no loss, per-sender order, serial execution
 MBX-CC-02 message enqueued at the last empty dequeue of a turn is not stranded
