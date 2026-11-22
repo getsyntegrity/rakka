@@ -434,6 +434,57 @@ impl Actor for CountsStarts {
     }
 }
 
+/// Before its parent's turn runs, a top-level actor holds the system messages sent to it (`UnstartedCell`), has no cell to hand out and
+/// cannot create children; pointing it twice (a second `Supervise`) does not start it again (`RepointableActorRef.scala:112-135`).
+#[test]
+fn an_unstarted_actor_holds_system_messages_and_is_started_once() {
+    let fixture = Fixture::new();
+    let starts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let actor = fixture
+        .system
+        .actor_of_named(
+            Props::new({
+                let starts = starts.clone();
+                move || CountsStarts(starts.clone())
+            }),
+            "unstarted",
+        )
+        .unwrap();
+    let repointable = actor.0.as_repointable().expect("a top-level actor");
+
+    assert!(!repointable.is_started());
+    assert!(repointable.installed_cell_for_tests().is_none());
+    assert!(!actor.0.has_system_messages());
+    actor.send_system(SystemMessage::Suspend);
+    assert!(actor.0.has_system_messages(), "kept in the UnstartedCell");
+    let refused = actor
+        .attach_child_for_tests(Props::new(|| Idle), "child")
+        .unwrap_err();
+    assert_eq!(refused.message(), "the actor has not started");
+
+    // the guardian (internal dispatcher) handles `Supervise` and points it
+    wait_until("the guardian to start the actor", || {
+        repointable.is_started()
+    });
+    fixture.executor.run_until_idle();
+    repointable.point(); // a second `Supervise` for the same child
+    fixture.executor.run_until_idle();
+    assert_eq!(starts.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert!(repointable.installed_cell_for_tests().is_some());
+}
+
+/// A reference that has no cell behind it (dead letters) cannot create children.
+#[test]
+fn a_reference_without_a_cell_cannot_attach_children() {
+    let fixture = Fixture::new();
+    let refused = fixture
+        .system
+        .dead_letters()
+        .attach_child_for_tests(Props::new(|| Idle), "child")
+        .unwrap_err();
+    assert_eq!(refused.message(), "no cell behind this reference");
+}
+
 #[test]
 fn attach_child_inside_a_turn_returns_before_the_child_starts_and_is_found_by_name() {
     // twin of oracle case MBX-AC-01
