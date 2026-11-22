@@ -27,6 +27,7 @@ MBX-UC-01 messages sent to an unstarted actor: the system message goes first, th
 MBX-UC-02 a Watch and a Terminate sent to an unstarted actor are applied once it starts: the watcher gets Terminated -> watcherLog=[terminated] childTerminated=true
 MBX-UC-03 a Watch undone by an Unwatch before the actor starts: the watcher is not told -> watcherLog=[] childTerminated=true
 MBX-UC-04 a child created under a suspended parent inherits the suspension -> childUnderSuspendedParent: open scheduled=false suspendCount=1 queued=1 log=[] | afterResume: open scheduled=false suspendCount=0 queued=0 log=[r:u]
+MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once -> insideTurn: startedInsideTurn=0 childFound=true sameRef=true path=pekko://mbx/user/$c/c duplicate=org.apache.pekko.actor.InvalidActorNameException: actor name [c] is not unique! | afterTurn: startedActors=1
 MBX-CL-01 closed mailbox of a stopped actor -> old: closed scheduled=false suspendCount=0 raw=1 resume=false suspend=false schedule=false closed scheduled=false suspendCount=0 raw=1 | cellNow closed=true same=false
 MBX-CC-01 eight producers on a one-thread pool: no loss, per-sender order, serial execution -> received=400 maxInFlight=1 perSenderOrdered=true
 MBX-CC-02 message enqueued at the last empty dequeue of a turn is not stranded -> log=[r:first, r:late] open scheduled=false suspendCount=0 queued=0

@@ -16,11 +16,12 @@
 #![allow(dead_code)] // wired in slice B of Q-MBX-11
 
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
 use crate::actor::ActorPath;
 use crate::actor::ActorRef;
 use crate::actor::actor_ref::InternalActorRef;
+use crate::actor::cell::ActorCell;
 use crate::actor::fault::Throwable;
 use crate::actor::props::AnyMessage;
 use crate::dispatch::message_queue::Envelope;
@@ -40,10 +41,16 @@ enum Underlying {
     Started(Arc<dyn InternalActorRef>),
 }
 
+/// How the real cell of an actor is made (`newCell`), given the reference the actor will know as its own (`self`).
+type NewCell = Box<dyn FnOnce(&ActorRef) -> Arc<ActorCell> + Send>;
+
 /// `RepointableActorRef`.
 pub(crate) struct RepointableActorRef {
     path: ActorPath,
     underlying: Mutex<Underlying>,
+    me: Weak<RepointableActorRef>,
+    /// `newCell`: taken by the first `point`
+    new_cell: Mutex<Option<NewCell>>,
 }
 
 impl RepointableActorRef {
@@ -57,10 +64,41 @@ impl RepointableActorRef {
 
     /// A reference to an actor that has not started (`initialize`: `swapCell(new UnstartedCell(...))`).
     pub(crate) fn new(path: ActorPath) -> Arc<RepointableActorRef> {
-        Arc::new(RepointableActorRef {
+        Self::build(path, None)
+    }
+
+    /// A reference whose cell is made by `new_cell` when the supervisor processes `Supervise` (`point`).
+    pub(crate) fn for_actor(path: ActorPath, new_cell: NewCell) -> Arc<RepointableActorRef> {
+        Self::build(path, Some(new_cell))
+    }
+
+    fn build(path: ActorPath, new_cell: Option<NewCell>) -> Arc<RepointableActorRef> {
+        Arc::new_cyclic(|me| RepointableActorRef {
             path,
             underlying: Mutex::new(Underlying::Unstarted(UnstartedCell::default())),
+            me: me.clone(),
+            new_cell: Mutex::new(new_cell),
         })
+    }
+
+    /// `point(catchFailures)` (`RepointableActorRef.scala:112-135`): makes the real cell, starts it (the dispatcher attaches it) and
+    /// installs it. On a started reference, or one that has no cell factory, it does nothing. A failure of `newCell` is not caught
+    /// here: `catchFailures`/`initWithFailure` belong to slice C of Q-MBX-11.
+    pub(crate) fn point(&self) {
+        let Some(me) = self.me.upgrade() else {
+            return;
+        };
+        let Some(new_cell) = self
+            .new_cell
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
+        else {
+            return;
+        };
+        let cell = new_cell(&ActorRef(me));
+        cell.start();
+        self.replace_with(cell.local_ref().0);
     }
 
     /// `point`/`replaceWith`: installs the real cell, handing it everything that was sent before. Returns false, doing nothing, when a
@@ -132,6 +170,49 @@ impl RepointableActorRef {
 impl InternalActorRef for RepointableActorRef {
     fn path(&self) -> &ActorPath {
         &self.path
+    }
+
+    fn as_repointable(&self) -> Option<&RepointableActorRef> {
+        Some(self)
+    }
+
+    #[cfg(test)]
+    fn mailbox_view(&self) -> String {
+        match &*self.lock() {
+            Underlying::Unstarted(unstarted) => format!(
+                "unstarted queued={} system={}",
+                unstarted.user_messages.len(),
+                unstarted.system_messages.len()
+            ),
+            Underlying::Started(cell) => cell.mailbox_view(),
+        }
+    }
+
+    #[cfg(test)]
+    fn has_system_messages(&self) -> bool {
+        match &*self.lock() {
+            Underlying::Unstarted(unstarted) => !unstarted.system_messages.is_empty(),
+            Underlying::Started(cell) => cell.has_system_messages(),
+        }
+    }
+
+    #[cfg(test)]
+    fn attach_child_for_tests(
+        &self,
+        props: crate::actor::props::Props,
+        name: &str,
+    ) -> Result<ActorRef, crate::actor::ActorError> {
+        let started = match &*self.lock() {
+            Underlying::Started(cell) => Some(cell.clone()),
+            Underlying::Unstarted(_) => None,
+        };
+        match started {
+            Some(cell) => cell.attach_child_for_tests(props, name),
+            None => Err(crate::actor::ActorError::new(
+                crate::actor::ErrorClass::IllegalState,
+                "the actor has not started",
+            )),
+        }
     }
 
     fn tell(&self, msg: AnyMessage, sender: Option<ActorRef>) {

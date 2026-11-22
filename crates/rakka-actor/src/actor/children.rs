@@ -151,6 +151,23 @@ impl Children {
         }
     }
 
+    /// `initChild(ref)` (`Children.scala:169-179`): the reserved name becomes a real child; a name that is already a child stays as
+    /// it is; a name nobody reserved is not registered (false). The child may be gone already when this runs late.
+    pub fn init_child(&mut self, child: &ActorRef) -> bool {
+        let name = child.path().name();
+        match self {
+            Children::Normal(c) | Children::Terminating { c, .. } => match c.get(name) {
+                Some(ChildStats::Child(_)) => true,
+                Some(ChildStats::Reserved) => {
+                    c.insert(name.to_string(), ChildStats::Child(child.clone()));
+                    true
+                }
+                None => false,
+            },
+            Children::Empty | Children::Terminated => false,
+        }
+    }
+
     /// `reserve(name)`.
     pub fn reserve(&mut self, name: &str) -> Result<(), ActorError> {
         match self {

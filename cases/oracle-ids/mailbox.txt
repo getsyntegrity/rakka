@@ -27,6 +27,7 @@ MBX-UC-01 messages sent to an unstarted actor: the system message goes first, th
 MBX-UC-02 a Watch and a Terminate sent to an unstarted actor are applied once it starts: the watcher gets Terminated
 MBX-UC-03 a Watch undone by an Unwatch before the actor starts: the watcher is not told
 MBX-UC-04 a child created under a suspended parent inherits the suspension
+MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once
 MBX-CL-01 closed mailbox of a stopped actor
 MBX-CC-01 eight producers on a one-thread pool: no loss, per-sender order, serial execution
 MBX-CC-02 message enqueued at the last empty dequeue of a turn is not stranded

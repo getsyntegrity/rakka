@@ -124,6 +124,7 @@ final class MailboxOracle {
     final ConcurrentLinkedQueue<String> log = new ConcurrentLinkedQueue<>(), dead = new ConcurrentLinkedQueue<>(), errors = new ConcurrentLinkedQueue<>();
     final AtomicInteger inFlight = new AtomicInteger(), max = new AtomicInteger();
     final AtomicInteger started = new AtomicInteger();
+    final AtomicReference<String> note = new AtomicReference<>();
     final ActorSystem sys;
     Env(int throughput, String deadline) {
       sys = ActorSystem.create("mbx", ConfigFactory.parseString("pekko { loglevel = OFF\n stdout-loglevel = OFF\n log-dead-letters = off\n }\n"
@@ -183,19 +184,30 @@ final class MailboxOracle {
     }
   }
 
-  /** Creates a child inside its own turn. {@code actorOf} is asynchronous: the parent attaches the real cell when it processes
-   *  {@code Supervise}, which happens after this handler returns, so everything done here reaches the child's {@code UnstartedCell}. */
+  /** Creates a child inside its own turn with {@code attachChild}, the asynchronous path (what {@code system.actorOf} uses): the parent
+   *  attaches the real cell when it processes {@code Supervise}, which happens after this handler returns, so everything done here
+   *  reaches the child's {@code UnstartedCell}. (A plain {@code context.actorOf} is synchronous and would race the child's first turn.) */
   public static final class Spawner extends AbstractActor {
     final Env env; final ActorRef watcher; final String script; final AtomicReference<ActorRef> child;
     Spawner(Env env, ActorRef watcher, String script, AtomicReference<ActorRef> child) { this.env = env; this.watcher = watcher; this.script = script; this.child = child; }
     @Override public Receive createReceive() {
       return receiveBuilder().match(Terminated.class, t -> env.log.add("terminated")).matchEquals("go", g -> {
         nextHooks = new Hooks();
-        ActorRef c = getContext().actorOf(Props.create(Worker.class, env).withMailbox("hook-mailbox"), "c");
+        // `context.actorOf` is synchronous in Pekko (a LocalActorRef is attached at once); `attachChild` is the asynchronous path that
+        // `system.actorOf` takes: the new cell is attached when this actor processes Supervise, after this handler returns
+        ActorRef c = ((ActorCell) getContext()).attachChild(Props.create(Worker.class, env).withMailbox("hook-mailbox"), "c", false);
         switch (script) {
           case "queued": c.tell("m1", ActorRef.noSender()); c.tell("m2", ActorRef.noSender()); in(c).suspend(); break;
           case "watched": getContext().watch(c); in(c).stop(); break;
           case "unwatched": getContext().watch(c); getContext().unwatch(c); in(c).stop(); break;
+          case "visibility": {
+            String dup;
+            try { getContext().actorOf(Props.create(Worker.class, env).withMailbox("hook-mailbox"), "c"); dup = "none"; }
+            catch (InvalidActorNameException x) { dup = x.toString(); }
+            env.note.set("startedInsideTurn=" + env.started.get() + " childFound=" + getContext().findChild("c").isPresent()
+                + " sameRef=" + getContext().findChild("c").map(r -> r.equals(c)).orElse(false) + " path=" + c.path() + " duplicate=" + dup);
+            break;
+          }
           default: throw new IllegalStateException(script);
         }
         child.set(c);
@@ -463,6 +475,15 @@ final class MailboxOracle {
         in(c).resume(null);
         awaitUntil(() -> e.log.size() == 1); idle(c);
         return "childUnderSuspendedParent: " + suspended + " | afterResume: " + view(box(c)) + " log=" + e.log;
+      }
+    });
+    run("MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        AtomicReference<ActorRef> child = new AtomicReference<>();
+        e.sys.actorOf(Props.create(Spawner.class, e, null, "visibility", child)).tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.note.get() != null);
+        awaitUntil(() -> e.started.get() == 1);
+        return "insideTurn: " + e.note.get() + " | afterTurn: startedActors=" + e.started.get();
       }
     });
     run("MBX-CL-01 closed mailbox of a stopped actor", () -> {

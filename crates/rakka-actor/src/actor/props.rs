@@ -98,7 +98,7 @@ impl ActorContext<'_> {
 
     /// `context.actorOf(props)`: a child with a generated name.
     pub fn actor_of(&mut self, props: Props) -> Result<ActorRef, crate::actor::ActorError> {
-        self.cell.attach_child(props, None)
+        self.cell.attach_child(props, None, false)
     }
 
     /// `context.actorOf(props, name)`.
@@ -107,7 +107,7 @@ impl ActorContext<'_> {
         props: Props,
         name: &str,
     ) -> Result<ActorRef, crate::actor::ActorError> {
-        self.cell.attach_child(props, Some(name))
+        self.cell.attach_child(props, Some(name), false)
     }
 
     /// `context.child(name)`.

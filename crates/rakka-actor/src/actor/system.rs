@@ -88,8 +88,8 @@ pub(crate) struct SystemInner {
     pub dispatcher: Arc<Dispatcher>,
     root_path: ActorPath,
     root_guardian: OnceLock<Arc<ActorCell>>,
-    guardian: OnceLock<Arc<ActorCell>>,
-    system_guardian: OnceLock<Arc<ActorCell>>,
+    pub(crate) guardian: OnceLock<Arc<ActorCell>>,
+    pub(crate) system_guardian: OnceLock<Arc<ActorCell>>,
     pub dead_letters: ActorRef,
     /// `Mailboxes.deadLetterMailbox`: where a closed mailbox sends its user and system messages.
     pub dead_letter_mailbox: DeadLetterMailbox,
@@ -439,7 +439,7 @@ impl ActorSystem {
             .guardian
             .get()
             .expect("initialised")
-            .attach_child(props, None)
+            .attach_child(props, None, true)
     }
 
     /// `system.actorOf(props, name)`.
@@ -448,7 +448,7 @@ impl ActorSystem {
             .guardian
             .get()
             .expect("initialised")
-            .attach_child(props, Some(name))
+            .attach_child(props, Some(name), true)
     }
 
     /// `system.stop(actor)`: top-level actors are stopped by their guardian, others directly.
