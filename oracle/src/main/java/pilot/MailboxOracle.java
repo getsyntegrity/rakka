@@ -8,7 +8,9 @@ import java.util.concurrent.atomic.*;
 import java.util.function.BooleanSupplier;
 import org.apache.pekko.actor.*;
 import org.apache.pekko.dispatch.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.pekko.dispatch.sysmsg.*;
+import org.apache.pekko.event.Logging;
 
 /**
  * Oracle for the mailbox state machine and processing order of Apache Pekko 2.0.0 (ADR-0001, PR 1/10): rows AC-MBX-001/002/003,
@@ -119,22 +121,26 @@ final class MailboxOracle {
   }
 
   static final class Env implements AutoCloseable {
-    final ConcurrentLinkedQueue<String> log = new ConcurrentLinkedQueue<>(), dead = new ConcurrentLinkedQueue<>();
+    final ConcurrentLinkedQueue<String> log = new ConcurrentLinkedQueue<>(), dead = new ConcurrentLinkedQueue<>(), errors = new ConcurrentLinkedQueue<>();
     final AtomicInteger inFlight = new AtomicInteger(), max = new AtomicInteger();
     final AtomicInteger started = new AtomicInteger();
     final ActorSystem sys;
     Env(int throughput, String deadline) {
       sys = ActorSystem.create("mbx", ConfigFactory.parseString("pekko { loglevel = OFF\n stdout-loglevel = OFF\n log-dead-letters = off\n }\n"
           + "t-disp { type = Dispatcher\n executor = thread-pool-executor\n thread-pool-executor.fixed-pool-size = 1\n throughput = " + throughput
-          + "\n throughput-deadline-time = " + deadline + " }\n hook-mailbox.mailbox-type = \"pilot.MailboxOracle$HookType\"")
+          + "\n throughput-deadline-time = " + deadline + " }\n hook-mailbox.mailbox-type = \"pilot.MailboxOracle$HookType\"\n"
+          + "rej-disp { type = Dispatcher\n executor = \"pilot.MailboxOracle$RejectingConfigurator\"\n throughput = " + throughput + " }\n")
           .withFallback(ConfigFactory.load()));
       ActorRef listener = sys.actorOf(Props.create(Listener.class, dead));
       sys.eventStream().subscribe(listener, DeadLetter.class);
+      sys.eventStream().subscribe(sys.actorOf(Props.create(ErrorListener.class, errors)), Logging.Error.class);
     }
-    ActorRef spawn(String name, Hooks hooks) throws Exception {
+    ActorRef spawn(String name, Hooks hooks) throws Exception { return spawnOn("t-disp", name, hooks); }
+    ActorRef spawnOn(String dispatcher, String name) throws Exception { return spawnOn(dispatcher, name, null); }
+    ActorRef spawnOn(String dispatcher, String name, Hooks hooks) throws Exception {
       int before = started.get();
       nextHooks = hooks == null ? new Hooks() : hooks;
-      ActorRef r = sys.actorOf(Props.create(Worker.class, this).withDispatcher("t-disp").withMailbox("hook-mailbox"), name);
+      ActorRef r = sys.actorOf(Props.create(Worker.class, this).withDispatcher(dispatcher).withMailbox("hook-mailbox"), name);
       awaitUntil(() -> started.get() > before);
       return r;
     }
@@ -145,6 +151,35 @@ final class MailboxOracle {
     final Collection<String> dead; Listener(Collection<String> dead) { this.dead = dead; }
     @Override public Receive createReceive() {
       return receiveBuilder().match(DeadLetter.class, d -> dead.add(d.message() instanceof String ? (String) d.message() : d.message().getClass().getSimpleName())).build();
+    }
+  }
+
+  /** Records `logSource|cause class|message` of every {@code Logging.Error} published on the event stream. */
+  public static final class ErrorListener extends AbstractActor {
+    final Collection<String> errors; ErrorListener(Collection<String> errors) { this.errors = errors; }
+    @Override public Receive createReceive() {
+      return receiveBuilder().match(Logging.Error.class, e -> errors.add(e.logSource() + "|" + e.cause().getClass().getName() + "|" + e.message())).build();
+    }
+  }
+
+  /** The number of upcoming {@code execute} calls of {@code rej-disp}'s executor that throw {@code RejectedExecutionException}. */
+  static final AtomicInteger REJECT_NEXT = new AtomicInteger();
+
+  /** A public-SPI executor (one thread) that rejects the next {@link #REJECT_NEXT} tasks, so the rejection path of
+   *  {@code Dispatcher.registerForExecution} is exercised without patching Pekko. */
+  public static final class RejectingConfigurator extends ExecutorServiceConfigurator {
+    public RejectingConfigurator(Config config, DispatcherPrerequisites prerequisites) { super(config, prerequisites); }
+    @Override public ExecutorServiceFactory createExecutorServiceFactory(String id, ThreadFactory threadFactory) {
+      return new ExecutorServiceFactory() {
+        @Override public ExecutorService createExecutorService() {
+          return new ThreadPoolExecutor(1, 1, 0L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), threadFactory) {
+            @Override public void execute(Runnable task) {
+              if (REJECT_NEXT.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) throw new RejectedExecutionException("injected");
+              super.execute(task);
+            }
+          };
+        }
+      };
     }
   }
 
@@ -309,6 +344,47 @@ final class MailboxOracle {
         in(watcher).sendSystemMessage(new Watch(in(a), in(watcher)));
         awaitUntil(() -> e.log.size() >= 1); idle(watcher);
         return "watcherLog=" + e.log;
+      }
+    });
+    run("MBX-RJ-01 one rejection of the executor is retried once and the message is delivered", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef a = e.spawnOn("rej-disp", "w"); idle(a); // the start-up turn is over: the next send must go through the executor
+        REJECT_NEXT.set(1); a.tell("m", ActorRef.noSender());
+        awaitUntil(() -> e.log.size() == 1); idle(a);
+        return "log=" + e.log + " errors=" + e.errors + " rejectionsLeft=" + REJECT_NEXT.get() + " " + view(box(a));
+      }
+    });
+    run("MBX-RJ-02 two rejections: Error published, mailbox idle, message kept and delivered by the next send", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef a = e.spawnOn("rej-disp", "w"); idle(a); // the start-up turn is over: the next send must go through the executor
+        REJECT_NEXT.set(2); a.tell("m", ActorRef.noSender());
+        awaitUntil(() -> e.errors.size() == 2);
+        String afterRejection = "errors=" + e.errors + " " + view(box(a)) + " log=" + e.log + " rejectionsLeft=" + REJECT_NEXT.get();
+        a.tell("n", ActorRef.noSender());
+        awaitUntil(() -> e.log.size() == 2); idle(a);
+        return afterRejection + " | next send: log=" + e.log + " errors=" + e.errors.size() + " " + view(box(a));
+      }
+    });
+    run("MBX-RJ-03 a system message whose scheduling is rejected twice stays queued and runs with the next send", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef a = e.spawnOn("rej-disp", "w"); idle(a); // the start-up turn is over: the next send must go through the executor
+        REJECT_NEXT.set(2); in(a).sendSystemMessage(new Suspend());
+        awaitUntil(() -> e.errors.size() == 2);
+        String afterRejection = "errors=" + e.errors + " " + view(box(a)) + " systemPending=" + box(a).hasSystemMessages();
+        a.tell("n", ActorRef.noSender());
+        awaitUntil(() -> box(a).suspendCount() == 1); idle(a);
+        return afterRejection + " | next send: " + view(box(a)) + " systemPending=" + box(a).hasSystemMessages() + " log=" + e.log;
+      }
+    });
+    run("MBX-RJ-04 a Terminate whose scheduling is rejected twice terminates the actor with the next send; the message is dead-lettered", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef a = e.spawnOn("rej-disp", "w"); idle(a); // the start-up turn is over: the next send must go through the executor
+        REJECT_NEXT.set(2); e.sys.stop(a);
+        awaitUntil(() -> e.errors.size() == 2);
+        String afterRejection = "errors=" + e.errors + " terminated=" + in(a).isTerminated() + " systemPending=" + box(a).hasSystemMessages();
+        a.tell("m", ActorRef.noSender());
+        awaitUntil(() -> in(a).isTerminated() && e.dead.size() == 1);
+        return afterRejection + " | next send: terminated=" + in(a).isTerminated() + " deadLetters=" + e.dead + " log=" + e.log;
       }
     });
     run("MBX-CL-01 closed mailbox of a stopped actor", () -> {

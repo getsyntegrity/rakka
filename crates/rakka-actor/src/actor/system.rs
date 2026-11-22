@@ -12,7 +12,7 @@ use crate::actor::props::{Actor, ActorContext, AnyMessage, PoisonPill, Props};
 use crate::actor::{ActorError, ErrorClass};
 use crate::actor::{ActorPath, Address};
 use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
-use crate::dispatch::dispatcher::Dispatcher;
+use crate::dispatch::dispatcher::{Dispatcher, Executor};
 use crate::dispatch::sysmsg::{StopChild, SystemMessage, Terminated};
 use crate::dispatch::turn::TurnPolicy;
 use crate::event::{DeadLetter, EventStream};
@@ -274,6 +274,27 @@ impl ActorSystem {
         settings: Settings,
         clock: Arc<dyn Clock>,
     ) -> Result<ActorSystem, ActorError> {
+        Self::create_with(name, settings, clock, None)
+    }
+
+    /// Like [`ActorSystem::create_with_clock`] with the executor of the default dispatcher replaced (the internal dispatcher
+    /// that runs the guardians keeps its pool): the seam that lets tests make the executor reject tasks.
+    #[cfg(test)]
+    pub(crate) fn create_with_executor(
+        name: &str,
+        settings: Settings,
+        clock: Arc<dyn Clock>,
+        executor: Arc<dyn Executor>,
+    ) -> Result<ActorSystem, ActorError> {
+        Self::create_with(name, settings, clock, Some(executor))
+    }
+
+    fn create_with(
+        name: &str,
+        settings: Settings,
+        clock: Arc<dyn Clock>,
+        executor: Option<Arc<dyn Executor>>,
+    ) -> Result<ActorSystem, ActorError> {
         let valid = {
             let mut chars = name.chars();
             matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
@@ -289,8 +310,10 @@ impl ActorSystem {
         }
         let root_path = ActorPath::root(Address::local("pekko", name));
         let turn_policy = TurnPolicy::new(settings.throughput, settings.throughput_deadline_time);
-        let dispatcher =
-            Dispatcher::start_with(name, settings.parallelism, turn_policy, clock.clone());
+        let dispatcher = match executor {
+            Some(executor) => Dispatcher::with_executor(executor, turn_policy, clock.clone()),
+            None => Dispatcher::start_with(name, settings.parallelism, turn_policy, clock.clone()),
+        };
         let events = EventStream::new();
         let internal_dispatcher =
             Dispatcher::start_with(&format!("{name}-internal"), 4, turn_policy, clock);
