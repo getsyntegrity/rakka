@@ -23,6 +23,10 @@ MBX-RJ-02 two rejections: Error published, mailbox idle, message kept and delive
 MBX-RJ-03 a system message whose scheduling is rejected twice stays queued and runs with the next send
 MBX-RJ-04 a Terminate whose scheduling is rejected twice terminates the actor with the next send; the message is dead-lettered
 MBX-RJ-05 an actor whose attach is rejected twice: actorOf returns, the supervisor fails and its children stop, the new actor never starts
+MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order
+MBX-UC-02 a Watch and a Terminate sent to an unstarted actor are applied once it starts: the watcher gets Terminated
+MBX-UC-03 a Watch undone by an Unwatch before the actor starts: the watcher is not told
+MBX-UC-04 a child created under a suspended parent inherits the suspension
 MBX-CL-01 closed mailbox of a stopped actor
 MBX-CC-01 eight producers on a one-thread pool: no loss, per-sender order, serial execution
 MBX-CC-02 message enqueued at the last empty dequeue of a turn is not stranded

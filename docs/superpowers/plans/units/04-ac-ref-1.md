@@ -23,7 +23,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-REF-009.3.
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-REF-1`, `Q-REF-2`, `Q-REF-3`, `Q-REF-4`, `Q-REF-5`, `Q-REF-6`.
+- Propuestas aún sin decisión del Owner: `Q-MBX-11`, `Q-REF-1`, `Q-REF-2`, `Q-REF-3`, `Q-REF-4`, `Q-REF-5`, `Q-REF-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -104,7 +104,7 @@ Filas: AC-REF-021, AC-REF-022, AC-REF-023, AC-REF-024, AC-REF-025, AC-REF-026. C
 | AC-REF-017 | resolveActorRef(path) del proveedor | `provider.resolve_actor_ref(&ActorPath) -> ActorRef` | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:48-64… | - |
 | AC-REF-018 | Jerarquía interna InternalActorRef / MinimalActorRef / ActorRefWithCell /… | trait sellado `RefInner` con variantes; métodos internos `pub(crate)` | derivada del código (ver bloque de contrato) | - |
 | AC-REF-019 | LocalActorRef: getChild por nombres (incluye FunctionRefs) e isTerminated… | `AtomicBool` de mailbox cerrado | actor-tests/src/test/scala/org/apache/pekko/actor/FunctionRefSpec.scala:89-93 ;… | Q-REF-6 |
-| AC-REF-020 | RepointableActorRef / UnstartedCell (creación asíncrona) | cola previa en el ref hasta que la celda está lista | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:303-329 ;… | Q-REF-5 |
+| AC-REF-020 | RepointableActorRef / UnstartedCell (creación asíncrona) | cola previa en el ref hasta que la celda está lista | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:303-329 ;… | Q-MBX-11, Q-REF-5 |
 | AC-REF-021 | FunctionRef (ref respaldado por una función, hijo virtual del actor) | `FunctionRef` con closure `Fn(ActorRef sender, Msg)` | actor-tests/src/test/scala/org/apache/pekko/actor/FunctionRefSpec.scala:58-123 | - |
 | AC-REF-022 | IgnoreActorRef | variante `RefInner::Ignore` | derivada del código (ver bloque de contrato) | - |
 | AC-REF-023 | Serialización Java de ActorRef (SerializedActorRef, writeReplace/readResolve) | `serialized_actor_path(&ActorRef) -> String` + `provider.resolve_actor_ref` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:288-365 | Q-REF-3 |

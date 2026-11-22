@@ -91,6 +91,22 @@ pub const PENDING: &[(&str, &str)] = &[
         "Rakka creates actors synchronously (Pekko's async=false path), so a rejection in attach does not fail the supervisor and does not leave the new actor unstarted; reproducing Pekko needs the asynchronous creation protocol (proposed decision Q-MBX-11); the golden line is the evidence",
     ),
     (
+        "MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order",
+        "needs the unstarted reference and the real cell, internal and not wired to actorOf: produced in-crate by actor::repointable (with_real_cells) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice A)",
+    ),
+    (
+        "MBX-UC-02 a Watch and a Terminate sent to an unstarted actor are applied once it starts: the watcher gets Terminated",
+        "needs the unstarted reference and the real cell, internal and not wired to actorOf: produced in-crate by actor::repointable (with_real_cells) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice A)",
+    ),
+    (
+        "MBX-UC-03 a Watch undone by an Unwatch before the actor starts: the watcher is not told",
+        "needs the unstarted reference and the real cell, internal and not wired to actorOf: produced in-crate by actor::repointable (with_real_cells) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice A)",
+    ),
+    (
+        "MBX-UC-04 a child created under a suspended parent inherits the suspension",
+        "evidence for slice B of Q-MBX-11: a child inherits the suspension of its parent when attach_child is asynchronous; Rakka still creates children synchronously, so there is no Rust counterpart yet",
+    ),
+    (
         "MBX-SC-03 actor suspended with queued work does not reschedule itself",
         "sends the internal Suspend system message and reads the mailbox state, neither reachable from the public API: produced in-crate by dispatch::dispatcher (turn_limits_with_real_actors) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 6c)",
     ),
