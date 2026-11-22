@@ -8,12 +8,12 @@
 //! sent, to the real cell, and from then on every message goes straight to it. This is why a `Suspend` sent after some user
 //! messages still takes effect before them (oracle cases `MBX-UC-01..03`).
 //!
-//! Not wired to `ActorSystem::actor_of` or `ActorCell::attach_child` yet (Q-MBX-11, slice A): nothing outside tests creates one.
-//! Differences from Pekko, all to be settled when it is wired: the lock is a plain `Mutex` (no `UnstartedPushTimeout`: a send that
+//! `ActorSystem::actor_of` creates one through `ActorCell::attach_child(.., asynchronous = true)` (Q-MBX-11, slice B).
+//! Differences from Pekko, to be settled in slice C: the lock is a plain `Mutex` (no `UnstartedPushTimeout`: a send that
 //! waits for the lock more than that long is a dead letter in Pekko), and it is held while the queues are handed over, as in Pekko
 //! but without re-entrancy: the real cell must not send to this reference from inside `tell`/`send_system`.
 
-#![allow(dead_code)] // wired in slice B of Q-MBX-11
+#![allow(dead_code)] // some accessors are only used by tests
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, Weak};
@@ -131,6 +131,15 @@ impl RepointableActorRef {
     /// `isStarted`.
     pub(crate) fn is_started(&self) -> bool {
         matches!(&*self.lock(), Underlying::Started(_))
+    }
+
+    /// A weak handle to the installed cell, to check in tests that nothing keeps it alive after termination.
+    #[cfg(test)]
+    pub(crate) fn installed_cell_for_tests(&self) -> Option<std::sync::Weak<dyn InternalActorRef>> {
+        match &*self.lock() {
+            Underlying::Started(cell) => Some(Arc::downgrade(cell)),
+            Underlying::Unstarted(_) => None,
+        }
     }
 
     /// `suspend()`: a `Suspend` system message.

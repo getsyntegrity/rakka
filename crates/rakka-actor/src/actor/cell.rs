@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex, PoisonError, Weak};
 
 use crate::actor::ActorPath;
 use crate::actor::actor_ref::{ActorRef, InternalActorRef};
@@ -76,7 +76,7 @@ pub(crate) struct ActorCell {
     dispatcher: Arc<Dispatcher>,
     me: Weak<ActorCell>,
     /// what the actor knows as `self` when it is not the cell's own reference: the `RepointableActorRef` of an actor made by `actorOf`
-    outer: Option<ActorRef>,
+    outer: Mutex<Option<ActorRef>>,
     /// the atomic mailbox state (Open/Closed, Scheduled, suspend count)
     status: MailboxStatus,
     system_queue: SystemQueue<SystemMessage>,
@@ -202,7 +202,7 @@ impl ActorCell {
             props,
             dispatcher,
             me: me.clone(),
-            outer: outer.clone(),
+            outer: Mutex::new(outer.clone()),
             status: {
                 let status = MailboxStatus::new();
                 status.set_as_scheduled(); // not attached yet: nothing runs before `start`
@@ -258,7 +258,8 @@ impl ActorCell {
 
     /// `self`: the reference the actor knows as its own (the repointable one for an actor made by `actorOf`).
     pub(crate) fn self_ref(&self) -> ActorRef {
-        match &self.outer {
+        let outer = self.outer.lock().unwrap_or_else(PoisonError::into_inner);
+        match &*outer {
             Some(outer) => outer.clone(),
             None => self.local_ref(),
         }
@@ -812,6 +813,8 @@ impl ActorCell {
             });
         self.tell_watchers_we_died();
         self.unwatch_watched_actors();
+        // the repointable reference holds this cell: let go of it so the pair can be freed (Pekko relies on the GC)
+        *self.outer.lock().unwrap_or_else(PoisonError::into_inner) = None;
     }
 
     // ---- children ----
@@ -839,7 +842,6 @@ impl ActorCell {
         name
     }
 
-    /// `attachChild(props, name)` / `attachChild(props)`: create a child of this actor.
     /// `makeChild` (`Children.scala:279-352`). `asynchronous` is Pekko's `async`: `context.actorOf` is synchronous (a started
     /// `LocalActorRef`, `async = false`) while `attachChild`, which `system.actorOf` uses, hands out a `RepointableActorRef` that
     /// this actor starts when it processes `Supervise` (`async = true`).

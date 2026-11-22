@@ -336,4 +336,39 @@ mod tests {
         c.unreserve("a");
         assert!(matches!(c, Children::Terminated));
     }
+
+    /// `initChild` (`Children.scala:169-179`): only a reserved name becomes a child, and a child that is gone is never added.
+    #[test]
+    fn init_child_registers_only_a_reserved_name() {
+        let system = crate::actor::system::ActorSystem::create("init-child").unwrap();
+        let child = system.dead_letters(); // any reference will do: only its name matters
+        let name = child.path().name().to_owned();
+
+        for mut gone in [Children::Empty, Children::Terminated] {
+            assert!(!gone.init_child(&child));
+            assert!(gone.get_by_ref(&child).is_none());
+        }
+
+        let mut nobody_reserved = Children::Normal(BTreeMap::new());
+        assert!(!nobody_reserved.init_child(&child));
+        assert!(nobody_reserved.children().is_empty());
+
+        let mut reserved = Children::Empty;
+        reserved.reserve(&name).unwrap();
+        assert!(reserved.init_child(&child));
+        assert_eq!(reserved.children(), vec![child.clone()]);
+        assert!(
+            reserved.init_child(&child),
+            "a name that is already a child stays a child"
+        );
+        assert_eq!(reserved.children().len(), 1);
+
+        let mut terminating = Children::Normal(BTreeMap::new());
+        terminating.reserve(&name).unwrap();
+        assert!(terminating.init_child(&child));
+        system
+            .terminate()
+            .wait(std::time::Duration::from_secs(10))
+            .unwrap();
+    }
 }

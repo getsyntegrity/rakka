@@ -570,3 +570,26 @@ fn many_children_that_message_themselves_while_they_start_lose_and_duplicate_not
     });
     system.terminate().wait(Duration::from_secs(10)).unwrap();
 }
+
+/// A terminated actor made by `system.actorOf` must not stay alive through the reference it knows as `self`
+/// (Pekko relies on the GC for this cycle; here the cell would hold the repointable reference that holds the cell).
+#[test]
+fn a_terminated_top_level_actor_releases_its_cell() {
+    let fixture = Fixture::new();
+    let actor = fixture.actor("leak-check", |_ctx| {});
+    let cell = actor
+        .0
+        .as_repointable()
+        .and_then(|repointable| repointable.installed_cell_for_tests())
+        .expect("the actor is started");
+
+    actor.stop();
+    fixture.executor.run_until_idle();
+    fixture.executor.run_until_idle();
+    drop(actor);
+    // the guardian forgets its child on its own (internal) dispatcher
+    wait_until("the terminated cell to be released", || {
+        fixture.executor.run_until_idle();
+        cell.strong_count() == 0
+    });
+}
