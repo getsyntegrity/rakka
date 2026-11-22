@@ -5,13 +5,14 @@
 use std::collections::HashSet;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex, PoisonError, Weak};
 
 use crate::actor::ActorPath;
 use crate::actor::actor_ref::{ActorRef, InternalActorRef};
 use crate::actor::children::{Children, SuspendReason};
 use crate::actor::fault::Throwable;
 use crate::actor::props::{Actor, ActorContext, AnyMessage, Kill, PoisonPill, Props};
+use crate::actor::repointable::RepointableActorRef;
 use crate::actor::supervision::{Directive, OneForOneStrategy, RestartStats, SupervisorStrategy};
 use crate::actor::system::SystemInner;
 use crate::actor::validate_path_element;
@@ -74,6 +75,8 @@ pub(crate) struct ActorCell {
     /// the dispatcher this actor's mailbox runs on (`internal-dispatcher` for guardians)
     dispatcher: Arc<Dispatcher>,
     me: Weak<ActorCell>,
+    /// what the actor knows as `self` when it is not the cell's own reference: the `RepointableActorRef` of an actor made by `actorOf`
+    outer: Mutex<Option<ActorRef>>,
     /// the atomic mailbox state (Open/Closed, Scheduled, suspend count)
     status: MailboxStatus,
     system_queue: SystemQueue<SystemMessage>,
@@ -117,6 +120,10 @@ impl InternalActorRef for LocalActorRef {
     }
     fn stop(&self) {
         self.0.system_dispatch(SystemMessage::Terminate);
+    }
+    #[cfg(test)]
+    fn attach_child_for_tests(&self, props: Props, name: &str) -> Result<ActorRef, ActorError> {
+        self.0.attach_child(props, Some(name), true)
     }
     #[cfg(test)]
     fn mailbox_view(&self) -> String {
@@ -164,6 +171,30 @@ impl ActorCell {
         parent: ActorRef,
         path: ActorPath,
     ) -> Arc<ActorCell> {
+        Self::build(system, dispatcher, props, parent, path, None)
+    }
+
+    /// `newCell` of a `RepointableActorRef`: `init(sendSupervise = false)` (the supervisor was told when the reference was made) and
+    /// `outer` is the reference the actor knows as its own.
+    pub(crate) fn new_repointed(
+        system: &Arc<SystemInner>,
+        dispatcher: Arc<Dispatcher>,
+        props: Props,
+        parent: ActorRef,
+        path: ActorPath,
+        outer: ActorRef,
+    ) -> Arc<ActorCell> {
+        Self::build(system, dispatcher, props, parent, path, Some(outer))
+    }
+
+    fn build(
+        system: &Arc<SystemInner>,
+        dispatcher: Arc<Dispatcher>,
+        props: Props,
+        parent: ActorRef,
+        path: ActorPath,
+        outer: Option<ActorRef>,
+    ) -> Arc<ActorCell> {
         let cell = Arc::new_cyclic(|me| ActorCell {
             path,
             system: system.clone(),
@@ -171,6 +202,7 @@ impl ActorCell {
             props,
             dispatcher,
             me: me.clone(),
+            outer: Mutex::new(outer.clone()),
             status: {
                 let status = MailboxStatus::new();
                 status.set_as_scheduled(); // not attached yet: nothing runs before `start`
@@ -186,10 +218,12 @@ impl ActorCell {
             cell.system_queue.enqueue(SystemMessage::Create).is_ok(),
             "a new mailbox accepts system messages"
         );
-        parent.send_system(SystemMessage::Supervise {
-            child: cell.self_ref(),
-            is_async: false,
-        });
+        if outer.is_none() {
+            parent.send_system(SystemMessage::Supervise {
+                child: cell.self_ref(),
+                is_async: false,
+            });
+        }
         cell
     }
 
@@ -222,7 +256,17 @@ impl ActorCell {
         self.system_queue.has_messages()
     }
 
+    /// `self`: the reference the actor knows as its own (the repointable one for an actor made by `actorOf`).
     pub(crate) fn self_ref(&self) -> ActorRef {
+        let outer = self.outer.lock().unwrap_or_else(PoisonError::into_inner);
+        match &*outer {
+            Some(outer) => outer.clone(),
+            None => self.local_ref(),
+        }
+    }
+
+    /// The reference to this cell itself, what a `RepointableActorRef` points to once it is installed.
+    pub(crate) fn local_ref(&self) -> ActorRef {
         ActorRef(Arc::new(LocalActorRef(
             self.me.upgrade().expect("cell alive"),
         )))
@@ -489,8 +533,7 @@ impl ActorCell {
             SystemMessage::Recreate { cause } => self.fault_recreate(cause),
             SystemMessage::Resume { cause } => self.fault_resume(cause),
             SystemMessage::Suspend => self.fault_suspend(),
-            // The child was already registered by `attach_child` (`initChild`); nothing else to track yet.
-            SystemMessage::Supervise { .. } => {}
+            SystemMessage::Supervise { child, is_async } => self.supervise(child, is_async),
             SystemMessage::Watch { watchee, watcher } => self.add_watcher(watchee, watcher),
             SystemMessage::Unwatch { watchee, watcher } => self.rem_watcher(watchee, watcher),
             SystemMessage::DeathWatchNotification {
@@ -770,6 +813,13 @@ impl ActorCell {
             });
         self.tell_watchers_we_died();
         self.unwatch_watched_actors();
+        // the repointable reference holds this cell: let go of it so the pair can be freed (Pekko relies on the GC)
+        let released = self
+            .outer
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        drop(released); // outside the lock: it may be the last reference to the repointable
     }
 
     // ---- children ----
@@ -797,11 +847,14 @@ impl ActorCell {
         name
     }
 
-    /// `attachChild(props, name)` / `attachChild(props)`: create a child of this actor.
+    /// `makeChild` (`Children.scala:279-352`). `asynchronous` is Pekko's `async`: `context.actorOf` is synchronous (a started
+    /// `LocalActorRef`, `async = false`) while `attachChild`, which `system.actorOf` uses, hands out a `RepointableActorRef` that
+    /// this actor starts when it processes `Supervise` (`async = true`).
     pub(crate) fn attach_child(
         self: &Arc<Self>,
         props: Props,
         name: Option<&str>,
+        asynchronous: bool,
     ) -> Result<ActorRef, ActorError> {
         let name = match name {
             Some("") => {
@@ -824,17 +877,78 @@ impl ActorCell {
             ));
         }
         self.children.lock().unwrap().reserve(&name)?;
-        let child = ActorCell::new_local(
-            &self.system,
-            self.system.dispatcher.clone(),
-            props,
-            self.self_ref(),
-            self.path.new_child(&name, new_uid()),
-        );
-        let child_ref = child.self_ref();
-        self.children.lock().unwrap().add(&name, child_ref.clone()); // initChild
-        child.start();
-        Ok(child_ref)
+        let path = self.path.new_child(&name, new_uid());
+        if asynchronous {
+            // `provider.actorOf(..., async = true)`: a `RepointableActorRef`, which tells the supervisor (this actor) to `Supervise` it
+            let child_ref = ActorRef(RepointableActorRef::for_actor(path.clone(), {
+                let (system, parent) = (self.system.clone(), self.self_ref());
+                Box::new(move |outer: &ActorRef| {
+                    ActorCell::new_repointed(
+                        &system,
+                        system.dispatcher.clone(),
+                        props,
+                        parent,
+                        path,
+                        outer.clone(),
+                    )
+                })
+            }));
+            self.system_dispatch(SystemMessage::Supervise {
+                child: child_ref.clone(),
+                is_async: true,
+            });
+            self.inherit_suspension(&child_ref);
+            self.children.lock().unwrap().init_child(&child_ref);
+            Ok(child_ref)
+        } else {
+            // `async = false`: a `LocalActorRef` whose cell is attached to the dispatcher right now
+            let child = ActorCell::new_local(
+                &self.system,
+                self.system.dispatcher.clone(),
+                props,
+                self.self_ref(),
+                path,
+            );
+            let child_ref = child.self_ref();
+            self.inherit_suspension(&child_ref);
+            self.children.lock().unwrap().init_child(&child_ref);
+            child.start();
+            Ok(child_ref)
+        }
+    }
+
+    /// `makeChild`: the child gets one `Suspend` for every suspension of this actor (`if (mailbox ne null) { ... actor.suspend() }`).
+    fn inherit_suspension(&self, child: &ActorRef) {
+        for _ in 0..self.status.suspend_count() {
+            child.send_system(SystemMessage::Suspend);
+        }
+    }
+
+    /// `ActorCell.supervise`: the first thing a new child sends. A child nobody reserved a name for is reported; a registered
+    /// asynchronous one is started now, in this actor's turn (`handleSupervise` → `point`). Ignored while this actor terminates.
+    fn supervise(self: &Arc<Self>, child: ActorRef, is_async: bool) {
+        let registered = {
+            let mut children = self.children.lock().unwrap();
+            if children.is_terminating() {
+                return;
+            }
+            children.init_child(&child)
+        };
+        if !registered {
+            report_dispatch_failure(
+                &self.system.events,
+                ErrorEvent {
+                    cause: Throwable::new("org.apache.pekko.event.Logging$Error$NoCause$", None),
+                    log_source: self.path.to_string(),
+                    log_class: reporter_class(self.st.lock().unwrap().actor_class),
+                    message: format!(
+                        "received Supervise from unregistered child {child:?}, this will not end well"
+                    ),
+                },
+            );
+        } else if is_async && let Some(repointable) = child.0.as_repointable() {
+            repointable.point();
+        }
     }
 
     /// `ActorCell.stop(actor)`: mark a child as about to die, then ask the actor to terminate.

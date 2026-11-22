@@ -92,19 +92,23 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order",
-        "needs the unstarted reference and the real cell, internal and not wired to actorOf: produced in-crate by actor::repointable (with_real_cells) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice A)",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::repointable (with_real_cells) and, through the real attach_child, by actor::async_creation_tests; both compare with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slices A and B)",
     ),
     (
         "MBX-UC-02 a Watch and a Terminate sent to an unstarted actor are applied once it starts: the watcher gets Terminated",
-        "needs the unstarted reference and the real cell, internal and not wired to actorOf: produced in-crate by actor::repointable (with_real_cells) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice A)",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::repointable (with_real_cells) and, through the real attach_child, by actor::async_creation_tests; both compare with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slices A and B)",
     ),
     (
         "MBX-UC-03 a Watch undone by an Unwatch before the actor starts: the watcher is not told",
-        "needs the unstarted reference and the real cell, internal and not wired to actorOf: produced in-crate by actor::repointable (with_real_cells) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice A)",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::repointable (with_real_cells) and, through the real attach_child, by actor::async_creation_tests; both compare with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slices A and B)",
     ),
     (
         "MBX-UC-04 a child created under a suspended parent inherits the suspension",
-        "evidence for slice B of Q-MBX-11: a child inherits the suspension of its parent when attach_child is asynchronous; Rakka still creates children synchronously, so there is no Rust counterpart yet",
+        "needs the parent's cell to be suspended and attachChild (internal): produced in-crate by actor::async_creation_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice B)",
+    ),
+    (
+        "MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once",
+        "needs attachChild inside the parent's turn and an executor that runs nothing by itself (internal): produced in-crate by actor::async_creation_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice B)",
     ),
     (
         "MBX-SC-03 actor suspended with queued work does not reschedule itself",

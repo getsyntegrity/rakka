@@ -17,6 +17,22 @@ pub(crate) trait InternalActorRef: Send + Sync {
     fn stop(&self);
     /// `isTerminated` (internal API in Pekko): the mailbox is closed.
     fn is_terminated(&self) -> bool;
+    /// The reference as a `RepointableActorRef` when it is one (what `Supervise(async = true)` asks to `point`).
+    fn as_repointable(&self) -> Option<&crate::actor::repointable::RepointableActorRef> {
+        None
+    }
+    /// `attachChild(props, name)` on the actor behind this reference, for tests (the cell is not reachable from an `ActorRef`).
+    #[cfg(test)]
+    fn attach_child_for_tests(
+        &self,
+        _props: crate::actor::props::Props,
+        _name: &str,
+    ) -> Result<ActorRef, crate::actor::ActorError> {
+        Err(crate::actor::ActorError::new(
+            crate::actor::ErrorClass::IllegalState,
+            "no cell behind this reference",
+        ))
+    }
     /// The mailbox state as a string, for tests of the dispatcher (empty for references that have no mailbox).
     #[cfg(test)]
     fn mailbox_view(&self) -> String {
@@ -64,6 +80,15 @@ impl ActorRef {
     #[cfg(test)]
     pub(crate) fn mailbox_view(&self) -> String {
         self.0.mailbox_view()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn attach_child_for_tests(
+        &self,
+        props: crate::actor::props::Props,
+        name: &str,
+    ) -> Result<ActorRef, crate::actor::ActorError> {
+        self.0.attach_child_for_tests(props, name)
     }
 
     #[cfg(test)]

@@ -3,6 +3,8 @@
 
 pub(crate) mod actor_ref;
 mod address;
+#[cfg(test)]
+mod async_creation_tests;
 pub(crate) mod cell;
 pub(crate) mod children;
 mod deploy;

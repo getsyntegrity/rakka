@@ -151,6 +151,23 @@ impl Children {
         }
     }
 
+    /// `initChild(ref)` (`Children.scala:169-179`): the reserved name becomes a real child; a name that is already a child stays as
+    /// it is; a name nobody reserved is not registered (false). The child may be gone already when this runs late.
+    pub fn init_child(&mut self, child: &ActorRef) -> bool {
+        let name = child.path().name();
+        match self {
+            Children::Normal(c) | Children::Terminating { c, .. } => match c.get(name) {
+                Some(ChildStats::Child(_)) => true,
+                Some(ChildStats::Reserved) => {
+                    c.insert(name.to_string(), ChildStats::Child(child.clone()));
+                    true
+                }
+                None => false,
+            },
+            Children::Empty | Children::Terminated => false,
+        }
+    }
+
     /// `reserve(name)`.
     pub fn reserve(&mut self, name: &str) -> Result<(), ActorError> {
         match self {
@@ -318,5 +335,37 @@ mod tests {
         );
         c.unreserve("a");
         assert!(matches!(c, Children::Terminated));
+    }
+
+    /// `initChild` (`Children.scala:169-179`): only a reserved name becomes a child, and a child that is gone is never added.
+    #[test]
+    fn init_child_registers_only_a_reserved_name() {
+        let system = crate::actor::system::ActorSystem::create("init-child").unwrap();
+        let child = system.dead_letters(); // any reference will do: only its name matters
+        let name = child.path().name().to_owned();
+
+        for mut gone in [Children::Empty, Children::Terminated] {
+            assert!(!gone.init_child(&child));
+            assert!(gone.get_by_ref(&child).is_none());
+        }
+
+        let mut nobody_reserved = Children::Normal(BTreeMap::new());
+        assert!(!nobody_reserved.init_child(&child));
+        assert!(nobody_reserved.children().is_empty());
+
+        let mut reserved = Children::Empty;
+        reserved.reserve(&name).unwrap();
+        assert!(reserved.init_child(&child));
+        assert_eq!(reserved.children(), vec![child.clone()]);
+        assert!(
+            reserved.init_child(&child),
+            "a name that is already a child stays a child"
+        );
+        assert_eq!(reserved.children().len(), 1);
+
+        system
+            .terminate()
+            .wait(std::time::Duration::from_secs(10))
+            .unwrap();
     }
 }
