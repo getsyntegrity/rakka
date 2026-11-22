@@ -38,6 +38,14 @@ impl RunsOnDemand {
             .unwrap_or(0)
     }
 
+    /// Runs the oldest pending mailbox turn, if any.
+    fn run_next(&self) {
+        let next = self.pending.lock().unwrap().pop_front();
+        if let Some(cell) = next {
+            ActorCell::run_mailbox(&cell);
+        }
+    }
+
     /// Runs every pending mailbox turn, and the ones those turns schedule, on the calling thread.
     fn run_until_idle(&self) {
         loop {
@@ -331,9 +339,8 @@ fn only_the_guardians_are_created_synchronously_every_other_actor_is_repointable
     }
 }
 
-#[test]
-fn a_supervise_from_a_child_that_was_never_registered_is_reported_as_an_error() {
-    let fixture = Fixture::new();
+/// Subscribes an actor to the error channel and returns what it collects.
+fn collect_errors(fixture: &Fixture) -> Arc<Mutex<Vec<ErrorEvent>>> {
     let errors: Arc<Mutex<Vec<ErrorEvent>>> = Arc::default();
     struct Collects(Arc<Mutex<Vec<ErrorEvent>>>);
     impl Actor for Collects {
@@ -361,6 +368,13 @@ fn a_supervise_from_a_child_that_was_never_registered_is_reported_as_an_error() 
         .system
         .event_stream()
         .subscribe(&collector, Channel::Error);
+    errors
+}
+
+#[test]
+fn a_supervise_from_a_child_that_was_never_registered_is_reported_as_an_error() {
+    let fixture = Fixture::new();
+    let errors = collect_errors(&fixture);
     let parent = fixture.actor("p", |_| {});
     let stranger = fixture.system.dead_letters();
     parent.send_system(SystemMessage::Supervise {
@@ -378,6 +392,34 @@ fn a_supervise_from_a_child_that_was_never_registered_is_reported_as_an_error() 
     assert_eq!(
         errors[0].cause.class, "org.apache.pekko.event.Logging$Error$NoCause$",
         "`Error(source, class, message)` carries `Error.NoCause`"
+    );
+}
+
+/// `ActorCell.scala:712-714`: `supervise` does nothing while the parent is terminating, so a `Supervise` that reaches it then is neither
+/// registered nor reported (without the guard `initChild` finds no reservation and an `Error` is published).
+#[test]
+fn a_supervise_that_reaches_a_terminating_parent_is_ignored() {
+    let fixture = Fixture::new();
+    let errors = collect_errors(&fixture);
+    let parent = fixture.actor("p", |ctx| {
+        ctx.actor_of_named(Props::new(|| Idle), "c").unwrap();
+    });
+    parent.tell("go".to_owned(), None);
+    fixture.executor.run_until_idle();
+
+    parent.stop();
+    fixture.executor.run_next(); // the parent's turn: it asks `c` to stop and waits for it, so it is terminating now
+    let stranger = fixture.system.dead_letters();
+    parent.send_system(SystemMessage::Supervise {
+        child: stranger,
+        is_async: true,
+    });
+    fixture.executor.run_until_idle(); // `c` stops, then the parent handles `Supervise` and its child's death in one turn
+
+    assert!(
+        errors.lock().unwrap().is_empty(),
+        "{:?}",
+        errors.lock().unwrap()
     );
 }
 
