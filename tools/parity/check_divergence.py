@@ -49,16 +49,16 @@ MUTANTS = {
         "closing the mailbox forgets the system messages that were still pending, so none of them reaches dead letters (MBX-SQ-02)",
     ),
     "mailbox-suspension-does-not-stop-user-messages": (
-        "src/actor/cell.rs",
-        "        while budget > 0 && self.status.should_process_message() {",
-        "        while budget > 0 && !self.status.is_closed() {",
-        "a suspended actor keeps processing user messages (the turn only checks `Closed`, not the suspend count)",
+        'src/actor/cell.rs',
+        '        while self.status.should_process_message() {\n            let Some(env) = self.queue.dequeue() else {',
+        '        while !self.status.is_closed() {\n            let Some(env) = self.queue.dequeue() else {',
+        'a suspended actor keeps processing user messages (the turn only checks `Closed`, not the suspend count)',
     ),
     "mailbox-throughput-off-by-one": (
-        "src/actor/cell.rs",
-        "self.system.settings.throughput.max(1)",
-        "(self.system.settings.throughput.max(1) + 1)",
-        "a turn processes one message more than `throughput`, breaking the fairness between actors on one thread",
+        'src/dispatch/turn.rs',
+        'if self.left <= 1 {',
+        'if self.left == 0 {',
+        'a turn processes one message more than `throughput`, breaking the fairness between actors on one thread',
     ),
     "mailbox-dead-user-messages-not-published": (
         "src/actor/cell.rs",
@@ -67,10 +67,10 @@ MUTANTS = {
         "a user message sent to a closed mailbox is dropped instead of published as a dead letter",
     ),
     "mailbox-dead-system-message-not-answered": (
-        "src/actor/cell.rs",
-        "            Self::dead_system_message(msg); // the queue is closed: the actor terminated\n            return;",
-        "            drop(msg); // the queue is closed: the actor terminated\n            return;",
-        "a system message sent to a terminated actor is dropped, so a `Watch` is never answered with `Terminated` (DeathWatch hole)",
+        'src/actor/cell.rs',
+        '        self.system\n            .dead_letter_mailbox\n            .system_enqueue(&self.self_ref(), msg);',
+        '        drop(msg);',
+        'a system message sent to a terminated actor is dropped, so a `Watch` is never answered with `Terminated` (DeathWatch hole)',
     ),
     "mailbox-queue-is-lifo": (
         "src/dispatch/message_queue.rs",
@@ -142,10 +142,10 @@ MUTANTS = {
         "`forward` forgets the original sender",
     ),
     "throughput-ignored": (
-        "src/actor/cell.rs",
-        "let mut budget = self.system.settings.throughput.max(1);",
-        "let mut budget = usize::MAX;",
-        "an actor drains its whole mailbox in one turn instead of `throughput` messages",
+        'src/dispatch/turn.rs',
+        'left: self.throughput.max(1),',
+        'left: usize::MAX,',
+        'an actor drains its whole mailbox in one turn instead of `throughput` messages',
     ),
     "pill-not-suppressed-from-dead-letters": (
         "src/actor/system.rs",
@@ -158,6 +158,12 @@ MUTANTS = {
         "if watchee != me && watcher != me {",
         "if true {",
         "watching deadLetters is answered with a Terminated, although DeadLetterActorRef ignores a Watch whose watchee is itself (MBX-DL-01)",
+    ),
+    "throughput-deadline-ignored": (
+        "src/dispatch/turn.rs",
+        "&& clock.current_time().wrapping_sub(deadline) >= 0",
+        "&& clock.current_time().wrapping_sub(deadline) >= 0 && false",
+        "throughput-deadline-time never ends a turn, so one actor keeps the thread for its whole throughput (MBX-SC-02)",
     ),
     "drop-uid-in-serialization-format": (
         "src/actor/path.rs",
@@ -204,10 +210,10 @@ MUTANTS = {
         "`unwatch` does not remove the watch, so the watcher still gets Terminated",
     ),
     "watch-dead-confirms-existence": (
-        "src/actor/cell.rs",
-        "                actor: watchee,\n                existence_confirmed: false,",
-        "                actor: watchee,\n                existence_confirmed: true,",
-        "watching an already terminated actor reports `existenceConfirmed = true`",
+        'src/actor/system.rs',
+        '                        actor: watchee.clone(),\n                        existence_confirmed: false,',
+        '                        actor: watchee.clone(),\n                        existence_confirmed: true,',
+        'watching an already terminated actor reports `existenceConfirmed = true`',
     ),
     # --- slice 3b, part 1: failure handling (default strategy) ---
     "kill-restarts-instead-of-stopping": (

@@ -80,6 +80,7 @@ fn system_exposes_its_name_root_path_settings_and_dead_letters() {
     let settings = Settings {
         parallelism: 3,
         throughput: 7,
+        ..Settings::default()
     };
     let sys = RunningSystem::create_with_settings("t-meta", settings);
     assert_eq!(sys.name(), "t-meta");

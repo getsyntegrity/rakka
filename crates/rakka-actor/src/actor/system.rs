@@ -14,7 +14,9 @@ use crate::actor::{ActorPath, Address};
 use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
 use crate::dispatch::dispatcher::Dispatcher;
 use crate::dispatch::sysmsg::{StopChild, SystemMessage, Terminated};
+use crate::dispatch::turn::TurnPolicy;
 use crate::event::{DeadLetter, EventStream};
+use crate::util::clock::{Clock, NanoClock};
 
 /// A write-once value other threads can wait for (`Promise`/`Future`).
 pub struct Promise<T> {
@@ -64,6 +66,9 @@ pub struct Settings {
     pub parallelism: usize,
     /// Messages an actor processes per turn (`pekko.actor.default-dispatcher.throughput`).
     pub throughput: usize,
+    /// `pekko.actor.default-dispatcher.throughput-deadline-time`: a turn also ends once this much time has passed since it began.
+    /// Zero (the default) or less than a millisecond means no deadline.
+    pub throughput_deadline_time: Duration,
 }
 
 impl Default for Settings {
@@ -71,6 +76,7 @@ impl Default for Settings {
         Settings {
             parallelism: 8,
             throughput: 5,
+            throughput_deadline_time: Duration::ZERO,
         }
     }
 }
@@ -259,6 +265,15 @@ impl ActorSystem {
 
     /// `ActorSystem.create(name, config)`, with the supported settings given directly.
     pub fn create_with_settings(name: &str, settings: Settings) -> Result<ActorSystem, ActorError> {
+        Self::create_with_clock(name, settings, Arc::new(NanoClock))
+    }
+
+    /// Like [`ActorSystem::create_with_settings`] with the clock that measures the throughput deadline injected.
+    pub(crate) fn create_with_clock(
+        name: &str,
+        settings: Settings,
+        clock: Arc<dyn Clock>,
+    ) -> Result<ActorSystem, ActorError> {
         let valid = {
             let mut chars = name.chars();
             matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
@@ -273,9 +288,12 @@ impl ActorSystem {
             ));
         }
         let root_path = ActorPath::root(Address::local("pekko", name));
-        let dispatcher = Dispatcher::start(name, settings.parallelism);
+        let turn_policy = TurnPolicy::new(settings.throughput, settings.throughput_deadline_time);
+        let dispatcher =
+            Dispatcher::start_with(name, settings.parallelism, turn_policy, clock.clone());
         let events = EventStream::new();
-        let internal_dispatcher = Dispatcher::start(&format!("{name}-internal"), 4);
+        let internal_dispatcher =
+            Dispatcher::start_with(&format!("{name}-internal"), 4, turn_policy, clock);
         let termination = Promise::new();
         let dead_letters = ActorRef(Arc::new_cyclic(|me| DeadLetters {
             path: root_path.new_child("deadLetters", 0),

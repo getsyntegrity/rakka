@@ -184,6 +184,7 @@ fn single_thread_dispatcher_runs_throughput_messages_per_turn() {
         Settings {
             parallelism: 1,
             throughput: 3,
+            ..Settings::default()
         },
     );
     let order = Arc::new(Mutex::new(Vec::new()));
