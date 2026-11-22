@@ -434,39 +434,37 @@ impl Actor for CountsStarts {
     }
 }
 
-/// Before its parent's turn runs, a top-level actor holds the system messages sent to it (`UnstartedCell`), has no cell to hand out and
-/// cannot create children; pointing it twice (a second `Supervise`) does not start it again (`RepointableActorRef.scala:112-135`).
+/// Before its parent's turn runs, an actor made by `attachChild` holds the system messages sent to it (`UnstartedCell`), has no cell
+/// to hand out and cannot create children; pointing it twice (a second `Supervise`) does not start it again
+/// (`RepointableActorRef.scala:112-135`). The parent is a user actor on the manual executor, so "its turn has not run" is a fact.
 #[test]
 fn an_unstarted_actor_holds_system_messages_and_is_started_once() {
     let fixture = Fixture::new();
     let starts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let actor = fixture
-        .system
-        .actor_of_named(
+    let parent = fixture.actor("p", |_| {});
+    let child = parent
+        .attach_child_for_tests(
             Props::new({
                 let starts = starts.clone();
                 move || CountsStarts(starts.clone())
             }),
-            "unstarted",
+            "child",
         )
         .unwrap();
-    let repointable = actor.0.as_repointable().expect("a top-level actor");
+    let repointable = child.0.as_repointable().expect("made by attachChild");
 
     assert!(!repointable.is_started());
     assert!(repointable.installed_cell_for_tests().is_none());
-    assert!(!actor.0.has_system_messages());
-    actor.send_system(SystemMessage::Suspend);
-    assert!(actor.0.has_system_messages(), "kept in the UnstartedCell");
-    let refused = actor
-        .attach_child_for_tests(Props::new(|| Idle), "child")
+    assert!(!child.0.has_system_messages());
+    child.send_system(SystemMessage::Suspend);
+    assert!(child.0.has_system_messages(), "kept in the UnstartedCell");
+    let refused = child
+        .attach_child_for_tests(Props::new(|| Idle), "grandchild")
         .unwrap_err();
     assert_eq!(refused.message(), "the actor has not started");
 
-    // the guardian (internal dispatcher) handles `Supervise` and points it
-    wait_until("the guardian to start the actor", || {
-        repointable.is_started()
-    });
-    fixture.executor.run_until_idle();
+    fixture.executor.run_until_idle(); // the parent handles `Supervise` and points the child
+    assert!(repointable.is_started());
     repointable.point(); // a second `Supervise` for the same child
     fixture.executor.run_until_idle();
     assert_eq!(starts.load(std::sync::atomic::Ordering::SeqCst), 1);
