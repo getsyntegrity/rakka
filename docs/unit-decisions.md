@@ -224,7 +224,7 @@
 
 ## P15 MBX-NUCLEO
 
-7 filas; 6 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 1 propuestas.
+7 filas; 7 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -234,6 +234,7 @@
 | Q-MBX-9 | accepted (2026-11-20): aceptar (B): estado del mailbox separado de las colas de sistema y de usuario (ADR-0001). No aprueba Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 ni Q-MBX-6. | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-CELL-013.1, AC-DSP-001, AC-MBX-001 | — | — | `transversal` |
 | Q-DSP-5 | propuesta | 2: AC-DSP-003, AC-MBX-002 | — | — | `classic-dispatch` |
+| Q-MBX-11 | propuesta | 2: AC-DSP-002, AC-MBX-002 | — | — | `classic-dispatch` |
 
 ## P16 DSP-EJECUTORES
 
@@ -276,7 +277,7 @@
 
 ## P19 CELL-EJECUCION
 
-11 filas; 6 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 3 propuestas.
+11 filas; 7 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -285,6 +286,7 @@
 | Q-X-8 | accepted (2026-11-18): aceptar (a): Typed sobre Classic. | 1: AC-CELL-018 | — | — | `transversal` |
 | Q-CELL-1 | propuesta | 2: AC-CELL-001, AC-CELL-005 | Bloquea: `impl` de AC-CELL-001/005 (y la firma de Actor para todo el crate). | Puede avanzar: la documentación y los tests de ciclo de vida (se escriben contra el trait). | `classic-cell` |
 | Q-CELL-3 | propuesta | 1: AC-CELL-019 | Bloquea: nada de la documentación; el cierre de `validation` de AC-CELL-019. | Puede avanzar: todo. | `classic-cell` |
+| Q-MBX-11 | propuesta | 1: AC-CELL-003 | — | — | `classic-dispatch` |
 | Q-REF-6 | propuesta | 1: AC-CELL-031 | Bloquea: la validación (no la `impl`) de AC-REF-001.x, AC-REF-019 y AC-CELL-031. | Puede avanzar: toda la implementación. | `classic-cell` |
 
 ## P20 SUP-ESTRATEGIAS
@@ -1060,4 +1062,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 503 (242 respondidas, 0 bloqueantes, 261 propuestas).
+Total de pares unidad–decisión: 505 (242 respondidas, 0 bloqueantes, 263 propuestas).

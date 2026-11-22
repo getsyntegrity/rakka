@@ -387,6 +387,18 @@ final class MailboxOracle {
         return afterRejection + " | next send: terminated=" + in(a).isTerminated() + " deadLetters=" + e.dead + " log=" + e.log;
       }
     });
+    run("MBX-RJ-05 an actor whose attach is rejected twice: actorOf returns, the supervisor fails and its children stop, the new actor never starts", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef sibling = e.spawn("sib", null);
+        REJECT_NEXT.set(2);
+        // actorOf is asynchronous: the supervisor attaches the new cell while handling Supervise (RepointableActorRef.point)
+        ActorRef a = e.sys.actorOf(Props.create(Worker.class, e).withDispatcher("rej-disp").withMailbox("hook-mailbox"), "a");
+        awaitUntil(() -> e.errors.size() >= 1 && in(sibling).isTerminated());
+        try { Thread.sleep(500); } catch (InterruptedException x) { throw new RuntimeException(x); } // a bounded wait for an absence
+        return "errors=" + e.errors + " refReturned=" + (a != null) + " newActorTerminated=" + in(a).isTerminated()
+            + " siblingTerminated=" + in(sibling).isTerminated() + " startedActors=" + e.started.get() + " rejectionsLeft=" + REJECT_NEXT.get();
+      }
+    });
     run("MBX-CL-01 closed mailbox of a stopped actor", () -> {
       try (Env e = new Env(5, "0ms")) {
         ActorRef a = e.spawn("w", null); Mailbox old = box(a); in(a).stop();

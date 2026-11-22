@@ -30,6 +30,8 @@ use crate::util::helpers::base64_append;
 #[derive(Default)]
 struct CellState {
     actor: Option<Box<dyn Actor>>,
+    /// `clazz(actor)` of the current instance, kept while the instance is taken out to run a callback; `None` without an instance
+    actor_class: Option<&'static str>,
     /// sender of the message being processed (`context.sender()`)
     sender: Option<ActorRef>,
     watching: Vec<ActorRef>,
@@ -84,8 +86,13 @@ pub(crate) struct ActorCell {
 
 /// The class of the dispatcher that reports a rejected registration (`getClass.getName`).
 const DISPATCHER_CLASS: &str = "org.apache.pekko.dispatch.Dispatcher";
-/// `clazz(actor)` of a cell: Rakka does not know the JVM class of an actor, so the reporter is the `Actor` trait.
+/// `classOf[Actor]`, what `clazz(actor)` answers while the cell has no instance (before `Create`, after termination).
 const ACTOR_CLASS: &str = "org.apache.pekko.actor.Actor";
+
+/// `clazz(actor)`: the class of the cell's instance, or `Actor` when there is none.
+fn reporter_class(instance_class: Option<&'static str>) -> String {
+    instance_class.unwrap_or(ACTOR_CLASS).to_owned()
+}
 
 /// `new RejectedExecutionException`.
 fn rejected_execution() -> Throwable {
@@ -262,6 +269,20 @@ impl ActorCell {
         }
     }
 
+    /// The cell takes `actor` as its instance (`_actor = newActor()`), remembering its class for reports.
+    fn install_actor(&self, actor: Box<dyn Actor>) {
+        let mut state = self.st.lock().unwrap();
+        state.actor_class = Some(actor.class_name());
+        state.actor = Some(actor);
+    }
+
+    /// The cell has no instance any more (`clearActorFields`).
+    fn remove_actor(&self) {
+        let mut state = self.st.lock().unwrap();
+        state.actor = None;
+        state.actor_class = None;
+    }
+
     /// `ActorCell.handleException` for a failed dispatch (`Dispatch.scala:129-141`): the sender swallows the exception and reports it.
     fn swallow_failed_send(&self, _rejected: Rejected) {
         report_dispatch_failure(
@@ -269,7 +290,7 @@ impl ActorCell {
             ErrorEvent {
                 cause: rejected_execution(),
                 log_source: self.path.to_string(),
-                log_class: ACTOR_CLASS.to_owned(),
+                log_class: reporter_class(self.st.lock().unwrap().actor_class),
                 message: "swallowing exception during message send".to_owned(),
             },
         );
@@ -490,10 +511,10 @@ impl ActorCell {
                 return;
             }
         };
-        self.st.lock().unwrap().actor = Some(actor);
+        self.install_actor(actor);
         if let Err(root_cause) = self.with_actor(|a, ctx| a.pre_start(ctx)) {
             // the half-built actor is dropped (so `postStop` never runs) and the supervisor decides (default: stop)
-            self.st.lock().unwrap().actor = None;
+            self.remove_actor();
             let cause = self.creation_failure(&root_cause);
             self.handle_invoke_failure(cause, None);
         }
@@ -692,7 +713,7 @@ impl ActorCell {
                 return;
             }
         };
-        self.st.lock().unwrap().actor = Some(fresh);
+        self.install_actor(fresh);
         if self
             .with_actor(|a, ctx| a.post_restart(ctx, &cause))
             .is_err()
@@ -727,7 +748,7 @@ impl ActorCell {
     /// `FaultHandling.finishTerminate` — the order of the steps matters.
     fn finish_terminate(self: &Arc<Self>) {
         let _ = self.with_actor(|a, ctx| a.post_stop(ctx)); // post-stop failures are only logged in Pekko
-        self.st.lock().unwrap().actor = None;
+        self.remove_actor();
         // dispatcher.detach: close the mailbox, hand what is left to dead letters
         let leftovers = UnboundedMailbox.create();
         self.status.become_closed();
@@ -984,5 +1005,20 @@ impl ActorCell {
                 watcher: me.clone(),
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod reporter_class_tests {
+    use super::*;
+
+    #[test]
+    fn the_reporter_is_the_class_of_the_instance_when_there_is_one() {
+        assert_eq!(reporter_class(Some("my::Actor")), "my::Actor");
+    }
+
+    #[test]
+    fn without_an_instance_the_reporter_is_the_actor_trait() {
+        assert_eq!(reporter_class(None), "org.apache.pekko.actor.Actor");
     }
 }
