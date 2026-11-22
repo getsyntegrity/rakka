@@ -12,6 +12,7 @@ pub mod fault;
 pub(crate) mod jstring;
 mod path;
 pub mod props;
+pub(crate) mod repointable;
 pub mod supervision;
 pub mod system;
 pub(crate) mod uri;

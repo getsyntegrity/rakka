@@ -183,6 +183,28 @@ final class MailboxOracle {
     }
   }
 
+  /** Creates a child inside its own turn. {@code actorOf} is asynchronous: the parent attaches the real cell when it processes
+   *  {@code Supervise}, which happens after this handler returns, so everything done here reaches the child's {@code UnstartedCell}. */
+  public static final class Spawner extends AbstractActor {
+    final Env env; final ActorRef watcher; final String script; final AtomicReference<ActorRef> child;
+    Spawner(Env env, ActorRef watcher, String script, AtomicReference<ActorRef> child) { this.env = env; this.watcher = watcher; this.script = script; this.child = child; }
+    @Override public Receive createReceive() {
+      return receiveBuilder().match(Terminated.class, t -> env.log.add("terminated")).matchEquals("go", g -> {
+        nextHooks = new Hooks();
+        ActorRef c = getContext().actorOf(Props.create(Worker.class, env).withMailbox("hook-mailbox"), "c");
+        switch (script) {
+          case "queued": c.tell("m1", ActorRef.noSender()); c.tell("m2", ActorRef.noSender()); in(c).suspend(); break;
+          case "watched": getContext().watch(c); in(c).stop(); break;
+          case "unwatched": getContext().watch(c); getContext().unwatch(c); in(c).stop(); break;
+          default: throw new IllegalStateException(script);
+        }
+        child.set(c);
+      }).build();
+    }
+  }
+
+  static void awaitChildStarted(AtomicReference<ActorRef> child) { awaitUntil(() -> child.get() != null); box(child.get()); }
+
   static void awaitUntil(BooleanSupplier c) {
     long end = System.nanoTime() + 10_000_000_000L;
     while (!c.getAsBoolean()) { if (System.nanoTime() > end) throw new IllegalStateException("condition not reached"); Thread.onSpinWait(); }
@@ -397,6 +419,50 @@ final class MailboxOracle {
         try { Thread.sleep(500); } catch (InterruptedException x) { throw new RuntimeException(x); } // a bounded wait for an absence
         return "errors=" + e.errors + " refReturned=" + (a != null) + " newActorTerminated=" + in(a).isTerminated()
             + " siblingTerminated=" + in(sibling).isTerminated() + " startedActors=" + e.started.get() + " rejectionsLeft=" + REJECT_NEXT.get();
+      }
+    });
+    run("MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        AtomicReference<ActorRef> child = new AtomicReference<>();
+        e.sys.actorOf(Props.create(Spawner.class, e, null, "queued", child)).tell("go", ActorRef.noSender());
+        awaitChildStarted(child); ActorRef c = child.get();
+        awaitUntil(() -> box(c).suspendCount() == 1 && !box(c).isScheduled());
+        String afterStart = view(box(c)) + " log=" + e.log;
+        in(c).resume(null);
+        awaitUntil(() -> e.log.size() == 2); idle(c);
+        return "afterStart: " + afterStart + " | afterResume: " + view(box(c)) + " log=" + e.log;
+      }
+    });
+    run("MBX-UC-02 a Watch and a Terminate sent to an unstarted actor are applied once it starts: the watcher gets Terminated", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        AtomicReference<ActorRef> child = new AtomicReference<>();
+        e.sys.actorOf(Props.create(Spawner.class, e, null, "watched", child)).tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.log.size() == 1);
+        awaitUntil(() -> child.get() != null && in(child.get()).isTerminated());
+        return "watcherLog=" + e.log + " childTerminated=" + in(child.get()).isTerminated();
+      }
+    });
+    run("MBX-UC-03 a Watch undone by an Unwatch before the actor starts: the watcher is not told", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        AtomicReference<ActorRef> child = new AtomicReference<>();
+        e.sys.actorOf(Props.create(Spawner.class, e, null, "unwatched", child)).tell("go", ActorRef.noSender());
+        awaitUntil(() -> child.get() != null && in(child.get()).isTerminated());
+        try { Thread.sleep(300); } catch (InterruptedException x) { throw new RuntimeException(x); } // a bounded wait for an absence
+        return "watcherLog=" + e.log + " childTerminated=" + in(child.get()).isTerminated();
+      }
+    });
+    run("MBX-UC-04 a child created under a suspended parent inherits the suspension", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef parent = e.spawn("p", null); idle(parent);
+        in(parent).suspend(); awaitUntil(() -> box(parent).suspendCount() == 1);
+        nextHooks = new Hooks();
+        ActorRef c = ((ActorCell) ((ActorRefWithCell) parent).underlying()).attachChild(Props.create(Worker.class, e).withMailbox("hook-mailbox"), "c", false);
+        awaitUntil(() -> box(c).suspendCount() == 1 && !box(c).isScheduled());
+        c.tell("u", ActorRef.noSender()); idle(c);
+        String suspended = view(box(c)) + " log=" + e.log;
+        in(c).resume(null);
+        awaitUntil(() -> e.log.size() == 1); idle(c);
+        return "childUnderSuspendedParent: " + suspended + " | afterResume: " + view(box(c)) + " log=" + e.log;
       }
     });
     run("MBX-CL-01 closed mailbox of a stopped actor", () -> {
