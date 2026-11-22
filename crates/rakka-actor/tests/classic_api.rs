@@ -192,21 +192,39 @@ impl Actor for Watcher {
     }
 }
 
+/// `DeadLetterActorRef.specialHandle` answers a `Watch` only when neither the watchee nor the watcher is `deadLetters`
+/// (ActorRef.scala:717-724): watching `deadLetters` itself is never answered (oracle case MBX-DL-01, Pekko 2.0.0), while a
+/// stopped actor's closed mailbox answers with an unconfirmed `Terminated`.
 #[test]
-fn watching_dead_letters_is_answered_with_an_unconfirmed_terminated() {
+fn watching_dead_letters_is_not_answered_but_watching_a_stopped_actor_is() {
     let sys = RunningSystem::create("t-watch-dl");
+    let stopped = sys
+        .actor_of_named(
+            Props::new(|| Collect::<String>(Default::default())),
+            "stopped",
+        )
+        .unwrap();
+    sys.stop(&stopped);
+    wait_until("the actor to stop", || stopped.is_terminated());
     let log = Arc::new(Mutex::new(Vec::new()));
     let l = log.clone();
     let w = sys
         .actor_of_named(Props::new(move || Watcher(l.clone())), "w")
         .unwrap();
-    w.tell(sys.dead_letters(), None);
-    wait_until("Terminated for deadLetters", || {
+    w.tell(sys.dead_letters(), None); // watched first: nothing may come of it
+    w.tell(stopped.clone(), None);
+    wait_until("Terminated for the stopped actor", || {
         !log.lock().unwrap().is_empty()
     });
-    let t = log.lock().unwrap()[0].clone();
-    assert_eq!(t.actor, sys.dead_letters());
-    assert!(!t.existence_confirmed && !t.address_terminated);
+    settle_for_absence();
+    let received = log.lock().unwrap().clone();
+    assert_eq!(
+        received.len(),
+        1,
+        "deadLetters must not answer a Watch of itself"
+    );
+    assert_eq!(received[0].actor, stopped);
+    assert!(!received[0].existence_confirmed && !received[0].address_terminated);
 }
 
 #[test]

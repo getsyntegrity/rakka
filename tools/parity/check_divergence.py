@@ -153,6 +153,12 @@ MUTANTS = {
         "msg.is::<Terminated>()",
         "a PoisonPill sent to a dead actor is published as DeadLetter (it is DeadLetterSuppression in Pekko)",
     ),
+    "dead-letters-answers-a-watch-of-itself": (
+        "src/actor/system.rs",
+        "if watchee != me && watcher != me {",
+        "if true {",
+        "watching deadLetters is answered with a Terminated, although DeadLetterActorRef ignores a Watch whose watchee is itself (MBX-DL-01)",
+    ),
     "drop-uid-in-serialization-format": (
         "src/actor/path.rs",
         "if uid != UNDEFINED_UID {\n            s.push('#');",

@@ -11,6 +11,7 @@ use crate::actor::cell::{ActorCell, LocalActorRef};
 use crate::actor::props::{Actor, ActorContext, AnyMessage, PoisonPill, Props};
 use crate::actor::{ActorError, ErrorClass};
 use crate::actor::{ActorPath, Address};
+use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
 use crate::dispatch::dispatcher::Dispatcher;
 use crate::dispatch::sysmsg::{StopChild, SystemMessage, Terminated};
 use crate::event::{DeadLetter, EventStream};
@@ -84,6 +85,8 @@ pub(crate) struct SystemInner {
     guardian: OnceLock<Arc<ActorCell>>,
     system_guardian: OnceLock<Arc<ActorCell>>,
     pub dead_letters: ActorRef,
+    /// `Mailboxes.deadLetterMailbox`: where a closed mailbox sends its user and system messages.
+    pub dead_letter_mailbox: DeadLetterMailbox,
     termination: TerminationFuture,
     terminating: AtomicBool,
 }
@@ -91,26 +94,6 @@ pub(crate) struct SystemInner {
 /// Messages marked `DeadLetterSuppression` in Pekko (`Terminated`, `PoisonPill`): never published as `DeadLetter`.
 fn is_dead_letter_suppressed(msg: &AnyMessage) -> bool {
     msg.is::<Terminated>() || msg.is::<PoisonPill>()
-}
-
-impl SystemInner {
-    /// A message that could not be delivered (dead mailbox): published as a `DeadLetter`, unless it is
-    /// `DeadLetterSuppression` or already a dead letter.
-    pub(crate) fn publish_dead_letter(
-        &self,
-        msg: AnyMessage,
-        sender: Option<ActorRef>,
-        recipient: ActorRef,
-    ) {
-        if is_dead_letter_suppressed(&msg) || msg.is::<DeadLetter>() {
-            return; // no dead letters of dead letters
-        }
-        self.events.publish_dead_letter(DeadLetter {
-            message: msg,
-            sender: sender.unwrap_or_else(|| self.dead_letters.clone()),
-            recipient,
-        });
-    }
 }
 
 /// A local Classic actor system.
@@ -127,6 +110,30 @@ struct DeadLetters {
     me: Weak<DeadLetters>,
 }
 
+impl DeadLetters {
+    /// `DeadLetterActorRef.specialHandle` for system messages: true when `deadLetters` dealt with the message itself.
+    /// A `Watch` is answered with a `DeathWatchNotification` (unless the watchee or the watcher is `deadLetters`), an `Unwatch` is
+    /// ignored, and `Terminate` and `DeathWatchNotification` (`DeadLetterSuppression`) are never published as dead letters.
+    fn special_handle(&self, message: &SystemMessage, me: &ActorRef) -> bool {
+        match message {
+            SystemMessage::Watch { watchee, watcher } => {
+                if watchee != me && watcher != me {
+                    watcher.send_system(SystemMessage::DeathWatchNotification {
+                        actor: watchee.clone(),
+                        existence_confirmed: false,
+                        address_terminated: false,
+                    });
+                }
+                true
+            }
+            SystemMessage::Unwatch { .. }
+            | SystemMessage::Terminate
+            | SystemMessage::DeathWatchNotification { .. } => true,
+            _ => false,
+        }
+    }
+}
+
 impl InternalActorRef for DeadLetters {
     fn path(&self) -> &ActorPath {
         &self.path
@@ -137,7 +144,14 @@ impl InternalActorRef for DeadLetters {
             return;
         }
         if let Some(d) = msg.downcast_ref::<DeadLetter>() {
-            self.events.publish_dead_letter(d.clone());
+            // `DeadLetterActorRef.!`: `if (!specialHandle(d.message, d.sender)) eventStream.publish(d)`
+            let handled = match d.message.downcast_ref::<SystemMessage>() {
+                Some(system_message) => self.special_handle(system_message, &me),
+                None => is_dead_letter_suppressed(&d.message), // Pekko publishes a `SuppressedDeadLetter`; not modelled yet
+            };
+            if !handled {
+                self.events.publish_dead_letter(d.clone());
+            }
         } else {
             self.events.publish_dead_letter(DeadLetter {
                 message: msg,
@@ -147,13 +161,9 @@ impl InternalActorRef for DeadLetters {
         }
     }
     fn send_system(&self, msg: SystemMessage) {
-        if let SystemMessage::Watch { watchee, watcher } = msg {
-            watcher.send_system(SystemMessage::DeathWatchNotification {
-                actor: watchee,
-                existence_confirmed: false,
-                address_terminated: false,
-            });
-        }
+        // `EmptyLocalActorRef.sendSystemMessage`: `specialHandle(message, deadLetters)`; what it does not handle is ignored
+        let me = ActorRef(self.me.upgrade().expect("alive"));
+        self.special_handle(&msg, &me);
     }
     fn stop(&self) {}
     fn is_terminated(&self) -> bool {
@@ -281,6 +291,7 @@ impl ActorSystem {
             root_guardian: OnceLock::new(),
             guardian: OnceLock::new(),
             system_guardian: OnceLock::new(),
+            dead_letter_mailbox: DeadLetterMailbox::new(dead_letters.clone()),
             dead_letters,
             termination: termination.clone(),
             terminating: AtomicBool::new(false),

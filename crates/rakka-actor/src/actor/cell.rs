@@ -196,7 +196,7 @@ impl ActorCell {
 
     pub(crate) fn system_dispatch(self: &Arc<Self>, msg: SystemMessage) {
         if let Err(msg) = self.system_queue.enqueue(msg) {
-            Self::dead_system_message(msg); // the queue is closed: the actor terminated
+            self.dead_system_message(msg); // the queue is closed: the actor terminated
             return;
         }
         self.register_for_execution(false, true);
@@ -209,20 +209,16 @@ impl ActorCell {
         }
         for env in dead {
             self.system
-                .publish_dead_letter(env.message, env.sender, self.self_ref());
+                .dead_letter_mailbox
+                .enqueue(&self.self_ref(), env);
         }
     }
 
-    /// System messages that reach a terminated actor: a `Watch` is answered as if it had died.
-    fn dead_system_message(msg: SystemMessage) {
-        // `Failed`, `Recreate` and the like are simply dropped
-        if let SystemMessage::Watch { watchee, watcher } = msg {
-            watcher.send_system(SystemMessage::DeathWatchNotification {
-                actor: watchee,
-                existence_confirmed: false,
-                address_terminated: false,
-            });
-        }
+    /// System messages that reach a terminated actor go to the `deadLetterMailbox` (`systemEnqueue(self, handle)`).
+    fn dead_system_message(&self, msg: SystemMessage) {
+        self.system
+            .dead_letter_mailbox
+            .system_enqueue(&self.self_ref(), msg);
     }
 
     /// `Mailbox.run`: all system messages, then user messages up to the throughput limit, system messages being drained again
@@ -245,7 +241,7 @@ impl ActorCell {
             }
             for m in batch {
                 if self.status.is_closed() {
-                    Self::dead_system_message(m);
+                    self.dead_system_message(m);
                 } else {
                     self.system_invoke(m);
                 }
@@ -649,11 +645,12 @@ impl ActorCell {
         self.queue.clean_up(&*leftovers); // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8)
         let sys = self.system_queue.clean_up();
         for m in sys {
-            Self::dead_system_message(m);
+            self.dead_system_message(m);
         }
         while let Some(env) = leftovers.dequeue() {
             self.system
-                .publish_dead_letter(env.message, env.sender, self.self_ref());
+                .dead_letter_mailbox
+                .enqueue(&self.self_ref(), env);
         }
         self.parent
             .send_system(SystemMessage::DeathWatchNotification {
