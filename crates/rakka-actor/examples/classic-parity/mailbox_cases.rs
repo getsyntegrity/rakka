@@ -1,9 +1,15 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala (Apache-2.0).
 //! Cases of the `Mailbox` oracle (`MailboxOracle.java`) that Rust can answer: the status transitions ST-01 to ST-08 (`MailboxStatus`)
-//! and the default queue MQ-01 to MQ-03 (`UnboundedMailbox`). Each script drives the Rust type exactly as the oracle drives Pekko's.
+//! the default queue MQ-01 to MQ-03 (`UnboundedMailbox`), and DL-01 (what `deadLetters` answers to a `Watch`, with a real system).
+//! Each script drives the Rust type exactly as the oracle drives Pekko's.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
+use rakka_actor::actor::ActorRef;
+use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
+use rakka_actor::actor::system::ActorSystem;
+use rakka_actor::dispatch::Terminated;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 use rakka_actor::dispatch::system_queue::SystemQueue;
@@ -33,7 +39,7 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-OR-05 system messages after close go to dead letters (Watch is answered)",
-        "needs the user queue and the dispatcher on the actor cell (ADR-0001 steps 3-6)",
+        "the case sends Suspend/Resume, internal system messages the public API cannot send: produced in-crate by dispatch::dead_letter_mailbox (with_real_actors) and compared with the MBX-OR-05 line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 5)",
     ),
     (
         "MBX-CL-01 closed mailbox of a stopped actor",
@@ -318,6 +324,61 @@ fn clean_up_moves_to_dead_letters() -> String {
 }
 
 /// `(case id, line)` for every oracle case of the family that Rust produces.
+struct Idle;
+impl Actor for Idle {
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        true
+    }
+}
+
+/// Watches every `ActorRef` it is told about, in order, and logs each `Terminated` it receives.
+struct WatchesWhatItIsTold(Arc<Mutex<Vec<String>>>);
+impl Actor for WatchesWhatItIsTold {
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if let Some(target) = msg.downcast_ref::<ActorRef>() {
+            ctx.watch(target);
+        } else if msg.is::<Terminated>() {
+            self.0.lock().unwrap().push("terminated".to_owned());
+        }
+        true
+    }
+}
+
+/// `MBX-DL-01`: `deadLetters` ignores a `Watch` of itself, a stopped actor's mailbox answers it.
+fn watching_dead_letters_is_not_answered() -> String {
+    let system = ActorSystem::create("mbx").expect("system");
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let stopped = system
+        .actor_of_named(Props::new(|| Idle), "w")
+        .expect("actor");
+    system.stop(&stopped);
+    wait_until(|| stopped.is_terminated());
+    let watcher = system
+        .actor_of(Props::new({
+            let log = log.clone();
+            move || WatchesWhatItIsTold(log.clone())
+        }))
+        .expect("watcher");
+    watcher.tell(system.dead_letters(), None);
+    watcher.tell(stopped, None);
+    wait_until(|| !log.lock().unwrap().is_empty());
+    std::thread::sleep(Duration::from_millis(300)); // a bounded wait for an absence: no second `terminated` may follow
+    let line = format!("watcherLog=[{}]", log.lock().unwrap().join(", "));
+    system
+        .terminate()
+        .wait(Duration::from_secs(10))
+        .expect("terminated");
+    line
+}
+
+fn wait_until(condition: impl Fn() -> bool) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !condition() {
+        assert!(Instant::now() < deadline, "condition not reached");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
 pub fn rust_lines() -> Vec<(String, String)> {
     [
         ("MBX-ST-01 open to scheduled", open_to_scheduled()),
@@ -350,6 +411,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-SQ-02 sentinel NoMessage closes the system queue",
             sentinel_closes_the_system_queue(),
+        ),
+        (
+            "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",
+            watching_dead_letters_is_not_answered(),
         ),
         (
             "MBX-MQ-01 default queue is FIFO and counts",

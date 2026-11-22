@@ -1,5 +1,6 @@
 //! Dispatch: the thread-pool dispatcher and the internal system messages.
 
+pub(crate) mod dead_letter_mailbox;
 pub(crate) mod dispatcher;
 pub(crate) mod mailbox_close;
 pub mod mailbox_status;

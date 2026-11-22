@@ -2366,3 +2366,4 @@ mb-0010	mailbox	MBX-MQ-02 default queue stays FIFO when enqueue and dequeue inte
 mb-0011	mailbox	MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order
 mb-0012	mailbox	MBX-SQ-01 system queue drains earliest first
 mb-0013	mailbox	MBX-SQ-02 sentinel NoMessage closes the system queue
+mb-0014	mailbox	MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is

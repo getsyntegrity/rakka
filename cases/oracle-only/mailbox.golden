@@ -17,6 +17,7 @@ MBX-OR-02 system message queued behind user messages runs before them, drained a
 MBX-OR-03 suspension keeps user messages pending; nested suspend needs balanced resume -> suspended: open scheduled=false suspendCount=2 queued=2 log=[] | oneResume: open scheduled=false suspendCount=1 queued=2 log=[] | twoResumes: open scheduled=false suspendCount=0 queued=0 log=[r:u1, r:u2]
 MBX-OR-04 messages sent while terminating and after termination go to dead letters -> received=[r:block] deadLetters=[u2, u3, u4, after] oldMailbox=closed scheduled=false suspendCount=0 queued=0
 MBX-OR-05 system messages after close go to dead letters (Watch is answered) -> deadLetters=[Suspend, Resume] watcherLog=[terminated]
+MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is -> watcherLog=[terminated]
 MBX-CL-01 closed mailbox of a stopped actor -> old: closed scheduled=false suspendCount=0 raw=1 resume=false suspend=false schedule=false closed scheduled=false suspendCount=0 raw=1 | cellNow closed=true same=false
 MBX-CC-01 eight producers on a one-thread pool: no loss, per-sender order, serial execution -> received=400 maxInFlight=1 perSenderOrdered=true
 MBX-CC-02 message enqueued at the last empty dequeue of a turn is not stranded -> log=[r:first, r:late] open scheduled=false suspendCount=0 queued=0

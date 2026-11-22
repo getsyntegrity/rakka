@@ -300,6 +300,17 @@ final class MailboxOracle {
         return "deadLetters=" + e.dead + " watcherLog=" + e.log;
       }
     });
+    run("MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef a = e.spawn("w", null), watcher = e.sys.actorOf(Props.create(Worker.class, e));
+        in(a).stop(); awaitUntil(() -> in(a).isTerminated());
+        // the watcher watches deadLetters first (DeadLetterActorRef.specialHandle ignores a Watch whose watchee is itself), then the stopped actor
+        in(watcher).sendSystemMessage(new Watch(in(e.sys.deadLetters()), in(watcher)));
+        in(watcher).sendSystemMessage(new Watch(in(a), in(watcher)));
+        awaitUntil(() -> e.log.size() >= 1); idle(watcher);
+        return "watcherLog=" + e.log;
+      }
+    });
     run("MBX-CL-01 closed mailbox of a stopped actor", () -> {
       try (Env e = new Env(5, "0ms")) {
         ActorRef a = e.spawn("w", null); Mailbox old = box(a); in(a).stop();
