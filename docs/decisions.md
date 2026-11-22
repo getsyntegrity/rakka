@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 250 decisiones: 0 bloqueantes, 181 propuestas, 56 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 251 decisiones: 0 bloqueantes, 182 propuestas, 56 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -916,6 +916,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) paridad: `gen(a).wrapping_sub(gen(b))`; (b) `i32::cmp` (corrige el desborde pero invierte el orden cuando |a-b| > 2^31-1); (c) restar en i64
 - **Recomendación:** [Clasificación: divergencia funcional menor] (a) paridad con el desborde envolvente y documentarlo; un usuario que necesite prioridades extremas debe usar un comparador propio. Consecuencia observable: con prioridades como Int.MinValue frente a Int.MaxValue el orden es el de Pekko (incorrecto). Si el Owner prefiere (b) se anota Q: en la columna notes. Bloquea sólo el cierre de AC-MBX-009/010 en el borde; el resto puede avanzar.
 - **Filas afectadas:** AC-MBX-009,AC-MBX-010
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+
+### Q-MBX-11 — Creación asíncrona de actores (RepointableActorRef) y rechazo del executor en Dispatcher.attach
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Oráculo MBX-RJ-05 (Pekko 2.0.0, JDK 17, 5 ejecuciones idénticas): con un executor que rechaza dos veces, `actorOf` DEVUELVE el ref, se publica un solo `Error` (`registerForExecution was rejected twice!`), el supervisor falla y se reinicia (su hermano termina) y el actor nuevo queda sin arrancar ni terminar. Fuentes: AbstractDispatcher.scala:196-199 (attach), RepointableActorRef.scala:95-135 (initialize/point), Children.scala:279-345 (makeChild: sólo la ruta síncrona `async=false` hace `unreserveChild` y relanza al que llama).
+- **Alternativas:** (a) mantener la creación síncrona del piloto (equivale a `async=false` de Pekko, que sólo usan guardianes y proveedor) y documentar la diferencia: un rechazo en `attach` se informa pero no hace fallar al supervisor ni deja el actor sin arrancar; (b) implementar el protocolo asíncrono (`Supervise(async=true)` procesado por el supervisor con celda sin iniciar): cambia el momento de arranque de TODOS los actores y exige revalidar el corpus completo; (c) como (a) más un fallo del supervisor sólo ante rechazo, sin celda sin iniciar
+- **Recomendación:** (a) por ahora: el comportamiento real de Pekko en la ruta de usuario es un fallo del supervisor y un actor huérfano, no un error síncrono; reproducirlo con fidelidad exige (b), que es una rebanada propia. Consecuencias observables: sólo con un executor que rechaza (pool apagado o saturado); nada bloquea el resto de PR 6.
+- **Filas afectadas:** AC-DSP-002,AC-CELL-003,AC-MBX-002
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 

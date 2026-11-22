@@ -257,4 +257,105 @@ mod turn_limits_with_real_actors {
         let order = interleaving(2, Duration::from_secs(10), Duration::from_millis(1));
         assert_eq!(order, ["r:x1", "r:x2", "r:y1", "r:y2", "r:x3", "r:y3"]);
     }
+
+    /// Occupies the thread like [`Gate`] and logs `r:block` once released (the oracle's `Block` message).
+    struct LoggingGate {
+        entered: Sender<()>,
+        release: Mutex<Receiver<()>>,
+        log: Log,
+    }
+    impl Actor for LoggingGate {
+        fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+            if msg.downcast_ref::<String>().map(String::as_str) != Some("block") {
+                self.log.lock().unwrap().push("r:other".to_owned());
+                return true;
+            }
+            self.entered.send(()).unwrap();
+            self.release.lock().unwrap().recv().unwrap();
+            self.log.lock().unwrap().push("r:block".to_owned());
+            true
+        }
+    }
+
+    /// Collects the text of every dead letter.
+    struct DeadLetterTexts(Log);
+    impl Actor for DeadLetterTexts {
+        fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+            let Some(dead) = msg.downcast_ref::<crate::event::DeadLetter>() else {
+                return false;
+            };
+            let text = dead.message.downcast_ref::<String>().cloned();
+            self.0.lock().unwrap().push(text.unwrap_or_default());
+            true
+        }
+    }
+
+    /// Twin of oracle case `MBX-SC-03` (the line printed by the Pekko 2.0.0 JVM): an actor that is suspended while its mailbox holds
+    /// work ends its turn idle, does not schedule itself again, keeps the work queued, and a later stop sends that work to dead letters.
+    #[test]
+    fn a_suspended_actor_with_queued_work_does_not_reschedule_itself() {
+        use crate::dispatch::sysmsg::SystemMessage;
+        let settings = Settings {
+            parallelism: 1,
+            ..Settings::default()
+        };
+        let clock = Arc::new(ManualClock::new(0));
+        let system = ActorSystem::create_with_clock("sc03", settings, clock).unwrap();
+        let (log, dead): (Log, Log) = Default::default();
+        let recorder = system
+            .actor_of(Props::new({
+                let dead = dead.clone();
+                move || DeadLetterTexts(dead.clone())
+            }))
+            .unwrap();
+        system
+            .event_stream()
+            .subscribe(&recorder, crate::event::Channel::DeadLetter);
+        let (entered_tx, entered_rx) = channel();
+        let (release_tx, release_rx) = channel();
+        let gate = Mutex::new(Some((entered_tx, release_rx)));
+        let actor = system
+            .actor_of(Props::new({
+                let log = log.clone();
+                move || {
+                    let (entered, release) = gate.lock().unwrap().take().expect("one instance");
+                    LoggingGate {
+                        entered,
+                        release: Mutex::new(release),
+                        log: log.clone(),
+                    }
+                }
+            }))
+            .unwrap();
+
+        actor.tell("block".to_owned(), None);
+        entered_rx.recv().unwrap();
+        for text in ["u2", "u3", "u4"] {
+            actor.tell(text.to_owned(), None);
+        }
+        actor.send_system(SystemMessage::Suspend);
+        release_tx.send(()).unwrap();
+        wait_until(|| actor.mailbox_view().contains("scheduled=false"));
+        let suspended = format!(
+            "suspendedWithWork: {} log=[{}]",
+            actor.mailbox_view(),
+            log.lock().unwrap().join(", ")
+        );
+        system.stop(&actor);
+        wait_until(|| actor.is_terminated() && dead.lock().unwrap().len() == 3);
+        let observed = format!(
+            "{suspended} | afterStop deadLetters=[{}]",
+            dead.lock().unwrap().join(", ")
+        );
+        system.terminate().wait(Duration::from_secs(10)).unwrap();
+
+        let golden = include_str!("../../../../cases/oracle-only/mailbox.golden");
+        let recorded = golden
+            .lines()
+            .find(|line| line.starts_with("MBX-SC-03 "))
+            .and_then(|line| line.split_once(" -> "))
+            .map(|(_, observed)| observed)
+            .expect("the golden has MBX-SC-03");
+        assert_eq!(observed, recorded);
+    }
 }

@@ -24,6 +24,11 @@ pub struct Kill;
 /// `org.apache.pekko.actor.Actor`. Hooks default to no-ops; `receive` returns whether the message was
 /// handled (`false` is Pekko's `unhandled`, which publishes an `UnhandledMessage` on the event stream).
 pub trait Actor: Send + 'static {
+    /// `getClass.getName` of the running instance, as the runtime reports it in `logClass`. A JVM class name has no Rust
+    /// equivalent: the default is the type path of the implementor.
+    fn class_name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
     /// Called before the first message and after the actor is created (`preStart`); on a restart `post_restart` calls it by default.
     fn pre_start(&mut self, _ctx: &mut ActorContext) {}
     /// Called when the actor stops, for any reason (`postStop`).

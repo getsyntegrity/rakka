@@ -17,7 +17,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-CFG-32`, `Q-DSP-1`, `Q-DSP-2`, `Q-DSP-3`, `Q-DSP-4`, `Q-DSP-5`, `Q-DSP-6`, `Q-DSP-7`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-CFG-32`, `Q-DSP-1`, `Q-DSP-2`, `Q-DSP-3`, `Q-DSP-4`, `Q-DSP-5`, `Q-DSP-6`, `Q-DSP-7`, `Q-MBX-11`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -76,7 +76,7 @@ Filas: AC-DSP-023. Contratos y aserciones: `docs/inventory/contracts/classic-dis
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
 | AC-DSP-001 | MessageDispatcher: attach/detach, inhabitants y apagado diferido… | `trait Dispatcher` con contador de habitantes; pool de hilos o runtime async | actor-tests/src/test/scala/org/apache/pekko/dispatch/DispatcherShutdownSpec.scala:32 ;… | Q-MBX-6, Q-X-4 |
-| AC-DSP-002 | Dispatcher (event-based): registerForExecution con CAS a Scheduled y reintento… | `spawn` de tarea por mailbox con flag atómico | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatcherActorSpec.scala:71,7… | Q-MBX-6 |
+| AC-DSP-002 | Dispatcher (event-based): registerForExecution con CAS a Scheduled y reintento… | `spawn` de tarea por mailbox con flag atómico | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatcherActorSpec.scala:71,7… | Q-MBX-11, Q-MBX-6 |
 | AC-DSP-003 | throughput y throughput-deadline-time | parámetros del loop de mailbox | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatcherActorSpec.scala:84,1… | Q-DSP-5, Q-MBX-6 |
 | AC-DSP-004 | Registro Dispatchers: lookup por id, hasDispatcher, alias (string) con… | `Dispatchers` con `DashMap<String, Arc<dyn Dispatcher>>` | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:162-235… | Q-CFG-31, Q-DSP-2, Q-DSP-4, Q-X-1 |
 | AC-DSP-005 | default-dispatcher (fork-join-executor por defecto,… | dispatcher sobre pool work-stealing | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:178-182 | Q-DSP-1 |

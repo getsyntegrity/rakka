@@ -90,6 +90,7 @@ impl Actor for Worker {
 struct Listener {
     errors: Log,
     dead: Log,
+    classes: Log,
 }
 impl Actor for Listener {
     fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
@@ -98,6 +99,7 @@ impl Actor for Listener {
                 "{}|{}|{}",
                 error.log_source, error.cause.class, error.message
             ));
+            self.classes.lock().unwrap().push(error.log_class.clone());
         } else if let Some(dead) = msg.downcast_ref::<DeadLetter>() {
             let text = dead.message.downcast_ref::<String>().cloned();
             self.dead.lock().unwrap().push(text.unwrap_or_default());
@@ -111,6 +113,7 @@ struct Fixture {
     executor: Arc<RejectsNext>,
     errors: Log,
     dead: Log,
+    classes: Log,
     log: Log,
     worker: ActorRef,
     listener: ActorRef,
@@ -131,14 +134,15 @@ impl Fixture {
             executor.clone(),
         )
         .unwrap();
-        let (errors, dead, log): (Log, Log, Log) = Default::default();
+        let (errors, dead, classes, log): (Log, Log, Log, Log) = Default::default();
         let listener = system
             .actor_of_named(
                 Props::new({
-                    let (errors, dead) = (errors.clone(), dead.clone());
+                    let (errors, dead, classes) = (errors.clone(), dead.clone(), classes.clone());
                     move || Listener {
                         errors: errors.clone(),
                         dead: dead.clone(),
+                        classes: classes.clone(),
                     }
                 }),
                 "listener",
@@ -165,6 +169,7 @@ impl Fixture {
             executor,
             errors,
             dead,
+            classes,
             log,
             worker,
             listener,
@@ -364,5 +369,22 @@ fn a_report_made_while_reporting_does_not_recurse_and_is_not_published() {
         listener.mailbox_view().contains("queued=2"),
         "{}",
         listener.mailbox_view()
+    );
+}
+
+#[test]
+fn the_swallowed_send_failure_names_the_class_of_the_actor_that_could_not_be_scheduled() {
+    // `Error(e, self.path.toString, clazz(actor), ...)`: the class of the running instance; the dispatcher's own report names the
+    // dispatcher. Pekko prints a JVM class name; Rust has the type path of the actor.
+    let fixture = Fixture::new(&["w"]);
+    fixture.executor.reject_next(2);
+    fixture.tell("m");
+    fixture.wait_errors(2);
+    assert_eq!(
+        *fixture.classes.lock().unwrap(),
+        [
+            "org.apache.pekko.dispatch.Dispatcher".to_owned(),
+            std::any::type_name::<Worker>().to_owned()
+        ]
     );
 }

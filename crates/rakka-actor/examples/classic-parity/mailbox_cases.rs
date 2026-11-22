@@ -87,8 +87,12 @@ pub const PENDING: &[(&str, &str)] = &[
         "needs an executor that rejects tasks and internal mailbox state: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 6b)",
     ),
     (
+        "MBX-RJ-05 an actor whose attach is rejected twice: actorOf returns, the supervisor fails and its children stop, the new actor never starts",
+        "Rakka creates actors synchronously (Pekko's async=false path), so a rejection in attach does not fail the supervisor and does not leave the new actor unstarted; reproducing Pekko needs the asynchronous creation protocol (proposed decision Q-MBX-11); the golden line is the evidence",
+    ),
+    (
         "MBX-SC-03 actor suspended with queued work does not reschedule itself",
-        "sends the internal Suspend system message and reads the mailbox state, neither reachable from the public API (a later ADR-0001 step)",
+        "sends the internal Suspend system message and reads the mailbox state, neither reachable from the public API: produced in-crate by dispatch::dispatcher (turn_limits_with_real_actors) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 6c)",
     ),
 ];
 
