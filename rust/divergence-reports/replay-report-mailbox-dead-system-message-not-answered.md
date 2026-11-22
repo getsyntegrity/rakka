@@ -2,7 +2,7 @@ Verdict path: fast-kill: case i02-prestart-failure-wat confirmed by a single-cas
 
 # App replay
 
-Build: `$TMPDIR/pekko-mutants-66258-xbwfll5h/target-mailbox-dead-system-message-not-answered/release/examples/classic-parity`
+Build: `$TMPDIR/pekko-mutants-99457-336p785y/target-mailbox-dead-system-message-not-answered/release/examples/classic-parity`
 
 Passed: 0/1
 

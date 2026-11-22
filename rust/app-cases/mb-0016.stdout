@@ -1,0 +1,1 @@
+MBX-SC-02 throughput-deadline-time ends the turn after a slow message -> [r:block, r:sleep-x1, r:sleep-y1, r:sleep-x2, r:sleep-y2, r:sleep-x3, r:sleep-y3]

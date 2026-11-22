@@ -3,12 +3,13 @@
 //! the default queue MQ-01 to MQ-03 (`UnboundedMailbox`), and DL-01 (what `deadLetters` answers to a `Watch`, with a real system).
 //! Each script drives the Rust type exactly as the oracle drives Pekko's.
 
+use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
-use rakka_actor::actor::system::ActorSystem;
+use rakka_actor::actor::system::{ActorSystem, Settings};
 use rakka_actor::dispatch::Terminated;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
@@ -70,16 +71,8 @@ pub const PENDING: &[(&str, &str)] = &[
         "Q-MBX-8 (accepted): same dead-letter outcome as Pekko; the forced interleaving is a unit test of dispatch::mailbox_close (the cell does not accept a hook queue yet)",
     ),
     (
-        "MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two",
-        "needs the per-dispatcher throughput and deadline (ADR-0001 step 6)",
-    ),
-    (
-        "MBX-SC-02 throughput-deadline-time ends the turn after a slow message",
-        "needs the per-dispatcher throughput and deadline (ADR-0001 step 6)",
-    ),
-    (
         "MBX-SC-03 actor suspended with queued work does not reschedule itself",
-        "needs the per-dispatcher throughput and deadline (ADR-0001 step 6)",
+        "sends the internal Suspend system message and reads the mailbox state, neither reachable from the public API (a later ADR-0001 step)",
     ),
 ];
 
@@ -371,6 +364,95 @@ fn watching_dead_letters_is_not_answered() -> String {
     line
 }
 
+/// Occupies the only dispatcher thread until released (the oracle's `Block` message) and logs `r:block` afterwards.
+struct Blocker {
+    entered: std::sync::mpsc::Sender<()>,
+    release: Mutex<std::sync::mpsc::Receiver<()>>,
+    log: Arc<Mutex<Vec<String>>>,
+}
+impl Actor for Blocker {
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        self.entered.send(()).expect("entered");
+        self.release.lock().unwrap().recv().expect("release");
+        self.log.lock().unwrap().push("r:block".to_owned());
+        true
+    }
+}
+
+/// Logs `r:<text>`; a message starting with `sleep` takes 60 ms, like the oracle's `Worker`.
+struct Worker(Arc<Mutex<Vec<String>>>);
+impl Actor for Worker {
+    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        let Some(text) = msg.downcast_ref::<String>() else {
+            return false;
+        };
+        if text.starts_with("sleep") {
+            std::thread::sleep(Duration::from_millis(60));
+        }
+        self.0.lock().unwrap().push(format!("r:{text}"));
+        true
+    }
+}
+
+/// `MBX-SC-01` / `MBX-SC-02`: one dispatcher thread, a blocked actor, then six messages queued on `x` and six on `y` (`sleep-` prefixed
+/// and three each for the deadline case). The order in which the two actors take turns is the observable.
+fn turn_interleaving(
+    throughput: usize,
+    deadline: Duration,
+    prefix: &str,
+    per_actor: usize,
+) -> String {
+    let system = ActorSystem::create_with_settings(
+        "mbx",
+        Settings {
+            parallelism: 1,
+            throughput,
+            throughput_deadline_time: deadline,
+        },
+    )
+    .expect("system");
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let (entered_tx, entered_rx) = channel();
+    let (release_tx, release_rx) = channel();
+    let gate = Mutex::new(Some((entered_tx, release_rx)));
+    let blocker = system
+        .actor_of(Props::new({
+            let log = log.clone();
+            move || {
+                let (entered, release) = gate.lock().unwrap().take().expect("one instance");
+                Blocker {
+                    entered,
+                    release: Mutex::new(release),
+                    log: log.clone(),
+                }
+            }
+        }))
+        .expect("blocker");
+    let spawn = |name: &str| {
+        let log = log.clone();
+        system
+            .actor_of_named(Props::new(move || Worker(log.clone())), name)
+            .expect("worker")
+    };
+    let (x, y) = (spawn("x"), spawn("y"));
+    blocker.tell("block".to_owned(), None);
+    entered_rx.recv().expect("blocker running");
+    for i in 1..=per_actor {
+        x.tell(format!("{prefix}x{i}"), None);
+    }
+    for i in 1..=per_actor {
+        y.tell(format!("{prefix}y{i}"), None);
+    }
+    release_tx.send(()).expect("release");
+    wait_until(|| log.lock().unwrap().len() == 1 + 2 * per_actor);
+    let line = format!("[{}]", log.lock().unwrap().join(", "));
+    system
+        .terminate()
+        .wait(Duration::from_secs(10))
+        .expect("terminated");
+    line
+}
+
 fn wait_until(condition: impl Fn() -> bool) {
     let deadline = Instant::now() + Duration::from_secs(10);
     while !condition() {
@@ -411,6 +493,14 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-SQ-02 sentinel NoMessage closes the system queue",
             sentinel_closes_the_system_queue(),
+        ),
+        (
+            "MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two",
+            turn_interleaving(2, Duration::ZERO, "", 6),
+        ),
+        (
+            "MBX-SC-02 throughput-deadline-time ends the turn after a slow message",
+            turn_interleaving(100, Duration::from_millis(30), "sleep-", 3),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

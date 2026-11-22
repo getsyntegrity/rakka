@@ -2367,3 +2367,5 @@ mb-0011	mailbox	MBX-MQ-03 cleanUp moves everything to the dead-letters queue in 
 mb-0012	mailbox	MBX-SQ-01 system queue drains earliest first
 mb-0013	mailbox	MBX-SQ-02 sentinel NoMessage closes the system queue
 mb-0014	mailbox	MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is
+mb-0015	mailbox	MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two
+mb-0016	mailbox	MBX-SC-02 throughput-deadline-time ends the turn after a slow message

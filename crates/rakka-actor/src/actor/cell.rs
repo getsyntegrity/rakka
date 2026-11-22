@@ -251,14 +251,17 @@ impl ActorCell {
 
     /// `Mailbox.processMailbox`: up to `throughput` user messages while the mailbox is neither suspended nor closed.
     fn process_mailbox(self: &Arc<Self>) {
-        let mut budget = self.system.settings.throughput.max(1);
-        while budget > 0 && self.status.should_process_message() {
+        let clock = self.dispatcher.clock();
+        let mut turn = self.dispatcher.turn_policy().begin(clock);
+        while self.status.should_process_message() {
             let Some(env) = self.queue.dequeue() else {
                 break;
             };
             self.invoke(env);
-            budget -= 1;
             self.process_all_system_messages();
+            if !turn.allows_another(clock) {
+                break;
+            }
         }
     }
 

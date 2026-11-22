@@ -2,20 +2,30 @@
 //! The default dispatcher: a fixed pool of threads that run mailboxes.
 //! (Pekko's default is a fork-join pool with `parallelism-min = 8`; scheduling policy is not observable.)
 
+use crate::actor::cell::ActorCell;
+use crate::dispatch::turn::TurnPolicy;
+use crate::util::clock::Clock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use crate::actor::cell::ActorCell;
-
 pub(crate) struct Dispatcher {
     tx: Mutex<Option<Sender<Arc<ActorCell>>>>,
     stopped: AtomicBool,
+    /// `throughput` and `throughput-deadline-time` of this dispatcher: what its mailboxes may do in one turn.
+    turn_policy: TurnPolicy,
+    /// `System.nanoTime` in Pekko; injected so that tests can move it by hand.
+    clock: Arc<dyn Clock>,
 }
 
 impl Dispatcher {
-    pub fn start(system_name: &str, parallelism: usize) -> Arc<Dispatcher> {
+    pub fn start_with(
+        system_name: &str,
+        parallelism: usize,
+        turn_policy: TurnPolicy,
+        clock: Arc<dyn Clock>,
+    ) -> Arc<Dispatcher> {
         let (tx, rx) = channel::<Arc<ActorCell>>();
         let rx: Arc<Mutex<Receiver<Arc<ActorCell>>>> = Arc::new(Mutex::new(rx));
         for i in 0..parallelism.max(1) {
@@ -37,7 +47,17 @@ impl Dispatcher {
         Arc::new(Dispatcher {
             tx: Mutex::new(Some(tx)),
             stopped: AtomicBool::new(false),
+            turn_policy,
+            clock,
         })
+    }
+
+    pub fn turn_policy(&self) -> TurnPolicy {
+        self.turn_policy
+    }
+
+    pub fn clock(&self) -> &dyn Clock {
+        &*self.clock
     }
 
     /// `registerForExecution`: queue a mailbox run.
@@ -58,15 +78,143 @@ impl Dispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::clock::NanoClock;
+    use std::time::Duration;
 
     #[test]
     fn shutdown_is_idempotent() {
-        let d = Dispatcher::start("t-dispatch", 2);
+        let d = Dispatcher::start_with(
+            "t-dispatch",
+            2,
+            TurnPolicy::new(5, Duration::ZERO),
+            Arc::new(NanoClock),
+        );
         d.shutdown();
         d.shutdown();
         assert!(
             d.tx.lock().unwrap().is_none(),
             "worker channel closed so the threads can exit"
         );
+    }
+}
+
+/// The turn limits with real actors and a clock the test moves by hand (twin of oracle case `MBX-SC-02`, which needs 60 ms
+/// sleeps against a 30 ms deadline: here each message "takes" 60 ms of fake time and no thread sleeps).
+#[cfg(test)]
+mod turn_limits_with_real_actors {
+    use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
+    use crate::actor::system::{ActorSystem, Settings};
+    use crate::dispatch::turn::test_clock::ManualClock;
+    use std::sync::mpsc::{Receiver, Sender, channel};
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+
+    type Log = Arc<Mutex<Vec<String>>>;
+
+    /// Occupies the only dispatcher thread until released, so everything sent meanwhile is queued behind it.
+    struct Gate {
+        entered: Sender<()>,
+        release: Mutex<Receiver<()>>,
+    }
+    impl Actor for Gate {
+        fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+            self.entered.send(()).unwrap();
+            self.release.lock().unwrap().recv().unwrap();
+            true
+        }
+    }
+
+    /// Logs `r:<text>` and lets `each` of fake time pass while it "works".
+    struct Works {
+        log: Log,
+        clock: Arc<ManualClock>,
+        each: Duration,
+    }
+    impl Actor for Works {
+        fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+            let Some(text) = msg.downcast_ref::<String>() else {
+                return false;
+            };
+            self.log.lock().unwrap().push(format!("r:{text}"));
+            self.clock.advance(self.each);
+            true
+        }
+    }
+
+    fn wait_until(condition: impl Fn() -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !condition() {
+            assert!(Instant::now() < deadline, "condition not reached");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    /// `x1..x3` then `y1..y3` are queued on two actors behind a blocked one, on a single thread; returns the processing order.
+    fn interleaving(throughput: usize, deadline: Duration, each: Duration) -> Vec<String> {
+        let clock = Arc::new(ManualClock::new(0));
+        let settings = Settings {
+            parallelism: 1,
+            throughput,
+            throughput_deadline_time: deadline,
+        };
+        let system = ActorSystem::create_with_clock("turns", settings, clock.clone()).unwrap();
+        let log: Log = Log::default();
+        let (entered_tx, entered_rx) = channel();
+        let (release_tx, release_rx) = channel();
+        let gate = Mutex::new(Some((entered_tx, release_rx)));
+        let blocker = system
+            .actor_of(Props::new(move || {
+                let (entered, release) = gate.lock().unwrap().take().expect("one instance");
+                Gate {
+                    entered,
+                    release: Mutex::new(release),
+                }
+            }))
+            .unwrap();
+        let works = |name: &str| {
+            let (log, clock) = (log.clone(), clock.clone());
+            system
+                .actor_of_named(
+                    Props::new(move || Works {
+                        log: log.clone(),
+                        clock: clock.clone(),
+                        each,
+                    }),
+                    name,
+                )
+                .unwrap()
+        };
+        let (x, y) = (works("x"), works("y"));
+        blocker.tell("block".to_owned(), None);
+        entered_rx.recv().unwrap();
+        for i in 1..=3 {
+            x.tell(format!("x{i}"), None);
+        }
+        for i in 1..=3 {
+            y.tell(format!("y{i}"), None);
+        }
+        release_tx.send(()).unwrap();
+        wait_until(|| log.lock().unwrap().len() == 6);
+        let order = log.lock().unwrap().clone();
+        system.terminate().wait(Duration::from_secs(10)).unwrap();
+        order
+    }
+
+    #[test]
+    fn a_deadline_that_every_message_exceeds_alternates_the_actors_one_message_at_a_time() {
+        let order = interleaving(100, Duration::from_millis(30), Duration::from_millis(60));
+        assert_eq!(order, ["r:x1", "r:y1", "r:x2", "r:y2", "r:x3", "r:y3"]);
+    }
+
+    #[test]
+    fn without_a_deadline_the_throughput_alone_sets_the_block_size() {
+        let order = interleaving(2, Duration::ZERO, Duration::from_secs(3600));
+        assert_eq!(order, ["r:x1", "r:x2", "r:y1", "r:y2", "r:x3", "r:y3"]);
+    }
+
+    #[test]
+    fn a_deadline_that_no_message_reaches_leaves_the_throughput_as_the_limit() {
+        let order = interleaving(2, Duration::from_secs(10), Duration::from_millis(1));
+        assert_eq!(order, ["r:x1", "r:x2", "r:y1", "r:y2", "r:x3", "r:y3"]);
     }
 }
