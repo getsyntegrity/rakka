@@ -7,6 +7,7 @@
 use super::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
+use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, PartialEq)]
 enum Ev {
@@ -109,13 +110,24 @@ fn s(text: &str) -> Arc<String> {
 }
 
 fn new_queue(max_capacity: i32) -> Context {
+    new_queue_observed_by(max_capacity, |_| {})
+}
+
+/// A queue whose listener also runs `observer` after recording the event, still with the lock held.
+fn new_queue_observed_by(
+    max_capacity: i32,
+    observer: impl Fn(QueueEvent) + Send + Sync + 'static,
+) -> Context {
     let events: Events = Arc::new(Mutex::new(Vec::new()));
     let backing = TestBacking {
         events: events.clone(),
         items: VecDeque::new(),
     };
     let listener_events = events.clone();
-    let listener: Listener = Arc::new(move |event| record(&listener_events, Ev::Lock(event)));
+    let listener: Listener = Arc::new(move |event| {
+        record(&listener_events, Ev::Lock(event));
+        observer(event);
+    });
     let queue = BoundedBlockingQueue::with_listener(max_capacity, backing, Some(listener))
         .expect("a valid queue");
     Context {
@@ -137,9 +149,29 @@ impl Context {
         self.count(wanted) > 0
     }
 
+    /// `lock.lockInterruptibly(); notEmpty.signal(); lock.unlock()` (`BoundedBlockingQueueSpec.scala:235-237`). The lock is what keeps
+    /// the signal from falling between a consumer's `AwaitNotEmpty` announcement and its `Condvar::wait` (see
+    /// `a_signal_sent_without_the_lock_before_the_consumer_parks_is_lost`).
+    fn signal_not_empty_with_the_lock(&self) {
+        let _lock = self.queue.lock();
+        self.queue.signal_not_empty();
+    }
+
+    /// The same for `notFull` (`BoundedBlockingQueueSpec.scala:358-360`).
+    fn signal_not_full_with_the_lock(&self) {
+        let _lock = self.queue.lock();
+        self.queue.signal_not_full();
+    }
+
     /// Waits (spinning, never sleeping) until `wanted` has been recorded `times` times.
     fn wait_for(&self, wanted: &Ev, times: usize) {
+        let deadline = Instant::now() + Duration::from_secs(30);
         while self.count(wanted) < times {
+            assert!(
+                Instant::now() < deadline,
+                "gave up waiting for {times} x {wanted:?}; events so far: {:?}",
+                self.events()
+            );
             thread::yield_now();
         }
     }
@@ -279,7 +311,7 @@ fn put_checks_the_backing_queue_size_before_offering() {
     };
     c.wait_for(&AWAIT_NOT_FULL, 1);
     // a signal with no room: the producer wakes up, looks at the size, and waits again
-    c.queue.signal_not_full();
+    c.signal_not_full_with_the_lock();
     c.wait_for(&AWAIT_NOT_FULL, 2);
     assert!(c.has_in_order(&[
         offer("a"),
@@ -319,6 +351,71 @@ fn take_blocks_when_the_queue_is_empty() {
     assert!(c.has_in_order(&[AWAIT_NOT_EMPTY, offer("a"), Ev::Poll]));
 }
 
+/// A queue whose first `AwaitNotEmpty` parks the consumer inside the listener (lock held, `Condvar::wait` not called yet) until the
+/// returned sender is used: the window between "announces it will park" and "parks" that a signal can fall into.
+fn queue_whose_consumer_parks_in_the_listener() -> (Context, std::sync::mpsc::Sender<()>) {
+    let armed = AtomicBool::new(true);
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    let released = Mutex::new(released);
+    let c = new_queue_observed_by(1, move |event| {
+        if event == QueueEvent::AwaitNotEmpty && armed.swap(false, Ordering::SeqCst) {
+            released.lock().expect("gate").recv().expect("released");
+        }
+    });
+    (c, release)
+}
+
+/// The root cause of the hangs of the `take`/`put`/`offer` "checks the backing queue size" tests: `notify_one` does not remember
+/// a signal nobody is waiting for. A consumer announces `AwaitNotEmpty` and calls `Condvar::wait` with the lock held, so a signal sent
+/// WITHOUT the lock can fall in between and is lost: the consumer parks for good (only an element wakes it).
+#[test]
+fn a_signal_sent_without_the_lock_before_the_consumer_parks_is_lost() {
+    let (c, release) = queue_whose_consumer_parks_in_the_listener();
+    let consumer = {
+        let queue = c.queue.clone();
+        thread::spawn(move || queue.take())
+    };
+    c.wait_for(&AWAIT_NOT_EMPTY, 1); // the consumer is parked inside the listener, lock held
+    c.queue.signal_not_empty(); // no lock: the consumer is not waiting yet, nobody receives it
+    release.send(()).expect("the consumer is waiting for it");
+    c.queue.put(s("x")); // takes the lock only once the consumer waits: this is what wakes it
+    assert_eq!(*consumer.join().expect("no panic"), "x");
+    let events = c.events();
+    let lost_signal = events
+        .iter()
+        .position(|e| *e == SIGNAL_NOT_EMPTY)
+        .expect("the signal was sent");
+    assert!(
+        !events[lost_signal..].contains(&AWAIT_NOT_EMPTY),
+        "a woken consumer would have looked at the size and waited again: {events:?}"
+    );
+}
+
+/// Pekko's spec signals with `lock.lockInterruptibly(); notEmpty.signal(); lock.unlock()`: with the lock the signal cannot fall
+/// between the announcement and the wait, so the consumer is always woken, whatever the interleaving.
+#[test]
+fn a_signal_sent_with_the_lock_wakes_a_consumer_that_was_about_to_park() {
+    let (c, release) = queue_whose_consumer_parks_in_the_listener();
+    let consumer = {
+        let queue = c.queue.clone();
+        thread::spawn(move || queue.take())
+    };
+    c.wait_for(&AWAIT_NOT_EMPTY, 1);
+    let signaller = {
+        let queue = c.queue.clone();
+        thread::spawn(move || {
+            let _lock = queue.lock(); // waits for the consumer to be parked in `Condvar::wait`, which releases it
+            queue.signal_not_empty();
+        })
+    };
+    release.send(()).expect("the consumer is waiting for it");
+    c.wait_for(&AWAIT_NOT_EMPTY, 2); // woken by the signal: it looked at the size and waits again
+    signaller.join().expect("no panic");
+    assert!(!c.has(&Ev::Poll));
+    c.queue.put(s("x"));
+    assert_eq!(*consumer.join().expect("no panic"), "x");
+}
+
 #[test]
 fn take_checks_the_backing_queue_size_before_polling() {
     let c = new_queue(1);
@@ -327,7 +424,7 @@ fn take_checks_the_backing_queue_size_before_polling() {
         thread::spawn(move || queue.take())
     };
     c.wait_for(&AWAIT_NOT_EMPTY, 1);
-    c.queue.signal_not_empty(); // a signal with nothing to take
+    c.signal_not_empty_with_the_lock(); // a signal with nothing to take
     c.wait_for(&AWAIT_NOT_EMPTY, 2);
     assert!(c.has_in_order(&[
         Ev::GetSize,
@@ -409,7 +506,7 @@ fn offer_with_timeout_checks_the_backing_queue_size_before_offering() {
         thread::spawn(move || queue.offer_timeout(s("World"), Duration::from_secs(3600)))
     };
     c.wait_for(&AWAIT_NOT_FULL, 1);
-    c.queue.signal_not_full();
+    c.signal_not_full_with_the_lock();
     c.wait_for(&AWAIT_NOT_FULL, 2);
     assert!(c.has_in_order(&[
         Ev::GetSize,
