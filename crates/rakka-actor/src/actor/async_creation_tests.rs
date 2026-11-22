@@ -165,6 +165,10 @@ impl Fixture {
         wait_until(&format!("`{name}` to be submitted"), || {
             self.executor.submissions(name) >= 1
         });
+        // `point` submits the new cell before it installs it: wait for the installation too, so the reference is never seen unstarted
+        wait_until(&format!("`{name}` to be installed"), || {
+            actor.0.as_repointable().is_none_or(|r| r.is_started())
+        });
         self.executor.run_until_idle();
         actor
     }
