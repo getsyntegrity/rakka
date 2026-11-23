@@ -14,3 +14,5 @@
 {"name": "mb-0014", "args": ["mailbox-case"], "stdin": "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is"}
 {"name": "mb-0015", "args": ["mailbox-case"], "stdin": "MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two"}
 {"name": "mb-0016", "args": ["mailbox-case"], "stdin": "MBX-SC-02 throughput-deadline-time ends the turn after a slow message"}
+{"name": "mb-0017", "args": ["mailbox-case"], "stdin": "MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first"}
+{"name": "mb-0018", "args": ["mailbox-case"], "stdin": "MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept"}
