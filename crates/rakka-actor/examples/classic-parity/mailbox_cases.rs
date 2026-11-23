@@ -3,6 +3,7 @@
 //! the default queue MQ-01 to MQ-03 (`UnboundedMailbox`), and DL-01 (what `deadLetters` answers to a `Watch`, with a real system).
 //! Each script drives the Rust type exactly as the oracle drives Pekko's.
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -514,8 +515,12 @@ struct Blocker {
     entered: std::sync::mpsc::Sender<()>,
     release: Mutex<std::sync::mpsc::Receiver<()>>,
     log: Arc<Mutex<Vec<String>>>,
+    started: Arc<AtomicUsize>,
 }
 impl Actor for Blocker {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.started.fetch_add(1, Ordering::SeqCst);
+    }
     fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
         self.entered.send(()).expect("entered");
         self.release.lock().unwrap().recv().expect("release");
@@ -525,8 +530,14 @@ impl Actor for Blocker {
 }
 
 /// Logs `r:<text>`; a message starting with `sleep` takes 60 ms, like the oracle's `Worker`.
-struct Worker(Arc<Mutex<Vec<String>>>);
+struct Worker {
+    log: Arc<Mutex<Vec<String>>>,
+    started: Arc<AtomicUsize>,
+}
 impl Actor for Worker {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.started.fetch_add(1, Ordering::SeqCst);
+    }
     fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         let Some(text) = msg.downcast_ref::<String>() else {
             return false;
@@ -534,7 +545,7 @@ impl Actor for Worker {
         if text.starts_with("sleep") {
             std::thread::sleep(Duration::from_millis(60));
         }
-        self.0.lock().unwrap().push(format!("r:{text}"));
+        self.log.lock().unwrap().push(format!("r:{text}"));
         true
     }
 }
@@ -561,26 +572,40 @@ fn turn_interleaving(
     let (entered_tx, entered_rx) = channel();
     let (release_tx, release_rx) = channel();
     let gate = Mutex::new(Some((entered_tx, release_rx)));
+    // like the oracle's `spawn`, each actor is started (`preStart` ran) before the next is created and before anything is sent:
+    // a message sent to an actor whose cell is not installed yet is handed over later, in an order the scenario does not control
+    let started = Arc::new(AtomicUsize::new(0));
+    let await_started = |count: usize| wait_until(|| started.load(Ordering::SeqCst) == count);
     let blocker = system
         .actor_of(Props::new({
-            let log = log.clone();
+            let (log, started) = (log.clone(), started.clone());
             move || {
                 let (entered, release) = gate.lock().unwrap().take().expect("one instance");
                 Blocker {
                     entered,
                     release: Mutex::new(release),
                     log: log.clone(),
+                    started: started.clone(),
                 }
             }
         }))
         .expect("blocker");
-    let spawn = |name: &str| {
-        let log = log.clone();
-        system
-            .actor_of_named(Props::new(move || Worker(log.clone())), name)
-            .expect("worker")
+    await_started(1);
+    let spawn = |name: &str, count: usize| {
+        let (log, started) = (log.clone(), started.clone());
+        let worker = system
+            .actor_of_named(
+                Props::new(move || Worker {
+                    log: log.clone(),
+                    started: started.clone(),
+                }),
+                name,
+            )
+            .expect("worker");
+        await_started(count);
+        worker
     };
-    let (x, y) = (spawn("x"), spawn("y"));
+    let (x, y) = (spawn("x", 2), spawn("y", 3));
     blocker.tell("block".to_owned(), None);
     entered_rx.recv().expect("blocker running");
     for i in 1..=per_actor {
