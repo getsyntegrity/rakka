@@ -7,8 +7,8 @@
 //!
 //! Differences, all consequences of the language:
 //! - Pekko's `enqueue(receiver, handle)` receives the receiver on every call and reaches `deadLetters` through its provider. Here the
-//!   queue is given both when it is created (Pekko's `create(owner, system)` is where a mailbox type learns them); the receiver of a
-//!   mailbox's queue is always its owner, so the `MessageQueue` trait does not change.
+//!   receiver also arrives on every call, so the queue keeps no reference to its owner (which would be a cycle with the cell), and
+//!   `deadLetters` is given when the queue is created.
 //! - Pekko's queue is lock-free; this one holds a `Mutex` only for the push or pop itself. The overflow is sent to `deadLetters` after
 //!   the lock is released.
 //! - A negative capacity is not rejected by an unchecked `IllegalArgumentException` but by a `Result` of the constructor.
@@ -52,11 +52,10 @@ impl NonBlockingBoundedMailbox {
         self.capacity
     }
 
-    /// A new, empty queue for the mailbox of `owner`; what it refuses is dead-lettered to `dead_letters` as addressed to `owner`.
-    pub fn create(&self, owner: ActorRef, dead_letters: ActorRef) -> Box<dyn MessageQueue> {
+    /// A new, empty queue for one mailbox; what it refuses is dead-lettered to `dead_letters` as addressed to the receiver of `enqueue`.
+    pub fn create(&self, dead_letters: ActorRef) -> Box<dyn MessageQueue> {
         Box::new(BoundedNodeMessageQueue {
             capacity: self.capacity,
-            owner,
             dead_letters,
             queue: Mutex::new(VecDeque::new()),
         })
@@ -65,7 +64,6 @@ impl NonBlockingBoundedMailbox {
 
 struct BoundedNodeMessageQueue {
     capacity: usize,
-    owner: ActorRef,
     dead_letters: ActorRef,
     queue: Mutex<VecDeque<Envelope>>,
 }
@@ -78,14 +76,15 @@ impl BoundedNodeMessageQueue {
 }
 
 impl MessageQueue for BoundedNodeMessageQueue {
-    fn enqueue(&self, envelope: Envelope) {
+    fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
         let mut queue = self.locked();
         if queue.len() < self.capacity {
             queue.push_back(envelope);
-            return;
+            return true;
         }
         drop(queue); // `deadLetters` may call back into this queue
-        tell_dead_letter(&self.dead_letters, &self.owner, envelope);
+        tell_dead_letter(&self.dead_letters, receiver, envelope);
+        false
     }
 
     fn dequeue(&self) -> Option<Envelope> {
@@ -100,9 +99,9 @@ impl MessageQueue for BoundedNodeMessageQueue {
         !self.locked().is_empty()
     }
 
-    fn clean_up(&self, dead_letters: &dyn MessageQueue) {
+    fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
         while let Some(envelope) = self.dequeue() {
-            dead_letters.enqueue(envelope);
+            dead_letters.enqueue(owner, envelope);
         }
     }
 }
@@ -133,7 +132,7 @@ mod tests {
         let (_, owner) = recorder(&format!("pekko://sys/user/{owner_name}"));
         let queue = NonBlockingBoundedMailbox::new(capacity)
             .expect("a non-negative capacity")
-            .create(owner.clone(), dead_letters_ref.clone());
+            .create(dead_letters_ref.clone());
         Fixture {
             queue,
             dead_letters,
@@ -215,7 +214,7 @@ mod tests {
         let f = fixture(3, "recv");
         assert!(!f.queue.has_messages() && f.queue.dequeue().is_none());
         for name in ["a", "b", "c"] {
-            f.queue.enqueue(envelope(name, None));
+            f.queue.enqueue(&f.owner, envelope(name, None));
         }
         assert_eq!(f.queue.number_of_messages(), 3);
         assert_eq!(drain(&*f.queue), ["a", "b", "c"]);
@@ -226,7 +225,7 @@ mod tests {
     fn a_full_queue_refuses_at_once_keeps_the_first_and_dead_letters_the_rest_in_order() {
         let f = fixture(3, "recv");
         for name in ["a", "b", "c", "d", "e"] {
-            f.queue.enqueue(envelope(name, None));
+            f.queue.enqueue(&f.owner, envelope(name, None));
         }
         assert_eq!(f.queue.number_of_messages(), 3);
         assert_eq!(dead_texts(&f.dead_letters), ["d", "e"]);
@@ -237,11 +236,11 @@ mod tests {
     fn dequeue_frees_a_slot_and_the_order_stays_first_in_first_out() {
         let f = fixture(2, "recv");
         for name in ["a", "b", "c"] {
-            f.queue.enqueue(envelope(name, None));
+            f.queue.enqueue(&f.owner, envelope(name, None));
         }
         assert_eq!(text(&f.queue.dequeue().unwrap()), "a");
         for name in ["d", "e"] {
-            f.queue.enqueue(envelope(name, None));
+            f.queue.enqueue(&f.owner, envelope(name, None));
         }
         assert_eq!(drain(&*f.queue), ["b", "d"]);
         assert_eq!(dead_texts(&f.dead_letters), ["c", "e"]);
@@ -251,7 +250,7 @@ mod tests {
     fn capacity_zero_is_a_valid_queue_that_refuses_everything() {
         let f = fixture(0, "recv");
         for name in ["a", "b"] {
-            f.queue.enqueue(envelope(name, None));
+            f.queue.enqueue(&f.owner, envelope(name, None));
         }
         assert!(!f.queue.has_messages() && f.queue.number_of_messages() == 0);
         assert_eq!(dead_texts(&f.dead_letters), ["a", "b"]);
@@ -261,8 +260,8 @@ mod tests {
     fn a_dead_letter_carries_the_message_the_envelope_sender_and_the_owner_as_receiver() {
         let f = fixture(1, "recv");
         let snd = sender("snd");
-        f.queue.enqueue(envelope("kept", Some(&snd)));
-        f.queue.enqueue(envelope("refused", Some(&snd)));
+        f.queue.enqueue(&f.owner, envelope("kept", Some(&snd)));
+        f.queue.enqueue(&f.owner, envelope("refused", Some(&snd)));
 
         let told = f.dead_letters.told.lock().unwrap();
         let dead = told[0].0.downcast_ref::<DeadLetter>().unwrap();
@@ -273,7 +272,7 @@ mod tests {
     #[test]
     fn a_refused_message_without_sender_comes_from_dead_letters() {
         let f = fixture(0, "recv");
-        f.queue.enqueue(envelope("orphan", None));
+        f.queue.enqueue(&f.owner, envelope("orphan", None));
 
         let dead = &dead_letters_told(&f.dead_letters)[0];
         assert!(dead.sender == f.dead_letters_ref);
@@ -288,10 +287,13 @@ mod tests {
             sender: snd.clone(),
             recipient: f.owner.clone(),
         };
-        f.queue.enqueue(Envelope {
-            message: Arc::new(inner),
-            sender: Some(snd),
-        });
+        f.queue.enqueue(
+            &f.owner,
+            Envelope {
+                message: Arc::new(inner),
+                sender: Some(snd),
+            },
+        );
 
         let dead = &dead_letters_told(&f.dead_letters)[0];
         let wrapped = dead.message.downcast_ref::<DeadLetter>().unwrap();
@@ -303,13 +305,13 @@ mod tests {
         let f = fixture(3, "recv");
         let target = UnboundedMailbox.create();
         for name in ["a", "b", "c", "d"] {
-            f.queue.enqueue(envelope(name, None));
+            f.queue.enqueue(&f.owner, envelope(name, None));
         }
-        f.queue.clean_up(&*target);
+        f.queue.clean_up(&f.owner, &*target);
         assert!(!f.queue.has_messages());
         assert_eq!(drain(&*target), ["a", "b", "c"]);
         for name in ["e", "f", "g", "h"] {
-            f.queue.enqueue(envelope(name, None));
+            f.queue.enqueue(&f.owner, envelope(name, None));
         }
         assert_eq!(drain(&*f.queue), ["e", "f", "g"]);
         assert_eq!(dead_texts(&f.dead_letters), ["d", "h"]);
@@ -321,7 +323,6 @@ mod tests {
         let (_, owner) = recorder("pekko://sys/user/recv");
         let queue = Arc::new(BoundedNodeMessageQueue {
             capacity: 2,
-            owner,
             dead_letters,
             queue: Mutex::new(VecDeque::new()),
         });
@@ -333,7 +334,7 @@ mod tests {
         .join();
         assert!(panicked.is_err() && queue.queue.is_poisoned());
 
-        queue.enqueue(envelope("still", None));
+        queue.enqueue(&owner, envelope("still", None));
 
         assert_eq!(drain(&*queue), ["still"]);
         assert!(!queue.has_messages());
@@ -352,11 +353,11 @@ mod tests {
         let queue: Arc<dyn MessageQueue> = Arc::from(
             NonBlockingBoundedMailbox::new(0)
                 .unwrap()
-                .create(owner, dead_letters),
+                .create(dead_letters),
         );
         *queue_slot.lock().unwrap() = Some(Arc::clone(&queue));
 
-        queue.enqueue(envelope("refused", None));
+        queue.enqueue(&owner, envelope("refused", None));
 
         assert!(reentered.load(Ordering::SeqCst));
     }
@@ -402,15 +403,21 @@ mod tests {
         })
     }
 
-    fn run_producers(queue: &Arc<dyn MessageQueue>, producers: usize, each: usize) {
+    fn run_producers(
+        queue: &Arc<dyn MessageQueue>,
+        receiver: &ActorRef,
+        producers: usize,
+        each: usize,
+    ) {
         let start = Arc::new(Barrier::new(producers));
         let handles: Vec<_> = (0..producers)
             .map(|producer| {
-                let (queue, start) = (Arc::clone(queue), Arc::clone(&start));
+                let (queue, start, receiver) =
+                    (Arc::clone(queue), Arc::clone(&start), receiver.clone());
                 thread::spawn(move || {
                     start.wait();
                     for n in 0..each {
-                        queue.enqueue(envelope(&format!("{producer}:{n}"), None));
+                        queue.enqueue(&receiver, envelope(&format!("{producer}:{n}"), None));
                     }
                 })
             })
@@ -426,7 +433,7 @@ mod tests {
             f.dead_letters.clone(),
             Arc::<dyn MessageQueue>::from(f.queue),
         );
-        run_producers(&queue, 4, 50);
+        run_producers(&queue, &f.owner, 4, 50);
 
         let kept = drain(&*queue);
         let dead = dead_texts(&dead_letters);
@@ -461,7 +468,7 @@ mod tests {
                 }
             })
         };
-        run_producers(&queue, 4, 50);
+        run_producers(&queue, &f.owner, 4, 50);
         done.store(true, Ordering::SeqCst);
         let received = consumer.join().unwrap();
 
@@ -538,7 +545,7 @@ mod tests {
         let snd = sender("snd");
         let mut line = format!("new: {}", counts(&*f.queue));
         for name in ["a", "b", "c", "d", "e"] {
-            f.queue.enqueue(envelope(name, Some(&snd)));
+            f.queue.enqueue(&f.owner, envelope(name, Some(&snd)));
             line.push_str(&format!(" | {name}: {}", counts(&*f.queue)));
         }
         let dead = show_dead(&f);
@@ -554,11 +561,11 @@ mod tests {
     fn nb_qu_02_matches_the_oracle() {
         let f = fixture(2, "recv");
         for name in ["a", "b", "c"] {
-            f.queue.enqueue(envelope(name, Some(&f.owner)));
+            f.queue.enqueue(&f.owner, envelope(name, Some(&f.owner)));
         }
         let first = text(&f.queue.dequeue().unwrap());
         for name in ["d", "e"] {
-            f.queue.enqueue(envelope(name, Some(&f.owner)));
+            f.queue.enqueue(&f.owner, envelope(name, Some(&f.owner)));
         }
         let rest = show(drain(&*f.queue));
         let line = format!(
@@ -573,11 +580,13 @@ mod tests {
     fn nb_qu_03_matches_the_oracle() {
         let one = fixture(1, "recv");
         for name in ["a", "b", "c"] {
-            one.queue.enqueue(envelope(name, Some(&one.owner)));
+            one.queue
+                .enqueue(&one.owner, envelope(name, Some(&one.owner)));
         }
         let zero = fixture(0, "other");
         for name in ["x", "y"] {
-            zero.queue.enqueue(envelope(name, Some(&zero.owner)));
+            zero.queue
+                .enqueue(&zero.owner, envelope(name, Some(&zero.owner)));
         }
         let line = format!(
             "one: {} drain={} dead={} | zero: {} drain={} dead={}",
@@ -595,17 +604,20 @@ mod tests {
     fn nb_qu_04_matches_the_oracle() {
         let f = fixture(1, "recv");
         let snd = sender("snd");
-        f.queue.enqueue(envelope("kept", Some(&snd)));
-        f.queue.enqueue(envelope("refused", Some(&snd)));
-        f.queue.enqueue(envelope("noSender", None));
-        f.queue.enqueue(Envelope {
-            message: Arc::new(DeadLetter {
-                message: Arc::new("inner".to_owned()),
-                sender: snd.clone(),
-                recipient: f.owner.clone(),
-            }),
-            sender: Some(snd),
-        });
+        f.queue.enqueue(&f.owner, envelope("kept", Some(&snd)));
+        f.queue.enqueue(&f.owner, envelope("refused", Some(&snd)));
+        f.queue.enqueue(&f.owner, envelope("noSender", None));
+        f.queue.enqueue(
+            &f.owner,
+            Envelope {
+                message: Arc::new(DeadLetter {
+                    message: Arc::new("inner".to_owned()),
+                    sender: snd.clone(),
+                    recipient: f.owner.clone(),
+                }),
+                sender: Some(snd),
+            },
+        );
         let line = format!("dead={} queue={}", show_dead(&f), show(drain(&*f.queue)));
         assert_eq!(line, golden_line("NB-QU-04"));
     }
@@ -615,12 +627,12 @@ mod tests {
         let f = fixture(3, "recv");
         let target = UnboundedMailbox.create();
         for name in ["a", "b", "c", "d"] {
-            f.queue.enqueue(envelope(name, Some(&f.owner)));
+            f.queue.enqueue(&f.owner, envelope(name, Some(&f.owner)));
         }
-        f.queue.clean_up(&*target);
+        f.queue.clean_up(&f.owner, &*target);
         let after = counts(&*f.queue);
         for name in ["e", "f", "g", "h"] {
-            f.queue.enqueue(envelope(name, Some(&f.owner)));
+            f.queue.enqueue(&f.owner, envelope(name, Some(&f.owner)));
         }
         let moved = counts(&*target);
         let order = show(drain(&*target));

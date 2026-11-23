@@ -366,11 +366,22 @@ fn sentinel_closes_the_system_queue() -> String {
     )
 }
 
+/// The receiver the oracle's `UnboundedMailbox` is given (`enqueue(receiver, handle)`); the unbounded queue only passes it on.
+fn receiver() -> ActorRef {
+    static SYSTEM: std::sync::OnceLock<ActorSystem> = std::sync::OnceLock::new();
+    SYSTEM
+        .get_or_init(|| ActorSystem::create("mailbox-receiver").expect("a system"))
+        .dead_letters()
+}
+
 fn put(queue: &dyn MessageQueue, text: &str) {
-    queue.enqueue(Envelope {
-        message: Arc::new(text.to_owned()),
-        sender: None,
-    });
+    queue.enqueue(
+        &receiver(),
+        Envelope {
+            message: Arc::new(text.to_owned()),
+            sender: None,
+        },
+    );
 }
 
 fn counts(queue: &dyn MessageQueue) -> String {
@@ -429,7 +440,7 @@ fn clean_up_moves_to_dead_letters() -> String {
     for text in ["a", "b", "c"] {
         put(&*queue, text);
     }
-    queue.clean_up(&*dead_letters);
+    queue.clean_up(&receiver(), &*dead_letters);
     format!(
         "source {} | target {} order {}",
         counts(&*queue),

@@ -80,7 +80,7 @@ pub(crate) struct ActorCell {
     /// the atomic mailbox state (Open/Closed, Scheduled, suspend count)
     status: MailboxStatus,
     system_queue: SystemQueue<SystemMessage>,
-    /// the user messages (`Mailbox.messageQueue`): the default `UnboundedMailbox` queue
+    /// the user messages (`Mailbox.messageQueue`): `UnboundedMailbox` unless `Props::with_mailbox` chose another queue
     queue: Box<dyn MessageQueue>,
     children: Mutex<Children>,
     name_counter: AtomicU64,
@@ -232,6 +232,12 @@ impl ActorCell {
         outer: Option<ActorRef>,
         creation_failure: Option<Throwable>,
     ) -> Arc<ActorCell> {
+        // the replacement of a cell that could not be made always has the default unbounded mailbox
+        let queue = if creation_failure.is_some() {
+            UnboundedMailbox.create()
+        } else {
+            props.new_message_queue(&system.dead_letters)
+        };
         let cell = Arc::new_cyclic(|me| ActorCell {
             path,
             system: system.clone(),
@@ -246,7 +252,7 @@ impl ActorCell {
                 status
             },
             system_queue: SystemQueue::new(),
-            queue: UnboundedMailbox.create(),
+            queue,
             children: Mutex::new(Children::Empty),
             name_counter: AtomicU64::new(0),
             st: Mutex::new(CellState::default()),
@@ -390,16 +396,16 @@ impl ActorCell {
     }
 
     fn enqueue_user(self: &Arc<Self>, env: Envelope) {
-        let dead = enqueue_unless_closed(&self.status, &*self.queue, env);
-        if dead.is_empty()
+        let receiver = self.self_ref();
+        let enqueued = enqueue_unless_closed(&self.status, &*self.queue, &receiver, env);
+        // a message the queue refused is already dead-lettered: it needs no turn
+        if enqueued.awaits_consumption
             && let Err(rejected) = self.register_for_execution(true, false)
         {
             self.swallow_failed_send(rejected);
         }
-        for env in dead {
-            self.system
-                .dead_letter_mailbox
-                .enqueue(&self.self_ref(), env);
+        for env in enqueued.dead {
+            self.system.dead_letter_mailbox.enqueue(&receiver, env);
         }
     }
 
@@ -888,15 +894,14 @@ impl ActorCell {
         // dispatcher.detach: close the mailbox, hand what is left to dead letters
         let leftovers = UnboundedMailbox.create();
         self.status.become_closed();
-        self.queue.clean_up(&*leftovers); // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8)
+        let receiver = self.self_ref();
+        self.queue.clean_up(&receiver, &*leftovers); // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8)
         let sys = self.system_queue.clean_up();
         for m in sys {
             self.dead_system_message(m);
         }
         while let Some(env) = leftovers.dequeue() {
-            self.system
-                .dead_letter_mailbox
-                .enqueue(&self.self_ref(), env);
+            self.system.dead_letter_mailbox.enqueue(&receiver, env);
         }
         self.parent
             .send_system(SystemMessage::DeathWatchNotification {

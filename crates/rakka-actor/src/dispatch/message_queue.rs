@@ -2,9 +2,9 @@
 //! `MessageQueue` and the default `UnboundedMailbox` queue (`Mailbox.scala:376-410,677-696`).
 //!
 //! A `MessageQueue` holds the user messages of one mailbox: any number of producers, one consumer. The mailbox state
-//! (`MailboxStatus`) and the system-message queue are separate pieces. Pekko's `enqueue(receiver, handle)` and
-//! `cleanUp(owner, deadLetters)` also receive the actor so that a bounded queue can dead-letter an overflow; this unbounded
-//! queue never needs it, so the argument arrives with the bounded queues and the `deadLetterMailbox` (ADR-0001 steps 5 and 7).
+//! (`MailboxStatus`) and the system-message queue are separate pieces. Like Pekko's `enqueue(receiver, handle)` and
+//! `cleanUp(owner, deadLetters)`, the operations that can refuse a message receive the actor, so a bounded queue can dead-letter an
+//! overflow addressed to it without keeping a reference to its owner (PROP-7B-1, alternative A, approved by the Owner).
 //! `MailboxType` and `Mailboxes` are not defined yet (Q-MBX-2 is open).
 
 use std::collections::VecDeque;
@@ -21,16 +21,17 @@ pub struct Envelope {
 
 /// `org.apache.pekko.dispatch.MessageQueue`.
 pub trait MessageQueue: Send + Sync {
-    /// Adds the envelope at the tail.
-    fn enqueue(&self, envelope: Envelope);
+    /// Adds the envelope at the tail and answers whether it was stored. A queue that refuses (a full bounded one) has already
+    /// sent the envelope to dead letters as addressed to `receiver`, the actor this queue belongs to (Pekko's `enqueue(receiver, handle)`).
+    fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool;
     /// Removes the head, or `None` when empty.
     fn dequeue(&self) -> Option<Envelope>;
     /// The number of queued envelopes (approximate for concurrent queues in Pekko; exact here).
     fn number_of_messages(&self) -> usize;
     /// Whether anything is queued.
     fn has_messages(&self) -> bool;
-    /// Moves every queued envelope, oldest first, to `dead_letters`.
-    fn clean_up(&self, dead_letters: &dyn MessageQueue);
+    /// Moves every queued envelope, oldest first, to `dead_letters` as addressed to `owner` (Pekko's `cleanUp(owner, deadLetters)`).
+    fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue);
 }
 
 /// FIFO queue without a bound (the `ConcurrentLinkedQueue` of `UnboundedMailbox`).
@@ -40,8 +41,9 @@ struct UnboundedMessageQueue {
 }
 
 impl MessageQueue for UnboundedMessageQueue {
-    fn enqueue(&self, envelope: Envelope) {
+    fn enqueue(&self, _receiver: &ActorRef, envelope: Envelope) -> bool {
         self.queue.lock().unwrap().push_back(envelope);
+        true
     }
 
     fn dequeue(&self) -> Option<Envelope> {
@@ -56,9 +58,9 @@ impl MessageQueue for UnboundedMessageQueue {
         !self.queue.lock().unwrap().is_empty()
     }
 
-    fn clean_up(&self, dead_letters: &dyn MessageQueue) {
+    fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
         while let Some(envelope) = self.dequeue() {
-            dead_letters.enqueue(envelope);
+            dead_letters.enqueue(owner, envelope);
         }
     }
 }
@@ -79,6 +81,10 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Barrier};
     use std::thread;
+
+    fn receiver() -> ActorRef {
+        crate::dispatch::test_support::recorder("pekko://sys/user/receiver").1
+    }
 
     fn envelope(text: &str) -> Envelope {
         Envelope {
@@ -112,7 +118,7 @@ mod tests {
     fn dequeue_returns_envelopes_in_enqueue_order_and_then_nothing() {
         let queue = UnboundedMailbox.create();
         for name in ["a", "b", "c"] {
-            queue.enqueue(envelope(name));
+            queue.enqueue(&receiver(), envelope(name));
         }
         assert_eq!(drain(&*queue), ["a", "b", "c"]);
         assert!(queue.dequeue().is_none());
@@ -121,8 +127,8 @@ mod tests {
     #[test]
     fn the_counts_follow_enqueue_and_dequeue() {
         let queue = UnboundedMailbox.create();
-        queue.enqueue(envelope("a"));
-        queue.enqueue(envelope("b"));
+        queue.enqueue(&receiver(), envelope("a"));
+        queue.enqueue(&receiver(), envelope("b"));
         assert_eq!(
             (queue.number_of_messages(), queue.has_messages()),
             (2, true)
@@ -142,10 +148,10 @@ mod tests {
     #[test]
     fn interleaved_enqueue_and_dequeue_stay_first_in_first_out() {
         let queue = UnboundedMailbox.create();
-        queue.enqueue(envelope("a"));
-        queue.enqueue(envelope("b"));
+        queue.enqueue(&receiver(), envelope("a"));
+        queue.enqueue(&receiver(), envelope("b"));
         assert_eq!(text(&queue.dequeue().unwrap()), "a");
-        queue.enqueue(envelope("c"));
+        queue.enqueue(&receiver(), envelope("c"));
         assert_eq!(drain(&*queue), ["b", "c"]);
     }
 
@@ -153,10 +159,13 @@ mod tests {
     fn an_envelope_keeps_its_message_and_sender() {
         let queue = UnboundedMailbox.create();
         let message: AnyMessage = Arc::new(7_u32);
-        queue.enqueue(Envelope {
-            message: Arc::clone(&message),
-            sender: None,
-        });
+        queue.enqueue(
+            &receiver(),
+            Envelope {
+                message: Arc::clone(&message),
+                sender: None,
+            },
+        );
         let out = queue.dequeue().unwrap();
         assert!(Arc::ptr_eq(&out.message, &message));
         assert!(out.sender.is_none());
@@ -166,9 +175,9 @@ mod tests {
     fn clean_up_moves_every_envelope_to_the_dead_letters_queue_in_order_and_empties_the_queue() {
         let (queue, dead_letters) = (UnboundedMailbox.create(), UnboundedMailbox.create());
         for name in ["a", "b", "c"] {
-            queue.enqueue(envelope(name));
+            queue.enqueue(&receiver(), envelope(name));
         }
-        queue.clean_up(&*dead_letters);
+        queue.clean_up(&receiver(), &*dead_letters);
         assert_eq!(
             (queue.number_of_messages(), queue.has_messages()),
             (0, false)
@@ -179,7 +188,7 @@ mod tests {
     #[test]
     fn clean_up_of_an_empty_queue_leaves_both_empty() {
         let (queue, dead_letters) = (UnboundedMailbox.create(), UnboundedMailbox.create());
-        queue.clean_up(&*dead_letters);
+        queue.clean_up(&receiver(), &*dead_letters);
         assert!(!queue.has_messages() && !dead_letters.has_messages());
     }
 
@@ -193,7 +202,7 @@ mod tests {
                 thread::spawn(move || {
                     start.wait();
                     for n in 0..500 {
-                        queue.enqueue(envelope(&format!("{producer}:{n}")));
+                        queue.enqueue(&receiver(), envelope(&format!("{producer}:{n}")));
                     }
                 })
             })

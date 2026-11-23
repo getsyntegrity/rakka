@@ -8,6 +8,8 @@ use crate::actor::actor_ref::ActorRef;
 use crate::actor::cell::ActorCell;
 use crate::actor::fault::Throwable;
 use crate::actor::supervision::{OneForOneStrategy, SupervisorStrategy};
+use crate::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
+use crate::dispatch::message_queue::{MessageQueue, UnboundedMailbox};
 
 /// A user-level message (`Any` in Pekko). Messages are immutable and shared, so the same message can
 /// be fanned out (event stream, dead letters) without copying.
@@ -63,6 +65,8 @@ pub trait Actor: Send + 'static {
 #[derive(Clone)]
 pub struct Props {
     factory: Arc<dyn Fn() -> Box<dyn Actor> + Send + Sync>,
+    /// `Props.mailbox`, restricted to the one bounded type wired so far; `None` is the default `UnboundedMailbox`.
+    mailbox: Option<NonBlockingBoundedMailbox>,
 }
 
 impl Props {
@@ -70,6 +74,22 @@ impl Props {
     pub fn new<A: Actor, F: Fn() -> A + Send + Sync + 'static>(f: F) -> Props {
         Props {
             factory: Arc::new(move || Box::new(f())),
+            mailbox: None,
+        }
+    }
+
+    /// `Props.withMailbox` limited to `NonBlockingBoundedMailbox`: the actor's user messages go to a bounded queue that never blocks
+    /// the sender and dead-letters what does not fit. The general `Props.withMailbox(id)` waits for `Mailboxes` (Q-MBX-2).
+    pub fn with_mailbox(mut self, mailbox: NonBlockingBoundedMailbox) -> Props {
+        self.mailbox = Some(mailbox);
+        self
+    }
+
+    /// The queue for one mailbox of this actor; what a bounded queue refuses is dead-lettered to `dead_letters`.
+    pub(crate) fn new_message_queue(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        match self.mailbox {
+            Some(bounded) => bounded.create(dead_letters.clone()),
+            None => UnboundedMailbox.create(),
         }
     }
 
