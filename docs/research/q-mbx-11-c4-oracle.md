@@ -2,7 +2,7 @@
 
 Fecha: 2026-11-23. Rama de investigación `research/unstarted-termination-c4` (desde `1df22f2`, con C1 y C2 ya integradas). **No implementa C3 ni C4**: sólo contratos, casos del oráculo, evidencia de estabilidad y los gemelos Rust que ya se pueden escribir. Fuente de verdad: Apache Pekko 2.0.0 (`9fbd2283`), JDK 17. Las citas `path:line` son de 2.0.0 (`actor/src/main/scala/org/apache/pekko/actor/...`).
 
-Todas las decisiones nuevas siguen siendo del Owner. Este documento no responde ninguna `Q-*`; al final hay una propuesta (`proposed`) nueva, `Q-MBX-12`.
+Todas las decisiones nuevas siguen siendo del Owner. Este documento no responde ninguna `Q-*`; al final hay una propuesta (`proposed`) nueva, `PROP-C4-1`.
 
 ## 1. Contratos verificados en el fuente
 
@@ -85,7 +85,7 @@ Gemelos previstos para C4 (especificación, no escritos): UT-05 y UT-07 necesita
 ## 6. Riesgos y pendientes
 
 1. **Cuelgue observable hoy**: padre con hijo sin arrancar y `Terminate` previo al `Supervise` no termina en Rust (RED de arriba). Alcance real: sólo lo alcanza `system.actorOf` concurrente con la parada del guardián/padre, o `attach_child` en un turno; no la API pública determinista.
-2. **UT-05 es un comportamiento "malo" de Pekko** (hijo huérfano para siempre, fuga). Paridad estricta (Q-X-21 propuesta) lo exigiría; decisión del Owner: ver propuesta `Q-MBX-12` abajo.
+2. **UT-05 es un comportamiento "malo" de Pekko** (hijo huérfano para siempre, fuga). Paridad estricta (Q-X-21 propuesta) lo exigiría; decisión del Owner: ver propuesta `PROP-C4-1` abajo.
 3. **Timing en el oráculo**: las esperas de ausencia de 500 ms (sección 3) son el único uso de tiempo real; en una máquina muy cargada una espera de ausencia corta podría dar un falso "no ocurrió". Mitigación: los 24 runs con contención no mostraron diferencias; el margen puede ampliarse sin cambiar el contrato.
 4. **`Nobody` impreso como `pekko://all-systems/Nobody`** (UT-01/02): el gemelo Rust necesita un `Nobody` con esa ruta o normalizar el texto en ambos lados.
 5. **UT-02 mezcla dos cosas**: la mayor parte son observables de la API interna (`underlying`, `numberOfMessages`) que Rust expone de otra forma; el gemelo comparará hechos, no la línea completa.
@@ -94,4 +94,13 @@ Gemelos previstos para C4 (especificación, no escritos): UT-05 y UT-07 necesita
 
 ## 7. Propuesta de decisión (estado `proposed`, sin responder)
 
-**Q-MBX-12 — Un hijo sin arrancar y el `Supervise` ignorado durante la terminación (UT-03/UT-05):** en Pekko 2.0.0 un padre que termina antes de procesar el `Supervise` de un hijo asíncrono no espera a ese hijo, y el hijo queda sin arrancar para siempre con su `Terminate` y sus mensajes encolados (sin dead letters, sin `Terminated`, nombre irrecuperable mientras viva el ref). Alternativas: (a) paridad exacta con 2.0.0; (b) paridad más un `Terminate`/dead letter para el hijo al ignorar el `Supervise` (corrige la fuga, cambia lo observable); (c) esperar al hijo (lo que Rust hace hoy; cuelga). Recomendación: (a) para el contrato de padre/reinicio (UT-03/UT-06, no se retiene al padre) y (b) sólo si el Owner prefiere corregir la fuga, anotando `Q:` en la fila. Registro pendiente en `docs/owner-batch-02.md` y su `*.decisions.tsv` (no editado aquí: sólo lo hace quien implemente C4 con aprobación).
+**PROP-C4-1 — Un hijo sin arrancar y el `Supervise` ignorado durante la terminación (UT-03/UT-05):** en Pekko 2.0.0 un padre que termina antes de procesar el `Supervise` de un hijo asíncrono no espera a ese hijo, y el hijo queda sin arrancar para siempre con su `Terminate` y sus mensajes encolados (sin dead letters, sin `Terminated`, nombre irrecuperable mientras viva el ref). Alternativas: (a) paridad exacta con 2.0.0; (b) paridad más un `Terminate`/dead letter para el hijo al ignorar el `Supervise` (corrige la fuga, cambia lo observable); (c) esperar al hijo (lo que Rust hace hoy; cuelga). Recomendación: (a) para el contrato de padre/reinicio (UT-03/UT-06, no se retiene al padre) y (b) sólo si el Owner prefiere corregir la fuga, anotando `Q:` en la fila. Registro pendiente en `docs/owner-batch-02.md` y su `*.decisions.tsv` (no editado aquí: sólo lo hace quien implemente C4 con aprobación).
+
+## 8. Identificador de la propuesta y dependencias (registradas al publicar)
+
+- **Identificador local:** la propuesta de §7 se llama `PROP-C4-1` (antes `Q-MBX-12`) porque la investigación 7a propuso otro `Q-MBX-12` en paralelo. Ningún identificador `Q-*` definitivo está asignado; se reconcilian al registrarlas (`docs/owner-batch-02.md` y `*.decisions.tsv` no se tocaron aquí). Sigue siendo `proposed`; no se decide ningún cambio de semántica respecto de Pekko.
+- **C3 antes de C4:** C3 (`UnstartedPushTimeout`) debe integrarse antes de implementar C4.
+- **`is_started` durante el handover:** C4 necesita que `is_started` no espere el lock del handover (en Pekko es una lectura sin lock); hay que revisar `is_started` tal como queda tras C3.
+- **Mailbox acotado:** cuando exista `BoundedMailbox` (7b), C4 debe comprobar la terminación de un hijo sin arrancar con mailbox acotado; ningún caso JVM actual cubre un stop con el drenaje bloqueado en una cola llena.
+- **Archivos compartidos con C3:** `MailboxOracle.java`, `cases/oracle-ids/mailbox.txt`, `cases/oracle-only/mailbox-cases.tsv` y `mailbox.golden`. Al integrar el segundo conjunto hay que resolver el orden de registro (el golden conserva el orden de registro) y regenerar con `check_mailbox_oracle.py --record` verificando que las demás líneas no cambian.
+- **Sin paridad entre JDK:** los casos solo se verificaron en JDK 17.
