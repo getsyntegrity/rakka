@@ -15,7 +15,7 @@
 
 use std::collections::VecDeque;
 use std::fmt;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use crate::actor::actor_ref::ActorRef;
 use crate::dispatch::dead_letter_mailbox::tell_dead_letter;
@@ -70,9 +70,16 @@ struct BoundedNodeMessageQueue {
     queue: Mutex<VecDeque<Envelope>>,
 }
 
+impl BoundedNodeMessageQueue {
+    /// Nothing but plain pushes and pops runs under the lock, so a poisoned lock leaves the queue consistent.
+    fn locked(&self) -> MutexGuard<'_, VecDeque<Envelope>> {
+        self.queue.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
 impl MessageQueue for BoundedNodeMessageQueue {
     fn enqueue(&self, envelope: Envelope) {
-        let mut queue = self.queue.lock().unwrap();
+        let mut queue = self.locked();
         if queue.len() < self.capacity {
             queue.push_back(envelope);
             return;
@@ -82,15 +89,15 @@ impl MessageQueue for BoundedNodeMessageQueue {
     }
 
     fn dequeue(&self) -> Option<Envelope> {
-        self.queue.lock().unwrap().pop_front()
+        self.locked().pop_front()
     }
 
     fn number_of_messages(&self) -> usize {
-        self.queue.lock().unwrap().len()
+        self.locked().len()
     }
 
     fn has_messages(&self) -> bool {
-        !self.queue.lock().unwrap().is_empty()
+        !self.locked().is_empty()
     }
 
     fn clean_up(&self, dead_letters: &dyn MessageQueue) {
@@ -160,9 +167,8 @@ mod tests {
             .collect()
     }
 
-    fn dead_letters_told(fixture: &Fixture) -> Vec<DeadLetter> {
-        fixture
-            .dead_letters
+    fn dead_letters_told(dead_letters: &Recorder) -> Vec<DeadLetter> {
+        dead_letters
             .told
             .lock()
             .unwrap()
@@ -176,8 +182,8 @@ mod tests {
             .collect()
     }
 
-    fn dead_texts(fixture: &Fixture) -> Vec<String> {
-        dead_letters_told(fixture)
+    fn dead_texts(dead_letters: &Recorder) -> Vec<String> {
+        dead_letters_told(dead_letters)
             .iter()
             .map(|dead| {
                 dead.message
@@ -213,7 +219,7 @@ mod tests {
         }
         assert_eq!(f.queue.number_of_messages(), 3);
         assert_eq!(drain(&*f.queue), ["a", "b", "c"]);
-        assert!(dead_letters_told(&f).is_empty());
+        assert!(dead_letters_told(&f.dead_letters).is_empty());
     }
 
     #[test]
@@ -223,7 +229,7 @@ mod tests {
             f.queue.enqueue(envelope(name, None));
         }
         assert_eq!(f.queue.number_of_messages(), 3);
-        assert_eq!(dead_texts(&f), ["d", "e"]);
+        assert_eq!(dead_texts(&f.dead_letters), ["d", "e"]);
         assert_eq!(drain(&*f.queue), ["a", "b", "c"]);
     }
 
@@ -238,7 +244,7 @@ mod tests {
             f.queue.enqueue(envelope(name, None));
         }
         assert_eq!(drain(&*f.queue), ["b", "d"]);
-        assert_eq!(dead_texts(&f), ["c", "e"]);
+        assert_eq!(dead_texts(&f.dead_letters), ["c", "e"]);
     }
 
     #[test]
@@ -248,7 +254,7 @@ mod tests {
             f.queue.enqueue(envelope(name, None));
         }
         assert!(!f.queue.has_messages() && f.queue.number_of_messages() == 0);
-        assert_eq!(dead_texts(&f), ["a", "b"]);
+        assert_eq!(dead_texts(&f.dead_letters), ["a", "b"]);
     }
 
     #[test]
@@ -269,7 +275,7 @@ mod tests {
         let f = fixture(0, "recv");
         f.queue.enqueue(envelope("orphan", None));
 
-        let dead = &dead_letters_told(&f)[0];
+        let dead = &dead_letters_told(&f.dead_letters)[0];
         assert!(dead.sender == f.dead_letters_ref);
     }
 
@@ -287,7 +293,7 @@ mod tests {
             sender: Some(snd),
         });
 
-        let dead = &dead_letters_told(&f)[0];
+        let dead = &dead_letters_told(&f.dead_letters)[0];
         let wrapped = dead.message.downcast_ref::<DeadLetter>().unwrap();
         assert_eq!(wrapped.message.downcast_ref::<String>().unwrap(), "inner");
     }
@@ -306,7 +312,31 @@ mod tests {
             f.queue.enqueue(envelope(name, None));
         }
         assert_eq!(drain(&*f.queue), ["e", "f", "g"]);
-        assert_eq!(dead_texts(&f), ["d", "h"]);
+        assert_eq!(dead_texts(&f.dead_letters), ["d", "h"]);
+    }
+
+    #[test]
+    fn a_producer_that_panicked_under_the_lock_does_not_stop_the_other_threads() {
+        let (_, dead_letters) = recorder("pekko://sys/deadLetters");
+        let (_, owner) = recorder("pekko://sys/user/recv");
+        let queue = Arc::new(BoundedNodeMessageQueue {
+            capacity: 2,
+            owner,
+            dead_letters,
+            queue: Mutex::new(VecDeque::new()),
+        });
+        let poisoner = Arc::clone(&queue);
+        let panicked = thread::spawn(move || {
+            let _guard = poisoner.queue.lock().unwrap();
+            panic!("a thread dies holding the queue lock");
+        })
+        .join();
+        assert!(panicked.is_err() && queue.queue.is_poisoned());
+
+        queue.enqueue(envelope("still", None));
+
+        assert_eq!(drain(&*queue), ["still"]);
+        assert!(!queue.has_messages());
     }
 
     #[test]
@@ -399,16 +429,7 @@ mod tests {
         run_producers(&queue, 4, 50);
 
         let kept = drain(&*queue);
-        let dead: Vec<String> = dead_letters
-            .told
-            .lock()
-            .unwrap()
-            .iter()
-            .map(|(m, _)| {
-                let dead = m.downcast_ref::<DeadLetter>().unwrap();
-                dead.message.downcast_ref::<String>().unwrap().clone()
-            })
-            .collect();
+        let dead = dead_texts(&dead_letters);
         assert_eq!((kept.len(), dead.len()), (10, 190));
         assert!(per_producer_in_order(&kept));
         let all: std::collections::HashSet<_> = kept.iter().chain(&dead).collect();
@@ -471,7 +492,7 @@ mod tests {
     }
 
     fn show_dead(fixture: &Fixture) -> String {
-        let shown: Vec<String> = dead_letters_told(fixture)
+        let shown: Vec<String> = dead_letters_told(&fixture.dead_letters)
             .iter()
             .map(|dead| {
                 let message = dead

@@ -1567,8 +1567,8 @@ MUTANTS = {
     ),
     "nonblocking-queue-dequeues-the-newest": (
         "src/dispatch/bounded_node_queue.rs",
-        "        self.queue.lock().unwrap().pop_front()",
-        "        self.queue.lock().unwrap().pop_back()",
+        "        self.locked().pop_front()",
+        "        self.locked().pop_back()",
         "the consumer takes the newest envelope first (NB-QU-02)",
     ),
     "nonblocking-queue-accepts-a-negative-capacity": (
@@ -1576,6 +1576,12 @@ MUTANTS = {
         "        usize::try_from(capacity)\n            .map(|capacity| NonBlockingBoundedMailbox { capacity })\n            .map_err(|_| NegativeCapacity)",
         "        Ok(NonBlockingBoundedMailbox {\n            capacity: capacity as usize,\n        })",
         "a negative capacity becomes an enormous one instead of an IllegalArgumentException (NB-CF-01)",
+    ),
+    "nonblocking-queue-panics-on-a-poisoned-lock": (
+        "src/dispatch/bounded_node_queue.rs",
+        "        self.queue.lock().unwrap_or_else(PoisonError::into_inner)",
+        "        self.queue.lock().unwrap()",
+        "one producer that panics under the lock makes every later send and receive of the mailbox panic",
     ),
     "nonblocking-queue-clean-up-moves-only-the-first": (
         "src/dispatch/bounded_node_queue.rs",
@@ -1696,6 +1702,7 @@ UNIT_MUTANTS = {
     "nonblocking-queue-holds-its-lock-while-dead-lettering": ("dispatch::bounded_node_queue", "a_dead_letters_that_calls_back_into_the_queue_does_not_deadlock_the_producer"),
     "nonblocking-queue-dequeues-the-newest": ("dispatch::bounded_node_queue", "dequeue_frees_a_slot_and_the_order_stays_first_in_first_out"),
     "nonblocking-queue-accepts-a-negative-capacity": ("dispatch::bounded_node_queue", "a_negative_capacity_is_rejected_with_the_pekko_message_and_zero_and_the_maximum_pass"),
+    "nonblocking-queue-panics-on-a-poisoned-lock": ("dispatch::bounded_node_queue", "a_producer_that_panicked_under_the_lock_does_not_stop_the_other_threads"),
     "nonblocking-queue-clean-up-moves-only-the-first": ("dispatch::bounded_node_queue", "clean_up_moves_a_full_queue_to_the_target_in_order_and_frees_every_slot"),
 }
 

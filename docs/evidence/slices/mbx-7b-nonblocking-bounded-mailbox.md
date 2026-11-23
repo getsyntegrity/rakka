@@ -83,3 +83,17 @@ Veredicto: aprobado, sin bloqueantes (paridad de capacidad incl. 0, contenido de
   Pekko excluye esta cola en mailboxes compartidos (`BalancingPool`).
 - **NB-CF-02 y NB-CF-03 sin gemelo Rust:** quedan para el PR 10 (`Mailboxes`/Config) y para el cableado del Dispatcher, respectivamente.
 - `lock().unwrap()` sólo entra en pánico con un lock envenenado, inalcanzable porque no se ejecuta código ajeno bajo el lock.
+
+## Menores de la aprobación del Owner (commit posterior a 6d5ab3e)
+
+- `lock().unwrap()` de la cola pasa a un único `locked()` que tolera un lock envenenado (`PoisonError::into_inner`): nada ajeno corre bajo el lock,
+  de modo que la cola queda consistente. Prueba: `a_producer_that_panicked_under_the_lock_does_not_stop_the_other_threads` (19 pruebas del módulo).
+  Mutante nuevo `nonblocking-queue-panics-on-a-poisoned-lock`.
+- Duplicación de los ayudantes de prueba (`dead_letters_told`, `dead_texts`) eliminada: ahora toman el `Recorder`.
+- Mutantes: 8/8 DETECTED (los 7 anteriores re-ejecutados sobre el código final + el nuevo); el control de cada uno (las mismas pruebas sin mutar) pasa.
+  No se repitió el replay completo (control CLEAN 2960/2960 de 6d5ab3e): el binario `classic-parity` no usa este módulo.
+- **Excepción de tamaño, sólo #331:** ~100 líneas de producción, pero el diff total supera las 400 líneas autoradas porque el contrato exige, en el mismo PR,
+  el oráculo JVM nuevo, su golden y manifiesto, las pruebas gemelas y los mutantes. No se separó para no dejar producción sin su evidencia.
+- **Falla preexistente, ajena a este PR:** `cargo test --workspace` falla en `recorded_pekko::recorded_mailbox_status_cases_match_pekko` por `MBX-UT-01`
+  (id de #329 presente en `cases/oracle-ids/mailbox.txt` pero ni grabado ni listado como no producido en el arnés). La base
+  `origin/feat/pekko-rust-pilot-migration` no menciona `MBX-UT-01` en `mailbox_cases.rs` y este PR no toca ese archivo ni los ids.
