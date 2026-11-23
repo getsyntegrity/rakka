@@ -196,6 +196,7 @@ mod turn_limits_with_real_actors {
             parallelism: 1,
             throughput,
             throughput_deadline_time: deadline,
+            ..Settings::default()
         };
         let system = ActorSystem::create_with_clock("turns", settings, clock.clone()).unwrap();
         let log: Log = Log::default();

@@ -171,8 +171,11 @@ final class MailboxOracle {
     final AtomicInteger started = new AtomicInteger();
     final AtomicReference<String> note = new AtomicReference<>();
     final ActorSystem sys;
-    Env(int throughput, String deadline) {
-      sys = ActorSystem.create("mbx", ConfigFactory.parseString("pekko { loglevel = OFF\n stdout-loglevel = OFF\n log-dead-letters = off\n }\n"
+    final ConcurrentLinkedQueue<String> warnings = new ConcurrentLinkedQueue<>();
+    Env(int throughput, String deadline) { this(throughput, deadline, null); }
+    Env(int throughput, String deadline, String pushTimeout) {
+      sys = ActorSystem.create("mbx", ConfigFactory.parseString("pekko { loglevel = OFF\n stdout-loglevel = OFF\n log-dead-letters = off\n"
+          + (pushTimeout == null ? "" : " actor.unstarted-push-timeout = " + pushTimeout + "\n") + " }\n"
           + "t-disp { type = Dispatcher\n executor = thread-pool-executor\n thread-pool-executor.fixed-pool-size = 1\n throughput = " + throughput
           + "\n throughput-deadline-time = " + deadline + " }\n hook-mailbox.mailbox-type = \"pilot.MailboxOracle$HookType\"\n"
           + "failing-mailbox.mailbox-type = \"pilot.MailboxOracle$FailingType\"\n"
@@ -181,6 +184,7 @@ final class MailboxOracle {
       ActorRef listener = sys.actorOf(Props.create(Listener.class, dead));
       sys.eventStream().subscribe(listener, DeadLetter.class);
       sys.eventStream().subscribe(sys.actorOf(Props.create(ErrorListener.class, errors)), Logging.Error.class);
+      if (pushTimeout != null) sys.eventStream().subscribe(sys.actorOf(Props.create(WarningListener.class, warnings)), Logging.Warning.class);
     }
     ActorRef spawn(String name, Hooks hooks) throws Exception { return spawnOn("t-disp", name, hooks); }
     ActorRef spawnOn(String dispatcher, String name) throws Exception { return spawnOn(dispatcher, name, null); }
@@ -276,6 +280,50 @@ final class MailboxOracle {
       }).matchEquals("who", w -> env.note.set("children=" + getContext().findChild("c").isPresent())).build();
     }
   }
+
+  /** Records `logSource|logClass|message` of every {@code Logging.Warning} published on the event stream. */
+  public static final class WarningListener extends AbstractActor {
+    final Collection<String> warnings; WarningListener(Collection<String> warnings) { this.warnings = warnings; }
+    @Override public Receive createReceive() {
+      return receiveBuilder().match(Logging.Warning.class, w -> warnings.add(w.logSource() + "|" + w.logClass().getName() + "|" + w.message())).build();
+    }
+  }
+
+  /** Blocks the hand-over of "m1" into the real mailbox: {@code UnstartedCell.replaceWith} keeps its lock while the hook waits. */
+  static final class BlockingHooks extends Hooks {
+    final CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+    @Override void onEnqueue(Object msg) throws Exception { if ("m1".equals(msg)) { entered.countDown(); release.await(); } }
+  }
+
+  /** While "m1" is handed over it sends "m2" to the same reference, on the same thread: the lock of the unstarted cell is reentrant. */
+  static final class ReentrantHooks extends Hooks {
+    final AtomicReference<ActorRef> child; ReentrantHooks(AtomicReference<ActorRef> child) { this.child = child; }
+    @Override void onEnqueue(Object msg) { if ("m1".equals(msg)) child.get().tell("m2", ActorRef.noSender()); }
+  }
+
+  /** Creates a child with {@code attachChild} (the asynchronous path) and sends it "m1" while it is unstarted; the hand-over of "m1"
+   *  then blocks in {@link BlockingHooks} while this actor processes {@code Supervise}. */
+  public static final class PushSpawner extends AbstractActor {
+    final Env env; final Hooks hooks; final AtomicReference<ActorRef> child;
+    PushSpawner(Env env, Hooks hooks, AtomicReference<ActorRef> child) { this.env = env; this.hooks = hooks; this.child = child; }
+    @Override public Receive createReceive() {
+      return receiveBuilder().matchEquals("go", g -> {
+        nextHooks = hooks;
+        ActorRef c = ((ActorCell) getContext()).attachChild(Props.create(Worker.class, env).withMailbox("hook-mailbox"), "c", false);
+        c.tell("m1", ActorRef.noSender());
+        child.set(c);
+      }).build();
+    }
+  }
+
+  static ActorRef pushChild(Env e, BlockingHooks h) {
+    AtomicReference<ActorRef> child = new AtomicReference<>();
+    e.sys.actorOf(Props.create(PushSpawner.class, e, h, child), "spawner").tell("go", ActorRef.noSender());
+    awaitUntil(() -> h.entered.getCount() == 0); // the hand-over is in progress and holds the lock
+    return child.get();
+  }
+
+  static void pause(long ms) { try { Thread.sleep(ms); } catch (InterruptedException x) { throw new RuntimeException(x); } } // a bounded wait for an absence
 
   /** The errors published by cells themselves: the supervisor's {@code logFailure} lines carry the failure's own class and are left out. */
   static List<String> cellErrors(Env e) {
@@ -531,6 +579,56 @@ final class MailboxOracle {
         return e.note.get() + " dispatcherErrors=" + dispatcherErrors + " rejectionsLeft=" + REJECT_NEXT.get() + " startedActors=" + e.started.get() + " parentTerminated=" + in(p).isTerminated();
       }
     });
+    run("MBX-PT-01 a send that waits for the unstarted cell's lock longer than unstarted-push-timeout is a dead letter with a Warning", () -> {
+      try (Env e = new Env(5, "0ms", "300ms")) {
+        BlockingHooks h = new BlockingHooks(); ActorRef c = pushChild(e, h);
+        long t0 = System.nanoTime(); c.tell("m2", ActorRef.noSender()); long ms = (System.nanoTime() - t0) / 1_000_000;
+        awaitUntil(() -> !e.dead.isEmpty() && !e.warnings.isEmpty());
+        h.release.countDown(); awaitUntil(() -> e.log.size() == 1); pause(300);
+        return "waitedTheTimeout=" + (ms >= 300) + " returnedWithinBound=" + (ms < 5000) + " deadLetters=" + e.dead + " warnings=" + e.warnings + " log=" + e.log;
+      }
+    });
+    run("MBX-PT-02 a send that waits for the lock while the hand-over ends before the timeout is delivered after the queued messages", () -> {
+      try (Env e = new Env(5, "0ms", "10s")) {
+        BlockingHooks h = new BlockingHooks(); ActorRef c = pushChild(e, h);
+        Thread t = new Thread(() -> c.tell("m2", ActorRef.noSender())); t.start();
+        awaitUntil(() -> t.getState() == Thread.State.TIMED_WAITING);
+        h.release.countDown(); try { t.join(); } catch (InterruptedException x) { throw new RuntimeException(x); }
+        awaitUntil(() -> e.log.size() == 2); pause(300);
+        return "log=" + e.log + " deadLetters=" + e.dead + " warnings=" + e.warnings;
+      }
+    });
+    run("MBX-PT-03 a system message waits for the lock without a timeout and is delivered once the hand-over ends", () -> {
+      try (Env e = new Env(5, "0ms", "300ms")) {
+        BlockingHooks h = new BlockingHooks(); ActorRef c = pushChild(e, h);
+        Thread t = new Thread(() -> in(c).suspend()); t.start();
+        awaitUntil(() -> t.getState() == Thread.State.WAITING);
+        pause(1000); // three timeouts
+        boolean stillBlocked = t.getState() == Thread.State.WAITING;
+        h.release.countDown(); try { t.join(); } catch (InterruptedException x) { throw new RuntimeException(x); }
+        awaitUntil(() -> box(c).suspendCount() == 1);
+        return "stillBlockedAfterThreeTimeouts=" + stillBlocked + " suspendCount=" + box(c).suspendCount() + " deadLetters=" + e.dead + " warnings=" + e.warnings;
+      }
+    });
+    run("MBX-PT-06 the thread that hands the queue over can send to the same reference: its message joins the queue, not the timeout", () -> {
+      try (Env e = new Env(5, "0ms", "300ms")) {
+        AtomicReference<ActorRef> child = new AtomicReference<>();
+        e.sys.actorOf(Props.create(PushSpawner.class, e, new ReentrantHooks(child), child), "spawner").tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.log.size() == 2); pause(300);
+        return "log=" + e.log + " deadLetters=" + e.dead + " warnings=" + e.warnings;
+      }
+    });
+    for (String timeout : new String[] { "0s", "-1s" }) {
+      run("MBX-PT-0" + (timeout.equals("0s") ? "4" : "5") + " unstarted-push-timeout = " + timeout + ": a send that finds the lock held is dropped at once", () -> {
+        try (Env e = new Env(5, "0ms", timeout)) {
+          BlockingHooks h = new BlockingHooks(); ActorRef c = pushChild(e, h);
+          long t0 = System.nanoTime(); c.tell("m2", ActorRef.noSender()); long ms = (System.nanoTime() - t0) / 1_000_000;
+          awaitUntil(() -> !e.dead.isEmpty() && !e.warnings.isEmpty());
+          h.release.countDown(); awaitUntil(() -> e.log.size() == 1); pause(300);
+          return "returnedWithinBound=" + (ms < 5000) + " deadLetters=" + e.dead + " warnings=" + e.warnings + " log=" + e.log;
+        }
+      });
+    }
     run("MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order", () -> {
       try (Env e = new Env(5, "0ms")) {
         AtomicReference<ActorRef> child = new AtomicReference<>();
