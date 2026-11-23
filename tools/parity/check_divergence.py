@@ -925,8 +925,8 @@ MUTANTS = {
     ),
     "recreate-of-a-failed-creation-stays-a-recreate": (
         "src/actor/cell.rs",
-        "if self.st.lock().unwrap().actor.is_none() {",
-        "if false && self.st.lock().unwrap().actor.is_none() {",
+        "if self.has_no_instance() {\n            // there is no instance to restart",
+        "if false && self.has_no_instance() {\n            // there is no instance to restart",
         "a Recreate that reaches an actor with no instance is not turned into a Create: no `changing Recreate into Create` error",
     ),
     "resume-of-a-failed-creation-stays-a-resume": (
