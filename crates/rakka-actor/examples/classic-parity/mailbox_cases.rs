@@ -123,6 +123,10 @@ pub const PENDING: &[(&str, &str)] = &[
         "needs a cell that cannot be made (a mailbox type that throws in Pekko) and an executor that runs nothing by itself (internal): produced in-crate by actor::init_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C1)",
     ),
     (
+        "MBX-IF-05 a supervisor that resumes on ActorInitializationException: the failed creation becomes a Create and the actor starts",
+        "needs a cell that cannot be made (a mailbox type that throws in Pekko) and an executor that runs nothing by itself (internal): produced in-crate by actor::init_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C1)",
+    ),
+    (
         "MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once",
         "needs attachChild inside the parent's turn and an executor that runs nothing by itself (internal): produced in-crate by actor::async_creation_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice B)",
     ),

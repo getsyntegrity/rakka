@@ -84,7 +84,7 @@ impl RepointableActorRef {
 
     /// `point(catchFailures)` (`RepointableActorRef.scala:112-135`): makes the real cell, starts it (the dispatcher attaches it) and
     /// installs it. On a started reference, or one that has no cell factory, it does nothing. The factory already catches a failure of
-    /// `newCell` (`catchFailures = true`, the only way a reference is pointed here) and answers `ActorCell::new_with_failure`.
+    /// `newCell` (`catchFailures = true`: every `RepointableActorRef` is made for an asynchronous child, `Supervise(async = true)`) and answers `ActorCell::new_with_failure`.
     pub(crate) fn point(&self) {
         let Some(me) = self.me.upgrade() else {
             return;

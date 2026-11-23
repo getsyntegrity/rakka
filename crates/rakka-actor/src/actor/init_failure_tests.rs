@@ -71,11 +71,17 @@ struct RestartingParent {
     child_props: Props,
     child: Arc<Mutex<Option<ActorRef>>>,
     cell_can_be_made: bool,
+    resumes: bool,
 }
 
 impl Actor for RestartingParent {
     fn supervisor_strategy(&self) -> SupervisorStrategy {
-        OneForOneStrategy::new(10, |_| Directive::Restart).into()
+        let directive = if self.resumes {
+            Directive::Resume
+        } else {
+            Directive::Restart
+        };
+        OneForOneStrategy::new(10, move |_| directive).into()
     }
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if msg.downcast_ref::<String>().map(String::as_str) != Some("go") {
@@ -174,9 +180,8 @@ fn messages_sent_to_an_actor_whose_cell_cannot_be_made_are_dead_letters() {
     assert_eq!(observed, recorded("MBX-IF-02"));
 }
 
-#[test]
-fn a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_actor_starts() {
-    // twin of oracle case MBX-IF-03
+/// What the oracle prints for an actor whose cell cannot be made under a supervisor that answers every failure with `directive`.
+fn actor_started_by_a_supervisor_that_answers(resumes: bool) -> String {
     let fixture = Fixture::in_system("mbx");
     let errors = collect_errors(&fixture);
     let (starts, log) = (Arc::new(AtomicUsize::new(0)), Log::default());
@@ -190,6 +195,7 @@ fn a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_ac
                     child_props: child_props.clone(),
                     child: child.clone(),
                     cell_can_be_made: false,
+                    resumes,
                 }),
                 "parent",
             )
@@ -204,14 +210,31 @@ fn a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_ac
     run_until(&fixture, "the actor to handle the message", || {
         log.lock().unwrap().len() == 1
     });
-    let observed = format!(
+    format!(
         "errors=[{}] started={} log=[{}] terminated={}",
         published_errors(&errors).join(", "),
         starts.load(Ordering::SeqCst),
         joined(&log),
         child.is_terminated()
+    )
+}
+
+#[test]
+fn a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_actor_starts() {
+    // twin of oracle case MBX-IF-03
+    assert_eq!(
+        actor_started_by_a_supervisor_that_answers(false),
+        recorded("MBX-IF-03")
     );
-    assert_eq!(observed, recorded("MBX-IF-03"));
+}
+
+#[test]
+fn a_supervisor_that_resumes_turns_the_failed_creation_into_a_create_and_the_actor_starts() {
+    // twin of oracle case MBX-IF-05
+    assert_eq!(
+        actor_started_by_a_supervisor_that_answers(true),
+        recorded("MBX-IF-05")
+    );
 }
 
 /// Subscribes an actor to the dead letters and returns the text of what it collects.
@@ -305,6 +328,7 @@ fn an_actor_that_fails_to_start_after_creating_a_child_is_restarted_as_a_create_
                     child_props: child_props.clone(),
                     child: child.clone(),
                     cell_can_be_made: true,
+                    resumes: false,
                 }
             }),
             "sup",

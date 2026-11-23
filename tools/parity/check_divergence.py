@@ -929,6 +929,12 @@ MUTANTS = {
         "if false && self.st.lock().unwrap().actor.is_none() {",
         "a Recreate that reaches an actor with no instance is not turned into a Create: no `changing Recreate into Create` error",
     ),
+    "resume-of-a-failed-creation-stays-a-resume": (
+        "src/actor/cell.rs",
+        'self.change_into_create("Resume", cause.as_ref());',
+        "self.fault_create();",
+        "a Resume that reaches an actor with no instance creates it without the `changing Resume into Create` error",
+    ),
     "fault-create-does-not-wait-for-the-children": (
         "src/actor/cell.rs",
         "if !self.children.lock().unwrap().set_creation_reason() {",
@@ -1526,6 +1532,7 @@ UNIT_MUTANTS = {
     "init-with-failure-forgets-the-failure": ("actor::init_failure_tests", "a_cell_that_cannot_be_made_is_stopped_by_the_supervisor_and_the_actor_never_starts"),
     "init-with-failure-text-differs": ("actor::init_failure_tests", "a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
     "recreate-of-a-failed-creation-stays-a-recreate": ("actor::init_failure_tests", "a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
+    "resume-of-a-failed-creation-stays-a-resume": ("actor::init_failure_tests", "a_supervisor_that_resumes_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
     "fault-create-does-not-wait-for-the-children": ("actor::init_failure_tests", "an_actor_that_fails_to_start_after_creating_a_child_is_restarted_as_a_create_once_its_children_are_gone"),
 }
 

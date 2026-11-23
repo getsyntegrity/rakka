@@ -199,7 +199,8 @@ impl ActorCell {
 
     /// `initWithFailure(failure)`: the replacement for a cell that could not be made. It runs on the system's default dispatcher with
     /// an unbounded mailbox, and its only message is `Create` carrying `ActorInitializationException(self, "failure while creating
-    /// ActorCell", failure)`; the supervisor was already told about the actor when the reference was made.
+    /// ActorCell", failure)`; the supervisor was already told about the actor when the reference was made. Pekko keeps `failure` as the exception's
+    /// cause; `Throwable` has no cause chain, so it is not kept (the supervisor's `logFailure` text, which reads it, is another contract).
     pub(crate) fn new_with_failure(
         system: &Arc<SystemInner>,
         props: Props,
@@ -742,6 +743,11 @@ impl ActorCell {
     /// the cause back (it clears its own failure), every other child only loses one suspension. `cause` is `None` for an actor that was merely suspended
     /// along with its failed parent.
     fn fault_resume(self: &Arc<Self>, cause: Option<Throwable>) {
+        if self.has_no_instance() {
+            // there is no instance to resume (it never got created): `Resume` becomes `Create`
+            self.change_into_create("Resume", cause.as_ref());
+            return;
+        }
         let perp = self.st.lock().unwrap().perpetrator.clone();
         self.resume_after_failure(cause.is_some());
         for k in self.children.lock().unwrap().children() {
@@ -756,18 +762,9 @@ impl ActorCell {
 
     /// `faultRecreate`: `preRestart` on the failed instance, wait for the children to die, then `finishRecreate`.
     fn fault_recreate(self: &Arc<Self>, cause: Throwable) {
-        if self.st.lock().unwrap().actor.is_none() {
+        if self.has_no_instance() {
             // there is no instance to restart (it never got created): `Recreate` becomes `Create`
-            report_dispatch_failure(
-                &self.system.events,
-                ErrorEvent {
-                    cause: Throwable::new("org.apache.pekko.event.Logging$Error$NoCause$", None),
-                    log_source: self.path.to_string(),
-                    log_class: reporter_class(self.st.lock().unwrap().actor_class),
-                    message: format!("changing Recreate into Create after {cause}"),
-                },
-            );
-            self.fault_create();
+            self.change_into_create("Recreate", Some(&cause));
             return;
         }
         if self.children.lock().unwrap().is_terminating() {
@@ -786,6 +783,28 @@ impl ActorCell {
         } else {
             self.finish_recreate(cause);
         }
+    }
+
+    /// `actor eq null`: the cell has no instance, and none waits to be replaced (an actor that restarts while its children die
+    /// keeps `_actor` in Pekko, here it is parked in `replaced_actor`).
+    fn has_no_instance(&self) -> bool {
+        let state = self.st.lock().unwrap();
+        state.actor.is_none() && state.replaced_actor.is_none()
+    }
+
+    /// `changing <directive> into Create after <cause>`: publishes the error, then `faultCreate`.
+    fn change_into_create(self: &Arc<Self>, directive: &str, cause: Option<&Throwable>) {
+        let cause = cause.map_or_else(|| "null".to_owned(), ToString::to_string);
+        report_dispatch_failure(
+            &self.system.events,
+            ErrorEvent {
+                cause: Throwable::new("org.apache.pekko.event.Logging$Error$NoCause$", None),
+                log_source: self.path.to_string(),
+                log_class: reporter_class(self.st.lock().unwrap().actor_class),
+                message: format!("changing {directive} into Create after {cause}"),
+            },
+        );
+        self.fault_create();
     }
 
     /// `faultCreate`: stop the children, then create the actor again (`finishCreate`) once they are gone.

@@ -113,10 +113,11 @@ final class MailboxOracle {
 
   /** Creates a child whose cell cannot be made, inside its own turn, and restarts it when it fails to initialise. */
   public static final class RestartingParent extends AbstractActor {
-    final Env env; final AtomicReference<ActorRef> child;
-    RestartingParent(Env env, AtomicReference<ActorRef> child) { this.env = env; this.child = child; }
+    final Env env; final AtomicReference<ActorRef> child; final boolean resume;
+    RestartingParent(Env env, AtomicReference<ActorRef> child) { this(env, child, false); }
+    RestartingParent(Env env, AtomicReference<ActorRef> child, boolean resume) { this.env = env; this.child = child; this.resume = resume; }
     @Override public SupervisorStrategy supervisorStrategy() {
-      return new OneForOneStrategy(10, java.time.Duration.ofMinutes(1), t -> SupervisorStrategy.restart());
+      return new OneForOneStrategy(10, java.time.Duration.ofMinutes(1), t -> resume ? SupervisorStrategy.resume() : SupervisorStrategy.restart());
     }
     @Override public Receive createReceive() {
       return receiveBuilder().matchEquals("go", g ->
@@ -570,6 +571,17 @@ final class MailboxOracle {
         child.get().tell("m", ActorRef.noSender());
         awaitUntil(() -> e.log.contains("r:m"));
         return "errors=" + cellErrors(e) + " starts=" + starts.get() + " childStarts=" + e.started.get() + " log=" + e.log + " terminated=" + in(child.get()).isTerminated();
+      }
+    });
+    run("MBX-IF-05 a supervisor that resumes on ActorInitializationException: the failed creation becomes a Create and the actor starts", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        AtomicReference<ActorRef> child = new AtomicReference<>();
+        e.sys.actorOf(Props.create(RestartingParent.class, e, child, true), "parent").tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.started.get() == 1);
+        ActorRef c = child.get();
+        c.tell("m", ActorRef.noSender());
+        awaitUntil(() -> e.log.size() == 1);
+        return "errors=" + cellErrors(e) + " started=" + e.started.get() + " log=" + e.log + " terminated=" + in(c).isTerminated();
       }
     });
     run("MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once", () -> {
