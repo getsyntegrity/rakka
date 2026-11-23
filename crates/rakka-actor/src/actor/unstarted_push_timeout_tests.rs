@@ -401,10 +401,10 @@ fn a_timeout_too_long_for_the_clock_does_not_panic_the_sender() {
     assert_eq!(unstarted.reference.queued_user_messages(), 2);
 }
 
-/// Pekko prints the JVM class of the dropped message. Rust messages only have one when it is a `String`; any other type is reported
-/// as `java.lang.Object` (the one place the warning cannot match the JVM for every message type).
+/// Pekko prints the JVM class of the dropped message. A Rust `String` is the JVM `String`; for any other Rust type the class is not
+/// invented: the text says the type is unknown (the one place the warning cannot match the JVM for every message type).
 #[test]
-fn a_dropped_message_of_a_type_without_a_jvm_class_is_reported_as_an_object() {
+fn a_dropped_message_of_a_type_without_a_jvm_class_reports_an_unknown_type_not_an_invented_class() {
     let mut blocked = BlockedHandOver::start(Duration::ZERO);
     blocked.time_a_send_of(42_u32);
     blocked.wait_for_the_drop();
@@ -412,7 +412,60 @@ fn a_dropped_message_of_a_type_without_a_jvm_class_is_reported_as_an_object() {
     assert_eq!(
         *blocked.recorder.warnings.lock().unwrap(),
         [format!(
-            "{REFERENCE_PATH}|org.apache.pekko.actor.UnstartedCell|dropping message of typeclass java.lang.Object due to lock timeout"
+            "{REFERENCE_PATH}|org.apache.pekko.actor.UnstartedCell|dropping message of typeclass <unknown Rust type> due to lock timeout"
         )]
     );
 }
+
+fn runtime_settings_configured_with(application_conf: &str) -> Settings {
+    let config = crate::config::Config::parse_string(application_conf)
+        .unwrap()
+        .with_fallback(&crate::config::Config::default_reference())
+        .resolve()
+        .unwrap();
+    Settings::from_config(&crate::config::Settings::new("configured", config).unwrap())
+}
+
+/// The value of `pekko.actor.unstarted-push-timeout` reaches the runtime `Settings`. The JVM reads it with `getMillisDuration`
+/// (recorded cases `cs-0099..0102`); a negative timeout makes `tryLock` behave as zero (`MBX-PT-05`).
+#[test]
+fn the_configured_unstarted_push_timeout_reaches_the_runtime_settings() {
+    for (configured, expected) in [
+        ("", Duration::from_secs(10)),
+        (
+            "pekko.actor.unstarted-push-timeout = 300ms",
+            Duration::from_millis(300),
+        ),
+        (
+            "pekko.actor.unstarted-push-timeout = 1 minute",
+            Duration::from_secs(60),
+        ),
+        ("pekko.actor.unstarted-push-timeout = 0s", Duration::ZERO),
+        ("pekko.actor.unstarted-push-timeout = -1s", Duration::ZERO),
+        ("pekko.actor.unstarted-push-timeout = -5ms", Duration::ZERO),
+    ] {
+        assert_eq!(
+            runtime_settings_configured_with(configured).unstarted_push_timeout,
+            expected,
+            "{configured:?}"
+        );
+    }
+}
+
+/// The configured value is the one the references of the actors made by `actorOf` use (the real creation path).
+#[test]
+fn an_actor_of_reference_uses_the_configured_unstarted_push_timeout() {
+    let system = ActorSystem::create_with_settings(
+        "configured",
+        runtime_settings_configured_with("pekko.actor.unstarted-push-timeout = 300ms"),
+    )
+    .unwrap();
+    let actor = system
+        .actor_of(crate::actor::props::Props::new(|| NoOp))
+        .unwrap();
+    let timeout = actor.0.as_repointable().unwrap().push_timeout();
+    assert_eq!(timeout, Some(Duration::from_millis(300)));
+}
+
+struct NoOp;
+impl crate::actor::props::Actor for NoOp {}

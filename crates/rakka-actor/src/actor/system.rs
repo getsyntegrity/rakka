@@ -74,6 +74,20 @@ pub struct Settings {
     pub unstarted_push_timeout: Duration,
 }
 
+impl Settings {
+    /// The runtime settings that the configuration decides. Only `pekko.actor.unstarted-push-timeout` is read from it so far; the
+    /// dispatcher's keys (`parallelism`, `throughput`, `throughput-deadline-time`) keep their defaults until the system is created from a
+    /// configuration. A negative timeout is zero, as the JVM's `tryLock` treats it.
+    pub fn from_config(config: &crate::config::Settings) -> Settings {
+        let unstarted_push_timeout = u64::try_from(config.unstarted_push_timeout.as_nanos())
+            .map_or(Duration::ZERO, Duration::from_nanos);
+        Settings {
+            unstarted_push_timeout,
+            ..Settings::default()
+        }
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {

@@ -128,7 +128,7 @@ impl RepointableActorRef {
     }
 
     /// A user message that waited for the lock longer than `UnstartedPushTimeout` (`sendMessage`'s `else` branch): a `Warning` and a
-    /// dead letter. The message class is the JVM's (`class java.lang.String`) for the types that have one.
+    /// dead letter. The message class is the JVM's (`class java.lang.String`) only for a Rust `String`; any other type is reported as unknown.
     fn drop_after_lock_timeout(
         &self,
         policy: &PushPolicy,
@@ -281,6 +281,12 @@ impl RepointableActorRef {
     /// `restart(cause)`: a `Recreate` system message.
     pub(crate) fn restart(&self, cause: Throwable) {
         self.send_system(SystemMessage::Recreate { cause });
+    }
+
+    /// The timeout this reference gives a user message that waits for the lock of its unstarted cell.
+    #[cfg(test)]
+    pub(crate) fn push_timeout(&self) -> Option<Duration> {
+        self.push_policy.as_ref().map(|policy| policy.timeout)
     }
 
     /// How many senders are waiting for the lock right now (tests use it to know a sender has reached the wait).
@@ -445,12 +451,12 @@ impl Drop for Waiting<'_> {
     }
 }
 
-/// `msg.message.getClass` as the JVM prints it, for the message types that have a JVM class.
+/// `msg.message.getClass` as the JVM prints it. Only a Rust `String` has a JVM class; a Rust type is never given an invented one.
 fn jvm_class_of(message: &AnyMessage) -> &'static str {
     if message.is::<String>() || message.is::<&'static str>() {
         "class java.lang.String"
     } else {
-        "class java.lang.Object"
+        "class <unknown Rust type>"
     }
 }
 
