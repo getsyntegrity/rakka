@@ -1,6 +1,6 @@
 # PR 7a: oráculo y contrato de `BoundedMailbox` (Pekko 2.0.0)
 
-Investigación **sin código de producción**: contratos verificados contra Apache Pekko 2.0.0 (`9fbd2283b1cf701c90a1223bf621942c191db61f`, JDK 17), escenarios JVM nuevos, golden y estabilidad. Rama `research/bounded-mailbox-7a`, base `1df22f2`. Cubre ADR-0001 §6 PR 7 (la parte `BoundedMailbox`; `NonBlockingBoundedMailbox`, AC-MBX-008, queda para 7b/otro PR) y las filas AC-MBX-007, AC-MBX-014 (`bounded-capacity:N`), AC-MBX-013/015 (selección y semántica de cola) en lo que toca a `BoundedMailbox`.
+Investigación **sin código de producción**: contratos verificados contra Apache Pekko 2.0.0 (`9fbd2283b1cf701c90a1223bf621942c191db61f`, JDK 17), escenarios JVM nuevos, golden y estabilidad. Rama `chore/bounded-mailbox-7a-oracle`, actualizada con `origin/feat/pekko-rust-pilot-migration` (C3 integrado, `8f1b0d9`). Cubre ADR-0001 §6 PR 7 (la parte `BoundedMailbox`; `NonBlockingBoundedMailbox`, AC-MBX-008, queda para 7b/otro PR) y las filas AC-MBX-007, AC-MBX-014 (`bounded-capacity:N`), AC-MBX-013/015 (selección y semántica de cola) en lo que toca a `BoundedMailbox`.
 
 Reutiliza, sin duplicar: el oráculo del PR 1 (`docs/evidence/mailbox-oracle.md`, 47 ids `MBX-*`: estado, orden sistema/usuario, cierre, `CC-05` varado, rechazo de executor `RJ-*`, `UC-*`/`IF-*`/`AC-01` de `UnstartedCell`) y `BoundedBlockingQueue` de `src/util` (AC-UTIL-012, ya validado contra el oráculo en P03: no es esta cola; `BoundedMailbox.MessageQueue` es un `LinkedBlockingQueue`, ver C2 abajo).
 
@@ -10,10 +10,10 @@ Rutas relativas a `upstream/pekko/actor/src/main/scala/org/apache/pekko/` salvo 
 
 | # | Contrato | Cita |
 |---|---|---|
-| C1 | `BoundedMailbox(capacity: Int, pushTimeOut: FiniteDuration)` es una `case class` final. El constructor valida **sólo** `capacity < 0` (IAE `The capacity for BoundedMailbox can not be negative`) y `pushTimeOut eq null` (IAE `...push time-out ... can not be null`). **Capacidad 0 pasa** la validación. | `dispatch/Mailbox.scala:729-742` |
-| C2 | `create` devuelve `BoundedMailbox.MessageQueue(capacity, pushTimeOut)`, que **extiende `java.util.concurrent.LinkedBlockingQueue[Envelope](capacity)`**: con capacidad 0 el `create` lanza `IllegalArgumentException` (mensaje `null`) del JDK, no el tipo de mailbox. Capacidad `Int.MaxValue` es válida (`remainingCapacity == Int.MaxValue`). | `Mailbox.scala:740-749`; oráculo `BM-CF-05`, `BM-CF-06` |
+| C1 | `BoundedMailbox(capacity: Int, pushTimeOut: FiniteDuration)` es una `case class` final. El constructor valida **sólo** `capacity < 0` (IAE `The capacity for BoundedMailbox can not be negative`) y `pushTimeOut eq null` (IAE `...push time-out ... can not be null`). **Capacidad 0 pasa** la validación. | `dispatch/Mailbox.scala:729-738` |
+| C2 | `create` devuelve `BoundedMailbox.MessageQueue(capacity, pushTimeOut)`, que **extiende `java.util.concurrent.LinkedBlockingQueue[Envelope](capacity)`**: con capacidad 0 el `create` lanza `IllegalArgumentException` (mensaje `null`) del JDK, no el tipo de mailbox. Capacidad `Int.MaxValue` es válida (`remainingCapacity == Int.MaxValue`). | `Mailbox.scala:740-750`; oráculo `BM-CF-05`, `BM-CF-06` |
 | C3 | Constructor desde configuración: `new BoundedMailbox(settings, config)` lee `mailbox-capacity` (`getInt`) y `mailbox-push-timeout-time` (`getNanosDuration`, es decir `FiniteDuration` en nanosegundos). | `Mailbox.scala:733-736` |
-| C4 | Valores por defecto: `default-mailbox.mailbox-capacity = 1000`, `mailbox-push-timeout-time = 10s`, `mailbox-type = UnboundedMailbox` (la capacidad y el timeout existen aunque el tipo por defecto sea ilimitado); "negative values signify infinite timeout". Binding de requisito `BoundedMessageQueueSemantics` → `pekko.actor.mailbox.bounded-queue-based` → `BoundedMailbox`. | `resources/reference.conf:678-700,713-715,736-740` |
+| C4 | Valores por defecto: `default-mailbox.mailbox-capacity = 1000`, `mailbox-push-timeout-time = 10s`, `mailbox-type = UnboundedMailbox` (la capacidad y el timeout existen aunque el tipo por defecto sea ilimitado); "negative values signify infinite timeout". Binding de requisito `BoundedMessageQueueSemantics` → `pekko.actor.mailbox.bounded-queue-based` → `BoundedMailbox`. | `resources/reference.conf:678-700,710-715,740-744` |
 | C5 | **Enqueue** (`BoundedQueueBasedMessageQueue.enqueue`): si `pushTimeOut.length >= 0` → `queue.offer(handle, length, unit)` y, si devuelve `false`, `receiver.provider.deadLetters.tell(DeadLetter(handle.message, handle.sender, receiver), handle.sender)`; si `length < 0` → `queue.put(handle)` (espera **sin límite**). El signo se mira en `length` (no en la unidad). Timeout 0 ⇒ `offer(0)`: descarte inmediato. `dequeue` es `queue.poll()` (no bloquea). | `Mailbox.scala:581-593` |
 | C6 | `dispatch`: `mbox.enqueue(receiver.self, invocation)` **antes** de `registerForExecution(mbox, hasMessageHint = true, ...)`; el bloqueo ocurre, pues, en el hilo del emisor y antes de intentar programar el turno. `systemDispatch` usa `systemEnqueue`, **no acotado**, y no mira la capacidad. | `dispatch/Dispatcher.scala:80-96` |
 | C7 | `ActorCell.sendMessage` envuelve `dispatcher.dispatch` en `try ... catch handleException`; `InterruptedException` ⇒ Error `"interrupted during message send"` en el event stream y `Thread.currentThread().interrupt()` (el emisor interrumpido **no** ve la excepción). Otras `NonFatal` ⇒ Error `"swallowing exception during message send"`. | `actor/dungeon/Dispatch.scala:136-148,172-179` |
@@ -22,8 +22,8 @@ Rutas relativas a `upstream/pekko/actor/src/main/scala/org/apache/pekko/` salvo 
 | C10 | El mensaje en proceso ya salió de la cola: la capacidad cuenta sólo los pendientes. | oráculo `BM-AC-02` |
 | C11 | `Mailboxes.lookup(id)`: `"unbounded"` → `UnboundedMailbox`; `"bounded"` → `new BoundedMailbox(settings, config("bounded"))` (exige que exista la ruta `bounded`; en una config normal es `ConfigException.Missing`); prefijo `bounded-capacity:` → `BoundedMailbox(N, Duration.Zero)` (`id.split(':')(1).toInt`: sin número `ArrayIndexOutOfBounds`, no numérico `NumberFormatException`, `bounded-capacity:5:6` ⇒ 5); id configurado → instancia por FQCN con `(Settings, Config)`; fallo ⇒ IAE `Cannot instantiate MailboxType [...]` con causa. | `Mailboxes.scala:43,211-262` |
 | C12 | **Aviso de timeout no cero**: un mailbox `ProducesPushTimeoutSemanticsMailbox` con `pushTimeOut.toNanos > 0` publica **una sola vez por sistema** (bandera `mailboxNonZeroPushTimeoutWarningIssued`, sin sincronizar: "don't care if this happens twice") un `Warning("mailboxes", ...)` con el texto exacto; cero y negativo no avisan ni gastan el aviso; `bounded-capacity:N` y `bounded` no pasan por esa rama. | `Mailboxes.scala:130,245-262`, `Mailbox.scala:574-579` |
-| C13 | `UnstartedCell` (actor de nivel superior aún no iniciado) tiene cola propia **no acotada** y toma su lock con `tryLock(UnstartedPushTimeout)`; `replaceWith` mantiene el lock mientras entrega cada mensaje con `cell.sendMessage`, de modo que una cola acotada y llena **retiene el lock** hasta `pushTimeOut` y los emisores que esperan el lock caen a dead letters con un `Warning` (`...due to lock timeout`, texto con `"type" + class` sin espacio, tal cual). `reference.conf` lo dice: "only relevant if using a bounded mailbox". | `actor/RepointableActorRef.scala:212-300`, `reference.conf:141-145` |
-| C14 | Specs de Pekko que fijan lo observable de la cola: `MailboxConfigSpec` ("create a bounded mailbox with 10 capacity and with push timeout", `testEnqueueDequeue` con timeouts −1/0/100 ms y 4 consumidores), `ActorMailboxSpec` (selección por dispatcher/mailbox/requisito, `pushTimeOut === Duration.Zero` en `default-bounded-mailbox-with-zero-pushtimeout`). | `actor-tests/.../dispatch/MailboxConfigSpec.scala:56-92,146-190`; `actor-tests/.../actor/ActorMailboxSpec.scala:332-344` |
+| C13 | `UnstartedCell` (actor de nivel superior aún no iniciado) tiene cola propia **no acotada** y toma su lock con `tryLock(UnstartedPushTimeout)`; `replaceWith` mantiene el lock mientras entrega cada mensaje con `cell.sendMessage`, de modo que una cola acotada y llena **retiene el lock** hasta `pushTimeOut` y los emisores que esperan el lock caen a dead letters con un `Warning` (`...due to lock timeout`, texto con `"type" + class` sin espacio, tal cual). `reference.conf` lo dice: "only relevant if using a bounded mailbox". | `actor/RepointableActorRef.scala:203-300` (clase 203, `replaceWith` 224, `tryLock` 268, aviso 287), `reference.conf:141-145` |
+| C14 | Specs de Pekko que fijan lo observable de la cola: `MailboxConfigSpec` ("create a bounded mailbox with 10 capacity and with push timeout", `testEnqueueDequeue` con timeouts −1/0/100 ms y 4 consumidores), `ActorMailboxSpec` (selección por dispatcher/mailbox/requisito, `pushTimeOut === Duration.Zero` en `default-bounded-mailbox-with-zero-pushtimeout`). | `actor-tests/.../dispatch/MailboxConfigSpec.scala:56-92,143-190`; `actor-tests/.../actor/ActorMailboxSpec.scala:73,118,332-344` |
 
 ### Hallazgos que contradicen o precisan lo supuesto
 
@@ -69,7 +69,7 @@ Capa por caso (política de testing §1): `CF`/`QU`/`QC` son unitarias en el con
 | Rechazo del executor | `MBX-RJ-01..07` |
 | `UnstartedCell`, `attachChild` | `MBX-UC-01..04`, `MBX-IF-01..05`, `MBX-AC-01` |
 | Cola `BoundedBlockingQueue` (otra clase) | P03 AC-UTIL-012 |
-| `unstarted-push-timeout` con cola ilimitada | C3: `MBX-PT-01..06` (rama `slice/unstarted-push-timeout-c3`, **sin integrar**; no se ha leído su contenido más allá del título de los casos) |
+| `unstarted-push-timeout` con cola ilimitada | C3 (integrado, #328): `MBX-PT-01..06` en `cases/oracle-only/mailbox-cases.tsv` / `mailbox.golden` |
 
 ## 4. Estabilidad y observables descartados
 
@@ -103,7 +103,7 @@ Descartado por no determinista o no portable (no está en el golden):
 
 ## 6. Dependencias
 
-- **C3 (`UnstartedPushTimeout`, `slice/unstarted-push-timeout-c3`)**: `BM-UC-03` y C13 dependen de que `UnstartedCell` use `tryLock(unstarted-push-timeout)` y publique el `Warning` de `lock timeout`. C3 ya añade `MBX-PT-01..06` en `MailboxOracle.java`/`mailbox.golden` con cola ilimitada; `BM-UC-03` es la variante con el **lock retenido por una cola acotada** y no la duplica. El gemelo de `BM-UC-*` no puede validarse antes de que C3 esté integrado. `BM-UC-01/02` sólo exigen Q-MBX-11 A-C2 (ya integrados: #322, #323, #326, #327).
+- **C3 (`UnstartedPushTimeout`, integrado en #328, `8f1b0d9`)**: `BM-UC-03` y C13 dependen de que `UnstartedCell` use `tryLock(unstarted-push-timeout)` y publique el `Warning` de `lock timeout`; C3 ya lo implementa en Rust (`crates/rakka-actor/src/actor/repointable.rs`: `lock_unless_handed_over`, `drop_after_lock_timeout`) y lo fija con `MBX-PT-01..06` (cola ilimitada, mailbox de prueba cuyo `enqueue` bloquea). Veredicto de consistencia en §11. El gemelo Rust de `BM-UC-*` sigue sin poder escribirse: falta `BoundedMailbox` (7b), no C3. `BM-UC-01/02` sólo exigen Q-MBX-11 A-C2 (integrados: #322, #323, #326, #327).
 - **C4 (`research/unstarted-termination-c4`)**: sin commits propios al momento de escribir esto, no se ha podido leer. Contrato afectado, a coordinar: `stop` de un actor no iniciado cuyo volcado está bloqueado en una cola acotada llena (el `Terminate` va a la cola de sistema del `UnstartedCell`, se aplica tras el volcado y los mensajes pendientes del mailbox acotado terminan como dead letters en orden, como `BM-AC-09`). **No hay caso JVM** para eso en 7a; si C4 lo define, debe correr también con `bm` acotado.
 - **Q-MBX-1 (proposed)**: bloquea la implementación Rust de AC-MBX-007; el oráculo no la necesita.
 - **Q-MBX-8 (aceptada: B+C)**: aplica a `BM-AC-11`/`BM-QU-10`; el protocolo de cierre de 4a (`enqueue_unless_closed`) debe seguir cubriendo el emisor despertado.
@@ -160,4 +160,40 @@ Archivos compartidos tocados (diff mínimo): `oracle/src/main/java/pilot/Cli.jav
 - **Identificadores locales:** las propuestas de §7 se llaman `PROP-7A-1..3` (antes `Q-MBX-12/13/14`) porque la investigación C4 propuso otro `Q-MBX-12` en paralelo. Ningún `Q-*` definitivo está asignado; se reconcilian al registrarlas. Siguen `proposed`; no se decide ningún cambio de semántica respecto de Pekko.
 - **UC-03 depende de C3:** necesita `tryLock(unstarted-push-timeout)` y su Warning; su gemelo Rust no puede validarse hasta integrar C3.
 - **C4:** la terminación de un hijo sin arrancar con mailbox acotado debe comprobarse cuando exista `BoundedMailbox`; C3 y C4 comparten archivos del oráculo de mailbox (esta rama no los toca salvo `Cli.java`, +3 líneas), y al integrar el segundo conjunto hay que verificar el orden de registro y el golden.
-- **Sin paridad entre JDK:** el oráculo solo se comprobó en JDK 17; no se declara paridad con otros JDK.
+- **JDK:** ver §12 (JDK 17 y 27 comparados byte a byte; JDK 21 no instalado).
+
+## 11. UC-03 frente al contrato de C3 integrado (`MBX-PT-*`)
+
+Leídos: `cases/oracle-only/mailbox-cases.tsv`/`mailbox.golden` (`MBX-PT-01..06`), `repointable.rs` (cabecera, `lock_unless_handed_over`, `drop_after_lock_timeout`), `RepointableActorRef.scala:203-300`.
+
+| Aspecto | `MBX-PT-01` (C3) | `BM-UC-03` (7a) | Consistente |
+|---|---|---|---|
+| Quién retiene el lock | `replaceWith` bloqueado en el `enqueue` de un mailbox de prueba | `replaceWith` bloqueado en `offer` de un `BoundedMailbox` lleno (`pushTimeOut` 2 s) | Sí: mismo mecanismo, distinto bloqueador |
+| Emisor ajeno | espera `unstarted-push-timeout` (300 ms) y su mensaje es dead letter | espera `unstarted-push-timeout` (150 ms), `late` es dead letter (`late<-deadLetters->c`) | Sí |
+| Warning | `...|UnstartedCell|dropping message of typeclass java.lang.String due to lock timeout` | misma frase, mismo texto sin espacio tras `type` | Sí en el mensaje; el registrador de 7a imprime `logSource|message` (sin `logClass`), el de C3 `logSource|logClass|message`: diferencia sólo del formato del golden, no de Pekko |
+| Mensajes ya en cola | `log=[r:m1]`: el volcado sigue | `log=[m1]`, `m2` dead letter tras su `pushTimeOut` | Sí (la parte nueva es el desborde) |
+
+Veredicto: **`BM-UC-03` es la variante acotada de `MBX-PT-01` y es consistente con ella; no la duplica** (añade la retención del lock por una cola llena y el dead letter del volcado). Los valores de umbral (150 ms vs 300 ms) difieren sólo por caso. El contrato Rust de C3 (`lock_unless_handed_over`, `drop_after_lock_timeout`) ya cubre el lado del emisor; lo que falta para un gemelo de `UC-03` es el mailbox acotado de 7b. Si se unifica el formato, basta añadir `logClass` en `Warn` de `BoundedMailboxOracle` y re-grabar (afecta `MB-01/02` y `UC-03`); no se hizo para no reescribir el golden sin necesidad.
+
+## 12. Contratos de capacidad y timeout (corrida nueva) y JDK
+
+Corrida sobre el HEAD posterior al merge de C3, golden idéntico (md5 `f5202c78f9a1abc772e0618010797ecc`):
+
+| Contrato | Id | Observado |
+|---|---|---|
+| Capacidad 0 | `CF-03`, `CF-05`, `CF-06`, `MB-03`, `AC-13` | ctor, config y `bounded-capacity:0` la aceptan; `create` lanza IAE con mensaje `null`; `actorOf` vuelve con el actor terminado sin arrancar |
+| Capacidad negativa | `CF-03`, `CF-05`, `MB-03`, `AC-14` | IAE `The capacity for BoundedMailbox can not be negative` (`-1`, `Int.MinValue`); `actorOf` por config lanza `ConfigurationException` con causa IAE |
+| Capacidad fraccionaria | `CF-03` | `1.5` ⇒ `capacity=1` (`getInt` trunca); `"7"` ⇒ 7; `2147483648` ⇒ `WrongType` |
+| Timeout, número sin unidad | `CF-02` | `5` ⇒ 5 ms (`5000000ns`); `-1` ⇒ −1 ms; `1.5s` ⇒ `1500000000ns` |
+| Timeout negativo | `CF-02`, `QU-07`, `AC-10` | `-1`, `-1ms`, `-2s` se conservan; `put` sin límite (estado `WAITING`) hasta que haya hueco; con el actor detenido no bloquea |
+| Timeout 0 | `CF-02`, `QU-01`, `MB-02` | `0` y `0s` ⇒ `0ns`; `offer` sin espera, descarte inmediato a dead letters en orden; no avisa |
+
+Ejecuciones nuevas (HEAD con C3, 16 núcleos, macOS 27.2.1; carga moderada porque otro agente construía otro oráculo):
+
+| JDK | Corridas de `bounded-mailbox-all` | Resultado |
+|---|---|---|
+| 17.0.21 (`openjdk@17`, el que usa `oracle/run.sh`) | 12 secuenciales + 12 en paralelo (4 rondas x 3 JVM) | 24/24 byte a byte iguales al golden, stderr vacío; `--runs 3`, `--per-case` (44 JVM) ok |
+| 27.0.1 (`openjdk` de Homebrew, `JAVA_HOME` sustituido) | 3 secuenciales + `--per-case` | iguales al golden y entre sí (incluidos `UC-03`, `QU-06/07` y los estados `TIMED_WAITING`/`WAITING`) |
+| 21 | no ejecutado: no instalado (`/usr/libexec/java_home` no localiza ninguno; sólo hay 8/11 de SDKMAN, 17 y 27 de Homebrew) | sin dato |
+
+Se comparó la salida completa del golden (44 líneas) producida por las mismas clases compiladas con JDK 17 (`oracle/target/classes`), ejecutadas en JDK 27; no se recompiló con otro JDK. Esto es **equivalencia de la salida de 44 casos en dos JDK**, no una paridad general entre JDK. No hubo diferencias que documentar (el texto de `ConfigException` está elidido en el golden, así que su posible variación entre JDK no queda cubierta). Las cifras de 49/49 de §8 corresponden al HEAD anterior al merge de C3 y no validan este HEAD.
