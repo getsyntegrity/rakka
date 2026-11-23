@@ -62,7 +62,7 @@ impl Executor for RejectsNext {
                 })
                 .is_ok();
             if rejected {
-                return Err(Rejected("injected"));
+                return Err(Rejected);
             }
         }
         self.pool.execute(cell)
@@ -490,7 +490,7 @@ impl Actor for SyncSpawner {
         let note = match msg.downcast_ref::<&str>().copied() {
             Some("go") => {
                 let created = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    let _ = ctx.actor_of_named(counting(&self.starts), "c");
+                    let _ = ctx.actor_of_named(Props::new(|| Worker(Log::default())), "c");
                 }));
                 match created {
                     Ok(()) => "thrown=none".to_owned(),
@@ -506,7 +506,7 @@ impl Actor for SyncSpawner {
                     }
                 }
             }
-            Some("again") => match ctx.actor_of_named(counting(&self.starts), "c") {
+            Some("again") => match ctx.actor_of_named(Props::new(|| Worker(Log::default())), "c") {
                 Ok(_) => "again=ok".to_owned(),
                 Err(error) => format!("again={}", error.class().java_name()),
             },
@@ -579,8 +579,8 @@ fn a_synchronous_actor_of_rejection_that_escapes_fails_the_parent_and_restarts_i
     let (spawner, starts, note) = fixture.sync_spawner(false);
     fixture.executor.reject_next(2);
     spawner.tell("go", None);
-    // the parent starts, its child `c` starts (to be stopped), the restarted parent starts
-    wait_until("the restart", || starts.load(Ordering::SeqCst) >= 3);
+    // the parent starts, then the restarted parent starts (the child that never attached is not counted: it may or may not run its Create)
+    wait_until("the restart", || starts.load(Ordering::SeqCst) == 2);
     std::thread::sleep(Duration::from_millis(500)); // a bounded wait for an absence
     *note.lock().unwrap() = None;
     spawner.tell("again", None);

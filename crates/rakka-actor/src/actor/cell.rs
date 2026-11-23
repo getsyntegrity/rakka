@@ -97,12 +97,9 @@ fn reporter_class(instance_class: Option<&'static str>) -> String {
     instance_class.unwrap_or(ACTOR_CLASS).to_owned()
 }
 
-/// The `RejectedExecutionException` the executor threw.
-fn rejected_execution(rejected: Rejected) -> Throwable {
-    Throwable::new(
-        "java.util.concurrent.RejectedExecutionException",
-        Some(rejected.0),
-    )
+/// `new RejectedExecutionException`.
+fn rejected_execution() -> Throwable {
+    Throwable::new("java.util.concurrent.RejectedExecutionException", None)
 }
 
 /// `LocalActorRef`.
@@ -344,7 +341,7 @@ impl ActorCell {
                 report_dispatch_failure(
                     &self.system.events,
                     ErrorEvent {
-                        cause: rejected_execution(rejected),
+                        cause: rejected_execution(),
                         log_source: DISPATCHER_CLASS.to_owned(),
                         log_class: DISPATCHER_CLASS.to_owned(),
                         message: "registerForExecution was rejected twice!".to_owned(),
@@ -370,11 +367,11 @@ impl ActorCell {
     }
 
     /// `ActorCell.handleException` for a failed dispatch (`Dispatch.scala:129-141`): the sender swallows the exception and reports it.
-    fn swallow_failed_send(&self, rejected: Rejected) {
+    fn swallow_failed_send(&self, _rejected: Rejected) {
         report_dispatch_failure(
             &self.system.events,
             ErrorEvent {
-                cause: rejected_execution(rejected),
+                cause: rejected_execution(),
                 log_source: self.path.to_string(),
                 log_class: reporter_class(self.st.lock().unwrap().actor_class),
                 message: "swallowing exception during message send".to_owned(),
@@ -1036,8 +1033,8 @@ impl ActorCell {
             self.children.lock().unwrap().init_child(&child_ref);
             // `actor.start()` is after `initChild` and outside the `try` that unreserves the name: the caller gets the exception,
             // the name stays taken and the child stays registered (`Children.scala:317-350`)
-            if let Err(rejected) = child.start() {
-                throw(rejected_execution(rejected));
+            if child.start().is_err() {
+                throw(rejected_execution());
             }
             Ok(child_ref)
         }
@@ -1075,8 +1072,8 @@ impl ActorCell {
         } else if is_async && let Some(repointable) = child.0.as_repointable() {
             // `handleSupervise` → `point`: `cell.start()` is outside `catchFailures`, so a rejected attach fails this actor
             // (`systemInvoke`'s `handleInvokeFailure(Nil, e)`), not the new one
-            if let Err(rejected) = repointable.point() {
-                self.handle_invoke_failure(rejected_execution(rejected), None);
+            if repointable.point().is_err() {
+                self.handle_invoke_failure(rejected_execution(), None);
             }
         }
     }

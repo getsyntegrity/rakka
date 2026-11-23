@@ -9,9 +9,9 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-/// `java.util.concurrent.RejectedExecutionException`: the executor did not accept the task. Carries the exception's `getMessage`.
+/// `java.util.concurrent.RejectedExecutionException`: the executor did not accept the task.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Rejected(pub(crate) &'static str);
+pub(crate) struct Rejected;
 
 /// The part of `ExecutorService` the dispatcher uses: run one mailbox turn, or refuse. A seam so that tests can make the executor
 /// fail deterministically; the dispatcher's own pool is the only implementation outside tests.
@@ -21,9 +21,6 @@ pub(crate) trait Executor: Send + Sync {
     /// Lets the workers finish what is queued and exit; later `execute` calls are rejected.
     fn shutdown(&self);
 }
-
-/// `SaneRejectedExecutionHandler`'s message for a pool that has been shut down.
-const SHUTDOWN: &str = "Shutdown";
 
 /// A fixed pool of threads fed by an unbounded channel. It rejects only once it has been shut down, like a Java pool does.
 pub(crate) struct ThreadPool {
@@ -59,8 +56,8 @@ impl ThreadPool {
 impl Executor for ThreadPool {
     fn execute(&self, cell: Arc<ActorCell>) -> Result<(), Rejected> {
         match self.tx.lock().unwrap().as_ref() {
-            Some(tx) => tx.send(cell).map_err(|_| Rejected(SHUTDOWN)),
-            None => Err(Rejected(SHUTDOWN)),
+            Some(tx) => tx.send(cell).map_err(|_| Rejected),
+            None => Err(Rejected),
         }
     }
 

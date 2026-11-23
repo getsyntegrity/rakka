@@ -268,10 +268,10 @@ final class MailboxOracle {
     @Override public void preStart() { env.started.incrementAndGet(); }
     @Override public Receive createReceive() {
       return receiveBuilder().matchEquals("go", g -> {
-        try { getContext().actorOf(Props.create(Worker.class, env).withDispatcher("rej-disp"), "c"); env.note.set("thrown=none"); }
+        try { getContext().actorOf(Props.create(Listener.class, env.dead).withDispatcher("rej-disp"), "c"); env.note.set("thrown=none"); }
         catch (Throwable t) { env.note.set("thrown=" + t.getClass().getName()); if (!caught) throw t; }
       }).matchEquals("again", a -> {
-        try { getContext().actorOf(Props.create(Worker.class, env), "c"); env.note.set("again=ok"); }
+        try { getContext().actorOf(Props.create(Listener.class, env.dead), "c"); env.note.set("again=ok"); }
         catch (Throwable t) { env.note.set("again=" + t.getClass().getName()); }
       }).matchEquals("who", w -> env.note.set("children=" + getContext().findChild("c").isPresent())).build();
     }
