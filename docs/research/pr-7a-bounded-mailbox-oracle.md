@@ -116,9 +116,9 @@ No se editaron `docs/owner-batch-02.md` ni los `*.decisions.tsv` (archivos compa
 
 | Id | Pregunta | Recomendación |
 |---|---|---|
-| `Q-MBX-12` | Capacidad 0 en `BoundedMailbox`: Pekko la acepta en tipo y configuración y falla al **crear la cola** (IAE del JDK, `null`) | (a) paridad: el tipo y `lookup` aceptan 0, `create` falla con un error de configuración equivalente y `actorOf` termina el actor sin arrancar (camino C1 de Q-MBX-11); (b) rechazar 0 ya en el constructor (más claro, diverge). Recomienda (a). |
-| `Q-MBX-13` | `getInt` trunca `mailbox-capacity = 1.5` a 1 y acepta `"7"` | sigue a la capa Config (ya portada, P08): no decidir en 7a; documentar como heredado. |
-| `Q-MBX-14` | Interrupción del emisor bloqueado (C7, `AC-16`/`QU-08`): sin análogo en Rust | `NOT_APPLICABLE` por JVM-only salvo que Q-MBX-1 (c) cree una API cancelable. |
+| `PROP-7A-1` | Capacidad 0 en `BoundedMailbox`: Pekko la acepta en tipo y configuración y falla al **crear la cola** (IAE del JDK, `null`) | (a) paridad: el tipo y `lookup` aceptan 0, `create` falla con un error de configuración equivalente y `actorOf` termina el actor sin arrancar (camino C1 de Q-MBX-11); (b) rechazar 0 ya en el constructor (más claro, diverge). Recomienda (a). |
+| `PROP-7A-2` | `getInt` trunca `mailbox-capacity = 1.5` a 1 y acepta `"7"` | sigue a la capa Config (ya portada, P08): no decidir en 7a; documentar como heredado. |
+| `PROP-7A-3` | Interrupción del emisor bloqueado (C7, `AC-16`/`QU-08`): sin análogo en Rust | `NOT_APPLICABLE` por JVM-only salvo que Q-MBX-1 (c) cree una API cancelable. |
 
 ## 8. Resultados de estabilidad
 
@@ -154,3 +154,10 @@ python3.12 -m unittest test_check_bounded_mailbox_oracle             # desde too
 ```
 
 Archivos compartidos tocados (diff mínimo): `oracle/src/main/java/pilot/Cli.java` (+3 líneas, antes de `case "path-address-ids"`). No se tocaron `MailboxOracle.java`, `cases/oracle-case-ids.tsv`, `make_oracle_cases.py`, `recorded_pekko.rs` ni `docs/decisions*`.
+
+## 9. Identificadores de las propuestas y dependencias (registradas al publicar)
+
+- **Identificadores locales:** las propuestas de §7 se llaman `PROP-7A-1..3` (antes `Q-MBX-12/13/14`) porque la investigación C4 propuso otro `Q-MBX-12` en paralelo. Ningún `Q-*` definitivo está asignado; se reconcilian al registrarlas. Siguen `proposed`; no se decide ningún cambio de semántica respecto de Pekko.
+- **UC-03 depende de C3:** necesita `tryLock(unstarted-push-timeout)` y su Warning; su gemelo Rust no puede validarse hasta integrar C3.
+- **C4:** la terminación de un hijo sin arrancar con mailbox acotado debe comprobarse cuando exista `BoundedMailbox`; C3 y C4 comparten archivos del oráculo de mailbox (esta rama no los toca salvo `Cli.java`, +3 líneas), y al integrar el segundo conjunto hay que verificar el orden de registro y el golden.
+- **Sin paridad entre JDK:** el oráculo solo se comprobó en JDK 17; no se declara paridad con otros JDK.
