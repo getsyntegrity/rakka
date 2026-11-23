@@ -6,32 +6,54 @@
 //! enqueues and then looks at the status again. The closer sets `Closed` *before* it drains the queue, so either its drain sees
 //! the producer's message or the producer sees `Closed` and drains the queue itself. Either way the message reaches dead letters.
 
+use crate::actor::actor_ref::ActorRef;
 use crate::dispatch::mailbox_status::MailboxStatus;
 use crate::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 
-/// Enqueues `envelope` unless the mailbox is closed. Returns the envelopes that must be published as dead letters, oldest first:
-/// the message itself when the mailbox was already closed, or whatever raced with the close.
+/// What `enqueue_unless_closed` did with a message.
+pub(crate) struct Enqueued {
+    /// The message is waiting in an open mailbox, so a turn must be scheduled to consume it. It is not when the queue refused it (already
+    /// dead-lettered by the queue) or when the mailbox is closed.
+    pub(crate) awaits_consumption: bool,
+    /// Envelopes the caller must publish as dead letters, oldest first: the message itself when the mailbox was already closed, or
+    /// whatever raced with the close.
+    pub(crate) dead: Vec<Envelope>,
+}
+
+/// Enqueues `envelope` for `receiver` unless the mailbox is closed.
 pub(crate) fn enqueue_unless_closed(
     status: &MailboxStatus,
     queue: &dyn MessageQueue,
+    receiver: &ActorRef,
     envelope: Envelope,
-) -> Vec<Envelope> {
+) -> Enqueued {
     if status.is_closed() {
-        return vec![envelope];
+        return Enqueued {
+            awaits_consumption: false,
+            dead: vec![envelope],
+        };
     }
-    queue.enqueue(envelope);
+    let stored = queue.enqueue(receiver, envelope);
     if !status.is_closed() {
-        return Vec::new();
+        return Enqueued {
+            awaits_consumption: stored,
+            dead: Vec::new(),
+        };
     }
     let swept = UnboundedMailbox.create();
-    queue.clean_up(&*swept);
-    std::iter::from_fn(|| swept.dequeue()).collect()
+    queue.clean_up(receiver, &*swept);
+    Enqueued {
+        awaits_consumption: false,
+        dead: std::iter::from_fn(|| swept.dequeue()).collect(),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
     use crate::dispatch::message_queue::UnboundedMailbox;
+    use crate::dispatch::test_support::recorder;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Barrier};
     use std::thread;
@@ -41,6 +63,10 @@ mod tests {
             message: Arc::new(text.to_owned()),
             sender: None,
         }
+    }
+
+    fn receiver() -> ActorRef {
+        recorder("pekko://sys/user/receiver").1
     }
 
     fn texts(envelopes: Vec<Envelope>) -> Vec<String> {
@@ -64,12 +90,12 @@ mod tests {
     }
 
     impl MessageQueue for CloserWinsTheRace {
-        fn enqueue(&self, envelope: Envelope) {
+        fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
             if self.armed.swap(false, Ordering::SeqCst) {
                 self.status.become_closed();
-                self.inner.clean_up(&*UnboundedMailbox.create());
+                self.inner.clean_up(receiver, &*UnboundedMailbox.create());
             }
-            self.inner.enqueue(envelope);
+            self.inner.enqueue(receiver, envelope)
         }
         fn dequeue(&self) -> Option<Envelope> {
             self.inner.dequeue()
@@ -80,15 +106,16 @@ mod tests {
         fn has_messages(&self) -> bool {
             self.inner.has_messages()
         }
-        fn clean_up(&self, dead_letters: &dyn MessageQueue) {
-            self.inner.clean_up(dead_letters);
+        fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
+            self.inner.clean_up(owner, dead_letters);
         }
     }
 
     #[test]
     fn an_open_mailbox_keeps_the_message_and_returns_nothing_for_dead_letters() {
         let (status, queue) = (MailboxStatus::new(), UnboundedMailbox.create());
-        assert!(enqueue_unless_closed(&status, &*queue, envelope("a")).is_empty());
+        let enqueued = enqueue_unless_closed(&status, &*queue, &receiver(), envelope("a"));
+        assert!(enqueued.dead.is_empty() && enqueued.awaits_consumption);
         assert_eq!(drain(&*queue), ["a"]);
     }
 
@@ -96,7 +123,8 @@ mod tests {
     fn a_suspended_mailbox_still_queues_the_message() {
         let (status, queue) = (MailboxStatus::new(), UnboundedMailbox.create());
         status.suspend();
-        assert!(enqueue_unless_closed(&status, &*queue, envelope("a")).is_empty());
+        let enqueued = enqueue_unless_closed(&status, &*queue, &receiver(), envelope("a"));
+        assert!(enqueued.dead.is_empty() && enqueued.awaits_consumption);
         assert_eq!(drain(&*queue), ["a"]);
     }
 
@@ -104,8 +132,9 @@ mod tests {
     fn a_closed_mailbox_hands_the_message_back_for_dead_letters_and_queues_nothing() {
         let (status, queue) = (MailboxStatus::new(), UnboundedMailbox.create());
         status.become_closed();
-        let dead = enqueue_unless_closed(&status, &*queue, envelope("a"));
-        assert_eq!(texts(dead), ["a"]);
+        let enqueued = enqueue_unless_closed(&status, &*queue, &receiver(), envelope("a"));
+        assert!(!enqueued.awaits_consumption);
+        assert_eq!(texts(enqueued.dead), ["a"]);
         assert!(!queue.has_messages());
     }
 
@@ -117,8 +146,13 @@ mod tests {
             status: Arc::clone(&status),
             armed: AtomicBool::new(true),
         };
-        let dead = enqueue_unless_closed(&status, &queue, envelope("late"));
-        assert_eq!(texts(dead), ["late"], "the message must go to dead letters");
+        let enqueued = enqueue_unless_closed(&status, &queue, &receiver(), envelope("late"));
+        assert!(!enqueued.awaits_consumption);
+        assert_eq!(
+            texts(enqueued.dead),
+            ["late"],
+            "the message must go to dead letters"
+        );
         assert!(
             !queue.has_messages(),
             "nothing may stay in the closed mailbox's queue"
@@ -133,17 +167,25 @@ mod tests {
             let start = Arc::new(Barrier::new(5));
             let producers: Vec<_> = (0..4)
                 .map(|producer| {
-                    let (status, queue, start) =
-                        (Arc::clone(&status), Arc::clone(&queue), Arc::clone(&start));
+                    let (status, queue, start, receiver) = (
+                        Arc::clone(&status),
+                        Arc::clone(&queue),
+                        Arc::clone(&start),
+                        receiver(),
+                    );
                     thread::spawn(move || {
                         start.wait();
                         (0..50)
                             .flat_map(|n| {
-                                texts(enqueue_unless_closed(
-                                    &status,
-                                    &*queue,
-                                    envelope(&format!("{producer}:{n}")),
-                                ))
+                                texts(
+                                    enqueue_unless_closed(
+                                        &status,
+                                        &*queue,
+                                        &receiver,
+                                        envelope(&format!("{producer}:{n}")),
+                                    )
+                                    .dead,
+                                )
                             })
                             .collect::<Vec<_>>()
                     })
@@ -156,7 +198,7 @@ mod tests {
                     start.wait();
                     status.become_closed();
                     let swept = UnboundedMailbox.create();
-                    queue.clean_up(&*swept);
+                    queue.clean_up(&receiver(), &*swept);
                     drain(&*swept)
                 })
             };
@@ -180,5 +222,23 @@ mod tests {
                 "with nobody consuming, every message must end in dead letters"
             );
         }
+    }
+
+    #[test]
+    fn a_message_the_queue_refuses_needs_no_consumption_and_is_not_handed_back() {
+        let (dead_letters, dead_letters_ref) = recorder("pekko://sys/deadLetters");
+        let queue = NonBlockingBoundedMailbox::new(0)
+            .unwrap()
+            .create(dead_letters_ref);
+        let status = MailboxStatus::new();
+
+        let enqueued = enqueue_unless_closed(&status, &*queue, &receiver(), envelope("refused"));
+
+        assert!(!enqueued.awaits_consumption);
+        assert!(
+            enqueued.dead.is_empty(),
+            "the queue already dead-lettered it"
+        );
+        assert_eq!(dead_letters.told.lock().unwrap().len(), 1);
     }
 }

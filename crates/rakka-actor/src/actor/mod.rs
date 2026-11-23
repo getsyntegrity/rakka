@@ -14,6 +14,8 @@ pub mod fault;
 #[cfg(test)]
 mod init_failure_tests;
 pub(crate) mod jstring;
+#[cfg(test)]
+mod nonblocking_mailbox_tests;
 mod path;
 pub mod props;
 pub(crate) mod repointable;
