@@ -1656,6 +1656,12 @@ MUTANTS = {
         "            awaits_consumption: true,",
         "a message the queue refused is reported as waiting for consumption",
     ),
+    "replacement-cell-honours-the-selected-mailbox": (
+        "src/actor/cell.rs",
+        "        let queue = if creation_failure.is_some() {",
+        "        let queue = if creation_failure.is_some() && false {",
+        "the replacement of a cell that could not be made uses the mailbox the props selected instead of `new UnboundedMailbox` (Dispatch.scala:117-125)",
+    ),
     "props-ignores-the-selected-mailbox": (
         "src/actor/props.rs",
         "            Some(bounded) => bounded.create(dead_letters.clone()),",
@@ -1792,6 +1798,7 @@ UNIT_MUTANTS = {
     "nonblocking-cell-addresses-the-cleanup-to-dead-letters": ("actor::nonblocking_mailbox_tests", "stopping_the_actor_dead_letters_what_is_still_queued_addressed_to_it"),
     "nonblocking-queue-reports-a-refused-message-as-stored": ("dispatch::mailbox_close", "a_message_the_queue_refuses_needs_no_consumption_and_is_not_handed_back"),
     "enqueue-unless-closed-ignores-the-queue-answer": ("dispatch::mailbox_close", "a_message_the_queue_refuses_needs_no_consumption_and_is_not_handed_back"),
+    "replacement-cell-honours-the-selected-mailbox": ("actor::init_failure_tests", "the_replacement_of_a_cell_that_cannot_be_made_ignores_the_selected_bounded_mailbox"),
     "props-ignores-the-selected-mailbox": ("actor::nonblocking_mailbox_tests", "a_refused_message_does_not_start_a_consumption_turn"),
     "nonblocking-queue-clean-up-moves-only-the-first": ("dispatch::bounded_node_queue", "clean_up_moves_a_full_queue_to_the_target_in_order_and_frees_every_slot"),
     "supervise-is-processed-while-terminating": ("actor::unstarted_termination_tests", "a_parent_already_waiting_for_a_started_child_ignores_the_supervise_of_a_new_child_and_still_terminates"),

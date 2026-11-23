@@ -47,3 +47,50 @@ Los 10 casos del oráculo (`cases/oracle-only/nonblocking-bounded-mailbox.golden
 - `Props::with_mailbox` es transitoria (Q-MBX-2); `NB-CF-02` (config) queda para el PR 10.
 - `BoundedMailbox` bloqueante (Q-MBX-1) y PROP-7A-1 no se tocan.
 - Tamaño: ~110 líneas de producción; el resto son pruebas, mutantes y esta evidencia (~800 líneas en total), por encima del objetivo; el cambio de trait no se puede partir sin dejar la rama rota.
+
+## Validación final (veredictos para el Owner)
+
+### 1. Scheduling de un mensaje rechazado: **diferencia observable sólo con un ejecutor instrumentado; sin efecto semántico**
+
+Pekko 2.0.0 (`Dispatcher.scala:80-84,146-153`, `Mailbox.scala:255-272`): `dispatch` hace `mbox.enqueue(receiver.self, invocation)` y luego
+`registerForExecution(mbox, hasMessageHint = true, …)` **sin mirar el resultado de `enqueue`**. Con el mailbox abierto y ocioso,
+`canBeScheduledForExecution` es `true` y se envía un turno al ejecutor; ese turno no halla mensajes (`processMailbox` no hace nada), hace
+`setAsIdle` y no se re-registra. Con el mailbox suspendido (sólo cuentan los hints de sistema) o cerrado no hay turno, igual que en Rakka.
+
+Sonda JVM independiente (`mbx-7d-scheduling-probe.java`, Pekko 2.0.0, JDK 17, `NonBlockingBoundedMailbox` de capacidad 0, ejecutor de un hilo que cuenta `execute`;
+3 corridas): tres `tell` a un actor ocioso envían **2 turnos** al ejecutor (el conteo es 1-3 según el instante; nunca 0), los tres mensajes van a dead letters y nada se recibe.
+Con un ejecutor que rechaza dos veces, el `tell` de un mensaje que igualmente se dead-lettera consume ambas ocurrencias del rechazo (`rejectionsLeft=0`): Pekko
+intenta ejecutar y, al fallar dos veces, publica el `Error` "registerForExecution was rejected twice!" aunque el mensaje no se almacenó.
+Gemelo Rust: `a_refused_message_does_not_start_a_consumption_turn` (mismo escenario, cuenta los envíos al `Executor` de `rakka-actor`): **0 turnos**.
+
+Efecto sobre otros mensajes: ninguno. Dentro de un actor los turnos son seriales (`setAsScheduled` es la única puerta) y el turno vacío no consume mensajes,
+no cambia el `throughput` ni la terminación (`Terminate` y `Resume` se registran con su propio hint de sistema) y, si llega un mensaje aceptado mientras corre,
+el `registerForExecution` de fin de turno lo recoge porque `hasMessages` es verdadero. Lo único que cambia es el estado `scheduled` durante ese instante y el uso
+del ejecutor.
+
+Observabilidad en Rakka: el `Executor` es `pub(crate)`; ninguna API pública lo expone, de modo que la diferencia no es alcanzable por un usuario de Rakka. En la JVM
+sí lo es mediante un `ExecutorServiceConfigurator` propio (como hace el oráculo `MBX-RJ`). Ningún caso grabado del oráculo la ejerce hoy (no hay caso con una cola que rechaza
+y un ejecutor instrumentado), por lo que el replay no puede distinguirla.
+
+**No se cambió producción.** El contrato "no se introduce un turno de consumo por un mensaje rechazado" lo pidió el Owner para esta tarea. Opciones:
+(a) **mantener** y registrar la diferencia como decisión propuesta (recomendada: es interna, sin efecto de entrega); (b) **alinear con Pekko**:
+`enqueue_user` registraría un turno siempre que el mailbox esté abierto (`awaits_consumption` pasaría a "no cerrado"), con el costo de un turno vacío por rechazo
+y de que el rechazo del ejecutor pueda ocurrir tras un rechazo de la cola. Si el Owner elige (b) hay que añadir antes un caso JVM grabado equivalente a la sonda.
+No se registró un `Q-*` (sólo el Owner decide si la diferencia se acepta).
+
+### 2. `new_with_failure`: **correcto, igual que Pekko**
+
+`RepointableActorRef.point(catchFailures)` (`RepointableActorRef.scala:112-121`) crea, si `newCell` falla, `new ActorCell(system, this, props, safeDispatcher, supervisor).initWithFailure(ex)`
+con el dispatcher global por defecto, y `initWithFailure` (`Dispatch.scala:117-125`) hace `dispatcher.createMailbox(this, new UnboundedMailbox)`: el mailbox
+seleccionado por los props **se descarta** en ese caso. Rakka hace lo mismo. Dead letters y terminación no cambian: la celda de reemplazo es la que recibe `Create(Some(ActorInitializationException))`
+y el supervisor decide. En Rakka un `with_mailbox` no puede fallar al crear la celda (el constructor ya rechazó la capacidad negativa), así que hoy sólo se llega a ese camino por una
+falla ajena a la cola. Test nuevo que lo fija: `the_replacement_of_a_cell_that_cannot_be_made_ignores_the_selected_bounded_mailbox`
+(props con capacidad 0, un supervisor que reinicia: la línea resultante es igual a la del oráculo `MBX-IF-03`, es decir, el mensaje se recibe); mutante nuevo
+`replacement-cell-honours-the-selected-mailbox` DETECTED, control CLEAN (2962/2962). Riesgo de regresión al usar `Props::with_mailbox`: ninguno.
+
+### 3. Controles finales
+
+Cambios posteriores a `446a64a`: sólo un test, un mutante, la sonda y este texto (sin producción). `cargo test --workspace`, fmt y `--check-patterns` limpios;
+el mutante nuevo, DETECTED, y el control CLEAN 2962/2962. Q-MBX-1 y Q-MBX-2 siguen sin implementar (el diff no define `BoundedMailbox`, `MailboxType` ni `Mailboxes`).
+La cola guarda sólo `capacity` y `dead_letters`; el receptor es un argumento prestado, y `a_terminated_actor_with_a_bounded_mailbox_is_released` comprueba que no queda
+ninguna referencia fuerte al actor tras terminar.

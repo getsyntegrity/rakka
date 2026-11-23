@@ -182,12 +182,19 @@ fn messages_sent_to_an_actor_whose_cell_cannot_be_made_are_dead_letters() {
 
 /// What the oracle prints for an actor whose cell cannot be made under a supervisor that answers every failure with `directive`.
 fn actor_started_by_a_supervisor_that_answers(resumes: bool) -> String {
+    actor_started_by_a_supervisor_that_answers_with(resumes, Worker::props)
+}
+
+fn actor_started_by_a_supervisor_that_answers_with(
+    resumes: bool,
+    worker_props: fn(&Arc<AtomicUsize>, &Log) -> Props,
+) -> String {
     let fixture = Fixture::in_system("mbx");
     let errors = collect_errors(&fixture);
     let (starts, log) = (Arc::new(AtomicUsize::new(0)), Log::default());
     let child = Arc::new(Mutex::new(None));
     let parent = {
-        let (child_props, child) = (Worker::props(&starts, &log), child.clone());
+        let (child_props, child) = (worker_props(&starts, &log), child.clone());
         fixture
             .system
             .actor_of_named(
@@ -234,6 +241,21 @@ fn a_supervisor_that_resumes_turns_the_failed_creation_into_a_create_and_the_act
     assert_eq!(
         actor_started_by_a_supervisor_that_answers(true),
         recorded("MBX-IF-05")
+    );
+}
+
+/// `initWithFailure` always uses `new UnboundedMailbox` (`Dispatch.scala:117-125`), so the replacement of a cell that could not be made
+/// ignores the mailbox the props selected: a message that a capacity-0 mailbox would refuse is received.
+#[test]
+fn the_replacement_of_a_cell_that_cannot_be_made_ignores_the_selected_bounded_mailbox() {
+    let bounded_props = |starts: &Arc<AtomicUsize>, log: &Log| {
+        Worker::props(starts, log).with_mailbox(
+            crate::dispatch::bounded_node_queue::NonBlockingBoundedMailbox::new(0).unwrap(),
+        )
+    };
+    assert_eq!(
+        actor_started_by_a_supervisor_that_answers_with(false, bounded_props),
+        recorded("MBX-IF-03")
     );
 }
 
