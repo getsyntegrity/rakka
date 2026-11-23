@@ -972,6 +972,43 @@ MUTANTS = {
         "            if child.start().is_err() {\n                self.children.lock().unwrap().remove(&child_ref);\n                throw(rejected_execution());",
         "after a rejected attach `context.actorOf` forgets the child, so its name can be reused (Pekko keeps it taken)",
     ),
+    # --- Q-MBX-11 slice C3: UnstartedPushTimeout (killed by the in-crate twins of MBX-PT-01..06, see UNIT_MUTANTS) ---
+    "push-timeout-not-applied-to-user-messages": (
+        "src/actor/repointable.rs",
+        "let limit = self.push_policy.as_ref().map(|policy| policy.timeout);",
+        "let limit: Option<Duration> = None;",
+        "a user message sent while the queue is handed over waits for as long as it takes instead of at most `unstarted-push-timeout`",
+    ),
+    "push-timeout-limit-ignored": (
+        "src/actor/repointable.rs",
+        "let deadline = limit.map(|limit| Instant::now() + limit);",
+        "let deadline = limit.map(|_| Instant::now());",
+        "the wait for the lock of an unstarted reference ends at once, whatever the timeout",
+    ),
+    "hand-over-thread-waits-for-itself": (
+        "src/actor/repointable.rs",
+        "if *owner != this_thread)",
+        "if true)",
+        "the thread that is handing the queue over waits for its own lock when it sends to the reference (Pekko's lock is reentrant)",
+    ),
+    "lock-timeout-drop-without-warning": (
+        "src/actor/repointable.rs",
+        "policy.events.publish_warning(WarningEvent {",
+        "drop(WarningEvent {",
+        "a message dropped after the lock timeout publishes no Warning",
+    ),
+    "lock-timeout-drop-without-dead-letter": (
+        "src/actor/repointable.rs",
+        "if let Some(recipient) = self.me.upgrade() {",
+        "if let Some(recipient) = self.me.upgrade().filter(|_| false) {",
+        "a message dropped after the lock timeout is not sent to the dead letters",
+    ),
+    "hand-over-end-does-not-wake-the-senders": (
+        "src/actor/repointable.rs",
+        "        self.reference.handed_over.notify_all();\n",
+        "",
+        "the senders that waited for the hand-over are not told when it ends",
+    ),
     # --- Q-CFG-30: shortest digits of a rendered double, exact ties go to the even digit ---
     "double-tie-breaks-to-odd": (
         "src/config/double_text.rs",
@@ -1570,6 +1607,12 @@ UNIT_MUTANTS = {
     "supervisor-ignores-a-rejected-point": ("dispatch::executor_rejection_tests", "an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts"),
     "sync-actor-of-swallows-the-attach-rejection": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
     "sync-actor-of-rejection-releases-the-name": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
+    "push-timeout-not-applied-to-user-messages": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_longer_than_the_timeout_is_a_dead_letter_with_a_warning"),
+    "push-timeout-limit-ignored": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_while_the_hand_over_ends_before_the_timeout_is_delivered_after_the_queued_messages"),
+    "hand-over-thread-waits-for-itself": ("actor::unstarted_push_timeout_tests", "the_thread_that_hands_the_queue_over_can_send_to_the_same_reference"),
+    "lock-timeout-drop-without-warning": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_longer_than_the_timeout_is_a_dead_letter_with_a_warning"),
+    "lock-timeout-drop-without-dead-letter": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_longer_than_the_timeout_is_a_dead_letter_with_a_warning"),
+    "hand-over-end-does-not-wake-the-senders": ("actor::unstarted_push_timeout_tests", "a_system_message_waits_for_the_lock_without_a_timeout_and_is_delivered_once_the_hand_over_ends"),
 }
 
 

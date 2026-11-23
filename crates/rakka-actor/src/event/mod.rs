@@ -44,6 +44,17 @@ pub struct ErrorEvent {
     pub message: String,
 }
 
+/// `org.apache.pekko.event.Logging.Warning`: a warning the runtime reports on the event stream.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WarningEvent {
+    /// `logSource`: the path of the actor that reports it.
+    pub log_source: String,
+    /// `logClass`: the class of the reporter.
+    pub log_class: String,
+    /// The text of the event.
+    pub message: String,
+}
+
 /// The event classes a subscriber can ask for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Channel {
@@ -53,6 +64,8 @@ pub enum Channel {
     UnhandledMessage,
     /// Subscribes to [`ErrorEvent`] events.
     Error,
+    /// Subscribes to [`WarningEvent`] events.
+    Warning,
 }
 
 /// `system.eventStream`.
@@ -107,6 +120,10 @@ impl EventStream {
 
     pub(crate) fn publish_error(&self, e: ErrorEvent) {
         self.deliver(Channel::Error, Arc::new(e));
+    }
+
+    pub(crate) fn publish_warning(&self, w: WarningEvent) {
+        self.deliver(Channel::Warning, Arc::new(w));
     }
 }
 

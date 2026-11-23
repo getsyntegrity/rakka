@@ -10,14 +10,18 @@
 //!
 //! `ActorSystem::actor_of` creates one through `ActorCell::attach_child(.., asynchronous = true)` (Q-MBX-11, slice B).
 //! A failure to make the real cell is not lost: the actor fails to initialise instead (slice C1, `init_failure_tests`).
-//! Differences from Pekko, to be settled in the next slices of C: the lock is a plain `Mutex` (no `UnstartedPushTimeout`: a send that
-//! waits for the lock more than that long is a dead letter in Pekko), and it is held while the queues are handed over, as in Pekko
-//! but without re-entrancy: the real cell must not send to this reference from inside `tell`/`send_system`.
+//!
+//! While the queues are handed over (`replaceWith` keeps the lock of the unstarted cell) a user message sent by another thread waits at
+//! most `UnstartedPushTimeout` (`pekko.actor.unstarted-push-timeout`) and then becomes a dead letter with a `Warning`; a system message
+//! waits for as long as it takes (`UnstartedCell.sendMessage`/`sendSystemMessage`, oracle cases `MBX-PT-01..06`). The thread that is
+//! handing over can still send to the reference (Pekko's lock is reentrant): its messages join the queues being drained.
 
 #![allow(dead_code)] // some accessors are only used by tests
 
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, Weak};
+use std::thread::ThreadId;
 
 use crate::actor::ActorPath;
 use crate::actor::ActorRef;
@@ -28,6 +32,8 @@ use crate::actor::props::AnyMessage;
 use crate::dispatch::dispatcher::Rejected;
 use crate::dispatch::message_queue::Envelope;
 use crate::dispatch::sysmsg::SystemMessage;
+use crate::event::{DeadLetter, EventStream, WarningEvent};
+use std::time::{Duration, Instant};
 
 /// `UnstartedCell`: what has been sent to an actor whose real cell does not exist yet.
 #[derive(Default)]
@@ -35,21 +41,39 @@ struct UnstartedCell {
     /// user messages, oldest first (`queue`)
     user_messages: VecDeque<Envelope>,
     /// system messages, oldest first (`sysmsgQueue` keeps the newest first and is reversed when drained)
-    system_messages: Vec<SystemMessage>,
+    system_messages: VecDeque<SystemMessage>,
 }
 
 enum Underlying {
     Unstarted(UnstartedCell),
+    /// `replaceWith` is handing the queues to the real cell and `owner` is its thread; `unstarted` holds what is left to hand over.
+    HandingOver {
+        unstarted: UnstartedCell,
+        owner: ThreadId,
+    },
     Started(Arc<dyn InternalActorRef>),
 }
 
 /// How the real cell of an actor is made (`newCell`), given the reference the actor will know as its own (`self`).
 type NewCell = Box<dyn FnOnce(&ActorRef) -> Arc<ActorCell> + Send>;
 
+/// What a send to an unstarted reference needs to give up on the lock (`UnstartedPushTimeout`, `system.eventStream`, `deadLetters`).
+#[derive(Clone)]
+pub(crate) struct PushPolicy {
+    pub(crate) timeout: Duration,
+    pub(crate) events: Arc<EventStream>,
+    pub(crate) dead_letters: ActorRef,
+}
+
 /// `RepointableActorRef`.
 pub(crate) struct RepointableActorRef {
+    push_policy: Option<PushPolicy>,
     path: ActorPath,
     underlying: Mutex<Underlying>,
+    /// Signalled when a hand-over ends: the senders that waited for it look again.
+    handed_over: Condvar,
+    /// How many senders are waiting for a hand-over right now.
+    waiting: AtomicUsize,
     me: Weak<RepointableActorRef>,
     /// `newCell`: taken by the first `point`
     new_cell: Mutex<Option<NewCell>>,
@@ -64,20 +88,98 @@ impl RepointableActorRef {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
+    /// Takes the state once no other thread is handing the queues over, waiting at most `limit` (`None`: for as long as it takes), which
+    /// is `lock.tryLock(timeout)` (`lock.lock()`). `None` when the limit ran out. The thread that is handing over does not wait.
+    fn lock_unless_handed_over(
+        &self,
+        limit: Option<Duration>,
+    ) -> Option<MutexGuard<'_, Underlying>> {
+        let deadline = limit.map(|limit| Instant::now() + limit);
+        let this_thread = std::thread::current().id();
+        let mut underlying = self.lock();
+        let mut waiting = None;
+        while matches!(&*underlying, Underlying::HandingOver { owner, .. } if *owner != this_thread)
+        {
+            waiting.get_or_insert_with(|| Waiting::new(&self.waiting));
+            underlying = match deadline {
+                None => self
+                    .handed_over
+                    .wait(underlying)
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
+                Some(deadline) => {
+                    let remaining = deadline
+                        .checked_duration_since(Instant::now())
+                        .filter(|remaining| !remaining.is_zero())?;
+                    self.handed_over
+                        .wait_timeout(underlying, remaining)
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .0
+                }
+            };
+        }
+        Some(underlying)
+    }
+
+    /// The state once no other thread is handing the queues over (`locked { ... }`: every reader waits for the lock).
+    fn lock_settled(&self) -> MutexGuard<'_, Underlying> {
+        self.lock_unless_handed_over(None)
+            .expect("a wait without a limit ends with the lock")
+    }
+
+    /// A user message that waited for the lock longer than `UnstartedPushTimeout` (`sendMessage`'s `else` branch): a `Warning` and a
+    /// dead letter. The message class is the JVM's (`class java.lang.String`) for the types that have one.
+    fn drop_after_lock_timeout(
+        &self,
+        policy: &PushPolicy,
+        msg: AnyMessage,
+        sender: Option<ActorRef>,
+    ) {
+        policy.events.publish_warning(WarningEvent {
+            log_source: self.path.to_string(),
+            log_class: "org.apache.pekko.actor.UnstartedCell".to_owned(),
+            message: format!(
+                "dropping message of type{} due to lock timeout",
+                jvm_class_of(&msg)
+            ),
+        });
+        if let Some(recipient) = self.me.upgrade() {
+            policy.dead_letters.tell_any(
+                Arc::new(DeadLetter {
+                    message: msg,
+                    sender: sender.unwrap_or_else(|| policy.dead_letters.clone()),
+                    recipient: ActorRef(recipient),
+                }),
+                None,
+            );
+        }
+    }
+
     /// A reference to an actor that has not started (`initialize`: `swapCell(new UnstartedCell(...))`).
+    #[cfg(test)]
     pub(crate) fn new(path: ActorPath) -> Arc<RepointableActorRef> {
-        Self::build(path, None)
+        Self::build(path, None, None)
     }
 
     /// A reference whose cell is made by `new_cell` when the supervisor processes `Supervise` (`point`).
-    pub(crate) fn for_actor(path: ActorPath, new_cell: NewCell) -> Arc<RepointableActorRef> {
-        Self::build(path, Some(new_cell))
+    pub(crate) fn for_actor(
+        path: ActorPath,
+        new_cell: NewCell,
+        push_policy: PushPolicy,
+    ) -> Arc<RepointableActorRef> {
+        Self::build(path, Some(new_cell), Some(push_policy))
     }
 
-    fn build(path: ActorPath, new_cell: Option<NewCell>) -> Arc<RepointableActorRef> {
+    fn build(
+        path: ActorPath,
+        new_cell: Option<NewCell>,
+        push_policy: Option<PushPolicy>,
+    ) -> Arc<RepointableActorRef> {
         Arc::new_cyclic(|me| RepointableActorRef {
+            push_policy,
             path,
             underlying: Mutex::new(Underlying::Unstarted(UnstartedCell::default())),
+            handed_over: Condvar::new(),
+            waiting: AtomicUsize::new(0),
             me: me.clone(),
             new_cell: Mutex::new(new_cell),
         })
@@ -107,31 +209,46 @@ impl RepointableActorRef {
         Ok(())
     }
 
-    /// `point`/`replaceWith`: installs the real cell, handing it everything that was sent before. Returns false, doing nothing, when a
-    /// cell was already installed. If the cell panics while taking the messages, the reference still points to it (Pekko's `finally
-    /// { swapCell(cell) }`) and what was not handed over is lost.
+    /// `point`/`replaceWith`: installs the real cell, handing it everything that was sent before: the system messages, then each user
+    /// message followed by the system messages it may have caused. The lock of the unstarted cell stays held meanwhile (other threads
+    /// wait or time out, see the module docs) and the cell is installed at the end even if it panics while taking a message (Pekko's
+    /// `finally { swapCell(cell) }`); what was not handed over is then lost. Returns false, doing nothing, when a cell was already
+    /// installed.
     pub(crate) fn replace_with(&self, cell: Arc<dyn InternalActorRef>) -> bool {
-        // the lock stays held while the messages are handed over: a sender that arrives meanwhile waits, then finds the cell
-        let mut underlying = self.lock();
-        if matches!(&*underlying, Underlying::Started(_)) {
-            return false; // `point` on a started reference answers `this`
+        {
+            let mut underlying = self.lock_settled();
+            let Underlying::Unstarted(unstarted) = &mut *underlying else {
+                return false; // `point` on a started reference answers `this`
+            };
+            let unstarted = std::mem::take(unstarted);
+            *underlying = Underlying::HandingOver {
+                unstarted,
+                owner: std::thread::current().id(),
+            };
         }
-        let Underlying::Unstarted(unstarted) =
-            std::mem::replace(&mut *underlying, Underlying::Started(cell.clone()))
-        else {
-            unreachable!("checked just above, under the same lock");
+        let _install = Install {
+            reference: self,
+            cell: cell.clone(),
         };
-        let UnstartedCell {
-            user_messages,
-            system_messages,
-        } = unstarted;
-        for message in system_messages {
-            cell.send_system(message);
-        }
-        for envelope in user_messages {
-            cell.tell(envelope.message, envelope.sender);
+        while let Some(next) = self.next_to_hand_over() {
+            match next {
+                Queued::System(message) => cell.send_system(message),
+                Queued::User(envelope) => cell.tell(envelope.message, envelope.sender),
+            }
         }
         true
+    }
+
+    /// The next message for the real cell: a system one first, as `drainSysmsgQueue` runs before and after every user message.
+    fn next_to_hand_over(&self) -> Option<Queued> {
+        let mut underlying = self.lock();
+        let Underlying::HandingOver { unstarted, .. } = &mut *underlying else {
+            return None;
+        };
+        match unstarted.system_messages.pop_front() {
+            Some(message) => Some(Queued::System(message)),
+            None => unstarted.user_messages.pop_front().map(Queued::User),
+        }
     }
 
     /// `isStarted`.
@@ -142,9 +259,9 @@ impl RepointableActorRef {
     /// A weak handle to the installed cell, to check in tests that nothing keeps it alive after termination.
     #[cfg(test)]
     pub(crate) fn installed_cell_for_tests(&self) -> Option<std::sync::Weak<dyn InternalActorRef>> {
-        match &*self.lock() {
+        match &*self.lock_settled() {
             Underlying::Started(cell) => Some(Arc::downgrade(cell)),
-            Underlying::Unstarted(_) => None,
+            Underlying::Unstarted(_) | Underlying::HandingOver { .. } => None,
         }
     }
 
@@ -165,18 +282,28 @@ impl RepointableActorRef {
         self.send_system(SystemMessage::Recreate { cause });
     }
 
+    /// How many senders are waiting for the lock right now (tests use it to know a sender has reached the wait).
+    #[cfg(test)]
+    pub(crate) fn waiting_senders(&self) -> usize {
+        self.waiting.load(Ordering::SeqCst)
+    }
+
     /// `UnstartedCell.numberOfMessages` while unstarted: the user messages waiting.
     pub(crate) fn queued_user_messages(&self) -> usize {
-        match &*self.lock() {
-            Underlying::Unstarted(unstarted) => unstarted.user_messages.len(),
+        match &*self.lock_settled() {
+            Underlying::Unstarted(unstarted) | Underlying::HandingOver { unstarted, .. } => {
+                unstarted.user_messages.len()
+            }
             Underlying::Started(_) => 0,
         }
     }
 
     /// The system messages waiting.
     pub(crate) fn queued_system_messages(&self) -> usize {
-        match &*self.lock() {
-            Underlying::Unstarted(unstarted) => unstarted.system_messages.len(),
+        match &*self.lock_settled() {
+            Underlying::Unstarted(unstarted) | Underlying::HandingOver { unstarted, .. } => {
+                unstarted.system_messages.len()
+            }
             Underlying::Started(_) => 0,
         }
     }
@@ -193,20 +320,24 @@ impl InternalActorRef for RepointableActorRef {
 
     #[cfg(test)]
     fn mailbox_view(&self) -> String {
-        match &*self.lock() {
-            Underlying::Unstarted(unstarted) => format!(
-                "unstarted queued={} system={}",
-                unstarted.user_messages.len(),
-                unstarted.system_messages.len()
-            ),
+        match &*self.lock_settled() {
+            Underlying::Unstarted(unstarted) | Underlying::HandingOver { unstarted, .. } => {
+                format!(
+                    "unstarted queued={} system={}",
+                    unstarted.user_messages.len(),
+                    unstarted.system_messages.len()
+                )
+            }
             Underlying::Started(cell) => cell.mailbox_view(),
         }
     }
 
     #[cfg(test)]
     fn has_system_messages(&self) -> bool {
-        match &*self.lock() {
-            Underlying::Unstarted(unstarted) => !unstarted.system_messages.is_empty(),
+        match &*self.lock_settled() {
+            Underlying::Unstarted(unstarted) | Underlying::HandingOver { unstarted, .. } => {
+                !unstarted.system_messages.is_empty()
+            }
             Underlying::Started(cell) => cell.has_system_messages(),
         }
     }
@@ -217,9 +348,9 @@ impl InternalActorRef for RepointableActorRef {
         props: crate::actor::props::Props,
         name: &str,
     ) -> Result<ActorRef, crate::actor::ActorError> {
-        let started = match &*self.lock() {
+        let started = match &*self.lock_settled() {
             Underlying::Started(cell) => Some(cell.clone()),
-            Underlying::Unstarted(_) => None,
+            Underlying::Unstarted(_) | Underlying::HandingOver { .. } => None,
         };
         match started {
             Some(cell) => cell.attach_child_for_tests(props, name),
@@ -231,33 +362,38 @@ impl InternalActorRef for RepointableActorRef {
     }
 
     fn tell(&self, msg: AnyMessage, sender: Option<ActorRef>) {
-        let started = {
-            let mut underlying = self.lock();
-            match &mut *underlying {
-                Underlying::Unstarted(unstarted) => {
-                    unstarted.user_messages.push_back(Envelope {
-                        message: msg,
-                        sender,
-                    });
-                    return;
-                }
-                Underlying::Started(cell) => cell.clone(),
+        let limit = self.push_policy.as_ref().map(|policy| policy.timeout);
+        let Some(mut underlying) = self.lock_unless_handed_over(limit) else {
+            if let Some(policy) = &self.push_policy {
+                self.drop_after_lock_timeout(policy, msg, sender);
             }
+            return;
         };
+        let started = match &mut *underlying {
+            Underlying::Unstarted(unstarted) | Underlying::HandingOver { unstarted, .. } => {
+                unstarted.user_messages.push_back(Envelope {
+                    message: msg,
+                    sender,
+                });
+                return;
+            }
+            Underlying::Started(cell) => cell.clone(),
+        };
+        drop(underlying);
         started.tell(msg, sender);
     }
 
     fn send_system(&self, msg: SystemMessage) {
-        let started = {
-            let mut underlying = self.lock();
-            match &mut *underlying {
-                Underlying::Unstarted(unstarted) => {
-                    unstarted.system_messages.push(msg);
-                    return;
-                }
-                Underlying::Started(cell) => cell.clone(),
+        // `lock.lock()`: "we cannot lose system messages, ever"
+        let mut underlying = self.lock_settled();
+        let started = match &mut *underlying {
+            Underlying::Unstarted(unstarted) | Underlying::HandingOver { unstarted, .. } => {
+                unstarted.system_messages.push_back(msg);
+                return;
             }
+            Underlying::Started(cell) => cell.clone(),
         };
+        drop(underlying);
         started.send_system(msg);
     }
 
@@ -266,10 +402,54 @@ impl InternalActorRef for RepointableActorRef {
     }
 
     fn is_terminated(&self) -> bool {
-        match &*self.lock() {
-            Underlying::Unstarted(_) => false,
+        match &*self.lock_settled() {
+            Underlying::Unstarted(_) | Underlying::HandingOver { .. } => false,
             Underlying::Started(cell) => cell.is_terminated(),
         }
+    }
+}
+
+/// What `replaceWith` hands to the real cell next.
+enum Queued {
+    System(SystemMessage),
+    User(Envelope),
+}
+
+/// Installs the real cell when the hand-over ends, however it ends (`finally { swapCell(cell) }`), and wakes the senders that waited.
+struct Install<'a> {
+    reference: &'a RepointableActorRef,
+    cell: Arc<dyn InternalActorRef>,
+}
+
+impl Drop for Install<'_> {
+    fn drop(&mut self) {
+        *self.reference.lock() = Underlying::Started(self.cell.clone());
+        self.reference.handed_over.notify_all();
+    }
+}
+
+/// Counts a sender as waiting for as long as it lives.
+struct Waiting<'a>(&'a AtomicUsize);
+
+impl<'a> Waiting<'a> {
+    fn new(counter: &'a AtomicUsize) -> Waiting<'a> {
+        counter.fetch_add(1, Ordering::SeqCst);
+        Waiting(counter)
+    }
+}
+
+impl Drop for Waiting<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// `msg.message.getClass` as the JVM prints it, for the message types that have a JVM class.
+fn jvm_class_of(message: &AnyMessage) -> &'static str {
+    if message.is::<String>() || message.is::<&'static str>() {
+        "class java.lang.String"
+    } else {
+        "class java.lang.Object"
     }
 }
 
