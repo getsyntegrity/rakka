@@ -75,6 +75,10 @@ pub(crate) struct RepointableActorRef {
     /// How many senders are waiting for a hand-over right now.
     waiting: AtomicUsize,
     me: Weak<RepointableActorRef>,
+    /// `lookup` (`RepointableActorRef.scala:50-65`): where children are looked up. It points to the real cell as soon as `point` has made
+    /// it (`swapLookup`), before the cell starts and before `underlying` changes, so a child the actor creates while it starts is found
+    /// through a reference that is still unstarted. `None` is the `UnstartedCell`: no children.
+    lookup: Mutex<Option<Arc<ActorCell>>>,
     /// `newCell`: taken by the first `point`
     new_cell: Mutex<Option<NewCell>>,
 }
@@ -182,6 +186,7 @@ impl RepointableActorRef {
             handed_over: Condvar::new(),
             waiting: AtomicUsize::new(0),
             me: me.clone(),
+            lookup: Mutex::new(None),
             new_cell: Mutex::new(new_cell),
         })
     }
@@ -204,10 +209,38 @@ impl RepointableActorRef {
         // (the factory is consumed here: Pekko would build a second cell on a second `point` after a rejection, but the supervisor
         // sends `Supervise` once, so that is not observable)
         let cell = new_cell(&ActorRef(me));
+        self.swap_lookup(cell.clone());
         // `cell.start()` is outside the `try` of `catchFailures`: a rejected attach leaves this reference unstarted
         cell.start()?;
         self.replace_with(cell.local_ref().0);
         Ok(())
+    }
+
+    /// `swapLookup`: from now on children are looked up in the real cell, whether or not it is installed yet.
+    fn swap_lookup(&self, cell: Arc<ActorCell>) {
+        *self
+            .lookup
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(cell);
+    }
+
+    fn lookup_cell(&self) -> Option<Arc<ActorCell>> {
+        self.lookup
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// `children`: those of the real cell once `point` has made it (`lookup`), none before (`UnstartedCell.children`).
+    pub(crate) fn children(&self) -> Vec<ActorRef> {
+        self.lookup_cell()
+            .map(|cell| cell.children())
+            .unwrap_or_default()
+    }
+
+    /// `getSingleChild(name)`: the child of the real cell, `None` where Pekko answers `Nobody` (also before `point`).
+    pub(crate) fn get_single_child(&self, name: &str) -> Option<ActorRef> {
+        self.lookup_cell().and_then(|cell| cell.child(name))
     }
 
     /// `point`/`replaceWith`: installs the real cell, handing it everything that was sent before: the system messages, then each user

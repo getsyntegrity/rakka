@@ -21,6 +21,8 @@ pub mod supervision;
 pub mod system;
 #[cfg(test)]
 mod unstarted_push_timeout_tests;
+#[cfg(test)]
+mod unstarted_termination_tests;
 pub(crate) mod uri;
 
 pub use actor_ref::ActorRef;
