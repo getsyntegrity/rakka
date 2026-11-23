@@ -98,6 +98,8 @@ impl RepointableActorRef {
         else {
             return Ok(());
         };
+        // (the factory is consumed here: Pekko would build a second cell on a second `point` after a rejection, but the supervisor
+        // sends `Supervise` once, so that is not observable)
         let cell = new_cell(&ActorRef(me));
         // `cell.start()` is outside the `try` of `catchFailures`: a rejected attach leaves this reference unstarted
         cell.start()?;

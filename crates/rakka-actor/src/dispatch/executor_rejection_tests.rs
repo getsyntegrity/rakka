@@ -464,6 +464,7 @@ fn an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts(
     wait_until("the error and the supervisor's restart", || {
         !recorder.errors.lock().unwrap().is_empty() && sibling.is_terminated()
     });
+    std::thread::sleep(Duration::from_millis(500)); // a bounded wait for an absence, as the oracle does
     let observed = format!(
         "errors=[{}] refReturned=true newActorTerminated={} siblingTerminated={} startedActors={} rejectionsLeft={}",
         recorder.errors.lock().unwrap().join(", "),
