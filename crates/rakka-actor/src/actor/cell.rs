@@ -12,7 +12,7 @@ use crate::actor::actor_ref::{ActorRef, InternalActorRef};
 use crate::actor::children::{Children, SuspendReason};
 use crate::actor::fault::{Throwable, throw};
 use crate::actor::props::{Actor, ActorContext, AnyMessage, Kill, PoisonPill, Props};
-use crate::actor::repointable::RepointableActorRef;
+use crate::actor::repointable::{PushPolicy, RepointableActorRef};
 use crate::actor::supervision::{Directive, OneForOneStrategy, RestartStats, SupervisorStrategy};
 use crate::actor::system::SystemInner;
 use crate::actor::validate_path_element;
@@ -1002,16 +1002,30 @@ impl ActorCell {
         let path = self.path.new_child(&name, new_uid());
         if asynchronous {
             // `provider.actorOf(..., async = true)`: a `RepointableActorRef`, which tells the supervisor (this actor) to `Supervise` it
-            let child_ref = ActorRef(RepointableActorRef::for_actor(path.clone(), {
-                let (system, parent) = (self.system.clone(), self.self_ref());
-                Box::new(move |outer: &ActorRef| {
-                    // `point(catchFailures = true)`: what `newCell` throws is not lost, the actor fails to initialise instead
-                    make_cell(&system, props.clone(), parent.clone(), path.clone(), outer)
-                        .unwrap_or_else(|_failure| {
-                            ActorCell::new_with_failure(&system, props, parent, path, outer.clone())
-                        })
-                })
-            }));
+            let child_ref = ActorRef(RepointableActorRef::for_actor(
+                path.clone(),
+                {
+                    let (system, parent) = (self.system.clone(), self.self_ref());
+                    Box::new(move |outer: &ActorRef| {
+                        // `point(catchFailures = true)`: what `newCell` throws is not lost, the actor fails to initialise instead
+                        make_cell(&system, props.clone(), parent.clone(), path.clone(), outer)
+                            .unwrap_or_else(|_failure| {
+                                ActorCell::new_with_failure(
+                                    &system,
+                                    props,
+                                    parent,
+                                    path,
+                                    outer.clone(),
+                                )
+                            })
+                    })
+                },
+                PushPolicy {
+                    timeout: self.system.settings.unstarted_push_timeout,
+                    events: self.system.events.clone(),
+                    dead_letters: self.system.dead_letters.clone(),
+                },
+            ));
             self.system_dispatch(SystemMessage::Supervise {
                 child: child_ref.clone(),
                 is_async: true,
