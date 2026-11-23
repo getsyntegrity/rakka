@@ -1092,11 +1092,14 @@ impl ActorCell {
         }
     }
 
-    /// `ActorCell.stop(actor)`: mark a child as about to die, then ask the actor to terminate.
+    /// `ActorCell.stop(actor)` (`Children.scala:132-145`): mark a child as about to die, then ask the actor to terminate. A child that
+    /// has not started (`RepointableRef.isStarted` is false) is not marked: it only gets its `Terminate`, so this actor never waits for a
+    /// termination that cannot happen until the child is pointed (oracle cases `MBX-UT-03`, `MBX-UT-06`).
     pub(crate) fn stop_actor(&self, actor: &ActorRef) {
+        let may_wait_for_death = actor.0.as_repointable().is_none_or(|r| r.is_started());
         {
             let mut ch = self.children.lock().unwrap();
-            if ch.get_by_ref(actor).is_some() {
+            if may_wait_for_death && ch.get_by_ref(actor).is_some() {
                 ch.shall_die(actor);
             }
         }

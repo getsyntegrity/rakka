@@ -179,32 +179,24 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-UT-01 swapLookup: before the real cell is installed the reference is still unstarted, but a child the actor created in preStart already resolves through the real cell",
-        unstarted_termination_twin!(
-            "needs the children of an unstarted reference (children, getSingleChild, getChild), which RepointableActorRef does not have yet, and an executor that holds the hand-over (internal)"
-        ),
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
     ),
     (
         "MBX-UT-02 an unstarted reference: not started, not terminated, counts its queued user messages, queues Suspend and Resume and hands everything over in order",
-        unstarted_termination_twin!(
-            "reads the internal state of an unstarted reference (underlying, numberOfMessages), which the public API does not expose"
-        ),
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
     ),
     (
         "MBX-UT-03 a parent that terminates before the Supervise of its child: Supervise is dead-lettered, the child never starts and keeps its queue",
-        unstarted_termination_twin!(
-            "Rust differs today: stop_actor calls shall_die for every child, so a parent whose child never started never terminates (recording the line would hang until the slice C4 fixes that production code)"
-        ),
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
+    (
+        "MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
     ),
     (
         "MBX-UT-05 a parent already waiting for a started child to die ignores the Supervise of a new child: the child is never pointed and the parent still terminates",
         unstarted_termination_twin!(
             "needs to hold the death of a started child and to run turns selectively (RunsOnDemand::run_next, internal)"
-        ),
-    ),
-    (
-        "MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated",
-        unstarted_termination_twin!(
-            "Rust differs today: a restart waits for a child that never started (the line would differ until the slice C4 fixes stop_actor)"
         ),
     ),
     (
@@ -215,9 +207,7 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-UT-09 a child created in preStart while the hand-over is in progress waits for the hand-over to end: the reference's lock is held across replaceWith",
-        unstarted_termination_twin!(
-            "needs a hook that blocks the hand-over (replaceWith) while the child is created in preStart, which only the internal executor and cell stand-ins provide (the lock itself is C3, already integrated)"
-        ),
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_push_timeout_tests (is_started during the hand-over) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
     ),
 ];
 

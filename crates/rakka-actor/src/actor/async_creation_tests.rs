@@ -46,6 +46,20 @@ impl RunsOnDemand {
         }
     }
 
+    /// Runs the oldest pending mailbox turn of the actor called `name`, if any (the other pending turns stay pending).
+    pub(super) fn run_next_of(&self, name: &str) {
+        let next = {
+            let mut pending = self.pending.lock().unwrap();
+            let position = pending
+                .iter()
+                .position(|cell| cell.self_ref().path().name() == name);
+            position.and_then(|position| pending.remove(position))
+        };
+        if let Some(cell) = next {
+            ActorCell::run_mailbox(&cell);
+        }
+    }
+
     /// Runs every pending mailbox turn, and the ones those turns schedule, on the calling thread.
     pub(super) fn run_until_idle(&self) {
         loop {
@@ -118,12 +132,21 @@ impl Fixture {
     }
 
     pub(super) fn in_system(system_name: &str) -> Fixture {
+        Self::with_executor(system_name, |on_demand| on_demand)
+    }
+
+    /// A fixture whose user dispatcher goes through `wrap` (e.g. to hold the thread that submits a turn); the turns are still run from the
+    /// returned fixture's `executor`.
+    pub(super) fn with_executor(
+        system_name: &str,
+        wrap: impl FnOnce(Arc<RunsOnDemand>) -> Arc<dyn Executor>,
+    ) -> Fixture {
         let executor = Arc::new(RunsOnDemand::default());
         let system = ActorSystem::create_with_executor(
             system_name,
             Settings::default(),
             Arc::new(NanoClock),
-            executor.clone(),
+            wrap(executor.clone()),
         )
         .unwrap();
         Fixture {

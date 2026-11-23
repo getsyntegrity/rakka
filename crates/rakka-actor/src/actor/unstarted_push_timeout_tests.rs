@@ -469,3 +469,33 @@ fn an_actor_of_reference_uses_the_configured_unstarted_push_timeout() {
 
 struct NoOp;
 impl crate::actor::props::Actor for NoOp {}
+
+/// `isStarted` while the hand-over is in progress (oracle case `MBX-UT-09`: `isStarted=false` during, `true` after). Pekko reads a
+/// volatile field; Rakka reads under the reference's own mutex, which the hand-over does not hold while it delivers. The test does not
+/// assume either: the read runs on its own thread with a bounded wait, and the value it returns is what is asserted.
+#[test]
+fn is_started_is_false_while_the_hand_over_is_in_progress_and_true_after() {
+    let mut blocked = BlockedHandOver::start(Duration::from_secs(10));
+    let reader = {
+        let reference = blocked.reference.clone();
+        let (answer_tx, answer) = channel();
+        std::thread::spawn(move || {
+            let _ = answer_tx.send(reference.is_started());
+        });
+        answer
+    };
+    let during = reader.recv_timeout(Duration::from_secs(2));
+    blocked.release_and_finish(); // never leave the hand-over blocked, whatever the read did
+    let during =
+        during.unwrap_or_else(|_| reader.recv().expect("the read ends after the hand-over"));
+    assert!(!during, "isStarted during the hand-over");
+    assert!(
+        blocked.reference.is_started(),
+        "isStarted after the hand-over"
+    );
+    assert!(
+        recorded("MBX-UT-09").contains("duringHandOver: isStarted=false")
+            && recorded("MBX-UT-09").contains("afterHandOver: isStarted=true"),
+        "the golden pins the same two values"
+    );
+}
