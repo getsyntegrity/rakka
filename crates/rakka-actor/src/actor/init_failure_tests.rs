@@ -1,5 +1,4 @@
-// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala, actor/dungeon/Dispatch.scala,
-// actor/dungeon/FaultHandling.scala and actor/ActorCell.scala (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala, actor/dungeon/Dispatch.scala, actor/dungeon/FaultHandling.scala and actor/ActorCell.scala (Apache-2.0).
 //! Failure to make the cell of an asynchronously created actor (Q-MBX-11, slice C1): `RepointableActorRef.point(catchFailures = true)`
 //! catches what `newCell` throws and starts a replacement cell (`ActorCell.initWithFailure`) whose only message is
 //! `Create(Some(ActorInitializationException(self, "failure while creating ActorCell", failure)))`; the actor then fails like any
