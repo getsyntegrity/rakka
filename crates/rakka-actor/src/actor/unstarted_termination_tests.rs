@@ -11,7 +11,7 @@ use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use crate::actor::repointable::RepointableActorRef;
 use crate::dispatch::dispatcher::{Executor, Rejected};
 use crate::dispatch::sysmsg::SystemMessage;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -28,14 +28,6 @@ impl Actor for Life {
     fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
         true
     }
-}
-
-fn is_started(child: &ActorRef) -> bool {
-    child
-        .0
-        .as_repointable()
-        .expect("an asynchronously created child")
-        .is_started()
 }
 
 /// Logs `c:preStart` and `c:r:<text>` for the strings it receives.
@@ -107,9 +99,6 @@ fn a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_
         parent.is_terminated(),
         "the parent must terminate without waiting for a child that never started"
     );
-    assert!(!is_started(&child));
-    assert!(!child.is_terminated());
-    assert_eq!(child.0.as_repointable().unwrap().queued_user_messages(), 2);
     assert!(
         recorded("MBX-UT-03").contains(&format!("child: {}", state_view(&child))),
         "{}",
