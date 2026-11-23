@@ -972,6 +972,43 @@ MUTANTS = {
         "            if child.start().is_err() {\n                self.children.lock().unwrap().remove(&child_ref);\n                throw(rejected_execution());",
         "after a rejected attach `context.actorOf` forgets the child, so its name can be reused (Pekko keeps it taken)",
     ),
+    # --- Q-MBX-11 slice C4: actors that never started (killed by the in-crate twins of MBX-UT-01..09, see UNIT_MUTANTS) ---
+    "stop-marks-a-child-that-has-not-started": (
+        "src/actor/cell.rs",
+        "let may_wait_for_death = actor.0.as_repointable().is_none_or(|r| r.is_started());",
+        "let may_wait_for_death = true;",
+        "`stop` marks a child that never started as about to die, so its parent waits for a termination that cannot happen until the child is pointed (MBX-UT-03, MBX-UT-06)",
+    ),
+    "stop-never-marks-an-asynchronous-child": (
+        "src/actor/cell.rs",
+        "let may_wait_for_death = actor.0.as_repointable().is_none_or(|r| r.is_started());",
+        "let may_wait_for_death = actor.0.as_repointable().is_none();",
+        "`stop` never marks a child made by an asynchronous `actorOf`, so a parent does not wait for its started children (MBX-UT-04)",
+    ),
+    "supervise-is-processed-while-terminating": (
+        "src/actor/cell.rs",
+        "            let mut children = self.children.lock().unwrap();\n            if children.is_terminating() {\n                return;\n            }",
+        "            let mut children = self.children.lock().unwrap();\n            if false {\n                return;\n            }",
+        "a parent that is already waiting for its children to die processes the `Supervise` of a new child and starts it (MBX-UT-05)",
+    ),
+    "swap-lookup-is-omitted": (
+        "src/actor/repointable.rs",
+        "        self.swap_lookup(cell.clone());\n",
+        "",
+        "the lookup of children is never pointed to the real cell: a child created in `preStart` is not found through a reference that is still unstarted (MBX-UT-01)",
+    ),
+    "lookup-children-are-always-empty": (
+        "src/actor/repointable.rs",
+        "            .map(|cell| cell.children())\n            .unwrap_or_default()",
+        "            .map(|_| Vec::new())\n            .unwrap_or_default()",
+        "a started reference answers no children (MBX-UT-01)",
+    ),
+    "is-started-while-handing-over": (
+        "src/actor/repointable.rs",
+        "matches!(&*self.lock(), Underlying::Started(_))",
+        "matches!(&*self.lock(), Underlying::Started(_) | Underlying::HandingOver { .. })",
+        "`isStarted` is true while the real cell is still being handed the queues (MBX-UT-09)",
+    ),
     # --- Q-MBX-11 slice C3: UnstartedPushTimeout (killed by the in-crate twins of MBX-PT-01..06, see UNIT_MUTANTS) ---
     "push-timeout-not-applied-to-user-messages": (
         "src/actor/repointable.rs",
@@ -1637,6 +1674,12 @@ UNIT_MUTANTS = {
     "supervisor-ignores-a-rejected-point": ("dispatch::executor_rejection_tests", "an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts"),
     "sync-actor-of-swallows-the-attach-rejection": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
     "sync-actor-of-rejection-releases-the-name": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
+    "stop-marks-a-child-that-has-not-started": ("actor::unstarted_termination_tests", "a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it"),
+    "stop-never-marks-an-asynchronous-child": ("actor::unstarted_termination_tests", "a_parent_stopped_after_its_child_started_waits_for_it_and_the_child_dies_first"),
+    "supervise-is-processed-while-terminating": ("actor::unstarted_termination_tests", "a_parent_already_waiting_for_a_started_child_ignores_the_supervise_of_a_new_child_and_still_terminates"),
+    "swap-lookup-is-omitted": ("actor::unstarted_termination_tests", "a_child_created_in_pre_start_is_found_through_a_reference_that_is_still_unstarted"),
+    "lookup-children-are-always-empty": ("actor::unstarted_termination_tests", "a_child_created_in_pre_start_is_found_through_a_reference_that_is_still_unstarted"),
+    "is-started-while-handing-over": ("actor::unstarted_push_timeout_tests", "is_started_is_false_while_the_hand_over_is_in_progress_and_true_after"),
     "push-timeout-not-applied-to-user-messages": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_longer_than_the_timeout_is_a_dead_letter_with_a_warning"),
     "push-timeout-limit-ignored": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_while_the_hand_over_ends_before_the_timeout_is_delivered_after_the_queued_messages"),
     "push-timeout-overflow-panics": ("actor::unstarted_push_timeout_tests", "a_timeout_too_long_for_the_clock_does_not_panic_the_sender"),

@@ -166,6 +166,42 @@ pub const PENDING: &[(&str, &str)] = &[
         "MBX-SC-03 actor suspended with queued work does not reschedule itself",
         "sends the internal Suspend system message and reads the mailbox state, neither reachable from the public API: produced in-crate by dispatch::dispatcher (turn_limits_with_real_actors) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 6c)",
     ),
+    (
+        "MBX-UT-01 swapLookup: before the real cell is installed the reference is still unstarted, but a child the actor created in preStart already resolves through the real cell",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
+    (
+        "MBX-UT-02 an unstarted reference: not started, not terminated, counts its queued user messages, queues Suspend and Resume and hands everything over in order",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
+    (
+        "MBX-UT-03 a parent that terminates before the Supervise of its child: Supervise is dead-lettered, the child never starts and keeps its queue",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
+    (
+        "MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
+    (
+        "MBX-UT-05 a parent already waiting for a started child to die ignores the Supervise of a new child: the child is never pointed and the parent still terminates",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
+    (
+        "MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
+    (
+        "MBX-UT-07 a restart waiting for a started child: the Supervise of an unstarted child is processed meanwhile, the child starts and terminates, the restart completes when the started child is gone",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
+    (
+        "MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by tests/classic_unstarted_races.rs and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
+    (
+        "MBX-UT-09 a child created in preStart while the hand-over is in progress waits for the hand-over to end: the reference's lock is held across replaceWith",
+        "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_push_timeout_tests (is_started during the hand-over) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
+    ),
 ];
 
 fn state(status: &MailboxStatus) -> String {
