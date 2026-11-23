@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, PoisonError, Weak};
 use crate::actor::ActorPath;
 use crate::actor::actor_ref::{ActorRef, InternalActorRef};
 use crate::actor::children::{Children, SuspendReason};
-use crate::actor::fault::Throwable;
+use crate::actor::fault::{Throwable, throw};
 use crate::actor::props::{Actor, ActorContext, AnyMessage, Kill, PoisonPill, Props};
 use crate::actor::repointable::RepointableActorRef;
 use crate::actor::supervision::{Directive, OneForOneStrategy, RestartStats, SupervisorStrategy};
@@ -266,11 +266,11 @@ impl ActorCell {
         cell
     }
 
-    /// `ActorCell.start()`: attach to the dispatcher.
-    pub(crate) fn start(self: &Arc<Self>) {
+    /// `ActorCell.start()`: attach to the dispatcher. `Dispatcher.attach` lets the executor's rejection propagate to the caller
+    /// (after `register_for_execution` has already published its `Error`).
+    pub(crate) fn start(self: &Arc<Self>) -> Result<(), Rejected> {
         self.status.set_as_idle();
-        // `Dispatcher.attach` lets a rejection propagate to `actorOf`; here it has been reported by `register_for_execution` only
-        let _ = self.register_for_execution(false, false);
+        self.register_for_execution(false, false).map(drop)
     }
 
     /// The state of the mailbox as the oracle prints it: `open|closed scheduled=<b> suspendCount=<n> queued=<n>`.
@@ -1031,7 +1031,11 @@ impl ActorCell {
             let child_ref = child.self_ref();
             self.inherit_suspension(&child_ref);
             self.children.lock().unwrap().init_child(&child_ref);
-            child.start();
+            // `actor.start()` is after `initChild` and outside the `try` that unreserves the name: the caller gets the exception,
+            // the name stays taken and the child stays registered (`Children.scala:317-350`)
+            if child.start().is_err() {
+                throw(rejected_execution());
+            }
             Ok(child_ref)
         }
     }
@@ -1066,7 +1070,11 @@ impl ActorCell {
                 },
             );
         } else if is_async && let Some(repointable) = child.0.as_repointable() {
-            repointable.point();
+            // `handleSupervise` → `point`: `cell.start()` is outside `catchFailures`, so a rejected attach fails this actor
+            // (`systemInvoke`'s `handleInvokeFailure(Nil, e)`), not the new one
+            if repointable.point().is_err() {
+                self.handle_invoke_failure(rejected_execution(), None);
+            }
         }
     }
 

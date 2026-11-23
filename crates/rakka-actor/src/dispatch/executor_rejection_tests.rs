@@ -388,3 +388,219 @@ fn the_swallowed_send_failure_names_the_class_of_the_actor_that_could_not_be_sch
         ]
     );
 }
+
+/// A subscriber that is not an actor: records `logSource|cause class|message` of every `ErrorEvent` it is told.
+struct ErrorRecorder {
+    path: crate::actor::ActorPath,
+    errors: Mutex<Vec<String>>,
+}
+impl Default for ErrorRecorder {
+    fn default() -> Self {
+        ErrorRecorder {
+            path: crate::actor::ActorPath::from_string("pekko://mbx/system/error-recorder")
+                .unwrap(),
+            errors: Mutex::default(),
+        }
+    }
+}
+impl crate::actor::actor_ref::InternalActorRef for ErrorRecorder {
+    fn path(&self) -> &crate::actor::ActorPath {
+        &self.path
+    }
+    fn tell(&self, msg: AnyMessage, _sender: Option<ActorRef>) {
+        if let Some(error) = msg.downcast_ref::<ErrorEvent>() {
+            self.errors.lock().unwrap().push(format!(
+                "{}|{}|{}",
+                error.log_source, error.cause.class, error.message
+            ));
+        }
+    }
+    fn send_system(&self, _msg: SystemMessage) {}
+    fn stop(&self) {}
+    fn is_terminated(&self) -> bool {
+        false
+    }
+}
+
+/// Counts every `preStart` (the oracle's `started`).
+struct CountsStarts(Arc<AtomicUsize>);
+impl Actor for CountsStarts {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+fn counting(starts: &Arc<AtomicUsize>) -> Props {
+    let starts = starts.clone();
+    Props::new(move || CountsStarts(starts.clone()))
+}
+
+/// `Dispatcher.attach` rejected twice while the supervisor processes `Supervise(async = true)` (`RepointableActorRef.point`,
+/// `RepointableActorRef.scala:112-135`): `cell.start()` is outside the `try` of `catchFailures`, so the rejection is not an
+/// initialisation failure of the new actor but a failure of the supervisor, which restarts and stops its children.
+#[test]
+fn an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts() {
+    let fixture = Fixture::new(&["a"]);
+    let starts = Arc::new(AtomicUsize::new(0));
+    let sibling = fixture
+        .system
+        .actor_of_named(counting(&starts), "sib")
+        .unwrap();
+    wait_until("the sibling to start", || {
+        starts.load(Ordering::SeqCst) == 1
+    });
+    // The supervisor's restart stops every child of `/user`, listeners included, so the error is recorded by a subscriber that is not
+    // an actor under `/user` (the oracle's listener wins that race on another thread; here one thread runs everything in order).
+    let recorder = Arc::new(ErrorRecorder::default());
+    fixture
+        .system
+        .event_stream()
+        .subscribe(&ActorRef(recorder.clone()), Channel::Error);
+    fixture.executor.reject_next(2);
+    let rejected = fixture
+        .system
+        .actor_of_named(counting(&starts), "a")
+        .unwrap();
+    wait_until("the error and the supervisor's restart", || {
+        !recorder.errors.lock().unwrap().is_empty() && sibling.is_terminated()
+    });
+    std::thread::sleep(Duration::from_millis(500)); // a bounded wait for an absence, as the oracle does
+    let observed = format!(
+        "errors=[{}] refReturned=true newActorTerminated={} siblingTerminated={} startedActors={} rejectionsLeft={}",
+        recorder.errors.lock().unwrap().join(", "),
+        rejected.is_terminated(),
+        sibling.is_terminated(),
+        starts.load(Ordering::SeqCst),
+        fixture.executor.rejections_left()
+    );
+    assert_eq!(observed, recorded("MBX-RJ-05"));
+}
+
+/// The oracle's `SyncSpawner`: creates its child `c` with the synchronous `context.actorOf` (`makeChild(async = false)`) on the
+/// rejecting executor. `caught`: it handles what `actorOf` throws; otherwise the exception escapes and fails this actor.
+struct SyncSpawner {
+    starts: Arc<AtomicUsize>,
+    note: Arc<Mutex<Option<String>>>,
+    caught: bool,
+}
+impl Actor for SyncSpawner {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.starts.fetch_add(1, Ordering::SeqCst);
+    }
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        let note = match msg.downcast_ref::<&str>().copied() {
+            Some("go") => {
+                let created = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let _ = ctx.actor_of_named(Props::new(|| Worker(Log::default())), "c");
+                }));
+                match created {
+                    Ok(()) => "thrown=none".to_owned(),
+                    Err(thrown) => {
+                        let class = thrown
+                            .downcast_ref::<crate::actor::fault::Throwable>()
+                            .map_or("java.lang.RuntimeException", |t| t.class.as_str())
+                            .to_owned();
+                        if !self.caught {
+                            std::panic::resume_unwind(thrown);
+                        }
+                        format!("thrown={class}")
+                    }
+                }
+            }
+            Some("again") => match ctx.actor_of_named(Props::new(|| Worker(Log::default())), "c") {
+                Ok(_) => "again=ok".to_owned(),
+                Err(error) => format!("again={}", error.class().java_name()),
+            },
+            _ => return false,
+        };
+        *self.note.lock().unwrap() = Some(note);
+        true
+    }
+}
+
+type Note = Arc<Mutex<Option<String>>>;
+
+impl Fixture {
+    /// An actor `p` that creates `c` synchronously (the oracle's `SyncSpawner`), already started.
+    fn sync_spawner(&self, caught: bool) -> (ActorRef, Arc<AtomicUsize>, Note) {
+        let starts = Arc::new(AtomicUsize::new(0));
+        let note = Note::default();
+        let spawner = self
+            .system
+            .actor_of_named(
+                Props::new({
+                    let (starts, note) = (starts.clone(), note.clone());
+                    move || SyncSpawner {
+                        starts: starts.clone(),
+                        note: note.clone(),
+                        caught,
+                    }
+                }),
+                "p",
+            )
+            .unwrap();
+        wait_until("the spawner to start", || {
+            starts.load(Ordering::SeqCst) == 1
+        });
+        (spawner, starts, note)
+    }
+}
+
+fn take_note(note: &Note) -> String {
+    wait_until("a note", || note.lock().unwrap().is_some());
+    note.lock().unwrap().take().unwrap()
+}
+
+/// `Dispatcher.attach` rejected twice under the synchronous `context.actorOf`: `actor.start()` comes after `initChild` and outside the
+/// `try` that unreserves the name (`Children.scala:317-350`), so the caller gets the exception and the name stays taken.
+#[test]
+fn a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name() {
+    let fixture = Fixture::new(&["c"]);
+    let (spawner, starts, note) = fixture.sync_spawner(true);
+    fixture.executor.reject_next(2);
+    spawner.tell("go", None);
+    let thrown = take_note(&note);
+    std::thread::sleep(Duration::from_millis(500)); // a bounded wait for an absence
+    let errors = fixture.errors();
+    spawner.tell("again", None);
+    let observed = format!(
+        "{thrown} errors=[{errors}] rejectionsLeft={} | {} startedActors={} parentTerminated={}",
+        fixture.executor.rejections_left(),
+        take_note(&note),
+        starts.load(Ordering::SeqCst),
+        spawner.is_terminated()
+    );
+    assert_eq!(observed, recorded("MBX-RJ-06"));
+}
+
+/// The same rejection escaping the actor fails it: the supervisor restarts it, which stops the child that never started.
+#[test]
+fn a_synchronous_actor_of_rejection_that_escapes_fails_the_parent_and_restarts_it() {
+    let fixture = Fixture::new(&["c"]);
+    let (spawner, starts, note) = fixture.sync_spawner(false);
+    fixture.executor.reject_next(2);
+    spawner.tell("go", None);
+    // the parent starts, then the restarted parent starts (the child that never attached is not counted: it may or may not run its Create)
+    wait_until("the restart", || starts.load(Ordering::SeqCst) == 2);
+    std::thread::sleep(Duration::from_millis(500)); // a bounded wait for an absence
+    *note.lock().unwrap() = None;
+    spawner.tell("again", None);
+    let observed = format!(
+        "{} dispatcherErrors=[{}] rejectionsLeft={} startedActors={} parentTerminated={}",
+        take_note(&note),
+        // the supervisor's `logFailure` line is another contract (AC-SUP-018)
+        fixture
+            .errors
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|error| error.starts_with("org.apache.pekko.dispatch.Dispatcher|"))
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", "),
+        fixture.executor.rejections_left(),
+        starts.load(Ordering::SeqCst),
+        spawner.is_terminated()
+    );
+    assert_eq!(observed, recorded("MBX-RJ-07"));
+}

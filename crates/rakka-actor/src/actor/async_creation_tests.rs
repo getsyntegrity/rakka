@@ -469,7 +469,7 @@ fn an_unstarted_actor_holds_system_messages_and_is_started_once() {
 
     fixture.executor.run_until_idle(); // the parent handles `Supervise` and points the child
     assert!(repointable.is_started());
-    repointable.point(); // a second `Supervise` for the same child
+    repointable.point().unwrap(); // a second `Supervise` for the same child
     fixture.executor.run_until_idle();
     assert_eq!(starts.load(std::sync::atomic::Ordering::SeqCst), 1);
     assert!(repointable.installed_cell_for_tests().is_some());

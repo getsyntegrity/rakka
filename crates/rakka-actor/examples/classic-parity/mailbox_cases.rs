@@ -88,7 +88,15 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-RJ-05 an actor whose attach is rejected twice: actorOf returns, the supervisor fails and its children stop, the new actor never starts",
-        "Rakka creates actors synchronously (Pekko's async=false path), so a rejection in attach does not fail the supervisor and does not leave the new actor unstarted; reproducing Pekko needs the asynchronous creation protocol (proposed decision Q-MBX-11); the golden line is the evidence",
+        "needs an executor that rejects tasks: produced in-crate by dispatch::executor_rejection_tests (through the asynchronous creation of slice B) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C2)",
+    ),
+    (
+        "MBX-RJ-06 a synchronous context.actorOf whose attach is rejected twice: the caller gets the exception and the name stays taken",
+        "needs an executor that rejects tasks and a parent actor: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C2)",
+    ),
+    (
+        "MBX-RJ-07 a synchronous context.actorOf whose attach is rejected twice and whose exception escapes: the parent fails and restarts",
+        "needs an executor that rejects tasks and a parent actor: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C2)",
     ),
     (
         "MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order",

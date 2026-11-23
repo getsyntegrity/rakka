@@ -941,6 +941,37 @@ MUTANTS = {
         "if true {",
         "a failed creation is retried before its children are gone, so the new instance finds their names still taken",
     ),
+    # --- Q-MBX-11 slice C2: a rejected Dispatcher.attach (killed by the in-crate twins of MBX-RJ-05..07, see UNIT_MUTANTS) ---
+    "attach-rejection-swallowed-by-start": (
+        "src/actor/cell.rs",
+        "self.register_for_execution(false, false).map(drop)",
+        "{ let _ = self.register_for_execution(false, false); Ok(()) }",
+        "`ActorCell::start` swallows the executor's rejection: neither the creator nor the supervisor ever learns of it",
+    ),
+    "point-swallows-the-attach-rejection": (
+        "src/actor/repointable.rs",
+        "        cell.start()?;",
+        "        let _ = cell.start();",
+        "`point` ignores a rejected attach and installs the cell that never started, as if `start` were inside `catchFailures`",
+    ),
+    "supervisor-ignores-a-rejected-point": (
+        "src/actor/cell.rs",
+        "if repointable.point().is_err() {\n                self.handle_invoke_failure(rejected_execution(), None);\n            }",
+        "let _ = repointable.point();",
+        "the supervisor that processes `Supervise` does not fail when attaching the new cell is rejected",
+    ),
+    "sync-actor-of-swallows-the-attach-rejection": (
+        "src/actor/cell.rs",
+        "if child.start().is_err() {\n                throw(rejected_execution());\n            }",
+        "let _ = child.start();",
+        "`context.actorOf` returns the reference of a child whose attach was rejected instead of throwing to the caller",
+    ),
+    "sync-actor-of-rejection-releases-the-name": (
+        "src/actor/cell.rs",
+        "            if child.start().is_err() {\n                throw(rejected_execution());",
+        "            if child.start().is_err() {\n                self.children.lock().unwrap().remove(&child_ref);\n                throw(rejected_execution());",
+        "after a rejected attach `context.actorOf` forgets the child, so its name can be reused (Pekko keeps it taken)",
+    ),
     # --- Q-CFG-30: shortest digits of a rendered double, exact ties go to the even digit ---
     "double-tie-breaks-to-odd": (
         "src/config/double_text.rs",
@@ -1534,6 +1565,11 @@ UNIT_MUTANTS = {
     "recreate-of-a-failed-creation-stays-a-recreate": ("actor::init_failure_tests", "a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
     "resume-of-a-failed-creation-stays-a-resume": ("actor::init_failure_tests", "a_supervisor_that_resumes_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
     "fault-create-does-not-wait-for-the-children": ("actor::init_failure_tests", "an_actor_that_fails_to_start_after_creating_a_child_is_restarted_as_a_create_once_its_children_are_gone"),
+    "attach-rejection-swallowed-by-start": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
+    "point-swallows-the-attach-rejection": ("dispatch::executor_rejection_tests", "an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts"),
+    "supervisor-ignores-a-rejected-point": ("dispatch::executor_rejection_tests", "an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts"),
+    "sync-actor-of-swallows-the-attach-rejection": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
+    "sync-actor-of-rejection-releases-the-name": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
 }
 
 
