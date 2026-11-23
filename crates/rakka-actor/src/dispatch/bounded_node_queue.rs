@@ -19,7 +19,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use crate::actor::actor_ref::ActorRef;
 use crate::dispatch::dead_letter_mailbox::tell_dead_letter;
-use crate::dispatch::message_queue::{Envelope, MessageQueue};
+use crate::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
 
 /// `new NonBlockingBoundedMailbox(capacity)` with a negative capacity (`IllegalArgumentException` in Pekko).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -37,6 +37,12 @@ impl std::error::Error for NegativeCapacity {}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NonBlockingBoundedMailbox {
     capacity: usize,
+}
+
+impl MailboxType for NonBlockingBoundedMailbox {
+    fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        NonBlockingBoundedMailbox::create(self, dead_letters.clone())
+    }
 }
 
 impl NonBlockingBoundedMailbox {

@@ -1,0 +1,8 @@
+error[E0432]: unresolved import `rakka_actor::dispatch::message_queue::MailboxType`
+  --> crates/rakka-actor/tests/classic_mailbox_type_selection.rs:17:54
+   |
+17 | use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, UnboundedMailbox};
+   |                                                      ^^^^^^^^^^^ no `MailboxType` in `dispatch::message_queue`
+
+For more information about this error, try `rustc --explain E0432`.
+error: could not compile `rakka-actor` (test "classic_mailbox_type_selection") due to 1 previous error
