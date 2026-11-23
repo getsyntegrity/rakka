@@ -105,6 +105,50 @@ final class MailboxOracle {
     public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new HookQueue(nextHooks); }
   }
 
+  /** A mailbox type whose {@code create} throws: the way a public SPI makes {@code newCell} of an asynchronously created actor fail. */
+  public static final class FailingType implements MailboxType, ProducesMessageQueue<UnboundedMailbox.MessageQueue> {
+    public FailingType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { throw new IllegalStateException("mailbox boom"); }
+  }
+
+  /** Creates a child whose cell cannot be made, inside its own turn, and restarts it when it fails to initialise. */
+  public static final class RestartingParent extends AbstractActor {
+    final Env env; final AtomicReference<ActorRef> child;
+    RestartingParent(Env env, AtomicReference<ActorRef> child) { this.env = env; this.child = child; }
+    @Override public SupervisorStrategy supervisorStrategy() {
+      return new OneForOneStrategy(10, java.time.Duration.ofMinutes(1), t -> SupervisorStrategy.restart());
+    }
+    @Override public Receive createReceive() {
+      return receiveBuilder().matchEquals("go", g ->
+          child.set(((ActorCell) getContext()).attachChild(Props.create(Worker.class, env).withMailbox("failing-mailbox"), "c", false))).build();
+    }
+  }
+
+  /** Creates `k` in preStart and throws on the first start: a restart has to wait for `k` to die, or the second `k` would clash. */
+  public static final class Rebuilder extends AbstractActor {
+    final Env env; final AtomicInteger starts;
+    Rebuilder(Env env, AtomicInteger starts) { this.env = env; this.starts = starts; }
+    @Override public void preStart() {
+      int n = starts.incrementAndGet();
+      getContext().actorOf(Props.create(Worker.class, env), "k");
+      env.log.add("preStart:" + n);
+      if (n == 1) throw new IllegalStateException("first start fails");
+    }
+    @Override public Receive createReceive() { return receiveBuilder().matchAny(m -> env.log.add("r:" + m)).build(); }
+  }
+
+  /** Restarts whatever fails, creating `c` from `props` when told "go". */
+  public static final class RestartingSupervisor extends AbstractActor {
+    final Props props; final AtomicReference<ActorRef> child;
+    RestartingSupervisor(Props props, AtomicReference<ActorRef> child) { this.props = props; this.child = child; }
+    @Override public SupervisorStrategy supervisorStrategy() {
+      return new OneForOneStrategy(10, java.time.Duration.ofMinutes(1), t -> SupervisorStrategy.restart());
+    }
+    @Override public Receive createReceive() {
+      return receiveBuilder().matchEquals("go", g -> child.set(((ActorCell) getContext()).attachChild(props, "c", false))).build();
+    }
+  }
+
   // ---- real actors ---------------------------------------------------------------------------------------------------------------
   static final class Block { final CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1); }
 
@@ -130,6 +174,7 @@ final class MailboxOracle {
       sys = ActorSystem.create("mbx", ConfigFactory.parseString("pekko { loglevel = OFF\n stdout-loglevel = OFF\n log-dead-letters = off\n }\n"
           + "t-disp { type = Dispatcher\n executor = thread-pool-executor\n thread-pool-executor.fixed-pool-size = 1\n throughput = " + throughput
           + "\n throughput-deadline-time = " + deadline + " }\n hook-mailbox.mailbox-type = \"pilot.MailboxOracle$HookType\"\n"
+          + "failing-mailbox.mailbox-type = \"pilot.MailboxOracle$FailingType\"\n"
           + "rej-disp { type = Dispatcher\n executor = \"pilot.MailboxOracle$RejectingConfigurator\"\n throughput = " + throughput + " }\n")
           .withFallback(ConfigFactory.load()));
       ActorRef listener = sys.actorOf(Props.create(Listener.class, dead));
@@ -213,6 +258,13 @@ final class MailboxOracle {
         child.set(c);
       }).build();
     }
+  }
+
+  /** The errors published by cells themselves: the supervisor's {@code logFailure} lines carry the failure's own class and are left out. */
+  static List<String> cellErrors(Env e) {
+    List<String> l = new ArrayList<>();
+    for (String x : e.errors) if (!x.contains("|org.apache.pekko.actor.ActorInitializationException|")) l.add(x);
+    return l;
   }
 
   static void awaitChildStarted(AtomicReference<ActorRef> child) { awaitUntil(() -> child.get() != null); box(child.get()); }
@@ -475,6 +527,49 @@ final class MailboxOracle {
         in(c).resume(null);
         awaitUntil(() -> e.log.size() == 1); idle(c);
         return "childUnderSuspendedParent: " + suspended + " | afterResume: " + view(box(c)) + " log=" + e.log;
+      }
+    });
+    run("MBX-IF-01 the cell of an asynchronously created actor cannot be made: actorOf returns, the supervisor stops the actor, which never starts", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef a = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("failing-mailbox"), "a");
+        awaitUntil(() -> in(a).isTerminated());
+        AtomicReference<String> again = new AtomicReference<>();
+        awaitUntil(() -> { try { e.sys.actorOf(Props.create(Worker.class, e), "a"); again.set("created"); return true; } catch (InvalidActorNameException x) { return false; } });
+        return "refReturned=" + (a != null) + " started=" + e.started.get() + " terminated=" + in(a).isTerminated() + " nameReusable=" + again.get();
+      }
+    });
+    run("MBX-IF-02 messages sent to an actor whose cell cannot be made, before and after it is stopped, are dead letters", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef a = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("failing-mailbox"), "a");
+        a.tell("before", ActorRef.noSender());
+        awaitUntil(() -> in(a).isTerminated());
+        a.tell("after", ActorRef.noSender());
+        awaitUntil(() -> e.dead.size() == 2);
+        return "dead=" + new TreeSet<>(e.dead) + " log=" + e.log + " started=" + e.started.get();
+      }
+    });
+    run("MBX-IF-03 a supervisor that restarts on ActorInitializationException: the failed creation becomes a Create and the actor starts", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        AtomicReference<ActorRef> child = new AtomicReference<>();
+        e.sys.actorOf(Props.create(RestartingParent.class, e, child), "parent").tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.started.get() == 1);
+        ActorRef c = child.get();
+        c.tell("m", ActorRef.noSender());
+        awaitUntil(() -> e.log.size() == 1);
+        // the supervisor's own log of the failure (logFailure, AC-SUP-018) is another contract: only the cell's Error is observed here
+        return "errors=" + cellErrors(e) + " started=" + e.started.get() + " log=" + e.log + " terminated=" + in(c).isTerminated();
+      }
+    });
+    run("MBX-IF-04 an actor that fails to start after creating a child is restarted as a Create: its children are stopped first", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        AtomicReference<ActorRef> child = new AtomicReference<>();
+        AtomicInteger starts = new AtomicInteger();
+        e.sys.actorOf(Props.create(RestartingSupervisor.class, Props.create(Rebuilder.class, e, starts), child), "sup").tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("preStart:2"));
+        awaitUntil(() -> e.started.get() == 2);
+        child.get().tell("m", ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("r:m"));
+        return "errors=" + cellErrors(e) + " starts=" + starts.get() + " childStarts=" + e.started.get() + " log=" + e.log + " terminated=" + in(child.get()).isTerminated();
       }
     });
     run("MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once", () -> {

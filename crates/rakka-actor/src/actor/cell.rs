@@ -161,6 +161,16 @@ pub(crate) fn new_uid() -> i32 {
     }
 }
 
+/// How the real cell of an asynchronously created actor is made (`newCell`): the system, the actor's props, its parent, its path and the
+/// reference it knows as its own. `Err` is the exception Pekko's constructor or `init` would throw.
+pub(crate) type CellMaker = fn(
+    &Arc<SystemInner>,
+    Props,
+    ActorRef,
+    ActorPath,
+    &ActorRef,
+) -> Result<Arc<ActorCell>, Throwable>;
+
 impl ActorCell {
     /// Creates the cell and its `LocalActorRef` (`ActorCell.init`): `Create` is queued first,
     /// then the parent is told to supervise. Nothing runs until [`ActorCell::start`].
@@ -171,7 +181,7 @@ impl ActorCell {
         parent: ActorRef,
         path: ActorPath,
     ) -> Arc<ActorCell> {
-        Self::build(system, dispatcher, props, parent, path, None)
+        Self::build(system, dispatcher, props, parent, path, None, None)
     }
 
     /// `newCell` of a `RepointableActorRef`: `init(sendSupervise = false)` (the supervisor was told when the reference was made) and
@@ -184,7 +194,32 @@ impl ActorCell {
         path: ActorPath,
         outer: ActorRef,
     ) -> Arc<ActorCell> {
-        Self::build(system, dispatcher, props, parent, path, Some(outer))
+        Self::build(system, dispatcher, props, parent, path, Some(outer), None)
+    }
+
+    /// `initWithFailure(failure)`: the replacement for a cell that could not be made. It runs on the system's default dispatcher with
+    /// an unbounded mailbox, and its only message is `Create` carrying `ActorInitializationException(self, "failure while creating
+    /// ActorCell", failure)`; the supervisor was already told about the actor when the reference was made.
+    pub(crate) fn new_with_failure(
+        system: &Arc<SystemInner>,
+        props: Props,
+        parent: ActorRef,
+        path: ActorPath,
+        outer: ActorRef,
+    ) -> Arc<ActorCell> {
+        let initialization_failure = Throwable::new(
+            "org.apache.pekko.actor.ActorInitializationException",
+            Some(&format!("{path}: failure while creating ActorCell")),
+        );
+        Self::build(
+            system,
+            system.dispatcher.clone(),
+            props,
+            parent,
+            path,
+            Some(outer),
+            Some(initialization_failure),
+        )
     }
 
     fn build(
@@ -194,6 +229,7 @@ impl ActorCell {
         parent: ActorRef,
         path: ActorPath,
         outer: Option<ActorRef>,
+        creation_failure: Option<Throwable>,
     ) -> Arc<ActorCell> {
         let cell = Arc::new_cyclic(|me| ActorCell {
             path,
@@ -215,7 +251,9 @@ impl ActorCell {
             st: Mutex::new(CellState::default()),
         });
         assert!(
-            cell.system_queue.enqueue(SystemMessage::Create).is_ok(),
+            cell.system_queue
+                .enqueue(SystemMessage::Create(creation_failure))
+                .is_ok(),
             "a new mailbox accepts system messages"
         );
         if outer.is_none() {
@@ -527,7 +565,7 @@ impl ActorCell {
 
     fn system_invoke(self: &Arc<Self>, msg: SystemMessage) {
         match msg {
-            SystemMessage::Create => self.create(),
+            SystemMessage::Create(failure) => self.create(failure),
             SystemMessage::Terminate => self.terminate(),
             SystemMessage::Failed { child, cause } => self.handle_failure(child, cause),
             SystemMessage::Recreate { cause } => self.fault_recreate(cause),
@@ -544,7 +582,12 @@ impl ActorCell {
         }
     }
 
-    fn create(self: &Arc<Self>) {
+    /// `create(failure)`: a cell that could not be made fails with the exception it was given (`failure.foreach { throw _ }`).
+    fn create(self: &Arc<Self>, failure: Option<Throwable>) {
+        if let Some(failure) = failure {
+            self.handle_invoke_failure(failure, None);
+            return;
+        }
         // `newActor()` runs the user's factory: a throw there is an `ActorInitializationException`, like one in `preStart`
         let actor = match catch_unwind(AssertUnwindSafe(|| self.props.new_actor())) {
             Ok(actor) => actor,
@@ -713,6 +756,20 @@ impl ActorCell {
 
     /// `faultRecreate`: `preRestart` on the failed instance, wait for the children to die, then `finishRecreate`.
     fn fault_recreate(self: &Arc<Self>, cause: Throwable) {
+        if self.st.lock().unwrap().actor.is_none() {
+            // there is no instance to restart (it never got created): `Recreate` becomes `Create`
+            report_dispatch_failure(
+                &self.system.events,
+                ErrorEvent {
+                    cause: Throwable::new("org.apache.pekko.event.Logging$Error$NoCause$", None),
+                    log_source: self.path.to_string(),
+                    log_class: reporter_class(self.st.lock().unwrap().actor_class),
+                    message: format!("changing Recreate into Create after {cause}"),
+                },
+            );
+            self.fault_create();
+            return;
+        }
         if self.children.lock().unwrap().is_terminating() {
             // the actor is shutting down anyway: only keep the suspend counter balanced
             self.resume_after_failure(true);
@@ -729,6 +786,23 @@ impl ActorCell {
         } else {
             self.finish_recreate(cause);
         }
+    }
+
+    /// `faultCreate`: stop the children, then create the actor again (`finishCreate`) once they are gone.
+    fn fault_create(self: &Arc<Self>) {
+        let children = self.children.lock().unwrap().children();
+        for child in &children {
+            self.stop_actor(child);
+        }
+        if !self.children.lock().unwrap().set_creation_reason() {
+            self.finish_create();
+        }
+    }
+
+    /// `finishCreate`: resume the mailbox, forget the failure and run `Create` again.
+    fn finish_create(self: &Arc<Self>) {
+        self.resume_after_failure(true);
+        self.create(None);
     }
 
     /// `resumeNonRecursive` + `clearFailed` (a child that was only suspended along with its parent keeps its own failure state).
@@ -856,6 +930,35 @@ impl ActorCell {
         name: Option<&str>,
         asynchronous: bool,
     ) -> Result<ActorRef, ActorError> {
+        self.attach_child_made_by(props, name, asynchronous, Self::make_repointed)
+    }
+
+    /// `newCell` of an actor made by `actorOf`. Nothing in Rakka can make this fail yet (Pekko: the mailbox type, the dispatcher), so
+    /// the production maker never does; `attach_child_made_by` lets tests supply one that does.
+    fn make_repointed(
+        system: &Arc<SystemInner>,
+        props: Props,
+        parent: ActorRef,
+        path: ActorPath,
+        outer: &ActorRef,
+    ) -> Result<Arc<ActorCell>, Throwable> {
+        Ok(Self::new_repointed(
+            system,
+            system.dispatcher.clone(),
+            props,
+            parent,
+            path,
+            outer.clone(),
+        ))
+    }
+
+    pub(crate) fn attach_child_made_by(
+        self: &Arc<Self>,
+        props: Props,
+        name: Option<&str>,
+        asynchronous: bool,
+        make_cell: CellMaker,
+    ) -> Result<ActorRef, ActorError> {
         let name = match name {
             Some("") => {
                 return Err(ActorError::new(
@@ -883,14 +986,11 @@ impl ActorCell {
             let child_ref = ActorRef(RepointableActorRef::for_actor(path.clone(), {
                 let (system, parent) = (self.system.clone(), self.self_ref());
                 Box::new(move |outer: &ActorRef| {
-                    ActorCell::new_repointed(
-                        &system,
-                        system.dispatcher.clone(),
-                        props,
-                        parent,
-                        path,
-                        outer.clone(),
-                    )
+                    // `point(catchFailures = true)`: what `newCell` throws is not lost, the actor fails to initialise instead
+                    make_cell(&system, props.clone(), parent.clone(), path.clone(), outer)
+                        .unwrap_or_else(|_failure| {
+                            ActorCell::new_with_failure(&system, props, parent, path, outer.clone())
+                        })
                 })
             }));
             self.system_dispatch(SystemMessage::Supervise {
@@ -973,6 +1073,7 @@ impl ActorCell {
                     self.finish_recreate(cause);
                 }
             }
+            Some(SuspendReason::Creation) => self.finish_create(),
             _ => {}
         }
     }

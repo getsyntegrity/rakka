@@ -23,13 +23,13 @@ const ORACLE_GOLDEN: &str = include_str!("../../../../cases/oracle-only/mailbox.
 
 /// An executor that only records which actors were submitted and runs their turns when the test says so.
 #[derive(Default)]
-struct RunsOnDemand {
+pub(super) struct RunsOnDemand {
     pending: Mutex<VecDeque<Arc<ActorCell>>>,
     submissions: Mutex<HashMap<String, usize>>,
 }
 
 impl RunsOnDemand {
-    fn submissions(&self, actor: &str) -> usize {
+    pub(super) fn submissions(&self, actor: &str) -> usize {
         self.submissions
             .lock()
             .unwrap()
@@ -47,7 +47,7 @@ impl RunsOnDemand {
     }
 
     /// Runs every pending mailbox turn, and the ones those turns schedule, on the calling thread.
-    fn run_until_idle(&self) {
+    pub(super) fn run_until_idle(&self) {
         loop {
             let next = self.pending.lock().unwrap().pop_front();
             match next {
@@ -68,7 +68,7 @@ impl Executor for RunsOnDemand {
     fn shutdown(&self) {}
 }
 
-type Log = Arc<Mutex<Vec<String>>>;
+pub(super) type Log = Arc<Mutex<Vec<String>>>;
 
 /// Runs `script` inside its own turn when it receives `"go"`, and logs `terminated` for every `Terminated` it is sent.
 struct Script(Arc<dyn Fn(&mut ActorContext) + Send + Sync>, Log);
@@ -87,7 +87,7 @@ impl Actor for Script {
 }
 
 /// Logs `r:<text>` for the strings it receives (the oracle's `Worker`).
-struct Worker(Log);
+pub(super) struct Worker(Log);
 impl Actor for Worker {
     fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         let Some(text) = msg.downcast_ref::<String>() else {
@@ -98,26 +98,26 @@ impl Actor for Worker {
     }
 }
 
-struct Idle;
+pub(super) struct Idle;
 impl Actor for Idle {
     fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
         true
     }
 }
 
-struct Fixture {
-    system: ActorSystem,
-    executor: Arc<RunsOnDemand>,
+pub(super) struct Fixture {
+    pub(super) system: ActorSystem,
+    pub(super) executor: Arc<RunsOnDemand>,
     /// `terminated` for every `Terminated` a `Script` actor received
     terminated: Log,
 }
 
 impl Fixture {
-    fn new() -> Fixture {
+    pub(super) fn new() -> Fixture {
         Self::in_system("ac")
     }
 
-    fn in_system(system_name: &str) -> Fixture {
+    pub(super) fn in_system(system_name: &str) -> Fixture {
         let executor = Arc::new(RunsOnDemand::default());
         let system = ActorSystem::create_with_executor(
             system_name,
@@ -133,13 +133,13 @@ impl Fixture {
         }
     }
 
-    fn props(&self, script: Arc<dyn Fn(&mut ActorContext) + Send + Sync>) -> Props {
+    pub(super) fn props(&self, script: Arc<dyn Fn(&mut ActorContext) + Send + Sync>) -> Props {
         let terminated = self.terminated.clone();
         Props::new(move || Script(script.clone(), terminated.clone()))
     }
 
     /// An actor that runs `script` when told `"go"`, already started (its first turn has run).
-    fn actor(
+    pub(super) fn actor(
         &self,
         name: &str,
         script: impl Fn(&mut ActorContext) + Send + Sync + 'static,
@@ -161,7 +161,7 @@ impl Fixture {
         self.started(&name, actor)
     }
 
-    fn started(&self, name: &str, actor: ActorRef) -> ActorRef {
+    pub(super) fn started(&self, name: &str, actor: ActorRef) -> ActorRef {
         wait_until(&format!("`{name}` to be submitted"), || {
             self.executor.submissions(name) >= 1
         });
@@ -188,7 +188,7 @@ impl Drop for Fixture {
     }
 }
 
-fn wait_until(what: &str, condition: impl Fn() -> bool) {
+pub(super) fn wait_until(what: &str, condition: impl Fn() -> bool) {
     let deadline = Instant::now() + Duration::from_secs(5);
     while !condition() {
         assert!(Instant::now() < deadline, "timed out waiting for {what}");
@@ -196,7 +196,7 @@ fn wait_until(what: &str, condition: impl Fn() -> bool) {
     }
 }
 
-fn recorded(case: &str) -> &'static str {
+pub(super) fn recorded(case: &str) -> &'static str {
     ORACLE_GOLDEN
         .lines()
         .find(|line| line.starts_with(case))
@@ -205,7 +205,7 @@ fn recorded(case: &str) -> &'static str {
         .expect("the golden has the case")
 }
 
-fn joined(log: &Log) -> String {
+pub(super) fn joined(log: &Log) -> String {
     log.lock().unwrap().join(", ")
 }
 
@@ -344,7 +344,7 @@ fn only_the_guardians_are_created_synchronously_every_other_actor_is_repointable
 }
 
 /// Subscribes an actor to the error channel and returns what it collects.
-fn collect_errors(fixture: &Fixture) -> Arc<Mutex<Vec<ErrorEvent>>> {
+pub(super) fn collect_errors(fixture: &Fixture) -> Arc<Mutex<Vec<ErrorEvent>>> {
     let errors: Arc<Mutex<Vec<ErrorEvent>>> = Arc::default();
     struct Collects(Arc<Mutex<Vec<ErrorEvent>>>);
     impl Actor for Collects {

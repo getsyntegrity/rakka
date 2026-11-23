@@ -7,7 +7,8 @@ use crate::actor::fault::Throwable;
 
 #[allow(dead_code)] // `Supervise` fields are stored for parity with Pekko but nothing reads them yet
 pub(crate) enum SystemMessage {
-    Create,
+    /// `Create(failure)`: start the actor, or, when the cell could not be made, fail with the `ActorInitializationException` it carries
+    Create(Option<Throwable>),
     Terminate,
     /// a child tells its parent that it failed (`Failed(child, cause, uid)`)
     Failed {
