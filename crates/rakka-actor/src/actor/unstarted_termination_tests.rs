@@ -2,7 +2,7 @@
 //! Integration tests (real actors, mailbox, dispatcher and supervision; docs/testing-policy.md section 1) that live under `src/` because they need
 //! `pub(crate)` internals (`attach_child`, `RepointableActorRef`, the executor): they cannot sit in `tests/`. Not unit tests.
 //!
-//! Twins of oracle cases `MBX-UT-01`, `02`, `03` and `06` (Q-MBX-11, slice C4): swapLookup, the state of an unstarted reference, and termination and
+//! Twins of oracle cases `MBX-UT-01`, `02`, `03`, `05`, `06` and `07` (Q-MBX-11, slice C4): swapLookup, the state of an unstarted reference, and termination and
 //! restart of a parent that has a child that never started. The user dispatcher runs nothing by itself (`RunsOnDemand`), so "the child has not started" is a fact
 //! about the executor, and the order of system messages sent to the parent before it creates the child is exact.
 
@@ -451,4 +451,259 @@ fn a_child_created_in_pre_start_is_found_through_a_reference_that_is_still_unsta
         "{after}"
     );
     assert_eq!(joined(&log), "c:preStart, c:made-k, c:r:m1");
+}
+
+// ---- a started child whose death is held: the parent waits for it while the Supervise of an unstarted child arrives ----
+
+/// `k1` of `MBX-UT-05` and `MBX-UT-07`: a started child whose `postStop` does not return until it is released (the oracle's `LifeActor` with `hold`).
+struct HoldsItsDeath {
+    log: Log,
+    release: Arc<Mutex<Receiver<()>>>,
+}
+impl Actor for HoldsItsDeath {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("k1:preStart".to_owned());
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("k1:postStop".to_owned());
+        self.release
+            .lock()
+            .unwrap()
+            .recv()
+            .expect("the test releases k1");
+        self.log
+            .lock()
+            .unwrap()
+            .push("k1:postStop-released".to_owned());
+    }
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        true
+    }
+}
+
+/// What the parent of `MBX-UT-05` / `MBX-UT-07` does with its own end when it is told `go`.
+#[derive(Clone, Copy)]
+enum EndsItself {
+    /// stops itself, so `Terminate` is ahead of the `Supervise` of `c`
+    ByStopping,
+    /// suspends and restarts itself, so `Suspend` and `Recreate` are ahead of the `Supervise` of `c`
+    ByRestarting,
+}
+
+/// The parent `P` of `MBX-UT-05` / `MBX-UT-07`: its first instance creates the started child `k1` in `preStart`; on `go` it ends itself as
+/// `EndsItself` says and then creates `c` (asynchronously, so `c` is still unstarted when the parent starts to end), with "m1" queued.
+struct HoldsAChild {
+    log: Log,
+    child: Arc<Mutex<Option<ActorRef>>>,
+    release: Arc<Mutex<Receiver<()>>>,
+    instances: Arc<AtomicUsize>,
+    ends: EndsItself,
+}
+impl Actor for HoldsAChild {
+    fn pre_start(&mut self, ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("P:preStart".to_owned());
+        if self.instances.fetch_add(1, Ordering::SeqCst) == 0 {
+            let (log, release) = (self.log.clone(), self.release.clone());
+            ctx.actor_of_named(
+                Props::new(move || HoldsItsDeath {
+                    log: log.clone(),
+                    release: release.clone(),
+                }),
+                "k1",
+            )
+            .expect("k1");
+        }
+    }
+    fn pre_restart(
+        &mut self,
+        ctx: &mut ActorContext,
+        _reason: &Throwable,
+        _message: Option<&AnyMessage>,
+    ) {
+        self.log.lock().unwrap().push("P:preRestart".to_owned());
+        for child in ctx.children() {
+            ctx.stop(&child);
+        }
+        self.post_stop(ctx);
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("P:postStop".to_owned());
+    }
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if msg.downcast_ref::<String>().map(String::as_str) != Some("go") {
+            return false;
+        }
+        match self.ends {
+            EndsItself::ByStopping => ctx.self_ref().stop(),
+            EndsItself::ByRestarting => {
+                ctx.self_ref().send_system(SystemMessage::Suspend);
+                ctx.self_ref().send_system(SystemMessage::Recreate {
+                    cause: Throwable::new("java.lang.IllegalStateException", Some("restart")),
+                });
+            }
+        }
+        let log = self.log.clone();
+        let created = ctx
+            .cell
+            .attach_child(Props::new(move || Life(log.clone(), "c")), Some("c"), true)
+            .unwrap();
+        created.tell("m1".to_owned(), None);
+        *self.child.lock().unwrap() = Some(created);
+        true
+    }
+}
+
+/// `P` started with its started child `k1`, `go` sent and the turns that end it run, with the death of `k1` held: `k1` is running its `postStop`
+/// on its own thread (the only turn that is not run on the test thread) and everything else has been run until nothing is pending.
+struct ParentWaitingForAHeldChild {
+    fixture: Fixture,
+    parent: ActorRef,
+    child: ActorRef,
+    log: Log,
+    instances: Arc<AtomicUsize>,
+    release: Sender<()>,
+    held_k1: Option<std::thread::JoinHandle<()>>,
+}
+
+impl ParentWaitingForAHeldChild {
+    fn start(ends: EndsItself) -> Self {
+        let fixture = Fixture::new();
+        let (log, child) = (Log::default(), Arc::new(Mutex::new(None::<ActorRef>)));
+        let (release, released) = channel();
+        let release_receiver = Arc::new(Mutex::new(released));
+        let instances = Arc::new(AtomicUsize::new(0));
+        let parent = fixture
+            .system
+            .actor_of_named(
+                Props::new({
+                    let (log, child, instances) = (log.clone(), child.clone(), instances.clone());
+                    move || HoldsAChild {
+                        log: log.clone(),
+                        child: child.clone(),
+                        release: release_receiver.clone(),
+                        instances: instances.clone(),
+                        ends,
+                    }
+                }),
+                "p",
+            )
+            .unwrap();
+        let parent = fixture.started("p", parent);
+        parent.tell("go".to_owned(), None);
+        // the turn of `P` that ends it also processes the `Supervise` of `c`; the death of `k1` is only submitted
+        fixture.executor.run_next_of("p");
+        let held_k1 = {
+            let executor = fixture.executor.clone();
+            std::thread::spawn(move || executor.run_next_of("k1"))
+        };
+        // `k1` has entered its `postStop` and holds it; only now is it safe to run everything else on this thread
+        super::async_creation_tests::wait_until("k1 to enter its postStop", || {
+            log.lock()
+                .unwrap()
+                .iter()
+                .any(|entry| entry == "k1:postStop")
+        });
+        fixture.executor.run_until_idle();
+        let child = child.lock().unwrap().clone().expect("created in the turn");
+        ParentWaitingForAHeldChild {
+            fixture,
+            parent,
+            child,
+            log,
+            instances,
+            release,
+            held_k1: Some(held_k1),
+        }
+    }
+
+    /// Lets `k1` finish dying and runs what that sets off.
+    fn release_k1(&mut self) {
+        self.release.send(()).expect("k1 is waiting");
+        self.held_k1
+            .take()
+            .expect("k1 is released once")
+            .join()
+            .expect("k1's turn");
+        self.fixture.executor.run_until_idle();
+    }
+
+    fn entries(&self, of_k1: bool) -> String {
+        let log = self.log.lock().unwrap();
+        log.iter()
+            .filter(|entry| entry.starts_with("k1:") == of_k1)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+
+#[test]
+fn a_parent_already_waiting_for_a_started_child_ignores_the_supervise_of_a_new_child_and_still_terminates()
+ {
+    // twin of oracle case MBX-UT-05: `Terminate` is ahead of the `Supervise` of `c`; `k1`'s death is held in its `postStop`
+    let mut held = ParentWaitingForAHeldChild::start(EndsItself::ByStopping);
+    let dead_letters = Log::default();
+    let recorder = held
+        .fixture
+        .system
+        .actor_of_named(
+            Props::new({
+                let dead_letters = dead_letters.clone();
+                move || RecordsDeadLetters(dead_letters.clone())
+            }),
+            "dead-letter-recorder",
+        )
+        .unwrap();
+    let recorder = held.fixture.started("dead-letter-recorder", recorder);
+    held.fixture
+        .system
+        .event_stream()
+        .subscribe(&recorder, Channel::DeadLetter);
+    let while_waiting = format!(
+        "parentTerminated={} log=[{}] deadLetters=[{}] | child: {}",
+        held.parent.is_terminated(),
+        joined(&held.log),
+        joined(&dead_letters),
+        state_view(&held.child)
+    );
+    held.release_k1();
+    let after_release = format!(
+        "parentTerminated={} log=[{}] deadLetters=[{}] | child: {}",
+        held.parent.is_terminated(),
+        joined(&held.log),
+        joined(&dead_letters),
+        state_view(&held.child)
+    );
+    assert_eq!(
+        format!("whileWaiting: {while_waiting} | afterRelease: {after_release}"),
+        recorded("MBX-UT-05")
+    );
+}
+
+#[test]
+fn a_restart_waiting_for_a_started_child_processes_the_supervise_of_an_unstarted_child_meanwhile() {
+    // twin of oracle case MBX-UT-07: `Suspend` and `Recreate` are ahead of the `Supervise` of `c`; `k1`'s death is held in its `postStop`
+    let mut held = ParentWaitingForAHeldChild::start(EndsItself::ByRestarting);
+    let all_but_k1 = |held: &ParentWaitingForAHeldChild| held.entries(false);
+    let while_waiting = format!(
+        "parentAndChild=[{}] k1=[{}] parentInstances={}",
+        all_but_k1(&held),
+        held.entries(true),
+        held.instances.load(Ordering::SeqCst)
+    );
+    held.release_k1();
+    let log = held.log.lock().unwrap().clone();
+    let restart_after_k1_gone = log.iter().rposition(|entry| entry == "P:preStart")
+        > log.iter().position(|entry| entry == "k1:postStop-released");
+    let after_release = format!(
+        "parentAndChild=[{}] k1=[{}] parentInstances={} restartAfterK1Gone={restart_after_k1_gone} parentTerminated={}",
+        all_but_k1(&held),
+        held.entries(true),
+        held.instances.load(Ordering::SeqCst),
+        held.parent.is_terminated()
+    );
+    assert_eq!(
+        format!("whileWaiting: {while_waiting} | afterRelease: {after_release}"),
+        recorded("MBX-UT-07")
+    );
 }

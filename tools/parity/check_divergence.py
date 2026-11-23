@@ -1614,6 +1614,18 @@ MUTANTS = {
         "        self.queue.lock().unwrap()",
         "one producer that panics under the lock makes every later send and receive of the mailbox panic",
     ),
+    "supervise-is-processed-while-terminating": (
+        "src/actor/children.rs",
+        "            Children::Terminating { reason, .. } => *reason == SuspendReason::Termination,",
+        "            Children::Terminating { .. } => false,",
+        "a parent that waits for a started child to die before it terminates still points the child whose Supervise arrives meanwhile (MBX-UT-05)",
+    ),
+    "supervise-is-ignored-while-restarting": (
+        "src/actor/children.rs",
+        "            Children::Terminating { reason, .. } => *reason == SuspendReason::Termination,",
+        "            Children::Terminating { .. } => true,",
+        "a parent that waits for a started child to die before it restarts ignores the Supervise of a new child, which then never starts (MBX-UT-07)",
+    ),
     "nonblocking-queue-clean-up-moves-only-the-first": (
         "src/dispatch/bounded_node_queue.rs",
         "        while let Some(envelope) = self.dequeue() {\n            dead_letters.enqueue(envelope);",
@@ -1740,6 +1752,8 @@ UNIT_MUTANTS = {
     "nonblocking-queue-accepts-a-negative-capacity": ("dispatch::bounded_node_queue", "a_negative_capacity_is_rejected_with_the_pekko_message_and_zero_and_the_maximum_pass"),
     "nonblocking-queue-panics-on-a-poisoned-lock": ("dispatch::bounded_node_queue", "a_producer_that_panicked_under_the_lock_does_not_stop_the_other_threads"),
     "nonblocking-queue-clean-up-moves-only-the-first": ("dispatch::bounded_node_queue", "clean_up_moves_a_full_queue_to_the_target_in_order_and_frees_every_slot"),
+    "supervise-is-processed-while-terminating": ("actor::unstarted_termination_tests", "a_parent_already_waiting_for_a_started_child_ignores_the_supervise_of_a_new_child_and_still_terminates"),
+    "supervise-is-ignored-while-restarting": ("actor::unstarted_termination_tests", "a_restart_waiting_for_a_started_child_processes_the_supervise_of_an_unstarted_child_meanwhile"),
 }
 
 

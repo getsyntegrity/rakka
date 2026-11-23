@@ -17,16 +17,6 @@ use rakka_actor::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMail
 use rakka_actor::dispatch::system_queue::SystemQueue;
 use rakka_actor::event::{Channel, DeadLetter};
 
-/// The reason of an oracle case of slice C4 (Q-MBX-11) that has no recorded Rust line yet: `$why`, then what every one of them shares.
-macro_rules! unstarted_termination_twin {
-    ($why:literal) => {
-        concat!(
-            $why,
-            "; the recorded line is printed by Pekko 2.0.0 (cases/oracle-only/mailbox.golden) and its Rust twin is not written yet: it belongs to slice C4 of Q-MBX-11 (docs/research/q-mbx-11-c4-oracle.md)"
-        )
-    };
-}
-
 /// Oracle cases Rust does not produce yet, with the reason: they need pieces of ADR-0001 that arrive in later steps.
 #[allow(dead_code)] // read by tests/recorded_pekko.rs
 pub const PENDING: &[(&str, &str)] = &[
@@ -196,15 +186,11 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-UT-05 a parent already waiting for a started child to die ignores the Supervise of a new child: the child is never pointed and the parent still terminates",
-        unstarted_termination_twin!(
-            "needs to hold the death of a started child and to run turns selectively (RunsOnDemand::run_next, internal)"
-        ),
+        "needs the unstarted reference and the real cell, and to hold the death of a started child (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
     ),
     (
         "MBX-UT-07 a restart waiting for a started child: the Supervise of an unstarted child is processed meanwhile, the child starts and terminates, the restart completes when the started child is gone",
-        unstarted_termination_twin!(
-            "needs to hold the death of a started child and to run turns selectively (RunsOnDemand::run_next, internal)"
-        ),
+        "needs the unstarted reference and the real cell, and to hold the death of a started child (internal): produced in-crate by actor::unstarted_termination_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
     ),
     (
         "MBX-UT-09 a child created in preStart while the hand-over is in progress waits for the hand-over to end: the reference's lock is held across replaceWith",
