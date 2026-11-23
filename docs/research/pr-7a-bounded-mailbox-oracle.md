@@ -177,7 +177,7 @@ Veredicto: **`BM-UC-03` es la variante acotada de `MBX-PT-01` y es consistente c
 
 ## 12. Contratos de capacidad y timeout (corrida nueva) y JDK
 
-Corrida sobre el HEAD posterior al merge de C3 y a la espera terminal de `BM-AC-11` (§13), golden idéntico (sin cambio de bytes respecto de antes) (md5 `f5202c78f9a1abc772e0618010797ecc`):
+Corrida sobre el commit `686a389` (merge de C3 más la espera asentada de `BM-AC-11`, §13; el HEAD anterior al commit de documentación que cita este número), golden idéntico (md5 sin cambios) (md5 `f5202c78f9a1abc772e0618010797ecc`):
 
 | Contrato | Id | Observado |
 |---|---|---|
@@ -192,7 +192,7 @@ Ejecuciones nuevas (HEAD con C3, 16 núcleos, macOS 27.2.1; carga moderada porqu
 
 | JDK | Corridas de `bounded-mailbox-all` | Resultado |
 |---|---|---|
-| 17.0.21 (`openjdk@17`, el que usa `oracle/run.sh`) | 12 secuenciales + 12 en paralelo (4 rondas x 3 JVM) | 24/24 byte a byte iguales al golden, stderr vacío; `--runs 3`, `--per-case` (44 JVM) ok |
+| 17.0.21 (`openjdk@17`, el que usa `oracle/run.sh`) | 12 secuenciales + 12 en paralelo (4 rondas x 3 JVM) + 102 corridas de `BM-AC-11` solo (34 rondas x 3 JVM) | 24/24 byte a byte iguales al golden y 102/102 de `BM-AC-11` iguales a su línea, stderr vacío; `--runs 3`, `--per-case` (44 JVM) ok |
 | 27.0.1 (`openjdk` de Homebrew, `JAVA_HOME` sustituido) | 3 secuenciales + `--per-case` | iguales al golden y entre sí (incluidos `UC-03`, `QU-06/07` y los estados `TIMED_WAITING`/`WAITING`) |
 | 21 | no ejecutado: no instalado (`/usr/libexec/java_home` no localiza ninguno; sólo hay 8/11 de SDKMAN, 17 y 27 de Homebrew) | sin dato |
 
@@ -202,4 +202,4 @@ Se comparó la salida completa del golden (44 líneas) producida por las mismas 
 
 - `--selftest` valida **el verificador** (el comparador y el manifiesto: perturba el golden y exige que la comprobación falle); **no** valida los casos semánticos, que sólo tienen como evidencia la JVM de Pekko 2.0.0.
 - El manifiesto `bounded-mailbox-cases.tsv` se comprueba **contra el golden** (mismos ids, mismo orden, filas completas), **no** contra `oracle/run.sh bounded-mailbox-ids`; un caso añadido al Java sin golden lo detecta la comparación de `bounded-mailbox-all`, no la del manifiesto.
-- `BM-AC-11`: la espera final es un estado terminal (`dead >= 2` y `dead + varados == 3`), porque m1 y m2 siempre los drena `cleanUp` a dead letters en orden; esperar sólo la suma podía leerse a mitad del drenaje.
+- `BM-AC-11`: la salida se imprime desde **una sola instantánea** (dead letters y cola leídos juntos). Se acepta como asentada cuando (a) los 3 mensajes son dead letters y la cola está vacía, o (b) hay 2 dead letters y 1 mensaje en la cola (m3 varado) **y la misma instantánea se repite tras 300 ms de quietud**. Eso no es una prueba de quiescencia del `cleanUp`: es una heurística temporal (el drenaje dura microsegundos) con un tope de 20 s que falla ruidosamente (`BM-AC-11 did not settle`) en vez de colgarse. La evidencia de estabilidad es empírica (ver §12), no una garantía.
