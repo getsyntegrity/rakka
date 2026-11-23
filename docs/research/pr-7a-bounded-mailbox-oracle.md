@@ -14,7 +14,7 @@ Rutas relativas a `upstream/pekko/actor/src/main/scala/org/apache/pekko/` salvo 
 | C2 | `create` devuelve `BoundedMailbox.MessageQueue(capacity, pushTimeOut)`, que **extiende `java.util.concurrent.LinkedBlockingQueue[Envelope](capacity)`**: con capacidad 0 el `create` lanza `IllegalArgumentException` (mensaje `null`) del JDK, no el tipo de mailbox. Capacidad `Int.MaxValue` es válida (`remainingCapacity == Int.MaxValue`). | `Mailbox.scala:740-750`; oráculo `BM-CF-05`, `BM-CF-06` |
 | C3 | Constructor desde configuración: `new BoundedMailbox(settings, config)` lee `mailbox-capacity` (`getInt`) y `mailbox-push-timeout-time` (`getNanosDuration`, es decir `FiniteDuration` en nanosegundos). | `Mailbox.scala:733-736` |
 | C4 | Valores por defecto: `default-mailbox.mailbox-capacity = 1000`, `mailbox-push-timeout-time = 10s`, `mailbox-type = UnboundedMailbox` (la capacidad y el timeout existen aunque el tipo por defecto sea ilimitado); "negative values signify infinite timeout". Binding de requisito `BoundedMessageQueueSemantics` → `pekko.actor.mailbox.bounded-queue-based` → `BoundedMailbox`. | `resources/reference.conf:678-700,710-715,740-744` |
-| C5 | **Enqueue** (`BoundedQueueBasedMessageQueue.enqueue`): si `pushTimeOut.length >= 0` → `queue.offer(handle, length, unit)` y, si devuelve `false`, `receiver.provider.deadLetters.tell(DeadLetter(handle.message, handle.sender, receiver), handle.sender)`; si `length < 0` → `queue.put(handle)` (espera **sin límite**). El signo se mira en `length` (no en la unidad). Timeout 0 ⇒ `offer(0)`: descarte inmediato. `dequeue` es `queue.poll()` (no bloquea). | `Mailbox.scala:581-593` |
+| C5 | **Enqueue** (`BoundedQueueBasedMessageQueue.enqueue`): si `pushTimeOut.length >= 0` → `queue.offer(handle, length, unit)` y, si devuelve `false`, `receiver.provider.deadLetters.tell(DeadLetter(handle.message, handle.sender, receiver), handle.sender)`; si `length < 0` → `queue.put(handle)` (espera **sin límite**). El signo se mira en `length` (no en la unidad). Timeout 0 ⇒ `offer(0)`: descarte inmediato. `dequeue` es `queue.poll()` (no bloquea). | `Mailbox.scala:584-593` |
 | C6 | `dispatch`: `mbox.enqueue(receiver.self, invocation)` **antes** de `registerForExecution(mbox, hasMessageHint = true, ...)`; el bloqueo ocurre, pues, en el hilo del emisor y antes de intentar programar el turno. `systemDispatch` usa `systemEnqueue`, **no acotado**, y no mira la capacidad. | `dispatch/Dispatcher.scala:80-96` |
 | C7 | `ActorCell.sendMessage` envuelve `dispatcher.dispatch` en `try ... catch handleException`; `InterruptedException` ⇒ Error `"interrupted during message send"` en el event stream y `Thread.currentThread().interrupt()` (el emisor interrumpido **no** ve la excepción). Otras `NonFatal` ⇒ Error `"swallowing exception during message send"`. | `actor/dungeon/Dispatch.scala:136-148,172-179` |
 | C8 | Mailbox cerrado: `unregister` hace `swapMailbox(deadLetterMailbox)` → `becomeClosed()` → `cleanUp()`; `cleanUp` drena la cola de usuario (`queue.poll` repetido) hacia la cola del `deadLetterMailbox`, que publica `DeadLetter`. Un emisor que lee el mailbox **después** del swap encola en el `deadLetterMailbox` y **no bloquea nunca**, sea cual sea el `pushTimeOut`. | `dispatch/AbstractDispatcher.scala:279-285`, `Mailbox.scala:354-368,540-551`, `dispatch/Mailboxes.scala:51-72` |
@@ -122,7 +122,7 @@ No se editaron `docs/owner-batch-02.md` ni los `*.decisions.tsv` (archivos compa
 
 ## 8. Resultados de estabilidad
 
-Golden final (44 casos, JDK 17 `openjdk@17`, Mac de 16 núcleos con la carga normal de la sesión): **49 corridas de `bounded-mailbox-all` con salida byte a byte idéntica** (md5 único, 44 líneas cada una, stderr vacío):
+**Histórico, anterior al merge de C3 y al cambio de `BM-AC-11` (no valida el HEAD actual; ver §12).** Golden final (44 casos, JDK 17 `openjdk@17`, Mac de 16 núcleos con la carga normal de la sesión): **49 corridas de `bounded-mailbox-all` con salida byte a byte idéntica** (md5 único, 44 líneas cada una, stderr vacío):
 
 | Condición | Corridas | Idénticas |
 |---|---|---|
@@ -142,7 +142,7 @@ Historial honesto: la primera versión (40 casos) y la segunda (43, con `UC-*`) 
 5. `tools/package/check.py` falla en este worktree sólo por el submódulo `upstream/pekko` vacío (citas de atribución de `crates/`); no es consecuencia de estos cambios.
 6. Sin ejecutar: `NonBlockingBoundedMailbox`, `BoundedDequeBased*`, `BoundedControlAware*`, `BoundedPriority*`, el stash acotado (AC-MBX-016): quedan para 7b y PR 8-9, con las mismas reglas.
 
-## 10. Reproducción
+## 10a. Reproducción
 
 ```
 mvn -f oracle/pom.xml package -DskipTests          # JDK 17, oracle/target no se versiona
@@ -155,12 +155,12 @@ python3.12 -m unittest test_check_bounded_mailbox_oracle             # desde too
 
 Archivos compartidos tocados (diff mínimo): `oracle/src/main/java/pilot/Cli.java` (+3 líneas, antes de `case "path-address-ids"`). No se tocaron `MailboxOracle.java`, `cases/oracle-case-ids.tsv`, `make_oracle_cases.py`, `recorded_pekko.rs` ni `docs/decisions*`.
 
-## 9. Identificadores de las propuestas y dependencias (registradas al publicar)
+## 10b. Identificadores de las propuestas y dependencias
 
 - **Identificadores locales:** las propuestas de §7 se llaman `PROP-7A-1..3` (antes `Q-MBX-12/13/14`) porque la investigación C4 propuso otro `Q-MBX-12` en paralelo. Ningún `Q-*` definitivo está asignado; se reconcilian al registrarlas. Siguen `proposed`; no se decide ningún cambio de semántica respecto de Pekko.
-- **UC-03 depende de C3:** necesita `tryLock(unstarted-push-timeout)` y su Warning; su gemelo Rust no puede validarse hasta integrar C3.
-- **C4:** la terminación de un hijo sin arrancar con mailbox acotado debe comprobarse cuando exista `BoundedMailbox`; C3 y C4 comparten archivos del oráculo de mailbox (esta rama no los toca salvo `Cli.java`, +3 líneas), y al integrar el segundo conjunto hay que verificar el orden de registro y el golden.
-- **JDK:** ver §12 (JDK 17 y 27 comparados byte a byte; JDK 21 no instalado).
+- **C3 integrado (#328, `8f1b0d9`):** `BM-UC-03` es consistente con `MBX-PT-01` (§11); lo que bloquea su gemelo Rust es `BoundedMailbox` (7b), no C3.
+- **C4:** la terminación de un hijo sin arrancar con mailbox acotado debe comprobarse cuando exista `BoundedMailbox`; si C4 modifica los archivos del oráculo de mailbox, verificar el orden de registro y el golden (esta rama sólo toca `Cli.java`, +3 líneas).
+- **JDK:** ver §12 (JDK 17 y 27 comparados byte a byte en 44 casos; JDK 21 no instalado, sin dato).
 
 ## 11. UC-03 frente al contrato de C3 integrado (`MBX-PT-*`)
 
@@ -177,7 +177,7 @@ Veredicto: **`BM-UC-03` es la variante acotada de `MBX-PT-01` y es consistente c
 
 ## 12. Contratos de capacidad y timeout (corrida nueva) y JDK
 
-Corrida sobre el HEAD posterior al merge de C3, golden idéntico (md5 `f5202c78f9a1abc772e0618010797ecc`):
+Corrida sobre el HEAD posterior al merge de C3 y a la espera terminal de `BM-AC-11` (§13), golden idéntico (sin cambio de bytes respecto de antes) (md5 `f5202c78f9a1abc772e0618010797ecc`):
 
 | Contrato | Id | Observado |
 |---|---|---|
@@ -197,3 +197,9 @@ Ejecuciones nuevas (HEAD con C3, 16 núcleos, macOS 27.2.1; carga moderada porqu
 | 21 | no ejecutado: no instalado (`/usr/libexec/java_home` no localiza ninguno; sólo hay 8/11 de SDKMAN, 17 y 27 de Homebrew) | sin dato |
 
 Se comparó la salida completa del golden (44 líneas) producida por las mismas clases compiladas con JDK 17 (`oracle/target/classes`), ejecutadas en JDK 27; no se recompiló con otro JDK. Esto es **equivalencia de la salida de 44 casos en dos JDK**, no una paridad general entre JDK. No hubo diferencias que documentar (el texto de `ConfigException` está elidido en el golden, así que su posible variación entre JDK no queda cubierta). Las cifras de 49/49 de §8 corresponden al HEAD anterior al merge de C3 y no validan este HEAD.
+
+## 13. Alcance de las comprobaciones
+
+- `--selftest` valida **el verificador** (el comparador y el manifiesto: perturba el golden y exige que la comprobación falle); **no** valida los casos semánticos, que sólo tienen como evidencia la JVM de Pekko 2.0.0.
+- El manifiesto `bounded-mailbox-cases.tsv` se comprueba **contra el golden** (mismos ids, mismo orden, filas completas), **no** contra `oracle/run.sh bounded-mailbox-ids`; un caso añadido al Java sin golden lo detecta la comparación de `bounded-mailbox-all`, no la del manifiesto.
+- `BM-AC-11`: la espera final es un estado terminal (`dead >= 2` y `dead + varados == 3`), porque m1 y m2 siempre los drena `cleanUp` a dead letters en orden; esperar sólo la suma podía leerse a mitad del drenaje.

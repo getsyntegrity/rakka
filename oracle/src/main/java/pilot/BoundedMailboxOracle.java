@@ -556,7 +556,8 @@ final class BoundedMailboxOracle {
         Thread sender = new Thread(() -> a.tell("m3", ActorRef.noSender())); sender.start(); awaitState(sender, Thread.State.WAITING);
         in(a).stop(); awaitUntil(mb::hasSystemMessages);
         b.release.countDown(); sender.join(10_000); awaitUntil(mb::isClosed);
-        awaitUntil(() -> e.deadNow().size() + mb.messageQueue().numberOfMessages() == 3);
+        // terminal state: m1 and m2 are always drained to dead letters by cleanUp (m3 is a dead letter or stranded), so wait until both are published
+        awaitUntil(() -> e.deadNow().size() >= 2 && e.deadNow().size() + mb.messageQueue().numberOfMessages() == 3);
         List<String> dead = deadMessages(e.deadNow());
         return "senderDone=" + !sender.isAlive() + " processed=" + e.log + " deadPlusStranded=" + (dead.size() + mb.messageQueue().numberOfMessages()) + " firstTwoDeadInOrder=" + dead.subList(0, Math.min(2, dead.size()));
       }
