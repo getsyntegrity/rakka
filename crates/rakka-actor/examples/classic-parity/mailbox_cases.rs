@@ -107,6 +107,26 @@ pub const PENDING: &[(&str, &str)] = &[
         "needs the parent's cell to be suspended and attachChild (internal): produced in-crate by actor::async_creation_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice B)",
     ),
     (
+        "MBX-IF-01 the cell of an asynchronously created actor cannot be made: actorOf returns, the supervisor stops the actor, which never starts",
+        "needs a cell that cannot be made (a mailbox type that throws in Pekko) and an executor that runs nothing by itself (internal): produced in-crate by actor::init_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C1)",
+    ),
+    (
+        "MBX-IF-02 messages sent to an actor whose cell cannot be made, before and after it is stopped, are dead letters",
+        "needs a cell that cannot be made (a mailbox type that throws in Pekko) and an executor that runs nothing by itself (internal): produced in-crate by actor::init_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C1)",
+    ),
+    (
+        "MBX-IF-03 a supervisor that restarts on ActorInitializationException: the failed creation becomes a Create and the actor starts",
+        "needs a cell that cannot be made (a mailbox type that throws in Pekko) and an executor that runs nothing by itself (internal): produced in-crate by actor::init_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C1)",
+    ),
+    (
+        "MBX-IF-04 an actor that fails to start after creating a child is restarted as a Create: its children are stopped first",
+        "needs a cell that cannot be made (a mailbox type that throws in Pekko) and an executor that runs nothing by itself (internal): produced in-crate by actor::init_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C1)",
+    ),
+    (
+        "MBX-IF-05 a supervisor that resumes on ActorInitializationException: the failed creation becomes a Create and the actor starts",
+        "needs a cell that cannot be made (a mailbox type that throws in Pekko) and an executor that runs nothing by itself (internal): produced in-crate by actor::init_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C1)",
+    ),
+    (
         "MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once",
         "needs attachChild inside the parent's turn and an executor that runs nothing by itself (internal): produced in-crate by actor::async_creation_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice B)",
     ),

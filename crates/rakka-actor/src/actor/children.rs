@@ -20,6 +20,8 @@ pub(crate) enum SuspendReason {
     Termination,
     /// `Recreation(cause)`: waiting for the children to die before the new instance is created (the cause is kept by the cell)
     Recreation,
+    /// `Creation()`: waiting for the children to die before a failed creation is retried
+    Creation,
 }
 
 #[derive(Clone)]
@@ -117,7 +119,9 @@ impl Children {
                 let reason = *reason;
                 *self = match reason {
                     SuspendReason::Termination => Children::Terminated,
-                    SuspendReason::UserRequest | SuspendReason::Recreation => {
+                    SuspendReason::UserRequest
+                    | SuspendReason::Recreation
+                    | SuspendReason::Creation => {
                         let c = std::mem::take(c);
                         if c.is_empty() {
                             Children::Empty
@@ -228,6 +232,16 @@ impl Children {
     pub fn set_recreation_reason(&mut self) -> bool {
         if let Children::Terminating { reason, .. } = self {
             *reason = SuspendReason::Recreation;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// `setChildrenTerminationReason(Creation())`: true only if children are already terminating.
+    pub fn set_creation_reason(&mut self) -> bool {
+        if let Children::Terminating { reason, .. } = self {
+            *reason = SuspendReason::Creation;
             true
         } else {
             false

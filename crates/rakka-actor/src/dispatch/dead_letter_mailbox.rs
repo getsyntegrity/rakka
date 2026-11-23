@@ -196,7 +196,7 @@ mod with_real_actors {
 
     fn name_of(message: &SystemMessage) -> &'static str {
         match message {
-            SystemMessage::Create => "Create",
+            SystemMessage::Create(_) => "Create",
             SystemMessage::Terminate => "Terminate",
             SystemMessage::Failed { .. } => "Failed",
             SystemMessage::Recreate { .. } => "Recreate",
@@ -333,7 +333,7 @@ mod with_real_actors {
             child: stopped.clone(),
             cause: cause(),
         });
-        stopped.send_system(SystemMessage::Create);
+        stopped.send_system(SystemMessage::Create(None));
         stopped.send_system(SystemMessage::Supervise {
             child: stopped.clone(),
             is_async: false,

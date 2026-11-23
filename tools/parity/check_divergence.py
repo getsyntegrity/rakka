@@ -910,6 +910,37 @@ MUTANTS = {
         "self.st.lock().unwrap().actor = None;",
         "after a postRestart failure the new instance is dropped, so its final postStop is lost",
     ),
+    # --- Q-MBX-11 slice C1: a cell that cannot be made (killed by the in-crate twins of MBX-IF-01..04, see UNIT_MUTANTS) ---
+    "init-with-failure-forgets-the-failure": (
+        "src/actor/cell.rs",
+        "            Some(initialization_failure),",
+        "            None,",
+        "the replacement cell of an actor whose cell could not be made starts the actor normally: the failure is lost and nobody is told",
+    ),
+    "init-with-failure-text-differs": (
+        "src/actor/cell.rs",
+        'Some(&format!("{path}: failure while creating ActorCell")),',
+        'Some(&format!("{path}: exception during creation")),',
+        "the ActorInitializationException of a cell that could not be made loses its `failure while creating ActorCell` text",
+    ),
+    "recreate-of-a-failed-creation-stays-a-recreate": (
+        "src/actor/cell.rs",
+        "if self.has_no_instance() {\n            // there is no instance to restart",
+        "if false && self.has_no_instance() {\n            // there is no instance to restart",
+        "a Recreate that reaches an actor with no instance is not turned into a Create: no `changing Recreate into Create` error",
+    ),
+    "resume-of-a-failed-creation-stays-a-resume": (
+        "src/actor/cell.rs",
+        'self.change_into_create("Resume", cause.as_ref());',
+        "self.fault_create();",
+        "a Resume that reaches an actor with no instance creates it without the `changing Resume into Create` error",
+    ),
+    "fault-create-does-not-wait-for-the-children": (
+        "src/actor/cell.rs",
+        "if !self.children.lock().unwrap().set_creation_reason() {",
+        "if true {",
+        "a failed creation is retried before its children are gone, so the new instance finds their names still taken",
+    ),
     # --- Q-CFG-30: shortest digits of a rendered double, exact ties go to the even digit ---
     "double-tie-breaks-to-odd": (
         "src/config/double_text.rs",
@@ -1496,7 +1527,14 @@ def classify(replay_result, binary):
 
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
-UNIT_MUTANTS = {"deployer-deploy-swaps-a-stale-snapshot": ("actor::deployer", "a_deployment_that_loses_the_swap_is_retried_on_the_newer_index_and_nothing_is_lost")}
+UNIT_MUTANTS = {
+    "deployer-deploy-swaps-a-stale-snapshot": ("actor::deployer", "a_deployment_that_loses_the_swap_is_retried_on_the_newer_index_and_nothing_is_lost"),
+    "init-with-failure-forgets-the-failure": ("actor::init_failure_tests", "a_cell_that_cannot_be_made_is_stopped_by_the_supervisor_and_the_actor_never_starts"),
+    "init-with-failure-text-differs": ("actor::init_failure_tests", "a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
+    "recreate-of-a-failed-creation-stays-a-recreate": ("actor::init_failure_tests", "a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
+    "resume-of-a-failed-creation-stays-a-resume": ("actor::init_failure_tests", "a_supervisor_that_resumes_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
+    "fault-create-does-not-wait-for-the-children": ("actor::init_failure_tests", "an_actor_that_fails_to_start_after_creating_a_child_is_restarted_as_a_create_once_its_children_are_gone"),
+}
 
 
 def run_unit_mutant(scratch, name, work):
@@ -1542,6 +1580,10 @@ def run_mutant(scratch, name, rel, old, new, why):
         return PATCH_ERROR, None, None, "patch did not change the file"
     print("".join(difflib.unified_diff(src.splitlines(True), patched.splitlines(True), f"a/rakka-actor/{rel}", f"b/rakka-actor/{rel}")))
     if name in UNIT_MUTANTS:
+        # the in-crate twins read the oracle golden through a relative `include_str!` that leaves the crate: give the scratch tree the same layout
+        golden = os.path.join(scratch, "cases", "oracle-only")
+        os.makedirs(golden, exist_ok=True)
+        shutil.copy(os.path.join(ROOT, "cases", "oracle-only", "mailbox.golden"), golden)
         return run_unit_mutant(scratch, name, work)
     try:
         b = sh(["cargo", "build", "--release", "--manifest-path", os.path.join(work, "Cargo.toml"),

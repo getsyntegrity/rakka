@@ -9,7 +9,8 @@
 //! messages still takes effect before them (oracle cases `MBX-UC-01..03`).
 //!
 //! `ActorSystem::actor_of` creates one through `ActorCell::attach_child(.., asynchronous = true)` (Q-MBX-11, slice B).
-//! Differences from Pekko, to be settled in slice C: the lock is a plain `Mutex` (no `UnstartedPushTimeout`: a send that
+//! A failure to make the real cell is not lost: the actor fails to initialise instead (slice C1, `init_failure_tests`).
+//! Differences from Pekko, to be settled in the next slices of C: the lock is a plain `Mutex` (no `UnstartedPushTimeout`: a send that
 //! waits for the lock more than that long is a dead letter in Pekko), and it is held while the queues are handed over, as in Pekko
 //! but without re-entrancy: the real cell must not send to this reference from inside `tell`/`send_system`.
 
@@ -82,8 +83,8 @@ impl RepointableActorRef {
     }
 
     /// `point(catchFailures)` (`RepointableActorRef.scala:112-135`): makes the real cell, starts it (the dispatcher attaches it) and
-    /// installs it. On a started reference, or one that has no cell factory, it does nothing. A failure of `newCell` is not caught
-    /// here: `catchFailures`/`initWithFailure` belong to slice C of Q-MBX-11.
+    /// installs it. On a started reference, or one that has no cell factory, it does nothing. The factory already catches a failure of
+    /// `newCell` (`catchFailures = true`: every `RepointableActorRef` is made for an asynchronous child, `Supervise(async = true)`) and answers `ActorCell::new_with_failure`.
     pub(crate) fn point(&self) {
         let Some(me) = self.me.upgrade() else {
             return;
@@ -276,7 +277,7 @@ mod unit {
 
     fn name_of(message: &SystemMessage) -> &'static str {
         match message {
-            SystemMessage::Create => "Create",
+            SystemMessage::Create(_) => "Create",
             SystemMessage::Terminate => "Terminate",
             SystemMessage::Failed { .. } => "Failed",
             SystemMessage::Recreate { .. } => "Recreate",

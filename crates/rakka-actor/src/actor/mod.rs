@@ -11,6 +11,8 @@ mod deploy;
 mod deployer;
 mod errors;
 pub mod fault;
+#[cfg(test)]
+mod init_failure_tests;
 pub(crate) mod jstring;
 mod path;
 pub mod props;
