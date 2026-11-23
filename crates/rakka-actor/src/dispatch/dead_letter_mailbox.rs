@@ -15,6 +15,19 @@ use crate::dispatch::message_queue::Envelope;
 use crate::dispatch::sysmsg::SystemMessage;
 use crate::event::DeadLetter;
 
+/// `deadLetters.tell(DeadLetter(message, sender, receiver), sender)`; `Envelope` replaces a missing sender by `deadLetters`.
+pub(crate) fn tell_dead_letter(dead_letters: &ActorRef, receiver: &ActorRef, envelope: Envelope) {
+    let sender = envelope.sender.unwrap_or_else(|| dead_letters.clone());
+    dead_letters.tell_any(
+        Arc::new(DeadLetter {
+            message: envelope.message,
+            sender: sender.clone(),
+            recipient: receiver.clone(),
+        }),
+        Some(sender),
+    );
+}
+
 /// The forwarding half of Pekko's `deadLetterMailbox`.
 pub(crate) struct DeadLetterMailbox {
     dead_letters: ActorRef,
@@ -30,15 +43,7 @@ impl DeadLetterMailbox {
         if envelope.message.is::<DeadLetter>() {
             return; // an actor subscribed to DeadLetter: drop it instead of looping
         }
-        let sender = envelope.sender.unwrap_or_else(|| self.dead_letters.clone()); // `Envelope` replaces a missing sender by `deadLetters`
-        self.dead_letters.tell_any(
-            Arc::new(DeadLetter {
-                message: envelope.message,
-                sender: sender.clone(),
-                recipient: receiver.clone(),
-            }),
-            Some(sender),
-        );
+        tell_dead_letter(&self.dead_letters, receiver, envelope);
     }
 
     /// `systemEnqueue(receiver, handle)`: `deadLetters ! DeadLetter(handle, receiver, receiver)`.
@@ -57,39 +62,7 @@ impl DeadLetterMailbox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::actor::ActorPath;
-    use crate::actor::actor_ref::InternalActorRef;
-    use crate::actor::props::AnyMessage;
-    use std::sync::Mutex;
-
-    /// `deadLetters` stand-in: it records what it is told (the collaborator whose own behaviour is tested in `system.rs`).
-    struct Recorder {
-        path: ActorPath,
-        told: Mutex<Vec<(AnyMessage, Option<ActorRef>)>>,
-    }
-
-    impl InternalActorRef for Recorder {
-        fn path(&self) -> &ActorPath {
-            &self.path
-        }
-        fn tell(&self, msg: AnyMessage, sender: Option<ActorRef>) {
-            self.told.lock().unwrap().push((msg, sender));
-        }
-        fn send_system(&self, _msg: SystemMessage) {}
-        fn stop(&self) {}
-        fn is_terminated(&self) -> bool {
-            false
-        }
-    }
-
-    fn recorder(path: &str) -> (Arc<Recorder>, ActorRef) {
-        let recorder = Arc::new(Recorder {
-            path: ActorPath::from_string(path).unwrap(),
-            told: Mutex::new(Vec::new()),
-        });
-        let reference = ActorRef(recorder.clone());
-        (recorder, reference)
-    }
+    use crate::dispatch::test_support::{Recorder, recorder};
 
     fn dead_letter_told(recorder: &Recorder, index: usize) -> DeadLetter {
         let told = recorder.told.lock().unwrap();
