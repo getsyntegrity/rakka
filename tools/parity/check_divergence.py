@@ -973,6 +973,7 @@ MUTANTS = {
         "after a rejected attach `context.actorOf` forgets the child, so its name can be reused (Pekko keeps it taken)",
     ),
     # --- Q-MBX-11 slice C4: actors that never started (killed by the in-crate twins of MBX-UT-01..09, see UNIT_MUTANTS) ---
+    "system-message-after-close-is-not-dead-lettered": ("actor::unstarted_termination_tests", "a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it"),
     "stop-marks-a-child-that-has-not-started": (
         "src/actor/cell.rs",
         "let may_wait_for_death = actor.0.as_repointable().is_none_or(|r| r.is_started());",
@@ -996,6 +997,12 @@ MUTANTS = {
         "matches!(&*self.lock(), Underlying::Started(_))",
         "matches!(&*self.lock(), Underlying::Started(_) | Underlying::HandingOver { .. })",
         "`isStarted` is true while the real cell is still being handed the queues (MBX-UT-09)",
+    ),
+    "system-message-after-close-is-not-dead-lettered": (
+        "src/dispatch/dead_letter_mailbox.rs",
+        "pub(crate) fn system_enqueue(&self, receiver: &ActorRef, handle: SystemMessage) {\n",
+        "pub(crate) fn system_enqueue(&self, receiver: &ActorRef, handle: SystemMessage) {\n        if receiver.0.is_terminated() {\n            return;\n        }\n",
+        "a system message (here the `Supervise` of a child whose parent already terminated) is silently dropped instead of becoming a dead letter (MBX-UT-03)",
     ),
     # --- Q-MBX-11 slice C3: UnstartedPushTimeout (killed by the in-crate twins of MBX-PT-01..06, see UNIT_MUTANTS) ---
     "push-timeout-not-applied-to-user-messages": (

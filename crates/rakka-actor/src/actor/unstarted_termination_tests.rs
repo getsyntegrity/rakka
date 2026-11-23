@@ -1,4 +1,7 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala, actor/dungeon/Children.scala, actor/dungeon/FaultHandling.scala and actor/ActorCell.scala (Apache-2.0).
+//! Integration tests (real actors, mailbox, dispatcher and supervision; docs/testing-policy.md section 1) that live under `src/` because they need
+//! `pub(crate)` internals (`attach_child`, `RepointableActorRef`, the executor): they cannot sit in `tests/`. Not unit tests.
+//!
 //! Twins of oracle cases `MBX-UT-01`, `02`, `03` and `06` (Q-MBX-11, slice C4): swapLookup, the state of an unstarted reference, and termination and
 //! restart of a parent that has a child that never started. The user dispatcher runs nothing by itself (`RunsOnDemand`), so "the child has not started" is a fact
 //! about the executor, and the order of system messages sent to the parent before it creates the child is exact.
@@ -11,7 +14,8 @@ use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use crate::actor::repointable::RepointableActorRef;
 use crate::dispatch::dispatcher::{Executor, Rejected};
 use crate::dispatch::sysmsg::SystemMessage;
-use std::sync::atomic::Ordering;
+use crate::event::{Channel, DeadLetter};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -65,46 +69,103 @@ fn state_view(child: &ActorRef) -> String {
     )
 }
 
+/// The parent of `MBX-UT-03`: logs `P:preStart` / `P:postStop`; on `go` it stops itself (so `Terminate` is ahead of the `Supervise` that
+/// `attach_child` sends) and creates `c` with "m1" and "m2" queued.
+struct StopsThenCreates {
+    log: Log,
+    child: Arc<Mutex<Option<ActorRef>>>,
+}
+impl Actor for StopsThenCreates {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("P:preStart".to_owned());
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("P:postStop".to_owned());
+    }
+    fn receive(&mut self, ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        ctx.self_ref().stop();
+        let log = self.log.clone();
+        let created = ctx
+            .cell
+            .attach_child(Props::new(move || Life(log.clone(), "c")), Some("c"), true)
+            .unwrap();
+        created.tell("m1".to_owned(), None);
+        created.tell("m2".to_owned(), None);
+        *self.child.lock().unwrap() = Some(created);
+        true
+    }
+}
+
+/// Logs the kind of every dead letter it receives (`Supervise` for that system message).
+struct RecordsDeadLetters(Log);
+impl Actor for RecordsDeadLetters {
+    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        let Some(dead) = msg.downcast_ref::<DeadLetter>() else {
+            return false;
+        };
+        let kind = match dead.message.downcast_ref::<SystemMessage>() {
+            Some(SystemMessage::Supervise { .. }) => "Supervise",
+            Some(_) => "another system message",
+            None => "user message",
+        };
+        self.0.lock().unwrap().push(kind.to_owned());
+        true
+    }
+}
+
 #[test]
 fn a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it() {
-    // twin of oracle case MBX-UT-03: Terminate enters the parent's system queue before the Supervise that attach_child sends
+    // twin of oracle case MBX-UT-03; the whole golden line is the expected value
     let fixture = Fixture::new();
-    let log = Log::default();
-    let child = Arc::new(Mutex::new(None::<ActorRef>));
-    let parent = fixture.actor("p", {
-        let (log, child) = (log.clone(), child.clone());
-        move |ctx| {
-            ctx.self_ref().stop();
-            let created = ctx
-                .cell
-                .attach_child(
-                    Props::new({
-                        let log = log.clone();
-                        move || Life(log.clone(), "c")
-                    }),
-                    Some("c"),
-                    true,
-                )
-                .unwrap();
-            created.tell("m1".to_owned(), None);
-            created.tell("m2".to_owned(), None);
-            *child.lock().unwrap() = Some(created);
-        }
-    });
+    let dead_letters = Log::default();
+    let recorder = fixture
+        .system
+        .actor_of_named(
+            Props::new({
+                let dead_letters = dead_letters.clone();
+                move || RecordsDeadLetters(dead_letters.clone())
+            }),
+            "dead-letter-recorder",
+        )
+        .unwrap();
+    let recorder = fixture.started("dead-letter-recorder", recorder);
+    fixture
+        .system
+        .event_stream()
+        .subscribe(&recorder, Channel::DeadLetter);
+    let (log, child) = (Log::default(), Arc::new(Mutex::new(None::<ActorRef>)));
+    let parent = fixture
+        .system
+        .actor_of_named(
+            Props::new({
+                let (log, child) = (log.clone(), child.clone());
+                move || StopsThenCreates {
+                    log: log.clone(),
+                    child: child.clone(),
+                }
+            }),
+            "p",
+        )
+        .unwrap();
+    let parent = fixture.started("p", parent);
     parent.tell("go".to_owned(), None);
     fixture.executor.run_until_idle();
     let child = child.lock().unwrap().clone().expect("created in the turn");
-    // Pekko 2.0.0 (golden): parentTerminated=true | child: isStarted=false isTerminated=false queued=2
-    assert!(
+    let after_terminate = format!(
+        "parentTerminated={} deadLetters=[{}] | child: {}",
         parent.is_terminated(),
-        "the parent must terminate without waiting for a child that never started"
-    );
-    assert!(
-        recorded("MBX-UT-03").contains(&format!("child: {}", state_view(&child))),
-        "{}",
+        joined(&dead_letters),
         state_view(&child)
     );
-    assert_eq!(joined(&log), "");
+    child.tell("m3".to_owned(), None);
+    fixture.executor.run_until_idle();
+    let observed = format!(
+        "{after_terminate} | after a third message: {} deadLetters=[{}] log=[{}]",
+        state_view(&child),
+        joined(&dead_letters),
+        joined(&log)
+    );
+    assert_eq!(observed, recorded("MBX-UT-03"));
 }
 
 #[test]
@@ -113,12 +174,16 @@ fn a_restart_with_only_an_unstarted_child_does_not_wait_for_it() {
     let fixture = Fixture::new();
     let log = Log::default();
     let child = Arc::new(Mutex::new(None::<ActorRef>));
+    let instances = Arc::new(AtomicUsize::new(0));
     let parent = fixture.system.actor_of_named(
         Props::new({
-            let (log, child) = (log.clone(), child.clone());
-            move || Restartable {
-                log: log.clone(),
-                child: child.clone(),
+            let (log, child, instances) = (log.clone(), child.clone(), instances.clone());
+            move || {
+                instances.fetch_add(1, Ordering::SeqCst);
+                Restartable {
+                    log: log.clone(),
+                    child: child.clone(),
+                }
             }
         }),
         "p",
@@ -126,14 +191,15 @@ fn a_restart_with_only_an_unstarted_child_does_not_wait_for_it() {
     let parent = fixture.started("p", parent.unwrap());
     parent.tell("go".to_owned(), None);
     fixture.executor.run_until_idle();
-    // Pekko 2.0.0 (golden): [P:preStart, P:preRestart, P:postStop, P:preStart, c:preStart, c:postStop]
-    assert_eq!(
-        joined(&log),
-        "P:preStart, P:preRestart, P:postStop, P:preStart, c:preStart, c:postStop"
-    );
     let child = child.lock().unwrap().clone().expect("created in the turn");
-    assert!(child.is_terminated());
-    assert!(!parent.is_terminated());
+    let observed = format!(
+        "log=[{}] parentInstances={} childTerminated={} parentTerminated={}",
+        joined(&log),
+        instances.load(Ordering::SeqCst),
+        child.is_terminated(),
+        parent.is_terminated()
+    );
+    assert_eq!(observed, recorded("MBX-UT-06"));
 }
 
 /// The parent of `MBX-UT-06`: on `go` it suspends and restarts itself, then creates `c` (so `Supervise` comes after `Recreate`).
