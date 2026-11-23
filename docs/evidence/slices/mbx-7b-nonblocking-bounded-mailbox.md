@@ -72,3 +72,14 @@ control (unmodified) CLEAN 2960/2960 applicable + 0 NA:Q-CFG-30 + 1 not applicab
 
 `--check-patterns`: 261 patrones, 2 stale preexistentes (`deploy-fallback-keeps-the-tags`, `render-concatenation-keeps-white-space-as-a-separate-string`), ninguno de este PR.
 No se ejecutó la batería global de mutantes.
+
+## Revisión independiente (HEAD 539927b)
+
+Veredicto: aprobado, sin bloqueantes (paridad de capacidad incl. 0, contenido del `DeadLetter`, sustituto de emisor, `DeadLetter` rebosado no descartado,
+`cleanUp`, ausencia de bloqueo por reentrada, ausencia de pérdida y duplicación). Notas aceptadas como riesgos de integración:
+
+- **Dueño fijado en `create`.** Si el cableado futuro de `ActorCell`/`Dispatcher` construye la cola antes de que exista el `ActorRef` del dueño, el dueño
+  habrá de fijarse después de `create` (p. ej. `OnceLock`) o pasar el receptor por llamada (PROP-7B-1). Un reinicio no afecta (el dueño es estable) y
+  Pekko excluye esta cola en mailboxes compartidos (`BalancingPool`).
+- **NB-CF-02 y NB-CF-03 sin gemelo Rust:** quedan para el PR 10 (`Mailboxes`/Config) y para el cableado del Dispatcher, respectivamente.
+- `lock().unwrap()` sólo entra en pánico con un lock envenenado, inalcanzable porque no se ejecuta código ajeno bajo el lock.
