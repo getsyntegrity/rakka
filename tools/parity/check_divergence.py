@@ -973,7 +973,6 @@ MUTANTS = {
         "after a rejected attach `context.actorOf` forgets the child, so its name can be reused (Pekko keeps it taken)",
     ),
     # --- Q-MBX-11 slice C4: actors that never started (killed by the in-crate twins of MBX-UT-01..09, see UNIT_MUTANTS) ---
-    "system-message-after-close-is-not-dead-lettered": ("actor::unstarted_termination_tests", "a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it"),
     "stop-marks-a-child-that-has-not-started": (
         "src/actor/cell.rs",
         "let may_wait_for_death = actor.0.as_repointable().is_none_or(|r| r.is_started());",
@@ -1658,6 +1657,7 @@ def classify(replay_result, binary):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "system-message-after-close-is-not-dead-lettered": ("actor::unstarted_termination_tests", "a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it"),
     "deployer-deploy-swaps-a-stale-snapshot": ("actor::deployer", "a_deployment_that_loses_the_swap_is_retried_on_the_newer_index_and_nothing_is_lost"),
     "init-with-failure-forgets-the-failure": ("actor::init_failure_tests", "a_cell_that_cannot_be_made_is_stopped_by_the_supervisor_and_the_actor_never_starts"),
     "init-with-failure-text-differs": ("actor::init_failure_tests", "a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
