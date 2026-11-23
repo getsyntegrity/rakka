@@ -52,10 +52,10 @@ Los 10 casos del oráculo (`cases/oracle-only/nonblocking-bounded-mailbox.golden
 
 ### 1. Scheduling de un mensaje rechazado: **diferencia observable sólo con un ejecutor instrumentado; sin efecto semántico**
 
-Pekko 2.0.0 (`Dispatcher.scala:80-84,146-153`, `Mailbox.scala:255-272`): `dispatch` hace `mbox.enqueue(receiver.self, invocation)` y luego
+Pekko 2.0.0 (`Dispatcher.scala:80-84,146-171`, `Mailbox.scala:255-272`): `dispatch` hace `mbox.enqueue(receiver.self, invocation)` y luego
 `registerForExecution(mbox, hasMessageHint = true, …)` **sin mirar el resultado de `enqueue`**. Con el mailbox abierto y ocioso,
 `canBeScheduledForExecution` es `true` y se envía un turno al ejecutor; ese turno no halla mensajes (`processMailbox` no hace nada), hace
-`setAsIdle` y no se re-registra. Con el mailbox suspendido (sólo cuentan los hints de sistema) o cerrado no hay turno, igual que en Rakka.
+`setAsIdle` y no se re-registra. Con el mailbox suspendido (sólo cuentan los hints de sistema) o cerrado Pekko no envía turno; en Rakka el cerrado no agenda (`enqueue_unless_closed`) y el suspendido sólo se cubre con las pruebas de suspensión preexistentes, no con este diff.
 
 Sonda JVM independiente (`mbx-7d-scheduling-probe.java`, Pekko 2.0.0, JDK 17, `NonBlockingBoundedMailbox` de capacidad 0, ejecutor de un hilo que cuenta `execute`;
 3 corridas): tres `tell` a un actor ocioso envían **2 turnos** al ejecutor (el conteo es 1-3 según el instante; nunca 0), los tres mensajes van a dead letters y nada se recibe.
@@ -63,10 +63,11 @@ Con un ejecutor que rechaza dos veces, el `tell` de un mensaje que igualmente se
 intenta ejecutar y, al fallar dos veces, publica el `Error` "registerForExecution was rejected twice!" aunque el mensaje no se almacenó.
 Gemelo Rust: `a_refused_message_does_not_start_a_consumption_turn` (mismo escenario, cuenta los envíos al `Executor` de `rakka-actor`): **0 turnos**.
 
-Efecto sobre otros mensajes: ninguno. Dentro de un actor los turnos son seriales (`setAsScheduled` es la única puerta) y el turno vacío no consume mensajes,
+Efecto sobre la entrega de otros mensajes: ninguno. Dentro de un actor los turnos son seriales (`setAsScheduled` es la única puerta) y el turno vacío no consume mensajes,
 no cambia el `throughput` ni la terminación (`Terminate` y `Resume` se registran con su propio hint de sistema) y, si llega un mensaje aceptado mientras corre,
-el `registerForExecution` de fin de turno lo recoge porque `hasMessages` es verdadero. Lo único que cambia es el estado `scheduled` durante ese instante y el uso
-del ejecutor.
+el `registerForExecution` de fin de turno lo recoge porque `hasMessages` es verdadero. Lo que cambia es el estado `scheduled` durante ese instante, el uso del ejecutor y, si el ejecutor rechaza dos veces, el `Error` publicado:
+`registerForExecution` hace `setAsIdle` y relanza `RejectedExecutionException` (`Dispatcher.scala:160-167`); en la sonda el `tell` externo **volvió** sin excepción
+(el relanzamiento lo absorbe `sendMessage`), de modo que lo visible es el `Error` y la cuenta de `execute`, no una excepción al emisor.
 
 Observabilidad en Rakka: el `Executor` es `pub(crate)`; ninguna API pública lo expone, de modo que la diferencia no es alcanzable por un usuario de Rakka. En la JVM
 sí lo es mediante un `ExecutorServiceConfigurator` propio (como hace el oráculo `MBX-RJ`). Ningún caso grabado del oráculo la ejerce hoy (no hay caso con una cola que rechaza
