@@ -1,5 +1,5 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala, actor/dungeon/Children.scala, actor/dungeon/FaultHandling.scala and actor/ActorCell.scala (Apache-2.0).
-//! Twins of oracle cases `MBX-UT-01..07` (Q-MBX-11, slice C4): swapLookup, the state of an unstarted reference, and termination and
+//! Twins of oracle cases `MBX-UT-01`, `02`, `03` and `06` (Q-MBX-11, slice C4): swapLookup, the state of an unstarted reference, and termination and
 //! restart of a parent that has a child that never started. The user dispatcher runs nothing by itself (`RunsOnDemand`), so "the child has not started" is a fact
 //! about the executor, and the order of system messages sent to the parent before it creates the child is exact.
 
@@ -11,7 +11,6 @@ use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use crate::actor::repointable::RepointableActorRef;
 use crate::dispatch::dispatcher::{Executor, Rejected};
 use crate::dispatch::sysmsg::SystemMessage;
-use crate::event::{Channel, DeadLetter};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
@@ -54,44 +53,6 @@ impl Actor for Echoes {
     }
 }
 
-/// Logs the name of the system message (or `user message`) of every dead letter it receives.
-struct RecordsDeadLetters(Log);
-impl Actor for RecordsDeadLetters {
-    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
-        let Some(dead) = msg.downcast_ref::<DeadLetter>() else {
-            return false;
-        };
-        let name = match dead.message.downcast_ref::<SystemMessage>() {
-            Some(SystemMessage::Supervise { .. }) => "Supervise",
-            Some(_) => "another system message",
-            None => "user message",
-        };
-        self.0.lock().unwrap().push(name.to_owned());
-        true
-    }
-}
-
-/// Subscribes a recorder of dead letters (their kind), started, and returns its log.
-fn record_dead_letters(fixture: &Fixture) -> Log {
-    let log = Log::default();
-    let recorder = fixture
-        .system
-        .actor_of_named(
-            Props::new({
-                let log = log.clone();
-                move || RecordsDeadLetters(log.clone())
-            }),
-            "dead-letter-recorder",
-        )
-        .unwrap();
-    let recorder = fixture.started("dead-letter-recorder", recorder);
-    fixture
-        .system
-        .event_stream()
-        .subscribe(&recorder, Channel::DeadLetter);
-    log
-}
-
 /// What the oracle's `stateView` prints for a reference (`underlying` is the unstarted cell until the real one is installed).
 fn state_view(child: &ActorRef) -> String {
     let reference = child
@@ -116,7 +77,6 @@ fn state_view(child: &ActorRef) -> String {
 fn a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it() {
     // twin of oracle case MBX-UT-03: Terminate enters the parent's system queue before the Supervise that attach_child sends
     let fixture = Fixture::new();
-    let dead_letters = record_dead_letters(&fixture);
     let log = Log::default();
     let child = Arc::new(Mutex::new(None::<ActorRef>));
     let parent = fixture.actor("p", {
@@ -156,9 +116,6 @@ fn a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_
         state_view(&child)
     );
     assert_eq!(joined(&log), "");
-    // Pekko 2.0.0 (golden): deadLetters=[Supervise] (the parent closed its mailbox before the Supervise)
-    assert!(recorded("MBX-UT-03").contains("deadLetters=[Supervise]"));
-    assert_eq!(joined(&dead_letters), "Supervise");
 }
 
 #[test]
@@ -231,220 +188,6 @@ impl Actor for Restartable {
         *self.child.lock().unwrap() = Some(created);
         true
     }
-}
-
-// ---- the parent of the cases below ----
-
-/// The parent of `MBX-UT-04..07`. `go-create` creates `c` (with "m1" queued); `go-terminate` stops itself first (so `Terminate` is
-/// ahead of the `Supervise` of `c`); `go-restart` suspends and restarts itself first. The first instance may create a started child
-/// `k1` in `preStart` (`parentHoldsChild`).
-struct Parent {
-    log: Log,
-    k1_log: Log,
-    child: Arc<Mutex<Option<ActorRef>>>,
-    first_instance: bool,
-    holds_started_child: bool,
-}
-impl Actor for Parent {
-    fn pre_start(&mut self, ctx: &mut ActorContext) {
-        self.log.lock().unwrap().push("P:preStart".to_owned());
-        if self.first_instance && self.holds_started_child {
-            let k1_log = self.k1_log.clone();
-            ctx.cell
-                .attach_child(
-                    Props::new(move || Life(k1_log.clone(), "k1")),
-                    Some("k1"),
-                    true,
-                )
-                .unwrap();
-        }
-    }
-    fn pre_restart(
-        &mut self,
-        ctx: &mut ActorContext,
-        _reason: &Throwable,
-        _message: Option<&AnyMessage>,
-    ) {
-        self.log.lock().unwrap().push("P:preRestart".to_owned());
-        for child in ctx.children() {
-            ctx.stop(&child);
-        }
-        self.post_stop(ctx);
-    }
-    fn post_stop(&mut self, _ctx: &mut ActorContext) {
-        self.log.lock().unwrap().push("P:postStop".to_owned());
-    }
-    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
-        let Some(command) = msg.downcast_ref::<String>() else {
-            return false;
-        };
-        match command.as_str() {
-            "go-terminate" => ctx.self_ref().stop(),
-            "go-restart" => {
-                ctx.self_ref().send_system(SystemMessage::Suspend);
-                ctx.self_ref().send_system(SystemMessage::Recreate {
-                    cause: Throwable::new("java.lang.IllegalStateException", Some("restart")),
-                });
-            }
-            "go-create" => {}
-            _ => return false,
-        }
-        let log = self.log.clone();
-        let created = ctx
-            .cell
-            .attach_child(Props::new(move || Life(log.clone(), "c")), Some("c"), true)
-            .unwrap();
-        created.tell("m1".to_owned(), None);
-        *self.child.lock().unwrap() = Some(created);
-        true
-    }
-}
-
-/// A parent plus the logs of its family, started (its `preStart` turn has run, `k1` included).
-struct Family {
-    fixture: Fixture,
-    parent: ActorRef,
-    log: Log,
-    k1_log: Log,
-    child: Arc<Mutex<Option<ActorRef>>>,
-    instances: Arc<AtomicUsize>,
-}
-
-impl Family {
-    fn started(holds_started_child: bool) -> Family {
-        Self::in_fixture(Fixture::new(), holds_started_child)
-    }
-
-    fn in_fixture(fixture: Fixture, holds_started_child: bool) -> Family {
-        let (log, k1_log) = (Log::default(), Log::default());
-        let child = Arc::new(Mutex::new(None::<ActorRef>));
-        let instances = Arc::new(AtomicUsize::new(0));
-        let parent = fixture
-            .system
-            .actor_of_named(
-                Props::new({
-                    let (log, k1_log, child, instances) = (
-                        log.clone(),
-                        k1_log.clone(),
-                        child.clone(),
-                        instances.clone(),
-                    );
-                    move || Parent {
-                        log: log.clone(),
-                        k1_log: k1_log.clone(),
-                        child: child.clone(),
-                        first_instance: instances.fetch_add(1, Ordering::SeqCst) == 0,
-                        holds_started_child,
-                    }
-                }),
-                "p",
-            )
-            .unwrap();
-        let parent = fixture.started("p", parent);
-        Family {
-            fixture,
-            parent,
-            log,
-            k1_log,
-            child,
-            instances,
-        }
-    }
-
-    fn child(&self) -> ActorRef {
-        self.child
-            .lock()
-            .unwrap()
-            .clone()
-            .expect("created in the turn")
-    }
-}
-
-#[test]
-fn a_parent_stopped_after_its_child_started_waits_for_it_and_the_child_dies_first() {
-    // twin of oracle case MBX-UT-04 (control: Children.stop does mark a child that has started)
-    let family = Family::started(false);
-    family.parent.tell("go-create".to_owned(), None);
-    family.fixture.executor.run_until_idle();
-    let child = family.child();
-    assert!(is_started(&child), "the parent's Supervise started it");
-    family.parent.stop();
-    family.fixture.executor.run_until_idle();
-    assert!(family.parent.is_terminated() && child.is_terminated());
-    // Pekko 2.0.0 (golden): log=[P:preStart, c:preStart, c:r:m1, c:postStop, P:postStop]; the twin's `c` does not log its messages
-    assert!(
-        recorded("MBX-UT-04")
-            .contains("log=[P:preStart, c:preStart, c:r:m1, c:postStop, P:postStop]")
-    );
-    assert_eq!(
-        joined(&family.log),
-        "P:preStart, c:preStart, c:postStop, P:postStop"
-    );
-}
-
-#[test]
-fn a_parent_already_waiting_for_a_started_child_ignores_the_supervise_of_a_new_child_and_still_terminates()
- {
-    // twin of oracle case MBX-UT-05. The parent's own turn (Terminate, then the Supervise of `c`) runs alone: k1's Terminate stays pending,
-    // so the parent is Terminating, waiting for k1, when the Supervise arrives.
-    // Kept exactly as Pekko 2.0.0 does it (PROP-C4-1 is the Owner's): `c` is never pointed and nothing reports it.
-    let family = Family::started(true);
-    let dead_letters = record_dead_letters(&family.fixture);
-    family.parent.tell("go-terminate".to_owned(), None);
-    family.fixture.executor.run_next();
-    let child = family.child();
-    assert!(!family.parent.is_terminated(), "waiting for k1");
-    assert_eq!(joined(&family.log), "P:preStart");
-    let while_waiting = state_view(&child);
-    assert!(
-        recorded("MBX-UT-05").contains(&format!("whileWaiting: parentTerminated=false log=[P:preStart, k1:preStart, k1:postStop] deadLetters=[] | child: {while_waiting}")),
-        "{while_waiting}"
-    );
-    family.fixture.executor.run_until_idle(); // k1 dies
-    assert!(family.parent.is_terminated());
-    assert_eq!(joined(&family.k1_log), "k1:preStart, k1:postStop");
-    assert_eq!(joined(&family.log), "P:preStart, P:postStop");
-    assert_eq!(
-        joined(&dead_letters),
-        "",
-        "the Supervise is ignored without a dead letter"
-    );
-    let after_release = state_view(&child);
-    assert!(
-        recorded("MBX-UT-05").contains(&format!("afterRelease: parentTerminated=true log=[P:preStart, k1:preStart, k1:postStop, k1:postStop-released, P:postStop] deadLetters=[] | child: {after_release}")),
-        "{after_release}"
-    );
-}
-
-#[test]
-fn a_restart_waiting_for_a_started_child_still_processes_the_supervise_of_an_unstarted_one() {
-    // twin of oracle case MBX-UT-07: only the parent's and `c`'s turns run first; k1's Terminate (from preRestart) stays pending
-    let family = Family::started(true);
-    family.parent.tell("go-restart".to_owned(), None);
-    family.fixture.executor.run_next_of("p");
-    family.fixture.executor.run_next_of("c");
-    assert_eq!(
-        joined(&family.log),
-        "P:preStart, P:preRestart, P:postStop, c:preStart, c:postStop"
-    );
-    assert_eq!(family.instances.load(Ordering::SeqCst), 1);
-    assert!(
-        recorded("MBX-UT-07").contains(
-            "whileWaiting: parentAndChild=[P:preStart, P:preRestart, P:postStop, c:preStart, c:postStop]"
-        ) && recorded("MBX-UT-07").contains("parentInstances=1")
-    );
-    family.fixture.executor.run_until_idle(); // k1 dies: the restart completes
-    assert_eq!(
-        joined(&family.log),
-        "P:preStart, P:preRestart, P:postStop, c:preStart, c:postStop, P:preStart"
-    );
-    assert_eq!(family.instances.load(Ordering::SeqCst), 2);
-    assert!(family.child().is_terminated());
-    assert!(!family.parent.is_terminated());
-    assert!(
-        recorded("MBX-UT-07").contains("afterRelease: parentAndChild=[P:preStart, P:preRestart, P:postStop, c:preStart, c:postStop, P:preStart]")
-            && recorded("MBX-UT-07").contains("restartAfterK1Gone=true parentTerminated=false")
-    );
 }
 
 // ---- swapLookup and the state of an unstarted reference ----

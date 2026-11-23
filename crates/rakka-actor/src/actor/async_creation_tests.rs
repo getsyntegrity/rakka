@@ -39,7 +39,7 @@ impl RunsOnDemand {
     }
 
     /// Runs the oldest pending mailbox turn, if any.
-    pub(super) fn run_next(&self) {
+    fn run_next(&self) {
         let next = self.pending.lock().unwrap().pop_front();
         if let Some(cell) = next {
             ActorCell::run_mailbox(&cell);
