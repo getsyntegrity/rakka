@@ -1,0 +1,1 @@
+MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first -> parentTerminated=true childTerminated=true deadLetters=[] log=[P:preStart, c:preStart, c:r:m1, c:postStop, P:postStop]

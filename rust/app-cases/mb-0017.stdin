@@ -1,0 +1,1 @@
+MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first

@@ -14,6 +14,17 @@ use rakka_actor::dispatch::Terminated;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 use rakka_actor::dispatch::system_queue::SystemQueue;
+use rakka_actor::event::{Channel, DeadLetter};
+
+/// The reason of an oracle case of slice C4 (Q-MBX-11) that has no recorded Rust line yet: `$why`, then what every one of them shares.
+macro_rules! unstarted_termination_twin {
+    ($why:literal) => {
+        concat!(
+            $why,
+            "; the recorded line is printed by Pekko 2.0.0 (cases/oracle-only/mailbox.golden) and its Rust twin is not written yet: it belongs to slice C4 of Q-MBX-11 (docs/research/q-mbx-11-c4-oracle.md)"
+        )
+    };
+}
 
 /// Oracle cases Rust does not produce yet, with the reason: they need pieces of ADR-0001 that arrive in later steps.
 #[allow(dead_code)] // read by tests/recorded_pekko.rs
@@ -168,39 +179,45 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-UT-01 swapLookup: before the real cell is installed the reference is still unstarted, but a child the actor created in preStart already resolves through the real cell",
-        "needs the children of an unstarted reference (children, getSingleChild, getChild), a surface RepointableActorRef does not have yet, and an executor that holds the hand-over (internal); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+        unstarted_termination_twin!(
+            "needs the children of an unstarted reference (children, getSingleChild, getChild), which RepointableActorRef does not have yet, and an executor that holds the hand-over (internal)"
+        ),
     ),
     (
         "MBX-UT-02 an unstarted reference: not started, not terminated, counts its queued user messages, queues Suspend and Resume and hands everything over in order",
-        "reads the internal state of an unstarted reference (underlying, numberOfMessages) that the public API does not expose; the twin compares facts, not the whole line; the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+        unstarted_termination_twin!(
+            "reads the internal state of an unstarted reference (underlying, numberOfMessages), which the public API does not expose"
+        ),
     ),
     (
         "MBX-UT-03 a parent that terminates before the Supervise of its child: Supervise is dead-lettered, the child never starts and keeps its queue",
-        "Rust differs today: stop_actor waits for a child that never started, so the parent never terminates (a RED of the C4 research); the fix is production code of slice C4; the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
-    ),
-    (
-        "MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first",
-        "needs a child created asynchronously inside the parent's turn, which ActorContext::actor_of cannot do from the public API (internal); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+        unstarted_termination_twin!(
+            "Rust differs today: stop_actor calls shall_die for every child, so a parent whose child never started never terminates (recording the line would hang until the slice C4 fixes that production code)"
+        ),
     ),
     (
         "MBX-UT-05 a parent already waiting for a started child to die ignores the Supervise of a new child: the child is never pointed and the parent still terminates",
-        "needs to hold the death of a started child and run turns selectively (RunsOnDemand::run_next, internal); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+        unstarted_termination_twin!(
+            "needs to hold the death of a started child and to run turns selectively (RunsOnDemand::run_next, internal)"
+        ),
     ),
     (
         "MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated",
-        "Rust differs today: a restart waits for a child that never started (a RED of the C4 research); the fix is production code of slice C4; the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+        unstarted_termination_twin!(
+            "Rust differs today: a restart waits for a child that never started (the line would differ until the slice C4 fixes stop_actor)"
+        ),
     ),
     (
         "MBX-UT-07 a restart waiting for a started child: the Supervise of an unstarted child is processed meanwhile, the child starts and terminates, the restart completes when the started child is gone",
-        "needs to hold the death of a started child and run turns selectively (RunsOnDemand::run_next, internal); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
-    ),
-    (
-        "MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept",
-        "a public API twin passes but does not exercise the race: ActorContext::actor_of is synchronous, so no child is ever unstarted from outside; the contract needs the internal RunsOnDemand; the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+        unstarted_termination_twin!(
+            "needs to hold the death of a started child and to run turns selectively (RunsOnDemand::run_next, internal)"
+        ),
     ),
     (
         "MBX-UT-09 a child created in preStart while the hand-over is in progress waits for the hand-over to end: the reference's lock is held across replaceWith",
-        "needs a child created in preStart while the hand-over holds the reference's lock (internal, depends on the C3 lock); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+        unstarted_termination_twin!(
+            "needs a hook that blocks the hand-over (replaceWith) while the child is created in preStart, which only the internal executor and cell stand-ins provide (the lock itself is C3, already integrated)"
+        ),
     ),
 ];
 
@@ -590,6 +607,231 @@ fn wait_until(condition: impl Fn() -> bool) {
     }
 }
 
+/// Records its lifecycle in the shared log as the oracle's `LifeActor` does: `label:preStart`, `label:r:<message>`, `label:postStop`.
+struct LogsItsLife {
+    label: &'static str,
+    log: Arc<Mutex<Vec<String>>>,
+}
+
+impl Actor for LogsItsLife {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.log
+            .lock()
+            .unwrap()
+            .push(format!("{}:preStart", self.label));
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        self.log
+            .lock()
+            .unwrap()
+            .push(format!("{}:postStop", self.label));
+    }
+    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        let text = msg.downcast_ref::<String>().expect("string messages");
+        self.log
+            .lock()
+            .unwrap()
+            .push(format!("{}:r:{text}", self.label));
+        true
+    }
+}
+
+/// The oracle's `UnstartedParent` without `attachChild`: logs `P:preStart` and `P:postStop`, and on `go` creates the child `c`
+/// (synchronously, as `ActorContext::actor_of` does) and sends it the messages of the case.
+struct ParentOfLifeActor {
+    log: Arc<Mutex<Vec<String>>>,
+    child: Arc<Mutex<Option<ActorRef>>>,
+    messages: Vec<String>,
+}
+
+impl Actor for ParentOfLifeActor {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("P:preStart".to_owned());
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("P:postStop".to_owned());
+    }
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if msg.downcast_ref::<String>().is_some_and(|m| m == "go") {
+            let log = self.log.clone();
+            let child = ctx
+                .actor_of_named(
+                    Props::new(move || LogsItsLife {
+                        label: "c",
+                        log: log.clone(),
+                    }),
+                    "c",
+                )
+                .expect("child");
+            *self.child.lock().unwrap() = Some(child.clone());
+            for message in &self.messages {
+                child.tell(message.clone(), None);
+            }
+        }
+        true
+    }
+}
+
+/// Records every `DeadLetter` as `message<-sender->recipient`, the way the oracle's listener does.
+struct RecordsDeadLetters(Arc<Mutex<Vec<String>>>);
+
+impl Actor for RecordsDeadLetters {
+    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if let Some(dead) = msg.downcast_ref::<DeadLetter>() {
+            let text = dead
+                .message
+                .downcast_ref::<String>()
+                .cloned()
+                .unwrap_or_default();
+            self.0.lock().unwrap().push(format!(
+                "{text}<-{}->{}",
+                dead.sender.path().name(),
+                dead.recipient.path().name()
+            ));
+        }
+        true
+    }
+}
+
+fn listed(items: &[String]) -> String {
+    format!("[{}]", items.join(", "))
+}
+
+/// `MBX-UT-04`: a parent stopped after its child started waits for the child, which dies first. The child is created
+/// synchronously here, so the case needs no unstarted reference.
+fn a_parent_stopped_after_its_child_started_waits_for_it() -> String {
+    let system = ActorSystem::create("mbx").expect("system");
+    let (log, dead, child) = (
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(Mutex::new(None)),
+    );
+    let listener = system
+        .actor_of(Props::new({
+            let dead = dead.clone();
+            move || RecordsDeadLetters(dead.clone())
+        }))
+        .expect("listener");
+    system
+        .event_stream()
+        .subscribe(&listener, Channel::DeadLetter);
+    let parent = system
+        .actor_of_named(
+            Props::new({
+                let (log, child) = (log.clone(), child.clone());
+                move || ParentOfLifeActor {
+                    log: log.clone(),
+                    child: child.clone(),
+                    messages: vec!["m1".to_owned()],
+                }
+            }),
+            "p",
+        )
+        .expect("parent");
+    wait_until(|| log.lock().unwrap().contains(&"P:preStart".to_owned()));
+    parent.tell("go".to_owned(), None);
+    wait_until(|| log.lock().unwrap().contains(&"c:r:m1".to_owned()));
+    system.stop(&parent);
+    wait_until(|| parent.is_terminated());
+    let child_terminated = child
+        .lock()
+        .unwrap()
+        .as_ref()
+        .expect("the child")
+        .is_terminated();
+    let line = format!(
+        "parentTerminated={} childTerminated={child_terminated} deadLetters={} log={}",
+        parent.is_terminated(),
+        listed(&dead.lock().unwrap()),
+        listed(&log.lock().unwrap())
+    );
+    system
+        .terminate()
+        .wait(Duration::from_secs(10))
+        .expect("terminated");
+    line
+}
+
+/// `MBX-UT-08`: two senders race with the installation of the real cell of an asynchronously created actor
+/// (`ActorSystem::actor_of` returns a reference that starts unstarted): nothing lost, nothing repeated, per-sender order kept.
+fn senders_racing_with_the_installation_of_the_real_cell() -> String {
+    let system = ActorSystem::create("mbx").expect("system");
+    let (log, dead) = (
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(Mutex::new(Vec::new())),
+    );
+    let listener = system
+        .actor_of(Props::new({
+            let dead = dead.clone();
+            move || RecordsDeadLetters(dead.clone())
+        }))
+        .expect("listener");
+    system
+        .event_stream()
+        .subscribe(&listener, Channel::DeadLetter);
+    let child = system
+        .actor_of_named(
+            Props::new({
+                let log = log.clone();
+                move || LogsItsLife {
+                    label: "c",
+                    log: log.clone(),
+                }
+            }),
+            "c",
+        )
+        .expect("child");
+    let go = Arc::new(std::sync::Barrier::new(3));
+    let senders: Vec<_> = ["a", "b"]
+        .into_iter()
+        .map(|who| {
+            let (child, go) = (child.clone(), go.clone());
+            std::thread::spawn(move || {
+                go.wait();
+                for i in 0..200 {
+                    child.tell(format!("{who}:{i}"), None);
+                }
+            })
+        })
+        .collect();
+    go.wait();
+    senders
+        .into_iter()
+        .for_each(|sender| sender.join().expect("sender"));
+    wait_until(|| {
+        log.lock()
+            .unwrap()
+            .iter()
+            .filter(|entry| entry.starts_with("c:r:"))
+            .count()
+            == 400
+    });
+    std::thread::sleep(Duration::from_millis(500)); // a bounded wait for an absence: nothing more may arrive
+    let log = log.lock().unwrap().clone();
+    let (mut next, mut ordered) = (std::collections::HashMap::new(), true);
+    let mut distinct = std::collections::HashSet::new();
+    let mut delivered = 0;
+    for entry in log.iter().filter(|entry| entry.starts_with("c:r:")) {
+        delivered += 1;
+        distinct.insert(entry.clone());
+        let (who, index) = entry["c:r:".len()..].split_once(':').expect("who:index");
+        let expected = next.entry(who.to_owned()).or_insert(0_usize);
+        ordered &= *expected == index.parse::<usize>().expect("index");
+        *expected += 1;
+    }
+    let pre_starts = log.iter().filter(|entry| *entry == "c:preStart").count();
+    let line = format!(
+        "delivered={delivered} distinct={} perSenderOrdered={ordered} preStarts={pre_starts} deadLetters={}",
+        distinct.len(),
+        listed(&dead.lock().unwrap())
+    );
+    system
+        .terminate()
+        .wait(Duration::from_secs(10))
+        .expect("terminated");
+    line
+}
+
 pub fn rust_lines() -> Vec<(String, String)> {
     [
         ("MBX-ST-01 open to scheduled", open_to_scheduled()),
@@ -646,6 +888,14 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-MQ-03 cleanUp moves everything to the dead-letters queue in order",
             clean_up_moves_to_dead_letters(),
+        ),
+        (
+            "MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first",
+            a_parent_stopped_after_its_child_started_waits_for_it(),
+        ),
+        (
+            "MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept",
+            senders_racing_with_the_installation_of_the_real_cell(),
         ),
     ]
     .into_iter()
