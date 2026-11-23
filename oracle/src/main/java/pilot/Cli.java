@@ -85,6 +85,9 @@ public final class Cli {
       case "bounded-mailbox-ids" -> System.out.print(String.join("\n", BoundedMailboxOracle.ids()) + "\n");
       case "bounded-mailbox-all" -> { BoundedMailboxOracle.ids().forEach(id -> System.out.println(BoundedMailboxOracle.line(id))); System.out.flush(); System.exit(0); }
       case "bounded-mailbox-case" -> { System.out.println(BoundedMailboxOracle.line(oneLine())); System.out.flush(); System.exit(0); }
+      case "nonblocking-bounded-mailbox-ids" -> System.out.print(String.join("\n", NonBlockingBoundedMailboxOracle.ids()) + "\n");
+      case "nonblocking-bounded-mailbox-all" -> { NonBlockingBoundedMailboxOracle.ids().forEach(id -> System.out.println(NonBlockingBoundedMailboxOracle.line(id))); System.out.flush(); System.exit(0); }
+      case "nonblocking-bounded-mailbox-case" -> { System.out.println(NonBlockingBoundedMailboxOracle.line(oneLine())); System.out.flush(); System.exit(0); }
       case "path-address-ids" -> System.out.print(String.join("\n", PathAddressOracle.ids()) + "\n");
       case "util-core-ids" -> System.out.print(String.join("\n", UtilCoreOracle.ids()) + "\n");
       case "path-address-all" -> PathAddressOracle.ids().forEach(id -> System.out.println(PathAddressOracle.line(id)));
