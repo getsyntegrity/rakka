@@ -556,10 +556,22 @@ final class BoundedMailboxOracle {
         Thread sender = new Thread(() -> a.tell("m3", ActorRef.noSender())); sender.start(); awaitState(sender, Thread.State.WAITING);
         in(a).stop(); awaitUntil(mb::hasSystemMessages);
         b.release.countDown(); sender.join(10_000); awaitUntil(mb::isClosed);
-        // terminal state: m1 and m2 are always drained to dead letters by cleanUp (m3 is a dead letter or stranded), so wait until both are published
-        awaitUntil(() -> e.deadNow().size() >= 2 && e.deadNow().size() + mb.messageQueue().numberOfMessages() == 3);
-        List<String> dead = deadMessages(e.deadNow());
-        return "senderDone=" + !sender.isAlive() + " processed=" + e.log + " deadPlusStranded=" + (dead.size() + mb.messageQueue().numberOfMessages()) + " firstTwoDeadInOrder=" + dead.subList(0, Math.min(2, dead.size()));
+        // Settled outcome: either every message is a dead letter and the queue is empty, or m3 is stranded (2 dead, 1 queued).
+        // The stranded shape is also what cleanUp passes through (m3 queued while m2 is drained), so it only counts once the same
+        // snapshot is seen again after a quiet period (cleanUp drains in microseconds). One snapshot feeds the whole output line.
+        List<String> dead; int stranded; long giveUp = System.nanoTime() + 20_000_000_000L;
+        while (true) {
+          if (System.nanoTime() > giveUp) throw new IllegalStateException("BM-AC-11 did not settle");
+          List<String> d1 = deadMessages(e.deadNow()); int q1 = mb.messageQueue().numberOfMessages();
+          if (d1.size() == 3 && q1 == 0) { dead = d1; stranded = q1; break; }
+          if (d1.size() == 2 && q1 == 1) {
+            Thread.sleep(300);
+            List<String> d2 = deadMessages(e.deadNow()); int q2 = mb.messageQueue().numberOfMessages();
+            if (d2.equals(d1) && q2 == q1) { dead = d2; stranded = q2; break; }
+          }
+          Thread.sleep(5);
+        }
+        return "senderDone=" + !sender.isAlive() + " processed=" + e.log + " deadPlusStranded=" + (dead.size() + stranded) + " firstTwoDeadInOrder=" + dead.subList(0, Math.min(2, dead.size()));
       }
     });
     run("BM-AC-12 a sender on the actor's own single-thread pool starves it: the push timeout is what ends the wait", () -> {
