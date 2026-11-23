@@ -56,7 +56,7 @@ MBX-UT-02 an unstarted reference: not started, not terminated, counts its queued
 MBX-UT-03 a parent that terminates before the Supervise of its child: Supervise is dead-lettered, the child never starts and keeps its queue
 MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first
 MBX-UT-05 a parent already waiting for a started child to die ignores the Supervise of a new child: the child is never pointed and the parent still terminates
-MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated and gets the Recreate
+MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated
 MBX-UT-07 a restart waiting for a started child: the Supervise of an unstarted child is processed meanwhile, the child starts and terminates, the restart completes when the started child is gone
 MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept
 MBX-UT-09 a child created in preStart while the hand-over is in progress waits for the hand-over to end: the reference's lock is held across replaceWith

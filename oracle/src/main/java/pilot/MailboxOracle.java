@@ -216,6 +216,7 @@ final class MailboxOracle {
 
   /** The number of upcoming {@code execute} calls of {@code rej-disp}'s executor that throw {@code RejectedExecutionException}. */
   static final AtomicInteger REJECT_NEXT = new AtomicInteger();
+  // Static state shared by every case that uses rej-disp: valid only because the cases run sequentially (never run two in one JVM concurrently).
   /** When set, the next task {@code rej-disp}'s executor accepts is run, and its submitter then waits for this latch (`SUBMITTED_AND_HELD` says it does). */
   static final AtomicReference<CountDownLatch> HOLD_SUBMITTER_AFTER_NEXT_EXECUTE = new AtomicReference<>();
   static volatile CountDownLatch SUBMITTED_AND_HELD = new CountDownLatch(1);
@@ -1014,7 +1015,7 @@ final class MailboxOracle {
         return "whileWaiting: " + whileWaiting + " | afterRelease: parentTerminated=" + in(p).isTerminated() + " log=" + e.log + " deadLetters=" + e.dead + " | child: " + stateView(c);
       }
     });
-    run("MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated and gets the Recreate", () -> {
+    run("MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated", () -> {
       try (Env e = new Env(5, "0ms")) {
         Plan plan = new Plan(); plan.messages = List.of("m1");
         ActorRef p = parentInGo(e, plan);

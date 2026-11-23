@@ -1,6 +1,6 @@
 # Q-MBX-11 C4: oráculo y contratos de los actores sin arrancar (investigación)
 
-Fecha: 2026-11-23. Rama de investigación `research/unstarted-termination-c4` (desde `1df22f2`, con C1 y C2 ya integradas). **No implementa C3 ni C4**: sólo contratos, casos del oráculo, evidencia de estabilidad y los gemelos Rust que ya se pueden escribir. Fuente de verdad: Apache Pekko 2.0.0 (`9fbd2283`), JDK 17. Las citas `path:line` son de 2.0.0 (`actor/src/main/scala/org/apache/pekko/actor/...`).
+Fecha: 2026-11-23. Rama de investigación `research/unstarted-termination-c4` (creada desde `1df22f2`, con C1 y C2 integradas; C3, #328 `8f1b0d9`, ya está integrada y esta rama la incorpora por merge). **No implementa C4**: sólo contratos, casos del oráculo, evidencia de estabilidad y los gemelos Rust que ya se pueden escribir. Fuente de verdad: Apache Pekko 2.0.0 (`9fbd2283`), JDK 17. Las citas `path:line` son de 2.0.0 (`actor/src/main/scala/org/apache/pekko/actor/...`).
 
 Todas las decisiones nuevas siguen siendo del Owner. Este documento no responde ninguna `Q-*`; al final hay una propuesta (`proposed`) nueva, `PROP-C4-1`.
 
@@ -29,18 +29,23 @@ Código: `oracle/src/main/java/pilot/MailboxOracle.java` (instrumentos nuevos: `
 | `MBX-UT-05` | Padre `Terminating` esperando a un hijo arrancado (retenido en `postStop`) ignora el `Supervise` del hijo nuevo: no hay dead letter, el hijo no se apunta jamás y el padre termina igual al soltar al otro. | 3, 4 |
 | `MBX-UT-06` | Reinicio con sólo un hijo sin arrancar: no espera; `[P:preStart, P:preRestart, P:postStop, P:preStart, c:preStart, c:postStop]` (el hijo arranca **después** de la nueva instancia, luego muere). | 3, 5 |
 | `MBX-UT-07` | Reinicio esperando a un hijo arrancado: el `Supervise` se procesa durante la espera, el hijo nuevo arranca y muere, el reinicio completa al irse el arrancado (`restartAfterK1Gone=true`). | 4, 5 |
-| `MBX-UT-08` | Dos productores contra el `point`: 400 entregados, 400 distintos, orden por emisor, un solo `preStart`, sin dead letters. | 6 |
+| `MBX-UT-08` | Dos productores contra el `point` (la carrera con la instalación de la celda sólo se ejercita de forma probabilística; el caso comprueba el invariante, no que la carrera ocurra): 400 entregados, 400 distintos, orden por emisor, un solo `preStart`, sin dead letters. | 6 |
 | `MBX-UT-09` | Un hijo creado en `preStart` mientras el hand-over está en curso espera a que termine (el lock se retiene durante `replaceWith`): `made-k` sólo aparece tras soltar. | 6 |
 
 Resultado completo (líneas del golden): ver `cases/oracle-only/mailbox.golden` (últimas 9). Los dos hallazgos que más pesan en C4: **UT-03/UT-06** (un hijo sin arrancar no retiene al padre, contra el diseño "natural" de esperar a todos los hijos) y **UT-05** (`Supervise` descartado en silencio: el hijo queda huérfano para siempre en 2.0.0).
 
 ## 3. Estabilidad
 
-Comando: `python3.12 tools/parity/check_mailbox_oracle.py --runs 25` (`oracle/run.sh mailbox-all`, 56 casos por corrida: los 47 previos + los 9 nuevos, cada corrida una JVM nueva).
+Comando: `python3.12 tools/parity/check_mailbox_oracle.py --runs N` (`oracle/run.sh mailbox-all`, cada corrida una JVM nueva). Hay dos tandas de evidencia, sobre bases distintas:
+
+**Antes de integrar C3 (base de 47 líneas, 56 casos = 47 + 9; no valen para el HEAD fusionado):**
 
 - 25 corridas secuenciales: **25/25 idénticas entre sí y con el golden** (`mailbox oracle: 56 cases x 25 runs, OK`).
 - 24 corridas más con tres JVM concurrentes (3 × 8), para forzar contención de CPU: **24/24 byte a byte idénticas al golden** (`cmp`).
-- Total: 49 corridas, 0 diferencias para los 9 casos `MBX-UT-*`. Selftest del verificador (`--selftest`, perturba el golden) sigue detectando todos sus mutantes y `test_check_mailbox_oracle.py` pasa.
+- Total previo a la fusión: 49 corridas, 0 diferencias para los 9 casos `MBX-UT-*`. Selftest del verificador (`--selftest`, perturba el golden) sigue detectando todos sus mutantes y `test_check_mailbox_oracle.py` pasa.
+
+**En el HEAD fusionado con C3 (base de 53 líneas = 47 + `MBX-PT-01..06`; 53 + 9 = 62 casos), JDK 17.0.21:** ver el cuerpo del PR #329 para las cifras del HEAD final (`--runs 12` secuenciales, 3 rondas de 3 JVM en paralelo, `--selftest` con salida 1). **JDK 27.0.1** (no es versión objetivo): 3 corridas idénticas byte a byte al golden. JDK 21 no está instalado y no se ejecutó.
+
 - Una corrida individual de la suite entera tarda unos 6 s.
 
 ### Observables no deterministas descartados
@@ -72,7 +77,7 @@ the parent must terminate without waiting for a child that never started
 test result: FAILED. 0 passed; 2 failed
 ```
 
-Causa (por qué falla por la razón correcta): `cell.rs:1096-1104` (`stop_actor`, tras C3; antes `:1082-1089`) llama a `shall_die` para **todo** hijo registrado, sin la condición `isStarted` de `Children.scala:140-142`. Con un hijo sin arrancar el padre queda `Terminating`/`Recreation` esperando un `ChildTerminated` que sólo llegaría tras `point`, y `supervise` (`cell.rs:1066-1072`, tras C3; que ya ignora el `Supervise` durante `Termination`, igual que Pekko) no lo apuntará nunca: el padre de UT-03 **no termina nunca** (cuelgue, no sólo retraso) y el de UT-06 reinicia tarde.
+Causa (por qué falla por la razón correcta): `cell.rs:1096-1104` (`stop_actor`, tras C3; antes `:1082-1089`) llama a `shall_die` para **todo** hijo registrado, sin la condición `isStarted` de `Children.scala:139-142`. Con un hijo sin arrancar el padre queda `Terminating`/`Recreation` esperando un `ChildTerminated` que sólo llegaría tras `point`, y `supervise` (`cell.rs:1066-1072`, tras C3; que ya ignora el `Supervise` durante `Termination`, igual que Pekko) no lo apuntará nunca: el padre de UT-03 **no termina nunca** (cuelgue, no sólo retraso) y el de UT-06 reinicia tarde.
 
 Gemelos previstos para C4 (especificación, no escritos): UT-05 y UT-07 necesitan retener la muerte de un hijo arrancado sin `postStop` bloqueante: hace falta que `RunsOnDemand::run_next` (hoy privado) sea `pub(super)` y ejecutar los turnos de forma selectiva; UT-01/UT-02 necesitan una superficie de búsqueda de hijos sobre el ref (`children`/`getSingleChild`/`getChild(path)`) que hoy `RepointableActorRef` no tiene, más un `RunsOnDemand` que ejecute el turno del actor dentro de `execute` (el equivalente del `rej-disp` que retiene al someter); UT-08/UT-09 dependen de C3 (lock y timeout). Un gemelo por API pública de UT-08 (dos hilos contra `system.actor_of`, 400 mensajes) se probó en la copia: pasa hoy (GREEN, 50 iteraciones), así que **no es un RED** y no se añadió como archivo.
 
