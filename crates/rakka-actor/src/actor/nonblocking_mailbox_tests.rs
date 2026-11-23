@@ -220,6 +220,14 @@ fn a_refused_message_does_not_start_a_consumption_turn() {
     wait_until("the refused messages to be dead-lettered", || {
         fixture.dead().len() == 3
     });
+    let worker_path = fixture.worker.path().to_string();
+    assert!(
+        fixture
+            .dead()
+            .iter()
+            .all(|(_, recipient)| *recipient == worker_path),
+        "each dead letter is addressed to the actor whose mailbox refused it"
+    );
 }
 
 #[test]
