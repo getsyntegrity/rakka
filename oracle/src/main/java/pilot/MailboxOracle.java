@@ -170,6 +170,7 @@ final class MailboxOracle {
     final AtomicInteger inFlight = new AtomicInteger(), max = new AtomicInteger();
     final AtomicInteger started = new AtomicInteger();
     final AtomicReference<String> note = new AtomicReference<>();
+    final CountDownLatch release = new CountDownLatch(1); // what a LifeActor with `hold` waits for in postStop
     final ActorSystem sys;
     Env(int throughput, String deadline) {
       sys = ActorSystem.create("mbx", ConfigFactory.parseString("pekko { loglevel = OFF\n stdout-loglevel = OFF\n log-dead-letters = off\n }\n"
@@ -191,7 +192,7 @@ final class MailboxOracle {
       awaitUntil(() -> started.get() > before);
       return r;
     }
-    @Override public void close() { sys.terminate(); }
+    @Override public void close() { release.countDown(); sys.terminate(); }
   }
 
   public static final class Listener extends AbstractActor {
@@ -211,6 +212,9 @@ final class MailboxOracle {
 
   /** The number of upcoming {@code execute} calls of {@code rej-disp}'s executor that throw {@code RejectedExecutionException}. */
   static final AtomicInteger REJECT_NEXT = new AtomicInteger();
+  /** When set, the next task {@code rej-disp}'s executor accepts is run, and its submitter then waits for this latch (`SUBMITTED_AND_HELD` says it does). */
+  static final AtomicReference<CountDownLatch> HOLD_SUBMITTER_AFTER_NEXT_EXECUTE = new AtomicReference<>();
+  static volatile CountDownLatch SUBMITTED_AND_HELD = new CountDownLatch(1);
 
   /** A public-SPI executor (one thread) that rejects the next {@link #REJECT_NEXT} tasks, so the rejection path of
    *  {@code Dispatcher.registerForExecution} is exercised without patching Pekko. */
@@ -223,6 +227,12 @@ final class MailboxOracle {
             @Override public void execute(Runnable task) {
               if (REJECT_NEXT.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) throw new RejectedExecutionException("injected");
               super.execute(task);
+              // the next submission is accepted and then holds the submitting thread until released: the task runs, its submitter does not move on
+              CountDownLatch hold = HOLD_SUBMITTER_AFTER_NEXT_EXECUTE.getAndSet(null);
+              if (hold != null) {
+                SUBMITTED_AND_HELD.countDown();
+                try { hold.await(); } catch (InterruptedException x) { Thread.currentThread().interrupt(); }
+              }
             }
           };
         }
@@ -300,6 +310,95 @@ final class MailboxOracle {
   static String view(Mailbox m) { return st(m).replace(" raw=" + m.currentStatus(), "") + " queued=" + m.numberOfMessages(); }
   static void idle(ActorRef r) { awaitUntil(() -> !box(r).isScheduled()); }
   static void sendAll(ActorRef r, String... ms) { for (String m : ms) r.tell(m, ActorRef.noSender()); }
+
+
+  // ---- Q-MBX-11 slice C4: termination, restart and lookup of actors that have not started -----------------------------------------
+  /** What a {@link UnstartedParent} does, and what the harness waits for. The parent blocks inside its own turn (`go`) before it creates `c`
+   *  (so the harness can first send it system messages, which then precede the `Supervise` of `c`) and, optionally, after (so the harness
+   *  can look at `c` while it is still unstarted: the parent processes `Supervise` only when this turn ends). */
+  static final class Plan {
+    final CountDownLatch entered = new CountDownLatch(1), proceed = new CountDownLatch(1), created = new CountDownLatch(1), finish = new CountDownLatch(1);
+    final AtomicReference<ActorRef> child = new AtomicReference<>();
+    final AtomicInteger instances = new AtomicInteger();
+    volatile Hooks hooks;
+    volatile List<String> messages = List.of();
+    volatile boolean childMakesChild, parentHoldsChild, holdAfterCreate;
+    volatile String childDispatcher = "pekko.actor.default-dispatcher";
+  }
+
+  /** `label` records its lifecycle in the environment's log; with {@code makesChild} it creates `k` in preStart; with {@code hold} its
+   *  postStop waits for {@code Env.release} (a started child that keeps its parent waiting for it to die). */
+  public static final class LifeActor extends AbstractActor {
+    final Env env; final String label; final boolean makesChild, hold;
+    LifeActor(Env env, String label, boolean makesChild, boolean hold) { this.env = env; this.label = label; this.makesChild = makesChild; this.hold = hold; }
+    @Override public void preStart() {
+      env.log.add(label + ":preStart");
+      if (makesChild) { getContext().actorOf(Props.create(Scenario.Noop.class), "k"); env.log.add(label + ":made-k"); }
+    }
+    @Override public void postStop() throws Exception {
+      env.log.add(label + ":postStop");
+      if (hold) { env.release.await(); env.log.add(label + ":postStop-released"); }
+    }
+    @Override public Receive createReceive() { return receiveBuilder().matchAny(m -> env.log.add(label + ":r:" + m)).build(); }
+  }
+
+  /** Creates `c` with `attachChild` (the path of `system.actorOf`) inside its turn, so `c` stays unstarted until the turn ends. */
+  public static final class UnstartedParent extends AbstractActor {
+    final Env env; final Plan plan;
+    UnstartedParent(Env env, Plan plan) { this.env = env; this.plan = plan; }
+    @Override public void preStart() {
+      int n = plan.instances.incrementAndGet();
+      env.log.add("P:preStart");
+      if (n == 1 && plan.parentHoldsChild) getContext().actorOf(Props.create(LifeActor.class, env, "k1", false, true), "k1");
+    }
+    @Override public void preRestart(Throwable reason, java.util.Optional<Object> message) throws Exception { env.log.add("P:preRestart"); super.preRestart(reason, message); }
+    @Override public void postStop() { env.log.add("P:postStop"); }
+    @Override public Receive createReceive() {
+      return receiveBuilder().matchEquals("go", g -> {
+        plan.entered.countDown();
+        plan.proceed.await();
+        nextHooks = plan.hooks != null ? plan.hooks : new Hooks();
+        ActorRef c = ((ActorCell) getContext()).attachChild(Props.create(LifeActor.class, env, "c", plan.childMakesChild, false).withDispatcher(plan.childDispatcher).withMailbox("hook-mailbox"), "c", false);
+        plan.child.set(c);
+        for (String m : plan.messages) c.tell(m, ActorRef.noSender());
+        plan.created.countDown();
+        if (plan.holdAfterCreate) plan.finish.await();
+      }).build();
+    }
+  }
+
+  static String path(ActorRef r) { return r.path().toString(); }
+
+  /** What can be asked of an actor reference, without taking the unstarted cell's lock (which a hand-over in progress holds). */
+  static String lookupView(ActorRef c) {
+    ActorRefWithCell rc = (ActorRefWithCell) c;
+    List<String> kids = new ArrayList<>();
+    for (ActorRef k : scala.jdk.javaapi.CollectionConverters.asJava(rc.children())) kids.add(path(k));
+    return "isStarted=" + ((RepointableRef) c).isStarted() + " underlying=" + rc.underlying().getClass().getSimpleName() + " children=" + kids
+        + " singleChild(k)=" + path(rc.getSingleChild("k")) + " viaPath(k)=" + path(in(c).getChild(scala.jdk.javaapi.CollectionConverters.asScala(List.of("k").iterator())))
+        + " viaPath(none)=" + path(in(c).getChild(scala.jdk.javaapi.CollectionConverters.asScala(List.of("none").iterator())));
+  }
+
+  /** What an unstarted reference answers, taking its lock (do not call while a hand-over is blocked). */
+  static String stateView(ActorRef c) {
+    ActorRefWithCell rc = (ActorRefWithCell) c;
+    return "isStarted=" + ((RepointableRef) c).isStarted() + " underlying=" + rc.underlying().getClass().getSimpleName() + " isTerminated=" + in(c).isTerminated()
+        + " hasMessages=" + rc.underlying().hasMessages() + " queued=" + rc.underlying().numberOfMessages();
+  }
+
+  static List<String> ignoring(Collection<String> log, String prefix) { List<String> l = new ArrayList<>(); for (String x : log) if (!x.startsWith(prefix)) l.add(x); return l; }
+  static List<String> only(Collection<String> log, String prefix) { List<String> l = new ArrayList<>(); for (String x : log) if (x.startsWith(prefix)) l.add(x); return l; }
+
+  static void absence() { try { Thread.sleep(500); } catch (InterruptedException x) { throw new RuntimeException(x); } } // a bounded wait for an absence
+
+  /** The parent `p` of a {@link Plan}, started, with its turn `go` entered and blocked before `c` is created. */
+  static ActorRef parentInGo(Env e, Plan plan) throws Exception {
+    ActorRef p = e.sys.actorOf(Props.create(UnstartedParent.class, e, plan), "p");
+    awaitUntil(() -> e.log.contains("P:preStart"));
+    p.tell("go", ActorRef.noSender());
+    plan.entered.await();
+    return p;
+  }
 
   // ---- cases ---------------------------------------------------------------------------------------------------------------------
   private static boolean registered;
@@ -740,6 +839,147 @@ final class MailboxOracle {
         sendAll(a, "u2", "u3", "u4"); in(a).suspend(); b.release.countDown(); idle(a);
         String s = view(box(a)) + " log=" + e.log; in(a).stop(); awaitUntil(() -> in(a).isTerminated()); awaitUntil(() -> e.dead.size() == 3);
         return "suspendedWithWork: " + s + " | afterStop deadLetters=" + e.dead;
+      }
+    });
+
+    run("MBX-UT-01 swapLookup: before the real cell is installed the reference is still unstarted, but a child the actor created in preStart already resolves through the real cell", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        CountDownLatch release = new CountDownLatch(1);
+        Plan plan = new Plan(); plan.messages = List.of("m1"); plan.childMakesChild = true; plan.childDispatcher = "rej-disp";
+        parentInGo(e, plan);
+        // point() = swapLookup(cell); cell.start(); u.replaceWith(cell). The executor accepts the task cell.start() submits, then holds the submitting
+        // thread: the actor runs (preStart creates `k`) while replaceWith has not begun.
+        SUBMITTED_AND_HELD = new CountDownLatch(1); HOLD_SUBMITTER_AFTER_NEXT_EXECUTE.set(release);
+        plan.proceed.countDown();
+        SUBMITTED_AND_HELD.await();
+        awaitUntil(() -> e.log.contains("c:made-k"));
+        ActorRef c = plan.child.get();
+        String during = lookupView(c);
+        release.countDown();
+        awaitUntil(() -> e.log.contains("c:r:m1")); awaitUntil(() -> ((ActorRefWithCell) c).underlying() instanceof ActorCell);
+        return "beforeReplaceWith: " + during + " | afterReplaceWith: " + lookupView(c) + " log=" + e.log;
+      }
+    });
+    run("MBX-UT-02 an unstarted reference: not started, not terminated, counts its queued user messages, queues Suspend and Resume and hands everything over in order", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        Plan plan = new Plan(); plan.messages = List.of("m1", "m2"); plan.holdAfterCreate = true;
+        parentInGo(e, plan); plan.proceed.countDown(); plan.created.await();
+        ActorRef c = plan.child.get();
+        String twoQueued = stateView(c) + " lookup: " + lookupView(c) + " parent=" + path(in(c).getParent()) + " isLocal=" + in(c).isLocal() + " path=" + path(c);
+        in(c).suspend(); in(c).resume(null);
+        String systemQueued = stateView(c);
+        c.tell("m3", ActorRef.noSender());
+        String threeQueued = stateView(c);
+        plan.finish.countDown();
+        awaitUntil(() -> e.log.contains("c:r:m3"));
+        return "unstarted: " + twoQueued + " | suspend+resume queued: " + systemQueued + " | m3: " + threeQueued + " | handedOver: log=" + e.log + " started=" + ((RepointableRef) c).isStarted();
+      }
+    });
+    run("MBX-UT-03 a parent that terminates before the Supervise of its child: Supervise is dead-lettered, the child never starts and keeps its queue", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        Plan plan = new Plan(); plan.messages = List.of("m1", "m2");
+        ActorRef p = parentInGo(e, plan);
+        in(p).stop(); // Terminate enters p's system queue before the Supervise that attachChild sends
+        plan.proceed.countDown();
+        awaitUntil(() -> in(p).isTerminated()); awaitUntil(() -> e.dead.contains("Supervise"));
+        absence();
+        ActorRef c = plan.child.get();
+        String afterTerminate = "parentTerminated=" + in(p).isTerminated() + " deadLetters=" + e.dead + " | child: " + stateView(c);
+        c.tell("m3", ActorRef.noSender());
+        absence();
+        return afterTerminate + " | after a third message: " + stateView(c) + " deadLetters=" + e.dead + " log=" + e.log;
+      }
+    });
+    run("MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        Plan plan = new Plan(); plan.messages = List.of("m1");
+        ActorRef p = parentInGo(e, plan); plan.proceed.countDown();
+        awaitUntil(() -> e.log.contains("c:r:m1"));
+        in(p).stop();
+        awaitUntil(() -> in(p).isTerminated());
+        return "parentTerminated=" + in(p).isTerminated() + " childTerminated=" + in(plan.child.get()).isTerminated() + " deadLetters=" + e.dead + " log=" + e.log;
+      }
+    });
+    run("MBX-UT-05 a parent already waiting for a started child to die ignores the Supervise of a new child: the child is never pointed and the parent still terminates", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        Plan plan = new Plan(); plan.messages = List.of("m1"); plan.parentHoldsChild = true;
+        ActorRef p = parentInGo(e, plan);
+        in(p).stop();
+        plan.proceed.countDown();
+        awaitUntil(() -> e.log.contains("k1:postStop")); // the parent is now Terminating, waiting for k1 (whose postStop is held)
+        absence();
+        ActorRef c = plan.child.get();
+        String whileWaiting = "parentTerminated=" + in(p).isTerminated() + " log=" + e.log + " deadLetters=" + e.dead + " | child: " + stateView(c);
+        e.release.countDown();
+        awaitUntil(() -> in(p).isTerminated());
+        absence();
+        return "whileWaiting: " + whileWaiting + " | afterRelease: parentTerminated=" + in(p).isTerminated() + " log=" + e.log + " deadLetters=" + e.dead + " | child: " + stateView(c);
+      }
+    });
+    run("MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated and gets the Recreate", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        Plan plan = new Plan(); plan.messages = List.of("m1");
+        ActorRef p = parentInGo(e, plan);
+        in(p).suspend(); in(p).restart(new IllegalStateException("restart"));
+        plan.proceed.countDown();
+        awaitUntil(() -> e.log.contains("c:postStop"));
+        awaitUntil(() -> in(plan.child.get()).isTerminated());
+        return "log=" + e.log + " parentInstances=" + plan.instances.get() + " childTerminated=" + in(plan.child.get()).isTerminated() + " parentTerminated=" + in(p).isTerminated();
+      }
+    });
+    run("MBX-UT-07 a restart waiting for a started child: the Supervise of an unstarted child is processed meanwhile, the child starts and terminates, the restart completes when the started child is gone", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        Plan plan = new Plan(); plan.messages = List.of("m1"); plan.parentHoldsChild = true;
+        ActorRef p = parentInGo(e, plan);
+        in(p).suspend(); in(p).restart(new IllegalStateException("restart"));
+        plan.proceed.countDown();
+        awaitUntil(() -> e.log.contains("c:postStop")); awaitUntil(() -> e.log.contains("k1:postStop"));
+        awaitUntil(() -> in(plan.child.get()).isTerminated());
+        absence();
+        // k1 runs on its own thread: where its lines fall between the parent's and c's is not deterministic, so they are reported apart
+        String whileWaiting = "parentAndChild=" + ignoring(e.log, "k1:") + " k1=" + only(e.log, "k1:") + " parentInstances=" + plan.instances.get();
+        e.release.countDown();
+        awaitUntil(() -> plan.instances.get() == 2); awaitUntil(() -> e.log.contains("k1:postStop-released"));
+        List<String> all = new ArrayList<>(e.log);
+        return "whileWaiting: " + whileWaiting + " | afterRelease: parentAndChild=" + ignoring(all, "k1:") + " k1=" + only(all, "k1:") + " parentInstances=" + plan.instances.get()
+            + " restartAfterK1Gone=" + (all.lastIndexOf("P:preStart") > all.indexOf("k1:postStop-released")) + " parentTerminated=" + in(p).isTerminated();
+      }
+    });
+    run("MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        Plan plan = new Plan();
+        parentInGo(e, plan); plan.proceed.countDown(); plan.created.await();
+        ActorRef c = plan.child.get(); CyclicBarrier go = new CyclicBarrier(3); List<Thread> ts = new ArrayList<>();
+        for (String who : new String[] {"a", "b"}) {
+          Thread t = new Thread(() -> { try { go.await(); } catch (Exception x) { throw new RuntimeException(x); } for (int i = 0; i < 200; i++) c.tell(who + ":" + i, ActorRef.noSender()); });
+          ts.add(t); t.start();
+        }
+        go.await();
+        for (Thread t : ts) t.join();
+        awaitUntil(() -> e.log.stream().filter(x -> x.startsWith("c:r:")).count() == 400);
+        absence();
+        Map<String, Integer> next = new HashMap<>(); boolean ordered = true; Set<String> distinct = new HashSet<>(); long delivered = 0;
+        for (String s : e.log) {
+          if (!s.startsWith("c:r:")) continue;
+          delivered++; distinct.add(s); String[] kv = s.substring(4).split(":"); ordered &= next.merge(kv[0], 1, Integer::sum) - 1 == Integer.parseInt(kv[1]);
+        }
+        return "delivered=" + delivered + " distinct=" + distinct.size() + " perSenderOrdered=" + ordered + " preStarts=" + e.log.stream().filter("c:preStart"::equals).count() + " deadLetters=" + e.dead;
+      }
+    });
+    run("MBX-UT-09 a child created in preStart while the hand-over is in progress waits for the hand-over to end: the reference's lock is held across replaceWith", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        CountDownLatch inHandOver = new CountDownLatch(1), letGo = new CountDownLatch(1);
+        Plan plan = new Plan(); plan.messages = List.of("m1"); plan.childMakesChild = true;
+        // the first user message queued while unstarted blocks replaceWith, which holds the unstarted cell's lock; the real cell is already running
+        plan.hooks = new Hooks() { @Override void onEnqueue(Object m) throws Exception { if ("m1".equals(m)) { inHandOver.countDown(); letGo.await(); } } };
+        parentInGo(e, plan); plan.proceed.countDown();
+        inHandOver.await();
+        awaitUntil(() -> e.log.contains("c:preStart"));
+        absence();
+        String during = "isStarted=" + ((RepointableRef) plan.child.get()).isStarted() + " log=" + e.log;
+        letGo.countDown();
+        awaitUntil(() -> e.log.contains("c:r:m1"));
+        return "duringHandOver: " + during + " | afterHandOver: isStarted=" + ((RepointableRef) plan.child.get()).isStarted() + " log=" + e.log;
       }
     });
   }

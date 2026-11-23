@@ -1,0 +1,97 @@
+# Q-MBX-11 C4: oráculo y contratos de los actores sin arrancar (investigación)
+
+Fecha: 2026-11-23. Rama de investigación `research/unstarted-termination-c4` (desde `1df22f2`, con C1 y C2 ya integradas). **No implementa C3 ni C4**: sólo contratos, casos del oráculo, evidencia de estabilidad y los gemelos Rust que ya se pueden escribir. Fuente de verdad: Apache Pekko 2.0.0 (`9fbd2283`), JDK 17. Las citas `path:line` son de 2.0.0 (`actor/src/main/scala/org/apache/pekko/actor/...`).
+
+Todas las decisiones nuevas siguen siendo del Owner. Este documento no responde ninguna `Q-*`; al final hay una propuesta (`proposed`) nueva, `Q-MBX-12`.
+
+## 1. Contratos verificados en el fuente
+
+| # | Contrato | Fuente 2.0.0 |
+|---|---|---|
+| 1 | El ref tiene **dos** punteros a celda: `underlying` (mensajería) y `lookup` (búsqueda de hijos). `initialize` los pone a la misma `UnstartedCell`; `point` hace `swapLookup(cell)` → `cell.start()` → `u.replaceWith(cell)`, y `replaceWith` hace `swapCell` al final, en un `finally`. Así un hijo creado en el constructor o `preStart` del actor real ya se resuelve por `getSingleChild`/`children`/`getChild(path)` aunque el ref siga "sin arrancar". | `RepointableActorRef.scala:50-65` (comentario "H E R E   B E   D R A G O N S"), `:80-84` (`swapLookup`), `:95-104` (`initialize`), `:112-135` (`point`, comentario en `:122-128`), `:191-193`, `:168-185` (`getChild` usa `lookup`), `:224-250` (`replaceWith`) |
+| 2 | Estado de un ref sin arrancar: `isStarted=false` (`underlying` es `UnstartedCell`), `isTerminated=false` mientras la celda no esté lista, `numberOfMessages`/`hasMessages` cuentan sólo la cola de usuario (la de sistema no cuenta), `children` vacío, `getSingleChild`→`Nobody`, `parent` = supervisor, `isLocal`=true. Suspend/Resume/Recreate/Terminate se encolan como mensajes de sistema. | `RepointableActorRef.scala:146-166`, `:203-325` (`UnstartedCell`: `:254-262` suspend/resume/restart/stop/isTerminated, `:263-265` children, `:305-317`) |
+| 3 | `Children.stop(child)` sólo marca `shallDie` (`toDie`) si el hijo **ya arrancó** (`RepointableRef.isStarted`); a un hijo sin arrancar sólo le envía `Terminate` (que queda en la cola de sistema de su `UnstartedCell`). Consecuencia: un hijo sin arrancar **no retiene** a su padre cuando éste termina, se reinicia o se recrea: `setChildrenTerminationReason` devuelve `false` si el contenedor no es `Terminating`. | `dungeon/Children.scala:132-144` (condición en `:140-142`), `dungeon/FaultHandling.scala:114`, `:168`, `:198-211` |
+| 4 | `Supervise` se ignora **en silencio** (ni dead letter ni log) si el padre ya está terminando (`isTerminating` = razón `Termination`); el hijo queda sin `point` para siempre y su `Terminate` encolado no se entrega nunca. Con razón `Recreation`/`Creation` el padre **sí** procesa el `Supervise` (no es `StashWhenWaitingForChildren`) y hace `point`. Si el padre ya cerró el mailbox, el resto del lote de sistema va a dead letters (`Supervise` incluido). | `ActorCell.scala:712-727` (`supervise`, guarda en `:713`), `:730-733` (`handleSupervise`), `:501-554` (`systemInvoke`: `shouldStash`, `sendAllToDeadLetters` en `:550`), `dispatch/sysmsg/SystemMessage.scala:215-221,231-242,253,276-277`, `dungeon/ChildrenContainer.scala:173-219` (`TerminatingChildrenContainer.isTerminating = reason == Termination`) |
+| 5 | Un reinicio que espera a hijos arrancados (`Recreation` en `toDie`) sigue procesando `Supervise`: el hijo sin arrancar arranca durante la espera; su `Terminate` (de `preRestart`) lo para; el reinicio acaba cuando sale el último de `toDie`. Si no hay hijos arrancados, `finishRecreate` es inmediato y los supervivientes (el hijo sin arrancar incluido, por estar en `children`) reciben `Recreate` en su cola sin arrancar. | `dungeon/FaultHandling.scala:92-118`, `:278-303`, `:327-351` (`handleChildTerminated`), `ActorCell.scala:712-733` |
+| 6 | `UnstartedCell` protege colas y cambio de celda con un `ReentrantLock`: usuario `tryLock(UnstartedPushTimeout)` (si caduca: `Warning` + dead letter), sistema `lock()` sin límite, `replaceWith` lo retiene mientras entrega (sistema primero, luego usuario, drenando sistema entre mensajes). El mismo hilo puede reentrar. Configuración: `pekko.actor.unstarted-push-timeout = 10s`. **(Es el terreno de C3.)** | `RepointableActorRef.scala:214`, `:222`, `:224-250`, `:267-303`; `ActorSystem.scala:425`; `reference.conf:142-145` |
+| 7 | `makeChild` reserva el nombre, crea el ref, hereda las suspensiones del padre (`actor.suspend()` ×N), hace `initChild` (el hijo ya está en `children`, antes de que llegue el `Supervise`) y `actor.start()`. El `Supervise` sólo confirma (`initChild` devuelve `Some`) y, si `async`, hace `point(catchFailures = true)`. | `dungeon/Children.scala:279-352` |
+
+## 2. Casos del oráculo (JVM, Pekko 2.0.0)
+
+Código: `oracle/src/main/java/pilot/MailboxOracle.java` (instrumentos nuevos: `Plan`, `LifeActor`, `UnstartedParent` y un `rej-disp` que retiene al hilo que somete la tarea; ninguno altera una decisión de Pekko, todo por SPI pública y `attachChild` como los `MBX-UC-*`). Ids en `cases/oracle-ids/mailbox.txt`, manifiesto en `cases/oracle-only/mailbox-cases.tsv`, golden (lo que imprimió la JVM) en `cases/oracle-only/mailbox.golden`. Siguen el mecanismo establecido para los casos que Rust sólo puede producir desde dentro del crate (igual que `MBX-UC-*`, `MBX-IF-*`; ver `docs/evidence/mailbox-oracle.md`): **no** entran en `rust/app-cases` (el CLI Rust no puede ejecutarlos; un caso grabado divergiría por construcción) ni en `PENDING` hasta que exista el gemelo. Grabado con `python3.12 tools/parity/check_mailbox_oracle.py --record`; las 47 líneas previas del golden no cambiaron (comprobado con `diff`).
+
+| Caso | Qué fija | Contrato |
+|---|---|---|
+| `MBX-UT-01` | Antes de `replaceWith` el ref sigue sin arrancar (`isStarted=false`, `underlying=UnstartedCell`) pero un hijo `k` creado en `preStart` se encuentra por `children`, `getSingleChild` y `getChild(path)`; tras `replaceWith` igual. | 1 |
+| `MBX-UT-02` | Estado de un ref sin arrancar: `isTerminated=false`, `queued=2`, `Suspend`+`Resume` encolados no cambian la cuenta, `children` vacío, `Nobody` para lo inexistente, padre y `isLocal`; tras arrancar todo llega en orden. | 2 |
+| `MBX-UT-03` | `Terminate` al padre antes del `Supervise`: el padre termina **sin esperar** al hijo; el `Supervise` va a dead letters; el hijo nunca arranca (`isTerminated=false`, `queued=2`, tercer mensaje se encola, no es dead letter). | 3, 4 |
+| `MBX-UT-04` | Control: padre parado después de que el hijo arrancó espera a su hijo (el hijo muere primero). | 3 |
+| `MBX-UT-05` | Padre `Terminating` esperando a un hijo arrancado (retenido en `postStop`) ignora el `Supervise` del hijo nuevo: no hay dead letter, el hijo no se apunta jamás y el padre termina igual al soltar al otro. | 3, 4 |
+| `MBX-UT-06` | Reinicio con sólo un hijo sin arrancar: no espera; `[P:preStart, P:preRestart, P:postStop, P:preStart, c:preStart, c:postStop]` (el hijo arranca **después** de la nueva instancia, luego muere). | 3, 5 |
+| `MBX-UT-07` | Reinicio esperando a un hijo arrancado: el `Supervise` se procesa durante la espera, el hijo nuevo arranca y muere, el reinicio completa al irse el arrancado (`restartAfterK1Gone=true`). | 4, 5 |
+| `MBX-UT-08` | Dos productores contra el `point`: 400 entregados, 400 distintos, orden por emisor, un solo `preStart`, sin dead letters. | 6 |
+| `MBX-UT-09` | Un hijo creado en `preStart` mientras el hand-over está en curso espera a que termine (el lock se retiene durante `replaceWith`): `made-k` sólo aparece tras soltar. | 6 |
+
+Resultado completo (líneas del golden): ver `cases/oracle-only/mailbox.golden` (últimas 9). Los dos hallazgos que más pesan en C4: **UT-03/UT-06** (un hijo sin arrancar no retiene al padre, contra el diseño "natural" de esperar a todos los hijos) y **UT-05** (`Supervise` descartado en silencio: el hijo queda huérfano para siempre en 2.0.0).
+
+## 3. Estabilidad
+
+Comando: `python3.12 tools/parity/check_mailbox_oracle.py --runs 25` (`oracle/run.sh mailbox-all`, 56 casos por corrida: los 47 previos + los 9 nuevos, cada corrida una JVM nueva).
+
+- 25 corridas secuenciales: **25/25 idénticas entre sí y con el golden** (`mailbox oracle: 56 cases x 25 runs, OK`).
+- 24 corridas más con tres JVM concurrentes (3 × 8), para forzar contención de CPU: **24/24 byte a byte idénticas al golden** (`cmp`).
+- Total: 49 corridas, 0 diferencias para los 9 casos `MBX-UT-*`. Selftest del verificador (`--selftest`, perturba el golden) sigue detectando todos sus mutantes y `test_check_mailbox_oracle.py` pasa.
+- Una corrida individual de la suite entera tarda unos 6 s.
+
+### Observables no deterministas descartados
+
+1. **`MBX-UT-07`, orden de las líneas de `k1` frente a las del padre y `c`.** En la primera versión se imprimía el `log` completo; en una de las corridas de verificación `k1:postStop` quedó antes de `c:preStart` y en otra después (`k1` corre en su propio hilo). Se separó: `parentAndChild=[...]` (orden total, determinista: `Recreate` y `Supervise` los procesa el mismo hilo, uno tras otro) y `k1=[...]`; el único orden entre ambos que importa se reduce al booleano `restartAfterK1Gone` (la nueva instancia sólo existe tras la salida de `k1`, garantizado porque el `DeathWatchNotification` se envía después de `postStop`).
+2. **Dead letters de `Recreate`/`m1` cuando el hijo sin arrancar muere en cuanto arranca (UT-06/07).** El hand-over compite con el cierre del mailbox del hijo (la ventana `CC-05`, Q-MBX-8 aceptada). Se omite del golden; sólo se observa `c:preStart`/`c:postStop` y `isTerminated`.
+3. **`MBX-UT-01` en su primer diseño** (bloquear `replaceWith` con un hook de enqueue y crear `k` en `preStart`): bloqueaba de forma legítima (hallazgo UT-09): el `Supervise` de `k` espera al mismo lock. Se rediseñó reteniendo al hilo que somete la tarea de `cell.start()` justo después de aceptarla (`rej-disp`), antes de `replaceWith`; el diseño original quedó como `UT-09`.
+4. **Esperas de ausencia de 500 ms** (UT-03, 05, 07, 09): no hay evento que esperar para probar que algo *no* ocurre (mismo patrón que `MBX-RJ-05`/`MBX-UC-03`). Un margen mayor sólo hace más lenta la corrida; el contrato probado no depende del valor.
+5. **No observado**: el recuento de dead letters en el instante del `Terminate` (sólo su presencia en UT-03), `numberOfMessages`/`isTerminated` mientras el hand-over está bloqueado (toman el lock; en UT-01 sólo se usan lecturas sin lock), el `uid` de los paths.
+
+## 4. Gemelos Rust
+
+**No pueden estar aislados en `crates/rakka-actor/tests/`**: la creación asíncrona dentro del turno del padre (`attach_child`, `ctx.cell`), `RepointableActorRef`, `RunsOnDemand` y el `stop_actor` interno son `pub(crate)`; `ActorContext::actor_of` es síncrono (como en Pekko), así que por la API pública no se puede fabricar un hijo sin arrancar de forma determinista. Modificar `crates/*/src` (incluso un `mod` de prueba) está excluido de esta investigación.
+
+Para tener la evidencia RED igualmente se compilaron en una **copia desechable** del crate (`$TMP/c4/scratch`, copia de `crates/`, `src/`, `cases/` fuera del repositorio, con una línea `mod unstarted_termination_tests;` añadida a su `mod.rs`; el árbol de trabajo del repositorio no se tocó). El código está en `docs/research/q-mbx-11-c4-oracle/unstarted_termination_tests.rs.txt` (sin compilar en el repositorio; extensión `.txt` para que ninguna herramienta lo tome). Usa el `Fixture`/`RunsOnDemand` de `async_creation_tests.rs`, así que es determinista (sin sleeps).
+
+RED real (`cargo test -j 2 -p rakka-actor --lib unstarted_termination`, 2026-11-23, sobre `1df22f2`):
+
+```
+test actor::unstarted_termination_tests::a_restart_with_only_an_unstarted_child_does_not_wait_for_it ... FAILED
+test actor::unstarted_termination_tests::a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it ... FAILED
+---- a_restart_with_only_an_unstarted_child_does_not_wait_for_it stdout ----
+assertion `left == right` failed
+  left: "P:preStart, P:preRestart, P:postStop, c:preStart, c:postStop, P:preStart"
+ right: "P:preStart, P:preRestart, P:postStop, P:preStart, c:preStart, c:postStop"
+---- a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it stdout ----
+panicked at unstarted_termination_tests.rs:65:5:
+the parent must terminate without waiting for a child that never started
+test result: FAILED. 0 passed; 2 failed
+```
+
+Causa (por qué falla por la razón correcta): `cell.rs:1082-1089` (`stop_actor`) llama a `shall_die` para **todo** hijo registrado, sin la condición `isStarted` de `Children.scala:140-142`. Con un hijo sin arrancar el padre queda `Terminating`/`Recreation` esperando un `ChildTerminated` que sólo llegaría tras `point`, y `supervise` (`cell.rs:1055`, que ya ignora el `Supervise` durante `Termination`, igual que Pekko) no lo apuntará nunca: el padre de UT-03 **no termina nunca** (cuelgue, no sólo retraso) y el de UT-06 reinicia tarde.
+
+Gemelos previstos para C4 (especificación, no escritos): UT-05 y UT-07 necesitan retener la muerte de un hijo arrancado sin `postStop` bloqueante: hace falta que `RunsOnDemand::run_next` (hoy privado) sea `pub(super)` y ejecutar los turnos de forma selectiva; UT-01/UT-02 necesitan una superficie de búsqueda de hijos sobre el ref (`children`/`getSingleChild`/`getChild(path)`) que hoy `RepointableActorRef` no tiene, más un `RunsOnDemand` que ejecute el turno del actor dentro de `execute` (el equivalente del `rej-disp` que retiene al someter); UT-08/UT-09 dependen de C3 (lock y timeout). Un gemelo por API pública de UT-08 (dos hilos contra `system.actor_of`, 400 mensajes) se probó en la copia: pasa hoy (GREEN, 50 iteraciones), así que **no es un RED** y no se añadió como archivo.
+
+## 5. Dependencias de C3 (`slice/unstarted-push-timeout-c3`, `727d1bf`, sólo leída)
+
+- **Archivos que C3 y esta investigación (y luego C4) tocan a la vez**: `cases/oracle-ids/mailbox.txt`, `cases/oracle-only/mailbox-cases.tsv`, `cases/oracle-only/mailbox.golden`, `oracle/.../MailboxOracle.java`, `crates/rakka-actor/examples/classic-parity/mailbox_cases.rs` (`PENDING`), `tools/parity/check_divergence.py`, y en C4 `repointable.rs`, `cell.rs`, `actor/mod.rs`. Los ids no chocan (C3 usa `MBX-PT-01..06`, aquí `MBX-UT-01..09`), pero el golden exige el mismo orden que el registro y se regraba entero: **quien integre segundo debe rebasar y volver a ejecutar `check_mailbox_oracle.py --record`** y comprobar que las líneas ajenas no cambian.
+- **Semántica**: C3 reescribe el lock de `RepointableActorRef` (`lock_settled`, `lock_unless_handed_over`, `next_to_hand_over`, `waiting_senders`). C4 necesita de él: (a) que `is_started` sea una lectura que **no espere** al hand-over (en Pekko `isStarted` es una lectura volátil sin lock, `RepointableActorRef.scala:156-160`; `Children.stop` la usa en `:140`); en `727d1bf` `is_started` usa `self.lock()` (el mutex interno, no `lock_settled`): revisar que siga así; (b) un puntero `lookup` separado de `underlying` (UT-01), que hoy no existe y cuyo diseño depende de la estructura `Underlying` que C3 está cambiando; (c) UT-09 se solapa con `MBX-PT-03` (un mensaje de sistema espera el lock sin límite): C4 no debería duplicarlo en un gemelo.
+- **Orden recomendado**: C3 primero (es dueño de `repointable.rs`), luego C4 (cambio de `stop_actor` en `cell.rs` + `lookup`). El arreglo del hallazgo principal (`stop_actor`) es pequeño y casi independiente de C3, pero el gemelo de UT-01 no lo es.
+
+## 6. Riesgos y pendientes
+
+1. **Cuelgue observable hoy**: padre con hijo sin arrancar y `Terminate` previo al `Supervise` no termina en Rust (RED de arriba). Alcance real: sólo lo alcanza `system.actorOf` concurrente con la parada del guardián/padre, o `attach_child` en un turno; no la API pública determinista.
+2. **UT-05 es un comportamiento "malo" de Pekko** (hijo huérfano para siempre, fuga). Paridad estricta (Q-X-21 propuesta) lo exigiría; decisión del Owner: ver propuesta `Q-MBX-12` abajo.
+3. **Timing en el oráculo**: las esperas de ausencia de 500 ms (sección 3) son el único uso de tiempo real; en una máquina muy cargada una espera de ausencia corta podría dar un falso "no ocurrió". Mitigación: los 24 runs con contención no mostraron diferencias; el margen puede ampliarse sin cambiar el contrato.
+4. **`Nobody` impreso como `pekko://all-systems/Nobody`** (UT-01/02): el gemelo Rust necesita un `Nobody` con esa ruta o normalizar el texto en ambos lados.
+5. **UT-02 mezcla dos cosas**: la mayor parte son observables de la API interna (`underlying`, `numberOfMessages`) que Rust expone de otra forma; el gemelo comparará hechos, no la línea completa.
+6. **Sin cobertura de Typed**: `ActorSystem` Typed usa un guardián propio (`guardianProps` no vacío) que prohíbe `actorOf` externo; fuera de alcance.
+7. **No ejecutado**: replay completo, mutantes, cobertura, clippy/fmt/deny (no hay código de producción nuevo); `python3.12 tools/package/check.py` falla en este worktree por una causa ajena (`upstream/pekko` está vacío: "attribution names ... which does not exist in upstream/pekko" en archivos de `crates/` que no se tocaron); sólo se tocaron `cases/`, `oracle/` y `docs/research/`, y el verificador propio del mailbox (`check_mailbox_oracle.py`, que valida el formato del manifiesto) pasa. Los 9 casos no están en `cases/coverage.tsv`/`docs/contract-map.tsv`: se actualizan cuando exista el gemelo.
+
+## 7. Propuesta de decisión (estado `proposed`, sin responder)
+
+**Q-MBX-12 — Un hijo sin arrancar y el `Supervise` ignorado durante la terminación (UT-03/UT-05):** en Pekko 2.0.0 un padre que termina antes de procesar el `Supervise` de un hijo asíncrono no espera a ese hijo, y el hijo queda sin arrancar para siempre con su `Terminate` y sus mensajes encolados (sin dead letters, sin `Terminated`, nombre irrecuperable mientras viva el ref). Alternativas: (a) paridad exacta con 2.0.0; (b) paridad más un `Terminate`/dead letter para el hijo al ignorar el `Supervise` (corrige la fuga, cambia lo observable); (c) esperar al hijo (lo que Rust hace hoy; cuelga). Recomendación: (a) para el contrato de padre/reinicio (UT-03/UT-06, no se retiene al padre) y (b) sólo si el Owner prefiere corregir la fuga, anotando `Q:` en la fila. Registro pendiente en `docs/owner-batch-02.md` y su `*.decisions.tsv` (no editado aquí: sólo lo hace quien implemente C4 con aprobación).
