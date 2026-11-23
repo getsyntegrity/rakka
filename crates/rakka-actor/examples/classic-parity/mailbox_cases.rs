@@ -166,6 +166,42 @@ pub const PENDING: &[(&str, &str)] = &[
         "MBX-SC-03 actor suspended with queued work does not reschedule itself",
         "sends the internal Suspend system message and reads the mailbox state, neither reachable from the public API: produced in-crate by dispatch::dispatcher (turn_limits_with_real_actors) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (ADR-0001 step 6c)",
     ),
+    (
+        "MBX-UT-01 swapLookup: before the real cell is installed the reference is still unstarted, but a child the actor created in preStart already resolves through the real cell",
+        "needs the children of an unstarted reference (children, getSingleChild, getChild), a surface RepointableActorRef does not have yet, and an executor that holds the hand-over (internal); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-UT-02 an unstarted reference: not started, not terminated, counts its queued user messages, queues Suspend and Resume and hands everything over in order",
+        "reads the internal state of an unstarted reference (underlying, numberOfMessages) that the public API does not expose; the twin compares facts, not the whole line; the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-UT-03 a parent that terminates before the Supervise of its child: Supervise is dead-lettered, the child never starts and keeps its queue",
+        "Rust differs today: stop_actor waits for a child that never started, so the parent never terminates (a RED of the C4 research); the fix is production code of slice C4; the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first",
+        "needs a child created asynchronously inside the parent's turn, which ActorContext::actor_of cannot do from the public API (internal); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-UT-05 a parent already waiting for a started child to die ignores the Supervise of a new child: the child is never pointed and the parent still terminates",
+        "needs to hold the death of a started child and run turns selectively (RunsOnDemand::run_next, internal); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-UT-06 a restart with only an unstarted child does not wait for it: the new instance starts first, then the child starts, is terminated",
+        "Rust differs today: a restart waits for a child that never started (a RED of the C4 research); the fix is production code of slice C4; the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-UT-07 a restart waiting for a started child: the Supervise of an unstarted child is processed meanwhile, the child starts and terminates, the restart completes when the started child is gone",
+        "needs to hold the death of a started child and run turns selectively (RunsOnDemand::run_next, internal); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept",
+        "a public API twin passes but does not exercise the race: ActorContext::actor_of is synchronous, so no child is ever unstarted from outside; the contract needs the internal RunsOnDemand; the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-UT-09 a child created in preStart while the hand-over is in progress waits for the hand-over to end: the reference's lock is held across replaceWith",
+        "needs a child created in preStart while the hand-over holds the reference's lock (internal, depends on the C3 lock); the twin belongs to the unstarted-termination slice (Q-MBX-11, slice C4), not written yet: the research is in docs/research/q-mbx-11-c4-oracle.md; the line is in cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
 ];
 
 fn state(status: &MailboxStatus) -> String {
