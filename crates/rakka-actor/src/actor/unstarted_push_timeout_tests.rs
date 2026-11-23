@@ -207,11 +207,15 @@ impl BlockedHandOver {
     /// Sends "m2" from another thread and says how long the send took; a send that has not returned after five seconds fails the test
     /// instead of hanging it.
     fn time_a_send(&self, text: &'static str) -> Duration {
+        self.time_a_send_of(text.to_owned())
+    }
+
+    fn time_a_send_of<M: std::any::Any + Send + Sync>(&self, message: M) -> Duration {
         let reference = self.reference.clone();
         let (elapsed_tx, elapsed_rx) = channel();
         std::thread::spawn(move || {
             let started = Instant::now();
-            reference.tell(Arc::new(text.to_owned()), None);
+            reference.tell(Arc::new(message), None);
             let _ = elapsed_tx.send(started.elapsed());
         });
         elapsed_rx
@@ -388,15 +392,21 @@ fn the_thread_that_hands_the_queue_over_can_send_to_the_same_reference() {
     assert_eq!(observed, recorded("MBX-PT-06"));
 }
 
+/// A timeout too long to be added to the clock is a wait without a limit, not a panic in `tell` (`tryLock(Long.MaxValue, NANOSECONDS)`
+/// simply never expires).
+#[test]
+fn a_timeout_too_long_for_the_clock_does_not_panic_the_sender() {
+    let unstarted = Unstarted::new(Duration::MAX);
+    unstarted.reference.tell(Arc::new("m2".to_owned()), None);
+    assert_eq!(unstarted.reference.queued_user_messages(), 2);
+}
+
 /// Pekko prints the JVM class of the dropped message. Rust messages only have one when it is a `String`; any other type is reported
 /// as `java.lang.Object` (the one place the warning cannot match the JVM for every message type).
 #[test]
 fn a_dropped_message_of_a_type_without_a_jvm_class_is_reported_as_an_object() {
     let mut blocked = BlockedHandOver::start(Duration::ZERO);
-    let reference = blocked.reference.clone();
-    std::thread::spawn(move || reference.tell(Arc::new(42_u32), None))
-        .join()
-        .unwrap();
+    blocked.time_a_send_of(42_u32);
     blocked.wait_for_the_drop();
     blocked.release_and_finish();
     assert_eq!(

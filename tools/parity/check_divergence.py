@@ -981,9 +981,15 @@ MUTANTS = {
     ),
     "push-timeout-limit-ignored": (
         "src/actor/repointable.rs",
-        "let deadline = limit.map(|limit| Instant::now() + limit);",
+        "let deadline = limit.and_then(|limit| Instant::now().checked_add(limit));",
         "let deadline = limit.map(|_| Instant::now());",
         "the wait for the lock of an unstarted reference ends at once, whatever the timeout",
+    ),
+    "push-timeout-overflow-panics": (
+        "src/actor/repointable.rs",
+        "let deadline = limit.and_then(|limit| Instant::now().checked_add(limit));",
+        "let deadline = limit.map(|limit| Instant::now() + limit);",
+        "a timeout too long to add to the clock panics the sender instead of never expiring",
     ),
     "hand-over-thread-waits-for-itself": (
         "src/actor/repointable.rs",
@@ -1609,6 +1615,7 @@ UNIT_MUTANTS = {
     "sync-actor-of-rejection-releases-the-name": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
     "push-timeout-not-applied-to-user-messages": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_longer_than_the_timeout_is_a_dead_letter_with_a_warning"),
     "push-timeout-limit-ignored": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_while_the_hand_over_ends_before_the_timeout_is_delivered_after_the_queued_messages"),
+    "push-timeout-overflow-panics": ("actor::unstarted_push_timeout_tests", "a_timeout_too_long_for_the_clock_does_not_panic_the_sender"),
     "hand-over-thread-waits-for-itself": ("actor::unstarted_push_timeout_tests", "the_thread_that_hands_the_queue_over_can_send_to_the_same_reference"),
     "lock-timeout-drop-without-warning": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_longer_than_the_timeout_is_a_dead_letter_with_a_warning"),
     "lock-timeout-drop-without-dead-letter": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_longer_than_the_timeout_is_a_dead_letter_with_a_warning"),

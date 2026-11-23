@@ -94,7 +94,8 @@ impl RepointableActorRef {
         &self,
         limit: Option<Duration>,
     ) -> Option<MutexGuard<'_, Underlying>> {
-        let deadline = limit.map(|limit| Instant::now() + limit);
+        // a limit too long to add to the clock never expires, as `tryLock(Long.MaxValue, ...)` does
+        let deadline = limit.and_then(|limit| Instant::now().checked_add(limit));
         let this_thread = std::thread::current().id();
         let mut underlying = self.lock();
         let mut waiting = None;
