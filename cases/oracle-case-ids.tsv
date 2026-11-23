@@ -2369,3 +2369,5 @@ mb-0013	mailbox	MBX-SQ-02 sentinel NoMessage closes the system queue
 mb-0014	mailbox	MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is
 mb-0015	mailbox	MBX-SC-01 throughput 2 on one thread interleaves two actors in blocks of two
 mb-0016	mailbox	MBX-SC-02 throughput-deadline-time ends the turn after a slow message
+mb-0017	mailbox	MBX-UT-04 control: a parent stopped after its child started waits for it, and the child dies first
+mb-0018	mailbox	MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept

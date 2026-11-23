@@ -1572,6 +1572,54 @@ MUTANTS = {
         "            .object_entries()\n            .into_iter()\n            .rev()\n",
         "of several keys that give one path the first in alphabetical order wins instead of the last (the temporary policy)",
     ),
+    "nonblocking-queue-keeps-one-over-capacity": (
+        "src/dispatch/bounded_node_queue.rs",
+        "        if queue.len() < self.capacity {",
+        "        if queue.len() <= self.capacity {",
+        "an off-by-one lets a full NonBlockingBoundedMailbox keep one envelope more than its capacity (NB-QU-01)",
+    ),
+    "nonblocking-queue-drops-the-overflow-silently": (
+        "src/dispatch/bounded_node_queue.rs",
+        "        tell_dead_letter(&self.dead_letters, &self.owner, envelope);\n    }",
+        "        drop(envelope);\n    }",
+        "a refused envelope vanishes instead of reaching deadLetters (NB-QU-01)",
+    ),
+    "nonblocking-queue-dead-letters-to-the-wrong-receiver": (
+        "src/dispatch/bounded_node_queue.rs",
+        "        tell_dead_letter(&self.dead_letters, &self.owner, envelope);",
+        "        tell_dead_letter(&self.dead_letters, &self.dead_letters, envelope);",
+        "the DeadLetter names deadLetters, not the mailbox's owner, as the receiver (NB-QU-04)",
+    ),
+    "nonblocking-queue-holds-its-lock-while-dead-lettering": (
+        "src/dispatch/bounded_node_queue.rs",
+        "        drop(queue); // `deadLetters` may call back into this queue\n",
+        "",
+        "the producer keeps the queue locked while it tells deadLetters, which cannot then read the queue",
+    ),
+    "nonblocking-queue-dequeues-the-newest": (
+        "src/dispatch/bounded_node_queue.rs",
+        "        self.locked().pop_front()",
+        "        self.locked().pop_back()",
+        "the consumer takes the newest envelope first (NB-QU-02)",
+    ),
+    "nonblocking-queue-accepts-a-negative-capacity": (
+        "src/dispatch/bounded_node_queue.rs",
+        "        usize::try_from(capacity)\n            .map(|capacity| NonBlockingBoundedMailbox { capacity })\n            .map_err(|_| NegativeCapacity)",
+        "        Ok(NonBlockingBoundedMailbox {\n            capacity: capacity as usize,\n        })",
+        "a negative capacity becomes an enormous one instead of an IllegalArgumentException (NB-CF-01)",
+    ),
+    "nonblocking-queue-panics-on-a-poisoned-lock": (
+        "src/dispatch/bounded_node_queue.rs",
+        "        self.queue.lock().unwrap_or_else(PoisonError::into_inner)",
+        "        self.queue.lock().unwrap()",
+        "one producer that panics under the lock makes every later send and receive of the mailbox panic",
+    ),
+    "nonblocking-queue-clean-up-moves-only-the-first": (
+        "src/dispatch/bounded_node_queue.rs",
+        "        while let Some(envelope) = self.dequeue() {\n            dead_letters.enqueue(envelope);",
+        "        if let Some(envelope) = self.dequeue() {\n            dead_letters.enqueue(envelope);",
+        "cleanUp moves one envelope and leaves the rest (NB-QU-05)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -1684,6 +1732,14 @@ UNIT_MUTANTS = {
     "lock-timeout-drop-without-warning": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_longer_than_the_timeout_is_a_dead_letter_with_a_warning"),
     "lock-timeout-drop-without-dead-letter": ("actor::unstarted_push_timeout_tests", "a_send_that_waits_longer_than_the_timeout_is_a_dead_letter_with_a_warning"),
     "hand-over-end-does-not-wake-the-senders": ("actor::unstarted_push_timeout_tests", "a_system_message_waits_for_the_lock_without_a_timeout_and_is_delivered_once_the_hand_over_ends"),
+    "nonblocking-queue-keeps-one-over-capacity": ("dispatch::bounded_node_queue", "a_full_queue_refuses_at_once_keeps_the_first_and_dead_letters_the_rest_in_order"),
+    "nonblocking-queue-drops-the-overflow-silently": ("dispatch::bounded_node_queue", "a_full_queue_refuses_at_once_keeps_the_first_and_dead_letters_the_rest_in_order"),
+    "nonblocking-queue-dead-letters-to-the-wrong-receiver": ("dispatch::bounded_node_queue", "a_dead_letter_carries_the_message_the_envelope_sender_and_the_owner_as_receiver"),
+    "nonblocking-queue-holds-its-lock-while-dead-lettering": ("dispatch::bounded_node_queue", "a_dead_letters_that_calls_back_into_the_queue_does_not_deadlock_the_producer"),
+    "nonblocking-queue-dequeues-the-newest": ("dispatch::bounded_node_queue", "dequeue_frees_a_slot_and_the_order_stays_first_in_first_out"),
+    "nonblocking-queue-accepts-a-negative-capacity": ("dispatch::bounded_node_queue", "a_negative_capacity_is_rejected_with_the_pekko_message_and_zero_and_the_maximum_pass"),
+    "nonblocking-queue-panics-on-a-poisoned-lock": ("dispatch::bounded_node_queue", "a_producer_that_panicked_under_the_lock_does_not_stop_the_other_threads"),
+    "nonblocking-queue-clean-up-moves-only-the-first": ("dispatch::bounded_node_queue", "clean_up_moves_a_full_queue_to_the_target_in_order_and_frees_every_slot"),
 }
 
 
@@ -1733,7 +1789,8 @@ def run_mutant(scratch, name, rel, old, new, why):
         # the in-crate twins read the oracle golden through a relative `include_str!` that leaves the crate: give the scratch tree the same layout
         golden = os.path.join(scratch, "cases", "oracle-only")
         os.makedirs(golden, exist_ok=True)
-        shutil.copy(os.path.join(ROOT, "cases", "oracle-only", "mailbox.golden"), golden)
+        for golden_file in ("mailbox.golden", "nonblocking-bounded-mailbox.golden"):
+            shutil.copy(os.path.join(ROOT, "cases", "oracle-only", golden_file), golden)
         return run_unit_mutant(scratch, name, work)
     try:
         b = sh(["cargo", "build", "--release", "--manifest-path", os.path.join(work, "Cargo.toml"),

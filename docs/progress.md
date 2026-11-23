@@ -7,9 +7,9 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 521 | 47 | 113 | 361 | 4 | 9.0 % | 30.7 % |
+| Classic (`rakka-actor`) | 521 | 47 | 114 | 360 | 4 | 9.0 % | 30.9 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 781 | 47 | 113 | 621 | 4 | 6.0 % | 20.5 % |
+| **Total** | 781 | 47 | 114 | 620 | 4 | 6.0 % | 20.6 % |
 
 ## Por ola
 
@@ -17,7 +17,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 |---|---|---|---|---|---|---|---|
 | 0 - valores sin runtime | 57 | 36 | 20 | 1 | 4 | 63.2 % | 98.2 % |
 | 1 - configuracion, eventos y scheduler | 70 | 4 | 40 | 26 | 0 | 5.7 % | 62.9 % |
-| 2 - nucleo del runtime Classic | 134 | 7 | 46 | 81 | 0 | 5.2 % | 39.6 % |
+| 2 - nucleo del runtime Classic | 134 | 7 | 47 | 80 | 0 | 5.2 % | 40.3 % |
 | 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 6 | 39 | 0 | 0.0 % | 13.3 % |
 | 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0 | 0.0 % | 0.0 % |
 | 5 - apagado, serializacion e IO | 84 | 0 | 1 | 83 | 0 | 0.0 % | 1.2 % |
@@ -42,7 +42,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P10 CFG-DEPLOY | 1 | 3 | 0 | 3 | 0 | 0 | 0.0 % | 100.0 % | no |
 | P11 EVT-BUS | 1 | 11 | 0 | 0 | 11 | 0 | 0.0 % | 0.0 % | no |
 | P12 SCH-RUEDA | 1 | 13 | 0 | 0 | 13 | 0 | 0.0 % | 0.0 % | no |
-| P13 MBX-COLAS | 2 | 12 | 0 | 0 | 12 | 0 | 0.0 % | 0.0 % | sí |
+| P13 MBX-COLAS | 2 | 12 | 0 | 1 | 11 | 0 | 0.0 % | 8.3 % | sí |
 | P14 REF-BASE | 2 | 15 | 0 | 6 | 9 | 0 | 0.0 % | 40.0 % | sí |
 | P15 MBX-NUCLEO | 2 | 7 | 0 | 4 | 3 | 0 | 0.0 % | 57.1 % | sí |
 | P16 DSP-EJECUTORES | 2 | 19 | 0 | 0 | 19 | 0 | 0.0 % | 0.0 % | sí |
@@ -114,7 +114,7 @@ Orden por (done + ½·partial) / filas. Entre las atrasadas hay empates en 0 %: 
 
 **5 más avanzadas:** P05 UTIL-GLOB (1 done, 0 partial de 1), P65 UTIL-HASHCODE (1 done, 0 partial de 1), P66 UTIL-PEKKOVERSION (1 done, 0 partial de 1), P67 UTIL-VERSION (1 done, 0 partial de 1), P68 UTIL-PRETTYDURATION (1 done, 0 partial de 1)
 
-**5 más atrasadas:** P55 T-SUPERVISION (31 filas), P50 T-SISTEMA-TIPADO (25 filas), P45 TK-API (22 filas), P48 T-COMPORTAMIENTO-NUCLEO (21 filas), P53 T-INTERCEPTORES-TIMERS-STASH (21 filas). Unidades en 0 %: 43 de 75.
+**5 más atrasadas:** P55 T-SUPERVISION (31 filas), P50 T-SISTEMA-TIPADO (25 filas), P45 TK-API (22 filas), P48 T-COMPORTAMIENTO-NUCLEO (21 filas), P53 T-INTERCEPTORES-TIMERS-STASH (21 filas). Unidades en 0 %: 42 de 75.
 
 ## Por área del inventario y comparación aserción por aserción
 
@@ -133,7 +133,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-FSM | 11 | 0 | 0 | 11 | 0 | 0.0 % | 0.0 % | no |
 | AC-IO | 35 | 0 | 0 | 35 | 0 | 0.0 % | 0.0 % | no |
 | AC-JAPI | 21 | 0 | 0 | 21 | 0 | 0.0 % | 0.0 % | no |
-| AC-MBX | 23 | 0 | 3 | 20 | 0 | 0.0 % | 13.0 % | sí |
+| AC-MBX | 23 | 0 | 4 | 19 | 0 | 0.0 % | 17.4 % | sí |
 | AC-PATH | 16 | 3 | 13 | 0 | 0 | 18.8 % | 100.0 % | sí |
 | AC-REF | 32 | 1 | 10 | 21 | 0 | 3.1 % | 34.4 % | sí |
 | AC-RT | 22 | 0 | 0 | 22 | 0 | 0.0 % | 0.0 % | no |
@@ -173,7 +173,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 
 ## Filas con nota «revisar contra 2.0.0»
 
-540 filas (24 done, 66 partial, 450 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
+540 filas (24 done, 67 partial, 449 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
 
 ## Casos grabados y filas que cubren
 
