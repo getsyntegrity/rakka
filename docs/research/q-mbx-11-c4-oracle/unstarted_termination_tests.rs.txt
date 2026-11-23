@@ -1,0 +1,145 @@
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala, actor/dungeon/Children.scala, actor/dungeon/FaultHandling.scala and actor/ActorCell.scala (Apache-2.0).
+//! Twins of oracle cases `MBX-UT-03` and `MBX-UT-06` (Q-MBX-11, slice C4 research): termination and restart of a parent that
+//! has a child that never started. The user dispatcher runs nothing by itself (`RunsOnDemand`), so "the child has not started" is a fact
+//! about the executor, and the order of system messages sent to the parent before it creates the child is exact.
+
+use super::async_creation_tests::{Fixture, Log, joined};
+use crate::actor::actor_ref::ActorRef;
+use crate::actor::fault::Throwable;
+use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
+use crate::dispatch::sysmsg::SystemMessage;
+use std::sync::{Arc, Mutex};
+
+/// Logs its lifecycle as `<label>:preStart` / `<label>:postStop`.
+struct Life(Log, &'static str);
+impl Actor for Life {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.0.lock().unwrap().push(format!("{}:preStart", self.1));
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        self.0.lock().unwrap().push(format!("{}:postStop", self.1));
+    }
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        true
+    }
+}
+
+fn is_started(child: &ActorRef) -> bool {
+    child
+        .0
+        .as_repointable()
+        .expect("an asynchronously created child")
+        .is_started()
+}
+
+#[test]
+fn a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it() {
+    // twin of oracle case MBX-UT-03: Terminate enters the parent's system queue before the Supervise that attach_child sends
+    let fixture = Fixture::new();
+    let log = Log::default();
+    let child = Arc::new(Mutex::new(None::<ActorRef>));
+    let parent = fixture.actor("p", {
+        let (log, child) = (log.clone(), child.clone());
+        move |ctx| {
+            ctx.self_ref().stop();
+            let created = ctx
+                .cell
+                .attach_child(
+                    Props::new({
+                        let log = log.clone();
+                        move || Life(log.clone(), "c")
+                    }),
+                    Some("c"),
+                    true,
+                )
+                .unwrap();
+            created.tell("m1".to_owned(), None);
+            created.tell("m2".to_owned(), None);
+            *child.lock().unwrap() = Some(created);
+        }
+    });
+    parent.tell("go".to_owned(), None);
+    fixture.executor.run_until_idle();
+    let child = child.lock().unwrap().clone().expect("created in the turn");
+    // Pekko 2.0.0 (golden): parentTerminated=true | child: isStarted=false isTerminated=false queued=2
+    assert!(
+        parent.is_terminated(),
+        "the parent must terminate without waiting for a child that never started"
+    );
+    assert!(!is_started(&child));
+    assert!(!child.is_terminated());
+    assert_eq!(child.0.as_repointable().unwrap().queued_user_messages(), 2);
+    assert_eq!(joined(&log), "");
+}
+
+#[test]
+fn a_restart_with_only_an_unstarted_child_does_not_wait_for_it() {
+    // twin of oracle case MBX-UT-06: Suspend and Recreate enter the parent's system queue before the Supervise of its child
+    let fixture = Fixture::new();
+    let log = Log::default();
+    let child = Arc::new(Mutex::new(None::<ActorRef>));
+    let parent = fixture.system.actor_of_named(
+        Props::new({
+            let (log, child) = (log.clone(), child.clone());
+            move || Restartable {
+                log: log.clone(),
+                child: child.clone(),
+            }
+        }),
+        "p",
+    );
+    let parent = fixture.started("p", parent.unwrap());
+    parent.tell("go".to_owned(), None);
+    fixture.executor.run_until_idle();
+    // Pekko 2.0.0 (golden): [P:preStart, P:preRestart, P:postStop, P:preStart, c:preStart, c:postStop]
+    assert_eq!(
+        joined(&log),
+        "P:preStart, P:preRestart, P:postStop, P:preStart, c:preStart, c:postStop"
+    );
+    let child = child.lock().unwrap().clone().expect("created in the turn");
+    assert!(child.is_terminated());
+    assert!(!parent.is_terminated());
+}
+
+/// The parent of `MBX-UT-06`: on `go` it suspends and restarts itself, then creates `c` (so `Supervise` comes after `Recreate`).
+struct Restartable {
+    log: Log,
+    child: Arc<Mutex<Option<ActorRef>>>,
+}
+impl Actor for Restartable {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("P:preStart".to_owned());
+    }
+    fn pre_restart(
+        &mut self,
+        ctx: &mut ActorContext,
+        _reason: &Throwable,
+        _message: Option<&AnyMessage>,
+    ) {
+        self.log.lock().unwrap().push("P:preRestart".to_owned());
+        for child in ctx.children() {
+            ctx.stop(&child);
+        }
+        self.post_stop(ctx);
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        self.log.lock().unwrap().push("P:postStop".to_owned());
+    }
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if msg.downcast_ref::<String>().map(String::as_str) != Some("go") {
+            return false;
+        }
+        ctx.self_ref().send_system(SystemMessage::Suspend);
+        ctx.self_ref().send_system(SystemMessage::Recreate {
+            cause: Throwable::new("java.lang.IllegalStateException", Some("restart")),
+        });
+        let log = self.log.clone();
+        let created = ctx
+            .cell
+            .attach_child(Props::new(move || Life(log.clone(), "c")), Some("c"), true)
+            .unwrap();
+        created.tell("m1".to_owned(), None);
+        *self.child.lock().unwrap() = Some(created);
+        true
+    }
+}
