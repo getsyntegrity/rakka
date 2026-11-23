@@ -25,6 +25,12 @@ MBX-RJ-04 a Terminate whose scheduling is rejected twice terminates the actor wi
 MBX-RJ-05 an actor whose attach is rejected twice: actorOf returns, the supervisor fails and its children stop, the new actor never starts
 MBX-RJ-06 a synchronous context.actorOf whose attach is rejected twice: the caller gets the exception and the name stays taken
 MBX-RJ-07 a synchronous context.actorOf whose attach is rejected twice and whose exception escapes: the parent fails and restarts
+MBX-PT-01 a send that waits for the unstarted cell's lock longer than unstarted-push-timeout is a dead letter with a Warning
+MBX-PT-02 a send that waits for the lock while the hand-over ends before the timeout is delivered after the queued messages
+MBX-PT-03 a system message waits for the lock without a timeout and is delivered once the hand-over ends
+MBX-PT-06 the thread that hands the queue over can send to the same reference: its message joins the queue, not the timeout
+MBX-PT-04 unstarted-push-timeout = 0s: a send that finds the lock held is dropped at once
+MBX-PT-05 unstarted-push-timeout = -1s: a send that finds the lock held is dropped at once
 MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order
 MBX-UC-02 a Watch and a Terminate sent to an unstarted actor are applied once it starts: the watcher gets Terminated
 MBX-UC-03 a Watch undone by an Unwatch before the actor starts: the watcher is not told

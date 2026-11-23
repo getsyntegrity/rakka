@@ -99,6 +99,30 @@ pub const PENDING: &[(&str, &str)] = &[
         "needs an executor that rejects tasks and a parent actor: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C2)",
     ),
     (
+        "MBX-PT-01 a send that waits for the unstarted cell's lock longer than unstarted-push-timeout is a dead letter with a Warning",
+        "needs the unstarted reference whose hand-over blocks (a real cell stand-in): produced in-crate by actor::repointable (unstarted_push_timeout) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C3)",
+    ),
+    (
+        "MBX-PT-02 a send that waits for the lock while the hand-over ends before the timeout is delivered after the queued messages",
+        "needs the unstarted reference whose hand-over blocks (a real cell stand-in): produced in-crate by actor::repointable (unstarted_push_timeout) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C3)",
+    ),
+    (
+        "MBX-PT-03 a system message waits for the lock without a timeout and is delivered once the hand-over ends",
+        "needs the unstarted reference whose hand-over blocks (a real cell stand-in): produced in-crate by actor::repointable (unstarted_push_timeout) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C3)",
+    ),
+    (
+        "MBX-PT-06 the thread that hands the queue over can send to the same reference: its message joins the queue, not the timeout",
+        "needs the unstarted reference whose hand-over blocks (a real cell stand-in): produced in-crate by actor::repointable (unstarted_push_timeout) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C3)",
+    ),
+    (
+        "MBX-PT-04 unstarted-push-timeout = 0s: a send that finds the lock held is dropped at once",
+        "needs the unstarted reference whose hand-over blocks (a real cell stand-in): produced in-crate by actor::repointable (unstarted_push_timeout) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C3)",
+    ),
+    (
+        "MBX-PT-05 unstarted-push-timeout = -1s: a send that finds the lock held is dropped at once",
+        "needs the unstarted reference whose hand-over blocks (a real cell stand-in): produced in-crate by actor::repointable (unstarted_push_timeout) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C3)",
+    ),
+    (
         "MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order",
         "needs the unstarted reference and the real cell (internal): produced in-crate by actor::repointable (with_real_cells) and, through the real attach_child, by actor::async_creation_tests; both compare with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slices A and B)",
     ),
@@ -476,6 +500,7 @@ fn turn_interleaving(
             parallelism: 1,
             throughput,
             throughput_deadline_time: deadline,
+            ..Settings::default()
         },
     )
     .expect("system");
