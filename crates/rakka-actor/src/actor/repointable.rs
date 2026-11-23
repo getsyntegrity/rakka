@@ -25,6 +25,7 @@ use crate::actor::actor_ref::InternalActorRef;
 use crate::actor::cell::ActorCell;
 use crate::actor::fault::Throwable;
 use crate::actor::props::AnyMessage;
+use crate::dispatch::dispatcher::Rejected;
 use crate::dispatch::message_queue::Envelope;
 use crate::dispatch::sysmsg::SystemMessage;
 
@@ -85,9 +86,9 @@ impl RepointableActorRef {
     /// `point(catchFailures)` (`RepointableActorRef.scala:112-135`): makes the real cell, starts it (the dispatcher attaches it) and
     /// installs it. On a started reference, or one that has no cell factory, it does nothing. The factory already catches a failure of
     /// `newCell` (`catchFailures = true`: every `RepointableActorRef` is made for an asynchronous child, `Supervise(async = true)`) and answers `ActorCell::new_with_failure`.
-    pub(crate) fn point(&self) {
+    pub(crate) fn point(&self) -> Result<(), Rejected> {
         let Some(me) = self.me.upgrade() else {
-            return;
+            return Ok(());
         };
         let Some(new_cell) = self
             .new_cell
@@ -95,11 +96,13 @@ impl RepointableActorRef {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .take()
         else {
-            return;
+            return Ok(());
         };
         let cell = new_cell(&ActorRef(me));
-        cell.start();
+        // `cell.start()` is outside the `try` of `catchFailures`: a rejected attach leaves this reference unstarted
+        cell.start()?;
         self.replace_with(cell.local_ref().0);
+        Ok(())
     }
 
     /// `point`/`replaceWith`: installs the real cell, handing it everything that was sent before. Returns false, doing nothing, when a
@@ -750,7 +753,7 @@ mod with_real_cells {
                 self.system.dead_letters(),
                 self.path.clone(),
             );
-            cell.start();
+            cell.start().unwrap();
             assert!(self.reference.replace_with(cell.self_ref().0.clone()));
             cell
         }

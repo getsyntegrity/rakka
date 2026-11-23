@@ -261,6 +261,22 @@ final class MailboxOracle {
     }
   }
 
+  /** Creates a child with the synchronous {@code context.actorOf} (a {@code LocalActorRef}, {@code makeChild(async = false)}) on the rejecting
+   *  dispatcher. {@code caught}: the actor handles what {@code actorOf} throws; otherwise it escapes and fails the actor. */
+  public static final class SyncSpawner extends AbstractActor {
+    final Env env; final boolean caught; SyncSpawner(Env env, boolean caught) { this.env = env; this.caught = caught; }
+    @Override public void preStart() { env.started.incrementAndGet(); }
+    @Override public Receive createReceive() {
+      return receiveBuilder().matchEquals("go", g -> {
+        try { getContext().actorOf(Props.create(Worker.class, env).withDispatcher("rej-disp"), "c"); env.note.set("thrown=none"); }
+        catch (Throwable t) { env.note.set("thrown=" + t.getClass().getName()); if (!caught) throw t; }
+      }).matchEquals("again", a -> {
+        try { getContext().actorOf(Props.create(Worker.class, env), "c"); env.note.set("again=ok"); }
+        catch (Throwable t) { env.note.set("again=" + t.getClass().getName()); }
+      }).matchEquals("who", w -> env.note.set("children=" + getContext().findChild("c").isPresent())).build();
+    }
+  }
+
   /** The errors published by cells themselves: the supervisor's {@code logFailure} lines carry the failure's own class and are left out. */
   static List<String> cellErrors(Env e) {
     List<String> l = new ArrayList<>();
@@ -484,6 +500,35 @@ final class MailboxOracle {
         try { Thread.sleep(500); } catch (InterruptedException x) { throw new RuntimeException(x); } // a bounded wait for an absence
         return "errors=" + e.errors + " refReturned=" + (a != null) + " newActorTerminated=" + in(a).isTerminated()
             + " siblingTerminated=" + in(sibling).isTerminated() + " startedActors=" + e.started.get() + " rejectionsLeft=" + REJECT_NEXT.get();
+      }
+    });
+    run("MBX-RJ-06 a synchronous context.actorOf whose attach is rejected twice: the caller gets the exception and the name stays taken", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef p = e.sys.actorOf(Props.create(SyncSpawner.class, e, true), "p");
+        awaitUntil(() -> e.started.get() == 1);
+        REJECT_NEXT.set(2);
+        p.tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.note.get() != null);
+        String thrown = e.note.get();
+        try { Thread.sleep(500); } catch (InterruptedException x) { throw new RuntimeException(x); } // a bounded wait for an absence
+        String errors = e.errors.toString();
+        e.note.set(null); p.tell("again", ActorRef.noSender()); awaitUntil(() -> e.note.get() != null);
+        return thrown + " errors=" + errors + " rejectionsLeft=" + REJECT_NEXT.get() + " | " + e.note.get() + " startedActors=" + e.started.get() + " parentTerminated=" + in(p).isTerminated();
+      }
+    });
+    run("MBX-RJ-07 a synchronous context.actorOf whose attach is rejected twice and whose exception escapes: the parent fails and restarts", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef p = e.sys.actorOf(Props.create(SyncSpawner.class, e, false), "p");
+        awaitUntil(() -> e.started.get() == 1);
+        REJECT_NEXT.set(2);
+        p.tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.started.get() == 2);
+        try { Thread.sleep(500); } catch (InterruptedException x) { throw new RuntimeException(x); } // a bounded wait for an absence
+        e.note.set(null); p.tell("again", ActorRef.noSender()); awaitUntil(() -> e.note.get() != null);
+        // the supervisor's logFailure line (AC-SUP-018, another contract) is left out: only what the dispatcher publishes
+        List<String> dispatcherErrors = new ArrayList<>();
+        for (String x : e.errors) if (x.startsWith("org.apache.pekko.dispatch.Dispatcher|")) dispatcherErrors.add(x);
+        return e.note.get() + " dispatcherErrors=" + dispatcherErrors + " rejectionsLeft=" + REJECT_NEXT.get() + " startedActors=" + e.started.get() + " parentTerminated=" + in(p).isTerminated();
       }
     });
     run("MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order", () -> {

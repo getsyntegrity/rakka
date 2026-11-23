@@ -381,9 +381,10 @@ impl ActorSystem {
         sys.system_guardian.set(system_guardian.clone()).ok();
 
         // provider.init: start the root, then chain death watchers so that killing the guardian stops everything
-        root.start();
-        user.start();
-        system_guardian.start();
+        // the guardians are attached synchronously by the provider; their behaviour is unchanged (no evidence yet)
+        let _ = root.start();
+        let _ = user.start();
+        let _ = system_guardian.start();
         let (sg, ug, rg) = (system_guardian.self_ref(), user.self_ref(), root.self_ref());
         sg.send_system(SystemMessage::Watch {
             watchee: ug,

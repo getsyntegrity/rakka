@@ -23,6 +23,8 @@ MBX-RJ-02 two rejections: Error published, mailbox idle, message kept and delive
 MBX-RJ-03 a system message whose scheduling is rejected twice stays queued and runs with the next send
 MBX-RJ-04 a Terminate whose scheduling is rejected twice terminates the actor with the next send; the message is dead-lettered
 MBX-RJ-05 an actor whose attach is rejected twice: actorOf returns, the supervisor fails and its children stop, the new actor never starts
+MBX-RJ-06 a synchronous context.actorOf whose attach is rejected twice: the caller gets the exception and the name stays taken
+MBX-RJ-07 a synchronous context.actorOf whose attach is rejected twice and whose exception escapes: the parent fails and restarts
 MBX-UC-01 messages sent to an unstarted actor: the system message goes first, then the user messages in order
 MBX-UC-02 a Watch and a Terminate sent to an unstarted actor are applied once it starts: the watcher gets Terminated
 MBX-UC-03 a Watch undone by an Unwatch before the actor starts: the watcher is not told

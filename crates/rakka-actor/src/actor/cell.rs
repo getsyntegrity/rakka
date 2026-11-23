@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, PoisonError, Weak};
 use crate::actor::ActorPath;
 use crate::actor::actor_ref::{ActorRef, InternalActorRef};
 use crate::actor::children::{Children, SuspendReason};
-use crate::actor::fault::Throwable;
+use crate::actor::fault::{Throwable, throw};
 use crate::actor::props::{Actor, ActorContext, AnyMessage, Kill, PoisonPill, Props};
 use crate::actor::repointable::RepointableActorRef;
 use crate::actor::supervision::{Directive, OneForOneStrategy, RestartStats, SupervisorStrategy};
@@ -97,9 +97,12 @@ fn reporter_class(instance_class: Option<&'static str>) -> String {
     instance_class.unwrap_or(ACTOR_CLASS).to_owned()
 }
 
-/// `new RejectedExecutionException`.
-fn rejected_execution() -> Throwable {
-    Throwable::new("java.util.concurrent.RejectedExecutionException", None)
+/// The `RejectedExecutionException` the executor threw.
+fn rejected_execution(rejected: Rejected) -> Throwable {
+    Throwable::new(
+        "java.util.concurrent.RejectedExecutionException",
+        Some(rejected.0),
+    )
 }
 
 /// `LocalActorRef`.
@@ -266,11 +269,11 @@ impl ActorCell {
         cell
     }
 
-    /// `ActorCell.start()`: attach to the dispatcher.
-    pub(crate) fn start(self: &Arc<Self>) {
+    /// `ActorCell.start()`: attach to the dispatcher. `Dispatcher.attach` lets the executor's rejection propagate to the caller
+    /// (after `register_for_execution` has already published its `Error`).
+    pub(crate) fn start(self: &Arc<Self>) -> Result<(), Rejected> {
         self.status.set_as_idle();
-        // `Dispatcher.attach` lets a rejection propagate to `actorOf`; here it has been reported by `register_for_execution` only
-        let _ = self.register_for_execution(false, false);
+        self.register_for_execution(false, false).map(drop)
     }
 
     /// The state of the mailbox as the oracle prints it: `open|closed scheduled=<b> suspendCount=<n> queued=<n>`.
@@ -341,7 +344,7 @@ impl ActorCell {
                 report_dispatch_failure(
                     &self.system.events,
                     ErrorEvent {
-                        cause: rejected_execution(),
+                        cause: rejected_execution(rejected),
                         log_source: DISPATCHER_CLASS.to_owned(),
                         log_class: DISPATCHER_CLASS.to_owned(),
                         message: "registerForExecution was rejected twice!".to_owned(),
@@ -367,11 +370,11 @@ impl ActorCell {
     }
 
     /// `ActorCell.handleException` for a failed dispatch (`Dispatch.scala:129-141`): the sender swallows the exception and reports it.
-    fn swallow_failed_send(&self, _rejected: Rejected) {
+    fn swallow_failed_send(&self, rejected: Rejected) {
         report_dispatch_failure(
             &self.system.events,
             ErrorEvent {
-                cause: rejected_execution(),
+                cause: rejected_execution(rejected),
                 log_source: self.path.to_string(),
                 log_class: reporter_class(self.st.lock().unwrap().actor_class),
                 message: "swallowing exception during message send".to_owned(),
@@ -1031,7 +1034,11 @@ impl ActorCell {
             let child_ref = child.self_ref();
             self.inherit_suspension(&child_ref);
             self.children.lock().unwrap().init_child(&child_ref);
-            child.start();
+            // `actor.start()` is after `initChild` and outside the `try` that unreserves the name: the caller gets the exception,
+            // the name stays taken and the child stays registered (`Children.scala:317-350`)
+            if let Err(rejected) = child.start() {
+                throw(rejected_execution(rejected));
+            }
             Ok(child_ref)
         }
     }
@@ -1066,7 +1073,11 @@ impl ActorCell {
                 },
             );
         } else if is_async && let Some(repointable) = child.0.as_repointable() {
-            repointable.point();
+            // `handleSupervise` → `point`: `cell.start()` is outside `catchFailures`, so a rejected attach fails this actor
+            // (`systemInvoke`'s `handleInvokeFailure(Nil, e)`), not the new one
+            if let Err(rejected) = repointable.point() {
+                self.handle_invoke_failure(rejected_execution(rejected), None);
+            }
         }
     }
 
