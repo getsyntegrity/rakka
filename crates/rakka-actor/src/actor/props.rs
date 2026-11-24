@@ -4,10 +4,12 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use crate::ConfigurationException;
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::cell::ActorCell;
 use crate::actor::fault::Throwable;
 use crate::actor::supervision::{OneForOneStrategy, SupervisorStrategy};
+use crate::dispatch::mailboxes::Mailboxes;
 use crate::dispatch::message_queue::{MailboxType, MessageQueue, UnboundedMailbox};
 
 /// A user-level message (`Any` in Pekko). Messages are immutable and shared, so the same message can
@@ -66,6 +68,8 @@ pub struct Props {
     factory: Arc<dyn Fn() -> Box<dyn Actor> + Send + Sync>,
     /// `Props.mailbox`: the type that builds the queue of the actor's mailbox; `None` is the default `UnboundedMailbox`.
     mailbox: Option<Arc<dyn MailboxType>>,
+    /// `Props.deploy.mailbox`: the id of the mailbox to resolve when the actor is created.
+    mailbox_id: Option<String>,
 }
 
 impl Props {
@@ -74,15 +78,43 @@ impl Props {
         Props {
             factory: Arc::new(move || Box::new(f())),
             mailbox: None,
+            mailbox_id: None,
         }
     }
 
+    /// `Props.withMailbox(id)`: the mailbox is the one registered under `id` in [`Mailboxes`], resolved when the actor is created;
+    /// an unknown id makes `actorOf` fail. The empty id is `NoMailboxGiven`: the default mailbox. The last selection wins.
+    pub fn with_mailbox_id(mut self, id: impl Into<String>) -> Props {
+        self.mailbox = None;
+        self.mailbox_id = Some(id.into()).filter(|id| !id.is_empty());
+        self
+    }
+
     /// `Props.withMailbox` with the type given directly: the actor's user messages go to the queue `mailbox` creates (for example
-    /// `NonBlockingBoundedMailbox`, which never blocks the sender and dead-letters what does not fit). Selecting by id or by config
-    /// waits for `Mailboxes` (Q-MBX-2).
+    /// `NonBlockingBoundedMailbox`, which never blocks the sender and dead-letters what does not fit). The last selection wins.
     pub fn with_mailbox(mut self, mailbox: impl MailboxType) -> Props {
         self.mailbox = Some(Arc::new(mailbox));
+        self.mailbox_id = None;
         self
+    }
+
+    /// `Props.mailbox`: the id selected, or the default mailbox id when none was given.
+    pub(crate) fn mailbox_id(&self) -> &str {
+        self.mailbox_id
+            .as_deref()
+            .unwrap_or(Mailboxes::DEFAULT_MAILBOX_ID)
+    }
+
+    /// `Mailboxes.getMailboxType` for a selected id: the props whose mailbox is the type registered under it. Props without an id
+    /// selection come back unchanged.
+    pub(crate) fn resolve_mailbox(
+        mut self,
+        mailboxes: &Mailboxes,
+    ) -> Result<Props, ConfigurationException> {
+        if let Some(id) = self.mailbox_id.take() {
+            self.mailbox = Some(mailboxes.lookup(&id)?);
+        }
+        Ok(self)
     }
 
     /// The queue for one mailbox of this actor; what a bounded queue refuses is dead-lettered to `dead_letters`.

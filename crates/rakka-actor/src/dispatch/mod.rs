@@ -7,6 +7,7 @@ pub(crate) mod dispatcher;
 mod executor_rejection_tests;
 pub(crate) mod mailbox_close;
 pub mod mailbox_status;
+pub mod mailboxes;
 pub mod message_queue;
 pub(crate) mod sysmsg;
 pub mod system_queue;

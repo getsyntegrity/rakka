@@ -16,7 +16,7 @@ use crate::actor::repointable::{PushPolicy, RepointableActorRef};
 use crate::actor::supervision::{Directive, OneForOneStrategy, RestartStats, SupervisorStrategy};
 use crate::actor::system::SystemInner;
 use crate::actor::validate_path_element;
-use crate::actor::{ActorError, ErrorClass};
+use crate::actor::{ActorError, ConfigurationError, ErrorClass};
 use crate::dispatch::dispatcher::Dispatcher;
 use crate::dispatch::dispatcher::Rejected;
 use crate::dispatch::mailbox_close::enqueue_unless_closed;
@@ -1005,6 +1005,21 @@ impl ActorCell {
         }
         self.children.lock().unwrap().reserve(&name)?;
         let path = self.path.new_child(&name, new_uid());
+        // `getMailboxType` runs before any reference exists (`LocalActorRefProvider.actorOf`); a failure releases the name (`makeChild`)
+        let mailbox_id = props.mailbox_id().to_owned();
+        let props = match props.resolve_mailbox(&self.system.settings.mailboxes) {
+            Ok(resolved) => resolved,
+            Err(cause) => {
+                self.children.lock().unwrap().unreserve(&name);
+                return Err(ConfigurationError::caused_by(
+                    format!(
+                        "configuration problem while creating [{path}] with dispatcher [pekko.actor.default-dispatcher] and mailbox [{mailbox_id}]"
+                    ),
+                    &cause,
+                )
+                .into());
+            }
+        };
         if asynchronous {
             // `provider.actorOf(..., async = true)`: a `RepointableActorRef`, which tells the supervisor (this actor) to `Supervise` it
             let child_ref = ActorRef(RepointableActorRef::for_actor(
