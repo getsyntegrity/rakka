@@ -216,6 +216,13 @@ class ReplayIsolation(unittest.TestCase):
         self.assertEqual(cd.known_killers("m"), ["c-a1", "c-a2", "c-q"])               # not just the one confirmed case
         self.assertEqual(read_text(os.path.join(reports, "replay-report-m.md")).count("### "), 1)   # the report is the verdict's own evidence
 
+    def test_a_published_report_has_no_trailing_whitespace_though_the_quoted_diff_has_blank_lines(self):
+        cd, reports = self.with_reports_directory()
+        cd.publish_mutant_report("blank", "full replay", "### c-a1\n```diff\n+ \n+ text  \n```\n")
+        published = read_text(os.path.join(reports, "replay-report-blank.md"))
+        self.assertEqual([line for line in published.split("\n") if line != line.rstrip()], [])
+        self.assertIn("+\n+ text\n", published)
+
     def test_a_full_replay_records_every_divergent_case_as_a_known_killer_for_the_next_fast_kill(self):
         cd, reports = self.with_reports_directory()
         cd.full_replay_verdict(self.build_a, "m2")

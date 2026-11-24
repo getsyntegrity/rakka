@@ -1664,7 +1664,7 @@ MUTANTS = {
     ),
     "props-ignores-the-selected-mailbox": (
         "src/actor/props.rs",
-        "            Some(bounded) => bounded.create(dead_letters.clone()),",
+        "            Some(mailbox) => mailbox.create(dead_letters),",
         "            Some(_) => UnboundedMailbox.create(),",
         "Props::with_mailbox has no effect: the actor keeps the unbounded mailbox",
     ),
@@ -1988,7 +1988,9 @@ def fast_kill(binary, name):
 def publish_mutant_report(name, verdict_path, report_text):
     """The per-mutant report always starts with the path that produced the verdict, so that the evidence cannot be mistaken for another one."""
     with open(os.path.join(REPORTS, f"replay-report-{name}.md"), "w", encoding="utf-8") as report_file:
-        report_file.write(f"Verdict path: {verdict_path}\n\n{report_text}")
+        # the quoted diffs hold blank lines as `+ `; the report is evidence of the verdict, not of those trailing spaces
+        text = f"Verdict path: {verdict_path}\n\n{report_text}"
+        report_file.write("\n".join(line.rstrip() for line in text.split("\n")))
 
 
 def publish_fast_kill_report(name, kill):
