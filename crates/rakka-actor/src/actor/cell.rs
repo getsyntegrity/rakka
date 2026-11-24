@@ -1009,6 +1009,7 @@ impl ActorCell {
         self.children.lock().unwrap().reserve(&name)?;
         let path = self.path.new_child(&name, new_uid());
         // `getMailboxType` runs before any reference exists (`LocalActorRefProvider.actorOf`); a failure releases the name (`makeChild`)
+        let props = props.deployed_over(self.system.settings.deployer.lookup_path(&path).as_ref());
         let mailbox_id = props.mailbox_id().to_owned();
         let props = match props.resolve_mailbox(&self.system.settings.mailboxes) {
             Ok(resolved) => resolved,

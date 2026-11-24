@@ -156,4 +156,29 @@ mod tests {
         assert!(!queue.enqueue(&dead_letters, envelope()));
         assert!(Props::new(|| Idle).resolve_mailbox(&mailboxes).is_ok());
     }
+
+    fn deployment_with_mailbox(mailbox: &str) -> crate::actor::Deploy {
+        crate::actor::Deploy::new(
+            "/a",
+            crate::config::Config::empty(),
+            crate::actor::RouterConfig::NoRouter,
+            crate::actor::Scope::NoScopeGiven,
+            "",
+            mailbox,
+        )
+    }
+
+    #[test]
+    fn a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not() {
+        let selected = Props::new(|| Idle).with_mailbox_id("props-mailbox");
+        let deployed = selected
+            .clone()
+            .deployed_over(Some(&deployment_with_mailbox("deploy-mailbox")));
+        assert_eq!(deployed.mailbox_id(), "deploy-mailbox");
+        let empty = selected
+            .clone()
+            .deployed_over(Some(&deployment_with_mailbox("")));
+        assert_eq!(empty.mailbox_id(), "props-mailbox");
+        assert_eq!(selected.deployed_over(None).mailbox_id(), "props-mailbox");
+    }
 }
