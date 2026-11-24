@@ -1823,6 +1823,43 @@ MUTANTS = {
         "        if let Some(envelope) = self.dequeue() {\n            dead_letters.enqueue(owner, envelope);",
         "cleanUp moves one envelope and leaves the rest (NB-QU-05)",
     ),
+    # --- the queue a mailbox type promises (ProducesMessageQueue); killed by unit tests (UNIT_MUTANTS) ---
+    "produced-queue-ignores-the-listed-semantics": (
+        "src/dispatch/queue_semantics.rs",
+        "requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.satisfies.contains(&requirement)",
+        "requirement == MessageQueueSemantics::MESSAGE_QUEUE",
+        "a queue satisfies only MessageQueue: the semantics its type lists are ignored",
+    ),
+    "produced-queue-satisfies-any-requirement": (
+        "src/dispatch/queue_semantics.rs",
+        "requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.satisfies.contains(&requirement)",
+        "true",
+        "a queue satisfies every requirement, listed or not",
+    ),
+    "produced-queue-does-not-satisfy-message-queue": (
+        "src/dispatch/queue_semantics.rs",
+        "requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.satisfies.contains(&requirement)",
+        "self.satisfies.contains(&requirement)",
+        "MessageQueue is satisfied only when the type lists it",
+    ),
+    "unbounded-mailbox-promises-no-semantics": (
+        "src/dispatch/message_queue.rs",
+        "            \"org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue\",\n            &[MessageQueueSemantics::UNBOUNDED],",
+        "            \"org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue\",\n            &[],",
+        "UnboundedMailbox promises a queue that satisfies nothing",
+    ),
+    "bounded-mailbox-promises-an-unbounded-queue": (
+        "src/dispatch/bounded_node_queue.rs",
+        "            &[MessageQueueSemantics::BOUNDED],",
+        "            &[MessageQueueSemantics::UNBOUNDED],",
+        "NonBlockingBoundedMailbox promises the unbounded semantics instead of the bounded one",
+    ),
+    "type-without-promise-claims-an-unbounded-queue": (
+        "src/dispatch/message_queue.rs",
+        "    fn produced_queue(&self) -> ProducedQueue {\n        ProducedQueue::PLAIN\n    }",
+        "    fn produced_queue(&self) -> ProducedQueue {\n        ProducedQueue::new(\"claimed\", &[MessageQueueSemantics::UNBOUNDED])\n    }",
+        "a type that makes no promise is taken to produce an unbounded queue",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -1908,6 +1945,12 @@ def classify(replay_result, binary):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "produced-queue-ignores-the-listed-semantics": ("dispatch::queue_semantics", "a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue"),
+    "produced-queue-satisfies-any-requirement": ("dispatch::queue_semantics", "a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue"),
+    "produced-queue-does-not-satisfy-message-queue": ("dispatch::queue_semantics", "a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue"),
+    "unbounded-mailbox-promises-no-semantics": ("dispatch::message_queue", "the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one"),
+    "bounded-mailbox-promises-an-unbounded-queue": ("dispatch::bounded_node_queue", "the_non_blocking_bounded_mailbox_promises_a_bounded_queue"),
+    "type-without-promise-claims-an-unbounded-queue": ("dispatch::message_queue", "the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one"),
     "mailbox-dispatcher-any-queue-counts-as-a-requirement": ("dispatch::mailboxes", "a_dispatcher_requiring_any_queue_has_no_requirement"),
     "mailbox-dispatcher-requirement-beats-the-actor": ("dispatch::mailboxes", "the_requirement_of_the_actor_decides_before_the_requirement_of_the_dispatcher"),
     "mailbox-dispatcher-requirement-is-not-the-fallback": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_serves_an_actor_whose_requirement_has_no_binding"),
