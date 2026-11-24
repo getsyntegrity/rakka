@@ -128,17 +128,36 @@ impl Props {
     }
 
     /// `Mailboxes.getMailboxType`: the props whose mailbox is the type registered under the selected id; else the one bound to the
-    /// queue semantics the actor requires; else the one registered under `pekko.actor.default-mailbox`. Props that carry a mailbox
-    /// type directly come back unchanged.
+    /// queue semantics the actor requires (or, when that has no usable binding, to the one the dispatcher requires); else the one bound
+    /// to the semantics the dispatcher requires; else the one registered under `pekko.actor.default-mailbox`. Props that carry a
+    /// mailbox type directly come back unchanged.
     pub(crate) fn resolve_mailbox(
         mut self,
         mailboxes: &Mailboxes,
+        dispatcher_requirement: Option<MessageQueueSemantics>,
     ) -> Result<Props, ConfigurationException> {
         if self.mailbox.is_none() {
-            self.mailbox = Some(match (&self.mailbox_id, self.required_queue) {
-                (None, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,
-                _ => mailboxes.lookup(self.mailbox_id())?,
-            });
+            // `hasMailboxRequirement`: a dispatcher that requires `MessageQueue` requires nothing (`Mailboxes.scala:165`)
+            let dispatcher_requirement = dispatcher_requirement
+                .filter(|semantics| *semantics != MessageQueueSemantics::MESSAGE_QUEUE);
+            let dispatcher_requirement_as_fallback = |error| match dispatcher_requirement {
+                Some(semantics) => mailboxes.lookup_by_queue_type(semantics),
+                None => Err(error),
+            };
+            self.mailbox = Some(
+                match (
+                    &self.mailbox_id,
+                    self.required_queue,
+                    dispatcher_requirement,
+                ) {
+                    (Some(_), _, _) => mailboxes.lookup(self.mailbox_id())?,
+                    (None, Some(semantics), _) => mailboxes
+                        .lookup_by_queue_type(semantics)
+                        .or_else(dispatcher_requirement_as_fallback)?,
+                    (None, None, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,
+                    (None, None, None) => mailboxes.lookup(self.mailbox_id())?,
+                },
+            );
         }
         Ok(self)
     }

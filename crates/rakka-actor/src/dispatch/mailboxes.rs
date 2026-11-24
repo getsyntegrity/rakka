@@ -182,7 +182,7 @@ mod tests {
         let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
         let resolved = Props::new(|| Idle)
             .with_mailbox_id("two")
-            .resolve_mailbox(&mailboxes)
+            .resolve_mailbox(&mailboxes, None)
             .unwrap();
         // the props still name the id they selected, which is what an error or a log reports
         assert_eq!(resolved.mailbox_id(), "two");
@@ -194,7 +194,11 @@ mod tests {
         assert!(queue.enqueue(&dead_letters, envelope()));
         assert!(queue.enqueue(&dead_letters, envelope()));
         assert!(!queue.enqueue(&dead_letters, envelope()));
-        assert!(Props::new(|| Idle).resolve_mailbox(&mailboxes).is_ok());
+        assert!(
+            Props::new(|| Idle)
+                .resolve_mailbox(&mailboxes, None)
+                .is_ok()
+        );
     }
 
     struct RequiresUnbounded;
@@ -218,8 +222,16 @@ mod tests {
         props: Props,
         mailboxes: &Mailboxes,
     ) -> Result<usize, ConfigurationException> {
+        capacity_under_dispatcher(props, mailboxes, None)
+    }
+
+    fn capacity_under_dispatcher(
+        props: Props,
+        mailboxes: &Mailboxes,
+        dispatcher_requirement: Option<MessageQueueSemantics>,
+    ) -> Result<usize, ConfigurationException> {
         let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
-        let resolved = props.resolve_mailbox(mailboxes)?;
+        let resolved = props.resolve_mailbox(mailboxes, dispatcher_requirement)?;
         let queue = resolved.new_message_queue(&dead_letters);
         Ok((0..100)
             .take_while(|number| {
@@ -315,6 +327,124 @@ mod tests {
         assert_eq!(capacity_of(&*mailboxes.lookup(id).unwrap()), 5);
     }
 
+    struct RequiresAnyQueue;
+    impl Actor for RequiresAnyQueue {
+        fn required_message_queue() -> Option<MessageQueueSemantics> {
+            Some(MessageQueueSemantics::MESSAGE_QUEUE)
+        }
+    }
+
+    /// Mailboxes of capacity 2 and 3 under the ids `two` and `three`, with the unbounded semantics bound to `two`.
+    fn mailboxes_with_the_unbounded_semantics_bound_to_capacity_two() -> Mailboxes {
+        let mut mailboxes = Mailboxes::new();
+        mailboxes.register("two", bounded(2));
+        mailboxes.register("three", bounded(3));
+        mailboxes.bind_requirement(MessageQueueSemantics::UNBOUNDED, "two");
+        mailboxes
+    }
+
+    const DISPATCHER_REQUIRES_UNBOUNDED: Option<MessageQueueSemantics> =
+        Some(MessageQueueSemantics::UNBOUNDED);
+
+    #[test]
+    fn the_requirement_of_the_dispatcher_selects_the_mailbox_of_an_actor_that_requires_nothing() {
+        let mut mailboxes = mailboxes_with_the_unbounded_semantics_bound_to_capacity_two();
+        mailboxes.register(Mailboxes::DEFAULT_MAILBOX_ID, bounded(5));
+        let props = || Props::new(|| Idle);
+        assert_eq!(
+            capacity_under_dispatcher(props(), &mailboxes, DISPATCHER_REQUIRES_UNBOUNDED).unwrap(),
+            2
+        );
+        assert_eq!(
+            capacity_under_dispatcher(props(), &mailboxes, None).unwrap(),
+            5
+        );
+    }
+
+    #[test]
+    fn the_requirement_of_the_actor_decides_before_the_requirement_of_the_dispatcher() {
+        let mut mailboxes = mailboxes_with_the_unbounded_semantics_bound_to_capacity_two();
+        mailboxes.bind_requirement(AUDIT_TRAIL, "three");
+        let props = Props::new(|| RequiresAuditTrail);
+        assert_eq!(
+            capacity_under_dispatcher(props, &mailboxes, DISPATCHER_REQUIRES_UNBOUNDED).unwrap(),
+            3
+        );
+    }
+
+    #[test]
+    fn a_selected_id_decides_before_the_requirement_of_the_dispatcher() {
+        let mailboxes = mailboxes_with_the_unbounded_semantics_bound_to_capacity_two();
+        let props = Props::new(|| Idle).with_mailbox_id("three");
+        assert_eq!(
+            capacity_under_dispatcher(props, &mailboxes, DISPATCHER_REQUIRES_UNBOUNDED).unwrap(),
+            3
+        );
+    }
+
+    #[test]
+    fn the_requirement_of_the_dispatcher_serves_an_actor_whose_requirement_has_no_binding() {
+        let mailboxes = mailboxes_with_the_unbounded_semantics_bound_to_capacity_two();
+        let unbound_actor = || Props::new(|| RequiresAuditTrail);
+        assert_eq!(
+            capacity_under_dispatcher(unbound_actor(), &mailboxes, DISPATCHER_REQUIRES_UNBOUNDED)
+                .unwrap(),
+            2
+        );
+        let error = capacity_under_dispatcher(unbound_actor(), &mailboxes, None).unwrap_err();
+        assert_eq!(
+            error.message(),
+            "Mailbox Mapping for [interface app.AuditTrailSemantics] not configured"
+        );
+        let any_queue = Props::new(|| RequiresAnyQueue);
+        assert_eq!(
+            capacity_under_dispatcher(any_queue, &mailboxes, DISPATCHER_REQUIRES_UNBOUNDED)
+                .unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn the_requirement_of_the_dispatcher_also_serves_an_actor_bound_to_an_unregistered_mailbox() {
+        let mut mailboxes = mailboxes_with_the_unbounded_semantics_bound_to_capacity_two();
+        mailboxes.bind_requirement(AUDIT_TRAIL, "missing");
+        let props = Props::new(|| RequiresAuditTrail);
+        assert_eq!(
+            capacity_under_dispatcher(props, &mailboxes, DISPATCHER_REQUIRES_UNBOUNDED).unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn a_requirement_of_the_dispatcher_without_binding_fails_naming_the_semantics_of_the_dispatcher()
+     {
+        let mailboxes = mailboxes_with_the_unbounded_semantics_bound_to_capacity_two();
+        for props in [Props::new(|| Idle), Props::new(|| RequiresAuditTrail)] {
+            let error =
+                capacity_under_dispatcher(props, &mailboxes, Some(MessageQueueSemantics::BOUNDED))
+                    .unwrap_err();
+            assert_eq!(
+                error.message(),
+                "Mailbox Mapping for [interface org.apache.pekko.dispatch.BoundedMessageQueueSemantics] not configured"
+            );
+        }
+    }
+
+    #[test]
+    fn a_dispatcher_requiring_any_queue_has_no_requirement() {
+        let mut mailboxes = mailboxes_with_the_unbounded_semantics_bound_to_capacity_two();
+        mailboxes.register(Mailboxes::DEFAULT_MAILBOX_ID, bounded(5));
+        let any_queue = Some(MessageQueueSemantics::MESSAGE_QUEUE);
+        let plain = capacity_under_dispatcher(Props::new(|| Idle), &mailboxes, any_queue);
+        assert_eq!(plain.unwrap(), 5);
+        let requiring_any = Props::new(|| RequiresAnyQueue);
+        let error = capacity_under_dispatcher(requiring_any, &mailboxes, any_queue).unwrap_err();
+        assert_eq!(
+            error.message(),
+            "Mailbox Mapping for [interface org.apache.pekko.dispatch.MessageQueue] not configured"
+        );
+    }
+
     fn deployment_with_mailbox(mailbox: &str) -> crate::actor::Deploy {
         crate::actor::Deploy::new(
             "/a",
@@ -346,7 +476,7 @@ mod tests {
         mailboxes.register(Mailboxes::DEFAULT_MAILBOX_ID, bounded(3));
         let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
         let queue = Props::new(|| Idle)
-            .resolve_mailbox(&mailboxes)
+            .resolve_mailbox(&mailboxes, None)
             .unwrap()
             .new_message_queue(&dead_letters);
         let accepted = (0..10)

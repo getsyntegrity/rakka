@@ -21,6 +21,11 @@ impl MessageQueueSemantics {
     pub const BOUNDED: MessageQueueSemantics =
         MessageQueueSemantics::new("org.apache.pekko.dispatch.BoundedMessageQueueSemantics");
 
+    /// `org.apache.pekko.dispatch.MessageQueue`: what every queue satisfies. A dispatcher that requires it has no requirement; an
+    /// actor that requires it has none of its own to bind, so its mailbox comes from the dispatcher's requirement or fails.
+    pub const MESSAGE_QUEUE: MessageQueueSemantics =
+        MessageQueueSemantics::new("org.apache.pekko.dispatch.MessageQueue");
+
     /// A semantics identified by `class_name`, the name of the marker type: how an application defines its own requirement.
     pub const fn new(class_name: &'static str) -> MessageQueueSemantics {
         MessageQueueSemantics { class_name }
