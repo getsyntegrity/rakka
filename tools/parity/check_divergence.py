@@ -1990,7 +1990,7 @@ def publish_mutant_report(name, verdict_path, report_text):
     with open(os.path.join(REPORTS, f"replay-report-{name}.md"), "w", encoding="utf-8") as report_file:
         # a blank line of a quoted diff is `+ ` or `- `: drop only that prefix-only trailing space, so a divergence that is itself whitespace stays visible
         text = f"Verdict path: {verdict_path}\n\n{report_text}"
-        report_file.write(re.sub(r"(?m)^([+-]) +$", r"\1", text))
+        report_file.write(re.sub(r"(?m)^([+-]) $", r"\1", text))
 
 
 def publish_fast_kill_report(name, kill):
