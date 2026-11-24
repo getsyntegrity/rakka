@@ -976,8 +976,8 @@ MUTANTS = {
     # --- mailbox selection by id (killed by MBX-ID-01..03) ---
     "mailbox-id-selection-ignored": (
         "src/actor/props.rs",
-        "            self.mailbox = Some(mailboxes.lookup(self.mailbox_id())?);",
-        "            mailboxes.lookup(self.mailbox_id())?;",
+        "                _ => mailboxes.lookup(self.mailbox_id())?,",
+        "                _ => {\n                    mailboxes.lookup(self.mailbox_id())?;\n                    mailboxes.lookup(Mailboxes::DEFAULT_MAILBOX_ID)?\n                }",
         "the id is looked up (so an unknown id still fails) but the actor keeps the default mailbox instead of the selected one (MBX-ID-01)",
     ),
     # --- mailbox registered as the default (killed by MBX-CFG-02) ---
@@ -1022,6 +1022,13 @@ MUTANTS = {
         "let mailbox_id = props.mailbox_id().to_owned();",
         "let mailbox_id = crate::dispatch::mailboxes::Mailboxes::DEFAULT_MAILBOX_ID.to_owned();",
         "the error always names the default mailbox instead of the id that failed (MBX-ID-02)",
+    ),
+    # --- mailbox selected by the queue semantics an actor requires (killed by MBX-REQ-01..03, or by the unit test where noted) ---
+    "mailbox-requirement-beats-the-selected-id": (
+        "src/actor/props.rs",
+        "                (None, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
+        "                (_, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
+        "the precedence is inverted: the requirement of the actor decides the mailbox even when the props or the deployment selected one",
     ),
     # --- Q-MBX-11 slice C2: a rejected Dispatcher.attach (killed by the in-crate twins of MBX-RJ-05..07, see UNIT_MUTANTS) ---
     "attach-rejection-swallowed-by-start": (
@@ -1841,6 +1848,7 @@ def classify(replay_result, binary):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "mailbox-requirement-beats-the-selected-id": ("dispatch::mailboxes", "a_selected_id_decides_the_mailbox_over_the_requirement"),
     "deployment-mailbox-ignored": ("dispatch::mailboxes", "a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not"),
     "deployment-empty-mailbox-resets-the-props": ("dispatch::mailboxes", "a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not"),
     "props-mailbox-beats-the-deployment": ("dispatch::mailboxes", "a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not"),

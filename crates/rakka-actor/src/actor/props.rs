@@ -12,6 +12,7 @@ use crate::actor::fault::Throwable;
 use crate::actor::supervision::{OneForOneStrategy, SupervisorStrategy};
 use crate::dispatch::mailboxes::Mailboxes;
 use crate::dispatch::message_queue::{MailboxType, MessageQueue, UnboundedMailbox};
+use crate::dispatch::queue_semantics::MessageQueueSemantics;
 
 /// A user-level message (`Any` in Pekko). Messages are immutable and shared, so the same message can
 /// be fanned out (event stream, dead letters) without copying.
@@ -32,6 +33,14 @@ pub trait Actor: Send + 'static {
     /// equivalent: the default is the type path of the implementor.
     fn class_name(&self) -> &'static str {
         std::any::type_name::<Self>()
+    }
+    /// `RequiresMessageQueue[T]`: the semantics this actor needs of its message queue, which selects its mailbox when neither the props
+    /// nor a deployment name one (`Mailboxes.getRequiredType`). Declared on the type, so `Props` know it without making an instance.
+    fn required_message_queue() -> Option<MessageQueueSemantics>
+    where
+        Self: Sized,
+    {
+        None
     }
     /// Called before the first message and after the actor is created (`preStart`); on a restart `post_restart` calls it by default.
     fn pre_start(&mut self, _ctx: &mut ActorContext) {}
@@ -71,6 +80,8 @@ pub struct Props {
     mailbox: Option<Arc<dyn MailboxType>>,
     /// `Props.deploy.mailbox`: the id of the mailbox to resolve when the actor is created.
     mailbox_id: Option<String>,
+    /// `RequiresMessageQueue[T]` of the actor class.
+    required_queue: Option<MessageQueueSemantics>,
 }
 
 impl Props {
@@ -80,6 +91,7 @@ impl Props {
             factory: Arc::new(move || Box::new(f())),
             mailbox: None,
             mailbox_id: None,
+            required_queue: A::required_message_queue(),
         }
     }
 
@@ -115,14 +127,18 @@ impl Props {
         }
     }
 
-    /// `Mailboxes.getMailboxType`: the props whose mailbox is the type registered under the selected id, or under
-    /// `pekko.actor.default-mailbox` when no id was selected. Props that carry a mailbox type directly come back unchanged.
+    /// `Mailboxes.getMailboxType`: the props whose mailbox is the type registered under the selected id; else the one bound to the
+    /// queue semantics the actor requires; else the one registered under `pekko.actor.default-mailbox`. Props that carry a mailbox
+    /// type directly come back unchanged.
     pub(crate) fn resolve_mailbox(
         mut self,
         mailboxes: &Mailboxes,
     ) -> Result<Props, ConfigurationException> {
         if self.mailbox.is_none() {
-            self.mailbox = Some(mailboxes.lookup(self.mailbox_id())?);
+            self.mailbox = Some(match (&self.mailbox_id, self.required_queue) {
+                (None, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,
+                _ => mailboxes.lookup(self.mailbox_id())?,
+            });
         }
         Ok(self)
     }
