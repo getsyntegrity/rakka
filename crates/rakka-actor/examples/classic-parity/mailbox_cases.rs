@@ -1821,6 +1821,42 @@ fn a_type_that_promises_its_queue_is_checked_against_the_queue_it_creates() -> S
     finish_id_case(&env, system, line)
 }
 
+/// The oracle's `CountingDefaultType`: a default mailbox that counts its queues and promises an unbounded one.
+struct CountingDefaultMailbox(Arc<AtomicUsize>);
+impl MailboxType for CountingDefaultMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        Box::new(SemanticsQueue {
+            inner: UnboundedMailbox.create(),
+            has: &[MessageQueueSemantics::UNBOUNDED],
+            class: "pilot.MailboxOracle$LifoQueue",
+        })
+    }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "pilot.MailboxOracle$LifoQueue",
+            &[MessageQueueSemantics::UNBOUNDED],
+        )
+    }
+}
+
+/// `MBX-GRD-01`: the guardians take the registered default mailbox directly (`mailboxes.lookup(DefaultMailboxId)`): three queues of it exist
+/// before any actor is created.
+fn the_guardians_take_the_registered_default_mailbox() -> String {
+    let env = IdEnv::new();
+    let queues = Arc::new(AtomicUsize::new(0));
+    let mut settings = Settings::default();
+    settings.mailboxes.register(
+        Mailboxes::DEFAULT_MAILBOX_ID,
+        CountingDefaultMailbox(queues.clone()),
+    );
+    let system = env.system_with(settings);
+    // Pekko also makes `deadLetterListener` and `eventStreamUnsubscriber`, which Rakka does not have: only the guardians are counted
+    let line = format!("guardianQueues={}", queues.load(Ordering::SeqCst));
+    finish_id_case(&env, system, line)
+}
+
 /// `MBX-REQ-04`: the semantics the dispatcher requires (`default-dispatcher.mailbox-requirement`) selects the mailbox of the actors that
 /// require nothing and of those whose own requirement has no binding; the binding of the actor itself and a selected id come first.
 fn the_requirement_of_the_dispatcher_selects_the_mailbox_after_the_actor_and_the_id() -> String {
@@ -1948,6 +1984,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-CMP-03 a type that promises its queue is checked against the queue it creates when the actor is made: actorOf returns, the actor fails to initialise and stops, and its name is free",
             a_type_that_promises_its_queue_is_checked_against_the_queue_it_creates(),
+        ),
+        (
+            "MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created",
+            the_guardians_take_the_registered_default_mailbox(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",
