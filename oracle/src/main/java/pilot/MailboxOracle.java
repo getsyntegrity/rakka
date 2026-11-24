@@ -198,7 +198,7 @@ final class MailboxOracle {
   public interface Unmapped extends MessageQueue {}
 
   /** An unbounded FIFO queue that has the {@link AuditTrail} semantics. */
-  static final class AuditTrailQueue implements MessageQueue, AuditTrail {
+  static final class AuditTrailQueue implements MessageQueue, AuditTrail, UnboundedMessageQueueSemantics {
     final ConcurrentLinkedQueue<Envelope> q = new ConcurrentLinkedQueue<>();
     public void enqueue(ActorRef r, Envelope e) { q.add(e); }
     public Envelope dequeue() { return q.poll(); }
@@ -221,6 +221,9 @@ final class MailboxOracle {
   }
   public static final class AuditTrailWorker extends IdWorker implements RequiresMessageQueue<AuditTrail> {
     AuditTrailWorker(String label, IdEnv env) { super(label, env); }
+  }
+  public static final class AnyQueueWorker extends IdWorker implements RequiresMessageQueue<MessageQueue> {
+    AnyQueueWorker(String label, IdEnv env) { super(label, env); }
   }
   public static final class UnmappedWorker extends IdWorker implements RequiresMessageQueue<Unmapped> {
     UnmappedWorker(String label, IdEnv env) { super(label, env); }
@@ -1319,6 +1322,22 @@ final class MailboxOracle {
         e.release.countDown();
         awaitUntil(() -> e.log.size() == 4 * 7 + 3 + 5 && e.dead.size() == 4 + 2);
         return e.perActor("byProps", "byPropsBounded", "deployed", "emptyDeploy", "emptyProps", "required");
+      }
+    });
+    run("MBX-REQ-04 the queue semantics the dispatcher requires selects the mailbox of the actors that require nothing, and of those whose own requirement has no binding; the actor's own binding and a selected id come first", () -> {
+      try (IdEnv e = new IdEnv(4, "pekko.actor.default-dispatcher.mailbox-requirement = \"org.apache.pekko.dispatch.UnboundedMessageQueueSemantics\"\n"
+          + "lifo-mailbox.mailbox-type = \"pilot.MailboxOracle$LifoType\"\n audit-mailbox.mailbox-type = \"pilot.MailboxOracle$AuditTrailType\"\n"
+          + "pekko.actor.mailbox.requirements { \"org.apache.pekko.dispatch.UnboundedMessageQueueSemantics\" = lifo-mailbox\n"
+          + " \"pilot.MailboxOracle$AuditTrail\" = audit-mailbox }\n")) {
+        ActorRef plain = e.spawn("plain", null), anyQueue = e.spawnProps("anyQueue", e.requiring(AnyQueueWorker.class, "anyQueue")),
+            audit = e.spawnProps("audit", e.requiring(AuditTrailWorker.class, "audit")), selected = e.spawn("selected", "unbounded");
+        List<ActorRef> refs = List.of(plain, anyQueue, audit, selected);
+        for (ActorRef r : refs) r.tell("block", ActorRef.noSender());
+        e.entered.await();
+        for (ActorRef r : refs) for (int i = 1; i <= 6; i++) r.tell("m" + i, ActorRef.noSender());
+        e.release.countDown();
+        awaitUntil(() -> e.log.size() == 4 * 7);
+        return e.perActor("plain", "anyQueue", "audit", "selected");
       }
     });
   }

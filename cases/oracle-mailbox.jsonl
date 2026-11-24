@@ -24,3 +24,4 @@
 {"name": "mb-0024", "args": ["mailbox-case"], "stdin": "MBX-REQ-01 an actor that requires a queue semantics gets the mailbox bound to it, not the default, and the actors that do not require it keep the default"}
 {"name": "mb-0025", "args": ["mailbox-case"], "stdin": "MBX-REQ-02 an actor that requires a queue semantics with no mailbox bound to it fails actorOf at the call and its name is free again"}
 {"name": "mb-0026", "args": ["mailbox-case"], "stdin": "MBX-REQ-03 an id selected by the props or by a deployment decides the mailbox over the queue semantics the actor requires; an empty id leaves the requirement"}
+{"name": "mb-0027", "args": ["mailbox-case"], "stdin": "MBX-REQ-04 the queue semantics the dispatcher requires selects the mailbox of the actors that require nothing, and of those whose own requirement has no binding; the actor's own binding and a selected id come first"}
