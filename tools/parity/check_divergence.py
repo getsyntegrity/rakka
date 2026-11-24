@@ -941,6 +941,19 @@ MUTANTS = {
         "if true {",
         "a failed creation is retried before its children are gone, so the new instance finds their names still taken",
     ),
+    # --- mailbox of the deployment, looked up by path (killed by MBX-CFG-04) ---
+    "deployment-looked-up-by-the-path-of-the-parent": (
+        "src/actor/cell.rs",
+        "lookup_path(&path)",
+        "lookup_path(&self.path)",
+        "the deployment is looked up with the path of the parent instead of the path of the new actor (MBX-CFG-04)",
+    ),
+    "deployment-looked-up-by-the-name-only": (
+        "src/actor/cell.rs",
+        "lookup_path(&path)",
+        "lookup(std::iter::once(name.as_str()))",
+        "the deployment is looked up by the name of the child alone, so a deployment of a top-level actor with that name applies to a child (MBX-CFG-04)",
+    ),
     # --- mailbox of the deployment (killed by the unit test of Props::deployed_over, see UNIT_MUTANTS) ---
     "deployment-mailbox-ignored": (
         "src/actor/props.rs",

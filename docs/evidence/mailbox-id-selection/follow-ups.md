@@ -7,7 +7,7 @@ Q-MBX-12 está **aceptada como limitación temporal** (Owner, 2026-11-24). No es
 | # | Tarea | Depende de |
 |---|---|---|
 | 1 | ~~Aplicar el mailbox por defecto registrado (`pekko.actor.default-mailbox`) también a los actores sin selección explícita~~ **Resuelta** (Slice 2, `docs/evidence/mailbox-cfg-selection/README.md`, `MBX-CFG-02`) | — |
-| 2 | Resolver la precedencia por `Deploy.mailbox` y por configuración (`deployer.lookup` antes de `getMailboxType`) | Q-CFG |
+| 2 | ~~Resolver la precedencia por `Deploy.mailbox` y por configuración (`deployer.lookup` antes de `getMailboxType`)~~ **Resuelta** con paridad de oráculo (`MBX-CFG-04`, `docs/evidence/mailbox-cfg-selection/deploy-oracle.md`; PR2a #351 + PR2b) | — |
 | 3 | Soportar `bounded` y `bounded-capacity:N` | Q-MBX-1 |
 | 4 | Completar la identificación del dispatcher en el mensaje de error de `actorOf` (hoy fijo) | selección de dispatcher en `Props` |
 | 5 | Completar la representación de la causa del error (hoy texto; sin `source()`), con su clase real | — |

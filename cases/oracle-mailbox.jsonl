@@ -20,3 +20,4 @@
 {"name": "mb-0020", "args": ["mailbox-case"], "stdin": "MBX-ID-02 an unknown id fails actorOf at the call: no actor is made and the name is free again"}
 {"name": "mb-0021", "args": ["mailbox-case"], "stdin": "MBX-ID-03 no selection, the built-in ids and the empty id all give the unbounded FIFO queue"}
 {"name": "mb-0022", "args": ["mailbox-case"], "stdin": "MBX-CFG-02 a mailbox configured as the default serves the actors without a selection, not the ids that name another"}
+{"name": "mb-0023", "args": ["mailbox-case"], "stdin": "MBX-CFG-04 a deployment of the actor path decides the mailbox over the props, by the full path of a child too, and its unknown id fails actorOf"}
