@@ -1036,6 +1036,24 @@ MUTANTS = {
         "                (_, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
         "the precedence is inverted: the requirement of the actor decides the mailbox even when the props or the deployment selected one",
     ),
+    "mailbox-requirement-binding-ignored": (
+        "src/dispatch/mailboxes.rs",
+        "            Some(mailbox_id) => self.lookup(mailbox_id),",
+        "            Some(_) => self.lookup(Self::UNBOUNDED_QUEUE_BASED_ID),",
+        "every requirement resolves to the mailbox bound to the unbounded semantics, whatever the configuration binds (MBX-REQ-01)",
+    ),
+    "mailbox-requirement-applied-to-every-actor": (
+        "src/actor/props.rs",
+        "            required_queue: A::required_message_queue(),",
+        "            required_queue: Some(MessageQueueSemantics::UNBOUNDED),",
+        "every actor is treated as requiring the unbounded semantics, so one that requires nothing loses the default mailbox (MBX-REQ-01)",
+    ),
+    "mailbox-requirement-without-binding-uses-the-default": (
+        "src/dispatch/mailboxes.rs",
+        "            None => Err(ConfigurationException::new(format!(\n                \"Mailbox Mapping for [{semantics}] not configured\"\n            ))),",
+        "            None => self.lookup(Self::DEFAULT_MAILBOX_ID),",
+        "a requirement nobody bound is served by the default mailbox, so the missing configuration is never reported (MBX-REQ-02)",
+    ),
     "mailbox-requirement-error-names-the-class-without-its-kind": (
         "src/dispatch/queue_semantics.rs",
         "        write!(f, \"interface {}\", self.class_name)",

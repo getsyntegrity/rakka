@@ -1301,6 +1301,26 @@ final class MailboxOracle {
         return "actorOf: " + outcome + " | instancesStartedAfterRetryWithSameName=" + e.started.get();
       }
     });
+    run("MBX-REQ-03 an id selected by the props or by a deployment decides the mailbox over the queue semantics the actor requires; an empty id leaves the requirement", () -> {
+      try (IdEnv e = new IdEnv(6, "lifo-mailbox.mailbox-type = \"pilot.MailboxOracle$LifoType\"\n"
+          + "cap2-mailbox { mailbox-type = \"org.apache.pekko.dispatch.NonBlockingBoundedMailbox\"\n mailbox-capacity = 2 }\n"
+          + "pekko.actor.mailbox.requirements { \"org.apache.pekko.dispatch.BoundedMessageQueueSemantics\" = cap4-mailbox }\n"
+          + "pekko.actor.deployment { \"/deployed\" { mailbox = lifo-mailbox }\n \"/emptyDeploy\" { mailbox = \"\" } }\n")) {
+        ActorRef byProps = e.spawnProps("byProps", e.requiring(UnboundedWorker.class, "byProps").withMailbox("lifo-mailbox")),
+            byPropsBounded = e.spawnProps("byPropsBounded", e.requiring(BoundedWorker.class, "byPropsBounded").withMailbox("cap2-mailbox")),
+            deployed = e.spawnProps("deployed", e.requiring(UnboundedWorker.class, "deployed")),
+            emptyDeploy = e.spawnProps("emptyDeploy", e.requiring(UnboundedWorker.class, "emptyDeploy")),
+            emptyProps = e.spawnProps("emptyProps", e.requiring(UnboundedWorker.class, "emptyProps").withMailbox("")),
+            required = e.spawnProps("required", e.requiring(BoundedWorker.class, "required"));
+        List<ActorRef> refs = List.of(byProps, byPropsBounded, deployed, emptyDeploy, emptyProps, required);
+        for (ActorRef r : refs) r.tell("block", ActorRef.noSender());
+        e.entered.await();
+        for (ActorRef r : refs) for (int i = 1; i <= 6; i++) r.tell("m" + i, ActorRef.noSender());
+        e.release.countDown();
+        awaitUntil(() -> e.log.size() == 4 * 7 + 3 + 5 && e.dead.size() == 4 + 2);
+        return e.perActor("byProps", "byPropsBounded", "deployed", "emptyDeploy", "emptyProps", "required");
+      }
+    });
   }
 
   /** Not a golden case (its counts vary run to run): `n` actors, each hit by 4 producers (300 sends each) released together with
