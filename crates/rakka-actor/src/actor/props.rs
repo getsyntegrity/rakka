@@ -115,14 +115,14 @@ impl Props {
         }
     }
 
-    /// `Mailboxes.getMailboxType` for a selected id: the props whose mailbox is the type registered under it. Props without an id
-    /// selection come back unchanged.
+    /// `Mailboxes.getMailboxType`: the props whose mailbox is the type registered under the selected id, or under
+    /// `pekko.actor.default-mailbox` when no id was selected. Props that carry a mailbox type directly come back unchanged.
     pub(crate) fn resolve_mailbox(
         mut self,
         mailboxes: &Mailboxes,
     ) -> Result<Props, ConfigurationException> {
-        if let Some(id) = &self.mailbox_id {
-            self.mailbox = Some(mailboxes.lookup(id)?);
+        if self.mailbox.is_none() {
+            self.mailbox = Some(mailboxes.lookup(self.mailbox_id())?);
         }
         Ok(self)
     }

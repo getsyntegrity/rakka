@@ -14,7 +14,8 @@ use rakka_actor::actor::system::{ActorSystem, Settings};
 use rakka_actor::dispatch::Terminated;
 use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
-use rakka_actor::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
+use rakka_actor::dispatch::mailboxes::Mailboxes;
+use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, UnboundedMailbox};
 use rakka_actor::dispatch::system_queue::SystemQueue;
 use rakka_actor::event::{Channel, DeadLetter};
 
@@ -921,12 +922,19 @@ impl IdEnv {
                 NonBlockingBoundedMailbox::new(capacity).expect("capacity"),
             );
         }
+        self.system_with(settings)
+    }
+
+    fn system_with(self: &Arc<Self>, settings: Settings) -> ActorSystem {
         let system = ActorSystem::create_with_settings("mbx", settings).expect("system");
         let listener = system
-            .actor_of(Props::new({
-                let env = self.clone();
-                move || IdDeadListener(env.clone())
-            }))
+            .actor_of(
+                Props::new({
+                    let env = self.clone();
+                    move || IdDeadListener(env.clone())
+                })
+                .with_mailbox_id("unbounded"),
+            )
             .expect("listener");
         system
             .event_stream()
@@ -1074,6 +1082,81 @@ fn the_default_and_built_in_ids_are_unbounded_fifo() -> String {
     finish_id_case(&env, system, line)
 }
 
+/// The oracle's `LifoType`: hands out the newest envelope first and loses none.
+#[derive(Default)]
+struct LifoQueue(Mutex<Vec<Envelope>>);
+
+impl MessageQueue for LifoQueue {
+    fn enqueue(&self, _receiver: &ActorRef, envelope: Envelope) -> bool {
+        self.0.lock().unwrap().push(envelope);
+        true
+    }
+    fn dequeue(&self) -> Option<Envelope> {
+        self.0.lock().unwrap().pop()
+    }
+    fn number_of_messages(&self) -> usize {
+        self.0.lock().unwrap().len()
+    }
+    fn has_messages(&self) -> bool {
+        !self.0.lock().unwrap().is_empty()
+    }
+    fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
+        while let Some(envelope) = self.dequeue() {
+            dead_letters.enqueue(owner, envelope);
+        }
+    }
+}
+
+struct LifoMailbox;
+impl MailboxType for LifoMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        Box::<LifoQueue>::default()
+    }
+}
+
+/// `MBX-CFG-02`: a type registered as the default mailbox serves the actors without a selection (no id, the empty id and the
+/// default id); `unbounded` and another id keep their own queues.
+fn the_registered_default_serves_the_actors_without_a_selection() -> String {
+    let env = IdEnv::new();
+    let mut settings = Settings::default();
+    settings.mailboxes.register(
+        "cap4-mailbox",
+        NonBlockingBoundedMailbox::new(4).expect("capacity"),
+    );
+    settings
+        .mailboxes
+        .register(Mailboxes::DEFAULT_MAILBOX_ID, LifoMailbox);
+    let system = env.system_with(settings);
+    let ids = [
+        None,
+        Some(""),
+        Some("pekko.actor.default-mailbox"),
+        Some("unbounded"),
+        Some("cap4-mailbox"),
+    ];
+    let labels = ["w0", "w1", "w2", "w3", "w4"];
+    let actors: Vec<ActorRef> = labels
+        .iter()
+        .zip(ids)
+        .map(|(label, id)| env.spawn(&system, label, id))
+        .collect();
+    for actor in &actors {
+        actor.tell("block".to_owned(), None);
+    }
+    wait_until(|| env.entered.load(Ordering::SeqCst) == 5);
+    for actor in &actors {
+        for number in 1..=6 {
+            actor.tell(format!("m{number}"), None);
+        }
+    }
+    env.open_gate();
+    wait_until(|| {
+        env.log.lock().unwrap().len() == 3 * 7 + 7 + 5 && env.dead.lock().unwrap().len() == 2
+    });
+    let line = env.per_actor(&labels);
+    finish_id_case(&env, system, line)
+}
+
 pub fn rust_lines() -> Vec<(String, String)> {
     [
         ("MBX-ST-01 open to scheduled", open_to_scheduled()),
@@ -1126,6 +1209,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-ID-03 no selection, the built-in ids and the empty id all give the unbounded FIFO queue",
             the_default_and_built_in_ids_are_unbounded_fifo(),
+        ),
+        (
+            "MBX-CFG-02 a mailbox configured as the default serves the actors without a selection, not the ids that name another",
+            the_registered_default_serves_the_actors_without_a_selection(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

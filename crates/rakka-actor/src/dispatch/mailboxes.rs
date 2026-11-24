@@ -28,7 +28,8 @@ impl Mailboxes {
     }
 
     /// Makes `id` resolve to `mailbox_type`; returns the type it replaces. `unbounded` always resolves to `UnboundedMailbox`
-    /// (Pekko hardcodes it); the default id does until a type is registered under it, which then applies to explicit selection only.
+    /// (Pekko hardcodes it); the default id does until a type is registered under it, which then also serves every actor created
+    /// without a mailbox selection (`getMailboxType` ends in `lookup(DefaultMailboxId)`).
     pub fn register(
         &mut self,
         id: impl Into<String>,
@@ -180,5 +181,28 @@ mod tests {
             .deployed_over(Some(&deployment_with_mailbox("")));
         assert_eq!(empty.mailbox_id(), "props-mailbox");
         assert_eq!(selected.deployed_over(None).mailbox_id(), "props-mailbox");
+    }
+
+    #[test]
+    fn props_without_a_selection_resolve_to_the_type_registered_as_the_default() {
+        let mut mailboxes = Mailboxes::new();
+        mailboxes.register(Mailboxes::DEFAULT_MAILBOX_ID, bounded(3));
+        let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
+        let queue = Props::new(|| Idle)
+            .resolve_mailbox(&mailboxes)
+            .unwrap()
+            .new_message_queue(&dead_letters);
+        let accepted = (0..10)
+            .filter(|number| {
+                queue.enqueue(
+                    &dead_letters,
+                    Envelope {
+                        message: Arc::new(*number),
+                        sender: None,
+                    },
+                )
+            })
+            .count();
+        assert_eq!(accepted, 3);
     }
 }

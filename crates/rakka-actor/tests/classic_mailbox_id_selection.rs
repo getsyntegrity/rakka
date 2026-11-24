@@ -14,6 +14,7 @@ use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::system::Settings;
 use rakka_actor::actor::{ActorError, Deploy, ErrorClass, RouterConfig, Scope};
 use rakka_actor::config::Config;
+use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::UnboundedMailbox;
 
 /// Logs every string; `"first"` waits for the gate, `"fail"` throws (restart), `"spawn-with-unknown-mailbox"` tries to create a
@@ -293,6 +294,75 @@ fn a_child_created_from_an_actor_with_an_unknown_id_fails_in_the_parent_call() {
     assert_eq!(scenario.received()[1], "Configuration registered=false");
 }
 
+fn lifo_registered_as_the_default(lifo: &LifoMailbox) -> Settings {
+    let mut settings = Settings::default();
+    settings
+        .mailboxes
+        .register(Mailboxes::DEFAULT_MAILBOX_ID, lifo.clone());
+    settings
+}
+
+#[test]
+fn a_type_registered_as_the_default_applies_to_actors_without_a_selection() {
+    let lifo = LifoMailbox::default();
+    let no_selection = Scenario::new("mbxdef-none", lifo_registered_as_the_default(&lifo), |p| p);
+    let empty_id = Scenario::new(
+        "mbxdef-empty",
+        lifo_registered_as_the_default(&lifo),
+        |props| props.with_mailbox_id(""),
+    );
+    let default_id = Scenario::new(
+        "mbxdef-id",
+        lifo_registered_as_the_default(&lifo),
+        |props| props.with_mailbox_id(Mailboxes::DEFAULT_MAILBOX_ID),
+    );
+    for scenario in [&no_selection, &empty_id, &default_id] {
+        assert_eq!(scenario.order_of_three_queued_messages(), ["c", "b", "a"]);
+    }
+    assert_eq!(lifo.queues_created.load(Ordering::SeqCst), 3);
+}
+
+#[test]
+fn an_explicit_selection_is_not_replaced_by_the_registered_default() {
+    let lifo = LifoMailbox::default();
+    let by_unbounded_id = Scenario::new(
+        "mbxdef-unbounded",
+        lifo_registered_as_the_default(&lifo),
+        |props| props.with_mailbox_id(Mailboxes::UNBOUNDED_MAILBOX_ID),
+    );
+    let by_type = Scenario::new(
+        "mbxdef-type",
+        lifo_registered_as_the_default(&lifo),
+        |props| props.with_mailbox(UnboundedMailbox),
+    );
+    assert_eq!(
+        by_unbounded_id.order_of_three_queued_messages(),
+        ["a", "b", "c"]
+    );
+    assert_eq!(by_type.order_of_three_queued_messages(), ["a", "b", "c"]);
+    assert_eq!(lifo.queues_created.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_restart_keeps_the_queue_of_the_registered_default() {
+    let lifo = LifoMailbox::default();
+    let scenario = Scenario::new(
+        "mbxdef-restart",
+        lifo_registered_as_the_default(&lifo),
+        |p| p,
+    );
+    scenario.tell("fail");
+    wait_until("the failed instance to be replaced", || {
+        scenario.instances_created.load(Ordering::SeqCst) == 2
+    });
+    scenario.occupy_the_worker();
+    for text in ["a", "b", "c"] {
+        scenario.tell(text);
+    }
+    scenario.release_and_wait_for(5);
+    assert_eq!(scenario.received(), ["fail", "first", "c", "b", "a"]);
+    assert_eq!(lifo.queues_created.load(Ordering::SeqCst), 1);
+}
 fn deploying(path: &str, mailbox: &str, settings: Settings) -> Settings {
     let deploy = Deploy::new(
         path,
