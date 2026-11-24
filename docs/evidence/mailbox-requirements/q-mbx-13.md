@@ -4,7 +4,7 @@ No acepta Q-MBX-2 ni ninguna otra decisión; concreta sólo la parte de **selecc
 
 ## Problema
 
-Pekko deja que un actor declare qué cola necesita (`RequiresMessageQueue[T]`) y elige su mailbox con la tabla `pekko.actor.mailbox.requirements` (`Mailboxes.scala:157-204`). Rakka sólo seleccionaba por id. Sin esto, `Stash` (deque), los actores de `io` y cualquier actor con requisito reciben el mailbox por defecto.
+Pekko deja que un actor declare qué cola necesita (`RequiresMessageQueue[T]`) y elige su mailbox con la tabla `pekko.actor.mailbox.requirements` (`Mailboxes.scala:157-201`). Rakka sólo seleccionaba por id. Sin esto, `Stash` (deque), los actores de `io` y cualquier actor con requisito reciben el mailbox por defecto.
 
 ## Alternativas
 
@@ -18,7 +18,8 @@ Pekko deja que un actor declare qué cola necesita (`RequiresMessageQueue[T]`) y
 
 - `Actor::required_message_queue() -> Option<MessageQueueSemantics>`: función asociada al tipo (en Pekko el requisito es de la clase); `Props::new` la captura sin instanciar el actor.
 - `Mailboxes::bind_requirement(semantics, mailbox_id)` y `lookup_by_queue_type`: tabla programática (Q-MBX-12, sin HOCON) que parte de la fila unbounded de `reference.conf`.
-- Constantes `UNBOUNDED` y `BOUNDED`; `Mailboxes::UNBOUNDED_QUEUE_BASED_ID`.
+- Constantes `UNBOUNDED`, `BOUNDED` y `MESSAGE_QUEUE`; `Mailboxes::UNBOUNDED_QUEUE_BASED_ID`.
+- `Settings::mailbox_requirement: Option<MessageQueueSemantics>`: `pekko.actor.default-dispatcher.mailbox-requirement` (`None` = cadena vacía). Todos los actores corren en ese dispatcher hasta que `Props` pueda elegir otro.
 
 ## Justificación semántica
 
@@ -37,4 +38,4 @@ Un mailbox personalizado se registra con `Mailboxes::register` y se enlaza con `
 
 ## Consecuencias sobre la API pública
 
-Nuevos: `dispatch::queue_semantics::MessageQueueSemantics`, `Actor::required_message_queue` (método con valor por defecto: no rompe a los implementadores), `Mailboxes::{bind_requirement, lookup_by_queue_type, UNBOUNDED_QUEUE_BASED_ID}`. `Mailboxes` deja de derivar `Default` (lo implementa a mano, con la tabla inicial). Si el Owner prefiere (b), cambia `MessageQueueSemantics` y `Actor::required_message_queue`; la selección y los casos del oráculo no cambian.
+Nuevos: `Settings::mailbox_requirement` (campo público: quien construye `Settings` con un literal sin `..Default::default()` deja de compilar), `dispatch::queue_semantics::MessageQueueSemantics`, `Actor::required_message_queue` (método con valor por defecto: no rompe a los implementadores), `Mailboxes::{bind_requirement, lookup_by_queue_type, UNBOUNDED_QUEUE_BASED_ID}`. `Mailboxes` deja de derivar `Default` (lo implementa a mano, con la tabla inicial). Si el Owner prefiere (b), cambia `MessageQueueSemantics` y `Actor::required_message_queue`; la selección y los casos del oráculo no cambian.

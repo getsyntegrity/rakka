@@ -1303,6 +1303,7 @@ requiring_worker!(UnboundedWorker, MessageQueueSemantics::UNBOUNDED);
 requiring_worker!(BoundedWorker, MessageQueueSemantics::BOUNDED);
 requiring_worker!(AuditTrailWorker, AUDIT_TRAIL);
 requiring_worker!(UnmappedWorker, UNMAPPED);
+requiring_worker!(AnyQueueWorker, MessageQueueSemantics::MESSAGE_QUEUE);
 
 /// `MBX-REQ-01`: the actors that require a queue semantics get the mailbox bound to it (the table of `reference.conf` for the
 /// unbounded one, the bindings of the configuration for the others), not the registered default, which the actors that require nothing keep.
@@ -1432,6 +1433,45 @@ fn a_selected_id_decides_the_mailbox_over_the_requirement() -> String {
     finish_id_case(&env, system, line)
 }
 
+/// `MBX-REQ-04`: the semantics the dispatcher requires (`default-dispatcher.mailbox-requirement`) selects the mailbox of the actors that
+/// require nothing and of those whose own requirement has no binding; the binding of the actor itself and a selected id come first.
+fn the_requirement_of_the_dispatcher_selects_the_mailbox_after_the_actor_and_the_id() -> String {
+    let env = IdEnv::new();
+    let mut settings = Settings {
+        mailbox_requirement: Some(MessageQueueSemantics::UNBOUNDED),
+        ..Settings::default()
+    };
+    let mailboxes = &mut settings.mailboxes;
+    mailboxes.register("lifo-mailbox", LifoMailbox);
+    mailboxes.register("audit-mailbox", UnboundedMailbox);
+    mailboxes.bind_requirement(MessageQueueSemantics::UNBOUNDED, "lifo-mailbox");
+    mailboxes.bind_requirement(AUDIT_TRAIL, "audit-mailbox");
+    let system = env.system_with(settings);
+    let actors = [
+        env.spawn(&system, "plain", None),
+        env.spawn_props(
+            &system,
+            "anyQueue",
+            env.requiring("anyQueue", AnyQueueWorker),
+        ),
+        env.spawn_props(&system, "audit", env.requiring("audit", AuditTrailWorker)),
+        env.spawn(&system, "selected", Some("unbounded")),
+    ];
+    for actor in &actors {
+        actor.tell("block".to_owned(), None);
+    }
+    wait_until(|| env.entered.load(Ordering::SeqCst) == 4);
+    for actor in &actors {
+        for number in 1..=6 {
+            actor.tell(format!("m{number}"), None);
+        }
+    }
+    env.open_gate();
+    wait_until(|| env.log.lock().unwrap().len() == 4 * 7);
+    let line = env.per_actor(&["plain", "anyQueue", "audit", "selected"]);
+    finish_id_case(&env, system, line)
+}
+
 pub fn rust_lines() -> Vec<(String, String)> {
     [
         ("MBX-ST-01 open to scheduled", open_to_scheduled()),
@@ -1504,6 +1544,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-REQ-03 an id selected by the props or by a deployment decides the mailbox over the queue semantics the actor requires; an empty id leaves the requirement",
             a_selected_id_decides_the_mailbox_over_the_requirement(),
+        ),
+        (
+            "MBX-REQ-04 the queue semantics the dispatcher requires selects the mailbox of the actors that require nothing, and of those whose own requirement has no binding; the actor's own binding and a selected id come first",
+            the_requirement_of_the_dispatcher_selects_the_mailbox_after_the_actor_and_the_id(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

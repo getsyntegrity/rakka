@@ -1060,6 +1060,12 @@ MUTANTS = {
         "        write!(f, \"{}\", self.class_name)",
         "the error of an unbound requirement names the class without the `interface` the JVM prints (MBX-REQ-02)",
     ),
+    "mailbox-dispatcher-requirement-ignored": (
+        "src/actor/props.rs",
+        "                    (None, None, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
+        "                    (None, None, Some(_)) => mailboxes.lookup(self.mailbox_id())?,",
+        "the semantics the dispatcher requires is ignored: an actor that requires nothing gets the default mailbox (MBX-REQ-04)",
+    ),
     "mailbox-dispatcher-requirement-beats-the-actor": (
         "src/actor/props.rs",
         "                    (None, Some(semantics), _) => mailboxes\n                        .lookup_by_queue_type(semantics)\n                        .or_else(dispatcher_requirement_as_fallback)?,",
