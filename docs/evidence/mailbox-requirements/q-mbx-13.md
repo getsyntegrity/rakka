@@ -1,6 +1,6 @@
-# Q-MBX-13 para revisión del Owner (estado: `proposed`)
+# Q-MBX-13: decisión del Owner (estado: `accepted`, 2026-11-24)
 
-No acepta Q-MBX-2 ni ninguna otra decisión; concreta sólo la parte de **selección** de Q-MBX-2. Registro: `docs/decisions/register.tsv`.
+Aceptada con las limitaciones de este documento. No acepta Q-MBX-2 ni ninguna otra decisión; concreta sólo la parte de **selección** de Q-MBX-2. Registro: `docs/decisions/register.tsv`.
 
 ## Problema
 
@@ -39,3 +39,11 @@ Un mailbox personalizado se registra con `Mailboxes::register` y se enlaza con `
 ## Consecuencias sobre la API pública
 
 Nuevos: `Settings::mailbox_requirement` (campo público: quien construye `Settings` con un literal sin `..Default::default()` deja de compilar), `dispatch::queue_semantics::MessageQueueSemantics`, `Actor::required_message_queue` (método con valor por defecto: no rompe a los implementadores), `Mailboxes::{bind_requirement, lookup_by_queue_type, UNBOUNDED_QUEUE_BASED_ID}`. `Mailboxes` deja de derivar `Default` (lo implementa a mano, con la tabla inicial). Si el Owner prefiere (b), cambia `MessageQueueSemantics` y `Actor::required_message_queue`; la selección y los casos del oráculo no cambian.
+
+## Convenciones y riesgos que acompañan a la decisión
+
+- **Nombres cualificados.** Un requisito personalizado se nombra con la ruta cualificada de su marcador, `crate.modulo.Marcador` (por ejemplo `miapp.audit.AuditTrailSemantics`), igual que Pekko usa el nombre completo de la clase. No se usan nombres sueltos como `Audit`.
+- **Colisiones entre crates.** La identidad es el texto: dos crates que declaren el mismo nombre comparten requisito y binding sin aviso. La convención de nombres cualificados lo evita en la práctica; no hay detección en ejecución. La alternativa por `TypeId` (b) lo resolvería a costa del registro dinámico de tipos.
+- **Compatibilidad de código fuente de `Settings`.** El campo público `mailbox_requirement` hace que un literal `Settings { .. }` sin `..Default::default()` deje de compilar. Es un cambio de código fuente, no de comportamiento; las construcciones con `Settings::default()` o `..Settings::default()` no se afectan. Cuenta para `cargo semver-checks` desde el primer release.
+- **Selección y verificación separadas.** Este slice elige el mailbox; no comprueba que la cola producida cumpla el requisito (`ProducesMessageQueue`, `verifyRequirements`, `ActorInitializationException` tras crear la cola). Un binding incompatible se acepta aquí y Pekko lo rechaza: Slice 4. No se declara paridad de compatibilidad.
+- **HOCON y tabla pendientes.** Las claves `pekko.actor.mailbox.requirements` y `pekko.actor.default-dispatcher.mailbox-requirement` se ignoran; sólo rigen `Mailboxes::bind_requirement` y `Settings::mailbox_requirement`. De la tabla por defecto sólo se enlaza `UnboundedMessageQueueSemantics`; las demás filas esperan sus mailboxes (Q-MBX-1 y relacionadas).
