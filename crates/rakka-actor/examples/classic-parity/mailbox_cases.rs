@@ -1368,6 +1368,70 @@ fn an_actor_requiring_an_unbound_queue_fails_actor_of_and_frees_the_name() -> St
     finish_id_case(&env, system, line)
 }
 
+/// `MBX-REQ-03`: an id selected by the props or by a deployment decides the mailbox over the semantics the actor requires; an empty
+/// id (`NoMailboxGiven`) in the props or in the deployment leaves the requirement.
+fn a_selected_id_decides_the_mailbox_over_the_requirement() -> String {
+    let env = IdEnv::new();
+    let application = r#"pekko.actor.deployment {
+        "/deployed" { mailbox = lifo-mailbox }
+        "/emptyDeploy" { mailbox = "" } }"#;
+    let config = Config::parse_string(application)
+        .and_then(|parsed| parsed.with_fallback(&Config::default_reference()).resolve())
+        .expect("configuration");
+    let mut settings = Settings::from_config(
+        &rakka_actor::config::Settings::new("mbx", config).expect("settings"),
+    )
+    .expect("deployments");
+    let mailboxes = &mut settings.mailboxes;
+    mailboxes.register("lifo-mailbox", LifoMailbox);
+    for (id, capacity) in [("cap2-mailbox", 2), ("cap4-mailbox", 4)] {
+        mailboxes.register(
+            id,
+            NonBlockingBoundedMailbox::new(capacity).expect("capacity"),
+        );
+    }
+    mailboxes.bind_requirement(MessageQueueSemantics::BOUNDED, "cap4-mailbox");
+    let system = env.system_with(settings);
+    let unbounded = |label| env.requiring(label, UnboundedWorker);
+    let bounded = |label| env.requiring(label, BoundedWorker);
+    let labels = [
+        "byProps",
+        "byPropsBounded",
+        "deployed",
+        "emptyDeploy",
+        "emptyProps",
+        "required",
+    ];
+    let props = [
+        unbounded("byProps").with_mailbox_id("lifo-mailbox"),
+        bounded("byPropsBounded").with_mailbox_id("cap2-mailbox"),
+        unbounded("deployed"),
+        unbounded("emptyDeploy"),
+        unbounded("emptyProps").with_mailbox_id(""),
+        bounded("required"),
+    ];
+    let actors: Vec<ActorRef> = labels
+        .iter()
+        .zip(props)
+        .map(|(label, props)| env.spawn_props(&system, label, props))
+        .collect();
+    for actor in &actors {
+        actor.tell("block".to_owned(), None);
+    }
+    wait_until(|| env.entered.load(Ordering::SeqCst) == 6);
+    for actor in &actors {
+        for number in 1..=6 {
+            actor.tell(format!("m{number}"), None);
+        }
+    }
+    env.open_gate();
+    wait_until(|| {
+        env.log.lock().unwrap().len() == 4 * 7 + 3 + 5 && env.dead.lock().unwrap().len() == 4 + 2
+    });
+    let line = env.per_actor(&labels);
+    finish_id_case(&env, system, line)
+}
+
 pub fn rust_lines() -> Vec<(String, String)> {
     [
         ("MBX-ST-01 open to scheduled", open_to_scheduled()),
@@ -1436,6 +1500,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-REQ-02 an actor that requires a queue semantics with no mailbox bound to it fails actorOf at the call and its name is free again",
             an_actor_requiring_an_unbound_queue_fails_actor_of_and_frees_the_name(),
+        ),
+        (
+            "MBX-REQ-03 an id selected by the props or by a deployment decides the mailbox over the queue semantics the actor requires; an empty id leaves the requirement",
+            a_selected_id_decides_the_mailbox_over_the_requirement(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",
