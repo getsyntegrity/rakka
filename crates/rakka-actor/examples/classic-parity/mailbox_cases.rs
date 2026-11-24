@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::system::{ActorSystem, Settings};
+use rakka_actor::config::Config;
 use rakka_actor::dispatch::Terminated;
 use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
@@ -898,13 +899,32 @@ struct IdEnv {
     dead: Mutex<Vec<String>>,
     started: AtomicUsize,
     entered: AtomicUsize,
+    kid: Mutex<Option<ActorRef>>,
     gate_open: Mutex<bool>,
     gate_changed: std::sync::Condvar,
+}
+
+/// Creates the child `kid` (props with the capacity-4 id) when told `spawn`.
+struct IdParent(Arc<IdEnv>);
+impl Actor for IdParent {
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if msg
+            .downcast_ref::<String>()
+            .is_some_and(|text| text == "spawn")
+        {
+            let kid = ctx
+                .actor_of_named(self.0.props("kid", Some("cap4-mailbox")), "kid")
+                .expect("kid");
+            *self.0.kid.lock().unwrap() = Some(kid);
+        }
+        true
+    }
 }
 
 impl IdEnv {
     fn new() -> Arc<IdEnv> {
         Arc::new(IdEnv {
+            kid: Mutex::new(None),
             log: Mutex::default(),
             dead: Mutex::default(),
             started: AtomicUsize::new(0),
@@ -1157,6 +1177,83 @@ fn the_registered_default_serves_the_actors_without_a_selection() -> String {
     finish_id_case(&env, system, line)
 }
 
+/// `MBX-CFG-04`: the deployment of the actor path (read from `pekko.actor.deployment`) decides the mailbox over the props, by the
+/// full path of a child too; the id it names must exist, and a failed `actorOf` leaves the name free.
+fn a_deployment_of_the_path_decides_the_mailbox_over_the_props() -> String {
+    let env = IdEnv::new();
+    let application = r#"pekko.actor.deployment {
+        "/d-lifo" { mailbox = lifo-mailbox }
+        "/d-lifo-b" { mailbox = lifo-mailbox }
+        "/d-empty" { mailbox = "" }
+        "/d-bad" { mailbox = typo }
+        "/kid" { mailbox = typo }
+        "/d-parent/kid" { mailbox = lifo-mailbox } }"#;
+    let config = Config::parse_string(application)
+        .and_then(|parsed| parsed.with_fallback(&Config::default_reference()).resolve())
+        .expect("configuration");
+    let mut settings = Settings::from_config(
+        &rakka_actor::config::Settings::new("mbx", config).expect("settings"),
+    )
+    .expect("deployments");
+    settings.mailboxes.register("lifo-mailbox", LifoMailbox);
+    settings.mailboxes.register(
+        "cap4-mailbox",
+        NonBlockingBoundedMailbox::new(4).expect("capacity"),
+    );
+    let system = env.system_with(settings);
+    let spawned = [
+        env.spawn(&system, "d-lifo", Some("cap4-mailbox")),
+        env.spawn(&system, "d-lifo-b", Some("never-registered")),
+        env.spawn(&system, "d-empty", Some("cap4-mailbox")),
+        env.spawn(&system, "other", Some("cap4-mailbox")),
+    ];
+    let parent = system
+        .actor_of_named(
+            Props::new({
+                let env = env.clone();
+                move || IdParent(env.clone())
+            }),
+            "d-parent",
+        )
+        .expect("parent");
+    parent.tell("spawn".to_owned(), None);
+    wait_until(|| env.started.load(Ordering::SeqCst) == 5 && env.kid.lock().unwrap().is_some());
+    let mut bad = String::new();
+    for _ in 0..2 {
+        bad.push_str(
+            &match system.actor_of_named(env.props("d-bad", Some("cap4-mailbox")), "d-bad") {
+                Ok(_) => " | created".to_owned(),
+                Err(error) => format!(
+                    " | {}: {} cause {}",
+                    error.class().java_name(),
+                    error.message(),
+                    error.cause().unwrap_or("none")
+                ),
+            },
+        );
+    }
+    let kid = env.kid.lock().unwrap().clone().expect("kid");
+    let actors: Vec<ActorRef> = spawned.into_iter().chain([kid]).collect();
+    for actor in &actors {
+        actor.tell("block".to_owned(), None);
+    }
+    wait_until(|| env.entered.load(Ordering::SeqCst) == 5);
+    for actor in &actors {
+        for number in 1..=6 {
+            actor.tell(format!("m{number}"), None);
+        }
+    }
+    env.open_gate();
+    wait_until(|| {
+        env.log.lock().unwrap().len() == 3 * 7 + 2 * 5 && env.dead.lock().unwrap().len() == 4
+    });
+    let line = format!(
+        "{}{bad}",
+        env.per_actor(&["d-lifo", "d-lifo-b", "d-empty", "other", "kid"])
+    );
+    finish_id_case(&env, system, line)
+}
+
 pub fn rust_lines() -> Vec<(String, String)> {
     [
         ("MBX-ST-01 open to scheduled", open_to_scheduled()),
@@ -1213,6 +1310,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-CFG-02 a mailbox configured as the default serves the actors without a selection, not the ids that name another",
             the_registered_default_serves_the_actors_without_a_selection(),
+        ),
+        (
+            "MBX-CFG-04 a deployment of the actor path decides the mailbox over the props, by the full path of a child too, and its unknown id fails actorOf",
+            a_deployment_of_the_path_decides_the_mailbox_over_the_props(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

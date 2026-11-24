@@ -453,6 +453,21 @@ fn a_deployment_read_from_the_configuration_selects_the_mailbox() {
 }
 
 #[test]
+fn an_invalid_deployment_in_the_configuration_makes_the_runtime_settings_fail() {
+    let config = Config::parse_string(r#"pekko.actor.deployment { "/a//b" {} }"#)
+        .unwrap()
+        .with_fallback(&Config::default_reference())
+        .resolve()
+        .unwrap();
+    let error = Settings::from_config(&rakka_actor::config::Settings::new("bad", config).unwrap())
+        .expect_err("an empty element in a deployment path is rejected");
+    assert_eq!(
+        error.to_string(),
+        "org.apache.pekko.actor.InvalidActorNameException: Actor name in deployment [/a//b] must not be empty"
+    );
+}
+
+#[test]
 fn the_deployment_decides_which_id_must_exist_and_names_it_in_the_error() {
     let lifo = LifoMailbox::default();
     let created = Arc::new(AtomicUsize::new(0));

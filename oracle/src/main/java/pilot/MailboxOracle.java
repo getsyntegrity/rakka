@@ -193,6 +193,14 @@ final class MailboxOracle {
     }
   }
 
+  /** Creates the child {@code kid} (props with the capacity-4 id) when told {@code spawn}. */
+  public static final class IdParent extends AbstractActor {
+    final IdEnv env; IdParent(IdEnv env) { this.env = env; }
+    @Override public Receive createReceive() {
+      return receiveBuilder().matchEquals("spawn", s -> env.kid.set(getContext().actorOf(env.props("kid", "cap4-mailbox"), "kid"))).build();
+    }
+  }
+
   public static final class IdDeadListener extends AbstractActor {
     final IdEnv env; IdDeadListener(IdEnv env) { this.env = env; }
     @Override public Receive createReceive() {
@@ -205,6 +213,7 @@ final class MailboxOracle {
     final ConcurrentLinkedQueue<String> log = new ConcurrentLinkedQueue<>(), dead = new ConcurrentLinkedQueue<>();
     final CountDownLatch entered, release = new CountDownLatch(1);
     final AtomicInteger started = new AtomicInteger();
+    final AtomicReference<ActorRef> kid = new AtomicReference<>();
     final ActorSystem sys;
     IdEnv(int blockedWorkers) {
       entered = new CountDownLatch(blockedWorkers);
@@ -1206,6 +1215,29 @@ final class MailboxOracle {
         e.release.countDown();
         awaitUntil(() -> e.log.size() == 3 * 7 + 7 + 5 && e.dead.size() == 2);
         return e.perActor("w0", "w1", "w2", "w3", "w4");
+      }
+    });
+    run("MBX-CFG-04 a deployment of the actor path decides the mailbox over the props, by the full path of a child too, and its unknown id fails actorOf", () -> {
+      try (IdEnv e = new IdEnv(5, "lifo-mailbox.mailbox-type = \"pilot.MailboxOracle$LifoType\"\n"
+          + "pekko.actor.deployment { \"/d-lifo\" { mailbox = lifo-mailbox }\n \"/d-lifo-b\" { mailbox = lifo-mailbox }\n \"/d-empty\" { mailbox = \"\" }\n"
+          + " \"/d-bad\" { mailbox = typo }\n \"/kid\" { mailbox = typo }\n \"/d-parent/kid\" { mailbox = lifo-mailbox } }\n")) {
+        ActorRef lifo = e.spawn("d-lifo", "cap4-mailbox"), lifoB = e.spawn("d-lifo-b", "never-registered"), empty = e.spawn("d-empty", "cap4-mailbox"),
+            other = e.spawn("other", "cap4-mailbox");
+        ActorRef parent = e.sys.actorOf(Props.create(IdParent.class, e), "d-parent");
+        parent.tell("spawn", ActorRef.noSender());
+        awaitUntil(() -> e.started.get() == 5 && e.kid.get() != null);
+        String bad = "";
+        for (int attempt = 0; attempt < 2; attempt++) {
+          try { e.sys.actorOf(e.props("d-bad", "cap4-mailbox"), "d-bad"); bad += " | created"; }
+          catch (Throwable t) { bad += " | " + t.getClass().getName() + ": " + t.getMessage() + " cause " + t.getCause(); }
+        }
+        List<ActorRef> refs = new ArrayList<>(List.of(lifo, lifoB, empty, other, e.kid.get()));
+        for (ActorRef r : refs) r.tell("block", ActorRef.noSender());
+        e.entered.await();
+        for (ActorRef r : refs) for (int i = 1; i <= 6; i++) r.tell("m" + i, ActorRef.noSender());
+        e.release.countDown();
+        awaitUntil(() -> e.log.size() == 3 * 7 + 2 * 5 && e.dead.size() == 4);
+        return e.perActor("d-lifo", "d-lifo-b", "d-empty", "other", "kid") + bad;
       }
     });
   }
