@@ -1,11 +1,13 @@
 //! Helpers shared by the `classic_*` integration tests (each test binary uses a subset).
 
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::system::{ActorSystem, Settings};
+use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
 
 const WAIT_LIMIT: Duration = Duration::from_secs(10);
 
@@ -65,5 +67,67 @@ impl Drop for RunningSystem {
         if !std::thread::panicking() {
             terminated.expect("system terminated");
         }
+    }
+}
+
+/// A queue that delivers the newest envelope first.
+#[derive(Default)]
+pub struct LifoQueue(Mutex<Vec<Envelope>>);
+
+impl MessageQueue for LifoQueue {
+    fn enqueue(&self, _receiver: &ActorRef, envelope: Envelope) -> bool {
+        self.0.lock().unwrap().push(envelope);
+        true
+    }
+    fn dequeue(&self) -> Option<Envelope> {
+        self.0.lock().unwrap().pop()
+    }
+    fn number_of_messages(&self) -> usize {
+        self.0.lock().unwrap().len()
+    }
+    fn has_messages(&self) -> bool {
+        !self.0.lock().unwrap().is_empty()
+    }
+    fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
+        while let Some(envelope) = self.dequeue() {
+            dead_letters.enqueue(owner, envelope);
+        }
+    }
+}
+
+/// `MailboxType` of `LifoQueue`; counts the queues it creates.
+#[derive(Clone, Default)]
+pub struct LifoMailbox {
+    pub queues_created: Arc<AtomicUsize>,
+}
+
+impl MailboxType for LifoMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        self.queues_created.fetch_add(1, Ordering::SeqCst);
+        Box::<LifoQueue>::default()
+    }
+}
+
+#[derive(Default)]
+pub struct Gate {
+    released: Mutex<bool>,
+    changed: Condvar,
+    entered: Mutex<bool>,
+}
+
+impl Gate {
+    pub fn hold_until_released(&self) {
+        *self.entered.lock().unwrap() = true;
+        let mut released = self.released.lock().unwrap();
+        while !*released {
+            released = self.changed.wait(released).unwrap();
+        }
+    }
+    pub fn release(&self) {
+        *self.released.lock().unwrap() = true;
+        self.changed.notify_all();
+    }
+    pub fn entered(&self) -> bool {
+        *self.entered.lock().unwrap()
     }
 }
