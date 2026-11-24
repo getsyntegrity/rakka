@@ -9,6 +9,7 @@ pub(crate) mod mailbox_close;
 pub mod mailbox_status;
 pub mod mailboxes;
 pub mod message_queue;
+pub mod queue_semantics;
 pub(crate) mod sysmsg;
 pub mod system_queue;
 #[cfg(test)]

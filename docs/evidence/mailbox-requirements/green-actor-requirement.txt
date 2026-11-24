@@ -1,0 +1,19 @@
+$ cargo test -p rakka-actor --lib dispatch::   # same tests as red-actor-requirement.txt, with resolve_mailbox and the built-in id implemented
+test dispatch::mailboxes::tests::a_binding_to_an_unregistered_mailbox_fails_like_any_unknown_id ... ok
+test dispatch::mailboxes::tests::a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not ... ok
+test dispatch::mailboxes::tests::a_registered_id_resolves_to_its_type_and_each_id_to_its_own ... ok
+test dispatch::mailboxes::tests::a_requirement_without_a_binding_is_a_configuration_exception_naming_the_semantics ... ok
+test dispatch::mailboxes::tests::a_selected_id_decides_the_mailbox_over_the_requirement ... ok
+test dispatch::mailboxes::tests::an_actor_requiring_a_queue_gets_the_mailbox_bound_to_it_and_not_the_registered_default ... ok
+test dispatch::mailboxes::tests::an_application_defined_semantics_resolves_through_its_own_binding ... ok
+test dispatch::mailboxes::tests::an_unregistered_id_is_a_configuration_exception_naming_the_id ... ok
+test dispatch::mailboxes::tests::debug_lists_the_registered_ids ... ok
+test dispatch::mailboxes::tests::props_without_a_selection_resolve_to_the_type_registered_as_the_default ... ok
+test dispatch::mailboxes::tests::props_resolve_their_id_to_its_type_and_leave_other_props_alone ... ok
+test dispatch::mailboxes::tests::registering_an_id_again_replaces_its_type_and_returns_the_old_one ... ok
+test dispatch::mailboxes::tests::rebinding_a_requirement_changes_the_mailbox_of_the_actors_that_require_it_and_of_no_others ... ok
+test dispatch::mailboxes::tests::the_unbounded_queue_based_id_is_the_unbounded_mailbox_until_a_type_is_registered_under_it ... ok
+test dispatch::mailboxes::tests::the_built_in_ids_are_unbounded_and_only_the_default_id_can_be_overridden ... ok
+test dispatch::queue_semantics::tests::a_semantics_is_identified_by_its_class_name_alone ... ok
+test dispatch::queue_semantics::tests::it_prints_as_the_jvm_prints_the_class_of_a_marker_trait ... ok
+test result: ok. 104 passed; 0 failed; 0 ignored; 0 measured; 502 filtered out; finished in 0.51s

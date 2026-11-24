@@ -7,11 +7,13 @@ use std::sync::Arc;
 
 use crate::ConfigurationException;
 use crate::dispatch::message_queue::{MailboxType, UnboundedMailbox};
+use crate::dispatch::queue_semantics::MessageQueueSemantics;
 
 /// The mailbox ids an actor system can resolve (`Mailboxes.lookup`).
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Mailboxes {
     registered: BTreeMap<String, Arc<dyn MailboxType>>,
+    requirements: BTreeMap<MessageQueueSemantics, String>,
 }
 
 impl Mailboxes {
@@ -20,6 +22,9 @@ impl Mailboxes {
 
     /// `Mailboxes.lookup` resolves this id without configuration (`lookupConfigurator`, `"unbounded"`).
     pub const UNBOUNDED_MAILBOX_ID: &'static str = "unbounded";
+
+    /// `pekko.actor.mailbox.unbounded-queue-based`: the mailbox that `reference.conf` binds to `UnboundedMessageQueueSemantics`.
+    pub const UNBOUNDED_QUEUE_BASED_ID: &'static str = "pekko.actor.mailbox.unbounded-queue-based";
 
     /// The ids every system knows: [`UNBOUNDED_MAILBOX_ID`](Self::UNBOUNDED_MAILBOX_ID) and
     /// [`DEFAULT_MAILBOX_ID`](Self::DEFAULT_MAILBOX_ID), both the unbounded FIFO mailbox.
@@ -38,16 +43,49 @@ impl Mailboxes {
         self.registered.insert(id.into(), Arc::new(mailbox_type))
     }
 
+    /// `pekko.actor.mailbox.requirements`: the mailbox id that serves the actors requiring `semantics`; returns the id it replaces.
+    pub fn bind_requirement(
+        &mut self,
+        semantics: MessageQueueSemantics,
+        mailbox_id: impl Into<String>,
+    ) -> Option<String> {
+        self.requirements.insert(semantics, mailbox_id.into())
+    }
+
+    /// `Mailboxes.lookupByQueueType`: the mailbox type bound to `semantics`.
+    pub fn lookup_by_queue_type(
+        &self,
+        semantics: MessageQueueSemantics,
+    ) -> Result<Arc<dyn MailboxType>, ConfigurationException> {
+        match self.requirements.get(&semantics) {
+            Some(mailbox_id) => self.lookup(mailbox_id),
+            None => Err(ConfigurationException::new(format!(
+                "Mailbox Mapping for [{semantics}] not configured"
+            ))),
+        }
+    }
+
     /// `Mailboxes.lookup(id)`.
     pub fn lookup(&self, id: &str) -> Result<Arc<dyn MailboxType>, ConfigurationException> {
-        if id == Self::UNBOUNDED_MAILBOX_ID
-            || (id == Self::DEFAULT_MAILBOX_ID && !self.registered.contains_key(id))
-        {
+        let overridable = id == Self::DEFAULT_MAILBOX_ID || id == Self::UNBOUNDED_QUEUE_BASED_ID;
+        if id == Self::UNBOUNDED_MAILBOX_ID || (overridable && !self.registered.contains_key(id)) {
             return Ok(Arc::new(UnboundedMailbox));
         }
         self.registered.get(id).cloned().ok_or_else(|| {
             ConfigurationException::new(format!("Mailbox Type [{id}] not configured"))
         })
+    }
+}
+
+impl Default for Mailboxes {
+    fn default() -> Mailboxes {
+        Mailboxes {
+            registered: BTreeMap::new(),
+            requirements: BTreeMap::from([(
+                MessageQueueSemantics::UNBOUNDED,
+                Self::UNBOUNDED_QUEUE_BASED_ID.to_owned(),
+            )]),
+        }
     }
 }
 
@@ -64,6 +102,7 @@ mod tests {
     use crate::actor::props::{Actor, Props};
     use crate::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
     use crate::dispatch::message_queue::Envelope;
+    use crate::dispatch::queue_semantics::MessageQueueSemantics;
     use crate::dispatch::test_support::recorder;
 
     fn bounded(capacity: i32) -> NonBlockingBoundedMailbox {
@@ -156,6 +195,124 @@ mod tests {
         assert!(queue.enqueue(&dead_letters, envelope()));
         assert!(!queue.enqueue(&dead_letters, envelope()));
         assert!(Props::new(|| Idle).resolve_mailbox(&mailboxes).is_ok());
+    }
+
+    struct RequiresUnbounded;
+    impl Actor for RequiresUnbounded {
+        fn required_message_queue() -> Option<MessageQueueSemantics> {
+            Some(MessageQueueSemantics::UNBOUNDED)
+        }
+    }
+
+    const AUDIT_TRAIL: MessageQueueSemantics =
+        MessageQueueSemantics::new("app.AuditTrailSemantics");
+
+    struct RequiresAuditTrail;
+    impl Actor for RequiresAuditTrail {
+        fn required_message_queue() -> Option<MessageQueueSemantics> {
+            Some(AUDIT_TRAIL)
+        }
+    }
+
+    fn capacity_after_resolving(
+        props: Props,
+        mailboxes: &Mailboxes,
+    ) -> Result<usize, ConfigurationException> {
+        let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
+        let resolved = props.resolve_mailbox(mailboxes)?;
+        let queue = resolved.new_message_queue(&dead_letters);
+        Ok((0..100)
+            .take_while(|number| {
+                queue.enqueue(
+                    &dead_letters,
+                    Envelope {
+                        message: Arc::new(*number),
+                        sender: None,
+                    },
+                )
+            })
+            .count())
+    }
+
+    #[test]
+    fn an_actor_requiring_a_queue_gets_the_mailbox_bound_to_it_and_not_the_registered_default() {
+        let mut mailboxes = Mailboxes::new();
+        mailboxes.register(Mailboxes::DEFAULT_MAILBOX_ID, bounded(3));
+        assert_eq!(
+            capacity_after_resolving(Props::new(|| RequiresUnbounded), &mailboxes).unwrap(),
+            100
+        );
+        assert_eq!(
+            capacity_after_resolving(Props::new(|| Idle), &mailboxes).unwrap(),
+            3
+        );
+    }
+
+    #[test]
+    fn rebinding_a_requirement_changes_the_mailbox_of_the_actors_that_require_it_and_of_no_others()
+    {
+        let mut mailboxes = Mailboxes::new();
+        mailboxes.register("two", bounded(2));
+        let replaced = mailboxes.bind_requirement(MessageQueueSemantics::UNBOUNDED, "two");
+        assert_eq!(
+            replaced.as_deref(),
+            Some(Mailboxes::UNBOUNDED_QUEUE_BASED_ID)
+        );
+        assert_eq!(
+            capacity_after_resolving(Props::new(|| RequiresUnbounded), &mailboxes).unwrap(),
+            2
+        );
+        assert_eq!(
+            capacity_after_resolving(Props::new(|| Idle), &mailboxes).unwrap(),
+            100
+        );
+    }
+
+    #[test]
+    fn an_application_defined_semantics_resolves_through_its_own_binding() {
+        let mut mailboxes = Mailboxes::new();
+        mailboxes.register("two", bounded(2));
+        assert!(mailboxes.bind_requirement(AUDIT_TRAIL, "two").is_none());
+        assert_eq!(
+            capacity_after_resolving(Props::new(|| RequiresAuditTrail), &mailboxes).unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn a_requirement_without_a_binding_is_a_configuration_exception_naming_the_semantics() {
+        let error = capacity_after_resolving(Props::new(|| RequiresAuditTrail), &Mailboxes::new())
+            .unwrap_err();
+        assert_eq!(
+            error.message(),
+            "Mailbox Mapping for [interface app.AuditTrailSemantics] not configured"
+        );
+    }
+
+    #[test]
+    fn a_binding_to_an_unregistered_mailbox_fails_like_any_unknown_id() {
+        let mut mailboxes = Mailboxes::new();
+        mailboxes.bind_requirement(AUDIT_TRAIL, "missing");
+        let error =
+            capacity_after_resolving(Props::new(|| RequiresAuditTrail), &mailboxes).unwrap_err();
+        assert_eq!(error.message(), "Mailbox Type [missing] not configured");
+    }
+
+    #[test]
+    fn a_selected_id_decides_the_mailbox_over_the_requirement() {
+        let mut mailboxes = Mailboxes::new();
+        mailboxes.register("three", bounded(3));
+        let selected = Props::new(|| RequiresAuditTrail).with_mailbox_id("three");
+        assert_eq!(capacity_after_resolving(selected, &mailboxes).unwrap(), 3);
+    }
+
+    #[test]
+    fn the_unbounded_queue_based_id_is_the_unbounded_mailbox_until_a_type_is_registered_under_it() {
+        let mut mailboxes = Mailboxes::new();
+        let id = Mailboxes::UNBOUNDED_QUEUE_BASED_ID;
+        assert_eq!(capacity_of(&*mailboxes.lookup(id).unwrap()), 100);
+        mailboxes.register(id, bounded(5));
+        assert_eq!(capacity_of(&*mailboxes.lookup(id).unwrap()), 5);
     }
 
     fn deployment_with_mailbox(mailbox: &str) -> crate::actor::Deploy {
