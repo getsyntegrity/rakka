@@ -1,0 +1,1 @@
+MBX-ID-01 two ids select their own queue and two actors with the same id keep separate queues -> a received=[block, m1, m2] deadLettered=[m3, m4, m5, m6]; b received=[block, m1, m2, m3, m4] deadLettered=[m5, m6]; c received=[block, m1, m2] deadLettered=[m3, m4, m5, m6];
