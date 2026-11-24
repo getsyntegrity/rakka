@@ -165,6 +165,64 @@ final class MailboxOracle {
     @Override public void preStart() { env.started.incrementAndGet(); }
   }
 
+  /** A worker of the MBX-ID cases: logs {@code label:message}; "block" holds its turn until the environment releases it. */
+  public static final class IdWorker extends AbstractActor {
+    final String label; final IdEnv env;
+    IdWorker(String label, IdEnv env) { this.label = label; this.env = env; }
+    @Override public void preStart() { env.started.incrementAndGet(); }
+    @Override public Receive createReceive() {
+      return receiveBuilder().match(String.class, s -> {
+        if (s.equals("block")) { env.entered.countDown(); env.release.await(); }
+        env.log.add(label + ":" + s);
+      }).build();
+    }
+  }
+
+  public static final class IdDeadListener extends AbstractActor {
+    final IdEnv env; IdDeadListener(IdEnv env) { this.env = env; }
+    @Override public Receive createReceive() {
+      return receiveBuilder().match(DeadLetter.class, d -> env.dead.add(d.recipient().path().name() + ":" + d.message())).build();
+    }
+  }
+
+  /** A system with two NonBlockingBoundedMailbox ids of capacity 2 and 4; three actors may be blocked at once. */
+  static final class IdEnv implements AutoCloseable {
+    final ConcurrentLinkedQueue<String> log = new ConcurrentLinkedQueue<>(), dead = new ConcurrentLinkedQueue<>();
+    final CountDownLatch entered, release = new CountDownLatch(1);
+    final AtomicInteger started = new AtomicInteger();
+    final ActorSystem sys;
+    IdEnv(int blockedWorkers) {
+      entered = new CountDownLatch(blockedWorkers);
+      sys = ActorSystem.create("mbx", ConfigFactory.parseString("pekko { loglevel = OFF\n stdout-loglevel = OFF\n log-dead-letters = off }\n"
+          + "cap2-mailbox { mailbox-type = \"org.apache.pekko.dispatch.NonBlockingBoundedMailbox\"\n mailbox-capacity = 2 }\n"
+          + "cap4-mailbox { mailbox-type = \"org.apache.pekko.dispatch.NonBlockingBoundedMailbox\"\n mailbox-capacity = 4 }\n")
+          .withFallback(ConfigFactory.load()));
+      sys.eventStream().subscribe(sys.actorOf(Props.create(IdDeadListener.class, this)), DeadLetter.class);
+    }
+    Props props(String label, String mailboxId) {
+      Props p = Props.create(IdWorker.class, label, this);
+      return mailboxId == null ? p : p.withMailbox(mailboxId);
+    }
+    ActorRef spawn(String name, String mailboxId) throws Exception {
+      int before = started.get();
+      ActorRef r = sys.actorOf(props(name, mailboxId), name);
+      awaitUntil(() -> started.get() > before);
+      return r;
+    }
+    /** What each actor received, in order, and what was dead-lettered to it, in order. */
+    String perActor(String... labels) {
+      StringBuilder out = new StringBuilder();
+      for (String l : labels) {
+        List<String> got = new ArrayList<>(), lost = new ArrayList<>();
+        for (String s : log) if (s.startsWith(l + ":")) got.add(s.substring(l.length() + 1));
+        for (String s : dead) if (s.startsWith(l + ":")) lost.add(s.substring(l.length() + 1));
+        out.append(l).append(" received=").append(got).append(" deadLettered=").append(lost).append("; ");
+      }
+      return out.toString().trim();
+    }
+    @Override public void close() { release.countDown(); sys.terminate(); }
+  }
+
   static final class Env implements AutoCloseable {
     final ConcurrentLinkedQueue<String> log = new ConcurrentLinkedQueue<>(), dead = new ConcurrentLinkedQueue<>(), errors = new ConcurrentLinkedQueue<>();
     final AtomicInteger inFlight = new AtomicInteger(), max = new AtomicInteger();
@@ -1079,6 +1137,39 @@ final class MailboxOracle {
         letGo.countDown();
         awaitUntil(() -> e.log.contains("c:r:m1"));
         return "duringHandOver: " + during + " | afterHandOver: isStarted=" + ((RepointableRef) plan.child.get()).isStarted() + " log=" + e.log;
+      }
+    });
+    run("MBX-ID-01 two ids select their own queue and two actors with the same id keep separate queues", () -> {
+      try (IdEnv e = new IdEnv(3)) {
+        ActorRef a = e.spawn("a", "cap2-mailbox"), b = e.spawn("b", "cap4-mailbox"), c = e.spawn("c", "cap2-mailbox");
+        for (ActorRef r : List.of(a, b, c)) r.tell("block", ActorRef.noSender());
+        e.entered.await();
+        for (ActorRef r : List.of(a, b, c)) for (int i = 1; i <= 6; i++) r.tell("m" + i, ActorRef.noSender());
+        e.release.countDown();
+        awaitUntil(() -> e.log.size() == 3 + 8 && e.dead.size() == 10);
+        return e.perActor("a", "b", "c");
+      }
+    });
+    run("MBX-ID-02 an unknown id fails actorOf at the call: no actor is made and the name is free again", () -> {
+      try (IdEnv e = new IdEnv(0)) {
+        String outcome;
+        try { e.sys.actorOf(e.props("w", "typo"), "w"); outcome = "created"; }
+        catch (Throwable t) { outcome = t.getClass().getName() + ": " + t.getMessage() + " | cause " + t.getCause(); }
+        e.spawn("w", null);
+        return "actorOf: " + outcome + " | instancesStartedAfterRetryWithSameName=" + e.started.get();
+      }
+    });
+    run("MBX-ID-03 no selection, the built-in ids and the empty id all give the unbounded FIFO queue", () -> {
+      try (IdEnv e = new IdEnv(4)) {
+        String[] ids = { null, "unbounded", "pekko.actor.default-mailbox", "" };
+        List<ActorRef> refs = new ArrayList<>();
+        for (int i = 0; i < ids.length; i++) refs.add(e.spawn("w" + i, ids[i]));
+        for (ActorRef r : refs) r.tell("block", ActorRef.noSender());
+        e.entered.await();
+        for (ActorRef r : refs) for (int i = 1; i <= 10; i++) r.tell("m" + i, ActorRef.noSender());
+        e.release.countDown();
+        awaitUntil(() -> e.log.size() == 4 * 11);
+        return e.perActor("w0", "w1", "w2", "w3");
       }
     });
   }

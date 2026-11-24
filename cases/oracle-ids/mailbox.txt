@@ -60,3 +60,6 @@ MBX-UT-06 a restart with only an unstarted child does not wait for it: the new i
 MBX-UT-07 a restart waiting for a started child: the Supervise of an unstarted child is processed meanwhile, the child starts and terminates, the restart completes when the started child is gone
 MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept
 MBX-UT-09 a child created in preStart while the hand-over is in progress waits for the hand-over to end: the reference's lock is held across replaceWith
+MBX-ID-01 two ids select their own queue and two actors with the same id keep separate queues
+MBX-ID-02 an unknown id fails actorOf at the call: no actor is made and the name is free again
+MBX-ID-03 no selection, the built-in ids and the empty id all give the unbounded FIFO queue

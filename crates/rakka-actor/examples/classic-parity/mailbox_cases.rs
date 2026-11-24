@@ -12,6 +12,7 @@ use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::system::{ActorSystem, Settings};
 use rakka_actor::dispatch::Terminated;
+use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 use rakka_actor::dispatch::system_queue::SystemQueue;
@@ -844,6 +845,235 @@ fn senders_racing_with_the_installation_of_the_real_cell() -> String {
     line
 }
 
+/// A worker of the `MBX-ID` cases: logs `label:message`; `block` holds its turn until the shared gate opens.
+struct IdWorker {
+    label: &'static str,
+    env: Arc<IdEnv>,
+}
+impl Actor for IdWorker {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.env.started.fetch_add(1, Ordering::SeqCst);
+    }
+    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        let Some(text) = msg.downcast_ref::<String>() else {
+            return false;
+        };
+        if text == "block" {
+            self.env.entered.fetch_add(1, Ordering::SeqCst);
+            let mut open = self.env.gate_open.lock().unwrap();
+            while !*open {
+                open = self.env.gate_changed.wait(open).unwrap();
+            }
+        }
+        self.env
+            .log
+            .lock()
+            .unwrap()
+            .push(format!("{}:{text}", self.label));
+        true
+    }
+}
+
+struct IdDeadListener(Arc<IdEnv>);
+impl Actor for IdDeadListener {
+    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if let Some(dead) = msg.downcast_ref::<DeadLetter>()
+            && let Some(text) = dead.message.downcast_ref::<String>()
+        {
+            self.0
+                .dead
+                .lock()
+                .unwrap()
+                .push(format!("{}:{text}", dead.recipient.path().name()));
+        }
+        true
+    }
+}
+
+/// The environment of the `MBX-ID` cases (the oracle's `IdEnv`): ids `cap2-mailbox` and `cap4-mailbox` are non-blocking bounded
+/// mailboxes of capacity 2 and 4.
+struct IdEnv {
+    log: Mutex<Vec<String>>,
+    dead: Mutex<Vec<String>>,
+    started: AtomicUsize,
+    entered: AtomicUsize,
+    gate_open: Mutex<bool>,
+    gate_changed: std::sync::Condvar,
+}
+
+impl IdEnv {
+    fn new() -> Arc<IdEnv> {
+        Arc::new(IdEnv {
+            log: Mutex::default(),
+            dead: Mutex::default(),
+            started: AtomicUsize::new(0),
+            entered: AtomicUsize::new(0),
+            gate_open: Mutex::new(false),
+            gate_changed: std::sync::Condvar::new(),
+        })
+    }
+
+    fn system(self: &Arc<Self>) -> ActorSystem {
+        let mut settings = Settings::default();
+        for (id, capacity) in [("cap2-mailbox", 2), ("cap4-mailbox", 4)] {
+            settings.mailboxes.register(
+                id,
+                NonBlockingBoundedMailbox::new(capacity).expect("capacity"),
+            );
+        }
+        let system = ActorSystem::create_with_settings("mbx", settings).expect("system");
+        let listener = system
+            .actor_of(Props::new({
+                let env = self.clone();
+                move || IdDeadListener(env.clone())
+            }))
+            .expect("listener");
+        system
+            .event_stream()
+            .subscribe(&listener, Channel::DeadLetter);
+        system
+    }
+
+    fn props(self: &Arc<Self>, label: &'static str, mailbox_id: Option<&str>) -> Props {
+        let env = self.clone();
+        let props = Props::new(move || IdWorker {
+            label,
+            env: env.clone(),
+        });
+        match mailbox_id {
+            Some(id) => props.with_mailbox_id(id),
+            None => props,
+        }
+    }
+
+    fn spawn(
+        self: &Arc<Self>,
+        system: &ActorSystem,
+        label: &'static str,
+        mailbox_id: Option<&str>,
+    ) -> ActorRef {
+        let before = self.started.load(Ordering::SeqCst);
+        let worker = system
+            .actor_of_named(self.props(label, mailbox_id), label)
+            .expect("worker");
+        wait_until(|| self.started.load(Ordering::SeqCst) > before);
+        worker
+    }
+
+    fn open_gate(&self) {
+        *self.gate_open.lock().unwrap() = true;
+        self.gate_changed.notify_all();
+    }
+
+    fn per_actor(&self, labels: &[&str]) -> String {
+        let (log, dead) = (self.log.lock().unwrap(), self.dead.lock().unwrap());
+        let of = |entries: &[String], label: &str| {
+            let prefix = format!("{label}:");
+            let found: Vec<&str> = entries
+                .iter()
+                .filter_map(|entry| entry.strip_prefix(&prefix))
+                .collect();
+            format!("[{}]", found.join(", "))
+        };
+        labels
+            .iter()
+            .map(|label| {
+                format!(
+                    "{label} received={} deadLettered={};",
+                    of(&log, label),
+                    of(&dead, label)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+
+fn finish_id_case(env: &IdEnv, system: ActorSystem, line: String) -> String {
+    env.open_gate();
+    system
+        .terminate()
+        .wait(Duration::from_secs(10))
+        .expect("terminated");
+    line
+}
+
+/// `MBX-ID-01`: ids of capacity 2 and 4 select their own queue; a second actor with the capacity-2 id has a queue of its own.
+fn two_ids_select_their_queues_and_actors_keep_their_own() -> String {
+    let env = IdEnv::new();
+    let system = env.system();
+    let actors = [
+        env.spawn(&system, "a", Some("cap2-mailbox")),
+        env.spawn(&system, "b", Some("cap4-mailbox")),
+        env.spawn(&system, "c", Some("cap2-mailbox")),
+    ];
+    for actor in &actors {
+        actor.tell("block".to_owned(), None);
+    }
+    wait_until(|| env.entered.load(Ordering::SeqCst) == 3);
+    for actor in &actors {
+        for number in 1..=6 {
+            actor.tell(format!("m{number}"), None);
+        }
+    }
+    env.open_gate();
+    wait_until(|| env.log.lock().unwrap().len() == 3 + 8 && env.dead.lock().unwrap().len() == 10);
+    let line = env.per_actor(&["a", "b", "c"]);
+    finish_id_case(&env, system, line)
+}
+
+/// `MBX-ID-02`: an unknown id fails `actorOf` at the call; no actor is made and the name can be used again.
+fn an_unknown_id_fails_actor_of_and_frees_the_name() -> String {
+    let env = IdEnv::new();
+    let system = env.system();
+    let outcome = match system.actor_of_named(env.props("w", Some("typo")), "w") {
+        Ok(_) => "created".to_owned(),
+        Err(error) => format!(
+            "{}: {} | cause {}",
+            error.class().java_name(),
+            error.message(),
+            error.cause().unwrap_or("none")
+        ),
+    };
+    env.spawn(&system, "w", None);
+    let line = format!(
+        "actorOf: {outcome} | instancesStartedAfterRetryWithSameName={}",
+        env.started.load(Ordering::SeqCst)
+    );
+    finish_id_case(&env, system, line)
+}
+
+/// `MBX-ID-03`: no selection, the built-in ids and the empty id all give the unbounded FIFO queue.
+fn the_default_and_built_in_ids_are_unbounded_fifo() -> String {
+    let env = IdEnv::new();
+    let system = env.system();
+    let ids = [
+        None,
+        Some("unbounded"),
+        Some("pekko.actor.default-mailbox"),
+        Some(""),
+    ];
+    let labels = ["w0", "w1", "w2", "w3"];
+    let actors: Vec<ActorRef> = labels
+        .iter()
+        .zip(ids)
+        .map(|(label, id)| env.spawn(&system, label, id))
+        .collect();
+    for actor in &actors {
+        actor.tell("block".to_owned(), None);
+    }
+    wait_until(|| env.entered.load(Ordering::SeqCst) == 4);
+    for actor in &actors {
+        for number in 1..=10 {
+            actor.tell(format!("m{number}"), None);
+        }
+    }
+    env.open_gate();
+    wait_until(|| env.log.lock().unwrap().len() == 4 * 11);
+    let line = env.per_actor(&labels);
+    finish_id_case(&env, system, line)
+}
+
 pub fn rust_lines() -> Vec<(String, String)> {
     [
         ("MBX-ST-01 open to scheduled", open_to_scheduled()),
@@ -884,6 +1114,18 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-SC-02 throughput-deadline-time ends the turn after a slow message",
             turn_interleaving(100, Duration::from_millis(30), "sleep-", 3),
+        ),
+        (
+            "MBX-ID-01 two ids select their own queue and two actors with the same id keep separate queues",
+            two_ids_select_their_queues_and_actors_keep_their_own(),
+        ),
+        (
+            "MBX-ID-02 an unknown id fails actorOf at the call: no actor is made and the name is free again",
+            an_unknown_id_fails_actor_of_and_frees_the_name(),
+        ),
+        (
+            "MBX-ID-03 no selection, the built-in ids and the empty id all give the unbounded FIFO queue",
+            the_default_and_built_in_ids_are_unbounded_fifo(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",
