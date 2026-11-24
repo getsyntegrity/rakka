@@ -2,6 +2,8 @@
 
 Q-MBX-12 está **aceptada como limitación temporal** (Owner, 2026-11-24). No es paridad completa: `AC-MBX-014` sigue `partial`.
 
+Cierre y deuda del Slice 3 (requisitos de cola): `docs/evidence/mailbox-requirements/closure.md`.
+
 ## Tareas pendientes (ninguna se implementó en el cierre del slice)
 
 | # | Tarea | Depende de |
