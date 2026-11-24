@@ -63,4 +63,3 @@ Texto completo en `docs/decisions/register.tsv`, `docs/inventory/contracts/class
 - El gemelo imprime la clase del error con la constante `java_name()` y la causa con una clase fija: la igualdad con Pekko la prueba la comparación byte a byte con el oráculo.
 - Un tipo registrado bajo `pekko.actor.default-mailbox` sólo rige la selección explícita; Pekko lo aplica también a los actores sin selección (Q-MBX-12, tarea 2).
 - Pendientes menores de #344: el comentario de `make_repointed` ("Nothing in Rakka can make this fail yet") no menciona que el mailbox falla antes; no hay test con nombre autogenerado ni con nombre duplicado e id desconocido (el nombre se reserva primero: `InvalidActorName`).
-
