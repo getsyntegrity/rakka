@@ -19,7 +19,7 @@ Q-MBX-12 está **aceptada como limitación temporal** (Owner, 2026-11-24). No es
 
 | # | Contrato | Para qué slice |
 |---|---|---|
-| 9 | Los actores del sistema (guardianes, loggers) exigen `UnboundedMessageQueueSemantics` (`RequiresMessageQueue`); un `pekko.actor.default-mailbox` que produzca otra cola (acotada, o sin ese marcador) impide arrancar el sistema en Pekko 2.0.0 (`ConfigurationException`/`cannot create children while terminating`; observado con el oráculo, caso `MBX-CFG-02`). Rakka no valida requisitos: acepta cualquier tipo como default. | requirements (Q-MBX-2) y compatibilidad |
+| 9 | Los actores del sistema (guardianes, loggers) exigen `UnboundedMessageQueueSemantics` (`RequiresMessageQueue`); un `pekko.actor.default-mailbox` que produzca otra cola (acotada, o sin ese marcador) impide arrancar el sistema en Pekko 2.0.0 (`ConfigurationException`/`cannot create children while terminating`; observado con el oráculo, caso `MBX-CFG-02`). Rakka no valida requisitos: acepta cualquier tipo como default. **Actualizada en el Slice 3** (`docs/evidence/mailbox-requirements/guardians.md`, sonda contra Pekko 2.0.0): los guardianes no pasan por `getMailboxType` (usan `lookup(default-mailbox)`) y su requisito se verifica tras crear la cola (`Dispatch.init`), de modo que no participa en la selección; la declaración y la verificación de los guardianes quedan para el Slice 4. | compatibilidad (Slice 4) |
 
 ## Fallos intermitentes: seguimiento abierto (no resueltos)
 
