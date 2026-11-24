@@ -1024,11 +1024,23 @@ MUTANTS = {
         "the error always names the default mailbox instead of the id that failed (MBX-ID-02)",
     ),
     # --- mailbox selected by the queue semantics an actor requires (killed by MBX-REQ-01..03, or by the unit test where noted) ---
+    "mailbox-actor-requirement-ignored": (
+        "src/actor/props.rs",
+        "                (None, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
+        "                (None, Some(_)) => mailboxes.lookup(self.mailbox_id())?,",
+        "the queue semantics the actor requires is ignored: the actor gets the default mailbox (MBX-REQ-01)",
+    ),
     "mailbox-requirement-beats-the-selected-id": (
         "src/actor/props.rs",
         "                (None, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
         "                (_, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
         "the precedence is inverted: the requirement of the actor decides the mailbox even when the props or the deployment selected one",
+    ),
+    "mailbox-requirement-error-names-the-class-without-its-kind": (
+        "src/dispatch/queue_semantics.rs",
+        "        write!(f, \"interface {}\", self.class_name)",
+        "        write!(f, \"{}\", self.class_name)",
+        "the error of an unbound requirement names the class without the `interface` the JVM prints (MBX-REQ-02)",
     ),
     # --- Q-MBX-11 slice C2: a rejected Dispatcher.attach (killed by the in-crate twins of MBX-RJ-05..07, see UNIT_MUTANTS) ---
     "attach-rejection-swallowed-by-start": (

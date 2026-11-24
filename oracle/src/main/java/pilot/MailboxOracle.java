@@ -181,7 +181,7 @@ final class MailboxOracle {
   }
 
   /** A worker of the MBX-ID cases: logs {@code label:message}; "block" holds its turn until the environment releases it. */
-  public static final class IdWorker extends AbstractActor {
+  public static class IdWorker extends AbstractActor {
     final String label; final IdEnv env;
     IdWorker(String label, IdEnv env) { this.label = label; this.env = env; }
     @Override public void preStart() { env.started.incrementAndGet(); }
@@ -191,6 +191,39 @@ final class MailboxOracle {
         env.log.add(label + ":" + s);
       }).build();
     }
+  }
+
+  /** Application-defined queue semantics ({@code RequiresMessageQueue[T]} with a type of the user): one that is bound in the requirements, one that is not. */
+  public interface AuditTrail extends MessageQueue {}
+  public interface Unmapped extends MessageQueue {}
+
+  /** An unbounded FIFO queue that has the {@link AuditTrail} semantics. */
+  static final class AuditTrailQueue implements MessageQueue, AuditTrail {
+    final ConcurrentLinkedQueue<Envelope> q = new ConcurrentLinkedQueue<>();
+    public void enqueue(ActorRef r, Envelope e) { q.add(e); }
+    public Envelope dequeue() { return q.poll(); }
+    public int numberOfMessages() { return q.size(); }
+    public boolean hasMessages() { return !q.isEmpty(); }
+    public void cleanUp(ActorRef owner, MessageQueue deadLetters) { for (Envelope e; (e = q.poll()) != null; ) deadLetters.enqueue(owner, e); }
+  }
+
+  public static final class AuditTrailType implements MailboxType, ProducesMessageQueue<AuditTrailQueue> {
+    public AuditTrailType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new AuditTrailQueue(); }
+  }
+
+  /** The workers of the {@code MBX-REQ} cases: the same worker, each declaring {@code RequiresMessageQueue[T]} with a different {@code T}. */
+  public static final class UnboundedWorker extends IdWorker implements RequiresMessageQueue<UnboundedMessageQueueSemantics> {
+    UnboundedWorker(String label, IdEnv env) { super(label, env); }
+  }
+  public static final class BoundedWorker extends IdWorker implements RequiresMessageQueue<BoundedMessageQueueSemantics> {
+    BoundedWorker(String label, IdEnv env) { super(label, env); }
+  }
+  public static final class AuditTrailWorker extends IdWorker implements RequiresMessageQueue<AuditTrail> {
+    AuditTrailWorker(String label, IdEnv env) { super(label, env); }
+  }
+  public static final class UnmappedWorker extends IdWorker implements RequiresMessageQueue<Unmapped> {
+    UnmappedWorker(String label, IdEnv env) { super(label, env); }
   }
 
   /** Creates the child {@code kid} (props with the capacity-4 id) when told {@code spawn}. */
@@ -235,9 +268,11 @@ final class MailboxOracle {
       Props p = Props.create(IdWorker.class, label, this);
       return mailboxId == null ? p : p.withMailbox(mailboxId);
     }
-    ActorRef spawn(String name, String mailboxId) throws Exception {
+    Props requiring(Class<? extends IdWorker> worker, String label) { return Props.create(worker, label, this); }
+    ActorRef spawn(String name, String mailboxId) throws Exception { return spawnProps(name, props(name, mailboxId)); }
+    ActorRef spawnProps(String name, Props props) throws Exception {
       int before = started.get();
-      ActorRef r = sys.actorOf(props(name, mailboxId), name);
+      ActorRef r = sys.actorOf(props, name);
       awaitUntil(() -> started.get() > before);
       return r;
     }
@@ -1238,6 +1273,32 @@ final class MailboxOracle {
         e.release.countDown();
         awaitUntil(() -> e.log.size() == 3 * 7 + 2 * 5 && e.dead.size() == 4);
         return e.perActor("d-lifo", "d-lifo-b", "d-empty", "other", "kid") + bad;
+      }
+    });
+    run("MBX-REQ-01 an actor that requires a queue semantics gets the mailbox bound to it, not the default, and the actors that do not require it keep the default", () -> {
+      try (IdEnv e = new IdEnv(5, "pekko.actor.default-mailbox.mailbox-type = \"pilot.MailboxOracle$LifoType\"\n"
+          + "audit-mailbox.mailbox-type = \"pilot.MailboxOracle$AuditTrailType\"\n"
+          + "pekko.actor.mailbox.requirements { \"org.apache.pekko.dispatch.BoundedMessageQueueSemantics\" = cap4-mailbox\n"
+          + " \"pilot.MailboxOracle$AuditTrail\" = audit-mailbox }\n")) {
+        ActorRef plain = e.spawn("plain", null), unbounded = e.spawnProps("unbounded", e.requiring(UnboundedWorker.class, "unbounded")),
+            bounded = e.spawnProps("bounded", e.requiring(BoundedWorker.class, "bounded")), audit = e.spawnProps("audit", e.requiring(AuditTrailWorker.class, "audit")),
+            plainAfter = e.spawn("plainAfter", null);
+        List<ActorRef> refs = List.of(plain, unbounded, bounded, audit, plainAfter);
+        for (ActorRef r : refs) r.tell("block", ActorRef.noSender());
+        e.entered.await();
+        for (ActorRef r : refs) for (int i = 1; i <= 6; i++) r.tell("m" + i, ActorRef.noSender());
+        e.release.countDown();
+        awaitUntil(() -> e.log.size() == 4 * 7 + 5 && e.dead.size() == 2);
+        return e.perActor("plain", "unbounded", "bounded", "audit", "plainAfter");
+      }
+    });
+    run("MBX-REQ-02 an actor that requires a queue semantics with no mailbox bound to it fails actorOf at the call and its name is free again", () -> {
+      try (IdEnv e = new IdEnv(0)) {
+        String outcome;
+        try { e.sys.actorOf(e.requiring(UnmappedWorker.class, "w"), "w"); outcome = "created"; }
+        catch (Throwable t) { outcome = t.getClass().getName() + ": " + t.getMessage() + " | cause " + t.getCause(); }
+        e.spawn("w", (String) null);
+        return "actorOf: " + outcome + " | instancesStartedAfterRetryWithSameName=" + e.started.get();
       }
     });
   }
