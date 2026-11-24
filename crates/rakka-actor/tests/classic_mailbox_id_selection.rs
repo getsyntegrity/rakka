@@ -12,7 +12,8 @@ use std::sync::{Arc, Mutex};
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::system::Settings;
-use rakka_actor::actor::{ActorError, ErrorClass};
+use rakka_actor::actor::{ActorError, Deploy, ErrorClass, RouterConfig, Scope};
+use rakka_actor::config::Config;
 use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::UnboundedMailbox;
 
@@ -361,4 +362,119 @@ fn a_restart_keeps_the_queue_of_the_registered_default() {
     scenario.release_and_wait_for(5);
     assert_eq!(scenario.received(), ["fail", "first", "c", "b", "a"]);
     assert_eq!(lifo.queues_created.load(Ordering::SeqCst), 1);
+}
+fn deploying(path: &str, mailbox: &str, settings: Settings) -> Settings {
+    let deploy = Deploy::new(
+        path,
+        Config::empty(),
+        RouterConfig::NoRouter,
+        Scope::NoScopeGiven,
+        "",
+        mailbox,
+    );
+    settings
+        .deployer
+        .deploy(deploy)
+        .expect("a valid deployment");
+    settings
+}
+
+#[test]
+fn a_deployment_with_a_mailbox_wins_over_the_props_and_an_empty_one_leaves_them() {
+    let lifo = LifoMailbox::default();
+    let deployed = Scenario::new(
+        "mbxdep-wins",
+        deploying("/worker", "lifo-mailbox", lifo_and_fifo_settings(&lifo)),
+        |props| props.with_mailbox_id("fifo-mailbox"),
+    );
+    let deployed_over_type = Scenario::new(
+        "mbxdep-over-type",
+        deploying("/worker", "lifo-mailbox", lifo_and_fifo_settings(&lifo)),
+        |props| props.with_mailbox(UnboundedMailbox),
+    );
+    let empty = Scenario::new(
+        "mbxdep-empty",
+        deploying("/worker", "", lifo_and_fifo_settings(&lifo)),
+        |props| props.with_mailbox_id("lifo-mailbox"),
+    );
+    assert_eq!(deployed.order_of_three_queued_messages(), ["c", "b", "a"]);
+    assert_eq!(
+        deployed_over_type.order_of_three_queued_messages(),
+        ["c", "b", "a"]
+    );
+    assert_eq!(empty.order_of_three_queued_messages(), ["c", "b", "a"]);
+}
+
+#[test]
+fn only_a_deployment_that_matches_the_path_of_the_actor_applies() {
+    let lifo = LifoMailbox::default();
+    let cases = [
+        ("/worker", true),
+        ("/*", true),
+        ("/other", false),
+        ("/user/worker", false),
+        ("/worker/child", false),
+    ];
+    for (index, (pattern, applies)) in cases.into_iter().enumerate() {
+        let scenario = Scenario::new(
+            &format!("mbxdep-path-{index}"),
+            deploying(pattern, "lifo-mailbox", lifo_and_fifo_settings(&lifo)),
+            |props| props,
+        );
+        let expected = if applies {
+            ["c", "b", "a"]
+        } else {
+            ["a", "b", "c"]
+        };
+        assert_eq!(
+            scenario.order_of_three_queued_messages(),
+            expected,
+            "{pattern}"
+        );
+    }
+}
+
+#[test]
+fn a_deployment_read_from_the_configuration_selects_the_mailbox() {
+    let lifo = LifoMailbox::default();
+    let application = r#"pekko.actor.deployment { "/worker" { mailbox = lifo-mailbox }, "/other" { mailbox = typo } }"#;
+    let config = Config::parse_string(application)
+        .unwrap()
+        .with_fallback(&Config::default_reference())
+        .resolve()
+        .unwrap();
+    let mut settings =
+        Settings::from_config(&rakka_actor::config::Settings::new("cfg", config).unwrap()).unwrap();
+    settings.mailboxes.register("lifo-mailbox", lifo.clone());
+    let scenario = Scenario::new("mbxdep-config", settings, |props| {
+        props.with_mailbox_id("fifo-mailbox")
+    });
+    assert_eq!(scenario.order_of_three_queued_messages(), ["c", "b", "a"]);
+}
+
+#[test]
+fn the_deployment_decides_which_id_must_exist_and_names_it_in_the_error() {
+    let lifo = LifoMailbox::default();
+    let created = Arc::new(AtomicUsize::new(0));
+    let unused = (Arc::new(Gate::default()), Arc::new(Mutex::new(Vec::new())));
+    let props = || worker_props(&unused.0, &unused.1, &created);
+    let deployed_unknown = RunningSystem::create_with_settings(
+        "mbxdep-unknown",
+        deploying("/worker", "typo", lifo_and_fifo_settings(&lifo)),
+    );
+    expect_configuration_error(
+        deployed_unknown.actor_of_named(props().with_mailbox_id("fifo-mailbox"), "worker"),
+        "pekko://mbxdep-unknown/user/worker",
+        "typo",
+    );
+    assert_eq!(created.load(Ordering::SeqCst), 0, "no instance is made");
+    let unknown_in_props = Scenario::new(
+        "mbxdep-props-unknown",
+        deploying("/worker", "lifo-mailbox", lifo_and_fifo_settings(&lifo)),
+        |props| props.with_mailbox_id("never-registered"),
+    );
+    assert_eq!(
+        unknown_in_props.order_of_three_queued_messages(),
+        ["c", "b", "a"]
+    );
 }

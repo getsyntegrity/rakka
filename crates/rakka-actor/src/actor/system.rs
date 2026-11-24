@@ -10,7 +10,7 @@ use crate::actor::actor_ref::{ActorRef, InternalActorRef};
 use crate::actor::cell::{ActorCell, LocalActorRef};
 use crate::actor::props::{Actor, ActorContext, AnyMessage, PoisonPill, Props};
 use crate::actor::{ActorError, ErrorClass};
-use crate::actor::{ActorPath, Address};
+use crate::actor::{ActorPath, Address, Deployer, DeployerError};
 use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
 use crate::dispatch::dispatcher::{Dispatcher, Executor};
 use crate::dispatch::mailboxes::Mailboxes;
@@ -75,19 +75,24 @@ pub struct Settings {
     pub unstarted_push_timeout: Duration,
     /// The mailbox ids that `Props::with_mailbox_id` can select (`Mailboxes`).
     pub mailboxes: Mailboxes,
+    /// The deployments (`pekko.actor.deployment`, or added with [`Deployer::deploy`]) that `actorOf` looks up by the path of the new actor.
+    /// Clones of the settings share this one deployer, as one system shares its own.
+    pub deployer: Arc<Deployer>,
 }
 
 impl Settings {
-    /// The runtime settings that the configuration decides. Only `pekko.actor.unstarted-push-timeout` is read from it so far; the
-    /// dispatcher's keys (`parallelism`, `throughput`, `throughput-deadline-time`) keep their defaults until the system is created from a
+    /// The runtime settings that the configuration decides: `pekko.actor.unstarted-push-timeout` and the deployments of
+    /// `pekko.actor.deployment` (an invalid one is an error, as at the start of a Pekko system). The dispatcher's keys
+    /// (`parallelism`, `throughput`, `throughput-deadline-time`) keep their defaults until the system is created from a
     /// configuration. A negative timeout is zero, as the JVM's `tryLock` treats it.
-    pub fn from_config(config: &crate::config::Settings) -> Settings {
+    pub fn from_config(config: &crate::config::Settings) -> Result<Settings, DeployerError> {
         let unstarted_push_timeout = u64::try_from(config.unstarted_push_timeout.as_nanos())
             .map_or(Duration::ZERO, Duration::from_nanos);
-        Settings {
+        Ok(Settings {
             unstarted_push_timeout,
+            deployer: Arc::new(Deployer::from_settings(config)?),
             ..Settings::default()
-        }
+        })
     }
 }
 
@@ -99,6 +104,7 @@ impl Default for Settings {
             throughput_deadline_time: Duration::ZERO,
             unstarted_push_timeout: Duration::from_secs(10),
             mailboxes: Mailboxes::new(),
+            deployer: Arc::new(Deployer::new()),
         }
     }
 }

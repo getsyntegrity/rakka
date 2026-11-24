@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::ConfigurationException;
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::cell::ActorCell;
+use crate::actor::deploy::{Deploy, NO_MAILBOX_GIVEN};
 use crate::actor::fault::Throwable;
 use crate::actor::supervision::{OneForOneStrategy, SupervisorStrategy};
 use crate::dispatch::mailboxes::Mailboxes;
@@ -103,6 +104,15 @@ impl Props {
         self.mailbox_id
             .as_deref()
             .unwrap_or(Mailboxes::DEFAULT_MAILBOX_ID)
+    }
+
+    /// `ActorRefProvider.actorOf` (`:692-701`): the mailbox of the deployment found for the path overrides the one of the props
+    /// (`props.withMailbox(mbx)`); a deployment without a mailbox leaves them alone.
+    pub(crate) fn deployed_over(self, deploy: Option<&Deploy>) -> Props {
+        match deploy.map(Deploy::mailbox) {
+            Some(mailbox) if mailbox != NO_MAILBOX_GIVEN => self.with_mailbox_id(mailbox),
+            _ => self,
+        }
     }
 
     /// `Mailboxes.getMailboxType`: the props whose mailbox is the type registered under the selected id, or under

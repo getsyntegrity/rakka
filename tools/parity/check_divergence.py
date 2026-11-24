@@ -941,6 +941,25 @@ MUTANTS = {
         "if true {",
         "a failed creation is retried before its children are gone, so the new instance finds their names still taken",
     ),
+    # --- mailbox of the deployment (killed by the unit test of Props::deployed_over, see UNIT_MUTANTS) ---
+    "deployment-mailbox-ignored": (
+        "src/actor/props.rs",
+        "            Some(mailbox) if mailbox != NO_MAILBOX_GIVEN => self.with_mailbox_id(mailbox),",
+        "            Some(mailbox) if mailbox != NO_MAILBOX_GIVEN => {\n                let _ = mailbox;\n                self\n            }",
+        "the mailbox of the deployment found for the path is ignored: the props keep theirs",
+    ),
+    "deployment-empty-mailbox-resets-the-props": (
+        "src/actor/props.rs",
+        "            Some(mailbox) if mailbox != NO_MAILBOX_GIVEN => self.with_mailbox_id(mailbox),",
+        "            Some(mailbox) => self.with_mailbox_id(mailbox),",
+        "a deployment without a mailbox (empty) replaces the mailbox of the props with the default one",
+    ),
+    "props-mailbox-beats-the-deployment": (
+        "src/actor/props.rs",
+        "            Some(mailbox) if mailbox != NO_MAILBOX_GIVEN => self.with_mailbox_id(mailbox),",
+        "            Some(mailbox) if mailbox != NO_MAILBOX_GIVEN && self.mailbox_id.is_none() => {\n                self.with_mailbox_id(mailbox)\n            }",
+        "the precedence is inverted: the deployment only applies when the props selected nothing",
+    ),
     # --- mailbox selection by id (killed by MBX-ID-01..03) ---
     "mailbox-id-selection-ignored": (
         "src/actor/props.rs",
@@ -1809,6 +1828,9 @@ def classify(replay_result, binary):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "deployment-mailbox-ignored": ("dispatch::mailboxes", "a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not"),
+    "deployment-empty-mailbox-resets-the-props": ("dispatch::mailboxes", "a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not"),
+    "props-mailbox-beats-the-deployment": ("dispatch::mailboxes", "a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not"),
     "system-message-after-close-is-not-dead-lettered": ("actor::unstarted_termination_tests", "a_parent_that_terminates_before_the_supervise_of_its_child_does_not_wait_for_it"),
     "deployer-deploy-swaps-a-stale-snapshot": ("actor::deployer", "a_deployment_that_loses_the_swap_is_retried_on_the_newer_index_and_nothing_is_lost"),
     "init-with-failure-forgets-the-failure": ("actor::init_failure_tests", "a_cell_that_cannot_be_made_is_stopped_by_the_supervisor_and_the_actor_never_starts"),

@@ -423,7 +423,7 @@ fn runtime_settings_configured_with(application_conf: &str) -> Settings {
         .with_fallback(&crate::config::Config::default_reference())
         .resolve()
         .unwrap();
-    Settings::from_config(&crate::config::Settings::new("configured", config).unwrap())
+    Settings::from_config(&crate::config::Settings::new("configured", config).unwrap()).unwrap()
 }
 
 /// The value of `pekko.actor.unstarted-push-timeout` reaches the runtime `Settings`. The JVM reads it with `getMillisDuration`
