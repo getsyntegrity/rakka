@@ -941,6 +941,31 @@ MUTANTS = {
         "if true {",
         "a failed creation is retried before its children are gone, so the new instance finds their names still taken",
     ),
+    # --- mailbox selection by id (killed by MBX-ID-01..03) ---
+    "mailbox-id-selection-ignored": (
+        "src/actor/props.rs",
+        "            self.mailbox = Some(mailboxes.lookup(id)?);",
+        "            mailboxes.lookup(id)?;",
+        "the id is looked up (so an unknown id still fails) but the actor keeps the default mailbox instead of the selected one (MBX-ID-01)",
+    ),
+    "mailbox-invalid-id-falls-back-to-the-default-and-creates-the-actor": (
+        "src/actor/cell.rs",
+        "        let props = match props.resolve_mailbox(&self.system.settings.mailboxes) {\n            Ok(resolved) => resolved,\n            Err(cause) => {",
+        "        let props = match props.clone().resolve_mailbox(&self.system.settings.mailboxes) {\n            Ok(resolved) => resolved,\n            Err(_) if true => props,\n            Err(cause) => {",
+        "the creation goes on with the default mailbox after the selected id could not be resolved: the actor exists although the selection was invalid (MBX-ID-02)",
+    ),
+    "mailbox-invalid-id-keeps-the-name-reserved": (
+        "src/actor/cell.rs",
+        "            Err(cause) => {\n                self.children.lock().unwrap().unreserve(&name);\n                return Err(ConfigurationError::caused_by(",
+        "            Err(cause) => {\n                return Err(ConfigurationError::caused_by(",
+        "a failed creation leaves its name reserved, so the same name cannot be used again (MBX-ID-02)",
+    ),
+    "mailbox-id-error-message-names-the-default-id": (
+        "src/actor/cell.rs",
+        "let mailbox_id = props.mailbox_id().to_owned();",
+        "let mailbox_id = crate::dispatch::mailboxes::Mailboxes::DEFAULT_MAILBOX_ID.to_owned();",
+        "the error always names the default mailbox instead of the id that failed (MBX-ID-02)",
+    ),
     # --- Q-MBX-11 slice C2: a rejected Dispatcher.attach (killed by the in-crate twins of MBX-RJ-05..07, see UNIT_MUTANTS) ---
     "attach-rejection-swallowed-by-start": (
         "src/actor/cell.rs",
