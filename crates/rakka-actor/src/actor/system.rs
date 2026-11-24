@@ -13,6 +13,7 @@ use crate::actor::{ActorError, ErrorClass};
 use crate::actor::{ActorPath, Address};
 use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
 use crate::dispatch::dispatcher::{Dispatcher, Executor};
+use crate::dispatch::mailboxes::Mailboxes;
 use crate::dispatch::sysmsg::{StopChild, SystemMessage, Terminated};
 use crate::dispatch::turn::TurnPolicy;
 use crate::event::{DeadLetter, EventStream};
@@ -72,6 +73,8 @@ pub struct Settings {
     /// `pekko.actor.unstarted-push-timeout`: how long a send to an actor that is being started waits for the reference's lock before
     /// the message becomes a dead letter. Zero does not wait (the JVM treats a negative timeout like zero; `Duration` cannot be negative).
     pub unstarted_push_timeout: Duration,
+    /// The mailbox ids that `Props::with_mailbox_id` can select (`Mailboxes`).
+    pub mailboxes: Mailboxes,
 }
 
 impl Settings {
@@ -95,6 +98,7 @@ impl Default for Settings {
             throughput: 5,
             throughput_deadline_time: Duration::ZERO,
             unstarted_push_timeout: Duration::from_secs(10),
+            mailboxes: Mailboxes::new(),
         }
     }
 }
