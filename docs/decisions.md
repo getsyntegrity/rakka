@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 252 decisiones: 0 bloqueantes, 182 propuestas, 57 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 253 decisiones: 0 bloqueantes, 183 propuestas, 57 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -926,6 +926,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) mantener la creación síncrona del piloto como estado definitivo (equivale a `async=false` de Pekko, que sólo usan guardianes y proveedor); (b) implementar el protocolo asíncrono (`Supervise(async=true)` procesado por el supervisor con `RepointableActorRef` y `UnstartedCell`): cambia el momento de arranque de TODOS los actores y exige revalidar el corpus completo; (c) (a) más un fallo del supervisor sólo ante rechazo, sin celda sin iniciar
 - **Recomendación:** (b) como destino de paridad (criterio del Owner, 2026-11-21: la creación asíncrona de hijos, la supervisión y la propagación de fallos son contratos pendientes; la creación síncrona actual es un estado TRANSITORIO explícito, no una desviación aceptada). División vertical: A) `RepointableActorRef` y `UnstartedCell` como tipos propios, sin conectar a `actor_of` (cola de usuario y de sistema, instalación de la celda real con los mensajes de sistema primero y los de usuario en orden; oráculo MBX-UC-01..04); B) conectar `attach_child` con `Supervise(async=true)` SÓLO en la ruta de `system.actorOf`/`attachChild` (en Pekko `context.actorOf` es síncrono: `makeChild(async = false)`, un `LocalActorRef` ya adjunto), con la suspensión heredada en ambas (arranque dentro del turno del padre, hijo que hereda la suspensión del padre; cambia el momento de arranque de todos los actores: revalida el corpus de 2960 casos, los 407 escenarios y los fuzzers de jerarquía/tell/escenarios); C) rutas de fallo: `catchFailures`/`initWithFailure` y el rechazo en `attach` (MBX-RJ-05: falla el supervisor y el actor nuevo no arranca). Consecuencias observables: sólo el momento de arranque, el orden de los mensajes previos al arranque y los fallos de creación; nada de PR 6 queda bloqueado. Registro de la respuesta pendiente en docs/decisions/owner-decisions.tsv (sólo lo edita el Owner).
 - **Filas afectadas:** AC-DSP-002,AC-CELL-003,AC-MBX-002
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+
+### Q-MBX-13 — Requisitos de cola del actor (`RequiresMessageQueue`): `MessageQueueSemantics` abierto, declarado por el tipo del actor, con tabla de bindings en `Mailboxes` (sólo selección)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Oráculo MBX-REQ-01..03 y sonda con 11 escenarios (Pekko 2.0.0, JDK 17): el actor con requisito recibe el mailbox enlazado en `pekko.actor.mailbox.requirements` y no el default; un requisito sin binding hace fallar `actorOf` con `ConfigurationException "Mailbox Mapping for [interface T] not configured"`; el id del Props o del Deploy gana al requisito; el id vacío lo deja actuar. `Mailboxes.scala:76-96,110,117-130,157-212`; `ActorMailboxSpec.scala:224-234` (marcador de usuario `MCBoundedMessageQueueSemantics`).
+- **Alternativas:** (a) `MessageQueueSemantics` identificado por el nombre de clase de su marcador (conjunto abierto), declarado con `Actor::required_message_queue()` (función asociada al tipo; `Props::new` la captura) y tabla programática `Mailboxes::bind_requirement` inicializada con la fila unbounded de `reference.conf`; (b) tipo marcador con `TypeId`: sin colisiones de nombres entre crates, pero la tabla exige registrar tipos en ejecución y el mensaje no reproduce el nombre JVM; (c) enum cerrado: descartada, el spec de Pekko usa marcadores de usuario.
+- **Recomendación:** (a), implementada en borrador (Slice 3). API pública nueva: `MessageQueueSemantics` (`UNBOUNDED`, `BOUNDED`, `new(nombre)`), `Actor::required_message_queue`, `Mailboxes::{bind_requirement, lookup_by_queue_type, UNBOUNDED_QUEUE_BASED_ID}`. Limita la extensibilidad: la identidad es un `&'static str`, dos crates pueden chocar si eligen el mismo nombre. No cubre `ProducesMessageQueue` ni `verifyRequirements` (Slice 4), el requisito del dispatcher (hoy `Props` no elige dispatcher), la tabla por HOCON ni los bindings por defecto de bounded/deque/control-aware (necesitan sus mailboxes, Q-MBX-1). Concreta la parte de selección de Q-MBX-2; no la acepta. AC-MBX-013/014 siguen `partial`.
+- **Filas afectadas:** AC-MBX-013,AC-MBX-014
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 
