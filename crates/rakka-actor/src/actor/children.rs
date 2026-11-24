@@ -208,7 +208,6 @@ impl Children {
     }
 
     /// `unreserve(name)`; used when creating a child fails after its name was reserved.
-    #[allow(dead_code)]
     pub fn unreserve(&mut self, name: &str) {
         match self {
             Children::Normal(c) => {

@@ -60,6 +60,7 @@ impl fmt::Debug for Mailboxes {
 mod tests {
     use super::*;
     use crate::actor::ActorRef;
+    use crate::actor::props::{Actor, Props};
     use crate::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
     use crate::dispatch::message_queue::Envelope;
     use crate::dispatch::test_support::recorder;
@@ -129,5 +130,30 @@ mod tests {
         let mut mailboxes = Mailboxes::new();
         mailboxes.register("two", bounded(2));
         assert_eq!(format!("{mailboxes:?}"), r#"["two"]"#);
+    }
+
+    struct Idle;
+    impl Actor for Idle {}
+
+    #[test]
+    fn props_resolve_their_id_to_its_type_and_leave_other_props_alone() {
+        let mut mailboxes = Mailboxes::new();
+        mailboxes.register("two", bounded(2));
+        let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
+        let resolved = Props::new(|| Idle)
+            .with_mailbox_id("two")
+            .resolve_mailbox(&mailboxes)
+            .unwrap();
+        // the props still name the id they selected, which is what an error or a log reports
+        assert_eq!(resolved.mailbox_id(), "two");
+        let queue = resolved.new_message_queue(&dead_letters);
+        let envelope = || Envelope {
+            message: Arc::new(0),
+            sender: None,
+        };
+        assert!(queue.enqueue(&dead_letters, envelope()));
+        assert!(queue.enqueue(&dead_letters, envelope()));
+        assert!(!queue.enqueue(&dead_letters, envelope()));
+        assert!(Props::new(|| Idle).resolve_mailbox(&mailboxes).is_ok());
     }
 }

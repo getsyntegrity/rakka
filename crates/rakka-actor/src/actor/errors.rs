@@ -144,6 +144,18 @@ pub struct ConfigurationError {
 }
 
 impl ConfigurationError {
+    pub(crate) fn caused_by(message: String, cause: &crate::ConfigurationException) -> Self {
+        let cause = format!(
+            "{}: {}",
+            ErrorClass::Configuration.java_name(),
+            cause.message()
+        );
+        Self {
+            message,
+            cause: Some(cause),
+        }
+    }
+
     /// `getMessage`.
     pub fn message(&self) -> &str {
         &self.message
@@ -286,6 +298,7 @@ impl ActorError {
 #[cfg(test)]
 mod configuration_error_tests {
     use super::*;
+    use crate::ConfigurationException;
 
     #[test]
     fn a_configuration_error_without_cause_renders_like_throwable_to_string() {
@@ -299,6 +312,17 @@ mod configuration_error_tests {
         assert_eq!(
             error.to_string(),
             "org.apache.pekko.ConfigurationException: bad setting"
+        );
+    }
+
+    #[test]
+    fn a_configuration_error_keeps_the_class_and_message_of_its_cause() {
+        let cause = ConfigurationException::new("Mailbox Type [x] not configured");
+        let error: ActorError = ConfigurationError::caused_by("outer".to_owned(), &cause).into();
+        assert_eq!(error.message(), "outer");
+        assert_eq!(
+            error.cause(),
+            Some("org.apache.pekko.ConfigurationException: Mailbox Type [x] not configured")
         );
     }
 
