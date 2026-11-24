@@ -948,6 +948,24 @@ MUTANTS = {
         "            mailboxes.lookup(id)?;",
         "the id is looked up (so an unknown id still fails) but the actor keeps the default mailbox instead of the selected one (MBX-ID-01)",
     ),
+    "mailbox-id-always-resolves-to-the-default": (
+        "src/dispatch/mailboxes.rs",
+        "        self.registered.get(id).cloned().ok_or_else(|| {",
+        "        Some(Arc::new(UnboundedMailbox) as Arc<dyn MailboxType>).ok_or_else(|| {",
+        "every registered id resolves to the default unbounded mailbox (MBX-ID-01)",
+    ),
+    "mailbox-id-resolves-to-the-wrong-type": (
+        "src/dispatch/mailboxes.rs",
+        "        self.registered.get(id).cloned().ok_or_else(|| {",
+        "        self.registered.values().next().cloned().ok_or_else(|| {",
+        "a registered id resolves to the first registered type instead of its own (MBX-ID-01)",
+    ),
+    "mailbox-unknown-id-is-accepted": (
+        "src/dispatch/mailboxes.rs",
+        "        self.registered.get(id).cloned().ok_or_else(|| {\n            ConfigurationException::new(format!(\"Mailbox Type [{id}] not configured\"))\n        })",
+        "        Ok(self.registered.get(id).cloned().unwrap_or_else(|| Arc::new(UnboundedMailbox)))",
+        "an id nobody registered silently resolves to the default mailbox, so a typo in the id is never reported (MBX-ID-02)",
+    ),
     "mailbox-invalid-id-falls-back-to-the-default-and-creates-the-actor": (
         "src/actor/cell.rs",
         "        let props = match props.resolve_mailbox(&self.system.settings.mailboxes) {\n            Ok(resolved) => resolved,\n            Err(cause) => {",
