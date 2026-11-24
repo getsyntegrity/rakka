@@ -10,7 +10,7 @@ Oráculo `MBX-CFG-04` (`mb-0023`, JDK 17, estable en 3 corridas) y gemelo Rust; 
 | 4 | Deploy inválido falla aunque Props sea válido | `d-bad`: `ConfigurationException` |
 | 5 | Sin coincidencia se conserva Props | `other`: capacidad 4 |
 | 6 | Path completo del hijo | `kid` bajo `/d-parent`: `/d-parent/kid` aplica, el señuelo `/kid` (id `typo`) no |
-| 7 | Selección por `pekko.actor.deployment` | todo el caso; el gemelo la lee con `Settings::from_config` |
+| 7 | Selección por `pekko.actor.deployment` | el oráculo y el gemelo leen los deployments de HOCON (el gemelo con `Settings::from_config`); el caso no distingue HOCON de `Deployer::deploy`, lo hace `a_deployment_read_from_the_configuration_selects_the_mailbox` |
 | 8 | El error nombra el mailbox efectivo | mensaje y causa con `[typo]`, no el de Props |
 | 9 | Creación fallida y nombre | segundo `actorOf` de `d-bad` falla igual (no `InvalidActorName`): el nombre se liberó |
 | 10 | Default registrado sin ninguna fuente | `MBX-CFG-02` (#350) |
