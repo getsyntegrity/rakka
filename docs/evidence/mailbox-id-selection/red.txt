@@ -1,0 +1,27 @@
+$ cargo test -p rakka-actor --test classic_mailbox_id_selection   # RED: Props::with_mailbox_id stores the id, nothing resolves it
+test an_unknown_id_fails_actor_of_without_creating_an_actor_and_frees_the_name ... FAILED
+test a_child_created_from_an_actor_with_an_unknown_id_fails_in_the_parent_call ... FAILED
+test the_selected_id_is_not_replaced_by_the_default_nor_by_an_earlier_type ... FAILED
+test an_id_resolves_to_the_registered_type_and_two_ids_to_their_own_types ... FAILED
+test a_restart_keeps_the_queue_of_the_selected_id ... FAILED
+test the_built_in_ids_and_the_empty_id_give_the_default_unbounded_fifo ... ok
+test two_actors_with_the_same_id_each_get_their_own_queue ... FAILED
+thread 'an_unknown_id_fails_actor_of_without_creating_an_actor_and_frees_the_name' (10564428) panicked at crates/rakka-actor/tests/classic_mailbox_id_selection.rs:301:25:
+an unknown mailbox id must fail the creation: Actor[pekko://mbxid-unknown/user/worker]
+thread 'a_child_created_from_an_actor_with_an_unknown_id_fails_in_the_parent_call' (10564425) panicked at crates/rakka-actor/tests/classic_mailbox_id_selection.rs:341:5:
+  left: "created registered=true"
+ right: "Configuration registered=false"
+thread 'the_selected_id_is_not_replaced_by_the_default_nor_by_an_earlier_type' (10564430) panicked at crates/rakka-actor/tests/classic_mailbox_id_selection.rs:220:5:
+  left: ["a", "b", "c"]
+ right: ["c", "b", "a"]
+thread 'an_id_resolves_to_the_registered_type_and_two_ids_to_their_own_types' (10564427) panicked at crates/rakka-actor/tests/classic_mailbox_id_selection.rs:207:5:
+  left: ["a", "b", "c"]
+ right: ["c", "b", "a"]
+thread 'mbxid-restart-pekko.actor.default-dispatcher-0' (10564432) panicked at crates/rakka-actor/tests/classic_mailbox_id_selection.rs:97:23:
+thread 'a_restart_keeps_the_queue_of_the_selected_id' (10564426) panicked at crates/rakka-actor/tests/classic_mailbox_id_selection.rs:296:5:
+  left: ["fail", "first", "a", "b", "c"]
+ right: ["fail", "first", "c", "b", "a"]
+thread 'two_actors_with_the_same_id_each_get_their_own_queue' (10564431) panicked at crates/rakka-actor/tests/classic_mailbox_id_selection.rs:276:5:
+  left: 0
+ right: 2
+test result: FAILED. 1 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.01s
