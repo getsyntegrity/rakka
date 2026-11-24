@@ -27,8 +27,8 @@ impl Mailboxes {
         Mailboxes::default()
     }
 
-    /// Makes `id` resolve to `mailbox_type`; returns the type it replaces. The two built-in ids always resolve to
-    /// `UnboundedMailbox`: registering them has no effect on lookups.
+    /// Makes `id` resolve to `mailbox_type`; returns the type it replaces. `unbounded` always resolves to `UnboundedMailbox`
+    /// (Pekko hardcodes it); the default id does until a type is registered under it, which then applies to explicit selection only.
     pub fn register(
         &mut self,
         id: impl Into<String>,
@@ -39,7 +39,9 @@ impl Mailboxes {
 
     /// `Mailboxes.lookup(id)`.
     pub fn lookup(&self, id: &str) -> Result<Arc<dyn MailboxType>, ConfigurationException> {
-        if id == Self::UNBOUNDED_MAILBOX_ID || id == Self::DEFAULT_MAILBOX_ID {
+        if id == Self::UNBOUNDED_MAILBOX_ID
+            || (id == Self::DEFAULT_MAILBOX_ID && !self.registered.contains_key(id))
+        {
             return Ok(Arc::new(UnboundedMailbox));
         }
         self.registered.get(id).cloned().ok_or_else(|| {
@@ -103,13 +105,18 @@ mod tests {
     }
 
     #[test]
-    fn the_built_in_ids_are_unbounded_and_cannot_be_overridden() {
+    fn the_built_in_ids_are_unbounded_and_only_the_default_id_can_be_overridden() {
         let mut mailboxes = Mailboxes::new();
-        mailboxes.register(Mailboxes::UNBOUNDED_MAILBOX_ID, bounded(1));
-        mailboxes.register(Mailboxes::DEFAULT_MAILBOX_ID, bounded(1));
         for id in ["unbounded", "pekko.actor.default-mailbox"] {
             assert_eq!(capacity_of(&*mailboxes.lookup(id).unwrap()), 100, "{id}");
         }
+        mailboxes.register(Mailboxes::UNBOUNDED_MAILBOX_ID, bounded(1));
+        mailboxes.register(Mailboxes::DEFAULT_MAILBOX_ID, bounded(3));
+        assert_eq!(capacity_of(&*mailboxes.lookup("unbounded").unwrap()), 100);
+        assert_eq!(
+            capacity_of(&*mailboxes.lookup("pekko.actor.default-mailbox").unwrap()),
+            3
+        );
     }
 
     #[test]
@@ -129,7 +136,7 @@ mod tests {
     impl Actor for Idle {}
 
     #[test]
-    fn props_resolve_an_id_once_and_leave_other_props_alone() {
+    fn props_resolve_their_id_to_its_type_and_leave_other_props_alone() {
         let mut mailboxes = Mailboxes::new();
         mailboxes.register("two", bounded(2));
         let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
@@ -137,10 +144,9 @@ mod tests {
             .with_mailbox_id("two")
             .resolve_mailbox(&mailboxes)
             .unwrap();
-        // once resolved the id is spent: resolving again with an empty registry still works and keeps the type
-        let resolved_again = resolved.resolve_mailbox(&Mailboxes::new()).unwrap();
-        assert_eq!(resolved_again.mailbox_id(), Mailboxes::DEFAULT_MAILBOX_ID);
-        let queue = resolved_again.new_message_queue(&dead_letters);
+        // the props still name the id they selected, which is what an error or a log reports
+        assert_eq!(resolved.mailbox_id(), "two");
+        let queue = resolved.new_message_queue(&dead_letters);
         let envelope = || Envelope {
             message: Arc::new(0),
             sender: None,

@@ -173,6 +173,16 @@ fn the_selected_id_is_not_replaced_by_the_default_nor_by_an_earlier_type() {
 }
 
 #[test]
+fn the_empty_id_resets_an_earlier_selection_to_the_default() {
+    let lifo = LifoMailbox::default();
+    let scenario = Scenario::new("mbxid-reset", lifo_and_fifo_settings(&lifo), |props| {
+        props.with_mailbox_id("lifo-mailbox").with_mailbox_id("")
+    });
+    assert_eq!(scenario.order_of_three_queued_messages(), ["a", "b", "c"]);
+    assert_eq!(lifo.queues_created.load(Ordering::SeqCst), 0);
+}
+
+#[test]
 fn the_built_in_ids_and_the_empty_id_give_the_default_unbounded_fifo() {
     for (index, id) in ["unbounded", "pekko.actor.default-mailbox", ""]
         .into_iter()

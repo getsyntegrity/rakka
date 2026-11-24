@@ -188,10 +188,11 @@ final class MailboxOracle {
   /** A system with two NonBlockingBoundedMailbox ids of capacity 2 and 4; three actors may be blocked at once. */
   static final class IdEnv implements AutoCloseable {
     final ConcurrentLinkedQueue<String> log = new ConcurrentLinkedQueue<>(), dead = new ConcurrentLinkedQueue<>();
-    final CountDownLatch entered = new CountDownLatch(3), release = new CountDownLatch(1);
+    final CountDownLatch entered, release = new CountDownLatch(1);
     final AtomicInteger started = new AtomicInteger();
     final ActorSystem sys;
-    IdEnv() {
+    IdEnv(int blockedWorkers) {
+      entered = new CountDownLatch(blockedWorkers);
       sys = ActorSystem.create("mbx", ConfigFactory.parseString("pekko { loglevel = OFF\n stdout-loglevel = OFF\n log-dead-letters = off }\n"
           + "cap2-mailbox { mailbox-type = \"org.apache.pekko.dispatch.NonBlockingBoundedMailbox\"\n mailbox-capacity = 2 }\n"
           + "cap4-mailbox { mailbox-type = \"org.apache.pekko.dispatch.NonBlockingBoundedMailbox\"\n mailbox-capacity = 4 }\n")
@@ -1139,7 +1140,7 @@ final class MailboxOracle {
       }
     });
     run("MBX-ID-01 two ids select their own queue and two actors with the same id keep separate queues", () -> {
-      try (IdEnv e = new IdEnv()) {
+      try (IdEnv e = new IdEnv(3)) {
         ActorRef a = e.spawn("a", "cap2-mailbox"), b = e.spawn("b", "cap4-mailbox"), c = e.spawn("c", "cap2-mailbox");
         for (ActorRef r : List.of(a, b, c)) r.tell("block", ActorRef.noSender());
         e.entered.await();
@@ -1150,17 +1151,16 @@ final class MailboxOracle {
       }
     });
     run("MBX-ID-02 an unknown id fails actorOf at the call: no actor is made and the name is free again", () -> {
-      try (IdEnv e = new IdEnv()) {
+      try (IdEnv e = new IdEnv(0)) {
         String outcome;
         try { e.sys.actorOf(e.props("w", "typo"), "w"); outcome = "created"; }
         catch (Throwable t) { outcome = t.getClass().getName() + ": " + t.getMessage() + " | cause " + t.getCause(); }
         e.spawn("w", null);
-        awaitUntil(() -> e.started.get() >= 1);
         return "actorOf: " + outcome + " | instancesStartedAfterRetryWithSameName=" + e.started.get();
       }
     });
     run("MBX-ID-03 no selection, the built-in ids and the empty id all give the unbounded FIFO queue", () -> {
-      try (IdEnv e = new IdEnv()) {
+      try (IdEnv e = new IdEnv(4)) {
         String[] ids = { null, "unbounded", "pekko.actor.default-mailbox", "" };
         List<ActorRef> refs = new ArrayList<>();
         for (int i = 0; i < ids.length; i++) refs.add(e.spawn("w" + i, ids[i]));

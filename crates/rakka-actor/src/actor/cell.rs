@@ -161,6 +161,9 @@ pub(crate) fn new_uid() -> i32 {
     }
 }
 
+/// `Dispatchers.DefaultDispatcherId`: the dispatcher every actor runs on until `Props` can select another one.
+const DEFAULT_DISPATCHER_ID: &str = "pekko.actor.default-dispatcher";
+
 /// How the real cell of an asynchronously created actor is made (`newCell`): the system, the actor's props, its parent, its path and the
 /// reference it knows as its own. `Err` is the exception Pekko's constructor or `init` would throw.
 pub(crate) type CellMaker = fn(
@@ -1013,7 +1016,7 @@ impl ActorCell {
                 self.children.lock().unwrap().unreserve(&name);
                 return Err(ConfigurationError::caused_by(
                     format!(
-                        "configuration problem while creating [{path}] with dispatcher [pekko.actor.default-dispatcher] and mailbox [{mailbox_id}]"
+                        "configuration problem while creating [{path}] with dispatcher [{DEFAULT_DISPATCHER_ID}] and mailbox [{mailbox_id}]"
                     ),
                     &cause,
                 )

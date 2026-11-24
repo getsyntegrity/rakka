@@ -111,8 +111,8 @@ impl Props {
         mut self,
         mailboxes: &Mailboxes,
     ) -> Result<Props, ConfigurationException> {
-        if let Some(id) = self.mailbox_id.take() {
-            self.mailbox = Some(mailboxes.lookup(&id)?);
+        if let Some(id) = &self.mailbox_id {
+            self.mailbox = Some(mailboxes.lookup(id)?);
         }
         Ok(self)
     }

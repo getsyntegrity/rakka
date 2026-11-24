@@ -944,8 +944,8 @@ MUTANTS = {
     # --- mailbox selection by id (killed by MBX-ID-01..03) ---
     "mailbox-id-selection-ignored": (
         "src/actor/props.rs",
-        "            self.mailbox = Some(mailboxes.lookup(&id)?);",
-        "            mailboxes.lookup(&id)?;",
+        "            self.mailbox = Some(mailboxes.lookup(id)?);",
+        "            mailboxes.lookup(id)?;",
         "the id is looked up (so an unknown id still fails) but the actor keeps the default mailbox instead of the selected one (MBX-ID-01)",
     ),
     "mailbox-id-always-resolves-to-the-default": (
