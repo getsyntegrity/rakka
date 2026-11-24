@@ -2,7 +2,7 @@ Verdict path: fast-kill: case mb-0001 confirmed by a single-case replay (`rust-a
 
 # App replay
 
-Build: `$TMPDIR/pekko-mutants-45876-raizh5f_/target-mailbox-id-selection-ignored/release/examples/classic-parity`
+Build: `$TMPDIR/pekko-mutants-58352-2v0v0ota/target-mailbox-id-selection-ignored/release/examples/classic-parity`
 
 Passed: 0/1
 
@@ -29,8 +29,8 @@ stdout:
 stderr:
 
 ```diff
-+ 
-+ thread 'main' (11376828) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:618:9:
++
++ thread 'main' (11501149) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:618:9:
 + condition not reached
 + note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ```

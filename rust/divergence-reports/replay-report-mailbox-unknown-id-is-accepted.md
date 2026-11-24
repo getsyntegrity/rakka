@@ -2,7 +2,7 @@ Verdict path: fast-kill: case mb-0001 confirmed by a single-case replay (`rust-a
 
 # App replay
 
-Build: `$TMPDIR/pekko-mutants-45876-raizh5f_/target-mailbox-unknown-id-is-accepted/release/examples/classic-parity`
+Build: `$TMPDIR/pekko-mutants-58352-2v0v0ota/target-mailbox-unknown-id-is-accepted/release/examples/classic-parity`
 
 Passed: 0/1
 
@@ -29,8 +29,8 @@ stdout:
 stderr:
 
 ```diff
-+ 
-+ thread 'main' (11379987) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:958:14:
++
++ thread 'main' (11504910) panicked at rakka-actor/examples/classic-parity/mailbox_cases.rs:958:14:
 + worker: InvalidActorName(InvalidActorNameError { message: "actor name [w] is not unique!", exact_utf16: None })
 + note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ```
