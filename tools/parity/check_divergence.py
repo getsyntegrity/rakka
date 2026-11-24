@@ -2031,9 +2031,9 @@ def fast_kill(binary, name):
 def publish_mutant_report(name, verdict_path, report_text):
     """The per-mutant report always starts with the path that produced the verdict, so that the evidence cannot be mistaken for another one."""
     with open(os.path.join(REPORTS, f"replay-report-{name}.md"), "w", encoding="utf-8") as report_file:
-        # the quoted diffs hold blank lines as `+ `; the report is evidence of the verdict, not of those trailing spaces
+        # a blank line of a quoted diff is `+ ` or `- `: drop only that prefix-only trailing space, so a divergence that is itself whitespace stays visible
         text = f"Verdict path: {verdict_path}\n\n{report_text}"
-        report_file.write("\n".join(line.rstrip() for line in text.split("\n")))
+        report_file.write(re.sub(r"(?m)^([+-]) +$", r"\1", text))
 
 
 def publish_fast_kill_report(name, kill):
