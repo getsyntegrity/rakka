@@ -1489,6 +1489,34 @@ fn attempt_to_create<A: Actor>(
     format!("{label}: {outcome}; ")
 }
 
+/// The `attempts` of the oracle: `actorOf` of `$worker` (an `IdWorker` that declares what it requires) with `$mailbox` selected, or of the
+/// plain worker when `$worker` is `IdWorker`; appends what it throws, or "created", to `$line`.
+macro_rules! attempt {
+    ($line:ident, $env:ident, $system:ident, $label:literal, IdWorker, $java:literal, $mailbox:expr) => {
+        $line.push_str(&attempt_to_create::<IdWorker>(
+            &$env,
+            &$system,
+            $label,
+            $env.props($label, $mailbox),
+            $java,
+        ))
+    };
+    ($line:ident, $env:ident, $system:ident, $label:literal, $worker:ident, $java:literal, $mailbox:expr) => {{
+        let props = $env.requiring($label, $worker);
+        let props = match $mailbox {
+            Some(id) => props.with_mailbox_id(id),
+            None => props,
+        };
+        $line.push_str(&attempt_to_create::<$worker>(
+            &$env,
+            &$system,
+            $label,
+            props,
+            &format!("pilot.MailboxOracle${}", $java),
+        ))
+    }};
+}
+
 /// `MBX-CMP-01`: the queue the selected mailbox promises must fulfill the requirement of the actor (`verifyRequirements`); a type that does
 /// not promise its queue produces a plain `MessageQueue` even when the queue it creates has the capability.
 fn the_selected_mailbox_must_fulfill_the_requirement_of_the_actor() -> String {
@@ -1499,62 +1527,154 @@ fn the_selected_mailbox_must_fulfill_the_requirement_of_the_actor() -> String {
         .mailboxes
         .register("audit-mailbox", AuditTrailMailbox);
     let system = env.system_with(settings);
-    let worker = |java_name: &str| format!("pilot.MailboxOracle${java_name}");
     let mut line = String::new();
-    macro_rules! attempt {
-        ($label:literal, $worker:ident, $java:literal, $mailbox:literal) => {
-            line.push_str(&attempt_to_create::<$worker>(
-                &env,
-                &system,
-                $label,
-                env.requiring($label, $worker).with_mailbox_id($mailbox),
-                &worker($java),
-            ))
-        };
-    }
     attempt!(
+        line,
+        env,
+        system,
         "unboundedOnPlain",
         UnboundedWorker,
         "UnboundedWorker",
-        "plain-mailbox"
+        Some("plain-mailbox")
     );
     attempt!(
+        line,
+        env,
+        system,
         "auditOnUnbounded",
         AuditTrailWorker,
         "AuditTrailWorker",
-        "unbounded"
+        Some("unbounded")
     );
     attempt!(
+        line,
+        env,
+        system,
         "boundedOnUnbounded",
         BoundedWorker,
         "BoundedWorker",
-        "unbounded"
+        Some("unbounded")
     );
     attempt!(
+        line,
+        env,
+        system,
         "unboundedOnAudit",
         UnboundedWorker,
         "UnboundedWorker",
-        "audit-mailbox"
+        Some("audit-mailbox")
     );
     attempt!(
+        line,
+        env,
+        system,
         "auditOnAudit",
         AuditTrailWorker,
         "AuditTrailWorker",
-        "audit-mailbox"
+        Some("audit-mailbox")
     );
     attempt!(
+        line,
+        env,
+        system,
         "anyOnPlain",
         AnyQueueWorker,
         "AnyQueueWorker",
-        "plain-mailbox"
+        Some("plain-mailbox")
     );
-    line.push_str(&attempt_to_create::<IdWorker>(
-        &env,
-        &system,
+    attempt!(
+        line,
+        env,
+        system,
         "nothingOnPlain",
-        env.props("nothingOnPlain", Some("plain-mailbox")),
+        IdWorker,
         "unused",
-    ));
+        Some("plain-mailbox")
+    );
+    finish_id_case(&env, system, line.trim().to_owned())
+}
+
+/// `MBX-CMP-02`: with a dispatcher that requires the unbounded semantics, the selected mailbox must fulfill that requirement and the actor's,
+/// the dispatcher's first; an actor binding that does not fit gives way to the dispatcher's binding, which is verified too.
+fn the_selected_mailbox_must_fulfill_the_requirements_of_the_dispatcher_and_the_actor() -> String {
+    let env = IdEnv::new();
+    let mut settings = Settings {
+        mailbox_requirement: Some(MessageQueueSemantics::UNBOUNDED),
+        ..Settings::default()
+    };
+    let mailboxes = &mut settings.mailboxes;
+    mailboxes.register(
+        "cap4-mailbox",
+        NonBlockingBoundedMailbox::new(4).expect("capacity"),
+    );
+    mailboxes.register("audit-mailbox", AuditTrailMailbox);
+    mailboxes.bind_requirement(MessageQueueSemantics::BOUNDED, "cap4-mailbox");
+    mailboxes.bind_requirement(AUDIT_TRAIL, "audit-mailbox");
+    let system = env.system_with(settings);
+    let mut line = String::new();
+    attempt!(
+        line,
+        env,
+        system,
+        "dispatcherUnmetBySelected",
+        IdWorker,
+        "unused",
+        Some("cap4-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "dispatcherMetBySelected",
+        IdWorker,
+        "unused",
+        Some("audit-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "boundedBindingFallsBack",
+        BoundedWorker,
+        "BoundedWorker",
+        None::<&str>
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "bothMetByAudit",
+        AuditTrailWorker,
+        "AuditTrailWorker",
+        None::<&str>
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "actorUnmetOnly",
+        BoundedWorker,
+        "BoundedWorker",
+        Some("unbounded")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "bothUnmet",
+        BoundedWorker,
+        "BoundedWorker",
+        Some("cap4-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "plainOnDefault",
+        IdWorker,
+        "unused",
+        None::<&str>
+    );
     finish_id_case(&env, system, line.trim().to_owned())
 }
 
@@ -1677,6 +1797,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-CMP-01 an actor whose requirement the queue promised by the selected mailbox does not fulfill fails actorOf at the call; one it fulfills, or an actor that requires nothing, is created",
             the_selected_mailbox_must_fulfill_the_requirement_of_the_actor(),
+        ),
+        (
+            "MBX-CMP-02 the queue of the selected mailbox must fulfill the requirement of the dispatcher and that of the actor, the dispatcher's reported first; an actor binding that does not fit gives way to the dispatcher's binding",
+            the_selected_mailbox_must_fulfill_the_requirements_of_the_dispatcher_and_the_actor(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

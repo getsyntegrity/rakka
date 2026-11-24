@@ -1348,22 +1348,37 @@ final class MailboxOracle {
     });
     run("MBX-CMP-01 an actor whose requirement the queue promised by the selected mailbox does not fulfill fails actorOf at the call; one it fulfills, or an actor that requires nothing, is created", () -> {
       try (IdEnv e = new IdEnv(0, "plain-mailbox.mailbox-type = \"pilot.MailboxOracle$PlainType\"\n audit-mailbox.mailbox-type = \"pilot.MailboxOracle$AuditTrailType\"\n")) {
-        Object[][] attempts = {
+        return attempts(e, new Object[][] {
             {"unboundedOnPlain", UnboundedWorker.class, "plain-mailbox"}, {"auditOnUnbounded", AuditTrailWorker.class, "unbounded"},
             {"boundedOnUnbounded", BoundedWorker.class, "unbounded"}, {"unboundedOnAudit", UnboundedWorker.class, "audit-mailbox"},
             {"auditOnAudit", AuditTrailWorker.class, "audit-mailbox"}, {"anyOnPlain", AnyQueueWorker.class, "plain-mailbox"},
-            {"nothingOnPlain", IdWorker.class, "plain-mailbox"}};
-        StringBuilder out = new StringBuilder();
-        for (Object[] a : attempts) {
-          String label = (String) a[0], outcome;
-          @SuppressWarnings("unchecked") Class<? extends IdWorker> worker = (Class<? extends IdWorker>) a[1];
-          try { e.spawnProps(label, e.requiring(worker, label).withMailbox((String) a[2])); outcome = "created"; }
-          catch (Throwable t) { outcome = t.getClass().getName() + ": " + t.getMessage() + " | cause " + t.getCause(); }
-          out.append(label).append(": ").append(outcome).append("; ");
-        }
-        return out.toString().trim();
+            {"nothingOnPlain", IdWorker.class, "plain-mailbox"}});
       }
     });
+    run("MBX-CMP-02 the queue of the selected mailbox must fulfill the requirement of the dispatcher and that of the actor, the dispatcher's reported first; an actor binding that does not fit gives way to the dispatcher's binding", () -> {
+      try (IdEnv e = new IdEnv(0, "pekko.actor.default-dispatcher.mailbox-requirement = \"org.apache.pekko.dispatch.UnboundedMessageQueueSemantics\"\n"
+          + "audit-mailbox.mailbox-type = \"pilot.MailboxOracle$AuditTrailType\"\n"
+          + "pekko.actor.mailbox.requirements { \"org.apache.pekko.dispatch.BoundedMessageQueueSemantics\" = cap4-mailbox\n \"pilot.MailboxOracle$AuditTrail\" = audit-mailbox }\n")) {
+        return attempts(e, new Object[][] {
+            {"dispatcherUnmetBySelected", IdWorker.class, "cap4-mailbox"}, {"dispatcherMetBySelected", IdWorker.class, "audit-mailbox"},
+            {"boundedBindingFallsBack", BoundedWorker.class, null}, {"bothMetByAudit", AuditTrailWorker.class, null},
+            {"actorUnmetOnly", BoundedWorker.class, "unbounded"}, {"bothUnmet", BoundedWorker.class, "cap4-mailbox"}, {"plainOnDefault", IdWorker.class, null}});
+      }
+    });
+  }
+
+  /** Each attempt {label, worker, mailbox id or null}: {@code actorOf} with that mailbox selected; what it throws, or "created". */
+  static String attempts(IdEnv e, Object[][] attempts) throws Exception {
+    StringBuilder out = new StringBuilder();
+    for (Object[] a : attempts) {
+      String label = (String) a[0], outcome;
+      @SuppressWarnings("unchecked") Class<? extends IdWorker> worker = (Class<? extends IdWorker>) a[1];
+      Props props = e.requiring(worker, label);
+      try { e.spawnProps(label, a[2] == null ? props : props.withMailbox((String) a[2])); outcome = "created"; }
+      catch (Throwable t) { outcome = t.getClass().getName() + ": " + t.getMessage() + " | cause " + t.getCause(); }
+      out.append(label).append(": ").append(outcome).append("; ");
+    }
+    return out.toString().trim();
   }
 
   /** Not a golden case (its counts vary run to run): `n` actors, each hit by 4 producers (300 sends each) released together with
