@@ -218,10 +218,10 @@ class ReplayIsolation(unittest.TestCase):
 
     def test_a_published_report_drops_the_prefix_only_trailing_space_of_blank_diff_lines_and_keeps_real_whitespace(self):
         cd, reports = self.with_reports_directory()
-        cd.publish_mutant_report("blank", "full replay", "### c-a1\n```diff\n+ \n- \n+ text  \n```\n")
+        cd.publish_mutant_report("blank", "full replay", "### c-a1\n```diff\n+ \n- \n+   \n+ text  \n```\n")
         published = read_text(os.path.join(reports, "replay-report-blank.md"))
         self.assertNotIn("+ \n", published.replace("+ text  \n", ""))   # the blank diff lines carry no trailing space
-        self.assertIn("+\n-\n+ text  \n", published)                      # a whitespace-only divergence stays visible
+        self.assertIn("+\n-\n+   \n+ text  \n", published)                      # a whitespace-only divergence stays visible
 
     def test_a_full_replay_records_every_divergent_case_as_a_known_killer_for_the_next_fast_kill(self):
         cd, reports = self.with_reports_directory()
