@@ -105,6 +105,21 @@ final class MailboxOracle {
     public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new HookQueue(nextHooks); }
   }
 
+  /** A queue that hands out the newest message first and loses none: tells a configured mailbox type apart from the unbounded FIFO one. */
+  static final class LifoQueue implements MessageQueue, org.apache.pekko.dispatch.UnboundedMessageQueueSemantics {
+    final java.util.concurrent.ConcurrentLinkedDeque<Envelope> q = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    public void enqueue(ActorRef r, Envelope e) { q.addFirst(e); }
+    public Envelope dequeue() { return q.pollFirst(); }
+    public int numberOfMessages() { return q.size(); }
+    public boolean hasMessages() { return !q.isEmpty(); }
+    public void cleanUp(ActorRef owner, MessageQueue deadLetters) { for (Envelope e; (e = q.pollFirst()) != null; ) deadLetters.enqueue(owner, e); }
+  }
+
+  public static final class LifoType implements MailboxType, ProducesMessageQueue<LifoQueue> {
+    public LifoType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new LifoQueue(); }
+  }
+
   /** A mailbox type whose {@code create} throws: the way a public SPI makes {@code newCell} of an asynchronously created actor fail. */
   public static final class FailingType implements MailboxType, ProducesMessageQueue<UnboundedMailbox.MessageQueue> {
     public FailingType(ActorSystem.Settings s, Config c) {}
@@ -198,6 +213,14 @@ final class MailboxOracle {
           + "cap4-mailbox { mailbox-type = \"org.apache.pekko.dispatch.NonBlockingBoundedMailbox\"\n mailbox-capacity = 4 }\n")
           .withFallback(ConfigFactory.load()));
       sys.eventStream().subscribe(sys.actorOf(Props.create(IdDeadListener.class, this)), DeadLetter.class);
+    }
+    /** A system whose configuration is {@code hocon} over the base one; the listener has an unbounded mailbox of its own. */
+    IdEnv(int blockedWorkers, String hocon) {
+      entered = new CountDownLatch(blockedWorkers);
+      sys = ActorSystem.create("mbx", ConfigFactory.parseString("pekko { loglevel = OFF\n stdout-loglevel = OFF\n log-dead-letters = off }\n"
+          + "cap4-mailbox { mailbox-type = \"org.apache.pekko.dispatch.NonBlockingBoundedMailbox\"\n mailbox-capacity = 4 }\n" + hocon)
+          .withFallback(ConfigFactory.load()));
+      sys.eventStream().subscribe(sys.actorOf(Props.create(IdDeadListener.class, this).withMailbox("unbounded")), DeadLetter.class);
     }
     Props props(String label, String mailboxId) {
       Props p = Props.create(IdWorker.class, label, this);
@@ -1170,6 +1193,19 @@ final class MailboxOracle {
         e.release.countDown();
         awaitUntil(() -> e.log.size() == 4 * 11);
         return e.perActor("w0", "w1", "w2", "w3");
+      }
+    });
+    run("MBX-CFG-02 a mailbox configured as the default serves the actors without a selection, not the ids that name another", () -> {
+      try (IdEnv e = new IdEnv(5, "pekko.actor.default-mailbox.mailbox-type = \"pilot.MailboxOracle$LifoType\"\n")) {
+        String[] ids = { null, "", "pekko.actor.default-mailbox", "unbounded", "cap4-mailbox" };
+        List<ActorRef> refs = new ArrayList<>();
+        for (int i = 0; i < ids.length; i++) refs.add(e.spawn("w" + i, ids[i]));
+        for (ActorRef r : refs) r.tell("block", ActorRef.noSender());
+        e.entered.await();
+        for (ActorRef r : refs) for (int i = 1; i <= 6; i++) r.tell("m" + i, ActorRef.noSender());
+        e.release.countDown();
+        awaitUntil(() -> e.log.size() == 3 * 7 + 7 + 5 && e.dead.size() == 2);
+        return e.perActor("w0", "w1", "w2", "w3", "w4");
       }
     });
   }
