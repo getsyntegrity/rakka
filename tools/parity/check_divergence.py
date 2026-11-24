@@ -1897,6 +1897,25 @@ MUTANTS = {
         "            if let Some(selected) = self.mailbox.take().filter(|_| self.mailbox_id.is_none()) {",
         "a mailbox selected by id is not verified",
     ),
+    # --- killed by MBX-CMP-01 (the oracle's text of the verification failure) ---
+    "mailbox-incompatible-queue-is-a-configuration-cause": (
+        "src/dispatch/mailboxes.rs",
+        "            Self::IncompatibleQueue(_) => ErrorClass::IllegalArgument,",
+        "            Self::IncompatibleQueue(_) => ErrorClass::Configuration,",
+        "the cause of the failure is reported as a ConfigurationException instead of an IllegalArgumentException (MBX-CMP-01)",
+    ),
+    "mailbox-plain-queue-is-printed-as-a-class": (
+        "src/dispatch/queue_semantics.rs",
+        "        is_interface: true,",
+        "        is_interface: false,",
+        "the queue of a type without promise is printed as `class` instead of `interface` (MBX-CMP-01)",
+    ),
+    "mailbox-actor-class-is-named-without-its-kind": (
+        "src/actor/props.rs",
+        "\"actor class [class {}]\"",
+        "\"actor class [{}]\"",
+        "the actor class of the verification failure is printed without `class` (MBX-CMP-01)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

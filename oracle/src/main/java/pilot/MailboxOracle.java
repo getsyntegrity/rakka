@@ -212,6 +212,12 @@ final class MailboxOracle {
     public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new AuditTrailQueue(); }
   }
 
+  /** Creates a queue that has the {@link AuditTrail} semantics but does not promise it ({@code ProducesMessageQueue} is absent). */
+  public static final class PlainType implements MailboxType {
+    public PlainType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new AuditTrailQueue(); }
+  }
+
   /** The workers of the {@code MBX-REQ} cases: the same worker, each declaring {@code RequiresMessageQueue[T]} with a different {@code T}. */
   public static final class UnboundedWorker extends IdWorker implements RequiresMessageQueue<UnboundedMessageQueueSemantics> {
     UnboundedWorker(String label, IdEnv env) { super(label, env); }
@@ -1338,6 +1344,24 @@ final class MailboxOracle {
         e.release.countDown();
         awaitUntil(() -> e.log.size() == 4 * 7);
         return e.perActor("plain", "anyQueue", "audit", "selected");
+      }
+    });
+    run("MBX-CMP-01 an actor whose requirement the queue promised by the selected mailbox does not fulfill fails actorOf at the call; one it fulfills, or an actor that requires nothing, is created", () -> {
+      try (IdEnv e = new IdEnv(0, "plain-mailbox.mailbox-type = \"pilot.MailboxOracle$PlainType\"\n audit-mailbox.mailbox-type = \"pilot.MailboxOracle$AuditTrailType\"\n")) {
+        Object[][] attempts = {
+            {"unboundedOnPlain", UnboundedWorker.class, "plain-mailbox"}, {"auditOnUnbounded", AuditTrailWorker.class, "unbounded"},
+            {"boundedOnUnbounded", BoundedWorker.class, "unbounded"}, {"unboundedOnAudit", UnboundedWorker.class, "audit-mailbox"},
+            {"auditOnAudit", AuditTrailWorker.class, "audit-mailbox"}, {"anyOnPlain", AnyQueueWorker.class, "plain-mailbox"},
+            {"nothingOnPlain", IdWorker.class, "plain-mailbox"}};
+        StringBuilder out = new StringBuilder();
+        for (Object[] a : attempts) {
+          String label = (String) a[0], outcome;
+          @SuppressWarnings("unchecked") Class<? extends IdWorker> worker = (Class<? extends IdWorker>) a[1];
+          try { e.spawnProps(label, e.requiring(worker, label).withMailbox((String) a[2])); outcome = "created"; }
+          catch (Throwable t) { outcome = t.getClass().getName() + ": " + t.getMessage() + " | cause " + t.getCause(); }
+          out.append(label).append(": ").append(outcome).append("; ");
+        }
+        return out.toString().trim();
       }
     });
   }

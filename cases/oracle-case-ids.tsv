@@ -2380,3 +2380,4 @@ mb-0024	mailbox	MBX-REQ-01 an actor that requires a queue semantics gets the mai
 mb-0025	mailbox	MBX-REQ-02 an actor that requires a queue semantics with no mailbox bound to it fails actorOf at the call and its name is free again
 mb-0026	mailbox	MBX-REQ-03 an id selected by the props or by a deployment decides the mailbox over the queue semantics the actor requires; an empty id leaves the requirement
 mb-0027	mailbox	MBX-REQ-04 the queue semantics the dispatcher requires selects the mailbox of the actors that require nothing, and of those whose own requirement has no binding; the actor's own binding and a selected id come first
+mb-0028	mailbox	MBX-CMP-01 an actor whose requirement the queue promised by the selected mailbox does not fulfill fails actorOf at the call; one it fulfills, or an actor that requires nothing, is created
