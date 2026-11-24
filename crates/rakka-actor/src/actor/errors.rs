@@ -294,3 +294,40 @@ impl ActorError {
         }
     }
 }
+
+#[cfg(test)]
+mod configuration_error_tests {
+    use super::*;
+    use crate::ConfigurationException;
+
+    #[test]
+    fn a_configuration_error_without_cause_renders_like_throwable_to_string() {
+        let error = ActorError::new(ErrorClass::Configuration, "bad setting");
+        assert_eq!(error.class(), ErrorClass::Configuration);
+        assert_eq!(error.cause(), None);
+        assert_eq!(
+            error.message_utf16(),
+            "bad setting".encode_utf16().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            error.to_string(),
+            "org.apache.pekko.ConfigurationException: bad setting"
+        );
+    }
+
+    #[test]
+    fn a_configuration_error_keeps_the_class_and_message_of_its_cause() {
+        let cause = ConfigurationException::new("Mailbox Type [x] not configured");
+        let error: ActorError = ConfigurationError::caused_by("outer".to_owned(), &cause).into();
+        assert_eq!(error.message(), "outer");
+        assert_eq!(
+            error.cause(),
+            Some("org.apache.pekko.ConfigurationException: Mailbox Type [x] not configured")
+        );
+    }
+
+    #[test]
+    fn other_errors_have_no_cause() {
+        assert_eq!(ActorError::new(ErrorClass::IllegalState, "s").cause(), None);
+    }
+}

@@ -6,78 +6,16 @@
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
 mod common;
-use common::{RunningSystem, wait_until};
+use common::{Gate, LifoMailbox, RunningSystem, wait_until};
 
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Mutex};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::system::Settings;
 use rakka_actor::actor::{ActorError, ErrorClass};
-use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, UnboundedMailbox};
-
-/// A queue that delivers the newest envelope first.
-#[derive(Default)]
-struct LifoQueue(Mutex<Vec<Envelope>>);
-
-impl MessageQueue for LifoQueue {
-    fn enqueue(&self, _receiver: &ActorRef, envelope: Envelope) -> bool {
-        self.0.lock().unwrap().push(envelope);
-        true
-    }
-    fn dequeue(&self) -> Option<Envelope> {
-        self.0.lock().unwrap().pop()
-    }
-    fn number_of_messages(&self) -> usize {
-        self.0.lock().unwrap().len()
-    }
-    fn has_messages(&self) -> bool {
-        !self.0.lock().unwrap().is_empty()
-    }
-    fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
-        while let Some(envelope) = self.dequeue() {
-            dead_letters.enqueue(owner, envelope);
-        }
-    }
-}
-
-/// `MailboxType` of `LifoQueue`; counts the queues it creates.
-#[derive(Clone, Default)]
-struct LifoMailbox {
-    queues_created: Arc<AtomicUsize>,
-}
-
-impl MailboxType for LifoMailbox {
-    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
-        self.queues_created.fetch_add(1, Ordering::SeqCst);
-        Box::<LifoQueue>::default()
-    }
-}
-
-#[derive(Default)]
-struct Gate {
-    released: Mutex<bool>,
-    changed: Condvar,
-    entered: Mutex<bool>,
-}
-
-impl Gate {
-    fn hold_until_released(&self) {
-        *self.entered.lock().unwrap() = true;
-        let mut released = self.released.lock().unwrap();
-        while !*released {
-            released = self.changed.wait(released).unwrap();
-        }
-    }
-    fn release(&self) {
-        *self.released.lock().unwrap() = true;
-        self.changed.notify_all();
-    }
-    fn entered(&self) -> bool {
-        *self.entered.lock().unwrap()
-    }
-}
+use rakka_actor::dispatch::message_queue::UnboundedMailbox;
 
 /// Logs every string; `"first"` waits for the gate, `"fail"` throws (restart), `"spawn-with-unknown-mailbox"` tries to create a
 /// child with a mailbox id nobody registered and logs the class of the error.
