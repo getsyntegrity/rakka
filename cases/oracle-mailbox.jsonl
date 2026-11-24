@@ -19,3 +19,4 @@
 {"name": "mb-0019", "args": ["mailbox-case"], "stdin": "MBX-ID-01 two ids select their own queue and two actors with the same id keep separate queues"}
 {"name": "mb-0020", "args": ["mailbox-case"], "stdin": "MBX-ID-02 an unknown id fails actorOf at the call: no actor is made and the name is free again"}
 {"name": "mb-0021", "args": ["mailbox-case"], "stdin": "MBX-ID-03 no selection, the built-in ids and the empty id all give the unbounded FIFO queue"}
+{"name": "mb-0022", "args": ["mailbox-case"], "stdin": "MBX-CFG-02 a mailbox configured as the default serves the actors without a selection, not the ids that name another"}

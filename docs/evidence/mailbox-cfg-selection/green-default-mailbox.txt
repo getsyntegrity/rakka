@@ -1,0 +1,19 @@
+   Compiling rakka-actor v0.1.0 (/Users/pablogore/workspace/pablogore/rakka/.claude/worktrees/slice-mbx-cfg-1/crates/rakka-actor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.59s
+     Running tests/classic_mailbox_id_selection.rs (target/debug/build/rakka-actor/bd5831e17674de65/out/classic_mailbox_id_selection-bd5831e17674de65)
+
+running 11 tests
+test a_child_created_from_an_actor_with_an_unknown_id_fails_in_the_parent_call ... ok
+test an_unknown_id_fails_actor_of_without_creating_an_actor_and_frees_the_name ... ok
+test the_empty_id_resets_an_earlier_selection_to_the_default ... ok
+test a_restart_keeps_the_queue_of_the_selected_id ... ok
+test two_actors_with_the_same_id_each_get_their_own_queue ... ok
+test a_restart_keeps_the_queue_of_the_registered_default ... ok
+test an_explicit_selection_is_not_replaced_by_the_registered_default ... ok
+test an_id_resolves_to_the_registered_type_and_two_ids_to_their_own_types ... ok
+test the_selected_id_is_not_replaced_by_the_default_nor_by_an_earlier_type ... ok
+test a_type_registered_as_the_default_applies_to_actors_without_a_selection ... ok
+test the_built_in_ids_and_the_empty_id_give_the_default_unbounded_fifo ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

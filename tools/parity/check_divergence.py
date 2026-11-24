@@ -944,9 +944,16 @@ MUTANTS = {
     # --- mailbox selection by id (killed by MBX-ID-01..03) ---
     "mailbox-id-selection-ignored": (
         "src/actor/props.rs",
-        "            self.mailbox = Some(mailboxes.lookup(id)?);",
-        "            mailboxes.lookup(id)?;",
+        "            self.mailbox = Some(mailboxes.lookup(self.mailbox_id())?);",
+        "            mailboxes.lookup(self.mailbox_id())?;",
         "the id is looked up (so an unknown id still fails) but the actor keeps the default mailbox instead of the selected one (MBX-ID-01)",
+    ),
+    # --- mailbox registered as the default (killed by MBX-CFG-02) ---
+    "mailbox-registered-default-ignored-without-a-selection": (
+        "src/actor/props.rs",
+        "        if self.mailbox.is_none() {",
+        "        if self.mailbox.is_none() && self.mailbox_id.is_some() {",
+        "an actor without a selection keeps the built-in unbounded mailbox even when a type is registered as pekko.actor.default-mailbox (MBX-CFG-02)",
     ),
     "mailbox-id-always-resolves-to-the-default": (
         "src/dispatch/mailboxes.rs",
