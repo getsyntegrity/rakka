@@ -81,8 +81,15 @@ impl Gate {
 
 /// Logs every string; `"first"` waits for the gate, `"first-then-stop"` also stops the actor afterwards, `"fail"` throws (restart).
 struct Worker {
+    instances_dropped: Arc<AtomicUsize>,
     gate: Arc<Gate>,
     received: Arc<Mutex<Vec<String>>>,
+}
+
+impl Drop for Worker {
+    fn drop(&mut self) {
+        self.instances_dropped.fetch_add(1, Ordering::SeqCst);
+    }
 }
 
 impl Actor for Worker {
@@ -109,15 +116,20 @@ struct Scenario {
     worker: ActorRef,
     gate: Arc<Gate>,
     received: Arc<Mutex<Vec<String>>>,
+    /// Actor instances discarded so far: a restart drops the failed instance.
+    instances_dropped: Arc<AtomicUsize>,
 }
 
 impl Scenario {
     fn new(name: &str, mailbox: Option<Box<dyn Fn(Props) -> Props>>) -> Scenario {
         let system = RunningSystem::create(name);
         let (gate, received) = (Arc::new(Gate::default()), Arc::new(Mutex::new(Vec::new())));
+        let instances_dropped = Arc::new(AtomicUsize::new(0));
         let props = Props::new({
             let (gate, received) = (gate.clone(), received.clone());
+            let instances_dropped = instances_dropped.clone();
             move || Worker {
+                instances_dropped: instances_dropped.clone(),
                 gate: gate.clone(),
                 received: received.clone(),
             }
@@ -132,6 +144,7 @@ impl Scenario {
             worker,
             gate,
             received,
+            instances_dropped,
         }
     }
 
@@ -190,7 +203,10 @@ fn a_restart_keeps_the_queue_the_mailbox_type_created() {
         })),
     );
     scenario.tell("fail");
-    wait_until("the failing message", || scenario.received() == ["fail"]);
+    wait_until("the failed instance to be replaced", || {
+        scenario.instances_dropped.load(Ordering::SeqCst) == 1
+    });
+    assert_eq!(scenario.received(), ["fail"]);
     scenario.occupy_the_worker();
     scenario.tell("x");
     scenario.tell("y");

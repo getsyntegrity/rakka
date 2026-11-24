@@ -87,6 +87,7 @@ impl MailboxType for UnboundedMailbox {
 
 impl UnboundedMailbox {
     /// A new, empty queue for one mailbox; unlike `MailboxType::create` it needs no `deadLetters` (the cell uses it where it has none).
+    /// On the concrete type this inherent method wins over `MailboxType::create`, which it backs.
     pub fn create(&self) -> Box<dyn MessageQueue> {
         Box::new(UnboundedMessageQueue::default())
     }

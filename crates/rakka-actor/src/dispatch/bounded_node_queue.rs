@@ -59,6 +59,7 @@ impl NonBlockingBoundedMailbox {
     }
 
     /// A new, empty queue for one mailbox; what it refuses is dead-lettered to `dead_letters` as addressed to the receiver of `enqueue`.
+    /// Inherent twin of `MailboxType::create` (which takes `&ActorRef`); on the concrete type this one wins, the trait one is for `Props`.
     pub fn create(&self, dead_letters: ActorRef) -> Box<dyn MessageQueue> {
         Box::new(BoundedNodeMessageQueue {
             capacity: self.capacity,
