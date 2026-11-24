@@ -232,8 +232,8 @@ mod turn_limits_with_real_actors {
                 .unwrap()
         };
         let (x, y) = (works("x"), works("y"));
-        // `actorOf` is asynchronous: the guardian attaches each actor to the dispatcher in its own turn. Both must be attached (their
-        // `Create` processed) before the only thread is occupied, or the order in which they join its queue depends on that race.
+        // `actorOf` is asynchronous: the guardian attaches each actor to the dispatcher in its own turn. Both must have started (their
+        // `Create` processed on the worker) before the only thread is occupied, or the order in which they join its queue depends on that race.
         for _ in 0..2 {
             started_rx
                 .recv_timeout(Duration::from_secs(10))

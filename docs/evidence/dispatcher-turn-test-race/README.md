@@ -23,10 +23,12 @@ Traza (instrumentación temporal, no incluida): en una corrida fallida `start pe
 | núcleo del Slice 3 (`a6f6398`) | 309 | **0** |
 | HEAD integrado (`0c518a7`) | 256 | **0** |
 
-Con el test aislado y 200 corridas alternadas, la tasa fue 7 % / 20 % / 12 % (base / núcleo / final); con el módulo entero y 1000 corridas es 41 % / 31 % / 26 %. El signo de la diferencia entre versiones cambia según la medición, así que **no se demuestra que el Slice 3 aumente la tasa**: la tasa depende de la carga y de los tiempos, y la condición que produce el fallo existe en todas las versiones. El arreglo la elimina en todas.
+Con el test aislado y 200 corridas alternadas, la tasa fue 7 % / 20 % / 12 % (base / núcleo / final); con el módulo entero y 1000 corridas es 41 % / 31 % / 26 %. El signo de la diferencia entre versiones cambia según la medición, así que **no se demuestra que el Slice 3 aumente la tasa**: la tasa depende de la carga y de los tiempos, y la condición que produce el fallo existe en todas las versiones. El arreglo la elimina en la práctica en todas (0/1000 por versión).
 
 ## Arreglo
 
 El helper espera, por evento y sin sleeps ni reintentos, a que `x` e `y` ejecuten `pre_start` (`Works::pre_start` envía por un canal; `recv_timeout(10 s)` sólo evita un cuelgue, como el `wait_until` existente) antes de ocupar el hilo. Las aserciones no cambian.
+
+Ventana residual (señalada por la revisión independiente): `pre_start` corre en el hilo de trabajo justo después de `start()` y puede anticiparse al `replace_with` del guardián; en ese hueco la referencia sigue sin arrancar y un `tell` iría al búfer temporal. Para reordenar `x` e `y` el guardián tendría que quedar descartado entre dos sentencias consecutivas mientras el test envía los mensajes; no se observó en 1000 corridas por versión. Si apareciera, la espera completa sería además a `is_started` de ambas referencias.
 
 RED: la serie de 50/50 con el retraso diagnóstico y la traza. GREEN: 0/50 con el retraso y 0/1000 por versión.
