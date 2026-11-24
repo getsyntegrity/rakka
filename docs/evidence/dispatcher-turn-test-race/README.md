@@ -27,8 +27,24 @@ Con el test aislado y 200 corridas alternadas, la tasa fue 7 % / 20 % / 12 % (ba
 
 ## Arreglo
 
-El helper espera, por evento y sin sleeps ni reintentos, a que `x` e `y` ejecuten `pre_start` (`Works::pre_start` envía por un canal; `recv_timeout(10 s)` sólo evita un cuelgue, como el `wait_until` existente) antes de ocupar el hilo. Las aserciones no cambian.
+El helper envía a `x` e `y` un mensaje `ready` y espera, por canal y sin polling, sleeps ni reintentos, a que cada actor lo **procese** (`Works::receive` lo contesta sin registrarlo ni avanzar el reloj); recién entonces ocupa el hilo con el gate. `recv_timeout(10 s)` sólo evita un cuelgue, como el `wait_until` existente. Las aserciones no cambian y producción no se toca.
 
-Ventana residual (señalada por la revisión independiente): `pre_start` corre en el hilo de trabajo justo después de `start()` y puede anticiparse al `replace_with` del guardián; en ese hueco la referencia sigue sin arrancar y un `tell` iría al búfer temporal. Para reordenar `x` e `y` el guardián tendría que quedar descartado entre dos sentencias consecutivas mientras el test envía los mensajes; no se observó en 1000 corridas por versión. Si apareciera, la espera completa sería además a `is_started` de ambas referencias.
+Por qué un mensaje y no `pre_start`: una primera versión esperaba `pre_start`, que corre en el hilo de trabajo justo después de `cell.start()` y puede anticiparse al `replace_with` del guardián (`RepointableActorRef::point`). En ese hueco la referencia sigue sin arrancar, los envíos van al búfer temporal y `y` se registra tarde: `x` completaría `x3` antes de `y1`. La revisión independiente lo señaló y se reprodujo de forma determinista (retraso diagnóstico de 20 ms entre `start()` y `replace_with` de `y`, no commiteado). Un mensaje sólo se procesa tras el traspaso, y mientras éste dura el lock del búfer retiene los envíos de otros hilos, así que el orden queda determinado. No hay otra señal determinista en las abstracciones actuales (`is_started` exigiría polling).
 
-RED: la serie de 50/50 con el retraso diagnóstico y la traza. GREEN: 0/50 con el retraso y 0/1000 por versión.
+## RED / GREEN
+
+| Experimento (módulo `turn_limits_with_real_actors`) | Resultado |
+|---|---|
+| RED: espera por `pre_start` + 20 ms entre `start()` y `replace_with` de `y` | **50/50** fallan |
+| GREEN: espera por mensaje `ready` + el mismo retraso | **0/50** |
+| GREEN: espera por mensaje + 20 ms de retraso del `Supervise` de `y` | **0/50** |
+| GREEN: espera por mensaje, sin retraso | **0/1000** |
+
+## Sensibilidad del test corregido (mutaciones de `dispatch/turn.rs`, test objetivo, 20 corridas)
+
+| Mutación | Fallos |
+|---|---|
+| ninguna (control) | 0/20 |
+| el deadline se da por alcanzado aunque no lo esté | **20/20** |
+| el throughput se ignora (el turno nunca termina por su presupuesto) | **20/20** |
+| throughput con error de uno (un mensaje menos por turno) | **20/20** |

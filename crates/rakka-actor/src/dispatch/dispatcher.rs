@@ -164,21 +164,26 @@ mod turn_limits_with_real_actors {
         }
     }
 
+    /// What the test sends to learn that an actor is fully installed: only a message taken from the real mailbox proves that the
+    /// hand-over of everything sent before has finished.
+    const READY: &str = "ready";
+
     /// Logs `r:<text>` and lets `each` of fake time pass while it "works".
     struct Works {
         log: Log,
         clock: Arc<ManualClock>,
         each: Duration,
-        started: Sender<()>,
+        ready: Sender<()>,
     }
     impl Actor for Works {
-        fn pre_start(&mut self, _ctx: &mut ActorContext) {
-            self.started.send(()).unwrap();
-        }
         fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
             let Some(text) = msg.downcast_ref::<String>() else {
                 return false;
             };
+            if text == READY {
+                self.ready.send(()).unwrap();
+                return true;
+            }
             self.log.lock().unwrap().push(format!("r:{text}"));
             self.clock.advance(self.each);
             true
@@ -216,28 +221,32 @@ mod turn_limits_with_real_actors {
                 }
             }))
             .unwrap();
-        let (started_tx, started_rx) = channel();
+        let (ready_tx, ready_rx) = channel();
         let works = |name: &str| {
-            let (log, clock, started) = (log.clone(), clock.clone(), started_tx.clone());
+            let (log, clock, ready) = (log.clone(), clock.clone(), ready_tx.clone());
             system
                 .actor_of_named(
                     Props::new(move || Works {
                         log: log.clone(),
                         clock: clock.clone(),
                         each,
-                        started: started.clone(),
+                        ready: ready.clone(),
                     }),
                     name,
                 )
                 .unwrap()
         };
         let (x, y) = (works("x"), works("y"));
-        // `actorOf` is asynchronous: the guardian attaches each actor to the dispatcher in its own turn. Both must have started (their
-        // `Create` processed on the worker) before the only thread is occupied, or the order in which they join its queue depends on that race.
+        // `actorOf` is asynchronous: the guardian attaches each actor to the dispatcher in its own turn and then hands over what was
+        // sent meanwhile. Both must have processed a message from their real mailbox before the only thread is occupied, or the order
+        // in which they join its queue depends on that race.
+        for actor in [&x, &y] {
+            actor.tell(READY.to_owned(), None);
+        }
         for _ in 0..2 {
-            started_rx
+            ready_rx
                 .recv_timeout(Duration::from_secs(10))
-                .expect("x and y start");
+                .expect("x and y are installed");
         }
         blocker.tell("block".to_owned(), None);
         entered_rx.recv().unwrap();
