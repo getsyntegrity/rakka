@@ -1860,6 +1860,43 @@ MUTANTS = {
         "    fn produced_queue(&self) -> ProducedQueue {\n        ProducedQueue::new(\"claimed\", &[MessageQueueSemantics::UNBOUNDED])\n    }",
         "a type that makes no promise is taken to produce an unbounded queue",
     ),
+    # --- verifyRequirements: the selected type must fulfill the requirement of the actor and of the dispatcher (unit tests) ---
+    "mailbox-actor-requirement-not-verified": (
+        "src/actor/props.rs",
+        "        check(\n            self.required_queue,\n            format!(\"actor class [class {}]\", self.actor_class),\n        )",
+        "        Ok(())",
+        "the requirement of the actor is not verified against the queue the selected type promises",
+    ),
+    "mailbox-dispatcher-requirement-not-verified": (
+        "src/actor/props.rs",
+        "        check(\n            dispatcher_requirement,\n            format!(\"dispatcher [{DEFAULT_DISPATCHER_ID}]\"),\n        )?;\n",
+        "",
+        "the requirement of the dispatcher is not verified against the queue the selected type promises",
+    ),
+    "mailbox-requirement-verified-actor-first": (
+        "src/actor/props.rs",
+        "        check(\n            dispatcher_requirement,\n            format!(\"dispatcher [{DEFAULT_DISPATCHER_ID}]\"),\n        )?;\n        check(\n            self.required_queue,\n            format!(\"actor class [class {}]\", self.actor_class),\n        )",
+        "        check(\n            self.required_queue,\n            format!(\"actor class [class {}]\", self.actor_class),\n        )?;\n        check(\n            dispatcher_requirement,\n            format!(\"dispatcher [{DEFAULT_DISPATCHER_ID}]\"),\n        )",
+        "the requirement of the actor is reported before that of the dispatcher",
+    ),
+    "mailbox-failed-binding-has-no-dispatcher-fallback": (
+        "src/actor/props.rs",
+        "            (None, Some(_), Some(semantics)) => {",
+        "            (None, Some(_), Some(semantics)) if false => {",
+        "an actor binding that does not fit never gives way to the binding of the dispatcher",
+    ),
+    "mailbox-fallback-binding-is-not-verified": (
+        "src/actor/props.rs",
+        "                self.verify_requirements(&*fallback, dispatcher_requirement)?;\n",
+        "",
+        "the binding of the dispatcher used as a fallback is accepted without verification",
+    ),
+    "mailbox-selected-id-is-not-verified": (
+        "src/actor/props.rs",
+        "            if let Some(selected) = self.mailbox.take() {",
+        "            if let Some(selected) = self.mailbox.take().filter(|_| self.mailbox_id.is_none()) {",
+        "a mailbox selected by id is not verified",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -1945,6 +1982,12 @@ def classify(replay_result, binary):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "mailbox-actor-requirement-not-verified": ("dispatch::mailboxes", "the_queue_a_selected_type_promises_must_fulfill_the_requirement_of_the_actor"),
+    "mailbox-dispatcher-requirement-not-verified": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_is_verified_and_reported_before_that_of_the_actor"),
+    "mailbox-requirement-verified-actor-first": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_is_verified_and_reported_before_that_of_the_actor"),
+    "mailbox-failed-binding-has-no-dispatcher-fallback": ("dispatch::mailboxes", "a_binding_that_fails_verification_gives_way_to_the_requirement_of_the_dispatcher"),
+    "mailbox-fallback-binding-is-not-verified": ("dispatch::mailboxes", "a_binding_that_fails_verification_gives_way_to_the_requirement_of_the_dispatcher"),
+    "mailbox-selected-id-is-not-verified": ("dispatch::mailboxes", "the_queue_a_selected_type_promises_must_fulfill_the_requirement_of_the_actor"),
     "produced-queue-ignores-the-listed-semantics": ("dispatch::queue_semantics", "a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue"),
     "produced-queue-satisfies-any-requirement": ("dispatch::queue_semantics", "a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue"),
     "produced-queue-does-not-satisfy-message-queue": ("dispatch::queue_semantics", "a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue"),
