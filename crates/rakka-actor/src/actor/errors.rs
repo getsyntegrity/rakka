@@ -136,6 +136,25 @@ java_error_enum!(
         IllegalArgument(IllegalArgumentError)
     }
 );
+/// `org.apache.pekko.ConfigurationException` as `actorOf` throws it: the message and the `Throwable.toString` of the cause.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfigurationError {
+    message: String,
+    cause: Option<String>,
+}
+
+impl ConfigurationError {
+    /// `getMessage`.
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    /// `getCause.toString`: the class and message of what made the configuration unusable.
+    pub fn cause(&self) -> Option<&str> {
+        self.cause.as_deref()
+    }
+}
+
 /// What the Classic runtime throws at its callers (`ActorSystem.create`, `actorOf`). Unlike the other errors it
 /// renders like `Throwable.toString`: `<JVM class name>: <message>`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -146,6 +165,8 @@ pub enum ActorError {
     IllegalState(IllegalStateError),
     /// `java.lang.IllegalArgumentException`.
     IllegalArgument(IllegalArgumentError),
+    /// `org.apache.pekko.ConfigurationException`.
+    Configuration(ConfigurationError),
 }
 
 impl ActorError {
@@ -155,6 +176,7 @@ impl ActorError {
             Self::InvalidActorName(e) => e.message(),
             Self::IllegalState(e) => e.message(),
             Self::IllegalArgument(e) => e.message(),
+            Self::Configuration(e) => e.message(),
         }
     }
 
@@ -164,6 +186,15 @@ impl ActorError {
             Self::InvalidActorName(e) => e.message_utf16(),
             Self::IllegalState(e) => e.message_utf16(),
             Self::IllegalArgument(e) => e.message_utf16(),
+            Self::Configuration(e) => e.message().encode_utf16().collect(),
+        }
+    }
+
+    /// `getCause.toString`, for the errors that wrap one.
+    pub fn cause(&self) -> Option<&str> {
+        match self {
+            Self::Configuration(e) => e.cause(),
+            _ => None,
         }
     }
 }
@@ -194,6 +225,12 @@ impl From<IllegalArgumentError> for ActorError {
     }
 }
 
+impl From<ConfigurationError> for ActorError {
+    fn from(e: ConfigurationError) -> Self {
+        Self::Configuration(e)
+    }
+}
+
 /// The exception classes of [`ActorError`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorClass {
@@ -203,6 +240,8 @@ pub enum ErrorClass {
     IllegalState,
     /// `java.lang.IllegalArgumentException`
     IllegalArgument,
+    /// `org.apache.pekko.ConfigurationException`
+    Configuration,
 }
 
 impl ErrorClass {
@@ -212,6 +251,7 @@ impl ErrorClass {
             ErrorClass::InvalidActorName => "org.apache.pekko.actor.InvalidActorNameException",
             ErrorClass::IllegalState => "java.lang.IllegalStateException",
             ErrorClass::IllegalArgument => "java.lang.IllegalArgumentException",
+            ErrorClass::Configuration => "org.apache.pekko.ConfigurationException",
         }
     }
 }
@@ -223,6 +263,7 @@ impl ActorError {
             ActorError::InvalidActorName(_) => ErrorClass::InvalidActorName,
             ActorError::IllegalState(_) => ErrorClass::IllegalState,
             ActorError::IllegalArgument(_) => ErrorClass::IllegalArgument,
+            ActorError::Configuration(_) => ErrorClass::Configuration,
         }
     }
 
@@ -233,6 +274,36 @@ impl ActorError {
             ErrorClass::InvalidActorName => InvalidActorNameError::new(message).into(),
             ErrorClass::IllegalState => IllegalStateError::new(message).into(),
             ErrorClass::IllegalArgument => IllegalArgumentError::new(message).into(),
+            ErrorClass::Configuration => ConfigurationError {
+                message,
+                cause: None,
+            }
+            .into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod configuration_error_tests {
+    use super::*;
+
+    #[test]
+    fn a_configuration_error_without_cause_renders_like_throwable_to_string() {
+        let error = ActorError::new(ErrorClass::Configuration, "bad setting");
+        assert_eq!(error.class(), ErrorClass::Configuration);
+        assert_eq!(error.cause(), None);
+        assert_eq!(
+            error.message_utf16(),
+            "bad setting".encode_utf16().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            error.to_string(),
+            "org.apache.pekko.ConfigurationException: bad setting"
+        );
+    }
+
+    #[test]
+    fn other_errors_have_no_cause() {
+        assert_eq!(ActorError::new(ErrorClass::IllegalState, "s").cause(), None);
     }
 }

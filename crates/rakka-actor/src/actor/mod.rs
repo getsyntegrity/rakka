@@ -32,8 +32,9 @@ pub use address::Address;
 pub use deploy::{Deploy, NO_DISPATCHER_GIVEN, NO_MAILBOX_GIVEN, RouterConfig, Scope};
 pub use deployer::{Deployer, DeployerError};
 pub use errors::{
-    ActorError, ChildError, ErrorClass, FromStringError, IllegalArgumentError, IllegalStateError,
-    InvalidActorNameError, MalformedUrlError, NumberFormatError, UnsupportedOperationError,
+    ActorError, ChildError, ConfigurationError, ErrorClass, FromStringError, IllegalArgumentError,
+    IllegalStateError, InvalidActorNameError, MalformedUrlError, NumberFormatError,
+    UnsupportedOperationError,
 };
 pub use path::{
     ActorPath, is_valid_path_element, relative_actor_path_elements, validate_path_element,
