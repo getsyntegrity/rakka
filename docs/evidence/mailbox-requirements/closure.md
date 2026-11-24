@@ -17,15 +17,7 @@ Tamaño de los PR (con evidencia generada): 353, 339, 199, 143, 288 y 284 línea
 
 ## Deuda técnica
 
-1. **Test intermitente `a_deadline_that_no_message_reaches_leaves_the_throughput_as_the_limit` (dispatcher): causa sin determinar, no se descarta relación con el slice.** Existe en la base (fallos observados en `9b8ea66`), pero la tasa medida sube con los cambios del slice. Mediciones, mismo binario de `rakka-actor --lib` por versión, corridas alternadas:
-
-   | Medición | base `9b8ea66` | tras el núcleo (`a6f6398`) | HEAD final |
-   |---|---|---|---|
-   | 30 corridas con `cargo test` | 1/30 | — | 5/30 |
-   | 100 corridas | 10/100 | 30/100 | 15/100 |
-   | 200 corridas | 14/200 | 40/200 | 24/200 |
-
-   El slice no toca `dispatcher.rs`, pero sí el trabajo por actor creado (`resolve_mailbox`, búsqueda en `Mailboxes`) y la tasa varía entre medidas de una misma versión: la hipótesis (más trabajo entre la creación y el primer envío ensancha una carrera preexistente del test) no está demostrada. Acción: tarea aparte para bisecar el núcleo y corregir la carrera; hasta entonces un fallo aislado de este test no prueba una regresión.
+1. ~~**Test intermitente `a_deadline_that_no_message_reaches_leaves_the_throughput_as_the_limit` (dispatcher)**~~ **Resuelto** (PR #361, `docs/evidence/dispatcher-turn-test-race/README.md`). Causa raíz: el helper `interleaving` ocupaba el único hilo del dispatcher antes de que `x` e `y`, creados con el `actorOf` asíncrono, estuvieran instalados; el orden en que entraban a la cola dependía de una carrera con el guardián (en las corridas fallidas trazadas la creación fue siempre posterior al gate). Corregido esperando por evento a que ambos procesen un mensaje; 0/1000 fallos por versión (antes 26–41 %), 0/50 con retrasos diagnósticos que antes daban 50/50. La medición previa (base 7 %, núcleo 20 %, final 12 % con el test aislado) no permite atribuir un aumento al Slice 3: con el módulo entero el signo se invierte (41 %, 31 %, 26 %); la causa existe en todas las versiones.
 2. **Tres anclas de mutantes obsoletas desde antes del slice** (`tools/parity/check_divergence.py`): `config-push-timeout-not-read`, `deploy-fallback-keeps-the-tags`, `render-concatenation-keeps-white-space-as-a-separate-string`. Su texto `old` no aparece en el archivo indicado en `9b8ea66`; darían `PATCH_ERROR`. No se ejecutaron en este slice.
 3. **Configuración HOCON**: `pekko.actor.default-dispatcher.mailbox-requirement` y `pekko.actor.mailbox.requirements` se ignoran (`Settings::from_config` no los lee); sólo rigen `Settings::mailbox_requirement` y `Mailboxes::bind_requirement`.
 4. **Dispatcher**: falta el `mailbox-type` propio del dispatcher (paso 2 de `getMailboxType`) y que `Props` elija dispatcher; el requisito existe sólo para el dispatcher por defecto.
