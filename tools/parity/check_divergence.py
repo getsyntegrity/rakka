@@ -976,8 +976,8 @@ MUTANTS = {
     # --- mailbox selection by id (killed by MBX-ID-01..03) ---
     "mailbox-id-selection-ignored": (
         "src/actor/props.rs",
-        "                _ => mailboxes.lookup(self.mailbox_id())?,",
-        "                _ => {\n                    mailboxes.lookup(self.mailbox_id())?;\n                    mailboxes.lookup(Mailboxes::DEFAULT_MAILBOX_ID)?\n                }",
+        "                    (Some(_), _, _) => mailboxes.lookup(self.mailbox_id())?,",
+        "                    (Some(_), _, _) => {\n                        mailboxes.lookup(self.mailbox_id())?;\n                        mailboxes.lookup(Mailboxes::DEFAULT_MAILBOX_ID)?\n                    }",
         "the id is looked up (so an unknown id still fails) but the actor keeps the default mailbox instead of the selected one (MBX-ID-01)",
     ),
     # --- mailbox registered as the default (killed by MBX-CFG-02) ---
@@ -1007,8 +1007,8 @@ MUTANTS = {
     ),
     "mailbox-invalid-id-falls-back-to-the-default-and-creates-the-actor": (
         "src/actor/cell.rs",
-        "        let props = match props.resolve_mailbox(&self.system.settings.mailboxes) {\n            Ok(resolved) => resolved,\n            Err(cause) => {",
-        "        let props = match props.clone().resolve_mailbox(&self.system.settings.mailboxes) {\n            Ok(resolved) => resolved,\n            Err(_) if true => props,\n            Err(cause) => {",
+        "        let props = match props.resolve_mailbox(\n            &self.system.settings.mailboxes,\n            self.system.settings.mailbox_requirement,\n        ) {\n            Ok(resolved) => resolved,\n            Err(cause) => {",
+        "        let props = match props.clone().resolve_mailbox(\n            &self.system.settings.mailboxes,\n            self.system.settings.mailbox_requirement,\n        ) {\n            Ok(resolved) => resolved,\n            Err(_) if true => props,\n            Err(cause) => {",
         "the creation goes on with the default mailbox after the selected id could not be resolved: the actor exists although the selection was invalid (MBX-ID-02)",
     ),
     "mailbox-invalid-id-keeps-the-name-reserved": (
@@ -1026,15 +1026,15 @@ MUTANTS = {
     # --- mailbox selected by the queue semantics an actor requires (killed by MBX-REQ-01..03, or by the unit test where noted) ---
     "mailbox-actor-requirement-ignored": (
         "src/actor/props.rs",
-        "                (None, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
-        "                (None, Some(_)) => mailboxes.lookup(self.mailbox_id())?,",
+        "                    (None, Some(semantics), _) => mailboxes\n                        .lookup_by_queue_type(semantics)\n                        .or_else(dispatcher_requirement_as_fallback)?,",
+        "                    (None, Some(_), _) => mailboxes.lookup(self.mailbox_id())?,",
         "the queue semantics the actor requires is ignored: the actor gets the default mailbox (MBX-REQ-01)",
     ),
     "mailbox-requirement-beats-the-selected-id": (
         "src/actor/props.rs",
-        "                (None, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
-        "                (_, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,",
-        "the precedence is inverted: the requirement of the actor decides the mailbox even when the props or the deployment selected one",
+        "                    (Some(_), _, _) => mailboxes.lookup(self.mailbox_id())?,\n                    (None, Some(semantics), _) => mailboxes\n                        .lookup_by_queue_type(semantics)\n                        .or_else(dispatcher_requirement_as_fallback)?,",
+        "                    (_, Some(semantics), _) => mailboxes\n                        .lookup_by_queue_type(semantics)\n                        .or_else(dispatcher_requirement_as_fallback)?,\n                    (Some(_), None, _) => mailboxes.lookup(self.mailbox_id())?,",
+        "the precedence is inverted: the requirement of the actor decides the mailbox even when the props or the deployment selected one (MBX-REQ-03)",
     ),
     "mailbox-requirement-binding-ignored": (
         "src/dispatch/mailboxes.rs",
@@ -1059,6 +1059,30 @@ MUTANTS = {
         "        write!(f, \"interface {}\", self.class_name)",
         "        write!(f, \"{}\", self.class_name)",
         "the error of an unbound requirement names the class without the `interface` the JVM prints (MBX-REQ-02)",
+    ),
+    "mailbox-dispatcher-requirement-beats-the-actor": (
+        "src/actor/props.rs",
+        "                    (None, Some(semantics), _) => mailboxes\n                        .lookup_by_queue_type(semantics)\n                        .or_else(dispatcher_requirement_as_fallback)?,",
+        "                    (None, Some(semantics), _) => mailboxes\n                        .lookup_by_queue_type(dispatcher_requirement.unwrap_or(semantics))?,",
+        "the requirement of the dispatcher is consulted before the one of the actor (MBX-REQ-04)",
+    ),
+    "mailbox-dispatcher-requirement-is-not-the-fallback": (
+        "src/actor/props.rs",
+        ".or_else(dispatcher_requirement_as_fallback)?",
+        "?",
+        "an actor whose own requirement has no binding fails instead of using the requirement of the dispatcher (MBX-REQ-04)",
+    ),
+    "mailbox-dispatcher-requirement-beats-the-selected-id": (
+        "src/actor/props.rs",
+        "                    (Some(_), _, _) => mailboxes.lookup(self.mailbox_id())?,",
+        "                    (Some(_), _, Some(semantics)) => mailboxes.lookup_by_queue_type(semantics)?,\n                    (Some(_), _, None) => mailboxes.lookup(self.mailbox_id())?,",
+        "the requirement of the dispatcher decides the mailbox even when the props or the deployment selected one (MBX-REQ-04)",
+    ),
+    "mailbox-dispatcher-any-queue-counts-as-a-requirement": (
+        "src/actor/props.rs",
+        "            let dispatcher_requirement = dispatcher_requirement\n                .filter(|semantics| *semantics != MessageQueueSemantics::MESSAGE_QUEUE);",
+        "            let dispatcher_requirement = dispatcher_requirement;",
+        "a dispatcher that requires `MessageQueue` (no requirement in Pekko) makes every actor without a binding for it fail (MBX-REQ-04)",
     ),
     # --- Q-MBX-11 slice C2: a rejected Dispatcher.attach (killed by the in-crate twins of MBX-RJ-05..07, see UNIT_MUTANTS) ---
     "attach-rejection-swallowed-by-start": (
@@ -1878,6 +1902,10 @@ def classify(replay_result, binary):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "mailbox-dispatcher-any-queue-counts-as-a-requirement": ("dispatch::mailboxes", "a_dispatcher_requiring_any_queue_has_no_requirement"),
+    "mailbox-dispatcher-requirement-beats-the-actor": ("dispatch::mailboxes", "the_requirement_of_the_actor_decides_before_the_requirement_of_the_dispatcher"),
+    "mailbox-dispatcher-requirement-is-not-the-fallback": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_serves_an_actor_whose_requirement_has_no_binding"),
+    "mailbox-dispatcher-requirement-beats-the-selected-id": ("dispatch::mailboxes", "a_selected_id_decides_before_the_requirement_of_the_dispatcher"),
     "mailbox-requirement-beats-the-selected-id": ("dispatch::mailboxes", "a_selected_id_decides_the_mailbox_over_the_requirement"),
     "deployment-mailbox-ignored": ("dispatch::mailboxes", "a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not"),
     "deployment-empty-mailbox-resets-the-props": ("dispatch::mailboxes", "a_deployment_with_a_mailbox_overrides_the_props_and_an_empty_or_missing_one_does_not"),

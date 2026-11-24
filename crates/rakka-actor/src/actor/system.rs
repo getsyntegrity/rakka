@@ -14,6 +14,7 @@ use crate::actor::{ActorPath, Address, Deployer, DeployerError};
 use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
 use crate::dispatch::dispatcher::{Dispatcher, Executor};
 use crate::dispatch::mailboxes::Mailboxes;
+use crate::dispatch::queue_semantics::MessageQueueSemantics;
 use crate::dispatch::sysmsg::{StopChild, SystemMessage, Terminated};
 use crate::dispatch::turn::TurnPolicy;
 use crate::event::{DeadLetter, EventStream};
@@ -73,6 +74,9 @@ pub struct Settings {
     /// `pekko.actor.unstarted-push-timeout`: how long a send to an actor that is being started waits for the reference's lock before
     /// the message becomes a dead letter. Zero does not wait (the JVM treats a negative timeout like zero; `Duration` cannot be negative).
     pub unstarted_push_timeout: Duration,
+    /// `pekko.actor.default-dispatcher.mailbox-requirement`: the semantics the default dispatcher requires of the queue of every actor
+    /// that runs on it (all of them until `Props` can select a dispatcher). `None` is the empty string: no requirement.
+    pub mailbox_requirement: Option<MessageQueueSemantics>,
     /// The mailbox ids that `Props::with_mailbox_id` can select (`Mailboxes`).
     pub mailboxes: Mailboxes,
     /// The deployments (`pekko.actor.deployment`, or added with [`Deployer::deploy`]) that `actorOf` looks up by the path of the new actor.
@@ -103,6 +107,7 @@ impl Default for Settings {
             throughput: 5,
             throughput_deadline_time: Duration::ZERO,
             unstarted_push_timeout: Duration::from_secs(10),
+            mailbox_requirement: None,
             mailboxes: Mailboxes::new(),
             deployer: Arc::new(Deployer::new()),
         }

@@ -1,0 +1,4 @@
+$ cargo test -p rakka-actor --lib dispatch::mailboxes   # review finding: a dispatcher whose requirement is MessageQueue has none (Mailboxes.scala:165)
+test dispatch::mailboxes::tests::a_dispatcher_requiring_any_queue_has_no_requirement ... FAILED
+thread 'dispatch::mailboxes::tests::a_dispatcher_requiring_any_queue_has_no_requirement' panicked at crates/rakka-actor/src/dispatch/mailboxes.rs:436:26:
+test result: FAILED. 21 passed; 1 failed; 0 ignored; 0 measured; 591 filtered out; finished in 0.00s
