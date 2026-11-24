@@ -1,8 +1,10 @@
+Verdict path: full replay (2966 cases); outcome UNDETECTED
+
 # App replay
 
-Build: `/var/folders/2n/mgyt43vn1391pyy5q8wv31kh0000gn/T/pekko-mutants-q7eg4pe0/target-selftest-equivalent-whitespace/release/examples/classic-parity`
+Build: `$TMPDIR/pekko-mutants-29288-8cjvqb1l/target-selftest-equivalent-whitespace/release/examples/classic-parity`
 
-Passed: 2221/2222
+Passed: 2965/2966
 
 Fallback rate: not reported by this build
 
