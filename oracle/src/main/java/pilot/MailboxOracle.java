@@ -218,6 +218,31 @@ final class MailboxOracle {
     public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new AuditTrailQueue(); }
   }
 
+  /** Promises {@link AuditTrailQueue} but creates a {@link LifoQueue}, which has no {@link AuditTrail} semantics. */
+  public static final class LiarType implements MailboxType, ProducesMessageQueue<AuditTrailQueue> {
+    public LiarType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new LifoQueue(); }
+  }
+
+  /** Creates {@code kid} from each {@link Props} it is sent and logs what it sees of it: the failure its supervision gets, its death. */
+  public static final class InitParent extends AbstractActor {
+    final IdEnv env; int attempt;
+    InitParent(IdEnv env) { this.env = env; }
+    @Override public SupervisorStrategy supervisorStrategy() {
+      return new OneForOneStrategy(10, java.time.Duration.ofMinutes(1), t -> {
+        env.log.add("failure:" + t.getClass().getName() + ": " + t.getMessage().replaceAll("#-?\\d+", ""));
+        return SupervisorStrategy.stop();
+      });
+    }
+    @Override public Receive createReceive() {
+      return receiveBuilder().match(Props.class, p -> {
+        String label = attempt++ == 0 ? "created" : "again";
+        try { getContext().watch(getContext().actorOf(p, "kid")); env.log.add(label); }
+        catch (Throwable t) { env.log.add(label + ":" + t.getClass().getName() + ": " + t.getMessage()); }
+      }).match(Terminated.class, t -> env.log.add("terminated")).build();
+    }
+  }
+
   /** The workers of the {@code MBX-REQ} cases: the same worker, each declaring {@code RequiresMessageQueue[T]} with a different {@code T}. */
   public static final class UnboundedWorker extends IdWorker implements RequiresMessageQueue<UnboundedMessageQueueSemantics> {
     UnboundedWorker(String label, IdEnv env) { super(label, env); }
@@ -1363,6 +1388,16 @@ final class MailboxOracle {
             {"dispatcherUnmetBySelected", IdWorker.class, "cap4-mailbox"}, {"dispatcherMetBySelected", IdWorker.class, "audit-mailbox"},
             {"boundedBindingFallsBack", BoundedWorker.class, null}, {"bothMetByAudit", AuditTrailWorker.class, null},
             {"actorUnmetOnly", BoundedWorker.class, "unbounded"}, {"bothUnmet", BoundedWorker.class, "cap4-mailbox"}, {"plainOnDefault", IdWorker.class, null}});
+      }
+    });
+    run("MBX-CMP-03 a type that promises its queue is checked against the queue it creates when the actor is made: actorOf returns, the actor fails to initialise and stops, and its name is free", () -> {
+      try (IdEnv e = new IdEnv(0, "liar-mailbox.mailbox-type = \"pilot.MailboxOracle$LiarType\"\n")) {
+        ActorRef parent = e.sys.actorOf(Props.create(InitParent.class, e).withMailbox("unbounded"), "parent");
+        parent.tell(e.requiring(AuditTrailWorker.class, "liar").withMailbox("liar-mailbox"), ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("terminated"));
+        parent.tell(e.props("again", null), ActorRef.noSender());
+        awaitUntil(() -> e.log.stream().anyMatch(l -> l.startsWith("again")) && e.started.get() == 1);
+        return String.join(" | ", e.log) + " | started=" + e.started.get();
       }
     });
   }

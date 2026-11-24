@@ -33,6 +33,19 @@ pub trait MessageQueue: Send + Sync {
     fn has_messages(&self) -> bool;
     /// Moves every queued envelope, oldest first, to `dead_letters` as addressed to `owner` (Pekko's `cleanUp(owner, deadLetters)`).
     fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue);
+
+    /// `requirement.isInstance(queue)`: whether this very queue has the semantics `requirement`. What a type promises
+    /// ([`MailboxType::produced_queue`]) is checked again against this when the actor is created (`Dispatch.init`). A queue satisfies
+    /// `MessageQueue` and whatever it lists; the default lists nothing.
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
+        requirement == MessageQueueSemantics::MESSAGE_QUEUE
+    }
+
+    /// `getClass.getName` of the queue, as `Dispatch.init` names what a type really created. A JVM class name has no Rust equivalent:
+    /// the default is the type path of the implementor.
+    fn class_name(&self) -> &'static str {
+        std::any::type_name_of_val(self)
+    }
 }
 
 /// `org.apache.pekko.dispatch.MailboxType`: what `Props::with_mailbox` selects and the cell asks, once per actor, for the queue of its mailbox
@@ -58,6 +71,15 @@ struct UnboundedMessageQueue {
 }
 
 impl MessageQueue for UnboundedMessageQueue {
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
+        requirement == MessageQueueSemantics::MESSAGE_QUEUE
+            || requirement == MessageQueueSemantics::UNBOUNDED
+    }
+
+    fn class_name(&self) -> &'static str {
+        "org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue"
+    }
+
     fn enqueue(&self, _receiver: &ActorRef, envelope: Envelope) -> bool {
         self.queue.lock().unwrap().push_back(envelope);
         true

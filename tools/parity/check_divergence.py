@@ -1928,6 +1928,25 @@ MUTANTS = {
         "        let unfit = match self.verify_requirements(&*selected, dispatcher_requirement.filter(|_| self.mailbox_id.is_none())) {",
         "a mailbox selected by id is not checked against the requirement of the dispatcher (MBX-CMP-02)",
     ),
+    # --- Dispatch.init: killed by MBX-CMP-03 (the cell re-checks what the type created) ---
+    "mailbox-created-queue-is-not-rechecked": (
+        "src/actor/props.rs",
+        "            .filter(|required| promises && !queue.satisfies(*required))",
+        "            .filter(|_| false)",
+        "the queue a type really creates is never checked against the requirement of the actor (MBX-CMP-03)",
+    ),
+    "mailbox-recheck-names-the-required-class-as-created": (
+        "src/actor/props.rs",
+        "            .map(|required| (required, queue.class_name()))",
+        "            .map(|required| (required, required.class_name()))",
+        "the failure of Dispatch.init names the requirement where it should name the class of the queue (MBX-CMP-03)",
+    ),
+    "mailbox-unbounded-queue-has-no-effective-semantics": (
+        "src/dispatch/message_queue.rs",
+        "        requirement == MessageQueueSemantics::MESSAGE_QUEUE\n            || requirement == MessageQueueSemantics::UNBOUNDED\n",
+        "        requirement == MessageQueueSemantics::MESSAGE_QUEUE\n",
+        "the default unbounded queue does not have the unbounded semantics, so the actors that require it fail to initialise (MBX-REQ, family fall)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
