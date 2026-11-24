@@ -17,6 +17,7 @@ use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, UnboundedMailbox};
+use rakka_actor::dispatch::queue_semantics::MessageQueueSemantics;
 use rakka_actor::dispatch::system_queue::SystemQueue;
 use rakka_actor::event::{Channel, DeadLetter};
 
@@ -980,12 +981,34 @@ impl IdEnv {
         label: &'static str,
         mailbox_id: Option<&str>,
     ) -> ActorRef {
+        self.spawn_props(system, label, self.props(label, mailbox_id))
+    }
+
+    fn spawn_props(
+        self: &Arc<Self>,
+        system: &ActorSystem,
+        label: &'static str,
+        props: Props,
+    ) -> ActorRef {
         let before = self.started.load(Ordering::SeqCst);
-        let worker = system
-            .actor_of_named(self.props(label, mailbox_id), label)
-            .expect("worker");
+        let worker = system.actor_of_named(props, label).expect("worker");
         wait_until(|| self.started.load(Ordering::SeqCst) > before);
         worker
+    }
+
+    /// The props of an `IdWorker` wrapped in `wrap`, which declares what the actor requires of its queue.
+    fn requiring<A: Actor>(
+        self: &Arc<Self>,
+        label: &'static str,
+        wrap: fn(IdWorker) -> A,
+    ) -> Props {
+        let env = self.clone();
+        Props::new(move || {
+            wrap(IdWorker {
+                label,
+                env: env.clone(),
+            })
+        })
     }
 
     fn open_gate(&self) {
@@ -1254,6 +1277,97 @@ fn a_deployment_of_the_path_decides_the_mailbox_over_the_props() -> String {
     finish_id_case(&env, system, line)
 }
 
+/// The oracle's application-defined semantics: one bound to a mailbox, one bound to none.
+const AUDIT_TRAIL: MessageQueueSemantics =
+    MessageQueueSemantics::new("pilot.MailboxOracle$AuditTrail");
+const UNMAPPED: MessageQueueSemantics = MessageQueueSemantics::new("pilot.MailboxOracle$Unmapped");
+
+/// An `IdWorker` that declares `RequiresMessageQueue[T]`, as the oracle's `UnboundedWorker`, `BoundedWorker`, ...
+macro_rules! requiring_worker {
+    ($name:ident, $semantics:expr) => {
+        struct $name(IdWorker);
+        impl Actor for $name {
+            fn required_message_queue() -> Option<MessageQueueSemantics> {
+                Some($semantics)
+            }
+            fn pre_start(&mut self, ctx: &mut ActorContext) {
+                self.0.pre_start(ctx);
+            }
+            fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+                self.0.receive(ctx, msg)
+            }
+        }
+    };
+}
+requiring_worker!(UnboundedWorker, MessageQueueSemantics::UNBOUNDED);
+requiring_worker!(BoundedWorker, MessageQueueSemantics::BOUNDED);
+requiring_worker!(AuditTrailWorker, AUDIT_TRAIL);
+requiring_worker!(UnmappedWorker, UNMAPPED);
+
+/// `MBX-REQ-01`: the actors that require a queue semantics get the mailbox bound to it (the table of `reference.conf` for the
+/// unbounded one, the bindings of the configuration for the others), not the registered default, which the actors that require nothing keep.
+fn an_actor_requiring_a_queue_gets_the_mailbox_bound_to_it() -> String {
+    let env = IdEnv::new();
+    let mut settings = Settings::default();
+    let mailboxes = &mut settings.mailboxes;
+    mailboxes.register(Mailboxes::DEFAULT_MAILBOX_ID, LifoMailbox);
+    mailboxes.register(
+        "cap4-mailbox",
+        NonBlockingBoundedMailbox::new(4).expect("capacity"),
+    );
+    mailboxes.register("audit-mailbox", UnboundedMailbox);
+    mailboxes.bind_requirement(MessageQueueSemantics::BOUNDED, "cap4-mailbox");
+    mailboxes.bind_requirement(AUDIT_TRAIL, "audit-mailbox");
+    let system = env.system_with(settings);
+    let actors = [
+        env.spawn(&system, "plain", None),
+        env.spawn_props(
+            &system,
+            "unbounded",
+            env.requiring("unbounded", UnboundedWorker),
+        ),
+        env.spawn_props(&system, "bounded", env.requiring("bounded", BoundedWorker)),
+        env.spawn_props(&system, "audit", env.requiring("audit", AuditTrailWorker)),
+        env.spawn(&system, "plainAfter", None),
+    ];
+    for actor in &actors {
+        actor.tell("block".to_owned(), None);
+    }
+    wait_until(|| env.entered.load(Ordering::SeqCst) == 5);
+    for actor in &actors {
+        for number in 1..=6 {
+            actor.tell(format!("m{number}"), None);
+        }
+    }
+    env.open_gate();
+    wait_until(|| {
+        env.log.lock().unwrap().len() == 4 * 7 + 5 && env.dead.lock().unwrap().len() == 2
+    });
+    let line = env.per_actor(&["plain", "unbounded", "bounded", "audit", "plainAfter"]);
+    finish_id_case(&env, system, line)
+}
+
+/// `MBX-REQ-02`: a semantics with no mailbox bound to it fails `actorOf` at the call, and the name can be used again.
+fn an_actor_requiring_an_unbound_queue_fails_actor_of_and_frees_the_name() -> String {
+    let env = IdEnv::new();
+    let system = env.system();
+    let outcome = match system.actor_of_named(env.requiring("w", UnmappedWorker), "w") {
+        Ok(_) => "created".to_owned(),
+        Err(error) => format!(
+            "{}: {} | cause {}",
+            error.class().java_name(),
+            error.message(),
+            error.cause().unwrap_or("none")
+        ),
+    };
+    env.spawn(&system, "w", None);
+    let line = format!(
+        "actorOf: {outcome} | instancesStartedAfterRetryWithSameName={}",
+        env.started.load(Ordering::SeqCst)
+    );
+    finish_id_case(&env, system, line)
+}
+
 pub fn rust_lines() -> Vec<(String, String)> {
     [
         ("MBX-ST-01 open to scheduled", open_to_scheduled()),
@@ -1314,6 +1428,14 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-CFG-04 a deployment of the actor path decides the mailbox over the props, by the full path of a child too, and its unknown id fails actorOf",
             a_deployment_of_the_path_decides_the_mailbox_over_the_props(),
+        ),
+        (
+            "MBX-REQ-01 an actor that requires a queue semantics gets the mailbox bound to it, not the default, and the actors that do not require it keep the default",
+            an_actor_requiring_a_queue_gets_the_mailbox_bound_to_it(),
+        ),
+        (
+            "MBX-REQ-02 an actor that requires a queue semantics with no mailbox bound to it fails actorOf at the call and its name is free again",
+            an_actor_requiring_an_unbound_queue_fails_actor_of_and_frees_the_name(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

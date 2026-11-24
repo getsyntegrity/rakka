@@ -2376,3 +2376,5 @@ mb-0020	mailbox	MBX-ID-02 an unknown id fails actorOf at the call: no actor is m
 mb-0021	mailbox	MBX-ID-03 no selection, the built-in ids and the empty id all give the unbounded FIFO queue
 mb-0022	mailbox	MBX-CFG-02 a mailbox configured as the default serves the actors without a selection, not the ids that name another
 mb-0023	mailbox	MBX-CFG-04 a deployment of the actor path decides the mailbox over the props, by the full path of a child too, and its unknown id fails actorOf
+mb-0024	mailbox	MBX-REQ-01 an actor that requires a queue semantics gets the mailbox bound to it, not the default, and the actors that do not require it keep the default
+mb-0025	mailbox	MBX-REQ-02 an actor that requires a queue semantics with no mailbox bound to it fails actorOf at the call and its name is free again
