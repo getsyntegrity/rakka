@@ -1,0 +1,12 @@
+   Compiling rakka-actor v0.1.0 (/Users/pablogore/workspace/pablogore/rakka/.claude/worktrees/mailbox-type-selection/crates/rakka-actor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.23s
+     Running tests/classic_mailbox_type_selection.rs (target/debug/build/rakka-actor/93d5565c38b47e50/out/classic_mailbox_type_selection-93d5565c38b47e50)
+
+running 4 tests
+test selecting_unbounded_mailbox_explicitly_keeps_fifo_order ... ok
+test a_mailbox_type_unknown_to_the_crate_supplies_the_queue_of_the_actor ... ok
+test a_restart_keeps_the_queue_the_mailbox_type_created ... ok
+test without_with_mailbox_the_default_is_unbounded_and_loses_nothing ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

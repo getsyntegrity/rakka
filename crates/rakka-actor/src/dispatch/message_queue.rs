@@ -5,7 +5,7 @@
 //! (`MailboxStatus`) and the system-message queue are separate pieces. Like Pekko's `enqueue(receiver, handle)` and
 //! `cleanUp(owner, deadLetters)`, the operations that can refuse a message receive the actor, so a bounded queue can dead-letter an
 //! overflow addressed to it without keeping a reference to its owner (PROP-7B-1, alternative A, approved by the Owner).
-//! `MailboxType` and `Mailboxes` are not defined yet (Q-MBX-2 is open).
+//! `MailboxType` is the factory of those queues; the `Mailboxes` registry and `requirements` are not defined yet (Q-MBX-2 is open).
 
 use std::collections::VecDeque;
 use std::sync::Mutex;
@@ -32,6 +32,16 @@ pub trait MessageQueue: Send + Sync {
     fn has_messages(&self) -> bool;
     /// Moves every queued envelope, oldest first, to `dead_letters` as addressed to `owner` (Pekko's `cleanUp(owner, deadLetters)`).
     fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue);
+}
+
+/// `org.apache.pekko.dispatch.MailboxType`: what `Props::with_mailbox` selects and the cell asks, once per actor, for the queue of its mailbox
+/// (`Mailboxes.scala` `MailboxType.create`). A restart keeps the queue, so `create` is not called again.
+///
+/// Pekko passes `(owner, system)`; here the type receives the system's `deadLetters`, which is all a queue needs to dead-letter a refusal
+/// without holding its owner (PROP-7B-1, alternative A). Queue semantics (`ProducesMessageQueue`, `requirements`) wait for Q-MBX-2.
+pub trait MailboxType: Send + Sync + 'static {
+    /// A new, empty queue for one mailbox.
+    fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue>;
 }
 
 /// FIFO queue without a bound (the `ConcurrentLinkedQueue` of `UnboundedMailbox`).
@@ -69,8 +79,15 @@ impl MessageQueue for UnboundedMessageQueue {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct UnboundedMailbox;
 
+impl MailboxType for UnboundedMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        UnboundedMailbox::create(self)
+    }
+}
+
 impl UnboundedMailbox {
-    /// A new, empty queue for one mailbox.
+    /// A new, empty queue for one mailbox; unlike `MailboxType::create` it needs no `deadLetters` (the cell uses it where it has none).
+    /// On the concrete type this inherent method wins over `MailboxType::create`, which it backs.
     pub fn create(&self) -> Box<dyn MessageQueue> {
         Box::new(UnboundedMessageQueue::default())
     }

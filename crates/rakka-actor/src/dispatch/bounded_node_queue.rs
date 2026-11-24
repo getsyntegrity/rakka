@@ -19,7 +19,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use crate::actor::actor_ref::ActorRef;
 use crate::dispatch::dead_letter_mailbox::tell_dead_letter;
-use crate::dispatch::message_queue::{Envelope, MessageQueue};
+use crate::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
 
 /// `new NonBlockingBoundedMailbox(capacity)` with a negative capacity (`IllegalArgumentException` in Pekko).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -39,6 +39,12 @@ pub struct NonBlockingBoundedMailbox {
     capacity: usize,
 }
 
+impl MailboxType for NonBlockingBoundedMailbox {
+    fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        NonBlockingBoundedMailbox::create(self, dead_letters.clone())
+    }
+}
+
 impl NonBlockingBoundedMailbox {
     /// A mailbox of `capacity` envelopes. Zero is valid: its queue refuses everything.
     pub fn new(capacity: i32) -> Result<Self, NegativeCapacity> {
@@ -53,6 +59,7 @@ impl NonBlockingBoundedMailbox {
     }
 
     /// A new, empty queue for one mailbox; what it refuses is dead-lettered to `dead_letters` as addressed to the receiver of `enqueue`.
+    /// Inherent twin of `MailboxType::create` (which takes `&ActorRef`); on the concrete type this one wins, the trait one is for `Props`.
     pub fn create(&self, dead_letters: ActorRef) -> Box<dyn MessageQueue> {
         Box::new(BoundedNodeMessageQueue {
             capacity: self.capacity,
