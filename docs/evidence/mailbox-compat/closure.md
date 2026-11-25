@@ -11,7 +11,7 @@ Base `92acd83` (rama de integración), Pekko 2.0.0 `9fbd2283`. PR en draft apila
 | `verifyRequirements` en `getMailboxType`: requisito del dispatcher y del actor, dispatcher primero, fallback al binding del dispatcher ante un fallo de verificación | B | `verify-requirements.md` |
 | Mensaje y tipo del error (`IllegalArgumentException` envuelta en `ConfigurationException`), nombre liberado | C, D | MBX-CMP-01 (mb-0028), MBX-CMP-02 (mb-0029) idénticos al oráculo |
 | `Dispatch.init`: la cola realmente creada se vuelve a comprobar si el tipo promete; fallo retrasado a `Create`; capacidades declaradas ≠ efectivas | E | `init-check.md`, MBX-CMP-03 (mb-0030) |
-| Guardianes: root, `/user`, `/system` toman el default-mailbox directamente, requieren `Unbounded`, un guardián fallido detiene el sistema | F | `guardians.md`, MBX-GRD-01 (mb-0031) |
+| Guardianes: root, `/user`, `/system` toman el default-mailbox directamente, requieren `Unbounded`, los guardianes `/user` y `/system` fallidos terminan el sistema (si falla el raíz, `whenTerminated` queda pendiente) | F | `guardians.md`, MBX-GRD-01 (mb-0031) |
 
 ## Tarea 9 de Q-MBX-12 (guardianes y requisitos de cola)
 
