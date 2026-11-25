@@ -121,6 +121,16 @@ class Storage(unittest.TestCase):
         os.makedirs(self.path)
         evidence.discard(self.path)         # a path that cannot be removed is not a failure of the gate that tried
 
+    def test_a_record_whose_counts_are_not_plain_non_negative_integers_is_never_reusable_even_with_a_matching_key(self):
+        for field, forged in (("applicable_total", ["x"]), ("applicable_total", "3"), ("applicable_total", 3.0), ("applicable_total", True), ("other_not_applicable", ["x"]),
+                              ("other_not_applicable", "1"), ("other_not_applicable", -1), ("other_not_applicable", None)):
+            record = evidence.record(self.identity, COMPLETE, replayed_cases=4, run_id="run-1")
+            record["result"][field] = forged
+            if field == "applicable_total":
+                record["result"]["applicable_passed"] = forged       # equal to the total, so only the type can refuse it
+            evidence.store(self.path, {**record, "key": evidence.key_of({"identity": self.identity, "result": record["result"]})})
+            self.assertIsNone(self.reusable(), (field, forged))
+
 
 class EvidenceNeverRaises(unittest.TestCase):
     """Evidence is an optimisation: whatever goes wrong inside a step (not only I/O) is its failure value, never an exception for the gate that called it."""
