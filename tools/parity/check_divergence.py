@@ -2259,6 +2259,12 @@ def run_mutant(scratch, name, rel, old, new, why):
     binary = os.path.join(scratch, "target-" + name, PARITY)
     if not os.path.exists(binary):
         return BUILD_ERROR, None, None, "mutated binary missing"
+    return verdict_for_binary(binary, name)
+
+
+def verdict_for_binary(binary, name):
+    """The verdict of a mutant whose binary is built: fast-kill, then family-kill, then the authoritative full replay (--no-fast-kill skips both
+    shortcuts). A shortcut can only prove DETECTED; whatever it cannot decide falls through to the full replay."""
     if FAST_KILL:
         try:
             kill = fast_kill(binary, name)
@@ -2469,10 +2475,9 @@ def family_kill(binary, name):
                               confirmations[first].report_text)
         return DETECTED, None, None, (f"family replay ({result.detail}): case {first} confirmed by a single-case replay; "
                                       f"the unmutated build matches Pekko on it, the mutant does not; {len(result.killers)} killer(s) learned")
-    if result.path == family_replay.TIMED_OUT:
-        return TIMEOUT, None, None, result.detail
-    if result.path == family_replay.HARNESS_ERROR:
-        return HARNESS_ERROR, None, None, result.detail
+    if result.path in (family_replay.TIMED_OUT, family_replay.HARNESS_ERROR):
+        # an optimisation step that failed is not a verdict on the mutant (never a detection, never an error of the mutant): the full replay decides
+        print(f"family replay step failed ({result.path}): {result.detail}; the full replay decides", flush=True)
     return None
 
 

@@ -493,6 +493,17 @@ class VerdictPathVisibility(unittest.TestCase):
         self.assertEqual(self.record_for("UNDETECTED", "2821/2821 applicable")["verdict_path"], "full-replay")
         self.assertIsNone(self.record_for("HARNESS_ERROR", "replay output rejected")["verdict_path"])
 
+    def test_a_family_kill_is_a_path_of_its_own_in_the_record_and_never_a_full_replay(self):
+        line = "family replay (family oracle-x): case c1 confirmed by a single-case replay; the unmutated build matches Pekko on it"
+        self.assertEqual(self.record_for("DETECTED", line)["verdict_path"], "family-kill")
+
+    def test_the_summary_counts_the_family_kills_apart_from_the_other_two_paths(self):
+        text = mr.summary_text(total=3, detected=3, undetected=[], errors=[], pending=[], stopped_by=None, control="CLEAN",
+                               paths={"fast-kill": 1, "family-kill": 2, "full-replay": 3})
+        self.assertIn("fast-kill 1", text)
+        self.assertIn("family-kill 2", text)
+        self.assertIn("full replay 3", text)
+
     def test_the_plan_report_counts_the_paths_of_the_verdicts_it_produced(self):
         with tempfile.TemporaryDirectory() as root:
             records = {"a": {"outcome": "DETECTED", "verdict_path": "fast-kill"}, "b": {"outcome": "DETECTED", "verdict_path": "full-replay"},

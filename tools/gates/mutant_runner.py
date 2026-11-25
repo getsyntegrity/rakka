@@ -280,7 +280,8 @@ def execute_mutant(name, result_file, launch, elapsed, budget_limited=False):
             outcome, passed, total, line = json.load(result_json_file)["mutants"][name]
         verdict_path = None
         if outcome in ("DETECTED", "UNDETECTED"):
-            verdict_path = "fast-kill" if line.startswith("fast-kill") else "full-replay"
+            verdict_path = ("fast-kill" if line.startswith("fast-kill")
+                            else "family-kill" if line.startswith("family replay") else "full-replay")
         return {"outcome": outcome, "passed": passed, "total": total, "line": line[:200], "seconds": seconds, "verdict_path": verdict_path}
     except (OSError, ValueError, KeyError):
         return {"outcome": "HARNESS_ERROR", "seconds": seconds, "line": f"no result (exit {code})"}
@@ -340,7 +341,8 @@ def summary_text(total, detected, undetected, errors, pending, stopped_by, contr
         if names:
             lines.append(f"{label} ({len(names)}): " + ", ".join(names[:4]) + (" ..." if len(names) > 4 else ""))
     if paths:
-        lines.append(f"verdict paths (this run): fast-kill {paths.get('fast-kill', 0)}, full replay {paths.get('full-replay', 0)}")
+        lines.append(f"verdict paths (this run): fast-kill {paths.get('fast-kill', 0)}, family-kill {paths.get('family-kill', 0)}, "
+                     f"full replay {paths.get('full-replay', 0)}")
     if stopped_by:
         lines.append(f"stopped by {stopped_by}; rerun the same command to resume (fresh results are kept)")
     return "\n".join(lines)
