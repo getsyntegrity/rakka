@@ -15,7 +15,7 @@ Base `92acd83` (rama de integración), Pekko 2.0.0 `9fbd2283`. PR en draft apila
 
 ## Tarea 9 de Q-MBX-12 (guardianes y requisitos de cola)
 
-Cumplida en lo ejecutable: selección directa del default, requisito por guardián (los tres `Unbounded`, probados uno a uno contra Pekko y Rakka), verificación en `Dispatch.init`, apagado del sistema. **No** reproducido: el error de `ActorSystem.create` (en la JVM viene del timeout de arranque de los loggers), `guardianProps`, `deadLetterListener` y `eventStreamUnsubscriber`.
+Cumplida en lo ejecutable: selección directa del default, requisito por guardián (los tres `Unbounded`, probados uno a uno contra Pekko y Rakka), verificación en `Dispatch.init`, apagado del sistema (en `/user` y `/system`; el raíz deja `whenTerminated` pendiente). **No** reproducido: el error de `ActorSystem.create` (en la JVM viene del timeout de arranque de los loggers), `guardianProps`, `deadLetterListener` y `eventStreamUnsubscriber`.
 
 ## Deuda técnica restante
 
