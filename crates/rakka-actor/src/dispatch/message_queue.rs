@@ -76,7 +76,8 @@ impl MessageQueue for UnboundedMessageQueue {
     fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
         Some(
             requirement == MessageQueueSemantics::MESSAGE_QUEUE
-                || requirement == MessageQueueSemantics::UNBOUNDED,
+                || requirement == MessageQueueSemantics::UNBOUNDED
+                || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER,
         )
     }
 
@@ -120,7 +121,10 @@ impl MailboxType for UnboundedMailbox {
     fn produced_queue(&self) -> ProducedQueue {
         ProducedQueue::new(
             "org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue",
-            &[MessageQueueSemantics::UNBOUNDED],
+            &[
+                MessageQueueSemantics::UNBOUNDED,
+                MessageQueueSemantics::MULTIPLE_CONSUMER,
+            ],
         )
     }
 }
@@ -155,6 +159,20 @@ mod tests {
             "class org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue"
         );
         assert_eq!(Silent.produced_queue(), ProducedQueue::PLAIN);
+        // the queue it really creates answers for itself (what `Dispatch.init` asks)
+        let created = UnboundedMailbox.create();
+        assert_eq!(
+            created.satisfies(MessageQueueSemantics::UNBOUNDED),
+            Some(true)
+        );
+        assert_eq!(
+            created.satisfies(MessageQueueSemantics::MULTIPLE_CONSUMER),
+            Some(true)
+        );
+        assert_eq!(
+            created.satisfies(MessageQueueSemantics::BOUNDED),
+            Some(false)
+        );
     }
 
     fn receiver() -> ActorRef {
