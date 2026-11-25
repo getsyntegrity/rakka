@@ -16,8 +16,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use rakka_actor::actor::ActorRef;
+use rakka_actor::actor::fault::Throwable;
 use rakka_actor::actor::props::{Actor, Props};
 use rakka_actor::actor::system::{ActorSystem, Settings};
+use rakka_actor::dispatch::Terminated;
 use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
 use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::{MailboxType, MessageQueue, UnboundedMailbox};
@@ -85,27 +87,34 @@ fn system_with_a_bad_guardian_queue(promise: ProducedQueue, bad_on: usize) -> Ac
     ActorSystem::create_with_settings("g", settings_with_default(default)).unwrap()
 }
 
-#[test]
-fn a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down() {
+/// How the system whose guardian number `bad_on` (1 root, 2 `/user`, 3 `/system`) gets a bounded queue ended: `whenTerminated` is one `Future[Terminated]`.
+fn how_a_system_with_a_bad_guardian_queue_ends(
+    bad_on: usize,
+) -> Option<Result<Terminated, Throwable>> {
     let promise = NonBlockingBoundedMailbox::new(5).unwrap().produced_queue();
-    for (guardian, bad_on) in [("root", 1), ("user", 2), ("system", 3)] {
-        let system = system_with_a_bad_guardian_queue(promise, bad_on);
-        let terminated = system.when_terminated().wait(Duration::from_secs(10));
-        assert!(terminated.is_some(), "the {guardian} guardian");
-        // only the root guardian fails to the bubble walker, which fails `whenTerminated` with its exception (`causeOfTermination.tryFailure`,
-        // ActorRefProvider.scala:485-487); `/user` and `/system` are stopped by the root's strategy (`:525-529`) and the system ends normally
-        let cause = system.when_terminated().failure();
-        if guardian == "root" {
-            let cause = cause.expect("the root guardian's failure");
-            assert_eq!(
-                cause.class,
-                "org.apache.pekko.actor.ActorInitializationException"
-            );
-            let message = cause.message.unwrap_or_default();
-            assert!(message.contains("requires mailbox type [interface org.apache.pekko.dispatch.UnboundedMessageQueueSemantics] got ["), "{message}");
-        } else {
-            assert_eq!(cause, None, "the {guardian} guardian");
-        }
+    let system = system_with_a_bad_guardian_queue(promise, bad_on);
+    system.when_terminated().wait(Duration::from_secs(10))
+}
+
+#[test]
+fn a_root_guardian_that_fails_to_initialise_fails_when_terminated_with_its_exception() {
+    // the bubble walker fails `causeOfTermination` (ActorRefProvider.scala:485-487); the `Terminated` that follows cannot overwrite it
+    let ended = how_a_system_with_a_bad_guardian_queue_ends(1).expect("the system ends");
+    let cause = ended.expect_err("a failure, not a Terminated");
+    assert_eq!(
+        cause.class,
+        "org.apache.pekko.actor.ActorInitializationException"
+    );
+    let message = cause.message.unwrap_or_default();
+    assert!(message.contains("requires mailbox type [interface org.apache.pekko.dispatch.UnboundedMessageQueueSemantics] got ["), "{message}");
+}
+
+#[test]
+fn the_user_and_system_guardians_that_fail_to_initialise_end_the_system_normally() {
+    // the root's strategy stops them without recording a cause (ActorRefProvider.scala:525-529)
+    for (guardian, bad_on) in [("user", 2), ("system", 3)] {
+        let ended = how_a_system_with_a_bad_guardian_queue_ends(bad_on).expect("the system ends");
+        assert!(ended.is_ok(), "the {guardian} guardian: {ended:?}");
     }
 }
 
@@ -117,7 +126,8 @@ fn a_default_mailbox_that_promises_nothing_leaves_the_guardians_unchecked() {
         system
             .actor_of(Props::new(|| Idle))
             .expect("the system keeps working");
-        assert!(system.terminate().wait(Duration::from_secs(10)).is_some());
-        assert!(system.when_terminated().failure().is_none());
+        // a requested termination is a normal one
+        let ended = system.terminate().wait(Duration::from_secs(10));
+        assert!(matches!(ended, Some(Ok(_))), "{ended:?}");
     }
 }

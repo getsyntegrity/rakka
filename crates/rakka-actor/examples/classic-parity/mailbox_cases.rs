@@ -498,7 +498,8 @@ fn watching_dead_letters_is_not_answered() -> String {
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 
@@ -612,7 +613,8 @@ fn turn_interleaving(
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 
@@ -765,7 +767,8 @@ fn a_parent_stopped_after_its_child_started_waits_for_it() -> String {
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 
@@ -845,7 +848,8 @@ fn senders_racing_with_the_installation_of_the_real_cell() -> String {
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 
@@ -1046,7 +1050,8 @@ fn finish_id_case(env: &IdEnv, system: ActorSystem, line: String) -> String {
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 

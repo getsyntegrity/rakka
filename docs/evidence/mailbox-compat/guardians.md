@@ -23,9 +23,13 @@ Not claimed: what `ActorSystem.create` throws on the JVM (the logger start-up ti
 RED: 2 of 3 new tests failed (guardians ignored the default; the system stayed up). GREEN: 3 passed; replay 2975/2975.
 Mutants: 6 (default ignored by each guardian, requirement dropped on `Guardian`/`SystemGuardian`, failed root not ending the system): 6/6 DETECTED, control CLEAN 2974/2974.
 
-## `whenTerminated` ante el fallo de un guardián (hallazgo de la revisión)
+## `whenTerminated` ante el fallo de un guardián
 
-Pekko: el fallo del guardián **raíz** llega al `BubbleWalker`, que lo registra y hace `causeOfTermination.tryFailure(ex)` (`ActorRefProvider.scala:485-487`), de modo que
-`whenTerminated` falla con esa excepción. Si falla `/user` o `/system`, la estrategia del raíz (`:525-529`) los detiene sin registrar causa y el sistema termina con normalidad.
-Rakka: `TerminationFuture::failure()` (aditivo; `wait()` no cambia) devuelve la causa; sólo la registra el fallo del raíz. Verificado leyendo el Scala, no con una sonda.
-RED: `failure()` daba `None` para el raíz. Mutante nuevo `failed-root-guardian-does-not-fail-when-terminated`: 4/4 DETECTED, control CLEAN 2975/2975.
+Pekko (`ActorRefProvider.scala:455-490,525-529`): `whenTerminated` es un `Future[Terminated]`. El fallo del guardián **raíz** llega al `BubbleWalker`, que lo registra y hace
+`causeOfTermination.tryFailure(ex)`; el futuro **falla** con esa excepción, y el `Terminated` posterior no puede reemplazarla. Si fallan `/user` o `/system`, la estrategia del raíz
+(`:525-529`) los detiene sin registrar causa y el futuro termina con éxito.
+Rakka: `TerminationFuture = Arc<Promise<Result<Terminated, Throwable>>>`; `wait` da `None` (timeout), `Some(Ok(Terminated))` o `Some(Err(causa))`. La promesa es de un solo valor
+(el primero gana), de modo que éxito y fallo son excluyentes; no hay accessor paralelo. Los llamadores de `wait()` se migraron (esperan `Ok` en las terminaciones solicitadas).
+Tests (`tests/classic_guardian_mailbox.rs`): el fallo del raíz da `Err(ActorInitializationException ... requires mailbox type ...)`; el de `/user` y `/system` da `Ok`; una terminación solicitada da `Ok`.
+Verificado **leyendo el Scala**: no se ejecutó una sonda contra la JVM para este comportamiento (en Pekko el `ActorSystem.create` ya falla antes por el timeout de los loggers, así que
+`whenTerminated` no es observable desde fuera sin ellos).

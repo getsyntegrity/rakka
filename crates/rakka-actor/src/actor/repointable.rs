@@ -1019,7 +1019,8 @@ mod with_real_cells {
             .system
             .terminate()
             .wait(Duration::from_secs(10))
-            .unwrap();
+            .unwrap()
+            .expect("terminated normally");
     }
 
     #[test]
@@ -1047,7 +1048,8 @@ mod with_real_cells {
             .system
             .terminate()
             .wait(Duration::from_secs(10))
-            .unwrap();
+            .unwrap()
+            .expect("terminated normally");
     }
 
     #[test]
@@ -1077,6 +1079,7 @@ mod with_real_cells {
             .system
             .terminate()
             .wait(Duration::from_secs(10))
-            .unwrap();
+            .unwrap()
+            .expect("terminated normally");
     }
 }
