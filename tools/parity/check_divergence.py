@@ -15,6 +15,7 @@ import atexit, collections, difflib, json, os, re, shutil, signal, subprocess, s
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import replay_lib
+import clean_replay_evidence
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CRATE = os.path.join(ROOT, "crates", "rakka-actor")
@@ -2157,7 +2158,7 @@ def control_binary_for_fast_kill():
         path = os.path.join(ROOT, "target", PARITY)
         try:
             with replay_lib.build_lock():   # build and publish are one step: no other build can swap target/ in between
-                built = sh(["cargo", "build", "--release", "-p", "rakka-actor", "--example", "classic-parity"], timeout=BUILD_TIMEOUT, cwd=ROOT)
+                built = sh(list(clean_replay_evidence.CLEAN_REPLAY_COMMAND), timeout=BUILD_TIMEOUT, cwd=ROOT)
                 # the control replays an immutable copy, never the shared target/ path that the next build overwrites
                 _control_binary = replay_lib.publish_binary(path) if built.returncode == 0 and os.path.exists(path) else ""
         except subprocess.TimeoutExpired:
@@ -2302,12 +2303,26 @@ def make_scratch_directory(parent=None):
     return path
 
 
+def reusable_clean_replay(control_binary):
+    """The evidence record of this gate run's complete clean replay of exactly this binary and these inputs, else None (the control then replays)."""
+    ev = clean_replay_evidence
+    stored, why = ev.reusable(ev.evidence_path(ROOT), ev.identity(ROOT, control_binary, os.environ), os.environ.get(ev.RUN_ID_ENV), ev.corpus_case_count(ROOT))
+    if stored is None:
+        print(f"clean-replay evidence not reused ({why}): the control replays", flush=True)
+    return stored
+
+
 def run_control_replay():
     """Replays the unmodified crate: builds the parity binary of the CURRENT tree first (a leftover binary would certify old code).
     -> (control_ok, passed, total, line, replay result or None)."""
     control_binary = control_binary_for_fast_kill()
     if control_binary is None:
         return False, None, None, "could not build the unmodified parity binary", None
+    reused = reusable_clean_replay(control_binary)
+    if reused is not None:
+        r = reused["result"]
+        return True, r["applicable_passed"], r["applicable_total"], (f"reused: the clean replay of this gate run ({r['applicable_passed']}/{r['applicable_total']} applicable + "
+                                                                     f"{r['other_not_applicable']} not applicable; evidence {reused['key'][:12]}, same binary, inputs and toolchain)"), None
     try:
         control_replay = replay(control_binary)
     except subprocess.TimeoutExpired:

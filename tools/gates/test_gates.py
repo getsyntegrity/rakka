@@ -1,5 +1,6 @@
 """Unit tests of the gate runner's pure decisions: which mutants a change selects, when evidence may be reused, what reaches the console."""
 import json, os, tempfile, unittest
+from unittest import mock
 
 import gates
 
@@ -373,6 +374,20 @@ class Tiers(unittest.TestCase):
         mutants_gate = lambda tier, sel: next(g for g in gates.tier_gates(tier, sel) if g.name == "mutants")
         self.assertEqual(mutants_gate("pr", ["a", "b"]).command[-2:], ["a", "b"])
         self.assertNotIn("a", mutants_gate("milestone", ["a"]).command)
+
+
+class EachGateInvocationIsOneRun(unittest.TestCase):
+    """The gates of one invocation share a run id, so that the evidence one gate leaves (the clean replay) is usable by the next gate of THIS run only."""
+    def test_main_gives_all_the_gates_of_an_invocation_the_same_run_id_and_every_invocation_its_own(self):
+        seen, two_gates = [], [gates.Gate("a", ["true"], ()), gates.Gate("b", ["true"], ())]
+        with mock.patch.dict(os.environ), mock.patch.object(gates, "tier_gates", return_value=two_gates), mock.patch.object(gates, "git", return_value="head"), \
+                mock.patch.object(gates, "run_gate", side_effect=lambda *args: (seen.append(os.environ.get(gates.RUN_ID_ENV)), ("PASS", 0, "PASS"))[1]):
+            os.environ.pop(gates.RUN_ID_ENV, None)
+            gates.main(["fast"])
+            gates.main(["fast"])
+        self.assertTrue(seen[0])
+        self.assertEqual((seen[0], seen[2]), (seen[1], seen[3]))
+        self.assertNotEqual(seen[0], seen[2])
 
 
 if __name__ == "__main__":
