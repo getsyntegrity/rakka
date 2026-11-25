@@ -46,6 +46,14 @@ class ReplayEvidence(unittest.TestCase):
             self.assertEqual(self.run_replay(dict(CLEAN, ok=False, applicable_failing=["c"])), 1)
         self.assertFalse(os.path.exists(self.path))
 
+    def test_a_surprise_in_the_identity_never_changes_the_verdict_before_or_after_the_replay(self):
+        with mock.patch.object(evidence, "digest_paths", side_effect=UnicodeEncodeError("utf-8", "name", 0, 1, "surrogates not allowed")):
+            self.assertEqual(self.run_replay(), 0)
+            self.assertEqual(self.run_replay(dict(CLEAN, ok=False, applicable_failing=["c"])), 1)
+        with mock.patch.object(evidence, "refusal", side_effect=KeyError("other_na")):
+            self.assertEqual(self.run_replay(), 0)
+        self.assertFalse(os.path.exists(self.path))
+
     def test_a_replay_that_is_outside_a_gate_run_diverges_is_rejected_incomplete_or_interrupted_leaves_no_evidence_not_even_an_earlier_one(self):
         outcomes = (dict(run_id=None), dict(evaluation=dict(CLEAN, ok=False, applicable_failing=["c"])), dict(evaluation=dict(CLEAN, ok=None, passed=None, total=None)),
                     dict(evaluation=dict(CLEAN, na_problems=["x"], ok=False)), dict(replayed=2), dict(error=KeyboardInterrupt()),     # 2 of the 3 recorded cases

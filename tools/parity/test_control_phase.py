@@ -1,5 +1,6 @@
 """The control replay of check_divergence must run against a binary built from the current tree, never a leftover one."""
 import os, pathlib, sys, unittest
+from unittest import mock
 
 import check_divergence as cd
 
@@ -118,6 +119,13 @@ class ControlReusesTheCleanReplayOfTheRun(unittest.TestCase):
             self.assertEqual(self.replays, [self.binary], label)
             self.assertNotIn("reused", line, label)
             cd.clean_replay_evidence.discard(cd.clean_replay_evidence.evidence_path(self.root))
+
+    def test_a_surprise_in_the_evidence_check_makes_the_control_replay_instead_of_failing(self):
+        self.leave_evidence()
+        with mock.patch.object(cd.clean_replay_evidence, "digest_paths", side_effect=UnicodeEncodeError("utf-8", "name", 0, 1, "surrogates not allowed")):
+            ok, _passed, _total, line, _result = cd.run_control_replay()
+        self.assertEqual((ok, self.replays), (True, [self.binary]))
+        self.assertNotIn("reused", line)
 
     def test_the_control_the_replay_gate_and_the_runner_agree_on_the_build_the_judgement_and_the_run(self):
         import inspect
