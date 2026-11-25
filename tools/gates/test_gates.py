@@ -1,5 +1,5 @@
 """Unit tests of the gate runner's pure decisions: which mutants a change selects, when evidence may be reused, what reaches the console."""
-import json, os, tempfile, unittest
+import json, os, sys, tempfile, unittest
 
 import gates
 
@@ -373,6 +373,20 @@ class Tiers(unittest.TestCase):
         mutants_gate = lambda tier, sel: next(g for g in gates.tier_gates(tier, sel) if g.name == "mutants")
         self.assertEqual(mutants_gate("pr", ["a", "b"]).command[-2:], ["a", "b"])
         self.assertNotIn("a", mutants_gate("milestone", ["a"]).command)
+
+
+class EachGateInvocationIsOneRun(unittest.TestCase):
+    """The gates of one invocation share a run id, so that the evidence one gate leaves (the clean replay) is usable by the next gate of THIS run only."""
+    def test_every_invocation_gets_its_own_run_id_and_its_gate_commands_see_it(self):
+        self.assertNotEqual(gates.begin_run(), gates.begin_run())
+        with tempfile.TemporaryDirectory() as root:
+            saved = (gates.GATES_DIR, gates.ROOT, gates.input_state)
+            gates.ROOT, gates.GATES_DIR, gates.input_state = root, os.path.join(root, ".gates"), lambda paths, regenerates=(): ({"crates": "t"}, False)
+            try:
+                command = [sys.executable, "-c", "import os, sys; sys.exit(0 if os.environ.get('RAKKA_GATE_RUN_ID') == sys.argv[1] else 3)", os.environ[gates.RUN_ID_ENV]]
+                self.assertEqual(gates.run_gate(gates.Gate("sees-run", command, ("crates",)), "rustc 1", False, "head")[2], "PASS")
+            finally:
+                gates.GATES_DIR, gates.ROOT, gates.input_state = saved
 
 
 if __name__ == "__main__":

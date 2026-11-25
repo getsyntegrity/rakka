@@ -14,8 +14,9 @@ Three rules, none of which weakens a gate:
 
 Derived-from: none (project tooling, Apache-2.0).
 """
-import collections, dataclasses, hashlib, json, os, subprocess, sys, time
+import collections, dataclasses, hashlib, json, os, subprocess, sys, time, uuid
 
+RUN_ID_ENV = "RAKKA_GATE_RUN_ID"      # same name as tools/parity/clean_replay_evidence.RUN_ID_ENV (checked by a test): the gates of one invocation form one run
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GATES_DIR = os.path.join(ROOT, ".gates")
 DEFAULT_BASE = "origin/feat/pekko-rust-pilot-migration"
@@ -295,12 +296,19 @@ def changed_files(base, repo=ROOT):
     return changed_paths_from_git(git_raw("diff", "--name-status", "-z", "-M", f"{base}...HEAD", repo=repo), git_raw("status", "--porcelain", "-z", repo=repo))
 
 
+def begin_run():
+    """A fresh run id for this invocation, inherited by every gate command: evidence one gate leaves for the next is valid for this run only."""
+    os.environ[RUN_ID_ENV] = uuid.uuid4().hex
+    return os.environ[RUN_ID_ENV]
+
+
 def main(argv):
     try:
         parsed = parse_arguments(argv)
     except UsageError as problem:
         print(f"refused: {problem}")
         return 2
+    begin_run()
     tier, base, mutant_args = parsed["tier"], parsed["base"], parsed["mutant_args"]
     selected = []
     if tier == "pr":
