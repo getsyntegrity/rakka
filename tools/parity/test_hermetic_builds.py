@@ -107,6 +107,20 @@ class ScratchWorkspace(unittest.TestCase):
             self.assertIn("--locked", command)
             self.assertIn("--offline", command)
 
+    def test_a_unit_mutant_that_does_not_compile_is_a_build_error_even_when_libtest_text_shares_the_stream(self):
+        cd.UNIT_MUTANTS["a-unit-mutant"] = ("actor::module", "the_expected_test")
+        try:
+            def outcome(command):
+                if "target-control-a-unit-mutant" in " ".join(command):
+                    return finished(returncode=0, stdout="test result: ok.\n")
+                return finished(stdout="running 0 tests\n" + COMPILE_ERROR + "\n")
+            cd.sh = Recorder(outcome)
+            verdict, _passed, _total, detail = cd.run_unit_mutant(self.scratch, "a-unit-mutant", os.path.join(self.scratch, "a-unit-mutant", "rakka-actor"))
+        finally:
+            del cd.UNIT_MUTANTS["a-unit-mutant"]
+        self.assertEqual(verdict, cd.BUILD_ERROR)
+        self.assertIn("cannot find value", detail)
+
     def test_a_unit_mutant_that_cannot_resolve_its_dependencies_is_an_infrastructure_error_not_a_build_error(self):
         cd.UNIT_MUTANTS["a-unit-mutant"] = ("actor::module", "the_expected_test")
         try:
