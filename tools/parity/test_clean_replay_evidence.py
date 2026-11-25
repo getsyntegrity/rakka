@@ -1,5 +1,6 @@
 """The clean replay of a run is authoritative only for the same identity (binary, build and corpus inputs, oracle, tooling, toolchain, environment) and the same run."""
 import os, pathlib, shutil, tempfile, unittest
+from unittest import mock
 
 import clean_replay_evidence as evidence
 
@@ -115,6 +116,34 @@ class Storage(unittest.TestCase):
         self.assertFalse(os.path.exists(self.path))
         os.makedirs(self.path)
         evidence.discard(self.path)         # a path that cannot be removed is not a failure of the gate that tried
+
+
+class EvidenceNeverRaises(unittest.TestCase):
+    """Evidence is an optimisation: whatever goes wrong inside a step (not only I/O) is its failure value, never an exception for the gate that called it."""
+    def test_a_surprise_inside_any_step_is_an_unknown_identity_not_stored_not_reusable_or_nothing_never_an_exception(self):
+        surprise = UnicodeEncodeError("utf-8", "name", 0, 1, "surrogates not allowed")      # e.g. a file name or a tool output that is not valid text
+        with tempfile.TemporaryDirectory() as root:
+            binary = pathlib.Path(root, "binary")
+            binary.write_text("x")
+            with mock.patch.object(evidence, "digest_paths", side_effect=surprise):
+                self.assertIsNone(evidence.identity(root, str(binary), {}, TOOLS))
+            with mock.patch.object(evidence, "current_tool_versions", side_effect=surprise):
+                self.assertIsNone(evidence.identity(root, str(binary), {}))
+            with mock.patch.object(evidence, "refusal", side_effect=KeyError("other_na")):
+                self.assertIn("failed", evidence.leave_evidence(root, str(binary), {}, 1, COMPLETE, {evidence.RUN_ID_ENV: "run-1"}))
+            with mock.patch.object(evidence, "key_of", side_effect=TypeError("not serialisable")):
+                self.assertIsNone(evidence.reusable(os.path.join(root, "none.json"), {"binary": "x"}, "run-1", 1)[0])
+            with mock.patch.object(evidence.os, "unlink", side_effect=RuntimeError("surprise")):
+                evidence.discard(os.path.join(root, "none.json"))
+            with mock.patch.object(evidence.glob, "glob", side_effect=RuntimeError("surprise")):
+                self.assertEqual(evidence.corpus_case_count(root), -1)
+
+    def test_a_record_that_cannot_be_serialised_leaves_no_temporary_file_behind(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = os.path.join(root, "evidence", "clean-replay.json")
+            with self.assertRaises(TypeError):
+                evidence.store(path, {"result": object()})
+            self.assertEqual(os.listdir(os.path.dirname(path)), [])
 
 
 if __name__ == "__main__":
