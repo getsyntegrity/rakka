@@ -149,7 +149,7 @@ pub fn rust_lines() -> Vec<(String, String)> {
     rust_lines_for(None)
 }
 
-/// The lines of the oracle. `only` is the (escaped) id of the single case a caller needs: the expensive concurrent cases that are not it are then not evaluated, so
+/// The lines of the oracle. `only` is the (escaped) id of the single case a caller needs: the script and concurrent cases of the structures group that are not it are then not evaluated, so
 /// the list may lack them. `None` gives every line in the oracle's order.
 pub fn rust_lines_for(only: Option<&str>) -> Vec<(String, String)> {
     let mut lines: Vec<(String, String)> = Vec::new();
