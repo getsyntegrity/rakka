@@ -1,5 +1,5 @@
 """Evidence of the clean replay of one gate run, reused by the mutation clean control instead of replaying again. Content-addressed, fail-closed: anything missing, changed or foreign means "replay again"."""
-import contextlib, glob, hashlib, json, os, platform, subprocess, sys, tempfile
+import glob, hashlib, json, os, platform, subprocess, sys, tempfile
 
 SCHEMA = 1
 RUN_ID_ENV = "RAKKA_GATE_RUN_ID"
@@ -11,6 +11,19 @@ INPUTS = {"source": ("crates", "Cargo.toml", "Cargo.lock"), "corpus": ("rust/app
 GENERATED = ("rust/app-cases/replay-report.md",)      # rewritten by every replay: not an input
 IGNORED_DIRECTORIES = ("target", "__pycache__", ".git", ".gates")
 ENVIRONMENT_PREFIXES = ("CARGO", "RUSTC", "RUSTFLAGS", "RUSTDOC", "RUST_", "LLVM_", "CC", "CXX", "CFLAGS", "LDFLAGS", "SDKROOT", "MACOSX_", "DYLD_", "LD_")
+
+
+def never_raises(failure_value):
+    """Evidence is an optimisation: whatever goes wrong inside a step (an I/O error, text that cannot be encoded, a malformed record) is its `failure_value(problem)`
+    (unknown identity, not stored, not reusable), never an exception for the gate that called it. Fail closed on validity, not on availability."""
+    def decorate(step):
+        def guarded(*arguments, **keywords):
+            try:
+                return step(*arguments, **keywords)
+            except Exception as problem:
+                return failure_value(problem)
+        return guarded
+    return decorate
 
 
 def evidence_path(root):
@@ -43,26 +56,23 @@ def current_tool_versions():
     """Versions of what shapes the replayed binary or its judgement; a tool that cannot answer is None (and then nothing is reused)."""
     def version(command):
         try:
-            done = subprocess.run(command, capture_output=True, text=True, timeout=60)
-        except (OSError, subprocess.SubprocessError):
+            done = subprocess.run(command, capture_output=True, text=True)
+        except OSError:
             return None
         return done.stdout.strip() or None if done.returncode == 0 else None
     return {"rustc": version(["rustc", "-vV"]), "cargo": version(["cargo", "-V"]), "rust-anything": version(["rust-anything", "--version"]),
             "python": sys.version, "platform": platform.platform()}
 
 
+@never_raises(lambda problem: None)
 def identity(root, binary, environment, tools=None, command=CLEAN_REPLAY_COMMAND, timeout=REPLAY_TIMEOUT_SECONDS):
-    """Everything the verdict of a clean replay depends on (tool versions are looked up unless given); None when any of it is unknown."""
+    """Everything the verdict of a clean replay depends on (tool versions are looked up unless given); None when any of it is unknown or unreadable."""
     tools = tools or current_tool_versions()
-    try:      # evidence is an optimisation: an input that cannot be read (a dangling link, a permission, a race) is an unknown identity, never a failure of the gate
-        with open(binary, "rb") as binary_file:
-            binary_digest = hashlib.sha256(binary_file.read()).hexdigest()
-        digests = {name: digest_paths(root, paths) for name, paths in INPUTS.items()}
-    except OSError:
-        return None
+    with open(binary, "rb") as binary_file:
+        binary_digest = hashlib.sha256(binary_file.read()).hexdigest()
     if any(value is None for value in tools.values()):
         return None
-    return {"binary": binary_digest, **digests, "tools": tools,
+    return {"binary": binary_digest, **{name: digest_paths(root, paths) for name, paths in INPUTS.items()}, "tools": tools,
             "environment": {name: value for name, value in sorted(environment.items()) if name.startswith(ENVIRONMENT_PREFIXES)}, "command": list(command), "timeout": timeout}
 
 
@@ -70,6 +80,7 @@ def key_of(content):
     return hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
 
 
+@never_raises(lambda problem: -1)
 def corpus_case_count(root):
     return len(glob.glob(os.path.join(root, "rust", "app-cases", "*.toml")))
 
@@ -90,16 +101,18 @@ def record(identity_record, evaluation, replayed_cases, run_id):
 def store(path, stored_record):
     """Atomic: a reader sees the whole record or nothing."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    payload = json.dumps(stored_record, indent=1)      # serialised first: nothing is created if the record cannot be
     with tempfile.NamedTemporaryFile("w", dir=os.path.dirname(path), suffix=".tmp", delete=False) as out:
-        json.dump(stored_record, out, indent=1)
+        out.write(payload)
     os.replace(out.name, path)
 
 
+@never_raises(lambda problem: None)
 def discard(path):
-    with contextlib.suppress(OSError):
-        os.unlink(path)
+    os.unlink(path)
 
 
+@never_raises(lambda problem: f"the evidence step failed ({problem!r})")
 def leave_evidence(root, binary, before, replayed_cases, evaluation, environment):
     """Stores the evidence only for a complete clean replay in a gate run whose inputs did not change while it ran (`before` = identity captured before it). -> None, else why not."""
     run_id = environment.get(RUN_ID_ENV)
@@ -109,13 +122,11 @@ def leave_evidence(root, binary, before, replayed_cases, evaluation, environment
         why = "an input changed while the replay ran, or the identity is incomplete"
     if why:
         return why
-    try:
-        store(evidence_path(root), record(before, evaluation, replayed_cases, run_id))
-    except OSError as problem:
-        return f"the evidence could not be written ({problem})"
+    store(evidence_path(root), record(before, evaluation, replayed_cases, run_id))
     return None
 
 
+@never_raises(lambda problem: (None, f"the evidence check failed ({problem!r})"))
 def reusable(path, identity_record, run_id, corpus_cases):
     """-> (record, None) when this run's own complete clean replay of exactly this identity is on disk, else (None, why)."""
     if identity_record is None or not run_id:
@@ -125,9 +136,9 @@ def reusable(path, identity_record, run_id, corpus_cases):
             stored = json.load(stored_file)
     except (OSError, ValueError):
         return None, "no readable evidence"
-    if not isinstance(stored, dict) or stored.get("schema") != SCHEMA or stored.get("run_id") != run_id:
+    if stored.get("schema") != SCHEMA or stored.get("run_id") != run_id:
         return None, "the evidence is of another format or of another run"
-    result = stored["result"] if isinstance(stored.get("result"), dict) else {}
+    result = stored.get("result", {})
     if stored.get("identity") != identity_record or stored.get("key") != key_of({"identity": identity_record, "result": result}):
         return None, "an input changed since the replay or the record was altered"
     if result.get("replayed_cases") != corpus_cases or not result.get("applicable_total") or result.get("applicable_passed") != result.get("applicable_total"):
