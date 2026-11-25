@@ -92,6 +92,20 @@ fn a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_sh
         let system = system_with_a_bad_guardian_queue(promise, bad_on);
         let terminated = system.when_terminated().wait(Duration::from_secs(10));
         assert!(terminated.is_some(), "the {guardian} guardian");
+        // only the root guardian fails to the bubble walker, which fails `whenTerminated` with its exception (`causeOfTermination.tryFailure`,
+        // ActorRefProvider.scala:485-487); `/user` and `/system` are stopped by the root's strategy (`:525-529`) and the system ends normally
+        let cause = system.when_terminated().failure();
+        if guardian == "root" {
+            let cause = cause.expect("the root guardian's failure");
+            assert_eq!(
+                cause.class,
+                "org.apache.pekko.actor.ActorInitializationException"
+            );
+            let message = cause.message.unwrap_or_default();
+            assert!(message.contains("requires mailbox type [interface org.apache.pekko.dispatch.UnboundedMessageQueueSemantics] got ["), "{message}");
+        } else {
+            assert_eq!(cause, None, "the {guardian} guardian");
+        }
     }
 }
 
@@ -104,5 +118,6 @@ fn a_default_mailbox_that_promises_nothing_leaves_the_guardians_unchecked() {
             .actor_of(Props::new(|| Idle))
             .expect("the system keeps working");
         assert!(system.terminate().wait(Duration::from_secs(10)).is_some());
+        assert!(system.when_terminated().failure().is_none());
     }
 }

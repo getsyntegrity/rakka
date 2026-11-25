@@ -1996,9 +1996,15 @@ MUTANTS = {
         "impl Actor for SystemGuardian {",
         "the /system guardian does not declare the unbounded requirement",
     ),
+    "failed-root-guardian-does-not-fail-when-terminated": (
+        "src/actor/system.rs",
+        "                self.termination.fail_with(cause);\n",
+        "                let _ = cause;\n",
+        "whenTerminated is not failed with the exception of the root guardian (causeOfTermination.tryFailure)",
+    ),
     "failed-root-guardian-does-not-end-the-system": (
         "src/actor/system.rs",
-        "            SystemMessage::Failed { child, .. } => child.stop(),",
+        "            SystemMessage::Failed { child, cause } => {\n                self.termination.fail_with(cause);\n                child.stop();\n            }",
         "            SystemMessage::Failed { .. } => {}",
         "the supervisor of the root guardian ignores its failure: the system keeps running without a root",
     ),
@@ -2087,6 +2093,7 @@ def classify(replay_result, binary):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "failed-root-guardian-does-not-fail-when-terminated": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
     "guardian-root-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
     "guardian-user-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
     "guardian-system-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
