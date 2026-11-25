@@ -2,6 +2,7 @@
 //! `ActorSystem` (local, Classic): provider, guardians and the termination chain.
 //! Follows `ActorSystem.scala` and `LocalActorRefProvider` in `ActorRefProvider.scala`.
 
+use crate::actor::fault::Throwable;
 use crate::dispatch::message_queue::UnboundedMailbox;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock, Weak};
@@ -25,6 +26,7 @@ use crate::util::clock::{Clock, NanoClock};
 pub struct Promise<T> {
     value: Mutex<Option<T>>,
     cv: Condvar,
+    failure: Mutex<Option<Throwable>>,
 }
 
 impl<T: Clone> Promise<T> {
@@ -32,6 +34,7 @@ impl<T: Clone> Promise<T> {
         Arc::new(Promise {
             value: Mutex::new(None),
             cv: Condvar::new(),
+            failure: Mutex::new(None),
         })
     }
 
@@ -46,6 +49,17 @@ impl<T: Clone> Promise<T> {
 
     pub fn is_completed(&self) -> bool {
         self.value.lock().unwrap().is_some()
+    }
+
+    /// What `whenTerminated` failed with (`causeOfTermination`): the failure of the guardian that ended the system, `None` for a
+    /// termination that was asked for.
+    pub fn failure(&self) -> Option<Throwable> {
+        self.failure.lock().unwrap().clone()
+    }
+
+    /// `causeOfTermination.tryFailure`: the first cause wins.
+    fn fail_with(&self, cause: Throwable) {
+        self.failure.lock().unwrap().get_or_insert(cause);
     }
 
     /// Blocks until completed or the timeout elapses.
@@ -231,7 +245,10 @@ impl InternalActorRef for BubbleWalker {
         match msg {
             SystemMessage::DeathWatchNotification { .. } => self.stop(),
             // the decider stops whatever fails: the root guardian is stopped and its death ends the system
-            SystemMessage::Failed { child, .. } => child.stop(),
+            SystemMessage::Failed { child, cause } => {
+                self.termination.fail_with(cause);
+                child.stop();
+            }
             _ => {}
         }
     }
