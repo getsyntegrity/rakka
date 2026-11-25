@@ -25,6 +25,19 @@ class MutantSelection(unittest.TestCase):
         for changed in ("Cargo.lock", "cases/path-from-string.jsonl", "tools/parity/check_divergence.py", "rust/app-cases/a01.stdout", "oracle/pom.xml"):
             self.assertEqual(gates.select_mutants([changed], MUTANTS, TOOL_MUTANTS), everything, changed)
 
+    def test_the_report_that_every_replay_regenerates_is_not_an_input_of_any_verdict_and_selects_nothing_by_itself(self):
+        self.assertEqual(gates.select_mutants(["rust/app-cases/replay-report.md"], MUTANTS, TOOL_MUTANTS), [])
+
+    def test_that_report_never_hides_a_real_change_next_to_it_and_only_the_exact_path_is_excused(self):
+        everything = list(MUTANTS) + list(TOOL_MUTANTS)
+        self.assertEqual(gates.select_mutants(["rust/app-cases/replay-report.md", "rust/app-cases/a01.stdout"], MUTANTS, TOOL_MUTANTS), everything)
+        for lookalike in ("rust/app-cases/replay-report.md.bak", "rust/app-cases/sub/replay-report.md", "cases/replay-report.md", "rust/app-cases/replay-report.txt"):
+            self.assertEqual(gates.select_mutants([lookalike], MUTANTS, TOOL_MUTANTS), everything, lookalike)
+
+    def test_the_excused_report_still_lets_a_source_change_select_its_own_mutants(self):
+        picked = gates.select_mutants(["rust/app-cases/replay-report.md", "crates/rakka-actor/src/actor/cell.rs"], MUTANTS, TOOL_MUTANTS)
+        self.assertEqual(picked, ["cell-throughput", "cell-dead-letters"])
+
     def test_a_tool_file_change_selects_its_tool_mutants(self):
         self.assertEqual(gates.select_mutants(["tools/parity/fuzz_diff.py"], MUTANTS, TOOL_MUTANTS), ["fuzz-diff-mutant"])
 
