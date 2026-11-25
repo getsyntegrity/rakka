@@ -1,7 +1,7 @@
 # Slice 4 (compatibilidad de mailbox): contratos, tarea 9 de Q-MBX-12 y deuda técnica
 
 Base `92acd83` (rama de integración), Pekko 2.0.0 `9fbd2283`. PR en draft apilados: #362 (A) → #363 (B) → #364 (C) → #365 (D) → #366 (E) → #369 (H, arreglo de `satisfies`) → #367 (F) → #370 (F2, whenTerminated pendiente) → #371 (F3, otros caminos del walker) → este (G). Sin merge.
-`AC-MBX-013` y `AC-MBX-014` siguen `partial`; Q-MBX-13 `accepted`; Q-MBX-2 `proposed`; **Q-MBX-14 `proposed`** (API de capacidades, ver `docs/owner-batch-02.md`).
+`AC-MBX-013` y `AC-MBX-014` siguen `partial`; Q-MBX-13 `accepted`; Q-MBX-2 `proposed`; **Q-MBX-14 `accepted`** (Owner, 2026-11-25, API de capacidades). Clasificación de la evidencia: **SOURCE_VERIFIED** contra el Scala fijado de Pekko 2.0.0; **RUST_VERIFIED** con tests de regresión, mutantes y replay; **la paridad de comportamiento en la JVM NO está verificada** salvo los casos MBX-CMP-01..03 y MBX-GRD-01 medidos con el oráculo (no para `whenTerminated` tras el fallo de un guardián ni para `ActorSystem.create`).
 
 ## Contratos implementados (cada uno con oráculo o sonda contra Pekko 2.0.0)
 
@@ -19,7 +19,7 @@ Cumplida en lo ejecutable: selección directa del default, requisito por guardi�
 
 ## Deuda técnica restante
 
-1. Tres anclas de mutantes obsoletas anteriores al Slice 3 (`config-push-timeout-not-read`, `deploy-fallback-keeps-the-tags`, `render-concatenation-keeps-white-space-as-a-separate-string`); 4 tests de `tools/gates` fallan por ellas. No son dependencia de la compatibilidad.
+1. ~~Tres anclas de mutantes obsoletas~~ **Reparadas** (cierre): `config-push-timeout-not-read` (el código ahora también lee el `deployer` entre las dos líneas), `deploy-fallback-keeps-the-tags` (`tags` es un `Vec`, ya no un `BTreeSet`) y `render-concatenation-keeps-white-space-as-a-separate-string` (`plain_text` devuelve `String`): mismo modelo de fallo, 3/3 DETECTED con control CLEAN 2975/2975. El test de `tools/gates` que fijaba 205 mutantes ahora fija 333 (exacto). `tools/gates`: 159 tests OK.
 2. HOCON `mailbox-requirement` y `pekko.actor.mailbox.requirements`; `mailbox-type` propio del dispatcher; dispatcher elegido por `Props` (el requisito sólo existe para el dispatcher por defecto).
 3. Filas de la tabla de requisitos sin mailbox (bounded/deque/control-aware/logger) y las semánticas Deque, ControlAware: el subtipado entre ellas se listará por tipo cuando existan (Q-MBX-14).
 4. `Props::with_mailbox(tipo)` (sin equivalente en Pekko) no se verifica; los nombres de clase de actor y cola en los mensajes son rutas de tipo Rust (normalizadas sólo en los casos grabados).
