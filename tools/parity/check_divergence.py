@@ -1996,15 +1996,21 @@ MUTANTS = {
         "impl Actor for SystemGuardian {",
         "the /system guardian does not declare the unbounded requirement",
     ),
+    "termination-promise-keeps-the-last-completion": (
+        "src/actor/system.rs",
+        "        if g.is_none() {\n            *g = Some(v);",
+        "        if true {\n            *g = Some(v);",
+        "whenTerminated is not write-once: the Terminated of the shutdown replaces the failure of the root guardian",
+    ),
     "failed-root-guardian-does-not-fail-when-terminated": (
         "src/actor/system.rs",
-        "                self.termination.fail_with(cause);\n",
+        "                self.termination.complete(Err(cause));\n",
         "                let _ = cause;\n",
         "whenTerminated is not failed with the exception of the root guardian (causeOfTermination.tryFailure)",
     ),
     "failed-root-guardian-does-not-end-the-system": (
         "src/actor/system.rs",
-        "            SystemMessage::Failed { child, cause } => {\n                self.termination.fail_with(cause);\n                child.stop();\n            }",
+        "            SystemMessage::Failed { child, cause } => {\n                self.termination.complete(Err(cause));\n                child.stop();\n            }",
         "            SystemMessage::Failed { .. } => {}",
         "the supervisor of the root guardian ignores its failure: the system keeps running without a root",
     ),
@@ -2093,13 +2099,14 @@ def classify(replay_result, binary):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
-    "failed-root-guardian-does-not-fail-when-terminated": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
+    "termination-promise-keeps-the-last-completion": ("actor::system", "a_promise_keeps_its_first_completion_so_a_failure_is_not_replaced_by_the_success_that_follows"),
+    "failed-root-guardian-does-not-fail-when-terminated": ("test:classic_guardian_mailbox", "a_root_guardian_that_fails_to_initialise_fails_when_terminated_with_its_exception"),
     "guardian-root-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
     "guardian-user-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
     "guardian-system-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
-    "guardian-requires-nothing": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
-    "system-guardian-requires-nothing": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
-    "failed-root-guardian-does-not-end-the-system": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
+    "guardian-requires-nothing": ("test:classic_guardian_mailbox", "a_root_guardian_that_fails_to_initialise_fails_when_terminated_with_its_exception"),
+    "system-guardian-requires-nothing": ("test:classic_guardian_mailbox", "the_user_and_system_guardians_that_fail_to_initialise_end_the_system_normally"),
+    "failed-root-guardian-does-not-end-the-system": ("test:classic_guardian_mailbox", "a_root_guardian_that_fails_to_initialise_fails_when_terminated_with_its_exception"),
     "unbounded-queue-has-no-multiple-consumer-semantics": ("dispatch::message_queue", "the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one"),
     "multiple-consumer-requirement-has-no-default-binding": ("dispatch::mailboxes", "the_built_in_queues_have_the_multiple_consumer_semantics_and_reference_conf_binds_it"),
     "mailbox-undeclared-queue-does-not-keep-the-promise": ("dispatch::mailboxes", "a_queue_that_does_not_declare_its_semantics_keeps_the_promise_of_its_type"),

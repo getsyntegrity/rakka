@@ -22,11 +22,10 @@ use crate::dispatch::turn::TurnPolicy;
 use crate::event::{DeadLetter, EventStream};
 use crate::util::clock::{Clock, NanoClock};
 
-/// A write-once value other threads can wait for (`Promise`/`Future`).
+/// A write-once value other threads can wait for (`Promise`/`Future`): the first completion wins, a later one is ignored.
 pub struct Promise<T> {
     value: Mutex<Option<T>>,
     cv: Condvar,
-    failure: Mutex<Option<Throwable>>,
 }
 
 impl<T: Clone> Promise<T> {
@@ -34,11 +33,10 @@ impl<T: Clone> Promise<T> {
         Arc::new(Promise {
             value: Mutex::new(None),
             cv: Condvar::new(),
-            failure: Mutex::new(None),
         })
     }
 
-    /// `trySuccess`: idempotent.
+    /// `trySuccess`/`tryFailure` (whichever the caller holds as `v`): idempotent, the first value stays.
     fn complete(&self, v: T) {
         let mut g = self.value.lock().unwrap();
         if g.is_none() {
@@ -51,18 +49,7 @@ impl<T: Clone> Promise<T> {
         self.value.lock().unwrap().is_some()
     }
 
-    /// What `whenTerminated` failed with (`causeOfTermination`): the failure of the guardian that ended the system, `None` for a
-    /// termination that was asked for.
-    pub fn failure(&self) -> Option<Throwable> {
-        self.failure.lock().unwrap().clone()
-    }
-
-    /// `causeOfTermination.tryFailure`: the first cause wins.
-    fn fail_with(&self, cause: Throwable) {
-        self.failure.lock().unwrap().get_or_insert(cause);
-    }
-
-    /// Blocks until completed or the timeout elapses.
+    /// Blocks until completed or the timeout elapses (`None`).
     pub fn wait(&self, timeout: Duration) -> Option<T> {
         let g = self.value.lock().unwrap();
         let (g, _) = self
@@ -73,8 +60,10 @@ impl<T: Clone> Promise<T> {
     }
 }
 
-/// `whenTerminated`.
-pub type TerminationFuture = Arc<Promise<Terminated>>;
+/// `whenTerminated`: a `Future[Terminated]`. `wait` gives `None` on timeout, `Some(Ok(Terminated))` when the system ended normally (also when
+/// asked to, or when `/user` or `/system` failed: the root's strategy stops them) and `Some(Err(cause))` when the root guardian failed
+/// (`causeOfTermination.tryFailure`, `ActorRefProvider.scala:485-487`). One outcome only: a failure is never followed by a success.
+pub type TerminationFuture = Arc<Promise<Result<Terminated, Throwable>>>;
 
 /// The few `pekko.actor.default-dispatcher` settings the port supports (no HOCON `Config` yet).
 #[derive(Debug, Clone)]
@@ -231,6 +220,8 @@ struct BubbleWalker {
     termination: TerminationFuture,
     dispatchers: Vec<Arc<Dispatcher>>,
     root: OnceLock<ActorRef>,
+    /// The dispatchers are shut down once, whichever of a failure and a death comes first.
+    dispatchers_shut_down: AtomicBool,
 }
 
 impl InternalActorRef for BubbleWalker {
@@ -239,14 +230,11 @@ impl InternalActorRef for BubbleWalker {
     }
     fn tell(&self, _msg: AnyMessage, _sender: Option<ActorRef>) {}
     fn send_system(&self, msg: SystemMessage) {
-        if self.termination.is_completed() {
-            return;
-        }
         match msg {
             SystemMessage::DeathWatchNotification { .. } => self.stop(),
-            // the decider stops whatever fails: the root guardian is stopped and its death ends the system
+            // `causeOfTermination.tryFailure(ex)` then `child.stop()`: the failure comes first, so the `Terminated` of the stop cannot replace it
             SystemMessage::Failed { child, cause } => {
-                self.termination.fail_with(cause);
+                self.termination.complete(Err(cause));
                 child.stop();
             }
             _ => {}
@@ -254,18 +242,20 @@ impl InternalActorRef for BubbleWalker {
     }
     fn stop(&self) {
         if let Some(root) = self.root.get() {
-            self.termination.complete(Terminated {
+            self.termination.complete(Ok(Terminated {
                 actor: root.clone(),
                 existence_confirmed: true,
                 address_terminated: true,
-            });
+            }));
         }
-        for d in &self.dispatchers {
-            d.shutdown();
+        if !self.dispatchers_shut_down.swap(true, Ordering::SeqCst) {
+            for d in &self.dispatchers {
+                d.shutdown();
+            }
         }
     }
     fn is_terminated(&self) -> bool {
-        self.termination.is_completed()
+        self.dispatchers_shut_down.load(Ordering::SeqCst)
     }
 }
 
@@ -411,6 +401,7 @@ impl ActorSystem {
             termination,
             dispatchers: vec![dispatcher, internal_dispatcher.clone()],
             root: OnceLock::new(),
+            dispatchers_shut_down: AtomicBool::new(false),
         });
         let walker = ActorRef(bubble.clone());
         let root = ActorCell::new_local(
@@ -599,7 +590,10 @@ mod tests {
         );
         let dup = sys.actor_of_named(Props::new(|| Noop), "a").unwrap_err();
         assert_eq!(dup.class(), ErrorClass::InvalidActorName);
-        sys.terminate().wait(WAIT).expect("terminated");
+        sys.terminate()
+            .wait(WAIT)
+            .expect("ended")
+            .expect("terminated normally");
     }
 
     #[test]
@@ -612,17 +606,37 @@ mod tests {
             std::thread::sleep(Duration::from_millis(2));
         }
         assert!(a.is_terminated());
-        let t = sys.terminate().wait(WAIT).expect("terminated");
+        let t = sys
+            .terminate()
+            .wait(WAIT)
+            .expect("ended")
+            .expect("terminated normally");
         assert!(t.existence_confirmed && t.address_terminated);
         let late = sys.actor_of_named(Props::new(|| Noop), "late").unwrap_err();
         assert_eq!(late.class(), ErrorClass::IllegalState);
     }
 
     #[test]
+    fn a_promise_keeps_its_first_completion_so_a_failure_is_not_replaced_by_the_success_that_follows()
+     {
+        // `whenTerminated`: the bubble walker fails it first, then the death of the root completes it with a `Terminated`
+        let termination: Arc<Promise<Result<u8, &'static str>>> = Promise::new();
+        termination.complete(Err("the failure of the root guardian"));
+        termination.complete(Ok(1));
+        assert_eq!(
+            termination.wait(Duration::ZERO),
+            Some(Err("the failure of the root guardian"))
+        );
+    }
+
+    #[test]
     fn terminating_an_empty_system_closes_the_guardian_to_new_children() {
         // regression: `setTerminated()` must run when there are no children to wait for
         let sys = ActorSystem::create("t3").unwrap();
-        sys.terminate().wait(WAIT).expect("terminated");
+        sys.terminate()
+            .wait(WAIT)
+            .expect("ended")
+            .expect("terminated normally");
         assert_eq!(
             sys.actor_of(Props::new(|| Noop)).unwrap_err().class(),
             ErrorClass::IllegalState
