@@ -50,22 +50,27 @@ fn a_failed_root_guardian_leaves_when_terminated_pending() {
         .get()
         .expect("the walker of the system")
         .clone();
-    // the walker discarded the death notification of the root: the failure is processed, so a pending future is not just "not yet"
-    walker
-        .notification_discarded
-        .wait(Duration::from_secs(10))
-        .expect("the death notification of the root reaches the walker");
-    // `causeOfTermination` holds the failure of the root, which stopped the walker from walking
-    let cause = walker
-        .cause_of_termination
-        .wait(Duration::ZERO)
-        .expect("recorded");
-    let cause = cause.expect_err("a failure");
-    assert_eq!(
-        cause.class,
-        "org.apache.pekko.actor.ActorInitializationException"
-    );
-    assert!(!system.when_terminated().is_completed());
+    {
+        let _cleanup = DispatchersGuard(walker.clone());
+        // the walker discarded the death notification of the root: the failure is processed, so a pending future is not just "not yet"
+        walker
+            .notification_discarded
+            .wait(Duration::from_secs(10))
+            .expect("the death notification of the root reaches the walker");
+        // `causeOfTermination` holds the failure of the root, which stopped the walker from walking
+        let cause = walker
+            .cause_of_termination
+            .wait(Duration::ZERO)
+            .expect("recorded");
+        let cause = cause.expect_err("a failure");
+        assert_eq!(
+            cause.class,
+            "org.apache.pekko.actor.ActorInitializationException"
+        );
+        assert!(!system.when_terminated().is_completed());
+    }
+    // the system never terminates by itself (that is the point of the test), so the dispatchers must have been closed by the test itself
+    assert!(walker.dispatchers_are_shut_down());
 }
 
 /// A walker on its own with a recorder as root: its messages are driven one by one, so the order is the test's, not a thread's.
