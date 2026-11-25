@@ -24,3 +24,10 @@ Hallazgo medio: un `MailboxType` que promete `UNBOUNDED` y cuya cola no sobrescr
 sus semánticas y vale lo que su tipo prometió; `Some(..)` la sujeta a su propia respuesta (así se sigue encontrando el tipo que promete lo que su cola no tiene,
 `MBX-CMP-03`). RED: `a_queue_that_does_not_declare_its_semantics_keeps_the_promise_of_its_type` falló con `Some((UNBOUNDED, ...UndeclaredQueue))`; GREEN con el cambio.
 Mutante nuevo `mailbox-undeclared-queue-does-not-keep-the-promise` (unitario). Replay 2974/2974.
+
+## `MultipleConsumerSemantics` (hallazgo A de la segunda revisión)
+
+Las dos colas integradas tienen `MultipleConsumerSemantics` en Pekko (`Mailbox.scala:439,538`) y `reference.conf` la enlaza a `unbounded-queue-based`. Ahora
+`MessageQueueSemantics::MULTIPLE_CONSUMER` existe, está en `produced_queue` y `satisfies` de ambas, y `Mailboxes::default` la enlaza. RED: el test
+`the_built_in_queues_have_the_multiple_consumer_semantics_and_reference_conf_binds_it` falló sin binding ni capacidad. 2 mutantes nuevos; la primera corrida dejó
+`unbounded-queue-has-no-multiple-consumer-semantics` UNDETECTED (el test sólo miraba la promesa): ahora el test pregunta a la cola realmente creada. 6/6 DETECTED, control CLEAN 2974/2974.

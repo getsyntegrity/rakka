@@ -48,7 +48,10 @@ impl MailboxType for NonBlockingBoundedMailbox {
     fn produced_queue(&self) -> ProducedQueue {
         ProducedQueue::new(
             "org.apache.pekko.dispatch.BoundedNodeMessageQueue",
-            &[MessageQueueSemantics::BOUNDED],
+            &[
+                MessageQueueSemantics::BOUNDED,
+                MessageQueueSemantics::MULTIPLE_CONSUMER,
+            ],
         )
     }
 }
@@ -94,7 +97,8 @@ impl MessageQueue for BoundedNodeMessageQueue {
     fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
         Some(
             requirement == MessageQueueSemantics::MESSAGE_QUEUE
-                || requirement == MessageQueueSemantics::BOUNDED,
+                || requirement == MessageQueueSemantics::BOUNDED
+                || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER,
         )
     }
 
