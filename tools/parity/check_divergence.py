@@ -2072,9 +2072,10 @@ def killers_file(name):
 
 
 def write_killers(name, cases):
-    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it."""
+    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it.
+    Sorted and without duplicates, so that the same detection always writes the same bytes (a file that can be versioned and diffed); only case names, never a path."""
     with open(killers_file(name), "w", encoding="utf-8") as killers:
-        killers.write("".join(f"{case}\n" for case in cases))
+        killers.write("".join(f"{case}\n" for case in sorted(set(cases))))
 
 
 def cases_listed_in_report(name):

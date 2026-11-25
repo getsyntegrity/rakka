@@ -56,6 +56,15 @@ class HistorySeeding(unittest.TestCase):
         self.assertEqual(outcome[0], cd.DETECTED)
         self.assertEqual(self.killers_text(), "")
 
+    def test_the_history_is_written_in_a_deterministic_order_without_duplicates_whatever_the_order_the_replay_reported(self):
+        outcome = self.verdict_of(["c-z9", "c-a2", "c-a1", "c-a2"], evaluation(False, ["c-z9", "c-a2", "c-a1", "c-a2"]))
+        self.assertEqual(outcome[0], cd.DETECTED)
+        self.assertEqual(self.killers_text(), "c-a1\nc-a2\nc-z9\n")
+
+    def test_the_history_holds_nothing_but_case_names_so_that_no_machine_specific_path_can_enter_it(self):
+        self.verdict_of(["c-a1"], evaluation(False, ["c-a1"]))
+        self.assertEqual([line for line in self.killers_text().splitlines() if "/" in line or "\\" in line or line != line.strip()], [])
+
     def test_a_replay_whose_output_is_not_understood_never_touches_the_history(self):
         with open(cd.killers_file("a-mutant"), "w") as earlier:
             earlier.write("c-a1\nc-a2\n")
