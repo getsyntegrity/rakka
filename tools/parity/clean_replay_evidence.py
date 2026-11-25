@@ -141,6 +141,9 @@ def reusable(path, identity_record, run_id, corpus_cases):
     result = stored.get("result", {})
     if stored.get("identity") != identity_record or stored.get("key") != key_of({"identity": identity_record, "result": result}):
         return None, "an input changed since the replay or the record was altered"
-    if result.get("replayed_cases") != corpus_cases or not result.get("applicable_total") or result.get("applicable_passed") != result.get("applicable_total") or "other_not_applicable" not in result:
+    counts = [result.get(name) for name in ("applicable_passed", "applicable_total", "other_not_applicable")]
+    if not all(type(count) is int and count >= 0 for count in counts):      # the control does arithmetic and formatting with these: a forged type must never reach it
+        return None, "the record has counts that are not plain non-negative integers"
+    if result.get("replayed_cases") != corpus_cases or not result["applicable_total"] or result["applicable_passed"] != result["applicable_total"]:
         return None, "the record does not describe a complete clean replay of this corpus"
     return stored, None
