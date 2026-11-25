@@ -36,3 +36,7 @@ Dos revisores especializados se negaron por no tener herramientas de lectura y n
 4. Bajo. `ProducedQueue::PLAIN` como centinela confunde "sin promesa" con `ProducesMessageQueue[MessageQueue]` (sin efecto hoy).
 5. Bajo. El id del dispatcher en el mensaje está fijo en el por defecto.
 6. Bajo (tests). `a_default_mailbox_that_promises_nothing...` afirma "no terminado" justo tras crear; los sistemas del test de fallo no se terminan.
+
+## Revisiones finales (HEAD d5bb0b9, acceso a Scala verificado: Mailbox.scala, Mailboxes.scala, Dispatch.scala, ActorRefProvider.scala, reference.conf)
+
+Sin defectos bloqueantes. El hallazgo medio de satisfies (H) y el de MultipleConsumerSemantics (H, 7642c88) estan corregidos y verificados. Divergencia baja registrada, no reproducida: cuando un guardian falla al iniciar, Pekko completa whenTerminated con el error (causeOfTermination.tryFailure, ActorRefProvider.scala:487) y lo registra; Rakka lo completa como un Terminated normal. El test solo afirma que el sistema se apaga. Pendiente de decision del Owner junto con el error de ActorSystem.create.
