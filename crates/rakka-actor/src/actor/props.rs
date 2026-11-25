@@ -225,20 +225,12 @@ impl Props {
         &self,
         queue: &dyn MessageQueue,
     ) -> Option<(MessageQueueSemantics, &'static str)> {
-        let promise = self
+        let promises = self
             .mailbox
             .as_ref()
-            .map(|mailbox| mailbox.produced_queue())
-            .filter(|promise| *promise != ProducedQueue::PLAIN);
-        let unmet = |required: &MessageQueueSemantics| {
-            promise.is_some_and(|promise| {
-                !queue
-                    .satisfies(*required)
-                    .unwrap_or_else(|| promise.satisfies(*required))
-            })
-        };
+            .is_some_and(|mailbox| mailbox.produced_queue() != ProducedQueue::PLAIN);
         self.required_queue
-            .filter(unmet)
+            .filter(|required| promises && !queue.satisfies(*required))
             .map(|required| (required, queue.class_name()))
     }
 

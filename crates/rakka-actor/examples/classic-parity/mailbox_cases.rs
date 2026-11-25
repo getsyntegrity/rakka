@@ -1131,11 +1131,9 @@ fn the_default_and_built_in_ids_are_unbounded_fifo() -> String {
 struct LifoQueue(Mutex<Vec<Envelope>>);
 
 impl MessageQueue for LifoQueue {
-    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
-        Some(
-            requirement == MessageQueueSemantics::MESSAGE_QUEUE
-                || requirement == MessageQueueSemantics::UNBOUNDED,
-        )
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
+        requirement == MessageQueueSemantics::MESSAGE_QUEUE
+            || requirement == MessageQueueSemantics::UNBOUNDED
     }
     fn enqueue(&self, _receiver: &ActorRef, envelope: Envelope) -> bool {
         self.0.lock().unwrap().push(envelope);
@@ -1319,8 +1317,8 @@ impl MessageQueue for SemanticsQueue {
     fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
         self.inner.clean_up(owner, dead_letters)
     }
-    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
-        Some(requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.has.contains(&requirement))
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
+        requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.has.contains(&requirement)
     }
     fn class_name(&self) -> &'static str {
         self.class

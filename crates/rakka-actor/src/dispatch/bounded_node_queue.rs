@@ -91,11 +91,9 @@ impl BoundedNodeMessageQueue {
 }
 
 impl MessageQueue for BoundedNodeMessageQueue {
-    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
-        Some(
-            requirement == MessageQueueSemantics::MESSAGE_QUEUE
-                || requirement == MessageQueueSemantics::BOUNDED,
-        )
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
+        requirement == MessageQueueSemantics::MESSAGE_QUEUE
+            || requirement == MessageQueueSemantics::BOUNDED
     }
 
     fn class_name(&self) -> &'static str {

@@ -34,13 +34,11 @@ pub trait MessageQueue: Send + Sync {
     /// Moves every queued envelope, oldest first, to `dead_letters` as addressed to `owner` (Pekko's `cleanUp(owner, deadLetters)`).
     fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue);
 
-    /// `requirement.isInstance(queue)`: whether this very queue has the semantics `requirement`, when the queue knows its own. What a type
-    /// promises ([`MailboxType::produced_queue`]) is checked again against this when the actor is created (`Dispatch.init`). `None`, the
-    /// default, is a queue that does not declare its semantics: what its type promised stands, so a queue that only forgets to say it is
-    /// not rejected. A queue that answers `Some` is held to its answer, which is how a type that promises what its queue lacks is found.
-    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
-        let _ = requirement;
-        None
+    /// `requirement.isInstance(queue)`: whether this very queue has the semantics `requirement`. What a type promises
+    /// ([`MailboxType::produced_queue`]) is checked again against this when the actor is created (`Dispatch.init`). A queue satisfies
+    /// `MessageQueue` and whatever it lists; the default lists nothing.
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
+        requirement == MessageQueueSemantics::MESSAGE_QUEUE
     }
 
     /// `getClass.getName` of the queue, as `Dispatch.init` names what a type really created. A JVM class name has no Rust equivalent:
@@ -73,11 +71,9 @@ struct UnboundedMessageQueue {
 }
 
 impl MessageQueue for UnboundedMessageQueue {
-    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
-        Some(
-            requirement == MessageQueueSemantics::MESSAGE_QUEUE
-                || requirement == MessageQueueSemantics::UNBOUNDED,
-        )
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
+        requirement == MessageQueueSemantics::MESSAGE_QUEUE
+            || requirement == MessageQueueSemantics::UNBOUNDED
     }
 
     fn class_name(&self) -> &'static str {

@@ -646,54 +646,6 @@ mod tests {
         );
     }
 
-    /// A queue that does not declare its semantics (it keeps the default of `MessageQueue::satisfies`).
-    struct UndeclaredQueue(Box<dyn MessageQueue>);
-
-    impl MessageQueue for UndeclaredQueue {
-        fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
-            self.0.enqueue(receiver, envelope)
-        }
-        fn dequeue(&self) -> Option<Envelope> {
-            self.0.dequeue()
-        }
-        fn number_of_messages(&self) -> usize {
-            self.0.number_of_messages()
-        }
-        fn has_messages(&self) -> bool {
-            self.0.has_messages()
-        }
-        fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
-            self.0.clean_up(owner, dead_letters)
-        }
-    }
-
-    /// Promises `AUDIT_QUEUE` and creates an [`UndeclaredQueue`].
-    struct UndeclaredQueueType;
-
-    impl MailboxType for UndeclaredQueueType {
-        fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
-            Box::new(UndeclaredQueue(bounded(1).create(dead_letters.clone())))
-        }
-
-        fn produced_queue(&self) -> ProducedQueue {
-            AUDIT_QUEUE
-        }
-    }
-
-    #[test]
-    fn a_queue_that_does_not_declare_its_semantics_keeps_the_promise_of_its_type() {
-        let requires_unbounded = || Props::new(|| RequiresUnbounded);
-        assert_eq!(
-            unmet_by_created_queue(requires_unbounded(), "undeclared"),
-            None
-        );
-        let requires_audit_trail = Props::new(|| RequiresAuditTrail);
-        assert_eq!(
-            unmet_by_created_queue(requires_audit_trail, "undeclared"),
-            None
-        );
-    }
-
     /// What `Dispatch.init` reports for `props` with the mailbox `id` selected: the requirement unmet by the queue the type really creates.
     fn unmet_by_created_queue(
         props: Props,
@@ -715,8 +667,6 @@ mod tests {
                 produced: ProducedQueue::PLAIN,
             },
         );
-        // promises `AUDIT_QUEUE` and its queue says nothing about its own semantics: the promise stands
-        mailboxes.register("undeclared", UndeclaredQueueType);
         let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
         let resolved = props
             .with_mailbox_id(id)
