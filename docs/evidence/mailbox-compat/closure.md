@@ -1,6 +1,6 @@
 # Slice 4 (compatibilidad de mailbox): contratos, tarea 9 de Q-MBX-12 y deuda técnica
 
-Base `92acd83` (rama de integración), Pekko 2.0.0 `9fbd2283`. PR en draft apilados: #362 (A) → #363 (B) → #364 (C) → #365 (D) → #366 (E) → #369 (H, arreglo de `satisfies`) → #367 (F) → este (G). Sin merge.
+Base `92acd83` (rama de integración), Pekko 2.0.0 `9fbd2283`. PR en draft apilados: #362 (A) → #363 (B) → #364 (C) → #365 (D) → #366 (E) → #369 (H, arreglo de `satisfies`) → #367 (F) → F2 (guardians-termination) → este (G). Sin merge.
 `AC-MBX-013` y `AC-MBX-014` siguen `partial`; Q-MBX-13 `accepted`; Q-MBX-2 `proposed`; **Q-MBX-14 `proposed`** (API de capacidades, ver `docs/owner-batch-02.md`).
 
 ## Contratos implementados (cada uno con oráculo o sonda contra Pekko 2.0.0)
@@ -41,4 +41,4 @@ Dos revisores especializados se negaron por no tener herramientas de lectura y n
 
 Sin defectos bloqueantes. El hallazgo medio de satisfies (H) y el de MultipleConsumerSemantics (H, 7642c88) estan corregidos y verificados. Divergencia baja registrada, no reproducida: cuando un guardian falla al iniciar, Pekko completa whenTerminated con el error (causeOfTermination.tryFailure, ActorRefProvider.scala:487) y lo registra; Rakka lo completa como un Terminated normal. El test solo afirma que el sistema se apaga. Pendiente de decision del Owner junto con el error de ActorSystem.create.
 
-Actualizacion: la divergencia de whenTerminated queda corregida en #367 (TerminationFuture::failure(), solo para el fallo del guardian raiz, como Pekko ActorRefProvider.scala:485-487). Sigue sin reproducirse el error de ActorSystem.create (timeout de loggers).
+Actualizacion: la divergencia de whenTerminated queda corregida en F2 (rama slice/mailbox-compat-guardians-termination): TerminationFuture es un unico resultado `Result<Terminated, Throwable>` de un solo valor; falla con la causa solo si falla el guardian raiz (ActorRefProvider.scala:485-487) y /user, /system o una terminacion solicitada terminan con Ok. Sin accessor paralelo. Verificado leyendo el Scala, no con una sonda contra la JVM. Sigue sin reproducirse el error de ActorSystem.create (timeout de loggers).
