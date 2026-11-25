@@ -34,3 +34,6 @@ RED/GREEN (cada uno con su test, `cargo test -p rakka-actor --lib guardian_termi
 (2) `only_the_death_notification_of_the_failed_root_is_the_synchronisation_signal` falló en `!walker.notification_discarded.is_completed()` con la señal genérica y pasó con la señal específica;
 (1) `the_guard_shuts_the_dispatchers_down_when_the_test_unwinds` falló en `walker.dispatchers_are_shut_down()` con un guard sin efecto y pasó con el `Drop` que cierra los dispatchers.
 Gates en este HEAD: 823 tests, replay 2975/2975, cobertura de líneas 95,33 % (gate ≥95 %; regiones 95,96 %, funciones 94,90 %), mutantes 11/11 DETECTED con control CLEAN 2975/2975, fmt/clippy/deny/package check limpios.
+
+Corrección de la revisión de F3: el test del raíz **no** armaba el guard (el reemplazo del parche no coincidió) y dejaba 12 threads vivos. RED: `a_failed_root_guardian_leaves_when_terminated_pending` falló en `walker.dispatchers_are_shut_down()`; GREEN con el guard dentro del test. Ahora el mutante `dispatchers-guard-does-not-shut-down` lo matan dos tests.
+Tras ese último cambio (sólo tests) se corrieron: fmt, clippy, 823 tests y el mutante del guard con control CLEAN 2975/2975; replay (2975/2975) y cobertura (líneas 95,33 %) son del HEAD anterior, con el mismo código de producción.
