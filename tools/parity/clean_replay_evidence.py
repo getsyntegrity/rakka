@@ -1,5 +1,4 @@
-"""Evidence of the clean replay of one gate run: the replay gate writes it, the mutation clean control reuses it instead of replaying the same binary against the
-same corpus again. Content-addressed and fail-closed: any missing, changed, foreign or incomplete input means "replay again"."""
+"""Evidence of the clean replay of one gate run, reused by the mutation clean control instead of replaying again. Content-addressed, fail-closed: anything missing, changed or foreign means "replay again"."""
 import contextlib, hashlib, json, os, platform, subprocess, sys, tempfile
 
 SCHEMA = 1
@@ -40,10 +39,6 @@ def digest_paths(root, relatives):
     return digest.hexdigest()
 
 
-def relevant_environment(environment):
-    return {name: value for name, value in sorted(environment.items()) if name.startswith(ENVIRONMENT_PREFIXES)}
-
-
 def current_tool_versions():
     """Versions of what shapes the replayed binary or its judgement; a tool that cannot answer is None (and then nothing is reused)."""
     def version(command):
@@ -56,18 +51,22 @@ def current_tool_versions():
             "python": sys.version, "platform": platform.platform()}
 
 
-def identity(root, binary, tools, environment, command, timeout):
-    """Everything the verdict of a clean replay depends on; None when any of it is unknown."""
-    if not os.path.isfile(binary) or any(value is None for value in tools.values()):
+def identity(root, binary, environment, tools=None, command=CLEAN_REPLAY_COMMAND, timeout=REPLAY_TIMEOUT_SECONDS):
+    """Everything the verdict of a clean replay depends on (tool versions are looked up unless given); None when any of it is unknown."""
+    tools = tools or current_tool_versions()
+    try:
+        with open(binary, "rb") as binary_file:
+            binary_digest = hashlib.sha256(binary_file.read()).hexdigest()
+    except OSError:
         return None
-    with open(binary, "rb") as binary_file:
-        binary_digest = hashlib.sha256(binary_file.read()).hexdigest()
+    if any(value is None for value in tools.values()):
+        return None
     return {"binary": binary_digest, **{name: digest_paths(root, paths) for name, paths in INPUTS.items()}, "tools": tools,
-            "environment": relevant_environment(environment), "command": list(command), "timeout": timeout}
+            "environment": {name: value for name, value in sorted(environment.items()) if name.startswith(ENVIRONMENT_PREFIXES)}, "command": list(command), "timeout": timeout}
 
 
-def key_of(identity_record):
-    return hashlib.sha256(json.dumps(identity_record, sort_keys=True).encode()).hexdigest()
+def key_of(content):
+    return hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
 
 
 def corpus_case_count(root):
@@ -83,17 +82,17 @@ def refusal(evaluation, replayed_cases, corpus_cases):
 
 
 def record(identity_record, evaluation, replayed_cases, run_id):
-    return {"schema": SCHEMA, "key": key_of(identity_record), "run_id": run_id, "identity": identity_record,
-            "result": {"applicable_passed": evaluation["passed"], "applicable_total": evaluation["total"], "other_not_applicable": evaluation["other_na"], "replayed_cases": replayed_cases}}
+    """The result is part of what the key covers: a record is the identity AND the clean replay that was verified for it."""
+    result = {"applicable_passed": evaluation["passed"], "applicable_total": evaluation["total"], "other_not_applicable": evaluation["other_na"], "replayed_cases": replayed_cases}
+    return {"schema": SCHEMA, "key": key_of({"identity": identity_record, "result": result}), "run_id": run_id, "identity": identity_record, "result": result}
 
 
 def store(path, stored_record):
     """Atomic: a reader sees the whole record or nothing."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    handle, temporary = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
-    with os.fdopen(handle, "w") as out:
+    with tempfile.NamedTemporaryFile("w", dir=os.path.dirname(path), suffix=".tmp", delete=False) as out:
         json.dump(stored_record, out, indent=1)
-    os.replace(temporary, path)
+    os.replace(out.name, path)
 
 
 def discard(path):
@@ -101,15 +100,16 @@ def discard(path):
         os.unlink(path)
 
 
-def leave_evidence(root, binary, replayed_cases, evaluation, environment):
-    """Stores the evidence when, and only when, this is a complete clean replay inside a gate run. -> None when stored, else why not (always reported)."""
+def leave_evidence(root, binary, before, replayed_cases, evaluation, environment):
+    """Stores the evidence only for a complete clean replay in a gate run whose inputs did not change while it ran (`before` = identity captured before it). -> None, else why not."""
     run_id = environment.get(RUN_ID_ENV)
     why = None if run_id else "not inside a gate run"
     why = why or refusal(evaluation, replayed_cases, corpus_case_count(root))
-    identity_record = None if why else identity(root, binary, current_tool_versions(), environment, CLEAN_REPLAY_COMMAND, REPLAY_TIMEOUT_SECONDS)
-    if identity_record is None:
-        return why or "the identity of the build is incomplete"
-    store(evidence_path(root), record(identity_record, evaluation, replayed_cases, run_id))
+    if not why and (before is None or identity(root, binary, environment) != before):
+        why = "an input changed while the replay ran, or the identity is incomplete"
+    if why:
+        return why
+    store(evidence_path(root), record(before, evaluation, replayed_cases, run_id))
     return None
 
 
@@ -124,8 +124,9 @@ def reusable(path, identity_record, run_id, corpus_cases):
         return None, "no readable evidence"
     if stored.get("schema") != SCHEMA or stored.get("run_id") != run_id:
         return None, "the evidence is of another format or of another run"
-    if stored.get("key") != key_of(identity_record) or stored.get("identity") != identity_record:
-        return None, "an input changed since the replay"
-    if stored.get("result", {}).get("replayed_cases") != corpus_cases:
-        return None, "the corpus size changed since the replay"
+    result = stored.get("result", {})
+    if stored.get("identity") != identity_record or stored.get("key") != key_of({"identity": identity_record, "result": result}):
+        return None, "an input changed since the replay or the record was altered"
+    if result.get("replayed_cases") != corpus_cases or not result.get("applicable_total") or result.get("applicable_passed") != result.get("applicable_total"):
+        return None, "the record does not describe a complete clean replay of this corpus"
     return stored, None

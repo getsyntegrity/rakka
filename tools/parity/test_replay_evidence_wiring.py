@@ -1,5 +1,5 @@
 """replay.py leaves evidence only for a complete clean replay inside a gate run; a replay that fails, is incomplete or interrupted leaves none, nor does an earlier one survive."""
-import contextlib, io, os, shutil, tempfile, types, unittest
+import contextlib, io, os, pathlib, shutil, tempfile, types, unittest
 from unittest import mock
 
 import clean_replay_evidence as evidence
@@ -14,13 +14,13 @@ class ReplayEvidence(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.root, True)
         for name in ("rust/app-cases/a.toml", "rust/app-cases/b.toml", "rust/app-cases/c.toml", "binary"):
-            os.makedirs(os.path.dirname(os.path.join(self.root, name)), exist_ok=True)
-            with open(os.path.join(self.root, name), "w") as handle:
-                handle.write(name)
+            pathlib.Path(self.root, name).parent.mkdir(parents=True, exist_ok=True)
+            pathlib.Path(self.root, name).write_text(name)
         self.path = evidence.evidence_path(self.root)
 
-    def run_replay(self, evaluation=CLEAN, run_id="run-1", error=None, replayed=3):
+    def run_replay(self, evaluation=CLEAN, run_id="run-1", error=None, replayed=3, during=lambda: None):
         def run(*_):
+            during()
             if error:
                 raise error
             return types.SimpleNamespace(total=replayed, passed=replayed)
@@ -36,13 +36,14 @@ class ReplayEvidence(unittest.TestCase):
 
     def test_a_complete_clean_replay_inside_a_gate_run_leaves_evidence_that_is_reusable_only_in_that_run(self):
         self.assertEqual(self.run_replay(), 0)
-        identity = evidence.identity(self.root, os.path.join(self.root, "binary"), TOOLS, {}, evidence.CLEAN_REPLAY_COMMAND, evidence.REPLAY_TIMEOUT_SECONDS)
+        identity = evidence.identity(self.root, os.path.join(self.root, "binary"), {}, TOOLS)
         self.assertIsNotNone(evidence.reusable(self.path, identity, "run-1", corpus_cases=3)[0])
         self.assertIsNone(evidence.reusable(self.path, identity, "run-2", corpus_cases=3)[0])
 
     def test_a_replay_that_is_outside_a_gate_run_diverges_is_rejected_incomplete_or_interrupted_leaves_no_evidence_not_even_an_earlier_one(self):
         outcomes = (dict(run_id=None), dict(evaluation=dict(CLEAN, ok=False, applicable_failing=["c"])), dict(evaluation=dict(CLEAN, ok=None, passed=None, total=None)),
-                    dict(evaluation=dict(CLEAN, na_problems=["x"], ok=False)), dict(replayed=2), dict(error=KeyboardInterrupt()))     # 2 of the 3 recorded cases
+                    dict(evaluation=dict(CLEAN, na_problems=["x"], ok=False)), dict(replayed=2), dict(error=KeyboardInterrupt()),     # 2 of the 3 recorded cases
+                    dict(during=lambda: open(os.path.join(self.root, "rust/app-cases/a.toml"), "a").write(" changed while the replay ran")))
         for outcome in outcomes:
             self.run_replay()
             self.assertTrue(os.path.exists(self.path))

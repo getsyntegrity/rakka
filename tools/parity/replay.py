@@ -49,9 +49,10 @@ def main(arguments):
         print(f"refused: the build failed (exit {failure.returncode})")
         return 2
     with lib.holding(binary):         # the copy stays protected through the replay AND the classification (which runs the binary again)
+        before = evidence.identity(lib.ROOT, binary, os.environ)
         result = lib.run_replay(binary, 900)
         evaluation = lib.evaluate(binary, result)
-        not_stored = evidence.leave_evidence(lib.ROOT, binary, getattr(result, "total", None), evaluation, os.environ)
+        not_stored = evidence.leave_evidence(lib.ROOT, binary, before, getattr(result, "total", None), evaluation, os.environ)
     print("clean-replay evidence: " + ("stored for this gate run" if not_stored is None else f"not stored ({not_stored})"))
     if evaluation["ok"] is None:
         print("HARNESS ERROR:", evaluation["line"])

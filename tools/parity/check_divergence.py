@@ -2263,8 +2263,7 @@ def make_scratch_directory(parent=None):
 def reusable_clean_replay(control_binary):
     """The evidence record of this gate run's complete clean replay of exactly this binary and these inputs, else None (the control then replays)."""
     ev = clean_replay_evidence
-    identity = ev.identity(ROOT, control_binary, ev.current_tool_versions(), dict(os.environ), ev.CLEAN_REPLAY_COMMAND, REPLAY_TIMEOUT)
-    stored, why = ev.reusable(ev.evidence_path(ROOT), identity, os.environ.get(ev.RUN_ID_ENV), ev.corpus_case_count(ROOT))
+    stored, why = ev.reusable(ev.evidence_path(ROOT), ev.identity(ROOT, control_binary, os.environ), os.environ.get(ev.RUN_ID_ENV), ev.corpus_case_count(ROOT))
     if stored is None:
         print(f"clean-replay evidence not reused ({why}): the control replays", flush=True)
     return stored
@@ -2278,10 +2277,9 @@ def run_control_replay():
         return False, None, None, "could not build the unmodified parity binary", None
     reused = reusable_clean_replay(control_binary)
     if reused is not None:
-        result = reused["result"]
-        return True, result["applicable_passed"], result["applicable_total"], (
-            f"reused: the clean replay of this gate run ({result['applicable_passed']}/{result['applicable_total']} applicable + {result['other_not_applicable']} not applicable; "
-            f"evidence {reused['key'][:12]}, same binary, corpus, oracle, tooling, toolchain and environment)"), None
+        r = reused["result"]
+        return True, r["applicable_passed"], r["applicable_total"], (f"reused: the clean replay of this gate run ({r['applicable_passed']}/{r['applicable_total']} applicable + "
+                                                                     f"{r['other_not_applicable']} not applicable; evidence {reused['key'][:12]}, same binary, inputs and toolchain)"), None
     try:
         control_replay = replay(control_binary)
     except subprocess.TimeoutExpired:

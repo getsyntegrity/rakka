@@ -1,5 +1,6 @@
 """Unit tests of the gate runner's pure decisions: which mutants a change selects, when evidence may be reused, what reaches the console."""
-import json, os, sys, tempfile, unittest
+import json, os, tempfile, unittest
+from unittest import mock
 
 import gates
 
@@ -377,16 +378,16 @@ class Tiers(unittest.TestCase):
 
 class EachGateInvocationIsOneRun(unittest.TestCase):
     """The gates of one invocation share a run id, so that the evidence one gate leaves (the clean replay) is usable by the next gate of THIS run only."""
-    def test_every_invocation_gets_its_own_run_id_and_its_gate_commands_see_it(self):
-        self.assertNotEqual(gates.begin_run(), gates.begin_run())
-        with tempfile.TemporaryDirectory() as root:
-            saved = (gates.GATES_DIR, gates.ROOT, gates.input_state)
-            gates.ROOT, gates.GATES_DIR, gates.input_state = root, os.path.join(root, ".gates"), lambda paths, regenerates=(): ({"crates": "t"}, False)
-            try:
-                command = [sys.executable, "-c", "import os, sys; sys.exit(0 if os.environ.get('RAKKA_GATE_RUN_ID') == sys.argv[1] else 3)", os.environ[gates.RUN_ID_ENV]]
-                self.assertEqual(gates.run_gate(gates.Gate("sees-run", command, ("crates",)), "rustc 1", False, "head")[2], "PASS")
-            finally:
-                gates.GATES_DIR, gates.ROOT, gates.input_state = saved
+    def test_main_gives_all_the_gates_of_an_invocation_the_same_run_id_and_every_invocation_its_own(self):
+        seen, two_gates = [], [gates.Gate("a", ["true"], ()), gates.Gate("b", ["true"], ())]
+        with mock.patch.dict(os.environ), mock.patch.object(gates, "tier_gates", return_value=two_gates), mock.patch.object(gates, "git", return_value="head"), \
+                mock.patch.object(gates, "run_gate", side_effect=lambda *args: (seen.append(os.environ.get(gates.RUN_ID_ENV)), ("PASS", 0, "PASS"))[1]):
+            os.environ.pop(gates.RUN_ID_ENV, None)
+            gates.main(["fast"])
+            gates.main(["fast"])
+        self.assertTrue(seen[0])
+        self.assertEqual((seen[0], seen[2]), (seen[1], seen[3]))
+        self.assertNotEqual(seen[0], seen[2])
 
 
 if __name__ == "__main__":

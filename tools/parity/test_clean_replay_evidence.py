@@ -23,7 +23,7 @@ class Identity(unittest.TestCase):
         path.write_text(text)
 
     def key(self, tools=None, environment=None, command=("cargo", "build"), timeout=900):
-        return evidence.key_of(evidence.identity(self.root, os.path.join(self.root, "binary"), tools or TOOLS, environment or {}, command, timeout))
+        return evidence.key_of(evidence.identity(self.root, os.path.join(self.root, "binary"), environment or {}, tools or TOOLS, command, timeout))
 
     def test_every_relevant_input_changes_the_key_and_restoring_it_restores_the_key(self):
         base = self.key()
@@ -44,6 +44,9 @@ class Identity(unittest.TestCase):
         self.write("rust/app-cases/replay-report.md", "generated 2")
         self.write("crates/rakka-actor/target/debug/artifact", "build output")
         self.assertEqual(self.key(environment={"PATH": "/x", "RAKKA_GATE_RUN_ID": "run-1"}), base)
+        for name in ("CARGO_HOME", "RUSTC_WRAPPER", "RUSTFLAGS", "RUSTDOCFLAGS", "RUST_BACKTRACE", "LLVM_PROFILE_FILE", "CC", "CXX", "CFLAGS", "LDFLAGS", "SDKROOT", "MACOSX_DEPLOYMENT_TARGET",
+                     "DYLD_LIBRARY_PATH", "LD_LIBRARY_PATH"):
+            self.assertNotEqual(self.key(environment={name: "1"}), base, name)
 
     def test_a_checkout_under_a_target_directory_is_fully_hashed_and_an_unknown_tool_or_binary_makes_the_identity_unusable(self):
         inside = os.path.join(self.root, "target", "checkout")
@@ -51,8 +54,10 @@ class Identity(unittest.TestCase):
         first = evidence.digest_paths(inside, ("crates",))
         self.write("crates/lib.rs", "v2", inside)
         self.assertNotEqual(evidence.digest_paths(inside, ("crates",)), first)
-        self.assertIsNone(evidence.identity(self.root, os.path.join(self.root, "binary"), {**TOOLS, "rustc": None}, {}, ("cargo",), 900))
-        self.assertIsNone(evidence.identity(self.root, os.path.join(self.root, "missing"), TOOLS, {}, ("cargo",), 900))
+        self.assertIsNone(evidence.identity(self.root, os.path.join(self.root, "binary"), {}, {**TOOLS, "rustc": None}, ("cargo",), 900))
+        self.assertIsNone(evidence.identity(self.root, os.path.join(self.root, "missing"), {}, TOOLS, ("cargo",), 900))
+        os.chmod(os.path.join(self.root, "binary"), 0)          # present but unreadable: unknown, not a crash
+        self.assertIsNone(evidence.identity(self.root, os.path.join(self.root, "binary"), {}, TOOLS, ("cargo",), 900))
 
     def test_only_a_complete_successful_replay_is_evidence(self):
         self.assertIsNone(evidence.refusal(COMPLETE, replayed_cases=4, corpus_cases=4))
@@ -68,11 +73,11 @@ class Storage(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.directory, True)
         self.path, binary = os.path.join(self.directory, "evidence", "clean-replay.json"), os.path.join(self.directory, "b")
         pathlib.Path(binary).write_text("x")
-        self.identity = evidence.identity(self.directory, binary, TOOLS, {}, ("cargo",), 900)
-        self.other = evidence.identity(self.directory, binary, {**TOOLS, "rustc": "rustc 2"}, {}, ("cargo",), 900)
+        self.identity = evidence.identity(self.directory, binary, {}, TOOLS, ("cargo",), 900)
+        self.other = evidence.identity(self.directory, binary, {}, {**TOOLS, "rustc": "rustc 2"}, ("cargo",), 900)
 
-    def stored(self, **changes):
-        evidence.store(self.path, {**evidence.record(self.identity, COMPLETE, replayed_cases=4, run_id="run-1"), **changes})
+    def stored(self, evaluation=COMPLETE, **changes):
+        evidence.store(self.path, {**evidence.record(self.identity, evaluation, replayed_cases=4, run_id="run-1"), **changes})
 
     def reusable(self, identity="same", run_id="run-1", corpus_cases=4):
         return evidence.reusable(self.path, self.identity if identity == "same" else identity, run_id, corpus_cases)[0]
@@ -90,9 +95,12 @@ class Storage(unittest.TestCase):
         with open(self.path, "w") as handle:
             handle.write("{not json")
         self.assertIsNone(self.reusable())
-        for change in ({"schema": 99}, {"key": "tampered"}):
+        altered = {"applicable_passed": 9, "applicable_total": 9, "other_not_applicable": 1, "replayed_cases": 4}      # self-consistent, but not what the replay produced
+        for change in ({"schema": 99}, {"key": "tampered"}, {"result": altered}, {"result": {}}):
             self.stored(**change)
             self.assertIsNone(self.reusable(), change)
+        self.stored(evaluation=dict(COMPLETE, passed=2))          # a record whose own result is not a clean replay, even with a key that matches it
+        self.assertIsNone(self.reusable())
         evidence.discard(self.path)
         evidence.discard(self.path)
         self.assertFalse(os.path.exists(self.path))

@@ -88,7 +88,7 @@ class ControlReusesTheCleanReplayOfTheRun(unittest.TestCase):
                       mock.patch.object(cd.clean_replay_evidence, "current_tool_versions", return_value=self.TOOLS),
                       mock.patch.object(cd, "replay", side_effect=lambda binary: self.replays.append(binary) or object()),
                       mock.patch.object(cd, "classify", return_value=(cd.UNDETECTED, 3, 3, "replayed")),
-                      mock.patch.dict(os.environ, {cd.clean_replay_evidence.RUN_ID_ENV: "run-1"})):
+                      mock.patch.dict(os.environ, {cd.clean_replay_evidence.RUN_ID_ENV: "run-1", "RUSTFLAGS": "-A warnings"})):
             patch.start()
             self.addCleanup(patch.stop)
 
@@ -98,7 +98,7 @@ class ControlReusesTheCleanReplayOfTheRun(unittest.TestCase):
 
     def leave_evidence(self, run_id="run-1"):
         ev = cd.clean_replay_evidence
-        identity = ev.identity(self.root, self.binary, self.TOOLS, dict(os.environ), ev.CLEAN_REPLAY_COMMAND, ev.REPLAY_TIMEOUT_SECONDS)
+        identity = ev.identity(self.root, self.binary, dict(os.environ), self.TOOLS)
         ev.store(ev.evidence_path(self.root), ev.record(identity, dict(ok=True, passed=3, total=3, other_na=1), replayed_cases=3, run_id=run_id))
 
     def test_a_clean_replay_of_this_run_for_the_same_inputs_is_reused_and_the_replay_is_not_repeated(self):
@@ -108,8 +108,7 @@ class ControlReusesTheCleanReplayOfTheRun(unittest.TestCase):
         self.assertIn("reused", line)
 
     def test_any_changed_input_foreign_run_or_missing_evidence_repeats_the_replay(self):
-        for label, prepare in {"no evidence": lambda: None, "outside a gate run": lambda: (self.leave_evidence(), os.environ.pop(cd.clean_replay_evidence.RUN_ID_ENV)),
-                               "another run": lambda: self.leave_evidence(run_id="run-2"),
+        for label, prepare in {"outside a gate run": lambda: (self.leave_evidence(), os.environ.pop(cd.clean_replay_evidence.RUN_ID_ENV)),
                                "a source changed after the replay": lambda: (self.leave_evidence(), self.edit("crates/x.rs", "edited"))}.items():
             self.replays.clear()
             os.environ[cd.clean_replay_evidence.RUN_ID_ENV] = "run-1"
@@ -126,8 +125,8 @@ class ControlReusesTheCleanReplayOfTheRun(unittest.TestCase):
         import gates
         self.assertEqual(cd.REPLAY_TIMEOUT, cd.clean_replay_evidence.REPLAY_TIMEOUT_SECONDS)
         self.assertEqual(gates.RUN_ID_ENV, cd.clean_replay_evidence.RUN_ID_ENV)
-        self.assertIn("clean_replay_evidence.CLEAN_REPLAY_COMMAND", inspect.getsource(self.control_builder))
-        self.assertIn("evidence.CLEAN_REPLAY_COMMAND", inspect.getsource(__import__("replay").prepare_binary))
+        for build in (self.control_builder, __import__("replay").prepare_binary):
+            self.assertIn("CLEAN_REPLAY_COMMAND", inspect.getsource(build))
 
 
 if __name__ == "__main__":

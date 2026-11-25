@@ -296,19 +296,13 @@ def changed_files(base, repo=ROOT):
     return changed_paths_from_git(git_raw("diff", "--name-status", "-z", "-M", f"{base}...HEAD", repo=repo), git_raw("status", "--porcelain", "-z", repo=repo))
 
 
-def begin_run():
-    """A fresh run id for this invocation, inherited by every gate command: evidence one gate leaves for the next is valid for this run only."""
-    os.environ[RUN_ID_ENV] = uuid.uuid4().hex
-    return os.environ[RUN_ID_ENV]
-
-
 def main(argv):
     try:
         parsed = parse_arguments(argv)
     except UsageError as problem:
         print(f"refused: {problem}")
         return 2
-    begin_run()
+    os.environ[RUN_ID_ENV] = uuid.uuid4().hex      # a fresh id per invocation, inherited by every gate: evidence one gate leaves is valid for this run only
     tier, base, mutant_args = parsed["tier"], parsed["base"], parsed["mutant_args"]
     selected = []
     if tier == "pr":
