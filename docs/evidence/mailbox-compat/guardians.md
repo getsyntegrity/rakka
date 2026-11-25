@@ -16,17 +16,21 @@ start-up timeout after the guardian logs `guardian Actor[pekko://g/] failed, shu
 Rust: the guardians' props take the default type (`Props::with_resolved_mailbox`), declare `Unbounded`, and the failure of a guardian follows `ActorRefProvider.scala:455-490,525-529`
 (read from the Scala; **not probed on the JVM**, where `ActorSystem.create` already fails by the logger start-up timeout, so the termination future is not observable there):
 
-| Guardian that fails to initialise | Pekko 2.0.0 (read) | Rakka |
+| Path | Pekko 2.0.0 (read) | Rakka |
 |---|---|---|
-| root | the bubble walker runs `causeOfTermination.tryFailure(ex)` and `child.stop()`; it stops walking (`isWalking` false, `:462`), so the death notification of the root is discarded (`:483`), its `stop()` (the only place that links `terminationPromise`, `:467`) never runs: **`whenTerminated` stays pending** | the same: `whenTerminated` stays pending, neither `Ok` nor `Err`; the cause lives only in the walker (`causeOfTermination`) and nothing reads it |
-| `/user`, `/system` | the root's strategy stops them without recording a cause (`:525-529`); the system ends normally | `whenTerminated` completes with `Terminated` |
-| a requested `terminate()` | normal | `whenTerminated` completes with `Terminated` |
+| root fails, then its death notification arrives | the walker runs `causeOfTermination.tryFailure(ex)` and `child.stop()`; it stops walking (`isWalking` false, `:462`), so the notification is discarded (`:483`) and `stop()` (the only place that links `terminationPromise`, `:464-468`) does not run: **`whenTerminated` stays pending** | the same: pending, neither `Ok` nor `Err` |
+| root fails, then `stop()` is called on the walker directly | `stop()` tries `causeOfTermination.trySuccess(Terminated)` (a no-op, it already failed) and `terminationPromise.completeWith(causeOfTermination.future)`: **the public future fails with the cause** | the same: `Some(Err(cause))` (`TerminationFuture` is one `Result<Terminated, Throwable>`, write-once) |
+| `/user`, `/system` fail | the root's strategy stops them without recording a cause (`:525-529`); the system ends normally | `Some(Ok(Terminated))` |
+| a requested `terminate()` | normal | `Some(Ok(Terminated))` |
 
-`TerminationFuture` keeps one value (`Promise<Terminated>`); the walker's own `causeOfTermination` is a separate internal promise. Tests: `actor::guardian_termination_tests` (root: waits for the walker
-to discard the notification, so a pending future is not just "not yet"; shuts the dispatchers down at the end) and `tests/classic_guardian_mailbox.rs` (`/user`, `/system`, requested termination, and each guardian
-takes the default). `MBX-GRD-01` (`mb-0031`) is identical to the oracle for the three guardian queues.
+The walker's `causeOfTermination` is a separate internal promise. Tests, all deterministic: `actor::guardian_termination_tests` drives a standalone walker message by message (the two root paths, and a signal that is set only by the
+discarded `DeathWatchNotification` of the root, never by another message or actor), the root test over a real system waits for that signal before asserting the future is pending, and a RAII guard shuts the dispatchers down even when
+the test unwinds (`the_guard_shuts_the_dispatchers_down_when_the_test_unwinds`); `tests/classic_guardian_mailbox.rs` covers `/user`, `/system`, a requested termination and that each guardian takes the default.
+`MBX-GRD-01` (`mb-0031`) is identical to the oracle for the three guardian queues.
 
 Not claimed: what `ActorSystem.create` throws on the JVM; `deadLetterListener` and `eventStreamUnsubscriber` (not in Rakka); `guardianProps`. Selection tests that count the default type's queues now include the 3 guardians.
 
-RED: `a_failed_root_guardian_leaves_when_terminated_pending` falló con el walker antiguo (la señal de descarte de la notificación del raíz nunca llegó); GREEN con `isWalking` y `causeOfTermination`.
-Gates en este HEAD: 819 tests, replay 2975/2975, cobertura de líneas 95,37 % (gate ≥95 %; regiones 95,99 %, funciones 94,98 %), mutantes 8/8 DETECTED con control CLEAN 2975/2975.
+RED/GREEN (cada uno con su test, `cargo test -p rakka-actor --lib guardian_termination`): (3) `stop_called_directly_after_the_failure_fails_the_public_future_with_the_cause` falló con "completed by stop()" y pasó al enlazar `terminationPromise` al resultado interno;
+(2) `only_the_death_notification_of_the_failed_root_is_the_synchronisation_signal` falló en `!walker.notification_discarded.is_completed()` con la señal genérica y pasó con la señal específica;
+(1) `the_guard_shuts_the_dispatchers_down_when_the_test_unwinds` falló en `walker.dispatchers_are_shut_down()` con un guard sin efecto y pasó con el `Drop` que cierra los dispatchers.
+Gates en este HEAD: 823 tests, replay 2975/2975, cobertura de líneas 95,33 % (gate ≥95 %; regiones 95,96 %, funciones 94,90 %), mutantes 11/11 DETECTED con control CLEAN 2975/2975, fmt/clippy/deny/package check limpios.
