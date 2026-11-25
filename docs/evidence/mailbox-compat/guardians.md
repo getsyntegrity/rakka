@@ -22,10 +22,3 @@ Not claimed: what `ActorSystem.create` throws on the JVM (the logger start-up ti
 
 RED: 2 of 3 new tests failed (guardians ignored the default; the system stayed up). GREEN: 3 passed; replay 2975/2975.
 Mutants: 6 (default ignored by each guardian, requirement dropped on `Guardian`/`SystemGuardian`, failed root not ending the system): 6/6 DETECTED, control CLEAN 2974/2974.
-
-## `whenTerminated` ante el fallo de un guardián (hallazgo de la revisión)
-
-Pekko: el fallo del guardián **raíz** llega al `BubbleWalker`, que lo registra y hace `causeOfTermination.tryFailure(ex)` (`ActorRefProvider.scala:485-487`), de modo que
-`whenTerminated` falla con esa excepción. Si falla `/user` o `/system`, la estrategia del raíz (`:525-529`) los detiene sin registrar causa y el sistema termina con normalidad.
-Rakka: `TerminationFuture::failure()` (aditivo; `wait()` no cambia) devuelve la causa; sólo la registra el fallo del raíz. Verificado leyendo el Scala, no con una sonda.
-RED: `failure()` daba `None` para el raíz. Mutante nuevo `failed-root-guardian-does-not-fail-when-terminated`: 4/4 DETECTED, control CLEAN 2975/2975.
