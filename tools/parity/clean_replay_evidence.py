@@ -141,6 +141,6 @@ def reusable(path, identity_record, run_id, corpus_cases):
     result = stored.get("result", {})
     if stored.get("identity") != identity_record or stored.get("key") != key_of({"identity": identity_record, "result": result}):
         return None, "an input changed since the replay or the record was altered"
-    if result.get("replayed_cases") != corpus_cases or not result.get("applicable_total") or result.get("applicable_passed") != result.get("applicable_total"):
+    if result.get("replayed_cases") != corpus_cases or not result.get("applicable_total") or result.get("applicable_passed") != result.get("applicable_total") or "other_not_applicable" not in result:
         return None, "the record does not describe a complete clean replay of this corpus"
     return stored, None
