@@ -5,7 +5,7 @@ queue the dispatcher really created (`mbox.messageQueue`) must be an instance of
 `ActorInitializationException(self, "Actor [self] requires mailbox type [req] got [queueClass]")`. The check runs after `getMailboxType` (selection and
 `verifyRequirements` look at what the type *declares*), when the cell is made; the failure is delayed into `Create` so `actorOf` returns.
 
-Rust: `MessageQueue::satisfies` (effective semantics, default only `MessageQueue`) and `class_name`; `Props::unmet_queue_requirement`; `ActorCell::build`
+Rust: `MessageQueue::satisfies` (effective semantics; `None`, the default, defers to what the type promised) and `class_name`; `Props::unmet_queue_requirement`; `ActorCell::build`
 puts the failure in `Create`. Declared (`ProducedQueue`, a property of the type) and effective (`satisfies`, a property of the queue) are separate:
 a type may promise what its queue lacks, and that is exactly what `MBX-CMP-03` observes (oracle `LiarType`: promises `AuditTrail`, creates a `LifoQueue`).
 `MBX-CMP-03` output, identical to the oracle (stable over 3 runs; the uid of the reference is removed on both sides):
