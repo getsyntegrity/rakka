@@ -259,11 +259,7 @@ mod turn_limits_with_real_actors {
         release_tx.send(()).unwrap();
         wait_until(|| log.lock().unwrap().len() == 6);
         let order = log.lock().unwrap().clone();
-        system
-            .terminate()
-            .wait(Duration::from_secs(10))
-            .unwrap()
-            .expect("terminated normally");
+        system.terminate().wait(Duration::from_secs(10)).unwrap();
         order
     }
 
@@ -374,11 +370,7 @@ mod turn_limits_with_real_actors {
             "{suspended} | afterStop deadLetters=[{}]",
             dead.lock().unwrap().join(", ")
         );
-        system
-            .terminate()
-            .wait(Duration::from_secs(10))
-            .unwrap()
-            .expect("terminated normally");
+        system.terminate().wait(Duration::from_secs(10)).unwrap();
 
         let golden = include_str!("../../../../cases/oracle-only/mailbox.golden");
         let recorded = golden

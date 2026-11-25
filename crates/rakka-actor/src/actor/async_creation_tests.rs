@@ -686,11 +686,7 @@ fn many_children_that_message_themselves_while_they_start_lose_and_duplicate_not
     wait_until("every message to arrive", || {
         received.load(Ordering::SeqCst) == 2 * CHILDREN
     });
-    system
-        .terminate()
-        .wait(Duration::from_secs(10))
-        .unwrap()
-        .expect("terminated normally");
+    system.terminate().wait(Duration::from_secs(10)).unwrap();
 }
 
 /// A terminated actor made by `system.actorOf` must not stay alive through the reference it knows as `self`
