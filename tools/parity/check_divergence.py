@@ -1844,14 +1844,14 @@ MUTANTS = {
     ),
     "unbounded-mailbox-promises-no-semantics": (
         "src/dispatch/message_queue.rs",
-        "            \"org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue\",\n            &[MessageQueueSemantics::UNBOUNDED],",
+        "            \"org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue\",\n            &[\n                MessageQueueSemantics::UNBOUNDED,\n                MessageQueueSemantics::MULTIPLE_CONSUMER,\n            ],",
         "            \"org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue\",\n            &[],",
         "UnboundedMailbox promises a queue that satisfies nothing",
     ),
     "bounded-mailbox-promises-an-unbounded-queue": (
         "src/dispatch/bounded_node_queue.rs",
-        "            &[MessageQueueSemantics::BOUNDED],",
-        "            &[MessageQueueSemantics::UNBOUNDED],",
+        "                MessageQueueSemantics::BOUNDED,\n                MessageQueueSemantics::MULTIPLE_CONSUMER,",
+        "                MessageQueueSemantics::UNBOUNDED,\n                MessageQueueSemantics::MULTIPLE_CONSUMER,",
         "NonBlockingBoundedMailbox promises the unbounded semantics instead of the bounded one",
     ),
     "type-without-promise-claims-an-unbounded-queue": (
@@ -1935,6 +1935,18 @@ MUTANTS = {
         "            .filter(|_| false)\n            .map(|required| (required, queue.class_name()))",
         "the queue a type really creates is never checked against the requirement of the actor (MBX-CMP-03)",
     ),
+    "unbounded-queue-has-no-multiple-consumer-semantics": (
+        "src/dispatch/message_queue.rs",
+        "                || requirement == MessageQueueSemantics::UNBOUNDED\n                || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER,",
+        "                || requirement == MessageQueueSemantics::UNBOUNDED,",
+        "the built-in unbounded queue does not have MultipleConsumerSemantics (Mailbox.scala:538)",
+    ),
+    "multiple-consumer-requirement-has-no-default-binding": (
+        "src/dispatch/mailboxes.rs",
+        "                    MessageQueueSemantics::UNBOUNDED,\n                    MessageQueueSemantics::MULTIPLE_CONSUMER,\n",
+        "                    MessageQueueSemantics::UNBOUNDED,\n",
+        "reference.conf's binding of MultipleConsumerSemantics to unbounded-queue-based is missing",
+    ),
     "mailbox-undeclared-queue-does-not-keep-the-promise": (
         "src/actor/props.rs",
         "                    .unwrap_or_else(|| promise.satisfies(*required))",
@@ -1949,8 +1961,8 @@ MUTANTS = {
     ),
     "mailbox-unbounded-queue-has-no-effective-semantics": (
         "src/dispatch/message_queue.rs",
-        "        Some(\n            requirement == MessageQueueSemantics::MESSAGE_QUEUE\n                || requirement == MessageQueueSemantics::UNBOUNDED,\n        )",
-        "        Some(requirement == MessageQueueSemantics::MESSAGE_QUEUE)",
+        "        Some(\n            requirement == MessageQueueSemantics::MESSAGE_QUEUE\n                || requirement == MessageQueueSemantics::UNBOUNDED\n                || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER,\n        )",
+        "        Some(requirement == MessageQueueSemantics::MESSAGE_QUEUE || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER)",
         "the default unbounded queue does not have the unbounded semantics, so the actors that require it fail to initialise (MBX-REQ, family fall)",
     ),
     # --- guardians: the default mailbox and the unbounded requirement of each (killed by tests/classic_guardian_mailbox.rs, see UNIT_MUTANTS) ---
@@ -2081,6 +2093,8 @@ UNIT_MUTANTS = {
     "guardian-requires-nothing": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
     "system-guardian-requires-nothing": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
     "failed-root-guardian-does-not-end-the-system": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
+    "unbounded-queue-has-no-multiple-consumer-semantics": ("dispatch::message_queue", "the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one"),
+    "multiple-consumer-requirement-has-no-default-binding": ("dispatch::mailboxes", "the_built_in_queues_have_the_multiple_consumer_semantics_and_reference_conf_binds_it"),
     "mailbox-undeclared-queue-does-not-keep-the-promise": ("dispatch::mailboxes", "a_queue_that_does_not_declare_its_semantics_keeps_the_promise_of_its_type"),
     "mailbox-actor-requirement-not-verified": ("dispatch::mailboxes", "the_queue_a_selected_type_promises_must_fulfill_the_requirement_of_the_actor"),
     "mailbox-dispatcher-requirement-not-verified": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_is_verified_and_reported_before_that_of_the_actor"),

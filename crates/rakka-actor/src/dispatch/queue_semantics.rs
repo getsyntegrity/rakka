@@ -21,6 +21,11 @@ impl MessageQueueSemantics {
     pub const BOUNDED: MessageQueueSemantics =
         MessageQueueSemantics::new("org.apache.pekko.dispatch.BoundedMessageQueueSemantics");
 
+    /// `org.apache.pekko.dispatch.MultipleConsumerSemantics`: the queue can be read by several consumers (`Mailbox.scala:533`); both built-in
+    /// queues have it, and `reference.conf` binds it to `unbounded-queue-based`.
+    pub const MULTIPLE_CONSUMER: MessageQueueSemantics =
+        MessageQueueSemantics::new("org.apache.pekko.dispatch.MultipleConsumerSemantics");
+
     /// `org.apache.pekko.dispatch.MessageQueue`: what every queue satisfies. A dispatcher that requires it has no requirement; an
     /// actor that requires it has none of its own to bind, so its mailbox comes from the dispatcher's requirement or fails.
     pub const MESSAGE_QUEUE: MessageQueueSemantics =
