@@ -30,7 +30,7 @@ Cumplida en lo ejecutable: selección directa del default, requisito por guardi�
 
 Dos revisores especializados se negaron por no tener herramientas de lectura y no abrieron nada: no cuentan. Hallazgos del revisor que sí leyó el código, pendientes (no corregidos para no cambiar los SHA revisados):
 
-1. **Medio, corregido en #369 (H).** `MessageQueue::satisfies` devuelve `Option<bool>`: `None` (por defecto) vale lo que prometió el tipo; `Some` se verifica. Descripción original: Lo prometido (`produced_queue`) y lo efectivo (`MessageQueue::satisfies`) tienen dos fuentes: un `MailboxType` de terceros que promete `UNBOUNDED` pero cuya cola no sobrescribe `satisfies` hace fallar `Dispatch.init` aunque la promesa sea honesta (en Pekko la jerarquía de clases es la única fuente). Candidato a corregir en Q-MBX-14: derivar `satisfies` de lo prometido por defecto.
+1. **Medio, corregido en #369 (H).** `MessageQueue::satisfies` devuelve `Option<bool>`: `None` (por defecto) vale lo que prometió el tipo; `Some` se verifica. Descripción original: Lo prometido (`produced_queue`) y lo efectivo (`MessageQueue::satisfies`) tienen dos fuentes: un `MailboxType` de terceros que promete `UNBOUNDED` pero cuya cola no sobrescribe `satisfies` hace fallar `Dispatch.init` aunque la promesa sea honesta (en Pekko la jerarquía de clases es la única fuente).
 2. Bajo. `MultipleConsumerSemantics` (que las colas de `UnboundedMailbox` y `BoundedNodeMessageQueue` sí tienen en Pekko) no está listada ni tiene constante.
 3. Bajo. `unwrap_or_else` de `lookup(default)` en `system.rs` es código muerto que enmascararía un cambio futuro.
 4. Bajo. `ProducedQueue::PLAIN` como centinela confunde "sin promesa" con `ProducesMessageQueue[MessageQueue]` (sin efecto hoy).
