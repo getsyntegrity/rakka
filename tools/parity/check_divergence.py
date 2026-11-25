@@ -1931,9 +1931,15 @@ MUTANTS = {
     # --- Dispatch.init: killed by MBX-CMP-03 (the cell re-checks what the type created) ---
     "mailbox-created-queue-is-not-rechecked": (
         "src/actor/props.rs",
-        "            .filter(|required| promises && !queue.satisfies(*required))",
-        "            .filter(|_| false)",
+        "            .filter(unmet)\n            .map(|required| (required, queue.class_name()))",
+        "            .filter(|_| false)\n            .map(|required| (required, queue.class_name()))",
         "the queue a type really creates is never checked against the requirement of the actor (MBX-CMP-03)",
+    ),
+    "mailbox-undeclared-queue-does-not-keep-the-promise": (
+        "src/actor/props.rs",
+        "                    .unwrap_or_else(|| promise.satisfies(*required))",
+        "                    .unwrap_or(false)",
+        "a queue that does not declare its semantics is rejected even though its type promised them (the review's medium finding)",
     ),
     "mailbox-recheck-names-the-required-class-as-created": (
         "src/actor/props.rs",
@@ -1943,8 +1949,8 @@ MUTANTS = {
     ),
     "mailbox-unbounded-queue-has-no-effective-semantics": (
         "src/dispatch/message_queue.rs",
-        "        requirement == MessageQueueSemantics::MESSAGE_QUEUE\n            || requirement == MessageQueueSemantics::UNBOUNDED\n",
-        "        requirement == MessageQueueSemantics::MESSAGE_QUEUE\n",
+        "        Some(\n            requirement == MessageQueueSemantics::MESSAGE_QUEUE\n                || requirement == MessageQueueSemantics::UNBOUNDED,\n        )",
+        "        Some(requirement == MessageQueueSemantics::MESSAGE_QUEUE)",
         "the default unbounded queue does not have the unbounded semantics, so the actors that require it fail to initialise (MBX-REQ, family fall)",
     ),
     # --- guardians: the default mailbox and the unbounded requirement of each (killed by tests/classic_guardian_mailbox.rs, see UNIT_MUTANTS) ---
@@ -2075,6 +2081,7 @@ UNIT_MUTANTS = {
     "guardian-requires-nothing": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
     "system-guardian-requires-nothing": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
     "failed-root-guardian-does-not-end-the-system": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
+    "mailbox-undeclared-queue-does-not-keep-the-promise": ("dispatch::mailboxes", "a_queue_that_does_not_declare_its_semantics_keeps_the_promise_of_its_type"),
     "mailbox-actor-requirement-not-verified": ("dispatch::mailboxes", "the_queue_a_selected_type_promises_must_fulfill_the_requirement_of_the_actor"),
     "mailbox-dispatcher-requirement-not-verified": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_is_verified_and_reported_before_that_of_the_actor"),
     "mailbox-requirement-verified-actor-first": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_is_verified_and_reported_before_that_of_the_actor"),
