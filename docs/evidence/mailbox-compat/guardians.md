@@ -23,13 +23,14 @@ Not claimed: what `ActorSystem.create` throws on the JVM (the logger start-up ti
 RED: 2 of 3 new tests failed (guardians ignored the default; the system stayed up). GREEN: 3 passed; replay 2975/2975.
 Mutants: 6 (default ignored by each guardian, requirement dropped on `Guardian`/`SystemGuardian`, failed root not ending the system): 6/6 DETECTED, control CLEAN 2974/2974.
 
-## `whenTerminated` ante el fallo de un guardián
+## `whenTerminated` ante el fallo de un guardián (EN DISPUTA: la lectura de abajo contradice el Scala)
 
-Pekko (`ActorRefProvider.scala:455-490,525-529`): `whenTerminated` es un `Future[Terminated]`. El fallo del guardián **raíz** llega al `BubbleWalker`, que lo registra y hace
-`causeOfTermination.tryFailure(ex)`; el futuro **falla** con esa excepción, y el `Terminated` posterior no puede reemplazarla. Si fallan `/user` o `/system`, la estrategia del raíz
-(`:525-529`) los detiene sin registrar causa y el futuro termina con éxito.
-Rakka: `TerminationFuture = Arc<Promise<Result<Terminated, Throwable>>>`; `wait` da `None` (timeout), `Some(Ok(Terminated))` o `Some(Err(causa))`. La promesa es de un solo valor
-(el primero gana), de modo que éxito y fallo son excluyentes; no hay accessor paralelo. Los llamadores de `wait()` se migraron (esperan `Ok` en las terminaciones solicitadas).
-Tests (`tests/classic_guardian_mailbox.rs`): el fallo del raíz da `Err(ActorInitializationException ... requires mailbox type ...)`; el de `/user` y `/system` da `Ok`; una terminación solicitada da `Ok`.
-Verificado **leyendo el Scala**: no se ejecutó una sonda contra la JVM para este comportamiento (en Pekko el `ActorSystem.create` ya falla antes por el timeout de los loggers, así que
-`whenTerminated` no es observable desde fuera sin ellos).
+**Advertencia de la revisión final.** `terminationPromise` sólo se completa en `stop()` del walker (`ActorRefProvider.scala:467`, `completeWith(causeOfTermination.future)`), y a ese `stop()` sólo se llega
+por `DeathWatchNotification` (`:490`), dentro de `if (isWalking)` (`:483`). Tras `Failed` del guardián raíz, `causeOfTermination.tryFailure(ex)` (`:487`) vuelve `isWalking` falso, de modo que la
+`DeathWatchNotification` del raíz (`FaultHandling.scala:263-264`) se descarta: **en Pekko 2.0.0 `whenTerminated` no falla con esa excepción, queda pendiente** (`causeOfTermination` es privado y nada más lo lee; el
+`ActorSystem.create` ya falla antes por el timeout de los loggers). Rakka (F2) completa en cambio con `Err(causa)` y el test `a_root_guardian_that_fails_to_initialise_fails_when_terminated_with_its_exception` lo afirma:
+esa parte **no coincide** con el Scala leído y espera decisión del Owner (imitar el `isWalking`, con el futuro pendiente, o conservar el `Err`). Nada de esto se probó contra la JVM.
+
+Lo que sí coincide con el Scala: si fallan `/user` o `/system`, la estrategia del raíz (`:525-529`) los detiene sin registrar causa y el futuro termina con éxito; una terminación solicitada termina con éxito.
+
+Descripción de Rakka (F2): `TerminationFuture = Arc<Promise<Result<Terminated, Throwable>>>`, de un solo valor; `wait` da `None`, `Some(Ok(Terminated))` o `Some(Err(causa))`. Sin accessor paralelo.
