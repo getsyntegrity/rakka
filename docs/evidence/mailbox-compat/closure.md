@@ -1,6 +1,6 @@
 # Slice 4 (compatibilidad de mailbox): contratos, tarea 9 de Q-MBX-12 y deuda técnica
 
-Base `92acd83` (rama de integración), Pekko 2.0.0 `9fbd2283`. PR en draft apilados: #362 (A) → #363 (B) → #364 (C) → #365 (D) → #366 (E) → #369 (H, arreglo de `satisfies`) → #367 (F) → #370 (F2, whenTerminated pendiente) → este (G). Sin merge.
+Base `92acd83` (rama de integración), Pekko 2.0.0 `9fbd2283`. PR en draft apilados: #362 (A) → #363 (B) → #364 (C) → #365 (D) → #366 (E) → #369 (H, arreglo de `satisfies`) → #367 (F) → #370 (F2, whenTerminated pendiente) → #371 (F3, otros caminos del walker) → este (G). Sin merge.
 `AC-MBX-013` y `AC-MBX-014` siguen `partial`; Q-MBX-13 `accepted`; Q-MBX-2 `proposed`; **Q-MBX-14 `proposed`** (API de capacidades, ver `docs/owner-batch-02.md`).
 
 ## Contratos implementados (cada uno con oráculo o sonda contra Pekko 2.0.0)
@@ -41,4 +41,4 @@ Dos revisores especializados se negaron por no tener herramientas de lectura y n
 
 Sin defectos bloqueantes en esa revision (HEAD d5bb0b9). El hallazgo medio de satisfies (H) y el de MultipleConsumerSemantics (H, 7642c88) estan corregidos y verificados.
 
-Actualizacion (F2, #370): `whenTerminated` queda PENDIENTE tras el fallo del guardian raiz, como Pekko 2.0.0 segun la lectura de ActorRefProvider.scala:428-490 (el walker registra la causa en su propio causeOfTermination, deja de caminar y descarta la notificacion de muerte del raiz, de modo que stop() no enlaza el terminationPromise publico); /user, /system y la terminacion solicitada terminan normalmente. Leido del Scala, NO probado con una sonda contra la JVM (alli ActorSystem.create ya falla por el timeout de los loggers). Sin API Result ni accessor failure(). Detalle en guardians.md.
+Actualizacion (F2 #370 y F3 #371): `whenTerminated` queda PENDIENTE cuando falla el guardian raiz y llega despues su notificacion de muerte, como Pekko 2.0.0 segun la lectura de ActorRefProvider.scala:428-490 (el walker registra la causa en su propio causeOfTermination, deja de caminar y descarta la notificacion, de modo que stop() no enlaza el terminationPromise publico). Si despues se llama directamente a stop() del walker, el futuro publico FALLA con la causa (completeWith del futuro interno fallido, :464-468); /user, /system y la terminacion solicitada terminan con Ok. El futuro es un unico Result<Terminated, Throwable> de un solo valor, sin accessor failure(). Leido del Scala, NO probado con una sonda contra la JVM (alli ActorSystem.create ya falla por el timeout de los loggers). Detalle en guardians.md.
