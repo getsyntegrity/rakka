@@ -14,7 +14,9 @@ Exit code: 0 every mutant DETECTED and the control clean; 1 a mutant went UNDETE
 import atexit, collections, difflib, json, os, re, shutil, signal, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import family_replay
 import replay_lib
+import replay_subset
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CRATE = os.path.join(ROOT, "crates", "rakka-actor")
@@ -2266,6 +2268,12 @@ def run_mutant(scratch, name, rel, old, new, why):
             publish_fast_kill_report(name, kill)
             return DETECTED, None, None, (f"fast-kill: case {kill.case} confirmed by a single-case replay; "
                                           "the unmutated build matches Pekko on it, the mutant does not")
+        try:
+            family_verdict = family_kill(binary, name)
+        except replay_lib.ReplayLockTimeout:
+            return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
+        if family_verdict is not None:
+            return family_verdict
     return full_replay_verdict(binary, name)
 
 
@@ -2374,6 +2382,97 @@ def fast_kill(binary, name):
         confirmation = replay_lib.confirm_applicable_divergence(binary, case)
         if confirmation.confirmed:
             return FastKill(case, confirmation.report_text, "the unmutated build matches Pekko on it")
+    return None
+
+
+_coverage = None
+
+
+def coverage_entries():
+    global _coverage
+    if _coverage is None:
+        _coverage = replay_subset.load_coverage(os.path.join(ROOT, "cases", "coverage.tsv"))
+    return _coverage
+
+
+def families_for(name):
+    """The families to try before the full replay, in a deterministic order: first those of the cases that killed the OTHER mutants of the same file,
+    then those whose name shares a word with the file or with the mutant (cases/coverage.tsv). Empty (an unknown mapping) when neither says
+    anything: the full replay then decides."""
+    if name not in MUTANTS:
+        return []
+    file = MUTANTS[name][0]
+    same_file = {other: known_killers(other) for other, value in MUTANTS.items() if value[0] == file and other != name}
+    family_of = {}
+    for entry in coverage_entries():
+        family_of[entry.case] = family_of[entry.recorded_name] = entry.family
+    from_killers = family_replay.affinity(name, file, same_file, {other: file for other in same_file}, family_of.get)
+    return family_replay.combined(from_killers, family_replay.token_affinity(name, file, sorted(set(family_of.values()))))
+
+
+def staged_replay(staged_root, binary):
+    """`rust-anything app replay` over a staged tree of recordings: -> (exit code, stdout). It has its own report, never the versioned one."""
+    with replay_lib.replay_lock():
+        completed = subprocess.run(["rust-anything", "app", "replay", staged_root, "--build", binary, "--json"], stdin=subprocess.DEVNULL,
+                                   capture_output=True, text=True, timeout=REPLAY_TIMEOUT)
+    return completed.returncode, completed.stdout
+
+
+def replay_family(binary, family, run=staged_replay):
+    """The divergent recorded cases of the NOT_APPLICABLE-free cases of one family, replayed against `binary`. A timeout or an output the
+    harness rejects raises family_replay.StepFailure: it is neither a detection nor a pass."""
+    not_applicable = replay_lib.load_not_applicable()
+    names = [entry.recorded_name for entry in coverage_entries()
+             if entry.family == family and entry.case not in not_applicable and entry.recorded_name not in not_applicable]
+    if not names:
+        raise family_replay.StepFailure("harness", f"family {family} has no applicable recorded case")
+    with tempfile.TemporaryDirectory(prefix="family-replay-") as staged_root:
+        replay_subset.stage_subset(ROOT, names, staged_root)
+        try:
+            returncode, stdout = run(staged_root, binary)
+        except subprocess.TimeoutExpired:
+            raise family_replay.StepFailure("timeout", f"the replay of family {family} timed out") from None
+    passed, total, failures, problem = replay_lib.validate_replay_output(returncode, stdout)
+    if problem is not None or total != len(names):
+        raise family_replay.StepFailure("harness", f"the replay of family {family} was rejected: {problem or f'{total} cases for {len(names)} staged'}")
+    return failures
+
+
+def family_kill(binary, name):
+    """Between the fast-kill and the full replay: replay the families the file of this mutant is affine to and stop at the first that has a
+    divergence DEMONSTRATED like a fast-kill (the clean control matches Pekko on it; the real tool fails it as applicable). Returns a verdict
+    tuple (DETECTED, or the error of a step), or None when the full replay must decide. It never answers UNDETECTED."""
+    families = families_for(name)
+    control = control_binary_for_fast_kill() if families else None
+    if control is None:
+        return None
+    confirmations = {}
+
+    def confirms(case):
+        confirmation = replay_lib.confirm_applicable_divergence(binary, case)
+        if confirmation.confirmed:
+            confirmations[case] = confirmation
+        return confirmation.confirmed
+
+    def kill_family(family):
+        divergent = replay_family(binary, family)
+        return family_replay.confirmed_killers(divergent, lambda case: replay_lib.diverges_only_in_mutant(binary, control, case), confirms)
+
+    def learn(cases):
+        preserve_killers(name)
+        family_replay.learn_into(killers_file(name), cases)
+
+    result = family_replay.run_ladder([], families, lambda case: False, kill_family, learn)
+    if result.path == family_replay.FAMILY:
+        first = result.killers[0]
+        publish_mutant_report(name, f"family replay: case {first} confirmed by a single-case replay; {result.detail}; no full replay ran",
+                              confirmations[first].report_text)
+        return DETECTED, None, None, (f"family replay ({result.detail}): case {first} confirmed by a single-case replay; "
+                                      f"the unmutated build matches Pekko on it, the mutant does not; {len(result.killers)} killer(s) learned")
+    if result.path == family_replay.TIMED_OUT:
+        return TIMEOUT, None, None, result.detail
+    if result.path == family_replay.HARNESS_ERROR:
+        return HARNESS_ERROR, None, None, result.detail
     return None
 
 
