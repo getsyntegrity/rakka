@@ -137,8 +137,7 @@ impl Drop for Fixture {
         self.sys
             .terminate()
             .wait(Duration::from_secs(10))
-            .expect("terminated")
-            .expect("terminated normally");
+            .expect("terminated");
     }
 }
 

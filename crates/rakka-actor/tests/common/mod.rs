@@ -65,9 +65,7 @@ impl Drop for RunningSystem {
     fn drop(&mut self) {
         let terminated = self.0.terminate().wait(WAIT_LIMIT);
         if !std::thread::panicking() {
-            terminated
-                .expect("system terminated")
-                .expect("terminated normally");
+            terminated.expect("system terminated");
         }
     }
 }

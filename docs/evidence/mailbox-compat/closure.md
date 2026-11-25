@@ -1,6 +1,6 @@
 # Slice 4 (compatibilidad de mailbox): contratos, tarea 9 de Q-MBX-12 y deuda técnica
 
-Base `92acd83` (rama de integración), Pekko 2.0.0 `9fbd2283`. PR en draft apilados: #362 (A) → #363 (B) → #364 (C) → #365 (D) → #366 (E) → #369 (H, arreglo de `satisfies`) → #367 (F) → F2 (guardians-termination) → este (G). Sin merge.
+Base `92acd83` (rama de integración), Pekko 2.0.0 `9fbd2283`. PR en draft apilados: #362 (A) → #363 (B) → #364 (C) → #365 (D) → #366 (E) → #369 (H, arreglo de `satisfies`) → #367 (F) → #370 (F2, whenTerminated pendiente) → este (G). Sin merge.
 `AC-MBX-013` y `AC-MBX-014` siguen `partial`; Q-MBX-13 `accepted`; Q-MBX-2 `proposed`; **Q-MBX-14 `proposed`** (API de capacidades, ver `docs/owner-batch-02.md`).
 
 ## Contratos implementados (cada uno con oráculo o sonda contra Pekko 2.0.0)
@@ -39,6 +39,6 @@ Dos revisores especializados se negaron por no tener herramientas de lectura y n
 
 ## Revisiones finales (HEAD d5bb0b9, acceso a Scala verificado: Mailbox.scala, Mailboxes.scala, Dispatch.scala, ActorRefProvider.scala, reference.conf)
 
-Sin defectos bloqueantes. El hallazgo medio de satisfies (H) y el de MultipleConsumerSemantics (H, 7642c88) estan corregidos y verificados. Divergencia baja registrada, no reproducida: cuando un guardian falla al iniciar, Pekko completa whenTerminated con el error (causeOfTermination.tryFailure, ActorRefProvider.scala:487) y lo registra; Rakka lo completa como un Terminated normal. El test solo afirma que el sistema se apaga. Pendiente de decision del Owner junto con el error de ActorSystem.create.
+Sin defectos bloqueantes en esa revision (HEAD d5bb0b9). El hallazgo medio de satisfies (H) y el de MultipleConsumerSemantics (H, 7642c88) estan corregidos y verificados.
 
-Actualizacion (revision de F2): la lectura de ActorRefProvider.scala:462-490 indica que, tras el fallo del guardian raiz, Pekko deja whenTerminated PENDIENTE (isWalking pasa a falso y el walker descarta el DeathWatchNotification que llamaria a stop()); F2 completa con Err(causa). Esa parte NO coincide con Pekko y espera decision del Owner; /user, /system y la terminacion solicitada si coinciden (Ok). Ver guardians.md. Sin sonda contra la JVM.
+Actualizacion (F2, #370): `whenTerminated` queda PENDIENTE tras el fallo del guardian raiz, como Pekko 2.0.0 segun la lectura de ActorRefProvider.scala:428-490 (el walker registra la causa en su propio causeOfTermination, deja de caminar y descarta la notificacion de muerte del raiz, de modo que stop() no enlaza el terminationPromise publico); /user, /system y la terminacion solicitada terminan normalmente. Leido del Scala, NO probado con una sonda contra la JVM (alli ActorSystem.create ya falla por el timeout de los loggers). Sin API Result ni accessor failure(). Detalle en guardians.md.

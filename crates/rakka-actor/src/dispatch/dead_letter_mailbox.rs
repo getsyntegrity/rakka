@@ -281,11 +281,7 @@ mod with_real_actors {
             .find(|line| line.starts_with("MBX-OR-05 "))
             .expect("the golden has MBX-OR-05");
         assert_eq!(observed, recorded);
-        system
-            .terminate()
-            .wait(Duration::from_secs(10))
-            .unwrap()
-            .expect("terminated normally");
+        system.terminate().wait(Duration::from_secs(10)).unwrap();
     }
 
     #[test]
@@ -322,10 +318,6 @@ mod with_real_actors {
             *dead.lock().unwrap(),
             ["Recreate", "Failed", "Create", "Supervise"]
         );
-        system
-            .terminate()
-            .wait(Duration::from_secs(10))
-            .unwrap()
-            .expect("terminated normally");
+        system.terminate().wait(Duration::from_secs(10)).unwrap();
     }
 }

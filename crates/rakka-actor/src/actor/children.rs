@@ -379,7 +379,6 @@ mod tests {
         system
             .terminate()
             .wait(std::time::Duration::from_secs(10))
-            .unwrap()
-            .expect("terminated normally");
+            .unwrap();
     }
 }
