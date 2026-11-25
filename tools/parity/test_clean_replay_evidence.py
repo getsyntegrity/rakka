@@ -109,6 +109,10 @@ class Storage(unittest.TestCase):
             with open(self.path, "w") as handle:
                 handle.write(shape)
             self.assertIsNone(self.reusable(), shape)
+        incomplete = evidence.record(self.identity, COMPLETE, replayed_cases=4, run_id="run-1")
+        del incomplete["result"]["other_not_applicable"]          # consistent key, but the control reads this field to report the reuse
+        evidence.store(self.path, {**incomplete, "key": evidence.key_of({"identity": self.identity, "result": incomplete["result"]})})
+        self.assertIsNone(self.reusable())
         self.stored(evaluation=dict(COMPLETE, passed=2))          # a record whose own result is not a clean replay, even with a key that matches it
         self.assertIsNone(self.reusable())
         evidence.discard(self.path)
@@ -125,10 +129,12 @@ class EvidenceNeverRaises(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             binary = pathlib.Path(root, "binary")
             binary.write_text("x")
+            with mock.patch.object(evidence, "digest_paths", side_effect=RuntimeError("surprise")):
+                self.assertIsNone(evidence.identity(root, str(binary), {}, TOOLS))
+            with mock.patch.object(evidence, "current_tool_versions", side_effect=UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")):
+                self.assertIsNone(evidence.identity(root, str(binary), {}))
             with mock.patch.object(evidence, "digest_paths", side_effect=surprise):
                 self.assertIsNone(evidence.identity(root, str(binary), {}, TOOLS))
-            with mock.patch.object(evidence, "current_tool_versions", side_effect=surprise):
-                self.assertIsNone(evidence.identity(root, str(binary), {}))
             with mock.patch.object(evidence, "refusal", side_effect=KeyError("other_na")):
                 self.assertIn("failed", evidence.leave_evidence(root, str(binary), {}, 1, COMPLETE, {evidence.RUN_ID_ENV: "run-1"}))
             with mock.patch.object(evidence, "key_of", side_effect=TypeError("not serialisable")):
