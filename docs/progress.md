@@ -7,9 +7,9 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 521 | 47 | 127 | 347 | 4 | 9.0 % | 33.4 % |
+| Classic (`rakka-actor`) | 521 | 47 | 128 | 346 | 4 | 9.0 % | 33.6 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 781 | 47 | 127 | 607 | 4 | 6.0 % | 22.3 % |
+| **Total** | 781 | 47 | 128 | 606 | 4 | 6.0 % | 22.4 % |
 
 ## Por ola
 
@@ -18,7 +18,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | 0 - valores sin runtime | 57 | 36 | 20 | 1 | 4 | 63.2 % | 98.2 % |
 | 1 - configuracion, eventos y scheduler | 70 | 4 | 40 | 26 | 0 | 5.7 % | 62.9 % |
 | 2 - nucleo del runtime Classic | 134 | 7 | 56 | 71 | 0 | 5.2 % | 47.0 % |
-| 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 10 | 35 | 0 | 0.0 % | 22.2 % |
+| 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 11 | 34 | 0 | 0.0 % | 24.4 % |
 | 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0 | 0.0 % | 0.0 % |
 | 5 - apagado, serializacion e IO | 84 | 0 | 1 | 83 | 0 | 0.0 % | 1.2 % |
 | 6 - testkit Classic y superficie Java | 50 | 0 | 0 | 50 | 0 | 0.0 % | 0.0 % |
@@ -58,7 +58,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P26 SYS-PROVEEDOR | 3 | 8 | 0 | 3 | 5 | 0 | 0.0 % | 37.5 % | sí |
 | P27 SCH-ACTORES | 3 | 4 | 0 | 0 | 4 | 0 | 0.0 % | 0.0 % | no |
 | P28 SELECCION-CREACION | 3 | 9 | 0 | 3 | 6 | 0 | 0.0 % | 33.3 % | sí |
-| P29 REF-SELECCION | 3 | 6 | 0 | 2 | 4 | 0 | 0.0 % | 33.3 % | sí |
+| P29 REF-SELECCION | 3 | 6 | 0 | 3 | 3 | 0 | 0.0 % | 50.0 % | sí |
 | P30 EXT | 3 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | no |
 | P31 ASK | 4 | 17 | 0 | 0 | 17 | 0 | 0.0 % | 0.0 % | parcial |
 | P32 CIRCUIT-BREAKER-BACKOFF | 4 | 15 | 0 | 0 | 15 | 0 | 0.0 % | 0.0 % | no |
@@ -135,7 +135,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-JAPI | 21 | 0 | 0 | 21 | 0 | 0.0 % | 0.0 % | no |
 | AC-MBX | 23 | 0 | 8 | 15 | 0 | 0.0 % | 34.8 % | sí |
 | AC-PATH | 16 | 3 | 13 | 0 | 0 | 18.8 % | 100.0 % | sí |
-| AC-REF | 32 | 1 | 12 | 19 | 0 | 3.1 % | 40.6 % | sí |
+| AC-REF | 32 | 1 | 13 | 18 | 0 | 3.1 % | 43.8 % | sí |
 | AC-RT | 22 | 0 | 0 | 22 | 0 | 0.0 % | 0.0 % | no |
 | AC-SCH | 17 | 0 | 0 | 17 | 0 | 0.0 % | 0.0 % | no |
 | AC-SER | 23 | 0 | 0 | 23 | 0 | 0.0 % | 0.0 % | no |
@@ -173,7 +173,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 
 ## Filas con nota «revisar contra 2.0.0»
 
-540 filas (24 done, 76 partial, 440 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
+540 filas (24 done, 77 partial, 439 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
 
 ## Casos grabados y filas que cubren
 
