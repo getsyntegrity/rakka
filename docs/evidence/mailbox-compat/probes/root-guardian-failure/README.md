@@ -6,12 +6,19 @@ A finite observation does not prove permanent non-termination: the window is 6 s
 ## Question
 The Rust tests `guardian_termination_tests::a_failed_root_guardian_leaves_when_terminated_pending` (PR #370/#371) claim that, when the root guardian fails, the bubble walker records the cause in its own
 `causeOfTermination`, stops walking, discards the death notification and leaves the public `terminationPromise` pending. Until this probe that was read from the Scala only: on the JVM `ActorSystem.create`
-fails first by the logger start-up timeout of the default `Slf4jLogger`.
+fails first by the logger start-up timeout (with the default configuration the logger is `Slf4jLogger`, see 1 below).
 
 ## What does and does not work
-1. `pekko.loggers = []` alone is **not enough**: the system still starts `org.apache.pekko.event.slf4j.Slf4jLogger` (`LoggersProbe`: the system's own `pekko.loggers` is `[Slf4jLogger]` even when `[]` is given).
-   Both `pekko.loggers = []` **and** `pekko.use-slf4j = off` are needed (baseline then starts in 445 ms; `RootGuardianProbe` case A).
-2. A bounded *default mailbox* (`BoundedMailbox`, capacity 1) does **not** reproduce the scenario: the logging actors themselves get that mailbox and time out, `create` throws after 5 s (`RootGuardianProbe` case B).
+1. `pekko.loggers = []` alone is **not enough to avoid `Slf4jLogger` on this classpath**, and the reason is not that `[]` is ignored. The oracle classpath contains `pekko-actor-typed`, whose `reference.conf` sets
+   `pekko.use-slf4j = on` (`actor-typed/src/main/resources/reference.conf:68`); with it on and `Slf4jLogger` on the classpath, `ActorSystem.Settings.amendSlf4jConfig` puts `Slf4jLogger` in front of the configured loggers
+   and removes `DefaultLogger` (`ActorSystem.scala:337-373`). That is why `LoggersProbe` sees `[Slf4jLogger]` although `[]` was given. With **both** `pekko.loggers = []` and `pekko.use-slf4j = off` the list is empty and
+   `LoggingBus.startDefaultLoggers` starts **`DefaultLogger`** (`Logging.scala:133-136`): there is always one logger actor. "loggers off" in the labels and output of the probes therefore means "only `DefaultLogger`", not "no logger".
+   `DefaultLogger` is a standard-output logger that requires `LoggerMessageQueueSemantics` (`Logging.scala:1155`), so its mailbox is the `logger-queue` one (`LoggerMailboxType`, `reference.conf:729-730,778-780`), not the default
+   mailbox. The baseline with both settings starts in 445 ms (`RootGuardianProbe` case A).
+2. A bounded *default mailbox* (`BoundedMailbox`, capacity 1) does **not** reproduce the scenario: `create` throws after 5 s, the logger start-up timeout (`pekko.logger-startup-timeout`: `addLogger` waits for `LoggerInitialized`,
+   `Logging.scala:216-238`; `RootGuardianProbe` case B). An earlier version of this note said that the logging actors themselves get that bounded mailbox; that was **wrong**: the logger actors require the `logger-queue`
+   mailbox (see 1). Which actor of the system uses the bounded default mailbox and makes the logger initialisation time out was **not isolated** by the probe; a candidate is the `/system` guardian that creates the logger
+   (`systemActorOf`), unverified. The probe only shows that this configuration cannot be used to reproduce the scenario.
 3. The exact scenario of the Rust test: a default `MailboxType` that **promises** `UnboundedMailbox.MessageQueue` (so that the selection-time check passes) but **creates a bounded queue only for the first actor
    that asks** (the root guardian). The first `create` call is `Actor[pekko://root-failure-probe/]`, the second `/user`, the third `/system` (printed by the probe). The re-check of `Dispatch.init` on the queue
    really created fails at the root. `ActorSystem.create` then **throws** (no handle is returned), but the mailbox type receives the `ActorSystem` in `create`, so the probe captures it and observes `whenTerminated`.
