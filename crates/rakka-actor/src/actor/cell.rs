@@ -162,7 +162,7 @@ pub(crate) fn new_uid() -> i32 {
 }
 
 /// `Dispatchers.DefaultDispatcherId`: the dispatcher every actor runs on until `Props` can select another one.
-const DEFAULT_DISPATCHER_ID: &str = "pekko.actor.default-dispatcher";
+pub(crate) const DEFAULT_DISPATCHER_ID: &str = "pekko.actor.default-dispatcher";
 
 /// How the real cell of an asynchronously created actor is made (`newCell`): the system, the actor's props, its parent, its path and the
 /// reference it knows as its own. `Err` is the exception Pekko's constructor or `init` would throw.
