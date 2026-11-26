@@ -3010,6 +3010,12 @@ ww-poison-pill	scenario-watch-with	AC-DW-005	cited
 ww-restart	scenario-watch-with	AC-DW-005	cited
 he-pre-restart	scenario-hook-errors	AC-CELL-007.1	cited
 he-post-stop	scenario-hook-errors	AC-CELL-008.2,AC-CELL-009	cited
+lf-each-directive	scenario-log-failure	AC-SUP-018	cited
+lf-escalate	scenario-log-failure	AC-SUP-018	cited
+lf-all-for-one	scenario-log-failure	AC-SUP-018	cited
+lf-refused-restart	scenario-log-failure	AC-SUP-018	cited
+lf-logging-disabled	scenario-log-failure	AC-SUP-018	cited
+lf-decider-throws	scenario-log-failure	AC-SUP-018	cited
 cm-handled-failure	scenario-current-message	AC-CELL-007.1	cited
 cm-then-message	scenario-current-message	AC-CELL-007.1	cited
 cm-then-unhandled	scenario-current-message	AC-CELL-007.1	cited

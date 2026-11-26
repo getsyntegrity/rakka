@@ -25,7 +25,7 @@ use rakka_actor::actor::supervision::{
 use rakka_actor::actor::system::{ActorSystem, Settings};
 use rakka_actor::actor::{ActorError, ActorRef};
 use rakka_actor::dispatch::{Failed, Terminated};
-use rakka_actor::event::{Channel, DeadLetter, ErrorEvent, UnhandledMessage};
+use rakka_actor::event::{Channel, DeadLetter, ErrorEvent, UnhandledMessage, WarningEvent};
 
 /// How long an `await-*` step waits for its condition (override with `SCENARIO_AWAIT_MS`, e.g. when debugging).
 fn await_timeout() -> Duration {
@@ -248,6 +248,8 @@ struct SupervisorCfg {
     all_for_one: bool,
     /// `decider-throws`: the decider itself fails (IllegalStateException "decider") while deciding
     decider_throws: bool,
+    /// the strategy's `loggingEnabled` (default true)
+    logging: bool,
 }
 
 /// Everything the actors record, shared with the harness thread.
@@ -410,6 +412,7 @@ impl Behavior {
                     all_for_one: sp.get("strategy").and_then(Value::as_str).as_deref()
                         == Some("all-for-one"),
                     decider_throws: matches!(sp.get("decider-throws"), Some(Value::Bool(true))),
+                    logging: !matches!(sp.get("logging"), Some(Value::Bool(false))),
                 }
             }),
             throw_in_prestart: matches!(v.get("throw-in-prestart"), Some(Value::Bool(true))),
@@ -447,6 +450,14 @@ struct Scripted {
     ctx: Arc<Ctx>,
     /// receives counted by this instance (a restart starts again at 0)
     received: u64,
+}
+
+/// `,"strategy":<class>` when a supervisor strategy is the `logClass` of an event, nothing for any other reporter.
+fn strategy_of(o: &mut String, log_class: &str) {
+    if log_class.ends_with("ForOneStrategy") {
+        o.push_str(",\"strategy\":");
+        js(o, log_class);
+    }
 }
 
 /// `throw new IllegalStateException(message)`, where `message` may be null.
@@ -488,7 +499,9 @@ impl Actor for Scripted {
                 hold,
                 all_for_one,
                 decider_throws,
+                logging,
             }) => {
+                let logging = *logging;
                 let decider_throws = *decider_throws;
                 let (decider, log, ctx, label, hold) = (
                     decider.clone(),
@@ -536,9 +549,13 @@ impl Actor for Scripted {
                     chosen
                 };
                 if *all_for_one {
-                    AllForOneStrategy::new(*max, decide).into()
+                    AllForOneStrategy::new(*max, decide)
+                        .with_logging_enabled(logging)
+                        .into()
                 } else {
-                    OneForOneStrategy::new(*max, decide).into()
+                    OneForOneStrategy::new(*max, decide)
+                        .with_logging_enabled(logging)
+                        .into()
                 }
             }
         }
@@ -900,6 +917,22 @@ impl Actor for Collector {
                     o.push_str(",\"causeText\":");
                     js(&mut o, &e.cause.to_string());
                 }
+                strategy_of(&mut o, &e.log_class);
+                o.push('}');
+                self.ctx.add(&self.label, Event::Error(o));
+            }
+            true
+        } else if let Some(w) = msg.downcast_ref::<WarningEvent>() {
+            let text = w.message.as_deref().unwrap_or("null");
+            if text.starts_with(&self.prefix) {
+                let mut o = String::from("{\"ev\":\"warning\",\"source\":");
+                js(&mut o, &w.log_source);
+                o.push_str(",\"message\":");
+                match &w.message {
+                    Some(message) => js(&mut o, message),
+                    None => o.push_str("null"),
+                }
+                strategy_of(&mut o, &w.log_class);
                 o.push('}');
                 self.ctx.add(&self.label, Event::Error(o));
             }
@@ -1151,9 +1184,12 @@ fn step(
                 }))
                 .map_err(|e| e.to_string())?;
             ctx.refs.lock().unwrap().insert(lbl, r.clone());
+            if label("channel").as_deref() == Some("logs") {
+                system.event_stream().subscribe(&r, Channel::Warning);
+            }
             let channel = match label("channel").as_deref() {
                 Some("dead-letters") => Channel::DeadLetter,
-                Some("errors") => Channel::Error,
+                Some("errors" | "logs") => Channel::Error,
                 _ => Channel::UnhandledMessage,
             };
             system.event_stream().subscribe(&r, channel);

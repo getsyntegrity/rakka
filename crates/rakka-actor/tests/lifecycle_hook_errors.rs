@@ -7,17 +7,21 @@ use std::time::Duration;
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
+use rakka_actor::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
 use rakka_actor::actor::system::ActorSystem;
 use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
-use rakka_actor::event::{Channel, ErrorEvent};
+use rakka_actor::event::{Channel, ErrorEvent, WarningEvent};
 
 struct Probe(Sender<String>);
 
 impl Actor for Probe {
     fn receive(&mut self, _: &mut ActorContext, msg: &AnyMessage) -> bool {
-        let seen = match msg.downcast_ref::<ErrorEvent>() {
-            Some(e) => format!("{}|{:?}", e.cause, e.message),
-            None => (*msg.downcast_ref::<&str>().unwrap()).to_owned(),
+        let seen = if let Some(e) = msg.downcast_ref::<ErrorEvent>() {
+            format!("{}|{:?}", e.cause, e.message)
+        } else if let Some(w) = msg.downcast_ref::<WarningEvent>() {
+            format!("warning|{:?}", w.message)
+        } else {
+            (*msg.downcast_ref::<&str>().unwrap()).to_owned()
         };
         self.0.send(seen).unwrap();
         true
@@ -74,6 +78,11 @@ fn a_throwing_pre_restart_is_published_and_then_the_restart_goes_on() {
     let actor = system.actor_of_named(failing, "c").unwrap();
     actor.tell("go", None);
     let next = || seen.recv_timeout(Duration::from_secs(10)).expect("event");
+    // the guardian's `logFailure` comes before the restart it decides
+    assert_eq!(
+        next(),
+        "java.lang.IllegalStateException: boom|Some(\"boom\")"
+    );
     assert_eq!(
         next(),
         "org.apache.pekko.actor.PreRestartException: pekko://t-hooks/user/c: exception in preRestart(class \
@@ -84,4 +93,55 @@ fn a_throwing_pre_restart_is_published_and_then_the_restart_goes_on() {
     assert!(next().ends_with("Some(\"stop\")"));
     let stopped = system.terminate().wait(Duration::from_secs(10));
     assert!(stopped.is_some(), "termination wedged");
+}
+
+/// Throws an exception without a message.
+struct Silent;
+
+impl Actor for Silent {
+    fn receive(&mut self, _: &mut ActorContext, _: &AnyMessage) -> bool {
+        throw(Throwable::new("java.lang.IllegalStateException", None));
+    }
+}
+
+/// Resumes its child, a [`Silent`], and hands it every message.
+struct Resumes(Option<ActorRef>);
+
+impl Actor for Resumes {
+    fn pre_start(&mut self, context: &mut ActorContext) {
+        self.0 = context.actor_of_named(Props::new(|| Silent), "c").ok();
+    }
+    fn supervisor_strategy(&self) -> SupervisorStrategy {
+        OneForOneStrategy::new(-1, |_| Directive::Resume).into()
+    }
+    fn receive(&mut self, _: &mut ActorContext, _: &AnyMessage) -> bool {
+        self.0.as_ref().unwrap().tell("go", None);
+        true
+    }
+}
+
+/// AC-SUP-018: the text of `logFailure`'s events is `getMessage`, which may be `null` (`FaultHandling.scala:406-425`), and a
+/// subscriber that panics does not stop the directive (the second failure shows the child was resumed).
+#[test]
+fn the_failure_of_an_exception_without_a_message_is_published_without_one() {
+    let system = ActorSystem::create("t-no-message").unwrap();
+    let (sender, seen) = channel();
+    let probe = system.actor_of(Props::new(move || Probe(sender.clone())));
+    let broken = system.actor_of(Props::new(|| Silent).with_mailbox(Panics));
+    let (probe, broken) = (probe.unwrap(), broken.unwrap());
+    for channel in [Channel::Error, Channel::Warning] {
+        system.event_stream().subscribe(&probe, channel);
+        system.event_stream().subscribe(&broken, channel);
+    }
+    let next = || seen.recv_timeout(Duration::from_secs(10)).expect("event");
+    system
+        .actor_of(Props::new(|| Silent))
+        .unwrap()
+        .tell("go", None);
+    assert_eq!(next(), "java.lang.IllegalStateException|None");
+    let parent = system.actor_of(Props::new(|| Resumes(None))).unwrap();
+    for _ in 0..2 {
+        parent.tell("go", None);
+        assert_eq!(next(), "warning|None");
+    }
 }

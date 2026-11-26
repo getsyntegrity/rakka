@@ -100,3 +100,8 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
 |---|---|---|---|---|
 | Q-CELL-6 — Nombre de clase de un mensaje de usuario en el texto de `PreRestartException` | (a) `class ?` (alternativas: (b) que el mensaje aporte su nombre; (c) registro por tipo) | Sólo `&str`/`String`, `Kill`, `ActorIdentity`, `Terminated` y `Failed` llevan la clase de la JVM. Todo lo demás es `class ?`: tipos de usuario (Pekko `class com.example.Foo`), primitivos en caja como `i32` (Pekko `class java.lang.Integer`) y los eventos `DeadLetter`, `UnhandledMessage`, `ErrorEvent`, `WarningEvent` | `Actor.scala:225-236`; casos `he-pre-restart*` | Bajo: sólo el texto de un `Error` publicado |
+
+### Classic: log de fallos de hijos
+| Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
+|---|---|---|---|---|
+| Q-SUP-3 — Causa de una excepción en `Throwable` | (a) `cause: Option<Box<Throwable>>` (alternativas: (b) canal interno junto a `Failed`; (c) aceptar la divergencia) | Hoy el `Error` de un fallo de `preStart`/`postRestart` lleva el texto de la excepción envolvente, no el de la causa | `FaultHandling.scala:406-414`; oráculo: `preStart` publica "init" | (a) cambia un tipo público |
