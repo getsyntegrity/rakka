@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 254 decisiones: 0 bloqueantes, 183 propuestas, 58 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 255 decisiones: 0 bloqueantes, 184 propuestas, 58 aceptadas, 10 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -936,6 +936,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) `ProducedQueue {nombre de clase, semánticas que satisface}` declarado con `MailboxType::produced_queue` (por defecto `PLAIN`: sólo `MessageQueue`) y capacidades efectivas con `MessageQueue::{satisfies, class_name}`; el tipo lista toda la cadena de marcadores que su cola extiende, de modo que `MessageQueueSemantics` sigue abierto (Q-MBX-13); (b) derivar el subtipado de una relación `extends` en `MessageQueueSemantics`: cambiaría su identidad y exige modificar Q-MBX-13 (descartada sin consultar al Owner); (c) trait por marcador al estilo Java: descartada (jerarquía artificial).
 - **Recomendación:** (a), implementada en borrador (Slice 4, PRs #362-#367). API pública nueva: `ProducedQueue`, `MailboxType::produced_queue`, `MessageQueue::{satisfies, class_name}` (métodos con valor por defecto, no rompen a quien ya implementa los traits). Límites: el tipo que lista mal sus marcadores se rechaza o acepta mal sin que el compilador lo vea; la clase del actor y de la cola en los mensajes son rutas de tipo Rust (no nombres JVM; el arnés los normaliza sólo en los casos grabados); `Props::with_mailbox(tipo)` (API sin equivalente en Pekko) no se verifica; el error de `ActorSystem.create` ante un guardián incompatible (en Pekko, por el timeout de arranque de los loggers) no se reproduce. No acepta Q-MBX-2.
 - **Filas afectadas:** AC-MBX-013,AC-MBX-014
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+
+### Q-MBX-15 — Cómo se llega a `enqueueFirst` desde una cola de mailbox: `MessageQueue::as_deque` y el trait `DequeBasedMessageQueue`
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Mailbox.scala:600-622 (Pekko 2.0.0): `DequeBasedMessageQueueSemantics.enqueueFirst`; Stash.scala hace match sobre ese trait. Rust no hace downcast de `dyn MessageQueue`. Oráculo MBX-DQ-01.
+- **Alternativas:** (a) `MessageQueue::as_deque() -> Option<&dyn DequeBasedMessageQueue>` (por defecto `None`); (b) `enqueue_first` con valor por defecto en `MessageQueue`; (c) downcast con `Any`
+- **Recomendación:** (a): una cola que no es deque no puede aceptar el envelope en silencio, y un tipo de usuario puede implementar el trait
+- **Filas afectadas:** AC-MBX-011
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 

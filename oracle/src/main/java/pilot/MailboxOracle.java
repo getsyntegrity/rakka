@@ -66,6 +66,9 @@ final class MailboxOracle {
     return out;
   }
 
+  static void put(MessageQueue q, String m) { q.enqueue(Nobody$.MODULE$, Envelope.apply(m, Nobody$.MODULE$, null)); }
+  static void putFirst(DequeBasedMessageQueueSemantics q, String m) { q.enqueueFirst(Nobody$.MODULE$, Envelope.apply(m, Nobody$.MODULE$, null)); }
+
   static String names(SystemMessage head) {
     List<String> l = new ArrayList<>();
     for (SystemMessage m = head; m != null; m = m.next()) l.add(m.getClass().getSimpleName());
@@ -1417,6 +1420,19 @@ final class MailboxOracle {
       try (IdEnv e = new IdEnv(0, "pekko.actor.default-mailbox.mailbox-type = \"pilot.MailboxOracle$CountingDefaultType\"\n")) {
         return "guardianQueues=" + DEFAULT_QUEUES.get();
       }
+    });
+    run("MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head", () -> {
+      MessageQueue q = new UnboundedDequeBasedMailbox().create(scala.Option.empty(), scala.Option.empty()), dead = defaultQueue();
+      DequeBasedMessageQueueSemantics deque = (DequeBasedMessageQueueSemantics) q;
+      String type = "class=" + q.getClass().getName() + " unbounded=" + (q instanceof UnboundedMessageQueueSemantics)
+          + " multipleConsumer=" + (q instanceof MultipleConsumerSemantics) + " bounded=" + (q instanceof BoundedMessageQueueSemantics);
+      put(q, "a"); put(q, "b"); putFirst(deque, "c"); putFirst(deque, "d");
+      String mixed = counts(q) + " " + drain(q) + " then " + (q.dequeue() == null ? "null" : "message") + " " + counts(q);
+      putFirst(deque, "x"); putFirst(deque, "y");
+      String onlyFirst = drain(q).toString();
+      put(q, "a"); putFirst(deque, "c"); put(q, "b");
+      q.cleanUp(Nobody$.MODULE$, dead);
+      return type + " | mixed " + mixed + " | onlyFirst " + onlyFirst + " | cleanUp source " + counts(q) + " target " + drain(dead);
     });
   }
 

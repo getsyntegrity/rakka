@@ -15,6 +15,7 @@ use rakka_actor::actor::system::{ActorSystem, Settings};
 use rakka_actor::config::Config;
 use rakka_actor::dispatch::Terminated;
 use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
+use rakka_actor::dispatch::deque_mailbox::UnboundedDequeBasedMailbox;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, UnboundedMailbox};
@@ -450,6 +451,55 @@ fn clean_up_moves_to_dead_letters() -> String {
         "source {} | target {} order {}",
         counts(&*queue),
         counts(&*dead_letters),
+        drain(&*dead_letters)
+    )
+}
+
+fn put_first(queue: &dyn MessageQueue, text: &str) {
+    let envelope = Envelope {
+        message: Arc::new(text.to_owned()),
+        sender: None,
+    };
+    queue
+        .as_deque()
+        .expect("a deque based queue")
+        .enqueue_first(&receiver(), envelope);
+}
+
+/// `MBX-DQ-01`: `enqueueFirst` goes to the head, ahead of what is queued; `cleanUp` drains from the head.
+fn the_unbounded_deque_based_queue_takes_envelopes_at_its_head() -> String {
+    let queue = UnboundedDequeBasedMailbox.create(&receiver());
+    let dead_letters = UnboundedMailbox.create();
+    let is = |semantics| queue.satisfies(semantics) == Some(true);
+    let kind = format!(
+        "class={} unbounded={} multipleConsumer={} bounded={}",
+        queue.class_name(),
+        is(MessageQueueSemantics::UNBOUNDED),
+        is(MessageQueueSemantics::MULTIPLE_CONSUMER),
+        is(MessageQueueSemantics::BOUNDED),
+    );
+    put(&*queue, "a");
+    put(&*queue, "b");
+    put_first(&*queue, "c");
+    put_first(&*queue, "d");
+    let before = counts(&*queue);
+    let drained = drain(&*queue);
+    let then = if queue.dequeue().is_none() {
+        "null"
+    } else {
+        "message"
+    };
+    let mixed = format!("{before} {drained} then {then} {}", counts(&*queue));
+    put_first(&*queue, "x");
+    put_first(&*queue, "y");
+    let only_first = drain(&*queue);
+    put(&*queue, "a");
+    put_first(&*queue, "c");
+    put(&*queue, "b");
+    queue.clean_up(&receiver(), &*dead_letters);
+    format!(
+        "{kind} | mixed {mixed} | onlyFirst {only_first} | cleanUp source {} target {}",
+        counts(&*queue),
         drain(&*dead_letters)
     )
 }
@@ -1995,6 +2045,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created",
             the_guardians_take_the_registered_default_mailbox(),
+        ),
+        (
+            "MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head",
+            the_unbounded_deque_based_queue_takes_envelopes_at_its_head(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",
