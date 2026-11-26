@@ -635,7 +635,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Seleccion de dispatcher/mailbox por actor, arranque diferido (RepointableActorRef) y arranque de hijo.
 - **Filas (9; impl: pending 9):** asignacion explicita en `docs/unit-rows.tsv`: AC-DSP-007, AC-MBX-013, AC-MBX-014, AC-MBX-020, AC-CELL-016, AC-CELL-026, AC-CELL-027, AC-REF-020, AC-REF-003.
 - **Exclusiones/costuras:** CFG-012.3/.4 (router) ->P37: aqui Deploy.router opaco.
-- **Decisiones:** 9 distintas en sus filas; respondidas: Q-MBX-12, Q-MBX-13, Q-X-1, Q-X-7; propuestas sin respuesta: Q-DSP-2, Q-MBX-1, Q-MBX-11, Q-MBX-2, Q-REF-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P28). <!-- generated:unit-decisions -->
+- **Decisiones:** 10 distintas en sus filas; respondidas: Q-MBX-12, Q-MBX-13, Q-X-1, Q-X-7; propuestas sin respuesta: Q-DSP-2, Q-MBX-1, Q-MBX-11, Q-MBX-14, Q-MBX-2, Q-REF-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P28). <!-- generated:unit-decisions -->
 - **Dependencias:** P10, P13, P16, P24, P26.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{repointable,selection}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorCreationSpec, RepointableActorRefSpec.

@@ -20,3 +20,7 @@ Corrección: la nota del Slice 2 ("los actores del sistema, guardianes incluidos
 
 - Los guardianes de Rakka no consultan el default registrado (usan `UnboundedMailbox`) ni verifican el requisito. No se añade una declaración suelta: no tendría efecto sin la verificación de `Dispatch.init`.
 - Slice 4: que los guardianes usen `lookup(default-mailbox)`, declaren `UNBOUNDED` y se verifique el requisito tras crear la cola (`ActorInitializationException`), junto con `verifyRequirements` de `getMailboxType`.
+
+## Slice 4 (implementado)
+
+Los guardianes de Rakka usan ahora `lookup(default-mailbox)`, declaran `UNBOUNDED`, y `Dispatch.init` verifica la cola creada; un guardián que falla en `/user` o `/system` termina el sistema con normalidad; si falla el raíz, `whenTerminated` queda pendiente (ver `docs/evidence/mailbox-compat/guardians.md`). Cada uno de los tres se probó por separado contra Pekko y contra Rakka. Ver `docs/evidence/mailbox-compat/guardians.md`. Sigue sin reproducirse el error de `ActorSystem.create` (timeout de los loggers) ni `guardianProps`.
