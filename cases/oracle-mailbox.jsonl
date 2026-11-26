@@ -30,3 +30,4 @@
 {"name": "mb-0030", "args": ["mailbox-case"], "stdin": "MBX-CMP-03 a type that promises its queue is checked against the queue it creates when the actor is made: actorOf returns, the actor fails to initialise and stops, and its name is free"}
 {"name": "mb-0031", "args": ["mailbox-case"], "stdin": "MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created"}
 {"name": "mb-0032", "args": ["mailbox-case"], "stdin": "MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head"}
+{"name": "mb-0033", "args": ["mailbox-case"], "stdin": "MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue"}

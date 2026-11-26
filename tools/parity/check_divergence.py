@@ -1979,6 +1979,25 @@ MUTANTS = {
         "self.envelopes().pop_back()",
         "the deque mailbox delivers the newest message first (MBX-DQ-01)",
     ),
+    # --- the single consumer only unbounded mailbox (AC-MBX-006) ---
+    "single-consumer-dequeue-takes-the-tail": (
+        "src/dispatch/single_consumer_mailbox.rs",
+        "self.envelopes().pop_front()",
+        "self.envelopes().pop_back()",
+        "the single consumer queue delivers the newest message first (MBX-SCQ-01)",
+    ),
+    "single-consumer-queue-says-it-has-no-messages": (
+        "src/dispatch/single_consumer_mailbox.rs",
+        "!self.envelopes().is_empty()",
+        "false",
+        "has_messages answers false with messages queued, so the actor is not scheduled again (MBX-SCQ-01)",
+    ),
+    "single-consumer-queue-is-for-several-consumers": (
+        "src/dispatch/single_consumer_mailbox.rs",
+        "&[MessageQueueSemantics::UNBOUNDED],",
+        "&[MessageQueueSemantics::UNBOUNDED, MessageQueueSemantics::MULTIPLE_CONSUMER],",
+        "the queue declares MultipleConsumerSemantics, which Pekko's NodeMessageQueue does not (MBX-SCQ-01)",
+    ),
     # --- guardians: the default mailbox and the unbounded requirement of each (killed by tests/classic_guardian_mailbox.rs, see UNIT_MUTANTS) ---
     "guardian-root-ignores-the-default-mailbox": (
         "src/actor/system.rs",

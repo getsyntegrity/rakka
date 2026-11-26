@@ -20,6 +20,7 @@ use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, UnboundedMailbox};
 use rakka_actor::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
+use rakka_actor::dispatch::single_consumer_mailbox::SingleConsumerOnlyUnboundedMailbox;
 use rakka_actor::dispatch::system_queue::SystemQueue;
 use rakka_actor::event::{Channel, DeadLetter};
 
@@ -499,6 +500,44 @@ fn the_unbounded_deque_based_queue_takes_envelopes_at_its_head() -> String {
     queue.clean_up(&receiver(), &*dead_letters);
     format!(
         "{kind} | mixed {mixed} | onlyFirst {only_first} | cleanUp source {} target {}",
+        counts(&*queue),
+        drain(&*dead_letters)
+    )
+}
+
+/// `MBX-SCQ-01`: the single consumer only queue, driven directly; the class and the semantics it declares.
+fn the_single_consumer_only_queue_is_first_in_first_out_and_declares_its_semantics() -> String {
+    let queue = SingleConsumerOnlyUnboundedMailbox.create(&receiver());
+    let dead_letters = UnboundedMailbox.create();
+    let is = |semantics| queue.satisfies(semantics) == Some(true);
+    let kind = format!(
+        "class={} unbounded={} multipleConsumer={} bounded={}",
+        queue.class_name(),
+        is(MessageQueueSemantics::UNBOUNDED),
+        is(MessageQueueSemantics::MULTIPLE_CONSUMER),
+        is(MessageQueueSemantics::BOUNDED),
+    );
+    let none = if queue.dequeue().is_none() {
+        "null"
+    } else {
+        "message"
+    };
+    let empty = format!("{} {none}", counts(&*queue));
+    put(&*queue, "a");
+    put(&*queue, "b");
+    let first = queue
+        .dequeue()
+        .and_then(|e| e.message.downcast_ref::<String>().cloned())
+        .expect("a string");
+    put(&*queue, "c");
+    let before = counts(&*queue);
+    let rest = drain(&*queue);
+    let mixed = format!("{before} first={first} rest={rest} {}", counts(&*queue));
+    put(&*queue, "x");
+    put(&*queue, "y");
+    queue.clean_up(&receiver(), &*dead_letters);
+    format!(
+        "{kind} | new {empty} | {mixed} | cleanUp source {} target {}",
         counts(&*queue),
         drain(&*dead_letters)
     )
@@ -2049,6 +2088,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head",
             the_unbounded_deque_based_queue_takes_envelopes_at_its_head(),
+        ),
+        (
+            "MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue",
+            the_single_consumer_only_queue_is_first_in_first_out_and_declares_its_semantics(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

@@ -11,6 +11,7 @@ pub mod mailbox_status;
 pub mod mailboxes;
 pub mod message_queue;
 pub mod queue_semantics;
+pub mod single_consumer_mailbox;
 pub(crate) mod sysmsg;
 pub mod system_queue;
 #[cfg(test)]

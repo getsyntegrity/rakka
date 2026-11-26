@@ -1434,6 +1434,19 @@ final class MailboxOracle {
       q.cleanUp(Nobody$.MODULE$, dead);
       return type + " | mixed " + mixed + " | onlyFirst " + onlyFirst + " | cleanUp source " + counts(q) + " target " + drain(dead);
     });
+    run("MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue", () -> {
+      MessageQueue q = new SingleConsumerOnlyUnboundedMailbox().create(scala.Option.empty(), scala.Option.empty()), dead = defaultQueue();
+      String type = "class=" + q.getClass().getName() + " unbounded=" + (q instanceof UnboundedMessageQueueSemantics)
+          + " multipleConsumer=" + (q instanceof MultipleConsumerSemantics) + " bounded=" + (q instanceof BoundedMessageQueueSemantics);
+      String empty = counts(q) + " " + (q.dequeue() == null ? "null" : "message");
+      put(q, "a"); put(q, "b");
+      String first = (String) q.dequeue().message();
+      put(q, "c");
+      String mixed = counts(q) + " first=" + first + " rest=" + drain(q) + " " + counts(q);
+      put(q, "x"); put(q, "y");
+      q.cleanUp(Nobody$.MODULE$, dead);
+      return type + " | new " + empty + " | " + mixed + " | cleanUp source " + counts(q) + " target " + drain(dead);
+    });
   }
 
   /** Each attempt {label, worker, mailbox id or null}: {@code actorOf} with that mailbox selected; what it throws, or "created". */

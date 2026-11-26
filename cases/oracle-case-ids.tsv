@@ -2385,3 +2385,4 @@ mb-0029	mailbox	MBX-CMP-02 the queue of the selected mailbox must fulfill the re
 mb-0030	mailbox	MBX-CMP-03 a type that promises its queue is checked against the queue it creates when the actor is made: actorOf returns, the actor fails to initialise and stops, and its name is free
 mb-0031	mailbox	MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created
 mb-0032	mailbox	MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head
+mb-0033	mailbox	MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue
