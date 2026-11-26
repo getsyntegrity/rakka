@@ -27,6 +27,16 @@ pub fn relative_actor_path_elements(s: &str) -> Option<Vec<String>> {
     ))
 }
 
+/// `ActorPathExtractor.unapply`: the address of a URI and its non-root elements, the raw `#fragment` kept on the last one.
+pub(crate) fn actor_path_extractor(s: &str) -> Option<(Address, Vec<String>)> {
+    let uri = uri::parse(s).ok()?;
+    let elements = split(uri.raw_path.as_deref()?, uri.raw_fragment.as_deref());
+    Some((
+        Address::from_uri(&uri)?,
+        elements.into_iter().skip(1).collect(),
+    ))
+}
+
 /// `PathUtils.split`: every `/`-separated piece, empty ones included, with
 /// `#fragment` appended to the last one.
 fn split(path: &str, fragment: Option<&str>) -> Vec<String> {
@@ -174,7 +184,7 @@ const UNDEFINED_UID: i32 = 0;
 
 /// `ActorCell.splitNameAndUid`: the name up to the first `#`, and the rest
 /// read with `Integer.valueOf`.
-fn split_name_and_uid(name: &str) -> Result<(&str, i32), NumberFormatError> {
+pub(crate) fn split_name_and_uid(name: &str) -> Result<(&str, i32), NumberFormatError> {
     match name.split_once('#') {
         None => Ok((name, UNDEFINED_UID)),
         Some((name, uid)) => Ok((name, parse_int(uid)?)),
