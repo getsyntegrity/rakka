@@ -140,7 +140,7 @@ def narrow(changed, mutants, tool_mutants, unit_mutants, read_base, read_head, l
     conservative = gates.select_mutants(changed, mutants, tool_mutants, unit_mutants)
     excused = [("R2", path) for path in changed if adds_only_independent_modules(path, read_base, read_head, list_head)]
     covered = [path for path in changed if corpus.covers(path) and path not in gates.NON_INPUT_ARTIFACTS]
-    proofs = [corpus.proven(path, read_base(path), read_head(path)) for path in covered]
+    proofs = [corpus.proven(path, read_base(path), read_head(path), read_base, read_head) for path in covered]
     new_mutants = []
     if covered and None not in proofs:      # all or nothing: one doubt about the corpus or the harness selects everything anyway
         excused += [("R1", path) for path in covered]

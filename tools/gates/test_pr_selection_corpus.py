@@ -3,6 +3,7 @@ are proven untouched."""
 import unittest
 
 import pr_selection
+import pr_selection_corpus as corpus
 
 HARNESS = "tools/parity/check_divergence.py"
 EXAMPLE = "crates/rakka-actor/examples/classic-parity/mailbox_cases.rs"
@@ -45,8 +46,11 @@ pub fn rust_lines''').replace('    ]\n', '''        (
 ''')
 BASE = {CASES: '{"id": "a"}\n', EXAMPLE: OLD_RUST, ORACLE: "class MailboxOracle {\n}\n", HARNESS: TABLE, "cases/not-applicable.tsv": "case\treason\n",
         "rust/app-cases/mb-0001.stdout": "a\n", "cases/oracle-only/mailbox.golden": "g\n", "oracle/pom.xml": "<p/>\n"}
-ADDITION = {CASES: '{"id": "a"}\n{"id": "b"}\n', "rust/app-cases/mb-0002.stdout": "b\n", EXAMPLE: ADDED_RUST,
-            ORACLE: 'class MailboxOracle {\n  void more() {}\n}\n'}
+ADDITION_SOURCES = {"crates/rakka-actor/src/dispatch/single.rs": "pub struct SingleQueue;\npub trait Describe {}\n"}
+BASE.update(ADDITION_SOURCES)
+BASE["rust/app-cases/mb-0001.toml"] = "t\n"
+ADDITION = {CASES: '{"id": "a"}\n{"id": "b"}\n', "rust/app-cases/mb-0002.stdout": "b\n", "rust/app-cases/mb-0002.toml": "t\n",
+            EXAMPLE: ADDED_RUST, ORACLE: 'class MailboxOracle {\n  void more() {}\n}\n'}
 
 
 def narrow(changes, mutants=MUTANTS):
@@ -93,6 +97,37 @@ class AdditiveCorpus(unittest.TestCase):
                              ("a new static", ADDED_RUST + "static HITS: u8 = 0;\n"),
                              ("a custom macro", ADDED_RUST + "fn other() { register!(A); }\n")):
             self.assert_conservative({EXAMPLE: harness}, why)
+
+    def test_a_new_file_that_hooks_into_an_already_recorded_case_or_into_no_case_keeps_the_conservative_selection(self):
+        for path in ("rust/app-cases/mb-0001.in/app.conf", "rust/app-cases/mb-0001.effects.json", "rust/app-cases/settings.toml.d/x"):
+            self.assert_conservative({path: "x\n"})
+
+    def test_an_entry_is_only_a_new_scenario_in_the_registration_list(self):
+        nested = OLD_RUST.replace('    format!("a{}", drain())\n', '    run(&[\n        (\n            "k",\n            key(),\n        ),\n    ])\n')
+        grown = ADDED_RUST.replace('    format!("a{}", drain())\n', '''    run(&[
+        (
+            "k",
+            key(),
+        ),
+        (
+            "MB-03 sneaked in",
+            single_consumer(),
+        ),
+    ])
+''')
+        self.assertFalse(corpus.only_adds_scenarios(nested, grown, lambda path: BASE.get(path) or ADDITION_SOURCES.get(path)))
+
+    def test_the_registration_list_may_be_an_array_as_in_the_real_harness(self):
+        array = lambda source: source.replace("    vec![\n", "    [\n").replace("    ]\n}\n", "    ]\n    .into_iter()\n    .collect()\n}\n")
+        self.assertTrue(corpus.only_adds_scenarios(array(OLD_RUST), array(ADDED_RUST), lambda path: BASE.get(path)))
+
+    def test_an_import_that_cannot_be_shown_to_be_a_plain_type_keeps_the_conservative_selection(self):
+        for use in ("use crate::evil::{inner::{quote}};", "use rakka_actor::dispatch::single::Describe;", "use std::fmt::Write as _;",
+                    "use other::Thing;"):
+            self.assert_conservative({EXAMPLE: ADDED_RUST.replace("use rakka_actor::dispatch::single::SingleQueue;", use)}, use)
+
+    def test_a_golden_id_that_is_a_prefix_of_another_keeps_the_conservative_selection(self):
+        self.assert_conservative({"cases/oracle-only/mailbox.golden": "gg -> fake\ng\n"})
 
     def test_a_change_to_the_logic_that_judges_or_a_removed_mutant_keeps_the_conservative_selection(self):
         self.assert_conservative({HARNESS: TABLE.replace("return 1", "return 0")})
