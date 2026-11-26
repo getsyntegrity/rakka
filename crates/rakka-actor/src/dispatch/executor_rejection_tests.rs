@@ -8,13 +8,15 @@
 
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::cell::ActorCell;
+use crate::actor::fault::{Throwable, throw};
 use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
+use crate::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
 use crate::actor::system::{ActorSystem, Settings};
 use crate::dispatch::dispatcher::{Executor, Rejected, ThreadPool};
 use crate::dispatch::sysmsg::SystemMessage;
 use crate::event::{Channel, DeadLetter, ErrorEvent};
 use crate::util::clock::NanoClock;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -656,4 +658,169 @@ fn a_synchronous_actor_of_rejection_that_escapes_fails_the_parent_and_restarts_i
         spawner.is_terminated()
     );
     assert_eq!(observed, recorded("MBX-RJ-07"));
+}
+
+/// Where the supervisor or the lifecycle publishes an `Error`; each case arms two rejections of the listener just before it.
+#[derive(Clone, Copy, PartialEq)]
+enum Publication {
+    PostStop,
+    PreRestart,
+    ResumeIntoCreate,
+    ResumeIntoRestart,
+}
+
+struct Hooked {
+    publication: Publication,
+    executor: Arc<RejectsNext>,
+    thrown: Arc<AtomicBool>,
+}
+impl Hooked {
+    fn arm_and_throw(&self, message: &str) {
+        self.executor.reject_next(2);
+        throw(Throwable::illegal_state(message));
+    }
+}
+impl Actor for Hooked {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        let fails = self.publication == Publication::ResumeIntoCreate;
+        if fails && !self.thrown.swap(true, Ordering::SeqCst) {
+            self.arm_and_throw("init");
+        }
+    }
+    fn pre_restart(&mut self, _: &mut ActorContext, _: &Throwable, _: Option<&AnyMessage>) {
+        if self.publication == Publication::PreRestart {
+            self.arm_and_throw("hook");
+        }
+    }
+    fn post_restart(&mut self, _: &mut ActorContext, _: &Throwable) {
+        let fails = self.publication == Publication::ResumeIntoRestart;
+        if fails && !self.thrown.swap(true, Ordering::SeqCst) {
+            throw(Throwable::illegal_state("post"));
+        }
+    }
+    fn post_stop(&mut self, _: &mut ActorContext) {
+        if self.publication == Publication::PostStop {
+            self.arm_and_throw("stop");
+        }
+    }
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        throw(Throwable::illegal_state("boom"));
+    }
+}
+
+fn hooked(fixture: &Fixture, publication: Publication) -> Props {
+    let executor = fixture.executor.clone();
+    let thrown = Arc::new(AtomicBool::new(false));
+    Props::new(move || Hooked {
+        publication,
+        executor: executor.clone(),
+        thrown: thrown.clone(),
+    })
+}
+
+/// Supervises one `Hooked` child without `logFailure`: it resumes the two initialization failures and restarts the rest.
+struct Resumer {
+    child: Props,
+    executor: Arc<RejectsNext>,
+}
+impl Actor for Resumer {
+    fn pre_start(&mut self, ctx: &mut ActorContext) {
+        let child = ctx.actor_of_named(self.child.clone(), "child").unwrap();
+        child.tell("go", None);
+    }
+    fn supervisor_strategy(&self) -> SupervisorStrategy {
+        let executor = self.executor.clone();
+        OneForOneStrategy::new(-1, move |cause| match cause.class.as_str() {
+            "org.apache.pekko.actor.PostRestartException" => {
+                executor.reject_next(2); // the next publication is `changing Resume into Restart`
+                Directive::Resume
+            }
+            "org.apache.pekko.actor.ActorInitializationException" => Directive::Resume,
+            _ => Directive::Restart,
+        })
+        .with_logging_enabled(false)
+        .into()
+    }
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        false
+    }
+}
+
+fn supervise(fixture: &Fixture, publication: Publication) {
+    let child = hooked(fixture, publication);
+    let executor = fixture.executor.clone();
+    let parent = Props::new(move || Resumer {
+        child: child.clone(),
+        executor: executor.clone(),
+    });
+    fixture.system.actor_of_named(parent, "parent").unwrap();
+}
+
+/// Runs `provoke` with an idle, rejectable listener and expects the two reports of its rejection and then the `Error` being published,
+/// as a Pekko 2.0.0 probe of each scenario printed them (JDK 17, `MailboxOracle$RejectingConfigurator` rejecting twice).
+fn assert_rejection_reports_precede(published: &str, provoke: impl FnOnce(&Fixture)) {
+    let fixture = Fixture::new(&["listener"]);
+    wait_until("the listener to be idle", || {
+        fixture.listener.mailbox_view().contains("scheduled=false")
+    });
+    let recorder = Arc::new(ErrorRecorder::default());
+    let events = fixture.system.event_stream();
+    events.subscribe(&ActorRef(recorder.clone()), Channel::Error);
+    provoke(&fixture);
+    wait_until("the published error", || {
+        let errors = recorder.errors.lock().unwrap();
+        errors.iter().any(|e| e.starts_with(published))
+    });
+    let errors = recorder.errors.lock().unwrap().clone();
+    let rejected = "java.util.concurrent.RejectedExecutionException";
+    let reports = [
+        format!(
+            "org.apache.pekko.dispatch.Dispatcher|{rejected}|registerForExecution was rejected twice!"
+        ),
+        format!("pekko://mbx/user/listener|{rejected}|swallowing exception during message send"),
+    ];
+    assert!(
+        errors.len() == 3 && errors[..2] == reports && errors[2].starts_with(published),
+        "{errors:#?}"
+    );
+}
+
+#[test]
+fn the_reports_made_while_a_post_stop_failure_is_published_reach_the_subscribers() {
+    let published = "pekko://mbx/user/child|java.lang.IllegalStateException|stop";
+    assert_rejection_reports_precede(published, |fixture| {
+        let props = hooked(fixture, Publication::PostStop);
+        let child = fixture.system.actor_of_named(props, "child").unwrap();
+        fixture.system.stop(&child);
+    });
+}
+
+#[test]
+fn the_reports_made_while_a_pre_restart_failure_is_published_reach_the_subscribers() {
+    let published = "pekko://mbx/user/parent/child|org.apache.pekko.actor.PreRestartException|hook";
+    assert_rejection_reports_precede(published, |f| supervise(f, Publication::PreRestart));
+}
+
+#[test]
+fn the_reports_made_while_a_resume_turned_into_create_is_published_reach_the_subscribers() {
+    let published = "pekko://mbx/user/parent/child|org.apache.pekko.event.Logging$Error$NoCause$|changing Resume into Create after ";
+    assert_rejection_reports_precede(published, |f| supervise(f, Publication::ResumeIntoCreate));
+}
+
+#[test]
+fn the_reports_made_while_a_resume_turned_into_restart_is_published_reach_the_subscribers() {
+    let published = "pekko://mbx/user/parent/child|org.apache.pekko.event.Logging$Error$NoCause$|changing Resume into Restart after ";
+    assert_rejection_reports_precede(published, |f| supervise(f, Publication::ResumeIntoRestart));
+}
+
+#[test]
+fn the_reports_made_while_an_unregistered_child_is_published_reach_the_subscribers() {
+    let published = "pekko://mbx/user/w|org.apache.pekko.event.Logging$Error$NoCause$|received Supervise from unregistered child ";
+    assert_rejection_reports_precede(published, |fixture| {
+        fixture.executor.reject_next(2);
+        fixture.worker.send_system(SystemMessage::Supervise {
+            child: fixture.system.dead_letters(),
+            is_async: false,
+        });
+    });
 }

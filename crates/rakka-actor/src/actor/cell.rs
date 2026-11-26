@@ -29,7 +29,7 @@ use crate::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 use crate::dispatch::sysmsg::{DeliveryState, Failed, SystemMessage, Terminated};
 use crate::dispatch::system_queue::SystemQueue;
 use crate::event::UnhandledMessage;
-use crate::event::{ErrorEvent, WarningEvent, report_dispatch_failure};
+use crate::event::{ErrorEvent, EventStream, WarningEvent, report_dispatch_failure};
 use crate::util::helpers::base64_append;
 
 #[derive(Default)]
@@ -834,9 +834,7 @@ impl ActorCell {
         let log_source = child.path().to_string();
         let log_class = strategy.class_name().to_owned();
         let message = cause.message.clone();
-        let events = &self.system.events;
-        // `publish` is a plain `eventStream.publish` that swallows NonFatal: no recursion guard, a panic stops here
-        let _ = catch_unwind(AssertUnwindSafe(|| {
+        self.publish_unguarded(|events| {
             if decision == Directive::Resume {
                 events.publish_warning(WarningEvent {
                     log_source,
@@ -851,7 +849,14 @@ impl ActorCell {
                     message,
                 });
             }
-        }));
+        });
+    }
+
+    /// The publications of supervision and lifecycle: `ActorCell.publish` (`ActorCell.scala:747-750`, swallows NonFatal) and the
+    /// plain `eventStream.publish` of `FaultHandling`. Without the recursion guard of `report_dispatch_failure`, so the reports of a
+    /// subscriber that cannot be scheduled still reach the subscribers. What a subscriber panics with stops here.
+    fn publish_unguarded(&self, publish: impl FnOnce(&EventStream)) {
+        let _ = catch_unwind(AssertUnwindSafe(|| publish(&self.system.events)));
     }
 
     /// `handleInvokeFailure` after the exception `thrown` escaped `handleFailure(Failed(child, cause))`.
@@ -1006,15 +1011,13 @@ impl ActorCell {
 
     /// `eventStream.publish(Error(cause, self.path.toString, clazz(actor), message))`.
     fn publish_caused_error(&self, cause: Throwable, message: Option<String>) {
-        report_dispatch_failure(
-            &self.system.events,
-            ErrorEvent {
-                cause,
-                log_source: self.path.to_string(),
-                log_class: self.log_class(),
-                message,
-            },
-        );
+        let error = ErrorEvent {
+            cause,
+            log_source: self.path.to_string(),
+            log_class: self.log_class(),
+            message,
+        };
+        self.publish_unguarded(|events| events.publish_error(error));
     }
 
     /// `faultCreate`: stop the children, then create the actor again (`finishCreate`) once they are gone.
@@ -1321,17 +1324,9 @@ impl ActorCell {
             children.init_child(&child)
         };
         if !registered {
-            report_dispatch_failure(
-                &self.system.events,
-                ErrorEvent {
-                    cause: Throwable::new("org.apache.pekko.event.Logging$Error$NoCause$", None),
-                    log_source: self.path.to_string(),
-                    log_class: self.log_class(),
-                    message: Some(format!(
-                        "received Supervise from unregistered child {child:?}, this will not end well"
-                    )),
-                },
-            );
+            self.publish_error(format!(
+                "received Supervise from unregistered child {child:?}, this will not end well"
+            ));
         } else if is_async && let Some(repointable) = child.0.as_repointable() {
             // `handleSupervise` → `point`: `cell.start()` is outside `catchFailures`, so a rejected attach fails this actor
             // (`systemInvoke`'s `handleInvokeFailure(Nil, e)`), not the new one
