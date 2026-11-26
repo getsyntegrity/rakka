@@ -1,6 +1,6 @@
-//! `system.scheduler().schedule_once` and `Cancellable` with real actors (AC-SCH-001, 005, 008.2; `SchedulerSpec`).
-//! Absence is shown by order, not by sleeping: a later marker arrives first or alone. Its margin (the cancel
-//! runs within the delay of the message that must not arrive) is far above what a loaded machine needs.
+//! `system.scheduler().schedule_once` and `Cancellable` with real actors (AC-SCH-001, 005, 008.2, 009; `SchedulerSpec`).
+//! Absence is shown by order, not by sleeping: a later marker arrives first or alone. Its margin (the cancel or the
+//! `terminate` runs within the delay of the message that must not arrive) is far above what a loaded machine needs.
 
 use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -11,6 +11,7 @@ use rakka_actor::actor::system::ActorSystem;
 use rakka_actor::actor::{ActorRef, ErrorClass};
 
 const WAIT: Duration = Duration::from_secs(10);
+const ENQUEUE_AFTER_SHUTDOWN: &str = "cannot enqueue after timer shutdown";
 
 /// Reports every text it receives with the name of its sender.
 struct Probe(Mutex<Sender<(String, String)>>);
@@ -128,4 +129,56 @@ fn a_delay_beyond_the_reach_of_the_wheel_is_rejected_with_the_pekko_text() {
         schedule(Duration::MAX).unwrap_err().class(),
         ErrorClass::IllegalArgument
     );
+}
+
+#[test]
+fn termination_drops_the_pending_messages_and_rejects_new_ones() {
+    let closing = system("closing");
+    let other = system("other");
+    let (target, rx) = probe(&other, "target");
+    let pending = closing
+        .0
+        .scheduler()
+        .schedule_once(Duration::from_secs(1), &target, "pending", None)
+        .unwrap();
+    closing.0.terminate().wait(WAIT).expect("terminated").ok();
+    other
+        .0
+        .scheduler()
+        .schedule_once(Duration::from_millis(1200), &target, "marker", None)
+        .unwrap();
+    assert_eq!(next(&rx).0, "marker");
+    assert_eq!((pending.cancel(), pending.is_cancelled()), (true, true));
+    for delay in [Duration::ZERO, Duration::from_secs(1), Duration::MAX] {
+        let error = closing
+            .0
+            .scheduler()
+            .schedule_once(delay, &target, "late", None)
+            .unwrap_err();
+        assert_eq!(error.class(), ErrorClass::IllegalState);
+        assert_eq!(error.message(), ENQUEUE_AFTER_SHUTDOWN);
+    }
+}
+
+struct PanicsOnDrop(Sender<()>);
+
+impl Drop for PanicsOnDrop {
+    fn drop(&mut self) {
+        self.0.send(()).ok();
+        panic!("drop of a scheduled message");
+    }
+}
+
+#[test]
+fn a_pending_message_whose_drop_panics_does_not_stop_the_termination() {
+    let system = system("panics");
+    let (target, _rx) = probe(&system, "target");
+    let (tx, dropped) = channel();
+    system
+        .0
+        .scheduler()
+        .schedule_once(Duration::from_secs(60), &target, PanicsOnDrop(tx), None)
+        .unwrap();
+    assert!(system.0.terminate().wait(WAIT).is_some());
+    dropped.recv_timeout(WAIT).expect("the message was dropped");
 }

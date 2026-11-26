@@ -126,7 +126,7 @@ pub(crate) struct SystemInner {
     pub settings: Settings,
     pub events: Arc<EventStream>,
     pub dispatcher: Arc<Dispatcher>,
-    scheduler: Scheduler,
+    scheduler: Arc<Scheduler>,
     root_path: ActorPath,
     root_guardian: OnceLock<Arc<ActorCell>>,
     pub(crate) guardian: OnceLock<Arc<ActorCell>>,
@@ -253,6 +253,8 @@ pub(crate) struct BubbleWalker {
     /// while it is pending the walker is walking (`isWalking`) and handles messages.
     pub(crate) cause_of_termination: Arc<Promise<Result<Terminated, Throwable>>>,
     dispatchers: Vec<Arc<Dispatcher>>,
+    /// Closed before `whenTerminated` completes (`registerOnTermination(stopScheduler())`).
+    scheduler: OnceLock<Arc<Scheduler>>,
     pub(crate) root: OnceLock<ActorRef>,
     /// Completes when the walker discards, after it stopped walking, the `DeathWatchNotification` of the root guardian (and of no other actor).
     #[cfg(test)]
@@ -270,6 +272,7 @@ impl BubbleWalker {
             termination,
             cause_of_termination: Promise::new(),
             dispatchers,
+            scheduler: OnceLock::new(),
             root: OnceLock::new(),
             #[cfg(test)]
             notification_discarded: Promise::new(),
@@ -329,6 +332,9 @@ impl InternalActorRef for BubbleWalker {
                 existence_confirmed: true,
                 address_terminated: true,
             }));
+            if let Some(scheduler) = self.scheduler.get() {
+                scheduler.close();
+            }
             if let Some(outcome) = self.cause_of_termination.wait(Duration::ZERO) {
                 self.termination.complete(outcome);
             }
@@ -451,6 +457,7 @@ impl ActorSystem {
         let events = EventStream::new();
         let internal_dispatcher =
             Dispatcher::start_with(&format!("{name}-internal"), 4, turn_policy, clock);
+        let scheduler = Arc::new(Scheduler::start(name, dispatcher.clone()));
         let termination = Promise::new();
         let dead_letters = ActorRef(Arc::new_cyclic(|me| DeadLetters {
             path: root_path.new_child("deadLetters", 0),
@@ -462,7 +469,7 @@ impl ActorSystem {
             settings,
             events,
             dispatcher: dispatcher.clone(),
-            scheduler: Scheduler::start(name, dispatcher.clone()),
+            scheduler: scheduler.clone(),
             root_path: root_path.clone(),
             root_guardian: OnceLock::new(),
             guardian: OnceLock::new(),
@@ -487,6 +494,7 @@ impl ActorSystem {
             termination,
             vec![dispatcher, internal_dispatcher.clone()],
         ));
+        bubble.scheduler.set(scheduler).ok();
         #[cfg(test)]
         sys.walker.set(bubble.clone()).ok();
         let walker = ActorRef(bubble.clone());
