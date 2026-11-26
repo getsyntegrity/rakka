@@ -159,7 +159,8 @@ class GateWiring(unittest.TestCase):
         command = lambda **options: next(g for g in gates.tier_gates("pr", ["a"], **options) if g.name == "mutants").command[1:]
         self.assertEqual(command(no_reuse=True), ["tools/gates/pr_mutants.py", "a", "--no-reuse"])
         self.assertEqual(command(), ["tools/gates/pr_mutants.py", "a"])
-        with mock.patch.object(gates, "changed_files", return_value=["crates/rakka-actor/src/actor/cell.rs"]), mock.patch("builtins.print") as printed:
+        with mock.patch.object(gates, "PR_MUTATION_SUSPENDED", None), \
+                mock.patch.object(gates, "changed_files", return_value=["crates/rakka-actor/src/actor/cell.rs"]), mock.patch("builtins.print") as printed:
             gates.main(["pr", "--no-reuse", "--list"])
         listed = [call.args for call in printed.call_args_list if call.args[0] == "mutants"]
         self.assertTrue(listed[0][1].endswith("--no-reuse"), listed)
