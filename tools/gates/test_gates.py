@@ -356,7 +356,7 @@ class MainByItsRealEntry(unittest.TestCase):
     def run_main(self, mutants_exit_code):
         script = f"import sys; sys.exit({mutants_exit_code})"
         stub = [gates.Gate("fmt", ["true"], ()), gates.Gate("mutants", [gates.PY, "-c", script], (), exit_labels=gates.MUTANT_RUNNER_LABELS)]
-        gates.tier_gates = lambda tier, selected, mutant_args: stub
+        gates.tier_gates = lambda tier, selected, mutant_args, **options: stub
         import io, contextlib
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
