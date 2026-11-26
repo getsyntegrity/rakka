@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 259 decisiones: 0 bloqueantes, 183 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 260 decisiones: 0 bloqueantes, 184 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -656,6 +656,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) conservar el hook is_local en el trait de ref y el topic sin uso local / (b) omitir el topic y el orden / (c) implementarlo completo con un provider simulado
 - **Recomendación:** (a) mínimo: el trait de ref expone is_local y la celda mantiene los conjuntos watching/watchedBy con la lógica de suscripción, aunque sin remote nunca se suscriba [2026-10-31 cierre documental] Clasificación: arquitectura / exclusión de alcance (remote). Resuelto leyendo: sin proveedor remoto `hasNonLocalAddress` es siempre falso, no hay suscripción y `AddressTerminated` no se publica; el hook mínimo (is_local + conjuntos watching/watchedBy + suscripción) permite un remote futuro sin cambiar la celda. Consecuencia: ningún test funcional upstream (sólo el benchmark). Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. Puede avanzar: el resto de DW (el orden local es el único observable sin remote).
 - **Filas afectadas:** AC-DW-010 ; AC-DW-012
+- **Unidades afectadas:** DW
+- **Origen:** classic-cell
+
+### Q-DW-4 — Texto de los valores [Some(x)] en la IllegalStateException de watch / watchWith
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:125-131
+- **Alternativas:** (a) String y &str por valor, cualquier otro tipo por su nombre Rust, sin cotas nuevas (implementado provisionalmente) / (b) exigir Debug en watch_with / (c) omitir los valores del texto
+- **Recomendación:** (a). Consecuencia: para tipos que no son cadenas el texto difiere de Pekko (toString del valor). Bloquea el cierre de AC-DW-005.
+- **Filas afectadas:** AC-DW-005
 - **Unidades afectadas:** DW
 - **Origen:** classic-cell
 
