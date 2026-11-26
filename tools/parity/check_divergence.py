@@ -1824,6 +1824,19 @@ MUTANTS = {
         "        if let Some(envelope) = self.dequeue() {\n            dead_letters.enqueue(owner, envelope);",
         "cleanUp moves one envelope and leaves the rest (NB-QU-05)",
     ),
+    # --- the single consumer only unbounded mailbox (AC-MBX-006) ---
+    "single-consumer-dequeue-takes-the-tail": (
+        "src/dispatch/single_consumer_mailbox.rs",
+        "self.envelopes().pop_front()",
+        "self.envelopes().pop_back()",
+        "the single consumer queue delivers the newest message first (MBX-SCQ-01)",
+    ),
+    "single-consumer-queue-says-it-has-no-messages": (
+        "src/dispatch/single_consumer_mailbox.rs",
+        "!self.envelopes().is_empty()",
+        "false",
+        "has_messages answers false with messages queued, so the actor is not scheduled again (MBX-SCQ-01)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

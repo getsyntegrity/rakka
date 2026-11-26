@@ -18,6 +18,7 @@ use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, UnboundedMailbox};
 use rakka_actor::dispatch::queue_semantics::MessageQueueSemantics;
+use rakka_actor::dispatch::single_consumer_mailbox::SingleConsumerOnlyUnboundedMailbox;
 use rakka_actor::dispatch::system_queue::SystemQueue;
 use rakka_actor::event::{Channel, DeadLetter};
 
@@ -449,6 +450,36 @@ fn clean_up_moves_to_dead_letters() -> String {
         "source {} | target {} order {}",
         counts(&*queue),
         counts(&*dead_letters),
+        drain(&*dead_letters)
+    )
+}
+
+/// `MBX-SCQ-01`: the single consumer only queue, driven directly.
+fn the_single_consumer_only_queue_is_first_in_first_out() -> String {
+    let queue = SingleConsumerOnlyUnboundedMailbox.create(&receiver());
+    let dead_letters = UnboundedMailbox.create();
+    let none = if queue.dequeue().is_none() {
+        "null"
+    } else {
+        "message"
+    };
+    let empty = format!("{} {none}", counts(&*queue));
+    put(&*queue, "a");
+    put(&*queue, "b");
+    let first = queue
+        .dequeue()
+        .and_then(|e| e.message.downcast_ref::<String>().cloned())
+        .expect("a string");
+    put(&*queue, "c");
+    let before = counts(&*queue);
+    let rest = drain(&*queue);
+    let mixed = format!("{before} first={first} rest={rest} {}", counts(&*queue));
+    put(&*queue, "x");
+    put(&*queue, "y");
+    queue.clean_up(&receiver(), &*dead_letters);
+    format!(
+        "new {empty} | {mixed} | cleanUp source {} target {}",
+        counts(&*queue),
         drain(&*dead_letters)
     )
 }
@@ -1572,6 +1603,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept",
             senders_racing_with_the_installation_of_the_real_cell(),
+        ),
+        (
+            "MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order",
+            the_single_consumer_only_queue_is_first_in_first_out(),
         ),
     ]
     .into_iter()

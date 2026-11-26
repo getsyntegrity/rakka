@@ -1,0 +1,1 @@
+MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order -> new n=0 has=false null | n=2 has=true first=a rest=[b, c] n=0 has=false | cleanUp source n=0 has=false target [x, y]

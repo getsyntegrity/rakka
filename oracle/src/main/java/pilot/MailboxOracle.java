@@ -1340,6 +1340,18 @@ final class MailboxOracle {
         return e.perActor("plain", "anyQueue", "audit", "selected");
       }
     });
+    run("MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order", () -> {
+      MessageQueue q = new SingleConsumerOnlyUnboundedMailbox().create(scala.Option.empty(), scala.Option.empty()), dead = defaultQueue();
+      java.util.function.Consumer<String> put = m -> q.enqueue(Nobody$.MODULE$, Envelope.apply(m, Nobody$.MODULE$, null));
+      String empty = counts(q) + " " + (q.dequeue() == null ? "null" : "message");
+      put.accept("a"); put.accept("b");
+      String first = (String) q.dequeue().message();
+      put.accept("c");
+      String mixed = counts(q) + " first=" + first + " rest=" + drain(q) + " " + counts(q);
+      put.accept("x"); put.accept("y");
+      q.cleanUp(Nobody$.MODULE$, dead);
+      return "new " + empty + " | " + mixed + " | cleanUp source " + counts(q) + " target " + drain(dead);
+    });
   }
 
   /** Not a golden case (its counts vary run to run): `n` actors, each hit by 4 producers (300 sends each) released together with
