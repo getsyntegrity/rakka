@@ -1,3 +1,3 @@
 pr	head	mutants_selected	new_mutants	executed	pending	status
-#395	3cafa938	341	identify-reaches-receive; identify-of-a-dead-actor-also-published; identify-of-dead-letters-loses-reply-sender	96 of 341 (new and mutating changed files): 96 DETECTED, control CLEAN	245 never run	NOT CERTIFIED: partial run
+#395	3cafa938	341	identify-reaches-receive; identify-of-a-dead-actor-also-published; identify-of-dead-letters-loses-reply-sender	96 of 341 (new and mutating changed files): 96 DETECTED (86 executed, 10 reused), control CLEAN	245 not run on this head	NOT CERTIFIED: partial run
 #395	3843c563	341	same three	12 DETECTED, control CLEAN, then cancelled by the Owner	329 not run on this head	CANCELLED (never a PASS)
