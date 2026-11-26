@@ -1,9 +1,10 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala, ActorRefProvider.scala and ActorRef.scala (Apache-2.0).
 //! `ActorSelection`: a path into the actor tree, looked up each time a message is sent through it.
 //!
-//! Not ported yet: the `*` and `?` patterns (such an element is looked up as a name), `resolveOne`, equality and the string
-//! forms, `actorSelection(ActorPath)`, `/temp`, and death watch on the recipient of a missed selection. A `#uid` that is no
-//! number throws in Pekko and matches nothing here (Q-REF-8, open).
+//! An element with `*` or `?` is a pattern over the names of the children. In a string path `?` starts the URI query, which is
+//! dropped, so only `*` can be written there. Not ported yet: `resolveOne`, equality and the string forms,
+//! `actorSelection(ActorPath)`, `/temp`, and death watch on the recipient of a missed selection. A `#uid` that is no number
+//! throws in Pekko and matches nothing here (Q-REF-8, open).
 
 use std::sync::{Arc, Weak};
 
@@ -14,12 +15,15 @@ use crate::actor::system::{SystemInner, is_dead_letter_suppressed};
 use crate::actor::{ActorPath, relative_actor_path_elements};
 use crate::dispatch::sysmsg::SystemMessage;
 use crate::event::DeadLetter;
+use crate::util::glob_matches;
 
 /// `SelectionPathElement`.
 #[derive(Clone)]
 enum Element {
     /// `SelectChildName`
     Name(String),
+    /// `SelectChildPattern`
+    Pattern(String),
     /// `SelectParent`
     Parent,
 }
@@ -27,7 +31,8 @@ enum Element {
 /// `org.apache.pekko.actor.ActorSelection`, made by `actor_selection` of an [`ActorSystem`](crate::actor::system::ActorSystem) or
 /// an [`ActorContext`]. Nothing is looked up until a message is sent. A message that reaches no actor becomes a [`DeadLetter`]
 /// whose recipient is the selected path, or `deadLetters` for a URI of another system, unparseable text and anything under
-/// `/deadLetters`; an [`Identify`] is answered with an [`ActorIdentity`] without a reference.
+/// `/deadLetters`; an [`Identify`] is answered with an [`ActorIdentity`] without a reference. A pattern reaches every child it
+/// matches. After a single match a miss is addressed below that actor; after two or more it is silent.
 #[derive(Clone)]
 pub struct ActorSelection {
     system: Arc<SystemInner>,
@@ -51,12 +56,22 @@ impl ActorSelection {
         } else {
             (dead_letters, Vec::new())
         };
+        Self::from_elements(system, anchor, names)
+    }
+
+    /// `ActorSelection(anchorRef, elements)`: empty elements are dropped.
+    fn from_elements(
+        system: &Arc<SystemInner>,
+        anchor: ActorRef,
+        names: impl IntoIterator<Item = String>,
+    ) -> Self {
         let elements = names.into_iter().filter(|name| !name.is_empty());
         ActorSelection {
             system: system.clone(),
             anchor,
             elements: elements
                 .map(|name| match name.as_str() {
+                    _ if name.contains(['*', '?']) => Element::Pattern(name),
                     ".." => Element::Parent,
                     _ => Element::Name(name),
                 })
@@ -71,18 +86,50 @@ impl ActorSelection {
 
     /// Type-erased [`ActorSelection::tell`].
     pub fn tell_any(&self, msg: AnyMessage, sender: Option<ActorRef>) {
-        let mut current = self.anchor.clone();
-        for element in &self.elements {
+        self.deliver(&self.anchor, &self.elements, msg, sender, false);
+    }
+
+    /// `deliverSelection`: walks `elements` from `anchor`. `fanned_out` is set once a pattern matched two or more actors: from
+    /// then on a miss is silent.
+    fn deliver(
+        &self,
+        anchor: &ActorRef,
+        elements: &[Element],
+        msg: AnyMessage,
+        sender: Option<ActorRef>,
+        fanned_out: bool,
+    ) {
+        let mut current = anchor.clone();
+        for (index, element) in elements.iter().enumerate() {
             // `deadLetters` is the one reference without a cell that a walk can stand on
             if current == self.system.dead_letters {
-                return answer_not_found(&self.system, current, msg, sender);
+                return answer_not_found(&self.system, current, msg, sender, fanned_out);
             }
             let next = match element {
                 Element::Parent => self.parent_of(&current),
                 Element::Name(name) => self.child_of(&current, name),
+                Element::Pattern(pattern) => {
+                    let mut matching = current.0.children();
+                    matching.retain(|child| glob_matches(pattern, child.path().name()));
+                    if !matching.is_empty() {
+                        let rest = &elements[index + 1..];
+                        let fanned_out = fanned_out || matching.len() > 1;
+                        for child in matching {
+                            // with nothing left this tells the child
+                            self.deliver(&child, rest, msg.clone(), sender.clone(), fanned_out);
+                        }
+                        return;
+                    }
+                    None
+                }
             };
             let Some(next) = next else {
-                return answer_not_found(&self.system, self.empty_ref(), msg, sender);
+                if !fanned_out {
+                    // after a single match the recipient is below that match, not below the selection's anchor
+                    let missed = self.empty_ref(anchor, elements);
+                    answer_not_found(&self.system, missed, msg, sender, false);
+                }
+                return;
             };
             current = next;
         }
@@ -112,17 +159,18 @@ impl ActorSelection {
         (uid == 0 || uid == child.path().uid()).then_some(child)
     }
 
-    /// The `EmptyLocalActorRef` of a miss: the anchor's path followed by every element of the selection.
-    fn empty_ref(&self) -> ActorRef {
-        let anchor = self.anchor.path().clone();
-        let path = self.elements.iter().fold(anchor, |path, element| {
-            let name = match element {
-                Element::Name(name) => name,
-                Element::Parent => "..",
-            };
-            // `path / name` reads a `#uid`
-            path.child(name).unwrap_or_else(|_| path.new_child(name, 0))
-        });
+    /// The `EmptyLocalActorRef` of a miss: the anchor's path followed by every element that was to be walked from it.
+    fn empty_ref(&self, anchor: &ActorRef, elements: &[Element]) -> ActorRef {
+        let path = elements
+            .iter()
+            .fold(anchor.path().clone(), |path, element| {
+                let name = match element {
+                    Element::Name(name) | Element::Pattern(name) => name,
+                    Element::Parent => "..",
+                };
+                // `path / name` reads a `#uid`
+                path.child(name).unwrap_or_else(|_| path.new_child(name, 0))
+            });
         ActorRef(Arc::new_cyclic(|me| EmptyLocalActorRef {
             path,
             system: Arc::downgrade(&self.system),
@@ -132,14 +180,18 @@ impl ActorSelection {
 }
 
 /// What `EmptyLocalActorRef` and `DeadLetterActorRef` do with a selection that ends at them: an `Identify` is answered with no
-/// actor and no sender; anything else is a dead letter addressed to `recipient`. For a suppressed message Pekko publishes a
+/// actor and no sender (not at all once the selection fanned out); anything else is a dead letter addressed to `recipient`. For a suppressed message Pekko publishes a
 /// `SuppressedDeadLetter`, which is not ported: nothing is published (Q-REF-10, open).
 fn answer_not_found(
     system: &SystemInner,
     recipient: ActorRef,
     msg: AnyMessage,
     sender: Option<ActorRef>,
+    fanned_out: bool,
 ) {
+    if fanned_out && msg.is::<Identify>() {
+        return;
+    }
     if let (Some(identify), Some(asker)) = (msg.downcast_ref::<Identify>(), &sender) {
         let identity = ActorIdentity {
             correlation_id: identify.message_id.clone(),
@@ -179,7 +231,7 @@ impl InternalActorRef for EmptyLocalActorRef {
             Some(_) => return,
             None => (msg, sender),
         };
-        answer_not_found(&system, ActorRef(me), msg, sender);
+        answer_not_found(&system, ActorRef(me), msg, sender, false);
     }
     fn send_system(&self, _msg: SystemMessage) {}
     fn stop(&self) {}
@@ -211,6 +263,33 @@ mod tests {
             }
             true
         }
+    }
+
+    /// A string path cannot carry `?` (it starts the URI query), so the elements are given directly, as `ActorSelection(ref, "b?")`
+    /// does; Pekko 2.0.0 was probed through `actorSelection(ActorPath)`.
+    #[test]
+    fn a_question_mark_matches_exactly_one_character() {
+        let system = ActorSystem::create("question").unwrap();
+        let (heard, hears) = channel();
+        let (_open, gate) = channel();
+        let gate = Arc::new(Mutex::new(gate));
+        let props = Props::new(move || Recorder(heard.clone(), gate.clone()));
+        for name in ["b1", "b2", "b33"] {
+            system.actor_of_named(props.clone(), name).unwrap();
+        }
+        let select = |pattern: &str| {
+            let names = ["user".to_owned(), pattern.to_owned()];
+            super::ActorSelection::from_elements(&system.0, system.0.root_guardian(), names)
+        };
+        select("b?").tell("one", None);
+        select("b??").tell("two", None);
+
+        let next = || hears.recv_timeout(WAIT).unwrap();
+        let mut received = [next(), next(), next()];
+        received.sort();
+        assert_eq!(received, ["b1 one", "b2 one", "b33 two"]);
+        let ended = system.terminate().wait(WAIT);
+        ended.expect("terminated").expect("terminated normally");
     }
 
     #[test]

@@ -2305,6 +2305,18 @@ MUTANTS = {
         "let _ = (asker, identity);",
         "an `Identify` sent through a selection that matches nothing gets no `ActorIdentity`",
     ),
+    "selection-never-fans-out": (
+        "src/actor/selection.rs",
+        "let fanned_out = fanned_out || matching.len() > 1;",
+        "let fanned_out = fanned_out && matching.len() > 1;",
+        "a miss after a wildcard that matched several actors still dead-letters and answers `Identify`",
+    ),
+    "selection-miss-below-a-single-match-keeps-the-whole-path": (
+        "src/actor/selection.rs",
+        "let missed = self.empty_ref(anchor, elements);",
+        "let missed = self.empty_ref(&self.anchor, &self.elements);",
+        "the dead letter of a miss below a single wildcard match is addressed to the selected pattern, not below the match",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

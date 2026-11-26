@@ -200,6 +200,9 @@ impl InternalActorRef for LocalActorRef {
     fn single_child(&self, name: &str) -> Option<ActorRef> {
         self.0.child(name)
     }
+    fn children(&self) -> Vec<ActorRef> {
+        self.0.children()
+    }
     #[cfg(test)]
     fn attach_child_for_tests(&self, props: Props, name: &str) -> Result<ActorRef, ActorError> {
         self.0.attach_child(props, Some(name), true)
