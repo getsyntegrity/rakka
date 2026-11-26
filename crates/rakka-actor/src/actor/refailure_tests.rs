@@ -17,10 +17,10 @@ struct Records {
     born: Arc<Mutex<Vec<(&'static str, ActorRef)>>>,
     decided: Arc<Mutex<Vec<String>>>,
     gate: Arc<Mutex<()>>,
+    restarted_with: Arc<Mutex<Vec<&'static str>>>,
 }
 
-/// Creates its children when it starts and throws on any text. Unless it escalates, its decider records the cause, waits for the
-/// gate and resumes.
+/// Creates its children and throws on any text. Unless it escalates, its decider records the cause, waits for the gate and resumes.
 #[derive(Clone)]
 struct Node(&'static str, Directive, Vec<Node>, Records);
 
@@ -42,10 +42,13 @@ impl Actor for Node {
         })
         .into()
     }
+    fn pre_restart(&mut self, _: &mut ActorContext, _: &Throwable, msg: Option<&AnyMessage>) {
+        let text = msg.and_then(|msg| msg.downcast_ref::<&str>().copied());
+        self.3.restarted_with.lock().unwrap().extend(text);
+    }
     fn receive(&mut self, _: &mut ActorContext, msg: &AnyMessage) -> bool {
-        throw(Throwable::illegal_state(
-            msg.downcast_ref::<&str>().unwrap(),
-        ));
+        let text = msg.downcast_ref::<&str>().unwrap();
+        throw(Throwable::illegal_state(text));
     }
 }
 
@@ -86,6 +89,11 @@ fn a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_a
     assert!(child.is_failed());
     child.tell("second", None);
     wait_suspended(&[(&child, 1), (&leaf, 1)]);
+    let cause = Throwable::illegal_state("recreate");
+    child.0.send_system(SystemMessage::Recreate { cause });
+    let restarted = || records.restarted_with.lock().unwrap().clone();
+    wait_until("restart", || !restarted().is_empty());
+    assert_eq!(restarted(), ["second"]);
     drop(deciding);
     wait_until("both reports", || {
         records.decided.lock().unwrap().len() == 2

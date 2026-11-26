@@ -269,9 +269,7 @@ final class Scenario {
   public static final class ErrorCollector extends AbstractActor {
     private final String label, prefix;
     private final Ctx ctx;
-
     ErrorCollector(String label, String prefix, Ctx ctx) { this.label = label; this.prefix = prefix; this.ctx = ctx; }
-
     @Override public Receive createReceive() {
       return receiveBuilder().match(org.apache.pekko.event.Logging.Error.class, e -> {
         if (String.valueOf(e.message()).startsWith(prefix))
