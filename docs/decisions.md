@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 262 decisiones: 0 bloqueantes, 186 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 263 decisiones: 0 bloqueantes, 187 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -386,6 +386,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) `class ?` para todo salvo `&str`/`String`, `Kill`, `ActorIdentity`, `Terminated` y `Failed` (`AnyMessage` es `dyn Any`, sin nombre de tipo; incluye primitivos como `i32` y los eventos del runtime) / (b) que el mensaje aporte su nombre de clase (cambia `tell`) / (c) registro de nombres por tipo
 - **Recomendación:** (a) mientras no haya otra necesidad de nombres de clase de mensajes; String, Kill, ActorIdentity, Terminated y Failed ya usan el nombre de la JVM
 - **Filas afectadas:** AC-CELL-007.1
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+
+### Q-CELL-7 — Invocar el preRestart por defecto desde un override
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:627-633 ; casos ur-calls-super y ur-no-super* (scenario-pre-restart-unwatch)
+- **Alternativas:** (a) repetir en el override sus tres pasos: unwatch y stop de cada hijo, luego post_stop (conducta actual, sin API nueva) / (b) helper publico que ejecute esos pasos y el override pueda llamar
+- **Recomendación:** (b). Consecuencia de (a): un override no tiene equivalente de super.preRestart y no recibe un cambio posterior del default; omitir unwatch entrega Terminated o el mensaje de watchWith a la instancia nueva.
+- **Filas afectadas:** AC-CELL-006
 - **Unidades afectadas:** CELL
 - **Origen:** classic-cell
 

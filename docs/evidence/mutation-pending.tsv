@@ -14,3 +14,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #407	275b6852	73	none on this head (six re-pointed cell.rs mutants; the four new ones come with the stacked slice 2/2)	none	73 not run (Q-X-23)	PENDING
 #409	41bc97ef	131	supervision-errors-are-published-guarded	none	131 not run (Q-X-23)	PENDING
 #410	a76ea67b	369	handled-failure-is-forgotten; resume-forgets-the-current-message; success-keeps-the-current-message; restart-keeps-the-current-message	none	369 not run (Q-X-23)	PENDING
+#411	acf416d9	370	pre-restart-keeps-watching-children	none	370 not run (Q-X-23)	PENDING
