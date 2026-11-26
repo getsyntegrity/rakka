@@ -101,6 +101,7 @@ class Gate:
     skip_reason: str = ""    # non-empty: nothing to run (reported, never silent)
     regenerates: tuple = ()  # tracked files this gate rewrites on every run: not "uncommitted edits" of its own inputs
     exit_labels: tuple = ()  # (exit code, verdict label) pairs; any other non-zero code is a plain FAIL
+    reusable: bool = True    # False: the gate keeps its own finer evidence and must run every time
 
 
 RUST_INPUTS = ("crates", "Cargo.toml", "Cargo.lock")
@@ -124,8 +125,9 @@ def tier_gates(tier, selected_mutants, mutant_args=()):
         Gate("coverage", ["tools/parity/coverage.sh"], RUST_INPUTS + ("tools/parity/coverage.sh",)),
         Gate("replay", ["tools/gates/replay.sh"], PARITY_INPUTS, regenerates=REPLAY_REGENERATED),
     ]
-    mutants = Gate("mutants", [PY, "tools/parity/check_divergence.py", *selected_mutants], PARITY_INPUTS,
-                   "" if selected_mutants else "no mutated file changed since the base", REPLAY_REGENERATED, MUTANT_RUNNER_LABELS)
+    # per-mutant reuse and a control on every run (Q-X-22 R3): a passing record of the whole gate would not carry the external tool versions
+    mutants = Gate("mutants", [PY, "tools/gates/pr_mutants.py", *selected_mutants], PARITY_INPUTS + ("tools/gates",),
+                   "" if selected_mutants else "no mutated file changed since the base", REPLAY_REGENERATED, MUTANT_RUNNER_LABELS, reusable=False)
     if tier == "fast":
         return fast
     if tier == "pr":
@@ -256,7 +258,7 @@ def run_gate(gate, toolchain, reuse, head):
         return f"SKIP {gate.name}: {gate.skip_reason}", 0, "PASS"
     state_before = input_state(gate.inputs, gate.regenerates)
     trees, dirty = state_before[0], state_before[1]
-    key = evidence_key(gate.command, trees, toolchain, dirty)
+    key = evidence_key(gate.command, trees, toolchain, dirty) if gate.reusable else None
     evidence = os.path.join(GATES_DIR, "evidence", f"{gate.name}-{key}.json") if key else None
     if reuse and evidence and os.path.exists(evidence):
         with open(evidence) as evidence_file:
