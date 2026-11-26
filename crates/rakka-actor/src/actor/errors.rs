@@ -3,6 +3,8 @@
 
 use std::fmt;
 
+use crate::dispatch::mailboxes::MailboxSelectionError;
+
 macro_rules! java_error {
     ($(#[$doc:meta])* $name:ident, $class:literal) => {
         $(#[$doc])*
@@ -144,15 +146,10 @@ pub struct ConfigurationError {
 }
 
 impl ConfigurationError {
-    pub(crate) fn caused_by(message: String, cause: &crate::ConfigurationException) -> Self {
-        let cause = format!(
-            "{}: {}",
-            ErrorClass::Configuration.java_name(),
-            cause.message()
-        );
+    pub(crate) fn caused_by(message: String, cause: &MailboxSelectionError) -> Self {
         Self {
             message,
-            cause: Some(cause),
+            cause: Some(cause.to_string_like_throwable()),
         }
     }
 
@@ -317,7 +314,9 @@ mod configuration_error_tests {
 
     #[test]
     fn a_configuration_error_keeps_the_class_and_message_of_its_cause() {
-        let cause = ConfigurationException::new("Mailbox Type [x] not configured");
+        let cause = MailboxSelectionError::from(ConfigurationException::new(
+            "Mailbox Type [x] not configured",
+        ));
         let error: ActorError = ConfigurationError::caused_by("outer".to_owned(), &cause).into();
         assert_eq!(error.message(), "outer");
         assert_eq!(
