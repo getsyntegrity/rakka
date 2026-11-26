@@ -2987,3 +2987,6 @@ sv-queued-before-restart	scenario-restart-survivors	AC-SUP-015	cited
 sv-escalating-child	scenario-restart-survivors	AC-SUP-015	cited
 sv-postrestart-fails	scenario-restart-survivors	AC-SUP-015	cited
 sv-mid-restart	scenario-restart-survivors	AC-SUP-015,AC-CELL-013.2	cited
+sv-three-levels-kill	scenario-restart-survivors	AC-SUP-015	cited
+sv-postrestart-once	scenario-restart-survivors	AC-SUP-019,AC-CELL-007.4	cited
+sv-fatal-resume	scenario-restart-survivors	AC-SUP-019,AC-CELL-007.4	cited

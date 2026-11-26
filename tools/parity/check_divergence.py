@@ -176,8 +176,8 @@ MUTANTS = {
     ),
     "failed-restart-still-restarts-survivors": (
         "src/actor/cell.rs",
-        "self.handle_invoke_failure(failure, None);\n            return;\n        }\n        for",
-        "self.handle_invoke_failure(failure, None);\n        }\n        for",
+        "self.fail_restart(&cause, &survivors);\n            return;\n        }\n        for",
+        "self.fail_restart(&cause, &survivors);\n        }\n        for",
         "the survivors are restarted although the parent's `postRestart` failed",
     ),
     "waiting-cell-does-not-defer-system-messages": (
@@ -185,6 +185,31 @@ MUTANTS = {
         "} else if m.stash_when_waiting_for_children() && self.waits_for_children() {",
         "} else if false {",
         "a cell waiting for its children to die takes `Suspend` and `Recreate` at once, and stays suspended",
+    ),
+    # --- failed restart and terminating survivor (AC-SUP-019, AC-CELL-007.4) ---
+    "failed-restart-suspends-survivors-again": (
+        "src/actor/cell.rs",
+        "&& !still_suspended.contains(k)",
+        "|| still_suspended.contains(k)",
+        "a failing restart suspends the survivors a second time, so the next restart does not resume them",
+    ),
+    "fatal-restart-repeats-pre-restart": (
+        "src/actor/cell.rs",
+        "if !failed_fatally {",
+        "if true {",
+        "the restart after a failed restart calls `preRestart` again",
+    ),
+    "fatal-resume-is-a-plain-resume": (
+        "src/actor/cell.rs",
+        "cause.clone().filter(|_| failed_fatally)",
+        "cause.clone().filter(|_| false)",
+        "`Resume` of an actor that failed fatally is not turned into a restart",
+    ),
+    "terminating-recreate-skips-the-children": (
+        "src/actor/cell.rs",
+        "self.fault_resume(None);",
+        "self.resume_after_failure(true);",
+        "`Recreate` of a terminating actor does not resume its children and clears `failed` (killed by a unit test, see UNIT_MUTANTS)",
     ),
     "pill-not-suppressed-from-dead-letters": (
         "src/actor/system.rs",
@@ -343,8 +368,8 @@ MUTANTS = {
     ),
     "escalate-alters-cause": (
         'src/actor/cell.rs',
-        '        self.fail(cause, Some(message), Some(child));',
-        '        let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", cause.message.as_deref());\n        self.fail(cause, Some(message), Some(child));',
+        '        self.fail(cause, Some(message), Some(child), &[]);',
+        '        let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", cause.message.as_deref());\n        self.fail(cause, Some(message), Some(child), &[]);',
         "the escalation rewraps the cause: the grandparent's decider sees another exception class (observable in its `decide` event and in the default decision)",
     ),
     "escalate-never-resumes-children": (
@@ -764,8 +789,8 @@ MUTANTS = {
     ),
     "decider-failure-without-failed-message": (
         "src/actor/cell.rs",
-        "self.fail(thrown, Some(failed), Some(child));",
-        "self.fail(thrown, None, None);",
+        "self.fail(thrown, Some(failed), Some(child), &[]);",
+        "self.fail(thrown, None, None, &[]);",
         "a supervisor that failed while deciding forgets the Failed message (preRestart sees none) and suspends the child again",
     ),
     "restart-factory-failure-drops-old-instance": (
@@ -2223,6 +2248,7 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "terminating-recreate-skips-the-children": ("actor::cell::terminating_survivor_tests", "recreate_of_a_terminating_actor_resumes_its_children_and_keeps_it_failed"),
     "walker-stop-links-only-a-success-to-the-public-future": ("actor::guardian_termination_tests", "stop_called_directly_after_the_failure_fails_the_public_future_with_the_cause"),
     "walker-signal-fires-for-any-discarded-message": ("actor::guardian_termination_tests", "only_the_death_notification_of_the_failed_root_is_the_synchronisation_signal"),
     "dispatchers-guard-does-not-shut-down": ("actor::guardian_termination_tests", "the_guard_shuts_the_dispatchers_down_when_the_test_unwinds"),

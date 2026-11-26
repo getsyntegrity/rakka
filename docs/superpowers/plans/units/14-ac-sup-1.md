@@ -20,7 +20,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-SUP-009.
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-SUP-1`, `Q-SUP-2`.
+- Propuestas aún sin decisión del Owner: `Q-CELL-2`, `Q-SUP-1`, `Q-SUP-2`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -87,7 +87,7 @@ Filas: AC-SUP-019, AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/invento
 | AC-SUP-016 | Parada de emergencia ante excepción en el manejo del fallo | - | derivada del código (ver bloque de contrato) | Q-X-5 |
 | AC-SUP-017 | Catálogo de excepciones del ciclo de vida: ActorInitializationException… | `enum ActorError` o structs con `source()` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:277-286 ;… | Q-SUP-1 |
 | AC-SUP-018 | logFailure: texto y destino del log de fallos de hijos | `fn log_failure(&self, ctx, child, cause, directive)` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:817-832 | - |
-| AC-SUP-019 | Fallo fatal en restart: Resume con causa se convierte en Restart y no se… | bandera `failed_fatally` en la celda | derivada del código (ver bloque de contrato) | - |
+| AC-SUP-019 | Fallo fatal en restart: Resume con causa se convierte en Restart y no se… | bandera `failed_fatally` en la celda | derivada del código (ver bloque de contrato) | Q-CELL-2 |
 | AC-SUP-020 | Fallo en handleChildTerminated de la estrategia | - | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:143-162 | - |
 | AC-SUP-021 | Constructores y valores por defecto de OneForOneStrategy/AllForOneStrategy;… | builders OneForOne/AllForOne (max_retries, within, logging) con defaults -1/Inf/true,… | actor-tests/src/test/scala/org/apache/pekko/actor/RestartStrategySpec.scala:90-112 ;… | Q-SUP-1, Q-SUP-2 |
 

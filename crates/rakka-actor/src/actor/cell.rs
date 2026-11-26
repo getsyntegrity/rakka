@@ -43,6 +43,8 @@ struct CellState {
     terminated_queued: HashSet<ActorRef>,
     /// `isFailed`: the actor reported a failure and waits for its supervisor's decision
     failed: bool,
+    /// `FailedFatally`: a restart failed. Pekko never clears it: no later restart calls `preRestart`, and `Resume` restarts.
+    failed_fatally: bool,
     /// the message being processed when it failed (`currentMessage`), handed to `preRestart`
     failed_message: Option<AnyMessage>,
     /// the instance a restart replaced: Pekko keeps it in `_actor` until the factory has produced the new one
@@ -136,6 +138,10 @@ impl InternalActorRef for LocalActorRef {
     #[cfg(test)]
     fn has_system_messages(&self) -> bool {
         self.0.has_system_messages()
+    }
+    #[cfg(test)]
+    fn is_failed(&self) -> bool {
+        self.0.st.lock().unwrap().failed
     }
     fn is_terminated(&self) -> bool {
         self.0.status.is_closed()
@@ -519,16 +525,18 @@ impl ActorCell {
 
     /// `handleInvokeFailure`: suspend the mailbox and every child, mark the actor failed and report to the parent, which decides.
     fn handle_invoke_failure(self: &Arc<Self>, cause: Throwable, message: Option<AnyMessage>) {
-        self.fail(cause, message, None);
+        self.fail(cause, message, None, &[]);
     }
 
     /// `handleInvokeFailure(childrenNotToSuspend, t)`. `perpetrator` is the failed child whose `Failed` is being escalated: it already
-    /// suspended itself, so it is not suspended again (and it is the one child that gets the cause back on `Resume`).
+    /// suspended itself, so it is not suspended again (and it is the one child that gets the cause back on `Resume`). `still_suspended`
+    /// are the survivors of a restart that failed: they have not been resumed since the failure that caused it.
     fn fail(
         self: &Arc<Self>,
         cause: Throwable,
         message: Option<AnyMessage>,
         perpetrator: Option<ActorRef>,
+        still_suspended: &[ActorRef],
     ) {
         {
             let mut st = self.st.lock().unwrap();
@@ -546,7 +554,7 @@ impl ActorCell {
             .unwrap()
             .children()
             .into_iter()
-            .filter(|k| Some(k) != perpetrator.as_ref())
+            .filter(|k| Some(k) != perpetrator.as_ref() && !still_suspended.contains(k))
         {
             k.send_system(SystemMessage::Suspend); // suspendChildren
         }
@@ -735,7 +743,7 @@ impl ActorCell {
             child: child.clone(),
             cause,
         });
-        self.fail(thrown, Some(failed), Some(child));
+        self.fail(thrown, Some(failed), Some(child), &[]);
     }
 
     /// `processFailure`: a restart is only granted while every affected child is within its limit, otherwise they are stopped.
@@ -786,7 +794,7 @@ impl ActorCell {
             child: child.clone(),
             cause: cause.clone(),
         });
-        self.fail(cause, Some(message), Some(child));
+        self.fail(cause, Some(message), Some(child), &[]);
     }
 
     /// `faultSuspend`: suspend this actor and, recursively, its children (the failed parent's whole subtree waits for the decision).
@@ -804,6 +812,11 @@ impl ActorCell {
         if self.has_no_instance() {
             // there is no instance to resume (it never got created): `Resume` becomes `Create`
             self.change_into_create("Resume", cause.as_ref());
+            return;
+        }
+        let failed_fatally = self.st.lock().unwrap().failed_fatally;
+        if let Some(cause) = cause.clone().filter(|_| failed_fatally) {
+            self.fault_recreate(cause);
             return;
         }
         let perp = self.st.lock().unwrap().perpetrator.clone();
@@ -826,12 +839,17 @@ impl ActorCell {
             return;
         }
         if self.children.lock().unwrap().is_terminating() {
-            // the actor is shutting down anyway: only keep the suspend counter balanced
-            self.resume_after_failure(true);
+            // the actor is shutting down anyway: `faultResume(null)` keeps the suspend counters balanced and the failure
+            self.fault_resume(None);
             return;
         }
-        let message = self.st.lock().unwrap().failed_message.clone();
-        let _ = self.with_actor(|a, ctx| a.pre_restart(ctx, &cause, message.as_ref())); // failures here are only logged in Pekko
+        let (message, failed_fatally) = {
+            let st = self.st.lock().unwrap();
+            (st.failed_message.clone(), st.failed_fatally)
+        };
+        if !failed_fatally {
+            let _ = self.with_actor(|a, ctx| a.pre_restart(ctx, &cause, message.as_ref())); // failures here are only logged in Pekko
+        }
         {
             let mut st = self.st.lock().unwrap();
             st.replaced_actor = st.actor.take();
@@ -905,8 +923,7 @@ impl ActorCell {
             Err(_) => {
                 // the old instance stays in place, so it is stopped (and post-stopped) with the cell
                 self.st.lock().unwrap().actor = replaced;
-                let failure = self.post_restart_failure(&cause);
-                self.handle_invoke_failure(failure, None);
+                self.fail_restart(&cause, &survivors);
                 return;
             }
         };
@@ -916,8 +933,7 @@ impl ActorCell {
             .is_err()
         {
             // the new instance stays in place (Pekko keeps `_actor`): it gets its `postStop` when the actor stops
-            let failure = self.post_restart_failure(&cause);
-            self.handle_invoke_failure(failure, None);
+            self.fail_restart(&cause, &survivors);
             return;
         }
         for survivor in survivors {
@@ -925,6 +941,13 @@ impl ActorCell {
                 cause: cause.clone(),
             });
         }
+    }
+
+    /// `setFailedFatally` and `handleInvokeFailure(survivors, PostRestartException)`: the survivors are still suspended.
+    fn fail_restart(self: &Arc<Self>, original_cause: &Throwable, survivors: &[ActorRef]) {
+        self.st.lock().unwrap().failed_fatally = true;
+        let failure = self.post_restart_failure(original_cause);
+        self.fail(failure, None, None, survivors);
     }
 
     /// `FaultHandling.terminate`
@@ -1364,5 +1387,85 @@ mod reporter_class_tests {
     #[test]
     fn without_an_instance_the_reporter_is_the_actor_trait() {
         assert_eq!(reporter_class(None), "org.apache.pekko.actor.Actor");
+    }
+}
+
+#[cfg(test)]
+mod terminating_survivor_tests {
+    use super::*;
+    use crate::actor::system::ActorSystem;
+    use std::sync::atomic::AtomicUsize;
+
+    /// A chain of actors, one per depth: "fail" throws, anything else blocks until the test lets go of the gate of its depth.
+    #[derive(Clone)]
+    struct Chain {
+        depth: usize,
+        born: Arc<Mutex<Vec<ActorRef>>>,
+        gates: Arc<[Mutex<()>; 4]>,
+        blocked: Arc<AtomicUsize>,
+    }
+
+    impl Actor for Chain {
+        fn pre_start(&mut self, ctx: &mut ActorContext) {
+            self.born.lock().unwrap().push(ctx.self_ref());
+            if self.depth > 0 {
+                let next = Chain {
+                    depth: self.depth - 1,
+                    ..self.clone()
+                };
+                ctx.actor_of(Props::new(move || next.clone())).unwrap();
+            }
+        }
+        fn receive(&mut self, _: &mut ActorContext, msg: &AnyMessage) -> bool {
+            if msg.downcast_ref::<&str>() == Some(&"fail") {
+                throw(Throwable::illegal_state("fail"));
+            }
+            self.blocked.fetch_add(1, Ordering::SeqCst);
+            drop(self.gates[self.depth].lock().unwrap());
+            true
+        }
+    }
+
+    fn wait_for(what: &str, condition: impl Fn() -> bool) {
+        let started = std::time::Instant::now();
+        while !condition() {
+            assert!(started.elapsed().as_secs() < 10, "timed out: {what}");
+            std::thread::yield_now();
+        }
+    }
+
+    /// An actor stopped while its parent still decides about its failure gets `Recreate` as a terminating one: `faultResume(null)`,
+    /// which resumes its children too and does not clear `failed`.
+    #[test]
+    fn recreate_of_a_terminating_actor_resumes_its_children_and_keeps_it_failed() {
+        let system = ActorSystem::create("t-terminating-survivor").unwrap();
+        let root = Chain {
+            depth: 3,
+            born: Arc::default(),
+            gates: Arc::default(),
+            blocked: Arc::default(),
+        };
+        let (born, gates, blocked) = (root.born.clone(), root.gates.clone(), root.blocked.clone());
+        let top = system.actor_of(Props::new(move || root.clone())).unwrap();
+        wait_for("chain", || born.lock().unwrap().len() == 4);
+        let born = born.lock().unwrap().clone();
+        let (failing, child, leaf) = (&born[1], &born[2], &born[3]);
+        let suspended = |actor: &ActorRef, times: u8| {
+            let view = actor.mailbox_view();
+            view.contains(&format!("suspendCount={times} "))
+        };
+        let deciding = gates[3].lock().unwrap();
+        let held = gates[0].lock().unwrap();
+        leaf.tell("block", None);
+        top.tell("block", None);
+        wait_for("top and leaf busy", || blocked.load(Ordering::SeqCst) == 2);
+        failing.tell("fail", None);
+        wait_for("failed", || suspended(failing, 1) && suspended(child, 1));
+        failing.stop();
+        wait_for("stopping", || suspended(failing, 2) && suspended(child, 2));
+        drop(deciding); // `top` now decides: restart
+        wait_for("resumed", || suspended(failing, 1) && suspended(child, 1));
+        assert!(failing.is_failed());
+        drop(held);
     }
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Writes cases/scenario-restart-survivors.jsonl: a restarted parent restarts the children its `preRestart` did not stop (AC-SUP-015).
 
-Behaviour option `keep-children` (same name in Scenario.java and scenario.rs): `preRestart` only records its event.
+Behaviour options (same names in Scenario.java and scenario.rs): `keep-children` makes `preRestart` only record its event;
+`throw-in-post-restart: "once"` makes only the first `postRestart` of the label throw. The failed restart is AC-SUP-019.
 """
 import json, os, sys
 
@@ -10,6 +11,10 @@ from make_scenarios_3a import S, C, EV, NOW, TELL, CHILDREN  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OPEN = {"op": "open-hold", "hold": "H"}
+KILL = lambda r: {"op": "tell", "ref": r, "msg": {"special": "Kill"}}
+# every actor of the tree restarts a child killed with `Kill` (SupervisorTreeSpec restarts on any Exception)
+TREE = {"decider": {"Kill": "restart"}}
+POST_RESTART_TEXT = "pekko://sys/user/g/p: exception post restart (class java.lang.IllegalStateException)"
 
 
 def keeper(parent, name, **cfg):
@@ -33,7 +38,21 @@ CASES = {
     # PostRestartException with the default decider stops p: the survivor is never restarted, only stopped
     "sv-postrestart-fails": [*S("p", throw_on="boom", keep_children=True, throw_in_post_restart=True), C("p", "k", "k"), EV("k", 1),
                              TELL("p", "boom"), EV("k", 2), {"op": "await-stopped", "ref": "k"}, NOW("k"), NOW("p")],
+    "sv-three-levels-kill": [*S("head", supervisor=TREE), keeper("head", "middle", supervisor=TREE), keeper("middle", "last", supervisor=TREE),
+                             EV("last", 1), KILL("middle"), EV("middle", 4), EV("last", 4), NOW("middle"), NOW("last"), NOW("head")],
 }
+
+
+def failed_once(on_post_restart_failure):
+    """`p` fails its first `postRestart`: the next restart skips `preRestart`, and the survivor `k`, suspended once only, restarts"""
+    return [*S("g", supervisor={"decider": {"boom": "restart", POST_RESTART_TEXT: on_post_restart_failure}}),
+            keeper("g", "p", throw_on="boom", throw_in_post_restart="once"), C("p", "k", "k"), EV("k", 1), TELL("p", "boom"), EV("k", 5),
+            TELL("k", "after"), EV("k", 6), TELL("p", "alive"), EV("p", 7), NOW("k"), NOW("p")]
+
+
+CASES["sv-postrestart-once"] = failed_once("restart")
+# `Resume` of an actor that failed fatally is turned into a restart
+CASES["sv-fatal-resume"] = failed_once("resume")
 
 
 def main():

@@ -57,6 +57,7 @@ final class Scenario {
     CountDownLatch hold(String name) { return holds.computeIfAbsent(name, k -> new CountDownLatch(1)); }
     final CopyOnWriteArrayList<String> life = new CopyOnWriteArrayList<>(); // "label:pre-start", "label:post-stop", "label:terminated:<is>"
     final Map<Long, String> results = new ConcurrentHashMap<>(); // command id -> result fields
+    final java.util.Set<String> failedPostRestart = ConcurrentHashMap.newKeySet(); // labels that already threw (`throw-in-post-restart: "once"`)
     final java.util.concurrent.atomic.AtomicLong cmdIds = new java.util.concurrent.atomic.AtomicLong();
     ActorSystem system;
 
@@ -169,7 +170,8 @@ final class Scenario {
     @Override public void postRestart(Throwable reason) throws Exception {
       ctx.add(label, "{\"ev\":\"post-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + "}");
       ctx.life.add(label + ":post-restart");
-      if (Boolean.TRUE.equals(cfg.get("throw-in-post-restart"))) throw new IllegalStateException("post-restart"); // `throw-in-post-restart`
+      Object fails = cfg.get("throw-in-post-restart"); // `true`, or `"once"`: only the first postRestart of this label
+      if (Boolean.TRUE.equals(fails) || ("once".equals(fails) && ctx.failedPostRestart.add(label))) throw new IllegalStateException("post-restart"); // `throw-in-post-restart`
       super.postRestart(reason); // default: preStart
     }
     @Override public void postStop() {

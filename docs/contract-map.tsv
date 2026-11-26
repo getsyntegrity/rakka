@@ -203,7 +203,7 @@ AC-SUP-015	SUP	classic	AC-SUP-1	14	extracted	partial	actor-tests/src/test/scala/
 AC-SUP-016	SUP	classic	AC-SUP-1	14	extracted	pending	derivada del código	casos rust-anything contra Pekko 2.0.0 (	Q-X-5	docs/inventory/contracts/classic-cell.md
 AC-SUP-017	SUP	classic	AC-SUP-1	14	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:277-286 ;…	casos rust-anything contra Pekko 2.0.0 (	Q-SUP-1	docs/inventory/contracts/classic-cell.md
 AC-SUP-018	SUP	classic	AC-SUP-1	14	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:817-832	casos rust-anything contra Pekko 2.0.0 (		docs/inventory/contracts/classic-cell.md
-AC-SUP-019	SUP	classic	AC-SUP-1	14	extracted	pending	derivada del código	casos rust-anything contra Pekko 2.0.0 (		docs/inventory/contracts/classic-cell.md
+AC-SUP-019	SUP	classic	AC-SUP-1	14	extracted	partial	derivada del código	casos rust-anything contra Pekko 2.0.0 (	Q-CELL-2	docs/inventory/contracts/classic-cell.md
 AC-SUP-020	SUP	classic	AC-SUP-1	14	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:143-162	casos rust-anything contra Pekko 2.0.0 (		docs/inventory/contracts/classic-cell.md
 AC-SUP-021	SUP	classic	AC-SUP-1	14	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/RestartStrategySpec.scala:90-112 ;…	casos rust-anything contra Pekko 2.0.0 (	Q-SUP-1,Q-SUP-2	docs/inventory/contracts/classic-cell.md
 AC-DW-001	DW	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:134-142 ;…	existente		docs/inventory/contracts/classic-cell.md
