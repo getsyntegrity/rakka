@@ -39,7 +39,7 @@ impl Actor for Player {
     }
 }
 
-/// Creates the two players, serves the first ping and records when both have terminated.
+/// Creates the two players and serves the first ping; stops once both have terminated, and records its own stop.
 struct Runner {
     players: Props,
     refs: Vec<ActorRef>,
@@ -59,10 +59,15 @@ impl Actor for Runner {
         } else if msg.is::<Terminated>() {
             self.terminated += 1;
             if self.terminated == 2 {
-                self.done.lock().unwrap().push(());
+                ctx.stop(&ctx.self_ref());
             }
         }
         true
+    }
+
+    /// `expectTerminated(runner)` of the spec: the runner itself ends.
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        self.done.lock().unwrap().push(());
     }
 }
 

@@ -130,7 +130,12 @@ mod tests {
             .collect();
         let mut next = [0_usize; 4];
         let mut taken = 0;
+        let started = std::time::Instant::now();
         while taken < 1000 {
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(10),
+                "only {taken} envelopes arrived"
+            );
             let Some(envelope) = queue.dequeue() else {
                 thread::yield_now();
                 continue;
