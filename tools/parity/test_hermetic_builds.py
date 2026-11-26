@@ -107,6 +107,20 @@ class ScratchWorkspace(unittest.TestCase):
             self.assertIn("--locked", command)
             self.assertIn("--offline", command)
 
+    def test_a_unit_mutant_killed_by_an_integration_test_file_runs_that_file_and_is_still_locked_and_offline(self):
+        cd.UNIT_MUTANTS["an-integration-mutant"] = ("test:classic_guardian_mailbox", "the_expected_test")
+        try:
+            cd.sh = Recorder(lambda command: finished(returncode=0, stdout="test result: ok.\n"))
+            cd.run_unit_mutant(self.scratch, "an-integration-mutant", os.path.join(self.scratch, "an-integration-mutant", "rakka-actor"))
+        finally:
+            del cd.UNIT_MUTANTS["an-integration-mutant"]
+        self.assertEqual(len(cd.sh.commands), 2)
+        for command in cd.sh.commands:
+            self.assertEqual(command[command.index("--test") + 1], "classic_guardian_mailbox")
+            self.assertNotIn("--lib", command)
+            for flag in ("--locked", "--offline"):
+                self.assertIn(flag, command)
+
     def test_a_unit_mutant_that_does_not_compile_is_a_build_error_even_when_libtest_text_shares_the_stream(self):
         cd.UNIT_MUTANTS["a-unit-mutant"] = ("actor::module", "the_expected_test")
         try:

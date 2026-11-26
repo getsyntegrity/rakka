@@ -212,6 +212,49 @@ final class MailboxOracle {
     public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new AuditTrailQueue(); }
   }
 
+  /** Creates a queue that has the {@link AuditTrail} semantics but does not promise it ({@code ProducesMessageQueue} is absent). */
+  public static final class PlainType implements MailboxType {
+    public PlainType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new AuditTrailQueue(); }
+  }
+
+  /** Promises {@link AuditTrailQueue} but creates a {@link LifoQueue}, which has no {@link AuditTrail} semantics. */
+  public static final class LiarType implements MailboxType, ProducesMessageQueue<AuditTrailQueue> {
+    public LiarType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new LifoQueue(); }
+  }
+
+  /** Creates {@code kid} from each {@link Props} it is sent and logs what it sees of it: the failure its supervision gets, its death. */
+  public static final class InitParent extends AbstractActor {
+    final IdEnv env; int attempt;
+    InitParent(IdEnv env) { this.env = env; }
+    @Override public SupervisorStrategy supervisorStrategy() {
+      return new OneForOneStrategy(10, java.time.Duration.ofMinutes(1), t -> {
+        env.log.add("failure:" + t.getClass().getName() + ": " + t.getMessage().replaceAll("#-?\\d+", ""));
+        return SupervisorStrategy.stop();
+      });
+    }
+    @Override public Receive createReceive() {
+      return receiveBuilder().match(Props.class, p -> {
+        String label = attempt++ == 0 ? "created" : "again";
+        try { getContext().watch(getContext().actorOf(p, "kid")); env.log.add(label); }
+        catch (Throwable t) { env.log.add(label + ":" + t.getClass().getName() + ": " + t.getMessage()); }
+      }).match(Terminated.class, t -> env.log.add("terminated")).build();
+    }
+  }
+
+  static final AtomicInteger DEFAULT_QUEUES = new AtomicInteger();
+
+  /** A default mailbox that counts the queues of the three guardians (the system also makes `deadLetterListener` and `eventStreamUnsubscriber`, which Rakka has not); it promises the unbounded {@link LifoQueue}. */
+  public static final class CountingDefaultType implements MailboxType, ProducesMessageQueue<LifoQueue> {
+    public CountingDefaultType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) {
+      String path = owner.isDefined() ? owner.get().path().toString() : "";
+      if (path.equals("pekko://mbx/") || path.equals("pekko://mbx/user") || path.equals("pekko://mbx/system")) DEFAULT_QUEUES.incrementAndGet();
+      return new LifoQueue();
+    }
+  }
+
   /** The workers of the {@code MBX-REQ} cases: the same worker, each declaring {@code RequiresMessageQueue[T]} with a different {@code T}. */
   public static final class UnboundedWorker extends IdWorker implements RequiresMessageQueue<UnboundedMessageQueueSemantics> {
     UnboundedWorker(String label, IdEnv env) { super(label, env); }
@@ -1340,6 +1383,55 @@ final class MailboxOracle {
         return e.perActor("plain", "anyQueue", "audit", "selected");
       }
     });
+    run("MBX-CMP-01 an actor whose requirement the queue promised by the selected mailbox does not fulfill fails actorOf at the call; one it fulfills, or an actor that requires nothing, is created", () -> {
+      try (IdEnv e = new IdEnv(0, "plain-mailbox.mailbox-type = \"pilot.MailboxOracle$PlainType\"\n audit-mailbox.mailbox-type = \"pilot.MailboxOracle$AuditTrailType\"\n")) {
+        return attempts(e, new Object[][] {
+            {"unboundedOnPlain", UnboundedWorker.class, "plain-mailbox"}, {"auditOnUnbounded", AuditTrailWorker.class, "unbounded"},
+            {"boundedOnUnbounded", BoundedWorker.class, "unbounded"}, {"unboundedOnAudit", UnboundedWorker.class, "audit-mailbox"},
+            {"auditOnAudit", AuditTrailWorker.class, "audit-mailbox"}, {"anyOnPlain", AnyQueueWorker.class, "plain-mailbox"},
+            {"nothingOnPlain", IdWorker.class, "plain-mailbox"}});
+      }
+    });
+    run("MBX-CMP-02 the queue of the selected mailbox must fulfill the requirement of the dispatcher and that of the actor, the dispatcher's reported first; an actor binding that does not fit gives way to the dispatcher's binding", () -> {
+      try (IdEnv e = new IdEnv(0, "pekko.actor.default-dispatcher.mailbox-requirement = \"org.apache.pekko.dispatch.UnboundedMessageQueueSemantics\"\n"
+          + "audit-mailbox.mailbox-type = \"pilot.MailboxOracle$AuditTrailType\"\n"
+          + "pekko.actor.mailbox.requirements { \"org.apache.pekko.dispatch.BoundedMessageQueueSemantics\" = cap4-mailbox\n \"pilot.MailboxOracle$AuditTrail\" = audit-mailbox }\n")) {
+        return attempts(e, new Object[][] {
+            {"dispatcherUnmetBySelected", IdWorker.class, "cap4-mailbox"}, {"dispatcherMetBySelected", IdWorker.class, "audit-mailbox"},
+            {"boundedBindingFallsBack", BoundedWorker.class, null}, {"bothMetByAudit", AuditTrailWorker.class, null},
+            {"actorUnmetOnly", BoundedWorker.class, "unbounded"}, {"bothUnmet", BoundedWorker.class, "cap4-mailbox"}, {"plainOnDefault", IdWorker.class, null}});
+      }
+    });
+    run("MBX-CMP-03 a type that promises its queue is checked against the queue it creates when the actor is made: actorOf returns, the actor fails to initialise and stops, and its name is free", () -> {
+      try (IdEnv e = new IdEnv(0, "liar-mailbox.mailbox-type = \"pilot.MailboxOracle$LiarType\"\n")) {
+        ActorRef parent = e.sys.actorOf(Props.create(InitParent.class, e).withMailbox("unbounded"), "parent");
+        parent.tell(e.requiring(AuditTrailWorker.class, "liar").withMailbox("liar-mailbox"), ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("terminated"));
+        parent.tell(e.props("again", null), ActorRef.noSender());
+        awaitUntil(() -> e.log.stream().anyMatch(l -> l.startsWith("again")) && e.started.get() == 1);
+        return String.join(" | ", e.log) + " | started=" + e.started.get();
+      }
+    });
+    run("MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created", () -> {
+      DEFAULT_QUEUES.set(0);
+      try (IdEnv e = new IdEnv(0, "pekko.actor.default-mailbox.mailbox-type = \"pilot.MailboxOracle$CountingDefaultType\"\n")) {
+        return "guardianQueues=" + DEFAULT_QUEUES.get();
+      }
+    });
+  }
+
+  /** Each attempt {label, worker, mailbox id or null}: {@code actorOf} with that mailbox selected; what it throws, or "created". */
+  static String attempts(IdEnv e, Object[][] attempts) throws Exception {
+    StringBuilder out = new StringBuilder();
+    for (Object[] a : attempts) {
+      String label = (String) a[0], outcome;
+      @SuppressWarnings("unchecked") Class<? extends IdWorker> worker = (Class<? extends IdWorker>) a[1];
+      Props props = e.requiring(worker, label);
+      try { e.spawnProps(label, a[2] == null ? props : props.withMailbox((String) a[2])); outcome = "created"; }
+      catch (Throwable t) { outcome = t.getClass().getName() + ": " + t.getMessage() + " | cause " + t.getCause(); }
+      out.append(label).append(": ").append(outcome).append("; ");
+    }
+    return out.toString().trim();
   }
 
   /** Not a golden case (its counts vary run to run): `n` actors, each hit by 4 producers (300 sends each) released together with

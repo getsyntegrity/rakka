@@ -30,12 +30,40 @@ GLOBAL_MUTANT_TRIGGERS = ("Cargo.toml", "Cargo.lock", "cases/", "rust/app-cases/
                           "crates/rakka-actor/Cargo.toml", "crates/rakka-actor/examples/")
 
 
-def select_mutants(changed_files, mutants, tool_mutants):
-    """Names of the mutants a change must re-check; [] when no mutated file changed."""
-    changed = list(changed_files)
+# Files that every replay REWRITES as an output (tools/parity/replay_lib.py writes it, and the verdict of a replay reads only the copy its own run produced under the lock): they are never an
+# input of a verdict, so a change to exactly them selects nothing. Only the exact path is excused: any other file under a trigger still selects everything.
+NON_INPUT_ARTIFACTS = ("rust/app-cases/replay-report.md",)
+
+
+def unit_mutants_of_changed_tests(changed, unit_mutants):
+    """The unit mutants whose verdict reads a changed test: the integration test file they run (`test:<file>`), the helpers all of those share (`tests/common/`), or the test module inside
+    the crate that their `cargo test --lib <filter>` selects. The filter is a SUBSTRING of the test path, so a module path that contains the filter, or that the filter extends, selects too
+    (over-selection is the safe error)."""
+    tests_directory, source_directory = CRATE_PREFIX + "tests/", CRATE_PREFIX + "src/"
+    # code that exists only to be shared by the lib tests (test_support.rs, test_clock.rs, tests.rs, *_tests.rs) can flip ANY of their verdicts: it selects every unit mutant that runs a lib test
+    shared_test_code = any(f.startswith(source_directory) and f.endswith(".rs") and "test" in f.rsplit("/", 1)[-1] for f in changed)
+    picked = set()
+    for name, (module, _expected_test) in unit_mutants.items():
+        if module.startswith("test:"):
+            picked_by_file = tests_directory + module[len("test:"):] + ".rs" in changed or any(f.startswith(tests_directory + "common/") for f in changed)
+        else:
+            def module_path(path):
+                inside = path[len(source_directory):-len(".rs")].split("/")
+                return "::".join(inside[:-1] if inside[-1] == "mod" else inside)
+            picked_by_file = any(f.startswith(source_directory) and f.endswith(".rs") and (module in module_path(f) or module_path(f).startswith(module) or module.startswith(module_path(f)))
+                                 for f in changed)
+        if picked_by_file or (shared_test_code and not module.startswith("test:")):
+            picked.add(name)
+    return picked
+
+
+def select_mutants(changed_files, mutants, tool_mutants, unit_mutants=None):
+    """Names of the mutants a change must re-check; [] when no mutated file changed. `unit_mutants` (name -> (module or `test:<file>`, test)) adds the unit mutants whose test changed."""
+    changed = [path for path in changed_files if path not in NON_INPUT_ARTIFACTS]
     if any(f == t or f.startswith(t) for f in changed for t in GLOBAL_MUTANT_TRIGGERS):
         return list(mutants) + list(tool_mutants)
-    picked = [n for n, (rel, *_rest) in mutants.items() if CRATE_PREFIX + rel in changed]
+    by_test = unit_mutants_of_changed_tests(changed, unit_mutants) if unit_mutants else set()
+    picked = [n for n, (rel, *_rest) in mutants.items() if CRATE_PREFIX + rel in changed or n in by_test]
     picked += [n for n, (rel, *_rest) in tool_mutants.items() if "tools/parity/" + rel in changed]
     return picked
 
@@ -309,7 +337,7 @@ def main(argv):
         sys.path.insert(0, os.path.join(ROOT, "tools", "parity"))
         import check_divergence
         try:
-            selected = select_mutants(changed_files(base), check_divergence.MUTANTS, check_divergence.TOOL_MUTANTS)
+            selected = select_mutants(changed_files(base), check_divergence.MUTANTS, check_divergence.TOOL_MUTANTS, check_divergence.UNIT_MUTANTS)
         except UsageError as problem:
             print(f"refused: {problem}")
             return 2

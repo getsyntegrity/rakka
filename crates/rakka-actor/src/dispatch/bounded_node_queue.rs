@@ -20,6 +20,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use crate::actor::actor_ref::ActorRef;
 use crate::dispatch::dead_letter_mailbox::tell_dead_letter;
 use crate::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
+use crate::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 
 /// `new NonBlockingBoundedMailbox(capacity)` with a negative capacity (`IllegalArgumentException` in Pekko).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,6 +43,16 @@ pub struct NonBlockingBoundedMailbox {
 impl MailboxType for NonBlockingBoundedMailbox {
     fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
         NonBlockingBoundedMailbox::create(self, dead_letters.clone())
+    }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "org.apache.pekko.dispatch.BoundedNodeMessageQueue",
+            &[
+                MessageQueueSemantics::BOUNDED,
+                MessageQueueSemantics::MULTIPLE_CONSUMER,
+            ],
+        )
     }
 }
 
@@ -83,6 +94,18 @@ impl BoundedNodeMessageQueue {
 }
 
 impl MessageQueue for BoundedNodeMessageQueue {
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
+        Some(
+            requirement == MessageQueueSemantics::MESSAGE_QUEUE
+                || requirement == MessageQueueSemantics::BOUNDED
+                || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER,
+        )
+    }
+
+    fn class_name(&self) -> &'static str {
+        "org.apache.pekko.dispatch.BoundedNodeMessageQueue"
+    }
+
     fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
         let mut queue = self.locked();
         if queue.len() < self.capacity {
@@ -116,6 +139,18 @@ impl MessageQueue for BoundedNodeMessageQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_non_blocking_bounded_mailbox_promises_a_bounded_queue() {
+        let produced = NonBlockingBoundedMailbox::new(1).unwrap().produced_queue();
+        assert!(produced.satisfies(MessageQueueSemantics::BOUNDED));
+        assert!(!produced.satisfies(MessageQueueSemantics::UNBOUNDED));
+        assert_eq!(
+            produced.to_string(),
+            "class org.apache.pekko.dispatch.BoundedNodeMessageQueue"
+        );
+    }
+
     use crate::dispatch::message_queue::UnboundedMailbox;
     use crate::dispatch::test_support::{Recorder, recorder};
     use crate::event::DeadLetter;

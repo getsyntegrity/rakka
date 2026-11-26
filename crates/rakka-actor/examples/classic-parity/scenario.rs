@@ -1016,7 +1016,10 @@ fn step(
             out.push_str(",\"ok\":true");
         }
         "await-system-terminated" => match system.when_terminated().wait(await_timeout()) {
-            Some(t) => {
+            Some(Err(failure)) => {
+                return Err(format!("the system ended with a failure: {failure}"));
+            }
+            Some(Ok(t)) => {
                 out.push_str(",\"ok\":true,\"actor\":");
                 js(out, &t.actor.path().to_string());
                 out.push_str(&format!(
