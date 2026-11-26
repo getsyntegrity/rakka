@@ -1,6 +1,6 @@
-// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala, ActorRefProvider.scala and
-// actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala (Apache-2.0).
-//! `actorSelection` from a string path (no wildcards), through the public API. Expected values were observed from Pekko 2.0.0.
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala, ActorRefProvider.scala and actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala (Apache-2.0).
+//! `actorSelection` from a string path (no wildcards), through the public API; misses are in `classic_actor_selection_miss.rs`.
+//! Expected values were observed from Pekko 2.0.0.
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
 mod common;

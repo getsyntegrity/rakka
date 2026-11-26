@@ -2281,6 +2281,12 @@ MUTANTS = {
         "Element::Parent => Some(current.clone()),",
         "a `..` in a selection stays on the same actor",
     ),
+    "selection-miss-leaves-identify-unanswered": (
+        "src/actor/selection.rs",
+        "asker.tell_any(Arc::new(identity), None);",
+        "let _ = (asker, identity);",
+        "an `Identify` sent through a selection that matches nothing gets no `ActorIdentity`",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

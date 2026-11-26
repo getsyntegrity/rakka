@@ -146,7 +146,7 @@ impl SystemInner {
 }
 
 /// Messages marked `DeadLetterSuppression` in Pekko (`Terminated`, `PoisonPill`): never published as `DeadLetter`.
-fn is_dead_letter_suppressed(msg: &AnyMessage) -> bool {
+pub(crate) fn is_dead_letter_suppressed(msg: &AnyMessage) -> bool {
     msg.is::<Terminated>() || msg.is::<PoisonPill>()
 }
 
