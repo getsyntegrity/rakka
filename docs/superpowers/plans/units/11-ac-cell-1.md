@@ -19,7 +19,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CELL-1`, `Q-CELL-2`, `Q-CELL-3`, `Q-CELL-6`, `Q-CELL-7`, `Q-MBX-11`, `Q-REF-2`, `Q-REF-5`.
+- Propuestas aún sin decisión del Owner: `Q-CELL-1`, `Q-CELL-2`, `Q-CELL-3`, `Q-MBX-11`, `Q-REF-2`, `Q-REF-5`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -84,7 +84,7 @@ Filas: AC-CELL-017, AC-CELL-018, AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-
 | AC-CELL-004 | unhandled(): Terminated → DeathPactException; resto → UnhandledMessage en… | resultado `Unhandled` → la celda llama `actor.unhandled(msg)` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-244 ;… | - |
 | AC-CELL-005 | become / unbecome (pila de conductas) | `Vec<Box<dyn Behavior>>` en la celda | actor-tests/src/test/scala/org/apache/pekko/actor/HotSwapSpec.scala:27-133 ;… | Q-CELL-1 |
 | AC-CELL-006 | Hooks de ciclo de vida: preStart, postStop, preRestart (default: unwatch+stop… | métodos por defecto del trait Actor | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:49-130 ;… | Q-CELL-7 |
-| AC-CELL-007.1 | Restart 1/4: Recreate, suspensión y preRestart de la instancia vieja | estado de celda `Restarting{cause}`; `fault_recreate(cause)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:49-82 ;… | Q-CELL-6, Q-X-5 |
+| AC-CELL-007.1 | Restart 1/4: Recreate, suspensión y preRestart de la instancia vieja | estado de celda `Restarting{cause}`; `fault_recreate(cause)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:49-82 ;… | Q-CELL-6, Q-SUP-3, Q-X-5 |
 | AC-CELL-007.2 | Restart 2/4: espera a la parada de los hijos (Recreation) | contenedor de hijos `Terminating{ reason: Recreation(cause) }` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:86-99 ;… | - |
 | AC-CELL-007.3 | Restart 3/4: nueva instancia, postRestart y reinicio de hijos sobrevivientes | `finish_recreate(cause)` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorTreeSpec.scala:27-45 ;… | - |
 | AC-CELL-007.4 | Restart 4/4: fallo en postRestart o constructor → PostRestartException | `PostRestartError { actor, cause, original_cause }` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:421-460 | Q-X-5 |

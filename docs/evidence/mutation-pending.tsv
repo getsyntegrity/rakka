@@ -19,3 +19,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #415	aea1c308	161	selection-parent-is-ignored	none	161 not run (Q-X-23)	PENDING
 #417	f2805958	162	selection-miss-leaves-identify-unanswered	none	162 not run (Q-X-23)	PENDING
 #418	d4ca3a48	374	none	none	374 not run (Q-X-23)	PENDING
+#416	ccc34d3f	373	default-pre-restart-skips-post-stop	none	373 not run (Q-X-23)	PENDING

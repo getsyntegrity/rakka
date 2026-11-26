@@ -305,39 +305,40 @@
 
 ## P21 SUP-FALLO
 
-11 filas; 5 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 3 propuestas.
+11 filas; 5 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-CELL-7 | accepted (2026-11-26): aceptar (b): helper público que ejecute los pasos del preRestart por defecto (unwatch y stop de cada hijo, luego post_stop) para que un override pueda… | 1: AC-CELL-006 | — | — | `classic-cell` |
+| Q-SUP-3 | accepted (2026-11-26): aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la… | 1: AC-SUP-018 | — | — | `classic-cell` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-SUP-010 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 2: AC-SUP-001, AC-SUP-016 | — | — | `transversal` |
 | Q-CELL-2 | propuesta | 1: AC-CELL-021 | Bloquea: sólo el cierre de AC-CELL-021 (requiere autorización explícita del Owner). | Puede avanzar: todo. | `classic-cell` |
-| Q-CELL-7 | propuesta | 1: AC-CELL-006 | — | — | `classic-cell` |
-| Q-SUP-3 | propuesta | 1: AC-SUP-018 | — | — | `classic-cell` |
 
 ## P22 CELL-REINICIO-PARADA
 
-21 filas; 5 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 4 propuestas.
+21 filas; 6 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-CELL-6 | accepted (2026-11-26): aceptar (a): en el texto de PreRestartException un mensaje se nombra `class ?` salvo &str/String, Kill, ActorIdentity, Terminated y Failed, que llevan el… | 1: AC-CELL-007.1 | — | — | `classic-cell` |
+| Q-SUP-3 | accepted (2026-11-26): aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la… | 1: AC-CELL-007.1 | — | — | `classic-cell` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 4: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4, AC-CELL-009 | — | — | `transversal` |
 | Q-CELL-4 | propuesta | 1: AC-CELL-023 | Bloquea: `validation` de AC-CELL-023 (impl puede avanzar). | Puede avanzar: el resto de CELL. | `classic-cell` |
-| Q-CELL-6 | propuesta | 1: AC-CELL-007.1 | — | — | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-010 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
 | Q-REF-2 | propuesta | 1: AC-CELL-002.2 | Bloquea: `impl` de AC-REF-008 y la parte reflexiva de AC-REF-007.1/.2; AC-CELL-002.2 sólo en el texto de InstantiationException. | Puede avanzar: Props con closure + trait ActorFactory, AC-CELL-002.1, AC-CELL-026. | `classic-cell` |
 
 ## P23 DW-VIGILANCIA
 
-13 filas; 5 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 3 propuestas.
+13 filas; 5 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-DW-3 | accepted (2026-11-26): aceptar (a): igualdad por tipo concreto y valor mediante PartialEq: watch_with<M: Any + PartialEq + Send + Sync>(ref, msg). Se aceptan explícitamente las… | 1: AC-DW-005 | Bloquea AC-DW-005. | — | `classic-cell` |
+| Q-DW-4 | accepted (2026-11-26): aceptar (a): en la IllegalStateException de watch / watchWith, String y &str se muestran por valor y cualquier otro tipo por su nombre Rust, sin cotas nuevas… | 1: AC-DW-005 | Bloquea el cierre de AC-DW-005. | — | `classic-cell` |
 | Q-EVT-1 | accepted (2026-11-18): aceptar, incluida la supresión de dead letters durante el shutdown terminante de 2.0.0. | 1: AC-EVT-010 | Bloquea: la comparación textual exacta de AC-EVT-006/008/009/010/013.3/018/019; la lógica avanza con `message_type_name`. | — | `classic-system` |
 | Q-DW-1 | propuesta | 2: AC-DW-002, AC-DW-006 | Bloquea: `impl` de AC-DW-002/006 (PartialEq). | Puede avanzar: el resto de DW. | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-012 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
-| Q-DW-4 | propuesta | 1: AC-DW-005 | Bloquea el cierre de AC-DW-005. | — | `classic-cell` |
 
 ## P24 MBX-STASH
 
@@ -1076,4 +1077,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 519 (248 respondidas, 0 bloqueantes, 271 propuestas).
+Total de pares unidad–decisión: 520 (253 respondidas, 0 bloqueantes, 267 propuestas).

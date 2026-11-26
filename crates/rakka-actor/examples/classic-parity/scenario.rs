@@ -18,6 +18,7 @@ use crate::json::{Value, parse_value, write_str, write_text};
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{
     Actor, ActorContext, ActorIdentity, AnyMessage, Identify, Kill, PoisonPill, Props,
+    default_pre_restart,
 };
 use rakka_actor::actor::supervision::{
     AllForOneStrategy, Directive, OneForOneStrategy, SupervisorStrategy,
@@ -623,13 +624,14 @@ impl Actor for Scripted {
         if let Some(message) = &self.cfg.pre_restart_throws {
             throw_illegal_state(message.as_deref());
         }
-        for child in c.children() {
-            if !self.cfg.stop_without_unwatch {
-                c.unwatch(&child);
+        if self.cfg.stop_without_unwatch {
+            for child in c.children() {
+                c.stop(&child);
             }
-            c.stop(&child);
+            self.post_stop(c);
+        } else {
+            default_pre_restart(self, c, reason, message); // `super.preRestart`
         }
-        self.post_stop(c); // default preRestart, unless `stop-without-unwatch`
     }
 
     fn post_restart(&mut self, c: &mut ActorContext, reason: &Throwable) {
