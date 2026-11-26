@@ -12,6 +12,7 @@ use std::sync::Mutex;
 
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::props::AnyMessage;
+use crate::dispatch::deque_mailbox::DequeBasedMessageQueue;
 use crate::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 
 /// `Envelope`: a user message and its sender.
@@ -40,6 +41,11 @@ pub trait MessageQueue: Send + Sync {
     /// not rejected. A queue that answers `Some` is held to its answer, which is how a type that promises what its queue lacks is found.
     fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
         let _ = requirement;
+        None
+    }
+
+    /// The queue as a deque when it also takes envelopes at its head (`DequeBasedMessageQueueSemantics`); `None` otherwise.
+    fn as_deque(&self) -> Option<&dyn DequeBasedMessageQueue> {
         None
     }
 

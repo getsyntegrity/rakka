@@ -2,6 +2,7 @@
 
 pub mod bounded_node_queue;
 pub(crate) mod dead_letter_mailbox;
+pub mod deque_mailbox;
 pub(crate) mod dispatcher;
 #[cfg(test)]
 mod executor_rejection_tests;
