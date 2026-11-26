@@ -101,9 +101,16 @@ fn throwable_of(payload: Box<dyn std::any::Any + Send>) -> Throwable {
                 .downcast_ref::<&str>()
                 .map(|m| m.to_string())
                 .or_else(|| p.downcast_ref::<String>().cloned());
+            drop_guarded(p);
             Throwable::new("java.lang.RuntimeException", msg.as_deref())
         }
     }
+}
+
+/// Drops a value of the user (an instance, the current message, a strategy, a panic payload): a panic of its `Drop` stops here, once the
+/// panic hook has reported it, so it cannot cut a transition of the cell short. Never call it with a lock of the cell held.
+fn drop_guarded<T>(value: T) {
+    let _ = catch_unwind(AssertUnwindSafe(|| drop(value)));
 }
 
 pub(crate) struct ActorCell {
@@ -470,15 +477,20 @@ impl ActorCell {
     /// The cell has no instance any more (`clearActorFields`).
     fn remove_actor(&self) {
         self.set_current(None);
-        let mut state = self.st.lock().unwrap();
-        state.actor = None;
-        state.actor_class = None;
+        let (actor, replaced) = {
+            let mut state = self.st.lock().unwrap();
+            state.actor_class = None;
+            // `replaced_actor` too: an actor stopped while it restarts still holds the instance it was replacing
+            (state.actor.take(), state.replaced_actor.take())
+        };
+        drop_guarded(actor); // one at a time: a second panic while the first unwinds would abort
+        drop_guarded(replaced);
     }
 
     /// `currentMessage = ...`. The user's value it replaces is dropped outside the state lock, and a panic of its `Drop` stops here.
     fn set_current(&self, current: Option<Envelope>) {
         let replaced = std::mem::replace(&mut self.st.lock().unwrap().current, current);
-        let _ = catch_unwind(AssertUnwindSafe(|| drop(replaced)));
+        drop_guarded(replaced);
     }
 
     /// `clazz(actor)`. A call of its own, so the state lock is released before the event that carries it is published.
@@ -889,8 +901,13 @@ impl ActorCell {
             .current_strategy()
             .unwrap_or_else(|| Ok(SupervisorStrategy::default()))
             .and_then(|strategy| {
-                let decision = catch_unwind(AssertUnwindSafe(|| strategy.decide(&cause)));
-                Ok((decision.map_err(throwable_of)?, strategy))
+                match catch_unwind(AssertUnwindSafe(|| strategy.decide(&cause))) {
+                    Ok(decision) => Ok((decision, strategy)),
+                    Err(payload) => {
+                        drop_guarded(strategy); // it holds the decider's captures
+                        Err(throwable_of(payload))
+                    }
+                }
             });
         let (decision, strategy) = match answer {
             Ok(answer) => answer,
@@ -906,6 +923,7 @@ impl ActorCell {
             Directive::Stop => self.process_failure(false, child, cause, &strategy),
             Directive::Escalate => self.escalate(child, cause),
         }
+        drop_guarded(strategy);
     }
 
     /// `SupervisorStrategy.logFailure`: before a directive is applied, `Resume` publishes a `Warning` and `Restart` and `Stop` an `Error`,
@@ -945,7 +963,8 @@ impl ActorCell {
     /// plain `eventStream.publish` of `FaultHandling`. Without the recursion guard of `report_dispatch_failure`, so the reports of a
     /// subscriber that cannot be scheduled still reach the subscribers. What a subscriber panics with stops here.
     fn publish_unguarded(&self, publish: impl FnOnce(&EventStream)) {
-        let _ = catch_unwind(AssertUnwindSafe(|| publish(&self.system.events)));
+        let _ =
+            catch_unwind(AssertUnwindSafe(|| publish(&self.system.events))).map_err(drop_guarded);
     }
 
     /// `processFailure`: a restart is only granted while every affected child is within its limit, otherwise they are stopped.
@@ -1143,6 +1162,7 @@ impl ActorCell {
             }
         };
         self.install_actor(fresh);
+        drop_guarded(replaced);
         if let Err(thrown) = self.with_actor(|a, ctx| a.post_restart(ctx, &cause)) {
             // the new instance stays in place (Pekko keeps `_actor`): it gets its `postStop` when the actor stops
             self.fail_restart(thrown, &cause, &survivors);
@@ -1438,10 +1458,14 @@ impl ActorCell {
         let change = self.children.lock().unwrap().remove(child);
         // `strategy.handleChildTerminated` does nothing (it cannot be overridden yet), but asking for the strategy is user code;
         // what it throws fails this actor and the pending stop, restart or creation goes on
-        if let Some(Err(thrown)) = self.current_strategy() {
-            let message = Some("handleChildTerminated failed".to_owned());
-            self.publish_caused_error(thrown.clone(), message);
-            self.fail(thrown, self.current_failed_child(), &[]);
+        match self.current_strategy() {
+            Some(Ok(strategy)) => drop_guarded(strategy),
+            Some(Err(thrown)) => {
+                let message = Some("handleChildTerminated failed".to_owned());
+                self.publish_caused_error(thrown.clone(), message);
+                self.fail(thrown, self.current_failed_child(), &[]);
+            }
+            None => {}
         }
         match change {
             Some(SuspendReason::Termination) => self.finish_terminate(),
