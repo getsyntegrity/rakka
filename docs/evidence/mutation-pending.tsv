@@ -9,3 +9,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #402	ccb51e4c	114	none on this head (two re-pointed unwatch mutants); four new ones come with the stacked slice 2	none	114 not run (Q-X-23)	PENDING
 #404	61f8d29c	359	watch-with-delivers-terminated; re-watch-does-not-compare; watch-with-equality-ignores-value; queued-termination-replaced-by-later-watch	none	359 not run (Q-X-23)	PENDING
 #405	21721eb0	361	pre-restart-failure-is-swallowed; post-stop-failure-is-swallowed	none	361 not run (Q-X-23)	PENDING
+#407	1638974f	365	handled-failure-is-forgotten; resume-forgets-the-current-message; success-keeps-the-current-message; restart-keeps-the-current-message	none	365 not run (Q-X-23)	PENDING
