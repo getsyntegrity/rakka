@@ -282,14 +282,14 @@ MUTANTS = {
     ),
     "unwatch-keeps-queued-terminated": (
         "src/actor/cell.rs",
-        "&& !self.st.lock().unwrap().terminated_queued.remove(&t.actor)\n        {",
-        "&& !self.st.lock().unwrap().terminated_queued.remove(&t.actor) && false\n        {",
+        "let Some(custom) = queued else {\n                return;\n            };",
+        "let custom = queued.flatten();",
         "a Terminated already queued is delivered after `unwatch` (Pekko's terminatedQueued is ignored)",
     ),
     "unwatch-is-noop": (
         "src/actor/cell.rs",
-        "                st.watching.retain(|w| w != subject);\n                st.watching.len() != before",
-        "                st.watching.len() != before",
+        "if *subject != me && self.stop_watching(subject).is_some() {",
+        "if *subject != me && false && self.stop_watching(subject).is_some() {",
         "`unwatch` does not remove the watch, so the watcher still gets Terminated",
     ),
     "watch-dead-confirms-existence": (
