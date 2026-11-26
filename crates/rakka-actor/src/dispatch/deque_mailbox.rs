@@ -20,7 +20,9 @@ pub trait DequeBasedMessageQueue: MessageQueue {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct UnboundedDequeBasedMailbox;
 
-/// What the type promises and what each queue it creates answers for itself.
+/// What the type promises and what each queue it creates answers for itself (the capability API of Q-MBX-14, accepted with changes by the Owner on 2026-11-26). Pekko's
+/// queue is also `DequeBasedMessageQueueSemantics` and `UnboundedDequeBasedMessageQueueSemantics`; those two are left out until
+/// Q-MBX-2 is decided, so an actor that requires one of them is rejected here and created in Pekko.
 const PRODUCED: ProducedQueue = ProducedQueue::new(
     "org.apache.pekko.dispatch.UnboundedDequeBasedMailbox$MessageQueue",
     &[

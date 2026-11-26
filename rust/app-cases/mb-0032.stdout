@@ -1,0 +1,1 @@
+MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head -> class=org.apache.pekko.dispatch.UnboundedDequeBasedMailbox$MessageQueue unbounded=true multipleConsumer=true bounded=false | mixed n=4 has=true [d, c, a, b] then null n=0 has=false | onlyFirst [y, x] | cleanUp source n=0 has=false target [c, a, b]

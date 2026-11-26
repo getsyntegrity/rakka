@@ -12,7 +12,9 @@ use std::sync::{Arc, Mutex};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
+use rakka_actor::actor::system::Settings;
 use rakka_actor::dispatch::deque_mailbox::UnboundedDequeBasedMailbox;
+use rakka_actor::dispatch::queue_semantics::MessageQueueSemantics;
 use rakka_actor::event::{Channel, DeadLetter};
 
 type Log = Arc<Mutex<Vec<String>>>;
@@ -107,4 +109,35 @@ fn stopping_the_actor_dead_letters_what_its_deque_still_holds_in_order() {
         [format!("queued-1@{path}"), format!("queued-2@{path}")]
     );
     assert_eq!(snapshot_of(&received), ["first-then-stop"]);
+}
+
+/// Requires a bounded queue, which the deque mailbox does not produce.
+struct NeedsBounded;
+
+impl Actor for NeedsBounded {
+    fn required_message_queue() -> Option<MessageQueueSemantics> {
+        Some(MessageQueueSemantics::BOUNDED)
+    }
+
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        true
+    }
+}
+
+/// Selected by its registered id (what Pekko's `withMailbox(id)` does; a type given directly to `with_mailbox` is not verified).
+/// The error names the queue class of the type, so this also proves which mailbox was selected.
+#[test]
+fn a_requirement_the_deque_queue_does_not_fulfill_fails_naming_its_queue_class() {
+    let mut settings = Settings::default();
+    settings
+        .mailboxes
+        .register("deque-mailbox", UnboundedDequeBasedMailbox);
+    let system = RunningSystem::create_with_settings("mbxdq-requirement", settings);
+    let props = Props::new(|| NeedsBounded).with_mailbox_id("deque-mailbox");
+    let Err(error) = system.actor_of_named(props, "bounded") else {
+        panic!("the deque queue is not bounded");
+    };
+    let report = format!("{} | {:?}", error.message(), error.cause());
+    let queue = "[class org.apache.pekko.dispatch.UnboundedDequeBasedMailbox$MessageQueue]";
+    assert!(report.contains(queue), "{report}");
 }

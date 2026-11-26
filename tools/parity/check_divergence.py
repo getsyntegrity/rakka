@@ -1966,6 +1966,19 @@ MUTANTS = {
         "        Some(requirement == MessageQueueSemantics::MESSAGE_QUEUE || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER)",
         "the default unbounded queue does not have the unbounded semantics, so the actors that require it fail to initialise (MBX-REQ, family fall)",
     ),
+    # --- the unbounded deque based mailbox (AC-MBX-011) ---
+    "deque-enqueue-first-goes-to-the-tail": (
+        "src/dispatch/deque_mailbox.rs",
+        "self.envelopes().push_front(envelope);",
+        "self.envelopes().push_back(envelope);",
+        "enqueueFirst appends at the tail, so a message put back is processed after the ones that arrived meanwhile (MBX-DQ-01)",
+    ),
+    "deque-dequeue-takes-the-tail": (
+        "src/dispatch/deque_mailbox.rs",
+        "self.envelopes().pop_front()",
+        "self.envelopes().pop_back()",
+        "the deque mailbox delivers the newest message first (MBX-DQ-01)",
+    ),
     # --- guardians: the default mailbox and the unbounded requirement of each (killed by tests/classic_guardian_mailbox.rs, see UNIT_MUTANTS) ---
     "guardian-root-ignores-the-default-mailbox": (
         "src/actor/system.rs",
