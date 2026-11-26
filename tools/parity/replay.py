@@ -11,6 +11,7 @@ Exit codes: 0 clean, 1 divergences, 2 refused usage / build failure / rejected t
 import os, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import replay_lib as lib
+import clean_replay_evidence as evidence
 
 
 class UsageError(Exception):
@@ -31,13 +32,14 @@ def prepare_binary(arguments):
     binary = explicit[0] if explicit else default_binary()
     with lib.build_lock():
         if build:
-            subprocess.run(["cargo", "build", "--release", "-p", "rakka-actor", "--example", "classic-parity"], cwd=lib.ROOT, check=True)
+            subprocess.run(list(evidence.CLEAN_REPLAY_COMMAND), cwd=lib.ROOT, check=True)
         if not os.path.isfile(binary):
             raise UsageError(f"the binary does not exist: {binary}")
         return lib.publish_binary(binary)
 
 
 def main(arguments):
+    evidence.discard(evidence.evidence_path(lib.ROOT))      # a replay that fails or is interrupted must leave no evidence of an earlier one
     try:
         binary = prepare_binary(arguments)
     except UsageError as problem:
@@ -47,8 +49,11 @@ def main(arguments):
         print(f"refused: the build failed (exit {failure.returncode})")
         return 2
     with lib.holding(binary):         # the copy stays protected through the replay AND the classification (which runs the binary again)
+        before = evidence.identity(lib.ROOT, binary, os.environ)
         result = lib.run_replay(binary, 900)
         evaluation = lib.evaluate(binary, result)
+        not_stored = evidence.leave_evidence(lib.ROOT, binary, before, getattr(result, "total", None), evaluation, os.environ)
+    print("clean-replay evidence: " + ("stored for this gate run" if not_stored is None else f"not stored ({not_stored})"))
     if evaluation["ok"] is None:
         print("HARNESS ERROR:", evaluation["line"])
         return 2

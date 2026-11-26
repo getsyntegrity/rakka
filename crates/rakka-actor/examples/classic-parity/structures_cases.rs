@@ -137,9 +137,18 @@ fn interpreter(family: &str) -> Box<dyn Interp> {
     }
 }
 
+/// Whether the case `id` has to be evaluated for a caller that asked for `only` (`None`: every case). The id may be given as written or ASCII-escaped, as the CLI passes it.
+fn is_asked_for(only: Option<&str>, id: &str) -> bool {
+    only.is_none_or(|requested| {
+        requested == id || requested == crate::text_escape::escape_non_ascii_units(id)
+    })
+}
+
 /// The lines of the structures oracle, in the order of `structures.tsv` and then the concurrent
 /// cases: `(id, result)` where the result is what follows `ok ` in the oracle line.
-pub fn cases() -> Vec<(String, String)> {
+/// A caller that needs only the case `only` (as the single-case CLI does) does not pay for the expensive concurrent cases it did not ask for; every other case is
+/// evaluated as always, and `None` evaluates everything.
+pub fn cases_for(only: Option<&str>) -> Vec<(String, String)> {
     // A panicking action is part of the cases: keep it off the standard error.
     let previous_hook = panic::take_hook();
     panic::set_hook(Box::new(|_| {}));
@@ -154,10 +163,15 @@ pub fn cases() -> Vec<(String, String)> {
             fields.next().expect("a family"),
             fields.next().expect("a script"),
         );
+        if !is_asked_for(only, id) {
+            continue;
+        }
+        #[cfg(test)]
+        SCRIPTS_EVALUATED.with(|evaluated| evaluated.set(evaluated.get() + 1));
         out.push((id.to_owned(), run_script(&mut *interpreter(family), script)));
     }
     panic::set_hook(previous_hook);
-    out.extend(concurrent_cases());
+    out.extend(concurrent_cases(only));
     // `ReentrantGuard` (AC-UTIL-015.2) no longer exists in 2.0.0 and never existed here: `Mutex` replaces it.
     out.push((
         "RG-01 ReentrantGuard is absent from the 2.0.0 jar".to_owned(),
@@ -1919,66 +1933,81 @@ impl Interp for DoubleListInterp {
 
 // ---------------------------------------------------------------- concurrent cases (invariants only)
 
-fn concurrent_cases() -> Vec<(String, String)> {
+#[cfg(test)]
+thread_local! {
+    /// How many concurrent cases and how many script cases this thread has evaluated: deterministic witnesses for the tests of the lazy evaluation (absent from the CLI build).
+    pub static CONCURRENT_CASES_EVALUATED: Cell<usize> = const { Cell::new(0) };
+    pub static SCRIPTS_EVALUATED: Cell<usize> = const { Cell::new(0) };
+}
+
+fn concurrent_cases(only: Option<&str>) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
-    let mut add = |id: &str, result: String| out.push((id.to_owned(), result));
+    // The result is a closure: a case that is not the one asked for is never run.
+    let mut add = |id: &str, result: &dyn Fn() -> String| {
+        if !is_asked_for(only, id) {
+            return;
+        }
+        #[cfg(test)]
+        CONCURRENT_CASES_EVALUATED.with(|evaluated| evaluated.set(evaluated.get() + 1));
+        out.push((id.to_owned(), result()))
+    };
     add(
         "CC-01 Index in parallel: the upper half is never lost",
-        index_in_parallel(),
+        &index_in_parallel,
     );
     add(
         "CC-02 Switch: exactly one of 8 racing switchOn wins",
-        racing_switch_on(),
+        &racing_switch_on,
     );
     add(
         "CC-03 Switch: switchOff waits for locked",
-        switch_off_waits_for_locked(),
+        &switch_off_waits_for_locked,
     );
     add(
         "BQ-C1 one producer, one consumer through capacity 3 keep FIFO",
-        one_producer_one_consumer(),
+        &one_producer_one_consumer,
     );
     add(
         "BQ-C2 four producers and four consumers lose and duplicate nothing",
-        four_and_four(),
+        &four_and_four,
     );
     add(
         "BQ-C3 take blocks on an empty queue until an element arrives",
-        take_blocks(),
+        &take_blocks,
     );
     add(
         "BQ-C4 put blocks on a full queue until there is room",
-        put_blocks(),
+        &put_blocks,
     );
     add(
         "BQ-C5 offer with a timeout gives up on a full queue and succeeds when room appears",
-        offer_with_timeout(),
+        &offer_with_timeout,
     );
     add(
         "BQ-C6 poll with a timeout returns null on an empty queue and the element when one arrives",
-        poll_with_timeout(),
+        &poll_with_timeout,
     );
     add(
         "BQ-C9 poll with Long.MAX_VALUE nanoseconds waits until an element arrives",
-        poll_with_unbounded_timeout(Duration::from_nanos(i64::MAX as u64)),
+        &|| poll_with_unbounded_timeout(Duration::from_nanos(i64::MAX as u64)),
     );
     add(
         "BQ-C10 poll with Long.MAX_VALUE days saturates and waits until an element arrives",
-        poll_with_unbounded_timeout(Duration::MAX),
+        &|| poll_with_unbounded_timeout(Duration::MAX),
     );
     add(
         "BQ-C11 offer with Long.MAX_VALUE nanoseconds on a full queue waits until there is room",
-        offer_with_unbounded_timeout(Duration::from_nanos(i64::MAX as u64)),
+        &|| offer_with_unbounded_timeout(Duration::from_nanos(i64::MAX as u64)),
     );
     add(
         "BQ-C12 offer with Long.MAX_VALUE days saturates and waits until there is room",
-        offer_with_unbounded_timeout(Duration::MAX),
+        &|| offer_with_unbounded_timeout(Duration::MAX),
     );
     add(
         "BQ-C7 iterator remove drops the element it returned, by identity",
-        iterator_remove_by_identity(),
+        &iterator_remove_by_identity,
     );
-    add("BQ-C8 the iterator is a snapshot", iterator_snapshot());
+    add("BQ-C8 the iterator is a snapshot", &iterator_snapshot);
     out
 }
 
