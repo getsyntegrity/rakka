@@ -67,19 +67,15 @@ pub trait Actor: Send + 'static {
     fn supervisor_strategy(&self) -> SupervisorStrategy {
         OneForOneStrategy::default_strategy().into()
     }
-    /// Called on the failed instance before a restart. Default: `unwatch` and `stop` every child, then `post_stop`, so no termination of
-    /// those children is told to the new instance. An override replaces all of it: one that wants the default does the same three steps.
+    /// Called on the failed instance before a restart. Default: [`default_pre_restart`]. An override replaces all of it: one that also
+    /// wants the default calls that function.
     fn pre_restart(
         &mut self,
         ctx: &mut ActorContext,
-        _reason: &Throwable,
-        _message: Option<&AnyMessage>,
+        reason: &Throwable,
+        message: Option<&AnyMessage>,
     ) {
-        for child in ctx.children() {
-            ctx.unwatch(&child);
-            ctx.stop(&child);
-        }
-        self.post_stop(ctx);
+        default_pre_restart(self, ctx, reason, message);
     }
     /// Called on the new instance after a restart. Default: `pre_start`.
     fn post_restart(&mut self, ctx: &mut ActorContext, _reason: &Throwable) {
@@ -89,6 +85,21 @@ pub trait Actor: Send + 'static {
     fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
         false
     }
+}
+
+/// The default [`Actor::pre_restart`], for an override to call (`super.preRestart`): `unwatch` and `stop` every child, so no termination
+/// of those children is told to the new instance, then call the `post_stop` of `actor`, an override of it included.
+pub fn default_pre_restart<A: Actor + ?Sized>(
+    actor: &mut A,
+    ctx: &mut ActorContext,
+    _reason: &Throwable,
+    _message: Option<&AnyMessage>,
+) {
+    for child in ctx.children() {
+        ctx.unwatch(&child);
+        ctx.stop(&child);
+    }
+    actor.post_stop(ctx);
 }
 
 /// `org.apache.pekko.actor.Props`: how to create an actor instance.
