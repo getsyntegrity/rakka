@@ -20,6 +20,11 @@ pub(crate) trait Executor: Send + Sync {
     fn execute(&self, cell: Arc<ActorCell>) -> Result<(), Rejected>;
     /// Lets the workers finish what is queued and exit; later `execute` calls are rejected.
     fn shutdown(&self);
+    /// Whether `shutdown` ran, for the tests that check a system cleaned up its threads.
+    #[cfg(test)]
+    fn is_shut_down(&self) -> bool {
+        false
+    }
 }
 
 /// A fixed pool of threads fed by an unbounded channel. It rejects only once it has been shut down, like a Java pool does.
@@ -63,6 +68,11 @@ impl Executor for ThreadPool {
 
     fn shutdown(&self) {
         self.tx.lock().unwrap().take();
+    }
+
+    #[cfg(test)]
+    fn is_shut_down(&self) -> bool {
+        self.tx.lock().unwrap().is_none()
     }
 }
 
@@ -116,6 +126,11 @@ impl Dispatcher {
     /// Lets the worker threads exit once the queued runs are done.
     pub fn shutdown(&self) {
         self.executor.shutdown();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_shut_down(&self) -> bool {
+        self.executor.is_shut_down()
     }
 }
 
@@ -259,7 +274,11 @@ mod turn_limits_with_real_actors {
         release_tx.send(()).unwrap();
         wait_until(|| log.lock().unwrap().len() == 6);
         let order = log.lock().unwrap().clone();
-        system.terminate().wait(Duration::from_secs(10)).unwrap();
+        system
+            .terminate()
+            .wait(Duration::from_secs(10))
+            .unwrap()
+            .expect("terminated normally");
         order
     }
 
@@ -370,7 +389,11 @@ mod turn_limits_with_real_actors {
             "{suspended} | afterStop deadLetters=[{}]",
             dead.lock().unwrap().join(", ")
         );
-        system.terminate().wait(Duration::from_secs(10)).unwrap();
+        system
+            .terminate()
+            .wait(Duration::from_secs(10))
+            .unwrap()
+            .expect("terminated normally");
 
         let golden = include_str!("../../../../cases/oracle-only/mailbox.golden");
         let recorded = golden

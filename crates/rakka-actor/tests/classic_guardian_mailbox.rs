@@ -93,7 +93,10 @@ fn the_user_and_system_guardians_that_fail_to_initialise_end_the_system_normally
     for (guardian, bad_on) in [("user", 2), ("system", 3)] {
         let system = system_with_a_bad_guardian_queue(promise, bad_on);
         let terminated = system.when_terminated().wait(Duration::from_secs(10));
-        assert!(terminated.is_some(), "the {guardian} guardian");
+        assert!(
+            matches!(terminated, Some(Ok(_))),
+            "the {guardian} guardian: {terminated:?}"
+        );
     }
 }
 
@@ -105,6 +108,7 @@ fn a_default_mailbox_that_promises_nothing_leaves_the_guardians_unchecked() {
         system
             .actor_of(Props::new(|| Idle))
             .expect("the system keeps working");
-        assert!(system.terminate().wait(Duration::from_secs(10)).is_some());
+        let ended = system.terminate().wait(Duration::from_secs(10));
+        assert!(matches!(ended, Some(Ok(_))), "{ended:?}");
     }
 }
