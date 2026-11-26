@@ -385,18 +385,18 @@
 
 ## P28 SELECCION-CREACION
 
-9 filas; 10 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 5 propuestas.
+9 filas; 10 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 6 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-MBX-12 | accepted (2026-11-24): aceptar (a) exclusivamente como LIMITACIÓN TEMPORAL de la migración, no como paridad completa: registro programático en `Settings.mailboxes` (sin FQCN ni… | 1: AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-MBX-13 | accepted (2026-11-24): aceptar (a) con las limitaciones documentadas en `docs/evidence/mailbox-requirements/q-mbx-13.md`: `MessageQueueSemantics` como conjunto abierto identificado… | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
-| Q-MBX-14 | accepted (2026-11-25): aceptar (a): `ProducedQueue` declarado con `MailboxType::produced_queue` y capacidades efectivas con `MessageQueue::{satisfies, class_name}`, con el subtipado… | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 1: AC-MBX-014 | — | — | `transversal` |
 | Q-X-7 | accepted (2026-11-18): aceptar (A). | 1: AC-MBX-020 | — | — | `transversal` |
 | Q-DSP-2 | propuesta | 2: AC-DSP-007, AC-MBX-014 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-1 | propuesta | 1: AC-MBX-014 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
 | Q-MBX-11 | propuesta | 2: AC-CELL-016, AC-REF-020 | — | — | `classic-dispatch` |
+| Q-MBX-14 | propuesta | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-MBX-2 | propuesta | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-REF-5 | propuesta | 3: AC-CELL-016, AC-CELL-027, AC-REF-020 | Bloquea: `impl` de AC-REF-020, AC-CELL-016 y AC-CELL-027. | Puede avanzar: AC-REF-003, AC-CELL-002.x, 007.x, 008.x, SUP y DW (no dependen de esta elección). | `classic-cell` |
 
@@ -1068,4 +1068,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 511 (245 respondidas, 0 bloqueantes, 266 propuestas).
+Total de pares unidad–decisión: 511 (244 respondidas, 0 bloqueantes, 267 propuestas).
