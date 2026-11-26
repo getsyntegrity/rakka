@@ -23,7 +23,7 @@ CASES = {
     "identify-live": [*SPAWN, ask("k", "first"), TELL("k", "after"), EV("k", 2), EV("p", 2), NOW("k"), NOW("p")],
     "identify-no-sender": [*SPAWN, ask("k", "lost", None), EV("dl", 1), NOW("dl"), NOW("k")],
     "identify-stopped": [*SPAWN, *STOPPED, ask("k", "gone"), EV("p", 2), TELL("k", "barrier"), EV("dl", 1), NOW("p"), NOW("dl")],
-    "identify-stopped-no-sender": [*SPAWN, *STOPPED, ask("k", "nobody", None), EV("dl", 1), NOW("dl")],
+    "identify-gone-no-sender": [*SPAWN, *STOPPED, ask("k", "nobody", None), EV("dl", 1), NOW("dl")],
     "identify-deadletters": [*SPAWN, ask("deadLetters", "dead"), EV("p", 2), NOW("p"), NOW("dl")],
     # queued behind a PoisonPill: the closing mailbox hands it to deadLetters, which answers it
     "identify-behind-pill": [DL(), *S("p"), *S("k", kind="gate"), TELL("k", "block"), EV("k", 2), PILL("k"), ask("k", "queued"),
