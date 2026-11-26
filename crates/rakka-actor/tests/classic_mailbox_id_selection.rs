@@ -294,6 +294,10 @@ fn a_child_created_from_an_actor_with_an_unknown_id_fails_in_the_parent_call() {
     assert_eq!(scenario.received()[1], "Configuration registered=false");
 }
 
+/// Root, `/user` and `/system` take the registered default mailbox directly (`mailboxes.lookup(DefaultMailboxId)`): each system makes three queues
+/// of it before any actor is created.
+const GUARDIANS_PER_SYSTEM: usize = 3;
+
 fn lifo_registered_as_the_default(lifo: &LifoMailbox) -> Settings {
     let mut settings = Settings::default();
     settings
@@ -319,7 +323,10 @@ fn a_type_registered_as_the_default_applies_to_actors_without_a_selection() {
     for scenario in [&no_selection, &empty_id, &default_id] {
         assert_eq!(scenario.order_of_three_queued_messages(), ["c", "b", "a"]);
     }
-    assert_eq!(lifo.queues_created.load(Ordering::SeqCst), 3);
+    assert_eq!(
+        lifo.queues_created.load(Ordering::SeqCst),
+        3 * (GUARDIANS_PER_SYSTEM + 1)
+    );
 }
 
 #[test]
@@ -340,7 +347,11 @@ fn an_explicit_selection_is_not_replaced_by_the_registered_default() {
         ["a", "b", "c"]
     );
     assert_eq!(by_type.order_of_three_queued_messages(), ["a", "b", "c"]);
-    assert_eq!(lifo.queues_created.load(Ordering::SeqCst), 0);
+    // only the guardians of the two systems took the default
+    assert_eq!(
+        lifo.queues_created.load(Ordering::SeqCst),
+        2 * GUARDIANS_PER_SYSTEM
+    );
 }
 
 #[test]
@@ -361,7 +372,10 @@ fn a_restart_keeps_the_queue_of_the_registered_default() {
     }
     scenario.release_and_wait_for(5);
     assert_eq!(scenario.received(), ["fail", "first", "c", "b", "a"]);
-    assert_eq!(lifo.queues_created.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        lifo.queues_created.load(Ordering::SeqCst),
+        GUARDIANS_PER_SYSTEM + 1
+    );
 }
 fn deploying(path: &str, mailbox: &str, settings: Settings) -> Settings {
     let deploy = Deploy::new(

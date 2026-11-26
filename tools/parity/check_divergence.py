@@ -1966,6 +1966,43 @@ MUTANTS = {
         "        Some(requirement == MessageQueueSemantics::MESSAGE_QUEUE || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER)",
         "the default unbounded queue does not have the unbounded semantics, so the actors that require it fail to initialise (MBX-REQ, family fall)",
     ),
+    # --- guardians: the default mailbox and the unbounded requirement of each (killed by tests/classic_guardian_mailbox.rs, see UNIT_MUTANTS) ---
+    "guardian-root-ignores-the-default-mailbox": (
+        "src/actor/system.rs",
+        "            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),\n            walker,",
+        "            Props::new(|| Guardian),\n            walker,",
+        "the root guardian does not take the registered default mailbox",
+    ),
+    "guardian-user-ignores-the-default-mailbox": (
+        "src/actor/system.rs",
+        "            \"user\",\n            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),",
+        "            \"user\",\n            Props::new(|| Guardian),",
+        "the /user guardian does not take the registered default mailbox",
+    ),
+    "guardian-system-ignores-the-default-mailbox": (
+        "src/actor/system.rs",
+        "            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
+        "            }),",
+        "the /system guardian does not take the registered default mailbox",
+    ),
+    "guardian-requires-nothing": (
+        "src/actor/system.rs",
+        "impl Actor for Guardian {\n    fn required_message_queue() -> Option<MessageQueueSemantics> {\n        Some(MessageQueueSemantics::UNBOUNDED)\n    }",
+        "impl Actor for Guardian {",
+        "the root and /user guardians do not declare the unbounded requirement",
+    ),
+    "system-guardian-requires-nothing": (
+        "src/actor/system.rs",
+        "impl Actor for SystemGuardian {\n    fn required_message_queue() -> Option<MessageQueueSemantics> {\n        Some(MessageQueueSemantics::UNBOUNDED)\n    }",
+        "impl Actor for SystemGuardian {",
+        "the /system guardian does not declare the unbounded requirement",
+    ),
+    "failed-root-guardian-does-not-end-the-system": (
+        "src/actor/system.rs",
+        "            SystemMessage::Failed { child, .. } => child.stop(),",
+        "            SystemMessage::Failed { .. } => {}",
+        "the supervisor of the root guardian ignores its failure: the system keeps running without a root",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -2055,6 +2092,12 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "guardian-root-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
+    "guardian-user-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
+    "guardian-system-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
+    "guardian-requires-nothing": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
+    "system-guardian-requires-nothing": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
+    "failed-root-guardian-does-not-end-the-system": ("test:classic_guardian_mailbox", "a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down"),
     "unbounded-queue-has-no-multiple-consumer-semantics": ("dispatch::message_queue", "the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one"),
     "multiple-consumer-requirement-has-no-default-binding": ("dispatch::mailboxes", "the_built_in_queues_have_the_multiple_consumer_semantics_and_reference_conf_binds_it"),
     "mailbox-undeclared-queue-does-not-keep-the-promise": ("dispatch::mailboxes", "a_queue_that_does_not_declare_its_semantics_keeps_the_promise_of_its_type"),
@@ -2126,11 +2169,11 @@ UNIT_MUTANTS = {
 
 
 def run_unit_mutant(scratch, name, work):
-    """Runs the unit tests of the module on the mutated copy. DETECTED needs the expected test to fail (a compile error or
+    """Runs the unit tests of the module (or, as `test:<file>`, the integration test file) on the mutated copy. DETECTED needs the expected test to fail (a compile error or
     some other failing test is not enough) and the same tests to pass on the unmutated tree (the control)."""
     module, expected_test = UNIT_MUTANTS[name]
     def cargo_test(manifest, target):
-        return sh(["cargo", "test", "--manifest-path", manifest, "--target-dir", target, "--lib", module], timeout=BUILD_TIMEOUT)
+        return sh(["cargo", "test", "--manifest-path", manifest, "--target-dir", target, *(["--test", module[5:]] if module.startswith("test:") else ["--lib", module])], timeout=BUILD_TIMEOUT)
     try:
         control = cargo_test(os.path.join(ROOT, "crates", "rakka-actor", "Cargo.toml"), os.path.join(scratch, "target-control-" + name))
         r = cargo_test(os.path.join(work, "Cargo.toml"), os.path.join(scratch, "target-" + name))

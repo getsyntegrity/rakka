@@ -114,6 +114,13 @@ impl Props {
         self
     }
 
+    /// The props of a guardian: the mailbox type is the one given, whatever the props select (the provider hands the guardians
+    /// `mailboxes.lookup(DefaultMailboxId)` directly, without `getMailboxType`).
+    pub(crate) fn with_resolved_mailbox(mut self, mailbox: Arc<dyn MailboxType>) -> Props {
+        self.mailbox = Some(mailbox);
+        self
+    }
+
     /// `Props.mailbox`: the id selected, or the default mailbox id when none was given.
     pub(crate) fn mailbox_id(&self) -> &str {
         self.mailbox_id
