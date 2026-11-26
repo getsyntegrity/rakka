@@ -2,7 +2,7 @@
 //! `ActorCell`: the engine behind a local actor — mailbox, system-message processing, children,
 //! death watch and the termination sequence. Follows `ActorCell.scala` and `dungeon/*`.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError, Weak};
@@ -53,6 +53,8 @@ struct CellState {
     restart_stats: std::collections::HashMap<ActorRef, RestartStats>,
     /// the child whose failure this actor escalated (`FailedRef(perp)`); it is the one child not suspended by this actor's own failure
     perpetrator: Option<ActorRef>,
+    /// `sysmsgStash`: system messages deferred while the cell waits for its children to die, oldest first
+    deferred: Vec<SystemMessage>,
 }
 
 /// What a callback threw: a [`Throwable`] payload, or an ordinary panic reported as a `RuntimeException`.
@@ -452,14 +454,35 @@ impl ActorCell {
             if batch.is_empty() {
                 break;
             }
-            for m in batch {
+            let mut todo = VecDeque::from(batch);
+            while let Some(m) = todo.pop_front() {
                 if self.status.is_closed() {
                     self.dead_system_message(m);
+                } else if m.stash_when_waiting_for_children() && self.waits_for_children() {
+                    self.st.lock().unwrap().deferred.push(m);
                 } else {
                     self.system_invoke(m);
                 }
+                // the wait is over: what was deferred goes before the rest of the batch
+                if !self.waits_for_children() {
+                    let deferred = std::mem::take(&mut self.st.lock().unwrap().deferred);
+                    for earlier in deferred.into_iter().rev() {
+                        todo.push_front(earlier);
+                    }
+                }
             }
         }
+    }
+
+    /// `waitingForChildrenOrNull ne null`: the children that are dying hold back a `Recreation` or a `Creation`.
+    fn waits_for_children(&self) -> bool {
+        matches!(
+            *self.children.lock().unwrap(),
+            Children::Terminating {
+                reason: SuspendReason::Recreation | SuspendReason::Creation,
+                ..
+            }
+        )
     }
 
     /// `Mailbox.processMailbox`: up to `throughput` user messages while the mailbox is neither suspended nor closed.
@@ -496,18 +519,16 @@ impl ActorCell {
 
     /// `handleInvokeFailure`: suspend the mailbox and every child, mark the actor failed and report to the parent, which decides.
     fn handle_invoke_failure(self: &Arc<Self>, cause: Throwable, message: Option<AnyMessage>) {
-        self.fail(cause, message, None, &[]);
+        self.fail(cause, message, None);
     }
 
     /// `handleInvokeFailure(childrenNotToSuspend, t)`. `perpetrator` is the failed child whose `Failed` is being escalated: it already
-    /// suspended itself, so it is not suspended again (and it is the one child that gets the cause back on `Resume`). `still_suspended`
-    /// are the survivors of a restart that failed: they have not been resumed since the failure that caused it.
+    /// suspended itself, so it is not suspended again (and it is the one child that gets the cause back on `Resume`).
     fn fail(
         self: &Arc<Self>,
         cause: Throwable,
         message: Option<AnyMessage>,
         perpetrator: Option<ActorRef>,
-        still_suspended: &[ActorRef],
     ) {
         {
             let mut st = self.st.lock().unwrap();
@@ -525,7 +546,7 @@ impl ActorCell {
             .unwrap()
             .children()
             .into_iter()
-            .filter(|k| Some(k) != perpetrator.as_ref() && !still_suspended.contains(k))
+            .filter(|k| Some(k) != perpetrator.as_ref())
         {
             k.send_system(SystemMessage::Suspend); // suspendChildren
         }
@@ -714,7 +735,7 @@ impl ActorCell {
             child: child.clone(),
             cause,
         });
-        self.fail(thrown, Some(failed), Some(child), &[]);
+        self.fail(thrown, Some(failed), Some(child));
     }
 
     /// `processFailure`: a restart is only granted while every affected child is within its limit, otherwise they are stopped.
@@ -765,7 +786,7 @@ impl ActorCell {
             child: child.clone(),
             cause: cause.clone(),
         });
-        self.fail(cause, Some(message), Some(child), &[]);
+        self.fail(cause, Some(message), Some(child));
     }
 
     /// `faultSuspend`: suspend this actor and, recursively, its children (the failed parent's whole subtree waits for the decision).
@@ -885,7 +906,7 @@ impl ActorCell {
                 // the old instance stays in place, so it is stopped (and post-stopped) with the cell
                 self.st.lock().unwrap().actor = replaced;
                 let failure = self.post_restart_failure(&cause);
-                self.fail(failure, None, None, &survivors);
+                self.handle_invoke_failure(failure, None);
                 return;
             }
         };
@@ -896,7 +917,7 @@ impl ActorCell {
         {
             // the new instance stays in place (Pekko keeps `_actor`): it gets its `postStop` when the actor stops
             let failure = self.post_restart_failure(&cause);
-            self.fail(failure, None, None, &survivors);
+            self.handle_invoke_failure(failure, None);
             return;
         }
         for survivor in survivors {

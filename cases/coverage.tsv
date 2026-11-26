@@ -2984,7 +2984,6 @@ identify-gone-no-sender	scenario-identify	AC-REF-013	cited
 identify-deadletters	scenario-identify	AC-REF-013	cited
 identify-behind-pill	scenario-identify	AC-REF-013	cited
 sv-queued-before-restart	scenario-restart-survivors	AC-SUP-015	cited
-sv-three-levels-kill	scenario-restart-survivors	AC-SUP-015	cited
 sv-escalating-child	scenario-restart-survivors	AC-SUP-015	cited
 sv-postrestart-fails	scenario-restart-survivors	AC-SUP-015	cited
-sv-postrestart-once	scenario-restart-survivors	AC-SUP-015	cited
+sv-mid-restart	scenario-restart-survivors	AC-SUP-015,AC-CELL-013.2	cited

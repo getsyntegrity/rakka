@@ -176,15 +176,15 @@ MUTANTS = {
     ),
     "failed-restart-still-restarts-survivors": (
         "src/actor/cell.rs",
-        "self.fail(failure, None, None, &survivors);\n            return;\n        }\n        for",
-        "self.fail(failure, None, None, &survivors);\n        }\n        for",
+        "self.handle_invoke_failure(failure, None);\n            return;\n        }\n        for",
+        "self.handle_invoke_failure(failure, None);\n        }\n        for",
         "the survivors are restarted although the parent's `postRestart` failed",
     ),
-    "failed-restart-suspends-survivors-again": (
+    "waiting-cell-does-not-defer-system-messages": (
         "src/actor/cell.rs",
-        "&& !still_suspended.contains(k)",
-        "|| still_suspended.contains(k)",
-        "a failing restart suspends the survivors a second time, so the next restart does not resume them",
+        "} else if m.stash_when_waiting_for_children() && self.waits_for_children() {",
+        "} else if false {",
+        "a cell waiting for its children to die takes `Suspend` and `Recreate` at once, and stays suspended",
     ),
     "pill-not-suppressed-from-dead-letters": (
         "src/actor/system.rs",
@@ -343,8 +343,8 @@ MUTANTS = {
     ),
     "escalate-alters-cause": (
         'src/actor/cell.rs',
-        '        self.fail(cause, Some(message), Some(child), &[]);',
-        '        let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", cause.message.as_deref());\n        self.fail(cause, Some(message), Some(child), &[]);',
+        '        self.fail(cause, Some(message), Some(child));',
+        '        let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", cause.message.as_deref());\n        self.fail(cause, Some(message), Some(child));',
         "the escalation rewraps the cause: the grandparent's decider sees another exception class (observable in its `decide` event and in the default decision)",
     ),
     "escalate-never-resumes-children": (
@@ -764,8 +764,8 @@ MUTANTS = {
     ),
     "decider-failure-without-failed-message": (
         "src/actor/cell.rs",
-        "self.fail(thrown, Some(failed), Some(child), &[]);",
-        "self.fail(thrown, None, None, &[]);",
+        "self.fail(thrown, Some(failed), Some(child));",
+        "self.fail(thrown, None, None);",
         "a supervisor that failed while deciding forgets the Failed message (preRestart sees none) and suspends the child again",
     ),
     "restart-factory-failure-drops-old-instance": (

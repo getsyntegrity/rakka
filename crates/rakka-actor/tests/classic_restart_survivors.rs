@@ -5,7 +5,6 @@
 mod common;
 use common::{RunningSystem, owned_strings, settle_for_absence, snapshot_of, wait_until};
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use rakka_actor::actor::ActorRef;
@@ -15,7 +14,7 @@ use rakka_actor::actor::supervision::{Directive, OneForOneStrategy, SupervisorSt
 
 type Log = Arc<Mutex<Vec<String>>>;
 
-/// A node of a supervision tree whose `preRestart` keeps the children. It restarts whatever child fails, records its restart hooks
+/// A node of a supervision tree whose `preRestart` keeps the children unless told otherwise. It restarts whatever child fails, records its restart hooks
 /// and the text messages it receives, and creates the child a `Props` message asks for.
 #[derive(Clone)]
 struct Keeper {
@@ -23,7 +22,9 @@ struct Keeper {
     log: Log,
     children: Arc<Mutex<Vec<ActorRef>>>,
     spawn_in_pre_start: bool,
-    fail_first_post_restart: Arc<AtomicBool>,
+    stops_children: bool,
+    /// the message "block" waits until the test lets go of this lock
+    gate: Arc<Mutex<()>>,
 }
 
 impl Keeper {
@@ -33,7 +34,8 @@ impl Keeper {
             log: log.clone(),
             children: Arc::default(),
             spawn_in_pre_start: false,
-            fail_first_post_restart: Arc::default(),
+            stops_children: false,
+            gate: Arc::default(),
         }
     }
 
@@ -60,14 +62,14 @@ impl Actor for Keeper {
     fn supervisor_strategy(&self) -> SupervisorStrategy {
         OneForOneStrategy::new(3, |_: &Throwable| Directive::Restart).into()
     }
-    fn pre_restart(&mut self, _: &mut ActorContext, cause: &Throwable, _: Option<&AnyMessage>) {
+    fn pre_restart(&mut self, ctx: &mut ActorContext, cause: &Throwable, _: Option<&AnyMessage>) {
+        if self.stops_children {
+            ctx.children().iter().for_each(|child| ctx.stop(child));
+        }
         self.record(format_args!("pre-restart {cause}"));
     }
     fn post_restart(&mut self, ctx: &mut ActorContext, _: &Throwable) {
         self.record("post-restart");
-        if self.fail_first_post_restart.swap(false, Ordering::SeqCst) {
-            throw(Throwable::illegal_state("post-restart"));
-        }
         self.pre_start(ctx);
     }
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
@@ -79,6 +81,9 @@ impl Actor for Keeper {
                 throw(Throwable::illegal_state("boom"));
             }
             self.record(text);
+            if *text == "block" {
+                drop(self.gate.lock().unwrap());
+            }
         }
         true
     }
@@ -162,32 +167,47 @@ fn killing_the_middle_of_three_levels_restarts_it_and_then_its_child() {
     );
 }
 
-/// `handleInvokeFailure(survivors, ..)`: a failing `postRestart` does not suspend the survivors a second time.
+/// `Suspend` and `Recreate` are `StashWhenWaitingForChildren`: a survivor halfway through its own restart takes them afterwards.
 #[test]
-fn a_survivor_is_not_left_suspended_when_the_first_post_restart_fails() {
-    let system = RunningSystem::create("t-survivors-twice");
+fn a_survivor_waiting_for_its_children_to_die_restarts_for_its_parent_afterwards() {
+    let system = RunningSystem::create("t-survivor-waiting");
     let log = Log::default();
-    let (top, parent, child) = (
+    let (top, parent, mut child) = (
         Keeper::new("top", &log),
         Keeper::new("parent", &log),
         Keeper::new("child", &log),
     );
-    parent.fail_first_post_restart.store(true, Ordering::SeqCst);
+    child.stops_children = true;
+    let slow = Keeper::new("slow", &log);
     let top_ref = system.actor_of(top.props()).unwrap();
     let parent_ref = child_of(&top_ref, &top, &parent);
     let child_ref = child_of(&parent_ref, &parent, &child);
+    let slow_ref = child_of(&child_ref, &child, &slow);
+    let seen = |entry: &str| snapshot_of(&log).iter().any(|e| e.starts_with(entry));
 
-    parent_ref.tell("boom", None);
-    wait_until("second restart of the parent", || {
-        let restarts = snapshot_of(&log);
-        restarts
-            .iter()
-            .filter(|e| *e == "parent:post-restart")
-            .count()
-            == 2
-    });
+    let held = slow.gate.lock().unwrap();
+    slow_ref.tell("block", None);
+    wait_until("slow child busy", || seen("slow:block"));
+    child_ref.tell("boom", None);
+    wait_until("child restarting", || seen("child:pre-restart"));
+    parent_ref.tell(Kill, None);
+    parent_ref.tell("done", None);
+    wait_until("parent restarted", || seen("parent:done"));
+    drop(held);
     child_ref.tell("after", None);
-    wait_until("child works", || {
-        snapshot_of(&log).contains(&"child:after".to_string())
-    });
+    wait_until("child works", || seen("child:after"));
+
+    let mut entries = snapshot_of(&log);
+    entries.retain(|e| e.starts_with("child:"));
+    let killed = "org.apache.pekko.actor.ActorKilledException: Kill";
+    assert_eq!(
+        entries,
+        owned_strings(&[
+            &format!("child:pre-restart {BOOM}"),
+            "child:post-restart",
+            &format!("child:pre-restart {killed}"),
+            "child:post-restart",
+            "child:after",
+        ])
+    );
 }
