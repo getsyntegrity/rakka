@@ -2990,3 +2990,7 @@ sv-mid-restart	scenario-restart-survivors	AC-SUP-015,AC-CELL-013.2	cited
 sv-three-levels-kill	scenario-restart-survivors	AC-SUP-015	cited
 sv-postrestart-once	scenario-restart-survivors	AC-SUP-019,AC-CELL-007.4	cited
 sv-fatal-resume	scenario-restart-survivors	AC-SUP-019,AC-CELL-007.4	cited
+sf-failed-until-resumed	scenario-stash-failed	AC-CELL-013.2	cited
+sf-suspended-with-parent	scenario-stash-failed	AC-CELL-013.2	cited
+sf-decided-after-restart	scenario-stash-failed	AC-CELL-013.2	cited
+sf-dropped-on-stop	scenario-stash-failed	AC-CELL-013.2	cited
