@@ -16,6 +16,6 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #410	a76ea67b	369	handled-failure-is-forgotten; resume-forgets-the-current-message; success-keeps-the-current-message; restart-keeps-the-current-message	none	369 not run (Q-X-23)	PENDING
 #411	acf416d9	370	pre-restart-keeps-watching-children	none	370 not run (Q-X-23)	PENDING
 #412	bdc62771	372	throwing-strategy-falls-back-to-default; termination-forgets-the-perpetrator	none	372 not run (Q-X-23)	PENDING
-#415	aea1c308	161	selection-parent-is-ignored	none	161 not run (Q-X-23)	PENDING
+#415	671c613d	166	selection-parent-is-ignored	none	166 not run (Q-X-23)	PENDING
 #416	ccc34d3f	373	default-pre-restart-skips-post-stop	none	373 not run (Q-X-23)	PENDING
 #419	4c8fa01c	375	log-failure-publishes-the-wrapper-message; creation-failure-names-the-thrown-not-the-root	none	375 not run (Q-X-23)	PENDING
