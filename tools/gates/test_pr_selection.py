@@ -75,6 +75,29 @@ class PubModOnly(unittest.TestCase):
                      "#[path = \"../actor/cell.rs\"]\nmod stolen;", "include!(\"x.rs\");"):
             self.assert_conservative({MODULE: OWN_ONLY + code + "\n"}, why=code)
 
+    def test_a_type_of_the_same_name_elsewhere_never_makes_an_outside_type_local(self):
+        shadow = "#[cfg(test)]\nmod shadow { struct T; struct Envelope; }\n"
+        for code in ("impl<T> Tag for T {}", "use crate::dispatch::Envelope;\nimpl Drop for Envelope {}", "struct U;\nimpl<U> Tag for U {}"):
+            self.assert_conservative({MODULE: OWN_ONLY + shadow + code + "\n"}, why=code)
+
+    def test_unknown_macros_and_attributes_and_constructs_the_reader_cannot_follow_keep_the_conservative_selection(self):
+        for code in ("::a::b! {}", "a::vec![1];", "r#m!();", "fn f() { register!(A); }", "const _: () = { fn g() {} };",
+                     "#[cfg_attr(all(), no_mangle)]\npub fn hook() {}", "#[ctor::ctor]\nfn boot() {}", "#[derive(Clone, Serialize)]\nstruct S;",
+                     "/* x /* y */ \" */\nimpl Drop for Envelope {}\n// \""):
+            self.assert_conservative({MODULE: OWN_ONLY + code + "\n"}, why=code)
+
+    def test_a_pub_mod_that_takes_over_an_attribute_or_lands_inside_a_comment_keeps_the_conservative_selection(self):
+        for base, head in (("#[cfg(test)]\n// helpers\nmod helpers;\n", "#[cfg(test)]\n// helpers\npub mod new_queue;\nmod helpers;\n"),
+                           ("#[cfg(\n    test\n)]\nmod helpers;\n", "#[cfg(\n    test\n)]\npub mod new_queue;\nmod helpers;\n"),
+                           ("/*\n*/\n", "/*\npub mod new_queue;\n*/\n")):
+            self.assert_conservative({PARENT: head}, base={PARENT: base}, why=head)
+
+    def test_a_module_name_that_could_change_how_existing_paths_resolve_keeps_the_conservative_selection(self):
+        for name, base in (("str", BASE_PARENT), ("core", BASE_PARENT), ("new_queue", BASE_PARENT + "use crate::new_queue;\n")):
+            module = DISPATCH + name + ".rs"
+            report = narrow({PARENT: base + f"pub mod {name};\n", module: "pub struct A;\n"}, base={PARENT: base})
+            self.assertEqual(report["rules"], [], name)
+
     def test_every_file_of_a_directory_module_is_analysed(self):
         directory = DISPATCH + "new_queue/"
         self.assertEqual(narrow({MODULE: "mod part;\npub struct A;\n", directory + "part.rs": "impl super::A { }\n"})["rules"], [])
