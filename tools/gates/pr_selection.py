@@ -4,6 +4,8 @@ something about them, and any doubt keeps the conservative selection. MILESTONE 
 R2: a source file whose only change is added `pub mod x;` lines selects nothing, when every file of each new module is new and holds nothing
 that can reach existing code: only std macros, derives and plain attributes, and every impl is for a type declared in the same scope.
 
+R1 (pr_selection_corpus.py): new independent cases select no mutant beyond the new ones and those of the changed sources.
+
 Derived-from: none (project tooling, Apache-2.0).
 """
 import difflib, json, os, re, time
@@ -134,11 +136,20 @@ def adds_only_independent_modules(path, read_base, read_head, list_head):
 def narrow(changed, mutants, tool_mutants, unit_mutants, read_base, read_head, list_head):
     """-> {selected, rules, not_selected_by_rule}. `read_base`/`read_head`: path -> text or None; `list_head`: module path without
     extension -> its files."""
+    import pr_selection_corpus as corpus      # it uses the Rust reader of this module
     conservative = gates.select_mutants(changed, mutants, tool_mutants, unit_mutants)
-    excused = [path for path in changed if adds_only_independent_modules(path, read_base, read_head, list_head)]
-    selected = gates.select_mutants([path for path in changed if path not in excused], mutants, tool_mutants, unit_mutants)
-    return {"selected": selected, "rules": ["Q-X-22 R2: " + path for path in excused],
-            "not_selected_by_rule": [name for name in conservative if name not in selected]}
+    excused = [("R2", path) for path in changed if adds_only_independent_modules(path, read_base, read_head, list_head)]
+    covered = [path for path in changed if corpus.covers(path) and path not in gates.NON_INPUT_ARTIFACTS]
+    proofs = [corpus.proven(path, read_base(path), read_head(path), read_base, read_head) for path in covered]
+    new_mutants = []
+    if covered and None not in proofs:      # all or nothing: one doubt about the corpus or the harness selects everything anyway
+        excused += [("R1", path) for path in covered]
+        new_mutants = [name for names in proofs for name in names]
+    paths = {path for _rule, path in excused}
+    picked = set(gates.select_mutants([path for path in changed if path not in paths], mutants, tool_mutants, unit_mutants)) | set(new_mutants)
+    return {"selected": [name for name in [*mutants, *tool_mutants] if name in picked],
+            "rules": sorted(f"Q-X-22 {rule}: {path}" for rule, path in excused),
+            "not_selected_by_rule": [name for name in conservative if name not in picked]}
 
 
 def select_for_pr(base, mutants, tool_mutants, unit_mutants, repo=gates.ROOT):
