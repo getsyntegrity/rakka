@@ -5,13 +5,15 @@
 
 use std::fmt;
 
-/// A JVM exception as seen by Pekko: class name and optional message.
+/// A JVM exception as seen by Pekko: class name, optional message and optional cause.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Throwable {
     /// The JVM class name, e.g. `java.lang.IllegalStateException`.
     pub class: String,
     /// `getMessage`; `None` when the exception has no message.
     pub message: Option<String>,
+    /// `getCause`: what this exception wraps. Equality compares it too; [`Display`](fmt::Display), like `toString`, leaves it out.
+    pub cause: Option<Box<Throwable>>,
 }
 
 impl Throwable {
@@ -20,7 +22,14 @@ impl Throwable {
         Throwable {
             class: class.into(),
             message: message.map(str::to_string),
+            cause: None,
         }
+    }
+
+    /// The same exception caused by `cause` (the constructor argument of the same name on the JVM).
+    pub fn with_cause(mut self, cause: Throwable) -> Self {
+        self.cause = Some(Box::new(cause));
+        self
     }
 
     /// `new IllegalStateException(message)`.
@@ -42,4 +51,22 @@ impl fmt::Display for Throwable {
 /// `throw t`: unwinds the current actor callback without invoking the panic hook (nothing is printed).
 pub fn throw(t: Throwable) -> ! {
     std::panic::resume_unwind(Box::new(t))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Throwable;
+
+    /// `Throwable.toString` leaves the cause out; equality of the Rust value does not.
+    #[test]
+    fn a_cause_changes_equality_but_not_the_text() {
+        let plain = Throwable::illegal_state("outer");
+        let caused = plain.clone().with_cause(Throwable::illegal_state("inner"));
+        assert_eq!(caused.to_string(), "java.lang.IllegalStateException: outer");
+        assert_ne!(caused, plain);
+        assert_eq!(
+            caused.cause.as_deref(),
+            Some(&Throwable::illegal_state("inner"))
+        );
+    }
 }

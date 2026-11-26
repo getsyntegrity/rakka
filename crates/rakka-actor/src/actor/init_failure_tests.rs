@@ -490,3 +490,47 @@ fn published_errors(errors: &Mutex<Vec<crate::event::ErrorEvent>>) -> Vec<String
         })
         .collect()
 }
+
+/// `logFailure` reads the cause that `initWithFailure` kept (`FaultHandling.scala:406-414`).
+#[test]
+fn the_supervisor_logs_the_message_of_what_made_the_cell_fail() {
+    // twin of oracle case MBX-IF-06
+    let fixture = Fixture::in_system("mbx");
+    let errors = collect_errors(&fixture);
+    let (starts, log) = (Arc::new(AtomicUsize::new(0)), Log::default());
+    let child = Arc::new(Mutex::new(None));
+    let parent = {
+        let (child_props, child) = (Worker::props(&starts, &log), child.clone());
+        fixture
+            .system
+            .actor_of_named(
+                Props::new(move || RestartingParent {
+                    child_props: child_props.clone(),
+                    child: child.clone(),
+                    cell_can_be_made: false,
+                    resumes: false,
+                }),
+                "parent",
+            )
+            .unwrap()
+    };
+    parent.tell("go".to_owned(), None);
+    let logged = || {
+        let errors = errors.lock().unwrap();
+        let of_the_failure = errors
+            .iter()
+            .filter(|e| e.cause.class == "org.apache.pekko.actor.ActorInitializationException")
+            .map(|e| {
+                let message = e.message.as_deref().unwrap_or("null");
+                format!("{}|{}|{message}", e.log_source, e.cause.class)
+            });
+        of_the_failure.collect::<Vec<_>>()
+    };
+    run_until(&fixture, "the actor to start and the log to arrive", || {
+        starts.load(Ordering::SeqCst) == 1 && !logged().is_empty()
+    });
+    assert_eq!(
+        format!("errors=[{}]", logged().join(", ")),
+        recorded("MBX-IF-06")
+    );
+}

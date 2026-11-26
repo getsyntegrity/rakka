@@ -148,6 +148,28 @@ fn message_class(message: &AnyMessage) -> &'static str {
     }
 }
 
+/// `ActorInitializationException` and its two subclasses.
+const INITIALIZATION_FAILURES: [&str; 3] = [
+    "org.apache.pekko.actor.ActorInitializationException",
+    "org.apache.pekko.actor.PreRestartException",
+    "org.apache.pekko.actor.PostRestartException",
+];
+
+/// The text `logFailure` publishes: `getMessage` of the failure, or of its cause when it is an `ActorInitializationException`
+/// that has one (looking through the wrapper of a reflective call).
+fn logged_message(failure: &Throwable) -> Option<String> {
+    let cause = match &failure.cause {
+        Some(cause) if INITIALIZATION_FAILURES.contains(&failure.class.as_str()) => cause,
+        _ => return failure.message.clone(),
+    };
+    match &cause.cause {
+        Some(target) if cause.class == "java.lang.reflect.InvocationTargetException" => {
+            target.message.clone()
+        }
+        _ => cause.message.clone(),
+    }
+}
+
 /// `new RejectedExecutionException`.
 fn rejected_execution() -> Throwable {
     Throwable::new("java.util.concurrent.RejectedExecutionException", None)
@@ -263,19 +285,20 @@ impl ActorCell {
 
     /// `initWithFailure(failure)`: the replacement for a cell that could not be made. It runs on the system's default dispatcher with
     /// an unbounded mailbox, and its only message is `Create` carrying `ActorInitializationException(self, "failure while creating
-    /// ActorCell", failure)`; the supervisor was already told about the actor when the reference was made. Pekko keeps `failure` as the exception's
-    /// cause; `Throwable` has no cause chain, so it is not kept (the supervisor's `logFailure` text, which reads it, is another contract).
+    /// ActorCell", failure)`, whose cause is `failure`; the supervisor was already told about the actor when the reference was made.
     pub(crate) fn new_with_failure(
         system: &Arc<SystemInner>,
         props: Props,
         parent: ActorRef,
         path: ActorPath,
         outer: ActorRef,
+        failure: Throwable,
     ) -> Arc<ActorCell> {
         let initialization_failure = Throwable::new(
             "org.apache.pekko.actor.ActorInitializationException",
             Some(&format!("{path}: failure while creating ActorCell")),
-        );
+        )
+        .with_cause(failure);
         Self::build(
             system,
             system.dispatcher.clone(),
@@ -750,22 +773,26 @@ impl ActorCell {
         let actor = match catch_unwind(AssertUnwindSafe(|| self.props.new_actor())) {
             Ok(actor) => actor,
             Err(payload) => {
-                let cause = self.creation_failure(&throwable_of(payload));
+                let cause = self.creation_failure(throwable_of(payload));
                 self.handle_invoke_failure(cause);
                 return;
             }
         };
         self.install_actor(actor);
-        if let Err(root_cause) = self.with_actor(|a, ctx| a.pre_start(ctx)) {
+        if let Err(thrown) = self.with_actor(|a, ctx| a.pre_start(ctx)) {
             // the half-built actor is dropped (so `postStop` never runs) and the supervisor decides (default: stop)
             self.remove_actor();
-            let cause = self.creation_failure(&root_cause);
+            let cause = self.creation_failure(thrown);
             self.handle_invoke_failure(cause);
         }
     }
 
     /// `ActorInitializationException(self, "exception during creation, root cause message: [..]", cause)` (`ActorCell.create`).
-    fn creation_failure(&self, root_cause: &Throwable) -> Throwable {
+    fn creation_failure(&self, thrown: Throwable) -> Throwable {
+        let mut root_cause = &thrown; // `rootCauseOf`
+        while let Some(cause) = &root_cause.cause {
+            root_cause = cause;
+        }
         let root_message = root_cause
             .message
             .as_deref()
@@ -777,22 +804,29 @@ impl ActorCell {
                 self.path
             )),
         )
+        .with_cause(thrown)
     }
 
     /// `PreRestartException(self, e, originalCause, optionalMessage)`: its message names the class of the failure that caused the
-    /// restart and that of the message being processed then. `e`, the cause Pekko keeps, only shows as the text of the `Error`.
-    fn pre_restart_failure(&self, cause: &Throwable, message: Option<&AnyMessage>) -> Throwable {
+    /// restart and that of the message being processed then. Its cause is `e`, what `preRestart` threw.
+    fn pre_restart_failure(
+        &self,
+        thrown: Throwable,
+        cause: &Throwable,
+        message: Option<&AnyMessage>,
+    ) -> Throwable {
         let message = message.map_or_else(
             || "None".to_owned(),
             |message| format!("class {}", message_class(message)),
         );
         let (path, class) = (&self.path, &cause.class);
         let text = format!("{path}: exception in preRestart(class {class}, {message})");
-        Throwable::new("org.apache.pekko.actor.PreRestartException", Some(&text))
+        Throwable::new("org.apache.pekko.actor.PreRestartException", Some(&text)).with_cause(thrown)
     }
 
-    /// `PostRestartException(self, e, originalCause)`: its message names the class of the failure that caused the restart.
-    fn post_restart_failure(&self, original_cause: &Throwable) -> Throwable {
+    /// `PostRestartException(self, e, originalCause)`: its message names the class of the failure that caused the restart, its
+    /// cause is `e`, what the factory or `postRestart` threw.
+    fn post_restart_failure(&self, thrown: Throwable, original_cause: &Throwable) -> Throwable {
         Throwable::new(
             "org.apache.pekko.actor.PostRestartException",
             Some(&format!(
@@ -800,6 +834,7 @@ impl ActorCell {
                 self.path, original_cause.class
             )),
         )
+        .with_cause(thrown)
     }
 
     /// `actor.supervisorStrategy` (once per handled `Failed` and once per child terminated): asked of the instance of the cell, the
@@ -884,7 +919,7 @@ impl ActorCell {
         }
         let log_source = child.path().to_string();
         let log_class = strategy.class_name().to_owned();
-        let message = cause.message.clone();
+        let message = logged_message(cause);
         self.publish_unguarded(|events| {
             if decision == Directive::Resume {
                 events.publish_warning(WarningEvent {
@@ -1014,8 +1049,9 @@ impl ActorCell {
             && let Err(thrown) =
                 self.with_actor(|a, ctx| a.pre_restart(ctx, &cause, message.as_ref()))
         {
-            let failure = self.pre_restart_failure(&cause, message.as_ref());
-            self.publish_caused_error(failure, thrown.message);
+            let text = thrown.message.clone();
+            let failure = self.pre_restart_failure(thrown, &cause, message.as_ref());
+            self.publish_caused_error(failure, text);
         }
         drop(message); // so that the cell's own drop, which is guarded, is the last one
         self.set_current(None); // `clearActorFields`
@@ -1096,20 +1132,17 @@ impl ActorCell {
         let replaced = self.st.lock().unwrap().replaced_actor.take();
         let fresh = match catch_unwind(AssertUnwindSafe(|| self.props.new_actor())) {
             Ok(fresh) => fresh,
-            Err(_) => {
+            Err(payload) => {
                 // the old instance stays in place, so it is stopped (and post-stopped) with the cell
                 self.st.lock().unwrap().actor = replaced;
-                self.fail_restart(&cause, &survivors);
+                self.fail_restart(throwable_of(payload), &cause, &survivors);
                 return;
             }
         };
         self.install_actor(fresh);
-        if self
-            .with_actor(|a, ctx| a.post_restart(ctx, &cause))
-            .is_err()
-        {
+        if let Err(thrown) = self.with_actor(|a, ctx| a.post_restart(ctx, &cause)) {
             // the new instance stays in place (Pekko keeps `_actor`): it gets its `postStop` when the actor stops
-            self.fail_restart(&cause, &survivors);
+            self.fail_restart(thrown, &cause, &survivors);
             return;
         }
         for survivor in survivors {
@@ -1120,9 +1153,14 @@ impl ActorCell {
     }
 
     /// `setFailedFatally` and `handleInvokeFailure(survivors, PostRestartException)`: the survivors are still suspended.
-    fn fail_restart(self: &Arc<Self>, original_cause: &Throwable, survivors: &[ActorRef]) {
+    fn fail_restart(
+        self: &Arc<Self>,
+        thrown: Throwable,
+        original_cause: &Throwable,
+        survivors: &[ActorRef],
+    ) {
         self.st.lock().unwrap().failed = FailedInfo::FailedFatally; // setFailedFatally
-        let failure = self.post_restart_failure(original_cause);
+        let failure = self.post_restart_failure(thrown, original_cause);
         self.fail(failure, None, survivors);
     }
 
@@ -1302,13 +1340,14 @@ impl ActorCell {
                     Box::new(move |outer: &ActorRef| {
                         // `point(catchFailures = true)`: what `newCell` throws is not lost, the actor fails to initialise instead
                         make_cell(&system, props.clone(), parent.clone(), path.clone(), outer)
-                            .unwrap_or_else(|_failure| {
+                            .unwrap_or_else(|failure| {
                                 ActorCell::new_with_failure(
                                     &system,
                                     props,
                                     parent,
                                     path,
                                     outer.clone(),
+                                    failure,
                                 )
                             })
                     })

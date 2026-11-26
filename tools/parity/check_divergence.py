@@ -226,8 +226,8 @@ MUTANTS = {
     ),
     "failed-restart-still-restarts-survivors": (
         "src/actor/cell.rs",
-        "self.fail_restart(&cause, &survivors);\n            return;\n        }\n        for",
-        "self.fail_restart(&cause, &survivors);\n        }\n        for",
+        "self.fail_restart(thrown, &cause, &survivors);\n            return;\n        }\n        for",
+        "self.fail_restart(thrown, &cause, &survivors);\n        }\n        for",
         "the survivors are restarted although the parent's `postRestart` failed",
     ),
     "waiting-cell-does-not-defer-system-messages": (
@@ -306,8 +306,8 @@ MUTANTS = {
     ),
     "pre-restart-failure-is-swallowed": (
         "src/actor/cell.rs",
-        "self.publish_caused_error(failure, thrown.message);",
-        "drop((failure, thrown));",
+        "self.publish_caused_error(failure, text);",
+        "drop((failure, text));",
         "a throwing `preRestart` publishes no `PreRestartException`",
     ),
     "post-stop-failure-is-swallowed": (
@@ -345,6 +345,18 @@ MUTANTS = {
         "    actor.post_stop(ctx);\n",
         "",
         "the default `preRestart`, also when an override calls it, does not run `postStop` of the failed instance",
+    ),
+    "log-failure-publishes-the-wrapper-message": (
+        "src/actor/cell.rs",
+        "        let message = logged_message(cause);\n",
+        "        let message = cause.message.clone();\n",
+        "`logFailure` publishes the text of the `ActorInitializationException` instead of that of its cause",
+    ),
+    "creation-failure-names-the-thrown-not-the-root": (
+        "src/actor/cell.rs",
+        "            root_cause = cause;\n",
+        "            break;\n",
+        "the text of a creation failure names the exception thrown instead of its root cause",
     ),
     "throwing-strategy-falls-back-to-default": (
         "src/actor/cell.rs",
@@ -924,8 +936,8 @@ MUTANTS = {
     # --- refinement 01, A-BUG-03: an exception escaping the actor factory or the decider ---
     "factory-failure-not-reported": (
         "src/actor/cell.rs",
-        "let cause = self.creation_failure(&throwable_of(payload));",
-        "let cause = self.creation_failure(&throwable_of(payload));\n                return drop(cause);",
+        "let cause = self.creation_failure(throwable_of(payload));",
+        "let cause = self.creation_failure(throwable_of(payload));\n                return drop(cause);",
         "an exception thrown by the actor factory is swallowed: the supervisor never hears about the failed child",
     ),
     "creation-failure-without-root-cause": (
@@ -1117,8 +1129,8 @@ MUTANTS = {
     # --- refinement 01, A-BUG-01/02: text of ActorInitializationException (preStart) and PostRestartException (postRestart) ---
     "prestart-failure-fixed-text": (
         "src/actor/cell.rs",
-        "let cause = self.creation_failure(&root_cause);",
-        'let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", Some("exception during creation"));\n            let _ = root_cause;',
+        "let cause = self.creation_failure(thrown);",
+        'let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", Some("exception during creation"));\n            let _ = thrown;',
         "a preStart failure reports a fixed 'exception during creation' text without the path and the root cause message",
     ),
     "post-restart-failure-drops-new-instance": (
