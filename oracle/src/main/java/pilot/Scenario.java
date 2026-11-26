@@ -265,6 +265,22 @@ final class Scenario {
     }
   }
 
+  /** `errors` channel: the published `Error`s whose message starts with `prefix` (others, e.g. `logFailure`, are out of the scenario). */
+  public static final class ErrorCollector extends AbstractActor {
+    private final String label, prefix;
+    private final Ctx ctx;
+
+    ErrorCollector(String label, String prefix, Ctx ctx) { this.label = label; this.prefix = prefix; this.ctx = ctx; }
+
+    @Override public Receive createReceive() {
+      return receiveBuilder().match(org.apache.pekko.event.Logging.Error.class, e -> {
+        if (String.valueOf(e.message()).startsWith(prefix))
+          ctx.add(label, "{\"ev\":\"error\",\"source\":" + Cli.Json.str(e.logSource()) + ",\"message\":" + Cli.Json.str(String.valueOf(e.message()))
+              + ",\"ofActorClass\":" + (e.logClass() == Scripted.class) + ",\"cause\":" + Cli.Json.str(e.cause().getClass().getName()) + "}");
+      }).build();
+    }
+  }
+
   /** Subscribed to the event stream; records dead letters and unhandled messages. */
   public static final class Collector extends AbstractActor {
     private final String label;
@@ -378,9 +394,13 @@ final class Scenario {
         }
         case "subscribe": {
           String label = (String) st.get("as");
-          ActorRef c = system.actorOf(Props.create(Collector.class, () -> new Collector(label, ctx)));
+          boolean errors = "errors".equals(st.get("channel"));
+          ActorRef c = system.actorOf(errors
+              ? Props.create(ErrorCollector.class, () -> new ErrorCollector(label, (String) st.get("prefix"), ctx))
+              : Props.create(Collector.class, () -> new Collector(label, ctx)));
           ctx.refs.put(label, c);
-          system.eventStream().subscribe(c, "dead-letters".equals(st.get("channel")) ? DeadLetter.class : UnhandledMessage.class);
+          system.eventStream().subscribe(c, errors ? org.apache.pekko.event.Logging.Error.class
+              : "dead-letters".equals(st.get("channel")) ? DeadLetter.class : UnhandledMessage.class);
           return head + ",\"ok\":true}";
         }
         case "tell": {

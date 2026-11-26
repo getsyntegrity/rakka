@@ -24,7 +24,7 @@ use rakka_actor::actor::supervision::{
 use rakka_actor::actor::system::{ActorSystem, Settings};
 use rakka_actor::actor::{ActorError, ActorRef};
 use rakka_actor::dispatch::{Failed, Terminated};
-use rakka_actor::event::{Channel, DeadLetter, UnhandledMessage};
+use rakka_actor::event::{Channel, DeadLetter, ErrorEvent, UnhandledMessage};
 
 /// How long an `await-*` step waits for its condition (override with `SCENARIO_AWAIT_MS`, e.g. when debugging).
 fn await_timeout() -> Duration {
@@ -68,6 +68,8 @@ enum Event {
         sender: String,
         recipient: String,
     },
+    /// `errors` channel: a published `Error`, already rendered
+    Error(String),
     Terminated {
         actor: String,
         is: Option<String>,
@@ -180,6 +182,7 @@ impl Event {
                 q(&mut o, sender);
                 o.push('}');
             }
+            Event::Error(rendered) => o.push_str(rendered),
             Event::PostStopSpawn(r) => o.push_str(&format!("{{\"ev\":\"post-stop-spawn\",{r}}}")),
             Event::DeadLetter {
                 msg,
@@ -752,10 +755,12 @@ fn command(ctx: &Arc<Ctx>, c: &mut ActorContext, sp: &Value) -> String {
     o
 }
 
-/// Subscribed to the event stream; records dead letters and unhandled messages.
+/// Subscribed to the event stream; records dead letters, unhandled messages and errors.
 struct Collector {
     label: String,
     ctx: Arc<Ctx>,
+    /// `errors` channel: only the errors whose message starts with this are recorded
+    prefix: String,
 }
 
 impl Actor for Collector {
@@ -769,6 +774,19 @@ impl Actor for Collector {
                     recipient: path_str(&d.recipient),
                 },
             );
+            true
+        } else if let Some(e) = msg.downcast_ref::<ErrorEvent>() {
+            if e.message.starts_with(&self.prefix) {
+                let mut o = String::from("{\"ev\":\"error\",\"source\":");
+                js(&mut o, &e.log_source);
+                o.push_str(",\"message\":");
+                js(&mut o, &e.message);
+                let of_actor_class = e.log_class == std::any::type_name::<Scripted>();
+                o.push_str(&format!(",\"ofActorClass\":{of_actor_class},\"cause\":"));
+                js(&mut o, &e.cause.class);
+                o.push('}');
+                self.ctx.add(&self.label, Event::Error(o));
+            }
             true
         } else if let Some(u) = msg.downcast_ref::<UnhandledMessage>() {
             self.ctx.add(
@@ -1001,17 +1019,19 @@ fn step(
         "subscribe" => {
             let lbl = label("as").ok_or("subscribe needs as")?;
             let (c2, l2) = (ctx.clone(), lbl.clone());
+            let prefix = label("prefix").unwrap_or_default();
             let r = system
                 .actor_of(Props::new(move || Collector {
                     label: l2.clone(),
                     ctx: c2.clone(),
+                    prefix: prefix.clone(),
                 }))
                 .map_err(|e| e.to_string())?;
             ctx.refs.lock().unwrap().insert(lbl, r.clone());
-            let channel = if label("channel").as_deref() == Some("dead-letters") {
-                Channel::DeadLetter
-            } else {
-                Channel::UnhandledMessage
+            let channel = match label("channel").as_deref() {
+                Some("dead-letters") => Channel::DeadLetter,
+                Some("errors") => Channel::Error,
+                _ => Channel::UnhandledMessage,
             };
             system.event_stream().subscribe(&r, channel);
             out.push_str(",\"ok\":true");
