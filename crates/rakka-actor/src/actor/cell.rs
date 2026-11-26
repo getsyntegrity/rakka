@@ -2,6 +2,7 @@
 //! `ActorCell`: the engine behind a local actor — mailbox, system-message processing, children,
 //! death watch and the termination sequence. Follows `ActorCell.scala` and `dungeon/*`.
 
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -616,7 +617,7 @@ impl ActorCell {
                 return;
             };
             if let Some(custom) = custom {
-                msg = custom.message;
+                msg = custom.message.clone();
             }
         }
         self.st.lock().unwrap().sender = env.sender.clone();
@@ -1301,7 +1302,8 @@ impl ActorCell {
                 watcher: me,
             });
         }
-        self.st.lock().unwrap().terminated_queued.remove(subject);
+        // bound, not discarded: a user's message is dropped only after the lock is released
+        let _cancelled = self.st.lock().unwrap().terminated_queued.remove(subject);
     }
 
     fn add_watcher(self: &Arc<Self>, watchee: ActorRef, watcher: ActorRef) {
@@ -1351,12 +1353,19 @@ impl ActorCell {
             && !self.children.lock().unwrap().is_terminating()
         {
             // `terminatedQueuedFor`: a registration made while one is already queued does not replace it
-            self.st
+            let _refused = match self
+                .st
                 .lock()
                 .unwrap()
                 .terminated_queued
                 .entry(actor.clone())
-                .or_insert(custom);
+            {
+                Entry::Vacant(slot) => {
+                    slot.insert(custom);
+                    None
+                }
+                Entry::Occupied(_) => Some(custom),
+            };
             self.self_ref().tell_any(
                 Arc::new(Terminated {
                     actor: actor.clone(),
@@ -1388,10 +1397,10 @@ impl ActorCell {
     }
 
     fn unwatch_watched_actors(self: &Arc<Self>) {
-        let watching = {
+        let (watching, _queued) = {
             let mut st = self.st.lock().unwrap();
-            st.terminated_queued.clear();
-            std::mem::take(&mut st.watching)
+            let queued = std::mem::take(&mut st.terminated_queued);
+            (std::mem::take(&mut st.watching), queued)
         };
         let me = self.self_ref();
         for (w, _) in watching {

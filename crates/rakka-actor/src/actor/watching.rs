@@ -2,6 +2,7 @@
 //! The termination message of a `watchWith` (the `Some(msg)` of `watching: Map[ActorRef, Option[Any]]`).
 
 use std::any::Any;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 use crate::actor::ActorRef;
@@ -33,6 +34,14 @@ impl CustomTermination {
             .map(String::as_str)
             .or_else(|| message.downcast_ref::<&str>().copied());
         format!("Some({})", text.unwrap_or(self.type_name))
+    }
+}
+
+/// A panic of the user's `Drop` stops here (the panic hook has reported it): it never unwinds out of a death-watch transition.
+impl Drop for CustomTermination {
+    fn drop(&mut self) {
+        let message = std::mem::replace(&mut self.message, Arc::new(()));
+        let _ = catch_unwind(AssertUnwindSafe(|| drop(message)));
     }
 }
 
