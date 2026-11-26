@@ -11,7 +11,9 @@ use crate::actor::ActorPath;
 use crate::actor::actor_ref::{ActorRef, InternalActorRef};
 use crate::actor::children::{Children, SuspendReason};
 use crate::actor::fault::{Throwable, throw};
-use crate::actor::props::{Actor, ActorContext, AnyMessage, Kill, PoisonPill, Props};
+use crate::actor::props::{
+    Actor, ActorContext, ActorIdentity, AnyMessage, Identify, Kill, PoisonPill, Props,
+};
 use crate::actor::repointable::{PushPolicy, RepointableActorRef};
 use crate::actor::supervision::{Directive, OneForOneStrategy, RestartStats, SupervisorStrategy};
 use crate::actor::system::SystemInner;
@@ -545,6 +547,18 @@ impl ActorCell {
         if env.message.is::<Kill>() {
             let cause = Throwable::new("org.apache.pekko.actor.ActorKilledException", Some("Kill"));
             self.handle_invoke_failure(cause, Some(env.message));
+            return;
+        }
+        // `Identify` is auto-received: the cell answers, with no sender, and `receive` never sees it
+        if let Some(identify) = env.message.downcast_ref::<Identify>() {
+            let identity = ActorIdentity {
+                correlation_id: identify.message_id.clone(),
+                actor_ref: Some(self.self_ref()),
+            };
+            let asker = env
+                .sender
+                .unwrap_or_else(|| self.system.dead_letters.clone());
+            asker.tell_any(Arc::new(identity), None);
             return;
         }
         // `receivedTerminated`: only a Terminated that is still queued for us is delivered (unwatch cancels it)

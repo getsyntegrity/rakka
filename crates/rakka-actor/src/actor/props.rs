@@ -26,6 +26,22 @@ pub struct PoisonPill;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Kill;
 
+/// `org.apache.pekko.actor.Identify`: every actor answers it with an [`ActorIdentity`] without it reaching `receive`.
+#[derive(Debug, Clone)]
+pub struct Identify {
+    /// `messageId`: returned untouched as the correlation id of the reply.
+    pub message_id: AnyMessage,
+}
+
+/// `org.apache.pekko.actor.ActorIdentity`: the reply to [`Identify`].
+#[derive(Debug, Clone)]
+pub struct ActorIdentity {
+    /// `correlationId`: the `message_id` of the request.
+    pub correlation_id: AnyMessage,
+    /// `ref`: the actor that answered, `None` when there is none (stopped actor or `deadLetters`).
+    pub actor_ref: Option<ActorRef>,
+}
+
 /// `org.apache.pekko.actor.Actor`. Hooks default to no-ops; `receive` returns whether the message was
 /// handled (`false` is Pekko's `unhandled`, which publishes an `UnhandledMessage` on the event stream).
 pub trait Actor: Send + 'static {

@@ -2977,3 +2977,9 @@ mb-0030	oracle-mailbox	AC-MBX-013,AC-MBX-014	cited
 mb-0031	oracle-mailbox	AC-MBX-013,AC-MBX-014	cited
 mb-0032	oracle-mailbox	AC-MBX-011	cited
 mb-0033	oracle-mailbox	AC-MBX-006	cited
+identify-live	scenario-identify	AC-REF-013	cited
+identify-no-sender	scenario-identify	AC-REF-013	cited
+identify-stopped	scenario-identify	AC-REF-013	cited
+identify-gone-no-sender	scenario-identify	AC-REF-013	cited
+identify-deadletters	scenario-identify	AC-REF-013	cited
+identify-behind-pill	scenario-identify	AC-REF-013	cited

@@ -15,7 +15,9 @@ use std::time::{Duration, Instant};
 
 use crate::json::{Value, parse_value, write_str, write_text};
 use rakka_actor::actor::fault::{Throwable, throw};
-use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Kill, PoisonPill, Props};
+use rakka_actor::actor::props::{
+    Actor, ActorContext, ActorIdentity, AnyMessage, Identify, Kill, PoisonPill, Props,
+};
 use rakka_actor::actor::supervision::{
     AllForOneStrategy, Directive, OneForOneStrategy, SupervisorStrategy,
 };
@@ -82,12 +84,18 @@ enum Event {
 enum Msg {
     Text(String),
     Class(&'static str),
+    /// an `ActorIdentity`: correlation id and the path of its reference
+    Identity(String, Option<String>),
     Unknown,
 }
 
 fn msg_of(m: &AnyMessage) -> Msg {
     if let Some(t) = m.downcast_ref::<String>() {
         Msg::Text(t.clone())
+    } else if let Some(i) = m.downcast_ref::<ActorIdentity>() {
+        let correlation = i.correlation_id.downcast_ref::<String>().cloned();
+        let path = i.actor_ref.as_ref().map(path_str);
+        Msg::Identity(correlation.unwrap_or_default(), path)
     } else if m.is::<Kill>() {
         Msg::Class("org.apache.pekko.actor.Kill$")
     } else if m.is::<Failed>() {
@@ -101,6 +109,16 @@ fn msg_json(out: &mut String, m: &Msg) {
     match m {
         Msg::Text(t) => write_text(out, t),
         Msg::Class(c) => out.push_str(&format!("{{\"class\":\"{c}\"}}")),
+        Msg::Identity(correlation, path) => {
+            out.push_str("{\"identity\":");
+            write_text(out, correlation);
+            out.push_str(",\"ref\":");
+            match path {
+                Some(p) => write_text(out, p),
+                None => out.push_str("null"),
+            }
+            out.push('}');
+        }
         Msg::Unknown => out.push_str("{\"class\":\"?\"}"),
     }
 }
@@ -898,6 +916,14 @@ fn message(v: &Value) -> Result<AnyMessage, String> {
         && v.get("special").and_then(Value::as_str).as_deref() == Some("Kill")
     {
         return Ok(Arc::new(Kill));
+    }
+    if matches!(v, Value::Object(_))
+        && v.get("special").and_then(Value::as_str).as_deref() == Some("Identify")
+    {
+        let correlation = v.get("id").and_then(Value::as_str);
+        return Ok(Arc::new(Identify {
+            message_id: Arc::new(correlation.ok_or("Identify needs an id")?),
+        }));
     }
     Ok(Arc::new(v.as_str().ok_or(
         "message must be a string or {\"special\":\"PoisonPill\"}",
