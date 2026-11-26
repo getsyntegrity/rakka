@@ -228,21 +228,14 @@ mod tests {
     fn a_strategy_logs_unless_it_is_disabled_and_names_its_own_class() {
         let one = OneForOneStrategy::default_strategy();
         let all = AllForOneStrategy::new(-1, default_decider);
-        for (enabled, disabled, class) in [
-            (
-                SupervisorStrategy::from(one.clone()),
-                SupervisorStrategy::from(one.with_logging_enabled(false)),
-                "org.apache.pekko.actor.OneForOneStrategy",
-            ),
-            (
-                all.clone().into(),
-                all.with_logging_enabled(false).into(),
-                "org.apache.pekko.actor.AllForOneStrategy",
-            ),
-        ] {
-            assert!(enabled.logging_enabled());
-            assert!(!disabled.logging_enabled());
-            assert_eq!(enabled.class_name(), class);
+        let quiet_one = SupervisorStrategy::from(one.clone().with_logging_enabled(false));
+        let quiet_all = SupervisorStrategy::from(all.clone().with_logging_enabled(false));
+        assert!(!quiet_one.logging_enabled() && !quiet_all.logging_enabled());
+        for (strategy, class) in [(one.into(), "OneForOne"), (all.into(), "AllForOne")] {
+            let strategy: SupervisorStrategy = strategy;
+            assert!(strategy.logging_enabled());
+            let expected = format!("org.apache.pekko.actor.{class}Strategy");
+            assert_eq!(strategy.class_name(), expected);
         }
     }
 

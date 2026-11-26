@@ -359,26 +359,18 @@ fn a_negative_limit_never_stops_the_child() {
 /// A mailbox whose every enqueue unwinds.
 struct Unwinding;
 
+#[rustfmt::skip] // one stub per line
 impl MailboxType for Unwinding {
-    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
-        Box::new(Unwinding)
-    }
+    fn create(&self, _: &ActorRef) -> Box<dyn MessageQueue> { Box::new(Unwinding) }
 }
 
+#[rustfmt::skip]
 impl MessageQueue for Unwinding {
-    fn enqueue(&self, _receiver: &ActorRef, _envelope: Envelope) -> bool {
-        throw(Throwable::illegal_state("mailbox"))
-    }
-    fn dequeue(&self) -> Option<Envelope> {
-        None
-    }
-    fn number_of_messages(&self) -> usize {
-        0
-    }
-    fn has_messages(&self) -> bool {
-        false
-    }
-    fn clean_up(&self, _owner: &ActorRef, _dead_letters: &dyn MessageQueue) {}
+    fn enqueue(&self, _: &ActorRef, _: Envelope) -> bool { throw(Throwable::illegal_state("mailbox")) }
+    fn dequeue(&self) -> Option<Envelope> { None }
+    fn number_of_messages(&self) -> usize { 0 }
+    fn has_messages(&self) -> bool { false }
+    fn clean_up(&self, _: &ActorRef, _: &dyn MessageQueue) {}
 }
 
 struct Idle;
