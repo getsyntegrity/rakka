@@ -410,12 +410,15 @@
 
 ## P29 REF-SELECCION
 
-6 filas; 2 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 1 propuestas.
+6 filas; 5 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-REF-011 | — | — | `transversal` |
+| Q-REF-10 | propuesta | 1: AC-REF-014 | Bloquea el cierre de AC-REF-014. | — | `classic-cell` |
 | Q-REF-7 | propuesta | 1: AC-REF-013 | Bloquea el cierre de AC-REF-013. | — | `classic-cell` |
+| Q-REF-8 | propuesta | 1: AC-REF-011 | Bloquea el cierre de AC-REF-011. | — | `classic-cell` |
+| Q-REF-9 | propuesta | 1: AC-REF-014 | Bloquea el cierre de AC-REF-014 y AC-REF-013. | — | `classic-cell` |
 
 ## P30 EXT
 
@@ -1077,4 +1080,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 520 (253 respondidas, 0 bloqueantes, 267 propuestas).
+Total de pares unidad–decisión: 523 (253 respondidas, 0 bloqueantes, 270 propuestas).

@@ -3047,3 +3047,4 @@ sel-forward	scenario-actor-selection	AC-REF-011	cited
 sel-empty-path	scenario-actor-selection	AC-REF-011	cited
 sel-missing	scenario-actor-selection	AC-REF-011,AC-REF-014	cited
 sel-identify	scenario-actor-selection	AC-REF-013,AC-REF-014	cited
+sel-uid	scenario-actor-selection	AC-REF-011,AC-REF-013,AC-REF-014	cited

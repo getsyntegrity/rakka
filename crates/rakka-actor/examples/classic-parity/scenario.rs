@@ -1291,7 +1291,12 @@ fn step(
             out.push_str(",\"ok\":true");
         }
         "select" => {
-            let path = label("path").ok_or("select needs path")?;
+            let mut path = label("path").ok_or("select needs path")?;
+            // `uid-of` appends the uid of that actor, after a `#` in the path
+            if let Some(of) = label("uid-of") {
+                let actor = lookup(system, ctx, &of).ok_or("unknown ref")?;
+                path.push_str(&actor.path().uid().to_string());
+            }
             let msg = message(st.get("msg").ok_or("select needs msg")?)?;
             system.actor_selection(&path).tell_any(msg, from());
             out.push_str(",\"ok\":true");

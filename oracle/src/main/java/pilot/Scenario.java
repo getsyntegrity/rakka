@@ -460,7 +460,9 @@ final class Scenario {
         }
         case "select": { // system.actorSelection(path).tell(msg, from)
           ActorRef from = st.get("from") == null ? ActorRef.noSender() : ctx.refs.get((String) st.get("from"));
-          system.actorSelection((String) st.get("path")).tell(message(st.get("msg")), from);
+          String path = (String) st.get("path"); // `uid-of` appends the uid of that actor, after a `#` in the path
+          if (st.get("uid-of") != null) path += ctx.refs.get((String) st.get("uid-of")).path().uid();
+          system.actorSelection(path).tell(message(st.get("msg")), from);
           return head + ",\"ok\":true}";
         }
         case "tell-seq": {

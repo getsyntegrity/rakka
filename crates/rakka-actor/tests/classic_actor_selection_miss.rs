@@ -24,23 +24,31 @@ fn text(msg: &AnyMessage) -> &str {
     msg.downcast_ref::<&str>().copied().unwrap_or("?")
 }
 
-/// Records dead letters, unhandled messages and `ActorIdentity` replies; tells the recipient of the dead letter `first` again.
+/// Records dead letters, unhandled messages and `ActorIdentity` replies; tells the recipient of the dead letter `first` two wrapped dead letters and then `barrier`.
 struct Recorder(Log);
 
 impl Actor for Recorder {
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         let line = if let Some(dead) = msg.downcast_ref::<DeadLetter>() {
             if text(&dead.message) == "first" {
-                dead.recipient.tell("again", None);
+                let wrapped = |message: AnyMessage| DeadLetter {
+                    message,
+                    sender: ctx.self_ref(),
+                    recipient: dead.recipient.clone(),
+                };
+                dead.recipient.tell(wrapped(Arc::new("wrapped")), None);
+                let identify = Identify {
+                    message_id: Arc::new("inner"),
+                };
+                dead.recipient.tell(wrapped(Arc::new(identify)), None);
+                dead.recipient.tell("barrier", None);
             }
             let (message, from) = (text(&dead.message), short(&dead.sender));
             let uid = dead.recipient.path().uid();
-            let to = short(&dead.recipient);
-            let to = if uid == 0 || to == "/deadLetters" {
-                to
-            } else {
-                format!("{to}#{uid}")
-            };
+            let mut to = short(&dead.recipient);
+            if uid != 0 && to != "/deadLetters" {
+                to = format!("{to} uid={uid}");
+            }
             format!("dead {message} from {from} to {to}")
         } else if let Some(unhandled) = msg.downcast_ref::<UnhandledMessage>() {
             let (message, from) = (text(&unhandled.message), short(&unhandled.sender));
@@ -81,7 +89,7 @@ fn lines(log: &Log, count: usize) -> Vec<String> {
 }
 
 #[test]
-fn what_matches_nothing_is_a_dead_letter_and_a_suppressed_message_is_nothing() {
+fn what_matches_nothing_is_a_dead_letter_and_a_suppressed_message_is_not_one() {
     let (system, probe, log) = probe(Channel::DeadLetter);
     for (path, message) in [
         ("/user/missing", "a"),
@@ -94,6 +102,8 @@ fn what_matches_nothing_is_a_dead_letter_and_a_suppressed_message_is_nothing() {
         ("/deadLetters", "h"),
         // a URI reference whose authority is `user`: the path is `/r`
         ("//user/r", "i"),
+        // another incarnation of an existing actor
+        ("/user/r#999999999", "stale"),
     ] {
         system.actor_selection(path).tell(message, Some(&probe));
     }
@@ -102,7 +112,7 @@ fn what_matches_nothing_is_a_dead_letter_and_a_suppressed_message_is_nothing() {
     missing.tell("last", None);
 
     assert_eq!(
-        lines(&log, 10),
+        lines(&log, 11),
         [
             "dead a from /user/r to /user/missing",
             "dead b from /user/r to /user/r/missing/deeper",
@@ -113,21 +123,23 @@ fn what_matches_nothing_is_a_dead_letter_and_a_suppressed_message_is_nothing() {
             "dead g from /user/r to /deadLetters",
             "dead h from /user/r to /deadLetters",
             "dead i from /user/r to /r",
+            "dead stale from /user/r to /user/r uid=999999999",
             "dead last from /deadLetters to /user/missing",
         ]
     );
 }
 
 #[test]
-fn the_recipient_of_a_missed_selection_dead_letters_what_it_is_told() {
+fn the_recipient_of_a_missed_selection_dead_letters_what_it_is_told_but_not_a_dead_letter() {
     let (system, _probe, log) = probe(Channel::DeadLetter);
     system.actor_selection("/user/no/one").tell("first", None);
 
     assert_eq!(
-        lines(&log, 2),
+        lines(&log, 3),
         [
             "dead first from /deadLetters to /user/no/one",
-            "dead again from /deadLetters to /user/no/one",
+            "inner - from /deadLetters",
+            "dead barrier from /deadLetters to /user/no/one",
         ]
     );
 }

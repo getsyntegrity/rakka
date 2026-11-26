@@ -17,6 +17,10 @@ def select(path, msg, sender="r"):
     return {"op": "select", "path": path, "msg": msg, **({"from": sender} if sender else {})}
 
 
+def select_uid(path, msg, of="c"):
+    return {**select(path, msg), "uid-of": of}
+
+
 def ident(correlation):
     return {"special": "Identify", "id": correlation}
 
@@ -39,6 +43,12 @@ def forwarder(name, path):
 UNHANDLED = {"op": "subscribe", "as": "u"}
 
 CASES = {
+    # `name#uid`: another incarnation gets nothing (dead letter, or no actor for `Identify`); the live uid and 0 deliver
+    "sel-uid": [*TREE, select("/user/p/c#999999999", "stale-absolute"), select("user/p/c#999999999", "stale-relative"),
+                select("pekko://sys/user/p/c#999999999", "stale-uri"), select("/user/p/c#999999999", ident("stale")),
+                select_uid("/user/p/c#", "absolute"), select_uid("user/p/c#", "relative"),
+                select_uid("pekko://sys/user/p/c#", "uri"), select("/user/p/c#0", "any"),
+                EV("c", 5), EV("dl", 3), EV("r", 2), NOW("c"), NOW("dl"), NOW("r")],
     # absolute, relative to the root guardian, full URI, repeated and trailing slashes, `..` from the root
     "sel-paths": [*TREE, select("/user/p/c", "absolute"), select("user/p/c", "relative"), select("pekko://sys/user/p/c", "uri"),
                  select("/user//p//c/", "slashes"), select("/../user/p/c", "above-root"), select("/user/p/c/..", "up"),
