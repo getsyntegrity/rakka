@@ -42,6 +42,8 @@ pub fn default_decider(cause: &Throwable) -> Directive {
 pub struct OneForOneStrategy {
     pub max_nr_of_retries: i32,
     pub decider: Decider,
+    /// `loggingEnabled`: whether the failures this strategy handles are published (default `true`).
+    pub logging_enabled: bool,
 }
 
 impl OneForOneStrategy {
@@ -52,7 +54,14 @@ impl OneForOneStrategy {
         OneForOneStrategy {
             max_nr_of_retries,
             decider: Arc::new(decider),
+            logging_enabled: true,
         }
+    }
+
+    /// The same strategy with `loggingEnabled` set to `logging_enabled`.
+    pub fn with_logging_enabled(mut self, logging_enabled: bool) -> Self {
+        self.logging_enabled = logging_enabled;
+        self
     }
 
     /// `SupervisorStrategy.defaultStrategy`: unlimited retries, [`default_decider`].
@@ -67,6 +76,8 @@ impl OneForOneStrategy {
 pub struct AllForOneStrategy {
     pub max_nr_of_retries: i32,
     pub decider: Decider,
+    /// `loggingEnabled`: whether the failures this strategy handles are published (default `true`).
+    pub logging_enabled: bool,
 }
 
 impl AllForOneStrategy {
@@ -77,7 +88,14 @@ impl AllForOneStrategy {
         AllForOneStrategy {
             max_nr_of_retries,
             decider: Arc::new(decider),
+            logging_enabled: true,
         }
+    }
+
+    /// The same strategy with `loggingEnabled` set to `logging_enabled`.
+    pub fn with_logging_enabled(mut self, logging_enabled: bool) -> Self {
+        self.logging_enabled = logging_enabled;
+        self
     }
 }
 
@@ -100,6 +118,22 @@ impl SupervisorStrategy {
         match self {
             SupervisorStrategy::OneForOne(s) => (s.decider)(cause),
             SupervisorStrategy::AllForOne(s) => (s.decider)(cause),
+        }
+    }
+
+    /// `loggingEnabled` of the strategy.
+    pub fn logging_enabled(&self) -> bool {
+        match self {
+            SupervisorStrategy::OneForOne(s) => s.logging_enabled,
+            SupervisorStrategy::AllForOne(s) => s.logging_enabled,
+        }
+    }
+
+    /// `getClass.getName`: the `logClass` of what the strategy logs.
+    pub(crate) fn class_name(&self) -> &'static str {
+        match self {
+            SupervisorStrategy::OneForOne(_) => "org.apache.pekko.actor.OneForOneStrategy",
+            SupervisorStrategy::AllForOne(_) => "org.apache.pekko.actor.AllForOneStrategy",
         }
     }
 
@@ -189,6 +223,21 @@ mod tests {
         assert!(a.request_restart_permission(1));
         assert!(!a.request_restart_permission(1));
         assert!(b.request_restart_permission(1), "b is unaffected by a");
+    }
+
+    #[test]
+    fn a_strategy_logs_unless_it_is_disabled_and_names_its_own_class() {
+        let one = OneForOneStrategy::default_strategy();
+        let all = AllForOneStrategy::new(-1, default_decider);
+        let quiet_one = SupervisorStrategy::from(one.clone().with_logging_enabled(false));
+        let quiet_all = SupervisorStrategy::from(all.clone().with_logging_enabled(false));
+        assert!(!quiet_one.logging_enabled() && !quiet_all.logging_enabled());
+        for (strategy, class) in [(one.into(), "OneForOne"), (all.into(), "AllForOne")] {
+            let strategy: SupervisorStrategy = strategy;
+            assert!(strategy.logging_enabled());
+            let expected = format!("org.apache.pekko.actor.{class}Strategy");
+            assert_eq!(strategy.class_name(), expected);
+        }
     }
 
     #[test]

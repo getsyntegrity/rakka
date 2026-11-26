@@ -52,8 +52,8 @@ pub struct WarningEvent {
     pub log_source: String,
     /// `logClass`: the class of the reporter.
     pub log_class: String,
-    /// The text of the event.
-    pub message: String,
+    /// The text of the event; `None` is Pekko's `null`.
+    pub message: Option<String>,
 }
 
 /// The event classes a subscriber can ask for.
