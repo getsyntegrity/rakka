@@ -239,8 +239,8 @@ MUTANTS = {
     ),
     "fatal-restart-repeats-pre-restart": (
         "src/actor/cell.rs",
-        "if !failed_fatally {",
-        "if true {",
+        "if !failed_fatally\n",
+        "if true\n",
         "the restart after a failed restart calls `preRestart` again",
     ),
     "fatal-resume-is-a-plain-resume": (
@@ -278,6 +278,18 @@ MUTANTS = {
         'self.publish_error(format!("changing Resume into Restart after {cause}"));',
         "",
         "`Resume` is turned into a restart without publishing the `Error`",
+    ),
+    "pre-restart-failure-is-swallowed": (
+        "src/actor/cell.rs",
+        "self.publish_caused_error(failure, thrown.message);",
+        "drop((failure, thrown));",
+        "a throwing `preRestart` publishes no `PreRestartException`",
+    ),
+    "post-stop-failure-is-swallowed": (
+        "src/actor/cell.rs",
+        "self.publish_caused_error(thrown, message);",
+        "drop((thrown, message));",
+        "a throwing `postStop` publishes no `Error`",
     ),
     "supervisor-failure-is-not-logged": (
         "src/actor/cell.rs",

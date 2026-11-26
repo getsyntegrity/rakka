@@ -96,6 +96,11 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Q-DW-4 — Texto de `[Some(x)]` en la `IllegalStateException` de `watch` / `watchWith` | (a), implementada provisionalmente: `String`/`&str` por valor y cualquier otro tipo por su nombre Rust (alternativas: (b) exigir `Debug` en `watch_with`; (c) omitir los valores) | Con mensajes que no son cadenas el texto difiere de Pekko; clase, refs, `None` y mensajes de cadena coinciden | `DeathWatch.scala:125-131`; oráculo 2.0.0 (`ww-rejects`) | (b) añade una cota pública a la firma de `watch_with` |
 | Q-REF-7 — `Identify` enviado a `deadLetters` sin sender | (a) publicarlo como `DeadLetter` (alternativas: (b) descartarlo; (c) panic) | `tell` no falla donde Pekko lanza `NullPointerException` | `ActorRef.scala:708-710`; oráculo 2.0.0 | Bajo: sólo un envío sin destinatario de la respuesta |
 
+### Classic: errores de los hooks del ciclo de vida
+| Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
+|---|---|---|---|---|
+| Q-CELL-6 — Nombre de clase de un mensaje de usuario en el texto de `PreRestartException` | (a) `class ?` (alternativas: (b) que el mensaje aporte su nombre; (c) registro por tipo) | Sólo `&str`/`String`, `Kill`, `ActorIdentity`, `Terminated` y `Failed` llevan la clase de la JVM. Todo lo demás es `class ?`: tipos de usuario (Pekko `class com.example.Foo`), primitivos en caja como `i32` (Pekko `class java.lang.Integer`) y los eventos `DeadLetter`, `UnhandledMessage`, `ErrorEvent`, `WarningEvent` | `Actor.scala:225-236`; casos `he-pre-restart*` | Bajo: sólo el texto de un `Error` publicado |
+
 ### Classic: log de fallos de hijos
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
 |---|---|---|---|---|

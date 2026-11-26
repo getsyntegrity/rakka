@@ -97,7 +97,9 @@ impl Actor for Listener {
         if let Some(error) = msg.downcast_ref::<ErrorEvent>() {
             self.errors.lock().unwrap().push(format!(
                 "{}|{}|{}",
-                error.log_source, error.cause.class, error.message
+                error.log_source,
+                error.cause.class,
+                error.message.as_deref().unwrap_or("null")
             ));
             self.classes.lock().unwrap().push(error.log_class.clone());
         } else if let Some(dead) = msg.downcast_ref::<DeadLetter>() {
@@ -415,7 +417,9 @@ impl crate::actor::actor_ref::InternalActorRef for ErrorRecorder {
         {
             self.errors.lock().unwrap().push(format!(
                 "{}|{}|{}",
-                error.log_source, error.cause.class, error.message
+                error.log_source,
+                error.cause.class,
+                error.message.as_deref().unwrap_or("null")
             ));
         }
     }

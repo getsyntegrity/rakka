@@ -137,6 +137,18 @@ fn reporter_class(instance_class: Option<&'static str>) -> String {
     instance_class.unwrap_or(ACTOR_CLASS).to_owned()
 }
 
+/// `getClass.getName` of a message, for `PreRestartException`: strings and the messages below; any other type is `?` (Q-CELL-6).
+fn message_class(message: &AnyMessage) -> &'static str {
+    match () {
+        _ if message.is::<&str>() || message.is::<String>() => "java.lang.String",
+        _ if message.is::<Kill>() => "org.apache.pekko.actor.Kill$",
+        _ if message.is::<ActorIdentity>() => "org.apache.pekko.actor.ActorIdentity",
+        _ if message.is::<Terminated>() => "org.apache.pekko.actor.Terminated",
+        _ if message.is::<Failed>() => "org.apache.pekko.dispatch.sysmsg.Failed",
+        _ => "?",
+    }
+}
+
 /// `new RejectedExecutionException`.
 fn rejected_execution() -> Throwable {
     Throwable::new("java.util.concurrent.RejectedExecutionException", None)
@@ -409,7 +421,7 @@ impl ActorCell {
                         cause: rejected_execution(),
                         log_source: DISPATCHER_CLASS.to_owned(),
                         log_class: DISPATCHER_CLASS.to_owned(),
-                        message: "registerForExecution was rejected twice!".to_owned(),
+                        message: Some("registerForExecution was rejected twice!".to_owned()),
                     },
                 );
                 Err(rejected)
@@ -431,6 +443,11 @@ impl ActorCell {
         state.actor_class = None;
     }
 
+    /// `clazz(actor)`. A call of its own, so the state lock is released before the event that carries it is published.
+    fn log_class(&self) -> String {
+        reporter_class(self.st.lock().unwrap().actor_class)
+    }
+
     /// `ActorCell.handleException` for a failed dispatch (`Dispatch.scala:129-141`): the sender swallows the exception and reports it.
     fn swallow_failed_send(&self, _rejected: Rejected) {
         report_dispatch_failure(
@@ -438,8 +455,8 @@ impl ActorCell {
             ErrorEvent {
                 cause: rejected_execution(),
                 log_source: self.path.to_string(),
-                log_class: reporter_class(self.st.lock().unwrap().actor_class),
-                message: "swallowing exception during message send".to_owned(),
+                log_class: self.log_class(),
+                message: Some("swallowing exception during message send".to_owned()),
             },
         );
     }
@@ -740,6 +757,18 @@ impl ActorCell {
         )
     }
 
+    /// `PreRestartException(self, e, originalCause, optionalMessage)`: its message names the class of the failure that caused the
+    /// restart and that of the message being processed then. `e`, the cause Pekko keeps, only shows as the text of the `Error`.
+    fn pre_restart_failure(&self, cause: &Throwable, message: Option<&AnyMessage>) -> Throwable {
+        let message = message.map_or_else(
+            || "None".to_owned(),
+            |message| format!("class {}", message_class(message)),
+        );
+        let (path, class) = (&self.path, &cause.class);
+        let text = format!("{path}: exception in preRestart(class {class}, {message})");
+        Throwable::new("org.apache.pekko.actor.PreRestartException", Some(&text))
+    }
+
     /// `PostRestartException(self, e, originalCause)`: its message names the class of the failure that caused the restart.
     fn post_restart_failure(&self, original_cause: &Throwable) -> Throwable {
         Throwable::new(
@@ -804,26 +833,25 @@ impl ActorCell {
         }
         let log_source = child.path().to_string();
         let log_class = strategy.class_name().to_owned();
-        // the event texts are not optional yet: Pekko's `null` message is written out
-        let message = cause.message.clone().unwrap_or_else(|| "null".to_owned());
         let events = &self.system.events;
-        // `publish`: "logging is not the main purpose", a subscriber that unwinds does not stop the directive
-        let _ = catch_unwind(AssertUnwindSafe(|| {
-            if decision == Directive::Resume {
-                events.publish_warning(WarningEvent {
-                    log_source,
-                    log_class,
-                    message,
-                });
-            } else {
-                events.publish_error(ErrorEvent {
-                    cause: cause.clone(),
-                    log_source,
-                    log_class,
-                    message,
-                });
-            }
-        }));
+        if decision == Directive::Resume {
+            // a `Warning`'s text is not optional: Pekko's `null` message is written out
+            let warning = WarningEvent {
+                log_source,
+                log_class,
+                message: cause.message.clone().unwrap_or_else(|| "null".to_owned()),
+            };
+            // like `report_dispatch_failure`: a subscriber that panics does not stop the directive
+            let _ = catch_unwind(AssertUnwindSafe(|| events.publish_warning(warning)));
+        } else {
+            let error = ErrorEvent {
+                cause: cause.clone(),
+                log_source,
+                log_class,
+                message: cause.message.clone(),
+            };
+            report_dispatch_failure(events, error);
+        }
     }
 
     /// `handleInvokeFailure` after the exception `thrown` escaped `handleFailure(Failed(child, cause))`.
@@ -938,8 +966,12 @@ impl ActorCell {
             let fatally = matches!(st.failed, FailedInfo::FailedFatally);
             (st.failed_message.clone(), fatally)
         };
-        if !failed_fatally {
-            let _ = self.with_actor(|a, ctx| a.pre_restart(ctx, &cause, message.as_ref())); // failures here are only logged in Pekko
+        if !failed_fatally
+            && let Err(thrown) =
+                self.with_actor(|a, ctx| a.pre_restart(ctx, &cause, message.as_ref()))
+        {
+            let failure = self.pre_restart_failure(&cause, message.as_ref());
+            self.publish_caused_error(failure, thrown.message);
         }
         {
             let mut st = self.st.lock().unwrap();
@@ -968,12 +1000,18 @@ impl ActorCell {
 
     /// `eventStream.publish(Error(self.path.toString, clazz(actor), message))`: an `Error` with no cause.
     fn publish_error(&self, message: String) {
+        let no_cause = Throwable::new("org.apache.pekko.event.Logging$Error$NoCause$", None);
+        self.publish_caused_error(no_cause, Some(message));
+    }
+
+    /// `eventStream.publish(Error(cause, self.path.toString, clazz(actor), message))`.
+    fn publish_caused_error(&self, cause: Throwable, message: Option<String>) {
         report_dispatch_failure(
             &self.system.events,
             ErrorEvent {
-                cause: Throwable::new("org.apache.pekko.event.Logging$Error$NoCause$", None),
+                cause,
                 log_source: self.path.to_string(),
-                log_class: reporter_class(self.st.lock().unwrap().actor_class),
+                log_class: self.log_class(),
                 message,
             },
         );
@@ -1070,7 +1108,10 @@ impl ActorCell {
 
     /// `FaultHandling.finishTerminate` — the order of the steps matters.
     fn finish_terminate(self: &Arc<Self>) {
-        let _ = self.with_actor(|a, ctx| a.post_stop(ctx)); // post-stop failures are only logged in Pekko
+        if let Err(thrown) = self.with_actor(|a, ctx| a.post_stop(ctx)) {
+            let message = thrown.message.clone();
+            self.publish_caused_error(thrown, message);
+        }
         self.remove_actor();
         // `clearFieldsForTermination`: what is still deferred is forgotten, it does not even become a dead letter
         let forgotten = std::mem::take(&mut self.st.lock().unwrap().deferred);
@@ -1285,10 +1326,10 @@ impl ActorCell {
                 ErrorEvent {
                     cause: Throwable::new("org.apache.pekko.event.Logging$Error$NoCause$", None),
                     log_source: self.path.to_string(),
-                    log_class: reporter_class(self.st.lock().unwrap().actor_class),
-                    message: format!(
+                    log_class: self.log_class(),
+                    message: Some(format!(
                         "received Supervise from unregistered child {child:?}, this will not end well"
-                    ),
+                    )),
                 },
             );
         } else if is_async && let Some(repointable) = child.0.as_repointable() {
@@ -1500,6 +1541,26 @@ mod reporter_class_tests {
     #[test]
     fn without_an_instance_the_reporter_is_the_actor_trait() {
         assert_eq!(reporter_class(None), "org.apache.pekko.actor.Actor");
+    }
+
+    #[test]
+    fn a_message_is_named_by_the_jvm_class_it_stands_for() {
+        let system = crate::actor::system::ActorSystem::create("t-message-class").unwrap();
+        let (actor, cause) = (system.dead_letters(), Throwable::illegal_state("x"));
+        let (correlation_id, actor_ref) = (Arc::new(1_u8), None);
+        #[rustfmt::skip] // one case per line
+        let cases: [(AnyMessage, &str); 7] = [
+            (Arc::new("text"), "java.lang.String"),
+            (Arc::new(String::new()), "java.lang.String"),
+            (Arc::new(Kill), "org.apache.pekko.actor.Kill$"),
+            (Arc::new(ActorIdentity { correlation_id, actor_ref }), "org.apache.pekko.actor.ActorIdentity"),
+            (Arc::new(Terminated { actor: actor.clone(), existence_confirmed: true, address_terminated: false }), "org.apache.pekko.actor.Terminated"),
+            (Arc::new(Failed { child: actor, cause }), "org.apache.pekko.dispatch.sysmsg.Failed"),
+            (Arc::new(1_u8), "?"), // a user type has no JVM class (Q-CELL-6)
+        ];
+        for (message, class) in cases {
+            assert_eq!(message_class(&message), class);
+        }
     }
 }
 

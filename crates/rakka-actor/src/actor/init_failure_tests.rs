@@ -483,7 +483,9 @@ fn published_errors(errors: &Mutex<Vec<crate::event::ErrorEvent>>) -> Vec<String
         .map(|error| {
             format!(
                 "{}|{}|{}",
-                error.log_source, error.cause.class, error.message
+                error.log_source,
+                error.cause.class,
+                error.message.as_deref().unwrap()
             )
         })
         .collect()

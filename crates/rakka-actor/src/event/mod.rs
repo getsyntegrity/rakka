@@ -3,6 +3,7 @@
 //! and unhandled messages.
 
 use std::cell::Cell;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Mutex};
 
 use crate::actor::actor_ref::ActorRef;
@@ -40,8 +41,8 @@ pub struct ErrorEvent {
     pub log_source: String,
     /// `logClass`: the class of the reporter.
     pub log_class: String,
-    /// The text of the event.
-    pub message: String,
+    /// The text of the event; `None` is Pekko's `null`, the `getMessage` of an exception that has none.
+    pub message: Option<String>,
 }
 
 /// `org.apache.pekko.event.Logging.Warning`: a warning the runtime reports on the event stream.
@@ -139,7 +140,9 @@ pub(crate) fn report_dispatch_failure(events: &EventStream, event: ErrorEvent) {
     if REPORTING.replace(true) {
         println!(
             "[ERROR] [{}] {} ({})",
-            event.log_source, event.message, event.cause
+            event.log_source,
+            event.message.as_deref().unwrap_or("null"),
+            event.cause
         );
         return;
     }
@@ -150,5 +153,6 @@ pub(crate) fn report_dispatch_failure(events: &EventStream, event: ErrorEvent) {
         }
     }
     let _done = Done;
-    events.publish_error(event);
+    // `publish` swallows what a subscriber throws (NonFatal): a failing report must not stop the reporter
+    let _ = catch_unwind(AssertUnwindSafe(|| events.publish_error(event)));
 }
