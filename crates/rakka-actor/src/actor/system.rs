@@ -13,6 +13,7 @@ use crate::actor::cell::{ActorCell, LocalActorRef};
 use crate::actor::props::{
     Actor, ActorContext, ActorIdentity, AnyMessage, Identify, PoisonPill, Props,
 };
+use crate::actor::selection::ActorSelection;
 use crate::actor::{ActorError, ErrorClass};
 use crate::actor::{ActorPath, Address, Deployer, DeployerError};
 use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
@@ -136,6 +137,12 @@ pub(crate) struct SystemInner {
     /// The bubble walker, for the tests that look at its state.
     #[cfg(test)]
     pub(crate) walker: OnceLock<Arc<BubbleWalker>>,
+}
+
+impl SystemInner {
+    pub(crate) fn root_guardian(&self) -> ActorRef {
+        self.root_guardian.get().expect("initialised").self_ref()
+    }
 }
 
 /// Messages marked `DeadLetterSuppression` in Pekko (`Terminated`, `PoisonPill`): never published as `DeadLetter`.
@@ -557,6 +564,11 @@ impl ActorSystem {
             .get()
             .expect("initialised")
             .self_ref()
+    }
+
+    /// `system.actorSelection(path)`: a relative path starts at the root guardian.
+    pub fn actor_selection(&self, path: &str) -> ActorSelection {
+        ActorSelection::new(&self.0, &self.0.root_guardian(), path)
     }
 
     pub fn dead_letters(&self) -> ActorRef {

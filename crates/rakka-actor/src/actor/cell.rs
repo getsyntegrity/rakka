@@ -172,6 +172,12 @@ impl InternalActorRef for LocalActorRef {
     fn stop(&self) {
         self.0.system_dispatch(SystemMessage::Terminate);
     }
+    fn parent(&self) -> Option<ActorRef> {
+        Some(self.0.parent.clone())
+    }
+    fn single_child(&self, name: &str) -> Option<ActorRef> {
+        self.0.child(name)
+    }
     #[cfg(test)]
     fn attach_child_for_tests(&self, props: Props, name: &str) -> Result<ActorRef, ActorError> {
         self.0.attach_child(props, Some(name), true)
@@ -1290,6 +1296,7 @@ impl ActorCell {
             // `provider.actorOf(..., async = true)`: a `RepointableActorRef`, which tells the supervisor (this actor) to `Supervise` it
             let child_ref = ActorRef(RepointableActorRef::for_actor(
                 path.clone(),
+                self.self_ref(),
                 {
                     let (system, parent) = (self.system.clone(), self.self_ref());
                     Box::new(move |outer: &ActorRef| {

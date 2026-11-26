@@ -147,6 +147,7 @@ impl Unstarted {
             .subscribe(&subscriber, Channel::Warning);
         let reference = RepointableActorRef::for_actor(
             path.clone(),
+            system.guardian(),
             Box::new(|_| unreachable!("the real cell is handed over directly")),
             PushPolicy {
                 timeout: unstarted_push_timeout,

@@ -17,6 +17,14 @@ pub(crate) trait InternalActorRef: Send + Sync {
     fn stop(&self);
     /// `isTerminated` (internal API in Pekko): the mailbox is closed.
     fn is_terminated(&self) -> bool;
+    /// `getParent` of a reference with a cell (`ActorRefWithCell`); `None` for the others.
+    fn parent(&self) -> Option<ActorRef> {
+        None
+    }
+    /// `getSingleChild(name)`: `None` where Pekko answers `Nobody`.
+    fn single_child(&self, _name: &str) -> Option<ActorRef> {
+        None
+    }
     /// The reference as a `RepointableActorRef` when it is one (what `Supervise(async = true)` asks to `point`).
     fn as_repointable(&self) -> Option<&crate::actor::repointable::RepointableActorRef> {
         None

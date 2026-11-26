@@ -314,6 +314,11 @@ impl ActorContext<'_> {
         self.cell.attach_child(props, Some(name), false)
     }
 
+    /// `context.actorSelection(path)`: a relative path starts at this actor.
+    pub fn actor_selection(&self, path: &str) -> crate::actor::selection::ActorSelection {
+        crate::actor::selection::ActorSelection::new(&self.cell.system, &self.self_ref(), path)
+    }
+
     /// `context.child(name)`.
     pub fn child(&self, name: &str) -> Option<ActorRef> {
         self.cell.child(name)

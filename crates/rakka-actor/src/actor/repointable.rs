@@ -68,6 +68,8 @@ pub(crate) struct PushPolicy {
 /// `RepointableActorRef`.
 pub(crate) struct RepointableActorRef {
     push_policy: Option<PushPolicy>,
+    /// `supervisor`: the parent, also before the cell exists (`UnstartedCell.parent`)
+    supervisor: Option<ActorRef>,
     path: ActorPath,
     underlying: Mutex<Underlying>,
     /// Signalled when a hand-over ends: the senders that waited for it look again.
@@ -162,25 +164,28 @@ impl RepointableActorRef {
     /// A reference to an actor that has not started (`initialize`: `swapCell(new UnstartedCell(...))`).
     #[cfg(test)]
     pub(crate) fn new(path: ActorPath) -> Arc<RepointableActorRef> {
-        Self::build(path, None, None)
+        Self::build(path, None, None, None)
     }
 
     /// A reference whose cell is made by `new_cell` when the supervisor processes `Supervise` (`point`).
     pub(crate) fn for_actor(
         path: ActorPath,
+        supervisor: ActorRef,
         new_cell: NewCell,
         push_policy: PushPolicy,
     ) -> Arc<RepointableActorRef> {
-        Self::build(path, Some(new_cell), Some(push_policy))
+        Self::build(path, Some(supervisor), Some(new_cell), Some(push_policy))
     }
 
     fn build(
         path: ActorPath,
+        supervisor: Option<ActorRef>,
         new_cell: Option<NewCell>,
         push_policy: Option<PushPolicy>,
     ) -> Arc<RepointableActorRef> {
         Arc::new_cyclic(|me| RepointableActorRef {
             push_policy,
+            supervisor,
             path,
             underlying: Mutex::new(Underlying::Unstarted(UnstartedCell::default())),
             handed_over: Condvar::new(),
@@ -356,6 +361,14 @@ impl InternalActorRef for RepointableActorRef {
 
     fn as_repointable(&self) -> Option<&RepointableActorRef> {
         Some(self)
+    }
+
+    fn parent(&self) -> Option<ActorRef> {
+        self.supervisor.clone()
+    }
+
+    fn single_child(&self, name: &str) -> Option<ActorRef> {
+        self.get_single_child(name)
     }
 
     #[cfg(test)]

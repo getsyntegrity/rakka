@@ -2275,6 +2275,12 @@ MUTANTS = {
         "                let _ = outcome;",
         "stop() completes the walker's own promise but not the provider's terminationPromise that whenTerminated exposes",
     ),
+    "selection-parent-is-ignored": (
+        "src/actor/selection.rs",
+        "Element::Parent => self.parent_of(&current),",
+        "Element::Parent => Some(current.clone()),",
+        "a `..` in a selection stays on the same actor",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

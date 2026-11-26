@@ -23,6 +23,7 @@ pub mod props;
 #[cfg(test)]
 mod refailure_tests;
 pub(crate) mod repointable;
+pub mod selection;
 pub mod supervision;
 pub mod system;
 #[cfg(test)]
