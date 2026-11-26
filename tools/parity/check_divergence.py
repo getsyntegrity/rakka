@@ -1174,8 +1174,8 @@ MUTANTS = {
     ),
     "config-push-timeout-not-read": (
         "src/actor/system.rs",
-        "            unstarted_push_timeout,\n            ..Settings::default()",
-        "            unstarted_push_timeout: Duration::from_secs(10),\n            ..Settings::default()",
+        "            unstarted_push_timeout,\n            deployer: Arc::new(Deployer::from_settings(config)?),\n            ..Settings::default()",
+        "            unstarted_push_timeout: Duration::from_secs(10),\n            deployer: Arc::new(Deployer::from_settings(config)?),\n            ..Settings::default()",
         "the configured `unstarted-push-timeout` never reaches the runtime settings: every system uses the default",
     ),
     "config-negative-push-timeout-is-the-default": (
@@ -1425,8 +1425,8 @@ MUTANTS = {
     ),
     "deploy-fallback-keeps-the-tags": (
         "src/actor/deploy.rs",
-        "            },\n            tags: BTreeSet::new(),\n        }",
-        "            },\n            tags: self.tags.clone(),\n        }",
+        "            },\n            tags: Vec::new(),\n        }\n    }\n}\n\n#[cfg(test)]",
+        "            },\n            tags: self.tags.clone(),\n        }\n    }\n}\n\n#[cfg(test)]",
         "withFallback carries the tags of the receiver, which Pekko drops",
     ),
     "local-scope-lets-the-other-win": (
@@ -1590,8 +1590,8 @@ MUTANTS = {
     ),
     "render-concatenation-keeps-white-space-as-a-separate-string": (
         "src/config/mod.rs",
-        "            Piece::Ws(white) => Some(white.as_str()),\n",
-        "            Piece::Ws(_) => None,\n",
+        "        Piece::Ws(white) => Some(white.clone()),\n",
+        "        Piece::Ws(_) => None,\n",
         "the white space between a substitution and a string is dropped from the concatenation",
     ),
     "tags-are-listed-sorted": (
