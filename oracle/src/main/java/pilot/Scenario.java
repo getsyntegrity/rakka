@@ -120,7 +120,7 @@ final class Scenario {
       if (Boolean.TRUE.equals(cfg.get("throw-in-prestart"))) throw new IllegalStateException("init");
     }
 
-    /** `supervisor: {"decider-throws": bool, "strategy": "one-for-one"|"all-for-one", "hold": gate, "max": n, "log-decisions": bool, "decider": {"<exception message>": "resume"|"restart"|"stop"|"escalate"}}`: a OneForOneStrategy for this actor's children.
+    /** `supervisor: {"logging": bool (`loggingEnabled`), "decider-throws": bool, "strategy": "one-for-one"|"all-for-one", "hold": gate, "max": n, "log-decisions": bool, "decider": {"<exception message>": "resume"|"restart"|"stop"|"escalate"}}`: a OneForOneStrategy for this actor's children.
      *  Exceptions not in the map get Pekko's default decider. */
     @SuppressWarnings("unchecked")
     @Override public SupervisorStrategy supervisorStrategy() {
@@ -151,9 +151,10 @@ final class Scenario {
             }
             return chosen;
           }).build();
+      boolean logging = !Boolean.FALSE.equals(sup.get("logging"));
       return "all-for-one".equals(sup.get("strategy"))
-          ? new AllForOneStrategy(max, scala.concurrent.duration.Duration.Inf(), decider)
-          : new OneForOneStrategy(max, scala.concurrent.duration.Duration.Inf(), decider);
+          ? new AllForOneStrategy(max, scala.concurrent.duration.Duration.Inf(), logging, decider)
+          : new OneForOneStrategy(max, scala.concurrent.duration.Duration.Inf(), logging, decider);
     }
 
     @SuppressWarnings("unchecked")
@@ -275,7 +276,12 @@ final class Scenario {
     }
   }
 
-  /** `errors` channel: the published `Error`s whose message starts with `prefix` (others, e.g. `logFailure`, are out of the scenario).
+  /** `,"strategy":<class>` when a supervisor strategy is the `logClass` of an event (`logFailure`), nothing for any other reporter. */
+  private static String strategyOf(Class<?> logClass) {
+    return SupervisorStrategy.class.isAssignableFrom(logClass) ? ",\"strategy\":" + Cli.Json.str(logClass.getName()) : "";
+  }
+
+  /** `errors` channel: the published `Error`s (`logs` channel: also the `Warning`s) whose message starts with `prefix`.
    *  `watch`: the collector also watches that actor, so its mailbox shows the order of the errors and the `Terminated`. */
   public static final class ErrorCollector extends AbstractActor {
     private final String label, prefix;
@@ -289,7 +295,11 @@ final class Scenario {
           ctx.add(label, "{\"ev\":\"error\",\"source\":" + Cli.Json.str(e.logSource())
               + ",\"message\":" + (e.message() == null ? "null" : Cli.Json.str(String.valueOf(e.message())))
               + ",\"ofActorClass\":" + (e.logClass() == Scripted.class) + ",\"cause\":" + Cli.Json.str(e.cause().getClass().getName())
-              + (e.cause().getClass().getName().endsWith("NoCause$") ? "" : ",\"causeText\":" + Cli.Json.str(e.cause().toString())) + "}");
+              + (e.cause().getClass().getName().endsWith("NoCause$") ? "" : ",\"causeText\":" + Cli.Json.str(e.cause().toString())) + strategyOf(e.logClass()) + "}");
+      }).match(org.apache.pekko.event.Logging.Warning.class, w -> {
+        if (String.valueOf(w.message()).startsWith(prefix))
+          ctx.add(label, "{\"ev\":\"warning\",\"source\":" + Cli.Json.str(w.logSource()) + ",\"message\":" + (w.message() == null ? "null" : Cli.Json.str(String.valueOf(w.message())))
+              + strategyOf(w.logClass()) + "}");
       }).match(Terminated.class, t -> ctx.add(label, "{\"ev\":\"watched-terminated\",\"actor\":" + Cli.Json.str(t.getActor().path().toString()) + "}"))
           .build();
     }
@@ -409,13 +419,15 @@ final class Scenario {
         }
         case "subscribe": {
           String label = (String) st.get("as");
-          boolean errors = "errors".equals(st.get("channel"));
+          boolean logs = "logs".equals(st.get("channel"));
+          boolean errors = logs || "errors".equals(st.get("channel"));
           ActorRef c = system.actorOf(errors
               ? Props.create(ErrorCollector.class, () -> new ErrorCollector(label, (String) st.get("prefix"), (String) st.get("watch"), ctx))
               : Props.create(Collector.class, () -> new Collector(label, ctx)));
           ctx.refs.put(label, c);
           system.eventStream().subscribe(c, errors ? org.apache.pekko.event.Logging.Error.class
               : "dead-letters".equals(st.get("channel")) ? DeadLetter.class : UnhandledMessage.class);
+          if (logs) system.eventStream().subscribe(c, org.apache.pekko.event.Logging.Warning.class);
           return head + ",\"ok\":true}";
         }
         case "tell": {
