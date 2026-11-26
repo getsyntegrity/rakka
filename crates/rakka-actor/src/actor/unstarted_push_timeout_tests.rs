@@ -90,7 +90,9 @@ impl InternalActorRef for EventRecorder {
         } else if let Some(warning) = msg.downcast_ref::<WarningEvent>() {
             self.warnings.lock().unwrap().push(format!(
                 "{}|{}|{}",
-                warning.log_source, warning.log_class, warning.message
+                warning.log_source,
+                warning.log_class,
+                warning.message.as_deref().unwrap()
             ));
         }
     }

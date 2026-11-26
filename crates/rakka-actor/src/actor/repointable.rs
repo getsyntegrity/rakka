@@ -142,10 +142,10 @@ impl RepointableActorRef {
         policy.events.publish_warning(WarningEvent {
             log_source: self.path.to_string(),
             log_class: "org.apache.pekko.actor.UnstartedCell".to_owned(),
-            message: format!(
+            message: Some(format!(
                 "dropping message of type{} due to lock timeout",
                 jvm_class_of(&msg)
-            ),
+            )),
         });
         if let Some(recipient) = self.me.upgrade() {
             policy.dead_letters.tell_any(

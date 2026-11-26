@@ -121,6 +121,7 @@ impl SupervisorStrategy {
         }
     }
 
+    /// `loggingEnabled` of the strategy.
     pub fn logging_enabled(&self) -> bool {
         match self {
             SupervisorStrategy::OneForOne(s) => s.logging_enabled,
@@ -129,7 +130,7 @@ impl SupervisorStrategy {
     }
 
     /// `getClass.getName`: the `logClass` of what the strategy logs.
-    pub fn class_name(&self) -> &'static str {
+    pub(crate) fn class_name(&self) -> &'static str {
         match self {
             SupervisorStrategy::OneForOne(_) => "org.apache.pekko.actor.OneForOneStrategy",
             SupervisorStrategy::AllForOne(_) => "org.apache.pekko.actor.AllForOneStrategy",

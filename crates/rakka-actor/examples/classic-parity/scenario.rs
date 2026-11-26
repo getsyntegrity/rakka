@@ -895,11 +895,15 @@ impl Actor for Collector {
             }
             true
         } else if let Some(w) = msg.downcast_ref::<WarningEvent>() {
-            if w.message.starts_with(&self.prefix) {
+            let text = w.message.as_deref().unwrap_or("null");
+            if text.starts_with(&self.prefix) {
                 let mut o = String::from("{\"ev\":\"warning\",\"source\":");
                 js(&mut o, &w.log_source);
                 o.push_str(",\"message\":");
-                js(&mut o, &w.message);
+                match &w.message {
+                    Some(message) => js(&mut o, message),
+                    None => o.push_str("null"),
+                }
                 strategy_of(&mut o, &w.log_class);
                 o.push('}');
                 self.ctx.add(&self.label, Event::Error(o));

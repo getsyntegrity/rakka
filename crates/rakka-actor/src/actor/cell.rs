@@ -833,25 +833,25 @@ impl ActorCell {
         }
         let log_source = child.path().to_string();
         let log_class = strategy.class_name().to_owned();
+        let message = cause.message.clone();
         let events = &self.system.events;
-        if decision == Directive::Resume {
-            // a `Warning`'s text is not optional: Pekko's `null` message is written out
-            let warning = WarningEvent {
-                log_source,
-                log_class,
-                message: cause.message.clone().unwrap_or_else(|| "null".to_owned()),
-            };
-            // like `report_dispatch_failure`: a subscriber that panics does not stop the directive
-            let _ = catch_unwind(AssertUnwindSafe(|| events.publish_warning(warning)));
-        } else {
-            let error = ErrorEvent {
-                cause: cause.clone(),
-                log_source,
-                log_class,
-                message: cause.message.clone(),
-            };
-            report_dispatch_failure(events, error);
-        }
+        // `publish` is a plain `eventStream.publish` that swallows NonFatal: no recursion guard, a panic stops here
+        let _ = catch_unwind(AssertUnwindSafe(|| {
+            if decision == Directive::Resume {
+                events.publish_warning(WarningEvent {
+                    log_source,
+                    log_class,
+                    message,
+                });
+            } else {
+                events.publish_error(ErrorEvent {
+                    cause: cause.clone(),
+                    log_source,
+                    log_class,
+                    message,
+                });
+            }
+        }));
     }
 
     /// `handleInvokeFailure` after the exception `thrown` escaped `handleFailure(Failed(child, cause))`.

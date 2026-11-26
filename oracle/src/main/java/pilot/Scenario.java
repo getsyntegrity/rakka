@@ -298,7 +298,7 @@ final class Scenario {
               + (e.cause().getClass().getName().endsWith("NoCause$") ? "" : ",\"causeText\":" + Cli.Json.str(e.cause().toString())) + strategyOf(e.logClass()) + "}");
       }).match(org.apache.pekko.event.Logging.Warning.class, w -> {
         if (String.valueOf(w.message()).startsWith(prefix))
-          ctx.add(label, "{\"ev\":\"warning\",\"source\":" + Cli.Json.str(w.logSource()) + ",\"message\":" + Cli.Json.str(String.valueOf(w.message()))
+          ctx.add(label, "{\"ev\":\"warning\",\"source\":" + Cli.Json.str(w.logSource()) + ",\"message\":" + (w.message() == null ? "null" : Cli.Json.str(String.valueOf(w.message())))
               + strategyOf(w.logClass()) + "}");
       }).match(Terminated.class, t -> ctx.add(label, "{\"ev\":\"watched-terminated\",\"actor\":" + Cli.Json.str(t.getActor().path().toString()) + "}"))
           .build();

@@ -413,7 +413,7 @@ impl crate::actor::actor_ref::InternalActorRef for ErrorRecorder {
         // not the guardian's `logFailure` of `/user`: the oracle's listener is under `/user`, suspended by then, and never sees it
         if let Some(error) = msg
             .downcast_ref::<ErrorEvent>()
-            .filter(|error| !error.log_class.ends_with("OneForOneStrategy"))
+            .filter(|error| error.log_source != "pekko://mbx/user")
         {
             self.errors.lock().unwrap().push(format!(
                 "{}|{}|{}",
@@ -482,6 +482,51 @@ fn an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts(
         fixture.executor.rejections_left()
     );
     assert_eq!(observed, recorded("MBX-RJ-05"));
+}
+
+struct Boom;
+impl Actor for Boom {
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        crate::actor::fault::throw(crate::actor::fault::Throwable::illegal_state("boom"));
+    }
+}
+
+/// `SupervisorStrategy.publish` is a plain `eventStream.publish` (`FaultHandling.scala:428-431`): when a subscriber cannot be scheduled
+/// for a `logFailure` `Error`, the reports of that rejection still reach the subscribers. A Pekko 2.0.0 probe of this scenario (JDK 17,
+/// `MailboxOracle$RejectingConfigurator` rejecting twice) printed these three events in this order.
+#[test]
+fn the_reports_made_while_a_supervisor_publishes_reach_the_subscribers() {
+    let fixture = Fixture::new(&["listener"]);
+    let boom = fixture.system.actor_of_named(Props::new(|| Boom), "boom");
+    wait_until("the listener to be idle", || {
+        fixture.listener.mailbox_view().contains("scheduled=false")
+    });
+    let recorder = Arc::new(ErrorRecorder::default());
+    let events = fixture.system.event_stream();
+    events.subscribe(&ActorRef(recorder.clone()), Channel::Error);
+    fixture.executor.reject_next(2);
+    boom.unwrap().tell("go", None);
+    wait_until("the supervisor's error", || {
+        recorder
+            .errors
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|e| e.ends_with("|boom"))
+    });
+    let rejected = "java.util.concurrent.RejectedExecutionException";
+    assert_eq!(
+        *recorder.errors.lock().unwrap(),
+        [
+            format!(
+                "org.apache.pekko.dispatch.Dispatcher|{rejected}|registerForExecution was rejected twice!"
+            ),
+            format!(
+                "pekko://mbx/user/listener|{rejected}|swallowing exception during message send"
+            ),
+            "pekko://mbx/user/boom|java.lang.IllegalStateException|boom".to_owned(),
+        ]
+    );
 }
 
 /// The oracle's `SyncSpawner`: creates its child `c` with the synchronous `context.actorOf` (`makeChild(async = false)`) on the

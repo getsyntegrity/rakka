@@ -12,8 +12,6 @@ use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
-use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
-use rakka_actor::event::Channel;
 
 type Log = Arc<Mutex<Vec<String>>>;
 
@@ -354,40 +352,4 @@ fn a_negative_limit_never_stops_the_child() {
         assert_eq!(restarts_in(&f.l1), 5);
         assert!(!f.c1.is_terminated());
     }
-}
-
-/// A mailbox whose every enqueue unwinds.
-struct Unwinding;
-
-#[rustfmt::skip] // one stub per line
-impl MailboxType for Unwinding {
-    fn create(&self, _: &ActorRef) -> Box<dyn MessageQueue> { Box::new(Unwinding) }
-}
-
-#[rustfmt::skip]
-impl MessageQueue for Unwinding {
-    fn enqueue(&self, _: &ActorRef, _: Envelope) -> bool { throw(Throwable::illegal_state("mailbox")) }
-    fn dequeue(&self) -> Option<Envelope> { None }
-    fn number_of_messages(&self) -> usize { 0 }
-    fn has_messages(&self) -> bool { false }
-    fn clean_up(&self, _: &ActorRef, _: &dyn MessageQueue) {}
-}
-
-struct Idle;
-impl Actor for Idle {}
-
-/// AC-SUP-018: `logFailure`'s publish swallows `NonFatal`, so a subscriber that cannot be told does not stop the directive.
-/// What is published is replayed from Pekko 2.0.0 (`cases/scenario-log-failure.jsonl`).
-#[test]
-fn a_log_subscriber_whose_mailbox_unwinds_does_not_break_supervision() {
-    let f = fixture("s-unwinding", -1);
-    let subscriber = f.sys.actor_of(Props::new(|| Idle).with_mailbox(Unwinding));
-    for channel in [Channel::Warning, Channel::Error] {
-        let subscriber = subscriber.as_ref().unwrap();
-        f.sys.event_stream().subscribe(subscriber, channel);
-    }
-    say(&f.c1, &["bres", "a", "brst", "b"]);
-    wait_until("both directives", || {
-        snapshot_of(&f.l1).iter().any(|e| e == "b#1")
-    });
 }
