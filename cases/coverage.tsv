@@ -3008,3 +3008,5 @@ ww-queued-replaced	scenario-watch-with	AC-DW-005	cited
 ww-ordinary	scenario-watch-with	AC-DW-005	cited
 ww-poison-pill	scenario-watch-with	AC-DW-005	cited
 ww-restart	scenario-watch-with	AC-DW-005	cited
+he-pre-restart	scenario-hook-errors	AC-CELL-007.1	cited
+he-post-stop	scenario-hook-errors	AC-CELL-008.2,AC-CELL-009	cited
