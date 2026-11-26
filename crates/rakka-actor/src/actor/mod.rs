@@ -28,6 +28,7 @@ mod unstarted_push_timeout_tests;
 #[cfg(test)]
 mod unstarted_termination_tests;
 pub(crate) mod uri;
+pub(crate) mod watching;
 
 pub use actor_ref::ActorRef;
 pub use address::Address;

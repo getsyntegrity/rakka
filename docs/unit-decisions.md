@@ -326,7 +326,7 @@
 
 ## P23 DW-VIGILANCIA
 
-13 filas; 4 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 3 propuestas.
+13 filas; 5 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -334,6 +334,7 @@
 | Q-DW-1 | propuesta | 2: AC-DW-002, AC-DW-006 | Bloquea: `impl` de AC-DW-002/006 (PartialEq). | Puede avanzar: el resto de DW. | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-012 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
 | Q-DW-3 | propuesta | 1: AC-DW-005 | Bloquea AC-DW-005. | — | `classic-cell` |
+| Q-DW-4 | propuesta | 1: AC-DW-005 | Bloquea el cierre de AC-DW-005. | — | `classic-cell` |
 
 ## P24 MBX-STASH
 
@@ -1072,4 +1073,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 515 (247 respondidas, 0 bloqueantes, 268 propuestas).
+Total de pares unidad–decisión: 516 (247 respondidas, 0 bloqueantes, 269 propuestas).

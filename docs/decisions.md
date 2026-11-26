@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 259 decisiones: 0 bloqueantes, 184 propuestas, 60 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 260 decisiones: 0 bloqueantes, 185 propuestas, 60 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -665,6 +665,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:122-131 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:203-205,220-223
 - **Alternativas:** (a) watch_with generico con cota PartialEq + Any, iguales si coinciden el tipo y eq / (b) identidad del Arc / (c) otra relacion
 - **Recomendación:** (a). Consecuencia: la igualdad de Scala entre tipos distintos (1 == 1L) no se reproduce. Q-X-3 no cubre la igualdad. Bloquea AC-DW-005.
+- **Filas afectadas:** AC-DW-005
+- **Unidades afectadas:** DW
+- **Origen:** classic-cell
+
+### Q-DW-4 — Texto de los valores [Some(x)] en la IllegalStateException de watch / watchWith
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:125-131
+- **Alternativas:** (a) String y &str por valor, cualquier otro tipo por su nombre Rust, sin cotas nuevas (implementado provisionalmente) / (b) exigir Debug en watch_with / (c) omitir los valores del texto
+- **Recomendación:** (a). Consecuencia: para tipos que no son cadenas el texto difiere de Pekko (toString del valor). Bloquea el cierre de AC-DW-005.
 - **Filas afectadas:** AC-DW-005
 - **Unidades afectadas:** DW
 - **Origen:** classic-cell

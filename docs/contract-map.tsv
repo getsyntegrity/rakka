@@ -210,7 +210,7 @@ AC-DW-001	DW	classic	(implementada)		extracted	done	actor-tests/src/test/scala/o
 AC-DW-002	DW	classic	AC-DW-1	15	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:144-151	casos rust-anything contra Pekko 2.0.0 (	Q-DW-1	docs/inventory/contracts/classic-cell.md
 AC-DW-003	DW	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:194-213	existente		docs/inventory/contracts/classic-cell.md
 AC-DW-004	DW	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:168-192 ;…	existente		docs/inventory/contracts/classic-cell.md
-AC-DW-005	DW	classic	AC-DW-1	15	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:292-315	casos rust-anything contra Pekko 2.0.0 (	Q-DW-3	docs/inventory/contracts/classic-cell.md
+AC-DW-005	DW	classic	AC-DW-1	15	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:292-315	casos rust-anything contra Pekko 2.0.0 (	Q-DW-3,Q-DW-4	docs/inventory/contracts/classic-cell.md
 AC-DW-006	DW	classic	AC-DW-1	15	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:129-132 ;…	casos rust-anything contra Pekko 2.0.0 (	Q-DW-1	docs/inventory/contracts/classic-cell.md
 AC-DW-007	DW	classic	AC-DW-1	15	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-245	casos rust-anything contra Pekko 2.0.0 (		docs/inventory/contracts/classic-cell.md
 AC-DW-008	DW	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:247-265	existente		docs/inventory/contracts/classic-cell.md

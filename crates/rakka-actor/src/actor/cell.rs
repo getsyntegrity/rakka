@@ -2,7 +2,7 @@
 //! `ActorCell`: the engine behind a local actor — mailbox, system-message processing, children,
 //! death watch and the termination sequence. Follows `ActorCell.scala` and `dungeon/*`.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError, Weak};
@@ -18,6 +18,7 @@ use crate::actor::repointable::{PushPolicy, RepointableActorRef};
 use crate::actor::supervision::{Directive, OneForOneStrategy, RestartStats, SupervisorStrategy};
 use crate::actor::system::SystemInner;
 use crate::actor::validate_path_element;
+use crate::actor::watching::{CustomTermination, check_watching_same};
 use crate::actor::{ActorError, ConfigurationError, ErrorClass};
 use crate::dispatch::dispatcher::Dispatcher;
 use crate::dispatch::dispatcher::Rejected;
@@ -37,10 +38,12 @@ struct CellState {
     actor_class: Option<&'static str>,
     /// sender of the message being processed (`context.sender()`)
     sender: Option<ActorRef>,
-    watching: Vec<ActorRef>,
+    /// `watching`: the watched actors, with the message of a `watch_with` (`None`: a `Terminated` is delivered)
+    watching: Vec<(ActorRef, Option<CustomTermination>)>,
     watched_by: Vec<ActorRef>,
-    /// `terminatedQueued`: a `Terminated` that was put in our mailbox and not delivered yet; `unwatch` cancels it.
-    terminated_queued: HashSet<ActorRef>,
+    /// `terminatedQueued`: a `Terminated` that was put in our mailbox and not delivered yet, with what is delivered in its place;
+    /// `unwatch` cancels it.
+    terminated_queued: HashMap<ActorRef, Option<CustomTermination>>,
     /// `isFailed`: the actor reported a failure and waits for its supervisor's decision
     failed: bool,
     /// `FailedFatally`: a restart failed. Pekko never clears it: no later restart calls `preRestart`, and `Resume` restarts.
@@ -604,14 +607,19 @@ impl ActorCell {
             asker.tell_any(Arc::new(identity), None);
             return;
         }
-        // `receivedTerminated`: only a Terminated that is still queued for us is delivered (unwatch cancels it)
-        if let Some(t) = env.message.downcast_ref::<Terminated>()
-            && !self.st.lock().unwrap().terminated_queued.remove(&t.actor)
-        {
-            return;
+        let mut msg = env.message;
+        // `receivedTerminated`: only a Terminated that is still queued for us is delivered (unwatch cancels it). The message of a
+        // `watch_with` takes its place as the current message; it is not auto-received, whatever its type.
+        if let Some(t) = msg.downcast_ref::<Terminated>() {
+            let queued = self.st.lock().unwrap().terminated_queued.remove(&t.actor);
+            let Some(custom) = queued else {
+                return;
+            };
+            if let Some(custom) = custom {
+                msg = custom.message;
+            }
         }
         self.st.lock().unwrap().sender = env.sender.clone();
-        let msg = env.message;
         let mut handled = true;
         let result = self.with_actor(|a, ctx| handled = a.receive(ctx, &msg));
         self.st.lock().unwrap().sender = None;
@@ -1247,45 +1255,51 @@ impl ActorCell {
 
     // ---- death watch ----
 
-    /// `context.watch(subject)`.
-    pub(crate) fn watch(self: &Arc<Self>, subject: &ActorRef) {
+    /// `context.watch(subject)`, or `watchWith` when there is a `custom` termination message.
+    pub(crate) fn watch(self: &Arc<Self>, subject: &ActorRef, custom: Option<CustomTermination>) {
         let me = self.self_ref();
         if *subject == me {
             return;
         }
-        let newly = {
-            let mut st = self.st.lock().unwrap();
-            if st.watching.contains(subject) {
-                false
-            } else {
-                st.watching.push(subject.clone());
-                true
-            }
-        };
-        if newly {
-            subject.send_system(SystemMessage::Watch {
-                watchee: subject.clone(),
-                watcher: me,
-            });
+        let previous = self
+            .st
+            .lock()
+            .unwrap()
+            .watching
+            .iter()
+            .find(|(w, _)| w == subject)
+            .map(|(_, previous)| previous.clone());
+        if let Some(previous) = previous {
+            // outside the lock: it runs the `PartialEq` of the user, and may throw
+            check_watching_same(&me, subject, previous.as_ref(), custom.as_ref());
+            return;
         }
+        self.st
+            .lock()
+            .unwrap()
+            .watching
+            .push((subject.clone(), custom));
+        subject.send_system(SystemMessage::Watch {
+            watchee: subject.clone(),
+            watcher: me,
+        });
+    }
+
+    /// Removes `subject` from `watching`: `None` if it was not watched, otherwise its custom message, if any.
+    fn stop_watching(&self, subject: &ActorRef) -> Option<Option<CustomTermination>> {
+        let mut st = self.st.lock().unwrap();
+        let index = st.watching.iter().position(|(w, _)| w == subject)?;
+        Some(st.watching.remove(index).1)
     }
 
     /// `context.unwatch(subject)`: also cancels a `Terminated` that is already queued.
     pub(crate) fn unwatch(self: &Arc<Self>, subject: &ActorRef) {
         let me = self.self_ref();
-        if *subject != me {
-            let was = {
-                let mut st = self.st.lock().unwrap();
-                let before = st.watching.len();
-                st.watching.retain(|w| w != subject);
-                st.watching.len() != before
-            };
-            if was {
-                subject.send_system(SystemMessage::Unwatch {
-                    watchee: subject.clone(),
-                    watcher: me,
-                });
-            }
+        if *subject != me && self.stop_watching(subject).is_some() {
+            subject.send_system(SystemMessage::Unwatch {
+                watchee: subject.clone(),
+                watcher: me,
+            });
         }
         self.st.lock().unwrap().terminated_queued.remove(subject);
     }
@@ -1299,7 +1313,7 @@ impl ActorCell {
                 st.watched_by.push(watcher);
             }
         } else if !watchee_self && watcher_self {
-            self.watch(&watchee);
+            self.watch(&watchee, None);
         }
         // anything else is a bug in Pekko ("illegal Watch") and is ignored here
     }
@@ -1332,18 +1346,17 @@ impl ActorCell {
         existence_confirmed: bool,
         address_terminated: bool,
     ) {
-        let was_watching = {
-            let mut st = self.st.lock().unwrap();
-            let before = st.watching.len();
-            st.watching.retain(|w| w != &actor);
-            st.watching.len() != before
-        };
-        if was_watching && !self.children.lock().unwrap().is_terminating() {
+        let watched = self.stop_watching(&actor);
+        if let Some(custom) = watched
+            && !self.children.lock().unwrap().is_terminating()
+        {
+            // `terminatedQueuedFor`: a registration made while one is already queued does not replace it
             self.st
                 .lock()
                 .unwrap()
                 .terminated_queued
-                .insert(actor.clone());
+                .entry(actor.clone())
+                .or_insert(custom);
             self.self_ref().tell_any(
                 Arc::new(Terminated {
                     actor: actor.clone(),
@@ -1381,7 +1394,7 @@ impl ActorCell {
             std::mem::take(&mut st.watching)
         };
         let me = self.self_ref();
-        for w in watching {
+        for (w, _) in watching {
             w.send_system(SystemMessage::Unwatch {
                 watchee: w.clone(),
                 watcher: me.clone(),

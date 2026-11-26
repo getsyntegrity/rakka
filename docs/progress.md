@@ -7,9 +7,9 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 521 | 47 | 122 | 352 | 4 | 9.0 % | 32.4 % |
+| Classic (`rakka-actor`) | 521 | 47 | 123 | 351 | 4 | 9.0 % | 32.6 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 781 | 47 | 122 | 612 | 4 | 6.0 % | 21.6 % |
+| **Total** | 781 | 47 | 123 | 611 | 4 | 6.0 % | 21.8 % |
 
 ## Por ola
 
@@ -17,7 +17,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 |---|---|---|---|---|---|---|---|
 | 0 - valores sin runtime | 57 | 36 | 20 | 1 | 4 | 63.2 % | 98.2 % |
 | 1 - configuracion, eventos y scheduler | 70 | 4 | 40 | 26 | 0 | 5.7 % | 62.9 % |
-| 2 - nucleo del runtime Classic | 134 | 7 | 52 | 75 | 0 | 5.2 % | 44.0 % |
+| 2 - nucleo del runtime Classic | 134 | 7 | 53 | 74 | 0 | 5.2 % | 44.8 % |
 | 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 9 | 36 | 0 | 0.0 % | 20.0 % |
 | 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0 | 0.0 % | 0.0 % |
 | 5 - apagado, serializacion e IO | 84 | 0 | 1 | 83 | 0 | 0.0 % | 1.2 % |
@@ -52,7 +52,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P20 SUP-ESTRATEGIAS | 2 | 10 | 0 | 6 | 4 | 0 | 0.0 % | 60.0 % | sí |
 | P21 SUP-FALLO | 2 | 11 | 1 | 5 | 5 | 0 | 9.1 % | 54.5 % | sí |
 | P22 CELL-REINICIO-PARADA | 2 | 21 | 2 | 12 | 7 | 0 | 9.5 % | 66.7 % | sí |
-| P23 DW-VIGILANCIA | 2 | 13 | 3 | 5 | 5 | 0 | 23.1 % | 61.5 % | parcial |
+| P23 DW-VIGILANCIA | 2 | 13 | 3 | 6 | 4 | 0 | 23.1 % | 69.2 % | parcial |
 | P24 MBX-STASH | 2 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | sí |
 | P25 SYS-GUARDIANES | 3 | 12 | 0 | 2 | 10 | 0 | 0.0 % | 16.7 % | sí |
 | P26 SYS-PROVEEDOR | 3 | 8 | 0 | 3 | 5 | 0 | 0.0 % | 37.5 % | sí |
@@ -127,7 +127,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-CFG | 29 | 0 | 26 | 3 | 0 | 0.0 % | 89.7 % | no |
 | AC-CS | 15 | 0 | 0 | 15 | 0 | 0.0 % | 0.0 % | no |
 | AC-DSP | 25 | 0 | 3 | 22 | 0 | 0.0 % | 12.0 % | sí |
-| AC-DW | 13 | 5 | 4 | 4 | 0 | 38.5 % | 69.2 % | sí |
+| AC-DW | 13 | 5 | 5 | 3 | 0 | 38.5 % | 76.9 % | sí |
 | AC-EVT | 24 | 0 | 0 | 24 | 0 | 0.0 % | 0.0 % | no |
 | AC-EXT | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | no |
 | AC-FSM | 11 | 0 | 0 | 11 | 0 | 0.0 % | 0.0 % | no |
