@@ -81,6 +81,11 @@ impl ProducedQueue {
         is_interface: true,
     };
 
+    /// `Class.getName` of the queue class.
+    pub const fn class_name(&self) -> &'static str {
+        self.class_name
+    }
+
     /// `requirement.isAssignableFrom(queueClass)`: every queue satisfies `MessageQueue`.
     pub fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
         requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.satisfies.contains(&requirement)
