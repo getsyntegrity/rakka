@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/dispatch/Dispatcher.scala (Apache-2.0).
 //! `registerForExecution` when the executor rejects the mailbox (`Dispatcher.scala:146-171`): one retry, then `setAsIdle`, an `Error`
-//! on the event stream and the exception thrown to the sender, who reports it too (`Dispatch.scala:129-141`).
+//! on the event stream and the exception thrown to the sender, who reports it too (`Dispatch.scala:136-148`).
 //!
 //! The executor of the user dispatcher is replaced by one that rejects the next N tasks of the actor named `w`, which is what the
 //! oracle does with a custom `ExecutorServiceConfigurator` (cases `MBX-RJ-01..04` of `cases/oracle-only/mailbox.golden`, printed by the

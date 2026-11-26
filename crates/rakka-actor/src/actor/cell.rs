@@ -448,7 +448,7 @@ impl ActorCell {
         reporter_class(self.st.lock().unwrap().actor_class)
     }
 
-    /// `ActorCell.handleException` for a failed dispatch (`Dispatch.scala:129-141`): the sender swallows the exception and reports it.
+    /// `ActorCell.handleException` for a failed dispatch (`Dispatch.scala:136-148`): the sender swallows the exception and reports it.
     fn swallow_failed_send(&self, _rejected: Rejected) {
         report_dispatch_failure(
             &self.system.events,
