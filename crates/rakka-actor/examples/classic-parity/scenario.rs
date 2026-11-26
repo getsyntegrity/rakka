@@ -41,6 +41,8 @@ fn await_timeout() -> Duration {
 #[derive(Clone)]
 enum Event {
     PreStart,
+    /// `supervisor.log-calls`: `supervisor_strategy` was called
+    Strategy,
     /// `sender`: the `,"sender":…` field of an actor with `log-sender`, else empty
     PostStop {
         sender: String,
@@ -148,6 +150,7 @@ impl Event {
         let q = |o: &mut String, t: &str| write_text(o, t);
         match self {
             Event::PreStart => o.push_str("{\"ev\":\"pre-start\"}"),
+            Event::Strategy => o.push_str("{\"ev\":\"strategy\"}"),
             Event::PostStop { sender } => o.push_str(&format!("{{\"ev\":\"post-stop\"{sender}}}")),
             Event::Received { msg, sender, n } => {
                 o.push_str("{\"ev\":\"received\",\"msg\":");
@@ -250,6 +253,10 @@ struct SupervisorCfg {
     decider_throws: bool,
     /// the strategy's `loggingEnabled` (default true)
     logging: bool,
+    /// `log-calls`: every call of `supervisor_strategy` records a `strategy` event
+    log_calls: bool,
+    /// `throw-on-call: n`: the n-th call of the label fails (IllegalStateException "strategy")
+    throw_on_call: Option<u64>,
 }
 
 /// Everything the actors record, shared with the harness thread.
@@ -269,6 +276,8 @@ struct Ctx {
     holds: Mutex<HashMap<String, Hold>>,
     /// labels whose `postRestart` already threw (`throw-in-post-restart: "once"`)
     failed_post_restart: Mutex<HashSet<String>>,
+    /// `supervisor_strategy` calls per label
+    strategy_calls: Mutex<HashMap<String, u64>>,
 }
 
 impl Ctx {
@@ -417,6 +426,11 @@ impl Behavior {
                         == Some("all-for-one"),
                     decider_throws: matches!(sp.get("decider-throws"), Some(Value::Bool(true))),
                     logging: !matches!(sp.get("logging"), Some(Value::Bool(false))),
+                    log_calls: matches!(sp.get("log-calls"), Some(Value::Bool(true))),
+                    throw_on_call: match sp.get("throw-on-call") {
+                        Some(Value::Number(n)) => Some(*n as u64),
+                        _ => None,
+                    },
                 }
             }),
             throw_in_prestart: matches!(v.get("throw-in-prestart"), Some(Value::Bool(true))),
@@ -476,6 +490,21 @@ fn reason_str(t: &Throwable) -> String {
 }
 
 impl Scripted {
+    fn count_strategy_call(&self, record: bool, throw_on: Option<u64>) {
+        let call = {
+            let mut calls = self.ctx.strategy_calls.lock().unwrap();
+            let call = calls.entry(self.label.clone()).or_default();
+            *call += 1;
+            *call
+        };
+        if record {
+            self.ctx.add(&self.label, Event::Strategy);
+        }
+        if throw_on == Some(call) {
+            throw(Throwable::illegal_state("strategy"));
+        }
+    }
+
     fn logged_sender(&self, c: &ActorContext) -> String {
         let mut field = String::new();
         if self.cfg.log_sender {
@@ -506,7 +535,10 @@ impl Actor for Scripted {
                 all_for_one,
                 decider_throws,
                 logging,
+                log_calls,
+                throw_on_call,
             }) => {
+                self.count_strategy_call(*log_calls, *throw_on_call);
                 let logging = *logging;
                 let decider_throws = *decider_throws;
                 let (decider, log, ctx, label, hold) = (

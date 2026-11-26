@@ -81,7 +81,7 @@ class RetiredMutants(unittest.TestCase):
     def test_a_retired_mutant_does_not_count_among_the_runnable_mutants(self):
         self.assertNotIn("mailbox-is-lifo", {**cd.MUTANTS, **cd.TOOL_MUTANTS})
         # exact, so that the corpus can neither shrink nor grow unnoticed: whoever adds or retires a mutant updates this number
-        self.assertEqual(len(cd.MUTANTS) + len(cd.TOOL_MUTANTS), 370)
+        self.assertEqual(len(cd.MUTANTS) + len(cd.TOOL_MUTANTS), 372)
 
 
 if __name__ == "__main__":

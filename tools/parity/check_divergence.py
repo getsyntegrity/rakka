@@ -340,6 +340,18 @@ MUTANTS = {
         "",
         "the default `preRestart` stops the children without `unwatch`, so the restarted actor is told of their termination",
     ),
+    "throwing-strategy-falls-back-to-default": (
+        "src/actor/cell.rs",
+        "Some(strategy.map_err(throwable_of))",
+        "Some(Ok(strategy.unwrap_or_default()))",
+        "a `supervisorStrategy` that panics is replaced by the default strategy instead of failing the supervisor",
+    ),
+    "termination-forgets-the-perpetrator": (
+        "src/actor/cell.rs",
+        "self.fail(thrown, self.current_failed_child(), &[]);",
+        "self.fail(thrown, None, &[]);",
+        "a strategy that panics on a child termination also suspends the child whose handled `Failed` is still current",
+    ),
     "disabled-logging-still-logs": (
         "src/actor/cell.rs",
         "!strategy.logging_enabled() || ",
@@ -918,14 +930,14 @@ MUTANTS = {
     ),
     "decider-failure-ignored": (
         "src/actor/cell.rs",
-        "self.fail(throwable_of(payload), Some(child), &[]);",
-        "drop((child, payload));",
+        "self.fail(thrown, Some(child), &[]);",
+        "drop((child, thrown));",
         "a decider that throws leaves the failed child suspended forever: its supervisor does not fail",
     ),
     "decider-failure-without-failed-message": (
         "src/actor/cell.rs",
-        "self.fail(throwable_of(payload), Some(child), &[]);",
-        "self.set_current(None);\n                self.fail(throwable_of(payload), None, &[]);",
+        "self.fail(thrown, Some(child), &[]);",
+        "self.set_current(None);\n                self.fail(thrown, None, &[]);",
         "a supervisor that failed while deciding forgets the Failed message (preRestart sees none) and suspends the child again",
     ),
     "restart-factory-failure-drops-old-instance": (
