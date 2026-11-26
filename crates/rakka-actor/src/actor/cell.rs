@@ -37,8 +37,6 @@ struct CellState {
     actor: Option<Box<dyn Actor>>,
     /// `clazz(actor)` of the current instance, kept while the instance is taken out to run a callback; `None` without an instance
     actor_class: Option<&'static str>,
-    /// sender of the message being processed (`context.sender()`)
-    sender: Option<ActorRef>,
     /// `watching`: the watched actors, with the message of a `watch_with` (`None`: a `Terminated` is delivered)
     watching: Vec<(ActorRef, Option<CustomTermination>)>,
     watched_by: Vec<ActorRef>,
@@ -47,8 +45,9 @@ struct CellState {
     terminated_queued: HashMap<ActorRef, Option<CustomTermination>>,
     /// `_failed`
     failed: FailedInfo,
-    /// the message being processed at the latest failure (`currentMessage`), handed to `preRestart`
-    failed_message: Option<AnyMessage>,
+    /// `currentMessage`: what `preRestart` is told and `context.sender()` reads. Only a successful user message, a restart and the end
+    /// of the instance forget it: a failed one is kept across `Resume`, and a child's `Failed` stays after it was handled.
+    current: Option<Envelope>,
     /// the instance a restart replaced: Pekko keeps it in `_actor` until the factory has produced the new one
     replaced_actor: Option<Box<dyn Actor>>,
     /// the cause of a `Recreate` that waits for the children to die (`Recreation(cause)`)
@@ -438,9 +437,16 @@ impl ActorCell {
 
     /// The cell has no instance any more (`clearActorFields`).
     fn remove_actor(&self) {
+        self.set_current(None);
         let mut state = self.st.lock().unwrap();
         state.actor = None;
         state.actor_class = None;
+    }
+
+    /// `currentMessage = ...`. The user's value it replaces is dropped outside the state lock, and a panic of its `Drop` stops here.
+    fn set_current(&self, current: Option<Envelope>) {
+        let replaced = std::mem::replace(&mut self.st.lock().unwrap().current, current);
+        let _ = catch_unwind(AssertUnwindSafe(|| drop(replaced)));
     }
 
     /// `clazz(actor)`. A call of its own, so the state lock is released before the event that carries it is published.
@@ -587,8 +593,8 @@ impl ActorCell {
     }
 
     /// `handleInvokeFailure`: suspend the mailbox and every child, mark the actor failed and report to the parent, which decides.
-    fn handle_invoke_failure(self: &Arc<Self>, cause: Throwable, message: Option<AnyMessage>) {
-        self.fail(cause, message, None, &[]);
+    fn handle_invoke_failure(self: &Arc<Self>, cause: Throwable) {
+        self.fail(cause, None, &[]);
     }
 
     /// `handleInvokeFailure(childrenNotToSuspend, t)`: it has no `isFailed` guard, so every failure suspends and reports. `failed_child`
@@ -597,13 +603,11 @@ impl ActorCell {
     fn fail(
         self: &Arc<Self>,
         cause: Throwable,
-        message: Option<AnyMessage>,
         failed_child: Option<ActorRef>,
         still_suspended: &[ActorRef],
     ) {
         let skipped = {
             let mut st = self.st.lock().unwrap();
-            st.failed_message = message;
             if st.failed.is_failed() {
                 None
             } else {
@@ -629,20 +633,35 @@ impl ActorCell {
     }
 
     pub(crate) fn current_sender(&self) -> Option<ActorRef> {
-        self.st.lock().unwrap().sender.clone()
+        let state = self.st.lock().unwrap();
+        state
+            .current
+            .as_ref()
+            .and_then(|current| current.sender.clone())
     }
 
+    /// `invoke`: the message is the current one while it is processed, and stays so if processing it fails.
     fn invoke(self: &Arc<Self>, env: Envelope) {
+        self.set_current(Some(Envelope {
+            message: env.message.clone(),
+            sender: env.sender.clone(),
+        }));
+        match self.process_message(env) {
+            Ok(()) => self.set_current(None),
+            Err(cause) => self.handle_invoke_failure(cause),
+        }
+    }
+
+    fn process_message(self: &Arc<Self>, env: Envelope) -> Result<(), Throwable> {
         // auto-received messages are handled by the cell itself
         if env.message.is::<PoisonPill>() {
             self.self_ref().stop();
-            return;
+            return Ok(());
         }
         // `Kill` is auto-received: it makes the actor throw `ActorKilledException`
         if env.message.is::<Kill>() {
-            let cause = Throwable::new("org.apache.pekko.actor.ActorKilledException", Some("Kill"));
-            self.handle_invoke_failure(cause, Some(env.message));
-            return;
+            let class = "org.apache.pekko.actor.ActorKilledException";
+            return Err(Throwable::new(class, Some("Kill")));
         }
         // `Identify` is auto-received: the cell answers, with no sender, and `receive` never sees it
         if let Some(identify) = env.message.downcast_ref::<Identify>() {
@@ -654,7 +673,7 @@ impl ActorCell {
                 .sender
                 .unwrap_or_else(|| self.system.dead_letters.clone());
             asker.tell_any(Arc::new(identity), None);
-            return;
+            return Ok(());
         }
         let mut msg = env.message;
         // `receivedTerminated`: only a Terminated that is still queued for us is delivered (unwatch cancels it). The message of a
@@ -662,39 +681,36 @@ impl ActorCell {
         if let Some(t) = msg.downcast_ref::<Terminated>() {
             let queued = self.st.lock().unwrap().terminated_queued.remove(&t.actor);
             let Some(custom) = queued else {
-                return;
+                return Ok(());
             };
             if let Some(custom) = custom {
                 msg = custom.message.clone();
+                self.set_current(Some(Envelope {
+                    message: msg.clone(),
+                    sender: env.sender.clone(),
+                }));
             }
         }
-        self.st.lock().unwrap().sender = env.sender.clone();
         let mut handled = true;
-        let result = self.with_actor(|a, ctx| handled = a.receive(ctx, &msg));
-        self.st.lock().unwrap().sender = None;
-        if let Err(cause) = result {
-            self.handle_invoke_failure(cause, Some(msg));
-        } else if !handled && msg.is::<Terminated>() {
-            // `unhandled(Terminated)` throws `DeathPactException`
-            let dead = msg
-                .downcast_ref::<Terminated>()
-                .map(|t| format!("{:?}", t.actor))
-                .unwrap_or_default();
-            let cause = Throwable::new(
-                "org.apache.pekko.actor.DeathPactException",
-                Some(&format!("Monitored actor [{dead}] terminated")),
-            );
-            self.handle_invoke_failure(cause, Some(msg));
-        } else if !handled {
-            let sender = env
-                .sender
-                .unwrap_or_else(|| self.system.dead_letters.clone());
-            self.system.events.publish_unhandled(UnhandledMessage {
-                message: msg,
-                sender,
-                recipient: self.self_ref(),
-            });
+        self.with_actor(|a, ctx| handled = a.receive(ctx, &msg))?;
+        if handled {
+            return Ok(());
         }
+        // `unhandled(Terminated)` throws `DeathPactException`
+        if let Some(t) = msg.downcast_ref::<Terminated>() {
+            let dead = format!("Monitored actor [{:?}] terminated", t.actor);
+            let class = "org.apache.pekko.actor.DeathPactException";
+            return Err(Throwable::new(class, Some(&dead)));
+        }
+        let sender = env
+            .sender
+            .unwrap_or_else(|| self.system.dead_letters.clone());
+        self.system.events.publish_unhandled(UnhandledMessage {
+            message: msg,
+            sender,
+            recipient: self.self_ref(),
+        });
+        Ok(())
     }
 
     // ---- system messages ----
@@ -721,7 +737,7 @@ impl ActorCell {
     /// `create(failure)`: a cell that could not be made fails with the exception it was given (`failure.foreach { throw _ }`).
     fn create(self: &Arc<Self>, failure: Option<Throwable>) {
         if let Some(failure) = failure {
-            self.handle_invoke_failure(failure, None);
+            self.handle_invoke_failure(failure);
             return;
         }
         // `newActor()` runs the user's factory: a throw there is an `ActorInitializationException`, like one in `preStart`
@@ -729,7 +745,7 @@ impl ActorCell {
             Ok(actor) => actor,
             Err(payload) => {
                 let cause = self.creation_failure(&throwable_of(payload));
-                self.handle_invoke_failure(cause, None);
+                self.handle_invoke_failure(cause);
                 return;
             }
         };
@@ -738,7 +754,7 @@ impl ActorCell {
             // the half-built actor is dropped (so `postStop` never runs) and the supervisor decides (default: stop)
             self.remove_actor();
             let cause = self.creation_failure(&root_cause);
-            self.handle_invoke_failure(cause, None);
+            self.handle_invoke_failure(cause);
         }
     }
 
@@ -797,6 +813,15 @@ impl ActorCell {
 
     /// `handleFailure`: ask the strategy's decider what to do with the failed child and apply it to that child only.
     fn handle_failure(self: &Arc<Self>, child: ActorRef, cause: Throwable) {
+        let failed = Failed {
+            child: child.clone(),
+            cause: cause.clone(),
+        };
+        // set before the child is looked up, and not cleared afterwards
+        self.set_current(Some(Envelope {
+            message: Arc::new(failed),
+            sender: Some(child.clone()),
+        }));
         if self.children.lock().unwrap().get_by_ref(&child).is_none() {
             return; // not (or no longer) our child: the failure is dropped
         }
@@ -806,7 +831,8 @@ impl ActorCell {
         let decision = match catch_unwind(AssertUnwindSafe(|| strategy.decide(&cause))) {
             Ok(decision) => decision,
             Err(payload) => {
-                self.fail_while_deciding(child, cause, throwable_of(payload));
+                // the child that failed has suspended itself already
+                self.fail(throwable_of(payload), Some(child), &[]);
                 return;
             }
         };
@@ -816,15 +842,6 @@ impl ActorCell {
             Directive::Stop => self.process_failure(false, child, cause, &strategy),
             Directive::Escalate => self.escalate(child, cause),
         }
-    }
-
-    /// `handleInvokeFailure` after the exception `thrown` escaped `handleFailure(Failed(child, cause))`.
-    fn fail_while_deciding(self: &Arc<Self>, child: ActorRef, cause: Throwable, thrown: Throwable) {
-        let failed: AnyMessage = Arc::new(Failed {
-            child: child.clone(),
-            cause,
-        });
-        self.fail(thrown, Some(failed), Some(child), &[]);
     }
 
     /// `processFailure`: a restart is only granted while every affected child is within its limit, otherwise they are stopped.
@@ -871,11 +888,7 @@ impl ActorCell {
     /// `Escalate` (`handleFailure` returns false, so the supervisor rethrows the child's exception and `handleInvokeFailure` runs for it):
     /// this actor fails with the very same cause; the failed child is not suspended again.
     fn escalate(self: &Arc<Self>, child: ActorRef, cause: Throwable) {
-        let message: AnyMessage = Arc::new(Failed {
-            child: child.clone(),
-            cause: cause.clone(),
-        });
-        self.fail(cause, Some(message), Some(child), &[]);
+        self.fail(cause, Some(child), &[]);
     }
 
     /// `faultSuspend`: suspend this actor and, recursively, its children (the failed parent's whole subtree waits for the decision).
@@ -886,7 +899,7 @@ impl ActorCell {
         }
     }
 
-    /// `faultResume`: the same instance carries on; the failed message is already gone. `resumeChildren`: the child whose failure was escalated gets
+    /// `faultResume`: the same instance carries on, and the failed message stays the current one. `resumeChildren`: the child whose failure was escalated gets
     /// the cause back (it clears its own failure), every other child only loses one suspension. `cause` is `None` for an actor that was merely suspended
     /// along with its failed parent.
     fn fault_resume(self: &Arc<Self>, cause: Option<Throwable>) {
@@ -928,7 +941,8 @@ impl ActorCell {
         let (message, failed_fatally) = {
             let st = self.st.lock().unwrap();
             let fatally = matches!(st.failed, FailedInfo::FailedFatally);
-            (st.failed_message.clone(), fatally)
+            let message = st.current.as_ref().map(|current| current.message.clone());
+            (message, fatally)
         };
         if !failed_fatally
             && let Err(thrown) =
@@ -937,6 +951,8 @@ impl ActorCell {
             let failure = self.pre_restart_failure(&cause, message.as_ref());
             self.publish_caused_error(failure, thrown.message);
         }
+        drop(message); // so that the cell's own drop, which is guarded, is the last one
+        self.set_current(None); // `clearActorFields`
         {
             let mut st = self.st.lock().unwrap();
             st.replaced_actor = st.actor.take();
@@ -1004,7 +1020,6 @@ impl ActorCell {
         if clear_failed {
             let mut st = self.st.lock().unwrap();
             st.failed.clear_failed();
-            st.failed_message = None;
         }
     }
 
@@ -1044,7 +1059,7 @@ impl ActorCell {
     fn fail_restart(self: &Arc<Self>, original_cause: &Throwable, survivors: &[ActorRef]) {
         self.st.lock().unwrap().failed = FailedInfo::FailedFatally; // setFailedFatally
         let failure = self.post_restart_failure(original_cause);
-        self.fail(failure, None, None, survivors);
+        self.fail(failure, None, survivors);
     }
 
     /// `FaultHandling.terminate`
@@ -1300,7 +1315,7 @@ impl ActorCell {
             // `handleSupervise` → `point`: `cell.start()` is outside `catchFailures`, so a rejected attach fails this actor
             // (`systemInvoke`'s `handleInvokeFailure(Nil, e)`), not the new one
             if repointable.point().is_err() {
-                self.handle_invoke_failure(rejected_execution(), None);
+                self.handle_invoke_failure(rejected_execution());
             }
         }
     }
