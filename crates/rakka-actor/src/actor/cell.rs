@@ -804,6 +804,7 @@ impl ActorCell {
         }
         let log_source = child.path().to_string();
         let log_class = strategy.class_name().to_owned();
+        // the event texts are not optional yet: Pekko's `null` message is written out
         let message = cause.message.clone().unwrap_or_else(|| "null".to_owned());
         let events = &self.system.events;
         // `publish`: "logging is not the main purpose", a subscriber that unwinds does not stop the directive
