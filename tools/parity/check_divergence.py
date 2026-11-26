@@ -2323,6 +2323,12 @@ MUTANTS = {
         "    drop(value);",
         "a `Drop` of the user that panics unwinds through a transition of the cell: no decision is made and the actor is wedged",
     ),
+    "stop-during-restart-skips-the-replaced-instance": (
+        "src/actor/cell.rs",
+        "                state.actor = Some(replaced);",
+        "                drop(replaced);",
+        "an actor stopped while it restarts gets no `postStop` on the instance it was replacing",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

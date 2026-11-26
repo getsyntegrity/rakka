@@ -477,14 +477,12 @@ impl ActorCell {
     /// The cell has no instance any more (`clearActorFields`).
     fn remove_actor(&self) {
         self.set_current(None);
-        let (actor, replaced) = {
+        let actor = {
             let mut state = self.st.lock().unwrap();
             state.actor_class = None;
-            // `replaced_actor` too: an actor stopped while it restarts still holds the instance it was replacing
-            (state.actor.take(), state.replaced_actor.take())
+            state.actor.take()
         };
-        drop_guarded(actor); // one at a time: a second panic while the first unwinds would abort
-        drop_guarded(replaced);
+        drop_guarded(actor);
     }
 
     /// `currentMessage = ...`. The user's value it replaces is dropped outside the state lock, and a panic of its `Drop` stops here.
@@ -1212,6 +1210,13 @@ impl ActorCell {
 
     /// `FaultHandling.finishTerminate` — the order of the steps matters.
     fn finish_terminate(self: &Arc<Self>) {
+        {
+            // an actor stopped while it restarts stops the instance it was replacing: that one is still Pekko's `_actor`
+            let mut state = self.st.lock().unwrap();
+            if let Some(replaced) = state.replaced_actor.take() {
+                state.actor = Some(replaced);
+            }
+        }
         if let Err(thrown) = self.with_actor(|a, ctx| a.post_stop(ctx)) {
             let message = thrown.message.clone();
             self.publish_caused_error(thrown, message);

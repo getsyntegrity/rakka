@@ -3060,3 +3060,6 @@ tc-escalated	scenario-throwable-cause	AC-CELL-002.2,AC-SUP-018	cited
 tc-post-restart	scenario-throwable-cause	AC-CELL-007.4,AC-SUP-018	cited
 tc-restart-constructor	scenario-throwable-cause	AC-CELL-007.4,AC-SUP-018	cited
 tc-pre-restart	scenario-throwable-cause	AC-CELL-007.1	cited
+mr-stop	scenario-stop-mid-restart	AC-CELL-008.2	cited
+mr-stop-keeps	scenario-stop-mid-restart	AC-CELL-008.2	cited
+mr-stop-throws	scenario-stop-mid-restart	AC-CELL-008.2	cited
