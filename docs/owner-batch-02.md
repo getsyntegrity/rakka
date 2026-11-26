@@ -110,3 +110,8 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
 |---|---|---|---|---|
 | Q-SUP-3 — Causa de una excepción en `Throwable` | (a) `cause: Option<Box<Throwable>>` (alternativas: (b) canal interno junto a `Failed`; (c) aceptar la divergencia) | Hoy el `Error` de un fallo de `preStart`/`postRestart` lleva el texto de la excepción envolvente, no el de la causa | `FaultHandling.scala:406-414`; oráculo: `preStart` publica "init" | (a) cambia un tipo público |
+
+### Classic: scheduler
+| Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
+|---|---|---|---|---|
+| Q-SCH-5 — API de `scheduleOnce`: tipo del retardo y executor implícito | (a), implementada provisionalmente: `std::time::Duration` y envío en el dispatcher por defecto (alternativas: (b) duración con signo, como `Timeout`; (c) parámetro de executor explícito) | Un retardo negativo no se puede pasar (en Pekko equivale a cero) y no se puede elegir el executor del envío | `Scheduler.scala:425-495`; `LightArrayRevolverScheduler.scala:205-235` | Bajo: cambiar la firma de `schedule_once` antes del primer release |

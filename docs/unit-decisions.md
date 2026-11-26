@@ -180,7 +180,7 @@
 
 ## P12 SCH-RUEDA
 
-13 filas; 6 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 0 propuestas.
+13 filas; 7 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -190,6 +190,7 @@
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-SCH-010 | — | — | `transversal` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-SCH-008.1, AC-SCH-008.2, AC-SCH-008.3 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-SCH-015 | — | — | `transversal` |
+| Q-SCH-5 | propuesta | 1: AC-SCH-001 | — | — | `classic-dispatch` |
 
 ## P13 MBX-COLAS
 
@@ -1081,4 +1082,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 524 (253 respondidas, 0 bloqueantes, 271 propuestas).
+Total de pares unidad–decisión: 525 (253 respondidas, 0 bloqueantes, 272 propuestas).

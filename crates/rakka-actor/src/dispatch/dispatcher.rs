@@ -5,6 +5,7 @@
 use crate::actor::cell::ActorCell;
 use crate::dispatch::turn::TurnPolicy;
 use crate::util::clock::Clock;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -18,6 +19,10 @@ pub(crate) struct Rejected;
 pub(crate) trait Executor: Send + Sync {
     /// `executorService.execute(mailbox)`.
     fn execute(&self, cell: Arc<ActorCell>) -> Result<(), Rejected>;
+    /// `executionContext.execute(runnable)`: a task that is not a mailbox turn. The test doubles run no such task.
+    fn run(&self, _task: Task) -> Result<(), Rejected> {
+        Err(Rejected)
+    }
     /// Lets the workers finish what is queued and exit; later `execute` calls are rejected.
     fn shutdown(&self);
     /// Whether `shutdown` ran, for the tests that check a system cleaned up its threads.
@@ -27,15 +32,22 @@ pub(crate) trait Executor: Send + Sync {
     }
 }
 
+pub(crate) type Task = Box<dyn FnOnce() + Send>;
+
+enum Job {
+    Mailbox(Arc<ActorCell>),
+    Task(Task),
+}
+
 /// A fixed pool of threads fed by an unbounded channel. It rejects only once it has been shut down, like a Java pool does.
 pub(crate) struct ThreadPool {
-    tx: Mutex<Option<Sender<Arc<ActorCell>>>>,
+    tx: Mutex<Option<Sender<Job>>>,
 }
 
 impl ThreadPool {
     pub(crate) fn start(system_name: &str, parallelism: usize) -> ThreadPool {
-        let (tx, rx) = channel::<Arc<ActorCell>>();
-        let rx: Arc<Mutex<Receiver<Arc<ActorCell>>>> = Arc::new(Mutex::new(rx));
+        let (tx, rx) = channel::<Job>();
+        let rx: Arc<Mutex<Receiver<Job>>> = Arc::new(Mutex::new(rx));
         for i in 0..parallelism.max(1) {
             let rx = rx.clone();
             thread::Builder::new()
@@ -45,7 +57,9 @@ impl ThreadPool {
                         // The lock is held only while waiting for the next job, never while running one.
                         let next = rx.lock().unwrap().recv();
                         match next {
-                            Ok(cell) => ActorCell::run_mailbox(&cell),
+                            Ok(Job::Mailbox(cell)) => ActorCell::run_mailbox(&cell),
+                            // a task that panics (a `Drop` of the user) must not take the thread with it
+                            Ok(Job::Task(task)) => drop(catch_unwind(AssertUnwindSafe(task))),
                             Err(_) => return, // sender dropped: dispatcher shut down
                         }
                     }
@@ -58,12 +72,22 @@ impl ThreadPool {
     }
 }
 
-impl Executor for ThreadPool {
-    fn execute(&self, cell: Arc<ActorCell>) -> Result<(), Rejected> {
+impl ThreadPool {
+    fn submit(&self, job: Job) -> Result<(), Rejected> {
         match self.tx.lock().unwrap().as_ref() {
-            Some(tx) => tx.send(cell).map_err(|_| Rejected),
+            Some(tx) => tx.send(job).map_err(|_| Rejected),
             None => Err(Rejected),
         }
+    }
+}
+
+impl Executor for ThreadPool {
+    fn execute(&self, cell: Arc<ActorCell>) -> Result<(), Rejected> {
+        self.submit(Job::Mailbox(cell))
+    }
+
+    fn run(&self, task: Task) -> Result<(), Rejected> {
+        self.submit(Job::Task(task))
     }
 
     fn shutdown(&self) {
@@ -121,6 +145,11 @@ impl Dispatcher {
     /// `executorService.execute(mbox)`.
     pub fn execute(&self, cell: Arc<ActorCell>) -> Result<(), Rejected> {
         self.executor.execute(cell)
+    }
+
+    /// Runs a task on the pool.
+    pub fn run(&self, task: Task) -> Result<(), Rejected> {
+        self.executor.run(task)
     }
 
     /// Lets the worker threads exit once the queued runs are done.

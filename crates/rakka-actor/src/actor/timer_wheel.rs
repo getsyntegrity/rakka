@@ -139,6 +139,7 @@ impl<T> Wheel<T> {
     }
 
     /// `clearAll`: every task still in the wheel, when the scheduler closes.
+    #[cfg_attr(not(test), allow(dead_code))] // used by the close of the scheduler, which follows
     pub(crate) fn clear(&mut self) -> Vec<Entry<T>> {
         self.buckets.iter_mut().flat_map(std::mem::take).collect()
     }

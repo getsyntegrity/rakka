@@ -418,7 +418,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Scheduler (rueda LARS) con reloj y ticks verificables.
 - **Filas (13; impl: pending 13):** asignacion explicita en `docs/unit-rows.tsv`: AC-SCH-001, AC-SCH-002, AC-SCH-003, AC-SCH-004, AC-SCH-005, AC-SCH-006, AC-SCH-008.1, AC-SCH-008.2, AC-SCH-008.3, AC-SCH-009, AC-SCH-010, AC-SCH-014, AC-SCH-015.
 - **Exclusiones/costuras:** SCH-007/011/012/013 (actores y timers) a P27; la cancelacion de tarea a actor terminado usa solo la interfaz ActorRefLike.
-- **Decisiones:** 6 distintas en sus filas; respondidas: Q-SCH-1, Q-SCH-2, Q-SCH-4, Q-X-2, Q-X-4, Q-X-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P12). <!-- generated:unit-decisions -->
+- **Decisiones:** 7 distintas en sus filas; respondidas: Q-SCH-1, Q-SCH-2, Q-SCH-4, Q-X-2, Q-X-4, Q-X-5; propuestas sin respuesta: Q-SCH-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P12). <!-- generated:unit-decisions -->
 - **Dependencias:** P02, P06, P07, P09.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/scheduler/*.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** LightArrayRevolverSchedulerSpec 1:1 con reloj manual.
