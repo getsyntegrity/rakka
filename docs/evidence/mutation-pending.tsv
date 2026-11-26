@@ -5,3 +5,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #398	07ad2117	344	restart-leaves-survivors-suspended; failed-restart-still-restarts-survivors; waiting-cell-does-not-defer-system-messages	none	344 not run (Q-X-23)	PENDING
 #399	c0d51097	348	failed-restart-suspends-survivors-again; fatal-restart-repeats-pre-restart; fatal-resume-is-a-plain-resume; terminating-recreate-skips-the-children	none	348 not run (Q-X-23)	PENDING
 #400	69e5459a	62	suspended-cell-does-not-defer-failed; deferred-messages-never-come-back; terminated-cell-keeps-deferred-messages	none	62 not run (Q-X-23)	PENDING
+#402	c11eb7fc	110	none on this head (two re-pointed unwatch mutants); four new ones come with the stacked slice 2	none	110 not run (Q-X-23)	PENDING
