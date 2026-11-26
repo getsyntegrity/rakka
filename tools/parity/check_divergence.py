@@ -149,6 +149,31 @@ MUTANTS = {
         'an actor drains its whole mailbox in one turn instead of `throughput` messages',
     ),
     # --- Identify / ActorIdentity (AC-REF-013; killed by the identify-* cases) ---
+    # --- watchWith (AC-DW-005; killed by the ww-* cases) ---
+    "watch-with-delivers-terminated": (
+        "src/actor/cell.rs",
+        "msg = custom.message.clone();",
+        "let _ = custom;",
+        "the termination of an actor watched with `watchWith` delivers `Terminated` instead of the custom message",
+    ),
+    "re-watch-does-not-compare": (
+        "src/actor/cell.rs",
+        "check_watching_same(&me, subject, previous.as_ref(), custom.as_ref());",
+        "let _ = previous;",
+        "registering again with another termination message does not throw",
+    ),
+    "watch-with-equality-ignores-value": (
+        "src/actor/watching.rs",
+        "previous.downcast_ref::<M>() == new.downcast_ref::<M>()",
+        "previous.downcast_ref::<M>().is_some() == new.downcast_ref::<M>().is_some()",
+        "two termination messages of the same type are equal whatever their values",
+    ),
+    "queued-termination-replaced-by-later-watch": (
+        "src/actor/cell.rs",
+        "Entry::Occupied(_) => Some(custom),",
+        "Entry::Occupied(mut kept) => Some(kept.insert(custom)),",
+        "a registration made while a `Terminated` is queued replaces the message it will deliver",
+    ),
     "identify-reaches-receive": (
         "src/actor/cell.rs",
         "if let Some(identify) = env.message.downcast_ref::<Identify>() {",

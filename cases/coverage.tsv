@@ -2997,3 +2997,14 @@ sf-dropped-on-stop	scenario-stash-failed	AC-CELL-013.2	cited
 fr-fatal-resume-error	scenario-fatal-resume	AC-SUP-019	cited
 fr-escalated-resume	scenario-fatal-resume	AC-SUP-019	cited
 fr-stopped-resume	scenario-fatal-resume	AC-CELL-008.1,AC-SUP-019	cited
+ww-delivered	scenario-watch-with	AC-DW-005	cited
+ww-rejects	scenario-watch-with	AC-DW-005	cited
+ww-rejects-typed	scenario-watch-with	AC-DW-005	cited
+ww-unwatch-resets	scenario-watch-with	AC-DW-005	cited
+ww-dead-and-self	scenario-watch-with	AC-DW-005	cited
+ww-unwatch-queued	scenario-watch-with	AC-DW-005	cited
+ww-queued-keeps-first	scenario-watch-with	AC-DW-005	cited
+ww-queued-replaced	scenario-watch-with	AC-DW-005	cited
+ww-ordinary	scenario-watch-with	AC-DW-005	cited
+ww-poison-pill	scenario-watch-with	AC-DW-005	cited
+ww-restart	scenario-watch-with	AC-DW-005	cited

@@ -77,3 +77,46 @@ pub(crate) fn check_watching_same(
         option(new),
     )));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn same<A, B>(previous: A, new: B) -> bool
+    where
+        A: Any + PartialEq + Send + Sync,
+        B: Any + PartialEq + Send + Sync,
+    {
+        let (previous, new) = (
+            CustomTermination::new(previous),
+            CustomTermination::new(new),
+        );
+        same_registration(Some(&previous), Some(&new))
+    }
+
+    /// Scala accepts `1 == 1L` and has one string type: Rust compares concrete type and value (Q-DW-3 (a)).
+    #[test]
+    fn messages_are_equal_only_with_the_same_rust_type_and_an_equal_value() {
+        assert!(same(1_i32, 1_i32));
+        assert!(same(vec!["a".to_owned()], vec!["a".to_owned()]));
+        assert!(!same(1_i32, 2_i32));
+        assert!(!same(1_i32, 1_i64));
+        assert!(!same("a", "a".to_owned()));
+        assert!(!same(f64::NAN, f64::NAN));
+    }
+
+    #[test]
+    fn a_watch_is_the_same_only_as_another_watch() {
+        let custom = CustomTermination::new("a");
+        assert!(same_registration(None, None));
+        assert!(!same_registration(None, Some(&custom)));
+        assert!(!same_registration(Some(&custom), None));
+    }
+
+    #[test]
+    fn only_strings_are_rendered_by_value() {
+        assert_eq!(CustomTermination::new("a").rendered(), "Some(a)");
+        assert_eq!(CustomTermination::new("b".to_owned()).rendered(), "Some(b)");
+        assert_eq!(CustomTermination::new(7_i32).rendered(), "Some(i32)");
+    }
+}
