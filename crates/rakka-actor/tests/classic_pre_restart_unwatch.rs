@@ -4,7 +4,7 @@
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
 mod common;
-use common::{RunningSystem, owned_strings, snapshot_of, wait_until};
+use common::{Gate, RunningSystem, owned_strings, snapshot_of, wait_until};
 
 use std::sync::{Arc, Mutex};
 
@@ -23,11 +23,12 @@ enum Watching {
 struct Child;
 impl Actor for Child {}
 
-/// Creates and watches one child on "watch", fails on "boom", records the rest. It does not override `pre_restart`.
+/// Creates and watches one child on "watch", waits on the gate on "hold", fails on "boom", records the rest. It does not override `pre_restart`.
 #[derive(Clone)]
 struct Parent {
     watching: Watching,
     log: Log,
+    gate: Arc<Gate>,
 }
 
 impl Actor for Parent {
@@ -44,6 +45,7 @@ impl Actor for Parent {
                     Watching::With(message) => ctx.watch_with(&child, message),
                 }
             }
+            Some("hold") => self.gate.hold_until_released(),
             Some("boom") => throw(Throwable::illegal_state("boom")),
             Some(other) => self.log.lock().unwrap().push(other.to_owned()),
             None => return false,
@@ -66,13 +68,14 @@ impl Actor for StopsOnly {
     }
 }
 
-/// What the parent records for "watch", "boom", "ping": everything left by the restart is queued before "ping".
+/// What the parent records for "barrier" (queued behind "boom" before the failure happens) and "ping" (sent after the restart).
 fn restarted(system_name: &str, watching: Watching, overrides: bool) -> Vec<String> {
     let system = RunningSystem::create(system_name);
-    let log = Log::default();
+    let (log, gate) = (Log::default(), Arc::<Gate>::default());
     let parent = Parent {
         watching,
         log: log.clone(),
+        gate: gate.clone(),
     };
     let props = if overrides {
         Props::new(move || StopsOnly(parent.clone()))
@@ -81,9 +84,11 @@ fn restarted(system_name: &str, watching: Watching, overrides: bool) -> Vec<Stri
     };
     let parent = system.actor_of(props).unwrap();
     parent.tell("watch", None);
+    // the parent is held, so "barrier" is in the mailbox before the restart can queue anything about the child
+    parent.tell("hold", None);
     parent.tell("boom", None);
-    // queued behind the failed message; the child is gone before the restart ends, so its notification is queued by then
     parent.tell("barrier", None);
+    gate.release();
     wait_until("the restarted parent", || !snapshot_of(&log).is_empty());
     parent.tell("ping", None);
     wait_until("ping", || snapshot_of(&log).iter().any(|e| e == "ping"));
