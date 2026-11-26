@@ -132,8 +132,8 @@ MUTANTS = {
     ),
     "receiver-never-sees-sender": (
         "src/actor/cell.rs",
-        "self.st.lock().unwrap().sender = env.sender.clone();",
-        "self.st.lock().unwrap().sender = None;",
+        "message: env.message.clone(),\n            sender: env.sender.clone(),",
+        "message: env.message.clone(),\n            sender: None,",
         "`context.sender()` ignores the explicit sender of a message",
     ),
     "forward-drops-sender": (
@@ -367,7 +367,7 @@ MUTANTS = {
     ),
     "unwatch-keeps-queued-terminated": (
         "src/actor/cell.rs",
-        "let Some(custom) = queued else {\n                return;\n            };",
+        "let Some(custom) = queued else {\n                return Ok(());\n            };",
         "let custom = queued.flatten();",
         "a Terminated already queued is delivered after `unwatch` (Pekko's terminatedQueued is ignored)",
     ),
@@ -472,8 +472,8 @@ MUTANTS = {
     ),
     "escalate-alters-cause": (
         'src/actor/cell.rs',
-        '        self.fail(cause, Some(message), Some(child), &[]);',
-        '        let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", cause.message.as_deref());\n        self.fail(cause, Some(message), Some(child), &[]);',
+        '        self.fail(cause, Some(child), &[]);',
+        '        let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", cause.message.as_deref());\n        self.fail(cause, Some(child), &[]);',
         "the escalation rewraps the cause: the grandparent's decider sees another exception class (observable in its `decide` event and in the default decision)",
     ),
     "escalate-never-resumes-children": (
@@ -887,14 +887,14 @@ MUTANTS = {
     ),
     "decider-failure-ignored": (
         "src/actor/cell.rs",
-        "self.fail_while_deciding(child, cause, throwable_of(payload));",
-        "drop(payload);",
+        "self.fail(throwable_of(payload), Some(child), &[]);",
+        "drop((child, payload));",
         "a decider that throws leaves the failed child suspended forever: its supervisor does not fail",
     ),
     "decider-failure-without-failed-message": (
         "src/actor/cell.rs",
-        "self.fail(thrown, Some(failed), Some(child), &[]);",
-        "self.fail(thrown, None, None, &[]);",
+        "self.fail(throwable_of(payload), Some(child), &[]);",
+        "self.set_current(None);\n                self.fail(throwable_of(payload), None, &[]);",
         "a supervisor that failed while deciding forgets the Failed message (preRestart sees none) and suspends the child again",
     ),
     "restart-factory-failure-drops-old-instance": (
@@ -1273,7 +1273,7 @@ MUTANTS = {
     ),
     "supervisor-ignores-a-rejected-point": (
         "src/actor/cell.rs",
-        "if repointable.point().is_err() {\n                self.handle_invoke_failure(rejected_execution(), None);\n            }",
+        "if repointable.point().is_err() {\n                self.handle_invoke_failure(rejected_execution());\n            }",
         "let _ = repointable.point();",
         "the supervisor that processes `Supervise` does not fail when attaching the new cell is rejected",
     ),
