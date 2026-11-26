@@ -107,7 +107,7 @@ fn throwable_of(payload: Box<dyn std::any::Any + Send>) -> Throwable {
     }
 }
 
-/// Drops a value of the user (an instance, a message, a strategy, a panic payload): a panic of its `Drop` stops here, once the
+/// Drops a value of the user (an instance, the current message, a strategy, a panic payload): a panic of its `Drop` stops here, once the
 /// panic hook has reported it, so it cannot cut a transition of the cell short. Never call it with a lock of the cell held.
 fn drop_guarded<T>(value: T) {
     let _ = catch_unwind(AssertUnwindSafe(|| drop(value)));

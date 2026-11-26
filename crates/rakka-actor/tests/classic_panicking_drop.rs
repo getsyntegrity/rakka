@@ -266,6 +266,15 @@ fn an_actor_stopped_while_it_restarts_releases_the_replaced_instance_when_it_ter
     let waiting = child_stopping.recv_timeout(Duration::from_secs(10));
     waiting.expect("the restart waits for the child");
     system.stop(&actor);
+    // `/user` handles stops in order: once the marker has stopped, the actor's `Terminate` is queued ahead of the news that
+    // its child died, so the restart cannot finish before the stop.
+    let (marker_stopped, marker_stopping) = channel();
+    let open = Arc::new(Mutex::new(()));
+    let props = Props::new(move || Lingering(marker_stopped.clone(), open.clone()));
+    let marker = system.actor_of(props).unwrap();
+    system.stop(&marker);
+    let stopped = marker_stopping.recv_timeout(Duration::from_secs(10));
+    stopped.expect("the marker stops");
     drop(held);
     terminates(&system);
     // the instance went with the actor: letting go of the last reference runs no user code
