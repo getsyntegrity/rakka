@@ -24,15 +24,15 @@ def tree(supervisor, children=("c",), behavior=None, **p):
 
 CASES = {
     # `handleFailure`: the supervisor fails with what its strategy threw and its own supervisor decides
-    "st-failed-restart": [*tree(top(), **{"throw-on-call": 1}), TELL("c", "boom"), EV("top", 1), EV("p", 6), EV("c", 3),
+    "st-failed-restart": [*tree(top(), **{"throw-on-call": 1}), TELL("c", "boom"), EV("top", 2), EV("p", 7), EV("c", 3),
                           NOW("top"), NOW("p"), NOW("c")],
     # `Resume` gives the cause back to the child that had failed, the perpetrator
     "st-failed-resume": [*tree(top("resume"), decider={"boom": "resume"}, **{"throw-on-call": 1}), TELL("c", "boom"),
-                         EV("top", 1), TELL("c", "ping"), EV("c", 3), CHILDREN("p"), NOW("p"), NOW("c")],
+                         EV("top", 2), TELL("c", "ping"), EV("c", 3), CHILDREN("p"), NOW("p"), NOW("c")],
     # one call for each failure and each termination of a child, none for any other message
     "st-calls": [*tree(top(), decider={"boom": "resume"}), TELL("c", "boom"), EV("p", 2), TELL("c", "boom"), EV("p", 3),
                  TELL("p", "x"), EV("p", 4), STOP("c"), EV("p", 5), TELL("p", "y"), EV("p", 6), NOW("p")],
-    "st-terminated": [ERRORS, *tree(top("resume"), **{"throw-on-call": 1}), STOP("c"), EV("er", 1), EV("top", 1),
+    "st-terminated": [ERRORS, *tree(top("resume"), **{"throw-on-call": 1}), STOP("c"), EV("er", 1), EV("top", 2),
                       TELL("p", "ping"), EV("p", 3), CHILDREN("p"), NOW("er"), NOW("top"), NOW("p")],
     # the handled `Failed` is still current and names the perpetrator: `a` is not suspended while `top` decides
     "st-terminated-perpetrator": [ERRORS, *tree(top("resume", hold="h"), ("a", "b"), decider={"boom": "resume"},
@@ -41,10 +41,10 @@ CASES = {
                                   TELL("p", "ping"), EV("p", 4), TELL("a", "y"), EV("a", 4), NOW("p"), NOW("a")],
     # the old instance is asked while it restarts: the restart goes on and `top` then decides about the new failure
     "st-restarting": [ERRORS, *tree(top("resume"), behavior={"throw_on": "boom"}, **{"throw-on-call": 1}), TELL("p", "boom"),
-                      EV("top", 2), EV("er", 1), TELL("p", "ping"), EV("p", 8), NOW("er"), NOW("top"), NOW("p")],
+                      EV("top", 3), EV("er", 1), TELL("p", "ping"), EV("p", 8), NOW("er"), NOW("top"), NOW("p")],
     # while it terminates the `Failed` still reaches `top`, before the termination
     "st-terminating": [ERRORS, *tree(top("stop"), **{"throw-on-call": 1}), STOP("p"), {"op": "await-stopped", "ref": "p"},
-                       EV("top", 1), NOW("er"), NOW("top"), NOW("p")],
+                       EV("er", 1), EV("top", 2), NOW("er"), NOW("top"), NOW("p")],
 }
 
 def main():
