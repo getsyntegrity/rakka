@@ -396,3 +396,67 @@ fn each_directive_publishes_the_failed_child_at_its_level() {
         ]
     );
 }
+
+/// Over one child `c`, which gets every message: a strategy answering `directive`, with `loggingEnabled` set to `logging`.
+struct Decides {
+    directive: Directive,
+    logging: bool,
+    log: Log,
+}
+
+impl Actor for Decides {
+    fn pre_start(&mut self, c: &mut ActorContext) {
+        let log = self.log.clone();
+        let child = Props::new(move || Kid {
+            log: log.clone(),
+            seen: 0,
+        });
+        c.actor_of_named(child, "c").unwrap();
+    }
+    fn supervisor_strategy(&self) -> SupervisorStrategy {
+        let directive = self.directive;
+        let strategy = OneForOneStrategy::new(-1, move |_| directive);
+        strategy.with_logging_enabled(self.logging).into()
+    }
+    fn receive(&mut self, c: &mut ActorContext, msg: &AnyMessage) -> bool {
+        c.children()[0].tell_any(msg.clone(), None);
+        true
+    }
+}
+
+/// AC-SUP-018: nothing is published with `loggingEnabled` off, nor by the supervisor that escalates (`FaultHandling.scala:394-427`):
+/// the only event is the one of the escalating supervisor's own supervisor, the guardian.
+#[test]
+fn disabled_logging_and_escalate_publish_nothing_for_the_child() {
+    let system = RunningSystem::create("s-silent");
+    let events = Log::default();
+    let log = events.clone();
+    let collector = system.actor_of(Props::new(move || Collector(log.clone())));
+    for channel in [Channel::Warning, Channel::Error] {
+        let collector = collector.as_ref().unwrap();
+        system.event_stream().subscribe(collector, channel);
+    }
+    let parent = |name: &str, directive, logging| {
+        let log = Log::default();
+        let seen = log.clone();
+        let props = Props::new(move || Decides {
+            directive,
+            logging,
+            log: log.clone(),
+        });
+        (system.actor_of_named(props, name).unwrap(), seen)
+    };
+    let (quiet, seen) = parent("quiet", Directive::Restart, false);
+    say(&quiet, &["brst", "after"]);
+    wait_until("the restarted child", || {
+        snapshot_of(&seen).iter().any(|e| e == "after#1")
+    });
+    let (escalates, _) = parent("esc", Directive::Escalate, true);
+    say(&escalates, &["brst"]);
+    wait_until("an event", || !snapshot_of(&events).is_empty());
+    let guardian = "pekko://s-silent/user/esc org.apache.pekko.actor.OneForOneStrategy";
+    assert_eq!(
+        snapshot_of(&events),
+        [format!("error {guardian} Some(\"brst\")")]
+    );
+}
