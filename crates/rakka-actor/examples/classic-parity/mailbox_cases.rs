@@ -1455,6 +1455,109 @@ fn a_selected_id_decides_the_mailbox_over_the_requirement() -> String {
     finish_id_case(&env, system, line)
 }
 
+/// The oracle's `PlainType`: a mailbox whose queue has the `AuditTrail` semantics but whose type does not promise it.
+struct PlainMailbox;
+impl MailboxType for PlainMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        UnboundedMailbox.create()
+    }
+}
+
+/// One attempt of `MBX-CMP-01`: `actorOf` with the mailbox `mailbox` selected. The class of the actor is the only difference in the
+/// text: the JVM names it `java_class`, Rust by its type path.
+fn attempt_to_create<A: Actor>(
+    env: &Arc<IdEnv>,
+    system: &ActorSystem,
+    label: &'static str,
+    props: Props,
+    java_class: &str,
+) -> String {
+    let before = env.started.load(Ordering::SeqCst);
+    let outcome = match system.actor_of_named(props, label) {
+        Ok(_) => {
+            wait_until(|| env.started.load(Ordering::SeqCst) > before);
+            "created".to_owned()
+        }
+        Err(error) => format!(
+            "{}: {} | cause {}",
+            error.class().java_name(),
+            error.message(),
+            error.cause().unwrap_or("none")
+        )
+        .replace(std::any::type_name::<A>(), java_class),
+    };
+    format!("{label}: {outcome}; ")
+}
+
+/// `MBX-CMP-01`: the queue the selected mailbox promises must fulfill the requirement of the actor (`verifyRequirements`); a type that does
+/// not promise its queue produces a plain `MessageQueue` even when the queue it creates has the capability.
+fn the_selected_mailbox_must_fulfill_the_requirement_of_the_actor() -> String {
+    let env = IdEnv::new();
+    let mut settings = Settings::default();
+    settings.mailboxes.register("plain-mailbox", PlainMailbox);
+    settings
+        .mailboxes
+        .register("audit-mailbox", AuditTrailMailbox);
+    let system = env.system_with(settings);
+    let worker = |java_name: &str| format!("pilot.MailboxOracle${java_name}");
+    let mut line = String::new();
+    macro_rules! attempt {
+        ($label:literal, $worker:ident, $java:literal, $mailbox:literal) => {
+            line.push_str(&attempt_to_create::<$worker>(
+                &env,
+                &system,
+                $label,
+                env.requiring($label, $worker).with_mailbox_id($mailbox),
+                &worker($java),
+            ))
+        };
+    }
+    attempt!(
+        "unboundedOnPlain",
+        UnboundedWorker,
+        "UnboundedWorker",
+        "plain-mailbox"
+    );
+    attempt!(
+        "auditOnUnbounded",
+        AuditTrailWorker,
+        "AuditTrailWorker",
+        "unbounded"
+    );
+    attempt!(
+        "boundedOnUnbounded",
+        BoundedWorker,
+        "BoundedWorker",
+        "unbounded"
+    );
+    attempt!(
+        "unboundedOnAudit",
+        UnboundedWorker,
+        "UnboundedWorker",
+        "audit-mailbox"
+    );
+    attempt!(
+        "auditOnAudit",
+        AuditTrailWorker,
+        "AuditTrailWorker",
+        "audit-mailbox"
+    );
+    attempt!(
+        "anyOnPlain",
+        AnyQueueWorker,
+        "AnyQueueWorker",
+        "plain-mailbox"
+    );
+    line.push_str(&attempt_to_create::<IdWorker>(
+        &env,
+        &system,
+        "nothingOnPlain",
+        env.props("nothingOnPlain", Some("plain-mailbox")),
+        "unused",
+    ));
+    finish_id_case(&env, system, line.trim().to_owned())
+}
+
 /// `MBX-REQ-04`: the semantics the dispatcher requires (`default-dispatcher.mailbox-requirement`) selects the mailbox of the actors that
 /// require nothing and of those whose own requirement has no binding; the binding of the actor itself and a selected id come first.
 fn the_requirement_of_the_dispatcher_selects_the_mailbox_after_the_actor_and_the_id() -> String {
@@ -1570,6 +1673,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-REQ-04 the queue semantics the dispatcher requires selects the mailbox of the actors that require nothing, and of those whose own requirement has no binding; the actor's own binding and a selected id come first",
             the_requirement_of_the_dispatcher_selects_the_mailbox_after_the_actor_and_the_id(),
+        ),
+        (
+            "MBX-CMP-01 an actor whose requirement the queue promised by the selected mailbox does not fulfill fails actorOf at the call; one it fulfills, or an actor that requires nothing, is created",
+            the_selected_mailbox_must_fulfill_the_requirement_of_the_actor(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",
