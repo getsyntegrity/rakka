@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 266 decisiones: 0 bloqueantes, 186 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 267 decisiones: 0 bloqueantes, 187 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1035,6 +1035,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:683-699 ; sonda 2.0.0: SuppressedDeadLetter
 - **Alternativas:** (a) no publicar nada (conducta actual) / (b) portar SuppressedDeadLetter
 - **Recomendación:** (a). Consecuencia: un evento que Pekko publica no existe aqui. Bloquea el cierre de AC-REF-014.
+- **Filas afectadas:** AC-REF-014
+- **Unidades afectadas:** REF
+- **Origen:** classic-cell
+
+### Q-REF-11 — ActorSelection con muchos niveles con comodin
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala:208-271 ; deliverSelection recursa por cada coincidencia no final
+- **Alternativas:** (a) pila propia: la entrega termina (conducta actual) / (b) fallar al superar una profundidad fija (panic o Result)
+- **Recomendación:** (a). Consecuencia: donde Pekko lanza StackOverflowError, el mensaje se entrega. Bloquea el cierre de AC-REF-014.
 - **Filas afectadas:** AC-REF-014
 - **Unidades afectadas:** REF
 - **Origen:** classic-cell

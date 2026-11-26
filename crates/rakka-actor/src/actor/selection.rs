@@ -32,7 +32,8 @@ enum Element {
 /// an [`ActorContext`]. Nothing is looked up until a message is sent. A message that reaches no actor becomes a [`DeadLetter`]
 /// whose recipient is the selected path, or `deadLetters` for a URI of another system, unparseable text and anything under
 /// `/deadLetters`; an [`Identify`] is answered with an [`ActorIdentity`] without a reference. A pattern reaches every child it
-/// matches. After a single match a miss is addressed below that actor; after two or more it is silent.
+/// matches. After a single match a miss is addressed below that actor; after two or more it is silent, except that a walk
+/// going on below `/deadLetters` still publishes its dead letter (only [`Identify`] stays unanswered).
 #[derive(Clone)]
 pub struct ActorSelection {
     system: Arc<SystemInner>,
@@ -86,54 +87,46 @@ impl ActorSelection {
 
     /// Type-erased [`ActorSelection::tell`].
     pub fn tell_any(&self, msg: AnyMessage, sender: Option<ActorRef>) {
-        self.deliver(&self.anchor, &self.elements, msg, sender, false);
-    }
-
-    /// `deliverSelection`: walks `elements` from `anchor`. `fanned_out` is set once a pattern matched two or more actors: from
-    /// then on a miss is silent.
-    fn deliver(
-        &self,
-        anchor: &ActorRef,
-        elements: &[Element],
-        msg: AnyMessage,
-        sender: Option<ActorRef>,
-        fanned_out: bool,
-    ) {
-        let mut current = anchor.clone();
-        for (index, element) in elements.iter().enumerate() {
-            // `deadLetters` is the one reference without a cell that a walk can stand on
-            if current == self.system.dead_letters {
-                return answer_not_found(&self.system, current, msg, sender, fanned_out);
-            }
-            let next = match element {
-                Element::Parent => self.parent_of(&current),
-                Element::Name(name) => self.child_of(&current, name),
-                Element::Pattern(pattern) => {
-                    let mut matching = current.0.children();
-                    matching.retain(|child| glob_matches(pattern, child.path().name()));
-                    if !matching.is_empty() {
-                        let rest = &elements[index + 1..];
-                        let fanned_out = fanned_out || matching.len() > 1;
-                        for child in matching {
-                            // with nothing left this tells the child
-                            self.deliver(&child, rest, msg.clone(), sender.clone(), fanned_out);
+        // `deliverSelection`, depth first over a stack of its own: recursing would exhaust the thread's on a long path. A walk
+        // is the actor it starts at, its first element, and whether a pattern before it matched two or more (a miss is then silent)
+        let mut walks = vec![(self.anchor.clone(), 0, false)];
+        'walks: while let Some((anchor, start, fanned_out)) = walks.pop() {
+            let mut current = anchor.clone();
+            for (index, element) in self.elements.iter().enumerate().skip(start) {
+                // `deadLetters` is the one reference without a cell that a walk can stand on
+                if current == self.system.dead_letters {
+                    let (msg, sender) = (msg.clone(), sender.clone());
+                    answer_not_found(&self.system, current, msg, sender, fanned_out);
+                    continue 'walks;
+                }
+                let next = match element {
+                    Element::Parent => self.parent_of(&current),
+                    Element::Name(name) => self.child_of(&current, name),
+                    Element::Pattern(pattern) => {
+                        let mut matching = current.0.children();
+                        matching.retain(|child| glob_matches(pattern, child.path().name()));
+                        if !matching.is_empty() {
+                            let fanned_out = fanned_out || matching.len() > 1;
+                            // reversed, so the first match is popped, and walked to its end, first
+                            let below = matching.into_iter().rev();
+                            walks.extend(below.map(|child| (child, index + 1, fanned_out)));
+                            continue 'walks;
                         }
-                        return;
+                        None
                     }
-                    None
-                }
-            };
-            let Some(next) = next else {
-                if !fanned_out {
-                    // after a single match the recipient is below that match, not below the selection's anchor
-                    let missed = self.empty_ref(anchor, elements);
-                    answer_not_found(&self.system, missed, msg, sender, false);
-                }
-                return;
-            };
-            current = next;
+                };
+                let Some(next) = next else {
+                    if !fanned_out {
+                        // after a single match the recipient is below that match, not below the selection's anchor
+                        let missed = self.empty_ref(&anchor, &self.elements[start..]);
+                        answer_not_found(&self.system, missed, msg.clone(), sender.clone(), false);
+                    }
+                    continue 'walks;
+                };
+                current = next;
+            }
+            current.tell_any(msg.clone(), sender.clone());
         }
-        current.tell_any(msg, sender);
     }
 
     /// `selection.forward(msg)`: sends with the sender of the message the context is processing (`deadLetters` if it has none).
@@ -274,20 +267,24 @@ mod tests {
         let (_open, gate) = channel();
         let gate = Arc::new(Mutex::new(gate));
         let props = Props::new(move || Recorder(heard.clone(), gate.clone()));
-        for name in ["b1", "b2", "b33"] {
-            system.actor_of_named(props.clone(), name).unwrap();
-        }
+        let names = ["b1", "b2", "b33"];
+        let actors = names.map(|name| system.actor_of_named(props.clone(), name).unwrap());
         let select = |pattern: &str| {
             let names = ["user".to_owned(), pattern.to_owned()];
             super::ActorSelection::from_elements(&system.0, system.0.root_guardian(), names)
         };
         select("b?").tell("one", None);
         select("b??").tell("two", None);
+        // a barrier: a wrong match would be heard before it
+        for actor in &actors {
+            actor.tell("end", None);
+        }
 
-        let next = || hears.recv_timeout(WAIT).unwrap();
-        let mut received = [next(), next(), next()];
+        let next = |_| hears.recv_timeout(WAIT).unwrap();
+        let mut received: Vec<String> = (0..6).map(next).collect();
         received.sort();
-        assert_eq!(received, ["b1 one", "b2 one", "b33 two"]);
+        let expected = ["b1 end", "b1 one", "b2 end", "b2 one", "b33 end", "b33 two"];
+        assert_eq!(received, expected);
         let ended = system.terminate().wait(WAIT);
         ended.expect("terminated").expect("terminated normally");
     }
