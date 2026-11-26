@@ -3016,6 +3016,16 @@ lf-all-for-one	scenario-log-failure	AC-SUP-018	cited
 lf-refused-restart	scenario-log-failure	AC-SUP-018	cited
 lf-logging-disabled	scenario-log-failure	AC-SUP-018	cited
 lf-decider-throws	scenario-log-failure	AC-SUP-018	cited
+cm-handled-failure	scenario-current-message	AC-CELL-007.1	cited
+cm-then-message	scenario-current-message	AC-CELL-007.1	cited
+cm-then-unhandled	scenario-current-message	AC-CELL-007.1	cited
+cm-then-identify	scenario-current-message	AC-CELL-007.1	cited
+cm-then-poison-pill	scenario-current-message	AC-CELL-007.1	cited
+cm-stop-after-failure	scenario-current-message	AC-CELL-007.1	cited
+cm-resumed	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
+cm-resumed-then-message	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
+cm-failed-then-stopped	scenario-current-message	AC-CELL-020	cited
+cm-hook-error-class	scenario-current-message	AC-CELL-007.1	cited
 ur-default	scenario-pre-restart-unwatch	AC-CELL-006,AC-DW-004	cited
 ur-default-pact	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-default-watch-with	scenario-pre-restart-unwatch	AC-CELL-006,AC-DW-005	cited

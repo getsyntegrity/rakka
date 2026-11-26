@@ -292,7 +292,8 @@ impl ActorContext<'_> {
         self.cell.self_ref()
     }
 
-    /// `context.sender()`: the sender of the message being processed, `deadLetters` if there was none.
+    /// `context.sender()`: the sender of `currentMessage`, `deadLetters` if there is none. In a lifecycle hook that can be an earlier
+    /// message: one that failed, or the `Failed` of a child that was already handled.
     pub fn sender(&self) -> ActorRef {
         self.cell
             .current_sender()
