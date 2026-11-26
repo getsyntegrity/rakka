@@ -9,6 +9,7 @@
 //! races, so traces are deterministic and never depend on a JVM-vs-Rust interleaving.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
@@ -86,6 +87,8 @@ enum Msg {
     Class(&'static str),
     /// an `ActorIdentity`: correlation id and the path of its reference
     Identity(String, Option<String>),
+    /// a [`WatchMsg`]
+    Custom(String),
     Unknown,
 }
 
@@ -98,6 +101,10 @@ fn msg_of(m: &AnyMessage) -> Msg {
         Msg::Identity(correlation.unwrap_or_default(), path)
     } else if m.is::<Kill>() {
         Msg::Class("org.apache.pekko.actor.Kill$")
+    } else if let Some(custom) = m.downcast_ref::<WatchMsg>() {
+        Msg::Custom(custom.0.clone())
+    } else if m.is::<PoisonPill>() {
+        Msg::Class("org.apache.pekko.actor.PoisonPill$")
     } else if m.is::<Failed>() {
         Msg::Class("org.apache.pekko.dispatch.sysmsg.Failed")
     } else {
@@ -117,6 +124,11 @@ fn msg_json(out: &mut String, m: &Msg) {
                 Some(p) => write_text(out, p),
                 None => out.push_str("null"),
             }
+            out.push('}');
+        }
+        Msg::Custom(name) => {
+            out.push_str("{\"custom\":");
+            write_text(out, name);
             out.push('}');
         }
         Msg::Unknown => out.push_str("{\"class\":\"?\"}"),
@@ -674,6 +686,44 @@ fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) ->
     }
 }
 
+/// A user message type with value equality (`{"custom": name}`), for `watch-with`.
+#[derive(PartialEq)]
+struct WatchMsg(String);
+
+fn watch_with(c: &mut ActorContext, target: &ActorRef, message: &Value) {
+    match message {
+        Value::Str(text) => c.watch_with(target, text.clone()),
+        Value::Number(number) => c.watch_with(target, *number as i64),
+        other => match other.get("custom").and_then(Value::as_str) {
+            Some(name) => c.watch_with(target, WatchMsg(name)),
+            None => c.watch_with(target, PoisonPill),
+        },
+    }
+}
+
+/// Renders `ok` or the exception a `watch` / `watch-with` threw, uids redacted, as the oracle does.
+fn registration(o: &mut String, sp: &Value, register: impl FnOnce()) {
+    let Err(thrown) = catch_unwind(AssertUnwindSafe(register)) else {
+        o.push_str("\"ok\":true");
+        return;
+    };
+    let thrown = thrown.downcast::<Throwable>().expect("a Throwable");
+    o.push_str("\"ok\":false,\"exception\":");
+    s(o, &thrown.class);
+    if sp.get("no-text").is_none() {
+        let text = thrown.message.unwrap_or_default();
+        let redacted: Vec<String> = text
+            .split(']')
+            .map(|part| match part.rsplit_once('#') {
+                Some((head, uid)) if uid.parse::<i64>().is_ok() => format!("{head}#uid"),
+                _ => part.to_owned(),
+            })
+            .collect();
+        o.push_str(",\"message\":");
+        s(o, &redacted.join("]"));
+    }
+}
+
 /// Runs a `do` command inside the actor and renders the result fields.
 fn command(ctx: &Arc<Ctx>, c: &mut ActorContext, sp: &Value) -> String {
     let mut o = String::new();
@@ -734,8 +784,13 @@ fn command(ctx: &Arc<Ctx>, c: &mut ActorContext, sp: &Value) -> String {
             o.push(']');
         }
         "watch" => {
-            c.watch(&target("target").expect("known ref"));
-            o.push_str("\"ok\":true");
+            let subject = target("target").expect("known ref");
+            registration(&mut o, sp, || c.watch(&subject));
+        }
+        "watch-with" => {
+            let subject = target("target").expect("known ref");
+            let message = sp.get("msg").expect("a message");
+            registration(&mut o, sp, || watch_with(c, &subject, message));
         }
         "unwatch" => {
             c.unwatch(&target("target").expect("known ref"));
