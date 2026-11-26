@@ -321,6 +321,8 @@ struct Behavior {
     throw_in_prestart: bool,
     /// `throw-in-post-restart`: `postRestart` records its event and then throws IllegalStateException("post-restart")
     throw_in_post_restart: bool,
+    /// `keep-children`: `preRestart` only records its event (neither stops the children nor runs `postStop`)
+    keep_children: bool,
     /// `constructor-fails-from: n`: the actor factory throws IllegalStateException("ctor") from the n-th instance on
     constructor_fails_from: Option<u64>,
     ignore_terminated: bool,
@@ -379,6 +381,7 @@ impl Behavior {
                 v.get("throw-in-post-restart"),
                 Some(Value::Bool(true))
             ),
+            keep_children: matches!(v.get("keep-children"), Some(Value::Bool(true))),
             constructor_fails_from: match v.get("constructor-fails-from") {
                 Some(Value::Number(n)) => Some(*n as u64),
                 _ => None,
@@ -495,6 +498,9 @@ impl Actor for Scripted {
             },
         );
         self.ctx.life(format!("{}:pre-restart", self.label));
+        if self.cfg.keep_children {
+            return;
+        }
         for child in c.children() {
             c.stop(&child);
         }

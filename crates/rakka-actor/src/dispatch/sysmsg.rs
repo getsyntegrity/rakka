@@ -45,6 +45,16 @@ pub(crate) enum SystemMessage {
     },
 }
 
+impl SystemMessage {
+    /// The `StashWhenWaitingForChildren` marker.
+    pub(crate) fn stash_when_waiting_for_children(&self) -> bool {
+        matches!(
+            self,
+            Self::Failed { .. } | Self::Recreate { .. } | Self::Suspend | Self::Resume { .. }
+        )
+    }
+}
+
 /// `org.apache.pekko.dispatch.sysmsg.Failed`: the message a supervisor was processing when it escalated (`preRestart` receives it).
 #[derive(Clone)]
 pub struct Failed {

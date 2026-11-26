@@ -2,7 +2,7 @@
 //! `ActorCell`: the engine behind a local actor — mailbox, system-message processing, children,
 //! death watch and the termination sequence. Follows `ActorCell.scala` and `dungeon/*`.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError, Weak};
@@ -53,6 +53,8 @@ struct CellState {
     restart_stats: std::collections::HashMap<ActorRef, RestartStats>,
     /// the child whose failure this actor escalated (`FailedRef(perp)`); it is the one child not suspended by this actor's own failure
     perpetrator: Option<ActorRef>,
+    /// `sysmsgStash`: system messages deferred while the cell waits for its children to die, oldest first
+    deferred: Vec<SystemMessage>,
 }
 
 /// What a callback threw: a [`Throwable`] payload, or an ordinary panic reported as a `RuntimeException`.
@@ -452,14 +454,35 @@ impl ActorCell {
             if batch.is_empty() {
                 break;
             }
-            for m in batch {
+            let mut todo = VecDeque::from(batch);
+            while let Some(m) = todo.pop_front() {
                 if self.status.is_closed() {
                     self.dead_system_message(m);
+                } else if m.stash_when_waiting_for_children() && self.waits_for_children() {
+                    self.st.lock().unwrap().deferred.push(m);
                 } else {
                     self.system_invoke(m);
                 }
+                // the wait is over: what was deferred goes before the rest of the batch
+                if !self.waits_for_children() {
+                    let deferred = std::mem::take(&mut self.st.lock().unwrap().deferred);
+                    for earlier in deferred.into_iter().rev() {
+                        todo.push_front(earlier);
+                    }
+                }
             }
         }
+    }
+
+    /// `waitingForChildrenOrNull ne null`: the children that are dying hold back a `Recreation` or a `Creation`.
+    fn waits_for_children(&self) -> bool {
+        matches!(
+            *self.children.lock().unwrap(),
+            Children::Terminating {
+                reason: SuspendReason::Recreation | SuspendReason::Creation,
+                ..
+            }
+        )
     }
 
     /// `Mailbox.processMailbox`: up to `throughput` user messages while the mailbox is neither suspended nor closed.
@@ -870,8 +893,11 @@ impl ActorCell {
         }
     }
 
-    /// `finishRecreate`: resume the mailbox, create the fresh instance and run its `postRestart`.
+    /// `finishRecreate`: resume the mailbox, create the fresh instance, run its `postRestart` and only then restart the children that
+    /// `preRestart` did not stop.
     fn finish_recreate(self: &Arc<Self>, cause: Throwable) {
+        // taken before the new instance exists: the children it creates are not restarted
+        let survivors = self.children.lock().unwrap().children();
         self.resume_after_failure(true);
         let replaced = self.st.lock().unwrap().replaced_actor.take();
         let fresh = match catch_unwind(AssertUnwindSafe(|| self.props.new_actor())) {
@@ -892,6 +918,12 @@ impl ActorCell {
             // the new instance stays in place (Pekko keeps `_actor`): it gets its `postStop` when the actor stops
             let failure = self.post_restart_failure(&cause);
             self.handle_invoke_failure(failure, None);
+            return;
+        }
+        for survivor in survivors {
+            survivor.send_system(SystemMessage::Recreate {
+                cause: cause.clone(),
+            });
         }
     }
 

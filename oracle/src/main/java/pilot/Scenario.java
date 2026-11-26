@@ -162,6 +162,7 @@ final class Scenario {
     @Override public void preRestart(Throwable reason, java.util.Optional<Object> message) throws Exception {
       ctx.add(label, "{\"ev\":\"pre-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + ",\"msg\":" + (message.isPresent() ? msgJson(message.get()) : "null") + "}");
       ctx.life.add(label + ":pre-restart");
+      if (Boolean.TRUE.equals(cfg.get("keep-children"))) return; // `keep-children`: like SupervisorTreeSpec, neither stops the children nor runs postStop
       super.preRestart(reason, message); // default: stop all children, then postStop
     }
 

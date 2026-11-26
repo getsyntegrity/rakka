@@ -167,6 +167,25 @@ MUTANTS = {
         "tell_no_such_actor(identify, asker, None);",
         "the reply to an `Identify` told to `deadLetters` has no sender instead of the asker",
     ),
+    # --- restart of the surviving children (AC-SUP-015; killed by the sv-* cases) ---
+    "restart-leaves-survivors-suspended": (
+        "src/actor/cell.rs",
+        "for survivor in survivors {",
+        "for survivor in survivors.into_iter().filter(|_| false) {",
+        "a restarted parent does not restart the children its `preRestart` kept: they stay suspended",
+    ),
+    "failed-restart-still-restarts-survivors": (
+        "src/actor/cell.rs",
+        "self.handle_invoke_failure(failure, None);\n            return;\n        }\n        for",
+        "self.handle_invoke_failure(failure, None);\n        }\n        for",
+        "the survivors are restarted although the parent's `postRestart` failed",
+    ),
+    "waiting-cell-does-not-defer-system-messages": (
+        "src/actor/cell.rs",
+        "} else if m.stash_when_waiting_for_children() && self.waits_for_children() {",
+        "} else if false {",
+        "a cell waiting for its children to die takes `Suspend` and `Recreate` at once, and stays suspended",
+    ),
     "pill-not-suppressed-from-dead-letters": (
         "src/actor/system.rs",
         "msg.is::<Terminated>() || msg.is::<PoisonPill>()",
