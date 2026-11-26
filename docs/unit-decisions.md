@@ -385,7 +385,7 @@
 
 ## P28 SELECCION-CREACION
 
-9 filas; 9 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 5 propuestas.
+9 filas; 10 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 6 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -396,6 +396,7 @@
 | Q-DSP-2 | propuesta | 2: AC-DSP-007, AC-MBX-014 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-1 | propuesta | 1: AC-MBX-014 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
 | Q-MBX-11 | propuesta | 2: AC-CELL-016, AC-REF-020 | — | — | `classic-dispatch` |
+| Q-MBX-14 | propuesta | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-MBX-2 | propuesta | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-REF-5 | propuesta | 3: AC-CELL-016, AC-CELL-027, AC-REF-020 | Bloquea: `impl` de AC-REF-020, AC-CELL-016 y AC-CELL-027. | Puede avanzar: AC-REF-003, AC-CELL-002.x, 007.x, 008.x, SUP y DW (no dependen de esta elección). | `classic-cell` |
 
@@ -1067,4 +1068,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 510 (244 respondidas, 0 bloqueantes, 266 propuestas).
+Total de pares unidad–decisión: 511 (244 respondidas, 0 bloqueantes, 267 propuestas).
