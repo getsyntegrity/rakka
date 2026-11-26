@@ -53,6 +53,7 @@ final class Scenario {
     final Map<String, ActorRef> refs = new ConcurrentHashMap<>();
     final Map<String, List<String>> sent = new HashMap<>(); // target label -> messages sent by the harness thread
     final CountDownLatch gate = new CountDownLatch(1);
+    final Map<String, java.util.concurrent.atomic.AtomicInteger> strategyCalls = new ConcurrentHashMap<>(); // `supervisorStrategy` calls per label
     final Map<String, CountDownLatch> holds = new ConcurrentHashMap<>(); // named gates a supervisor's decider waits on (`supervisor.hold`)
     CountDownLatch hold(String name) { return holds.computeIfAbsent(name, k -> new CountDownLatch(1)); }
     final CopyOnWriteArrayList<String> life = new CopyOnWriteArrayList<>(); // "label:pre-start", "label:post-stop", "label:terminated:<is>"
@@ -120,12 +121,15 @@ final class Scenario {
       if (Boolean.TRUE.equals(cfg.get("throw-in-prestart"))) throw new IllegalStateException("init");
     }
 
-    /** `supervisor: {"logging": bool (`loggingEnabled`), "decider-throws": bool, "strategy": "one-for-one"|"all-for-one", "hold": gate, "max": n, "log-decisions": bool, "decider": {"<exception message>": "resume"|"restart"|"stop"|"escalate"}}`: a OneForOneStrategy for this actor's children.
+    /** `supervisor: {"log-calls": bool (records each call of this method), "throw-on-call": n (the n-th call of the label throws), "logging": bool (`loggingEnabled`), "decider-throws": bool, "strategy": "one-for-one"|"all-for-one", "hold": gate, "max": n, "log-decisions": bool, "decider": {"<exception message>": "resume"|"restart"|"stop"|"escalate"}}`: a OneForOneStrategy for this actor's children.
      *  Exceptions not in the map get Pekko's default decider. */
     @SuppressWarnings("unchecked")
     @Override public SupervisorStrategy supervisorStrategy() {
       Map<String, Object> sup = (Map<String, Object>) cfg.get("supervisor");
       if (sup == null) return super.supervisorStrategy();
+      int call = ctx.strategyCalls.computeIfAbsent(label, k -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();
+      if (Boolean.TRUE.equals(sup.get("log-calls"))) ctx.add(label, "{\"ev\":\"strategy\"}");
+      if (sup.get("throw-on-call") != null && ((Long) sup.get("throw-on-call")).intValue() == call) throw new IllegalStateException("strategy");
       int max = sup.get("max") == null ? -1 : ((Long) sup.get("max")).intValue();
       Map<String, Object> dec = (Map<String, Object>) sup.get("decider");
       scala.PartialFunction<Throwable, SupervisorStrategy.Directive> decider =

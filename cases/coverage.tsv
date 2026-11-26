@@ -3034,3 +3034,10 @@ ur-no-super	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-no-super-watch-with	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-no-super-pact	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-no-super-keeps	scenario-pre-restart-unwatch	AC-CELL-006	cited
+st-calls	scenario-throwing-strategy	AC-SUP-001,AC-SUP-020	cited
+st-failed-restart	scenario-throwing-strategy	AC-SUP-001	cited
+st-failed-resume	scenario-throwing-strategy	AC-SUP-001	cited
+st-restarting	scenario-throwing-strategy	AC-SUP-020	cited
+st-terminated	scenario-throwing-strategy	AC-SUP-020	cited
+st-terminated-perpetrator	scenario-throwing-strategy	AC-SUP-020	cited
+st-terminating	scenario-throwing-strategy	AC-SUP-020	cited

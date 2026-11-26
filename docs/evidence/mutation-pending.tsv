@@ -15,3 +15,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #409	41bc97ef	131	supervision-errors-are-published-guarded	none	131 not run (Q-X-23)	PENDING
 #410	a76ea67b	369	handled-failure-is-forgotten; resume-forgets-the-current-message; success-keeps-the-current-message; restart-keeps-the-current-message	none	369 not run (Q-X-23)	PENDING
 #411	acf416d9	370	pre-restart-keeps-watching-children	none	370 not run (Q-X-23)	PENDING
+#412	bdc62771	372	throwing-strategy-falls-back-to-default; termination-forgets-the-perpetrator	none	372 not run (Q-X-23)	PENDING

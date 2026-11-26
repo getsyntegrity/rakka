@@ -16,7 +16,7 @@ use crate::actor::props::{
     Actor, ActorContext, ActorIdentity, AnyMessage, Identify, Kill, PoisonPill, Props,
 };
 use crate::actor::repointable::{PushPolicy, RepointableActorRef};
-use crate::actor::supervision::{Directive, OneForOneStrategy, RestartStats, SupervisorStrategy};
+use crate::actor::supervision::{Directive, RestartStats, SupervisorStrategy};
 use crate::actor::system::SystemInner;
 use crate::actor::validate_path_element;
 use crate::actor::watching::{CustomTermination, check_watching_same};
@@ -796,19 +796,33 @@ impl ActorCell {
         )
     }
 
-    /// `supervisorStrategy` of the current instance (the default one while there is none, e.g. during a restart).
-    fn current_strategy(self: &Arc<Self>) -> SupervisorStrategy {
-        let actor = self.st.lock().unwrap().actor.take();
-        let strategy = match &actor {
-            Some(a) => {
-                catch_unwind(AssertUnwindSafe(|| a.supervisor_strategy())).unwrap_or_default()
+    /// `actor.supervisorStrategy` (once per handled `Failed` and once per child terminated): asked of the instance of the cell, the
+    /// one being replaced while it restarts. `None` without an instance; `Err` is what the user's code panicked with.
+    fn current_strategy(self: &Arc<Self>) -> Option<Result<SupervisorStrategy, Throwable>> {
+        let (actor, restarting) = {
+            let mut st = self.st.lock().unwrap();
+            match st.actor.take() {
+                Some(actor) => (Some(actor), false),
+                None => (st.replaced_actor.take(), true),
             }
-            None => OneForOneStrategy::default_strategy().into(),
         };
-        if let Some(a) = actor {
-            self.st.lock().unwrap().actor = Some(a);
+        let actor = actor?;
+        let strategy = catch_unwind(AssertUnwindSafe(|| actor.supervisor_strategy()));
+        let mut st = self.st.lock().unwrap();
+        if restarting {
+            st.replaced_actor = Some(actor);
+        } else {
+            st.actor = Some(actor);
         }
-        strategy
+        drop(st); // before the panic's payload is dropped
+        Some(strategy.map_err(throwable_of))
+    }
+
+    /// The child whose `Failed` is still the current message: `handleInvokeFailure` takes it as the perpetrator.
+    fn current_failed_child(&self) -> Option<ActorRef> {
+        let st = self.st.lock().unwrap();
+        let failed = st.current.as_ref()?.message.downcast_ref::<Failed>()?;
+        Some(failed.child.clone())
     }
 
     /// `handleFailure`: ask the strategy's decider what to do with the failed child and apply it to that child only.
@@ -825,14 +839,19 @@ impl ActorCell {
         if self.children.lock().unwrap().get_by_ref(&child).is_none() {
             return; // not (or no longer) our child: the failure is dropped
         }
-        let strategy = self.current_strategy();
-        // a decider that throws is handled like `Escalate` (Pekko: `throw f.cause` inside `handleFailure`): this actor fails with
-        // the exception the decider threw, and the child that failed is not suspended again
-        let decision = match catch_unwind(AssertUnwindSafe(|| strategy.decide(&cause))) {
-            Ok(decision) => decision,
-            Err(payload) => {
-                // the child that failed has suspended itself already
-                self.fail(throwable_of(payload), Some(child), &[]);
+        // a strategy or a decider that throws is handled like `Escalate` (Pekko: the exception leaves `handleFailure`): this actor
+        // fails with it, and the child that failed, which has suspended itself already, is not suspended again
+        let answer = self
+            .current_strategy()
+            .unwrap_or_else(|| Ok(SupervisorStrategy::default()))
+            .and_then(|strategy| {
+                let decision = catch_unwind(AssertUnwindSafe(|| strategy.decide(&cause)));
+                Ok((decision.map_err(throwable_of)?, strategy))
+            });
+        let (decision, strategy) = match answer {
+            Ok(answer) => answer,
+            Err(thrown) => {
+                self.fail(thrown, Some(child), &[]);
                 return;
             }
         };
@@ -1368,6 +1387,13 @@ impl ActorCell {
     fn handle_child_terminated(self: &Arc<Self>, child: &ActorRef) {
         self.st.lock().unwrap().restart_stats.remove(child);
         let change = self.children.lock().unwrap().remove(child);
+        // `strategy.handleChildTerminated` does nothing (it cannot be overridden yet), but asking for the strategy is user code;
+        // what it throws fails this actor and the pending stop, restart or creation goes on
+        if let Some(Err(thrown)) = self.current_strategy() {
+            let message = Some("handleChildTerminated failed".to_owned());
+            self.publish_caused_error(thrown.clone(), message);
+            self.fail(thrown, self.current_failed_child(), &[]);
+        }
         match change {
             Some(SuspendReason::Termination) => self.finish_terminate(),
             Some(SuspendReason::Recreation) => {
