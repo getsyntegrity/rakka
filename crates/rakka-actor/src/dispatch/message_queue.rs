@@ -32,7 +32,7 @@ pub trait MessageQueue: Send + Sync {
     fn number_of_messages(&self) -> usize;
     /// Whether anything is queued.
     fn has_messages(&self) -> bool;
-    /// Moves every queued envelope, oldest first, to `dead_letters` as addressed to `owner` (Pekko's `cleanUp(owner, deadLetters)`).
+    /// Moves every queued envelope, in dequeue order, to `dead_letters` as addressed to `owner` (Pekko's `cleanUp(owner, deadLetters)`).
     fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue);
 
     /// `requirement.isInstance(queue)`: whether this very queue has the semantics `requirement`, when the queue knows its own. What a type
