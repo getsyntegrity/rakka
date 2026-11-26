@@ -475,3 +475,126 @@ fn recorded_util_core_cases_match_pekko() {
         unproduced,
     );
 }
+
+/// Single-case evaluation of the util-core family: the CLI asks for one id per process, and the expensive cases of the structures group (the script `FF-04`, 270 ms of the 310 ms
+/// the family costs once the concurrent cases are skipped, and the concurrent cases themselves) must not be paid for by the other ids. The witnesses are deterministic counters
+/// (never a clock); the equivalence is against the full list, which `recorded_util_core_cases_match_pekko` ties to Pekko.
+mod lazy_single_case {
+    use super::{structures_cases, util_core_cases};
+
+    const A_LIGHT_CASE: &str = "RG-01 ReentrantGuard is absent from the 2.0.0 jar";
+    const A_CONCURRENT_CASE: &str = "CC-02 Switch: exactly one of 8 racing switchOn wins";
+    const THE_EXPENSIVE_SCRIPT: &str = "FF-04 fast sketch: constructor requirements";
+    const EVERY_CONCURRENT_CASE: usize = 15;
+    const EVERY_SCRIPT: usize = 207;
+
+    fn evaluated() -> (usize, usize) {
+        (
+            structures_cases::SCRIPTS_EVALUATED.with(|n| n.get()),
+            structures_cases::CONCURRENT_CASES_EVALUATED.with(|n| n.get()),
+        )
+    }
+
+    fn reset_witnesses() {
+        structures_cases::SCRIPTS_EVALUATED.with(|n| n.set(0));
+        structures_cases::CONCURRENT_CASES_EVALUATED.with(|n| n.set(0));
+    }
+
+    fn lookup<'a>(lines: &'a [(String, String)], id: &str) -> Option<&'a str> {
+        lines
+            .iter()
+            .find(|(case, _)| case == id)
+            .map(|(_, line)| line.as_str())
+    }
+
+    #[test]
+    fn a_case_of_no_script_and_no_concurrent_kind_evaluates_neither() {
+        reset_witnesses();
+        let lines = util_core_cases::rust_lines_for(Some(A_LIGHT_CASE));
+        assert_eq!(evaluated(), (0, 0));
+        assert!(lookup(&lines, A_LIGHT_CASE).is_some());
+    }
+
+    #[test]
+    fn a_script_case_is_evaluated_alone_and_gives_the_line_of_the_full_list() {
+        let full = util_core_cases::rust_lines();
+        reset_witnesses();
+        let lines = util_core_cases::rust_lines_for(Some(THE_EXPENSIVE_SCRIPT));
+        assert_eq!(evaluated(), (1, 0));
+        assert!(lookup(&lines, THE_EXPENSIVE_SCRIPT).is_some());
+        assert_eq!(
+            lookup(&lines, THE_EXPENSIVE_SCRIPT),
+            lookup(&full, THE_EXPENSIVE_SCRIPT)
+        );
+    }
+
+    #[test]
+    fn a_concurrent_case_is_evaluated_alone_and_gives_the_line_of_the_full_list() {
+        let full = util_core_cases::rust_lines();
+        reset_witnesses();
+        let lines = util_core_cases::rust_lines_for(Some(A_CONCURRENT_CASE));
+        assert_eq!(evaluated(), (0, 1));
+        assert!(lookup(&lines, A_CONCURRENT_CASE).is_some());
+        assert_eq!(
+            lookup(&lines, A_CONCURRENT_CASE),
+            lookup(&full, A_CONCURRENT_CASE)
+        );
+    }
+
+    #[test]
+    fn asking_for_everything_evaluates_every_script_and_concurrent_case_and_keeps_the_order_and_the_content()
+     {
+        reset_witnesses();
+        let everything = util_core_cases::rust_lines_for(None);
+        assert_eq!(evaluated(), (EVERY_SCRIPT, EVERY_CONCURRENT_CASE));
+        assert_eq!(everything, util_core_cases::rust_lines());
+        let ids: Vec<&str> = everything.iter().map(|(id, _)| id.as_str()).collect();
+        let mut unique = ids.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!((ids.len(), unique.len()), (553, 553));
+    }
+
+    /// Every concurrent case, the expensive script and a sample of the others (each single-case evaluation re-runs the cheap cases, which is slow in a debug build): the 553 ids are
+    /// compared byte for byte on the real binary, against the unchanged one, by the validation of the change.
+    #[test]
+    fn the_expensive_cases_and_a_sample_of_the_others_give_the_same_line_when_they_are_the_only_one_asked_for()
+     {
+        let full = util_core_cases::rust_lines();
+        let expensive = |id: &str| {
+            id.starts_with("CC-") || id.starts_with("BQ-C") || id == THE_EXPENSIVE_SCRIPT
+        };
+        let checked: Vec<_> = full
+            .iter()
+            .enumerate()
+            .filter(|(position, (id, _))| position % 70 == 0 || expensive(id))
+            .collect();
+        assert_eq!(
+            checked.iter().filter(|(_, (id, _))| expensive(id)).count(),
+            EVERY_CONCURRENT_CASE + 1
+        );
+        for (_, (id, line)) in checked {
+            let single = util_core_cases::rust_lines_for(Some(id));
+            assert_eq!(lookup(&single, id), Some(line.as_str()), "{id}");
+        }
+    }
+
+    #[test]
+    fn an_unknown_empty_or_malformed_id_finds_nothing_and_evaluates_nothing_of_the_structures_group()
+     {
+        for id in [
+            "",
+            "CC-02",
+            "FF-04",
+            "no such case",
+            "cc-02 switch: exactly one of 8 racing switchon wins",
+            "CC-02 Switch: exactly one of 8 racing switchOn wins ",
+            "\u{0}",
+        ] {
+            reset_witnesses();
+            let lines = util_core_cases::rust_lines_for(Some(id));
+            assert_eq!(lookup(&lines, id), None, "{id:?}");
+            assert_eq!(evaluated(), (0, 0), "{id:?}");
+        }
+    }
+}
