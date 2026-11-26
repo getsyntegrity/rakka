@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 255 decisiones: 0 bloqueantes, 183 propuestas, 58 aceptadas, 11 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 255 decisiones: 0 bloqueantes, 182 propuestas, 59 aceptadas, 11 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -926,16 +926,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) mantener la creación síncrona del piloto como estado definitivo (equivale a `async=false` de Pekko, que sólo usan guardianes y proveedor); (b) implementar el protocolo asíncrono (`Supervise(async=true)` procesado por el supervisor con `RepointableActorRef` y `UnstartedCell`): cambia el momento de arranque de TODOS los actores y exige revalidar el corpus completo; (c) (a) más un fallo del supervisor sólo ante rechazo, sin celda sin iniciar
 - **Recomendación:** (b) como destino de paridad (criterio del Owner, 2026-11-21: la creación asíncrona de hijos, la supervisión y la propagación de fallos son contratos pendientes; la creación síncrona actual es un estado TRANSITORIO explícito, no una desviación aceptada). División vertical: A) `RepointableActorRef` y `UnstartedCell` como tipos propios, sin conectar a `actor_of` (cola de usuario y de sistema, instalación de la celda real con los mensajes de sistema primero y los de usuario en orden; oráculo MBX-UC-01..04); B) conectar `attach_child` con `Supervise(async=true)` SÓLO en la ruta de `system.actorOf`/`attachChild` (en Pekko `context.actorOf` es síncrono: `makeChild(async = false)`, un `LocalActorRef` ya adjunto), con la suspensión heredada en ambas (arranque dentro del turno del padre, hijo que hereda la suspensión del padre; cambia el momento de arranque de todos los actores: revalida el corpus de 2960 casos, los 407 escenarios y los fuzzers de jerarquía/tell/escenarios); C) rutas de fallo: `catchFailures`/`initWithFailure` y el rechazo en `attach` (MBX-RJ-05: falla el supervisor y el actor nuevo no arranca). Consecuencias observables: sólo el momento de arranque, el orden de los mensajes previos al arranque y los fallos de creación; nada de PR 6 queda bloqueado. Registro de la respuesta pendiente en docs/decisions/owner-decisions.tsv (sólo lo edita el Owner).
 - **Filas afectadas:** AC-DSP-002,AC-CELL-003,AC-MBX-002
-- **Unidades afectadas:** MBX
-- **Origen:** classic-dispatch
-
-### Q-MBX-15 — Cómo se llega a `enqueueFirst` desde una cola de mailbox: `MessageQueue::as_deque` y el trait `DequeBasedMessageQueue`
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Mailbox.scala:600-622 (Pekko 2.0.0): `DequeBasedMessageQueueSemantics.enqueueFirst`; Stash.scala hace match sobre ese trait. Rust no hace downcast de `dyn MessageQueue`. Oráculo MBX-DQ-01.
-- **Alternativas:** (a) `MessageQueue::as_deque() -> Option<&dyn DequeBasedMessageQueue>` (por defecto `None`); (b) `enqueue_first` con valor por defecto en `MessageQueue`; (c) downcast con `Any`
-- **Recomendación:** (a): una cola que no es deque no puede aceptar el envelope en silencio, y un tipo de usuario puede implementar el trait
-- **Filas afectadas:** AC-MBX-011
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 
@@ -2315,6 +2305,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 - **Respuesta del Owner:** aceptar con cambios: Acepto la alternativa (a), incluyendo ProducedQueue::class_name como API pública. Acepto la representación abierta de capacidades declaradas y efectivas, manteniendo Q-MBX-13 sin modificaciones. El fallback de MessageQueue::satisfies cuando devuelve None queda aceptado exclusivamente como limitación temporal de compatibilidad, no como contrato definitivo ni como paridad con Pekko. Registrá como deuda funcional: Verificación efectiva cuando satisfies devuelve None; Verificación de Props::with_mailbox(tipo); Divergencia durante la creación del ActorSystem ante guardianes incompatibles. No resuelvas estas deudas ahora ni amplíes la pila. Q-MBX-2 permanece proposed. Q-MBX-15 permanece pendiente de decisión independiente. (Owner (instrucción en la sesión), 2026-11-26)
+
+### Q-MBX-15 — Cómo se llega a `enqueueFirst` desde una cola de mailbox: `MessageQueue::as_deque` y el trait `DequeBasedMessageQueue`
+
+- **Estado:** aceptada
+- **Evidencia:** Mailbox.scala:600-622 (Pekko 2.0.0): `DequeBasedMessageQueueSemantics.enqueueFirst`; Stash.scala hace match sobre ese trait. Rust no hace downcast de `dyn MessageQueue`. Oráculo MBX-DQ-01.
+- **Alternativas:** (a) `MessageQueue::as_deque() -> Option<&dyn DequeBasedMessageQueue>` (por defecto `None`); (b) `enqueue_first` con valor por defecto en `MessageQueue`; (c) downcast con `Any`
+- **Recomendación:** (a): una cola que no es deque no puede aceptar el envelope en silencio, y un tipo de usuario puede implementar el trait
+- **Filas afectadas:** AC-MBX-011
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** aceptar (a): MessageQueue::as_deque() -> Option<&dyn DequeBasedMessageQueue>, con None por defecto. Registrada en owner-decisions.tsv en representación del Owner, con su autorización expresa. No aprueba Q-MBX-2, que sigue propuesta. (Owner (instrucción en la sesión), 2026-11-26)
 
 ### Q-PATH-1 — Cómo ordenar listas de Address con un comparador que no es orden total
 

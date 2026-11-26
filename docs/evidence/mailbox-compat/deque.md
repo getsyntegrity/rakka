@@ -22,4 +22,4 @@ ejecución y no son evidencia de RED.
 
 - Replay completo, `cargo test --workspace`, cobertura, `cargo deny`.
 - Mutantes `deque-enqueue-first-goes-to-the-tail` y `deque-dequeue-takes-the-tail`: definidos, sin ejecutar.
-- Decisiones: Q-MBX-2 (semánticas Deque y `requirements`), Q-MBX-14 (aceptada con cambios por el Owner el 2026-11-26) y Q-MBX-15 (`proposed`), Q-MBX-1 (acotada). Stash.
+- Decisiones: Q-MBX-2 (semánticas Deque y `requirements`), Q-MBX-14 (aceptada con cambios por el Owner el 2026-11-26) y Q-MBX-15 (aceptada (a) por el Owner el 2026-11-26), Q-MBX-1 (acotada). Stash.
