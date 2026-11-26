@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 255 decisiones: 0 bloqueantes, 182 propuestas, 59 aceptadas, 11 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 257 decisiones: 0 bloqueantes, 184 propuestas, 59 aceptadas, 11 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -659,6 +659,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** DW
 - **Origen:** classic-cell
 
+### Q-DW-3 — Igualdad de los mensajes custom de watchWith (con Box<dyn Any>)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:122-131 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:203-205,220-223
+- **Alternativas:** (a) watch_with generico con cota PartialEq + Any, iguales si coinciden el tipo y eq / (b) identidad del Arc / (c) otra relacion
+- **Recomendación:** (a). Consecuencia: la igualdad de Scala entre tipos distintos (1 == 1L) no se reproduce. Q-X-3 no cubre la igualdad. Bloquea AC-DW-005.
+- **Filas afectadas:** AC-DW-005
+- **Unidades afectadas:** DW
+- **Origen:** classic-cell
+
 ### Q-EVT-2 — Fidelidad byte a byte de la salida stdout de los loggers por defecto
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -996,6 +1006,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) pub(crate) más un módulo testkit con reexport / (b) pub con doc hidden / (c) no exponer
 - **Recomendación:** (a): los specs portados necesitan isTerminated y el estado de mailbox [2026-10-31 cierre documental] Clasificación: arquitectura (visibilidad). Se necesitan accesores internos para portar los specs (isTerminated, underlying.mailbox.isSuspended, children, props). Consecuencia: tests de integración dependen de un módulo `testkit` con reexport. Bloquea: la validación (no la `impl`) de AC-REF-001.x, AC-REF-019 y AC-CELL-031. Puede avanzar: toda la implementación.
 - **Filas afectadas:** AC-REF-001.1 ; AC-REF-001.2 ; AC-REF-019 ; AC-CELL-031
+- **Unidades afectadas:** REF
+- **Origen:** classic-cell
+
+### Q-REF-7 — Identify enviado a deadLetters sin sender
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:708-710 ; oraculo 2.0.0: NullPointerException en el tell
+- **Alternativas:** (a) publicarlo como DeadLetter (conducta actual) / (b) descartarlo / (c) panic en el tell
+- **Recomendación:** (a). Consecuencia: tell no falla donde Pekko lanza NullPointerException. Bloquea el cierre de AC-REF-013.
+- **Filas afectadas:** AC-REF-013
 - **Unidades afectadas:** REF
 - **Origen:** classic-cell
 

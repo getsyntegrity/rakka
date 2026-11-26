@@ -568,7 +568,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Watch/unwatch, Terminated, death pact, unhandled y entrega a celda terminada.
 - **Filas (13; impl: pending 13):** asignacion explicita en `docs/unit-rows.tsv`: AC-DW-001, AC-DW-002, AC-DW-003, AC-DW-004, AC-DW-005, AC-DW-006, AC-DW-007, AC-DW-011, AC-DW-012, AC-CELL-004, AC-CELL-013.3, AC-CELL-025, AC-EVT-010.
 - **Exclusiones/costuras:** Resuelve R1(a): DW-002 + CELL-013.3 juntas; CELL-004 + DW-007 juntas.
-- **Decisiones:** 3 distintas en sus filas; respondidas: Q-EVT-1; propuestas sin respuesta: Q-DW-1, Q-DW-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P23). <!-- generated:unit-decisions -->
+- **Decisiones:** 4 distintas en sus filas; respondidas: Q-EVT-1; propuestas sin respuesta: Q-DW-1, Q-DW-2, Q-DW-3. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P23). <!-- generated:unit-decisions -->
 - **Dependencias:** P11, P17, P20, P22.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{deathwatch,unhandled}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** DeathWatchSpec 1:1 (oraculo por comportamiento).
@@ -646,7 +646,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** ActorSelection, Identify/ActorIdentity y entrega con comodines.
 - **Filas (6; impl: pending 6):** asignacion explicita en `docs/unit-rows.tsv`: AC-REF-011, AC-REF-012, AC-REF-013, AC-REF-014, AC-REF-021, AC-REF-026.
 - **Exclusiones/costuras:** ninguna.
-- **Decisiones:** 1 distintas en sus filas; respondidas: Q-X-3. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P29). <!-- generated:unit-decisions -->
+- **Decisiones:** 2 distintas en sus filas; respondidas: Q-X-3; propuestas sin respuesta: Q-REF-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P29). <!-- generated:unit-decisions -->
 - **Dependencias:** P26.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/selection.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorSelectionSpec 1:1.

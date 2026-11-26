@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit;
 
 import com.typesafe.config.ConfigFactory;
 import org.apache.pekko.actor.AbstractActor;
+import org.apache.pekko.actor.ActorIdentity;
+import org.apache.pekko.actor.Identify;
 import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.ActorSystem;
 import org.apache.pekko.actor.DeadLetter;
@@ -68,6 +70,11 @@ final class Scenario {
   }
 
   static String msgJson(Object m) {
+    if (m instanceof ActorIdentity) {
+      ActorIdentity i = (ActorIdentity) m;
+      return "{\"identity\":" + msgJson(i.correlationId()) + ",\"ref\":"
+          + (i.ref().isDefined() ? Cli.Json.str(i.ref().get().path().toString()) : "null") + "}";
+    }
     return m instanceof String ? Cli.Json.str((String) m) : "{\"class\":" + Cli.Json.str(m.getClass().getName()) + "}";
   }
 
@@ -344,6 +351,7 @@ final class Scenario {
   }
 
   private static Object message(Object raw) {
+    if (raw instanceof Map && "Identify".equals(((Map<?, ?>) raw).get("special"))) return new Identify(((Map<?, ?>) raw).get("id"));
     if (raw instanceof Map && "PoisonPill".equals(((Map<?, ?>) raw).get("special"))) return PoisonPill.getInstance();
     if (raw instanceof Map && "Kill".equals(((Map<?, ?>) raw).get("special"))) return Kill.getInstance();
     return raw;

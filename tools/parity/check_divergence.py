@@ -148,6 +148,25 @@ MUTANTS = {
         'left: usize::MAX,',
         'an actor drains its whole mailbox in one turn instead of `throughput` messages',
     ),
+    # --- Identify / ActorIdentity (AC-REF-013; killed by the identify-* cases) ---
+    "identify-reaches-receive": (
+        "src/actor/cell.rs",
+        "if let Some(identify) = env.message.downcast_ref::<Identify>() {",
+        "if let Some(identify) = env.message.downcast_ref::<Identify>().filter(|_| false) {",
+        "the cell does not auto-receive `Identify`: it reaches `receive` and nobody gets an `ActorIdentity`",
+    ),
+    "identify-of-a-dead-actor-also-published": (
+        "src/actor/system.rs",
+        "tell_no_such_actor(identify, &d.sender, None);\n                true",
+        "tell_no_such_actor(identify, &d.sender, None);\n                false",
+        "an `Identify` sent to a stopped actor is answered and also published as a dead letter",
+    ),
+    "identify-of-dead-letters-loses-reply-sender": (
+        "src/actor/system.rs",
+        "tell_no_such_actor(identify, asker, Some(asker.clone()));",
+        "tell_no_such_actor(identify, asker, None);",
+        "the reply to an `Identify` told to `deadLetters` has no sender instead of the asker",
+    ),
     "pill-not-suppressed-from-dead-letters": (
         "src/actor/system.rs",
         "msg.is::<Terminated>() || msg.is::<PoisonPill>()",

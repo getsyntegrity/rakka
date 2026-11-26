@@ -10,7 +10,9 @@ use std::time::Duration;
 
 use crate::actor::actor_ref::{ActorRef, InternalActorRef};
 use crate::actor::cell::{ActorCell, LocalActorRef};
-use crate::actor::props::{Actor, ActorContext, AnyMessage, PoisonPill, Props};
+use crate::actor::props::{
+    Actor, ActorContext, ActorIdentity, AnyMessage, Identify, PoisonPill, Props,
+};
 use crate::actor::{ActorError, ErrorClass};
 use crate::actor::{ActorPath, Address, Deployer, DeployerError};
 use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
@@ -141,6 +143,15 @@ fn is_dead_letter_suppressed(msg: &AnyMessage) -> bool {
     msg.is::<Terminated>() || msg.is::<PoisonPill>()
 }
 
+/// `ActorIdentity(messageId, None)`: what `deadLetters` answers to the `Identify` of an actor that is not there.
+fn tell_no_such_actor(identify: &Identify, asker: &ActorRef, reply_sender: Option<ActorRef>) {
+    let identity = ActorIdentity {
+        correlation_id: identify.message_id.clone(),
+        actor_ref: None,
+    };
+    asker.tell_any(Arc::new(identity), reply_sender);
+}
+
 /// A local Classic actor system.
 #[derive(Clone)]
 pub struct ActorSystem(pub(crate) Arc<SystemInner>);
@@ -190,13 +201,21 @@ impl InternalActorRef for DeadLetters {
         }
         if let Some(d) = msg.downcast_ref::<DeadLetter>() {
             // `DeadLetterActorRef.!`: `if (!specialHandle(d.message, d.sender)) eventStream.publish(d)`
-            let handled = match d.message.downcast_ref::<SystemMessage>() {
-                Some(system_message) => self.special_handle(system_message, &me),
-                None => is_dead_letter_suppressed(&d.message), // Pekko publishes a `SuppressedDeadLetter`; not modelled yet
+            let handled = if let Some(system_message) = d.message.downcast_ref::<SystemMessage>() {
+                self.special_handle(system_message, &me)
+            } else if let Some(identify) = d.message.downcast_ref::<Identify>() {
+                tell_no_such_actor(identify, &d.sender, None);
+                true
+            } else {
+                is_dead_letter_suppressed(&d.message) // Pekko publishes a `SuppressedDeadLetter`; not modelled yet
             };
             if !handled {
                 self.events.publish_dead_letter(d.clone());
             }
+        } else if let (Some(identify), Some(asker)) = (msg.downcast_ref::<Identify>(), &sender) {
+            // told to `deadLetters` itself, the reply carries the asker as its sender. Without a sender Pekko throws a
+            // NullPointerException (Q-REF-7, open): the message is published like any other, as before.
+            tell_no_such_actor(identify, asker, Some(asker.clone()));
         } else {
             self.events.publish_dead_letter(DeadLetter {
                 message: msg,
