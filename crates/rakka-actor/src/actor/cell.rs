@@ -496,16 +496,18 @@ impl ActorCell {
 
     /// `handleInvokeFailure`: suspend the mailbox and every child, mark the actor failed and report to the parent, which decides.
     fn handle_invoke_failure(self: &Arc<Self>, cause: Throwable, message: Option<AnyMessage>) {
-        self.fail(cause, message, None);
+        self.fail(cause, message, None, &[]);
     }
 
     /// `handleInvokeFailure(childrenNotToSuspend, t)`. `perpetrator` is the failed child whose `Failed` is being escalated: it already
-    /// suspended itself, so it is not suspended again (and it is the one child that gets the cause back on `Resume`).
+    /// suspended itself, so it is not suspended again (and it is the one child that gets the cause back on `Resume`). `still_suspended`
+    /// are the survivors of a restart that failed: they have not been resumed since the failure that caused it.
     fn fail(
         self: &Arc<Self>,
         cause: Throwable,
         message: Option<AnyMessage>,
         perpetrator: Option<ActorRef>,
+        still_suspended: &[ActorRef],
     ) {
         {
             let mut st = self.st.lock().unwrap();
@@ -523,7 +525,7 @@ impl ActorCell {
             .unwrap()
             .children()
             .into_iter()
-            .filter(|k| Some(k) != perpetrator.as_ref())
+            .filter(|k| Some(k) != perpetrator.as_ref() && !still_suspended.contains(k))
         {
             k.send_system(SystemMessage::Suspend); // suspendChildren
         }
@@ -712,7 +714,7 @@ impl ActorCell {
             child: child.clone(),
             cause,
         });
-        self.fail(thrown, Some(failed), Some(child));
+        self.fail(thrown, Some(failed), Some(child), &[]);
     }
 
     /// `processFailure`: a restart is only granted while every affected child is within its limit, otherwise they are stopped.
@@ -763,7 +765,7 @@ impl ActorCell {
             child: child.clone(),
             cause: cause.clone(),
         });
-        self.fail(cause, Some(message), Some(child));
+        self.fail(cause, Some(message), Some(child), &[]);
     }
 
     /// `faultSuspend`: suspend this actor and, recursively, its children (the failed parent's whole subtree waits for the decision).
@@ -870,8 +872,11 @@ impl ActorCell {
         }
     }
 
-    /// `finishRecreate`: resume the mailbox, create the fresh instance and run its `postRestart`.
+    /// `finishRecreate`: resume the mailbox, create the fresh instance, run its `postRestart` and only then restart the children that
+    /// `preRestart` did not stop.
     fn finish_recreate(self: &Arc<Self>, cause: Throwable) {
+        // taken before the new instance exists: the children it creates are not restarted
+        let survivors = self.children.lock().unwrap().children();
         self.resume_after_failure(true);
         let replaced = self.st.lock().unwrap().replaced_actor.take();
         let fresh = match catch_unwind(AssertUnwindSafe(|| self.props.new_actor())) {
@@ -880,7 +885,7 @@ impl ActorCell {
                 // the old instance stays in place, so it is stopped (and post-stopped) with the cell
                 self.st.lock().unwrap().actor = replaced;
                 let failure = self.post_restart_failure(&cause);
-                self.handle_invoke_failure(failure, None);
+                self.fail(failure, None, None, &survivors);
                 return;
             }
         };
@@ -891,7 +896,13 @@ impl ActorCell {
         {
             // the new instance stays in place (Pekko keeps `_actor`): it gets its `postStop` when the actor stops
             let failure = self.post_restart_failure(&cause);
-            self.handle_invoke_failure(failure, None);
+            self.fail(failure, None, None, &survivors);
+            return;
+        }
+        for survivor in survivors {
+            survivor.send_system(SystemMessage::Recreate {
+                cause: cause.clone(),
+            });
         }
     }
 
