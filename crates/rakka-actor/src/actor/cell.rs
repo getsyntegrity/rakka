@@ -260,6 +260,18 @@ impl ActorCell {
             name_counter: AtomicU64::new(0),
             st: Mutex::new(CellState::default()),
         });
+        // `Dispatch.init`: what the type promised is checked against the queue it really created; the failure is delayed into `Create`
+        let creation_failure = creation_failure.or_else(|| {
+            let (required, got) = cell.props.unmet_queue_requirement(&*cell.queue)?;
+            let me = cell.self_ref();
+            Some(Throwable::new(
+                "org.apache.pekko.actor.ActorInitializationException",
+                Some(&format!(
+                    "{}: Actor [{me:?}] requires mailbox type [{required}] got [{got}]",
+                    cell.path
+                )),
+            ))
+        });
         assert!(
             cell.system_queue
                 .enqueue(SystemMessage::Create(creation_failure))

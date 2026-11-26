@@ -91,6 +91,15 @@ impl BoundedNodeMessageQueue {
 }
 
 impl MessageQueue for BoundedNodeMessageQueue {
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
+        requirement == MessageQueueSemantics::MESSAGE_QUEUE
+            || requirement == MessageQueueSemantics::BOUNDED
+    }
+
+    fn class_name(&self) -> &'static str {
+        "org.apache.pekko.dispatch.BoundedNodeMessageQueue"
+    }
+
     fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
         let mut queue = self.locked();
         if queue.len() < self.capacity {

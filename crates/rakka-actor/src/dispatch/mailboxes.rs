@@ -646,6 +646,60 @@ mod tests {
         );
     }
 
+    /// What `Dispatch.init` reports for `props` with the mailbox `id` selected: the requirement unmet by the queue the type really creates.
+    fn unmet_by_created_queue(
+        props: Props,
+        id: &str,
+    ) -> Option<(MessageQueueSemantics, &'static str)> {
+        let mut mailboxes = Mailboxes::new();
+        // promises `AUDIT_QUEUE` but creates a plain bounded queue, which lists nothing
+        mailboxes.register(
+            "liar",
+            Promising {
+                capacity: 1,
+                produced: AUDIT_QUEUE,
+            },
+        );
+        mailboxes.register(
+            "silent",
+            Promising {
+                capacity: 1,
+                produced: ProducedQueue::PLAIN,
+            },
+        );
+        let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
+        let resolved = props
+            .with_mailbox_id(id)
+            .resolve_mailbox(&mailboxes, None)
+            .unwrap();
+        resolved.unmet_queue_requirement(&*resolved.new_message_queue(&dead_letters))
+    }
+
+    #[test]
+    fn a_type_that_promises_its_queue_is_checked_against_the_queue_it_creates() {
+        let unmet = unmet_by_created_queue(Props::new(|| RequiresUnbounded), "liar");
+        let created = "org.apache.pekko.dispatch.BoundedNodeMessageQueue";
+        assert_eq!(unmet, Some((MessageQueueSemantics::UNBOUNDED, created)));
+        assert_eq!(
+            unmet_by_created_queue(Props::new(|| RequiresUnbounded), "unbounded"),
+            None
+        );
+    }
+
+    #[test]
+    fn the_created_queue_is_not_checked_when_the_type_makes_no_promise_or_the_actor_requires_nothing()
+     {
+        assert_eq!(
+            unmet_by_created_queue(Props::new(|| RequiresAnyQueue), "silent"),
+            None
+        );
+        assert_eq!(unmet_by_created_queue(Props::new(|| Idle), "liar"), None);
+        assert_eq!(
+            unmet_by_created_queue(Props::new(|| RequiresAnyQueue), "liar"),
+            None
+        );
+    }
+
     fn deployment_with_mailbox(mailbox: &str) -> crate::actor::Deploy {
         crate::actor::Deploy::new(
             "/a",
