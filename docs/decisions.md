@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 256 decisiones: 0 bloqueantes, 182 propuestas, 59 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 257 decisiones: 0 bloqueantes, 182 propuestas, 60 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -2679,4 +2679,15 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** todas
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** aceptar con cambios la opción A (R1, R2 y R3). R1: no disparar una campaña completa por casos independientes añadidos al oráculo; la aditividad textual por sí sola no demuestra independencia semántica: comprobar que los escenarios existentes, sus esperados y su lógica de ejecución no fueron alterados; ejecutar los mutantes nuevos y los afectados; ante incertidumbre, aplicar la selección conservadora vigente. R2: añadir exclusivamente declaraciones `pub mod` no selecciona automáticamente todos los mutantes del módulo padre; analizar los archivos del módulo incorporado y sus efectos sobre código existente; no excluir mutantes afectados por nuevos impls o cambios de comportamiento. R3: reutilizar exclusivamente resultados DETECTED con evidencia vigente; la identidad incorpora las herramientas externas relevantes, incluido rust-anything; nunca reutilizar TIMEOUT, ERROR, SURVIVED ni ejecuciones incompletas. R4 no se acepta por ahora: se mantienen los tests sin instrumentación y la cobertura. Condiciones generales: cobertura mínima del 95 %; cero divergencias no autorizadas; control limpio obligatorio; no se modifican las garantías de MILESTONE; registrar las reglas aplicadas y los mutantes no ejecutados; conservar los logs de las mediciones futuras. Registrada en owner-decisions.tsv en representación del Owner, con su autorización expresa. (Owner (instrucción en la sesión), 2026-11-26)
+
+### Q-X-23 — Enmienda temporal: mutation testing obligatorio suspendido en el nivel PR
+
+- **Estado:** aceptada
+- **Evidencia:** Instrucción del Owner del 2026-11-26. Contexto: para el slice AC-REF-013 (PR #395) la regla vigente selecciona los 341 mutantes (R1 no puede probar scenario.rs); una corrida de los 96 afectados quedó 96/96 DETECTED sobre 3cafa938 y la repetición sobre 3843c563 fue cancelada (12 DETECTED, control CLEAN).
+- **Alternativas:** (a) suspender temporalmente la ejecución en PR y reservarla a MILESTONE; (b) mantener Q-X-14 y Q-X-22 en PR.
+- **Recomendación:** (a), por instrucción del Owner. Clasificación: política de verificación; no cambia el contrato de Pekko 2.0.0. Temporal y reversible.
+- **Filas afectadas:** ninguna fila del inventario (política de gates)
+- **Unidades afectadas:** todas
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** DECISIÓN DEL OWNER, efecto inmediato. Suspendemos temporalmente el mutation testing obligatorio en el nivel PR (enmienda temporal a Q-X-14 y Q-X-22). La ausencia de ejecución de mutantes no bloquea la integración bajo esta excepción explícita del Owner. Los mutantes permanecen en el repositorio; no se elimina código, escenarios, evidencia ni infraestructura. Se mantienen TDD estricto, cargo test, clippy, fmt, deny, cobertura mínima del 95 %, replay de paridad y revisión independiente. Los mutantes nuevos de cada contrato quedan registrados aunque su ejecución se difiera. El mutation testing obligatorio queda reservado al nivel MILESTONE. Se registra la evidencia de mutación pendiente por cada PR. Se suspende toda optimización adicional del sistema de mutantes y la parte de Q-X-22 no integrada. No se inician campañas sin autorización del Owner. Ningún resultado no ejecutado se presenta como exitoso. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
 
