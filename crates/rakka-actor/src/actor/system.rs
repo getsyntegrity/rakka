@@ -2,6 +2,7 @@
 //! `ActorSystem` (local, Classic): provider, guardians and the termination chain.
 //! Follows `ActorSystem.scala` and `LocalActorRefProvider` in `ActorRefProvider.scala`.
 
+use crate::actor::fault::Throwable;
 use crate::dispatch::message_queue::UnboundedMailbox;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock, Weak};
@@ -129,6 +130,9 @@ pub(crate) struct SystemInner {
     pub dead_letter_mailbox: DeadLetterMailbox,
     termination: TerminationFuture,
     terminating: AtomicBool,
+    /// The bubble walker, for the tests that look at its state.
+    #[cfg(test)]
+    pub(crate) walker: OnceLock<Arc<BubbleWalker>>,
 }
 
 /// Messages marked `DeadLetterSuppression` in Pekko (`Terminated`, `PoisonPill`): never published as `DeadLetter`.
@@ -212,11 +216,32 @@ impl InternalActorRef for DeadLetters {
 }
 
 /// `theOneWhoWalksTheBubblesOfSpaceTime`: the root guardian's supervisor; its death ends the system.
-struct BubbleWalker {
+pub(crate) struct BubbleWalker {
     path: ActorPath,
+    /// The provider's `terminationPromise`, which `whenTerminated` exposes: it follows `cause_of_termination` only in `stop()`.
     termination: TerminationFuture,
+    /// `causeOfTermination`: the walker's own promise. It completes with the cause when a guardian fails, or with `Terminated` in `stop()`;
+    /// while it is pending the walker is walking (`isWalking`) and handles messages.
+    pub(crate) cause_of_termination: Arc<Promise<Result<Terminated, Throwable>>>,
     dispatchers: Vec<Arc<Dispatcher>>,
     root: OnceLock<ActorRef>,
+    /// Completes with the first message the walker discarded after it stopped walking.
+    #[cfg(test)]
+    pub(crate) notification_discarded: Arc<Promise<()>>,
+}
+
+impl BubbleWalker {
+    /// `isWalking`.
+    fn is_walking(&self) -> bool {
+        !self.cause_of_termination.is_completed()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn shut_down_dispatchers(&self) {
+        for d in &self.dispatchers {
+            d.shutdown();
+        }
+    }
 }
 
 impl InternalActorRef for BubbleWalker {
@@ -225,30 +250,42 @@ impl InternalActorRef for BubbleWalker {
     }
     fn tell(&self, _msg: AnyMessage, _sender: Option<ActorRef>) {}
     fn send_system(&self, msg: SystemMessage) {
-        if self.termination.is_completed() {
+        // `sendSystemMessage` only while `isWalking` (`ActorRefProvider.scala:483`)
+        if !self.is_walking() {
+            #[cfg(test)]
+            self.notification_discarded.complete(());
             return;
         }
         match msg {
             SystemMessage::DeathWatchNotification { .. } => self.stop(),
-            // the decider stops whatever fails: the root guardian is stopped and its death ends the system
-            SystemMessage::Failed { child, .. } => child.stop(),
+            // `causeOfTermination.tryFailure(ex)` then `child.stop()`: the walker stops walking, so the death of the root is discarded above, `stop()`
+            // never runs and the public `terminationPromise` stays pending (the cause is not read by anything else)
+            SystemMessage::Failed { child, cause } => {
+                self.cause_of_termination.complete(Err(cause));
+                child.stop();
+            }
             _ => {}
         }
     }
     fn stop(&self) {
         if let Some(root) = self.root.get() {
-            self.termination.complete(Terminated {
+            // `causeOfTermination.trySuccess(Terminated(root))`, then `terminationPromise.completeWith(causeOfTermination.future)`: the public future
+            // follows the internal one, which holds the `Terminated` unless a guardian failed before (a failed cause has no public counterpart here)
+            self.cause_of_termination.complete(Ok(Terminated {
                 actor: root.clone(),
                 existence_confirmed: true,
                 address_terminated: true,
-            });
+            }));
+            if let Some(Ok(terminated)) = self.cause_of_termination.wait(Duration::ZERO) {
+                self.termination.complete(terminated);
+            }
         }
         for d in &self.dispatchers {
             d.shutdown();
         }
     }
     fn is_terminated(&self) -> bool {
-        self.termination.is_completed()
+        !self.is_walking()
     }
 }
 
@@ -380,6 +417,8 @@ impl ActorSystem {
             dead_letters,
             termination: termination.clone(),
             terminating: AtomicBool::new(false),
+            #[cfg(test)]
+            walker: OnceLock::new(),
         });
 
         // `defaultMailbox = mailboxes.lookup(DefaultMailboxId)`: the guardians take it directly, not through `getMailboxType`
@@ -392,9 +431,14 @@ impl ActorSystem {
         let bubble = Arc::new(BubbleWalker {
             path: root_path.new_child("bubble-walker", 0),
             termination,
+            cause_of_termination: Promise::new(),
             dispatchers: vec![dispatcher, internal_dispatcher.clone()],
             root: OnceLock::new(),
+            #[cfg(test)]
+            notification_discarded: Promise::new(),
         });
+        #[cfg(test)]
+        sys.walker.set(bubble.clone()).ok();
         let walker = ActorRef(bubble.clone());
         let root = ActorCell::new_local(
             &sys,
