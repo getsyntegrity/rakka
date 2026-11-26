@@ -2087,6 +2087,37 @@ def sh(cmd, timeout=None, **kw):
     return subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout, **kw)
 
 
+HERMETIC_FLAGS = ["--locked", "--offline", "--message-format=json"]   # the authoritative Cargo.lock, no network, compiler diagnostics as data
+
+
+def hermetic(command):
+    """`cargo <subcommand> ...` as a locked, offline invocation that reports its diagnostics as JSON (the sub-command stays first)."""
+    return [command[0], command[1], *HERMETIC_FLAGS, *command[2:]]
+
+
+def provision_dependencies():
+    """The one step that may use the network: fetches the locked dependencies into the Cargo cache. Every build afterwards is offline. -> (ok, detail)."""
+    fetched = sh(["cargo", "fetch", "--locked", "--manifest-path", os.path.join(ROOT, "Cargo.toml")], timeout=BUILD_TIMEOUT)
+    return fetched.returncode == 0, fetched.stderr[-600:]
+
+
+def classify_cargo_failure(failed):
+    """A failed locked, offline cargo run -> (BUILD_ERROR, rendered compiler errors) only when the compiler itself reported an error, else (HARNESS_ERROR, stderr):
+    a missing dependency, a lock that no longer fits or a broken toolchain is a failure of the infrastructure, never a verdict about the mutation."""
+    errors = []
+    for line in failed.stdout.splitlines():
+        try:
+            diagnostic = json.loads(line)
+        except ValueError:
+            continue
+        message = diagnostic.get("message") if isinstance(diagnostic, dict) and diagnostic.get("reason") == "compiler-message" else None
+        if isinstance(message, dict) and message.get("level") == "error":
+            errors.append(message.get("rendered") or "")
+    if errors:
+        return BUILD_ERROR, "".join(errors)[-600:]
+    return HARNESS_ERROR, failed.stderr[-600:]
+
+
 REPLAY_TIMEOUT = 900   # seconds; a hung replay is reported as TIMEOUT, never as "detected"
 BUILD_TIMEOUT = 900
 SUMMARY = re.compile(r"(\d+)/(\d+) cases passed")
@@ -2208,7 +2239,7 @@ def run_unit_mutant(scratch, name, work):
     some other failing test is not enough) and the same tests to pass on the unmutated tree (the control)."""
     module, expected_test = UNIT_MUTANTS[name]
     def cargo_test(manifest, target):
-        return sh(["cargo", "test", "--manifest-path", manifest, "--target-dir", target, *(["--test", module[5:]] if module.startswith("test:") else ["--lib", module])], timeout=BUILD_TIMEOUT)
+        return sh(hermetic(["cargo", "test", "--manifest-path", manifest, "--target-dir", target, *(["--test", module[5:]] if module.startswith("test:") else ["--lib", module])]), timeout=BUILD_TIMEOUT)
     try:
         control = cargo_test(os.path.join(ROOT, "crates", "rakka-actor", "Cargo.toml"), os.path.join(scratch, "target-control-" + name))
         r = cargo_test(os.path.join(work, "Cargo.toml"), os.path.join(scratch, "target-" + name))
@@ -2217,8 +2248,9 @@ def run_unit_mutant(scratch, name, work):
     if control.returncode != 0:
         return HARNESS_ERROR, None, None, "the unit tests fail on the unmutated tree"
     summary = next((l for l in r.stdout.splitlines() if l.startswith("test result:")), "(no test result)")
-    if "could not compile" in r.stderr:
-        return BUILD_ERROR, None, None, r.stderr[-600:]
+    kind, detail = classify_cargo_failure(r) if r.returncode != 0 and "test result:" not in r.stdout else (None, None)
+    if kind is not None:
+        return kind, None, None, detail
     if r.returncode == 0:
         return UNDETECTED, None, None, summary
     if "test result: FAILED" in r.stdout and f"{expected_test} ... FAILED" in r.stdout:
@@ -2226,16 +2258,26 @@ def run_unit_mutant(scratch, name, work):
     return HARNESS_ERROR, None, None, "failed, but not the expected test: " + summary
 
 
-def run_mutant(scratch, name, rel, old, new, why):
-    # a scratch workspace holds the copied crate (it inherits version/edition from the workspace)
-    ws = os.path.join(scratch, name)
+def prepare_scratch_workspace(ws):
+    """A scratch workspace holds the copied crate (it inherits version/edition from the workspace) and the authoritative Cargo.lock. -> (crate directory, None) or (None, why)."""
     work = os.path.join(ws, "rakka-actor")
+    authoritative_lock = os.path.join(ROOT, "Cargo.lock")
+    if not os.path.exists(authoritative_lock):
+        return None, "the authoritative Cargo.lock is missing: no mutant is built without it"
     shutil.copytree(CRATE, work, ignore=shutil.ignore_patterns("target"))
+    shutil.copy(authoritative_lock, os.path.join(ws, "Cargo.lock"))      # the same resolution as the real tree, never a fresh one
     shutil.copy(os.path.join(ROOT, "Cargo.toml"), os.path.join(ws, "Cargo.toml"))
     rootm = open(os.path.join(ws, "Cargo.toml")).read()
     rootm = re.sub(r'(?s)^.*?\[workspace\]', '[workspace]', rootm)
     rootm = rootm.replace('members = [".", "crates/rakka-actor", "crates/rakka-actor-typed"]', 'members = ["rakka-actor"]')
     open(os.path.join(ws, "Cargo.toml"), "w").write(rootm)
+    return work, None
+
+
+def run_mutant(scratch, name, rel, old, new, why):
+    work, problem = prepare_scratch_workspace(os.path.join(scratch, name))
+    if work is None:
+        return HARNESS_ERROR, None, None, problem
     path = os.path.join(work, rel)
     src = open(path).read()
     if src.count(old) != 1:
@@ -2253,12 +2295,13 @@ def run_mutant(scratch, name, rel, old, new, why):
             shutil.copy(os.path.join(ROOT, "cases", "oracle-only", golden_file), golden)
         return run_unit_mutant(scratch, name, work)
     try:
-        b = sh(["cargo", "build", "--release", "--manifest-path", os.path.join(work, "Cargo.toml"),
-                "--target-dir", os.path.join(scratch, "target-" + name), "--example", "classic-parity"], timeout=BUILD_TIMEOUT)
+        b = sh(hermetic(["cargo", "build", "--release", "--manifest-path", os.path.join(work, "Cargo.toml"),
+                         "--target-dir", os.path.join(scratch, "target-" + name), "--example", "classic-parity"]), timeout=BUILD_TIMEOUT)
     except subprocess.TimeoutExpired:
         return TIMEOUT, None, None, "cargo build"
     if b.returncode != 0:
-        return BUILD_ERROR, None, None, b.stderr[-600:]
+        kind, detail = classify_cargo_failure(b)
+        return kind, None, None, detail
     binary = os.path.join(scratch, "target-" + name, PARITY)
     if not os.path.exists(binary):
         return BUILD_ERROR, None, None, "mutated binary missing"
@@ -2609,6 +2652,10 @@ def main():
     scratch = make_scratch_directory()
     results = {}
     try:
+        if not control_only and not tool_only:
+            provisioned, provisioning_problem = provision_dependencies()
+            if not provisioned:   # the builds below are offline: each mutant then reports the infrastructure error itself
+                print(f"dependency provisioning failed: {provisioning_problem}", flush=True)
         for name, (rel, old, new, why) in mutants.items():
             if control_only or (only and name not in only):
                 continue
