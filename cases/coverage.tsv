@@ -2994,3 +2994,6 @@ sf-failed-until-resumed	scenario-stash-failed	AC-CELL-013.2	cited
 sf-suspended-with-parent	scenario-stash-failed	AC-CELL-013.2	cited
 sf-decided-after-restart	scenario-stash-failed	AC-CELL-013.2	cited
 sf-dropped-on-stop	scenario-stash-failed	AC-CELL-013.2	cited
+fr-fatal-resume-error	scenario-fatal-resume	AC-SUP-019	cited
+fr-escalated-resume	scenario-fatal-resume	AC-SUP-019	cited
+fr-stopped-resume	scenario-fatal-resume	AC-CELL-008.1,AC-SUP-019	cited

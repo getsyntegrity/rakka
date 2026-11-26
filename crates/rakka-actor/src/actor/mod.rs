@@ -20,6 +20,8 @@ pub(crate) mod jstring;
 mod nonblocking_mailbox_tests;
 mod path;
 pub mod props;
+#[cfg(test)]
+mod refailure_tests;
 pub(crate) mod repointable;
 pub mod supervision;
 pub mod system;
