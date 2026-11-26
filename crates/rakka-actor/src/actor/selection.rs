@@ -2,11 +2,13 @@
 //! `ActorSelection`: a path into the actor tree, looked up each time a message is sent through it.
 //!
 //! Not ported yet: the `*` and `?` patterns (such an element is looked up as a name), `resolveOne`, equality and the string
-//! forms, `actorSelection(ActorPath)`, `#uid` fragments, `/temp`, and death watch on the recipient of a missed selection.
+//! forms, `actorSelection(ActorPath)`, `/temp`, and death watch on the recipient of a missed selection. A `#uid` that is no
+//! number throws in Pekko and matches nothing here (Q-REF-8, open).
 
 use std::sync::{Arc, Weak};
 
 use crate::actor::actor_ref::{ActorRef, InternalActorRef};
+use crate::actor::path::{actor_path_extractor, split_name_and_uid};
 use crate::actor::props::{ActorContext, ActorIdentity, AnyMessage, Identify};
 use crate::actor::system::{SystemInner, is_dead_letter_suppressed};
 use crate::actor::{ActorPath, relative_actor_path_elements};
@@ -24,7 +26,8 @@ enum Element {
 
 /// `org.apache.pekko.actor.ActorSelection`, made by `actor_selection` of an [`ActorSystem`](crate::actor::system::ActorSystem) or
 /// an [`ActorContext`]. Nothing is looked up until a message is sent. A message that reaches no actor becomes a [`DeadLetter`]
-/// whose recipient is the selected path, and an [`Identify`] is answered with an [`ActorIdentity`] without a reference.
+/// whose recipient is the selected path, or `deadLetters` for a URI of another system, unparseable text and anything under
+/// `/deadLetters`; an [`Identify`] is answered with an [`ActorIdentity`] without a reference.
 #[derive(Clone)]
 pub struct ActorSelection {
     system: Arc<SystemInner>,
@@ -42,9 +45,8 @@ impl ActorSelection {
             let absolute = names.first().is_some_and(String::is_empty);
             let anchor = if absolute { root } else { lookup_root.clone() };
             (anchor, names)
-        } else if let Ok(parsed) = ActorPath::from_string(path) {
-            let ours = parsed.address() == root.path().address();
-            let names = parsed.elements().into_iter().map(str::to_owned).collect();
+        } else if let Some((address, names)) = actor_path_extractor(path) {
+            let ours = address == *root.path().address();
             (if ours { root } else { dead_letters }, names)
         } else {
             (dead_letters, Vec::new())
@@ -104,7 +106,10 @@ impl ActorSelection {
         if name == "deadLetters" && *actor == self.system.root_guardian() {
             return Some(self.system.dead_letters.clone());
         }
-        actor.0.single_child(name)
+        // `name#uid` (`getSingleChild`): only that incarnation; uid 0 is any. A uid that is no number matches nothing.
+        let (name, uid) = split_name_and_uid(name).ok()?;
+        let child = actor.0.single_child(name)?;
+        (uid == 0 || uid == child.path().uid()).then_some(child)
     }
 
     /// The `EmptyLocalActorRef` of a miss: the anchor's path followed by every element of the selection.
@@ -115,7 +120,8 @@ impl ActorSelection {
                 Element::Name(name) => name,
                 Element::Parent => "..",
             };
-            path.new_child(name, 0)
+            // `path / name` reads a `#uid`
+            path.child(name).unwrap_or_else(|_| path.new_child(name, 0))
         });
         ActorRef(Arc::new_cyclic(|me| EmptyLocalActorRef {
             path,
@@ -126,7 +132,8 @@ impl ActorSelection {
 }
 
 /// What `EmptyLocalActorRef` and `DeadLetterActorRef` do with a selection that ends at them: an `Identify` is answered with no
-/// actor and no sender; anything else, unless suppressed, is a dead letter addressed to `recipient`.
+/// actor and no sender; anything else is a dead letter addressed to `recipient`. For a suppressed message Pekko publishes a
+/// `SuppressedDeadLetter`, which is not ported: nothing is published (Q-REF-10, open).
 fn answer_not_found(
     system: &SystemInner,
     recipient: ActorRef,
@@ -140,7 +147,7 @@ fn answer_not_found(
         };
         asker.tell_any(Arc::new(identity), None);
     } else if !is_dead_letter_suppressed(&msg) {
-        // (an `Identify` without a sender is also published: Q-REF-7, open)
+        // (without a sender Pekko throws on an `Identify`; here it is published: Q-REF-9, open)
         system.events.publish_dead_letter(DeadLetter {
             message: msg,
             sender: sender.unwrap_or_else(|| system.dead_letters.clone()),
@@ -161,9 +168,18 @@ impl InternalActorRef for EmptyLocalActorRef {
         &self.path
     }
     fn tell(&self, msg: AnyMessage, sender: Option<ActorRef>) {
-        if let (Some(system), Some(me)) = (self.system.upgrade(), self.me.upgrade()) {
-            answer_not_found(&system, ActorRef(me), msg, sender);
-        }
+        let (Some(system), Some(me)) = (self.system.upgrade(), self.me.upgrade()) else {
+            return;
+        };
+        // a `DeadLetter` is never published again (that would loop): only an `Identify` inside it is answered
+        let (msg, sender) = match msg.downcast_ref::<DeadLetter>() {
+            Some(dead) if dead.message.is::<Identify>() => {
+                (dead.message.clone(), Some(dead.sender.clone()))
+            }
+            Some(_) => return,
+            None => (msg, sender),
+        };
+        answer_not_found(&system, ActorRef(me), msg, sender);
     }
     fn send_system(&self, _msg: SystemMessage) {}
     fn stop(&self) {}
@@ -182,14 +198,14 @@ mod tests {
     use crate::actor::system::ActorSystem;
 
     const WAIT: Duration = Duration::from_secs(10);
-
     /// Reports each string it receives; `"hold"` then parks its thread until the gate is signalled.
-    struct Recorder(Sender<&'static str>, Arc<Mutex<Receiver<()>>>);
+    struct Recorder(Sender<String>, Arc<Mutex<Receiver<()>>>);
 
     impl Actor for Recorder {
-        fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
             let message = *msg.downcast_ref::<&str>().unwrap();
-            self.0.send(message).unwrap();
+            let heard = format!("{} {message}", ctx.self_ref().path().name());
+            self.0.send(heard).unwrap();
             if message == "hold" {
                 self.1.lock().unwrap().recv_timeout(WAIT).unwrap();
             }
@@ -197,24 +213,18 @@ mod tests {
         }
     }
 
-    fn recorder(gate: &Arc<Mutex<Receiver<()>>>) -> (Props, Receiver<&'static str>) {
-        let (heard, hears) = channel();
-        let gate = gate.clone();
-        let props = Props::new(move || Recorder(heard.clone(), gate.clone()));
-        (props, hears)
-    }
-
     #[test]
     fn a_child_that_has_not_started_is_found_and_has_a_parent() {
         let system = ActorSystem::create("unstarted").unwrap();
         let (open, gate) = channel();
         let gate = Arc::new(Mutex::new(gate));
-        let (props, parent_hears) = recorder(&gate);
-        let parent = system.actor_of_named(props, "p").unwrap();
+        let (heard, hears) = channel();
+        let props = Props::new(move || Recorder(heard.clone(), gate.clone()));
+        let parent = system.actor_of_named(props.clone(), "p").unwrap();
         parent.tell("hold", None);
-        assert_eq!(parent_hears.recv_timeout(WAIT), Ok("hold"));
+        let next = || hears.recv_timeout(WAIT).unwrap();
+        assert_eq!(next(), "p hold");
         // the parent is parked, so it cannot process the `Supervise` that would start this child
-        let (props, child_hears) = recorder(&gate);
         parent.attach_child_for_tests(props, "lazy").unwrap();
 
         let select = |path| system.actor_selection(path);
@@ -222,8 +232,9 @@ mod tests {
         select("/user/p/lazy").tell("to-child", None);
         open.send(()).unwrap();
 
-        assert_eq!(parent_hears.recv_timeout(WAIT), Ok("to-parent"));
-        assert_eq!(child_hears.recv_timeout(WAIT), Ok("to-child"));
+        let mut released = [next(), next()];
+        released.sort();
+        assert_eq!(released, ["lazy to-child", "p to-parent"]);
         let ended = system.terminate().wait(WAIT);
         ended.expect("terminated").expect("terminated normally");
     }

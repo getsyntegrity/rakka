@@ -646,7 +646,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** ActorSelection, Identify/ActorIdentity y entrega con comodines.
 - **Filas (6; impl: pending 6):** asignacion explicita en `docs/unit-rows.tsv`: AC-REF-011, AC-REF-012, AC-REF-013, AC-REF-014, AC-REF-021, AC-REF-026.
 - **Exclusiones/costuras:** ninguna.
-- **Decisiones:** 2 distintas en sus filas; respondidas: Q-X-3; propuestas sin respuesta: Q-REF-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P29). <!-- generated:unit-decisions -->
+- **Decisiones:** 5 distintas en sus filas; respondidas: Q-X-3; propuestas sin respuesta: Q-REF-10, Q-REF-7, Q-REF-8, Q-REF-9. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P29). <!-- generated:unit-decisions -->
 - **Dependencias:** P26.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/selection.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorSelectionSpec 1:1.

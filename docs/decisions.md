@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 263 decisiones: 0 bloqueantes, 183 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 266 decisiones: 0 bloqueantes, 186 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1006,6 +1006,36 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) publicarlo como DeadLetter (conducta actual) / (b) descartarlo / (c) panic en el tell
 - **Recomendación:** (a). Consecuencia: tell no falla donde Pekko lanza NullPointerException. Bloquea el cierre de AC-REF-013.
 - **Filas afectadas:** AC-REF-013
+- **Unidades afectadas:** REF
+- **Origen:** classic-cell
+
+### Q-REF-8 — ActorSelection con un #uid que no es un numero
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:230-244 ; sonda 2.0.0: NumberFormatException desde tell
+- **Alternativas:** (a) no coincide con nadie (conducta actual) / (b) fallar en tell (panic o Result)
+- **Recomendación:** (a). Consecuencia: donde Pekko lanza NumberFormatException, el mensaje acaba en dead letters. Bloquea el cierre de AC-REF-011.
+- **Filas afectadas:** AC-REF-011
+- **Unidades afectadas:** REF
+- **Origen:** classic-cell
+
+### Q-REF-9 — Identify sin sender por ActorSelection (sin destino, bajo /deadLetters o a /deadLetters)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:673-676,708-710 ; sonda 2.0.0: NullPointerException
+- **Alternativas:** (a) publicarlo como DeadLetter (conducta actual) / (b) descartarlo / (c) panic en el tell
+- **Recomendación:** (a). Consecuencia: tell no falla donde Pekko lanza NullPointerException. Bloquea el cierre de AC-REF-014 y AC-REF-013.
+- **Filas afectadas:** AC-REF-014
+- **Unidades afectadas:** REF
+- **Origen:** classic-cell
+
+### Q-REF-10 — Mensaje suprimido a una seleccion sin destino: SuppressedDeadLetter
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:683-699 ; sonda 2.0.0: SuppressedDeadLetter
+- **Alternativas:** (a) no publicar nada (conducta actual) / (b) portar SuppressedDeadLetter
+- **Recomendación:** (a). Consecuencia: un evento que Pekko publica no existe aqui. Bloquea el cierre de AC-REF-014.
+- **Filas afectadas:** AC-REF-014
 - **Unidades afectadas:** REF
 - **Origen:** classic-cell
 
