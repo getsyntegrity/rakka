@@ -13,12 +13,20 @@ start-up timeout after the guardian logs `guardian Actor[pekko://g/] failed, shu
 | `/user` | `Unbounded` | registered default (`guardianProps` mailbox: not in Rakka) | same |
 | `/system` | `Unbounded` | registered default | same |
 
-Rust: the guardians' props take the default type (`Props::with_resolved_mailbox`), declare `Unbounded`, and a failed guardian is stopped by its supervisor
-(`BubbleWalker`, as `theOneWhoWalksTheBubblesOfSpaceTime`'s decider), which ends the system. `tests/classic_guardian_mailbox.rs` checks each of the three
-individually. `MBX-GRD-01` (`mb-0031`) is identical to the oracle for the three guardian queues.
+Rust: the guardians' props take the default type (`Props::with_resolved_mailbox`), declare `Unbounded`, and the failure of a guardian follows `ActorRefProvider.scala:455-490,525-529`
+(read from the Scala; **not probed on the JVM**, where `ActorSystem.create` already fails by the logger start-up timeout, so the termination future is not observable there):
 
-Not claimed: what `ActorSystem.create` throws on the JVM (the logger start-up timeout; Rakka has no loggers: its `create` returns and the system terminates);
-`deadLetterListener` and `eventStreamUnsubscriber` (not in Rakka); `guardianProps`. Selection tests that count the default type's queues now include the 3 guardians.
+| Guardian that fails to initialise | Pekko 2.0.0 (read) | Rakka |
+|---|---|---|
+| root | the bubble walker runs `causeOfTermination.tryFailure(ex)` and `child.stop()`; it stops walking (`isWalking` false, `:462`), so the death notification of the root is discarded (`:483`), its `stop()` (the only place that links `terminationPromise`, `:467`) never runs: **`whenTerminated` stays pending** | the same: `whenTerminated` stays pending, neither `Ok` nor `Err`; the cause lives only in the walker (`causeOfTermination`) and nothing reads it |
+| `/user`, `/system` | the root's strategy stops them without recording a cause (`:525-529`); the system ends normally | `whenTerminated` completes with `Terminated` |
+| a requested `terminate()` | normal | `whenTerminated` completes with `Terminated` |
 
-RED: 2 of 3 new tests failed (guardians ignored the default; the system stayed up). GREEN: 3 passed; replay 2975/2975.
-Mutants: 6 (default ignored by each guardian, requirement dropped on `Guardian`/`SystemGuardian`, failed root not ending the system): 6/6 DETECTED, control CLEAN 2974/2974.
+`TerminationFuture` keeps one value (`Promise<Terminated>`); the walker's own `causeOfTermination` is a separate internal promise. Tests: `actor::guardian_termination_tests` (root: waits for the walker
+to discard the notification, so a pending future is not just "not yet"; shuts the dispatchers down at the end) and `tests/classic_guardian_mailbox.rs` (`/user`, `/system`, requested termination, and each guardian
+takes the default). `MBX-GRD-01` (`mb-0031`) is identical to the oracle for the three guardian queues.
+
+Not claimed: what `ActorSystem.create` throws on the JVM; `deadLetterListener` and `eventStreamUnsubscriber` (not in Rakka); `guardianProps`. Selection tests that count the default type's queues now include the 3 guardians.
+
+RED: `a_failed_root_guardian_leaves_when_terminated_pending` falló con el walker antiguo (la señal de descarte de la notificación del raíz nunca llegó); GREEN con `isWalking` y `causeOfTermination`.
+Gates en este HEAD: 819 tests, replay 2975/2975, cobertura de líneas 95,37 % (gate ≥95 %; regiones 95,99 %, funciones 94,98 %), mutantes 8/8 DETECTED con control CLEAN 2975/2975.

@@ -1,11 +1,11 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:318-345,543-606 and actor/dungeon/Dispatch.scala:78-103 (Apache-2.0).
 //! The root, `/user` and `/system` guardians take the registered default mailbox directly (`mailboxes.lookup(DefaultMailboxId)`, not
 //! `getMailboxType`); all three declare `RequiresMessageQueue[UnboundedMessageQueueSemantics]`, which is checked only in `Dispatch.init` and
-//! only when the default type promises its queue. A guardian that fails to initialise shuts the system down.
+//! only when the default type promises its queue. A `/user` or `/system` guardian that fails to initialise ends the system; a root that fails leaves `whenTerminated` pending (a unit test).
 //!
 //! Oracle probe (JDK 17, Pekko 2.0.0): a default mailbox that produces a bounded queue makes the root guardian fail with
 //! `ActorInitializationException ... requires mailbox type [interface ...UnboundedMessageQueueSemantics] got [...BoundedNodeMessageQueue]`
-//! and the system shuts down; a type that promises nothing, or an unbounded queue, starts normally. What `ActorSystem.create` then throws on the
+//! (a JVM probe of the whole system start was not made for the termination future); a type that promises nothing, or an unbounded queue, starts normally. What `ActorSystem.create` then throws on the
 //! JVM comes from the logger start-up timeout, which Rakka does not have: not claimed here.
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
@@ -85,10 +85,12 @@ fn system_with_a_bad_guardian_queue(promise: ProducedQueue, bad_on: usize) -> Ac
     ActorSystem::create_with_settings("g", settings_with_default(default)).unwrap()
 }
 
+/// `/user` and `/system` that fail to initialise are stopped by the root's strategy without recording a cause (`ActorRefProvider.scala:525-529`):
+/// the system ends normally. The root guardian's own failure is in `actor::guardian_termination_tests`: `whenTerminated` stays pending.
 #[test]
-fn a_guardian_whose_queue_is_not_unbounded_fails_to_initialise_and_the_system_shuts_down() {
+fn the_user_and_system_guardians_that_fail_to_initialise_end_the_system_normally() {
     let promise = NonBlockingBoundedMailbox::new(5).unwrap().produced_queue();
-    for (guardian, bad_on) in [("root", 1), ("user", 2), ("system", 3)] {
+    for (guardian, bad_on) in [("user", 2), ("system", 3)] {
         let system = system_with_a_bad_guardian_queue(promise, bad_on);
         let terminated = system.when_terminated().wait(Duration::from_secs(10));
         assert!(terminated.is_some(), "the {guardian} guardian");

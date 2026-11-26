@@ -12,6 +12,8 @@ mod deployer;
 mod errors;
 pub mod fault;
 #[cfg(test)]
+mod guardian_termination_tests;
+#[cfg(test)]
 mod init_failure_tests;
 pub(crate) mod jstring;
 #[cfg(test)]

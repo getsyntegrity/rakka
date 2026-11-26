@@ -55,7 +55,7 @@ pub struct Failed {
 }
 
 /// `org.apache.pekko.actor.Terminated`, delivered to watchers as an ordinary message.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Terminated {
     /// The actor that terminated.
     pub actor: ActorRef,
