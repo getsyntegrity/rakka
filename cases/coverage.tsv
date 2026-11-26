@@ -2997,3 +2997,9 @@ sf-dropped-on-stop	scenario-stash-failed	AC-CELL-013.2	cited
 fr-fatal-resume-error	scenario-fatal-resume	AC-SUP-019	cited
 fr-escalated-resume	scenario-fatal-resume	AC-SUP-019	cited
 fr-stopped-resume	scenario-fatal-resume	AC-CELL-008.1,AC-SUP-019	cited
+he-pre-restart	scenario-hook-errors	AC-CELL-007.1	cited
+he-pre-restart-null	scenario-hook-errors	AC-CELL-007.1	cited
+he-pre-restart-none	scenario-hook-errors	AC-CELL-007.1	cited
+he-pre-restart-stop	scenario-hook-errors	AC-CELL-007.1	cited
+he-post-stop	scenario-hook-errors	AC-CELL-008.2	cited
+he-post-stop-null	scenario-hook-errors	AC-CELL-008.2	cited

@@ -330,6 +330,10 @@ struct Behavior {
     throw_in_first_post_restart: bool,
     /// `keep-children`: `preRestart` only records its event (neither stops the children nor runs `postStop`)
     keep_children: bool,
+    /// `pre-restart-throws: <message or null>`: `preRestart` fails before its default part
+    pre_restart_throws: Option<Option<String>>,
+    /// `post-stop-throws: <message or null>`: `postStop` records its event and then fails
+    post_stop_throws: Option<Option<String>>,
     /// `constructor-fails-from: n`: the actor factory throws IllegalStateException("ctor") from the n-th instance on
     constructor_fails_from: Option<u64>,
     ignore_terminated: bool,
@@ -394,6 +398,8 @@ impl Behavior {
                 .as_deref()
                 == Some("once"),
             keep_children: matches!(v.get("keep-children"), Some(Value::Bool(true))),
+            pre_restart_throws: v.get("pre-restart-throws").map(Value::as_str),
+            post_stop_throws: v.get("post-stop-throws").map(Value::as_str),
             constructor_fails_from: match v.get("constructor-fails-from") {
                 Some(Value::Number(n)) => Some(*n as u64),
                 _ => None,
@@ -415,6 +421,11 @@ struct Scripted {
     ctx: Arc<Ctx>,
     /// receives counted by this instance (a restart starts again at 0)
     received: u64,
+}
+
+/// `throw new IllegalStateException(message)`, where `message` may be null.
+fn throw_illegal_state(message: Option<&str>) -> ! {
+    throw(Throwable::new("java.lang.IllegalStateException", message))
 }
 
 fn reason_str(t: &Throwable) -> String {
@@ -513,6 +524,9 @@ impl Actor for Scripted {
         if self.cfg.keep_children {
             return;
         }
+        if let Some(message) = &self.cfg.pre_restart_throws {
+            throw_illegal_state(message.as_deref());
+        }
         for child in c.children() {
             c.stop(&child);
         }
@@ -554,6 +568,9 @@ impl Actor for Scripted {
                 Err(e) => err_json(&mut r, &e),
             }
             self.ctx.add(&self.label, Event::PostStopSpawn(r));
+        }
+        if let Some(message) = &self.cfg.post_stop_throws {
+            throw_illegal_state(message.as_deref());
         }
     }
 
@@ -761,9 +778,17 @@ struct Collector {
     ctx: Arc<Ctx>,
     /// `errors` channel: only the errors whose message starts with this are recorded
     prefix: String,
+    /// `errors` channel: an actor the collector also watches
+    watch: Option<ActorRef>,
 }
 
 impl Actor for Collector {
+    fn pre_start(&mut self, c: &mut ActorContext) {
+        if let Some(subject) = &self.watch {
+            c.watch(subject);
+        }
+    }
+
     fn receive(&mut self, _c: &mut ActorContext, msg: &AnyMessage) -> bool {
         if let Some(d) = msg.downcast_ref::<DeadLetter>() {
             self.ctx.add(
@@ -776,17 +801,34 @@ impl Actor for Collector {
             );
             true
         } else if let Some(e) = msg.downcast_ref::<ErrorEvent>() {
-            if e.message.starts_with(&self.prefix) {
+            if e.message
+                .as_deref()
+                .unwrap_or("null")
+                .starts_with(&self.prefix)
+            {
                 let mut o = String::from("{\"ev\":\"error\",\"source\":");
                 js(&mut o, &e.log_source);
                 o.push_str(",\"message\":");
-                js(&mut o, &e.message);
+                match &e.message {
+                    Some(message) => js(&mut o, message),
+                    None => o.push_str("null"),
+                }
                 let of_actor_class = e.log_class == std::any::type_name::<Scripted>();
                 o.push_str(&format!(",\"ofActorClass\":{of_actor_class},\"cause\":"));
                 js(&mut o, &e.cause.class);
+                if !e.cause.class.ends_with("NoCause$") {
+                    o.push_str(",\"causeText\":");
+                    js(&mut o, &e.cause.to_string());
+                }
                 o.push('}');
                 self.ctx.add(&self.label, Event::Error(o));
             }
+            true
+        } else if let Some(t) = msg.downcast_ref::<Terminated>() {
+            let mut o = String::from("{\"ev\":\"watched-terminated\",\"actor\":");
+            js(&mut o, &path_str(&t.actor));
+            o.push('}');
+            self.ctx.add(&self.label, Event::Error(o));
             true
         } else if let Some(u) = msg.downcast_ref::<UnhandledMessage>() {
             self.ctx.add(
@@ -1020,11 +1062,13 @@ fn step(
             let lbl = label("as").ok_or("subscribe needs as")?;
             let (c2, l2) = (ctx.clone(), lbl.clone());
             let prefix = label("prefix").unwrap_or_default();
+            let watch = label("watch").and_then(|l| lookup(system, ctx, &l));
             let r = system
                 .actor_of(Props::new(move || Collector {
                     label: l2.clone(),
                     ctx: c2.clone(),
                     prefix: prefix.clone(),
+                    watch: watch.clone(),
                 }))
                 .map_err(|e| e.to_string())?;
             ctx.refs.lock().unwrap().insert(lbl, r.clone());

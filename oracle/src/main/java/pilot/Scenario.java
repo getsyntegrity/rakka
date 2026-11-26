@@ -164,6 +164,8 @@ final class Scenario {
       ctx.add(label, "{\"ev\":\"pre-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + ",\"msg\":" + (message.isPresent() ? msgJson(message.get()) : "null") + "}");
       ctx.life.add(label + ":pre-restart");
       if (Boolean.TRUE.equals(cfg.get("keep-children"))) return; // `keep-children`: like SupervisorTreeSpec, neither stops the children nor runs postStop
+      // `pre-restart-throws: <message or null>`: preRestart fails before it calls super, so nothing of the default runs
+      if (cfg.containsKey("pre-restart-throws")) throw new IllegalStateException((String) cfg.get("pre-restart-throws"));
       super.preRestart(reason, message); // default: stop all children, then postStop
     }
 
@@ -183,6 +185,7 @@ final class Scenario {
         catch (Exception e) { r = err(e).substring(1, err(e).length() - 1); }
         ctx.add(label, "{\"ev\":\"post-stop-spawn\"," + r + "}");
       }
+      if (cfg.containsKey("post-stop-throws")) throw new IllegalStateException((String) cfg.get("post-stop-throws"));
     }
 
     @Override public Receive createReceive() {
@@ -265,17 +268,24 @@ final class Scenario {
     }
   }
 
-  /** `errors` channel: the published `Error`s whose message starts with `prefix` (others, e.g. `logFailure`, are out of the scenario). */
+  /** `errors` channel: the published `Error`s whose message starts with `prefix` (others, e.g. `logFailure`, are out of the scenario).
+   *  `watch`: the collector also watches that actor, so its mailbox shows the order of the errors and the `Terminated`. */
   public static final class ErrorCollector extends AbstractActor {
     private final String label, prefix;
     private final Ctx ctx;
-    ErrorCollector(String label, String prefix, Ctx ctx) { this.label = label; this.prefix = prefix; this.ctx = ctx; }
+    private final String watch;
+    ErrorCollector(String label, String prefix, String watch, Ctx ctx) { this.label = label; this.prefix = prefix; this.watch = watch; this.ctx = ctx; }
+    @Override public void preStart() { if (watch != null) getContext().watch(ctx.refs.get(watch)); }
     @Override public Receive createReceive() {
       return receiveBuilder().match(org.apache.pekko.event.Logging.Error.class, e -> {
         if (String.valueOf(e.message()).startsWith(prefix))
-          ctx.add(label, "{\"ev\":\"error\",\"source\":" + Cli.Json.str(e.logSource()) + ",\"message\":" + Cli.Json.str(String.valueOf(e.message()))
-              + ",\"ofActorClass\":" + (e.logClass() == Scripted.class) + ",\"cause\":" + Cli.Json.str(e.cause().getClass().getName()) + "}");
-      }).build();
+          ctx.add(label, "{\"ev\":\"error\",\"source\":" + Cli.Json.str(e.logSource())
+              + ",\"message\":" + (e.message() == null ? "null" : Cli.Json.str(String.valueOf(e.message())))
+              + ",\"ofActorClass\":" + (e.logClass() == Scripted.class) + ",\"cause\":" + Cli.Json.str(e.cause().getClass().getName())
+              // `toString` of a real cause; the `NoCause` object's text holds an identity hash
+              + (e.cause().getClass().getName().endsWith("NoCause$") ? "" : ",\"causeText\":" + Cli.Json.str(e.cause().toString())) + "}");
+      }).match(Terminated.class, t -> ctx.add(label, "{\"ev\":\"watched-terminated\",\"actor\":" + Cli.Json.str(t.getActor().path().toString()) + "}"))
+          .build();
     }
   }
 
@@ -394,7 +404,7 @@ final class Scenario {
           String label = (String) st.get("as");
           boolean errors = "errors".equals(st.get("channel"));
           ActorRef c = system.actorOf(errors
-              ? Props.create(ErrorCollector.class, () -> new ErrorCollector(label, (String) st.get("prefix"), ctx))
+              ? Props.create(ErrorCollector.class, () -> new ErrorCollector(label, (String) st.get("prefix"), (String) st.get("watch"), ctx))
               : Props.create(Collector.class, () -> new Collector(label, ctx)));
           ctx.refs.put(label, c);
           system.eventStream().subscribe(c, errors ? org.apache.pekko.event.Logging.Error.class

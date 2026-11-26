@@ -94,3 +94,8 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 |---|---|---|---|---|
 | Q-DW-3 — Igualdad de los mensajes custom de `watchWith` | (a) cota `PartialEq + Any`: iguales si coinciden el tipo y `eq` (alternativas: (b) identidad del `Arc`; (c) otra relación) | Decide cuándo re-vigilar lanza `IllegalStateException`; `1 == 1L` de Scala no se reproduce | `DeathWatch.scala:122-131` | Cambiarlo después cambia la firma pública de `watch_with` |
 | Q-REF-7 — `Identify` enviado a `deadLetters` sin sender | (a) publicarlo como `DeadLetter` (alternativas: (b) descartarlo; (c) panic) | `tell` no falla donde Pekko lanza `NullPointerException` | `ActorRef.scala:708-710`; oráculo 2.0.0 | Bajo: sólo un envío sin destinatario de la respuesta |
+
+### Classic: errores de los hooks del ciclo de vida
+| Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
+|---|---|---|---|---|
+| Q-CELL-6 — Nombre de clase de un mensaje de usuario en el texto de `PreRestartException` | (a) `class ?` (alternativas: (b) que el mensaje aporte su nombre; (c) registro por tipo) | Pekko escribe `class com.example.Foo`; Rakka `class ?`. String y los mensajes del runtime coinciden | `Actor.scala:225-236`; casos `he-pre-restart*` | Bajo: sólo el texto de un `Error` publicado |

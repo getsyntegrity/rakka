@@ -413,7 +413,7 @@ fn a_supervise_from_a_child_that_was_never_registered_is_reported_as_an_error() 
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert_eq!(errors[0].log_source, parent.path().to_string());
     assert_eq!(
-        errors[0].message,
+        errors[0].message.as_deref().unwrap(),
         format!("received Supervise from unregistered child {stranger:?}, this will not end well")
     );
     assert_eq!(

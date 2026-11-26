@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 259 decisiones: 0 bloqueantes, 183 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 260 decisiones: 0 bloqueantes, 184 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -376,6 +376,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) implementar como hook opcional detrás de feature de test cuando exista la unidad de serialización / (b) omitir / (c) comprobación en tiempo de compilación (Serialize bound)
 - **Recomendación:** (a), depende de AC-SER y de Q-X-3; hasta entonces las filas quedan en alcance con impl=pending [2026-10-31 cierre documental] Clasificación: arquitectura (modo de pruebas opcional) y exclusión parcial. Resuelto leyendo: el algoritmo vive en AC-SER-008.1/008.2 (classic-io-ser); AC-CELL-028/029 son sólo los puntos de integración (sendMessage / makeChild, antes de reservar el nombre) y se definen como fachadas. Consecuencia: sin SER no hay hook; con Box<dyn Any> sólo se verifican tipos registrados (ver Q-SER-4). Bloquea: `impl` de AC-CELL-028/029 hasta que exista SER. Puede avanzar: todo CELL.
 - **Filas afectadas:** AC-CELL-028 ; AC-CELL-029
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+
+### Q-CELL-6 — Nombre de clase de un mensaje de usuario en el texto de PreRestartException
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:225-236 ; casos he-pre-restart* (scenario-hook-errors)
+- **Alternativas:** (a) `class ?` para los tipos de usuario (`AnyMessage` es `dyn Any`, sin nombre de tipo) / (b) que el mensaje aporte su nombre de clase (cambia `tell`) / (c) registro de nombres por tipo
+- **Recomendación:** (a) mientras no haya otra necesidad de nombres de clase de mensajes; String, Kill, ActorIdentity, Terminated y Failed ya usan el nombre de la JVM
+- **Filas afectadas:** AC-CELL-007.1
 - **Unidades afectadas:** CELL
 - **Origen:** classic-cell
 

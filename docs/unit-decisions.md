@@ -315,12 +315,13 @@
 
 ## P22 CELL-REINICIO-PARADA
 
-21 filas; 4 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 3 propuestas.
+21 filas; 5 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 4: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4, AC-CELL-009 | — | — | `transversal` |
 | Q-CELL-4 | propuesta | 1: AC-CELL-023 | Bloquea: `validation` de AC-CELL-023 (impl puede avanzar). | Puede avanzar: el resto de CELL. | `classic-cell` |
+| Q-CELL-6 | propuesta | 1: AC-CELL-007.1 | — | — | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-010 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
 | Q-REF-2 | propuesta | 1: AC-CELL-002.2 | Bloquea: `impl` de AC-REF-008 y la parte reflexiva de AC-REF-007.1/.2; AC-CELL-002.2 sólo en el texto de InstantiationException. | Puede avanzar: Props con closure + trait ActorFactory, AC-CELL-002.1, AC-CELL-026. | `classic-cell` |
 
@@ -1072,4 +1073,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 515 (248 respondidas, 0 bloqueantes, 267 propuestas).
+Total de pares unidad–decisión: 516 (248 respondidas, 0 bloqueantes, 268 propuestas).
