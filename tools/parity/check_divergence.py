@@ -2512,10 +2512,28 @@ def publish_fast_kill_report(name, kill):
                                 f"{kill.reason}; no full replay ran", kill.report_text)
 
 
-def run_tool_mutant(scratch, name, rel, old, new, why):
-    """A mutant of tools/parity itself: a scratch copy is patched and the unit tests of the tools must fail."""
-    work = os.path.join(scratch, name)
+MIRROR_NOT_LINKED = {".git", ".gates", "target", "upstream"}
+
+
+def tool_mutant_workspace(scratch, name):
+    """The tests of tools/parity find their repository from their own location (ROOT three levels up, the sibling tools/gates). A tool mutant therefore runs in a
+    mirror of the repository: every entry of it is linked, except tools/parity, which is the copy that is mutated. -> the copy."""
+    mirror = os.path.join(scratch, name)
+    os.makedirs(os.path.join(mirror, "tools"))
+    for entry in os.listdir(ROOT):
+        if entry != "tools" and entry not in MIRROR_NOT_LINKED:
+            os.symlink(os.path.join(ROOT, entry), os.path.join(mirror, entry))
+    for entry in os.listdir(os.path.join(ROOT, "tools")):
+        if entry != "parity":
+            os.symlink(os.path.join(ROOT, "tools", entry), os.path.join(mirror, "tools", entry))
+    work = os.path.join(mirror, "tools", "parity")
     shutil.copytree(TOOLS, work, ignore=shutil.ignore_patterns("__pycache__"))
+    return work
+
+
+def run_tool_mutant(scratch, name, rel, old, new, why):
+    """A mutant of tools/parity itself: a copy in a mirror of the repository is patched and the unit tests of the tools must fail."""
+    work = tool_mutant_workspace(scratch, name)
     path = os.path.join(work, rel)
     src = open(path).read()
     if src.count(old) != 1:
