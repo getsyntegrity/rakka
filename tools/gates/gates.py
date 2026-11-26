@@ -338,9 +338,13 @@ def main(argv):
     if tier == "pr":
         sys.path.insert(0, os.path.join(ROOT, "tools", "parity"))
         import check_divergence
+        import pr_selection      # it imports this file as `gates`: a second module when run as a script, with its own UsageError
         try:
-            selected = select_mutants(changed_files(base), check_divergence.MUTANTS, check_divergence.TOOL_MUTANTS, check_divergence.UNIT_MUTANTS)
-        except UsageError as problem:
+            report = pr_selection.select_for_pr(base, check_divergence.MUTANTS, check_divergence.TOOL_MUTANTS, check_divergence.UNIT_MUTANTS, repo=ROOT)
+            selected = report["selected"]
+            if report["rules"]:
+                print(f"SELECTION {'; '.join(report['rules'])}: {len(report['not_selected_by_rule'])} mutants not run (listed in {report['report_path']})")
+        except (UsageError, pr_selection.gates.UsageError) as problem:
             print(f"refused: {problem}")
             return 2
     gates = tier_gates(tier, selected, mutant_args, no_reuse=parsed["no_reuse"])
