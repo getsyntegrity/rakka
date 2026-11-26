@@ -112,7 +112,7 @@ REPLAY_REGENERATED = ("rust/app-cases/replay-report.md", "rust/divergence-report
 FUZZ_COUNTS = [("fuzz_diff.py", 100000), ("fuzz_scenarios.py", 1500), ("fuzz_tell.py", 1000), ("fuzz_hier.py", 1000)]
 
 
-def tier_gates(tier, selected_mutants, mutant_args=()):
+def tier_gates(tier, selected_mutants, mutant_args=(), no_reuse=False):
     fast = [
         Gate("fmt", ["cargo", "fmt", "--all", "--check"], RUST_INPUTS),
         Gate("package-check", [PY, "tools/package/check.py"], ("docs", "tools/package", "crates", "tools", "oracle", "AGENTS.md")),
@@ -126,7 +126,7 @@ def tier_gates(tier, selected_mutants, mutant_args=()):
         Gate("replay", ["tools/gates/replay.sh"], PARITY_INPUTS, regenerates=REPLAY_REGENERATED),
     ]
     # per-mutant reuse and a control on every run (Q-X-22 R3): a passing record of the whole gate would not carry the external tool versions
-    mutants = Gate("mutants", [PY, "tools/gates/pr_mutants.py", *selected_mutants], PARITY_INPUTS + ("tools/gates",),
+    mutants = Gate("mutants", [PY, "tools/gates/pr_mutants.py", *selected_mutants, *(["--no-reuse"] if no_reuse else [])], PARITY_INPUTS + ("tools/gates",),
                    "" if selected_mutants else "no mutated file changed since the base", REPLAY_REGENERATED, MUTANT_RUNNER_LABELS, reusable=False)
     if tier == "fast":
         return fast
@@ -343,7 +343,7 @@ def main(argv):
         except UsageError as problem:
             print(f"refused: {problem}")
             return 2
-    gates = tier_gates(tier, selected, mutant_args)
+    gates = tier_gates(tier, selected, mutant_args, no_reuse=parsed["no_reuse"])
     if parsed["list"]:
         for g in gates:
             print(g.name, " ".join(g.command) if not g.skip_reason else f"(skip: {g.skip_reason})")

@@ -1,5 +1,6 @@
 """Q-X-22 R3: the PR tier reuses only DETECTED mutant results whose whole identity is unchanged, and the control always runs."""
-import tempfile, unittest
+import os, tempfile, unittest
+from unittest import mock
 
 import gates
 import pr_mutants
@@ -33,11 +34,11 @@ class Run(unittest.TestCase):
         self.store = ResultStore(directory.name)
         self.executed = []
 
-    def run_selected(self, outcomes, names=("a",), key=lambda name: "key-" + name, control="CLEAN", reusable=lambda name: True):
+    def run_selected(self, outcomes, names=("a",), key=lambda name: "key-" + name, control="CLEAN", reusable=lambda name: True, total=3000, **options):
         def execute(name):
             self.executed.append(name)
-            return {"outcome": outcomes[name]}
-        return pr_mutants.run_selected(list(names), key, self.store, execute, lambda: control, reusable)
+            return {"outcome": outcomes[name], "total": total, "run": "run-1"}
+        return pr_mutants.run_selected(list(names), key, self.store, execute, lambda: (control, 3000), reusable, **options)
 
     def test_a_detected_result_is_reused_and_reported_as_not_executed(self):
         self.run_selected({"a": "DETECTED"})
@@ -76,9 +77,32 @@ class Run(unittest.TestCase):
             if name == "b":
                 raise KeyboardInterrupt
             return {"outcome": "DETECTED"}
+        saved = []
         with self.assertRaises(KeyboardInterrupt):
-            pr_mutants.run_selected(["a", "b"], lambda name: name, self.store, execute, lambda: "CLEAN", lambda name: True)
+            pr_mutants.run_selected(["a", "b"], lambda name: name, self.store, execute, lambda: ("CLEAN", None), lambda name: True, save=saved.append)
         self.assertEqual((self.store.is_fresh("a"), self.store.is_fresh("b")), (True, False))
+        self.assertEqual((saved[-1]["executed"], saved[-1]["not_executed"]), (["a"], ["b"]))
+
+    def test_no_reuse_executes_every_mutant_and_still_records_the_new_proof(self):
+        self.run_selected({"a": "DETECTED"})
+        report = self.run_selected({"a": "DETECTED"}, reuse=False)
+        self.assertEqual((self.executed, report["reused"]), (["a", "a"], []))
+        self.assertTrue(self.store.is_fresh("key-a"))
+
+    def test_a_mutant_replay_of_another_corpus_size_than_the_control_is_an_error_and_proves_nothing(self):
+        report = self.run_selected({"a": "DETECTED"}, total=12)
+        self.assertEqual((report["outcomes"], report["exit"]), ({"a": "CORPUS_MISMATCH"}, 2))
+        self.assertFalse(self.store.is_fresh("key-a"))
+        self.assertEqual(self.run_selected({"a": "DETECTED"}, total=None)["exit"], 0)      # fast-kill and unit mutants replay no corpus
+
+    def test_a_state_that_moves_after_the_control_ran_never_passes(self):
+        states = iter(["checked", "moved"])
+        report = self.run_selected({"a": "DETECTED"}, state_now=lambda: next(states))
+        self.assertEqual((report["outcomes"]["(control)"], report["exit"]), ("INPUTS_CHANGED", 2))
+
+    def test_a_reused_result_names_the_run_that_proved_it(self):
+        self.run_selected({"a": "DETECTED"})
+        self.assertEqual(self.run_selected({"a": "DETECTED"})["reused_from"], {"a": "run-1"})
 
     def test_the_control_runs_every_time_and_a_dirty_one_never_passes(self):
         self.run_selected({"a": "DETECTED"})
@@ -86,7 +110,47 @@ class Run(unittest.TestCase):
         self.assertEqual(self.run_selected({"a": "DETECTED"}, control="ERROR")["exit"], 2)
 
 
+class ToolIdentity(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = os.path.realpath(directory.name)
+
+    def write(self, relative, text):
+        path = os.path.join(self.root, relative)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as out:
+            out.write(text)
+        return path
+
+    def test_the_bytes_of_rust_anything_are_part_of_the_identity_even_at_the_same_version(self):
+        binary = self.write("bin/rust-anything", "one")
+        before = pr_mutants.external_identity(self.root, {}, binary)
+        self.write("bin/rust-anything", "two!")
+        self.assertNotEqual(before, pr_mutants.external_identity(self.root, {}, binary))
+        self.assertIsNone(pr_mutants.external_identity(self.root, {}, None)["rust-anything-binary"])
+
+    def test_a_cargo_configuration_above_the_checkout_or_in_cargo_home_is_part_of_the_identity(self):
+        checkout, home = os.path.join(self.root, "outer", "checkout"), os.path.join(self.root, "home")
+        os.makedirs(checkout)
+        before = pr_mutants.external_identity(checkout, {"CARGO_HOME": home}, None)
+        for relative in ("outer/.cargo/config.toml", "home/config.toml"):
+            self.write(relative, "[build]\n")
+            after = pr_mutants.external_identity(checkout, {"CARGO_HOME": home}, None)
+            self.assertNotEqual(before, after, relative)
+            before = after
+
+
 class GateWiring(unittest.TestCase):
+    def test_no_reuse_reaches_the_per_mutant_runner(self):
+        command = lambda **options: next(g for g in gates.tier_gates("pr", ["a"], **options) if g.name == "mutants").command[1:]
+        self.assertEqual(command(no_reuse=True), ["tools/gates/pr_mutants.py", "a", "--no-reuse"])
+        self.assertEqual(command(), ["tools/gates/pr_mutants.py", "a"])
+        with mock.patch.object(gates, "changed_files", return_value=["crates/rakka-actor/src/actor/cell.rs"]), mock.patch("builtins.print") as printed:
+            gates.main(["pr", "--no-reuse", "--list"])
+        listed = [call.args for call in printed.call_args_list if call.args[0] == "mutants"]
+        self.assertTrue(listed[0][1].endswith("--no-reuse"), listed)
+
     def test_the_pr_mutants_gate_runs_the_per_mutant_runner_and_is_never_reused_as_a_whole(self):
         gate = next(g for g in gates.tier_gates("pr", ["a", "b"]) if g.name == "mutants")
         self.assertEqual(gate.command[1:], ["tools/gates/pr_mutants.py", "a", "b"])
