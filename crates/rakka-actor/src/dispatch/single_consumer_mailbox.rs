@@ -3,21 +3,33 @@
 //!
 //! Any number of producers and one consumer. Pekko's queue is Vyukov's lock-free node queue and exists to be faster than the
 //! default; this one holds a `Mutex` only for the push or pop itself, so it keeps the observable behaviour and not that speed.
-//! Pekko's does not declare `MultipleConsumerSemantics`; queue semantics are not declared by this type here.
+//! Pekko's `NodeMessageQueue` is `UnboundedMessageQueueSemantics` and does not declare `MultipleConsumerSemantics`: that is what this type declares (the capability API of Q-MBX-14, accepted with
+//! changes by the Owner on 2026-11-26).
 
 use std::collections::VecDeque;
 use std::sync::{Mutex, MutexGuard};
 
 use crate::actor::actor_ref::ActorRef;
 use crate::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
+use crate::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 
 /// `SingleConsumerOnlyUnboundedMailbox`: every actor gets its own unbounded queue, read only by that actor.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SingleConsumerOnlyUnboundedMailbox;
 
+/// What the type promises and what each queue it creates answers for itself: unbounded, and not for several consumers.
+const PRODUCED: ProducedQueue = ProducedQueue::new(
+    "org.apache.pekko.dispatch.NodeMessageQueue",
+    &[MessageQueueSemantics::UNBOUNDED],
+);
+
 impl MailboxType for SingleConsumerOnlyUnboundedMailbox {
     fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
         Box::new(NodeMessageQueue::default())
+    }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        PRODUCED
     }
 }
 
@@ -55,11 +67,20 @@ impl MessageQueue for NodeMessageQueue {
             dead_letters.enqueue(owner, envelope);
         }
     }
+
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
+        Some(PRODUCED.satisfies(requirement))
+    }
+
+    fn class_name(&self) -> &'static str {
+        PRODUCED.class_name()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dispatch::queue_semantics::MessageQueueSemantics;
     use std::sync::{Arc, Barrier};
     use std::thread;
 
@@ -82,6 +103,30 @@ mod tests {
 
     fn new_queue() -> Box<dyn MessageQueue> {
         SingleConsumerOnlyUnboundedMailbox.create(&receiver())
+    }
+
+    #[test]
+    fn the_queue_declares_what_pekkos_node_message_queue_is_an_unbounded_queue_that_is_not_for_several_consumers()
+     {
+        let queue = new_queue();
+        let answers = [
+            MessageQueueSemantics::MESSAGE_QUEUE,
+            MessageQueueSemantics::UNBOUNDED,
+            MessageQueueSemantics::MULTIPLE_CONSUMER,
+            MessageQueueSemantics::BOUNDED,
+        ]
+        .map(|semantics| queue.satisfies(semantics));
+        assert_eq!(answers, [Some(true), Some(true), Some(false), Some(false)]);
+        let promised = SingleConsumerOnlyUnboundedMailbox.produced_queue();
+        assert!(promised.satisfies(MessageQueueSemantics::UNBOUNDED));
+        assert!(!promised.satisfies(MessageQueueSemantics::MULTIPLE_CONSUMER));
+        assert_eq!(
+            (queue.class_name(), promised.class_name()),
+            (
+                "org.apache.pekko.dispatch.NodeMessageQueue",
+                "org.apache.pekko.dispatch.NodeMessageQueue"
+            )
+        );
     }
 
     #[test]

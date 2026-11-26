@@ -193,16 +193,18 @@
 
 ## P13 MBX-COLAS
 
-12 filas; 10 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 7 propuestas.
+12 filas; 12 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 8 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-MBX-14 | accepted_with_changes (2026-11-26): aceptar con cambios: Acepto la alternativa (a), incluyendo ProducedQueue::class_name como API pública. Acepto la representación abierta de capacidades… | 1: AC-MBX-011 | — | — | `classic-dispatch` |
 | Q-MBX-6 | accepted (2026-11-20): aceptar (b): pool de hilos propio, coherente con Q-X-4 (A); el turno de mailbox es un trabajo del pool; `throughput` y `throughput-deadline-time` son… | 2: AC-MBX-006, AC-MBX-008 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-MBX-004 | — | — | `transversal` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-MBX-007 | — | — | `transversal` |
 | Q-CFG-31 | propuesta | 1: AC-MBX-004 | Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 | Q-DSP-2 | propuesta | 1: AC-MBX-004 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-1 | propuesta | 5: AC-MBX-007, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
+| Q-MBX-15 | propuesta | 1: AC-MBX-011 | — | — | `classic-dispatch` |
 | Q-MBX-2 | propuesta | 2: AC-MBX-011, AC-MBX-015 | — | — | `classic-dispatch` |
 | Q-MBX-3 | propuesta | 1: AC-MBX-012 | Bloquea la implementación de AC-MBX-012 (ambas variantes); el resto puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-4 | propuesta | 2: AC-MBX-009, AC-MBX-010 | — | — | `classic-dispatch` |
@@ -385,12 +387,13 @@
 
 ## P28 SELECCION-CREACION
 
-9 filas; 9 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 5 propuestas.
+9 filas; 10 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-MBX-12 | accepted (2026-11-24): aceptar (a) exclusivamente como LIMITACIÓN TEMPORAL de la migración, no como paridad completa: registro programático en `Settings.mailboxes` (sin FQCN ni… | 1: AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-MBX-13 | accepted (2026-11-24): aceptar (a) con las limitaciones documentadas en `docs/evidence/mailbox-requirements/q-mbx-13.md`: `MessageQueueSemantics` como conjunto abierto identificado… | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
+| Q-MBX-14 | accepted_with_changes (2026-11-26): aceptar con cambios: Acepto la alternativa (a), incluyendo ProducedQueue::class_name como API pública. Acepto la representación abierta de capacidades… | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 1: AC-MBX-014 | — | — | `transversal` |
 | Q-X-7 | accepted (2026-11-18): aceptar (A). | 1: AC-MBX-020 | — | — | `transversal` |
 | Q-DSP-2 | propuesta | 2: AC-DSP-007, AC-MBX-014 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
@@ -1067,4 +1070,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 510 (244 respondidas, 0 bloqueantes, 266 propuestas).
+Total de pares unidad–decisión: 513 (246 respondidas, 0 bloqueantes, 267 propuestas).

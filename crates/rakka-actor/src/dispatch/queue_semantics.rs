@@ -21,6 +21,11 @@ impl MessageQueueSemantics {
     pub const BOUNDED: MessageQueueSemantics =
         MessageQueueSemantics::new("org.apache.pekko.dispatch.BoundedMessageQueueSemantics");
 
+    /// `org.apache.pekko.dispatch.MultipleConsumerSemantics`: the queue can be read by several consumers (`Mailbox.scala:533`); both built-in
+    /// queues have it, and `reference.conf` binds it to `unbounded-queue-based`.
+    pub const MULTIPLE_CONSUMER: MessageQueueSemantics =
+        MessageQueueSemantics::new("org.apache.pekko.dispatch.MultipleConsumerSemantics");
+
     /// `org.apache.pekko.dispatch.MessageQueue`: what every queue satisfies. A dispatcher that requires it has no requirement; an
     /// actor that requires it has none of its own to bind, so its mailbox comes from the dispatcher's requirement or fails.
     pub const MESSAGE_QUEUE: MessageQueueSemantics =
@@ -44,9 +49,84 @@ impl fmt::Display for MessageQueueSemantics {
     }
 }
 
+/// `ProducesMessageQueue[T]` of a `MailboxType`: the class of the queue it creates and every semantics that queue satisfies.
+///
+/// Pekko checks `requirement.isAssignableFrom(T)`, so a queue class satisfies its own marker, the markers it extends and
+/// the markers they extend. The relation is not derived here: the type lists the full set, which keeps `MessageQueueSemantics`
+/// open (an application type names its own markers and any it extends).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProducedQueue {
+    class_name: &'static str,
+    satisfies: &'static [MessageQueueSemantics],
+    is_interface: bool,
+}
+
+impl ProducedQueue {
+    /// A queue class named `class_name` (as `Class.getName` prints it) that satisfies `satisfies`.
+    pub const fn new(
+        class_name: &'static str,
+        satisfies: &'static [MessageQueueSemantics],
+    ) -> Self {
+        ProducedQueue {
+            class_name,
+            satisfies,
+            is_interface: false,
+        }
+    }
+
+    /// What a type that makes no promise produces (`classOf[MessageQueue]`): it satisfies nothing but `MessageQueue`.
+    pub const PLAIN: ProducedQueue = ProducedQueue {
+        class_name: "org.apache.pekko.dispatch.MessageQueue",
+        satisfies: &[],
+        is_interface: true,
+    };
+
+    /// `Class.getName` of the queue class.
+    pub const fn class_name(&self) -> &'static str {
+        self.class_name
+    }
+
+    /// `requirement.isAssignableFrom(queueClass)`: every queue satisfies `MessageQueue`.
+    pub fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
+        requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.satisfies.contains(&requirement)
+    }
+}
+
+/// How the JVM prints the class of the queue (`Class.toString`), as Pekko's messages quote it.
+impl fmt::Display for ProducedQueue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let kind = if self.is_interface {
+            "interface"
+        } else {
+            "class"
+        };
+        write!(f, "{kind} {}", self.class_name)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const AUDIT_TRAIL: MessageQueueSemantics = MessageQueueSemantics::new("app.AuditTrail");
+
+    #[test]
+    fn a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue() {
+        let produced = ProducedQueue::new(
+            "app.AuditQueue",
+            &[MessageQueueSemantics::UNBOUNDED, AUDIT_TRAIL],
+        );
+        assert!(produced.satisfies(MessageQueueSemantics::UNBOUNDED));
+        assert!(produced.satisfies(AUDIT_TRAIL));
+        assert!(produced.satisfies(MessageQueueSemantics::MESSAGE_QUEUE));
+        assert!(!produced.satisfies(MessageQueueSemantics::BOUNDED));
+        assert!(!ProducedQueue::PLAIN.satisfies(AUDIT_TRAIL));
+        assert_eq!(produced.to_string(), "class app.AuditQueue");
+        assert_eq!(
+            ProducedQueue::PLAIN.to_string(),
+            "interface org.apache.pekko.dispatch.MessageQueue"
+        );
+    }
 
     #[test]
     fn a_semantics_is_identified_by_its_class_name_alone() {

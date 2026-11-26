@@ -11,7 +11,7 @@ rust/divergence-reports/. Finally the unmodified port is replayed again as the c
 Exit code: 0 every mutant DETECTED and the control clean; 1 a mutant went UNDETECTED or the control failed;
 2 the experiment is invalid (patch, build, harness error or timeout). `--selftest` runs an equivalent mutant that must exit 1.
 """
-import atexit, collections, difflib, json, os, re, shutil, signal, subprocess, sys, tempfile
+import atexit, collections, difflib, hashlib, json, os, re, shutil, signal, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import replay_lib
@@ -1174,8 +1174,8 @@ MUTANTS = {
     ),
     "config-push-timeout-not-read": (
         "src/actor/system.rs",
-        "            unstarted_push_timeout,\n            ..Settings::default()",
-        "            unstarted_push_timeout: Duration::from_secs(10),\n            ..Settings::default()",
+        "            unstarted_push_timeout,\n            deployer: Arc::new(Deployer::from_settings(config)?),\n            ..Settings::default()",
+        "            unstarted_push_timeout: Duration::from_secs(10),\n            deployer: Arc::new(Deployer::from_settings(config)?),\n            ..Settings::default()",
         "the configured `unstarted-push-timeout` never reaches the runtime settings: every system uses the default",
     ),
     "config-negative-push-timeout-is-the-default": (
@@ -1425,8 +1425,8 @@ MUTANTS = {
     ),
     "deploy-fallback-keeps-the-tags": (
         "src/actor/deploy.rs",
-        "            },\n            tags: BTreeSet::new(),\n        }",
-        "            },\n            tags: self.tags.clone(),\n        }",
+        "            },\n            tags: Vec::new(),\n        }\n    }\n}\n\n#[cfg(test)]",
+        "            },\n            tags: self.tags.clone(),\n        }\n    }\n}\n\n#[cfg(test)]",
         "withFallback carries the tags of the receiver, which Pekko drops",
     ),
     "local-scope-lets-the-other-win": (
@@ -1590,8 +1590,8 @@ MUTANTS = {
     ),
     "render-concatenation-keeps-white-space-as-a-separate-string": (
         "src/config/mod.rs",
-        "            Piece::Ws(white) => Some(white.as_str()),\n",
-        "            Piece::Ws(_) => None,\n",
+        "        Piece::Ws(white) => Some(white.clone()),\n",
+        "        Piece::Ws(_) => None,\n",
         "the white space between a substitution and a string is dropped from the concatenation",
     ),
     "tags-are-listed-sorted": (
@@ -1824,6 +1824,161 @@ MUTANTS = {
         "        if let Some(envelope) = self.dequeue() {\n            dead_letters.enqueue(owner, envelope);",
         "cleanUp moves one envelope and leaves the rest (NB-QU-05)",
     ),
+    # --- the queue a mailbox type promises (ProducesMessageQueue); killed by unit tests (UNIT_MUTANTS) ---
+    "produced-queue-ignores-the-listed-semantics": (
+        "src/dispatch/queue_semantics.rs",
+        "requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.satisfies.contains(&requirement)",
+        "requirement == MessageQueueSemantics::MESSAGE_QUEUE",
+        "a queue satisfies only MessageQueue: the semantics its type lists are ignored",
+    ),
+    "produced-queue-satisfies-any-requirement": (
+        "src/dispatch/queue_semantics.rs",
+        "requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.satisfies.contains(&requirement)",
+        "true",
+        "a queue satisfies every requirement, listed or not",
+    ),
+    "produced-queue-does-not-satisfy-message-queue": (
+        "src/dispatch/queue_semantics.rs",
+        "requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.satisfies.contains(&requirement)",
+        "self.satisfies.contains(&requirement)",
+        "MessageQueue is satisfied only when the type lists it",
+    ),
+    "unbounded-mailbox-promises-no-semantics": (
+        "src/dispatch/message_queue.rs",
+        "            \"org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue\",\n            &[\n                MessageQueueSemantics::UNBOUNDED,\n                MessageQueueSemantics::MULTIPLE_CONSUMER,\n            ],",
+        "            \"org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue\",\n            &[],",
+        "UnboundedMailbox promises a queue that satisfies nothing",
+    ),
+    "bounded-mailbox-promises-an-unbounded-queue": (
+        "src/dispatch/bounded_node_queue.rs",
+        "                MessageQueueSemantics::BOUNDED,\n                MessageQueueSemantics::MULTIPLE_CONSUMER,",
+        "                MessageQueueSemantics::UNBOUNDED,\n                MessageQueueSemantics::MULTIPLE_CONSUMER,",
+        "NonBlockingBoundedMailbox promises the unbounded semantics instead of the bounded one",
+    ),
+    "type-without-promise-claims-an-unbounded-queue": (
+        "src/dispatch/message_queue.rs",
+        "    fn produced_queue(&self) -> ProducedQueue {\n        ProducedQueue::PLAIN\n    }",
+        "    fn produced_queue(&self) -> ProducedQueue {\n        ProducedQueue::new(\"claimed\", &[MessageQueueSemantics::UNBOUNDED])\n    }",
+        "a type that makes no promise is taken to produce an unbounded queue",
+    ),
+    # --- verifyRequirements: the selected type must fulfill the requirement of the actor and of the dispatcher (unit tests) ---
+    "mailbox-actor-requirement-not-verified": (
+        "src/actor/props.rs",
+        "        check(\n            self.required_queue,\n            format!(\"actor class [class {}]\", self.actor_class),\n        )",
+        "        Ok(())",
+        "the requirement of the actor is not verified against the queue the selected type promises",
+    ),
+    "mailbox-dispatcher-requirement-not-verified": (
+        "src/actor/props.rs",
+        "        check(\n            dispatcher_requirement,\n            format!(\"dispatcher [{DEFAULT_DISPATCHER_ID}]\"),\n        )?;\n",
+        "",
+        "the requirement of the dispatcher is not verified against the queue the selected type promises",
+    ),
+    "mailbox-requirement-verified-actor-first": (
+        "src/actor/props.rs",
+        "        check(\n            dispatcher_requirement,\n            format!(\"dispatcher [{DEFAULT_DISPATCHER_ID}]\"),\n        )?;\n        check(\n            self.required_queue,\n            format!(\"actor class [class {}]\", self.actor_class),\n        )",
+        "        check(\n            self.required_queue,\n            format!(\"actor class [class {}]\", self.actor_class),\n        )?;\n        check(\n            dispatcher_requirement,\n            format!(\"dispatcher [{DEFAULT_DISPATCHER_ID}]\"),\n        )",
+        "the requirement of the actor is reported before that of the dispatcher",
+    ),
+    "mailbox-failed-binding-has-no-dispatcher-fallback": (
+        "src/actor/props.rs",
+        "            (None, Some(_), Some(semantics)) => {",
+        "            (None, Some(_), Some(semantics)) if false => {",
+        "an actor binding that does not fit never gives way to the binding of the dispatcher",
+    ),
+    "mailbox-fallback-binding-is-not-verified": (
+        "src/actor/props.rs",
+        "                self.verify_requirements(&*fallback, dispatcher_requirement)?;\n",
+        "",
+        "the binding of the dispatcher used as a fallback is accepted without verification",
+    ),
+    "mailbox-selected-id-is-not-verified": (
+        "src/actor/props.rs",
+        "            if let Some(selected) = self.mailbox.take() {",
+        "            if let Some(selected) = self.mailbox.take().filter(|_| self.mailbox_id.is_none()) {",
+        "a mailbox selected by id is not verified",
+    ),
+    # --- killed by MBX-CMP-01 (the oracle's text of the verification failure) ---
+    "mailbox-incompatible-queue-is-a-configuration-cause": (
+        "src/dispatch/mailboxes.rs",
+        "            Self::IncompatibleQueue(_) => ErrorClass::IllegalArgument,",
+        "            Self::IncompatibleQueue(_) => ErrorClass::Configuration,",
+        "the cause of the failure is reported as a ConfigurationException instead of an IllegalArgumentException (MBX-CMP-01)",
+    ),
+    "mailbox-plain-queue-is-printed-as-a-class": (
+        "src/dispatch/queue_semantics.rs",
+        "        is_interface: true,",
+        "        is_interface: false,",
+        "the queue of a type without promise is printed as `class` instead of `interface` (MBX-CMP-01)",
+    ),
+    "mailbox-actor-class-is-named-without-its-kind": (
+        "src/actor/props.rs",
+        "\"actor class [class {}]\"",
+        "\"actor class [{}]\"",
+        "the actor class of the verification failure is printed without `class` (MBX-CMP-01)",
+    ),
+    "mailbox-fallback-failure-reports-the-first-error": (
+        "src/actor/props.rs",
+        "                self.verify_requirements(&*fallback, dispatcher_requirement)?;\n",
+        "                self.verify_requirements(&*fallback, dispatcher_requirement)\n                    .map_err(|_| unfit)?;\n",
+        "a fallback binding that does not fit reports the error of the first binding instead of its own (MBX-CMP-02)",
+    ),
+    "mailbox-dispatcher-requirement-checked-only-on-bindings": (
+        "src/actor/props.rs",
+        "        let unfit = match self.verify_requirements(&*selected, dispatcher_requirement) {",
+        "        let unfit = match self.verify_requirements(&*selected, dispatcher_requirement.filter(|_| self.mailbox_id.is_none())) {",
+        "a mailbox selected by id is not checked against the requirement of the dispatcher (MBX-CMP-02)",
+    ),
+    # --- Dispatch.init: killed by MBX-CMP-03 (the cell re-checks what the type created) ---
+    "mailbox-created-queue-is-not-rechecked": (
+        "src/actor/props.rs",
+        "            .filter(unmet)\n            .map(|required| (required, queue.class_name()))",
+        "            .filter(|_| false)\n            .map(|required| (required, queue.class_name()))",
+        "the queue a type really creates is never checked against the requirement of the actor (MBX-CMP-03)",
+    ),
+    "unbounded-queue-has-no-multiple-consumer-semantics": (
+        "src/dispatch/message_queue.rs",
+        "                || requirement == MessageQueueSemantics::UNBOUNDED\n                || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER,",
+        "                || requirement == MessageQueueSemantics::UNBOUNDED,",
+        "the built-in unbounded queue does not have MultipleConsumerSemantics (Mailbox.scala:538)",
+    ),
+    "multiple-consumer-requirement-has-no-default-binding": (
+        "src/dispatch/mailboxes.rs",
+        "                    MessageQueueSemantics::UNBOUNDED,\n                    MessageQueueSemantics::MULTIPLE_CONSUMER,\n",
+        "                    MessageQueueSemantics::UNBOUNDED,\n",
+        "reference.conf's binding of MultipleConsumerSemantics to unbounded-queue-based is missing",
+    ),
+    "mailbox-undeclared-queue-does-not-keep-the-promise": (
+        "src/actor/props.rs",
+        "                    .unwrap_or_else(|| promise.satisfies(*required))",
+        "                    .unwrap_or(false)",
+        "a queue that does not declare its semantics is rejected even though its type promised them (the review's medium finding)",
+    ),
+    "mailbox-recheck-names-the-required-class-as-created": (
+        "src/actor/props.rs",
+        "            .map(|required| (required, queue.class_name()))",
+        "            .map(|required| (required, required.class_name()))",
+        "the failure of Dispatch.init names the requirement where it should name the class of the queue (MBX-CMP-03)",
+    ),
+    "mailbox-unbounded-queue-has-no-effective-semantics": (
+        "src/dispatch/message_queue.rs",
+        "        Some(\n            requirement == MessageQueueSemantics::MESSAGE_QUEUE\n                || requirement == MessageQueueSemantics::UNBOUNDED\n                || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER,\n        )",
+        "        Some(requirement == MessageQueueSemantics::MESSAGE_QUEUE || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER)",
+        "the default unbounded queue does not have the unbounded semantics, so the actors that require it fail to initialise (MBX-REQ, family fall)",
+    ),
+    # --- the unbounded deque based mailbox (AC-MBX-011) ---
+    "deque-enqueue-first-goes-to-the-tail": (
+        "src/dispatch/deque_mailbox.rs",
+        "self.envelopes().push_front(envelope);",
+        "self.envelopes().push_back(envelope);",
+        "enqueueFirst appends at the tail, so a message put back is processed after the ones that arrived meanwhile (MBX-DQ-01)",
+    ),
+    "deque-dequeue-takes-the-tail": (
+        "src/dispatch/deque_mailbox.rs",
+        "self.envelopes().pop_front()",
+        "self.envelopes().pop_back()",
+        "the deque mailbox delivers the newest message first (MBX-DQ-01)",
+    ),
     # --- the single consumer only unbounded mailbox (AC-MBX-006) ---
     "single-consumer-dequeue-takes-the-tail": (
         "src/dispatch/single_consumer_mailbox.rs",
@@ -1836,6 +1991,79 @@ MUTANTS = {
         "!self.envelopes().is_empty()",
         "false",
         "has_messages answers false with messages queued, so the actor is not scheduled again (MBX-SCQ-01)",
+    ),
+    "single-consumer-queue-is-for-several-consumers": (
+        "src/dispatch/single_consumer_mailbox.rs",
+        "&[MessageQueueSemantics::UNBOUNDED],",
+        "&[MessageQueueSemantics::UNBOUNDED, MessageQueueSemantics::MULTIPLE_CONSUMER],",
+        "the queue declares MultipleConsumerSemantics, which Pekko's NodeMessageQueue does not (MBX-SCQ-01)",
+    ),
+    # --- guardians: the default mailbox and the unbounded requirement of each (killed by tests/classic_guardian_mailbox.rs, see UNIT_MUTANTS) ---
+    "guardian-root-ignores-the-default-mailbox": (
+        "src/actor/system.rs",
+        "            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),\n            walker,",
+        "            Props::new(|| Guardian),\n            walker,",
+        "the root guardian does not take the registered default mailbox",
+    ),
+    "guardian-user-ignores-the-default-mailbox": (
+        "src/actor/system.rs",
+        "            \"user\",\n            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),",
+        "            \"user\",\n            Props::new(|| Guardian),",
+        "the /user guardian does not take the registered default mailbox",
+    ),
+    "guardian-system-ignores-the-default-mailbox": (
+        "src/actor/system.rs",
+        "            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
+        "            }),",
+        "the /system guardian does not take the registered default mailbox",
+    ),
+    "guardian-requires-nothing": (
+        "src/actor/system.rs",
+        "impl Actor for Guardian {\n    fn required_message_queue() -> Option<MessageQueueSemantics> {\n        Some(MessageQueueSemantics::UNBOUNDED)\n    }",
+        "impl Actor for Guardian {",
+        "the root and /user guardians do not declare the unbounded requirement",
+    ),
+    "system-guardian-requires-nothing": (
+        "src/actor/system.rs",
+        "impl Actor for SystemGuardian {\n    fn required_message_queue() -> Option<MessageQueueSemantics> {\n        Some(MessageQueueSemantics::UNBOUNDED)\n    }",
+        "impl Actor for SystemGuardian {",
+        "the /system guardian does not declare the unbounded requirement",
+    ),
+    "failed-root-guardian-does-not-end-the-system": (
+        "src/actor/system.rs",
+        "                self.cause_of_termination.complete(Err(cause));\n                child.stop();\n",
+        "                self.cause_of_termination.complete(Err(cause));\n",
+        "the walker records the failure of the root guardian but does not stop it: its death notification never comes",
+    ),
+    "walker-keeps-walking-after-a-guardian-failed": (
+        "src/actor/system.rs",
+        "        if !self.is_walking() {",
+        "        if false {",
+        "the walker does not stop walking after a failure: the death of the root reaches stop() and completes whenTerminated",
+    ),
+    "walker-stop-links-only-a-success-to-the-public-future": (
+        "src/actor/system.rs",
+        "            if let Some(outcome) = self.cause_of_termination.wait(Duration::ZERO) {",
+        "            if let Some(outcome @ Ok(_)) = self.cause_of_termination.wait(Duration::ZERO) {",
+        "stop() after a guardian failed does not link the failure to the public future (completeWith of a failed future)",
+    ),
+    "walker-signal-fires-for-any-discarded-message": (
+        "src/actor/system.rs",
+        "            if matches!(&msg, SystemMessage::DeathWatchNotification { actor, .. } if self.root.get() == Some(actor))\n            {",
+        "            if true {",
+        "the test signal is set by any message the walker discards, not only by the death notification of the root",
+    ),
+    "dispatchers-guard-does-not-shut-down": (
+        "src/actor/guardian_termination_tests.rs",
+        "        self.0.shut_down_dispatchers();\n    }\n}",
+        "    }\n}",
+        "the guard of the test does not shut the dispatchers down when dropped",
+    ),
+    "walker-stop-does-not-complete-the-public-future": (
+        "src/actor/system.rs",
+        "                self.termination.complete(outcome);",
+        "                let _ = outcome;",
+        "stop() completes the walker's own promise but not the provider's terminationPromise that whenTerminated exposes",
     ),
 }
 
@@ -1891,6 +2119,37 @@ def sh(cmd, timeout=None, **kw):
     return subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout, **kw)
 
 
+HERMETIC_FLAGS = ["--locked", "--offline", "--message-format=json"]   # the authoritative Cargo.lock, no network, compiler diagnostics as data
+
+
+def hermetic(command):
+    """`cargo <subcommand> ...` as a locked, offline invocation that reports its diagnostics as JSON (the sub-command stays first)."""
+    return [command[0], command[1], *HERMETIC_FLAGS, *command[2:]]
+
+
+def provision_dependencies():
+    """The one step that may use the network: fetches the locked dependencies into the Cargo cache. Every build afterwards is offline. -> (ok, detail)."""
+    fetched = sh(["cargo", "fetch", "--locked", "--manifest-path", os.path.join(ROOT, "Cargo.toml")], timeout=BUILD_TIMEOUT)
+    return fetched.returncode == 0, fetched.stderr[-600:]
+
+
+def classify_cargo_failure(failed):
+    """A failed locked, offline cargo run -> (BUILD_ERROR, rendered compiler errors) only when the compiler itself reported an error, else (HARNESS_ERROR, stderr):
+    a missing dependency, a lock that no longer fits or a broken toolchain is a failure of the infrastructure, never a verdict about the mutation."""
+    errors = []
+    for line in failed.stdout.splitlines():
+        try:
+            diagnostic = json.loads(line)
+        except ValueError:
+            continue
+        message = diagnostic.get("message") if isinstance(diagnostic, dict) and diagnostic.get("reason") == "compiler-message" else None
+        if isinstance(message, dict) and message.get("level") == "error":
+            errors.append(message.get("rendered") or "")
+    if errors:
+        return BUILD_ERROR, "".join(errors)[-600:]
+    return HARNESS_ERROR, failed.stderr[-600:]
+
+
 REPLAY_TIMEOUT = 900   # seconds; a hung replay is reported as TIMEOUT, never as "detected"
 BUILD_TIMEOUT = 900
 SUMMARY = re.compile(r"(\d+)/(\d+) cases passed")
@@ -1910,7 +2169,11 @@ def classify(replay_result, binary):
     """-> (outcome, passed, total, line), counting only applicable cases (NOT_APPLICABLE ones must be rejected
     explicitly, see replay_lib). A mutant is detected only when the replay ran to completion and either an
     applicable case diverged or a NOT_APPLICABLE input was no longer rejected explicitly."""
-    ev = replay_lib.evaluate(binary, replay_result)
+    return classify_evaluation(replay_lib.evaluate(binary, replay_result))
+
+
+def classify_evaluation(ev):
+    """The verdict of one evaluation of a replay (the evaluation is computed once, so that the history seeded from it is the very one that was classified)."""
     if ev["ok"] is None:
         return HARNESS_ERROR, None, None, ev["line"]
     detail = ev["line"] + "".join(f"; {p}" for p in ev["na_problems"])
@@ -1922,6 +2185,32 @@ def classify(replay_result, binary):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "walker-stop-links-only-a-success-to-the-public-future": ("actor::guardian_termination_tests", "stop_called_directly_after_the_failure_fails_the_public_future_with_the_cause"),
+    "walker-signal-fires-for-any-discarded-message": ("actor::guardian_termination_tests", "only_the_death_notification_of_the_failed_root_is_the_synchronisation_signal"),
+    "dispatchers-guard-does-not-shut-down": ("actor::guardian_termination_tests", "the_guard_shuts_the_dispatchers_down_when_the_test_unwinds"),
+    "guardian-root-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
+    "guardian-user-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
+    "guardian-system-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
+    "guardian-requires-nothing": ("actor::guardian_termination_tests", "a_failed_root_guardian_leaves_when_terminated_pending"),
+    "system-guardian-requires-nothing": ("test:classic_guardian_mailbox", "the_user_and_system_guardians_that_fail_to_initialise_end_the_system_normally"),
+    "failed-root-guardian-does-not-end-the-system": ("actor::guardian_termination_tests", "a_failed_root_guardian_leaves_when_terminated_pending"),
+    "walker-keeps-walking-after-a-guardian-failed": ("actor::guardian_termination_tests", "a_failed_root_guardian_leaves_when_terminated_pending"),
+    "walker-stop-does-not-complete-the-public-future": ("test:classic_guardian_mailbox", "a_default_mailbox_that_promises_nothing_leaves_the_guardians_unchecked"),
+    "unbounded-queue-has-no-multiple-consumer-semantics": ("dispatch::message_queue", "the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one"),
+    "multiple-consumer-requirement-has-no-default-binding": ("dispatch::mailboxes", "the_built_in_queues_have_the_multiple_consumer_semantics_and_reference_conf_binds_it"),
+    "mailbox-undeclared-queue-does-not-keep-the-promise": ("dispatch::mailboxes", "a_queue_that_does_not_declare_its_semantics_keeps_the_promise_of_its_type"),
+    "mailbox-actor-requirement-not-verified": ("dispatch::mailboxes", "the_queue_a_selected_type_promises_must_fulfill_the_requirement_of_the_actor"),
+    "mailbox-dispatcher-requirement-not-verified": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_is_verified_and_reported_before_that_of_the_actor"),
+    "mailbox-requirement-verified-actor-first": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_is_verified_and_reported_before_that_of_the_actor"),
+    "mailbox-failed-binding-has-no-dispatcher-fallback": ("dispatch::mailboxes", "a_binding_that_fails_verification_gives_way_to_the_requirement_of_the_dispatcher"),
+    "mailbox-fallback-binding-is-not-verified": ("dispatch::mailboxes", "a_binding_that_fails_verification_gives_way_to_the_requirement_of_the_dispatcher"),
+    "mailbox-selected-id-is-not-verified": ("dispatch::mailboxes", "the_queue_a_selected_type_promises_must_fulfill_the_requirement_of_the_actor"),
+    "produced-queue-ignores-the-listed-semantics": ("dispatch::queue_semantics", "a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue"),
+    "produced-queue-satisfies-any-requirement": ("dispatch::queue_semantics", "a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue"),
+    "produced-queue-does-not-satisfy-message-queue": ("dispatch::queue_semantics", "a_produced_queue_satisfies_the_semantics_it_lists_and_every_queue_satisfies_message_queue"),
+    "unbounded-mailbox-promises-no-semantics": ("dispatch::message_queue", "the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one"),
+    "bounded-mailbox-promises-an-unbounded-queue": ("dispatch::bounded_node_queue", "the_non_blocking_bounded_mailbox_promises_a_bounded_queue"),
+    "type-without-promise-claims-an-unbounded-queue": ("dispatch::message_queue", "the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one"),
     "mailbox-dispatcher-any-queue-counts-as-a-requirement": ("dispatch::mailboxes", "a_dispatcher_requiring_any_queue_has_no_requirement"),
     "mailbox-dispatcher-requirement-beats-the-actor": ("dispatch::mailboxes", "the_requirement_of_the_actor_decides_before_the_requirement_of_the_dispatcher"),
     "mailbox-dispatcher-requirement-is-not-the-fallback": ("dispatch::mailboxes", "the_requirement_of_the_dispatcher_serves_an_actor_whose_requirement_has_no_binding"),
@@ -1978,11 +2267,11 @@ UNIT_MUTANTS = {
 
 
 def run_unit_mutant(scratch, name, work):
-    """Runs the unit tests of the module on the mutated copy. DETECTED needs the expected test to fail (a compile error or
+    """Runs the unit tests of the module (or, as `test:<file>`, the integration test file) on the mutated copy. DETECTED needs the expected test to fail (a compile error or
     some other failing test is not enough) and the same tests to pass on the unmutated tree (the control)."""
     module, expected_test = UNIT_MUTANTS[name]
     def cargo_test(manifest, target):
-        return sh(["cargo", "test", "--manifest-path", manifest, "--target-dir", target, "--lib", module], timeout=BUILD_TIMEOUT)
+        return sh(hermetic(["cargo", "test", "--manifest-path", manifest, "--target-dir", target, *(["--test", module[5:]] if module.startswith("test:") else ["--lib", module])]), timeout=BUILD_TIMEOUT)
     try:
         control = cargo_test(os.path.join(ROOT, "crates", "rakka-actor", "Cargo.toml"), os.path.join(scratch, "target-control-" + name))
         r = cargo_test(os.path.join(work, "Cargo.toml"), os.path.join(scratch, "target-" + name))
@@ -1991,8 +2280,9 @@ def run_unit_mutant(scratch, name, work):
     if control.returncode != 0:
         return HARNESS_ERROR, None, None, "the unit tests fail on the unmutated tree"
     summary = next((l for l in r.stdout.splitlines() if l.startswith("test result:")), "(no test result)")
-    if "could not compile" in r.stderr:
-        return BUILD_ERROR, None, None, r.stderr[-600:]
+    kind, detail = classify_cargo_failure(r) if r.returncode != 0 and "test result:" not in r.stdout else (None, None)
+    if kind is not None:
+        return kind, None, None, detail
     if r.returncode == 0:
         return UNDETECTED, None, None, summary
     if "test result: FAILED" in r.stdout and f"{expected_test} ... FAILED" in r.stdout:
@@ -2000,16 +2290,26 @@ def run_unit_mutant(scratch, name, work):
     return HARNESS_ERROR, None, None, "failed, but not the expected test: " + summary
 
 
-def run_mutant(scratch, name, rel, old, new, why):
-    # a scratch workspace holds the copied crate (it inherits version/edition from the workspace)
-    ws = os.path.join(scratch, name)
+def prepare_scratch_workspace(ws):
+    """A scratch workspace holds the copied crate (it inherits version/edition from the workspace) and the authoritative Cargo.lock. -> (crate directory, None) or (None, why)."""
     work = os.path.join(ws, "rakka-actor")
+    authoritative_lock = os.path.join(ROOT, "Cargo.lock")
+    if not os.path.exists(authoritative_lock):
+        return None, "the authoritative Cargo.lock is missing: no mutant is built without it"
     shutil.copytree(CRATE, work, ignore=shutil.ignore_patterns("target"))
+    shutil.copy(authoritative_lock, os.path.join(ws, "Cargo.lock"))      # the same resolution as the real tree, never a fresh one
     shutil.copy(os.path.join(ROOT, "Cargo.toml"), os.path.join(ws, "Cargo.toml"))
     rootm = open(os.path.join(ws, "Cargo.toml")).read()
     rootm = re.sub(r'(?s)^.*?\[workspace\]', '[workspace]', rootm)
     rootm = rootm.replace('members = [".", "crates/rakka-actor", "crates/rakka-actor-typed"]', 'members = ["rakka-actor"]')
     open(os.path.join(ws, "Cargo.toml"), "w").write(rootm)
+    return work, None
+
+
+def run_mutant(scratch, name, rel, old, new, why):
+    work, problem = prepare_scratch_workspace(os.path.join(scratch, name))
+    if work is None:
+        return HARNESS_ERROR, None, None, problem
     path = os.path.join(work, rel)
     src = open(path).read()
     if src.count(old) != 1:
@@ -2027,12 +2327,13 @@ def run_mutant(scratch, name, rel, old, new, why):
             shutil.copy(os.path.join(ROOT, "cases", "oracle-only", golden_file), golden)
         return run_unit_mutant(scratch, name, work)
     try:
-        b = sh(["cargo", "build", "--release", "--manifest-path", os.path.join(work, "Cargo.toml"),
-                "--target-dir", os.path.join(scratch, "target-" + name), "--example", "classic-parity"], timeout=BUILD_TIMEOUT)
+        b = sh(hermetic(["cargo", "build", "--release", "--manifest-path", os.path.join(work, "Cargo.toml"),
+                         "--target-dir", os.path.join(scratch, "target-" + name), "--example", "classic-parity"]), timeout=BUILD_TIMEOUT)
     except subprocess.TimeoutExpired:
         return TIMEOUT, None, None, "cargo build"
     if b.returncode != 0:
-        return BUILD_ERROR, None, None, b.stderr[-600:]
+        kind, detail = classify_cargo_failure(b)
+        return kind, None, None, detail
     binary = os.path.join(scratch, "target-" + name, PARITY)
     if not os.path.exists(binary):
         return BUILD_ERROR, None, None, "mutated binary missing"
@@ -2056,14 +2357,19 @@ def full_replay_verdict(binary, name):
         return TIMEOUT, None, None, "rust-anything replay"
     except replay_lib.ReplayLockTimeout:
         return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
-    outcome = classify(replay_result, binary)
+    evaluation = replay_lib.evaluate(binary, replay_result)
+    outcome = classify_evaluation(evaluation)
     # the report of THIS replay (read under the checkout lock), never the shared file as it is now; a verdict always rewrites it, so that an
     # earlier report can never sit under a verdict path that no longer applies
     scope = "output rejected" if replay_result.passed is None else f"{replay_result.total} cases"
     publish_mutant_report(name, f"full replay ({scope}); outcome {outcome[0]}",
                           replay_result.report_text if replay_result.report_text is not None else "(this replay produced no report)\n")
-    if replay_result.passed is not None:
-        write_killers(name, replay_result.failures)
+    # the history is seeded only by a confirmed detection and holds only the cases that count (not NOT_APPLICABLE, not NA:Q-CFG-30); a survivor has none; a replay that
+    # could not be understood (an infrastructure failure) leaves the history as it was
+    if outcome[0] in (DETECTED, UNDETECTED):
+        confirmed = evaluation["applicable_failing"] if outcome[0] == DETECTED else []
+        write_killers(name, confirmed)
+        record_provenance(name, confirmed, replay_result.total)
     return outcome
 
 
@@ -2076,9 +2382,61 @@ def killers_file(name):
 
 
 def write_killers(name, cases):
-    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it."""
+    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it.
+    Sorted and without duplicates, so that the same detection always writes the same bytes (a file that can be versioned and diffed); only case names, never a path."""
     with open(killers_file(name), "w", encoding="utf-8") as killers:
-        killers.write("".join(f"{case}\n" for case in cases))
+        killers.write("".join(f"{case}\n" for case in sorted(set(cases))))
+
+
+PROVENANCE_HEADER = "mutant\tpatch\tcases\tkillers\tcrate_tree\tcorpus\n"
+
+
+def provenance_file():
+    return os.path.join(REPORTS, "killers-provenance.tsv")
+
+
+def patch_hash(name):
+    """16 hex digits that identify the DEFINITION of a mutant (file, pattern, replacement): a history recorded for another definition is not about this mutant. None: not defined."""
+    definition = MUTANTS.get(name) or TOOL_MUTANTS.get(name) or SELFTEST.get(name)
+    if definition is None:
+        return None
+    return hashlib.sha256("\0".join(definition[:3]).encode("utf-8")).hexdigest()[:16]
+
+
+def crate_tree():
+    """The git tree id of the code under test (traceability of a recorded history); `unknown` when git cannot tell. No path, no time."""
+    done = subprocess.run(["git", "-C", ROOT, "rev-parse", "HEAD:crates/rakka-actor"], capture_output=True, text=True)
+    return done.stdout.strip() if done.returncode == 0 and done.stdout.strip() else "unknown"
+
+
+def read_provenance():
+    try:
+        with open(provenance_file(), encoding="utf-8") as manifest:
+            rows = [line.rstrip("\n").split("\t") for line in manifest.readlines()[1:] if line.strip()]
+    except OSError:
+        return {}
+    return {row[0]: row for row in rows if len(row) == 6}
+
+
+def write_provenance(rows):
+    """Sorted by mutant and rewritten whole: the same detections give the same bytes. Written aside and renamed, so that a reader never sees half a manifest."""
+    body = PROVENANCE_HEADER + "".join("\t".join(rows[name]) + "\n" for name in sorted(rows))
+    temporary = provenance_file() + ".tmp"
+    with open(temporary, "w", encoding="utf-8") as manifest:
+        manifest.write(body)
+    os.replace(temporary, provenance_file())
+
+
+def record_provenance(name, cases, corpus):
+    """After a CONFIRMED detection: what the history of this mutant is about. `cases` empty (a survivor, or nothing that counts) removes the entry."""
+    rows = read_provenance()
+    if cases and patch_hash(name):
+        with open(killers_file(name), "rb") as killers:
+            digest = hashlib.sha256(killers.read()).hexdigest()[:16]
+        rows[name] = [name, patch_hash(name), str(len(set(cases))), digest, crate_tree(), str(corpus)]
+    else:
+        rows.pop(name, None)
+    write_provenance(rows)
 
 
 def cases_listed_in_report(name):
@@ -2103,6 +2461,9 @@ def known_killers(name):
             listed = [line.strip() for line in killers if line.strip()]
     except OSError:
         listed = cases_listed_in_report(name)
+    recorded = read_provenance().get(name)
+    if recorded is not None and recorded[1] != patch_hash(name):
+        return []        # recorded for another definition of the mutant (or one that no longer exists): more work, never another verdict
     not_applicable = replay_lib.load_not_applicable()
     return [case for case in listed if case not in not_applicable][:FAST_KILL_CANDIDATES]
 
@@ -2170,10 +2531,28 @@ def publish_fast_kill_report(name, kill):
                                 f"{kill.reason}; no full replay ran", kill.report_text)
 
 
-def run_tool_mutant(scratch, name, rel, old, new, why):
-    """A mutant of tools/parity itself: a scratch copy is patched and the unit tests of the tools must fail."""
-    work = os.path.join(scratch, name)
+MIRROR_NOT_LINKED = {".git", ".gates", "target", "upstream"}
+
+
+def tool_mutant_workspace(scratch, name):
+    """The tests of tools/parity find their repository from their own location (ROOT three levels up, the sibling tools/gates). A tool mutant therefore runs in a
+    mirror of the repository: every entry of it is linked, except tools/parity, which is the copy that is mutated. -> the copy."""
+    mirror = os.path.join(scratch, name)
+    os.makedirs(os.path.join(mirror, "tools"))
+    for entry in os.listdir(ROOT):
+        if entry != "tools" and entry not in MIRROR_NOT_LINKED:
+            os.symlink(os.path.join(ROOT, entry), os.path.join(mirror, entry))
+    for entry in os.listdir(os.path.join(ROOT, "tools")):
+        if entry != "parity":
+            os.symlink(os.path.join(ROOT, "tools", entry), os.path.join(mirror, "tools", entry))
+    work = os.path.join(mirror, "tools", "parity")
     shutil.copytree(TOOLS, work, ignore=shutil.ignore_patterns("__pycache__"))
+    return work
+
+
+def run_tool_mutant(scratch, name, rel, old, new, why):
+    """A mutant of tools/parity itself: a copy in a mirror of the repository is patched and the unit tests of the tools must fail."""
+    work = tool_mutant_workspace(scratch, name)
     path = os.path.join(work, rel)
     src = open(path).read()
     if src.count(old) != 1:
@@ -2323,6 +2702,10 @@ def main():
     scratch = make_scratch_directory()
     results = {}
     try:
+        if not control_only and not tool_only:
+            provisioned, provisioning_problem = provision_dependencies()
+            if not provisioned:   # the builds below are offline: each mutant then reports the infrastructure error itself
+                print(f"dependency provisioning failed: {provisioning_problem}", flush=True)
         for name, (rel, old, new, why) in mutants.items():
             if control_only or (only and name not in only):
                 continue

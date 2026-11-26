@@ -12,6 +12,8 @@ use std::sync::Mutex;
 
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::props::AnyMessage;
+use crate::dispatch::deque_mailbox::DequeBasedMessageQueue;
+use crate::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 
 /// `Envelope`: a user message and its sender.
 pub struct Envelope {
@@ -30,18 +32,44 @@ pub trait MessageQueue: Send + Sync {
     fn number_of_messages(&self) -> usize;
     /// Whether anything is queued.
     fn has_messages(&self) -> bool;
-    /// Moves every queued envelope, oldest first, to `dead_letters` as addressed to `owner` (Pekko's `cleanUp(owner, deadLetters)`).
+    /// Moves every queued envelope, in dequeue order, to `dead_letters` as addressed to `owner` (Pekko's `cleanUp(owner, deadLetters)`).
     fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue);
+
+    /// `requirement.isInstance(queue)`: whether this very queue has the semantics `requirement`, when the queue knows its own. What a type
+    /// promises ([`MailboxType::produced_queue`]) is checked again against this when the actor is created (`Dispatch.init`). `None`, the
+    /// default, is a queue that does not declare its semantics: what its type promised stands, so a queue that only forgets to say it is
+    /// not rejected. A queue that answers `Some` is held to its answer, which is how a type that promises what its queue lacks is found.
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
+        let _ = requirement;
+        None
+    }
+
+    /// The queue as a deque when it also takes envelopes at its head (`DequeBasedMessageQueueSemantics`); `None` otherwise.
+    fn as_deque(&self) -> Option<&dyn DequeBasedMessageQueue> {
+        None
+    }
+
+    /// `getClass.getName` of the queue, as `Dispatch.init` names what a type really created. A JVM class name has no Rust equivalent:
+    /// the default is the type path of the implementor.
+    fn class_name(&self) -> &'static str {
+        std::any::type_name_of_val(self)
+    }
 }
 
 /// `org.apache.pekko.dispatch.MailboxType`: what `Props::with_mailbox` selects and the cell asks, once per actor, for the queue of its mailbox
 /// (`Mailboxes.scala` `MailboxType.create`). A restart keeps the queue, so `create` is not called again.
 ///
 /// Pekko passes `(owner, system)`; here the type receives the system's `deadLetters`, which is all a queue needs to dead-letter a refusal
-/// without holding its owner (PROP-7B-1, alternative A). Queue semantics (`ProducesMessageQueue`, `requirements`) wait for Q-MBX-2.
+/// without holding its owner (PROP-7B-1, alternative A). What the type promises about its queue is `produced_queue` (`ProducesMessageQueue`).
 pub trait MailboxType: Send + Sync + 'static {
     /// A new, empty queue for one mailbox.
     fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue>;
+
+    /// `ProducesMessageQueue[T]`: the queue class this type promises and the semantics it satisfies. A type that makes no promise
+    /// produces a plain `MessageQueue` (`Mailboxes.getProducedMessageQueueType`).
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::PLAIN
+    }
 }
 
 /// FIFO queue without a bound (the `ConcurrentLinkedQueue` of `UnboundedMailbox`).
@@ -51,6 +79,18 @@ struct UnboundedMessageQueue {
 }
 
 impl MessageQueue for UnboundedMessageQueue {
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
+        Some(
+            requirement == MessageQueueSemantics::MESSAGE_QUEUE
+                || requirement == MessageQueueSemantics::UNBOUNDED
+                || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER,
+        )
+    }
+
+    fn class_name(&self) -> &'static str {
+        "org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue"
+    }
+
     fn enqueue(&self, _receiver: &ActorRef, envelope: Envelope) -> bool {
         self.queue.lock().unwrap().push_back(envelope);
         true
@@ -83,6 +123,16 @@ impl MailboxType for UnboundedMailbox {
     fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
         UnboundedMailbox::create(self)
     }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue",
+            &[
+                MessageQueueSemantics::UNBOUNDED,
+                MessageQueueSemantics::MULTIPLE_CONSUMER,
+            ],
+        )
+    }
 }
 
 impl UnboundedMailbox {
@@ -98,6 +148,38 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Barrier};
     use std::thread;
+
+    #[test]
+    fn the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one() {
+        struct Silent;
+        impl MailboxType for Silent {
+            fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+                UnboundedMailbox.create()
+            }
+        }
+        let unbounded = UnboundedMailbox.produced_queue();
+        assert!(unbounded.satisfies(MessageQueueSemantics::UNBOUNDED));
+        assert!(!unbounded.satisfies(MessageQueueSemantics::BOUNDED));
+        assert_eq!(
+            unbounded.to_string(),
+            "class org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue"
+        );
+        assert_eq!(Silent.produced_queue(), ProducedQueue::PLAIN);
+        // the queue it really creates answers for itself (what `Dispatch.init` asks)
+        let created = UnboundedMailbox.create();
+        assert_eq!(
+            created.satisfies(MessageQueueSemantics::UNBOUNDED),
+            Some(true)
+        );
+        assert_eq!(
+            created.satisfies(MessageQueueSemantics::MULTIPLE_CONSUMER),
+            Some(true)
+        );
+        assert_eq!(
+            created.satisfies(MessageQueueSemantics::BOUNDED),
+            Some(false)
+        );
+    }
 
     fn receiver() -> ActorRef {
         crate::dispatch::test_support::recorder("pekko://sys/user/receiver").1

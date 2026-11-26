@@ -2,6 +2,8 @@
 //! `ActorSystem` (local, Classic): provider, guardians and the termination chain.
 //! Follows `ActorSystem.scala` and `LocalActorRefProvider` in `ActorRefProvider.scala`.
 
+use crate::actor::fault::Throwable;
+use crate::dispatch::message_queue::UnboundedMailbox;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock, Weak};
 use std::time::Duration;
@@ -27,7 +29,7 @@ pub struct Promise<T> {
 }
 
 impl<T: Clone> Promise<T> {
-    fn new() -> Arc<Self> {
+    pub(crate) fn new() -> Arc<Self> {
         Arc::new(Promise {
             value: Mutex::new(None),
             cv: Condvar::new(),
@@ -58,8 +60,9 @@ impl<T: Clone> Promise<T> {
     }
 }
 
-/// `whenTerminated`.
-pub type TerminationFuture = Arc<Promise<Terminated>>;
+/// `whenTerminated`: a `Future[Terminated]`, so one outcome: `wait` gives `None` on timeout, `Some(Ok(Terminated))` or `Some(Err(cause))`. It can only
+/// fail through the walker's `stop()` after a guardian failed (`terminationPromise.completeWith(causeOfTermination.future)`, `ActorRefProvider.scala:467`).
+pub type TerminationFuture = Arc<Promise<Result<Terminated, Throwable>>>;
 
 /// The few `pekko.actor.default-dispatcher` settings the port supports (no HOCON `Config` yet).
 #[derive(Debug, Clone)]
@@ -128,6 +131,9 @@ pub(crate) struct SystemInner {
     pub dead_letter_mailbox: DeadLetterMailbox,
     termination: TerminationFuture,
     terminating: AtomicBool,
+    /// The bubble walker, for the tests that look at its state.
+    #[cfg(test)]
+    pub(crate) walker: OnceLock<Arc<BubbleWalker>>,
 }
 
 /// Messages marked `DeadLetterSuppression` in Pekko (`Terminated`, `PoisonPill`): never published as `DeadLetter`.
@@ -211,11 +217,53 @@ impl InternalActorRef for DeadLetters {
 }
 
 /// `theOneWhoWalksTheBubblesOfSpaceTime`: the root guardian's supervisor; its death ends the system.
-struct BubbleWalker {
+pub(crate) struct BubbleWalker {
     path: ActorPath,
-    termination: TerminationFuture,
+    /// The provider's `terminationPromise`, which `whenTerminated` exposes: it follows `cause_of_termination` only in `stop()`.
+    pub(crate) termination: TerminationFuture,
+    /// `causeOfTermination`: the walker's own promise. It completes with the cause when a guardian fails, or with `Terminated` in `stop()`;
+    /// while it is pending the walker is walking (`isWalking`) and handles messages.
+    pub(crate) cause_of_termination: Arc<Promise<Result<Terminated, Throwable>>>,
     dispatchers: Vec<Arc<Dispatcher>>,
-    root: OnceLock<ActorRef>,
+    pub(crate) root: OnceLock<ActorRef>,
+    /// Completes when the walker discards, after it stopped walking, the `DeathWatchNotification` of the root guardian (and of no other actor).
+    #[cfg(test)]
+    pub(crate) notification_discarded: Arc<Promise<()>>,
+}
+
+impl BubbleWalker {
+    pub(crate) fn new(
+        path: ActorPath,
+        termination: TerminationFuture,
+        dispatchers: Vec<Arc<Dispatcher>>,
+    ) -> Self {
+        BubbleWalker {
+            path,
+            termination,
+            cause_of_termination: Promise::new(),
+            dispatchers,
+            root: OnceLock::new(),
+            #[cfg(test)]
+            notification_discarded: Promise::new(),
+        }
+    }
+
+    /// `isWalking`.
+    fn is_walking(&self) -> bool {
+        !self.cause_of_termination.is_completed()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn dispatchers_are_shut_down(&self) -> bool {
+        self.dispatchers.iter().all(|d| d.is_shut_down())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn shut_down_dispatchers(&self) {
+        for d in &self.dispatchers {
+            d.shutdown();
+        }
+    }
 }
 
 impl InternalActorRef for BubbleWalker {
@@ -224,26 +272,45 @@ impl InternalActorRef for BubbleWalker {
     }
     fn tell(&self, _msg: AnyMessage, _sender: Option<ActorRef>) {}
     fn send_system(&self, msg: SystemMessage) {
-        if !self.termination.is_completed()
-            && matches!(msg, SystemMessage::DeathWatchNotification { .. })
-        {
-            self.stop();
+        // `sendSystemMessage` only while `isWalking` (`ActorRefProvider.scala:483`)
+        if !self.is_walking() {
+            #[cfg(test)]
+            if matches!(&msg, SystemMessage::DeathWatchNotification { actor, .. } if self.root.get() == Some(actor))
+            {
+                self.notification_discarded.complete(());
+            }
+            return;
+        }
+        match msg {
+            SystemMessage::DeathWatchNotification { .. } => self.stop(),
+            // `causeOfTermination.tryFailure(ex)` then `child.stop()`: the walker stops walking, so the death of the root is discarded above, `stop()`
+            // never runs and the public `terminationPromise` stays pending (the cause is not read by anything else)
+            SystemMessage::Failed { child, cause } => {
+                self.cause_of_termination.complete(Err(cause));
+                child.stop();
+            }
+            _ => {}
         }
     }
     fn stop(&self) {
         if let Some(root) = self.root.get() {
-            self.termination.complete(Terminated {
+            // `causeOfTermination.trySuccess(Terminated(root))` (a no-op once a guardian failed), then
+            // `terminationPromise.completeWith(causeOfTermination.future)`: the public future gets whatever the internal one holds, success or failure
+            self.cause_of_termination.complete(Ok(Terminated {
                 actor: root.clone(),
                 existence_confirmed: true,
                 address_terminated: true,
-            });
+            }));
+            if let Some(outcome) = self.cause_of_termination.wait(Duration::ZERO) {
+                self.termination.complete(outcome);
+            }
         }
         for d in &self.dispatchers {
             d.shutdown();
         }
     }
     fn is_terminated(&self) -> bool {
-        self.termination.is_completed()
+        !self.is_walking()
     }
 }
 
@@ -253,6 +320,9 @@ impl InternalActorRef for BubbleWalker {
 struct Guardian;
 
 impl Actor for Guardian {
+    fn required_message_queue() -> Option<MessageQueueSemantics> {
+        Some(MessageQueueSemantics::UNBOUNDED)
+    }
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if msg.is::<Terminated>() {
             let me = ctx.self_ref();
@@ -273,6 +343,9 @@ struct SystemGuardian {
 }
 
 impl Actor for SystemGuardian {
+    fn required_message_queue() -> Option<MessageQueueSemantics> {
+        Some(MessageQueueSemantics::UNBOUNDED)
+    }
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if let Some(t) = msg.downcast_ref::<Terminated>() {
             if t.actor == self.guardian {
@@ -369,20 +442,29 @@ impl ActorSystem {
             dead_letters,
             termination: termination.clone(),
             terminating: AtomicBool::new(false),
+            #[cfg(test)]
+            walker: OnceLock::new(),
         });
 
+        // `defaultMailbox = mailboxes.lookup(DefaultMailboxId)`: the guardians take it directly, not through `getMailboxType`
+        let default_mailbox = sys
+            .settings
+            .mailboxes
+            .lookup(Mailboxes::DEFAULT_MAILBOX_ID)
+            .unwrap_or_else(|_| Arc::new(UnboundedMailbox));
         // rootGuardian, supervised by the bubble walker
-        let bubble = Arc::new(BubbleWalker {
-            path: root_path.new_child("bubble-walker", 0),
+        let bubble = Arc::new(BubbleWalker::new(
+            root_path.new_child("bubble-walker", 0),
             termination,
-            dispatchers: vec![dispatcher, internal_dispatcher.clone()],
-            root: OnceLock::new(),
-        });
+            vec![dispatcher, internal_dispatcher.clone()],
+        ));
+        #[cfg(test)]
+        sys.walker.set(bubble.clone()).ok();
         let walker = ActorRef(bubble.clone());
         let root = ActorCell::new_local(
             &sys,
             internal_dispatcher.clone(),
-            Props::new(|| Guardian),
+            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),
             walker,
             root_path.clone(),
         );
@@ -402,14 +484,18 @@ impl ActorSystem {
             root.init_child(name, cell.self_ref());
             cell
         };
-        let user = make_guardian("user", Props::new(|| Guardian));
+        let user = make_guardian(
+            "user",
+            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),
+        );
         sys.guardian.set(user.clone()).ok();
         let user_ref = user.self_ref();
         let system_guardian = make_guardian(
             "system",
             Props::new(move || SystemGuardian {
                 guardian: user_ref.clone(),
-            }),
+            })
+            .with_resolved_mailbox(default_mailbox.clone()),
         );
         sys.system_guardian.set(system_guardian.clone()).ok();
 
@@ -561,7 +647,10 @@ mod tests {
         );
         let dup = sys.actor_of_named(Props::new(|| Noop), "a").unwrap_err();
         assert_eq!(dup.class(), ErrorClass::InvalidActorName);
-        sys.terminate().wait(WAIT).expect("terminated");
+        sys.terminate()
+            .wait(WAIT)
+            .expect("ended")
+            .expect("terminated normally");
     }
 
     #[test]
@@ -574,7 +663,11 @@ mod tests {
             std::thread::sleep(Duration::from_millis(2));
         }
         assert!(a.is_terminated());
-        let t = sys.terminate().wait(WAIT).expect("terminated");
+        let t = sys
+            .terminate()
+            .wait(WAIT)
+            .expect("ended")
+            .expect("terminated normally");
         assert!(t.existence_confirmed && t.address_terminated);
         let late = sys.actor_of_named(Props::new(|| Noop), "late").unwrap_err();
         assert_eq!(late.class(), ErrorClass::IllegalState);
@@ -584,7 +677,10 @@ mod tests {
     fn terminating_an_empty_system_closes_the_guardian_to_new_children() {
         // regression: `setTerminated()` must run when there are no children to wait for
         let sys = ActorSystem::create("t3").unwrap();
-        sys.terminate().wait(WAIT).expect("terminated");
+        sys.terminate()
+            .wait(WAIT)
+            .expect("ended")
+            .expect("terminated normally");
         assert_eq!(
             sys.actor_of(Props::new(|| Noop)).unwrap_err().class(),
             ErrorClass::IllegalState

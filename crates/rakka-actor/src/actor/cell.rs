@@ -162,7 +162,7 @@ pub(crate) fn new_uid() -> i32 {
 }
 
 /// `Dispatchers.DefaultDispatcherId`: the dispatcher every actor runs on until `Props` can select another one.
-const DEFAULT_DISPATCHER_ID: &str = "pekko.actor.default-dispatcher";
+pub(crate) const DEFAULT_DISPATCHER_ID: &str = "pekko.actor.default-dispatcher";
 
 /// How the real cell of an asynchronously created actor is made (`newCell`): the system, the actor's props, its parent, its path and the
 /// reference it knows as its own. `Err` is the exception Pekko's constructor or `init` would throw.
@@ -259,6 +259,18 @@ impl ActorCell {
             children: Mutex::new(Children::Empty),
             name_counter: AtomicU64::new(0),
             st: Mutex::new(CellState::default()),
+        });
+        // `Dispatch.init`: what the type promised is checked against the queue it really created; the failure is delayed into `Create`
+        let creation_failure = creation_failure.or_else(|| {
+            let (required, got) = cell.props.unmet_queue_requirement(&*cell.queue)?;
+            let me = cell.self_ref();
+            Some(Throwable::new(
+                "org.apache.pekko.actor.ActorInitializationException",
+                Some(&format!(
+                    "{}: Actor [{me:?}] requires mailbox type [{required}] got [{got}]",
+                    cell.path
+                )),
+            ))
         });
         assert!(
             cell.system_queue

@@ -18,7 +18,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-DSP-2`, `Q-DSP-5`, `Q-MBX-1`, `Q-MBX-11`, `Q-MBX-2`, `Q-MBX-3`, `Q-MBX-4`, `Q-MBX-7`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-DSP-2`, `Q-DSP-5`, `Q-MBX-1`, `Q-MBX-11`, `Q-MBX-15`, `Q-MBX-2`, `Q-MBX-3`, `Q-MBX-4`, `Q-MBX-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -77,10 +77,10 @@ Filas: AC-MBX-019, AC-MBX-020, AC-MBX-021, AC-MBX-022, AC-MBX-023. Contratos y a
 | AC-MBX-008 | NonBlockingBoundedMailbox | cola acotada lock-free con `try_push` | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:327 | Q-MBX-6 |
 | AC-MBX-009 | UnboundedPriorityMailbox / BoundedPriorityMailbox y PriorityGenerator | `BinaryHeap` con comparador | actor-tests/src/test/scala/org/apache/pekko/dispatch/PriorityDispatcherSpec.scala:58,63… | Q-MBX-1, Q-MBX-4, Q-MBX-7 |
 | AC-MBX-010 | UnboundedStablePriorityMailbox / BoundedStablePriorityMailbox | heap con secuencia | actor-tests/src/test/scala/org/apache/pekko/dispatch/StablePriorityDispatcherSpec.scala:6… | Q-MBX-1, Q-MBX-4, Q-MBX-7 |
-| AC-MBX-011 | Mailboxes basados en deque (Unbounded/BoundedDequeBasedMailbox, enqueueFirst) | `Mutex<VecDeque>` con push_front | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:260,288,358,375,… | Q-MBX-1, Q-MBX-2 |
+| AC-MBX-011 | Mailboxes basados en deque (Unbounded/BoundedDequeBasedMailbox, enqueueFirst) | `Mutex<VecDeque>` con push_front | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:260,288,358,375,… | Q-MBX-1, Q-MBX-14, Q-MBX-15, Q-MBX-2 |
 | AC-MBX-012 | Mailboxes control-aware (ControlMessage primero) | dos colas; marker trait `ControlMessage` | actor-tests/src/test/scala/org/apache/pekko/dispatch/ControlAwareDispatcherSpec.scala:37,… | Q-MBX-1, Q-MBX-3 |
-| AC-MBX-013 | Precedencia de selección de mailbox y verificación de requisitos | resolución en `Mailboxes::mailbox_type_for(props, dispatcher_cfg)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:256-459 | Q-MBX-13, Q-MBX-2 |
-| AC-MBX-014 | Lookup de mailboxes por id, `bounded-capacity:N`, lookupByQueueType,… | registro + parseo de prefijo | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:267,303,310 | Q-DSP-2, Q-MBX-1, Q-MBX-12, Q-MBX-13, Q-MBX-2, Q-X-1 |
+| AC-MBX-013 | Precedencia de selección de mailbox y verificación de requisitos | resolución en `Mailboxes::mailbox_type_for(props, dispatcher_cfg)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:256-459 | Q-MBX-13, Q-MBX-14, Q-MBX-2 |
+| AC-MBX-014 | Lookup de mailboxes por id, `bounded-capacity:N`, lookupByQueueType,… | registro + parseo de prefijo | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:267,303,310 | Q-DSP-2, Q-MBX-1, Q-MBX-12, Q-MBX-13, Q-MBX-14, Q-MBX-2, Q-X-1 |
 | AC-MBX-015 | Traits de semántica de cola… | `enum QueueSemantics` + método `required_queue()` en el actor | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:267 | Q-MBX-2 |
 | AC-MBX-016 | Stash: stash(), unstash, unstashAll (orden original), capacidad,… | `Stash` en el contexto (Vec<Envelope>) + push_front | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:121-127,129-13… | Q-MBX-1 |
 | AC-MBX-017 | Stash en restart y stop: preRestart y postStop hacen unstashAll | - | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithStashSpec.scala:149-184 ;… | - |

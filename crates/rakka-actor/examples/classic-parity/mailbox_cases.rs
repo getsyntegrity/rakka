@@ -10,14 +10,16 @@ use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
+use rakka_actor::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
 use rakka_actor::actor::system::{ActorSystem, Settings};
 use rakka_actor::config::Config;
 use rakka_actor::dispatch::Terminated;
 use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
+use rakka_actor::dispatch::deque_mailbox::UnboundedDequeBasedMailbox;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, UnboundedMailbox};
-use rakka_actor::dispatch::queue_semantics::MessageQueueSemantics;
+use rakka_actor::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 use rakka_actor::dispatch::single_consumer_mailbox::SingleConsumerOnlyUnboundedMailbox;
 use rakka_actor::dispatch::system_queue::SystemQueue;
 use rakka_actor::event::{Channel, DeadLetter};
@@ -454,10 +456,67 @@ fn clean_up_moves_to_dead_letters() -> String {
     )
 }
 
-/// `MBX-SCQ-01`: the single consumer only queue, driven directly.
-fn the_single_consumer_only_queue_is_first_in_first_out() -> String {
+fn put_first(queue: &dyn MessageQueue, text: &str) {
+    let envelope = Envelope {
+        message: Arc::new(text.to_owned()),
+        sender: None,
+    };
+    queue
+        .as_deque()
+        .expect("a deque based queue")
+        .enqueue_first(&receiver(), envelope);
+}
+
+/// `MBX-DQ-01`: `enqueueFirst` goes to the head, ahead of what is queued; `cleanUp` drains from the head.
+fn the_unbounded_deque_based_queue_takes_envelopes_at_its_head() -> String {
+    let queue = UnboundedDequeBasedMailbox.create(&receiver());
+    let dead_letters = UnboundedMailbox.create();
+    let is = |semantics| queue.satisfies(semantics) == Some(true);
+    let kind = format!(
+        "class={} unbounded={} multipleConsumer={} bounded={}",
+        queue.class_name(),
+        is(MessageQueueSemantics::UNBOUNDED),
+        is(MessageQueueSemantics::MULTIPLE_CONSUMER),
+        is(MessageQueueSemantics::BOUNDED),
+    );
+    put(&*queue, "a");
+    put(&*queue, "b");
+    put_first(&*queue, "c");
+    put_first(&*queue, "d");
+    let before = counts(&*queue);
+    let drained = drain(&*queue);
+    let then = if queue.dequeue().is_none() {
+        "null"
+    } else {
+        "message"
+    };
+    let mixed = format!("{before} {drained} then {then} {}", counts(&*queue));
+    put_first(&*queue, "x");
+    put_first(&*queue, "y");
+    let only_first = drain(&*queue);
+    put(&*queue, "a");
+    put_first(&*queue, "c");
+    put(&*queue, "b");
+    queue.clean_up(&receiver(), &*dead_letters);
+    format!(
+        "{kind} | mixed {mixed} | onlyFirst {only_first} | cleanUp source {} target {}",
+        counts(&*queue),
+        drain(&*dead_letters)
+    )
+}
+
+/// `MBX-SCQ-01`: the single consumer only queue, driven directly; the class and the semantics it declares.
+fn the_single_consumer_only_queue_is_first_in_first_out_and_declares_its_semantics() -> String {
     let queue = SingleConsumerOnlyUnboundedMailbox.create(&receiver());
     let dead_letters = UnboundedMailbox.create();
+    let is = |semantics| queue.satisfies(semantics) == Some(true);
+    let kind = format!(
+        "class={} unbounded={} multipleConsumer={} bounded={}",
+        queue.class_name(),
+        is(MessageQueueSemantics::UNBOUNDED),
+        is(MessageQueueSemantics::MULTIPLE_CONSUMER),
+        is(MessageQueueSemantics::BOUNDED),
+    );
     let none = if queue.dequeue().is_none() {
         "null"
     } else {
@@ -478,7 +537,7 @@ fn the_single_consumer_only_queue_is_first_in_first_out() -> String {
     put(&*queue, "y");
     queue.clean_up(&receiver(), &*dead_letters);
     format!(
-        "new {empty} | {mixed} | cleanUp source {} target {}",
+        "{kind} | new {empty} | {mixed} | cleanUp source {} target {}",
         counts(&*queue),
         drain(&*dead_letters)
     )
@@ -528,7 +587,8 @@ fn watching_dead_letters_is_not_answered() -> String {
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 
@@ -642,7 +702,8 @@ fn turn_interleaving(
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 
@@ -795,7 +856,8 @@ fn a_parent_stopped_after_its_child_started_waits_for_it() -> String {
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 
@@ -875,7 +937,8 @@ fn senders_racing_with_the_installation_of_the_real_cell() -> String {
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 
@@ -1076,7 +1139,8 @@ fn finish_id_case(env: &IdEnv, system: ActorSystem, line: String) -> String {
     system
         .terminate()
         .wait(Duration::from_secs(10))
-        .expect("terminated");
+        .expect("terminated")
+        .expect("terminated normally");
     line
 }
 
@@ -1161,6 +1225,12 @@ fn the_default_and_built_in_ids_are_unbounded_fifo() -> String {
 struct LifoQueue(Mutex<Vec<Envelope>>);
 
 impl MessageQueue for LifoQueue {
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
+        Some(
+            requirement == MessageQueueSemantics::MESSAGE_QUEUE
+                || requirement == MessageQueueSemantics::UNBOUNDED,
+        )
+    }
     fn enqueue(&self, _receiver: &ActorRef, envelope: Envelope) -> bool {
         self.0.lock().unwrap().push(envelope);
         true
@@ -1185,6 +1255,13 @@ struct LifoMailbox;
 impl MailboxType for LifoMailbox {
     fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
         Box::<LifoQueue>::default()
+    }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "pilot.MailboxOracle$LifoQueue",
+            &[MessageQueueSemantics::UNBOUNDED],
+        )
     }
 }
 
@@ -1313,6 +1390,56 @@ const AUDIT_TRAIL: MessageQueueSemantics =
     MessageQueueSemantics::new("pilot.MailboxOracle$AuditTrail");
 const UNMAPPED: MessageQueueSemantics = MessageQueueSemantics::new("pilot.MailboxOracle$Unmapped");
 
+/// An unbounded FIFO queue that has exactly the semantics in `has` (the oracle's `AuditTrailQueue`, or what a lying type really creates).
+struct SemanticsQueue {
+    inner: Box<dyn MessageQueue>,
+    has: &'static [MessageQueueSemantics],
+    class: &'static str,
+}
+
+impl MessageQueue for SemanticsQueue {
+    fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
+        self.inner.enqueue(receiver, envelope)
+    }
+    fn dequeue(&self) -> Option<Envelope> {
+        self.inner.dequeue()
+    }
+    fn number_of_messages(&self) -> usize {
+        self.inner.number_of_messages()
+    }
+    fn has_messages(&self) -> bool {
+        self.inner.has_messages()
+    }
+    fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
+        self.inner.clean_up(owner, dead_letters)
+    }
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
+        Some(requirement == MessageQueueSemantics::MESSAGE_QUEUE || self.has.contains(&requirement))
+    }
+    fn class_name(&self) -> &'static str {
+        self.class
+    }
+}
+
+/// The oracle's `AuditTrailType`: an unbounded FIFO queue that also has the `AuditTrail` semantics.
+struct AuditTrailMailbox;
+impl MailboxType for AuditTrailMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        Box::new(SemanticsQueue {
+            inner: UnboundedMailbox.create(),
+            has: &[MessageQueueSemantics::UNBOUNDED, AUDIT_TRAIL],
+            class: "pilot.MailboxOracle$AuditTrailQueue",
+        })
+    }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "pilot.MailboxOracle$AuditTrailQueue",
+            &[MessageQueueSemantics::UNBOUNDED, AUDIT_TRAIL],
+        )
+    }
+}
+
 /// An `IdWorker` that declares `RequiresMessageQueue[T]`, as the oracle's `UnboundedWorker`, `BoundedWorker`, ...
 macro_rules! requiring_worker {
     ($name:ident, $semantics:expr) => {
@@ -1347,7 +1474,7 @@ fn an_actor_requiring_a_queue_gets_the_mailbox_bound_to_it() -> String {
         "cap4-mailbox",
         NonBlockingBoundedMailbox::new(4).expect("capacity"),
     );
-    mailboxes.register("audit-mailbox", UnboundedMailbox);
+    mailboxes.register("audit-mailbox", AuditTrailMailbox);
     mailboxes.bind_requirement(MessageQueueSemantics::BOUNDED, "cap4-mailbox");
     mailboxes.bind_requirement(AUDIT_TRAIL, "audit-mailbox");
     let system = env.system_with(settings);
@@ -1464,6 +1591,368 @@ fn a_selected_id_decides_the_mailbox_over_the_requirement() -> String {
     finish_id_case(&env, system, line)
 }
 
+/// The oracle's `PlainType`: a mailbox whose queue has the `AuditTrail` semantics but whose type does not promise it.
+struct PlainMailbox;
+impl MailboxType for PlainMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        UnboundedMailbox.create()
+    }
+}
+
+/// One attempt of `MBX-CMP-01`: `actorOf` with the mailbox `mailbox` selected. The class of the actor is the only difference in the
+/// text: the JVM names it `java_class`, Rust by its type path.
+fn attempt_to_create<A: Actor>(
+    env: &Arc<IdEnv>,
+    system: &ActorSystem,
+    label: &'static str,
+    props: Props,
+    java_class: &str,
+) -> String {
+    let before = env.started.load(Ordering::SeqCst);
+    let outcome = match system.actor_of_named(props, label) {
+        Ok(_) => {
+            wait_until(|| env.started.load(Ordering::SeqCst) > before);
+            "created".to_owned()
+        }
+        Err(error) => format!(
+            "{}: {} | cause {}",
+            error.class().java_name(),
+            error.message(),
+            error.cause().unwrap_or("none")
+        )
+        .replace(std::any::type_name::<A>(), java_class),
+    };
+    format!("{label}: {outcome}; ")
+}
+
+/// The `attempts` of the oracle: `actorOf` of `$worker` (an `IdWorker` that declares what it requires) with `$mailbox` selected, or of the
+/// plain worker when `$worker` is `IdWorker`; appends what it throws, or "created", to `$line`.
+macro_rules! attempt {
+    ($line:ident, $env:ident, $system:ident, $label:literal, IdWorker, $java:literal, $mailbox:expr) => {
+        $line.push_str(&attempt_to_create::<IdWorker>(
+            &$env,
+            &$system,
+            $label,
+            $env.props($label, $mailbox),
+            $java,
+        ))
+    };
+    ($line:ident, $env:ident, $system:ident, $label:literal, $worker:ident, $java:literal, $mailbox:expr) => {{
+        let props = $env.requiring($label, $worker);
+        let props = match $mailbox {
+            Some(id) => props.with_mailbox_id(id),
+            None => props,
+        };
+        $line.push_str(&attempt_to_create::<$worker>(
+            &$env,
+            &$system,
+            $label,
+            props,
+            &format!("pilot.MailboxOracle${}", $java),
+        ))
+    }};
+}
+
+/// `MBX-CMP-01`: the queue the selected mailbox promises must fulfill the requirement of the actor (`verifyRequirements`); a type that does
+/// not promise its queue produces a plain `MessageQueue` even when the queue it creates has the capability.
+fn the_selected_mailbox_must_fulfill_the_requirement_of_the_actor() -> String {
+    let env = IdEnv::new();
+    let mut settings = Settings::default();
+    settings.mailboxes.register("plain-mailbox", PlainMailbox);
+    settings
+        .mailboxes
+        .register("audit-mailbox", AuditTrailMailbox);
+    let system = env.system_with(settings);
+    let mut line = String::new();
+    attempt!(
+        line,
+        env,
+        system,
+        "unboundedOnPlain",
+        UnboundedWorker,
+        "UnboundedWorker",
+        Some("plain-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "auditOnUnbounded",
+        AuditTrailWorker,
+        "AuditTrailWorker",
+        Some("unbounded")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "boundedOnUnbounded",
+        BoundedWorker,
+        "BoundedWorker",
+        Some("unbounded")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "unboundedOnAudit",
+        UnboundedWorker,
+        "UnboundedWorker",
+        Some("audit-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "auditOnAudit",
+        AuditTrailWorker,
+        "AuditTrailWorker",
+        Some("audit-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "anyOnPlain",
+        AnyQueueWorker,
+        "AnyQueueWorker",
+        Some("plain-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "nothingOnPlain",
+        IdWorker,
+        "unused",
+        Some("plain-mailbox")
+    );
+    finish_id_case(&env, system, line.trim().to_owned())
+}
+
+/// `MBX-CMP-02`: with a dispatcher that requires the unbounded semantics, the selected mailbox must fulfill that requirement and the actor's,
+/// the dispatcher's first; an actor binding that does not fit gives way to the dispatcher's binding, which is verified too.
+fn the_selected_mailbox_must_fulfill_the_requirements_of_the_dispatcher_and_the_actor() -> String {
+    let env = IdEnv::new();
+    let mut settings = Settings {
+        mailbox_requirement: Some(MessageQueueSemantics::UNBOUNDED),
+        ..Settings::default()
+    };
+    let mailboxes = &mut settings.mailboxes;
+    mailboxes.register(
+        "cap4-mailbox",
+        NonBlockingBoundedMailbox::new(4).expect("capacity"),
+    );
+    mailboxes.register("audit-mailbox", AuditTrailMailbox);
+    mailboxes.bind_requirement(MessageQueueSemantics::BOUNDED, "cap4-mailbox");
+    mailboxes.bind_requirement(AUDIT_TRAIL, "audit-mailbox");
+    let system = env.system_with(settings);
+    let mut line = String::new();
+    attempt!(
+        line,
+        env,
+        system,
+        "dispatcherUnmetBySelected",
+        IdWorker,
+        "unused",
+        Some("cap4-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "dispatcherMetBySelected",
+        IdWorker,
+        "unused",
+        Some("audit-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "boundedBindingFallsBack",
+        BoundedWorker,
+        "BoundedWorker",
+        None::<&str>
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "bothMetByAudit",
+        AuditTrailWorker,
+        "AuditTrailWorker",
+        None::<&str>
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "actorUnmetOnly",
+        BoundedWorker,
+        "BoundedWorker",
+        Some("unbounded")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "bothUnmet",
+        BoundedWorker,
+        "BoundedWorker",
+        Some("cap4-mailbox")
+    );
+    attempt!(
+        line,
+        env,
+        system,
+        "plainOnDefault",
+        IdWorker,
+        "unused",
+        None::<&str>
+    );
+    finish_id_case(&env, system, line.trim().to_owned())
+}
+
+/// The oracle's `LiarType`: promises the `AuditTrail` queue but creates one that does not have that semantics.
+struct LiarMailbox;
+impl MailboxType for LiarMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        Box::new(SemanticsQueue {
+            inner: UnboundedMailbox.create(),
+            has: &[MessageQueueSemantics::UNBOUNDED],
+            class: "pilot.MailboxOracle$LifoQueue",
+        })
+    }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "pilot.MailboxOracle$AuditTrailQueue",
+            &[MessageQueueSemantics::UNBOUNDED, AUDIT_TRAIL],
+        )
+    }
+}
+
+/// The oracle's `InitParent`: creates `kid` from each `Props` it is sent and logs what it sees: the failure its supervision gets, the death.
+struct InitParent {
+    env: Arc<IdEnv>,
+    attempts: usize,
+}
+
+impl Actor for InitParent {
+    fn supervisor_strategy(&self) -> SupervisorStrategy {
+        let env = self.env.clone();
+        OneForOneStrategy::new(10, move |failure| {
+            let message = failure.message.clone().unwrap_or_default();
+            let without_uid = message.split('#').next().unwrap_or_default().to_owned();
+            env.log
+                .lock()
+                .unwrap()
+                .push(format!("failure:{}: {without_uid}", failure.class));
+            Directive::Stop
+        })
+        .into()
+    }
+
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if let Some(props) = msg.downcast_ref::<Props>() {
+            let label = if self.attempts == 0 {
+                "created"
+            } else {
+                "again"
+            };
+            self.attempts += 1;
+            let entry = match ctx.actor_of_named(props.clone(), "kid") {
+                Ok(kid) => {
+                    ctx.watch(&kid);
+                    label.to_owned()
+                }
+                Err(error) => format!("{label}:{}: {}", error.class().java_name(), error.message()),
+            };
+            self.env.log.lock().unwrap().push(entry);
+            true
+        } else if msg.downcast_ref::<Terminated>().is_some() {
+            self.env.log.lock().unwrap().push("terminated".to_owned());
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// `MBX-CMP-03`: what a type promises is checked again against the queue it really creates when the actor is made (`Dispatch.init`): `actorOf`
+/// returns, the failure is delayed into `Create`, the actor stops and its name is free.
+fn a_type_that_promises_its_queue_is_checked_against_the_queue_it_creates() -> String {
+    let env = IdEnv::new();
+    let mut settings = Settings::default();
+    settings.mailboxes.register("liar-mailbox", LiarMailbox);
+    let system = env.system_with(settings);
+    let parent = system
+        .actor_of_named(
+            Props::new({
+                let env = env.clone();
+                move || InitParent {
+                    env: env.clone(),
+                    attempts: 0,
+                }
+            })
+            .with_mailbox_id("unbounded"),
+            "parent",
+        )
+        .expect("parent");
+    let has_logged = |entry: &str| env.log.lock().unwrap().iter().any(|l| l.starts_with(entry));
+    parent.tell(
+        env.requiring("liar", AuditTrailWorker)
+            .with_mailbox_id("liar-mailbox"),
+        None,
+    );
+    wait_until(|| has_logged("terminated"));
+    parent.tell(env.props("again", None), None);
+    wait_until(|| has_logged("again") && env.started.load(Ordering::SeqCst) == 1);
+    let line = format!(
+        "{} | started={}",
+        env.log.lock().unwrap().join(" | "),
+        env.started.load(Ordering::SeqCst)
+    );
+    finish_id_case(&env, system, line)
+}
+
+/// The oracle's `CountingDefaultType`: a default mailbox that counts its queues and promises an unbounded one.
+struct CountingDefaultMailbox(Arc<AtomicUsize>);
+impl MailboxType for CountingDefaultMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        Box::new(SemanticsQueue {
+            inner: UnboundedMailbox.create(),
+            has: &[MessageQueueSemantics::UNBOUNDED],
+            class: "pilot.MailboxOracle$LifoQueue",
+        })
+    }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "pilot.MailboxOracle$LifoQueue",
+            &[MessageQueueSemantics::UNBOUNDED],
+        )
+    }
+}
+
+/// `MBX-GRD-01`: the guardians take the registered default mailbox directly (`mailboxes.lookup(DefaultMailboxId)`): three queues of it exist
+/// before any actor is created.
+fn the_guardians_take_the_registered_default_mailbox() -> String {
+    let env = IdEnv::new();
+    let queues = Arc::new(AtomicUsize::new(0));
+    let mut settings = Settings::default();
+    settings.mailboxes.register(
+        Mailboxes::DEFAULT_MAILBOX_ID,
+        CountingDefaultMailbox(queues.clone()),
+    );
+    let system = env.system_with(settings);
+    // Pekko also makes `deadLetterListener` and `eventStreamUnsubscriber`, which Rakka does not have: only the guardians are counted
+    let line = format!("guardianQueues={}", queues.load(Ordering::SeqCst));
+    finish_id_case(&env, system, line)
+}
+
 /// `MBX-REQ-04`: the semantics the dispatcher requires (`default-dispatcher.mailbox-requirement`) selects the mailbox of the actors that
 /// require nothing and of those whose own requirement has no binding; the binding of the actor itself and a selected id come first.
 fn the_requirement_of_the_dispatcher_selects_the_mailbox_after_the_actor_and_the_id() -> String {
@@ -1474,7 +1963,7 @@ fn the_requirement_of_the_dispatcher_selects_the_mailbox_after_the_actor_and_the
     };
     let mailboxes = &mut settings.mailboxes;
     mailboxes.register("lifo-mailbox", LifoMailbox);
-    mailboxes.register("audit-mailbox", UnboundedMailbox);
+    mailboxes.register("audit-mailbox", AuditTrailMailbox);
     mailboxes.bind_requirement(MessageQueueSemantics::UNBOUNDED, "lifo-mailbox");
     mailboxes.bind_requirement(AUDIT_TRAIL, "audit-mailbox");
     let system = env.system_with(settings);
@@ -1581,6 +2070,30 @@ pub fn rust_lines() -> Vec<(String, String)> {
             the_requirement_of_the_dispatcher_selects_the_mailbox_after_the_actor_and_the_id(),
         ),
         (
+            "MBX-CMP-01 an actor whose requirement the queue promised by the selected mailbox does not fulfill fails actorOf at the call; one it fulfills, or an actor that requires nothing, is created",
+            the_selected_mailbox_must_fulfill_the_requirement_of_the_actor(),
+        ),
+        (
+            "MBX-CMP-02 the queue of the selected mailbox must fulfill the requirement of the dispatcher and that of the actor, the dispatcher's reported first; an actor binding that does not fit gives way to the dispatcher's binding",
+            the_selected_mailbox_must_fulfill_the_requirements_of_the_dispatcher_and_the_actor(),
+        ),
+        (
+            "MBX-CMP-03 a type that promises its queue is checked against the queue it creates when the actor is made: actorOf returns, the actor fails to initialise and stops, and its name is free",
+            a_type_that_promises_its_queue_is_checked_against_the_queue_it_creates(),
+        ),
+        (
+            "MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created",
+            the_guardians_take_the_registered_default_mailbox(),
+        ),
+        (
+            "MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head",
+            the_unbounded_deque_based_queue_takes_envelopes_at_its_head(),
+        ),
+        (
+            "MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue",
+            the_single_consumer_only_queue_is_first_in_first_out_and_declares_its_semantics(),
+        ),
+        (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",
             watching_dead_letters_is_not_answered(),
         ),
@@ -1603,10 +2116,6 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-UT-08 senders racing with the installation of the real cell: nothing lost, nothing repeated, per-sender order kept",
             senders_racing_with_the_installation_of_the_real_cell(),
-        ),
-        (
-            "MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order",
-            the_single_consumer_only_queue_is_first_in_first_out(),
         ),
     ]
     .into_iter()

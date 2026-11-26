@@ -4,15 +4,15 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::ConfigurationException;
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::cell::ActorCell;
+use crate::actor::cell::{ActorCell, DEFAULT_DISPATCHER_ID};
 use crate::actor::deploy::{Deploy, NO_MAILBOX_GIVEN};
+use crate::actor::errors::IllegalArgumentError;
 use crate::actor::fault::Throwable;
 use crate::actor::supervision::{OneForOneStrategy, SupervisorStrategy};
-use crate::dispatch::mailboxes::Mailboxes;
+use crate::dispatch::mailboxes::{MailboxSelectionError, Mailboxes};
 use crate::dispatch::message_queue::{MailboxType, MessageQueue, UnboundedMailbox};
-use crate::dispatch::queue_semantics::MessageQueueSemantics;
+use crate::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 
 /// A user-level message (`Any` in Pekko). Messages are immutable and shared, so the same message can
 /// be fanned out (event stream, dead letters) without copying.
@@ -82,6 +82,8 @@ pub struct Props {
     mailbox_id: Option<String>,
     /// `RequiresMessageQueue[T]` of the actor class.
     required_queue: Option<MessageQueueSemantics>,
+    /// The class of the actor, which `verifyRequirements` names when its queue does not fit.
+    actor_class: &'static str,
 }
 
 impl Props {
@@ -92,6 +94,7 @@ impl Props {
             mailbox: None,
             mailbox_id: None,
             required_queue: A::required_message_queue(),
+            actor_class: std::any::type_name::<A>(),
         }
     }
 
@@ -108,6 +111,13 @@ impl Props {
     pub fn with_mailbox(mut self, mailbox: impl MailboxType) -> Props {
         self.mailbox = Some(Arc::new(mailbox));
         self.mailbox_id = None;
+        self
+    }
+
+    /// The props of a guardian: the mailbox type is the one given, whatever the props select (the provider hands the guardians
+    /// `mailboxes.lookup(DefaultMailboxId)` directly, without `getMailboxType`).
+    pub(crate) fn with_resolved_mailbox(mut self, mailbox: Arc<dyn MailboxType>) -> Props {
+        self.mailbox = Some(mailbox);
         self
     }
 
@@ -135,7 +145,7 @@ impl Props {
         mut self,
         mailboxes: &Mailboxes,
         dispatcher_requirement: Option<MessageQueueSemantics>,
-    ) -> Result<Props, ConfigurationException> {
+    ) -> Result<Props, MailboxSelectionError> {
         if self.mailbox.is_none() {
             // `hasMailboxRequirement`: a dispatcher that requires `MessageQueue` requires nothing (`Mailboxes.scala:165`)
             let dispatcher_requirement = dispatcher_requirement
@@ -158,8 +168,85 @@ impl Props {
                     (None, None, None) => mailboxes.lookup(self.mailbox_id())?,
                 },
             );
+            if let Some(selected) = self.mailbox.take() {
+                self.mailbox = Some(self.verified(selected, mailboxes, dispatcher_requirement)?);
+            }
         }
         Ok(self)
+    }
+
+    /// `verifyRequirements` of the selected type. Only the binding of the actor's own requirement has a fallback: when it does not
+    /// fit, the binding of the dispatcher's requirement is tried and verified (`getMailboxType` catches the failure of the first).
+    fn verified(
+        &self,
+        selected: Arc<dyn MailboxType>,
+        mailboxes: &Mailboxes,
+        dispatcher_requirement: Option<MessageQueueSemantics>,
+    ) -> Result<Arc<dyn MailboxType>, MailboxSelectionError> {
+        let unfit = match self.verify_requirements(&*selected, dispatcher_requirement) {
+            Ok(()) => return Ok(selected),
+            Err(unfit) => unfit,
+        };
+        match (
+            &self.mailbox_id,
+            self.required_queue,
+            dispatcher_requirement,
+        ) {
+            (None, Some(_), Some(semantics)) => {
+                let fallback = mailboxes.lookup_by_queue_type(semantics)?;
+                self.verify_requirements(&*fallback, dispatcher_requirement)?;
+                Ok(fallback)
+            }
+            _ => Err(unfit),
+        }
+    }
+
+    /// The queue `mailbox` promises must satisfy what the dispatcher requires and what the actor requires (dispatcher first).
+    fn verify_requirements(
+        &self,
+        mailbox: &dyn MailboxType,
+        dispatcher_requirement: Option<MessageQueueSemantics>,
+    ) -> Result<(), MailboxSelectionError> {
+        let produced = mailbox.produced_queue();
+        let check = |requirement: Option<MessageQueueSemantics>, owner: String| match requirement {
+            Some(required) if !produced.satisfies(required) => Err(
+                MailboxSelectionError::IncompatibleQueue(IllegalArgumentError::new(format!(
+                    "produced message queue type [{produced}] does not fulfill requirement for {owner}. Must be a subclass of [{required}]."
+                ))),
+            ),
+            _ => Ok(()),
+        };
+        check(
+            dispatcher_requirement,
+            format!("dispatcher [{DEFAULT_DISPATCHER_ID}]"),
+        )?;
+        check(
+            self.required_queue,
+            format!("actor class [class {}]", self.actor_class),
+        )
+    }
+
+    /// `Dispatch.init`: a mailbox type that promises its queue is checked again against the queue it really created, when the actor requires
+    /// a type. The requirement that queue does not satisfy and its class (`Dispatch.init`: `requires mailbox type [req] got [class]`).
+    pub(crate) fn unmet_queue_requirement(
+        &self,
+        queue: &dyn MessageQueue,
+    ) -> Option<(MessageQueueSemantics, &'static str)> {
+        let promise = self
+            .mailbox
+            .as_ref()
+            .map(|mailbox| mailbox.produced_queue())
+            .filter(|promise| *promise != ProducedQueue::PLAIN);
+        let unmet = |required: &MessageQueueSemantics| {
+            promise.is_some_and(|promise| {
+                !queue
+                    .satisfies(*required)
+                    .unwrap_or_else(|| promise.satisfies(*required))
+            })
+        };
+        self.required_queue
+            .filter(unmet)
+            .map(|required| (required, queue.class_name()))
     }
 
     /// The queue for one mailbox of this actor; what a bounded queue refuses is dead-lettered to `dead_letters`.

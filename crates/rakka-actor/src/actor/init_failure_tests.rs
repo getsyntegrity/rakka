@@ -259,6 +259,99 @@ fn the_replacement_of_a_cell_that_cannot_be_made_ignores_the_selected_bounded_ma
     );
 }
 
+/// An actor that needs a bounded queue (`RequiresMessageQueue[BoundedMessageQueueSemantics]`).
+struct NeedsABoundedQueue;
+
+impl Actor for NeedsABoundedQueue {
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        true
+    }
+
+    fn required_message_queue() -> Option<crate::dispatch::queue_semantics::MessageQueueSemantics> {
+        Some(crate::dispatch::queue_semantics::MessageQueueSemantics::BOUNDED)
+    }
+}
+
+/// A parent that records, for every failure of its child, `class: message` of what its supervisor strategy receives, and stops the child.
+struct RecordingParent {
+    child_props: Props,
+    causes: Arc<Mutex<Vec<String>>>,
+}
+
+impl Actor for RecordingParent {
+    fn supervisor_strategy(&self) -> SupervisorStrategy {
+        let causes = self.causes.clone();
+        OneForOneStrategy::new(10, move |cause| {
+            causes.lock().unwrap().push(format!(
+                "{}: {}",
+                cause.class,
+                cause.message.as_deref().unwrap_or("")
+            ));
+            Directive::Stop
+        })
+        .into()
+    }
+
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if msg.downcast_ref::<String>().map(String::as_str) != Some("go") {
+            return false;
+        }
+        ctx.cell
+            .attach_child_made_by(
+                self.child_props.clone(),
+                Some("c"),
+                true,
+                cell_that_cannot_be_made,
+            )
+            .unwrap();
+        true
+    }
+}
+
+/// Direct witness of the wiring of `Dispatch.init` in `ActorCell::build`: the replacement of a cell that could not be made has the default UNBOUNDED queue, so the re-check of the
+/// requirement of the actor (bounded) would fail on it too; what the supervisor receives must stay the failure that made the replacement necessary (`initWithFailure`: the
+/// re-check runs only when nothing failed before), never the second one.
+#[test]
+fn the_failure_that_made_the_replacement_necessary_is_kept_ahead_of_the_unmet_queue_requirement_of_that_replacement()
+ {
+    let fixture = Fixture::in_system("mbx");
+    let causes = Arc::new(Mutex::new(Vec::new()));
+    let child_props = Props::new(|| NeedsABoundedQueue).with_mailbox(
+        crate::dispatch::bounded_node_queue::NonBlockingBoundedMailbox::new(0).unwrap(),
+    );
+    let parent = fixture
+        .system
+        .actor_of_named(
+            Props::new({
+                let causes = causes.clone();
+                move || RecordingParent {
+                    child_props: child_props.clone(),
+                    causes: causes.clone(),
+                }
+            }),
+            "parent",
+        )
+        .unwrap();
+    parent.tell("go".to_owned(), None);
+    run_until(&fixture, "the supervisor to receive the failure", || {
+        !causes.lock().unwrap().is_empty()
+    });
+    let received = causes.lock().unwrap().clone();
+    assert_eq!(received.len(), 1, "{received:?}");
+    assert!(
+        received[0].starts_with("org.apache.pekko.actor.ActorInitializationException: "),
+        "{received:?}"
+    );
+    assert!(
+        received[0].ends_with("failure while creating ActorCell"),
+        "the first failure is what the supervisor receives: {received:?}"
+    );
+    assert!(
+        !received[0].contains("requires mailbox type"),
+        "never the unmet requirement of the replacement: {received:?}"
+    );
+}
+
 /// Subscribes an actor to the dead letters and returns the text of what it collects.
 fn collect_dead_letters(fixture: &Fixture) -> Arc<Mutex<Vec<String>>> {
     let dead: Arc<Mutex<Vec<String>>> = Arc::default();
