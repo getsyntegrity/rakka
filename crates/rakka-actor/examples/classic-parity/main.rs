@@ -42,10 +42,24 @@ fn usage() -> ExitCode {
     ExitCode::from(2)
 }
 
+/// The case id on stdin: the input without its final newline.
+fn requested_id(input: &str) -> &str {
+    input.strip_suffix('\n').unwrap_or(input)
+}
+
 /// `<family>-case`: stdin is one oracle case id (ASCII-escaped); prints the line Rust produces for it.
 fn oracle_case(out: &mut impl Write, input: &str, lines: Vec<(String, String)>) -> ExitCode {
-    let id = input.strip_suffix('\n').unwrap_or(input);
-    match lines.iter().find(|(case, _)| case == id) {
+    oracle_case_for(out, input, |_| lines)
+}
+
+/// Like [`oracle_case`] for a family that can produce its lines knowing the id it was asked for (so that it skips the expensive cases that are not that one).
+fn oracle_case_for(
+    out: &mut impl Write,
+    input: &str,
+    lines_for: impl FnOnce(&str) -> Vec<(String, String)>,
+) -> ExitCode {
+    let id = requested_id(input);
+    match lines_for(id).iter().find(|(case, _)| case == id) {
         Some((_, line)) => {
             writeln!(out, "{line}").ok();
             ExitCode::SUCCESS
@@ -129,7 +143,11 @@ fn main() -> ExitCode {
         "path-address-case" => {
             return oracle_case(&mut out, &input, path_address_cases::rust_lines());
         }
-        "util-core-case" => return oracle_case(&mut out, &input, util_core_cases::rust_lines()),
+        "util-core-case" => {
+            return oracle_case_for(&mut out, &input, |id| {
+                util_core_cases::rust_lines_for(Some(id))
+            });
+        }
         "config-hocon-ids" => print_ids(&mut out, config_hocon_cases::rust_lines()),
         "config-hocon-all" => {
             for (_, line) in config_hocon_cases::rust_lines() {

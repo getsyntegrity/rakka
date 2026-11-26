@@ -1,5 +1,6 @@
 """Unit tests of the gate runner's pure decisions: which mutants a change selects, when evidence may be reused, what reaches the console."""
 import json, os, tempfile, unittest
+from unittest import mock
 
 import gates
 
@@ -23,6 +24,53 @@ class MutantSelection(unittest.TestCase):
         everything = list(MUTANTS) + list(TOOL_MUTANTS)
         for changed in ("Cargo.lock", "cases/path-from-string.jsonl", "tools/parity/check_divergence.py", "rust/app-cases/a01.stdout", "oracle/pom.xml"):
             self.assertEqual(gates.select_mutants([changed], MUTANTS, TOOL_MUTANTS), everything, changed)
+
+    def test_the_report_that_every_replay_regenerates_is_not_an_input_of_any_verdict_and_selects_nothing_by_itself(self):
+        self.assertEqual(gates.select_mutants(["rust/app-cases/replay-report.md"], MUTANTS, TOOL_MUTANTS), [])
+
+    def test_that_report_never_hides_a_real_change_next_to_it_and_only_the_exact_path_is_excused(self):
+        everything = list(MUTANTS) + list(TOOL_MUTANTS)
+        self.assertEqual(gates.select_mutants(["rust/app-cases/replay-report.md", "rust/app-cases/a01.stdout"], MUTANTS, TOOL_MUTANTS), everything)
+        for lookalike in ("rust/app-cases/replay-report.md.bak", "rust/app-cases/sub/replay-report.md", "cases/replay-report.md", "rust/app-cases/replay-report.txt"):
+            self.assertEqual(gates.select_mutants([lookalike], MUTANTS, TOOL_MUTANTS), everything, lookalike)
+
+    def test_the_excused_report_still_lets_a_source_change_select_its_own_mutants(self):
+        picked = gates.select_mutants(["rust/app-cases/replay-report.md", "crates/rakka-actor/src/actor/cell.rs"], MUTANTS, TOOL_MUTANTS)
+        self.assertEqual(picked, ["cell-throughput", "cell-dead-letters"])
+
+    UNIT_MUTANTS = {"unit-integration": ("test:classic_guardian_mailbox", "a_test"), "unit-module": ("dispatch::mailboxes", "a_test"), "unit-test-module": ("actor::guardian_termination_tests", "a_test")}
+    WITH_UNITS = {**MUTANTS, "unit-integration": ("actor/system.rs", "o", "n", "why"), "unit-module": ("dispatch/mailboxes.rs", "o", "n", "why"),
+                  "unit-test-module": ("actor/cell.rs", "o", "n", "why")}
+
+    def selected_with_units(self, changed):
+        return gates.select_mutants(changed, self.WITH_UNITS, TOOL_MUTANTS, self.UNIT_MUTANTS)
+
+    def test_the_integration_test_file_that_kills_a_unit_mutant_selects_it_when_it_changes(self):
+        self.assertEqual(self.selected_with_units(["crates/rakka-actor/tests/classic_guardian_mailbox.rs"]), ["unit-integration"])
+
+    def test_the_helpers_shared_by_the_integration_tests_select_every_unit_mutant_that_runs_one(self):
+        self.assertEqual(self.selected_with_units(["crates/rakka-actor/tests/common/mod.rs"]), ["unit-integration"])
+
+    def test_a_test_module_inside_the_crate_that_is_not_a_mutated_file_selects_the_unit_mutants_it_kills(self):
+        self.assertIn("unit-test-module", self.selected_with_units(["crates/rakka-actor/src/actor/guardian_termination_tests.rs"]))       # its own at least; a test module may export helpers to others, so the rest of the lib tests are selected too
+        self.assertEqual(self.selected_with_units(["crates/rakka-actor/src/dispatch/mailboxes/mod.rs"]), ["unit-module"])      # a module that is a directory
+
+    def test_a_test_support_module_shared_inside_the_crate_selects_every_unit_mutant_that_runs_a_lib_test_but_not_the_integration_ones(self):
+        for support in ("crates/rakka-actor/src/dispatch/test_support.rs", "crates/rakka-actor/src/util/test_clock.rs", "crates/rakka-actor/src/config/tests.rs"):
+            self.assertEqual(self.selected_with_units([support]), ["unit-module", "unit-test-module"], support)       # the lib tests import it; `cargo test --test` does not compile it
+
+    def test_an_integration_test_that_no_unit_mutant_runs_is_the_input_of_no_verdict_and_selects_nothing(self):
+        self.assertEqual(self.selected_with_units(["crates/rakka-actor/tests/classic_unrelated.rs"]), [])
+
+    def test_the_filter_of_cargo_test_is_a_substring_so_a_longer_or_shorter_module_path_still_selects(self):
+        self.assertIn("unit-module", self.selected_with_units(["crates/rakka-actor/src/dispatch/mailboxes/queue_tests.rs"]))      # `dispatch::mailboxes` matches `dispatch::mailboxes::queue_tests::...`
+
+    def test_without_the_map_of_unit_mutants_the_selection_is_exactly_what_it_was(self):
+        self.assertEqual(gates.select_mutants(["crates/rakka-actor/tests/classic_guardian_mailbox.rs"], self.WITH_UNITS, TOOL_MUTANTS), [])
+
+    def test_a_unit_mutant_selected_twice_is_listed_once_in_the_order_of_the_inventory(self):
+        picked = self.selected_with_units(["crates/rakka-actor/src/dispatch/mailboxes.rs", "crates/rakka-actor/tests/classic_guardian_mailbox.rs"])
+        self.assertEqual(picked, ["unit-integration", "unit-module"])
 
     def test_a_tool_file_change_selects_its_tool_mutants(self):
         self.assertEqual(gates.select_mutants(["tools/parity/fuzz_diff.py"], MUTANTS, TOOL_MUTANTS), ["fuzz-diff-mutant"])
@@ -373,6 +421,20 @@ class Tiers(unittest.TestCase):
         mutants_gate = lambda tier, sel: next(g for g in gates.tier_gates(tier, sel) if g.name == "mutants")
         self.assertEqual(mutants_gate("pr", ["a", "b"]).command[-2:], ["a", "b"])
         self.assertNotIn("a", mutants_gate("milestone", ["a"]).command)
+
+
+class EachGateInvocationIsOneRun(unittest.TestCase):
+    """The gates of one invocation share a run id, so that the evidence one gate leaves (the clean replay) is usable by the next gate of THIS run only."""
+    def test_main_gives_all_the_gates_of_an_invocation_the_same_run_id_and_every_invocation_its_own(self):
+        seen, two_gates = [], [gates.Gate("a", ["true"], ()), gates.Gate("b", ["true"], ())]
+        with mock.patch.dict(os.environ), mock.patch.object(gates, "tier_gates", return_value=two_gates), mock.patch.object(gates, "git", return_value="head"), \
+                mock.patch.object(gates, "run_gate", side_effect=lambda *args: (seen.append(os.environ.get(gates.RUN_ID_ENV)), ("PASS", 0, "PASS"))[1]):
+            os.environ.pop(gates.RUN_ID_ENV, None)
+            gates.main(["fast"])
+            gates.main(["fast"])
+        self.assertTrue(seen[0])
+        self.assertEqual((seen[0], seen[2]), (seen[1], seen[3]))
+        self.assertNotEqual(seen[0], seen[2])
 
 
 if __name__ == "__main__":
