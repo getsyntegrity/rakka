@@ -7,4 +7,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #400	69e5459a	62	suspended-cell-does-not-defer-failed; deferred-messages-never-come-back; terminated-cell-keeps-deferred-messages	none	62 not run (Q-X-23)	PENDING
 #403	44eabc53	355	failed-cell-ignores-a-new-failure; failed-cell-still-skips-the-sender; terminating-actor-keeps-its-perpetrator; fatal-resume-is-not-reported	none	355 not run (Q-X-23)	PENDING
 #402	ccb51e4c	114	none on this head (two re-pointed unwatch mutants); four new ones come with the stacked slice 2	none	114 not run (Q-X-23)	PENDING
-#404	2b8de8b0	359	watch-with-delivers-terminated; re-watch-does-not-compare; watch-with-equality-ignores-value; queued-termination-replaced-by-later-watch	none	359 not run (Q-X-23)	PENDING
+#404	61f8d29c	359	watch-with-delivers-terminated; re-watch-does-not-compare; watch-with-equality-ignores-value; queued-termination-replaced-by-later-watch	none	359 not run (Q-X-23)	PENDING
