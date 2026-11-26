@@ -2,15 +2,16 @@
 //! `ActorSelection`: a path into the actor tree, looked up each time a message is sent through it.
 //!
 //! Not ported yet: what a selection that matches nothing does (the message goes to `deadLetters` itself for now), the `*` and `?`
-//! patterns (such an element is looked up as a name), `resolveOne`, equality and the string forms, `actorSelection(ActorPath)`,
-//! `#uid` fragments and `/temp`.
+//! patterns (such an element is looked up as a name), `resolveOne`, equality and the string forms, `actorSelection(ActorPath)`
+//! and `/temp`. A `#uid` that is no number throws in Pekko and matches nothing here (Q-REF-8, open).
 
 use std::sync::Arc;
 
 use crate::actor::actor_ref::ActorRef;
+use crate::actor::path::{actor_path_extractor, split_name_and_uid};
 use crate::actor::props::{ActorContext, AnyMessage};
+use crate::actor::relative_actor_path_elements;
 use crate::actor::system::SystemInner;
-use crate::actor::{ActorPath, relative_actor_path_elements};
 
 /// `SelectionPathElement`.
 #[derive(Clone)]
@@ -40,9 +41,8 @@ impl ActorSelection {
             let absolute = names.first().is_some_and(String::is_empty);
             let anchor = if absolute { root } else { lookup_root.clone() };
             (anchor, names)
-        } else if let Ok(parsed) = ActorPath::from_string(path) {
-            let ours = parsed.address() == root.path().address();
-            let names = parsed.elements().into_iter().map(str::to_owned).collect();
+        } else if let Some((address, names)) = actor_path_extractor(path) {
+            let ours = address == *root.path().address();
             (if ours { root } else { dead_letters }, names)
         } else {
             (dead_letters, Vec::new())
@@ -98,7 +98,10 @@ impl ActorSelection {
         if name == "deadLetters" && *actor == self.system.root_guardian() {
             return Some(self.system.dead_letters.clone());
         }
-        actor.0.single_child(name)
+        // `name#uid` (`getSingleChild`): only that incarnation; uid 0 is any. A uid that is no number matches nothing.
+        let (name, uid) = split_name_and_uid(name).ok()?;
+        let child = actor.0.single_child(name)?;
+        (uid == 0 || uid == child.path().uid()).then_some(child)
     }
 }
 
@@ -112,14 +115,14 @@ mod tests {
     use crate::actor::system::ActorSystem;
 
     const WAIT: Duration = Duration::from_secs(10);
-
     /// Reports each string it receives; `"hold"` then parks its thread until the gate is signalled.
-    struct Recorder(Sender<&'static str>, Arc<Mutex<Receiver<()>>>);
+    struct Recorder(Sender<String>, Arc<Mutex<Receiver<()>>>);
 
     impl Actor for Recorder {
-        fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
             let message = *msg.downcast_ref::<&str>().unwrap();
-            self.0.send(message).unwrap();
+            let heard = format!("{} {message}", ctx.self_ref().path().name());
+            self.0.send(heard).unwrap();
             if message == "hold" {
                 self.1.lock().unwrap().recv_timeout(WAIT).unwrap();
             }
@@ -127,24 +130,18 @@ mod tests {
         }
     }
 
-    fn recorder(gate: &Arc<Mutex<Receiver<()>>>) -> (Props, Receiver<&'static str>) {
-        let (heard, hears) = channel();
-        let gate = gate.clone();
-        let props = Props::new(move || Recorder(heard.clone(), gate.clone()));
-        (props, hears)
-    }
-
     #[test]
     fn a_child_that_has_not_started_is_found_and_has_a_parent() {
         let system = ActorSystem::create("unstarted").unwrap();
         let (open, gate) = channel();
         let gate = Arc::new(Mutex::new(gate));
-        let (props, parent_hears) = recorder(&gate);
-        let parent = system.actor_of_named(props, "p").unwrap();
+        let (heard, hears) = channel();
+        let props = Props::new(move || Recorder(heard.clone(), gate.clone()));
+        let parent = system.actor_of_named(props.clone(), "p").unwrap();
         parent.tell("hold", None);
-        assert_eq!(parent_hears.recv_timeout(WAIT), Ok("hold"));
+        let next = || hears.recv_timeout(WAIT).unwrap();
+        assert_eq!(next(), "p hold");
         // the parent is parked, so it cannot process the `Supervise` that would start this child
-        let (props, child_hears) = recorder(&gate);
         parent.attach_child_for_tests(props, "lazy").unwrap();
 
         let select = |path| system.actor_selection(path);
@@ -152,8 +149,9 @@ mod tests {
         select("/user/p/lazy").tell("to-child", None);
         open.send(()).unwrap();
 
-        assert_eq!(parent_hears.recv_timeout(WAIT), Ok("to-parent"));
-        assert_eq!(child_hears.recv_timeout(WAIT), Ok("to-child"));
+        let mut released = [next(), next()];
+        released.sort();
+        assert_eq!(released, ["lazy to-child", "p to-parent"]);
         let ended = system.terminate().wait(WAIT);
         ended.expect("terminated").expect("terminated normally");
     }
