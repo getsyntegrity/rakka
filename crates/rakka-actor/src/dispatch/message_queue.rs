@@ -12,6 +12,7 @@ use std::sync::Mutex;
 
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::props::AnyMessage;
+use crate::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 
 /// `Envelope`: a user message and its sender.
 pub struct Envelope {
@@ -42,6 +43,12 @@ pub trait MessageQueue: Send + Sync {
 pub trait MailboxType: Send + Sync + 'static {
     /// A new, empty queue for one mailbox.
     fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue>;
+
+    /// `ProducesMessageQueue[T]`: the queue class this type promises and the semantics it satisfies. A type that makes no promise
+    /// produces a plain `MessageQueue` (`Mailboxes.getProducedMessageQueueType`).
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::PLAIN
+    }
 }
 
 /// FIFO queue without a bound (the `ConcurrentLinkedQueue` of `UnboundedMailbox`).
@@ -83,6 +90,13 @@ impl MailboxType for UnboundedMailbox {
     fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
         UnboundedMailbox::create(self)
     }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue",
+            &[MessageQueueSemantics::UNBOUNDED],
+        )
+    }
 }
 
 impl UnboundedMailbox {
@@ -98,6 +112,24 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Barrier};
     use std::thread;
+
+    #[test]
+    fn the_unbounded_mailbox_promises_an_unbounded_queue_and_a_type_without_promise_a_plain_one() {
+        struct Silent;
+        impl MailboxType for Silent {
+            fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+                UnboundedMailbox.create()
+            }
+        }
+        let unbounded = UnboundedMailbox.produced_queue();
+        assert!(unbounded.satisfies(MessageQueueSemantics::UNBOUNDED));
+        assert!(!unbounded.satisfies(MessageQueueSemantics::BOUNDED));
+        assert_eq!(
+            unbounded.to_string(),
+            "class org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue"
+        );
+        assert_eq!(Silent.produced_queue(), ProducedQueue::PLAIN);
+    }
 
     fn receiver() -> ActorRef {
         crate::dispatch::test_support::recorder("pekko://sys/user/receiver").1

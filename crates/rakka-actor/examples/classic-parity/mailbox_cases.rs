@@ -17,7 +17,7 @@ use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
 use rakka_actor::dispatch::mailbox_status::MailboxStatus;
 use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, UnboundedMailbox};
-use rakka_actor::dispatch::queue_semantics::MessageQueueSemantics;
+use rakka_actor::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 use rakka_actor::dispatch::system_queue::SystemQueue;
 use rakka_actor::event::{Channel, DeadLetter};
 
@@ -1155,6 +1155,13 @@ impl MailboxType for LifoMailbox {
     fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
         Box::<LifoQueue>::default()
     }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "pilot.MailboxOracle$LifoQueue",
+            &[MessageQueueSemantics::UNBOUNDED],
+        )
+    }
 }
 
 /// `MBX-CFG-02`: a type registered as the default mailbox serves the actors without a selection (no id, the empty id and the
@@ -1282,6 +1289,21 @@ const AUDIT_TRAIL: MessageQueueSemantics =
     MessageQueueSemantics::new("pilot.MailboxOracle$AuditTrail");
 const UNMAPPED: MessageQueueSemantics = MessageQueueSemantics::new("pilot.MailboxOracle$Unmapped");
 
+/// The oracle's `AuditTrailType`: an unbounded FIFO queue that also has the `AuditTrail` semantics.
+struct AuditTrailMailbox;
+impl MailboxType for AuditTrailMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        UnboundedMailbox.create()
+    }
+
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new(
+            "pilot.MailboxOracle$AuditTrailQueue",
+            &[MessageQueueSemantics::UNBOUNDED, AUDIT_TRAIL],
+        )
+    }
+}
+
 /// An `IdWorker` that declares `RequiresMessageQueue[T]`, as the oracle's `UnboundedWorker`, `BoundedWorker`, ...
 macro_rules! requiring_worker {
     ($name:ident, $semantics:expr) => {
@@ -1316,7 +1338,7 @@ fn an_actor_requiring_a_queue_gets_the_mailbox_bound_to_it() -> String {
         "cap4-mailbox",
         NonBlockingBoundedMailbox::new(4).expect("capacity"),
     );
-    mailboxes.register("audit-mailbox", UnboundedMailbox);
+    mailboxes.register("audit-mailbox", AuditTrailMailbox);
     mailboxes.bind_requirement(MessageQueueSemantics::BOUNDED, "cap4-mailbox");
     mailboxes.bind_requirement(AUDIT_TRAIL, "audit-mailbox");
     let system = env.system_with(settings);
@@ -1443,7 +1465,7 @@ fn the_requirement_of_the_dispatcher_selects_the_mailbox_after_the_actor_and_the
     };
     let mailboxes = &mut settings.mailboxes;
     mailboxes.register("lifo-mailbox", LifoMailbox);
-    mailboxes.register("audit-mailbox", UnboundedMailbox);
+    mailboxes.register("audit-mailbox", AuditTrailMailbox);
     mailboxes.bind_requirement(MessageQueueSemantics::UNBOUNDED, "lifo-mailbox");
     mailboxes.bind_requirement(AUDIT_TRAIL, "audit-mailbox");
     let system = env.system_with(settings);
