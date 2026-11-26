@@ -316,6 +316,12 @@ MUTANTS = {
         "drop((thrown, message));",
         "a throwing `postStop` publishes no `Error`",
     ),
+    "supervision-errors-are-published-guarded": (
+        "src/actor/cell.rs",
+        "self.publish_unguarded(|events| events.publish_error(error));",
+        "report_dispatch_failure(&self.system.events, error);",
+        "a supervision `Error` is published under the recursion guard, so the dispatch failures raised while delivering it do not reach the subscribers (killed by a unit test, see UNIT_MUTANTS)",
+    ),
     "supervisor-failure-is-not-logged": (
         "src/actor/cell.rs",
         "self.log_failure(&strategy, &child, &cause, decision);",
@@ -2415,7 +2421,8 @@ UNIT_MUTANTS = {
     "recreate-of-a-failed-creation-stays-a-recreate": ("actor::init_failure_tests", "a_supervisor_that_restarts_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
     "resume-of-a-failed-creation-stays-a-resume": ("actor::init_failure_tests", "a_supervisor_that_resumes_turns_the_failed_creation_into_a_create_and_the_actor_starts"),
     "fault-create-does-not-wait-for-the-children": ("actor::init_failure_tests", "an_actor_that_fails_to_start_after_creating_a_child_is_restarted_as_a_create_once_its_children_are_gone"),
-    "attach-rejection-swallowed-by-start": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
+    "supervision-errors-are-published-guarded": ("dispatch::executor_rejection_tests", "the_reports_made_while_a_post_stop_failure_is_published_reach_the_subscribers"),
+    "attach-rejection-swallowed-by-start": ("dispatch::executor_rejection_tests","a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
     "point-swallows-the-attach-rejection": ("dispatch::executor_rejection_tests", "an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts"),
     "supervisor-ignores-a-rejected-point": ("dispatch::executor_rejection_tests", "an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts"),
     "sync-actor-of-swallows-the-attach-rejection": ("dispatch::executor_rejection_tests", "a_synchronous_actor_of_whose_attach_is_rejected_twice_throws_to_the_caller_and_keeps_the_name"),
