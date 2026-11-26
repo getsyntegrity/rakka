@@ -309,6 +309,12 @@ MUTANTS = {
         "if false {",
         "`Resume` publishes an `Error` instead of a `Warning`",
     ),
+    "pre-restart-keeps-watching-children": (
+        "src/actor/props.rs",
+        "            ctx.unwatch(&child);\n",
+        "",
+        "the default `preRestart` stops the children without `unwatch`, so the restarted actor is told of their termination",
+    ),
     "disabled-logging-still-logs": (
         "src/actor/cell.rs",
         "!strategy.logging_enabled() || ",

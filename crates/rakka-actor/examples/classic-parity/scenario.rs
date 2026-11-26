@@ -344,6 +344,10 @@ struct Behavior {
     throw_in_first_post_restart: bool,
     /// `keep-children`: `preRestart` only records its event (neither stops the children nor runs `postStop`)
     keep_children: bool,
+    /// `default-pre-restart`: the actor does not override `preRestart` (see `DefaultPreRestart`)
+    default_pre_restart: bool,
+    /// `stop-without-unwatch`: `preRestart` stops the children and runs `postStop` without `unwatch`, unlike the default
+    stop_without_unwatch: bool,
     /// `pre-restart-throws: <message or null>`: `preRestart` fails before its default part
     pre_restart_throws: Option<Option<String>>,
     /// `post-stop-throws: <message or null>`: `postStop` records its event and then fails
@@ -413,6 +417,8 @@ impl Behavior {
                 .as_deref()
                 == Some("once"),
             keep_children: matches!(v.get("keep-children"), Some(Value::Bool(true))),
+            default_pre_restart: matches!(v.get("default-pre-restart"), Some(Value::Bool(true))),
+            stop_without_unwatch: matches!(v.get("stop-without-unwatch"), Some(Value::Bool(true))),
             pre_restart_throws: v.get("pre-restart-throws").map(Value::as_str),
             post_stop_throws: v.get("post-stop-throws").map(Value::as_str),
             constructor_fails_from: match v.get("constructor-fails-from") {
@@ -557,9 +563,12 @@ impl Actor for Scripted {
             throw_illegal_state(message.as_deref());
         }
         for child in c.children() {
+            if !self.cfg.stop_without_unwatch {
+                c.unwatch(&child);
+            }
             c.stop(&child);
         }
-        self.post_stop(c); // default preRestart
+        self.post_stop(c); // default preRestart, unless `stop-without-unwatch`
     }
 
     fn post_restart(&mut self, c: &mut ActorContext, reason: &Throwable) {
@@ -694,6 +703,27 @@ impl Actor for Scripted {
     }
 }
 
+/// A scripted actor that leaves `pre_restart` to the trait, so the runtime's own default runs.
+struct DefaultPreRestart(Scripted);
+
+impl Actor for DefaultPreRestart {
+    fn pre_start(&mut self, c: &mut ActorContext) {
+        self.0.pre_start(c);
+    }
+    fn post_restart(&mut self, c: &mut ActorContext, reason: &Throwable) {
+        self.0.post_restart(c, reason);
+    }
+    fn post_stop(&mut self, c: &mut ActorContext) {
+        self.0.post_stop(c);
+    }
+    fn supervisor_strategy(&self) -> SupervisorStrategy {
+        self.0.supervisor_strategy()
+    }
+    fn receive(&mut self, c: &mut ActorContext, msg: &AnyMessage) -> bool {
+        self.0.receive(c, msg)
+    }
+}
+
 fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) -> Props {
     match behavior {
         None => Props::new(|| Noop),
@@ -704,7 +734,8 @@ fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) ->
                 label.unwrap_or_else(|| "_".into()),
             );
             let instances = AtomicU64::new(0);
-            Props::new(move || {
+            let default_pre_restart = cfg.default_pre_restart;
+            let scripted = move || {
                 let instance = instances.fetch_add(1, Ordering::SeqCst) + 1;
                 if cfg
                     .constructor_fails_from
@@ -718,7 +749,12 @@ fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) ->
                     ctx: ctx2.clone(),
                     received: 0,
                 }
-            })
+            };
+            if default_pre_restart {
+                Props::new(move || DefaultPreRestart(scripted()))
+            } else {
+                Props::new(scripted)
+            }
         }
     }
 }

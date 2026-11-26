@@ -67,7 +67,8 @@ pub trait Actor: Send + 'static {
     fn supervisor_strategy(&self) -> SupervisorStrategy {
         OneForOneStrategy::default_strategy().into()
     }
-    /// Called on the failed instance before a restart. Default: stop all children, then `post_stop`.
+    /// Called on the failed instance before a restart. Default: `unwatch` and `stop` every child, then `post_stop`, so no termination of
+    /// those children is told to the new instance. An override replaces all of it: one that wants the default does the same three steps.
     fn pre_restart(
         &mut self,
         ctx: &mut ActorContext,
@@ -75,6 +76,7 @@ pub trait Actor: Send + 'static {
         _message: Option<&AnyMessage>,
     ) {
         for child in ctx.children() {
+            ctx.unwatch(&child);
             ctx.stop(&child);
         }
         self.post_stop(ctx);

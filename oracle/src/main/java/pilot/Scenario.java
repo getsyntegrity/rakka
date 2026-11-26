@@ -166,12 +166,20 @@ final class Scenario {
     private static String reasonStr(Throwable t) { return t.getClass().getName() + (t.getMessage() == null ? "" : ": " + t.getMessage()); }
 
     @Override public void preRestart(Throwable reason, java.util.Optional<Object> message) throws Exception {
+      // `default-pre-restart`: Pekko's own preRestart with nothing recorded, as for an actor that does not override it
+      if (Boolean.TRUE.equals(cfg.get("default-pre-restart"))) { super.preRestart(reason, message); return; }
       ctx.add(label, "{\"ev\":\"pre-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + ",\"msg\":" + (message.isPresent() ? msgJson(message.get()) : "null") + "}");
       ctx.life.add(label + ":pre-restart");
       if (Boolean.TRUE.equals(cfg.get("keep-children"))) return; // `keep-children`: like SupervisorTreeSpec, neither stops the children nor runs postStop
       // `pre-restart-throws: <message or null>`: preRestart fails before it calls super, so nothing of the default runs
       if (cfg.containsKey("pre-restart-throws")) throw new IllegalStateException((String) cfg.get("pre-restart-throws"));
-      super.preRestart(reason, message); // default: stop all children, then postStop
+      // `stop-without-unwatch`: an override that stops its children and runs postStop itself instead of calling super
+      if (Boolean.TRUE.equals(cfg.get("stop-without-unwatch"))) {
+        for (ActorRef child : getContext().getChildren()) getContext().stop(child);
+        postStop();
+        return;
+      }
+      super.preRestart(reason, message); // default: unwatch and stop all children, then postStop
     }
 
     @Override public void postRestart(Throwable reason) throws Exception {
