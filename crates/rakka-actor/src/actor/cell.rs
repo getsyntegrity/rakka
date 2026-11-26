@@ -29,7 +29,7 @@ use crate::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
 use crate::dispatch::sysmsg::{DeliveryState, Failed, SystemMessage, Terminated};
 use crate::dispatch::system_queue::SystemQueue;
 use crate::event::UnhandledMessage;
-use crate::event::{ErrorEvent, report_dispatch_failure};
+use crate::event::{ErrorEvent, WarningEvent, report_dispatch_failure};
 use crate::util::helpers::base64_append;
 
 #[derive(Default)]
@@ -781,12 +781,48 @@ impl ActorCell {
                 return;
             }
         };
+        self.log_failure(&strategy, &child, &cause, decision);
         match decision {
             Directive::Resume => child.send_system(SystemMessage::Resume { cause: Some(cause) }),
             Directive::Restart => self.process_failure(true, child, cause, &strategy),
             Directive::Stop => self.process_failure(false, child, cause, &strategy),
             Directive::Escalate => self.escalate(child, cause),
         }
+    }
+
+    /// `SupervisorStrategy.logFailure`: before a directive is applied, `Resume` publishes a `Warning` and `Restart` and `Stop` an `Error`,
+    /// both with the failed child as source and the strategy as class. `Escalate` is left to a higher level.
+    fn log_failure(
+        &self,
+        strategy: &SupervisorStrategy,
+        child: &ActorRef,
+        cause: &Throwable,
+        decision: Directive,
+    ) {
+        if !strategy.logging_enabled() || decision == Directive::Escalate {
+            return;
+        }
+        let log_source = child.path().to_string();
+        let log_class = strategy.class_name().to_owned();
+        let message = cause.message.clone().unwrap_or_else(|| "null".to_owned());
+        let events = &self.system.events;
+        // `publish`: "logging is not the main purpose", a subscriber that unwinds does not stop the directive
+        let _ = catch_unwind(AssertUnwindSafe(|| {
+            if decision == Directive::Resume {
+                events.publish_warning(WarningEvent {
+                    log_source,
+                    log_class,
+                    message,
+                });
+            } else {
+                events.publish_error(ErrorEvent {
+                    cause: cause.clone(),
+                    log_source,
+                    log_class,
+                    message,
+                });
+            }
+        }));
     }
 
     /// `handleInvokeFailure` after the exception `thrown` escaped `handleFailure(Failed(child, cause))`.

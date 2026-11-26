@@ -472,12 +472,14 @@ fn an_actor_that_fails_to_start_after_creating_a_child_is_restarted_as_a_create_
     assert_eq!(observed, recorded("MBX-IF-04"));
 }
 
-/// `logSource|cause class|message` of every error published so far.
+/// `logSource|cause class|message` of every error published so far, without the supervisor's `logFailure` lines, which carry the
+/// failure's own class (the oracle's `cellErrors`).
 fn published_errors(errors: &Mutex<Vec<crate::event::ErrorEvent>>) -> Vec<String> {
     errors
         .lock()
         .unwrap()
         .iter()
+        .filter(|error| error.cause.class != "org.apache.pekko.actor.ActorInitializationException")
         .map(|error| {
             format!(
                 "{}|{}|{}",

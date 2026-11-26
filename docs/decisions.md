@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 260 decisiones: 0 bloqueantes, 184 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 261 decisiones: 0 bloqueantes, 185 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1176,6 +1176,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) usar u64 de milisegundos con Instant monótono, saturando en lugar de truncar a Int / (b) replicar el truncamiento a i32 / (c) Duration nativa
 - **Recomendación:** (a): diferencia observable sólo para ventanas mayores a ~24.8 días (Int overflow); la ventana empieza en la primera solicitud, no se desliza, y la comparación es "<= window" [2026-10-31 cierre documental] Clasificación: representación con una divergencia funcional menor. Incertidumbre resuelta midiendo/leyendo: `withinTimeRange.toMillis.toInt` es un cast que ENVUELVE (no satura): 25 días = 2_160_000_000 ms → Int −2_134_967_296; con ventana negativa `(now − windowStart) <= toNanos(window)` es falso, así que la ventana nunca contiene el fallo (cuenta = 1 y reinicio siempre permitido: equivale a "sin límite"). Para ventanas ≤ 24,8 días el comportamiento es el normal. Opciones: (a) saturar a u64 (diferencia solo para > 24,8 días: la ventana funcionaría como ventana real), (b) replicar el cast i32 (paridad exacta, incluido el comportamiento anómalo). Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica).
 - **Filas afectadas:** AC-SUP-006.1 ; AC-SUP-006.2 ; AC-SUP-021
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+
+### Q-SUP-3 — Causa de una excepción en Throwable: logFailure publica el mensaje de la causa de ActorInitializationException
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:406-414 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:673-705 ; sonda del oráculo 2.0.0: preStart que lanza publica Error con mensaje "init"
+- **Alternativas:** (a) campo `cause: Option<Box<Throwable>>` en Throwable (rompe la construcción por literal) / (b) canal interno junto a Failed, sin cambiar la API (hay que arrastrarlo al escalar) / (c) aceptar la divergencia: se publica el mensaje de la propia excepción
+- **Recomendación:** (a). Hasta decidir se publica el mensaje propio ("<path>: exception during creation, ..." o "exception post restart ...") en vez del de la causa
+- **Filas afectadas:** AC-SUP-018
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 

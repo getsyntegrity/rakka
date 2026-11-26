@@ -408,7 +408,11 @@ impl crate::actor::actor_ref::InternalActorRef for ErrorRecorder {
         &self.path
     }
     fn tell(&self, msg: AnyMessage, _sender: Option<ActorRef>) {
-        if let Some(error) = msg.downcast_ref::<ErrorEvent>() {
+        // not the guardian's `logFailure` of `/user`: the oracle's listener is under `/user`, suspended by then, and never sees it
+        if let Some(error) = msg
+            .downcast_ref::<ErrorEvent>()
+            .filter(|error| !error.log_class.ends_with("OneForOneStrategy"))
+        {
             self.errors.lock().unwrap().push(format!(
                 "{}|{}|{}",
                 error.log_source, error.cause.class, error.message
