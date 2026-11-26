@@ -152,7 +152,7 @@ MUTANTS = {
     # --- watchWith (AC-DW-005; killed by the ww-* cases) ---
     "watch-with-delivers-terminated": (
         "src/actor/cell.rs",
-        "msg = custom.message;",
+        "msg = custom.message.clone();",
         "let _ = custom;",
         "the termination of an actor watched with `watchWith` delivers `Terminated` instead of the custom message",
     ),
@@ -170,8 +170,8 @@ MUTANTS = {
     ),
     "queued-termination-replaced-by-later-watch": (
         "src/actor/cell.rs",
-        ".entry(actor.clone())\n                .or_insert(custom);",
-        ".insert(actor.clone(), custom);",
+        "Entry::Occupied(_) => Some(custom),",
+        "Entry::Occupied(mut kept) => Some(kept.insert(custom)),",
         "a registration made while a `Terminated` is queued replaces the message it will deliver",
     ),
     "identify-reaches-receive": (
@@ -254,6 +254,30 @@ MUTANTS = {
         "self.fault_resume(None);",
         "self.resume_after_failure(true);",
         "`Recreate` of a terminating actor does not resume its children and clears `failed` (killed by a unit test, see UNIT_MUTANTS)",
+    ),
+    "failed-cell-ignores-a-new-failure": (
+        "src/actor/cell.rs",
+        "let skipped = {",
+        "if self.st.lock().unwrap().failed.is_failed() {\n            return;\n        }\n        let skipped = {",
+        "an actor that is already failed neither suspends nor reports a new failure (killed by a unit test, see UNIT_MUTANTS)",
+    ),
+    "failed-cell-still-skips-the-sender": (
+        "src/actor/cell.rs",
+        "if st.failed.is_failed() {\n                None",
+        "if st.failed.is_failed() {\n                failed_child",
+        "a failed actor that escalates again does not suspend the child that reported (killed by a unit test, see UNIT_MUTANTS)",
+    ),
+    "terminating-actor-keeps-its-perpetrator": (
+        "src/actor/cell.rs",
+        "self.st.lock().unwrap().failed.set_failed(None);",
+        "",
+        "a terminating actor still hands the cause of a `Resume` to the child whose failure it escalated",
+    ),
+    "fatal-resume-is-not-reported": (
+        "src/actor/cell.rs",
+        'self.publish_error(format!("changing Resume into Restart after {cause}"));',
+        "",
+        "`Resume` is turned into a restart without publishing the `Error`",
     ),
     "pill-not-suppressed-from-dead-letters": (
         "src/actor/system.rs",
@@ -2292,6 +2316,8 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "failed-cell-ignores-a-new-failure": ("actor::refailure_tests", "a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_again"),
+    "failed-cell-still-skips-the-sender": ("actor::refailure_tests", "escalating_while_already_failed_suspends_that_child_too_and_keeps_the_first_perpetrator"),
     "terminating-recreate-skips-the-children": ("actor::cell::terminating_survivor_tests", "recreate_of_a_terminating_actor_resumes_its_children_and_keeps_it_failed"),
     "walker-stop-links-only-a-success-to-the-public-future": ("actor::guardian_termination_tests", "stop_called_directly_after_the_failure_fails_the_public_future_with_the_cause"),
     "walker-signal-fires-for-any-discarded-message": ("actor::guardian_termination_tests", "only_the_death_notification_of_the_failed_root_is_the_synchronisation_signal"),
