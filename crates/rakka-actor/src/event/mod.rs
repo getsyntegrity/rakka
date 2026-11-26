@@ -3,6 +3,7 @@
 //! and unhandled messages.
 
 use std::cell::Cell;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Mutex};
 
 use crate::actor::actor_ref::ActorRef;
@@ -152,5 +153,6 @@ pub(crate) fn report_dispatch_failure(events: &EventStream, event: ErrorEvent) {
         }
     }
     let _done = Done;
-    events.publish_error(event);
+    // `publish` swallows what a subscriber throws (NonFatal): a failing report must not stop the reporter
+    let _ = catch_unwind(AssertUnwindSafe(|| events.publish_error(event)));
 }

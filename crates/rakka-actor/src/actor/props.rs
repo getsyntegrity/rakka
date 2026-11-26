@@ -10,6 +10,7 @@ use crate::actor::deploy::{Deploy, NO_MAILBOX_GIVEN};
 use crate::actor::errors::IllegalArgumentError;
 use crate::actor::fault::Throwable;
 use crate::actor::supervision::{OneForOneStrategy, SupervisorStrategy};
+use crate::actor::watching::CustomTermination;
 use crate::dispatch::mailboxes::{MailboxSelectionError, Mailboxes};
 use crate::dispatch::message_queue::{MailboxType, MessageQueue, UnboundedMailbox};
 use crate::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
@@ -321,8 +322,25 @@ impl ActorContext<'_> {
     }
 
     /// `context.watch(actor)`: a `Terminated` message is delivered when `actor` terminates.
+    ///
+    /// Throws (`fault::throw`) `java.lang.IllegalStateException` if `actor` is watched with [`watch_with`](Self::watch_with).
     pub fn watch(&mut self, actor: &ActorRef) {
-        self.cell.watch(actor);
+        self.cell.watch(actor, None);
+    }
+
+    /// `context.watchWith(actor, message)`: `message` is delivered through `receive`, as an ordinary message with `actor` as sender,
+    /// when `actor` terminates. Watching oneself does nothing.
+    ///
+    /// Registering again is accepted only with an equal message; otherwise, or if `actor` is watched with [`watch`](Self::watch), it
+    /// throws (`fault::throw`) `java.lang.IllegalStateException` and the first registration stays. Call
+    /// [`unwatch`](Self::unwatch) first to change it.
+    ///
+    /// Equality is that of the concrete Rust type and value (`PartialEq`), which differs from Scala's `==`: `1_i32` and `1_i64`, or
+    /// `"a"` and `String::from("a")`, are different messages, and a value that is not equal to itself (`NaN`) is never accepted twice.
+    /// The exception text shows `String` and `&str` messages by value and any other type by its Rust type name.
+    pub fn watch_with<M: Any + PartialEq + Send + Sync>(&mut self, actor: &ActorRef, message: M) {
+        self.cell
+            .watch(actor, Some(CustomTermination::new(message)));
     }
 
     /// `context.unwatch(actor)`: no `Terminated` for `actor` is delivered after this returns.

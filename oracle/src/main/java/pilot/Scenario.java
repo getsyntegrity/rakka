@@ -70,7 +70,11 @@ final class Scenario {
     List<String> of(String label) { return events.computeIfAbsent(label, k -> new CopyOnWriteArrayList<>()); }
   }
 
+  /** A user message type with value equality (`{"custom": name}`), for `watch-with`. */
+  public record WatchMsg(String name) {}
+
   static String msgJson(Object m) {
+    if (m instanceof WatchMsg) return "{\"custom\":" + Cli.Json.str(((WatchMsg) m).name()) + "}";
     if (m instanceof ActorIdentity) {
       ActorIdentity i = (ActorIdentity) m;
       return "{\"identity\":" + msgJson(i.correlationId()) + ",\"ref\":"
@@ -237,12 +241,15 @@ final class Scenario {
             break;
           }
           case "watch": getContext().watch(ctx.refs.get((String) sp.get("target"))); res = "\"ok\":true"; break;
+          case "watch-with": getContext().watchWith(ctx.refs.get((String) sp.get("target")), message(sp.get("msg"))); res = "\"ok\":true"; break;
           case "unwatch": getContext().unwatch(ctx.refs.get((String) sp.get("target"))); res = "\"ok\":true"; break;
           case "stop": getContext().stop(ctx.refs.get((String) sp.get("target"))); res = "\"ok\":true"; break;
           default: throw new IllegalArgumentException("unknown command " + sp.get("c"));
         }
       } catch (Exception e) {
-        res = err(e).substring(1, err(e).length() - 1);
+        // uids are random; `no-text`: Java renders the values of a termination message in ways Rust cannot (Q-DW-4)
+        res = err(e).substring(1, err(e).length() - 1).replaceAll("#-?\\d+\\]", "#uid]");
+        if (Boolean.TRUE.equals(c.spec.get("no-text"))) res = res.substring(0, res.indexOf(",\"message\""));
       }
       ctx.results.put(c.id, res);
     }
@@ -282,7 +289,6 @@ final class Scenario {
           ctx.add(label, "{\"ev\":\"error\",\"source\":" + Cli.Json.str(e.logSource())
               + ",\"message\":" + (e.message() == null ? "null" : Cli.Json.str(String.valueOf(e.message())))
               + ",\"ofActorClass\":" + (e.logClass() == Scripted.class) + ",\"cause\":" + Cli.Json.str(e.cause().getClass().getName())
-              // `toString` of a real cause; the `NoCause` object's text holds an identity hash
               + (e.cause().getClass().getName().endsWith("NoCause$") ? "" : ",\"causeText\":" + Cli.Json.str(e.cause().toString())) + "}");
       }).match(Terminated.class, t -> ctx.add(label, "{\"ev\":\"watched-terminated\",\"actor\":" + Cli.Json.str(t.getActor().path().toString()) + "}"))
           .build();
@@ -378,6 +384,7 @@ final class Scenario {
   }
 
   private static Object message(Object raw) {
+    if (raw instanceof Map && ((Map<?, ?>) raw).get("custom") != null) return new WatchMsg((String) ((Map<?, ?>) raw).get("custom"));
     if (raw instanceof Map && "Identify".equals(((Map<?, ?>) raw).get("special"))) return new Identify(((Map<?, ?>) raw).get("id"));
     if (raw instanceof Map && "PoisonPill".equals(((Map<?, ?>) raw).get("special"))) return PoisonPill.getInstance();
     if (raw instanceof Map && "Kill".equals(((Map<?, ?>) raw).get("special"))) return Kill.getInstance();
