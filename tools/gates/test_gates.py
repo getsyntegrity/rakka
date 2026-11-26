@@ -52,8 +52,12 @@ class MutantSelection(unittest.TestCase):
         self.assertEqual(self.selected_with_units(["crates/rakka-actor/tests/common/mod.rs"]), ["unit-integration"])
 
     def test_a_test_module_inside_the_crate_that_is_not_a_mutated_file_selects_the_unit_mutants_it_kills(self):
-        self.assertEqual(self.selected_with_units(["crates/rakka-actor/src/actor/guardian_termination_tests.rs"]), ["unit-test-module"])
+        self.assertIn("unit-test-module", self.selected_with_units(["crates/rakka-actor/src/actor/guardian_termination_tests.rs"]))       # its own at least; a test module may export helpers to others, so the rest of the lib tests are selected too
         self.assertEqual(self.selected_with_units(["crates/rakka-actor/src/dispatch/mailboxes/mod.rs"]), ["unit-module"])      # a module that is a directory
+
+    def test_a_test_support_module_shared_inside_the_crate_selects_every_unit_mutant_that_runs_a_lib_test_but_not_the_integration_ones(self):
+        for support in ("crates/rakka-actor/src/dispatch/test_support.rs", "crates/rakka-actor/src/util/test_clock.rs", "crates/rakka-actor/src/config/tests.rs"):
+            self.assertEqual(self.selected_with_units([support]), ["unit-module", "unit-test-module"], support)       # the lib tests import it; `cargo test --test` does not compile it
 
     def test_an_integration_test_that_no_unit_mutant_runs_is_the_input_of_no_verdict_and_selects_nothing(self):
         self.assertEqual(self.selected_with_units(["crates/rakka-actor/tests/classic_unrelated.rs"]), [])
