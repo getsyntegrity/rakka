@@ -38,6 +38,36 @@ class MutantSelection(unittest.TestCase):
         picked = gates.select_mutants(["rust/app-cases/replay-report.md", "crates/rakka-actor/src/actor/cell.rs"], MUTANTS, TOOL_MUTANTS)
         self.assertEqual(picked, ["cell-throughput", "cell-dead-letters"])
 
+    UNIT_MUTANTS = {"unit-integration": ("test:classic_guardian_mailbox", "a_test"), "unit-module": ("dispatch::mailboxes", "a_test"), "unit-test-module": ("actor::guardian_termination_tests", "a_test")}
+    WITH_UNITS = {**MUTANTS, "unit-integration": ("actor/system.rs", "o", "n", "why"), "unit-module": ("dispatch/mailboxes.rs", "o", "n", "why"),
+                  "unit-test-module": ("actor/cell.rs", "o", "n", "why")}
+
+    def selected_with_units(self, changed):
+        return gates.select_mutants(changed, self.WITH_UNITS, TOOL_MUTANTS, self.UNIT_MUTANTS)
+
+    def test_the_integration_test_file_that_kills_a_unit_mutant_selects_it_when_it_changes(self):
+        self.assertEqual(self.selected_with_units(["crates/rakka-actor/tests/classic_guardian_mailbox.rs"]), ["unit-integration"])
+
+    def test_the_helpers_shared_by_the_integration_tests_select_every_unit_mutant_that_runs_one(self):
+        self.assertEqual(self.selected_with_units(["crates/rakka-actor/tests/common/mod.rs"]), ["unit-integration"])
+
+    def test_a_test_module_inside_the_crate_that_is_not_a_mutated_file_selects_the_unit_mutants_it_kills(self):
+        self.assertEqual(self.selected_with_units(["crates/rakka-actor/src/actor/guardian_termination_tests.rs"]), ["unit-test-module"])
+        self.assertEqual(self.selected_with_units(["crates/rakka-actor/src/dispatch/mailboxes/mod.rs"]), ["unit-module"])      # a module that is a directory
+
+    def test_an_integration_test_that_no_unit_mutant_runs_is_the_input_of_no_verdict_and_selects_nothing(self):
+        self.assertEqual(self.selected_with_units(["crates/rakka-actor/tests/classic_unrelated.rs"]), [])
+
+    def test_the_filter_of_cargo_test_is_a_substring_so_a_longer_or_shorter_module_path_still_selects(self):
+        self.assertIn("unit-module", self.selected_with_units(["crates/rakka-actor/src/dispatch/mailboxes/queue_tests.rs"]))      # `dispatch::mailboxes` matches `dispatch::mailboxes::queue_tests::...`
+
+    def test_without_the_map_of_unit_mutants_the_selection_is_exactly_what_it_was(self):
+        self.assertEqual(gates.select_mutants(["crates/rakka-actor/tests/classic_guardian_mailbox.rs"], self.WITH_UNITS, TOOL_MUTANTS), [])
+
+    def test_a_unit_mutant_selected_twice_is_listed_once_in_the_order_of_the_inventory(self):
+        picked = self.selected_with_units(["crates/rakka-actor/src/dispatch/mailboxes.rs", "crates/rakka-actor/tests/classic_guardian_mailbox.rs"])
+        self.assertEqual(picked, ["unit-integration", "unit-module"])
+
     def test_a_tool_file_change_selects_its_tool_mutants(self):
         self.assertEqual(gates.select_mutants(["tools/parity/fuzz_diff.py"], MUTANTS, TOOL_MUTANTS), ["fuzz-diff-mutant"])
 
