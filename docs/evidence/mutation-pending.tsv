@@ -6,3 +6,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #399	c0d51097	348	failed-restart-suspends-survivors-again; fatal-restart-repeats-pre-restart; fatal-resume-is-a-plain-resume; terminating-recreate-skips-the-children	none	348 not run (Q-X-23)	PENDING
 #400	69e5459a	62	suspended-cell-does-not-defer-failed; deferred-messages-never-come-back; terminated-cell-keeps-deferred-messages	none	62 not run (Q-X-23)	PENDING
 #403	44eabc53	355	failed-cell-ignores-a-new-failure; failed-cell-still-skips-the-sender; terminating-actor-keeps-its-perpetrator; fatal-resume-is-not-reported	none	355 not run (Q-X-23)	PENDING
+slice/classic-lifecycle-hook-errors	3f6dd3c5	357	pre-restart-failure-is-swallowed; post-stop-failure-is-swallowed	none	357 not run (Q-X-23)	PENDING
