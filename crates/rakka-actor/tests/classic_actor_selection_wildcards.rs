@@ -7,6 +7,7 @@ use common::{RunningSystem, path_of, wait_until};
 
 use std::process::Command;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{
@@ -257,4 +258,19 @@ fn very_many_wildcard_levels_do_not_exhaust_the_stack() {
     };
     let thread = std::thread::Builder::new().stack_size(2 << 20);
     thread.spawn(walk).unwrap().join().unwrap();
+}
+
+/// ActorSelectionSpec "deliver a wildcard selection promptly even when the pattern would make a regex backtrack".
+#[test]
+fn a_pattern_that_would_backtrack_is_answered_promptly() {
+    let tree = Tree::new();
+    let name = "a".repeat(36);
+    let child = Props::new(|| Node(Log::default()));
+    tree.system.actor_of_named(child, &name).unwrap();
+    let pattern = format!("/user/{}*b", "*a".repeat(12));
+    let started = Instant::now();
+    tree.identify(&pattern, "slow");
+
+    assert_eq!(tree.recorded(1), ["slow -"]);
+    assert!(started.elapsed() < Duration::from_secs(3));
 }

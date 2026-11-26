@@ -258,6 +258,37 @@ mod tests {
         }
     }
 
+    /// A string path cannot carry `?` (it starts the URI query), so the elements are given directly, as `ActorSelection(ref, "b?")`
+    /// does; Pekko 2.0.0 was probed through `actorSelection(ActorPath)`.
+    #[test]
+    fn a_question_mark_matches_exactly_one_character() {
+        let system = ActorSystem::create("question").unwrap();
+        let (heard, hears) = channel();
+        let (_open, gate) = channel();
+        let gate = Arc::new(Mutex::new(gate));
+        let props = Props::new(move || Recorder(heard.clone(), gate.clone()));
+        let names = ["b1", "b2", "b33"];
+        let actors = names.map(|name| system.actor_of_named(props.clone(), name).unwrap());
+        let select = |pattern: &str| {
+            let names = ["user".to_owned(), pattern.to_owned()];
+            super::ActorSelection::from_elements(&system.0, system.0.root_guardian(), names)
+        };
+        select("b?").tell("one", None);
+        select("b??").tell("two", None);
+        // a barrier: a wrong match would be heard before it
+        for actor in &actors {
+            actor.tell("end", None);
+        }
+
+        let next = |_| hears.recv_timeout(WAIT).unwrap();
+        let mut received: Vec<String> = (0..6).map(next).collect();
+        received.sort();
+        let expected = ["b1 end", "b1 one", "b2 end", "b2 one", "b33 end", "b33 two"];
+        assert_eq!(received, expected);
+        let ended = system.terminate().wait(WAIT);
+        ended.expect("terminated").expect("terminated normally");
+    }
+
     #[test]
     fn a_child_that_has_not_started_is_found_and_has_a_parent() {
         let system = ActorSystem::create("unstarted").unwrap();
