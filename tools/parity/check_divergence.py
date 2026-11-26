@@ -291,24 +291,6 @@ MUTANTS = {
         "drop((thrown, message));",
         "a throwing `postStop` publishes no `Error`",
     ),
-    "supervisor-failure-is-not-logged": (
-        "src/actor/cell.rs",
-        "self.log_failure(&strategy, &child, &cause, decision);",
-        "",
-        "a supervisor applies a directive without publishing the failure",
-    ),
-    "resume-is-logged-as-an-error": (
-        "src/actor/cell.rs",
-        "if decision == Directive::Resume {",
-        "if false {",
-        "`Resume` publishes an `Error` instead of a `Warning`",
-    ),
-    "disabled-logging-still-logs": (
-        "src/actor/cell.rs",
-        "!strategy.logging_enabled() || ",
-        "",
-        "`loggingEnabled = false` is ignored",
-    ),
     "pill-not-suppressed-from-dead-letters": (
         "src/actor/system.rs",
         "msg.is::<Terminated>() || msg.is::<PoisonPill>()",

@@ -12,6 +12,7 @@ use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
+use rakka_actor::event::{Channel, ErrorEvent, WarningEvent};
 
 type Log = Arc<Mutex<Vec<String>>>;
 
@@ -352,4 +353,46 @@ fn a_negative_limit_never_stops_the_child() {
         assert_eq!(restarts_in(&f.l1), 5);
         assert!(!f.c1.is_terminated());
     }
+}
+
+/// Records `level source class message` of the events published.
+struct Collector(Log);
+
+impl Actor for Collector {
+    fn receive(&mut self, _: &mut ActorContext, msg: &AnyMessage) -> bool {
+        let line = if let Some(e) = msg.downcast_ref::<ErrorEvent>() {
+            format!("error {} {} {:?}", e.log_source, e.log_class, e.message)
+        } else if let Some(w) = msg.downcast_ref::<WarningEvent>() {
+            format!("warning {} {} {:?}", w.log_source, w.log_class, w.message)
+        } else {
+            return false;
+        };
+        self.0.lock().unwrap().push(line);
+        true
+    }
+}
+
+/// AC-SUP-018: `Resume` is logged as a `Warning`, `Restart` and `Stop` as an `Error` (`FaultHandling.scala:394-425`).
+#[test]
+fn each_directive_publishes_the_failed_child_at_its_level() {
+    let f = fixture("s-log", -1);
+    let events = Log::default();
+    let log = events.clone();
+    let collector = f.sys.actor_of(Props::new(move || Collector(log.clone())));
+    for channel in [Channel::Warning, Channel::Error] {
+        let collector = collector.as_ref().unwrap();
+        f.sys.event_stream().subscribe(collector, channel);
+    }
+    say(&f.c1, &["bres", "brst", "bstp"]);
+    wait_until("three events", || snapshot_of(&events).len() == 3);
+    let of_c1 = "pekko://s-log/user/p/c1 org.apache.pekko.actor.OneForOneStrategy";
+    let line = |level: &str, message: &str| format!("{level} {of_c1} Some({message:?})");
+    assert_eq!(
+        snapshot_of(&events),
+        [
+            line("warning", "bres"),
+            line("error", "brst"),
+            line("error", "bstp")
+        ]
+    );
 }
