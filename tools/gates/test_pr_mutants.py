@@ -110,6 +110,19 @@ class Run(unittest.TestCase):
         self.assertEqual(self.run_selected({"a": "DETECTED"}, control="ERROR")["exit"], 2)
 
 
+class ControlResult(unittest.TestCase):
+    ROW = "| control (unmodified) | CLEAN | 2977/2977 |\n"
+
+    def test_the_corpus_size_is_read_from_the_control_row(self):
+        self.assertEqual(pr_mutants.control_result(0, "noise\n" + self.ROW), ("CLEAN", 2977))
+
+    def test_a_clean_exit_that_does_not_say_how_much_it_replayed_is_an_error_not_an_unchecked_pass(self):
+        self.assertEqual(pr_mutants.control_result(0, "| control (unmodified) | CLEAN | - |\n"), ("ERROR", None))
+
+    def test_any_other_exit_keeps_its_meaning(self):
+        self.assertEqual([pr_mutants.control_result(code, self.ROW)[0] for code in (1, 2, 75)], ["FAILED", "ERROR", "ERROR"])
+
+
 class ToolIdentity(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()

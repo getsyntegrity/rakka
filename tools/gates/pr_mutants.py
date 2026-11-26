@@ -43,6 +43,14 @@ def external_identity(root, environment, rust_anything):
     return {"rust-anything-binary": binary, "cargo-configuration": configurations}
 
 
+def control_result(code, log_text):
+    """-> (verdict, replayed cases). A clean exit that does not say how much it replayed cannot vouch for the mutants' corpus size: ERROR."""
+    counted = re.search(r"\| control \(unmodified\) \| CLEAN \| \d+/(\d+) \|", log_text)
+    if code == 0:
+        return ("CLEAN", int(counted.group(1))) if counted else ("ERROR", None)
+    return ("FAILED" if code == 1 else "ERROR"), None
+
+
 def run_selected(names, key_now, store, execute, run_control, reusable, reuse=True, state_now=lambda: None, save=lambda report: None):
     """Control first; then each mutant, reused only if its stored DETECTED belongs to the identity as it is now. Each proof is stored, and the
     report saved, before the next mutant starts, so an interrupted run keeps both."""
@@ -130,10 +138,9 @@ def main(arguments):
         return {**record, "run": run_name}
 
     def run_control():
-        verdict = {0: "CLEAN", 1: "FAILED"}.get(launch("control", "--control-only"), "ERROR")
+        code = launch("control", "--control-only")
         with open(log_path("control"), errors="replace") as log:
-            counted = re.search(r"\| control \(unmodified\) \| CLEAN \| \d+/(\d+) \|", log.read())
-        return verdict, int(counted.group(1)) if counted else None
+            return control_result(code, log.read())
 
     def save(report):
         report.update(rules=["Q-X-22 R3"] if report["reused"] else [], selected=names, tools=tools, reuse_requested=reuse)
