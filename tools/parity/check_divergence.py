@@ -2009,10 +2009,28 @@ MUTANTS = {
         "        if false {",
         "the walker does not stop walking after a failure: the death of the root reaches stop() and completes whenTerminated",
     ),
+    "walker-stop-links-only-a-success-to-the-public-future": (
+        "src/actor/system.rs",
+        "            if let Some(outcome) = self.cause_of_termination.wait(Duration::ZERO) {",
+        "            if let Some(outcome @ Ok(_)) = self.cause_of_termination.wait(Duration::ZERO) {",
+        "stop() after a guardian failed does not link the failure to the public future (completeWith of a failed future)",
+    ),
+    "walker-signal-fires-for-any-discarded-message": (
+        "src/actor/system.rs",
+        "            if matches!(&msg, SystemMessage::DeathWatchNotification { actor, .. } if self.root.get() == Some(actor))\n            {",
+        "            if true {",
+        "the test signal is set by any message the walker discards, not only by the death notification of the root",
+    ),
+    "dispatchers-guard-does-not-shut-down": (
+        "src/actor/guardian_termination_tests.rs",
+        "        self.0.shut_down_dispatchers();\n    }\n}",
+        "    }\n}",
+        "the guard of the test does not shut the dispatchers down when dropped",
+    ),
     "walker-stop-does-not-complete-the-public-future": (
         "src/actor/system.rs",
-        "                self.termination.complete(terminated);",
-        "                let _ = terminated;",
+        "                self.termination.complete(outcome);",
+        "                let _ = outcome;",
         "stop() completes the walker's own promise but not the provider's terminationPromise that whenTerminated exposes",
     ),
 }
@@ -2104,6 +2122,9 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "walker-stop-links-only-a-success-to-the-public-future": ("actor::guardian_termination_tests", "stop_called_directly_after_the_failure_fails_the_public_future_with_the_cause"),
+    "walker-signal-fires-for-any-discarded-message": ("actor::guardian_termination_tests", "only_the_death_notification_of_the_failed_root_is_the_synchronisation_signal"),
+    "dispatchers-guard-does-not-shut-down": ("actor::guardian_termination_tests", "the_guard_shuts_the_dispatchers_down_when_the_test_unwinds"),
     "guardian-root-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
     "guardian-user-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
     "guardian-system-ignores-the-default-mailbox": ("test:classic_guardian_mailbox", "the_three_guardians_take_the_registered_default_mailbox"),
