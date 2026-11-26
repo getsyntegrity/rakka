@@ -42,6 +42,11 @@ pub(crate) trait InternalActorRef: Send + Sync {
     fn has_system_messages(&self) -> bool {
         false
     }
+    /// `isFailed` of the cell behind the reference, for tests.
+    #[cfg(test)]
+    fn is_failed(&self) -> bool {
+        false
+    }
 }
 
 /// `org.apache.pekko.actor.ActorRef`. Equality follows Pekko: same path *and* same uid.
@@ -89,6 +94,11 @@ impl ActorRef {
         name: &str,
     ) -> Result<ActorRef, crate::actor::ActorError> {
         self.0.attach_child_for_tests(props, name)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_failed(&self) -> bool {
+        self.0.is_failed()
     }
 
     #[cfg(test)]

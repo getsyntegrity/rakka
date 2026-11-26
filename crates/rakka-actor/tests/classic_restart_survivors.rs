@@ -5,6 +5,7 @@
 mod common;
 use common::{RunningSystem, owned_strings, settle_for_absence, snapshot_of, wait_until};
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use rakka_actor::actor::ActorRef;
@@ -23,6 +24,9 @@ struct Keeper {
     children: Arc<Mutex<Vec<ActorRef>>>,
     spawn_in_pre_start: bool,
     stops_children: bool,
+    fail_first_post_restart: Arc<AtomicBool>,
+    /// what this node answers to a child that failed in `postRestart` (any other failure: restart)
+    on_post_restart_failure: Directive,
     /// the message "block" waits until the test lets go of this lock
     gate: Arc<Mutex<()>>,
 }
@@ -35,6 +39,8 @@ impl Keeper {
             children: Arc::default(),
             spawn_in_pre_start: false,
             stops_children: false,
+            fail_first_post_restart: Arc::default(),
+            on_post_restart_failure: Directive::Restart,
             gate: Arc::default(),
         }
     }
@@ -60,7 +66,12 @@ impl Actor for Keeper {
         }
     }
     fn supervisor_strategy(&self) -> SupervisorStrategy {
-        OneForOneStrategy::new(3, |_: &Throwable| Directive::Restart).into()
+        let answer = self.on_post_restart_failure;
+        OneForOneStrategy::new(3, move |cause: &Throwable| {
+            let fatal = cause.to_string().contains("PostRestartException");
+            if fatal { answer } else { Directive::Restart }
+        })
+        .into()
     }
     fn pre_restart(&mut self, ctx: &mut ActorContext, cause: &Throwable, _: Option<&AnyMessage>) {
         if self.stops_children {
@@ -70,6 +81,9 @@ impl Actor for Keeper {
     }
     fn post_restart(&mut self, ctx: &mut ActorContext, _: &Throwable) {
         self.record("post-restart");
+        if self.fail_first_post_restart.swap(false, Ordering::SeqCst) {
+            throw(Throwable::illegal_state("post-restart"));
+        }
         self.pre_start(ctx);
     }
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
@@ -210,4 +224,56 @@ fn a_survivor_waiting_for_its_children_to_die_restarts_for_its_parent_afterwards
             "child:after",
         ])
     );
+}
+
+/// The parent fails its first `postRestart`: the next restart skips `preRestart` (`setFailedFatally`) and the survivor, which
+/// `handleInvokeFailure(survivors, ..)` did not suspend again, restarts once and works.
+fn restart_again_after_a_failed_post_restart(system_name: &str, top_answers: Directive) {
+    let system = RunningSystem::create(system_name);
+    let log = Log::default();
+    let (mut top, parent, child) = (
+        Keeper::new("top", &log),
+        Keeper::new("parent", &log),
+        Keeper::new("child", &log),
+    );
+    top.on_post_restart_failure = top_answers;
+    parent.fail_first_post_restart.store(true, Ordering::SeqCst);
+    let top_ref = system.actor_of(top.props()).unwrap();
+    let parent_ref = child_of(&top_ref, &top, &parent);
+    let child_ref = child_of(&parent_ref, &parent, &child);
+    let entries_of = |who: &str| {
+        let mut entries = snapshot_of(&log);
+        entries.retain(|e| e.starts_with(who));
+        entries
+    };
+
+    parent_ref.tell("boom", None);
+    parent_ref.tell("alive", None);
+    wait_until("parent works again", || entries_of("parent:").len() >= 4);
+    child_ref.tell("after", None);
+    wait_until("child works", || entries_of("child:").len() >= 3);
+
+    assert_eq!(
+        entries_of("parent:"),
+        owned_strings(&[
+            &format!("parent:pre-restart {BOOM}"),
+            "parent:post-restart",
+            "parent:post-restart",
+            "parent:alive",
+        ])
+    );
+    assert_eq!(
+        entries_of("child:")[1..],
+        ["child:post-restart", "child:after"]
+    );
+}
+
+#[test]
+fn a_restart_after_a_failed_post_restart_skips_pre_restart_and_keeps_the_survivor_working() {
+    restart_again_after_a_failed_post_restart("t-fatal-restart", Directive::Restart);
+}
+
+#[test]
+fn resuming_an_actor_that_failed_fatally_restarts_it() {
+    restart_again_after_a_failed_post_restart("t-fatal-resume", Directive::Resume);
 }

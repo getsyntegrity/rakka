@@ -239,6 +239,8 @@ struct Ctx {
     gate_cv: Condvar,
     /// named holds a supervisor's decider waits on (`supervisor.hold`)
     holds: Mutex<HashMap<String, Hold>>,
+    /// labels whose `postRestart` already threw (`throw-in-post-restart: "once"`)
+    failed_post_restart: Mutex<HashSet<String>>,
 }
 
 impl Ctx {
@@ -321,6 +323,8 @@ struct Behavior {
     throw_in_prestart: bool,
     /// `throw-in-post-restart`: `postRestart` records its event and then throws IllegalStateException("post-restart")
     throw_in_post_restart: bool,
+    /// `throw-in-post-restart: "once"`: only the first `postRestart` of the label throws
+    throw_in_first_post_restart: bool,
     /// `keep-children`: `preRestart` only records its event (neither stops the children nor runs `postStop`)
     keep_children: bool,
     /// `constructor-fails-from: n`: the actor factory throws IllegalStateException("ctor") from the n-th instance on
@@ -381,6 +385,11 @@ impl Behavior {
                 v.get("throw-in-post-restart"),
                 Some(Value::Bool(true))
             ),
+            throw_in_first_post_restart: v
+                .get("throw-in-post-restart")
+                .and_then(Value::as_str)
+                .as_deref()
+                == Some("once"),
             keep_children: matches!(v.get("keep-children"), Some(Value::Bool(true))),
             constructor_fails_from: match v.get("constructor-fails-from") {
                 Some(Value::Number(n)) => Some(*n as u64),
@@ -515,7 +524,14 @@ impl Actor for Scripted {
             },
         );
         self.ctx.life(format!("{}:post-restart", self.label));
-        if self.cfg.throw_in_post_restart {
+        let first = self.cfg.throw_in_first_post_restart
+            && self
+                .ctx
+                .failed_post_restart
+                .lock()
+                .unwrap()
+                .insert(self.label.clone());
+        if self.cfg.throw_in_post_restart || first {
             throw(Throwable::illegal_state("post-restart"));
         }
         self.pre_start(c); // default postRestart
