@@ -1897,7 +1897,11 @@ def classify(replay_result, binary):
     """-> (outcome, passed, total, line), counting only applicable cases (NOT_APPLICABLE ones must be rejected
     explicitly, see replay_lib). A mutant is detected only when the replay ran to completion and either an
     applicable case diverged or a NOT_APPLICABLE input was no longer rejected explicitly."""
-    ev = replay_lib.evaluate(binary, replay_result)
+    return classify_evaluation(replay_lib.evaluate(binary, replay_result))
+
+
+def classify_evaluation(ev):
+    """The verdict of one evaluation of a replay (the evaluation is computed once, so that the history seeded from it is the very one that was classified)."""
     if ev["ok"] is None:
         return HARNESS_ERROR, None, None, ev["line"]
     detail = ev["line"] + "".join(f"; {p}" for p in ev["na_problems"])
@@ -2043,14 +2047,19 @@ def full_replay_verdict(binary, name):
         return TIMEOUT, None, None, "rust-anything replay"
     except replay_lib.ReplayLockTimeout:
         return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
-    outcome = classify(replay_result, binary)
+    evaluation = replay_lib.evaluate(binary, replay_result)
+    outcome = classify_evaluation(evaluation)
     # the report of THIS replay (read under the checkout lock), never the shared file as it is now; a verdict always rewrites it, so that an
     # earlier report can never sit under a verdict path that no longer applies
     scope = "output rejected" if replay_result.passed is None else f"{replay_result.total} cases"
     publish_mutant_report(name, f"full replay ({scope}); outcome {outcome[0]}",
                           replay_result.report_text if replay_result.report_text is not None else "(this replay produced no report)\n")
-    if replay_result.passed is not None:
-        write_killers(name, replay_result.failures)
+    # the history is seeded only by a confirmed detection and holds only the cases that count (not NOT_APPLICABLE, not NA:Q-CFG-30); a survivor has none; a replay that
+    # could not be understood (an infrastructure failure) leaves the history as it was
+    if outcome[0] == DETECTED:
+        write_killers(name, evaluation["applicable_failing"])
+    elif outcome[0] == UNDETECTED:
+        write_killers(name, [])
     return outcome
 
 
@@ -2063,9 +2072,10 @@ def killers_file(name):
 
 
 def write_killers(name, cases):
-    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it."""
+    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it.
+    Sorted and without duplicates, so that the same detection always writes the same bytes (a file that can be versioned and diffed); only case names, never a path."""
     with open(killers_file(name), "w", encoding="utf-8") as killers:
-        killers.write("".join(f"{case}\n" for case in cases))
+        killers.write("".join(f"{case}\n" for case in sorted(set(cases))))
 
 
 def cases_listed_in_report(name):

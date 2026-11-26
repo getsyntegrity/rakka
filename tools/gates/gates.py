@@ -30,9 +30,14 @@ GLOBAL_MUTANT_TRIGGERS = ("Cargo.toml", "Cargo.lock", "cases/", "rust/app-cases/
                           "crates/rakka-actor/Cargo.toml", "crates/rakka-actor/examples/")
 
 
+# Files that every replay REWRITES as an output (tools/parity/replay_lib.py writes it, and the verdict of a replay reads only the copy its own run produced under the lock): they are never an
+# input of a verdict, so a change to exactly them selects nothing. Only the exact path is excused: any other file under a trigger still selects everything.
+NON_INPUT_ARTIFACTS = ("rust/app-cases/replay-report.md",)
+
+
 def select_mutants(changed_files, mutants, tool_mutants):
     """Names of the mutants a change must re-check; [] when no mutated file changed."""
-    changed = list(changed_files)
+    changed = [path for path in changed_files if path not in NON_INPUT_ARTIFACTS]
     if any(f == t or f.startswith(t) for f in changed for t in GLOBAL_MUTANT_TRIGGERS):
         return list(mutants) + list(tool_mutants)
     picked = [n for n, (rel, *_rest) in mutants.items() if CRATE_PREFIX + rel in changed]
