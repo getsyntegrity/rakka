@@ -40,6 +40,8 @@ def unit_mutants_of_changed_tests(changed, unit_mutants):
     the crate that their `cargo test --lib <filter>` selects. The filter is a SUBSTRING of the test path, so a module path that contains the filter, or that the filter extends, selects too
     (over-selection is the safe error)."""
     tests_directory, source_directory = CRATE_PREFIX + "tests/", CRATE_PREFIX + "src/"
+    # code that exists only to be shared by the lib tests (test_support.rs, test_clock.rs, tests.rs, *_tests.rs) can flip ANY of their verdicts: it selects every unit mutant that runs a lib test
+    shared_test_code = any(f.startswith(source_directory) and f.endswith(".rs") and "test" in f.rsplit("/", 1)[-1] for f in changed)
     picked = set()
     for name, (module, _expected_test) in unit_mutants.items():
         if module.startswith("test:"):
@@ -50,7 +52,7 @@ def unit_mutants_of_changed_tests(changed, unit_mutants):
                 return "::".join(inside[:-1] if inside[-1] == "mod" else inside)
             picked_by_file = any(f.startswith(source_directory) and f.endswith(".rs") and (module in module_path(f) or module_path(f).startswith(module) or module.startswith(module_path(f)))
                                  for f in changed)
-        if picked_by_file:
+        if picked_by_file or (shared_test_code and not module.startswith("test:")):
             picked.add(name)
     return picked
 
