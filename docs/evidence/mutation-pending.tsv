@@ -10,3 +10,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #404	61f8d29c	359	watch-with-delivers-terminated; re-watch-does-not-compare; watch-with-equality-ignores-value; queued-termination-replaced-by-later-watch	none	359 not run (Q-X-23)	PENDING
 #405	21721eb0	361	pre-restart-failure-is-swallowed; post-stop-failure-is-swallowed	none	361 not run (Q-X-23)	PENDING
 #406	f2fe7280	133	none on this head (the three logFailure mutants come with the stacked slice 2/2)	none	133 not run (Q-X-23)	PENDING
+#408	9940ccc7	364	supervisor-failure-is-not-logged; resume-is-logged-as-an-error; disabled-logging-still-logs	none	364 not run (Q-X-23)	PENDING
