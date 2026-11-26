@@ -26,6 +26,8 @@ pub(crate) mod repointable;
 pub mod selection;
 pub mod supervision;
 pub mod system;
+#[cfg_attr(not(test), allow(dead_code))] // driven by the scheduler thread, which follows
+mod timer_wheel;
 #[cfg(test)]
 mod unstarted_push_timeout_tests;
 #[cfg(test)]

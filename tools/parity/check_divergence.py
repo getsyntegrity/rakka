@@ -2317,6 +2317,12 @@ MUTANTS = {
         "let missed = self.empty_ref(&self.anchor, &self.elements);",
         "the dead letter of a miss below a single wildcard match is addressed to the selected pattern, not below the match",
     ),
+    "wheel-forgets-the-remaining-rounds": (
+        "src/actor/timer_wheel.rs",
+        "if entry.ticks >= rotation {",
+        "if false {",
+        "a delay longer than one rotation of the wheel fires in the first round, before it is due (killed by a unit test, see UNIT_MUTANTS)",
+    ),
     "panicking-user-drop-escapes-the-guard": (
         "src/actor/cell.rs",
         "    let _ = catch_unwind(AssertUnwindSafe(|| drop(value)));",
@@ -2449,6 +2455,8 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    # no recorded case can wait longer than a rotation (5.12 s) of the wheel
+    "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)
     "panicking-user-drop-escapes-the-guard": ("test:classic_panicking_drop", "a_stopped_actor_whose_drop_panics_terminates"),
     "failed-cell-ignores-a-new-failure": ("actor::refailure_tests", "a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_again"),
