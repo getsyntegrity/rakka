@@ -80,6 +80,11 @@ class PubModOnly(unittest.TestCase):
         for code in ("impl<T> Tag for T {}", "use crate::dispatch::Envelope;\nimpl Drop for Envelope {}", "struct U;\nimpl<U> Tag for U {}"):
             self.assert_conservative({MODULE: OWN_ONLY + shadow + code + "\n"}, why=code)
 
+    def test_a_hidden_parameter_a_cfg_twin_or_a_raw_attribute_name_keeps_the_conservative_selection(self):
+        for code in ("struct T2;\nimpl<#[cfg(all())] T2> Tag for T2 {}", "#[r#ctor]\nfn boot() {}",
+                     "#[cfg(test)]\nstruct Envelope;\n#[cfg(not(test))]\nuse crate::dispatch::Envelope;\nimpl Drop for Envelope {}"):
+            self.assert_conservative({MODULE: OWN_ONLY + code + "\n"}, why=code)
+
     def test_unknown_macros_and_attributes_and_constructs_the_reader_cannot_follow_keep_the_conservative_selection(self):
         for code in ("::a::b! {}", "a::vec![1];", "r#m!();", "fn f() { register!(A); }", "const _: () = { fn g() {} };",
                      "#[cfg_attr(all(), no_mangle)]\npub fn hook() {}", "#[ctor::ctor]\nfn boot() {}", "#[derive(Clone, Serialize)]\nstruct S;",

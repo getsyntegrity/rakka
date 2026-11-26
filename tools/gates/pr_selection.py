@@ -29,7 +29,7 @@ PATH_NAMES = {"std", "core", "alloc", "test", "bool", "char", "str", "f32", "f64
 OUT_OF_REACH_OF_THIS_READER = re.compile(r"\bmacro_rules\b|\bextern\b|\bconst\s+_\b")
 IMPL = re.compile(r"(?:\A|(?<=[{};\]]))\s*(?:unsafe\s+)?impl\b")      # an impl item, not `impl Trait` in a type position
 MACRO = re.compile(r"((?:r#)?[A-Za-z_]\w*)!\s*[\(\[\{]")               # rustfmt (a PR gate) leaves no space before the `!`
-ATTRIBUTE = re.compile(r"#\s*!?\s*\[\s*([\w:\s]+?)\s*(?=[\(\]=])")
+ATTRIBUTE = re.compile(r"#\s*!?\s*\[\s*([^\(\]=]*?)\s*(?=[\(\]=])")
 DERIVE = re.compile(r"#\s*!?\s*\[\s*derive\s*\(([^)]*)\)")
 LOCAL_TYPE = re.compile(r"\b(?:struct|enum|union)\s+([A-Za-z_]\w*)")
 
@@ -68,7 +68,7 @@ def self_type(code, after_impl):
     target = re.split(r"\bwhere\b", "".join(top_level))[0]
     target = re.split(r"\s+for\s+", target)[-1].strip()
     plain = re.fullmatch(r"([A-Za-z_]\w*)\s*(<.*>)?", target, re.S)
-    if not plain or re.search(rf"[<,]\s*(?:const\s+)?{plain.group(1)}\b", parameters):
+    if not plain or "#" in parameters or re.search(rf"[<,]\s*(?:const\s+)?{plain.group(1)}\b", parameters):
         return None
     return plain.group(1)
 
@@ -86,8 +86,9 @@ def reaches_existing_code(sources):
             return True
         if any(name.strip() and name.strip() not in STD_DERIVES for found in DERIVE.finditer(code) for name in found.group(1).split(",")):
             return True
-        # an impl is local only when its type is declared in the same scope of the same file
-        declared = {(block_of(code, found.start()), found.group(1)) for found in LOCAL_TYPE.finditer(code)}
+        # an impl is local only when its type is declared in the same scope of the same file and never imported (a `cfg` twin could be either)
+        imported = set(re.findall(r"\w+", " ".join(re.findall(r"\buse\s[^;]*;", code))))
+        declared = {(block_of(code, found.start()), found.group(1)) for found in LOCAL_TYPE.finditer(code) if found.group(1) not in imported}
         if any((block_of(code, found.end()), self_type(code, found.end())) not in declared for found in IMPL.finditer(code)):
             return True
     return False
