@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 260 decisiones: 0 bloqueantes, 185 propuestas, 60 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 260 decisiones: 0 bloqueantes, 184 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -656,16 +656,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) conservar el hook is_local en el trait de ref y el topic sin uso local / (b) omitir el topic y el orden / (c) implementarlo completo con un provider simulado
 - **Recomendación:** (a) mínimo: el trait de ref expone is_local y la celda mantiene los conjuntos watching/watchedBy con la lógica de suscripción, aunque sin remote nunca se suscriba [2026-10-31 cierre documental] Clasificación: arquitectura / exclusión de alcance (remote). Resuelto leyendo: sin proveedor remoto `hasNonLocalAddress` es siempre falso, no hay suscripción y `AddressTerminated` no se publica; el hook mínimo (is_local + conjuntos watching/watchedBy + suscripción) permite un remote futuro sin cambiar la celda. Consecuencia: ningún test funcional upstream (sólo el benchmark). Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. Puede avanzar: el resto de DW (el orden local es el único observable sin remote).
 - **Filas afectadas:** AC-DW-010 ; AC-DW-012
-- **Unidades afectadas:** DW
-- **Origen:** classic-cell
-
-### Q-DW-3 — Igualdad de los mensajes custom de watchWith (con Box<dyn Any>)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:122-131 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:203-205,220-223
-- **Alternativas:** (a) watch_with generico con cota PartialEq + Any, iguales si coinciden el tipo y eq / (b) identidad del Arc / (c) otra relacion
-- **Recomendación:** (a). Consecuencia: la igualdad de Scala entre tipos distintos (1 == 1L) no se reproduce. Q-X-3 no cubre la igualdad. Bloquea AC-DW-005.
-- **Filas afectadas:** AC-DW-005
 - **Unidades afectadas:** DW
 - **Origen:** classic-cell
 
@@ -2214,6 +2204,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** aceptar (a) con la premisa corregida: 357 de las 362 diferencias eran empates exactos mal resueltos por rakko (se corrigen: cifra par) y 5 son bugs de JDK 17; el replay las clasifica como NA:Q-CFG-30 por firma, sin listas de casos. (Owner (respuesta en el hilo de la tarea Q-CFG-30), 2026-11-19)
+
+### Q-DW-3 — Igualdad de los mensajes custom de watchWith (con Box<dyn Any>)
+
+- **Estado:** aceptada
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:122-131 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:203-205,220-223
+- **Alternativas:** (a) watch_with generico con cota PartialEq + Any, iguales si coinciden el tipo y eq / (b) identidad del Arc / (c) otra relacion
+- **Recomendación:** (a). Consecuencia: la igualdad de Scala entre tipos distintos (1 == 1L) no se reproduce. Q-X-3 no cubre la igualdad. Bloquea AC-DW-005.
+- **Filas afectadas:** AC-DW-005
+- **Unidades afectadas:** DW
+- **Origen:** classic-cell
+- **Respuesta del Owner:** aceptar (a): igualdad por tipo concreto y valor mediante PartialEq: watch_with<M: Any + PartialEq + Send + Sync>(ref, msg). Se aceptan explícitamente las diferencias derivadas de la semántica de igualdad de Rust respecto de Scala, incluida la ausencia de igualdad automática entre tipos numéricos diferentes y la obligación de implementar PartialEq. No se introducen conversiones dinámicas entre tipos, comparadores universales ni traits públicos adicionales sin necesidad demostrada. Registrada en owner-decisions.tsv en representación del Owner, con su autorización expresa. (Owner (instrucción en la sesión), 2026-11-26)
 
 ### Q-EVT-1 — Nombres de clase JVM en mensajes observables (dead letters, canales Debug, `class`/`interface`)
 
