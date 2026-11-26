@@ -11,10 +11,11 @@ rust/divergence-reports/. Finally the unmodified port is replayed again as the c
 Exit code: 0 every mutant DETECTED and the control clean; 1 a mutant went UNDETECTED or the control failed;
 2 the experiment is invalid (patch, build, harness error or timeout). `--selftest` runs an equivalent mutant that must exit 1.
 """
-import atexit, collections, difflib, json, os, re, shutil, signal, subprocess, sys, tempfile
+import atexit, collections, difflib, hashlib, json, os, re, shutil, signal, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import replay_lib
+import clean_replay_evidence
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CRATE = os.path.join(ROOT, "crates", "rakka-actor")
@@ -2038,7 +2039,11 @@ def classify(replay_result, binary):
     """-> (outcome, passed, total, line), counting only applicable cases (NOT_APPLICABLE ones must be rejected
     explicitly, see replay_lib). A mutant is detected only when the replay ran to completion and either an
     applicable case diverged or a NOT_APPLICABLE input was no longer rejected explicitly."""
-    ev = replay_lib.evaluate(binary, replay_result)
+    return classify_evaluation(replay_lib.evaluate(binary, replay_result))
+
+
+def classify_evaluation(ev):
+    """The verdict of one evaluation of a replay (the evaluation is computed once, so that the history seeded from it is the very one that was classified)."""
     if ev["ok"] is None:
         return HARNESS_ERROR, None, None, ev["line"]
     detail = ev["line"] + "".join(f"; {p}" for p in ev["na_problems"])
@@ -2199,14 +2204,19 @@ def full_replay_verdict(binary, name):
         return TIMEOUT, None, None, "rust-anything replay"
     except replay_lib.ReplayLockTimeout:
         return BUDGET_EXHAUSTED, None, None, BUDGET_EXHAUSTED_LINE
-    outcome = classify(replay_result, binary)
+    evaluation = replay_lib.evaluate(binary, replay_result)
+    outcome = classify_evaluation(evaluation)
     # the report of THIS replay (read under the checkout lock), never the shared file as it is now; a verdict always rewrites it, so that an
     # earlier report can never sit under a verdict path that no longer applies
     scope = "output rejected" if replay_result.passed is None else f"{replay_result.total} cases"
     publish_mutant_report(name, f"full replay ({scope}); outcome {outcome[0]}",
                           replay_result.report_text if replay_result.report_text is not None else "(this replay produced no report)\n")
-    if replay_result.passed is not None:
-        write_killers(name, replay_result.failures)
+    # the history is seeded only by a confirmed detection and holds only the cases that count (not NOT_APPLICABLE, not NA:Q-CFG-30); a survivor has none; a replay that
+    # could not be understood (an infrastructure failure) leaves the history as it was
+    if outcome[0] in (DETECTED, UNDETECTED):
+        confirmed = evaluation["applicable_failing"] if outcome[0] == DETECTED else []
+        write_killers(name, confirmed)
+        record_provenance(name, confirmed, replay_result.total)
     return outcome
 
 
@@ -2219,9 +2229,61 @@ def killers_file(name):
 
 
 def write_killers(name, cases):
-    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it."""
+    """The divergent cases of the last FULL replay of this mutant, one per line: the candidates of its next fast-kill. A fast-kill never shrinks it.
+    Sorted and without duplicates, so that the same detection always writes the same bytes (a file that can be versioned and diffed); only case names, never a path."""
     with open(killers_file(name), "w", encoding="utf-8") as killers:
-        killers.write("".join(f"{case}\n" for case in cases))
+        killers.write("".join(f"{case}\n" for case in sorted(set(cases))))
+
+
+PROVENANCE_HEADER = "mutant\tpatch\tcases\tkillers\tcrate_tree\tcorpus\n"
+
+
+def provenance_file():
+    return os.path.join(REPORTS, "killers-provenance.tsv")
+
+
+def patch_hash(name):
+    """16 hex digits that identify the DEFINITION of a mutant (file, pattern, replacement): a history recorded for another definition is not about this mutant. None: not defined."""
+    definition = MUTANTS.get(name) or TOOL_MUTANTS.get(name) or SELFTEST.get(name)
+    if definition is None:
+        return None
+    return hashlib.sha256("\0".join(definition[:3]).encode("utf-8")).hexdigest()[:16]
+
+
+def crate_tree():
+    """The git tree id of the code under test (traceability of a recorded history); `unknown` when git cannot tell. No path, no time."""
+    done = subprocess.run(["git", "-C", ROOT, "rev-parse", "HEAD:crates/rakka-actor"], capture_output=True, text=True)
+    return done.stdout.strip() if done.returncode == 0 and done.stdout.strip() else "unknown"
+
+
+def read_provenance():
+    try:
+        with open(provenance_file(), encoding="utf-8") as manifest:
+            rows = [line.rstrip("\n").split("\t") for line in manifest.readlines()[1:] if line.strip()]
+    except OSError:
+        return {}
+    return {row[0]: row for row in rows if len(row) == 6}
+
+
+def write_provenance(rows):
+    """Sorted by mutant and rewritten whole: the same detections give the same bytes. Written aside and renamed, so that a reader never sees half a manifest."""
+    body = PROVENANCE_HEADER + "".join("\t".join(rows[name]) + "\n" for name in sorted(rows))
+    temporary = provenance_file() + ".tmp"
+    with open(temporary, "w", encoding="utf-8") as manifest:
+        manifest.write(body)
+    os.replace(temporary, provenance_file())
+
+
+def record_provenance(name, cases, corpus):
+    """After a CONFIRMED detection: what the history of this mutant is about. `cases` empty (a survivor, or nothing that counts) removes the entry."""
+    rows = read_provenance()
+    if cases and patch_hash(name):
+        with open(killers_file(name), "rb") as killers:
+            digest = hashlib.sha256(killers.read()).hexdigest()[:16]
+        rows[name] = [name, patch_hash(name), str(len(set(cases))), digest, crate_tree(), str(corpus)]
+    else:
+        rows.pop(name, None)
+    write_provenance(rows)
 
 
 def cases_listed_in_report(name):
@@ -2246,6 +2308,9 @@ def known_killers(name):
             listed = [line.strip() for line in killers if line.strip()]
     except OSError:
         listed = cases_listed_in_report(name)
+    recorded = read_provenance().get(name)
+    if recorded is not None and recorded[1] != patch_hash(name):
+        return []        # recorded for another definition of the mutant (or one that no longer exists): more work, never another verdict
     not_applicable = replay_lib.load_not_applicable()
     return [case for case in listed if case not in not_applicable][:FAST_KILL_CANDIDATES]
 
@@ -2271,7 +2336,7 @@ def control_binary_for_fast_kill():
         path = os.path.join(ROOT, "target", PARITY)
         try:
             with replay_lib.build_lock():   # build and publish are one step: no other build can swap target/ in between
-                built = sh(["cargo", "build", "--release", "-p", "rakka-actor", "--example", "classic-parity"], timeout=BUILD_TIMEOUT, cwd=ROOT)
+                built = sh(list(clean_replay_evidence.CLEAN_REPLAY_COMMAND), timeout=BUILD_TIMEOUT, cwd=ROOT)
                 # the control replays an immutable copy, never the shared target/ path that the next build overwrites
                 _control_binary = replay_lib.publish_binary(path) if built.returncode == 0 and os.path.exists(path) else ""
         except subprocess.TimeoutExpired:
@@ -2416,12 +2481,26 @@ def make_scratch_directory(parent=None):
     return path
 
 
+def reusable_clean_replay(control_binary):
+    """The evidence record of this gate run's complete clean replay of exactly this binary and these inputs, else None (the control then replays)."""
+    ev = clean_replay_evidence
+    stored, why = ev.reusable(ev.evidence_path(ROOT), ev.identity(ROOT, control_binary, os.environ), os.environ.get(ev.RUN_ID_ENV), ev.corpus_case_count(ROOT))
+    if stored is None:
+        print(f"clean-replay evidence not reused ({why}): the control replays", flush=True)
+    return stored
+
+
 def run_control_replay():
     """Replays the unmodified crate: builds the parity binary of the CURRENT tree first (a leftover binary would certify old code).
     -> (control_ok, passed, total, line, replay result or None)."""
     control_binary = control_binary_for_fast_kill()
     if control_binary is None:
         return False, None, None, "could not build the unmodified parity binary", None
+    reused = reusable_clean_replay(control_binary)
+    if reused is not None:
+        r = reused["result"]
+        return True, r["applicable_passed"], r["applicable_total"], (f"reused: the clean replay of this gate run ({r['applicable_passed']}/{r['applicable_total']} applicable + "
+                                                                     f"{r['other_not_applicable']} not applicable; evidence {reused['key'][:12]}, same binary, inputs and toolchain)"), None
     try:
         control_replay = replay(control_binary)
     except subprocess.TimeoutExpired:
