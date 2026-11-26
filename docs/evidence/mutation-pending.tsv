@@ -5,13 +5,13 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #398	07ad2117	344	restart-leaves-survivors-suspended; failed-restart-still-restarts-survivors; waiting-cell-does-not-defer-system-messages	none	344 not run (Q-X-23)	PENDING
 #399	c0d51097	348	failed-restart-suspends-survivors-again; fatal-restart-repeats-pre-restart; fatal-resume-is-a-plain-resume; terminating-recreate-skips-the-children	none	348 not run (Q-X-23)	PENDING
 #400	69e5459a	62	suspended-cell-does-not-defer-failed; deferred-messages-never-come-back; terminated-cell-keeps-deferred-messages	none	62 not run (Q-X-23)	PENDING
-#403	44eabc53	355	failed-cell-ignores-a-new-failure; failed-cell-still-skips-the-sender; terminating-actor-keeps-its-perpetrator; fatal-resume-is-not-reported	none	355 not run (Q-X-23)	PENDING
 #402	ccb51e4c	114	none on this head (two re-pointed unwatch mutants); four new ones come with the stacked slice 2	none	114 not run (Q-X-23)	PENDING
+#403	44eabc53	355	failed-cell-ignores-a-new-failure; failed-cell-still-skips-the-sender; terminating-actor-keeps-its-perpetrator; fatal-resume-is-not-reported	none	355 not run (Q-X-23)	PENDING
 #404	61f8d29c	359	watch-with-delivers-terminated; re-watch-does-not-compare; watch-with-equality-ignores-value; queued-termination-replaced-by-later-watch	none	359 not run (Q-X-23)	PENDING
 #405	21721eb0	361	pre-restart-failure-is-swallowed; post-stop-failure-is-swallowed	none	361 not run (Q-X-23)	PENDING
 #406	f2fe7280	133	none on this head (the three logFailure mutants come with the stacked slice 2/2)	none	133 not run (Q-X-23)	PENDING
-#408	9940ccc7	364	supervisor-failure-is-not-logged; resume-is-logged-as-an-error; disabled-logging-still-logs	none	364 not run (Q-X-23)	PENDING
 #407	275b6852	73	none on this head (six re-pointed cell.rs mutants; the four new ones come with the stacked slice 2/2)	none	73 not run (Q-X-23)	PENDING
+#408	9940ccc7	364	supervisor-failure-is-not-logged; resume-is-logged-as-an-error; disabled-logging-still-logs	none	364 not run (Q-X-23)	PENDING
 #409	41bc97ef	131	supervision-errors-are-published-guarded	none	131 not run (Q-X-23)	PENDING
 #410	a76ea67b	369	handled-failure-is-forgotten; resume-forgets-the-current-message; success-keeps-the-current-message; restart-keeps-the-current-message	none	369 not run (Q-X-23)	PENDING
 #411	acf416d9	370	pre-restart-keeps-watching-children	none	370 not run (Q-X-23)	PENDING
@@ -19,4 +19,5 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #415	671c613d	166	selection-parent-is-ignored	none	166 not run (Q-X-23)	PENDING
 #416	ccc34d3f	373	default-pre-restart-skips-post-stop	none	373 not run (Q-X-23)	PENDING
 #417	f16b96c1	167	selection-miss-leaves-identify-unanswered	none	167 not run (Q-X-23)	PENDING
+#418	d401ff51	377	none	none	377 not run (Q-X-23)	PENDING
 #419	4c8fa01c	375	log-failure-publishes-the-wrapper-message; creation-failure-names-the-thrown-not-the-root	none	375 not run (Q-X-23)	PENDING
