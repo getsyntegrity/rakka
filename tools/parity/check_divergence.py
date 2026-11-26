@@ -2313,7 +2313,7 @@ MUTANTS = {
     ),
     "selection-miss-below-a-single-match-keeps-the-whole-path": (
         "src/actor/selection.rs",
-        "let missed = self.empty_ref(anchor, elements);",
+        "let missed = self.empty_ref(&anchor, &self.elements[start..]);",
         "let missed = self.empty_ref(&self.anchor, &self.elements);",
         "the dead letter of a miss below a single wildcard match is addressed to the selected pattern, not below the match",
     ),

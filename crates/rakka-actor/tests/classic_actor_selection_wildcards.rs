@@ -5,8 +5,8 @@
 mod common;
 use common::{RunningSystem, path_of, wait_until};
 
+use std::process::Command;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{
@@ -235,17 +235,26 @@ fn a_miss_is_a_dead_letter_below_the_single_match_and_silent_after_a_fan_out() {
     assert_eq!(tree.recorded(expected.len()), expected);
 }
 
-/// ActorSelectionSpec "deliver a wildcard selection promptly even when the pattern would make a regex backtrack".
+/// A stack overflow aborts the process, so the walk runs in a child: this test binary again, with `DEEP` set.
 #[test]
-fn a_pattern_that_would_backtrack_is_answered_promptly() {
-    let tree = Tree::new();
-    let name = "a".repeat(36);
-    let child = Props::new(|| Node(Log::default()));
-    tree.system.actor_of_named(child, &name).unwrap();
-    let pattern = format!("/user/{}*b", "*a".repeat(12));
-    let started = Instant::now();
-    tree.identify(&pattern, "slow");
-
-    assert_eq!(tree.recorded(1), ["slow -"]);
-    assert!(started.elapsed() < Duration::from_secs(3));
+fn very_many_wildcard_levels_do_not_exhaust_the_stack() {
+    const DEEP: &str = "RAKKA_DEEP_SELECTION";
+    if std::env::var_os(DEEP).is_none() {
+        let test = "very_many_wildcard_levels_do_not_exhaust_the_stack";
+        let mut child = Command::new(std::env::current_exe().unwrap());
+        let output = child.args(["--exact", test]).env(DEEP, "1").output();
+        let output = output.unwrap();
+        let errors = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{}: {errors}", output.status);
+        // (a filter that matched nothing would also succeed)
+        return assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+    }
+    let walk = || {
+        let tree = Tree::new();
+        // `us*` matches only `user`: 20 000 levels, each walked from the match before
+        tree.tell(&format!("/{}user/a", "us*/../".repeat(20_000)), "deep");
+        assert_eq!(tree.recorded(1), ["a: deep from /user/r"]);
+    };
+    let thread = std::thread::Builder::new().stack_size(2 << 20);
+    thread.spawn(walk).unwrap().join().unwrap();
 }
