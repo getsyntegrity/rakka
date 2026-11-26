@@ -546,7 +546,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Propagacion de fallos: suspender, enviar Failed al padre, aplicar la directiva, hooks de ciclo de vida.
 - **Filas (11; impl: pending 11):** asignacion explicita en `docs/unit-rows.tsv`: AC-SUP-001, AC-SUP-002, AC-SUP-008, AC-SUP-009, AC-SUP-010, AC-SUP-016, AC-SUP-018, AC-SUP-020, AC-CELL-006, AC-CELL-020, AC-CELL-021.
 - **Exclusiones/costuras:** Reinicio/parada completos en P22.
-- **Decisiones:** 5 distintas en sus filas; respondidas: Q-X-4, Q-X-5; propuestas sin respuesta: Q-CELL-2, Q-CELL-7, Q-SUP-3. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P21). <!-- generated:unit-decisions -->
+- **Decisiones:** 5 distintas en sus filas; respondidas: Q-CELL-7, Q-SUP-3, Q-X-4, Q-X-5; propuestas sin respuesta: Q-CELL-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P21). <!-- generated:unit-decisions -->
 - **Dependencias:** P19, P20.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{fault,lifecycle}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** SupervisorSpec parcial.
@@ -557,7 +557,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Restart, stop, terminacion y espera de hijos como una maquina de estados unica.
 - **Filas (21; impl: pending 21):** asignacion explicita en `docs/unit-rows.tsv`: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.2, AC-CELL-007.3, AC-CELL-007.4, AC-CELL-015.2, AC-CELL-008.1, AC-CELL-008.2, AC-CELL-009, AC-CELL-010, AC-CELL-011, AC-CELL-012, AC-CELL-023, AC-CELL-024, AC-CELL-030, AC-SUP-011, AC-SUP-015, AC-SUP-019, AC-DW-008, AC-DW-009, AC-DW-010.
 - **Exclusiones/costuras:** Resuelve R4/R8/R25/R26/R27; DW-008/009 se implementan aqui con el hook de Terminated (DW-001 llega en P23).
-- **Decisiones:** 5 distintas en sus filas; respondidas: Q-X-5; propuestas sin respuesta: Q-CELL-4, Q-CELL-6, Q-DW-2, Q-REF-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P22). <!-- generated:unit-decisions -->
+- **Decisiones:** 6 distintas en sus filas; respondidas: Q-CELL-6, Q-SUP-3, Q-X-5; propuestas sin respuesta: Q-CELL-4, Q-DW-2, Q-REF-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P22). <!-- generated:unit-decisions -->
 - **Dependencias:** P17, P18, P21.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{restart,terminate}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorLifeCycleSpec, SupervisorSpec.
@@ -568,7 +568,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Watch/unwatch, Terminated, death pact, unhandled y entrega a celda terminada.
 - **Filas (13; impl: pending 13):** asignacion explicita en `docs/unit-rows.tsv`: AC-DW-001, AC-DW-002, AC-DW-003, AC-DW-004, AC-DW-005, AC-DW-006, AC-DW-007, AC-DW-011, AC-DW-012, AC-CELL-004, AC-CELL-013.3, AC-CELL-025, AC-EVT-010.
 - **Exclusiones/costuras:** Resuelve R1(a): DW-002 + CELL-013.3 juntas; CELL-004 + DW-007 juntas.
-- **Decisiones:** 5 distintas en sus filas; respondidas: Q-DW-3, Q-EVT-1; propuestas sin respuesta: Q-DW-1, Q-DW-2, Q-DW-4. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P23). <!-- generated:unit-decisions -->
+- **Decisiones:** 5 distintas en sus filas; respondidas: Q-DW-3, Q-DW-4, Q-EVT-1; propuestas sin respuesta: Q-DW-1, Q-DW-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P23). <!-- generated:unit-decisions -->
 - **Dependencias:** P11, P17, P20, P22.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{deathwatch,unhandled}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** DeathWatchSpec 1:1 (oraculo por comportamiento).
