@@ -146,6 +146,12 @@ fn exception(class: &str, message: &str, cause: Option<String>) -> String {
 }
 
 pub fn rust_lines() -> Vec<(String, String)> {
+    rust_lines_for(None)
+}
+
+/// The lines of the oracle. `only` is the (escaped) id of the single case a caller needs: the script and concurrent cases of the structures group that are not it are then not evaluated, so
+/// the list may lack them. `None` gives every line in the oracle's order.
+pub fn rust_lines_for(only: Option<&str>) -> Vec<(String, String)> {
     let mut lines: Vec<(String, String)> = Vec::new();
     let mut case = |id: String, line: String| {
         lines.push((
@@ -642,7 +648,7 @@ pub fn rust_lines() -> Vec<(String, String)> {
     }
 
     // ---- Slice P03: UTIL-ESTRUCTURAS (AC-UTIL-007..014, 015.1, 016.4, 017.1..017.5)
-    for (id, result) in crate::structures_cases::cases() {
+    for (id, result) in crate::structures_cases::cases_for(only) {
         lines.push((
             escape_non_ascii_units(&id),
             escape_non_ascii_units(&format!("{id} -> {}", ok(result))),
