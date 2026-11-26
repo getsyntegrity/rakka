@@ -115,10 +115,14 @@ impl Default for Mailboxes {
     fn default() -> Mailboxes {
         Mailboxes {
             registered: BTreeMap::new(),
-            requirements: BTreeMap::from([(
-                MessageQueueSemantics::UNBOUNDED,
-                Self::UNBOUNDED_QUEUE_BASED_ID.to_owned(),
-            )]),
+            // the rows of `reference.conf`'s `requirements` that Rakka has a mailbox for
+            requirements: BTreeMap::from(
+                [
+                    MessageQueueSemantics::UNBOUNDED,
+                    MessageQueueSemantics::MULTIPLE_CONSUMER,
+                ]
+                .map(|semantics| (semantics, Self::UNBOUNDED_QUEUE_BASED_ID.to_owned())),
+            ),
         }
     }
 }
@@ -646,6 +650,81 @@ mod tests {
         );
     }
 
+    /// A queue that does not declare its semantics (it keeps the default of `MessageQueue::satisfies`).
+    struct UndeclaredQueue(Box<dyn MessageQueue>);
+
+    impl MessageQueue for UndeclaredQueue {
+        fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
+            self.0.enqueue(receiver, envelope)
+        }
+        fn dequeue(&self) -> Option<Envelope> {
+            self.0.dequeue()
+        }
+        fn number_of_messages(&self) -> usize {
+            self.0.number_of_messages()
+        }
+        fn has_messages(&self) -> bool {
+            self.0.has_messages()
+        }
+        fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
+            self.0.clean_up(owner, dead_letters)
+        }
+    }
+
+    /// Promises `AUDIT_QUEUE` and creates an [`UndeclaredQueue`].
+    struct UndeclaredQueueType;
+
+    impl MailboxType for UndeclaredQueueType {
+        fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+            Box::new(UndeclaredQueue(bounded(1).create(dead_letters.clone())))
+        }
+
+        fn produced_queue(&self) -> ProducedQueue {
+            AUDIT_QUEUE
+        }
+    }
+
+    struct RequiresMultipleConsumer;
+    impl Actor for RequiresMultipleConsumer {
+        fn required_message_queue() -> Option<MessageQueueSemantics> {
+            Some(MessageQueueSemantics::MULTIPLE_CONSUMER)
+        }
+    }
+
+    #[test]
+    fn the_built_in_queues_have_the_multiple_consumer_semantics_and_reference_conf_binds_it() {
+        // `reference.conf` binds MultipleConsumerSemantics to unbounded-queue-based; both built-in queues carry it (Mailbox.scala:439,538)
+        let by_binding = Mailboxes::new()
+            .lookup_by_queue_type(MessageQueueSemantics::MULTIPLE_CONSUMER)
+            .map(|mailbox| mailbox.produced_queue());
+        assert!(
+            by_binding.is_ok_and(|queue| queue.satisfies(MessageQueueSemantics::MULTIPLE_CONSUMER))
+        );
+        let selected = |id| selecting(Props::new(|| RequiresMultipleConsumer), id, None);
+        assert_eq!(selected("unbounded"), Ok(100));
+        assert_eq!(
+            capacity_after_resolving(Props::new(|| RequiresMultipleConsumer), &Mailboxes::new())
+                .map_err(|error| error.message().to_owned()),
+            Ok(100)
+        );
+        let bounded = NonBlockingBoundedMailbox::new(1).unwrap().produced_queue();
+        assert!(bounded.satisfies(MessageQueueSemantics::MULTIPLE_CONSUMER));
+    }
+
+    #[test]
+    fn a_queue_that_does_not_declare_its_semantics_keeps_the_promise_of_its_type() {
+        let requires_unbounded = || Props::new(|| RequiresUnbounded);
+        assert_eq!(
+            unmet_by_created_queue(requires_unbounded(), "undeclared"),
+            None
+        );
+        let requires_audit_trail = Props::new(|| RequiresAuditTrail);
+        assert_eq!(
+            unmet_by_created_queue(requires_audit_trail, "undeclared"),
+            None
+        );
+    }
+
     /// What `Dispatch.init` reports for `props` with the mailbox `id` selected: the requirement unmet by the queue the type really creates.
     fn unmet_by_created_queue(
         props: Props,
@@ -667,6 +746,8 @@ mod tests {
                 produced: ProducedQueue::PLAIN,
             },
         );
+        // promises `AUDIT_QUEUE` and its queue says nothing about its own semantics: the promise stands
+        mailboxes.register("undeclared", UndeclaredQueueType);
         let (_, dead_letters): (_, ActorRef) = recorder("pekko://sys/deadLetters");
         let resolved = props
             .with_mailbox_id(id)

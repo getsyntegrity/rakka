@@ -34,11 +34,13 @@ pub trait MessageQueue: Send + Sync {
     /// Moves every queued envelope, oldest first, to `dead_letters` as addressed to `owner` (Pekko's `cleanUp(owner, deadLetters)`).
     fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue);
 
-    /// `requirement.isInstance(queue)`: whether this very queue has the semantics `requirement`. What a type promises
-    /// ([`MailboxType::produced_queue`]) is checked again against this when the actor is created (`Dispatch.init`). A queue satisfies
-    /// `MessageQueue` and whatever it lists; the default lists nothing.
-    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
-        requirement == MessageQueueSemantics::MESSAGE_QUEUE
+    /// `requirement.isInstance(queue)`: whether this very queue has the semantics `requirement`, when the queue knows its own. What a type
+    /// promises ([`MailboxType::produced_queue`]) is checked again against this when the actor is created (`Dispatch.init`). `None`, the
+    /// default, is a queue that does not declare its semantics: what its type promised stands, so a queue that only forgets to say it is
+    /// not rejected. A queue that answers `Some` is held to its answer, which is how a type that promises what its queue lacks is found.
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
+        let _ = requirement;
+        None
     }
 
     /// `getClass.getName` of the queue, as `Dispatch.init` names what a type really created. A JVM class name has no Rust equivalent:
@@ -52,7 +54,7 @@ pub trait MessageQueue: Send + Sync {
 /// (`Mailboxes.scala` `MailboxType.create`). A restart keeps the queue, so `create` is not called again.
 ///
 /// Pekko passes `(owner, system)`; here the type receives the system's `deadLetters`, which is all a queue needs to dead-letter a refusal
-/// without holding its owner (PROP-7B-1, alternative A). Queue semantics (`ProducesMessageQueue`, `requirements`) wait for Q-MBX-2.
+/// without holding its owner (PROP-7B-1, alternative A). What the type promises about its queue is `produced_queue` (`ProducesMessageQueue`).
 pub trait MailboxType: Send + Sync + 'static {
     /// A new, empty queue for one mailbox.
     fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue>;
@@ -71,9 +73,12 @@ struct UnboundedMessageQueue {
 }
 
 impl MessageQueue for UnboundedMessageQueue {
-    fn satisfies(&self, requirement: MessageQueueSemantics) -> bool {
-        requirement == MessageQueueSemantics::MESSAGE_QUEUE
-            || requirement == MessageQueueSemantics::UNBOUNDED
+    fn satisfies(&self, requirement: MessageQueueSemantics) -> Option<bool> {
+        Some(
+            requirement == MessageQueueSemantics::MESSAGE_QUEUE
+                || requirement == MessageQueueSemantics::UNBOUNDED
+                || requirement == MessageQueueSemantics::MULTIPLE_CONSUMER,
+        )
     }
 
     fn class_name(&self) -> &'static str {
@@ -116,7 +121,10 @@ impl MailboxType for UnboundedMailbox {
     fn produced_queue(&self) -> ProducedQueue {
         ProducedQueue::new(
             "org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue",
-            &[MessageQueueSemantics::UNBOUNDED],
+            &[
+                MessageQueueSemantics::UNBOUNDED,
+                MessageQueueSemantics::MULTIPLE_CONSUMER,
+            ],
         )
     }
 }
@@ -151,6 +159,20 @@ mod tests {
             "class org.apache.pekko.dispatch.UnboundedMailbox$MessageQueue"
         );
         assert_eq!(Silent.produced_queue(), ProducedQueue::PLAIN);
+        // the queue it really creates answers for itself (what `Dispatch.init` asks)
+        let created = UnboundedMailbox.create();
+        assert_eq!(
+            created.satisfies(MessageQueueSemantics::UNBOUNDED),
+            Some(true)
+        );
+        assert_eq!(
+            created.satisfies(MessageQueueSemantics::MULTIPLE_CONSUMER),
+            Some(true)
+        );
+        assert_eq!(
+            created.satisfies(MessageQueueSemantics::BOUNDED),
+            Some(false)
+        );
     }
 
     fn receiver() -> ActorRef {
