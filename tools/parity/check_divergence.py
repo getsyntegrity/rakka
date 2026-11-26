@@ -2317,6 +2317,12 @@ MUTANTS = {
         "let missed = self.empty_ref(&self.anchor, &self.elements);",
         "the dead letter of a miss below a single wildcard match is addressed to the selected pattern, not below the match",
     ),
+    "panicking-user-drop-escapes-the-guard": (
+        "src/actor/cell.rs",
+        "    let _ = catch_unwind(AssertUnwindSafe(|| drop(value)));",
+        "    drop(value);",
+        "a `Drop` of the user that panics unwinds through a transition of the cell: no decision is made and the actor is wedged",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
