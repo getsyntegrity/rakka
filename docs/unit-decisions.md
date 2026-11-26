@@ -326,14 +326,14 @@
 
 ## P23 DW-VIGILANCIA
 
-13 filas; 4 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 3 propuestas.
+13 filas; 4 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-DW-3 | accepted (2026-11-26): aceptar (a): igualdad por tipo concreto y valor mediante PartialEq: watch_with<M: Any + PartialEq + Send + Sync>(ref, msg). Se aceptan explícitamente las… | 1: AC-DW-005 | Bloquea AC-DW-005. | — | `classic-cell` |
 | Q-EVT-1 | accepted (2026-11-18): aceptar, incluida la supresión de dead letters durante el shutdown terminante de 2.0.0. | 1: AC-EVT-010 | Bloquea: la comparación textual exacta de AC-EVT-006/008/009/010/013.3/018/019; la lógica avanza con `message_type_name`. | — | `classic-system` |
 | Q-DW-1 | propuesta | 2: AC-DW-002, AC-DW-006 | Bloquea: `impl` de AC-DW-002/006 (PartialEq). | Puede avanzar: el resto de DW. | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-012 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
-| Q-DW-3 | propuesta | 1: AC-DW-005 | Bloquea AC-DW-005. | — | `classic-cell` |
 
 ## P24 MBX-STASH
 
@@ -1072,4 +1072,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 515 (247 respondidas, 0 bloqueantes, 268 propuestas).
+Total de pares unidad–decisión: 515 (248 respondidas, 0 bloqueantes, 267 propuestas).
