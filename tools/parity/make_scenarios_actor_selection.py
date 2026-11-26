@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Writes cases/scenario-actor-selection.jsonl: `actorSelection` from a string path (AC-REF-011) and what a path that
-matches nothing does (AC-REF-014, AC-REF-013). No wildcards.
+matches nothing does (AC-REF-014, AC-REF-013), and the `*` / `?` patterns (`selw-*`).
 
 `select` is `system.actorSelection(path).tell(msg, from)`; the `select` command does the same from an actor's context, with
 that actor as sender; the `select-forward` behaviour forwards what it receives. Every step that reads events waits for them.
@@ -42,6 +42,27 @@ def forwarder(name, path):
 
 UNHANDLED = {"op": "subscribe", "as": "u"}
 
+# the tree of ActorSelectionSpec "identify actors with wildcard selection correctly": a/b1, a/b2/c/d
+WILD = [DL(), *S("r"), *S("a"), *child("a", "b1"), *child("a", "b2"), *child("b2", "c"), *child("c", "d")]
+NODES = ("a", "b1", "b2", "c", "d")
+
+
+def got(actor, count):
+    """the first `count` events of an actor as a set: replies and copies from different actors arrive in any order"""
+    return {**EV(actor, count), "sorted": True}
+
+
+def finish(**counts):
+    """a barrier through each actor, then all it recorded: `counts` includes its start and the barrier"""
+    return [*[TELL(actor, "barrier") for actor in counts], *[got(actor, n) for actor, n in counts.items()],
+            *[{"op": "events-sorted", "target": actor} for actor in counts]]
+
+
+def asks(path, correlation, replies):
+    """`Identify` through `path`, then the first `replies` events of the asker `r`"""
+    return [select(path, ident(correlation)), got("r", replies)]
+
+
 CASES = {
     # `name#uid`: another incarnation gets nothing (dead letter, or no actor for `Identify`); the live uid and 0 deliver
     "sel-uid": [*TREE, select("/user/p/c#999999999", "stale-absolute"), select("user/p/c#999999999", "stale-relative"),
@@ -74,6 +95,27 @@ CASES = {
     # `forward` keeps the sender; without one the receiver sees `deadLetters`
     "sel-forward": [*TREE, forwarder("f", "../p/c"), forwarder("g", "/user/gone"), TELL("f", "kept", "r"), EV("c", 2),
                    TELL("f", "nobody-sent"), EV("c", 3), TELL("g", "lost", "r"), EV("dl", 1), NOW("c"), NOW("dl")],
+    # every match gets the message; `**` is no more than `*`; in a string path `?` starts the URI query, which is dropped
+    "selw-fanout": [*WILD, select("/user/a/*", "children"), select("/user/a/b*", "prefix"), select("/user/a/**", "double"),
+                    select("/user/a/*1", "suffix"), select("/user/*/b2/c", "inner"), select("user/a/*/c", "relative"),
+                    select("pekko://sys/user/a/*/c/*", "uri"), inside("c", "../*", "own"), inside("b1", "../*", "siblings"),
+                    inside("a", "*", "context"), select("/user/a/*/..", "twice"), select("/user/a/b?", "query"),
+                    select("/user/a/b1?x", "query-name"), select("/user/a/?", "query-bare"), EV("dl", 1),
+                    *finish(a=5, b1=9, b2=7, c=5, d=3), NOW("dl")],
+    # after a single match a miss is a dead letter below that match; after two or more it is silent, except under `deadLetters`
+    "selw-miss": [*WILD, select("/user/a/x*", "none"), select("/user/a/x*/deeper", "none-deep"), select("/user/a/b1/*", "leafless"),
+                  select("/user/a/*1/nothing", "single-then-name"), select("/user/a/b*2/zz*/yy", "single-then-pattern"),
+                  select("/user/a/*1/../x*", "single-then-up"), select("/user/a/*/zz", "fan-name"),
+                  select("/user/a/*/zz*", "fan-pattern"), select("/user/a/*/c/zz", "fan-later"),
+                  select("/user/a/x*", {"special": "PoisonPill"}), select("/*/../deadLetters/x", "fan-dead"),
+                  inside("c", "../c*/nope", "context"), select("/user/missing", "last"), EV("dl", 10),
+                  *finish(a=2, b1=2, b2=2, c=2, d=2), NOW("dl")],
+    # `Identify`: each match answers; a miss answers None only while no wildcard has matched two or more
+    "selw-identify": [*WILD, *asks("/user/a/*", "one", 3), *asks("/user/a/b1/*", "two", 4), *asks("/user/a/*/c", "three", 5),
+                      *asks("/user/a/b2/*/d", "four", 6), *asks("/user/a/*/*/d", "five", 7), *asks("/user/a/*/c/*", "six", 8),
+                      *asks("/user/a/b2/*/d/e", "seven", 9), *asks("/user/a/*/c/d/e", "eight", 9), *asks("/user/a/x*", "nine", 10),
+                      *asks("/user/a/*1/nothing", "ten", 11), *asks("/*/../deadLetters/x", "eleven", 11),
+                      *asks("/*/../deadLetters", "twelve", 13), *finish(a=2, b1=2, b2=2, c=2, d=2), *finish(r=14), NOW("dl")],
 }
 
 
