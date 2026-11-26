@@ -23,7 +23,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-REF-009.3.
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-MBX-11`, `Q-REF-1`, `Q-REF-10`, `Q-REF-2`, `Q-REF-3`, `Q-REF-4`, `Q-REF-5`, `Q-REF-6`, `Q-REF-7`, `Q-REF-8`, `Q-REF-9`.
+- Propuestas aún sin decisión del Owner: `Q-MBX-11`, `Q-REF-1`, `Q-REF-10`, `Q-REF-11`, `Q-REF-2`, `Q-REF-3`, `Q-REF-4`, `Q-REF-5`, `Q-REF-6`, `Q-REF-7`, `Q-REF-8`, `Q-REF-9`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -98,7 +98,7 @@ Filas: AC-REF-021, AC-REF-022, AC-REF-023, AC-REF-024, AC-REF-025, AC-REF-026. C
 | AC-REF-011 | ActorSelection: actorSelection(path\|ActorPath), relativo, `..`, comodines * y… | `ActorSelection { anchor, elements: Vec<SelectionElement> }` con… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:100-189,193-27… | Q-REF-8, Q-X-3 |
 | AC-REF-012 | resolveOne(timeout) y ActorNotFound | `async fn resolve_one(&self, timeout) -> Result<ActorRef, ActorNotFound>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:319-335 ;… | - |
 | AC-REF-013 | Identify / ActorIdentity | mensaje manejado por la celda antes del receive de usuario | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:70-85,179-189,… | Q-REF-7 |
-| AC-REF-014 | Entrega de selección con comodines (ActorSelectionMessage,… | matcher glob propio (sin regex) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:361-369 ;… | Q-REF-10, Q-REF-9 |
+| AC-REF-014 | Entrega de selección con comodines (ActorSelectionMessage,… | matcher glob propio (sin regex) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:361-369 ;… | Q-REF-10, Q-REF-11, Q-REF-9 |
 | AC-REF-015 | EmptyLocalActorRef (ref a actor inexistente) | variante `RefInner::EmptyLocal` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:341-365 ;… | - |
 | AC-REF-016 | deadLetters (DeadLetterActorRef) | ref especial que publica en EventStream | actor-tests/src/test/scala/org/apache/pekko/actor/DeadLetterSupressionSpec.scala:74-106… | - |
 | AC-REF-017 | resolveActorRef(path) del proveedor | `provider.resolve_actor_ref(&ActorPath) -> ActorRef` | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:48-64… | - |

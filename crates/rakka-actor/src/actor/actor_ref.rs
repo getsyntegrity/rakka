@@ -25,6 +25,10 @@ pub(crate) trait InternalActorRef: Send + Sync {
     fn single_child(&self, _name: &str) -> Option<ActorRef> {
         None
     }
+    /// `children` of a reference with a cell, in name order; empty for the others.
+    fn children(&self) -> Vec<ActorRef> {
+        Vec::new()
+    }
     /// The reference as a `RepointableActorRef` when it is one (what `Supervise(async = true)` asks to `point`).
     fn as_repointable(&self) -> Option<&crate::actor::repointable::RepointableActorRef> {
         None

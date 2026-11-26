@@ -1,9 +1,10 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorSelection.scala, ActorRefProvider.scala and ActorRef.scala (Apache-2.0).
 //! `ActorSelection`: a path into the actor tree, looked up each time a message is sent through it.
 //!
-//! Not ported yet: the `*` and `?` patterns (such an element is looked up as a name), `resolveOne`, equality and the string
-//! forms, `actorSelection(ActorPath)`, `/temp`, and death watch on the recipient of a missed selection. A `#uid` that is no
-//! number throws in Pekko and matches nothing here (Q-REF-8, open).
+//! An element with `*` or `?` is a pattern over the names of the children. In a string path `?` starts the URI query, which is
+//! dropped, so only `*` can be written there. Not ported yet: `resolveOne`, equality and the string forms,
+//! `actorSelection(ActorPath)`, `/temp`, and death watch on the recipient of a missed selection. A `#uid` that is no number
+//! throws in Pekko and matches nothing here (Q-REF-8, open).
 
 use std::sync::{Arc, Weak};
 
@@ -14,12 +15,15 @@ use crate::actor::system::{SystemInner, is_dead_letter_suppressed};
 use crate::actor::{ActorPath, relative_actor_path_elements};
 use crate::dispatch::sysmsg::SystemMessage;
 use crate::event::DeadLetter;
+use crate::util::glob_matches;
 
 /// `SelectionPathElement`.
 #[derive(Clone)]
 enum Element {
     /// `SelectChildName`
     Name(String),
+    /// `SelectChildPattern`
+    Pattern(String),
     /// `SelectParent`
     Parent,
 }
@@ -27,7 +31,9 @@ enum Element {
 /// `org.apache.pekko.actor.ActorSelection`, made by `actor_selection` of an [`ActorSystem`](crate::actor::system::ActorSystem) or
 /// an [`ActorContext`]. Nothing is looked up until a message is sent. A message that reaches no actor becomes a [`DeadLetter`]
 /// whose recipient is the selected path, or `deadLetters` for a URI of another system, unparseable text and anything under
-/// `/deadLetters`; an [`Identify`] is answered with an [`ActorIdentity`] without a reference.
+/// `/deadLetters`; an [`Identify`] is answered with an [`ActorIdentity`] without a reference. A pattern reaches every child it
+/// matches. After a single match a miss is addressed below that actor; after two or more it is silent, except that a walk
+/// going on below `/deadLetters` still publishes its dead letter (only [`Identify`] stays unanswered).
 #[derive(Clone)]
 pub struct ActorSelection {
     system: Arc<SystemInner>,
@@ -51,12 +57,22 @@ impl ActorSelection {
         } else {
             (dead_letters, Vec::new())
         };
+        Self::from_elements(system, anchor, names)
+    }
+
+    /// `ActorSelection(anchorRef, elements)`: empty elements are dropped.
+    fn from_elements(
+        system: &Arc<SystemInner>,
+        anchor: ActorRef,
+        names: impl IntoIterator<Item = String>,
+    ) -> Self {
         let elements = names.into_iter().filter(|name| !name.is_empty());
         ActorSelection {
             system: system.clone(),
             anchor,
             elements: elements
                 .map(|name| match name.as_str() {
+                    _ if name.contains(['*', '?']) => Element::Pattern(name),
                     ".." => Element::Parent,
                     _ => Element::Name(name),
                 })
@@ -71,22 +87,46 @@ impl ActorSelection {
 
     /// Type-erased [`ActorSelection::tell`].
     pub fn tell_any(&self, msg: AnyMessage, sender: Option<ActorRef>) {
-        let mut current = self.anchor.clone();
-        for element in &self.elements {
-            // `deadLetters` is the one reference without a cell that a walk can stand on
-            if current == self.system.dead_letters {
-                return answer_not_found(&self.system, current, msg, sender);
+        // `deliverSelection`, depth first over a stack of its own: recursing would exhaust the thread's on a long path. A walk
+        // is the actor it starts at, its first element, and whether a pattern before it matched two or more (a miss is then silent)
+        let mut walks = vec![(self.anchor.clone(), 0, false)];
+        'walks: while let Some((anchor, start, fanned_out)) = walks.pop() {
+            let mut current = anchor.clone();
+            for (index, element) in self.elements.iter().enumerate().skip(start) {
+                // `deadLetters` is the one reference without a cell that a walk can stand on
+                if current == self.system.dead_letters {
+                    let (msg, sender) = (msg.clone(), sender.clone());
+                    answer_not_found(&self.system, current, msg, sender, fanned_out);
+                    continue 'walks;
+                }
+                let next = match element {
+                    Element::Parent => self.parent_of(&current),
+                    Element::Name(name) => self.child_of(&current, name),
+                    Element::Pattern(pattern) => {
+                        let mut matching = current.0.children();
+                        matching.retain(|child| glob_matches(pattern, child.path().name()));
+                        if !matching.is_empty() {
+                            let fanned_out = fanned_out || matching.len() > 1;
+                            // reversed, so the first match is popped, and walked to its end, first
+                            let below = matching.into_iter().rev();
+                            walks.extend(below.map(|child| (child, index + 1, fanned_out)));
+                            continue 'walks;
+                        }
+                        None
+                    }
+                };
+                let Some(next) = next else {
+                    if !fanned_out {
+                        // after a single match the recipient is below that match, not below the selection's anchor
+                        let missed = self.empty_ref(&anchor, &self.elements[start..]);
+                        answer_not_found(&self.system, missed, msg.clone(), sender.clone(), false);
+                    }
+                    continue 'walks;
+                };
+                current = next;
             }
-            let next = match element {
-                Element::Parent => self.parent_of(&current),
-                Element::Name(name) => self.child_of(&current, name),
-            };
-            let Some(next) = next else {
-                return answer_not_found(&self.system, self.empty_ref(), msg, sender);
-            };
-            current = next;
+            current.tell_any(msg.clone(), sender.clone());
         }
-        current.tell_any(msg, sender);
     }
 
     /// `selection.forward(msg)`: sends with the sender of the message the context is processing (`deadLetters` if it has none).
@@ -112,17 +152,18 @@ impl ActorSelection {
         (uid == 0 || uid == child.path().uid()).then_some(child)
     }
 
-    /// The `EmptyLocalActorRef` of a miss: the anchor's path followed by every element of the selection.
-    fn empty_ref(&self) -> ActorRef {
-        let anchor = self.anchor.path().clone();
-        let path = self.elements.iter().fold(anchor, |path, element| {
-            let name = match element {
-                Element::Name(name) => name,
-                Element::Parent => "..",
-            };
-            // `path / name` reads a `#uid`
-            path.child(name).unwrap_or_else(|_| path.new_child(name, 0))
-        });
+    /// The `EmptyLocalActorRef` of a miss: the anchor's path followed by every element that was to be walked from it.
+    fn empty_ref(&self, anchor: &ActorRef, elements: &[Element]) -> ActorRef {
+        let path = elements
+            .iter()
+            .fold(anchor.path().clone(), |path, element| {
+                let name = match element {
+                    Element::Name(name) | Element::Pattern(name) => name,
+                    Element::Parent => "..",
+                };
+                // `path / name` reads a `#uid`
+                path.child(name).unwrap_or_else(|_| path.new_child(name, 0))
+            });
         ActorRef(Arc::new_cyclic(|me| EmptyLocalActorRef {
             path,
             system: Arc::downgrade(&self.system),
@@ -132,14 +173,18 @@ impl ActorSelection {
 }
 
 /// What `EmptyLocalActorRef` and `DeadLetterActorRef` do with a selection that ends at them: an `Identify` is answered with no
-/// actor and no sender; anything else is a dead letter addressed to `recipient`. For a suppressed message Pekko publishes a
+/// actor and no sender (not at all once the selection fanned out); anything else is a dead letter addressed to `recipient`. For a suppressed message Pekko publishes a
 /// `SuppressedDeadLetter`, which is not ported: nothing is published (Q-REF-10, open).
 fn answer_not_found(
     system: &SystemInner,
     recipient: ActorRef,
     msg: AnyMessage,
     sender: Option<ActorRef>,
+    fanned_out: bool,
 ) {
+    if fanned_out && msg.is::<Identify>() {
+        return;
+    }
     if let (Some(identify), Some(asker)) = (msg.downcast_ref::<Identify>(), &sender) {
         let identity = ActorIdentity {
             correlation_id: identify.message_id.clone(),
@@ -179,7 +224,7 @@ impl InternalActorRef for EmptyLocalActorRef {
             Some(_) => return,
             None => (msg, sender),
         };
-        answer_not_found(&system, ActorRef(me), msg, sender);
+        answer_not_found(&system, ActorRef(me), msg, sender, false);
     }
     fn send_system(&self, _msg: SystemMessage) {}
     fn stop(&self) {}

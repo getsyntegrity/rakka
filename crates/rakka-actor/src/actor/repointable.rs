@@ -371,6 +371,10 @@ impl InternalActorRef for RepointableActorRef {
         self.get_single_child(name)
     }
 
+    fn children(&self) -> Vec<ActorRef> {
+        RepointableActorRef::children(self)
+    }
+
     #[cfg(test)]
     fn mailbox_view(&self) -> String {
         match &*self.lock_settled() {
