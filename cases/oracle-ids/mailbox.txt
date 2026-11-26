@@ -40,6 +40,7 @@ MBX-IF-02 messages sent to an actor whose cell cannot be made, before and after 
 MBX-IF-03 a supervisor that restarts on ActorInitializationException: the failed creation becomes a Create and the actor starts
 MBX-IF-04 an actor that fails to start after creating a child is restarted as a Create: its children are stopped first
 MBX-IF-05 a supervisor that resumes on ActorInitializationException: the failed creation becomes a Create and the actor starts
+MBX-IF-06 the supervisor's log of a cell that cannot be made publishes the message of what made it fail
 MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once
 MBX-CL-01 closed mailbox of a stopped actor
 MBX-CC-01 eight producers on a one-thread pool: no loss, per-sender order, serial execution

@@ -115,10 +115,15 @@ final class Scenario {
 
     private long received = 0; // per instance: a restarted actor starts again at 0
 
-    @Override public void preStart() {
+    @Override public void preStart() throws Exception {
       ctx.add(label, "{\"ev\":\"pre-start\"}");
       ctx.life.add(label + ":pre-start");
-      if (Boolean.TRUE.equals(cfg.get("throw-in-prestart"))) throw new IllegalStateException("init");
+      // `throw-in-prestart`: `true`, or the shape of the cause chain of what is thrown
+      Object shape = cfg.get("throw-in-prestart");
+      if (Boolean.TRUE.equals(shape)) throw new IllegalStateException("init");
+      if ("nested".equals(shape)) throw new IllegalStateException("init", new IllegalArgumentException("root"));
+      if ("invocation".equals(shape)) throw new java.lang.reflect.InvocationTargetException(new IllegalStateException("inner"));
+      if ("no-message".equals(shape)) throw new IllegalStateException();
     }
 
     /** `supervisor: {"log-calls": bool (records each call of this method), "throw-on-call": n (the n-th call of the label throws), "logging": bool (`loggingEnabled`), "decider-throws": bool, "strategy": "one-for-one"|"all-for-one", "hold": gate, "max": n, "log-decisions": bool, "decider": {"<exception message>": "resume"|"restart"|"stop"|"escalate"}}`: a OneForOneStrategy for this actor's children.
@@ -304,7 +309,15 @@ final class Scenario {
     private final String label, prefix;
     private final Ctx ctx;
     private final String watch;
-    ErrorCollector(String label, String prefix, String watch, Ctx ctx) { this.label = label; this.prefix = prefix; this.watch = watch; this.ctx = ctx; }
+    private final boolean causes;
+    ErrorCollector(String label, String prefix, String watch, boolean causes, Ctx ctx) { this.label = label; this.prefix = prefix; this.watch = watch; this.causes = causes; this.ctx = ctx; }
+    /** `causes`: the `getCause` chain below the published cause. */
+    private String causedBy(Throwable cause) {
+      if (!causes) return "";
+      List<String> chain = new ArrayList<>();
+      for (Throwable c = cause.getCause(); c != null; c = c.getCause()) chain.add(Cli.Json.str(c.toString()));
+      return ",\"causedBy\":[" + String.join(",", chain) + "]";
+    }
     @Override public void preStart() { if (watch != null) getContext().watch(ctx.refs.get(watch)); }
     @Override public Receive createReceive() {
       return receiveBuilder().match(org.apache.pekko.event.Logging.Error.class, e -> {
@@ -312,7 +325,7 @@ final class Scenario {
           ctx.add(label, "{\"ev\":\"error\",\"source\":" + Cli.Json.str(e.logSource())
               + ",\"message\":" + (e.message() == null ? "null" : Cli.Json.str(String.valueOf(e.message())))
               + ",\"ofActorClass\":" + (e.logClass() == Scripted.class) + ",\"cause\":" + Cli.Json.str(e.cause().getClass().getName())
-              + (e.cause().getClass().getName().endsWith("NoCause$") ? "" : ",\"causeText\":" + Cli.Json.str(e.cause().toString())) + strategyOf(e.logClass()) + "}");
+              + (e.cause().getClass().getName().endsWith("NoCause$") ? "" : ",\"causeText\":" + Cli.Json.str(e.cause().toString())) + causedBy(e.cause()) + strategyOf(e.logClass()) + "}");
       }).match(org.apache.pekko.event.Logging.Warning.class, w -> {
         if (String.valueOf(w.message()).startsWith(prefix))
           ctx.add(label, "{\"ev\":\"warning\",\"source\":" + Cli.Json.str(w.logSource()) + ",\"message\":" + (w.message() == null ? "null" : Cli.Json.str(String.valueOf(w.message())))
@@ -439,7 +452,7 @@ final class Scenario {
           boolean logs = "logs".equals(st.get("channel"));
           boolean errors = logs || "errors".equals(st.get("channel"));
           ActorRef c = system.actorOf(errors
-              ? Props.create(ErrorCollector.class, () -> new ErrorCollector(label, (String) st.get("prefix"), (String) st.get("watch"), ctx))
+              ? Props.create(ErrorCollector.class, () -> new ErrorCollector(label, (String) st.get("prefix"), (String) st.get("watch"), Boolean.TRUE.equals(st.get("causes")), ctx))
               : Props.create(Collector.class, () -> new Collector(label, ctx)));
           ctx.refs.put(label, c);
           system.eventStream().subscribe(c, errors ? org.apache.pekko.event.Logging.Error.class
