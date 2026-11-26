@@ -2,6 +2,7 @@
 //! `ActorSystem` (local, Classic): provider, guardians and the termination chain.
 //! Follows `ActorSystem.scala` and `LocalActorRefProvider` in `ActorRefProvider.scala`.
 
+use crate::dispatch::message_queue::UnboundedMailbox;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock, Weak};
 use std::time::Duration;
@@ -224,10 +225,14 @@ impl InternalActorRef for BubbleWalker {
     }
     fn tell(&self, _msg: AnyMessage, _sender: Option<ActorRef>) {}
     fn send_system(&self, msg: SystemMessage) {
-        if !self.termination.is_completed()
-            && matches!(msg, SystemMessage::DeathWatchNotification { .. })
-        {
-            self.stop();
+        if self.termination.is_completed() {
+            return;
+        }
+        match msg {
+            SystemMessage::DeathWatchNotification { .. } => self.stop(),
+            // the decider stops whatever fails: the root guardian is stopped and its death ends the system
+            SystemMessage::Failed { child, .. } => child.stop(),
+            _ => {}
         }
     }
     fn stop(&self) {
@@ -253,6 +258,9 @@ impl InternalActorRef for BubbleWalker {
 struct Guardian;
 
 impl Actor for Guardian {
+    fn required_message_queue() -> Option<MessageQueueSemantics> {
+        Some(MessageQueueSemantics::UNBOUNDED)
+    }
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if msg.is::<Terminated>() {
             let me = ctx.self_ref();
@@ -273,6 +281,9 @@ struct SystemGuardian {
 }
 
 impl Actor for SystemGuardian {
+    fn required_message_queue() -> Option<MessageQueueSemantics> {
+        Some(MessageQueueSemantics::UNBOUNDED)
+    }
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if let Some(t) = msg.downcast_ref::<Terminated>() {
             if t.actor == self.guardian {
@@ -371,6 +382,12 @@ impl ActorSystem {
             terminating: AtomicBool::new(false),
         });
 
+        // `defaultMailbox = mailboxes.lookup(DefaultMailboxId)`: the guardians take it directly, not through `getMailboxType`
+        let default_mailbox = sys
+            .settings
+            .mailboxes
+            .lookup(Mailboxes::DEFAULT_MAILBOX_ID)
+            .unwrap_or_else(|_| Arc::new(UnboundedMailbox));
         // rootGuardian, supervised by the bubble walker
         let bubble = Arc::new(BubbleWalker {
             path: root_path.new_child("bubble-walker", 0),
@@ -382,7 +399,7 @@ impl ActorSystem {
         let root = ActorCell::new_local(
             &sys,
             internal_dispatcher.clone(),
-            Props::new(|| Guardian),
+            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),
             walker,
             root_path.clone(),
         );
@@ -402,14 +419,18 @@ impl ActorSystem {
             root.init_child(name, cell.self_ref());
             cell
         };
-        let user = make_guardian("user", Props::new(|| Guardian));
+        let user = make_guardian(
+            "user",
+            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),
+        );
         sys.guardian.set(user.clone()).ok();
         let user_ref = user.self_ref();
         let system_guardian = make_guardian(
             "system",
             Props::new(move || SystemGuardian {
                 guardian: user_ref.clone(),
-            }),
+            })
+            .with_resolved_mailbox(default_mailbox.clone()),
         );
         sys.system_guardian.set(system_guardian.clone()).ok();
 

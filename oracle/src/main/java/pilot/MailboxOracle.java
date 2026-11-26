@@ -243,6 +243,18 @@ final class MailboxOracle {
     }
   }
 
+  static final AtomicInteger DEFAULT_QUEUES = new AtomicInteger();
+
+  /** A default mailbox that counts the queues of the three guardians (the system also makes `deadLetterListener` and `eventStreamUnsubscriber`, which Rakka has not); it promises the unbounded {@link LifoQueue}. */
+  public static final class CountingDefaultType implements MailboxType, ProducesMessageQueue<LifoQueue> {
+    public CountingDefaultType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) {
+      String path = owner.isDefined() ? owner.get().path().toString() : "";
+      if (path.equals("pekko://mbx/") || path.equals("pekko://mbx/user") || path.equals("pekko://mbx/system")) DEFAULT_QUEUES.incrementAndGet();
+      return new LifoQueue();
+    }
+  }
+
   /** The workers of the {@code MBX-REQ} cases: the same worker, each declaring {@code RequiresMessageQueue[T]} with a different {@code T}. */
   public static final class UnboundedWorker extends IdWorker implements RequiresMessageQueue<UnboundedMessageQueueSemantics> {
     UnboundedWorker(String label, IdEnv env) { super(label, env); }
@@ -1398,6 +1410,12 @@ final class MailboxOracle {
         parent.tell(e.props("again", null), ActorRef.noSender());
         awaitUntil(() -> e.log.stream().anyMatch(l -> l.startsWith("again")) && e.started.get() == 1);
         return String.join(" | ", e.log) + " | started=" + e.started.get();
+      }
+    });
+    run("MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created", () -> {
+      DEFAULT_QUEUES.set(0);
+      try (IdEnv e = new IdEnv(0, "pekko.actor.default-mailbox.mailbox-type = \"pilot.MailboxOracle$CountingDefaultType\"\n")) {
+        return "guardianQueues=" + DEFAULT_QUEUES.get();
       }
     });
   }
