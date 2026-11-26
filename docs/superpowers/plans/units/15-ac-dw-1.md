@@ -19,7 +19,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-DW-001, AC-DW-003, AC-DW-004,
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-DW-1`, `Q-DW-2`, `Q-DW-3`, `Q-DW-4`.
+- Propuestas aún sin decisión del Owner: `Q-DW-1`, `Q-DW-2`, `Q-DW-4`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
