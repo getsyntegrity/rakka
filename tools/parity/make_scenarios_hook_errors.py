@@ -23,7 +23,7 @@ CASES = {
     # collector), the `postStop` of `h/p`'s default `preRestart` throws, and `i/p` throws a null message while processing `Kill`
     "he-pre-restart": [errors("hook"), errors("sib", "sb"), errors("null", "nu"), *parent(strategy="all-for-one"), *failing(pre_restart_throws="hook"),
                        C("g", "q", "q", pre_restart_throws="sib"), TELL("p", "boom"), EV("p", 5), EV("k", 4), quiet(1),
-                       EV("sb", 1), NOW("p"), NOW("k"), *parent("h"),
+                       EV("sb", 1), EV("q", 4), NOW("p"), NOW("k"), *parent("h"),
                        C("h", "p", "r", throw_on="boom", post_stop_throws="hook"), C("r", "k", "s"), TELL("r", "boom"),
                        EV("r", 6), EV("s", 2), quiet(2), NOW("r"), NOW("s"), *parent("i"),
                        C("i", "p", "t", pre_restart_throws=None), TELL("t", {"special": "Kill"}), EV("t", 4), EV("nu", 1)],
