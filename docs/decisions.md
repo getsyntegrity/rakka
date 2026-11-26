@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 263 decisiones: 0 bloqueantes, 187 propuestas, 61 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 263 decisiones: 0 bloqueantes, 183 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -379,26 +379,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** CELL
 - **Origen:** classic-cell
 
-### Q-CELL-6 — Nombre de clase de un mensaje de usuario en el texto de PreRestartException
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:225-236 ; casos he-pre-restart* (scenario-hook-errors)
-- **Alternativas:** (a) `class ?` para todo salvo `&str`/`String`, `Kill`, `ActorIdentity`, `Terminated` y `Failed` (`AnyMessage` es `dyn Any`, sin nombre de tipo; incluye primitivos como `i32` y los eventos del runtime) / (b) que el mensaje aporte su nombre de clase (cambia `tell`) / (c) registro de nombres por tipo
-- **Recomendación:** (a) mientras no haya otra necesidad de nombres de clase de mensajes; String, Kill, ActorIdentity, Terminated y Failed ya usan el nombre de la JVM
-- **Filas afectadas:** AC-CELL-007.1
-- **Unidades afectadas:** CELL
-- **Origen:** classic-cell
-
-### Q-CELL-7 — Invocar el preRestart por defecto desde un override
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:627-633 ; casos ur-calls-super y ur-no-super* (scenario-pre-restart-unwatch)
-- **Alternativas:** (a) repetir en el override sus tres pasos: unwatch y stop de cada hijo, luego post_stop (conducta actual, sin API nueva) / (b) helper publico que ejecute esos pasos y el override pueda llamar
-- **Recomendación:** (b). Consecuencia de (a): un override no tiene equivalente de super.preRestart y no recibe un cambio posterior del default; omitir unwatch entrega Terminated o el mensaje de watchWith a la instancia nueva.
-- **Filas afectadas:** AC-CELL-006
-- **Unidades afectadas:** CELL
-- **Origen:** classic-cell
-
 ### Q-CFG-14 — Includes de HOCON sin classpath: `include "x"`, `classpath(...)`, `url(...)`, `file(...)` y `required(...)` en rakka
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -676,16 +656,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) conservar el hook is_local en el trait de ref y el topic sin uso local / (b) omitir el topic y el orden / (c) implementarlo completo con un provider simulado
 - **Recomendación:** (a) mínimo: el trait de ref expone is_local y la celda mantiene los conjuntos watching/watchedBy con la lógica de suscripción, aunque sin remote nunca se suscriba [2026-10-31 cierre documental] Clasificación: arquitectura / exclusión de alcance (remote). Resuelto leyendo: sin proveedor remoto `hasNonLocalAddress` es siempre falso, no hay suscripción y `AddressTerminated` no se publica; el hook mínimo (is_local + conjuntos watching/watchedBy + suscripción) permite un remote futuro sin cambiar la celda. Consecuencia: ningún test funcional upstream (sólo el benchmark). Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. Puede avanzar: el resto de DW (el orden local es el único observable sin remote).
 - **Filas afectadas:** AC-DW-010 ; AC-DW-012
-- **Unidades afectadas:** DW
-- **Origen:** classic-cell
-
-### Q-DW-4 — Texto de los valores [Some(x)] en la IllegalStateException de watch / watchWith
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:125-131
-- **Alternativas:** (a) String y &str por valor, cualquier otro tipo por su nombre Rust, sin cotas nuevas (implementado provisionalmente) / (b) exigir Debug en watch_with / (c) omitir los valores del texto
-- **Recomendación:** (a). Consecuencia: para tipos que no son cadenas el texto difiere de Pekko (toString del valor). Bloquea el cierre de AC-DW-005.
-- **Filas afectadas:** AC-DW-005
 - **Unidades afectadas:** DW
 - **Origen:** classic-cell
 
@@ -1196,16 +1166,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) usar u64 de milisegundos con Instant monótono, saturando en lugar de truncar a Int / (b) replicar el truncamiento a i32 / (c) Duration nativa
 - **Recomendación:** (a): diferencia observable sólo para ventanas mayores a ~24.8 días (Int overflow); la ventana empieza en la primera solicitud, no se desliza, y la comparación es "<= window" [2026-10-31 cierre documental] Clasificación: representación con una divergencia funcional menor. Incertidumbre resuelta midiendo/leyendo: `withinTimeRange.toMillis.toInt` es un cast que ENVUELVE (no satura): 25 días = 2_160_000_000 ms → Int −2_134_967_296; con ventana negativa `(now − windowStart) <= toNanos(window)` es falso, así que la ventana nunca contiene el fallo (cuenta = 1 y reinicio siempre permitido: equivale a "sin límite"). Para ventanas ≤ 24,8 días el comportamiento es el normal. Opciones: (a) saturar a u64 (diferencia solo para > 24,8 días: la ventana funcionaría como ventana real), (b) replicar el cast i32 (paridad exacta, incluido el comportamiento anómalo). Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica).
 - **Filas afectadas:** AC-SUP-006.1 ; AC-SUP-006.2 ; AC-SUP-021
-- **Unidades afectadas:** SUP
-- **Origen:** classic-cell
-
-### Q-SUP-3 — Causa de una excepción en Throwable: logFailure publica el mensaje de la causa de ActorInitializationException
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:406-414 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:673-705 ; sonda del oráculo 2.0.0: preStart que lanza publica Error con mensaje "init"
-- **Alternativas:** (a) campo `cause: Option<Box<Throwable>>` en Throwable (rompe la construcción por literal) / (b) canal interno junto a Failed, sin cambiar la API (hay que arrastrarlo al escalar) / (c) aceptar la divergencia: se publica el mensaje de la propia excepción
-- **Recomendación:** (a). Hasta decidir se publica el mensaje propio ("<path>: exception during creation, ..." o "exception post restart ...") en vez del de la causa
-- **Filas afectadas:** AC-SUP-018
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 
@@ -2103,6 +2063,28 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 
 Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la sección 4).
 
+### Q-CELL-6 — Nombre de clase de un mensaje de usuario en el texto de PreRestartException
+
+- **Estado:** aceptada
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:225-236 ; casos he-pre-restart* (scenario-hook-errors)
+- **Alternativas:** (a) `class ?` para todo salvo `&str`/`String`, `Kill`, `ActorIdentity`, `Terminated` y `Failed` (`AnyMessage` es `dyn Any`, sin nombre de tipo; incluye primitivos como `i32` y los eventos del runtime) / (b) que el mensaje aporte su nombre de clase (cambia `tell`) / (c) registro de nombres por tipo
+- **Recomendación:** (a) mientras no haya otra necesidad de nombres de clase de mensajes; String, Kill, ActorIdentity, Terminated y Failed ya usan el nombre de la JVM
+- **Filas afectadas:** AC-CELL-007.1
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+- **Respuesta del Owner:** aceptar (a): en el texto de PreRestartException un mensaje se nombra `class ?` salvo &str/String, Kill, ActorIdentity, Terminated y Failed, que llevan el nombre de la JVM (incluye primitivos como i32 y los eventos del runtime). Evidencia: Actor.scala:225-236 y casos he-pre-restart* (scenario-hook-errors). Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
+
+### Q-CELL-7 — Invocar el preRestart por defecto desde un override
+
+- **Estado:** aceptada
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:627-633 ; casos ur-calls-super y ur-no-super* (scenario-pre-restart-unwatch)
+- **Alternativas:** (a) repetir en el override sus tres pasos: unwatch y stop de cada hijo, luego post_stop (conducta actual, sin API nueva) / (b) helper publico que ejecute esos pasos y el override pueda llamar
+- **Recomendación:** (b). Consecuencia de (a): un override no tiene equivalente de super.preRestart y no recibe un cambio posterior del default; omitir unwatch entrega Terminated o el mensaje de watchWith a la instancia nueva.
+- **Filas afectadas:** AC-CELL-006
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+- **Respuesta del Owner:** aceptar (b): helper público que ejecute los pasos del preRestart por defecto (unwatch y stop de cada hijo, luego post_stop) para que un override pueda llamarlo, como super.preRestart. Evidencia: Actor.scala:627-633 y casos ur-calls-super y ur-no-super* (scenario-pre-restart-unwatch). Pendiente de implementación. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
+
 ### Q-CFG-3 — checkValid contra reference.conf (Typesafe Config) con un parser propio
 
 - **Estado:** aceptada
@@ -2245,6 +2227,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** DW
 - **Origen:** classic-cell
 - **Respuesta del Owner:** aceptar (a): igualdad por tipo concreto y valor mediante PartialEq: watch_with<M: Any + PartialEq + Send + Sync>(ref, msg). Se aceptan explícitamente las diferencias derivadas de la semántica de igualdad de Rust respecto de Scala, incluida la ausencia de igualdad automática entre tipos numéricos diferentes y la obligación de implementar PartialEq. No se introducen conversiones dinámicas entre tipos, comparadores universales ni traits públicos adicionales sin necesidad demostrada. Registrada en owner-decisions.tsv en representación del Owner, con su autorización expresa. (Owner (instrucción en la sesión), 2026-11-26)
+
+### Q-DW-4 — Texto de los valores [Some(x)] en la IllegalStateException de watch / watchWith
+
+- **Estado:** aceptada
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/DeathWatch.scala:125-131
+- **Alternativas:** (a) String y &str por valor, cualquier otro tipo por su nombre Rust, sin cotas nuevas (implementado provisionalmente) / (b) exigir Debug en watch_with / (c) omitir los valores del texto
+- **Recomendación:** (a). Consecuencia: para tipos que no son cadenas el texto difiere de Pekko (toString del valor). Bloquea el cierre de AC-DW-005.
+- **Filas afectadas:** AC-DW-005
+- **Unidades afectadas:** DW
+- **Origen:** classic-cell
+- **Respuesta del Owner:** aceptar (a): en la IllegalStateException de watch / watchWith, String y &str se muestran por valor y cualquier otro tipo por su nombre Rust, sin cotas nuevas en la firma. Se acepta que para tipos que no son cadenas el texto difiera de Pekko (toString del valor). Evidencia: DeathWatch.scala:125-131 y caso ww-rejects del oráculo 2.0.0. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
 
 ### Q-EVT-1 — Nombres de clase JVM en mensajes observables (dead letters, canales Debug, `class`/`interface`)
 
@@ -2499,6 +2492,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Origen:** classic-io-ser
 - **Respuesta del Owner:** aceptar (a)+(c), incluido el comportamiento de 2.0.0 con includeManifest=false. El typo "synch" se copia por compatibilidad de configuración. (Owner (respuesta al lote 01), 2026-11-18)
 
+### Q-SUP-3 — Causa de una excepción en Throwable: logFailure publica el mensaje de la causa de ActorInitializationException
+
+- **Estado:** aceptada
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:406-414 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:673-705 ; sonda del oráculo 2.0.0: preStart que lanza publica Error con mensaje "init"
+- **Alternativas:** (a) campo `cause: Option<Box<Throwable>>` en Throwable (rompe la construcción por literal) / (b) canal interno junto a Failed, sin cambiar la API (hay que arrastrarlo al escalar) / (c) aceptar la divergencia: se publica el mensaje de la propia excepción
+- **Recomendación:** (a). Hasta decidir se publica el mensaje propio ("<path>: exception during creation, ..." o "exception post restart ...") en vez del de la causa
+- **Filas afectadas:** AC-SUP-018
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+- **Respuesta del Owner:** aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la causa de ActorInitializationException como Pekko. Evidencia: FaultHandling.scala:406-414, ActorCell.scala:673-705 y sonda del oráculo 2.0.0 (un preStart que lanza publica Error con mensaje "init"). Pendiente de implementación. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
+
 ### Q-T-BEH-1 — Forma del tipo Behavior en Rust, setup re-ejecutable y reutilizacion del valor
 
 - **Estado:** aceptada
@@ -2750,5 +2754,5 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Filas afectadas:** ninguna fila del inventario (política de gates)
 - **Unidades afectadas:** todas
 - **Origen:** classic-foundation
-- **Respuesta del Owner:** DECISIÓN DEL OWNER, efecto inmediato. Suspendemos temporalmente el mutation testing obligatorio en el nivel PR (enmienda temporal a Q-X-14 y Q-X-22). La ausencia de ejecución de mutantes no bloquea la integración bajo esta excepción explícita del Owner. Los mutantes permanecen en el repositorio; no se elimina código, escenarios, evidencia ni infraestructura. Se mantienen TDD estricto, cargo test, clippy, fmt, deny, cobertura mínima del 95 %, replay de paridad y revisión independiente. Los mutantes nuevos de cada contrato quedan registrados aunque su ejecución se difiera. El mutation testing obligatorio queda reservado al nivel MILESTONE. Se registra la evidencia de mutación pendiente por cada PR. Se suspende toda optimización adicional del sistema de mutantes y la parte de Q-X-22 no integrada. No se inician campañas sin autorización del Owner. Ningún resultado no ejecutado se presenta como exitoso. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
+- **Respuesta del Owner:** DECISIÓN DEL OWNER, efecto inmediato. Suspendemos temporalmente el mutation testing obligatorio en el nivel PR (enmienda temporal a Q-X-14 y Q-X-22). La ausencia de ejecución de mutantes no bloquea la integración bajo esta excepción explícita del Owner. Los mutantes permanecen en el repositorio; no se elimina código, escenarios, evidencia ni infraestructura. Se mantienen TDD estricto, cargo test, clippy, fmt, deny, cobertura mínima del 95 %, replay de paridad y revisión independiente. Los mutantes nuevos de cada contrato quedan registrados aunque su ejecución se difiera. El mutation testing obligatorio queda reservado al nivel MILESTONE. Se registra la evidencia de mutación pendiente por cada PR. Se suspende toda optimización adicional del sistema de mutantes y la parte de Q-X-22 no integrada. No se inician campañas sin autorización del Owner. Ningún resultado no ejecutado se presenta como exitoso. Registrada en representación del Owner por su instrucción expresa. ACLARACIÓN DEL OWNER (2026-11-26; no amplía la autorización): la suspensión no interfiere con el TDD estricto ni con las pruebas de regresión legítimas. AUTORIZADO: writing tests before implementation; executing tests to observe genuine RED; implementing the minimum change required to achieve GREEN; refactoring while preserving GREEN; reproducing a real defect against its original implementation; temporarily reverting a specific fix in an isolated worktree to verify that a regression test detects the original defect. PROHIBIDO: running the mutation testing framework without explicit Owner authorization; running mutation certification batches; introducing artificial defects into otherwise correct code to evaluate test effectiveness; using manual edits, sed, scripts or other mechanisms to circumvent the mutation testing suspension; manufacturing retrospective RED evidence and presenting it as genuine test-first TDD; disabling or bypassing validation gates. Any temporary regression reproduction must be isolated, documented and fully restored before committing. A legitimate regression reproduction is not a mutation testing campaign. Strict RED/GREEN/REFACTOR remains mandatory. The comprehensive mutation battery is reserved for explicitly authorized certification milestones, particularly Actor Classic completion and Actor Classic + Typed completion. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
 
