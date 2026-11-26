@@ -17,3 +17,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #411	acf416d9	370	pre-restart-keeps-watching-children	none	370 not run (Q-X-23)	PENDING
 #412	bdc62771	372	throwing-strategy-falls-back-to-default; termination-forgets-the-perpetrator	none	372 not run (Q-X-23)	PENDING
 #415	aea1c308	161	selection-parent-is-ignored	none	161 not run (Q-X-23)	PENDING
+#416	ccc34d3f	373	default-pre-restart-skips-post-stop	none	373 not run (Q-X-23)	PENDING

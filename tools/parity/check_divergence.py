@@ -336,9 +336,15 @@ MUTANTS = {
     ),
     "pre-restart-keeps-watching-children": (
         "src/actor/props.rs",
-        "            ctx.unwatch(&child);\n",
+        "        ctx.unwatch(&child);\n",
         "",
         "the default `preRestart` stops the children without `unwatch`, so the restarted actor is told of their termination",
+    ),
+    "default-pre-restart-skips-post-stop": (
+        "src/actor/props.rs",
+        "    actor.post_stop(ctx);\n",
+        "",
+        "the default `preRestart`, also when an override calls it, does not run `postStop` of the failed instance",
     ),
     "throwing-strategy-falls-back-to-default": (
         "src/actor/cell.rs",
