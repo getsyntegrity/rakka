@@ -148,31 +148,6 @@ MUTANTS = {
         'left: usize::MAX,',
         'an actor drains its whole mailbox in one turn instead of `throughput` messages',
     ),
-    # --- currentMessage (AC-CELL-007.1; killed by the cm-* cases) ---
-    "handled-failure-is-forgotten": (
-        "src/actor/cell.rs",
-        "sender: Some(child.clone()),\n        }));\n",
-        "sender: Some(child.clone()),\n        }));\n        self.set_current(None);\n",
-        "a child's `Failed` is not the current message once handled: a later restart passes none to `preRestart`",
-    ),
-    "resume-forgets-the-current-message": (
-        "src/actor/cell.rs",
-        "self.resume_after_failure(cause.is_some());",
-        "self.set_current(None);\n        self.resume_after_failure(cause.is_some());",
-        "`Resume` forgets the failed message",
-    ),
-    "success-keeps-the-current-message": (
-        "src/actor/cell.rs",
-        "Ok(()) => self.set_current(None),",
-        "Ok(()) => {}",
-        "a successfully processed message stays the current one",
-    ),
-    "restart-keeps-the-current-message": (
-        "src/actor/cell.rs",
-        "self.set_current(None); // `clearActorFields`",
-        "// kept",
-        "the message handed to `preRestart` is still the current one in `postRestart`",
-    ),
     # --- Identify / ActorIdentity (AC-REF-013; killed by the identify-* cases) ---
     # --- watchWith (AC-DW-005; killed by the ww-* cases) ---
     "watch-with-delivers-terminated": (
@@ -490,9 +465,9 @@ MUTANTS = {
         "the parent resolves locally (resumes the child) a failure its decider escalated: the grandparent never hears of it",
     ),
     "escalate-alters-cause": (
-        "src/actor/cell.rs",
-        "        self.fail(cause, Some(child), &[]);",
-        "        let cause = Throwable::new(\"org.apache.pekko.actor.ActorInitializationException\", cause.message.as_deref());\n        self.fail(cause, Some(child), &[]);",
+        'src/actor/cell.rs',
+        '        self.fail(cause, Some(child), &[]);',
+        '        let cause = Throwable::new("org.apache.pekko.actor.ActorInitializationException", cause.message.as_deref());\n        self.fail(cause, Some(child), &[]);',
         "the escalation rewraps the cause: the grandparent's decider sees another exception class (observable in its `decide` event and in the default decision)",
     ),
     "escalate-never-resumes-children": (

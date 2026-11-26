@@ -163,15 +163,10 @@ final class Scenario {
       return t instanceof List ? ((List<Object>) t).contains(m) : m.equals(t);
     }
 
-    /** `log-sender`: the lifecycle hooks also record `sender()`, which reads `currentMessage`. */
-    private String senderIfLogged() {
-      return Boolean.TRUE.equals(cfg.get("log-sender")) ? ",\"sender\":" + Cli.Json.str(getSender().path().toString()) : "";
-    }
-
     private static String reasonStr(Throwable t) { return t.getClass().getName() + (t.getMessage() == null ? "" : ": " + t.getMessage()); }
 
     @Override public void preRestart(Throwable reason, java.util.Optional<Object> message) throws Exception {
-      ctx.add(label, "{\"ev\":\"pre-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + ",\"msg\":" + (message.isPresent() ? msgJson(message.get()) : "null") + senderIfLogged() + "}");
+      ctx.add(label, "{\"ev\":\"pre-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + ",\"msg\":" + (message.isPresent() ? msgJson(message.get()) : "null") + "}");
       ctx.life.add(label + ":pre-restart");
       if (Boolean.TRUE.equals(cfg.get("keep-children"))) return; // `keep-children`: like SupervisorTreeSpec, neither stops the children nor runs postStop
       // `pre-restart-throws: <message or null>`: preRestart fails before it calls super, so nothing of the default runs
@@ -180,14 +175,14 @@ final class Scenario {
     }
 
     @Override public void postRestart(Throwable reason) throws Exception {
-      ctx.add(label, "{\"ev\":\"post-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + senderIfLogged() + "}");
+      ctx.add(label, "{\"ev\":\"post-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + "}");
       ctx.life.add(label + ":post-restart");
       Object fails = cfg.get("throw-in-post-restart"); // `true`, or `"once"`: only the first postRestart of this label
       if (Boolean.TRUE.equals(fails) || ("once".equals(fails) && ctx.failedPostRestart.add(label))) throw new IllegalStateException("post-restart"); // `throw-in-post-restart`
       super.postRestart(reason); // default: preStart
     }
     @Override public void postStop() {
-      ctx.add(label, "{\"ev\":\"post-stop\"" + senderIfLogged() + "}");
+      ctx.add(label, "{\"ev\":\"post-stop\"}");
       ctx.life.add(label + ":post-stop");
       if (cfg.get("post-stop-spawn") != null) { // creating a child while terminating
         String r;
