@@ -3048,3 +3048,12 @@ sel-empty-path	scenario-actor-selection	AC-REF-011	cited
 sel-missing	scenario-actor-selection	AC-REF-011,AC-REF-014	cited
 sel-identify	scenario-actor-selection	AC-REF-013,AC-REF-014	cited
 sel-uid	scenario-actor-selection	AC-REF-011,AC-REF-013,AC-REF-014	cited
+tc-prestart	scenario-throwable-cause	AC-CELL-002.2,AC-SUP-018	cited
+tc-prestart-nested	scenario-throwable-cause	AC-CELL-002.2,AC-SUP-018	cited
+tc-prestart-invocation	scenario-throwable-cause	AC-CELL-002.2,AC-SUP-018	cited
+tc-prestart-no-message	scenario-throwable-cause	AC-CELL-002.2,AC-SUP-018	cited
+tc-constructor	scenario-throwable-cause	AC-CELL-002.2,AC-SUP-018	cited
+tc-escalated	scenario-throwable-cause	AC-CELL-002.2,AC-SUP-018	cited
+tc-post-restart	scenario-throwable-cause	AC-CELL-007.4,AC-SUP-018	cited
+tc-restart-constructor	scenario-throwable-cause	AC-CELL-007.4,AC-SUP-018	cited
+tc-pre-restart	scenario-throwable-cause	AC-CELL-007.1	cited

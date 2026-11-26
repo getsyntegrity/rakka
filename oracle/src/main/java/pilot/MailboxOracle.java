@@ -1001,6 +1001,16 @@ final class MailboxOracle {
         return "errors=" + cellErrors(e) + " started=" + e.started.get() + " log=" + e.log + " terminated=" + in(c).isTerminated();
       }
     });
+    run("MBX-IF-06 the supervisor's log of a cell that cannot be made publishes the message of what made it fail", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        AtomicReference<ActorRef> child = new AtomicReference<>();
+        e.sys.actorOf(Props.create(RestartingParent.class, e, child), "parent").tell("go", ActorRef.noSender());
+        String logged = "|org.apache.pekko.actor.ActorInitializationException|";
+        awaitUntil(() -> e.errors.stream().anyMatch(x -> x.contains(logged)));
+        awaitUntil(() -> e.started.get() == 1);
+        return "errors=" + e.errors.stream().filter(x -> x.contains(logged)).collect(java.util.stream.Collectors.toList());
+      }
+    });
     run("MBX-AC-01 actorOf returns before the child starts: it is found by name and its name is taken at once", () -> {
       try (Env e = new Env(5, "0ms")) {
         AtomicReference<ActorRef> child = new AtomicReference<>();

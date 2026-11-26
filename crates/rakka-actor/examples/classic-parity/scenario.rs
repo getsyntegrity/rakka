@@ -360,7 +360,8 @@ struct Behavior {
     throw_on: Vec<String>,
     /// `supervisor: {"max": n, "log-decisions": bool, "decider": {<exception message>: "resume"|"restart"|"stop"|"escalate"}}`
     supervisor: Option<SupervisorCfg>,
-    throw_in_prestart: bool,
+    /// `throw-in-prestart`: what `preStart` throws, `true` or the shape of its cause chain
+    throw_in_prestart: Option<Throwable>,
     /// `throw-in-post-restart`: `postRestart` records its event and then throws IllegalStateException("post-restart")
     throw_in_post_restart: bool,
     /// `throw-in-post-restart: "once"`: only the first `postRestart` of the label throws
@@ -437,7 +438,7 @@ impl Behavior {
                     },
                 }
             }),
-            throw_in_prestart: matches!(v.get("throw-in-prestart"), Some(Value::Bool(true))),
+            throw_in_prestart: v.get("throw-in-prestart").and_then(thrown_by_pre_start),
             throw_in_post_restart: matches!(
                 v.get("throw-in-post-restart"),
                 Some(Value::Bool(true))
@@ -489,6 +490,23 @@ fn throw_illegal_state(message: Option<&str>) -> ! {
     throw(Throwable::new("java.lang.IllegalStateException", message))
 }
 
+fn thrown_by_pre_start(shape: &Value) -> Option<Throwable> {
+    let init = || Throwable::illegal_state("init");
+    Some(match shape {
+        Value::Bool(true) => init(),
+        _ => match shape.as_str()?.as_str() {
+            "nested" => init().with_cause(Throwable::new(
+                "java.lang.IllegalArgumentException",
+                Some("root"),
+            )),
+            "invocation" => Throwable::new("java.lang.reflect.InvocationTargetException", None)
+                .with_cause(Throwable::illegal_state("inner")),
+            "no-message" => Throwable::new("java.lang.IllegalStateException", None),
+            _ => return None,
+        },
+    })
+}
+
 fn reason_str(t: &Throwable) -> String {
     t.to_string()
 }
@@ -523,8 +541,8 @@ impl Actor for Scripted {
     fn pre_start(&mut self, _c: &mut ActorContext) {
         self.ctx.add(&self.label, Event::PreStart);
         self.ctx.life(format!("{}:pre-start", self.label));
-        if self.cfg.throw_in_prestart {
-            throw(Throwable::illegal_state("init"));
+        if let Some(thrown) = &self.cfg.throw_in_prestart {
+            throw(thrown.clone());
         }
     }
 
@@ -963,6 +981,8 @@ struct Collector {
     prefix: String,
     /// `errors` channel: an actor the collector also watches
     watch: Option<ActorRef>,
+    /// `errors` channel: also record the `getCause` chain below the published cause
+    causes: bool,
 }
 
 impl Actor for Collector {
@@ -999,6 +1019,18 @@ impl Actor for Collector {
                 if !e.cause.class.ends_with("NoCause$") {
                     o.push_str(",\"causeText\":");
                     js(&mut o, &e.cause.to_string());
+                }
+                if self.causes {
+                    o.push_str(",\"causedBy\":[");
+                    let mut next = e.cause.cause.as_deref();
+                    while let Some(cause) = next {
+                        js(&mut o, &cause.to_string());
+                        next = cause.cause.as_deref();
+                        if next.is_some() {
+                            o.push(',');
+                        }
+                    }
+                    o.push(']');
                 }
                 strategy_of(&mut o, &e.log_class);
                 o.push('}');
@@ -1258,12 +1290,14 @@ fn step(
             let (c2, l2) = (ctx.clone(), lbl.clone());
             let prefix = label("prefix").unwrap_or_default();
             let watch = label("watch").and_then(|l| lookup(system, ctx, &l));
+            let causes = matches!(st.get("causes"), Some(Value::Bool(true)));
             let r = system
                 .actor_of(Props::new(move || Collector {
                     label: l2.clone(),
                     ctx: c2.clone(),
                     prefix: prefix.clone(),
                     watch: watch.clone(),
+                    causes,
                 }))
                 .map_err(|e| e.to_string())?;
             ctx.refs.lock().unwrap().insert(lbl, r.clone());
