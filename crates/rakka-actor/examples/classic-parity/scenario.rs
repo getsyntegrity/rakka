@@ -41,7 +41,10 @@ fn await_timeout() -> Duration {
 #[derive(Clone)]
 enum Event {
     PreStart,
-    PostStop,
+    /// `sender`: the `,"sender":…` field of an actor with `log-sender`, else empty
+    PostStop {
+        sender: String,
+    },
     Received {
         msg: Msg,
         sender: String,
@@ -50,9 +53,11 @@ enum Event {
     PreRestart {
         reason: String,
         msg: Option<Msg>,
+        sender: String,
     },
     PostRestart {
         reason: String,
+        sender: String,
     },
     /// `supervisor.log-decisions`: the cause a decider was given and the directive it chose
     Decide {
@@ -143,7 +148,7 @@ impl Event {
         let q = |o: &mut String, t: &str| write_text(o, t);
         match self {
             Event::PreStart => o.push_str("{\"ev\":\"pre-start\"}"),
-            Event::PostStop => o.push_str("{\"ev\":\"post-stop\"}"),
+            Event::PostStop { sender } => o.push_str(&format!("{{\"ev\":\"post-stop\"{sender}}}")),
             Event::Received { msg, sender, n } => {
                 o.push_str("{\"ev\":\"received\",\"msg\":");
                 msg_json(&mut o, msg);
@@ -154,7 +159,11 @@ impl Event {
                 }
                 o.push('}');
             }
-            Event::PreRestart { reason, msg } => {
+            Event::PreRestart {
+                reason,
+                msg,
+                sender,
+            } => {
                 o.push_str("{\"ev\":\"pre-restart\",\"reason\":");
                 q(&mut o, reason);
                 o.push_str(",\"msg\":");
@@ -162,11 +171,13 @@ impl Event {
                     Some(m) => msg_json(&mut o, m),
                     None => o.push_str("null"),
                 }
+                o.push_str(sender);
                 o.push('}');
             }
-            Event::PostRestart { reason } => {
+            Event::PostRestart { reason, sender } => {
                 o.push_str("{\"ev\":\"post-restart\",\"reason\":");
                 q(&mut o, reason);
+                o.push_str(sender);
                 o.push('}');
             }
             Event::Decide { cause, directive } => {
@@ -344,6 +355,8 @@ struct Behavior {
     throw_in_first_post_restart: bool,
     /// `keep-children`: `preRestart` only records its event (neither stops the children nor runs `postStop`)
     keep_children: bool,
+    /// `log-sender`: the lifecycle hooks also record `sender()`
+    log_sender: bool,
     /// `pre-restart-throws: <message or null>`: `preRestart` fails before its default part
     pre_restart_throws: Option<Option<String>>,
     /// `post-stop-throws: <message or null>`: `postStop` records its event and then fails
@@ -413,6 +426,7 @@ impl Behavior {
                 .as_deref()
                 == Some("once"),
             keep_children: matches!(v.get("keep-children"), Some(Value::Bool(true))),
+            log_sender: matches!(v.get("log-sender"), Some(Value::Bool(true))),
             pre_restart_throws: v.get("pre-restart-throws").map(Value::as_str),
             post_stop_throws: v.get("post-stop-throws").map(Value::as_str),
             constructor_fails_from: match v.get("constructor-fails-from") {
@@ -453,6 +467,17 @@ fn throw_illegal_state(message: Option<&str>) -> ! {
 
 fn reason_str(t: &Throwable) -> String {
     t.to_string()
+}
+
+impl Scripted {
+    fn logged_sender(&self, c: &ActorContext) -> String {
+        let mut field = String::new();
+        if self.cfg.log_sender {
+            field.push_str(",\"sender\":");
+            write_text(&mut field, &path_str(&c.sender()));
+        }
+        field
+    }
 }
 
 impl Actor for Scripted {
@@ -547,6 +572,7 @@ impl Actor for Scripted {
             Event::PreRestart {
                 reason: reason_str(reason),
                 msg: message.map(msg_of),
+                sender: self.logged_sender(c),
             },
         );
         self.ctx.life(format!("{}:pre-restart", self.label));
@@ -567,6 +593,7 @@ impl Actor for Scripted {
             &self.label,
             Event::PostRestart {
                 reason: reason_str(reason),
+                sender: self.logged_sender(c),
             },
         );
         self.ctx.life(format!("{}:post-restart", self.label));
@@ -584,7 +611,8 @@ impl Actor for Scripted {
     }
 
     fn post_stop(&mut self, c: &mut ActorContext) {
-        self.ctx.add(&self.label, Event::PostStop);
+        let sender = self.logged_sender(c);
+        self.ctx.add(&self.label, Event::PostStop { sender });
         self.ctx.life(format!("{}:post-stop", self.label));
         if let Some(n) = &self.cfg.post_stop_spawn {
             // creating a child while terminating
