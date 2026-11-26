@@ -80,9 +80,11 @@ def gate_label(gate, exit_code):
     return "PASS" if exit_code == 0 else dict(gate.exit_labels).get(exit_code, "FAIL")
 
 
-def summary_line(tier, problems, gate_count, head):
+def summary_line(tier, problems, gate_count, head, pending_mutants=0):
     """`problems` = [(gate name, verdict label)] of the gates that did not pass."""
     outcome = ", ".join(f"{label} {name}" for name, label in problems) if problems else "all gates passed"
+    if pending_mutants:      # never readable as a pass of the mutants
+        outcome = (outcome if problems else "all executed gates passed") + f"; mutants NOT RUN: {pending_mutants} pending"
     return f"{tier.upper()}: {outcome} ({gate_count} gates, HEAD {head})"
 
 
@@ -102,7 +104,11 @@ class Gate:
     regenerates: tuple = ()  # tracked files this gate rewrites on every run: not "uncommitted edits" of its own inputs
     exit_labels: tuple = ()  # (exit code, verdict label) pairs; any other non-zero code is a plain FAIL
     reusable: bool = True    # False: the gate keeps its own finer evidence and must run every time
+    pending_mutants: int = 0  # selected and deliberately not run (see PR_MUTATION_SUSPENDED)
 
+
+# Q-X-23 (Owner, 2026-11-26), TEMPORARY: the PR tier runs no mutant; MILESTONE is unchanged. None restores the PR mutants gate.
+PR_MUTATION_SUSPENDED = "Q-X-23"
 
 RUST_INPUTS = ("crates", "Cargo.toml", "Cargo.lock")
 ORACLE_INPUTS = RUST_INPUTS + ("cases", "tools/parity", "oracle")           # what the differential fuzzers read
@@ -128,6 +134,10 @@ def tier_gates(tier, selected_mutants, mutant_args=(), no_reuse=False):
     # per-mutant reuse and a control on every run (Q-X-22 R3): a passing record of the whole gate would not carry the external tool versions
     mutants = Gate("mutants", [PY, "tools/gates/pr_mutants.py", *selected_mutants, *(["--no-reuse"] if no_reuse else [])], PARITY_INPUTS + ("tools/gates",),
                    "" if selected_mutants else "no mutated file changed since the base", REPLAY_REGENERATED, MUTANT_RUNNER_LABELS, reusable=False)
+    if PR_MUTATION_SUSPENDED and selected_mutants:
+        reason = (f"NOT RUN: PR mutation testing is suspended ({PR_MUTATION_SUSPENDED}); {len(selected_mutants)} selected and pending, "
+                  "record them in docs/evidence/mutation-pending.tsv")
+        mutants = dataclasses.replace(mutants, skip_reason=reason, pending_mutants=len(selected_mutants))
     if tier == "fast":
         return fast
     if tier == "pr":
@@ -255,7 +265,8 @@ def run_gate(gate, toolchain, reuse, head):
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.relpath(os.path.join(log_dir, gate.name + ".log"), ROOT)
     if gate.skip_reason:
-        return f"SKIP {gate.name}: {gate.skip_reason}", 0, "PASS"
+        label = "PENDING" if gate.pending_mutants else "SKIP"
+        return f"{label} {gate.name}: {gate.skip_reason}", 0, "PENDING" if gate.pending_mutants else "PASS"
     state_before = input_state(gate.inputs, gate.regenerates)
     trees, dirty = state_before[0], state_before[1]
     key = evidence_key(gate.command, trees, toolchain, dirty) if gate.reusable else None
@@ -360,7 +371,7 @@ def main(argv):
         print(line, flush=True)
         if code:
             failed.append((g.name, label))
-    print(summary_line(tier, failed, len(gates), head))
+    print(summary_line(tier, failed, len(gates), head, sum(g.pending_mutants for g in gates)))
     return 1 if failed else 0
 
 
