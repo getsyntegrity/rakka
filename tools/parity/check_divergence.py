@@ -1917,6 +1917,18 @@ MUTANTS = {
         "\"actor class [{}]\"",
         "the actor class of the verification failure is printed without `class` (MBX-CMP-01)",
     ),
+    "mailbox-fallback-failure-reports-the-first-error": (
+        "src/actor/props.rs",
+        "                self.verify_requirements(&*fallback, dispatcher_requirement)?;\n",
+        "                self.verify_requirements(&*fallback, dispatcher_requirement)\n                    .map_err(|_| unfit)?;\n",
+        "a fallback binding that does not fit reports the error of the first binding instead of its own (MBX-CMP-02)",
+    ),
+    "mailbox-dispatcher-requirement-checked-only-on-bindings": (
+        "src/actor/props.rs",
+        "        let unfit = match self.verify_requirements(&*selected, dispatcher_requirement) {",
+        "        let unfit = match self.verify_requirements(&*selected, dispatcher_requirement.filter(|_| self.mailbox_id.is_none())) {",
+        "a mailbox selected by id is not checked against the requirement of the dispatcher (MBX-CMP-02)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
