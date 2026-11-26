@@ -262,6 +262,7 @@ final class Scenario {
           case "watch-with": getContext().watchWith(ctx.refs.get((String) sp.get("target")), message(sp.get("msg"))); res = "\"ok\":true"; break;
           case "unwatch": getContext().unwatch(ctx.refs.get((String) sp.get("target"))); res = "\"ok\":true"; break;
           case "stop": getContext().stop(ctx.refs.get((String) sp.get("target"))); res = "\"ok\":true"; break;
+          case "select": getContext().actorSelection((String) sp.get("path")).tell(message(sp.get("msg")), getSelf()); res = "\"ok\":true"; break;
           default: throw new IllegalArgumentException("unknown command " + sp.get("c"));
         }
       } catch (Exception e) {
@@ -281,6 +282,7 @@ final class Scenario {
       switch (kind) {
         case "echo": getSender().tell(m, getSelf()); break;
         case "forward": ctx.refs.get((String) cfg.get("to")).forward(m, getContext()); break;
+        case "select-forward": getContext().actorSelection((String) cfg.get("path")).forward(m, getContext()); break;
         case "stop-on": if (m.equals(cfg.get("msg"))) getContext().stop(getSelf()); break;
         case "blast": {
           ActorRef to = ctx.refs.get((String) cfg.get("to"));
@@ -454,6 +456,11 @@ final class Scenario {
           ctx.sent.computeIfAbsent(target, k -> new ArrayList<>());
           if (msg instanceof String) ctx.sent.get(target).add((String) msg);
           ref(ctx, target).tell(msg, from);
+          return head + ",\"ok\":true}";
+        }
+        case "select": { // system.actorSelection(path).tell(msg, from)
+          ActorRef from = st.get("from") == null ? ActorRef.noSender() : ctx.refs.get((String) st.get("from"));
+          system.actorSelection((String) st.get("path")).tell(message(st.get("msg")), from);
           return head + ",\"ok\":true}";
         }
         case "tell-seq": {

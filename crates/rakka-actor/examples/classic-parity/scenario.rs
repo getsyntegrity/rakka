@@ -350,6 +350,8 @@ struct Behavior {
     kind: String,
     handles: Option<Vec<String>>,
     to: Option<String>,
+    /// `select-forward`: the selection every message is forwarded to
+    path: Option<String>,
     msg: Option<String>,
     prefix: Option<String>,
     count: i64,
@@ -396,6 +398,7 @@ impl Behavior {
                 .and_then(Value::as_array)
                 .map(|a| a.iter().filter_map(Value::as_str).collect()),
             to: s("to"),
+            path: s("path"),
             msg: s("msg"),
             prefix: s("prefix"),
             post_stop_spawn: s("post-stop-spawn"),
@@ -726,6 +729,10 @@ impl Actor for Scripted {
         if m.as_ref().is_some_and(|t| self.cfg.throw_on.contains(t)) {
             throw(Throwable::illegal_state(m.as_deref().unwrap_or_default()));
         }
+        if self.cfg.kind == "select-forward" {
+            let path = self.cfg.path.as_deref().expect("a path");
+            c.actor_selection(path).forward(msg.clone(), c);
+        }
         let target = || {
             self.cfg
                 .to
@@ -931,6 +938,12 @@ fn command(ctx: &Arc<Ctx>, c: &mut ActorContext, sp: &Value) -> String {
         }
         "stop" => {
             c.stop(&target("target").expect("known ref"));
+            o.push_str("\"ok\":true");
+        }
+        "select" => {
+            let path = sp.get("path").and_then(Value::as_str).expect("a path");
+            let msg = message(sp.get("msg").expect("a message")).expect("a known message");
+            c.actor_selection(&path).tell_any(msg, Some(c.self_ref()));
             o.push_str("\"ok\":true");
         }
         other => o.push_str(&format!(
@@ -1273,6 +1286,12 @@ fn step(
             lookup(system, ctx, &target)
                 .ok_or("unknown ref")?
                 .tell_any(msg, from());
+            out.push_str(",\"ok\":true");
+        }
+        "select" => {
+            let path = label("path").ok_or("select needs path")?;
+            let msg = message(st.get("msg").ok_or("select needs msg")?)?;
+            system.actor_selection(&path).tell_any(msg, from());
             out.push_str(",\"ok\":true");
         }
         "tell-seq" => {
