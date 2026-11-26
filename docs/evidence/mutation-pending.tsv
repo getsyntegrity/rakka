@@ -12,3 +12,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #406	f2fe7280	133	none on this head (the three logFailure mutants come with the stacked slice 2/2)	none	133 not run (Q-X-23)	PENDING
 #408	9940ccc7	364	supervisor-failure-is-not-logged; resume-is-logged-as-an-error; disabled-logging-still-logs	none	364 not run (Q-X-23)	PENDING
 #407	42340dae	72	none on this head (six re-pointed cell.rs mutants; the four new ones come with the stacked slice 2/2)	none	72 not run (Q-X-23)	PENDING
+#409	41bc97ef	131	supervision-errors-are-published-guarded	none	131 not run (Q-X-23)	PENDING
