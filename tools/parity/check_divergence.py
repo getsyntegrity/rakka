@@ -181,10 +181,29 @@ MUTANTS = {
         "the survivors are restarted although the parent's `postRestart` failed",
     ),
     "waiting-cell-does-not-defer-system-messages": (
-        "src/actor/cell.rs",
-        "} else if m.stash_when_waiting_for_children() && self.waits_for_children() {",
-        "} else if false {",
+        "src/dispatch/sysmsg.rs",
+        "DeliveryState::WaitingForChildren => matches!(",
+        "DeliveryState::WaitingForChildren => false && matches!(",
         "a cell waiting for its children to die takes `Suspend` and `Recreate` at once, and stays suspended",
+    ),
+    # --- deferred `Failed` (AC-CELL-013.2; killed by the sf-* cases) ---
+    "suspended-cell-does-not-defer-failed": (
+        "src/dispatch/sysmsg.rs",
+        "DeliveryState::Suspended => matches!(self, Self::Failed { .. }),",
+        "DeliveryState::Suspended => false,",
+        "a suspended supervisor decides about a failed child at once",
+    ),
+    "deferred-messages-never-come-back": (
+        "src/actor/cell.rs",
+        "if self.delivery_state() < before {",
+        "if false {",
+        "a resumed or restarted cell never takes back what it deferred",
+    ),
+    "terminated-cell-keeps-deferred-messages": (
+        "src/actor/cell.rs",
+        "let forgotten = std::mem::take(&mut self.st.lock().unwrap().deferred);",
+        "let forgotten = Vec::<SystemMessage>::new();",
+        "what a stopped cell had deferred is published as dead letters instead of being forgotten",
     ),
     # --- failed restart and terminating survivor (AC-SUP-019, AC-CELL-007.4) ---
     "failed-restart-suspends-survivors-again": (

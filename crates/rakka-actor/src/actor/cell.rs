@@ -24,7 +24,7 @@ use crate::dispatch::dispatcher::Rejected;
 use crate::dispatch::mailbox_close::enqueue_unless_closed;
 use crate::dispatch::mailbox_status::MailboxStatus;
 use crate::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
-use crate::dispatch::sysmsg::{Failed, SystemMessage, Terminated};
+use crate::dispatch::sysmsg::{DeliveryState, Failed, SystemMessage, Terminated};
 use crate::dispatch::system_queue::SystemQueue;
 use crate::event::UnhandledMessage;
 use crate::event::{ErrorEvent, report_dispatch_failure};
@@ -55,7 +55,7 @@ struct CellState {
     restart_stats: std::collections::HashMap<ActorRef, RestartStats>,
     /// the child whose failure this actor escalated (`FailedRef(perp)`); it is the one child not suspended by this actor's own failure
     perpetrator: Option<ActorRef>,
-    /// `sysmsgStash`: system messages deferred while the cell waits for its children to die, oldest first
+    /// `sysmsgStash`: system messages deferred while the cell is suspended or waits for its children to die, oldest first
     deferred: Vec<SystemMessage>,
 }
 
@@ -462,21 +462,33 @@ impl ActorCell {
             }
             let mut todo = VecDeque::from(batch);
             while let Some(m) = todo.pop_front() {
+                let before = self.delivery_state();
                 if self.status.is_closed() {
                     self.dead_system_message(m);
-                } else if m.stash_when_waiting_for_children() && self.waits_for_children() {
+                } else if m.is_deferred_in(before) {
                     self.st.lock().unwrap().deferred.push(m);
                 } else {
                     self.system_invoke(m);
                 }
-                // the wait is over: what was deferred goes before the rest of the batch
-                if !self.waits_for_children() {
+                // the state went down: what was deferred goes before the rest of the batch
+                if self.delivery_state() < before {
                     let deferred = std::mem::take(&mut self.st.lock().unwrap().deferred);
                     for earlier in deferred.into_iter().rev() {
                         todo.push_front(earlier);
                     }
                 }
             }
+        }
+    }
+
+    /// `calculateState`
+    fn delivery_state(&self) -> DeliveryState {
+        if self.waits_for_children() {
+            DeliveryState::WaitingForChildren
+        } else if self.status.is_suspended() {
+            DeliveryState::Suspended
+        } else {
+            DeliveryState::Default
         }
     }
 
@@ -975,6 +987,9 @@ impl ActorCell {
     fn finish_terminate(self: &Arc<Self>) {
         let _ = self.with_actor(|a, ctx| a.post_stop(ctx)); // post-stop failures are only logged in Pekko
         self.remove_actor();
+        // `clearFieldsForTermination`: what is still deferred is forgotten, it does not even become a dead letter
+        let forgotten = std::mem::take(&mut self.st.lock().unwrap().deferred);
+        drop(forgotten); // outside the lock: it holds references
         // dispatcher.detach: close the mailbox, hand what is left to dead letters
         let leftovers = UnboundedMailbox.create();
         self.status.become_closed();

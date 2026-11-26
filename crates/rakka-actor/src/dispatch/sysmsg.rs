@@ -45,13 +45,27 @@ pub(crate) enum SystemMessage {
     },
 }
 
+/// `ActorCell.calculateState`. The order matters: the cell takes back what it deferred when its state goes down.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum DeliveryState {
+    Default,
+    /// the mailbox is suspended: the actor failed, or was suspended with its failed supervisor
+    Suspended,
+    /// a restart or a retried creation waits for the children to die
+    WaitingForChildren,
+}
+
 impl SystemMessage {
-    /// The `StashWhenWaitingForChildren` marker.
-    pub(crate) fn stash_when_waiting_for_children(&self) -> bool {
-        matches!(
-            self,
-            Self::Failed { .. } | Self::Recreate { .. } | Self::Suspend | Self::Resume { .. }
-        )
+    /// `shouldStash`: `StashWhenFailed` (`Failed`) while suspended, `StashWhenWaitingForChildren` while the children die.
+    pub(crate) fn is_deferred_in(&self, state: DeliveryState) -> bool {
+        match state {
+            DeliveryState::Default => false,
+            DeliveryState::Suspended => matches!(self, Self::Failed { .. }),
+            DeliveryState::WaitingForChildren => matches!(
+                self,
+                Self::Failed { .. } | Self::Recreate { .. } | Self::Suspend | Self::Resume { .. }
+            ),
+        }
     }
 }
 
@@ -77,3 +91,43 @@ pub struct Terminated {
 
 /// Sent to a guardian to make it stop one of its children (`ActorSystem.stop`).
 pub(crate) struct StopChild(pub ActorRef);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::actor::ActorPath;
+    use crate::actor::actor_ref::InternalActorRef;
+    use crate::actor::props::AnyMessage;
+    use std::sync::Arc;
+
+    /// Stands for the failed child: only the message that carries it is under test.
+    struct NoChild;
+    impl InternalActorRef for NoChild {
+        fn path(&self) -> &ActorPath {
+            unreachable!()
+        }
+        fn tell(&self, _: AnyMessage, _: Option<ActorRef>) {}
+        fn send_system(&self, _: SystemMessage) {}
+        fn stop(&self) {}
+        fn is_terminated(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn a_suspended_cell_defers_only_failed_and_a_waiting_one_also_recreate_suspend_and_resume() {
+        use DeliveryState::{Default, Suspended, WaitingForChildren};
+        let failed = SystemMessage::Failed {
+            child: ActorRef(Arc::new(NoChild)),
+            cause: Throwable::illegal_state("child"),
+        };
+        let deferred = |m: &SystemMessage| {
+            [Default, Suspended, WaitingForChildren].map(|s| m.is_deferred_in(s))
+        };
+        assert_eq!(deferred(&failed), [false, true, true]);
+        assert_eq!(deferred(&SystemMessage::Suspend), [false, false, true]);
+        let resume = SystemMessage::Resume { cause: None };
+        assert_eq!(deferred(&resume), [false, false, true]);
+        assert_eq!(deferred(&SystemMessage::Terminate), [false, false, false]);
+    }
+}
