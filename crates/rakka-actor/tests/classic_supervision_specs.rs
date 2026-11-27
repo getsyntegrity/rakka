@@ -287,7 +287,8 @@ impl Actor for FailResumer {
 }
 
 /// `SupervisorHierarchySpec` "handle failure in creation when supervision strategy returns Resume and Restart" (AC-SUP-011 A1),
-/// without the `workingChild` the spec's constructor creates (Q-CELL-8).
+/// not 1:1 (Q-CELL-8): no `workingChild`, which the spec's constructor creates, and `failChild` is made in the supervisor's `pre_start`,
+/// not in its constructor.
 #[test]
 fn a_creation_that_fails_five_times_ends_in_one_instance() {
     let system = RunningSystem::create("t-creation-retries");

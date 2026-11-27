@@ -375,8 +375,8 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Evidencia:** actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:86-99 ; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:861-912 ; crates/rakka-actor/src/actor/props.rs Props::new(Fn() -> A)
 - **Alternativas:** (a) permitir que la fábrica reciba el ActorContext de la celda que se está creando / (b) aceptar la divergencia y portar esos specs creando los hijos en pre_start / (c) dejar las aserciones bloqueadas
 - **Recomendación:** (a), por Q-X-21 (c). Consecuencia hoy: los specs que crean hijos en el constructor no se pueden portar 1:1 y las filas afectadas quedan sin cerrar
-- **Filas afectadas:** AC-CELL-007.2 ; AC-CELL-013.2
-- **Unidades afectadas:** CELL
+- **Filas afectadas:** AC-CELL-007.2 ; AC-CELL-013.2 ; AC-SUP-011
+- **Unidades afectadas:** CELL ; SUP
 - **Origen:** classic-cell
 
 ### Q-CFG-14 — Includes de HOCON sin classpath: `include "x"`, `classpath(...)`, `url(...)`, `file(...)` y `required(...)` en rakka

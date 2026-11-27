@@ -7,9 +7,9 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 521 | 50 | 133 | 338 | 4 | 9.6 % | 35.1 % |
+| Classic (`rakka-actor`) | 521 | 48 | 135 | 338 | 4 | 9.2 % | 35.1 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 781 | 50 | 133 | 598 | 4 | 6.4 % | 23.4 % |
+| **Total** | 781 | 48 | 135 | 598 | 4 | 6.1 % | 23.4 % |
 
 ## Por ola
 
@@ -17,7 +17,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 |---|---|---|---|---|---|---|---|
 | 0 - valores sin runtime | 57 | 36 | 20 | 1 | 4 | 63.2 % | 98.2 % |
 | 1 - configuracion, eventos y scheduler | 70 | 4 | 46 | 20 | 0 | 5.7 % | 71.4 % |
-| 2 - nucleo del runtime Classic | 134 | 10 | 54 | 70 | 0 | 7.5 % | 47.8 % |
+| 2 - nucleo del runtime Classic | 134 | 8 | 56 | 70 | 0 | 6.0 % | 47.8 % |
 | 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 12 | 33 | 0 | 0.0 % | 26.7 % |
 | 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0 | 0.0 % | 0.0 % |
 | 5 - apagado, serializacion e IO | 84 | 0 | 1 | 83 | 0 | 0.0 % | 1.2 % |
@@ -49,9 +49,9 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P17 REF-MUERTOS | 2 | 4 | 0 | 3 | 1 | 0 | 0.0 % | 75.0 % | sí |
 | P18 CELL-HIJOS | 2 | 6 | 1 | 4 | 1 | 0 | 16.7 % | 83.3 % | sí |
 | P19 CELL-EJECUCION | 2 | 11 | 0 | 4 | 7 | 0 | 0.0 % | 36.4 % | sí |
-| P20 SUP-ESTRATEGIAS | 2 | 10 | 1 | 5 | 4 | 0 | 10.0 % | 60.0 % | sí |
+| P20 SUP-ESTRATEGIAS | 2 | 10 | 0 | 6 | 4 | 0 | 0.0 % | 60.0 % | sí |
 | P21 SUP-FALLO | 2 | 11 | 1 | 7 | 3 | 0 | 9.1 % | 72.7 % | sí |
-| P22 CELL-REINICIO-PARADA | 2 | 21 | 4 | 12 | 5 | 0 | 19.0 % | 76.2 % | sí |
+| P22 CELL-REINICIO-PARADA | 2 | 21 | 3 | 13 | 5 | 0 | 14.3 % | 76.2 % | sí |
 | P23 DW-VIGILANCIA | 2 | 13 | 3 | 6 | 4 | 0 | 23.1 % | 69.2 % | parcial |
 | P24 MBX-STASH | 2 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | sí |
 | P25 SYS-GUARDIANES | 3 | 12 | 0 | 2 | 10 | 0 | 0.0 % | 16.7 % | sí |
@@ -139,7 +139,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-RT | 22 | 0 | 0 | 22 | 0 | 0.0 % | 0.0 % | no |
 | AC-SCH | 17 | 0 | 7 | 10 | 0 | 0.0 % | 41.2 % | no |
 | AC-SER | 23 | 0 | 0 | 23 | 0 | 0.0 % | 0.0 % | no |
-| AC-SUP | 22 | 3 | 12 | 7 | 0 | 13.6 % | 68.2 % | sí |
+| AC-SUP | 22 | 1 | 14 | 7 | 0 | 4.5 % | 68.2 % | sí |
 | AC-SYS | 27 | 0 | 6 | 21 | 0 | 0.0 % | 22.2 % | sí |
 | AC-TK | 27 | 0 | 0 | 27 | 0 | 0.0 % | 0.0 % | no |
 | AC-UTIL | 65 | 37 | 21 | 7 | 4 | 56.9 % | 89.2 % | sí |
@@ -173,7 +173,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 
 ## Filas con nota «revisar contra 2.0.0»
 
-540 filas (26 done, 82 partial, 432 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
+540 filas (24 done, 84 partial, 432 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
 
 ## Casos grabados y filas que cubren
 
