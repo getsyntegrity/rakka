@@ -1,47 +1,68 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:714-726, actor/dungeon/Children.scala and actor/RepointableActorRef.scala:112-121 (Apache-2.0).
-//! A user's `MailboxType` is public SPI and may panic. `context.actorOf` then throws `ConfigurationException` and releases the name;
-//! `system.actorOf` returns and the new actor fails to initialise. Expected lines: oracle cases `MBX-TT-01` and `MBX-TT-02`.
+//! A user's `MailboxType` is public SPI and may panic: `context.actorOf` throws, `system.actorOf` returns and the actor fails to
+//! initialise. Expected texts: Pekko 2.0.0 for a `MailboxType` whose `create` throws (recorded cases come in a follow-up change).
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
 mod common;
 use common::{RunningSystem, snapshot_of, wait_until};
 
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Mutex};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
-use rakka_actor::actor::system::Settings;
-use rakka_actor::dispatch::message_queue::{MailboxType, MessageQueue};
-use rakka_actor::dispatch::queue_semantics::ProducedQueue;
+use rakka_actor::actor::system::{ActorSystem, Settings};
+use rakka_actor::dispatch::mailboxes::Mailboxes;
+use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
+use rakka_actor::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 use rakka_actor::event::{Channel, ErrorEvent};
 
 type Log = Arc<Mutex<Vec<String>>>;
 
-/// `create` throws `IllegalStateException("mailbox boom")`.
-struct ThrowingMailbox;
-impl MailboxType for ThrowingMailbox {
-    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
-        throw(Throwable::illegal_state("mailbox boom"))
-    }
+/// A mailbox type, and its queue, that fails where it says (`satisfies` and `class_name` run user code only in Rust).
+#[derive(Clone, Copy, PartialEq)]
+enum Fails {
+    Create,
+    OrdinaryPanic,
+    /// While the mailbox is selected, before any queue is asked for.
+    Promise,
+    Satisfies,
+    /// The queue says it does not satisfy the requirement, then throws when asked its class.
+    ClassName,
 }
 
-/// `create` panics the ordinary Rust way.
-struct PanickingMailbox;
-impl MailboxType for PanickingMailbox {
-    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
-        panic!("plain panic")
-    }
+fn boom(message: &str) -> ! {
+    throw(Throwable::illegal_state(message))
 }
 
-/// Fails while the mailbox is selected, before any queue is asked for.
-struct UnpromisingMailbox;
-impl MailboxType for UnpromisingMailbox {
+impl MailboxType for Fails {
     fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
-        unreachable!("selection fails first")
+        match self {
+            Fails::Create => boom("mailbox boom"),
+            Fails::OrdinaryPanic => panic!("plain panic"),
+            Fails::Promise => unreachable!("selection fails first"),
+            _ => Box::new(*self),
+        }
     }
     fn produced_queue(&self) -> ProducedQueue {
-        throw(Throwable::illegal_state("promise boom"))
+        if *self == Fails::Promise {
+            boom("promise boom");
+        }
+        ProducedQueue::new("test.Queue", &[MessageQueueSemantics::UNBOUNDED])
+    }
+}
+
+#[rustfmt::skip] // one stub per line
+impl MessageQueue for Fails {
+    fn enqueue(&self, _: &ActorRef, _: Envelope) -> bool { unreachable!("the actor is never made") }
+    fn dequeue(&self) -> Option<Envelope> { None }
+    fn number_of_messages(&self) -> usize { 0 }
+    fn has_messages(&self) -> bool { false }
+    fn clean_up(&self, _: &ActorRef, _: &dyn MessageQueue) {}
+    fn class_name(&self) -> &'static str { boom("class_name boom") }
+    fn satisfies(&self, _: MessageQueueSemantics) -> Option<bool> {
+        if *self == Fails::Satisfies { boom("satisfies boom") } else { Some(false) }
     }
 }
 
@@ -58,6 +79,14 @@ impl Actor for Echo {
 fn echo(log: &Log) -> Props {
     let log = log.clone();
     Props::new(move || Echo(log.clone()))
+}
+
+/// Requires an unbounded queue, so `Dispatch.init` asks the created queue about itself.
+struct Requiring;
+#[rustfmt::skip]
+impl Actor for Requiring {
+    fn required_message_queue() -> Option<MessageQueueSemantics> { Some(MessageQueueSemantics::UNBOUNDED) }
+    fn receive(&mut self, _: &mut ActorContext, _: &AnyMessage) -> bool { true }
 }
 
 /// Creates `kid` with the props it is sent and logs the outcome and its children, then reuses the name.
@@ -80,77 +109,75 @@ impl Actor for Parent {
     }
 }
 
-fn outcome_of_creating_a_child_with(system_name: &str, props: fn(Props) -> Props) -> Vec<String> {
+const DEFAULT_ID: &str = Mailboxes::DEFAULT_MAILBOX_ID;
+
+/// `context.actorOf` with `props` throws `ConfigurationException` naming `mailbox_id` and `cause`, adds no child and frees the name.
+fn assert_creation_fails(name: &str, props: fn(Props) -> Props, mailbox_id: &str, cause: &str) {
     let mut settings = Settings::default();
-    settings
-        .mailboxes
-        .register("unpromising", UnpromisingMailbox);
-    let system = RunningSystem::create_with_settings(system_name, settings);
+    settings.mailboxes.register("unpromising", Fails::Promise);
+    let system = RunningSystem::create_with_settings(name, settings);
     let log = Log::default();
-    let parent = system
-        .actor_of_named(
-            Props::new({
-                let log = log.clone();
-                move || Parent(log.clone())
-            }),
-            "parent",
-        )
-        .unwrap();
+    let parent = Props::new({
+        let log = log.clone();
+        move || Parent(log.clone())
+    });
+    let parent = system.actor_of_named(parent, "parent").unwrap();
     parent.tell(props(echo(&log)), None);
     wait_until("the parent to report", || snapshot_of(&log).len() == 2);
-    snapshot_of(&log)
-}
-
-fn configuration_failure(system_name: &str, mailbox_id: &str, cause: &str) -> Vec<String> {
-    vec![
-        format!(
-            "org.apache.pekko.ConfigurationException: configuration problem while creating [pekko://{system_name}/user/parent/kid] \
-             with dispatcher [pekko.actor.default-dispatcher] and mailbox [{mailbox_id}] cause={cause}"
-        ),
-        "children=0 reused=true".to_owned(),
-    ]
+    let failure = format!(
+        "org.apache.pekko.ConfigurationException: configuration problem while creating [pekko://{name}/user/parent/kid] \
+         with dispatcher [pekko.actor.default-dispatcher] and mailbox [{mailbox_id}] cause={cause}"
+    );
+    assert_eq!(snapshot_of(&log), [&failure, "children=0 reused=true"]);
 }
 
 #[test]
 fn a_mailbox_type_that_throws_fails_context_actor_of_and_frees_the_name() {
-    let log =
-        outcome_of_creating_a_child_with("spi-sync", |props| props.with_mailbox(ThrowingMailbox));
-    assert_eq!(
-        log,
-        configuration_failure(
-            "spi-sync",
-            "pekko.actor.default-mailbox",
-            "java.lang.IllegalStateException: mailbox boom"
-        )
-    );
+    let cause = "java.lang.IllegalStateException: mailbox boom";
+    let props = |p: Props| p.with_mailbox(Fails::Create);
+    assert_creation_fails("spi-sync", props, DEFAULT_ID, cause);
 }
 
 #[test]
 fn an_ordinary_panic_of_a_mailbox_type_is_reported_as_a_runtime_exception() {
-    let log =
-        outcome_of_creating_a_child_with("spi-panic", |props| props.with_mailbox(PanickingMailbox));
-    assert_eq!(
-        log,
-        configuration_failure(
-            "spi-panic",
-            "pekko.actor.default-mailbox",
-            "java.lang.RuntimeException: plain panic"
-        )
-    );
+    let cause = "java.lang.RuntimeException: plain panic";
+    let props = |p: Props| p.with_mailbox(Fails::OrdinaryPanic);
+    assert_creation_fails("spi-panic", props, DEFAULT_ID, cause);
 }
 
 #[test]
 fn a_mailbox_type_that_throws_while_it_is_selected_fails_actor_of_the_same_way() {
-    let log = outcome_of_creating_a_child_with("spi-select", |props| {
-        props.with_mailbox_id("unpromising")
-    });
+    let cause = "java.lang.IllegalStateException: promise boom";
+    let props = |p: Props| p.with_mailbox_id("unpromising");
+    assert_creation_fails("spi-select", props, "unpromising", cause);
+}
+
+#[test]
+fn a_queue_that_throws_in_satisfies_fails_the_creation() {
+    let cause = "java.lang.IllegalStateException: satisfies boom";
+    let props = |_| Props::new(|| Requiring).with_mailbox(Fails::Satisfies);
+    assert_creation_fails("spi-satisfies", props, DEFAULT_ID, cause);
+}
+
+#[test]
+fn a_queue_that_throws_in_class_name_fails_the_creation() {
+    let cause = "java.lang.IllegalStateException: class_name boom";
+    let props = |_| Props::new(|| Requiring).with_mailbox(Fails::ClassName);
+    assert_creation_fails("spi-class-name", props, DEFAULT_ID, cause);
+}
+
+#[test]
+fn a_default_mailbox_that_panics_makes_the_system_creation_throw_a_throwable() {
+    let mut settings = Settings::default();
+    settings
+        .mailboxes
+        .register(DEFAULT_ID, Fails::OrdinaryPanic);
+    let create = || ActorSystem::create_with_settings("spi-system", settings);
+    let thrown = catch_unwind(AssertUnwindSafe(create)).err();
+    let thrown = thrown.expect("ActorSystem.create throws");
     assert_eq!(
-        log,
-        configuration_failure(
-            "spi-select",
-            "unpromising",
-            "java.lang.IllegalStateException: promise boom"
-        )
+        thrown.downcast_ref::<Throwable>().map(ToString::to_string),
+        Some("java.lang.RuntimeException: plain panic".to_owned())
     );
 }
 
@@ -158,12 +185,9 @@ struct Errors(Log);
 impl Actor for Errors {
     fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if let Some(error) = msg.downcast_ref::<ErrorEvent>() {
-            self.0.lock().unwrap().push(format!(
-                "{}|{}|{}",
-                error.log_source,
-                error.cause.class,
-                error.message.as_deref().unwrap_or("null")
-            ));
+            let message = error.message.as_deref().unwrap_or("null");
+            let seen = format!("{}|{}|{message}", error.log_source, error.cause.class);
+            self.0.lock().unwrap().push(seen);
         }
         true
     }
@@ -173,32 +197,26 @@ impl Actor for Errors {
 fn system_actor_of_returns_and_the_actor_that_cannot_be_made_is_stopped() {
     let system = RunningSystem::create("spi-async");
     let (log, errors) = (Log::default(), Log::default());
-    let listener = system
-        .actor_of(Props::new({
-            let errors = errors.clone();
-            move || Errors(errors.clone())
-        }))
-        .unwrap();
+    let listener = Props::new({
+        let errors = errors.clone();
+        move || Errors(errors.clone())
+    });
+    let listener = system.actor_of(listener).unwrap();
     system.event_stream().subscribe(&listener, Channel::Error);
 
     let failed = system
-        .actor_of_named(echo(&log).with_mailbox(ThrowingMailbox), "a")
+        .actor_of_named(echo(&log).with_mailbox(Fails::Create), "a")
         .expect("a reference is returned");
 
     wait_until("the actor to be stopped", || failed.is_terminated());
-    system
-        .actor_of_named(echo(&log), "b")
-        .unwrap()
-        .tell("m".to_owned(), None);
+    let next = system.actor_of_named(echo(&log), "b").unwrap();
+    next.tell("m".to_owned(), None);
     wait_until("the next actor of the guardian", || {
         snapshot_of(&log) == ["m"]
     });
     wait_until("the report", || !snapshot_of(&errors).is_empty());
-    assert_eq!(
-        snapshot_of(&errors),
-        [
-            "pekko://spi-async/user/a|org.apache.pekko.actor.ActorInitializationException|mailbox boom"
-        ]
-    );
+    let report =
+        "pekko://spi-async/user/a|org.apache.pekko.actor.ActorInitializationException|mailbox boom";
+    assert_eq!(snapshot_of(&errors), [report]);
     // `RunningSystem` then requires the system to terminate normally
 }
