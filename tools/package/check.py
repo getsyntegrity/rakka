@@ -8,6 +8,11 @@ R = lambda p: list(csv.reader(open(p, encoding="utf-8", newline=""), delimiter="
 fail = []
 def check(cond, msg):
     if not cond: fail.append(msg)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # -I drops the script directory from sys.path
+from upstream_submodule import problem as upstream_problem
+# citations and attributions are read in upstream/pekko: without it they cannot be evaluated, and this one failure says why
+upstream_unusable = upstream_problem(ROOT)
+check(upstream_unusable is None, upstream_unusable)
 
 rows = {}
 for f in ("classic", "typed"):
@@ -38,7 +43,6 @@ check(set(mapped) == set(rows), "contract-map.tsv does not cover exactly the inv
 for i, r in rows.items():
     if r["impl"] != "done": check(mapped.get(i, [""] * 4)[3] not in ("", "(implementada)"), f"{i}: not assigned to a spec")
 # decisions a contract block declares must appear (normalized) in the generated traceability column
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # -I drops the script directory from sys.path
 from contract_decisions import declared_decisions
 for path in glob.glob("docs/inventory/contracts/*.md"):
     for row_id, declared in declared_decisions(open(path, encoding="utf-8").read()).items():
@@ -62,7 +66,7 @@ def nlines(p):
     return cache[p]
 bad = 0
 abbreviated = 0
-for src in glob.glob("docs/inventory/contracts/*.md") + ["docs/inventory/actor-classic.tsv", "docs/inventory/actor-typed.tsv"]:
+for src in [] if upstream_unusable else glob.glob("docs/inventory/contracts/*.md") + ["docs/inventory/actor-classic.tsv", "docs/inventory/actor-typed.tsv"]:
     for m in re.finditer(r'(?<![A-Za-z0-9_\-./])((?:actor|actor-tests|testkit|actor-typed|actor-typed-tests|actor-testkit-typed)/[A-Za-z0-9_\-./]+\.(?:scala|java|conf)):(\d+)(?:-(\d+))?(?!\d|-\d)(?!(?:,\d+(?:-\d+)?)* \(1\.7\.1\))', open(src, encoding="utf-8").read()):
         if "/..." in m.group(1) or "..." in m.group(1): abbreviated += 1; continue
         n = nlines("upstream/pekko/" + m.group(1))
@@ -120,7 +124,7 @@ for rs in sorted(glob.glob("crates/*/src/**/*.rs", recursive=True)):
     if m:
         paths = re.findall(r"[\w-]+/src/(?:main|test)/[\w/.-]+\.(?:scala|java)", m.group(1))
         check(bool(paths), f"{rs}: attribution header names no Pekko source file")
-        for p in paths: check(os.path.isfile("upstream/pekko/" + p), f"{rs}: attribution names {p}, which does not exist in upstream/pekko")
+        for p in [] if upstream_unusable else paths: check(os.path.isfile("upstream/pekko/" + p), f"{rs}: attribution names {p}, which does not exist in upstream/pekko")
 FORBIDDEN = re.compile(r"OpenJDK|\bGPL|Classpath[ -]exception")
 for root in ("crates", "tools", "oracle"):
     for dp, dn, fn in os.walk(root):
@@ -143,6 +147,6 @@ if os.path.exists(prog_path):
     m = re.search(r"\| \*\*Total\*\* \| (\d+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|", prog)
     check(m is not None and tuple(map(int, m.groups())) == (len(live), n_done, n_part, len(live) - n_done - n_part, len(excluded)), "docs/progress.md totals do not match the inventory (regenerate it)")
 print(f"abbreviated_citations_skipped={abbreviated}")
-print(f"rows={len(rows)} decisions={sum(c.values())} groups={len(reg) - sum(c.values())} citation_problems={bad} failures={len(fail)}")
+print(f"rows={len(rows)} decisions={sum(c.values())} groups={len(reg) - sum(c.values())} citation_problems={'not-checked' if upstream_unusable else bad} failures={len(fail)}")
 for f in fail: print("FAIL", f)
 sys.exit(1 if fail else 0)
