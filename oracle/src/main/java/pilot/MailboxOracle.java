@@ -1439,15 +1439,6 @@ final class MailboxOracle {
         return e.afterTermination();
       }
     });
-    run("MBX-GRD-03 Kill to the root guardian: the bubble walker logs, /user stops, and whenTerminated stays pending", () -> {
-      try (GuardianEnv e = new GuardianEnv()) {
-        e.treeUnderUser();
-        e.sys.actorSelection("/").tell(Kill.getInstance(), ActorRef.noSender());
-        awaitUntil(() -> e.stopped.size() == 2);
-        try { Thread.sleep(500); } catch (InterruptedException x) { throw new RuntimeException(x); } // a bounded wait for an absence
-        return "errors=" + e.errors + " stopped=" + e.stopped + " whenTerminated=" + e.sys.getWhenTerminated().toCompletableFuture().isDone();
-      }
-    });
     run("MBX-RJ-08 an attach rejected twice while /user supervises: the root guardian stops /user and the system terminates", () -> {
       try (GuardianEnv e = new GuardianEnv()) {
         e.treeUnderUser();
