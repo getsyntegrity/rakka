@@ -23,7 +23,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-EVT-2`, `Q-EVT-4`, `Q-EVT-5`, `Q-EVT-6`, `Q-EVT-7`.
+- Propuestas aún sin decisión del Owner: `Q-EVT-2`, `Q-EVT-4`, `Q-EVT-5`, `Q-EVT-6`, `Q-EVT-7`, `Q-REF-12`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -77,7 +77,7 @@ Filas: AC-EVT-017, AC-EVT-018, AC-EVT-019, AC-EVT-020, AC-EVT-021, AC-EVT-022. C
 | AC-EVT-003 | SubchannelClassification (jerarquía de clasificadores) | índice de subclasificación sobre `EventClass` (ver Q-X-6) | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:172-319 | Q-X-6 |
 | AC-EVT-004 | ScanningClassification | `Vec`/`BTreeSet<(Classifier, Subscriber)>` + predicado | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:299-329 | - |
 | AC-EVT-005 | ManagedActorClassification (desuscripción automática al morir el suscriptor) y… | actor unsubscriber interno + mapa `ActorRef -> BTreeSet<ActorRef>` | actor-tests/src/test/scala/org/apache/pekko/event/EventBusSpec.scala:179-297 | Q-X-4 |
-| AC-EVT-006 | EventStream: subscribe por clase, unsubscribe, publish; null →… | `EventStream` con suscripciones por `EventClass`/`TypeId` (Q-X-6) | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:108-135 | Q-EVT-1, Q-X-6 |
+| AC-EVT-006 | EventStream: subscribe por clase, unsubscribe, publish; null →… | `EventStream` con suscripciones por `EventClass`/`TypeId` (Q-X-6) | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:108-135 | Q-EVT-1, Q-REF-12, Q-X-6 |
 | AC-EVT-007 | EventStreamUnsubscriber: quita suscriptores al terminar | actor interno `EventStreamUnsubscriber` | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:320-445 | Q-X-4 |
 | AC-EVT-008 | Tipos de dead letters: DeadLetter, SuppressedDeadLetter, Dropped,… | structs `DeadLetter`, `SuppressedDeadLetter`, `Dropped`; trait marker… | actor-tests/src/test/scala/org/apache/pekko/actor/DeadLetterSupressionSpec.scala:41-106 | Q-EVT-1, Q-X-3 |
 | AC-EVT-009 | DeadLetterListener: log de dead letters con límite (log-dead-letters),… | actor de sistema `DeadLetterListener` | actor-tests/src/test/scala/org/apache/pekko/actor/DeadLetterSuspensionSpec.scala:70-103… | Q-EVT-1, Q-X-7 |

@@ -2365,6 +2365,12 @@ MUTANTS = {
         "if false {",
         "a cancel while the send is under way is forgotten: the repetition schedules the next one (killed by a unit test, see UNIT_MUTANTS)",
     ),
+    "event-stream-drops-dead-letters": (
+        "src/event/mod.rs",
+        "subs.retain(|(_, s)| !s.is_terminated() || s.0.dead_letters_stream().is_some());",
+        "subs.retain(|(_, s)| !s.is_terminated());",
+        "a subscribed `deadLetters` is removed from the event stream as if it had died (killed by tests/classic_api.rs, see UNIT_MUTANTS)",
+    ),
     "panicking-user-drop-escapes-the-guard": (
         "src/actor/cell.rs",
         "    let _ = catch_unwind(AssertUnwindSafe(|| drop(value)));",
@@ -2503,6 +2509,7 @@ UNIT_MUTANTS = {
     "dead-letters-are-not-terminated": ("test:classic_api", "system_exposes_its_name_root_path_settings_and_dead_letters"),
     "fixed-delay-outlives-its-target": ("actor::scheduler_tests", "a_terminated_target_is_sent_to_once_and_ends_the_repetition"),
     "cancelled-repetition-schedules-again": ("actor::scheduler_tests", "a_cancel_during_the_send_prevents_the_next_one"),
+    "event-stream-drops-dead-letters": ("test:classic_api", "dead_letters_stays_subscribed_to_the_event_stream_and_forwards_what_it_gets"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
     "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)
