@@ -25,3 +25,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #421	fd9fc6dc	98	none	none	98 not run (Q-X-23)	PENDING
 #422	27df7ca3	82	panicking-user-drop-escapes-the-guard	none	82 not run (Q-X-23)	PENDING
 #423	c4c35e7a	83	stop-during-restart-skips-the-replaced-instance	none	83 not run (Q-X-23)	PENDING
+#424	772c33f1	39	wheel-forgets-the-remaining-rounds	none	39 not run (Q-X-23)	PENDING
