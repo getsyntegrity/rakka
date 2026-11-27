@@ -195,7 +195,7 @@
 
 ## P13 MBX-COLAS
 
-12 filas; 13 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 7 propuestas.
+12 filas; 14 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 8 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -208,6 +208,7 @@
 | Q-CFG-31 | propuesta | 1: AC-MBX-004 | Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 | Q-DSP-2 | propuesta | 1: AC-MBX-004 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-1 | propuesta | 5: AC-MBX-007, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
+| Q-MBX-18 | propuesta | 1: AC-MBX-006 | — | — | `classic-dispatch` |
 | Q-MBX-2 | propuesta | 2: AC-MBX-011, AC-MBX-015 | — | — | `classic-dispatch` |
 | Q-MBX-3 | propuesta | 1: AC-MBX-012 | Bloquea la implementación de AC-MBX-012 (ambas variantes); el resto puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-4 | propuesta | 2: AC-MBX-009, AC-MBX-010 | — | — | `classic-dispatch` |
@@ -1097,4 +1098,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 540 (263 respondidas, 0 bloqueantes, 277 propuestas).
+Total de pares unidad–decisión: 541 (263 respondidas, 0 bloqueantes, 278 propuestas).
