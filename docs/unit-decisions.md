@@ -229,7 +229,7 @@
 
 ## P15 MBX-NUCLEO
 
-7 filas; 8 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 3 propuestas.
+7 filas; 9 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -239,6 +239,7 @@
 | Q-MBX-9 | accepted (2026-11-20): aceptar (B): estado del mailbox separado de las colas de sistema y de usuario (ADR-0001). No aprueba Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 ni Q-MBX-6. | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-CELL-013.1, AC-DSP-001, AC-MBX-001 | — | — | `transversal` |
 | Q-CELL-2 | propuesta | 1: AC-CELL-013.1 | Bloquea: sólo el cierre de AC-CELL-021 (requiere autorización explícita del Owner). | Puede avanzar: todo. | `classic-cell` |
+| Q-CELL-9 | propuesta | 1: AC-MBX-002 | — | — | `classic-cell` |
 | Q-DSP-5 | propuesta | 2: AC-DSP-003, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-MBX-11 | propuesta | 2: AC-DSP-002, AC-MBX-002 | — | — | `classic-dispatch` |
 
@@ -1091,4 +1092,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 534 (259 respondidas, 0 bloqueantes, 275 propuestas).
+Total de pares unidad–decisión: 535 (259 respondidas, 0 bloqueantes, 276 propuestas).
