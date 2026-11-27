@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 270 decisiones: 0 bloqueantes, 187 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 271 decisiones: 0 bloqueantes, 188 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -916,6 +916,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) mantener la creación síncrona del piloto como estado definitivo (equivale a `async=false` de Pekko, que sólo usan guardianes y proveedor); (b) implementar el protocolo asíncrono (`Supervise(async=true)` procesado por el supervisor con `RepointableActorRef` y `UnstartedCell`): cambia el momento de arranque de TODOS los actores y exige revalidar el corpus completo; (c) (a) más un fallo del supervisor sólo ante rechazo, sin celda sin iniciar
 - **Recomendación:** (b) como destino de paridad (criterio del Owner, 2026-11-21: la creación asíncrona de hijos, la supervisión y la propagación de fallos son contratos pendientes; la creación síncrona actual es un estado TRANSITORIO explícito, no una desviación aceptada). División vertical: A) `RepointableActorRef` y `UnstartedCell` como tipos propios, sin conectar a `actor_of` (cola de usuario y de sistema, instalación de la celda real con los mensajes de sistema primero y los de usuario en orden; oráculo MBX-UC-01..04); B) conectar `attach_child` con `Supervise(async=true)` SÓLO en la ruta de `system.actorOf`/`attachChild` (en Pekko `context.actorOf` es síncrono: `makeChild(async = false)`, un `LocalActorRef` ya adjunto), con la suspensión heredada en ambas (arranque dentro del turno del padre, hijo que hereda la suspensión del padre; cambia el momento de arranque de todos los actores: revalida el corpus de 2960 casos, los 407 escenarios y los fuzzers de jerarquía/tell/escenarios); C) rutas de fallo: `catchFailures`/`initWithFailure` y el rechazo en `attach` (MBX-RJ-05: falla el supervisor y el actor nuevo no arranca). Consecuencias observables: sólo el momento de arranque, el orden de los mensajes previos al arranque y los fallos de creación; nada de PR 6 queda bloqueado. Registro de la respuesta pendiente en docs/decisions/owner-decisions.tsv (sólo lo edita el Owner).
 - **Filas afectadas:** AC-DSP-002,AC-CELL-003,AC-MBX-002
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+
+### Q-MBX-16 — El `within(30.seconds)` del ping-pong patológico mide rendimiento: ¿gate o medición aparte?
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** MailboxConfigSpec.scala:322-329 (Pekko 2.0.0). El tiempo depende de la carga: 7-24 s en el gate y 30,5 s / 140 s con QoS de fondo, con todos los mensajes entregados y sin pausas (docs/evidence/mailbox-single-consumer.md).
+- **Alternativas:** (a) tests por defecto sin cota total (fallan si no hay entregas en 10 s) y los 30 s en tests `#[ignore]`; (b) los 30 s como gate; (c) (a) más cambiar la espera de `ThreadPool` y reevaluar (b)
+- **Recomendación:** (a), implementada provisionalmente; una regresión de rendimiento sin cuelgue ya no hace fallar los gates
+- **Filas afectadas:** AC-MBX-006
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 

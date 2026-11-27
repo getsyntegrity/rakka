@@ -18,7 +18,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-DSP-2`, `Q-DSP-5`, `Q-MBX-1`, `Q-MBX-11`, `Q-MBX-2`, `Q-MBX-3`, `Q-MBX-4`, `Q-MBX-7`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-DSP-2`, `Q-DSP-5`, `Q-MBX-1`, `Q-MBX-11`, `Q-MBX-16`, `Q-MBX-2`, `Q-MBX-3`, `Q-MBX-4`, `Q-MBX-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -72,7 +72,7 @@ Filas: AC-MBX-019, AC-MBX-020, AC-MBX-021, AC-MBX-022, AC-MBX-023. Contratos y a
 | AC-MBX-003 | Mailbox cerrado: mensajes pendientes a deadLetters; sistema pendiente al… | drenar la cola a deadLetters al cerrar | actor-tests/src/test/scala/org/apache/pekko/actor/ActorWithBoundedStashSpec.scala:122-149… | Q-MBX-10, Q-MBX-5, Q-MBX-8, Q-MBX-9 |
 | AC-MBX-004 | SPI MessageQueue / MailboxType / ProducesMessageQueue y mailbox-type custom… | traits `MessageQueue`, `MailboxType` + registro por nombre | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:259 | Q-CFG-31, Q-DSP-2, Q-X-2 |
 | AC-MBX-005 | UnboundedMailbox (default) | cola MPMC lock-free (`crossbeam::queue::SegQueue`) o `Mutex<VecDeque>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:256 ;… | - |
-| AC-MBX-006 | SingleConsumerOnlyUnboundedMailbox (MPSC de Vyukov) | canal MPSC (`std::sync::mpsc`/`crossbeam-channel`/`tokio::mpsc`) | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:323 | Q-MBX-6 |
+| AC-MBX-006 | SingleConsumerOnlyUnboundedMailbox (MPSC de Vyukov) | canal MPSC (`std::sync::mpsc`/`crossbeam-channel`/`tokio::mpsc`) | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:323 | Q-MBX-16, Q-MBX-6 |
 | AC-MBX-007 | BoundedMailbox (capacidad + mailbox-push-timeout-time) | canal acotado; bloqueo vs `async send` | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:53,57,86,90… | Q-MBX-1, Q-X-4 |
 | AC-MBX-008 | NonBlockingBoundedMailbox | cola acotada lock-free con `try_push` | actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:327 | Q-MBX-6 |
 | AC-MBX-009 | UnboundedPriorityMailbox / BoundedPriorityMailbox y PriorityGenerator | `BinaryHeap` con comparador | actor-tests/src/test/scala/org/apache/pekko/dispatch/PriorityDispatcherSpec.scala:58,63… | Q-MBX-1, Q-MBX-4, Q-MBX-7 |
