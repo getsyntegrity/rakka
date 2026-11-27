@@ -170,7 +170,8 @@ fn an_error_escalating_through_the_user_guardian_terminates_the_system() {
     assert_eq!(snapshot_of(&log), ["c started", "c stopped"]);
 }
 
-/// AC-SUP-004 A3 (`SupervisorSpec.scala:510-514`): a top-level actor whose creator fails is stopped.
+/// AC-SUP-004, the creator-failure variant of A3: a top-level actor whose creator fails is stopped. What the spec tests
+/// (`SupervisorSpec.scala:510-514`) is a mailbox that cannot be made, recorded from Pekko by `mb-0035`.
 #[test]
 fn a_top_level_actor_whose_creator_fails_is_stopped() {
     let system = RunningSystem::create("sys");

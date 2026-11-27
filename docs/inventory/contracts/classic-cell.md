@@ -1404,7 +1404,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 - **Aserciones**:
   - A1: Kill → Failed(_, ActorKilledException) y el hijo se detiene — DeathWatchSpec.scala:237-245 (FF(Failed(_, _: ActorKilledException, _)) y lastSender eq failed).
   - A2: watcher sin Terminated → DeathPactException(failed) → Stop y el supervisor lo ve — DeathWatchSpec.scala:240-244.
-  - A3: top-level cuyo creator falla: se detiene — SupervisorSpec.scala:510-514.
+  - A3: top-level cuyo mailbox no puede crearse (`error-mailbox`): se loguea una ActorInitializationException y el actor termina — SupervisorSpec.scala:510-514 (`creator(testActor, fail = true)`, :109-127). [Corrección 2026-11-27: antes decía «creator falla»; el `fail` del spec elige un MailboxType cuyo `create` lanza, no un creator que falle. Las filas AC-CELL ya lo leían así.]
   - A4: Throwable que no es Exception → el decider por defecto no está definido (`defaultDecider` sólo cubre cuatro casos, FaultHandling.scala:218-223) y `decider.applyOrElse(cause, escalateDefault)` da Escalate (:309,372) — derivada del código (no afirmada por spec); los tests de hijos con `List(classOf[Throwable])` (RestartStrategySpec.scala:46,92) usan deciders que reinician Throwable, no la ruta por defecto.
 - **Oráculo**: jshell contra Pekko 1.7.1 (jars oficiales).
 - **Decisiones**: Q-SUP-1, Q-X-5
