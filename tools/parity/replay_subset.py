@@ -15,13 +15,14 @@ versioned rust/app-cases/replay-report.md, because the staged tree has its own r
 cases is the one of replay.py, restricted to the cases that were selected.
 Exit codes: 0 every selected case matches, 1 divergences, 2 refused usage / harness error.
 """
-import argparse, csv, dataclasses, fnmatch, os, shutil, subprocess, sys, tempfile
+import argparse, csv, dataclasses, fnmatch, glob, os, shutil, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import na_q_cfg_30
 import replay_lib as lib
 
-CASE_NAME_LIMIT = 24        # rust-anything stores a case under the first 24 characters of its name
+CASE_NAME_LIMIT = 24        # rust-anything 1.x cut every case name here, and most recordings were made with it
+GIVEN_NAME_LIMIT = 96       # rust-anything 2.x keeps a name given in --inputs up to here
 RECORDING_EXTENSIONS = ("toml", "stdin", "stdout", "stderr")
 APP_MANIFEST = "rust-anything.json"
 NO_ROWS = "-"
@@ -38,9 +39,10 @@ class CoverageEntry:
     rows: frozenset
     basis: str
 
-    @property
-    def recorded_name(self):
-        return self.case[:CASE_NAME_LIMIT].rstrip("-")   # rust-anything also drops a dash the cut leaves at the end
+    def recorded_name_in(self, recorded_names):
+        """The name of its recording: the whole one (2.x) when recorded, else the 24-character one (1.x). A cut never leaves a final dash."""
+        whole = self.case[:GIVEN_NAME_LIMIT].rstrip("-")
+        return whole if whole in recorded_names else self.case[:CASE_NAME_LIMIT].rstrip("-")
 
 
 def load_coverage(path):
@@ -52,7 +54,7 @@ def load_coverage(path):
 
 def reconcile(entries, recorded_names):
     """-> (covered cases with no recording, recordings no covered case names), both sorted, comparing recorded names."""
-    covered = {entry.recorded_name: entry.case for entry in entries}
+    covered = {entry.recorded_name_in(recorded_names): entry.case for entry in entries}
     return sorted(case for name, case in covered.items() if name not in recorded_names), sorted(set(recorded_names) - set(covered))
 
 
@@ -60,21 +62,22 @@ def row_matches(cited_row, wanted_row):
     return cited_row == wanted_row or cited_row.startswith(wanted_row + ".")
 
 
-def select_cases(entries, rows=(), families=(), globs=()):
-    """-> the recorded names (first 24 characters) of every case picked by any selector, in catalog order, without duplicates."""
+def select_cases(entries, rows=(), families=(), globs=(), recorded_names=frozenset()):
+    """-> the recorded names (see recorded_name_in) of every case picked by any selector, in catalog order, without duplicates."""
     if not (rows or families or globs):
         raise SelectionError("no selector: give --row, --family or --match")
     picked = {kind: {} for kind in ("row", "family", "match")}
     chosen = []
     for entry in entries:
+        name = entry.recorded_name_in(recorded_names)
         hits = (
             [("row", wanted) for wanted in rows if any(row_matches(cited, wanted) for cited in entry.rows)]
             + [("family", wanted) for wanted in families if entry.family == wanted]
-            + [("match", pattern) for pattern in globs if fnmatch.fnmatchcase(entry.recorded_name, pattern) or fnmatch.fnmatchcase(entry.case, pattern)])
+            + [("match", pattern) for pattern in globs if fnmatch.fnmatchcase(name, pattern) or fnmatch.fnmatchcase(entry.case, pattern)])
         for kind, selector in hits:
             picked[kind][selector] = True
-        if hits and entry.recorded_name not in chosen:
-            chosen.append(entry.recorded_name)
+        if hits and name not in chosen:
+            chosen.append(name)
     unmatched = [f"--{kind} {selector}" for kind, wanted in (("row", rows), ("family", families), ("match", globs))
                  for selector in wanted if selector not in picked[kind]]
     if unmatched:
@@ -142,8 +145,9 @@ def main(arguments):
     try:
         if options.build and options.binary:
             raise SelectionError("--build compiles the default parity binary: it cannot be combined with an explicit binary")
+        recordings = glob.glob(os.path.join(glob.escape(options.root), "rust", "app-cases", "*.toml"))
         names = select_cases(load_coverage(options.coverage or os.path.join(options.root, "cases", "coverage.tsv")),
-                             options.row, options.family, options.match)
+                             options.row, options.family, options.match, {os.path.basename(path)[:-len(".toml")] for path in recordings})
         if any(character.isspace() for character in binary):
             raise SelectionError("the binary path contains whitespace: `rust-anything app replay --build` takes one command-line string")
         if options.build:
