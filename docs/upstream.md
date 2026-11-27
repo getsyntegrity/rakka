@@ -16,7 +16,15 @@ El comportamiento a reproducir es el de **Apache Pekko 2.0.0** (decisión Q-X-11
 
 El commit se verificó con `git ls-remote https://github.com/apache/pekko 'refs/tags/v2.0.0*'` el 2026-11-18 (el objeto tag es `879512455865...`, el commit al que apunta `v2.0.0^{}` es `9fbd2283b1cf...`). La referencia anterior (v1.7.1, commit `9a54d1294c3ac7821bbed3c940769c3d5027d1ff`) queda sólo como historia.
 
-Para recuperarlo en un clon nuevo: `git submodule update --init upstream/pekko`, y comprobar con `git -C upstream/pekko rev-parse HEAD`.
+**Preparar un clon o un worktree nuevo** (`git worktree add` deja `upstream/pekko` vacío, también si otro checkout ya lo tiene):
+
+```
+git submodule update --init upstream/pekko
+git ls-tree HEAD upstream/pekko          # gitlink registrado
+git -C upstream/pekko rev-parse HEAD     # debe ser el mismo commit, el de la tabla
+```
+
+`tools/package/check.py` lo comprueba antes de nada (`tools/package/upstream_submodule.py`): si falta, o no es ese commit, falla con una sola causa y el comando, y no evalúa las citas ni las atribuciones que se leen en `upstream/pekko` (`citation_problems=not-checked`); el resto de comprobaciones se ejecuta igual.
 
 **Regla:** nada bajo `upstream/` se edita. El código propio vive en `crates/`, la documentación propia en `docs/`, las herramientas en `tools/`.
 
