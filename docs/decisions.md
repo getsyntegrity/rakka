@@ -942,9 +942,9 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 ### Q-MBX-17 — Qué fallos de la cola del usuario se atrapan al enviar y durante un turno
 
 - **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-171 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:875-897 ; crates/rakka-actor/src/actor/cell.rs
-- **Alternativas:** (a) atrapar todo panic o Throwable desenrollado / (b) imitar a Pekko: dejar escapar los fatales al enviar y, en un turno, apagar el sistema
-- **Recomendación:** (a), implementada provisionalmente. Consecuencia: en Pekko un error fatal durante un turno va a la rama del uncaughtExceptionHandler que apaga el sistema (o la JVM con jvm-exit-on-fatal-error) y al enviar llega al emisor; Rakka lo informa y sigue funcionando
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-171 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:875-897 ; actor/src/main/resources/reference.conf:90 ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) atrapar todo panic o Throwable desenrollado / (b) imitar a Pekko: dejar escapar los fatales al enviar y, en un turno, terminar el proceso (default) o el sistema
+- **Recomendación:** (a), implementada provisionalmente. Consecuencia: el default de Pekko es `pekko.jvm-exit-on-fatal-error = on` (reference.conf:90): un error fatal en un hilo del pool durante un turno termina la JVM (`System.exit(-1)`); sólo con `off` se llama `terminate()`. Al enviar, el fatal llega al emisor. Rakka lo informa y sigue funcionando
 - **Filas afectadas:** AC-CELL-030 ; AC-MBX-002
 - **Unidades afectadas:** CELL ; MBX
 - **Origen:** classic-dispatch

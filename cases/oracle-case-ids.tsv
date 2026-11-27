@@ -2391,7 +2391,7 @@ mb-0035	mailbox	MBX-TT-02 system.actorOf with a mailbox type that throws returns
 mb-0036	mailbox	MBX-TQ-01 an enqueue that throws does not reach the caller of tell: an Error is published and the actor goes on
 mb-0037	mailbox	MBX-TQ-02 a dequeue that throws ends the turn with an uncaught-error report: the thread survives and the queued messages are processed
 mb-0038	mailbox	MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again
-mb-0041	mailbox	MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get that report and then the swallowed send
+mb-0041	mailbox	MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order
 sc-0001	scheduler	SCH-SO-01 the message arrives once, not before the delay, with the given sender; it cannot be cancelled afterwards
 sc-0002	scheduler	SCH-SO-02 a message cancelled before the delay is never sent; only the first cancel succeeds
 sc-0003	scheduler	SCH-SO-03 a delay of zero sends at once and gives a task that is not cancellable

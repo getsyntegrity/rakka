@@ -817,8 +817,9 @@ impl Actor for SpiErrors {
         if let Some(error) = msg.downcast_ref::<ErrorEvent>() {
             let mut message = error.message.clone().unwrap_or_else(|| "null".to_owned());
             // the uncaught-error report names the pool thread, whose number depends on scheduling
-            if let Some((head, _)) = message.split_once("default-dispatcher-") {
-                message = format!("{head}default-dispatcher-N]");
+            if let Some((head, tail)) = message.split_once("default-dispatcher-") {
+                let rest = tail.trim_start_matches(|c: char| c.is_ascii_digit());
+                message = format!("{head}default-dispatcher-N{rest}");
             }
             self.0.errors.lock().unwrap().push(format!(
                 "{}|{}|{message}",
@@ -1010,6 +1011,8 @@ fn a_broken_subscriber_of_the_uncaught_report_reports_its_swallowed_send() -> St
     system.event_stream().subscribe(&broken, Channel::Error); // after the listener of the environment
     say(&actor, &["bad"]);
     wait_until(|| env.errors.lock().unwrap().len() == 2);
+    // an event stream gives no order guarantee between the two reports (AC-EVT-001): print them sorted
+    env.errors.lock().unwrap().sort();
     let line = format!("errors={}", SpiEnv::listed(&env.errors));
     terminate_normally(system);
     line
@@ -2479,7 +2482,7 @@ pub fn rust_lines() -> Vec<(String, String)> {
             a_has_messages_that_throws_is_an_uncaught_error(),
         ),
         (
-            "MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get that report and then the swallowed send",
+            "MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order",
             a_broken_subscriber_of_the_uncaught_report_reports_its_swallowed_send(),
         ),
         (

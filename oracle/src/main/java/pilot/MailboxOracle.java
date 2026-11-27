@@ -1614,7 +1614,7 @@ final class MailboxOracle {
         return "log=" + e.log + " errors=" + withoutThreadNumber(e.errors) + " terminated=" + in(a).isTerminated();
       }
     });
-    run("MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get that report and then the swallowed send", () -> {
+    run("MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order", () -> {
       try (Env e = errorLoggingEnv()) {
         ActorRef a = faulty(e, Fault.DEQUEUE);
         nextFault = Fault.ENQUEUE_OF_UNCAUGHT_REPORT;
@@ -1623,7 +1623,8 @@ final class MailboxOracle {
         e.sys.eventStream().subscribe(broken, Logging.Error.class); // after the listener of the environment
         a.tell("bad", ActorRef.noSender());
         awaitUntil(() -> e.errors.size() == 2);
-        return "errors=" + withoutThreadNumber(e.errors);
+        // an event stream gives no order guarantee between the two reports (AC-EVT-001): print them sorted
+        return "errors=" + withoutThreadNumber(e.errors).stream().sorted().collect(java.util.stream.Collectors.toList());
       }
     });
   }

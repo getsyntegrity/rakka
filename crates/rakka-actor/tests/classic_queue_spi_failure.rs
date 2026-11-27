@@ -1,5 +1,5 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-171, dispatch/Mailbox.scala:262-272 and actor/ActorSystem.scala:875-880 (Apache-2.0).
-//! A user's `MessageQueue` is public SPI and may panic. Expected values: Pekko 2.0.0 (enqueue and turn: cases `MBX-TQ-01..03`).
+//! A user's `MessageQueue` is public SPI and may panic. Expected values: Pekko 2.0.0 (enqueue and turn: cases `MBX-TQ-01..03` and `MBX-TQ-06`).
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
 mod common;
@@ -269,10 +269,19 @@ fn the_uncaught_report_to_a_subscriber_that_cannot_take_it_reports_that_to_the_o
         .event_stream()
         .subscribe(&broken, Channel::Error); // after the observer
     scenario.tell("bad");
-    scenario.wait_for_observed(&[
-        &uncaught("tq-subscriber", "dequeue"),
-        "pekko://tq-subscriber/user/broken|java.lang.IllegalStateException: enqueue boom|swallowing exception during message send",
-    ]);
+    wait_until("both reports", || {
+        snapshot_of(&scenario.observed).len() >= 2
+    });
+    // an event stream gives no order guarantee between them (AC-EVT-001)
+    let mut reports = snapshot_of(&scenario.observed);
+    reports.sort();
+    assert_eq!(
+        reports,
+        [
+            uncaught("tq-subscriber", "dequeue").as_str(),
+            "pekko://tq-subscriber/user/broken|java.lang.IllegalStateException: enqueue boom|swallowing exception during message send",
+        ]
+    );
 }
 
 #[test]

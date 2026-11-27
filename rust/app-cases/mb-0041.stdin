@@ -1,1 +1,1 @@
-MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get that report and then the swallowed send
+MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order
