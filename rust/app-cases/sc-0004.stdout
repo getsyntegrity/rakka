@@ -1,0 +1,1 @@
+SCH-SO-05 the largest delay is Int.MaxValue ticks; the delay is rounded up to the tick before the check -> largest => cancel=true isCancelled=true cancel=false isCancelled=true | largest+1ns => ERR IllegalArgumentException [Task scheduled with [21474836] seconds delay, which is too far in future, maximum delay is [21474835] seconds]

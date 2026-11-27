@@ -3063,3 +3063,7 @@ tc-pre-restart	scenario-throwable-cause	AC-CELL-007.1	cited
 mr-stop	scenario-stop-mid-restart	AC-CELL-008.2	cited
 mr-stop-keeps	scenario-stop-mid-restart	AC-CELL-008.2	cited
 mr-stop-throws	scenario-stop-mid-restart	AC-CELL-008.2	cited
+sc-0001	oracle-scheduler	AC-SCH-001,AC-SCH-005	cited
+sc-0002	oracle-scheduler	AC-SCH-001,AC-SCH-005	cited
+sc-0003	oracle-scheduler	AC-SCH-001	cited
+sc-0004	oracle-scheduler	AC-SCH-001,AC-SCH-008.2	cited

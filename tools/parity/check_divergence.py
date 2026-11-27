@@ -2329,6 +2329,12 @@ MUTANTS = {
         "let _ = scheduler;",
         "after termination the scheduler still accepts tasks and keeps sending (killed by tests/classic_scheduler.rs, see UNIT_MUTANTS)",
     ),
+    "scheduled-delay-is-not-rounded-up": (
+        "src/actor/scheduler.rs",
+        "let delay_nanos = round_up(delay_nanos, TICK_NANOS);",
+        "",
+        "a delay is not rounded up to the tick, so one just above the largest is accepted instead of rejected",
+    ),
     "wheel-forgets-the-remaining-rounds": (
         "src/actor/timer_wheel.rs",
         "if entry.ticks >= rotation {",
