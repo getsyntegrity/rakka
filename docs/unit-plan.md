@@ -160,7 +160,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Estructuras de datos concurrentes/inmutables (Index, WildcardIndex, SubclassifiedIndex, colas, LFU/LRU).
 - **Filas (16; impl: pending 16):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-007, AC-UTIL-008, AC-UTIL-009, AC-UTIL-010, AC-UTIL-011, AC-UTIL-012, AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.4, AC-UTIL-017.1, AC-UTIL-017.2, AC-UTIL-017.3, AC-UTIL-017.4, AC-UTIL-017.5.
 - **Exclusiones/costuras:** UTIL-008/009/012/013 se prueban solo con sus propios specs; el uso por EVT/CFG/MBX es de las unidades consumidoras.
-- **Decisiones:** 10 distintas en sus filas; respondidas: 8 (ver detalle); propuestas sin respuesta: Q-UTIL-21, Q-X-21. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P03). <!-- generated:unit-decisions -->
+- **Decisiones:** 10 distintas en sus filas; respondidas: 9 (ver detalle); propuestas sin respuesta: Q-UTIL-21. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P03). <!-- generated:unit-decisions -->
 - **Dependencias:** P02, P65, P76.
 - **Archivos previstos:** `crates/rakka-actor/src/util/{index,wildcard_index,queues,lfu}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs Pekko 1:1 (Index/WildcardIndex/queues).
@@ -396,7 +396,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Deployer: parseo pekko.actor.deployment, lookup con comodines, Deploy/Scope.
 - **Filas (3; impl: pending 3):** asignacion explicita en `docs/unit-rows.tsv`: AC-CFG-012.1, AC-CFG-012.2, AC-CFG-013.
 - **Exclusiones/costuras:** CFG-012.3/.4 (RouterConfig y resizers) se difieren a P37 (RT-CONFIG); aqui el campo router es un valor opaco (costura DEPLOY-S1).
-- **Decisiones:** 8 distintas en sus filas; respondidas: Q-CFG-12, Q-CFG-4, Q-UTIL-8, Q-X-2; propuestas sin respuesta: Q-CFG-35, Q-CFG-36, Q-UTIL-21, Q-X-21. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P10). <!-- generated:unit-decisions -->
+- **Decisiones:** 8 distintas en sus filas; respondidas: Q-CFG-12, Q-CFG-4, Q-UTIL-8, Q-X-2, Q-X-21; propuestas sin respuesta: Q-CFG-35, Q-CFG-36, Q-UTIL-21. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P10). <!-- generated:unit-decisions -->
 - **Dependencias:** P01, P03, P07.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{deploy,deployer}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs DeployerSpec parciales + unidad.
@@ -524,7 +524,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Celda de actor: ciclo de mensajes, become, mensajes de sistema, ReceiveTimeout y API de contexto.
 - **Filas (11; impl: pending 11):** asignacion explicita en `docs/unit-rows.tsv`: AC-CELL-001, AC-CELL-002.1, AC-CELL-003, AC-CELL-005, AC-CELL-013.2, AC-CELL-014, AC-CELL-017, AC-CELL-018, AC-CELL-019, AC-CELL-022, AC-CELL-031.
 - **Exclusiones/costuras:** Los hooks de reinicio/parada (CELL-006/007/008) llegan en P21-P22; 013.3 en P23.
-- **Decisiones:** 7 distintas en sus filas; respondidas: Q-X-3, Q-X-4, Q-X-8; propuestas sin respuesta: Q-CELL-1, Q-CELL-3, Q-MBX-11, Q-REF-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P19). <!-- generated:unit-decisions -->
+- **Decisiones:** 7 distintas en sus filas; respondidas: Q-CELL-1, Q-X-3, Q-X-4, Q-X-8; propuestas sin respuesta: Q-CELL-3, Q-MBX-11, Q-REF-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P19). <!-- generated:unit-decisions -->
 - **Dependencias:** P08, P11, P12, P15, P16, P17, P18, P20.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/cell.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorSpec/ActorLifeCycleSpec parciales.
@@ -535,7 +535,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** SupervisorStrategy: directivas, deciders, One/AllForOne, ventanas de reintentos.
 - **Filas (10; impl: pending 10):** asignacion explicita en `docs/unit-rows.tsv`: AC-SUP-003, AC-SUP-004, AC-SUP-005, AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-012, AC-SUP-013, AC-SUP-017, AC-SUP-021.
 - **Exclusiones/costuras:** Pura sobre tipos; no depende de la celda (SUP-004 solo lista excepciones de ciclo de vida).
-- **Decisiones:** 4 distintas en sus filas; respondidas: Q-X-2, Q-X-5; propuestas sin respuesta: Q-SUP-1, Q-SUP-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P20). <!-- generated:unit-decisions -->
+- **Decisiones:** 4 distintas en sus filas; respondidas: Q-SUP-1, Q-X-2, Q-X-5; propuestas sin respuesta: Q-SUP-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P20). <!-- generated:unit-decisions -->
 - **Dependencias:** P11, P14.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/supervision.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** SupervisorHierarchySpec parcial.
@@ -546,7 +546,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Propagacion de fallos: suspender, enviar Failed al padre, aplicar la directiva, hooks de ciclo de vida.
 - **Filas (11; impl: pending 11):** asignacion explicita en `docs/unit-rows.tsv`: AC-SUP-001, AC-SUP-002, AC-SUP-008, AC-SUP-009, AC-SUP-010, AC-SUP-016, AC-SUP-018, AC-SUP-020, AC-CELL-006, AC-CELL-020, AC-CELL-021.
 - **Exclusiones/costuras:** Reinicio/parada completos en P22.
-- **Decisiones:** 5 distintas en sus filas; respondidas: Q-CELL-7, Q-SUP-3, Q-X-4, Q-X-5; propuestas sin respuesta: Q-CELL-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P21). <!-- generated:unit-decisions -->
+- **Decisiones:** 6 distintas en sus filas; respondidas: Q-CELL-7, Q-SUP-3, Q-X-4, Q-X-5; propuestas sin respuesta: Q-CELL-2, Q-SUP-4. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P21). <!-- generated:unit-decisions -->
 - **Dependencias:** P19, P20.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{fault,lifecycle}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** SupervisorSpec parcial.

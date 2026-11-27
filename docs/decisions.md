@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 269 decisiones: 0 bloqueantes, 189 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 270 decisiones: 0 bloqueantes, 187 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -328,16 +328,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Filas afectadas:** AC-ASK-009.1;AC-ASK-009.2;AC-ASK-011.3;AC-ASK-015.1;AC-ASK-016;AC-ASK-017;AC-CS-003.1
 - **Unidades afectadas:** ASK
 - **Origen:** classic-patterns
-
-### Q-CELL-1 — Forma de receive (PartialFunction) y de la pila become/unbecome
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:384-410,545-556 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:602-615
-- **Alternativas:** (a) fn(&mut self, &mut Context, msg) -> Handled y pila Vec<Box<dyn FnMut>> / (b) trait Behavior con enum de resultado / (c) macro receive!
-- **Recomendación:** (a) con Handled::{Handled,Unhandled} para disparar unhandled(); la pila se limpia en restart y el receive original se re-evalúa tras unbecome con pila vacía [2026-10-31 cierre documental] Clasificación: arquitectura. Consecuencia observable: `Handled::Unhandled` dispara `unhandled()` (DeathPactException para Terminated; UnhandledMessage para el resto) igual que `Actor.aroundReceive`; emptyBehavior = siempre Unhandled; la pila se vacía en restart y `unbecome` con pila de 0/1 recupera `receive`. Bloquea: `impl` de AC-CELL-001/005 (y la firma de Actor para todo el crate). Puede avanzar: la documentación y los tests de ciclo de vida (se escriben contra el trait).
-- **Filas afectadas:** AC-CELL-001 ; AC-CELL-005
-- **Unidades afectadas:** CELL
-- **Origen:** classic-cell
 
 ### Q-CELL-2 — Interrupción de hilo (InterruptedException → ActorInterruptedException)
 
@@ -1209,16 +1199,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** SER
 - **Origen:** classic-io-ser
 
-### Q-SUP-1 — Modelo de errores para deciders: jerarquía Exception/Error/Throwable y tipos de fallos del ciclo de vida
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:210-223,246-301 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:166-295 ; actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:372 (decider.applyOrElse(cause, escalateDefault)) ; actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:216-245
-- **Alternativas:** (a) enum Failure { Init, Killed, DeathPact, PreRestart, PostRestart, User(Box<dyn Error>), Panic } con downcast para makeDecider / (b) Box<dyn Error> con downcast_ref / (c) códigos
-- **Recomendación:** (a); Q-X-5 decide si Panic se mapea a Escalate (equivalente de Error/Throwable) o a Restart; el decider por defecto debe reproducir Stop para Init/Killed/DeathPact, Restart para User y Escalate para Panic si se acepta [2026-10-31 cierre documental] Clasificación: arquitectura y divergencia funcional (Error/Throwable vs panic). Es la decisión con más filas dependientes: define el tipo de causa que ven todos los deciders, `Failed`, logFailure y las excepciones del ciclo de vida. Consecuencia observable: en Pekko un Throwable que no es Exception ESCALA con el decider por defecto; si en Rust un `panic` se mapea a Escalate hay que garantizar que el supervisor raíz lo detenga; si se mapea a Restart se pierde esa propiedad. Bloquea: `impl` de AC-SUP-004/012/017 y, indirectamente, AC-SUP-001/003/008/013/018/021 y AC-CELL-002.2/007.4. Puede avanzar: la planificación de ciclo de vida sin deciders, AC-SUP-006.x (aritmética) y DW. Decidir junto con Q-X-5.
-- **Filas afectadas:** AC-SUP-004 ; AC-SUP-012 ; AC-SUP-017 ; AC-SUP-021
-- **Unidades afectadas:** SUP
-- **Origen:** classic-cell
-
 ### Q-SUP-2 — Aritmética de la ventana de reinicios (withinTimeRange.toMillis.toInt y System.nanoTime)
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -1226,6 +1206,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) usar u64 de milisegundos con Instant monótono, saturando en lugar de truncar a Int / (b) replicar el truncamiento a i32 / (c) Duration nativa
 - **Recomendación:** (a): diferencia observable sólo para ventanas mayores a ~24.8 días (Int overflow); la ventana empieza en la primera solicitud, no se desliza, y la comparación es "<= window" [2026-10-31 cierre documental] Clasificación: representación con una divergencia funcional menor. Incertidumbre resuelta midiendo/leyendo: `withinTimeRange.toMillis.toInt` es un cast que ENVUELVE (no satura): 25 días = 2_160_000_000 ms → Int −2_134_967_296; con ventana negativa `(now − windowStart) <= toNanos(window)` es falso, así que la ventana nunca contiene el fallo (cuenta = 1 y reinicio siempre permitido: equivale a "sin límite"). Para ventanas ≤ 24,8 días el comportamiento es el normal. Opciones: (a) saturar a u64 (diferencia solo para > 24,8 días: la ventana funcionaría como ventana real), (b) replicar el cast i32 (paridad exacta, incluido el comportamiento anómalo). Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica).
 - **Filas afectadas:** AC-SUP-006.1 ; AC-SUP-006.2 ; AC-SUP-021
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+
+### Q-SUP-4 — Throwable con cadenas de causas largas: impl Drop impide mover sus campos por valor
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/tests/classic_long_cause_chains.rs ; sonda desechable JDK 17 (hilo de 512 KiB): equals es identidad y toString nombra sólo el primer eslabón; printStackTrace de 1000 causas termina y con 10000 o más lanza StackOverflowError capturable
+- **Alternativas:** (a) `impl Drop` iterativo en Throwable: `class`, `message` y `cause` siguen siendo públicos y se pueden leer, asignar, `take` y desestructurar por referencia, pero mover un campo por valor, desestructurar por valor o usar la sintaxis de actualización de struct (`..otro`) falla con E0509; además el `PartialEq` manual quita la coincidencia estructural: un `const Throwable` ya no sirve como patrón /(b) campo `cause` de un tipo propio con el Drop iterativo (cambia el tipo público del campo) / (c) aceptar el aborto por desbordamiento de pila al soltar una cadena larga
+- **Recomendación:** (a), implementada provisionalmente: es el cambio menor; el único uso del repositorio que movía un campo era el arnés classic-parity
+- **Filas afectadas:** AC-SUP-018
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 
@@ -2109,19 +2099,20 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** todas
 - **Origen:** classic-foundation
 
-### Q-X-21 — Paridad observable estricta con Apache Pekko 2.0.0: sin divergencias por conveniencia, simplicidad, rendimiento o idioma de Rust
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Instrucción del Owner en la sesión del 2026-11-20 (texto literal): "Rakka debe reproducir el comportamiento observable original de Apache Pekko 2.0.0. No autorizo divergencias por conveniencia de implementación, simplicidad, rendimiento o preferencias idiomáticas de Rust. La implementación interna puede ser diferente, pero los resultados observables deben coincidir con Pekko." Cambio de dirección: las propuestas Q-CFG-35 (a), Q-CFG-36 (a) y Q-UTIL-21 (a) (todas `proposed`, ninguna aceptada en owner-decisions.tsv) eligen una divergencia documentada; la propuesta Q-CFG-36 (a) estaba además autorizada como "temporal" en la respuesta del Owner de P10 3/3. Dependencias medidas: Q-UTIL-21 depende del orden de iteración del HashMap inmutable de Scala 2.13 (trie CHAMP: determinista para un conjunto de claves salvo colisiones completas de hash); Q-CFG-36 del orden de un HashSet de Java de SimpleImmutableEntry (hash = hash de la clave XOR hash del valor, tamaño de la tabla, orden de inserción dentro de cada cubeta) y del hashCode de cada ConfigValue de Typesafe Config 1.4.9; Q-CFG-35 del render conciso, del orden de los tags (Set de Scala) y del texto de cada router (P37). Q-X-18 prohíbe leer código de OpenJDK: el comportamiento de HashMap/HashSet se toma del Javadoc y de mediciones del oráculo.
-- **Alternativas:** (a) Paridad observable estricta para toda diferencia conocida de P10, sustituyendo Q-CFG-35 (a), Q-CFG-36 (a) y Q-UTIL-21 (a); lo que dependa de módulos aún no implementados (P37, ActorSystem) queda bloqueado y explícito, nunca aceptado. (b) Mantener las propuestas (a) de cada ficha.
-- **Recomendación:** (a), por instrucción del Owner. Clasificación: dirección arquitectónica. Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible.
-- **Filas afectadas:** AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2, AC-UTIL-009
-- **Unidades afectadas:** CFG, UTIL
-- **Origen:** classic-foundation
-
 ## 6. Respuestas del Owner por unidad
 
 Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la sección 4).
+
+### Q-CELL-1 — Forma de receive (PartialFunction) y de la pila become/unbecome
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:384-410,545-556 ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:602-615
+- **Alternativas:** (a) fn(&mut self, &mut Context, msg) -> Handled y pila Vec<Box<dyn FnMut>> / (b) trait Behavior con enum de resultado / (c) macro receive!
+- **Recomendación:** (a) con Handled::{Handled,Unhandled} para disparar unhandled(); la pila se limpia en restart y el receive original se re-evalúa tras unbecome con pila vacía [2026-10-31 cierre documental] Clasificación: arquitectura. Consecuencia observable: `Handled::Unhandled` dispara `unhandled()` (DeathPactException para Terminated; UnhandledMessage para el resto) igual que `Actor.aroundReceive`; emptyBehavior = siempre Unhandled; la pila se vacía en restart y `unbecome` con pila de 0/1 recupera `receive`. Bloquea: `impl` de AC-CELL-001/005 (y la firma de Actor para todo el crate). Puede avanzar: la documentación y los tests de ciclo de vida (se escriben contra el trait).
+- **Filas afectadas:** AC-CELL-001 ; AC-CELL-005
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+- **Respuesta del Owner:** ACCEPTED, alternativa (a'), con condiciones. Conservar receive -> bool y adoptar una pila de comportamientos que reciben acceso mutable al actor y su contexto. Preservar el receive original. Replicar become con reemplazo y apilamiento. Replicar unbecome y sus condiciones de borde. Verificar reinicio, limpieza de instancia, unhandled y ciclo de vida. Evitar duplicación del estado del actor, Rc<RefCell> como solución artificial y unsafe innecesario. Mantener el borrado de tipos como detalle interno cuando sea necesario. Verificar el soporte de comportamientos que capturan estado externo; un puntero fn por sí solo puede resultar insuficiente. No congelar la firma pública definitiva hasta demostrar estos contratos mediante TDD. Q-EVT-7 permanece pendiente: presentar una propuesta específica para LoggingReceive que permita determinar si el mensaje está cubierto antes de ejecutar el comportamiento, sin duplicar efectos ni ejecutar receive dos veces. No autoriza otras decisiones, exclusiones ni desviaciones. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
 
 ### Q-CELL-6 — Nombre de clase de un mensaje de usuario en el texto de PreRestartException
 
@@ -2552,6 +2543,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Origen:** classic-io-ser
 - **Respuesta del Owner:** aceptar (a)+(c), incluido el comportamiento de 2.0.0 con includeManifest=false. El typo "synch" se copia por compatibilidad de configuración. (Owner (respuesta al lote 01), 2026-11-18)
 
+### Q-SUP-1 — Modelo de errores para deciders: jerarquía Exception/Error/Throwable y tipos de fallos del ciclo de vida
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:210-223,246-301 ; actor/src/main/scala/org/apache/pekko/actor/Actor.scala:166-295 ; actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:372 (decider.applyOrElse(cause, escalateDefault)) ; actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:216-245
+- **Alternativas:** (a) enum Failure { Init, Killed, DeathPact, PreRestart, PostRestart, User(Box<dyn Error>), Panic } con downcast para makeDecider / (b) Box<dyn Error> con downcast_ref / (c) códigos
+- **Recomendación:** (a); Q-X-5 decide si Panic se mapea a Escalate (equivalente de Error/Throwable) o a Restart; el decider por defecto debe reproducir Stop para Init/Killed/DeathPact, Restart para User y Escalate para Panic si se acepta [2026-10-31 cierre documental] Clasificación: arquitectura y divergencia funcional (Error/Throwable vs panic). Es la decisión con más filas dependientes: define el tipo de causa que ven todos los deciders, `Failed`, logFailure y las excepciones del ciclo de vida. Consecuencia observable: en Pekko un Throwable que no es Exception ESCALA con el decider por defecto; si en Rust un `panic` se mapea a Escalate hay que garantizar que el supervisor raíz lo detenga; si se mapea a Restart se pierde esa propiedad. Bloquea: `impl` de AC-SUP-004/012/017 y, indirectamente, AC-SUP-001/003/008/013/018/021 y AC-CELL-002.2/007.4. Puede avanzar: la planificación de ciclo de vida sin deciders, AC-SUP-006.x (aritmética) y DW. Decidir junto con Q-X-5.
+- **Filas afectadas:** AC-SUP-004 ; AC-SUP-012 ; AC-SUP-017 ; AC-SUP-021
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+- **Respuesta del Owner:** ACCEPTED, alternativa (d), con condiciones. Mantener Throwable e incorporar clasificación y jerarquía suficiente para reproducir los deciders de Pekko. Exception como categoría predeterminada documentada para errores de usuario. Permitir declarar explícitamente categorías y jerarquías. ActorInitializationException, ActorKilledException y DeathPactException deben producir Stop, incluyendo sus subtipos cuando corresponda. Las demás Exception producen Restart. Los Throwable que no sean Exception producen Escalate. Los panic de Rust se rigen por Q-X-5. No construir una emulación general del sistema de excepciones de Java. No utilizar comparaciones de nombres exactos como sustituto de la semántica de subtipos. Verificar mediante TDD y oráculo las clases conocidas, desconocidas, derivadas y los deciders personalizados. No autoriza otras decisiones, exclusiones ni desviaciones. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
+
 ### Q-SUP-3 — Causa de una excepción en Throwable: logFailure publica el mensaje de la causa de ActorInitializationException
 
 - **Estado:** aceptada
@@ -2793,6 +2795,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** todas
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** aceptar (a): política de gates FAST / PR / MILESTONE con presupuestos, checkpoints y reutilización segura de evidencia, y veredictos PASS (sólo con todos los controles requeridos completos) / INCOMPLETE (quedan mutantes pendientes) / FAIL (mutante sobreviviente, salvo clasificación justificada y revisada) / ERROR (fallo de compilación, arnés o parche, incluido un patrón obsoleto; nunca DETECTED) / CANCELLED (cancelación, con los checkpoints válidos conservados). JUSTIFICACIÓN: el MILESTONE completo costaba ~7,5 h (206 mutantes x ~132 s de replay completo sin corte temprano) y se canceló por costo; el runner con fast-kill demostrado contra el oráculo (el build sin mutar coincide con Pekko y la herramienta falla ese caso como divergencia aplicable; si no se puede demostrar, replay completo), presupuesto por defecto (40 mutantes / 30 min), checkpoints reanudables por clave (parche + huella del crate + huella del arnés + configuración + rustc) y reutilización de evidencia sólo para entradas limpias conserva las garantías sin ejecutar el exhaustivo. Ningún gate se desactiva: PR contiene todos los gates por slice vigentes. ALCANCE: (1) autoriza actualizar AGENTS.md con esta política, efectiva una vez integrados #308 y #310; (2) autoriza retirar `mailbox-is-lifo` del conjunto activo únicamente tras demostrar que el patrón está obsoleto y que la propiedad FIFO sigue cubierta (`mailbox-queue-is-lifo`), conservando la trazabilidad histórica; cualquier otro patrón obsoleto sigue siendo ERROR; (3) NO autoriza el MILESTONE exhaustivo (206 mutantes + fuzzers) ni el merge: ambos requieren autorización posterior y explícita. (Owner (instrucción en la sesión), 2026-11-21)
+
+### Q-X-21 — Paridad observable estricta con Apache Pekko 2.0.0: sin divergencias por conveniencia, simplicidad, rendimiento o idioma de Rust
+
+- **Estado:** aceptada
+- **Evidencia:** Instrucción del Owner en la sesión del 2026-11-20 (texto literal): "Rakka debe reproducir el comportamiento observable original de Apache Pekko 2.0.0. No autorizo divergencias por conveniencia de implementación, simplicidad, rendimiento o preferencias idiomáticas de Rust. La implementación interna puede ser diferente, pero los resultados observables deben coincidir con Pekko." Cambio de dirección: las propuestas Q-CFG-35 (a), Q-CFG-36 (a) y Q-UTIL-21 (a) (todas `proposed`, ninguna aceptada en owner-decisions.tsv) eligen una divergencia documentada; la propuesta Q-CFG-36 (a) estaba además autorizada como "temporal" en la respuesta del Owner de P10 3/3. Dependencias medidas: Q-UTIL-21 depende del orden de iteración del HashMap inmutable de Scala 2.13 (trie CHAMP: determinista para un conjunto de claves salvo colisiones completas de hash); Q-CFG-36 del orden de un HashSet de Java de SimpleImmutableEntry (hash = hash de la clave XOR hash del valor, tamaño de la tabla, orden de inserción dentro de cada cubeta) y del hashCode de cada ConfigValue de Typesafe Config 1.4.9; Q-CFG-35 del render conciso, del orden de los tags (Set de Scala) y del texto de cada router (P37). Q-X-18 prohíbe leer código de OpenJDK: el comportamiento de HashMap/HashSet se toma del Javadoc y de mediciones del oráculo.
+- **Alternativas:** (a) Paridad observable estricta para toda diferencia conocida de P10, sustituyendo Q-CFG-35 (a), Q-CFG-36 (a) y Q-UTIL-21 (a); lo que dependa de módulos aún no implementados (P37, ActorSystem) queda bloqueado y explícito, nunca aceptado. (b) Mantener las propuestas (a) de cada ficha.
+- **Recomendación:** (a), por instrucción del Owner. Clasificación: dirección arquitectónica. Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible.
+- **Filas afectadas:** AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2, AC-UTIL-009
+- **Unidades afectadas:** CFG, UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** ACCEPTED, alternativa (c). La paridad observable estricta se establece como principio transversal de toda la migración de Apache Pekko a Rakka. Replicar la semántica observable contractual, no la implementación interna de Scala o Java. Mantener Rust idiomático. Toda divergencia conocida debe quedar registrada. Las excepciones requieren aprobación explícita del Owner, individualmente. Las dependencias no implementadas permanecen bloqueadas, nunca automáticamente excluidas. No replicar automáticamente defectos de seguridad, abortos de proceso, NPE accidentales ni comportamientos propios de la JVM. Distinguir órdenes contractuales de órdenes accidentales derivados de implementaciones de estructuras de datos. No autoriza otras decisiones, exclusiones ni desviaciones. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
 
 ### Q-X-22 — Selección de mutantes y reutilización de evidencia en el nivel PR (enmienda a Q-X-20)
 

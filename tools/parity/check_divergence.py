@@ -2377,6 +2377,12 @@ MUTANTS = {
         "    drop(value);",
         "a `Drop` of the user that panics unwinds through a transition of the cell: no decision is made and the actor is wedged",
     ),
+    "dropped-cause-chain-recurses": (
+        "src/actor/fault.rs",
+        "        while let Some(mut link) = next {\n            next = link.cause.take();\n        }",
+        "        drop(next);",
+        "dropping a very long cause chain takes a stack frame per cause and aborts the process (killed by tests/classic_long_cause_chains.rs, see UNIT_MUTANTS)",
+    ),
     "stop-during-restart-skips-the-replaced-instance": (
         "src/actor/cell.rs",
         "                state.actor = Some(replaced);",
@@ -2509,6 +2515,7 @@ UNIT_MUTANTS = {
     "dead-letters-are-not-terminated": ("test:classic_api", "system_exposes_its_name_root_path_settings_and_dead_letters"),
     "fixed-delay-outlives-its-target": ("actor::scheduler_tests", "a_terminated_target_is_sent_to_once_and_ends_the_repetition"),
     "cancelled-repetition-schedules-again": ("actor::scheduler_tests", "a_cancel_during_the_send_prevents_the_next_one"),
+    "dropped-cause-chain-recurses": ("test:classic_long_cause_chains", "a_very_long_cause_chain_is_dropped"),
     "event-stream-drops-dead-letters": ("test:classic_api", "dead_letters_stays_subscribed_to_the_event_stream_and_forwards_what_it_gets"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
     "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
