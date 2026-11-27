@@ -728,11 +728,15 @@ impl MailboxType for FailingMailbox {
     }
 }
 
-/// What the actors of the `MBX-TT` cases record: their log, the starts of `Counted`, the `Error`s and what the parent caught.
+/// What the actors of the `MBX-TT`/`MBX-TQ` cases record: their log, the `Error`s and dead letters, the starts of `Counted` and what
+/// the parent caught; `open` is the gate of a held turn.
 #[derive(Default)]
 struct SpiEnv {
     log: Mutex<Vec<String>>,
     errors: Mutex<Vec<String>>,
+    dead: Mutex<Vec<String>>,
+    entered: AtomicUsize,
+    open: AtomicUsize,
     started: AtomicUsize,
     caught: Mutex<String>,
 }
@@ -750,6 +754,29 @@ impl SpiEnv {
             .expect("listener");
         system.event_stream().subscribe(&listener, Channel::Error);
         system
+            .event_stream()
+            .subscribe(&listener, Channel::DeadLetter);
+        system
+    }
+
+    /// The actor `a` on a queue with `fault`, started.
+    fn faulty(self: &Arc<Self>, system: &ActorSystem, fault: Fault) -> ActorRef {
+        let props = self.counted().with_mailbox(FaultyMailbox(fault));
+        let actor = system.actor_of_named(props, "a").expect("a");
+        wait_until(|| self.started.load(Ordering::SeqCst) == 1);
+        actor
+    }
+
+    fn logged(&self, entry: &str) -> bool {
+        self.log
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|logged| logged == entry)
+    }
+
+    fn listed(list: &Mutex<Vec<String>>) -> String {
+        format!("[{}]", list.lock().unwrap().join(", "))
     }
 
     fn counted(self: &Arc<Self>) -> Props {
@@ -772,29 +799,178 @@ struct SpiErrors(Arc<SpiEnv>);
 impl Actor for SpiErrors {
     fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if let Some(error) = msg.downcast_ref::<ErrorEvent>() {
+            let mut message = error.message.clone().unwrap_or_else(|| "null".to_owned());
+            // the uncaught-error report names the pool thread, whose number depends on scheduling
+            if let Some((head, _)) = message.split_once("default-dispatcher-") {
+                message = format!("{head}default-dispatcher-N]");
+            }
             self.0.errors.lock().unwrap().push(format!(
-                "{}|{}|{}",
-                error.log_source,
-                error.cause.class,
-                error.message.as_deref().unwrap_or("null")
+                "{}|{}|{message}",
+                error.log_source, error.cause.class
             ));
+        } else if let Some(dead) = msg.downcast_ref::<DeadLetter>()
+            && let Some(text) = dead.message.downcast_ref::<String>()
+        {
+            self.0.dead.lock().unwrap().push(text.clone());
         }
         true
     }
 }
 
+/// The oracle's `Worker`: `block` holds the turn until the gate opens.
 struct Counted(Arc<SpiEnv>);
 impl Actor for Counted {
     fn pre_start(&mut self, _ctx: &mut ActorContext) {
         self.0.started.fetch_add(1, Ordering::SeqCst);
     }
     fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
-        if let Some(text) = msg.downcast_ref::<String>() {
-            self.0.log.lock().unwrap().push(format!("r:{text}"));
+        let Some(text) = msg.downcast_ref::<String>() else {
+            return true;
+        };
+        if text == "block" {
+            self.0.entered.fetch_add(1, Ordering::SeqCst);
+            wait_until(|| self.0.open.load(Ordering::SeqCst) == 1);
         }
+        self.0.log.lock().unwrap().push(format!("r:{text}"));
         true
     }
 }
+
+/// The oracle's `FaultyQueue`: one operation throws.
+#[derive(Clone, Copy, PartialEq)]
+enum Fault {
+    Enqueue,
+    Dequeue,
+    HasMessages,
+}
+
+struct FaultyMailbox(Fault);
+impl MailboxType for FaultyMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        Box::new(FaultyQueue {
+            inner: UnboundedMailbox.create(),
+            fault: self.0,
+            armed: AtomicUsize::new(0),
+        })
+    }
+}
+
+struct FaultyQueue {
+    inner: Box<dyn MessageQueue>,
+    fault: Fault,
+    armed: AtomicUsize,
+}
+
+fn boom(what: &str) -> ! {
+    throw(Throwable::illegal_state(&format!("{what} boom")))
+}
+
+fn is_bad(envelope: &Envelope) -> bool {
+    envelope
+        .message
+        .downcast_ref::<String>()
+        .is_some_and(|text| text == "bad")
+}
+
+impl MessageQueue for FaultyQueue {
+    fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
+        if self.fault == Fault::Enqueue && is_bad(&envelope) {
+            boom("enqueue");
+        }
+        self.inner.enqueue(receiver, envelope)
+    }
+    fn dequeue(&self) -> Option<Envelope> {
+        let envelope = self.inner.dequeue();
+        if envelope.as_ref().is_some_and(is_bad) {
+            if self.fault == Fault::Dequeue {
+                boom("dequeue");
+            }
+            if self.fault == Fault::HasMessages {
+                self.armed.store(1, Ordering::SeqCst);
+            }
+        }
+        envelope
+    }
+    fn number_of_messages(&self) -> usize {
+        self.inner.number_of_messages()
+    }
+    fn has_messages(&self) -> bool {
+        if self.armed.swap(0, Ordering::SeqCst) == 1 {
+            boom("hasMessages");
+        }
+        self.inner.has_messages()
+    }
+    fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
+        self.inner.clean_up(owner, dead_letters);
+    }
+}
+
+fn say(actor: &ActorRef, texts: &[&str]) {
+    for text in texts {
+        actor.tell((*text).to_owned(), None);
+    }
+}
+
+/// `MBX-TQ-01`
+fn an_enqueue_that_throws_stays_with_the_send() -> String {
+    let env = Arc::new(SpiEnv::default());
+    let system = env.system();
+    let actor = env.faulty(&system, Fault::Enqueue);
+    say(&actor, &["a", "bad", "c"]);
+    wait_until(|| env.logged("r:c") && !env.errors.lock().unwrap().is_empty());
+    let line = format!(
+        "tell=returned log={} dead={} errors={} terminated={}",
+        SpiEnv::listed(&env.log),
+        SpiEnv::listed(&env.dead),
+        SpiEnv::listed(&env.errors),
+        actor.is_terminated()
+    );
+    terminate_normally(system);
+    line
+}
+
+/// `MBX-TQ-02`
+fn a_dequeue_that_throws_is_an_uncaught_error() -> String {
+    let env = Arc::new(SpiEnv::default());
+    let system = env.system();
+    let actor = env.faulty(&system, Fault::Dequeue);
+    say(&actor, &["block"]);
+    wait_until(|| env.entered.load(Ordering::SeqCst) == 1);
+    say(&actor, &["a", "bad", "c"]);
+    env.open.store(1, Ordering::SeqCst);
+    wait_until(|| env.logged("r:c") && !env.errors.lock().unwrap().is_empty());
+    say(&actor, &["d"]);
+    wait_until(|| env.logged("r:d"));
+    let line = format!(
+        "log={} dead={} errors={} terminated={}",
+        SpiEnv::listed(&env.log),
+        SpiEnv::listed(&env.dead),
+        SpiEnv::listed(&env.errors),
+        actor.is_terminated()
+    );
+    terminate_normally(system);
+    line
+}
+
+/// `MBX-TQ-03`
+fn a_has_messages_that_throws_is_an_uncaught_error() -> String {
+    let env = Arc::new(SpiEnv::default());
+    let system = env.system();
+    let actor = env.faulty(&system, Fault::HasMessages);
+    say(&actor, &["bad"]);
+    wait_until(|| !env.errors.lock().unwrap().is_empty());
+    say(&actor, &["c"]);
+    wait_until(|| env.logged("r:c"));
+    let line = format!(
+        "log={} errors={} terminated={}",
+        SpiEnv::listed(&env.log),
+        SpiEnv::listed(&env.errors),
+        actor.is_terminated()
+    );
+    terminate_normally(system);
+    line
+}
+
 
 /// The oracle's `CatchingParent`: `actorOf` with a mailbox type that throws, then the same name again.
 struct CatchingParent(Arc<SpiEnv>);
@@ -2246,6 +2422,18 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates",
             a_mailbox_type_that_throws_stops_the_actor_of_system_actor_of(),
+        ),
+        (
+            "MBX-TQ-01 an enqueue that throws does not reach the caller of tell: an Error is published and the actor goes on",
+            an_enqueue_that_throws_stays_with_the_send(),
+        ),
+        (
+            "MBX-TQ-02 a dequeue that throws ends the turn with an uncaught-error report: the thread survives and the queued messages are processed",
+            a_dequeue_that_throws_is_an_uncaught_error(),
+        ),
+        (
+            "MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again",
+            a_has_messages_that_throws_is_an_uncaught_error(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",
