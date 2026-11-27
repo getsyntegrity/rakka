@@ -66,3 +66,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #447	15438b8f	99	non-exception-restarts-instead-of-escalating; stopping-strategy-restarts; log-failure-matches-the-class-name-only	none	99 not run (Q-X-23)	PENDING
 #447	7401246a	99	non-exception-restarts-instead-of-escalating; stopping-strategy-restarts; log-failure-matches-the-class-name-only	none	99 not run (Q-X-23)	PENDING
 #449	24b56313	394	none	none	394 not run (Q-X-23)	PENDING
+#449	81c17878	403	none	none	403 not run (Q-X-23)	PENDING
