@@ -412,10 +412,12 @@ impl crate::actor::actor_ref::InternalActorRef for ErrorRecorder {
         &self.path
     }
     fn tell(&self, msg: AnyMessage, _sender: Option<ActorRef>) {
-        // not the guardian's `logFailure` of `/user`: the oracle's listener is under `/user`, suspended by then, and never sees it
+        // not the failure of `/user` itself: `MBX-RJ-05` was printed with `loglevel = OFF` (no `log.error` of the root's strategy) by a
+        // listener under `/user`, suspended before its `logFailure`. `MBX-RJ-08` observes both.
+        let of_the_failed_guardian = ["pekko://mbx/user", "LocalActorRefProvider"];
         if let Some(error) = msg
             .downcast_ref::<ErrorEvent>()
-            .filter(|error| error.log_source != "pekko://mbx/user")
+            .filter(|error| !of_the_failed_guardian.contains(&error.log_source.as_str()))
         {
             self.errors.lock().unwrap().push(format!(
                 "{}|{}|{}",
@@ -447,7 +449,8 @@ fn counting(starts: &Arc<AtomicUsize>) -> Props {
 
 /// `Dispatcher.attach` rejected twice while the supervisor processes `Supervise(async = true)` (`RepointableActorRef.point`,
 /// `RepointableActorRef.scala:112-135`): `cell.start()` is outside the `try` of `catchFailures`, so the rejection is not an
-/// initialisation failure of the new actor but a failure of the supervisor, which restarts and stops its children.
+/// initialisation failure of the new actor but a failure of the supervisor. The supervisor here is `/user`, so the root guardian stops it
+/// with its children and the system terminates (`rootGuardianStrategy`; it does not restart, as this test used to say).
 #[test]
 fn an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts() {
     let fixture = Fixture::new(&["a"]);
@@ -459,7 +462,7 @@ fn an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts(
     wait_until("the sibling to start", || {
         starts.load(Ordering::SeqCst) == 1
     });
-    // The supervisor's restart stops every child of `/user`, listeners included, so the error is recorded by a subscriber that is not
+    // Stopping `/user` stops every child of it, listeners included, so the error is recorded by a subscriber that is not
     // an actor under `/user` (the oracle's listener wins that race on another thread; here one thread runs everything in order).
     let recorder = Arc::new(ErrorRecorder::default());
     fixture
@@ -471,7 +474,7 @@ fn an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts(
         .system
         .actor_of_named(counting(&starts), "a")
         .unwrap();
-    wait_until("the error and the supervisor's restart", || {
+    wait_until("the error and the supervisor's stop", || {
         !recorder.errors.lock().unwrap().is_empty() && sibling.is_terminated()
     });
     std::thread::sleep(Duration::from_millis(500)); // a bounded wait for an absence, as the oracle does
@@ -484,6 +487,44 @@ fn an_attach_rejected_twice_fails_the_supervisor_and_the_new_actor_never_starts(
         fixture.executor.rejections_left()
     );
     assert_eq!(observed, recorded("MBX-RJ-05"));
+}
+
+/// The same rejection seen as the root guardian sees it (`MBX-RJ-08`, printed with `log.error` published): `/user` is logged and stopped,
+/// and the system terminates.
+#[test]
+fn an_attach_rejected_twice_under_the_user_guardian_terminates_the_system() {
+    use crate::actor::guardian_failure_tests::{record_errors, tree, tree_under_user};
+    let executor = RejectsNext::new(&["r"]);
+    let system = ActorSystem::create_with_executor(
+        "mbx",
+        Settings::default(),
+        Arc::new(NanoClock),
+        executor.clone(),
+    )
+    .unwrap();
+    let recorder = record_errors(&system);
+    let seen = tree_under_user(&system);
+    executor.reject_next(2);
+    let rejected = system.actor_of_named(tree(&seen, None), "r");
+    let terminated = system
+        .when_terminated()
+        .wait(Duration::from_secs(10))
+        .expect("ended")
+        .expect("terminated normally");
+    // the executor's own exception has no text here; the oracle's has the test's own, written `<rejection>` in both
+    let errors = recorder.errors.lock().unwrap().join(", ").replace(
+        "java.util.concurrent.RejectedExecutionException|null",
+        "java.util.concurrent.RejectedExecutionException|<rejection>",
+    );
+    let observed = format!(
+        "errors=[{errors}] stopped=[{}] terminated={} existenceConfirmed={} refReturned={} rejectionsLeft={}",
+        seen.stopped.lock().unwrap().join(", "),
+        terminated.actor.path(),
+        terminated.existence_confirmed,
+        rejected.is_ok(),
+        executor.rejections_left()
+    );
+    assert_eq!(observed, recorded("MBX-RJ-08"));
 }
 
 struct Boom;

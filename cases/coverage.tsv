@@ -3076,3 +3076,5 @@ sc-0010	oracle-scheduler	AC-SCH-002,AC-SCH-008.2	cited
 sc-0011	oracle-scheduler	AC-SCH-002,AC-SCH-007	cited
 sc-0012	oracle-scheduler	AC-SCH-007	cited
 sc-0013	oracle-scheduler	AC-SCH-002,AC-SCH-009	cited
+gf-kill-system	scenario-guardian-failure	AC-SUP-014	cited
+gf-kill-user	scenario-guardian-failure	AC-SUP-014,AC-SYS-008	cited
