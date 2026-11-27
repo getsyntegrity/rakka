@@ -298,7 +298,7 @@
 
 ## P20 SUP-ESTRATEGIAS
 
-10 filas; 5 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 2 propuestas.
+10 filas; 6 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -307,19 +307,22 @@
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-SUP-004 | — | — | `transversal` |
 | Q-SUP-2 | propuesta | 4: AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-021 | Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). | Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica). | `classic-cell` |
 | Q-SUP-5 | propuesta | 3: AC-SUP-004, AC-SUP-012, AC-SUP-017 | — | — | `classic-cell` |
+| Q-SUP-6 | propuesta | 1: AC-SUP-004 | — | — | `classic-cell` |
 
 ## P21 SUP-FALLO
 
-11 filas; 6 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 2 propuestas.
+11 filas; 8 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CELL-7 | accepted (2026-11-26): aceptar (b): helper público que ejecute los pasos del preRestart por defecto (unwatch y stop de cada hijo, luego post_stop) para que un override pueda… | 1: AC-CELL-006 | — | — | `classic-cell` |
+| Q-SUP-1 | accepted_with_changes (2026-11-27): ACCEPTED, alternativa (d), con condiciones. Mantener Throwable e incorporar clasificación y jerarquía suficiente para reproducir los deciders de Pekko.… | 1: AC-SUP-018 | Bloquea: `impl` de AC-SUP-004/012/017 y, indirectamente, AC-SUP-001/003/008/013/018/021 y AC-CELL-002.2/007.4. | Puede avanzar: la planificación de ciclo de vida sin deciders, AC-SUP-006.x (aritmética) y DW. Decidir junto con Q-X-5. | `classic-cell` |
 | Q-SUP-3 | accepted (2026-11-26): aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la… | 1: AC-SUP-018 | — | — | `classic-cell` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-SUP-010 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 2: AC-SUP-001, AC-SUP-016 | — | — | `transversal` |
 | Q-CELL-2 | propuesta | 1: AC-CELL-021 | Bloquea: sólo el cierre de AC-CELL-021 (requiere autorización explícita del Owner). | Puede avanzar: todo. | `classic-cell` |
 | Q-SUP-4 | propuesta | 1: AC-SUP-018 | — | — | `classic-cell` |
+| Q-SUP-6 | propuesta | 1: AC-SUP-001 | — | — | `classic-cell` |
 
 ## P22 CELL-REINICIO-PARADA
 
@@ -1088,4 +1091,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 531 (257 respondidas, 0 bloqueantes, 274 propuestas).
+Total de pares unidad–decisión: 534 (258 respondidas, 0 bloqueantes, 276 propuestas).

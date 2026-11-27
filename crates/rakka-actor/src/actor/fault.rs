@@ -10,7 +10,7 @@ use std::fmt;
 /// Classification is by subtype ([`is_a`](Throwable::is_a)). **A class that nobody declared anything about is an `Exception`**:
 /// a user error needs no declaration. The superclasses are known only for the classes this runtime raises or names (see
 /// `superclass_of`); for any other class, `java.lang` ones included, declare them with
-/// [`with_superclasses`](Throwable::with_superclasses), e.g. `["java.lang.Error"]` for a throwable that is not an `Exception`.
+/// [`with_superclasses`](Throwable::with_superclasses), e.g. `["java.lang.Error"]` for an error the default decider escalates.
 ///
 /// A cause chain can be of any length: `Clone`, `PartialEq`, `Debug` and `Drop` walk it without a stack frame per cause. Because of
 /// that `Drop`, a field cannot be moved out of a `Throwable` by value, by destructuring it by value or by struct update syntax

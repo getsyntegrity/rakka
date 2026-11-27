@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 272 decisiones: 0 bloqueantes, 189 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 273 decisiones: 0 bloqueantes, 190 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1234,8 +1234,18 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Estado:** propuesta (sin decisión del Owner)
 - **Evidencia:** crates/rakka-actor/src/actor/fault.rs superclass_of ; actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:269-300 (makeDecider ordena con isAssignableFrom)
 - **Alternativas:** (a) conocer sólo las clases que el runtime lanza o nombra y las raíces Throwable, Error y Exception; cualquier otra, java.lang incluidas, es Exception salvo with_superclasses / (b) añadir una tabla de subclases del JDK (AssertionError, NumberFormatException, ...) / (c) un tipo público de clase (nombre y superclase) que usen Throwable y makeDecider
-- **Recomendación:** (a), implementada provisionalmente: no emula el JDK (condición de Q-SUP-1). Consecuencia: Throwable::new("java.lang.AssertionError") sin declarar es una Exception (en la JVM es un Error) y un NumberFormatException sin declarar no es un IllegalArgumentException. (c) sería necesaria para makeDecider
+- **Recomendación:** (a), implementada provisionalmente: no emula el JDK (condición de Q-SUP-1). Consecuencia: Throwable::new("java.lang.AssertionError") sin declarar reinicia (Pekko escala) y un NumberFormatException sin declarar no es un IllegalArgumentException. (c) sería necesaria para makeDecider
 - **Filas afectadas:** AC-SUP-004 ; AC-SUP-012 ; AC-SUP-017
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+
+### Q-SUP-6 — Errores fatales (los que NonFatal no recoge): Pekko no los supervisa
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:353-359 (handleNonFatalOrInterruptedException) ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:579
+- **Alternativas:** (a) supervisar cualquier Throwable lanzado (uno declarado como Error escala) / (b) dar un trato propio a los declarados como VirtualMachineError, ThreadDeath, LinkageError o ControlThrowable
+- **Recomendación:** (a), conducta actual: Q-X-21 pide no replicar abortos de proceso ni conductas propias de la JVM sin aprobación; queda registrada la diferencia
+- **Filas afectadas:** AC-SUP-001 ; AC-SUP-004
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 
