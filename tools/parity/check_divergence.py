@@ -1252,11 +1252,11 @@ MUTANTS = {
         ".map_err(|thrown| configuration_failure(thrown.class.clone()))?;",
         "the ConfigurationException of a mailbox type that throws names only the class of what it threw (see UNIT_MUTANTS)",
     ),
-    "uncaught-turn-failure-is-not-reported": (
+    "thrown-enqueue-failure-is-not-reported": (
         "src/actor/cell.rs",
-        "cell.report_uncaught(throwable_of(payload));",
-        "drop_guarded(payload);",
-        "what the user's queue throws during a turn is swallowed without the uncaught-error report (see UNIT_MUTANTS)",
+        "Err(payload) => return self.swallow_failed_send(throwable_of(payload)),",
+        "Err(payload) => return drop_guarded(payload),",
+        "what the user's enqueue throws is swallowed without the Error of the swallowed send (see UNIT_MUTANTS)",
     ),
     "mailbox-id-error-message-names-the-default-id": (
         "src/actor/cell.rs",
@@ -2557,7 +2557,7 @@ UNIT_MUTANTS = {
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)
     "panicking-user-drop-escapes-the-guard": ("test:classic_panicking_drop", "a_stopped_actor_whose_drop_panics_terminates"),
     "thrown-mailbox-failure-loses-its-message": ("test:classic_mailbox_spi_failure", "a_mailbox_type_that_throws_fails_context_actor_of_and_frees_the_name"),
-    "uncaught-turn-failure-is-not-reported": ("test:classic_queue_spi_failure", "a_dequeue_that_throws_is_reported_as_uncaught_and_the_actor_goes_on"),
+    "thrown-enqueue-failure-is-not-reported": ("test:classic_queue_spi_failure", "an_enqueue_that_throws_does_not_reach_the_caller_of_tell"),
     "failed-cell-ignores-a-new-failure": ("actor::refailure_tests", "a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_again"),
     "failed-cell-still-skips-the-sender": ("actor::refailure_tests", "escalating_while_already_failed_suspends_that_child_too_and_keeps_the_first_perpetrator"),
     "terminating-recreate-skips-the-children": ("actor::cell::terminating_survivor_tests", "recreate_of_a_terminating_actor_resumes_its_children_and_keeps_it_failed"),

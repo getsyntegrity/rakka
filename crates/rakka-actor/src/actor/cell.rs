@@ -582,40 +582,13 @@ impl ActorCell {
     /// `Mailbox.run`: all system messages, then user messages up to the throughput limit, system messages being drained again
     /// after each user message; then idle again and re-register if work is left.
     pub(crate) fn run_mailbox(cell: &Arc<ActorCell>) {
-        // `try ... finally`: actor code is caught where it runs, so what still unwinds here comes from the user's queue
-        let turn = catch_unwind(AssertUnwindSafe(|| {
-            if !cell.status.is_closed() {
-                cell.process_all_system_messages();
-                cell.process_mailbox();
-            }
-        }));
-        cell.status.set_as_idle();
-        // `hasMessages` is the user's too. In Pekko a rejection here escapes into the pool; it has already been reported
-        let rescheduled = catch_unwind(AssertUnwindSafe(|| {
-            let _ = cell.register_for_execution(false, false);
-        }));
-        // as in `finally`, what it throws replaces what the turn threw
-        if let Err(payload) = rescheduled.and(turn) {
-            cell.report_uncaught(throwable_of(payload));
+        if !cell.status.is_closed() {
+            cell.process_all_system_messages();
+            cell.process_mailbox();
         }
-    }
-
-    /// The `uncaughtExceptionHandler` of the system's threads: the thread goes on and the failure is logged.
-    fn report_uncaught(&self, cause: Throwable) {
-        const SYSTEM_CLASS: &str = "org.apache.pekko.actor.ActorSystemImpl";
-        let thread = std::thread::current();
-        report_dispatch_failure(
-            &self.system.events,
-            ErrorEvent {
-                cause,
-                log_source: format!("{SYSTEM_CLASS}({})", self.path.address().system()),
-                log_class: SYSTEM_CLASS.to_owned(),
-                message: Some(format!(
-                    "Uncaught error from thread [{}]",
-                    thread.name().unwrap_or_default()
-                )),
-            },
-        );
+        cell.status.set_as_idle();
+        // in Pekko a rejection here escapes `Mailbox.run` into the pool; it has already been reported
+        let _ = cell.register_for_execution(false, false);
     }
 
     /// `Mailbox.processAllSystemMessages`: a message found after the mailbox closed is handled as a dead one.
