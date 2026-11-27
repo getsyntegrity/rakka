@@ -535,7 +535,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** SupervisorStrategy: directivas, deciders, One/AllForOne, ventanas de reintentos.
 - **Filas (10; impl: pending 10):** asignacion explicita en `docs/unit-rows.tsv`: AC-SUP-003, AC-SUP-004, AC-SUP-005, AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-012, AC-SUP-013, AC-SUP-017, AC-SUP-021.
 - **Exclusiones/costuras:** Pura sobre tipos; no depende de la celda (SUP-004 solo lista excepciones de ciclo de vida).
-- **Decisiones:** 5 distintas en sus filas; respondidas: Q-SUP-1, Q-X-2, Q-X-5; propuestas sin respuesta: Q-SUP-2, Q-SUP-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P20). <!-- generated:unit-decisions -->
+- **Decisiones:** 6 distintas en sus filas; respondidas: Q-SUP-1, Q-X-2, Q-X-5; propuestas sin respuesta: Q-SUP-2, Q-SUP-5, Q-SUP-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P20). <!-- generated:unit-decisions -->
 - **Dependencias:** P11, P14.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/supervision.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** SupervisorHierarchySpec parcial.
