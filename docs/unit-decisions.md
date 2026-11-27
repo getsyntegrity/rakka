@@ -190,7 +190,7 @@
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-SCH-010 | — | — | `transversal` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-SCH-008.1, AC-SCH-008.2, AC-SCH-008.3 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-SCH-015 | — | — | `transversal` |
-| Q-SCH-5 | propuesta | 1: AC-SCH-001 | — | — | `classic-dispatch` |
+| Q-SCH-5 | propuesta | 2: AC-SCH-001, AC-SCH-002 | — | — | `classic-dispatch` |
 
 ## P13 MBX-COLAS
 

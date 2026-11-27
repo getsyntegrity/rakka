@@ -1,0 +1,1 @@
+SCH-FD-06 a target that stops between two sends gets one more, a dead letter, and the repetition ends uncancelled -> late from asker | dead late sender=asker recipient=target | next=marker from deadLetters | isCancelled=false cancel=true isCancelled=true cancel=false isCancelled=true

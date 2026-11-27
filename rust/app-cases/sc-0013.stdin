@@ -1,0 +1,1 @@
+SCH-FD-08 termination discards a pending repetition, and the scheduler then rejects new ones

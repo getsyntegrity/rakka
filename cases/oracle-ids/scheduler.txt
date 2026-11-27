@@ -5,3 +5,11 @@ SCH-SO-04 a negative delay behaves like zero
 SCH-SO-05 the largest delay is Int.MaxValue ticks; the delay is rounded up to the tick before the check
 SCH-SO-06 a target that stopped before the delay elapsed gets nothing: the message is a dead letter
 SCH-TE-01 termination discards what is pending without sending it, and the scheduler then rejects every delay
+SCH-FD-01 the message repeats with the given sender, never before the initial delay and the delays; cancel stops it
+SCH-FD-02 a repetition cancelled during the initial delay sends nothing
+SCH-FD-03 an initial delay of zero sends at once, and the repetition can still be cancelled
+SCH-FD-04 the delay must be positive and within the reach of the wheel, and is checked before the initial delay
+SCH-FD-05 a negative delay is rejected like zero
+SCH-FD-06 a target that stops between two sends gets one more, a dead letter, and the repetition ends uncancelled
+SCH-FD-07 deadLetters counts as terminated: it gets the message once and the repetition ends
+SCH-FD-08 termination discards a pending repetition, and the scheduler then rejects new ones
