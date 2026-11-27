@@ -125,7 +125,7 @@ class DirtyCheckPathspecs(unittest.TestCase):
         by_name = {g.name: g for g in gates.tier_gates("milestone", ["x"])}
         for rewriting in ("replay", "mutants"):
             self.assertIn("rust/app-cases/replay-report.md", by_name[rewriting].regenerates)
-        for plain in ("fmt", "clippy", "deny", "package-check"):
+        for plain in ("fmt", "deny", "package-check"):       # they do not read the recordings, where the replay writes its report
             self.assertEqual(by_name[plain].regenerates, ())
 
     def test_the_replay_gate_is_invalidated_by_a_changed_recording(self):
