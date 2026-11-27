@@ -160,7 +160,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko`, 9a54d129). Las citas `path:line` d
 - **Equivalente Rust**: canal MPSC (`crossbeam::channel` o cola intrusiva); `number_of_messages` puede ser exacto o estimado (permitido por AC-MBX-019). Licencia BSD (docs/upstream.md) si se porta el nodo.
 - **Aserciones**: A1 las mismas pruebas de cola con 1 consumidor (`maxConsumers = 1`) — `MailboxConfigSpec.scala:269-277`; A2 ping-pong patológico de 2.000.000 mensajes (throughput 1) termina en 30 s, no acotado y acotado — `MailboxConfigSpec.scala:279-329`.
 - **Oráculo**: no aplica (rendimiento).
-- **Decisiones**: Q-MBX-6.
+- **Decisiones**: Q-MBX-6; Q-MBX-16 (proposed: si los 30 s de A2 son gate; hoy se miden en tests `#[ignore]` y el test por defecto no tiene cota superior de duración).
 
 ## AC-MBX-007 BoundedMailbox
 

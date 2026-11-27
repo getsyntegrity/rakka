@@ -922,9 +922,9 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 ### Q-MBX-16 — El `within(30.seconds)` del ping-pong patológico mide rendimiento: ¿gate o medición aparte?
 
 - **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** MailboxConfigSpec.scala:322-329 (Pekko 2.0.0). El tiempo depende de la carga: 7-24 s en el gate y 30,5 s / 140 s con QoS de fondo, con todos los mensajes entregados y sin pausas (docs/evidence/mailbox-single-consumer.md).
-- **Alternativas:** (a) tests por defecto sin cota total (fallan si no hay entregas en 10 s) y los 30 s en tests `#[ignore]`; (b) los 30 s como gate; (c) (a) más cambiar la espera de `ThreadPool` y reevaluar (b)
-- **Recomendación:** (a), implementada provisionalmente; una regresión de rendimiento sin cuelgue ya no hace fallar los gates
+- **Evidencia:** MailboxConfigSpec.scala:322-329 (Pekko 2.0.0). El tiempo depende de la carga: 7-24 s en ejecuciones instrumentadas y 30,5 s con QoS de fondo, con todos los mensajes entregados y ninguna ventana de 1 s sin entregas; una ejecución de 140 s de los tests nuevos entregó todo, pero sus pausas no se midieron (docs/evidence/mailbox-single-consumer.md).
+- **Alternativas:** (a) tests por defecto SIN NINGUNA cota superior de duración (muestrean cada 10 s y fallan si no hubo entregas; un cuelgue se informa a los 10-20 s aprox.) y los 30 s en tests `#[ignore]`; (b) los 30 s como gate; (c) (a) más cambiar la espera de `ThreadPool` y reevaluar (b)
+- **Recomendación:** (a), implementada provisionalmente; una regresión de rendimiento sin cuelgue ya no hace fallar los gates, y como el gate `test` no fija timeout, una ejecución degradada pero con avance lo detiene en lugar de hacerlo fallar
 - **Filas afectadas:** AC-MBX-006
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch

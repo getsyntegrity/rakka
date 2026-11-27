@@ -27,17 +27,19 @@ Mediciones (macOS, 16 núcleos, perfil `test`, copia instrumentada con contador 
 | 1 hilo de dispatcher (ambos tests a la vez) | 2,0-2,7 s | 1,4-2,1 M | 0 |
 | 2 hilos | 5,1-7,2 s | 450-708 k | 0 |
 | 8 hilos (por defecto), 20 ejecuciones | 6,9-24,4 s | 146-570 k | 0 |
-| `cargo llvm-cov`, carga 23-63 | 9,9-23,4 s | 100-370 k | 0 |
+| `cargo llvm-cov`, carga 23-63 | 9,9-23,4 s | 99-370 k | 0 |
 | `cargo llvm-cov` + `taskpolicy -c background`, carga 44-50 | 23,6 s y **30,1 / 30,5 s** | 45-58 k | 0 |
-| tests nuevos, `llvm-cov` + background + 32 procesos de CPU | **140 s**, pasan | - | - |
+| tests nuevos (sin instrumentar), `llvm-cov` + background + 32 procesos de CPU | **140 s**, pasan | no medido | no medidas |
 
-- Se reprodujo el fallo (ambos tests por encima de 30 s) con las 4.000.000 de entregas completas y progreso continuo: es lentitud, no un bloqueo.
-- Pérdida de wakeup / carrera del bit `Scheduled`: `register_for_execution` encola antes de intentar `set_as_scheduled`, y `run_mailbox` hace `set_as_idle` (SeqCst) antes de volver a consultar las colas; las colas usan `Mutex`. Es el protocolo de `Mailbox.scala`. La cola acotada de capacidad 1 nunca desbordó (se habría detenido el ping-pong).
+- Se reprodujo el fallo (ambos tests por encima de 30 s) en una ejecución instrumentada, con las 4.000.000 de entregas completas y ninguna ventana de 1 s sin entregas: es lentitud, no un bloqueo. La ejecución de 140 s sólo muestra que se entregó todo; sus pausas no se midieron.
+- Pérdida de wakeup / carrera del bit `Scheduled`: quien llama (`enqueue_user`, `system_dispatch`) encola primero y llama después a `register_for_execution`, que intenta `set_as_scheduled`; `run_mailbox` hace `set_as_idle` (SeqCst) y después llama a `register_for_execution`, que vuelve a consultar las colas (con `Mutex`). Es el protocolo de `Mailbox.scala` (razonamiento sobre el código, no una prueba). La cola acotada de capacidad 1 nunca desbordó (se habría detenido el ping-pong).
 - Coste del relevo: `sample` de un worker con 8 hilos: 520 de 619 muestras en `Mutex<Receiver<Job>>::lock` (`__psynch_mutexwait`). `ThreadPool` mantiene el cerrojo durante `recv`, así que cada trabajo despierta al hilo que espera en el canal y al que espera el cerrojo (5,6 M cambios de contexto involuntarios para 4 M de mensajes).
 - **Mejora pendiente, no incluida:** un prototipo temporal (cola `Mutex` + `Condvar`, revertido) midió 5,6-10,5 s frente a 7,8-16,8 s del código actual (sólo el test sin límite, 6 ejecuciones cada uno, carga 15-36). Reduce el coste pero no la dependencia de la carga; cambiar el ejecutor es una unidad propia.
 
 **Corrección (sólo tests, Q-MBX-16 propuesta):**
 
-- Gate funcional: los dos tests afirman exactamente 2.000.000 entregas y la parada del runner; fallan si pasan 10 s sin ninguna entrega (un cuelgue), sin cota para la duración total y sin reintentos. El detector no se ha visto fallar: no hay un defecto real que lo dispare y no se inyectaron defectos.
+- Gate funcional: los dos tests afirman exactamente 2.000.000 entregas y la parada del runner, sin reintentos.
+- Detector de cuelgue: mientras el runner no termine, cada 10 s se compara el contador de entregas con la muestra anterior y el test falla si no creció. Un cuelgue se informa entre unos 10 y 20 s después de la última entrega. El detector no se ha visto fallar: no hay un defecto real que lo dispare y no se inyectaron defectos.
+- **No hay ninguna cota superior para la duración.** Una ejecución degradada que siga entregando al menos un mensaje cada 10 s no falla nunca por tiempo, y los gates `test` y `coverage` no fijan timeout (`tools/gates/gates.py`, `run_gate`): el gate quedaría detenido en lugar de fallar.
 - Medición: `throughput_of_the_*_ping_pong_is_within_the_thirty_seconds_of_the_spec` (`#[ignore]`) conserva los 30 s: `cargo test -p rakka-actor --test classic_single_consumer_mailbox -- --ignored --test-threads=1 --nocapture` dio 14,2 s y 17,2 s (carga ~17-26).
 - Sin cambios de producción: no hay RED/GREEN de producción ni mutantes nuevos.

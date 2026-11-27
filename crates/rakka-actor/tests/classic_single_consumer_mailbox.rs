@@ -25,7 +25,8 @@ use rakka_actor::dispatch::single_consumer_mailbox::SingleConsumerOnlyUnboundedM
 
 const TOTAL: usize = 2_000_000;
 
-/// How long the ping pong may go without a single delivery before it counts as hung. Not a time limit for the whole run.
+/// How often the delivery count is sampled; the test fails when a sample did not grow, so a hang is reported about one to two
+/// periods after the last delivery. There is no upper bound on the whole run.
 const NO_PROGRESS_LIMIT: Duration = Duration::from_secs(10);
 
 struct Ping;
