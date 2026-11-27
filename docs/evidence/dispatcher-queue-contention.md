@@ -38,10 +38,10 @@ Antes = `c4338dd7`, después = `138b9044` (mismo algoritmo que #456); intercalad
 
 **Escenario original de #443** (`llvm-cov`, ambos tests a la vez, QoS background, sin quemadores), antes `c6d2eade` y después `fa783172` (#456), intercaladas, n = 10 por versión (basta para ver fallos y diferencias grandes; sin p95), con batería, carga 2,6-7,2; mín / mediana / máx: antes 17,13 / 17,58 / 18,15, después 11,43 / 11,52 / 12,92; 0 fallos. #443 falló con carga 44-50, que **no** se reprodujo aquí: no muestra qué pasaría con esa carga. Una sola máquina; no se generaliza.
 **No medido:** con builds concurrentes (la carga de un gate compartido), en Linux, en máquinas de pocos núcleos ni en hardware de CI.
-## Opción (b) y política de rendimiento: propuesta Q-MBX-18 (`proposed`; decide el Owner)
+## Reincorporar los 30 s al gate (opción (b) de Q-MBX-16): propuesta Q-MBX-18 (`proposed`; decide el Owner)
 **Nada de esta sección está autorizado ni en vigor:** no hay política general de rendimiento ni cambio de ningún límite de tiempo.
-- 7,89 s es el **máximo observado en una sola máquina** sin inanición (margen ~3,8x; gate ~4,4x, idle ~10x; antes el gate tenía 2,4x, y #443 observó más de 30 s con carga ajena).
+- 7,89 s es el máximo observado **fuera de QoS background**, en una sola máquina (margen ~3,8x; gate ~4,4x, idle ~10x; antes el gate tenía 2,4x, y #443 observó más de 30 s con carga ajena). En QoS background sin quemadores y con carga baja el máximo fue **12,92 s** (margen ~2,3x).
 - Con QoS background **y** la CPU sobresuscrita (16 quemadores) ambas versiones fallan siempre. Sin quemadores y con carga baja ambas versiones pasan (arriba); con la carga que tenía #443 no se volvió a medir.
-- Recomendación (b): mantener el `within(30.seconds)` original en el gate habitual (sin fusionar su exclusión de #443), sin subirlo ni reintentar, y sin ejecutar el gate en QoS background.
+- Recomendación: **(a) de Q-MBX-18**, que es la opción (b) de Q-MBX-16: mantener el `within(30.seconds)` original en el gate habitual (sin fusionar su exclusión de #443), sin subirlo ni reintentar, y sin ejecutar el gate en QoS background.
 - Si se aceptara, mediciones aparte: en todo PR que toque `dispatch/` o la planificación de `actor/cell.rs`, en cada MILESTONE y antes de un release; las ejecuta el autor o quien corra el gate; carga a 1 min < 8, `caffeinate -i`, este script antes/después si cambia el ejecutor; fila en este documento (fecha, SHA, máquina, carga, toolchain, perfil, tiempos, resultado) citada en el PR.
 - Si se aceptara, una medición fallida bloquearía: que ese PR salga de borrador o se fusione, que el MILESTONE pase y que se publique el release, hasta corregirlo o hasta una decisión del Owner. No se reintenta hasta que pase.

@@ -944,7 +944,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Estado:** propuesta (sin decisión del Owner)
 - **Evidencia:** MailboxConfigSpec.scala:322-329 (Pekko 2.0.0) ; docs/evidence/dispatcher-queue-contention.md
 - **Alternativas:** (a) mantener el `within(30.seconds)` original en el gate habitual (opción (b) de Q-MBX-16), nunca en QoS background, más mediciones antes/después en los cambios de `dispatch/` o de la planificación de la celda, en MILESTONE y antes de un release; (b) dejar los 30 s fuera del gate y sólo como medición con esa política
-- **Recomendación:** (a) propuesta, sin aplicar. Una medición fallida bloquea que el PR salga de borrador o se fusione, que el MILESTONE pase y que se publique el release, hasta corregirlo o una decisión del Owner; no se reintenta hasta que pase. El máximo observado sin inanición (7,89 s) es de una sola máquina; no se midió con builds concurrentes, en Linux ni con pocos núcleos, y con QoS background y CPU sobresuscrita el límite falla antes y después
+- **Recomendación:** (a) propuesta, sin aplicar. Una medición fallida bloquea que el PR salga de borrador o se fusione, que el MILESTONE pase y que se publique el release, hasta corregirlo o una decisión del Owner; no se reintenta hasta que pase. El máximo observado fuera de QoS background (7,89 s; 12,92 s en QoS background sin quemadores y con carga baja) es de una sola máquina; no se midió con builds concurrentes, en Linux ni con pocos núcleos, y con QoS background y CPU sobresuscrita el límite falla antes y después
 - **Filas afectadas:** AC-MBX-006
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
