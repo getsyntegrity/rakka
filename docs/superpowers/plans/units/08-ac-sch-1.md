@@ -57,7 +57,7 @@ Filas: AC-SCH-011, AC-SCH-012, AC-SCH-013, AC-SCH-014, AC-SCH-015. Contratos y a
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
 | AC-SCH-001 | Scheduler.scheduleOnce (Runnable, closure, o mensaje a ActorRef) → Cancellable | `fn schedule_once(&self, delay, f) -> Cancellable` sobre runtime de timers | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:98-121,158-178,478-… | Q-SCH-1, Q-SCH-5 |
-| AC-SCH-002 | scheduleWithFixedDelay | loop async con sleep tras la tarea | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:220-251,453-475,724… | Q-SCH-1 |
+| AC-SCH-002 | scheduleWithFixedDelay | loop async con sleep tras la tarea | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:220-251,453-475,724… | Q-SCH-1, Q-SCH-5 |
 | AC-SCH-003 | scheduleAtFixedRate | `tokio::time::interval` con `MissedTickBehavior::Burst` | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:423-449,704-722 | Q-SCH-1, Q-SCH-4 |
 | AC-SCH-004 | schedule(...) deprecado (= fixed rate) | - | testkit/src/test/scala/org/apache/pekko/testkit/ExplicitlyTriggeredSchedulerSpec.scala:24… | Q-SCH-4 |
 | AC-SCH-005 | Cancellable: cancel() true sólo si esta llamada canceló; isCancelled;… | `struct Cancellable(Arc<AtomicU8>)` | actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala:123-156,319-349 | - |

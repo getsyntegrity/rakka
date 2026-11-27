@@ -1,0 +1,4 @@
+bin.name = "classic-parity"
+args = ["scheduler-case"]
+status.code = 0
+fs.sandbox = true

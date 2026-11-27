@@ -1,0 +1,1 @@
+SCH-FD-07 deadLetters counts as terminated: it gets the message once and the repetition ends -> isTerminated=true | dead gone sender=asker recipient=deadLetters | next=marker from deadLetters | isCancelled=false cancel=true isCancelled=true cancel=false isCancelled=true

@@ -4,3 +4,10 @@
 {"name": "sc-0004", "args": ["scheduler-case"], "stdin": "SCH-SO-05 the largest delay is Int.MaxValue ticks; the delay is rounded up to the tick before the check"}
 {"name": "sc-0005", "args": ["scheduler-case"], "stdin": "SCH-SO-06 a target that stopped before the delay elapsed gets nothing: the message is a dead letter"}
 {"name": "sc-0006", "args": ["scheduler-case"], "stdin": "SCH-TE-01 termination discards what is pending without sending it, and the scheduler then rejects every delay"}
+{"name": "sc-0007", "args": ["scheduler-case"], "stdin": "SCH-FD-01 the message repeats with the given sender, never before the initial delay and the delays; cancel stops it"}
+{"name": "sc-0008", "args": ["scheduler-case"], "stdin": "SCH-FD-02 a repetition cancelled during the initial delay sends nothing"}
+{"name": "sc-0009", "args": ["scheduler-case"], "stdin": "SCH-FD-03 an initial delay of zero sends at once, and the repetition can still be cancelled"}
+{"name": "sc-0010", "args": ["scheduler-case"], "stdin": "SCH-FD-04 the delay must be positive and within the reach of the wheel, and is checked before the initial delay"}
+{"name": "sc-0011", "args": ["scheduler-case"], "stdin": "SCH-FD-06 a target that stops between two sends gets one more, a dead letter, and the repetition ends uncancelled"}
+{"name": "sc-0012", "args": ["scheduler-case"], "stdin": "SCH-FD-07 deadLetters counts as terminated: it gets the message once and the repetition ends"}
+{"name": "sc-0013", "args": ["scheduler-case"], "stdin": "SCH-FD-08 termination discards a pending repetition, and the scheduler then rejects new ones"}
