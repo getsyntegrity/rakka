@@ -17,7 +17,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-CFG-32`, `Q-DSP-1`, `Q-DSP-2`, `Q-DSP-3`, `Q-DSP-4`, `Q-DSP-5`, `Q-DSP-6`, `Q-DSP-7`, `Q-MBX-11`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-31`, `Q-CFG-32`, `Q-DSP-1`, `Q-DSP-2`, `Q-DSP-3`, `Q-DSP-4`, `Q-DSP-5`, `Q-DSP-6`, `Q-DSP-7`, `Q-MBX-11`, `Q-REF-1`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -96,7 +96,7 @@ Filas: AC-DSP-023. Contratos y aserciones: `docs/inventory/contracts/classic-dis
 | AC-DSP-017.2 | Futures / CompletionStages / japi (ayudantes Java de futuros) | `std::future`/`futures` sin API propia (propuesta de exclusión Q-DSP-3) | actor-tests/src/test/java/org/apache/pekko/dispatch/CompletionStagesTests.java:38-144 ;… | Q-DSP-3 |
 | AC-DSP-018 | SerializedSuspendableExecutionContext | - | actor-tests/src/test/scala/org/apache/pekko/dispatch/ExecutionContextSpec.scala:260,280,3… | Q-DSP-3 |
 | AC-DSP-019 | Configuradores internos PekkoJdk9ForkJoinPool / ForkJoinPoolConstants /… | - | derivada del código (ver bloque de contrato) | Q-DSP-1, Q-DSP-6 |
-| AC-DSP-020 | Envelope y validación de mensaje nulo (InvalidMessageException) | tipo Envelope { message, sender } con validación | derivada del código (ver bloque de contrato) | Q-X-3 |
+| AC-DSP-020 | Envelope y validación de mensaje nulo (InvalidMessageException) | tipo Envelope { message, sender } con validación | derivada del código (ver bloque de contrato) | Q-REF-1, Q-X-3 |
 | AC-DSP-021 | BalancingDispatcherConfigurator: requisito MultipleConsumerSemantics y… | validación en la construcción del dispatcher | actor-tests/src/test/scala/org/apache/pekko/actor/ActorMailboxSpec.scala:440-459 | - |
 | AC-DSP-022 | Dispatchers.getConfig: resolución de alias devolviendo config vacía | función pura de resolución sobre Config | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/DispatchersSpec.scala:217-235 | Q-DSP-4 |
 | AC-DSP-023 | MessageDispatcher.suspend/resume por actor (guardas de identidad y… | `Dispatcher::suspend(cell)` / `resume(cell)` con la misma guarda | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:360-382 | Q-MBX-6 |
