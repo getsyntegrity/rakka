@@ -61,6 +61,8 @@ pub trait MessageQueue: Send + Sync {
 ///
 /// Pekko passes `(owner, system)`; here the type receives the system's `deadLetters`, which is all a queue needs to dead-letter a refusal
 /// without holding its owner (PROP-7B-1, alternative A). What the type promises about its queue is `produced_queue` (`ProducesMessageQueue`).
+///
+/// A panic while the type or its new queue is asked fails that actor's creation. With `panic = "abort"` nothing is caught (Q-X-5).
 pub trait MailboxType: Send + Sync + 'static {
     /// A new, empty queue for one mailbox.
     fn create(&self, dead_letters: &ActorRef) -> Box<dyn MessageQueue>;

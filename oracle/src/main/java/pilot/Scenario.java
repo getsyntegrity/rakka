@@ -59,6 +59,7 @@ final class Scenario {
     final CopyOnWriteArrayList<String> life = new CopyOnWriteArrayList<>(); // "label:pre-start", "label:post-stop", "label:terminated:<is>"
     final Map<Long, String> results = new ConcurrentHashMap<>(); // command id -> result fields
     final java.util.Set<String> failedPostRestart = ConcurrentHashMap.newKeySet(); // labels that already threw (`throw-in-post-restart: "once"`)
+    final java.util.Set<String> failedPreStart = ConcurrentHashMap.newKeySet(); // labels that already threw (`throw-in-prestart: "once"`)
     final java.util.concurrent.atomic.AtomicLong cmdIds = new java.util.concurrent.atomic.AtomicLong();
     ActorSystem system;
 
@@ -82,6 +83,17 @@ final class Scenario {
           + (i.ref().isDefined() ? Cli.Json.str(i.ref().get().path().toString()) : "null") + "}";
     }
     return m instanceof String ? Cli.Json.str((String) m) : "{\"class\":" + Cli.Json.str(m.getClass().getName()) + "}";
+  }
+
+  /** Config that lets {@code log.error} publish: level ERROR and no logger of its own besides the stdout one. */
+  static final String PUBLISH_LOG_ERRORS = "pekko.loglevel = ERROR\npekko.loggers = [\"org.apache.pekko.event.Logging$StandardOutLogger\"]\n";
+
+  /** Discards what Pekko prints to standard output by itself (the log events still queued when /system stops, with their time stamps)
+   *  until closed. Must be opened before the first Scala print, which keeps the stream it finds. */
+  static AutoCloseable muteStandardOutput() {
+    java.io.PrintStream real = System.out;
+    System.setOut(new java.io.PrintStream(java.io.OutputStream.nullOutputStream()));
+    return () -> System.setOut(real);
   }
 
   /** An actor that does nothing (slice 2a). */
@@ -120,6 +132,9 @@ final class Scenario {
       ctx.life.add(label + ":pre-start");
       // `throw-in-prestart`: `true`, or the shape of the cause chain of what is thrown
       Object shape = cfg.get("throw-in-prestart");
+      // `spawn-in-prestart: name`: a child made by `preStart`, before it can fail; `"once"` fails only the first `preStart` of the label
+      if (cfg.get("spawn-in-prestart") != null) getContext().actorOf(Props.create(Noop.class), (String) cfg.get("spawn-in-prestart"));
+      if ("once".equals(shape) && ctx.failedPreStart.add(label)) throw new IllegalStateException("init");
       if (Boolean.TRUE.equals(shape)) throw new IllegalStateException("init");
       if ("nested".equals(shape)) throw new IllegalStateException("init", new IllegalArgumentException("root"));
       if ("invocation".equals(shape)) throw new java.lang.reflect.InvocationTargetException(new IllegalStateException("inner"));

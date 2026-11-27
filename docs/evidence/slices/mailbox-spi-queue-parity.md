@@ -4,4 +4,4 @@
 
 `MBX-TQ-02/03` observan el informe de error no capturado, que pasa por un `LoggingAdapter`: la configuración del caso usa `loglevel = ERROR`, `use-slf4j = off` y ningún logger. Normalización: el número del hilo del pool se imprime como `N`.
 
-Estabilidad: `check_mailbox_oracle.py --runs 30` sobre la versión sin dividir (#448, 85 casos): `MBX-TQ-01..03` idénticos al golden en las 30 corridas. Las grabaciones son las mismas; el jar y el gemelo de esta división aún no se han compilado.
+Estabilidad: `check_mailbox_oracle.py --runs 30` sobre la versión sin dividir (#448, 85 casos): `MBX-TQ-01..03` idénticos al golden en las 30 corridas. Las grabaciones son las mismas; tras integrar `8317bdf3` se reconstruyó el jar y `mb-0036..0038` salieron idénticos byte a byte (`cmp`, una corrida cada uno).

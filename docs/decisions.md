@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 270 decisiones: 0 bloqueantes, 187 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 274 decisiones: 0 bloqueantes, 190 propuestas, 66 aceptadas, 15 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -366,6 +366,26 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) implementar como hook opcional detrás de feature de test cuando exista la unidad de serialización / (b) omitir / (c) comprobación en tiempo de compilación (Serialize bound)
 - **Recomendación:** (a), depende de AC-SER y de Q-X-3; hasta entonces las filas quedan en alcance con impl=pending [2026-10-31 cierre documental] Clasificación: arquitectura (modo de pruebas opcional) y exclusión parcial. Resuelto leyendo: el algoritmo vive en AC-SER-008.1/008.2 (classic-io-ser); AC-CELL-028/029 son sólo los puntos de integración (sendMessage / makeChild, antes de reservar el nombre) y se definen como fachadas. Consecuencia: sin SER no hay hook; con Box<dyn Any> sólo se verifican tipos registrados (ver Q-SER-4). Bloquea: `impl` de AC-CELL-028/029 hasta que exista SER. Puede avanzar: todo CELL.
 - **Filas afectadas:** AC-CELL-028 ; AC-CELL-029
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+
+### Q-CELL-8 — La fábrica de Props no recibe ActorContext: un actor no puede crear hijos en su constructor
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:86-99 ; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:861-912 ; crates/rakka-actor/src/actor/props.rs Props::new(Fn() -> A)
+- **Alternativas:** (a) permitir que la fábrica reciba el ActorContext de la celda que se está creando / (b) aceptar la divergencia y portar esos specs creando los hijos en pre_start / (c) dejar las aserciones bloqueadas
+- **Recomendación:** (a), por Q-X-21 (c). Consecuencia hoy: los specs que crean hijos en el constructor no se pueden portar 1:1 y las filas afectadas quedan sin cerrar
+- **Filas afectadas:** AC-CELL-007.2 ; AC-CELL-013.2 ; AC-SUP-011
+- **Unidades afectadas:** CELL ; SUP
+- **Origen:** classic-cell
+
+### Q-CELL-9 — Qué fallos del SPI de mailbox se atrapan al crear un actor
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:721-726 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:112-121 ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) atrapar todo panic o Throwable desenrollado / (b) volver a lanzar los Throwable cuya clase no sería NonFatal en la JVM
+- **Recomendación:** (a), implementada provisionalmente. Consecuencia: un Throwable con clase de error fatal también acaba en ConfigurationException o ActorInitializationException; en Pekko escaparía
+- **Filas afectadas:** AC-CELL-027
 - **Unidades afectadas:** CELL
 - **Origen:** classic-cell
 
@@ -917,6 +937,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** (b) como destino de paridad (criterio del Owner, 2026-11-21: la creación asíncrona de hijos, la supervisión y la propagación de fallos son contratos pendientes; la creación síncrona actual es un estado TRANSITORIO explícito, no una desviación aceptada). División vertical: A) `RepointableActorRef` y `UnstartedCell` como tipos propios, sin conectar a `actor_of` (cola de usuario y de sistema, instalación de la celda real con los mensajes de sistema primero y los de usuario en orden; oráculo MBX-UC-01..04); B) conectar `attach_child` con `Supervise(async=true)` SÓLO en la ruta de `system.actorOf`/`attachChild` (en Pekko `context.actorOf` es síncrono: `makeChild(async = false)`, un `LocalActorRef` ya adjunto), con la suspensión heredada en ambas (arranque dentro del turno del padre, hijo que hereda la suspensión del padre; cambia el momento de arranque de todos los actores: revalida el corpus de 2960 casos, los 407 escenarios y los fuzzers de jerarquía/tell/escenarios); C) rutas de fallo: `catchFailures`/`initWithFailure` y el rechazo en `attach` (MBX-RJ-05: falla el supervisor y el actor nuevo no arranca). Consecuencias observables: sólo el momento de arranque, el orden de los mensajes previos al arranque y los fallos de creación; nada de PR 6 queda bloqueado. Registro de la respuesta pendiente en docs/decisions/owner-decisions.tsv (sólo lo edita el Owner).
 - **Filas afectadas:** AC-DSP-002,AC-CELL-003,AC-MBX-002
 - **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+
+### Q-MBX-17 — Qué fallos de la cola del usuario se atrapan al enviar y durante un turno
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-171 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:875-897 ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) atrapar todo panic o Throwable desenrollado / (b) imitar a Pekko: dejar escapar los fatales al enviar y, en un turno, apagar el sistema
+- **Recomendación:** (a), implementada provisionalmente. Consecuencia: en Pekko un error fatal durante un turno va a la rama del uncaughtExceptionHandler que apaga el sistema (o la JVM con jvm-exit-on-fatal-error) y al enviar llega al emisor; Rakka lo informa y sigue funcionando
+- **Filas afectadas:** AC-CELL-030 ; AC-MBX-002
+- **Unidades afectadas:** CELL ; MBX
 - **Origen:** classic-dispatch
 
 ### Q-PATH-7 — Address.parse / AddressFromURIString.apply con un octeto IPv4 embebido fuera de rango en un literal IPv6: NumberFormatException de Pekko vs MalformedURLException
@@ -2421,6 +2451,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 - **Respuesta del Owner:** aceptar (a): MessageQueue::as_deque() -> Option<&dyn DequeBasedMessageQueue>, con None por defecto. Registrada en owner-decisions.tsv en representación del Owner, con su autorización expresa. No aprueba Q-MBX-2, que sigue propuesta. (Owner (instrucción en la sesión), 2026-11-26)
+
+### Q-MBX-16 — El `within(30.seconds)` del ping-pong patológico mide rendimiento: ¿gate o medición aparte?
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** MailboxConfigSpec.scala:322-329 (Pekko 2.0.0). El tiempo depende de la carga: 7-24 s en ejecuciones instrumentadas y 30,5 s con QoS de fondo, con todos los mensajes entregados y ninguna ventana de 1 s sin entregas; una ejecución de 140 s de los tests nuevos entregó todo, pero sus pausas no se midieron (docs/evidence/mailbox-single-consumer.md).
+- **Alternativas:** (a) tests por defecto SIN NINGUNA cota superior de duración (muestrean cada 10 s y fallan si no hubo entregas; un cuelgue se informa a los 10-20 s aprox.) y los 30 s en tests `#[ignore]`; (b) los 30 s como gate; (c) (a) más cambiar la espera de `ThreadPool` y reevaluar (b)
+- **Recomendación:** (a), implementada provisionalmente; una regresión de rendimiento sin cuelgue ya no hace fallar los gates, y como el gate `test` no fija timeout, una ejecución degradada pero con avance lo detiene en lugar de hacerlo fallar
+- **Filas afectadas:** AC-MBX-006
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** ACCEPTED, opción (c), con condiciones. La exclusión del límite de 30 segundos del gate habitual es provisional. El criterio original de Pekko debe conservarse. Investigar y corregir la contención del ThreadPool mediante TDD, con mediciones antes y después. Las pruebas de rendimiento no deben quedar permanentemente ignoradas. Reevaluar la reincorporación del límite de 30 segundos al gate después de corregir el ThreadPool. La política definitiva de rendimiento requiere aprobación del Owner. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
 
 ### Q-PATH-1 — Cómo ordenar listas de Address con un comparador que no es orden total
 
