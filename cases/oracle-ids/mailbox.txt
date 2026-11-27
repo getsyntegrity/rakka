@@ -74,5 +74,17 @@ MBX-CMP-01 an actor whose requirement the queue promised by the selected mailbox
 MBX-CMP-02 the queue of the selected mailbox must fulfill the requirement of the dispatcher and that of the actor, the dispatcher's reported first; an actor binding that does not fit gives way to the dispatcher's binding
 MBX-CMP-03 a type that promises its queue is checked against the queue it creates when the actor is made: actorOf returns, the actor fails to initialise and stops, and its name is free
 MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created
+MBX-GRD-02 Kill to /user: the strategy of the root guardian logs and stops it, and the system terminates
+MBX-GRD-03 Kill to the root guardian: the bubble walker logs, /user stops, and whenTerminated stays pending
+MBX-GRD-04 Kill to /system: the strategy of the root guardian logs and stops it, and the system terminates
+MBX-RJ-08 an attach rejected twice while /user supervises: the root guardian stops /user and the system terminates
 MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head
 MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue
+MBX-TT-01 context.actorOf with a mailbox type that throws fails at the call with a ConfigurationException: no child is registered and the name is free
+MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates
+MBX-TQ-01 an enqueue that throws does not reach the caller of tell: an Error is published and the actor goes on
+MBX-TQ-02 a dequeue that throws ends the turn with an uncaught-error report: the thread survives and the queued messages are processed
+MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again
+MBX-TQ-04 a cleanUp that throws when the actor stops: the watcher still gets Terminated, what was queued is lost, the name is free and the system terminates
+MBX-TQ-05 an event published to a subscriber whose enqueue throws publishes the swallowed send, and the other subscribers still get the event
+MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order
