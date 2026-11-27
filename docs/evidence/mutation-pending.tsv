@@ -53,3 +53,5 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #441	00a57110	126	thrown-mailbox-failure-loses-its-message	none	126 not run (Q-X-23)	PENDING
 #441	ee846c25	126	thrown-mailbox-failure-loses-its-message	none	126 not run (Q-X-23)	PENDING
 #442	3b200e7c	395	none	none	395 not run (Q-X-23)	PENDING
+#444	b755a5b5	85	thrown-enqueue-failure-is-not-reported	none	85 not run (Q-X-23)	PENDING
+#452	36316268	87	uncaught-turn-failure-is-not-reported; uncaught-report-is-published-guarded	none	87 not run (Q-X-23)	PENDING
