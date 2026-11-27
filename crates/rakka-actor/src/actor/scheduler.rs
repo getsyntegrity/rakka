@@ -1,8 +1,7 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/Scheduler.scala, actor/src/main/scala/org/apache/pekko/actor/LightArrayRevolverScheduler.scala and actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala (Apache-2.0).
 //! `system.scheduler`: one-shot message scheduling on the revolving wheel, driven by one thread per actor system.
 //! Not here yet: periodic scheduling, tasks that are not messages (`Runnable`, `SchedulerTask`, `TaskRunOnClose`), the
-//! `pekko.scheduler.*` settings and `shutdown-timeout`, closing at system termination, a pluggable implementation and the
-//! recovery of the timer thread.
+//! `pekko.scheduler.*` settings and `shutdown-timeout`, a pluggable implementation and the recovery of the timer thread.
 //!
 //! **Q-SCH-1 (a) is not fulfilled yet.** It asks for an injectable `Clock` and `Waiter`, so that the deterministic cases of
 //! `SchedulerSpec` port one to one. The timer thread hardcodes `NanoClock` and `thread::park_timeout`, and ignores the clock
@@ -12,7 +11,7 @@ use std::any::Any;
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use crate::actor::actor_ref::ActorRef;
@@ -65,29 +64,38 @@ impl fmt::Debug for Cancellable {
     }
 }
 
-/// Tasks the timer thread has not placed in the wheel yet.
-type Queue = Vec<Entry<Delivery>>;
+#[derive(Default)]
+struct Queue {
+    /// Tasks the timer thread has not placed in the wheel yet.
+    new: Vec<Entry<Delivery>>,
+    closed: bool,
+}
 
 /// `Scheduler`: reached through `ActorSystem::scheduler`.
 pub struct Scheduler {
     queue: Arc<Mutex<Queue>>,
     dispatcher: Arc<Dispatcher>,
+    thread: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl Scheduler {
     pub(crate) fn start(system_name: &str, dispatcher: Arc<Dispatcher>) -> Scheduler {
-        let queue = Arc::new(Mutex::new(Queue::new()));
+        let queue = Arc::new(Mutex::new(Queue::default()));
         let (timer_queue, timer_dispatcher) = (queue.clone(), dispatcher.clone());
-        thread::Builder::new()
+        let thread = thread::Builder::new()
             .name(format!("{system_name}-scheduler-1"))
             .spawn(move || run_timer(&timer_queue, &timer_dispatcher))
             .expect("spawn scheduler thread");
-        Scheduler { queue, dispatcher }
+        Scheduler {
+            queue,
+            dispatcher,
+            thread: Mutex::new(Some(thread)),
+        }
     }
 
     /// `scheduleOnce(delay, receiver, message)`: `target ! message` once, after `delay` rounded up to the next tick of 10 ms,
-    /// never earlier. A zero delay sends at once.
-    /// Fails with `IllegalArgumentException` for a delay of more than `Int.MaxValue` ticks.
+    /// never earlier. A zero delay sends at once. Fails with `IllegalStateException` once the system has terminated, and
+    /// with `IllegalArgumentException` for a delay of more than `Int.MaxValue` ticks.
     pub fn schedule_once<M: Any + Send + Sync>(
         &self,
         delay: Duration,
@@ -95,6 +103,7 @@ impl Scheduler {
         message: M,
         sender: Option<&ActorRef>,
     ) -> Result<Cancellable, ActorError> {
+        // declared before the guard of the queue: on an error the message is dropped after the lock is released
         let delivery = Delivery {
             target: target.clone(),
             message: Arc::new(message),
@@ -102,7 +111,15 @@ impl Scheduler {
         };
         let delay_nanos = i64::try_from(delay.as_nanos()).unwrap_or(i64::MAX);
         let delay_nanos = round_up(delay_nanos, TICK_NANOS);
+        let mut queue = self.queue.lock().unwrap();
+        if queue.closed {
+            return Err(ActorError::new(
+                ErrorClass::IllegalState,
+                "cannot enqueue after timer shutdown",
+            ));
+        }
         if delay_nanos == 0 {
+            drop(queue);
             deliver(&self.dispatcher, delivery);
             return Ok(Cancellable(None));
         }
@@ -110,11 +127,21 @@ impl Scheduler {
             return Err(too_far(delay_nanos));
         };
         let task = TimerTask::new(delivery);
-        self.queue.lock().unwrap().push(Entry {
+        queue.new.push(Entry {
             ticks,
             task: task.clone(),
         });
         Ok(Cancellable(Some(task)))
+    }
+
+    /// `close()`: stops the timer thread and discards what is pending. Called before `whenTerminated` completes.
+    pub(crate) fn close(&self) {
+        self.queue.lock().unwrap().closed = true;
+        let thread = self.thread.lock().unwrap().take();
+        if let Some(thread) = thread {
+            thread.thread().unpark();
+            drop_guarded(thread.join());
+        }
     }
 }
 
@@ -139,7 +166,7 @@ fn run_timer(queue: &Mutex<Queue>, dispatcher: &Dispatcher) {
         let now = clock.current_time();
         let sleep = wheel.sleep_nanos(now);
         let due = if sleep > 0 {
-            let new = std::mem::take(&mut *queue.lock().unwrap());
+            let new = std::mem::take(&mut queue.lock().unwrap().new);
             wheel.place(now, new)
         } else {
             wheel.advance()
@@ -147,8 +174,16 @@ fn run_timer(queue: &Mutex<Queue>, dispatcher: &Dispatcher) {
         for delivery in due.iter().filter_map(|task| task.take_to_execute()) {
             deliver(dispatcher, delivery);
         }
+        if queue.lock().unwrap().closed {
+            break;
+        }
         if let Ok(nanos) = u64::try_from(sleep) {
             thread::park_timeout(Duration::from_nanos(nanos));
         }
+    }
+    // `clearAll`: what is pending is never sent (Pekko only runs `TaskRunOnClose`); a handle can still cancel it
+    let new = std::mem::take(&mut queue.lock().unwrap().new);
+    for entry in wheel.clear().into_iter().chain(new) {
+        drop_guarded(entry);
     }
 }

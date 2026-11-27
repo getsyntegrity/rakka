@@ -27,3 +27,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #423	c4c35e7a	83	stop-during-restart-skips-the-replaced-instance	none	83 not run (Q-X-23)	PENDING
 #424	772c33f1	39	wheel-forgets-the-remaining-rounds	none	39 not run (Q-X-23)	PENDING
 #425	14b4e1c5	119	scheduled-message-loses-its-sender	none	119 not run (Q-X-23)	PENDING
+#426	71361c78	120	terminated-system-keeps-its-scheduler	none	120 not run (Q-X-23)	PENDING
