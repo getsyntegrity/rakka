@@ -39,27 +39,26 @@ enum Job {
     Task(Task),
 }
 
-/// The jobs waiting for a worker and what is known about the workers; one mutex guards all of it.
-///
-/// A `true` from `push` or `pop` obliges the caller to notify one sleeping worker. At most one notification is on its way:
-/// waking a thread costs far more than a mailbox turn, and a worker that is about to finish usually takes the job first.
-/// So whenever the lock is free, no job waits, or no worker sleeps, or one is waking (it notifies the next if jobs remain).
+/// The state of a pool, under one mutex. A `true` from `push` or `pop` obliges the caller to notify one sleeper. Only one
+/// notification is on its way at a time, because waking a thread costs far more than a mailbox turn: whenever the lock is
+/// free, no job waits, or no worker sleeps, or one is waking (it notifies the next if jobs remain).
 pub(crate) struct RunQueue<T> {
     jobs: VecDeque<T>,
     workers: usize,
     sleepers: usize,
     waking: bool,
-    closed: bool,
+    pub(crate) closed: bool,
 }
 
 impl<T> RunQueue<T> {
     pub(crate) fn new(workers: usize) -> Self {
+        let (jobs, sleepers, waking, closed) = Default::default();
         RunQueue {
-            jobs: VecDeque::new(),
+            jobs,
             workers,
-            sleepers: 0,
-            waking: false,
-            closed: false,
+            sleepers,
+            waking,
+            closed,
         }
     }
 
@@ -95,14 +94,6 @@ impl<T> RunQueue<T> {
         self.waking = false;
     }
 
-    pub(crate) fn close(&mut self) {
-        self.closed = true;
-    }
-
-    pub(crate) fn is_closed(&self) -> bool {
-        self.closed
-    }
-
     /// A worker thread died. With none left the queue closes and gives back what nobody will run.
     pub(crate) fn lose_worker(&mut self) -> VecDeque<T> {
         self.workers -= 1;
@@ -132,7 +123,7 @@ impl SharedQueue {
                 }
                 return Some(job);
             }
-            if queue.is_closed() {
+            if queue.closed {
                 return None;
             }
             queue.sleep();
@@ -186,9 +177,7 @@ impl ThreadPool {
         }
         ThreadPool { shared }
     }
-}
 
-impl ThreadPool {
     fn submit(&self, job: Job) -> Result<(), Rejected> {
         // the lock is released at the end of this statement, before a refused job is dropped
         let pushed = self.shared.queue.lock().unwrap().push(job);
@@ -217,13 +206,13 @@ impl Executor for ThreadPool {
     }
 
     fn shutdown(&self) {
-        self.shared.queue.lock().unwrap().close();
+        self.shared.queue.lock().unwrap().closed = true;
         self.shared.notified.notify_all();
     }
 
     #[cfg(test)]
     fn is_shut_down(&self) -> bool {
-        self.shared.queue.lock().unwrap().is_closed()
+        self.shared.queue.lock().unwrap().closed
     }
 }
 

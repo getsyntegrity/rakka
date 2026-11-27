@@ -7,9 +7,9 @@ use std::sync::mpsc::{RecvTimeoutError, Sender, channel};
 use std::time::Duration;
 
 const LIMIT: Duration = Duration::from_secs(10);
+const GONE: Result<(), RecvTimeoutError> = Err(RecvTimeoutError::Disconnected);
 
-// ---- the queue alone: which job comes next and when a sleeping worker has to be notified (the `true` flags) ----
-
+/// For the queue alone, where a `true` asks to notify a sleeping worker.
 fn queue_with_sleepers(sleepers: usize) -> RunQueue<u32> {
     let mut queue = RunQueue::new(sleepers);
     (0..sleepers).for_each(|_| queue.sleep());
@@ -17,13 +17,9 @@ fn queue_with_sleepers(sleepers: usize) -> RunQueue<u32> {
 }
 
 #[test]
-fn a_job_notifies_a_worker_only_if_one_sleeps() {
+fn no_second_worker_is_notified_while_one_is_waking() {
     assert_eq!(queue_with_sleepers(0).push(1), Ok(false));
     assert_eq!(queue_with_sleepers(1).push(1), Ok(true));
-}
-
-#[test]
-fn no_second_worker_is_notified_while_one_is_waking() {
     let mut queue = queue_with_sleepers(3);
     assert_eq!(queue.push(1), Ok(true));
     assert_eq!(queue.push(2), Ok(false));
@@ -44,21 +40,21 @@ fn the_woken_worker_notifies_the_next_one_while_jobs_remain() {
 fn a_closed_queue_hands_a_new_job_back_and_still_gives_the_queued_ones_in_order() {
     let mut queue = queue_with_sleepers(0);
     let _ = (queue.push(1), queue.push(2));
-    queue.close();
+    queue.closed = true;
     assert_eq!(queue.push(3), Err(3));
     assert_eq!(queue.pop(), Some((1, false)));
     assert_eq!(queue.pop(), Some((2, false)));
     assert_eq!(queue.pop(), None);
-    assert!(queue.is_closed());
+    assert!(queue.closed);
 }
 
-/// A turn that panics out of the cell takes its thread: with none left, nothing may wait for ever in the queue.
+/// Were every thread to die, nothing may wait for ever in the queue.
 #[test]
 fn losing_the_last_worker_closes_the_queue_and_gives_back_its_jobs() {
     let mut queue = RunQueue::new(2);
     assert_eq!(queue.push(1), Ok(false));
     assert!(queue.lose_worker().is_empty());
-    assert!(!queue.is_closed());
+    assert!(!queue.closed);
     assert_eq!(queue.lose_worker(), [1]);
     assert_eq!(queue.push(2), Err(2));
 }
@@ -87,10 +83,7 @@ fn shutdown_runs_what_is_queued_rejects_later_tasks_and_ends_the_worker() {
     release.send(()).unwrap();
     let order: Vec<i32> = (0..3).map(|_| runs.recv_timeout(LIMIT).unwrap()).collect();
     assert_eq!(order, [0, 1, 2]);
-    assert_eq!(
-        exited.recv_timeout(LIMIT),
-        Err(RecvTimeoutError::Disconnected)
-    );
+    assert_eq!(exited.recv_timeout(LIMIT), GONE);
 }
 
 #[test]
@@ -99,10 +92,7 @@ fn dropping_the_pool_ends_its_worker() {
     let (alive, exited) = channel();
     hold_until_the_worker_exits(&pool, alive);
     drop(pool);
-    assert_eq!(
-        exited.recv_timeout(LIMIT),
-        Err(RecvTimeoutError::Disconnected)
-    );
+    assert_eq!(exited.recv_timeout(LIMIT), GONE);
 }
 
 /// A task that queues another one and blocks until it ran: no worker may keep for itself what it submits.

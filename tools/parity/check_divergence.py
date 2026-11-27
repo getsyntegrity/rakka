@@ -2570,7 +2570,6 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
-    # a cost, not a result: no recorded case can see how many threads are woken
     "pool-notifies-while-a-worker-is-already-waking": ("dispatch::thread_pool_tests", "no_second_worker_is_notified_while_one_is_waking"),
     "declaration-over-a-known-class-is-followed": ("test:classic_throwable_known_classes", "a_known_superclass_of_a_user_class_keeps_its_hierarchy"),
     "declared-superclasses-are-ignored": ("actor::fault", "declared_superclasses_replace_the_default_and_continue_from_the_last_one"),
