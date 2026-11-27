@@ -35,3 +35,5 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #431	c44d0cd1	95	fixed-delay-outlives-its-target; cancelled-repetition-schedules-again	none	95 not run (Q-X-23)	PENDING
 #432	c83d733d	95	none	none	95 not run (Q-X-23)	PENDING
 #433	98705086	389	none	none	389 not run (Q-X-23)	PENDING
+#430	3d1c3cae	22	dead-letters-are-not-terminated; event-stream-drops-dead-letters	none	22 not run (Q-X-23)	PENDING
+#433	da9e095d	390	none	none	390 not run (Q-X-23)	PENDING
