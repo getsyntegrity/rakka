@@ -12,7 +12,7 @@ Filas: AC-UTIL-009 (A7), AC-CFG-012.2 (B1/B2 de `p10-strict-parity-matrix.md`). 
 - `WildcardTree` mantiene `wildcard_suffix_children` en ese orden tras cada alta (`sort_suffix_children_in_hash_map_order`); reinsertar un prefijo conserva su posición.
 - Replay: **2886/2886 aplicables, 0 diverge, 1 no aplicable** (antes 2810; +76 casos `dr-0061..dr-0136`; `dr-0059/0060` pasan a ser DL-60/61 y los casos de concurrencia DC-01/02 son ahora `dr-0135/0136`).
 - Colisión completa: `tools/parity/find_prefix_hash_collision.py` encontró dos prefijos de un mismo elemento con igual `hashCode` (263630388). Pekko, con ambos órdenes de inserción, elige el primero insertado (DL-132/133); Rust igual.
-- Fuzz diferencial nuevo (`wildcard-winners` en el oráculo y el gemelo; `fuzz_wildcard_order.py`): seeds 1, 2 y 3, 20 000 conjuntos cada una, **0 diferencias**.
+- [Evidencia histórica, ejecutada en el slice P10 PR-B (2026-11-20); no repetida desde entonces] Fuzz diferencial nuevo (`wildcard-winners` en el oráculo y el gemelo; `fuzz_wildcard_order.py`): seeds 1, 2 y 3, 20 000 conjuntos cada una, **0 diferencias**.
 
 ## Mutantes nuevos (5): todos DETECTED, control CLEAN
 
