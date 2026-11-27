@@ -46,8 +46,7 @@ impl MessageQueue for Panics {
 }
 
 /// What the send of an event to a subscriber with that mailbox publishes (oracle case `MBX-TQ-05`).
-const SWALLOWED: &str =
-    "java.lang.RuntimeException: subscriber mailbox|Some(\"swallowing exception during message send\")";
+const SWALLOWED: &str = "java.lang.RuntimeException: subscriber mailbox|Some(\"swallowing exception during message send\")";
 
 /// Fails on any message, and again in `preRestart` and `postStop`.
 struct Failing(ActorRef);
