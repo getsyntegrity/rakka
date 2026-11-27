@@ -13,6 +13,7 @@ use crate::actor::cell::{ActorCell, LocalActorRef};
 use crate::actor::props::{
     Actor, ActorContext, ActorIdentity, AnyMessage, Identify, PoisonPill, Props,
 };
+use crate::actor::scheduler::Scheduler;
 use crate::actor::selection::ActorSelection;
 use crate::actor::{ActorError, ErrorClass};
 use crate::actor::{ActorPath, Address, Deployer, DeployerError};
@@ -125,6 +126,7 @@ pub(crate) struct SystemInner {
     pub settings: Settings,
     pub events: Arc<EventStream>,
     pub dispatcher: Arc<Dispatcher>,
+    scheduler: Scheduler,
     root_path: ActorPath,
     root_guardian: OnceLock<Arc<ActorCell>>,
     pub(crate) guardian: OnceLock<Arc<ActorCell>>,
@@ -460,6 +462,7 @@ impl ActorSystem {
             settings,
             events,
             dispatcher: dispatcher.clone(),
+            scheduler: Scheduler::start(name, dispatcher.clone()),
             root_path: root_path.clone(),
             root_guardian: OnceLock::new(),
             guardian: OnceLock::new(),
@@ -582,6 +585,11 @@ impl ActorSystem {
 
     pub fn settings(&self) -> &Settings {
         &self.0.settings
+    }
+
+    /// `system.scheduler`.
+    pub fn scheduler(&self) -> &Scheduler {
+        &self.0.scheduler
     }
 
     /// `system.actorOf(props)`: a top-level actor with a generated name (`$a`, `$b`, ...).

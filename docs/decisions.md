@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 267 decisiones: 0 bloqueantes, 187 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 268 decisiones: 0 bloqueantes, 188 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1136,6 +1136,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) Envelope especial de timer con generación interceptado antes de receive; (b) mensaje normal
 - **Recomendación:** [Clasificación: representación que conserva el contrato; depende de Q-X-3] (a) sobre interno de timer (key, generación, propietario, influencia en receive-timeout) interceptado antes de receive y del stash; auto-recibidos por la vía de autoReceive. Bloquea AC-SCH-011/012/013 hasta Q-X-3; no bloquea el resto del grupo.
 - **Filas afectadas:** AC-SCH-011,AC-SCH-012,AC-SCH-013
+- **Unidades afectadas:** SCH
+- **Origen:** classic-dispatch
+
+### Q-SCH-5 — API de `scheduleOnce`: tipo del retardo y executor implícito
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** Scheduler.scala:355-419 (delay: FiniteDuration; implicit ExecutionContext y sender); LightArrayRevolverScheduler.scala:181-186,223-253 (delay <= 0 envía de inmediato, sea cero o negativo); crates/rakka-actor/src/util/clock.rs (FixedDelayScheduler ya usa std::time::Duration)
+- **Alternativas:** (a) `std::time::Duration` y sin parámetro de executor: el envío corre en el dispatcher por defecto; (b) duración con signo (i64 nanosegundos, como `Timeout`, Q-UTIL-1); (c) parámetro de executor explícito
+- **Recomendación:** (a), implementada provisionalmente: un retardo negativo no se puede expresar y se comporta en Pekko igual que cero; el port aún no expone ningún ExecutionContext. Un retardo de más de i64::MAX ns (inexpresable en Pekko) se rechaza como demasiado lejano, con los segundos saturados en el texto
+- **Filas afectadas:** AC-SCH-001
 - **Unidades afectadas:** SCH
 - **Origen:** classic-dispatch
 

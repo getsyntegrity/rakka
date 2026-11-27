@@ -23,10 +23,10 @@ pub mod props;
 #[cfg(test)]
 mod refailure_tests;
 pub(crate) mod repointable;
+pub mod scheduler;
 pub mod selection;
 pub mod supervision;
 pub mod system;
-#[cfg_attr(not(test), allow(dead_code))] // driven by the scheduler thread, which follows
 mod timer_wheel;
 #[cfg(test)]
 mod unstarted_push_timeout_tests;
