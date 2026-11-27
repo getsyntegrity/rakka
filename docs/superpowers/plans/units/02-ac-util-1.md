@@ -1,12 +1,12 @@
 # Spec 02 — AC-UTIL (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 28. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 27. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-002.4, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.3, AC-UTIL-005.1, AC-UTIL-005.2, AC-UTIL-006.2, AC-UTIL-006.3, AC-UTIL-006.5, AC-UTIL-006.7, AC-UTIL-007, AC-UTIL-010, AC-UTIL-011, AC-UTIL-012, AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.4, AC-UTIL-016.5, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.8, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-016.14, AC-UTIL-016.15, AC-UTIL-016.16, AC-UTIL-017.1, AC-UTIL-017.2, AC-UTIL-017.3, AC-UTIL-017.4, AC-UTIL-017.5, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
+Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC-UTIL-002.3, AC-UTIL-002.4, AC-UTIL-003.1, AC-UTIL-003.2, AC-UTIL-004.1, AC-UTIL-004.2, AC-UTIL-004.3, AC-UTIL-005.1, AC-UTIL-005.2, AC-UTIL-006.2, AC-UTIL-006.3, AC-UTIL-006.5, AC-UTIL-006.7, AC-UTIL-007, AC-UTIL-010, AC-UTIL-011, AC-UTIL-012, AC-UTIL-013, AC-UTIL-014, AC-UTIL-015.1, AC-UTIL-015.2, AC-UTIL-016.4, AC-UTIL-016.5, AC-UTIL-016.6, AC-UTIL-016.7, AC-UTIL-016.8, AC-UTIL-016.12, AC-UTIL-016.13, AC-UTIL-016.14, AC-UTIL-016.15, AC-UTIL-016.16, AC-UTIL-017.1, AC-UTIL-017.2, AC-UTIL-017.3, AC-UTIL-017.4, AC-UTIL-017.5, AC-UTIL-023, AC-UTIL-024, AC-UTIL-026, AC-UTIL-028.
 
 ## Prerrequisitos
 
@@ -19,7 +19,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-UTIL-002.1, AC-UTIL-002.2, AC
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-15`, `Q-DSP-3`, `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-21`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`, `Q-UTIL-27`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-15`, `Q-DSP-3`, `Q-UTIL-18`, `Q-UTIL-19`, `Q-UTIL-20`, `Q-UTIL-22`, `Q-UTIL-23`, `Q-UTIL-24`, `Q-UTIL-25`, `Q-UTIL-26`, `Q-UTIL-27`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -30,43 +30,43 @@ casos rust-anything contra Pekko 2.0.0 (JDK 17): `oracle/` (comando `util-core-c
 
 ### Tarea 1: Timeout (duración para ask/resolveOne) (+5 filas)
 
-Filas: AC-UTIL-001, AC-UTIL-002.5, AC-UTIL-004.2, AC-UTIL-006.1, AC-UTIL-006.4, AC-UTIL-006.8. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-001, AC-UTIL-002.5, AC-UTIL-006.1, AC-UTIL-006.4, AC-UTIL-006.8, AC-UTIL-006.6. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 2: ByteString: factorías y conversiones (String, Array, ByteBuffer, Base64, charset,… (+5 filas)
+### Tarea 2: SubclassifiedIndex / Subclassification (+5 filas)
 
-Filas: AC-UTIL-006.6, AC-UTIL-008, AC-UTIL-009, AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
-
-1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
-2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
-3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
-4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
-
-### Tarea 3: ManifestInfo (versiones de módulos Pekko en el classpath) (+5 filas)
-
-Filas: AC-UTIL-016.9, AC-UTIL-016.10, AC-UTIL-016.11, AC-UTIL-016.17, AC-UTIL-016.18, AC-UTIL-018.1. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-008, AC-UTIL-009, AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.9. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 4: OptionConverters / FunctionConverters / JavaDurationConverters (+5 filas)
+### Tarea 3: JavaVersion (major de java.specification.version) (+5 filas)
 
-Filas: AC-UTIL-018.2, AC-UTIL-018.3, AC-UTIL-018.4, AC-UTIL-018.5, AC-UTIL-019, AC-UTIL-020. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-016.10, AC-UTIL-016.11, AC-UTIL-016.17, AC-UTIL-016.18, AC-UTIL-018.1, AC-UTIL-018.2. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 5: Filtros MiMa (compatibilidad binaria) (+3 filas)
+### Tarea 4: ccompat (JavaConverters, compat.Future/PartialFunction) y shims de Scala 2.12 (+5 filas)
 
-Filas: AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-UTIL-018.3, AC-UTIL-018.4, AC-UTIL-018.5, AC-UTIL-019, AC-UTIL-020, AC-UTIL-021. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 5: UnsynchronizedByteArrayInputStream, ByteStringInputStream, ByteBufferCleaner (+2 filas)
+
+Filas: AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -79,7 +79,6 @@ Filas: AC-UTIL-021, AC-UTIL-022, AC-UTIL-025, AC-UTIL-027. Contratos y asercione
 |---|---|---|---|---|
 | AC-UTIL-001 | Timeout (duración para ask/resolveOne) | `pub struct Timeout(i64)` Copy: nanosegundos con signo, invariante único \|nanos\| <=… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorTimeoutSpec.scala:34-45… | Q-UTIL-1, Q-UTIL-2 |
 | AC-UTIL-002.5 | ConfigOps.renderWithRedactions (toString de Settings con datos sensibles… | `Config::render_with_redactions(&self) -> String` | derivada del código (ver bloque de contrato) | Q-CFG-15, Q-CFG-30, Q-CFG-4 |
-| AC-UTIL-004.2 | ConfigurationException | `struct ConfigurationException` (tipo separado) con `From` a PekkoException si hace falta | derivada del código (ver bloque de contrato) | Q-UTIL-17, Q-UTIL-3, Q-UTIL-4, Q-X-9 |
 | AC-UTIL-006.1 | ByteString inmutable (ByteString1C, ByteString1, ByteStrings; factories,… | `rakka_actor::util::byte_string::ByteString` (newtype sobre `bytes::Bytes`):… | actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:372-696 ;… | Q-UTIL-12, Q-UTIL-14, Q-UTIL-23, Q-UTIL-8 |
 | AC-UTIL-006.4 | ByteIterator (lectura de primitivos con byte order, getBytes, take/drop) | `ByteIterator` (cursor sobre `Bytes`; `next_byte`, `head`, `len`, `size`,… | actor-tests/src/test/scala/org/apache/pekko/util/ByteIteratorSpec.scala:24-93 ;… | Q-UTIL-12, Q-UTIL-23, Q-UTIL-24 |
 | AC-UTIL-006.8 | ByteString: serialización Java (SerializationProxy, identidades 0/1/2) | sin equivalente directo (serialización Java); depende de Q-X-3/Q-CFG-11 y del módulo… | actor-tests/src/test/scala/org/apache/pekko/util/ByteStringSpec.scala:2461-2527 | Q-CFG-11, Q-UTIL-11, Q-UTIL-12, Q-UTIL-26, Q-X-3 |

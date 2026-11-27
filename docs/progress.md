@@ -7,16 +7,16 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 521 | 48 | 141 | 332 | 4 | 9.2 % | 36.3 % |
+| Classic (`rakka-actor`) | 521 | 53 | 136 | 332 | 4 | 10.2 % | 36.3 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 781 | 48 | 141 | 592 | 4 | 6.1 % | 24.2 % |
+| **Total** | 781 | 53 | 136 | 592 | 4 | 6.8 % | 24.2 % |
 
 ## Por ola
 
 | Ola | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| 0 - valores sin runtime | 57 | 36 | 20 | 1 | 4 | 63.2 % | 98.2 % |
-| 1 - configuracion, eventos y scheduler | 70 | 4 | 46 | 20 | 0 | 5.7 % | 71.4 % |
+| 0 - valores sin runtime | 57 | 37 | 19 | 1 | 4 | 64.9 % | 98.2 % |
+| 1 - configuracion, eventos y scheduler | 70 | 8 | 42 | 20 | 0 | 11.4 % | 71.4 % |
 | 2 - nucleo del runtime Classic | 134 | 8 | 58 | 68 | 0 | 6.0 % | 49.3 % |
 | 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 16 | 29 | 0 | 0.0 % | 35.6 % |
 | 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0 | 0.0 % | 0.0 % |
@@ -30,8 +30,8 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Unidad | Ola | En alcance | done | partial | pending | excluded | % done | % done + partial | Áreas comparadas |
 |---|---|---|---|---|---|---|---|---|---|
-| P01 PATH | 1 | 16 | 3 | 13 | 0 | 0 | 18.8 % | 100.0 % | sí |
-| P02 UTIL-NUCLEO | 0 | 8 | 6 | 2 | 0 | 1 | 75.0 % | 100.0 % | sí |
+| P01 PATH | 1 | 16 | 7 | 9 | 0 | 0 | 43.8 % | 100.0 % | sí |
+| P02 UTIL-NUCLEO | 0 | 8 | 7 | 1 | 0 | 1 | 87.5 % | 100.0 % | sí |
 | P03 UTIL-ESTRUCTURAS | 0 | 16 | 14 | 2 | 0 | 0 | 87.5 % | 100.0 % | sí |
 | P04 UTIL-BYTES | 0 | 9 | 4 | 5 | 0 | 0 | 44.4 % | 100.0 % | sí |
 | P05 UTIL-GLOB | 0 | 1 | 1 | 0 | 0 | 0 | 100.0 % | 100.0 % | sí |
@@ -134,7 +134,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-IO | 35 | 0 | 0 | 35 | 0 | 0.0 % | 0.0 % | no |
 | AC-JAPI | 21 | 0 | 0 | 21 | 0 | 0.0 % | 0.0 % | no |
 | AC-MBX | 23 | 0 | 8 | 15 | 0 | 0.0 % | 34.8 % | sí |
-| AC-PATH | 16 | 3 | 13 | 0 | 0 | 18.8 % | 100.0 % | sí |
+| AC-PATH | 16 | 7 | 9 | 0 | 0 | 43.8 % | 100.0 % | sí |
 | AC-REF | 32 | 1 | 13 | 18 | 0 | 3.1 % | 43.8 % | sí |
 | AC-RT | 22 | 0 | 0 | 22 | 0 | 0.0 % | 0.0 % | no |
 | AC-SCH | 17 | 0 | 7 | 10 | 0 | 0.0 % | 41.2 % | no |
@@ -142,7 +142,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-SUP | 22 | 1 | 16 | 5 | 0 | 4.5 % | 77.3 % | sí |
 | AC-SYS | 27 | 0 | 7 | 20 | 0 | 0.0 % | 25.9 % | sí |
 | AC-TK | 27 | 0 | 0 | 27 | 0 | 0.0 % | 0.0 % | no |
-| AC-UTIL | 65 | 37 | 21 | 7 | 4 | 56.9 % | 89.2 % | sí |
+| AC-UTIL | 65 | 38 | 20 | 7 | 4 | 58.5 % | 89.2 % | sí |
 | AT-ADP | 13 | 0 | 0 | 13 | 0 | 0.0 % | 0.0 % | no |
 | AT-ASK | 4 | 0 | 0 | 4 | 0 | 0.0 % | 0.0 % | no |
 | AT-BEH | 26 | 0 | 0 | 26 | 0 | 0.0 % | 0.0 % | no |
@@ -173,7 +173,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 
 ## Filas con nota «revisar contra 2.0.0»
 
-540 filas (24 done, 88 partial, 428 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
+540 filas (25 done, 87 partial, 428 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
 
 ## Casos grabados y filas que cubren
 
