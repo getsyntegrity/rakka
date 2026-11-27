@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 278 decisiones: 0 bloqueantes, 192 propuestas, 66 aceptadas, 17 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 279 decisiones: 0 bloqueantes, 193 propuestas, 66 aceptadas, 17 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -937,6 +937,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** (a), implementada provisionalmente. Consecuencia: el default de Pekko es `pekko.jvm-exit-on-fatal-error = on` (reference.conf:90): un error fatal en un hilo del pool durante un turno termina la JVM (`System.exit(-1)`); sólo con `off` se llama `terminate()`. Al enviar, el fatal llega al emisor. Rakka lo informa y sigue funcionando
 - **Filas afectadas:** AC-CELL-030 ; AC-MBX-002
 - **Unidades afectadas:** CELL ; MBX
+- **Origen:** classic-dispatch
+
+### Q-MBX-18 — Política de rendimiento del ping-pong tras corregir la contención del `ThreadPool`
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** MailboxConfigSpec.scala:322-329 (Pekko 2.0.0) ; docs/evidence/dispatcher-queue-contention.md
+- **Alternativas:** (a) mantener el `within(30.seconds)` original en el gate habitual (opción (b) de Q-MBX-16), nunca en QoS background, más mediciones antes/después en los cambios de `dispatch/` o de la planificación de la celda, en MILESTONE y antes de un release; (b) dejar los 30 s fuera del gate y sólo como medición con esa política
+- **Recomendación:** (a) propuesta, sin aplicar. Una medición fallida bloquea que el PR salga de borrador o se fusione, que el MILESTONE pase y que se publique el release, hasta corregirlo o una decisión del Owner; no se reintenta hasta que pase. El máximo observado sin inanición (7,89 s) es de una sola máquina; no se midió con builds concurrentes, en Linux ni con pocos núcleos, y con QoS background y CPU sobresuscrita el límite falla antes y después
+- **Filas afectadas:** AC-MBX-006
+- **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 
 ### Q-PATH-7 — Address.parse / AddressFromURIString.apply con un octeto IPv4 embebido fuera de rango en un literal IPv6: NumberFormatException de Pekko vs MalformedURLException
