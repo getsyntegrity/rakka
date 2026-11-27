@@ -12,7 +12,7 @@ use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, PoisonPill, Pro
 use rakka_actor::actor::system::{ActorSystem, Settings};
 use rakka_actor::actor::{ActorError, ErrorClass};
 use rakka_actor::dispatch::Terminated;
-use rakka_actor::event::{Channel, DeadLetter};
+use rakka_actor::event::{Channel, DeadLetter, UnhandledMessage};
 
 /// Stores every message of type `T` it receives.
 struct Collect<T>(Arc<Mutex<Vec<T>>>);
@@ -118,6 +118,51 @@ fn unsubscribed_actors_stop_receiving_events() {
     ghost.tell("two".to_string(), None);
     settle_for_absence();
     assert_eq!(got.lock().unwrap().len(), 1, "no event after unsubscribe");
+}
+
+#[test]
+fn dead_letters_stays_subscribed_to_the_event_stream_and_forwards_what_it_gets() {
+    let sys = RunningSystem::create("t-dl-sub");
+    let (listener, got) = collector::<DeadLetter>(&sys, "listener");
+    sys.event_stream().subscribe(&listener, Channel::DeadLetter);
+    sys.event_stream()
+        .subscribe(&sys.dead_letters(), Channel::UnhandledMessage);
+    let (deaf, _) = collector::<String>(&sys, "deaf");
+    for i in 0..3u32 {
+        deaf.tell(i, None);
+    }
+    wait_until("3 dead letters", || got.lock().unwrap().len() == 3);
+    for dead in got.lock().unwrap().iter() {
+        assert!(dead.message.is::<UnhandledMessage>());
+        assert_eq!(
+            (path_of(&dead.sender), path_of(&dead.recipient)),
+            (
+                "pekko://t-dl-sub/deadLetters".into(),
+                "pekko://t-dl-sub/deadLetters".into()
+            )
+        );
+    }
+}
+
+/// Pekko publishes the dead letter to `deadLetters` again and again, until `StackOverflowError` (Q-REF-12, proposed).
+#[test]
+fn dead_letters_subscribed_to_dead_letters_does_not_publish_them_again() {
+    let sys = RunningSystem::create("t-dl-loop");
+    let (listener, got) = collector::<DeadLetter>(&sys, "listener");
+    sys.event_stream()
+        .subscribe(&sys.dead_letters(), Channel::DeadLetter);
+    sys.event_stream().subscribe(&listener, Channel::DeadLetter);
+    sys.dead_letters().tell("first".to_string(), None);
+    sys.dead_letters().tell("second".to_string(), None);
+    wait_until("2 dead letters", || got.lock().unwrap().len() >= 2);
+    settle_for_absence();
+    let texts: Vec<String> = got
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|dead| dead.message.downcast_ref::<String>().unwrap().clone())
+        .collect();
+    assert_eq!(texts, ["first", "second"]);
 }
 
 #[test]
