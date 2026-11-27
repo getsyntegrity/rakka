@@ -13,7 +13,7 @@ use crate::actor::cell::{ActorCell, LocalActorRef};
 use crate::actor::props::{
     Actor, ActorContext, ActorIdentity, AnyMessage, Identify, PoisonPill, Props,
 };
-use crate::actor::scheduler::Scheduler;
+use crate::actor::scheduler::{ParkWaiter, Scheduler, TimerHooks, Waiter};
 use crate::actor::selection::ActorSelection;
 use crate::actor::{ActorError, ErrorClass};
 use crate::actor::{ActorPath, Address, Deployer, DeployerError};
@@ -408,13 +408,13 @@ impl ActorSystem {
         Self::create_with_clock(name, settings, Arc::new(NanoClock))
     }
 
-    /// Like [`ActorSystem::create_with_settings`] with the clock that measures the throughput deadline injected.
+    /// Like [`ActorSystem::create_with_settings`] with the clock injected: it measures the throughput deadline and drives the scheduler.
     pub(crate) fn create_with_clock(
         name: &str,
         settings: Settings,
         clock: Arc<dyn Clock>,
     ) -> Result<ActorSystem, ActorError> {
-        Self::create_with(name, settings, clock, None)
+        Self::create_with(name, settings, clock, Arc::new(ParkWaiter), None)
     }
 
     /// Like [`ActorSystem::create_with_clock`] with the executor of the default dispatcher replaced (the internal dispatcher
@@ -426,13 +426,25 @@ impl ActorSystem {
         clock: Arc<dyn Clock>,
         executor: Arc<dyn Executor>,
     ) -> Result<ActorSystem, ActorError> {
-        Self::create_with(name, settings, clock, Some(executor))
+        Self::create_with(name, settings, clock, Arc::new(ParkWaiter), Some(executor))
+    }
+
+    /// Like [`ActorSystem::create_with_clock`] with the `Waiter` of the scheduler injected too, so that tests move all the time.
+    #[cfg(test)]
+    pub(crate) fn create_with_time(
+        name: &str,
+        settings: Settings,
+        clock: Arc<dyn Clock>,
+        waiter: Arc<dyn Waiter>,
+    ) -> Result<ActorSystem, ActorError> {
+        Self::create_with(name, settings, clock, waiter, None)
     }
 
     fn create_with(
         name: &str,
         settings: Settings,
         clock: Arc<dyn Clock>,
+        waiter: Arc<dyn Waiter>,
         executor: Option<Arc<dyn Executor>>,
     ) -> Result<ActorSystem, ActorError> {
         let valid = {
@@ -456,8 +468,12 @@ impl ActorSystem {
         };
         let events = EventStream::new();
         let internal_dispatcher =
-            Dispatcher::start_with(&format!("{name}-internal"), 4, turn_policy, clock);
-        let scheduler = Arc::new(Scheduler::start(name, dispatcher.clone()));
+            Dispatcher::start_with(&format!("{name}-internal"), 4, turn_policy, clock.clone());
+        let scheduler = Arc::new(Scheduler::start(
+            name,
+            dispatcher.clone(),
+            TimerHooks::new(clock, waiter),
+        ));
         let termination = Promise::new();
         let dead_letters = ActorRef(Arc::new_cyclic(|me| DeadLetters {
             path: root_path.new_child("deadLetters", 0),
