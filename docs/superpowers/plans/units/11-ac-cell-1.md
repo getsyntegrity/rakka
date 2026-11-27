@@ -10,7 +10,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-CELL-012.
 
 ## Prerrequisitos
 
-- Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-001, AC-SUP-004, AC-SUP-011. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-001, AC-SUP-004, AC-SUP-011, AC-SUP-015. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-002, AC-MBX-003.
 - Spec 15 `AC-DW-1` (`15-ac-dw-1.md`), por las filas AC-DW-002, AC-DW-007, AC-DW-010. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-010.
