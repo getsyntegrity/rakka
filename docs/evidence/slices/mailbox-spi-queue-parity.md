@@ -2,6 +2,8 @@
 
 `MBX-TQ-01..03` (`oracle/src/main/java/pilot/MailboxOracle.java`), grabados como `mb-0036..mb-0038` con `rust-anything app record` (el recorder ejecuta `oracle/run.sh`, nunca Rust) y presentes en `cases/oracle-only/mailbox.golden`.
 
+`MBX-TQ-04/05` (`cleanUp` que lanza; suscriptor del event stream cuyo `enqueue` lanza), grabados como `mb-0039`/`mb-0040`, también idénticos en las 30 corridas.
+
 `MBX-TQ-02/03` observan el informe de error no capturado, que pasa por un `LoggingAdapter`: la configuración del caso usa `loglevel = ERROR`, `use-slf4j = off` y ningún logger. Normalización: el número del hilo del pool se imprime como `N`.
 
 Estabilidad: `check_mailbox_oracle.py --runs 30` sobre la versión sin dividir (#448, 85 casos): `MBX-TQ-01..03` idénticos al golden en las 30 corridas. Las grabaciones son las mismas; el jar y el gemelo de esta división aún no se han compilado.
