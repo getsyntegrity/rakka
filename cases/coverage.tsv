@@ -1040,11 +1040,11 @@ o06-stop-queued-dead	scenario-3b5	AC-CELL-013.1,AC-SUP-007,AC-SUP-009	same-group
 o07-default-restarts-both	scenario-3b5	AC-SUP-007	cited
 o08-held-sibling-active	scenario-3b5	AC-CELL-013.1,AC-SUP-007	cited
 o09-held-resume-sibling	scenario-3b5	AC-SUP-009	cited
-r01-max-zero-stops-both	scenario-3b5	-	none
-r02-max-one-second-stops	scenario-3b5	-	none
-r03-resume-not-counted	scenario-3b5	-	none
-r04-max-two-third-stops	scenario-3b5	-	none
-r05-unlimited-both-restart	scenario-3b5	-	none
+r01-max-zero-stops-both	scenario-3b5	AC-SUP-007	cited
+r02-max-one-second-stops	scenario-3b5	AC-SUP-007	cited
+r03-resume-not-counted	scenario-3b5	AC-SUP-007	cited
+r04-max-two-third-stops	scenario-3b5	AC-SUP-007	cited
+r05-unlimited-both-restart	scenario-3b5	AC-SUP-007	cited
 uc-0082	oracle-util-core	AC-UTIL-001	cited
 uc-0083	oracle-util-core	AC-UTIL-002.2	cited
 uc-0084	oracle-util-core	AC-UTIL-016.6	cited
@@ -3076,5 +3076,8 @@ sc-0010	oracle-scheduler	AC-SCH-002,AC-SCH-008.2	cited
 sc-0011	oracle-scheduler	AC-SCH-002,AC-SCH-007	cited
 sc-0012	oracle-scheduler	AC-SCH-007	cited
 sc-0013	oracle-scheduler	AC-SCH-002,AC-SCH-009	cited
+cf-resume-into-create	scenario-close-parity	AC-SUP-011	cited
+cf-recreate-into-create	scenario-close-parity	AC-SUP-011	cited
+kl-default-stop-logged	scenario-close-parity	AC-CELL-012	cited
 gf-kill-system	scenario-guardian-failure	AC-SUP-014	cited
 gf-kill-user	scenario-guardian-failure	AC-SUP-014,AC-SYS-008	cited

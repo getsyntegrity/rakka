@@ -1448,6 +1448,13 @@ final class MailboxOracle {
         return "errors=" + e.errors + " stopped=" + e.stopped + " whenTerminated=" + e.sys.getWhenTerminated().toCompletableFuture().isDone();
       }
     });
+    run("MBX-GRD-04 Kill to /system: the strategy of the root guardian logs and stops it, and the system terminates", () -> {
+      try (GuardianEnv e = new GuardianEnv()) {
+        e.treeUnderUser();
+        e.sys.actorSelection("/system").tell(Kill.getInstance(), ActorRef.noSender());
+        return e.afterTermination();
+      }
+    });
     run("MBX-RJ-08 an attach rejected twice while /user supervises: the root guardian stops /user and the system terminates", () -> {
       try (GuardianEnv e = new GuardianEnv()) {
         e.treeUnderUser();

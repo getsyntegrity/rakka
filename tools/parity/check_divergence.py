@@ -2375,7 +2375,7 @@ MUTANTS = {
         "src/actor/system.rs",
         "        Directive::Stop\n    })\n    .into()",
         "        Directive::Restart\n    })\n    .into()",
-        "a failed `/user` or `/system` is restarted instead of stopped, so the system does not terminate",
+        "a failed `/user` or `/system` is restarted instead of stopped, so the system does not terminate (killed by a unit test, see UNIT_MUTANTS)",
     ),
     "bubble-walker-failure-is-not-logged": (
         "src/actor/system.rs",
@@ -2535,7 +2535,9 @@ UNIT_MUTANTS = {
     "cancelled-repetition-schedules-again": ("actor::scheduler_tests", "a_cancel_during_the_send_prevents_the_next_one"),
     "dropped-cause-chain-recurses": ("test:classic_long_cause_chains", "a_very_long_cause_chain_is_dropped"),
     "event-stream-drops-dead-letters": ("test:classic_api", "dead_letters_stays_subscribed_to_the_event_stream_and_forwards_what_it_gets"),
-    # the root's failure and a restarted guardian are not reachable by a recorded case
+    # no recorded case fails the root guardian or restarts one; the gf-kill recordings fail /user and /system, but the unit test does
+    # not depend on them
+    "root-guardian-restarts-a-failed-guardian": ("actor::guardian_failure_tests", "a_killed_user_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates"),
     "bubble-walker-failure-is-not-logged": ("actor::guardian_failure_tests", "a_killed_root_guardian_is_logged_by_the_bubble_walker_and_the_system_never_reports_termination"),
     "restarted-user-guardian-stops-its-children": ("actor::guardian_failure_tests", "a_restarted_user_or_system_guardian_keeps_its_children"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel

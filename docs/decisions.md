@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 270 decisiones: 0 bloqueantes, 187 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 271 decisiones: 0 bloqueantes, 188 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -367,6 +367,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** (a), depende de AC-SER y de Q-X-3; hasta entonces las filas quedan en alcance con impl=pending [2026-10-31 cierre documental] Clasificación: arquitectura (modo de pruebas opcional) y exclusión parcial. Resuelto leyendo: el algoritmo vive en AC-SER-008.1/008.2 (classic-io-ser); AC-CELL-028/029 son sólo los puntos de integración (sendMessage / makeChild, antes de reservar el nombre) y se definen como fachadas. Consecuencia: sin SER no hay hook; con Box<dyn Any> sólo se verifican tipos registrados (ver Q-SER-4). Bloquea: `impl` de AC-CELL-028/029 hasta que exista SER. Puede avanzar: todo CELL.
 - **Filas afectadas:** AC-CELL-028 ; AC-CELL-029
 - **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+
+### Q-CELL-8 — La fábrica de Props no recibe ActorContext: un actor no puede crear hijos en su constructor
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:86-99 ; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:861-912 ; crates/rakka-actor/src/actor/props.rs Props::new(Fn() -> A)
+- **Alternativas:** (a) permitir que la fábrica reciba el ActorContext de la celda que se está creando / (b) aceptar la divergencia y portar esos specs creando los hijos en pre_start / (c) dejar las aserciones bloqueadas
+- **Recomendación:** (a), por Q-X-21 (c). Consecuencia hoy: los specs que crean hijos en el constructor no se pueden portar 1:1 y las filas afectadas quedan sin cerrar
+- **Filas afectadas:** AC-CELL-007.2 ; AC-CELL-013.2 ; AC-SUP-011
+- **Unidades afectadas:** CELL ; SUP
 - **Origen:** classic-cell
 
 ### Q-CFG-14 — Includes de HOCON sin classpath: `include "x"`, `classpath(...)`, `url(...)`, `file(...)` y `required(...)` en rakka
