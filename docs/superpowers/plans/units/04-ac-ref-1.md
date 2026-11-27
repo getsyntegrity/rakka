@@ -10,10 +10,10 @@ Filas ya `done` en esta unidad (no se reabren): AC-REF-009.3.
 
 ## Prerrequisitos
 
-- Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-008, AC-PATH-014, AC-PATH-015.
 - Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-001, AC-MBX-002, AC-MBX-003, AC-MBX-005. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-002.1, AC-CELL-002.2, AC-CELL-003, AC-CELL-008.2, AC-CELL-013.1, AC-CELL-013.3, AC-CELL-015.1, AC-CELL-016. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 03 `AC-CFG-1` (`03-ac-cfg-1.md`), por las filas AC-CFG-013.
+- Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-008, AC-PATH-015.
 - Spec 17 `AC-ASK-1` (`17-ac-ask-1.md`), por las filas AC-ASK-001.1, AC-ASK-001.2, AC-ASK-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-008. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 13 `AC-SYS-1` (`13-ac-sys-1.md`), por las filas AC-SYS-012, AC-SYS-018. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**

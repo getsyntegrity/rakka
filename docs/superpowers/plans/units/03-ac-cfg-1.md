@@ -15,13 +15,13 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 04 `AC-REF-1` (`04-ac-ref-1.md`), por las filas AC-REF-020. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 21 `AC-SER-1` (`21-ac-ser-1.md`), por las filas AC-SER-001.1, AC-SER-001.2, AC-SER-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-004.2, AC-UTIL-009.
+- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-009.
 - Spec 19 `AC-RT-1` (`19-ac-rt-1.md`), por las filas AC-RT-004, AC-RT-013.1, AC-RT-013.2, AC-RT-013.3, AC-RT-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-14`, `Q-CFG-15`, `Q-CFG-16`, `Q-CFG-17`, `Q-CFG-18`, `Q-CFG-19`, `Q-CFG-31`, `Q-CFG-32`, `Q-CFG-33`, `Q-CFG-34`, `Q-CFG-35`, `Q-CFG-36`, `Q-UTIL-21`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-14`, `Q-CFG-15`, `Q-CFG-16`, `Q-CFG-17`, `Q-CFG-18`, `Q-CFG-19`, `Q-CFG-31`, `Q-CFG-32`, `Q-CFG-33`, `Q-CFG-34`, `Q-CFG-35`, `Q-CFG-36`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia

@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 279 decisiones: 0 bloqueantes, 193 propuestas, 66 aceptadas, 17 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 279 decisiones: 0 bloqueantes, 192 propuestas, 66 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -2079,16 +2079,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 
-### Q-UTIL-21 — Selección entre entradas `prefix*` solapadas de WildcardIndex (orden del HashMap de Scala)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** WildcardIndex.scala:87-89 (`wildcardSuffixChildren.collectFirst { case (key, branch) if nextElement.startsWith(key) => branch }` sobre un `HashMap[String, WildcardTree]`): con dos prefijos que ambos son prefijo del elemento (p. ej. `a*` y `ab*` para `abc`) gana el que el HashMap de Scala itera primero, que depende de `String.hashCode` y de la estructura del trie; ningún spec lo afirma (AC-UTIL-009 A7).
-- **Alternativas:** (a) gana el prefijo más largo (el más específico), y a igual longitud el insertado primero: determinista; (b) gana el primero insertado (lo que hay hoy); (c) reproducir el orden de iteración del HashMap de Scala (String.hashCode y orden del CHAMP trie).
-- **Recomendación:** (a): es el único criterio que un usuario puede predecir y coincide con "la entrada más específica" que el contrato de AC-UTIL-009 promete; sólo difiere de Pekko en configuraciones solapadas, donde Pekko depende del hash. Clasificación: representación (diferencia observable sólo en solapamientos). Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-21 (paridad observable estricta); esta ficha se conserva por trazabilidad.
-- **Filas afectadas:** AC-UTIL-009
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
 ### Q-UTIL-22 — Charsets y Base64 de ByteString sin dependencias externas
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -2877,6 +2867,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** P02
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** aceptar (a): Display de PekkoException y ConfigurationException muestra sólo el mensaje; java_class() queda aparte. (Owner (respuesta tras P02), 2026-11-18)
+
+### Q-UTIL-21 — Selección entre entradas `prefix*` solapadas de WildcardIndex (orden del HashMap de Scala)
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** WildcardIndex.scala:87-89 (`wildcardSuffixChildren.collectFirst { case (key, branch) if nextElement.startsWith(key) => branch }` sobre un `HashMap[String, WildcardTree]`): con dos prefijos que ambos son prefijo del elemento (p. ej. `a*` y `ab*` para `abc`) gana el que el HashMap de Scala itera primero, que depende de `String.hashCode` y de la estructura del trie; ningún spec lo afirma (AC-UTIL-009 A7).
+- **Alternativas:** (a) gana el prefijo más largo (el más específico), y a igual longitud el insertado primero: determinista; (b) gana el primero insertado (lo que hay hoy); (c) reproducir el orden de iteración del HashMap de Scala (String.hashCode y orden del CHAMP trie).
+- **Recomendación:** (a): es el único criterio que un usuario puede predecir y coincide con "la entrada más específica" que el contrato de AC-UTIL-009 promete; sólo difiere de Pekko en configuraciones solapadas, donde Pekko depende del hash. Clasificación: representación (diferencia observable sólo en solapamientos). Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-21 (paridad observable estricta); esta ficha se conserva por trazabilidad.
+- **Filas afectadas:** AC-UTIL-009
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** ACCEPTED, alternativa (c). Se ratifica la implementación que reproduce el orden de selección de WildcardIndex de Apache Pekko 2.0.0. Fundamento: aunque el orden de iteración del HashMap de Scala sea accidental, la configuración de despliegue seleccionada constituye comportamiento observable y preservarlo es coherente con Q-X-21. Condiciones: encapsular la compatibilidad con el orden de Scala dentro del mecanismo que la necesita; no extender esta decisión a otras colecciones Rust ni convertirla en una política general de ordenamiento; no presentar este comportamiento como una garantía contractual documentada por Pekko; mantener los casos de paridad existentes; registrar la decisión y actualizar las referencias desactualizadas del inventario y de owner-batch-02.md; conservar la evidencia histórica de los 60.000 conjuntos de fuzz identificándola como histórica, sin repetir esa campaña. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
 
 ### Q-X-20 — Veredictos del gate MILESTONE: PASS, INCOMPLETE, FAIL, ERROR y CANCELLED
 

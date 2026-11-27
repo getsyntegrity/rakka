@@ -14,7 +14,6 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-001.
 - Spec 04 `AC-REF-1` (`04-ac-ref-1.md`), por las filas AC-REF-007.1, AC-REF-007.2, AC-REF-011, AC-REF-013.
 - Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-001.
-- Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-001.
 - Spec 13 `AC-SYS-1` (`13-ac-sys-1.md`), por las filas AC-SYS-004.
 - Spec 08 `AC-SCH-1` (`08-ac-sch-1.md`), por las filas AC-SCH-001, AC-SCH-002, AC-SCH-003, AC-SCH-004, AC-SCH-010.
 - Spec 17 `AC-ASK-1` (`17-ac-ask-1.md`), por las filas AC-ASK-001.1, AC-ASK-001.2, AC-ASK-001.3.
