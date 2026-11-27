@@ -2431,6 +2431,9 @@ MUTANTS = {
         "                drop(replaced);",
         "an actor stopped while it restarts gets no `postStop` on the instance it was replacing",
     ),
+    "pool-notifies-while-a-worker-is-already-waking": (
+        "src/dispatch/dispatcher.rs", "let wake = !self.waking && self.sleepers > 0", "let wake = self.sleepers > 0",
+        "a second sleeper is notified while one is already waking: more cross-thread hand-offs (killed by a unit test, see UNIT_MUTANTS)"),
     # --- Q-SUP-1: classification by subtype ---
     "non-exception-restarts-instead-of-escalating": (
         "src/actor/supervision.rs",
@@ -2602,6 +2605,7 @@ def classify_evaluation(ev):
 UNIT_MUTANTS = {
     "class-name-is-asked-unguarded": ("test:classic_class_name_panic", "an_actor_whose_class_name_panics_works_and_is_reported_by_its_type"),
     "failed-creation-drops-props-unguarded": ("test:classic_mailbox_spi_failure", "props_whose_drop_panics_do_not_keep_the_name_of_a_failed_creation"),
+    "pool-notifies-while-a-worker-is-already-waking": ("dispatch::thread_pool_tests", "no_second_worker_is_notified_while_one_is_waking"),
     "declared-superclasses-cannot-be-read": ("test:classic_throwable_api", "the_constructors_and_accessors_cover_class_message_and_declared_superclasses"),
     "log-failure-matches-the-class-name-only": ("actor::cell", "subclasses_of_the_initialization_and_invocation_exceptions_are_looked_through"),
     "non-exception-restarts-instead-of-escalating": ("actor::supervision", "the_default_decider_escalates_what_is_not_an_exception"),

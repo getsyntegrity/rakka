@@ -1429,7 +1429,11 @@ impl ActorCell {
         self.children.lock().unwrap().reserve(&name)?;
         let path = self.path.new_child(&name, new_uid());
         // `getMailboxType` runs before any reference exists (`LocalActorRefProvider.actorOf`); a failure releases the name (`makeChild`)
+        // a deployment may replace the user's mailbox type, which may be held only here: it is let go of guarded, the name being
+        // reserved already
+        let replaced_mailbox = props.mailbox_type();
         let props = props.deployed_over(self.system.settings.deployer.lookup_path(&path).as_ref());
+        drop_guarded(replaced_mailbox);
         let mailbox_id = props.mailbox_id().to_owned();
         let configuration_failure = |cause: String| -> ActorError {
             self.children.lock().unwrap().unreserve(&name);

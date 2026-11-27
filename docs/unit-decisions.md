@@ -195,7 +195,7 @@
 
 ## P13 MBX-COLAS
 
-12 filas; 13 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 7 propuestas.
+12 filas; 14 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 8 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -208,6 +208,7 @@
 | Q-CFG-31 | propuesta | 1: AC-MBX-004 | Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 | Q-DSP-2 | propuesta | 1: AC-MBX-004 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-1 | propuesta | 5: AC-MBX-007, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
+| Q-MBX-18 | propuesta | 1: AC-MBX-006 | — | — | `classic-dispatch` |
 | Q-MBX-2 | propuesta | 2: AC-MBX-011, AC-MBX-015 | — | — | `classic-dispatch` |
 | Q-MBX-3 | propuesta | 1: AC-MBX-012 | Bloquea la implementación de AC-MBX-012 (ambas variantes); el resto puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-4 | propuesta | 2: AC-MBX-009, AC-MBX-010 | — | — | `classic-dispatch` |
@@ -408,7 +409,7 @@
 
 ## P28 SELECCION-CREACION
 
-9 filas; 12 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 5 propuestas.
+9 filas; 13 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 6 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -419,6 +420,7 @@
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 1: AC-MBX-014 | — | — | `transversal` |
 | Q-X-21 | accepted (2026-11-27): ACCEPTED, alternativa (c). La paridad observable estricta se establece como principio transversal de toda la migración de Apache Pekko a Rakka. Replicar la… | 1: AC-CELL-027 | Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible. | — | `classic-foundation` |
 | Q-X-7 | accepted (2026-11-18): aceptar (A). | 1: AC-MBX-020 | — | — | `transversal` |
+| Q-CELL-10 | propuesta | 1: AC-CELL-027 | — | — | `classic-cell` |
 | Q-DSP-2 | propuesta | 2: AC-DSP-007, AC-MBX-014 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-1 | propuesta | 1: AC-MBX-014 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
 | Q-MBX-11 | propuesta | 2: AC-CELL-016, AC-REF-020 | — | — | `classic-dispatch` |
@@ -1098,4 +1100,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 541 (264 respondidas, 0 bloqueantes, 277 propuestas).
+Total de pares unidad–decisión: 543 (264 respondidas, 0 bloqueantes, 279 propuestas).

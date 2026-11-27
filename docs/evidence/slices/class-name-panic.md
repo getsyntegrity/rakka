@@ -33,6 +33,15 @@ test result: FAILED. 7 passed; 1 failed
 
 Mismo comando: `2 passed; 0 failed` y `8 passed; 0 failed`.
 
+## Segunda ronda (revisión de #460)
+
+3. Un despliegue con mailbox reemplazaba el `MailboxType` del usuario soltándolo sin protección, con el nombre ya reservado.
+
+RED: `test a_mailbox_type_replaced_by_a_deployment_may_panic_on_drop ... FAILED`
+(`classic_mailbox_spi_failure.rs:176: drop`; `common/mod.rs:18: timed out waiting for the child to receive`; `8 passed; 1 failed`).
+GREEN: `2 passed` y `9 passed`, `0 failed`. La aserción añadida sobre la etiqueta tras el restart pasó a la primera (conducta ya
+implementada): no es un RED. No tiene mutante propio registrado.
+
 ## Alcance
 
 Son integraciones (sistema, celda, mailbox y supervisión reales; sin dobles de lo que se valida). El plazo acotado es de 10 s.

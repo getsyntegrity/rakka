@@ -52,13 +52,19 @@ impl Actor for ErrorClasses {
     }
 }
 
-#[test]
-fn an_actor_whose_class_name_panics_works_and_is_reported_by_its_type() {
-    let system = RunningSystem::create("t-class-name");
+/// The classes of the `Error`s published from now on.
+fn error_classes(system: &RunningSystem) -> Receiver<String> {
     let (classes, reported) = channel();
     let listener = Props::new(move || ErrorClasses(classes.clone()));
     let listener = system.actor_of(listener).unwrap();
     system.event_stream().subscribe(&listener, Channel::Error);
+    reported
+}
+
+#[test]
+fn an_actor_whose_class_name_panics_works_and_is_reported_by_its_type() {
+    let system = RunningSystem::create("t-class-name");
+    let reported = error_classes(&system);
     let (events, seen) = channel();
     let props = Props::new(move || Mislabelled(events.clone()));
     let actor = system.actor_of(props).unwrap();
@@ -107,6 +113,9 @@ impl Actor for MislabelledAfterRestart {
     fn post_restart(&mut self, _: &mut ActorContext, _: &Throwable) {
         self.0.send("restarted".into()).unwrap();
     }
+    fn post_stop(&mut self, _: &mut ActorContext) {
+        throw(Throwable::illegal_state("stop")); // to have a report about the instance
+    }
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         match *msg.downcast_ref::<&str>().unwrap() {
             "fail" => throw(Throwable::illegal_state("boom")),
@@ -134,5 +143,10 @@ fn a_restart_into_an_instance_whose_class_name_panics_keeps_the_actor_and_its_ch
     actor.tell("m", None);
     expect(&seen, "m");
     expect(&seen, "child m");
+    // subscribed only now, so that the report of the first failure is not among them
+    let reported = error_classes(&system);
+    system.stop(&actor);
+    // the label is not the "first" of the replaced instance any more
+    expect(&reported, std::any::type_name::<MislabelledAfterRestart>());
     terminates(&system);
 }

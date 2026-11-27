@@ -156,6 +156,11 @@ impl Props {
         self.actor_class
     }
 
+    /// The mailbox type these props carry, shared: for a caller that is about to replace it.
+    pub(crate) fn mailbox_type(&self) -> Option<Arc<dyn MailboxType>> {
+        self.mailbox.clone()
+    }
+
     /// `Props.mailbox`: the id selected, or the default mailbox id when none was given.
     pub(crate) fn mailbox_id(&self) -> &str {
         self.mailbox_id

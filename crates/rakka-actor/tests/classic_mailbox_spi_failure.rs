@@ -13,6 +13,8 @@ use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::system::{ActorSystem, Settings};
+use rakka_actor::actor::{Deploy, RouterConfig, Scope};
+use rakka_actor::config::Config;
 use rakka_actor::dispatch::mailboxes::Mailboxes;
 use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
 use rakka_actor::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
@@ -176,7 +178,7 @@ impl Drop for Bomb {
 }
 
 /// Props whose only clone holds a [`Bomb`]: letting go of them panics.
-fn props_with_a_panicking_drop(_: Props) -> Props {
+fn props_with_a_panicking_drop() -> Props {
     let held = Bomb;
     let factory = move || {
         let _ = &held;
@@ -189,7 +191,7 @@ fn props_with_a_panicking_drop(_: Props) -> Props {
 struct SoleOwner(Log);
 impl Actor for SoleOwner {
     fn receive(&mut self, ctx: &mut ActorContext, _: &AnyMessage) -> bool {
-        let props = props_with_a_panicking_drop(echo(&self.0));
+        let props = props_with_a_panicking_drop();
         let outcome = match ctx.actor_of_named(props, "kid") {
             Ok(_) => "created".to_owned(),
             Err(error) => error.cause().unwrap_or("none").to_owned(),
@@ -214,6 +216,49 @@ fn props_whose_drop_panics_do_not_keep_the_name_of_a_failed_creation() {
     wait_until("the parent to report", || !snapshot_of(&log).is_empty());
     let report = "java.lang.IllegalStateException: mailbox boom children=0 reused=true";
     assert_eq!(snapshot_of(&log), [report]);
+}
+
+/// A mailbox type whose `Drop` panics; a deployment replaces it, so it never creates a queue.
+struct OverriddenMailbox(#[allow(dead_code)] Bomb);
+impl MailboxType for OverriddenMailbox {
+    fn create(&self, _: &ActorRef) -> Box<dyn MessageQueue> {
+        unreachable!("the deployment names another mailbox")
+    }
+}
+
+/// Creates `kid` with a mailbox type of its own that only these props hold.
+struct DeployedOver(Log);
+impl Actor for DeployedOver {
+    fn receive(&mut self, ctx: &mut ActorContext, _: &AnyMessage) -> bool {
+        let props = echo(&self.0).with_mailbox(OverriddenMailbox(Bomb));
+        let kid = ctx.actor_of_named(props, "kid").unwrap();
+        kid.tell("through the deployed mailbox".to_owned(), None);
+        true
+    }
+}
+
+#[test]
+fn a_mailbox_type_replaced_by_a_deployment_may_panic_on_drop() {
+    let settings = Settings::default();
+    let deploy = Deploy::new(
+        "/parent/kid",
+        Config::empty(),
+        RouterConfig::NoRouter,
+        Scope::NoScopeGiven,
+        "",
+        DEFAULT_ID,
+    );
+    settings.deployer.deploy(deploy).unwrap();
+    let system = RunningSystem::create_with_settings("spi-deployed-over", settings);
+    let log = Log::default();
+    let parent = Props::new({
+        let log = log.clone();
+        move || DeployedOver(log.clone())
+    });
+    let parent = system.actor_of_named(parent, "parent").unwrap();
+    parent.tell((), None);
+    wait_until("the child to receive", || !snapshot_of(&log).is_empty());
+    assert_eq!(snapshot_of(&log), ["through the deployed mailbox"]);
 }
 
 #[test]
