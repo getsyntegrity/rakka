@@ -2408,6 +2408,12 @@ MUTANTS = {
         "        Directive::Restart\n    } else {\n        Directive::Escalate",
         "`stoppingStrategy` restarts instead of stopping (killed by a unit test, see UNIT_MUTANTS)",
     ),
+    "log-failure-matches-the-class-name-only": (
+        "src/actor/cell.rs",
+        'failure.is_a("org.apache.pekko.actor.ActorInitializationException")',
+        'failure.class == "org.apache.pekko.actor.ActorInitializationException"',
+        "`logFailure` does not look through a subclass of `ActorInitializationException` (killed by a unit test, see UNIT_MUTANTS)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -2528,6 +2534,7 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "log-failure-matches-the-class-name-only": ("actor::cell", "subclasses_of_the_initialization_and_invocation_exceptions_are_looked_through"),
     "non-exception-restarts-instead-of-escalating": ("actor::supervision", "the_default_decider_escalates_what_is_not_an_exception"),
     "declared-superclasses-are-ignored": ("actor::fault", "declared_superclasses_replace_the_default_and_continue_from_the_last_one"),
     "stopping-strategy-restarts": ("actor::supervision", "the_stopping_strategy_stops_every_exception_and_escalates_the_rest"),

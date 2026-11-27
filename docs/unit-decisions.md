@@ -299,7 +299,7 @@
 
 ## P20 SUP-ESTRATEGIAS
 
-10 filas; 6 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 3 propuestas.
+10 filas; 7 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -309,6 +309,7 @@
 | Q-SUP-2 | propuesta | 4: AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-021 | Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). | Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica). | `classic-cell` |
 | Q-SUP-5 | propuesta | 3: AC-SUP-004, AC-SUP-012, AC-SUP-017 | — | — | `classic-cell` |
 | Q-SUP-6 | propuesta | 1: AC-SUP-004 | — | — | `classic-cell` |
+| Q-SUP-7 | propuesta | 1: AC-SUP-004 | — | — | `classic-cell` |
 
 ## P21 SUP-FALLO
 
@@ -1092,4 +1093,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 535 (259 respondidas, 0 bloqueantes, 276 propuestas).
+Total de pares unidad–decisión: 536 (259 respondidas, 0 bloqueantes, 277 propuestas).
