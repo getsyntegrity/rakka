@@ -5,6 +5,7 @@ mod common;
 use common::{RunningSystem, snapshot_of, wait_until};
 
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
@@ -147,6 +148,26 @@ fn a_subtype_of_a_stopping_exception_stops_the_child() {
 fn an_error_escalates_to_the_grandparent() {
     let t = tree(|_| Directive::Resume);
     throwing(&t, "assert", &["g a.assert Resume", "c ping"]);
+}
+
+/// The parent of a top-level actor is `/user`: its default strategy has no directive for an `Error`, so `/user` fails with
+/// it and the root guardian stops it, which ends the system.
+#[test]
+fn an_error_escalating_through_the_user_guardian_terminates_the_system() {
+    let system = RunningSystem::create("sys");
+    let log = Log::default();
+    let kid_log = log.clone();
+    let top = Props::new(move || Kid(kid_log.clone()));
+    let kid = system.actor_of_named(top, "c").unwrap();
+    wait_until("c started", || snapshot_of(&log) == ["c started"]);
+    kid.tell("assert", None);
+    let terminated = system
+        .when_terminated()
+        .wait(Duration::from_secs(10))
+        .expect("the system ended")
+        .expect("terminated normally");
+    assert_eq!(terminated.actor.path().to_string(), "pekko://sys/");
+    assert_eq!(snapshot_of(&log), ["c started", "c stopped"]);
 }
 
 #[test]

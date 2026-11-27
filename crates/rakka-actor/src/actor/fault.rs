@@ -17,11 +17,6 @@ use std::fmt;
 /// superclasses apply. For example a `PostRestartException` declared under `java.lang.Error` is still an
 /// `ActorInitializationException` and not an `Error`. To classify differently, use another class name.
 ///
-/// **The hierarchy of a class the runtime knows is its own.** What is declared over such a class is ignored, whether it is
-/// the class of the throwable or one of its declared superclasses: from the first known class on, only the runtime's
-/// superclasses apply. For example a `PostRestartException` declared under `java.lang.Error` is still an
-/// `ActorInitializationException` and not an `Error`. To classify differently, use another class name.
-///
 /// A cause chain can be of any length: `Clone`, `PartialEq`, `Debug` and `Drop` walk it without a stack frame per cause. Because of
 /// that `Drop`, a field cannot be moved out of a `Throwable` by value, by destructuring it by value or by struct update syntax
 /// (error E0509): borrow it, or `take` it. And as `PartialEq` is not derived, a `const Throwable` cannot be used as a pattern.
