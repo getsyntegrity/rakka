@@ -168,6 +168,76 @@ final class MailboxOracle {
     }
   }
 
+  /** The mailbox operation that throws in a {@link FaultyQueue} (the {@code MBX-TQ} cases): the public SPI is user code and may fail. */
+  enum Fault { ENQUEUE, DEQUEUE, HAS_MESSAGES, CLEAN_UP }
+  static volatile Fault nextFault;
+
+  /** A FIFO queue with one operation that throws: {@code enqueue}/{@code dequeue} of "bad", the {@code hasMessages} that follows the dequeue of "bad", or {@code cleanUp}. */
+  static final class FaultyQueue implements MessageQueue {
+    final ConcurrentLinkedQueue<Envelope> q = new ConcurrentLinkedQueue<>();
+    final Fault fault = nextFault;
+    final AtomicBoolean armed = new AtomicBoolean();
+    public void enqueue(ActorRef r, Envelope e) {
+      if (fault == Fault.ENQUEUE && "bad".equals(e.message())) throw new IllegalStateException("enqueue boom");
+      q.add(e);
+    }
+    public Envelope dequeue() {
+      Envelope e = q.poll();
+      if (e != null && "bad".equals(e.message())) {
+        if (fault == Fault.DEQUEUE) throw new IllegalStateException("dequeue boom");
+        if (fault == Fault.HAS_MESSAGES) armed.set(true);
+      }
+      return e;
+    }
+    public int numberOfMessages() { return q.size(); }
+    public boolean hasMessages() {
+      if (armed.compareAndSet(true, false)) throw new IllegalStateException("hasMessages boom");
+      return !q.isEmpty();
+    }
+    public void cleanUp(ActorRef owner, MessageQueue deadLetters) {
+      if (fault == Fault.CLEAN_UP) throw new IllegalStateException("cleanUp boom");
+      for (Envelope e; (e = q.poll()) != null; ) deadLetters.enqueue(owner, e);
+    }
+  }
+
+  public static final class FaultyType implements MailboxType {
+    public FaultyType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new FaultyQueue(); }
+  }
+
+  /** Watches the actor it is sent and logs its death. */
+  public static final class DeathLogger extends AbstractActor {
+    final Env env; DeathLogger(Env env) { this.env = env; }
+    @Override public Receive createReceive() {
+      return receiveBuilder().match(ActorRef.class, r -> { getContext().watch(r); env.log.add("watching"); })
+          .match(Terminated.class, t -> env.log.add("terminated:" + t.getActor().path().name())).build();
+    }
+  }
+
+  /** Configuration appended to the next {@link Env}. The cases run one after another. */
+  static String extraConfig = "";
+
+  /** An {@link Env} that publishes what a {@code LoggingAdapter} logs as errors (the pool's uncaught-error report does), printing nothing. */
+  static Env errorLoggingEnv() {
+    // with SLF4J on the classpath Pekko swaps in its filter, which has no binding here: `use-slf4j = off` keeps the default one
+    // naming the standard output logger as the only logger starts none (`startDefaultLoggers` skips it)
+    extraConfig = "pekko.loglevel = ERROR\n pekko.use-slf4j = off\n pekko.loggers = [\"org.apache.pekko.event.Logging$StandardOutLogger\"]\n";
+    try { return new Env(5, "0ms"); } finally { extraConfig = ""; }
+  }
+
+  /** The actor {@code a} on a mailbox whose queue has {@code fault}. */
+  static ActorRef faulty(Env e, Fault fault) throws Exception {
+    nextFault = fault;
+    ActorRef a = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("faulty-mailbox"), "a");
+    awaitUntil(() -> e.started.get() == 1);
+    return a;
+  }
+
+  /** The uncaught-error report names the pool thread, whose number depends on scheduling. */
+  static List<String> withoutThreadNumber(Collection<String> errors) {
+    return errors.stream().map(x -> x.replaceAll("default-dispatcher-\\d+", "default-dispatcher-N")).collect(java.util.stream.Collectors.toList());
+  }
+
   /** Creates the child {@code kid} with a mailbox type that throws, catches what {@code actorOf} throws, and reuses the name. */
   public static final class CatchingParent extends AbstractActor {
     final Env env; CatchingParent(Env env) { this.env = env; }
@@ -369,7 +439,9 @@ final class MailboxOracle {
           + "t-disp { type = Dispatcher\n executor = thread-pool-executor\n thread-pool-executor.fixed-pool-size = 1\n throughput = " + throughput
           + "\n throughput-deadline-time = " + deadline + " }\n hook-mailbox.mailbox-type = \"pilot.MailboxOracle$HookType\"\n"
           + "failing-mailbox.mailbox-type = \"pilot.MailboxOracle$FailingType\"\n"
-          + "rej-disp { type = Dispatcher\n executor = \"pilot.MailboxOracle$RejectingConfigurator\"\n throughput = " + throughput + " }\n")
+          + "faulty-mailbox.mailbox-type = \"pilot.MailboxOracle$FaultyType\"\n"
+          + "rej-disp { type = Dispatcher\n executor = \"pilot.MailboxOracle$RejectingConfigurator\"\n throughput = " + throughput + " }\n"
+          + extraConfig)
           .withFallback(ConfigFactory.load()));
       ActorRef listener = sys.actorOf(Props.create(Listener.class, dead));
       sys.eventStream().subscribe(listener, DeadLetter.class);
@@ -1487,6 +1559,52 @@ final class MailboxOracle {
       awaitUntil(() -> e.log.contains("r:m"));
       scala.concurrent.Await.result(e.sys.terminate(), scala.concurrent.duration.Duration.create(10, TimeUnit.SECONDS));
       return "terminated=true log=" + e.log + " started=" + e.started.get() + " errors=" + e.errors + " systemTerminated=true";
+    });
+    run("MBX-TQ-01 an enqueue that throws does not reach the caller of tell: an Error is published and the actor goes on", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef a = faulty(e, Fault.ENQUEUE);
+        a.tell("a", ActorRef.noSender());
+        String told;
+        try { a.tell("bad", ActorRef.noSender()); told = "returned"; } catch (Throwable t) { told = "threw " + t; }
+        a.tell("c", ActorRef.noSender());
+        awaitUntil(() -> e.log.size() == 2 && !e.errors.isEmpty());
+        return "tell=" + told + " log=" + e.log + " dead=" + e.dead + " errors=" + e.errors + " terminated=" + in(a).isTerminated();
+      }
+    });
+    run("MBX-TQ-02 a dequeue that throws ends the turn with an uncaught-error report: the thread survives and the queued messages are processed", () -> {
+      try (Env e = errorLoggingEnv()) {
+        ActorRef a = faulty(e, Fault.DEQUEUE);
+        Block b = new Block(); a.tell(b, ActorRef.noSender()); b.entered.await(); sendAll(a, "a", "bad", "c"); b.release.countDown();
+        awaitUntil(() -> e.log.contains("r:c") && !e.errors.isEmpty());
+        a.tell("d", ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("r:d"));
+        return "log=" + e.log + " dead=" + e.dead + " errors=" + withoutThreadNumber(e.errors) + " terminated=" + in(a).isTerminated();
+      }
+    });
+    run("MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again", () -> {
+      try (Env e = errorLoggingEnv()) {
+        ActorRef a = faulty(e, Fault.HAS_MESSAGES);
+        a.tell("bad", ActorRef.noSender());
+        awaitUntil(() -> !e.errors.isEmpty());
+        a.tell("c", ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("r:c"));
+        return "log=" + e.log + " errors=" + withoutThreadNumber(e.errors) + " terminated=" + in(a).isTerminated();
+      }
+    });
+    run("MBX-TQ-04 a cleanUp that throws when the actor stops: the watcher still gets Terminated, what was queued is lost, the name is free and the system terminates", () -> {
+      Env e = errorLoggingEnv();
+      ActorRef a = faulty(e, Fault.CLEAN_UP);
+      ActorRef watcher = e.sys.actorOf(Props.create(DeathLogger.class, e), "watcher");
+      watcher.tell(a, ActorRef.noSender());
+      awaitUntil(() -> e.log.contains("watching"));
+      Block b = new Block(); a.tell(b, ActorRef.noSender()); b.entered.await(); sendAll(a, "pending"); in(a).stop(); b.release.countDown();
+      awaitUntil(() -> e.log.contains("terminated:a"));
+      absence();
+      String observed = "log=" + e.log + " dead=" + e.dead + " errors=" + withoutThreadNumber(e.errors) + " terminated=" + in(a).isTerminated();
+      e.sys.actorOf(Props.create(Worker.class, e), "a").tell("again", ActorRef.noSender());
+      awaitUntil(() -> e.log.contains("r:again"));
+      scala.concurrent.Await.result(e.sys.terminate(), scala.concurrent.duration.Duration.create(10, TimeUnit.SECONDS));
+      return observed + " nameReused=true systemTerminated=true";
     });
   }
 
