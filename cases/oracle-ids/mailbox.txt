@@ -80,3 +80,5 @@ MBX-GRD-04 Kill to /system: the strategy of the root guardian logs and stops it,
 MBX-RJ-08 an attach rejected twice while /user supervises: the root guardian stops /user and the system terminates
 MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head
 MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue
+MBX-TT-01 context.actorOf with a mailbox type that throws fails at the call with a ConfigurationException: no child is registered and the name is free
+MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates

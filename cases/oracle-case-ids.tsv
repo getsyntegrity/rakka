@@ -2386,6 +2386,8 @@ mb-0030	mailbox	MBX-CMP-03 a type that promises its queue is checked against the
 mb-0031	mailbox	MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created
 mb-0032	mailbox	MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head
 mb-0033	mailbox	MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue
+mb-0034	mailbox	MBX-TT-01 context.actorOf with a mailbox type that throws fails at the call with a ConfigurationException: no child is registered and the name is free
+mb-0035	mailbox	MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates
 sc-0001	scheduler	SCH-SO-01 the message arrives once, not before the delay, with the given sender; it cannot be cancelled afterwards
 sc-0002	scheduler	SCH-SO-02 a message cancelled before the delay is never sent; only the first cancel succeeds
 sc-0003	scheduler	SCH-SO-03 a delay of zero sends at once and gives a task that is not cancellable
