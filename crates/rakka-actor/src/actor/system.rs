@@ -259,6 +259,8 @@ pub(crate) struct BubbleWalker {
     dispatchers: Vec<Arc<Dispatcher>>,
     /// Closed before `whenTerminated` completes (`registerOnTermination(stopScheduler())`).
     scheduler: OnceLock<Arc<Scheduler>>,
+    /// Where the provider's `log.error` goes (a walker made alone, in tests, logs nowhere).
+    events: OnceLock<Arc<EventStream>>,
     pub(crate) root: OnceLock<ActorRef>,
     /// Completes when the walker discards, after it stopped walking, the `DeathWatchNotification` of the root guardian (and of no other actor).
     #[cfg(test)]
@@ -277,6 +279,7 @@ impl BubbleWalker {
             cause_of_termination: Promise::new(),
             dispatchers,
             scheduler: OnceLock::new(),
+            events: OnceLock::new(),
             root: OnceLock::new(),
             #[cfg(test)]
             notification_discarded: Promise::new(),
@@ -321,6 +324,10 @@ impl InternalActorRef for BubbleWalker {
             // `causeOfTermination.tryFailure(ex)` then `child.stop()`: the walker stops walking, so the death of the root is discarded above, `stop()`
             // never runs and the public `terminationPromise` stays pending (the cause is not read by anything else)
             SystemMessage::Failed { child, cause } => {
+                if let Some(events) = self.events.get() {
+                    let message = format!("guardian {child:?} failed, shutting down!");
+                    log_provider_error(events, &cause, message);
+                }
                 self.cause_of_termination.complete(Err(cause));
                 child.stop();
             }
@@ -544,6 +551,7 @@ impl ActorSystem {
             vec![dispatcher, internal_dispatcher.clone()],
         ));
         bubble.scheduler.set(scheduler).ok();
+        bubble.events.set(sys.events.clone()).ok();
         #[cfg(test)]
         sys.walker.set(bubble.clone()).ok();
         let walker = ActorRef(bubble.clone());

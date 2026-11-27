@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:322-381 and 485-529 (Apache-2.0).
 //! A failed guardian. The root guardian stops it, which ends the system, and the guardians keep their children if they are ever restarted.
-//! The expected lines are the ones the Pekko 2.0.0 JVM printed (`MBX-GRD-02` of `cases/oracle-only/mailbox.golden`).
+//! The expected lines are the ones the Pekko 2.0.0 JVM printed (`MBX-GRD-02..04` of `cases/oracle-only/mailbox.golden`).
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -122,25 +122,61 @@ pub(crate) fn tree_under_user(system: &ActorSystem) -> Arc<Seen> {
     seen
 }
 
-#[test]
-fn a_killed_user_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates() {
+/// `Kill` to the guardian at `path`, with `/user/a` and its child alive, until the system terminates.
+fn line_after_killing(path: &str) -> String {
     let system = ActorSystem::create("mbx").unwrap();
     let recorder = record_errors(&system);
     let seen = tree_under_user(&system);
-    system.actor_selection("/user").tell(Kill, None);
+    system.actor_selection(path).tell(Kill, None);
     let terminated = system
         .when_terminated()
         .wait(WAIT)
         .expect("ended")
         .expect("terminated normally");
-    let observed = format!(
+    format!(
         "errors=[{}] stopped=[{}] terminated={} existenceConfirmed={}",
         recorder.errors.lock().unwrap().join(", "),
         seen.stopped.lock().unwrap().join(", "),
         terminated.actor.path(),
         terminated.existence_confirmed
+    )
+}
+
+#[test]
+fn a_killed_user_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates() {
+    assert_eq!(line_after_killing("/user"), recorded("MBX-GRD-02"));
+}
+
+#[test]
+fn a_killed_system_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates() {
+    assert_eq!(line_after_killing("/system"), recorded("MBX-GRD-04"));
+}
+
+#[test]
+fn a_killed_root_guardian_is_logged_by_the_bubble_walker_and_the_system_never_reports_termination()
+{
+    let system = ActorSystem::create("mbx").unwrap();
+    let recorder = record_errors(&system);
+    let seen = tree_under_user(&system);
+    system.actor_selection("/").tell(Kill, None);
+    wait_until("the tree to stop", || {
+        seen.stopped.lock().unwrap().len() == 2
+    });
+    std::thread::sleep(Duration::from_millis(100)); // a bounded wait for an absence, as the oracle does
+    let observed = format!(
+        "errors=[{}] stopped=[{}] whenTerminated={}",
+        recorder.errors.lock().unwrap().join(", "),
+        seen.stopped.lock().unwrap().join(", "),
+        system.when_terminated().is_completed()
     );
-    assert_eq!(observed, recorded("MBX-GRD-02"));
+    // the system never terminates by itself, so the test closes the dispatchers
+    system
+        .0
+        .walker
+        .get()
+        .expect("a walker")
+        .shut_down_dispatchers();
+    assert_eq!(observed, recorded("MBX-GRD-03"));
 }
 
 /// `Guardian.preRestart` and `SystemGuardian.preRestart` are empty ("guardian MUST NOT lose its children during restart"). The root
