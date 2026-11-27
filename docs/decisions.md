@@ -1142,7 +1142,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 ### Q-SCH-5 — API de `scheduleOnce`: tipo del retardo y executor implícito
 
 - **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Scheduler.scala:425-495 (delay: FiniteDuration; implicit ExecutionContext y sender); LightArrayRevolverScheduler.scala:205-235 (delay <= 0 envía de inmediato, sea cero o negativo); crates/rakka-actor/src/util/clock.rs (FixedDelayScheduler ya usa std::time::Duration)
+- **Evidencia:** Scheduler.scala:355-419 (delay: FiniteDuration; implicit ExecutionContext y sender); LightArrayRevolverScheduler.scala:181-186,223-253 (delay <= 0 envía de inmediato, sea cero o negativo); crates/rakka-actor/src/util/clock.rs (FixedDelayScheduler ya usa std::time::Duration)
 - **Alternativas:** (a) `std::time::Duration` y sin parámetro de executor: el envío corre en el dispatcher por defecto; (b) duración con signo (i64 nanosegundos, como `Timeout`, Q-UTIL-1); (c) parámetro de executor explícito
 - **Recomendación:** (a), implementada provisionalmente: un retardo negativo no se puede expresar y se comporta en Pekko igual que cero; el port aún no expone ningún ExecutionContext. Un retardo de más de i64::MAX ns (inexpresable en Pekko) se rechaza como demasiado lejano, con los segundos saturados en el texto
 - **Filas afectadas:** AC-SCH-001
