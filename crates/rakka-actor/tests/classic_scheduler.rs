@@ -1,3 +1,4 @@
+// Derived from Apache Pekko 2.0.0 actor-tests/src/test/scala/org/apache/pekko/actor/SchedulerSpec.scala (Apache-2.0).
 //! `system.scheduler().schedule_once` and `Cancellable` with real actors (AC-SCH-001, 005, 008.2; `SchedulerSpec`).
 //! Absence is shown by order, not by sleeping: a later marker arrives first or alone. Its margin (the cancel
 //! runs within the delay of the message that must not arrive) is far above what a loaded machine needs.

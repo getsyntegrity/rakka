@@ -3,6 +3,10 @@
 //! Not here yet: periodic scheduling, tasks that are not messages (`Runnable`, `SchedulerTask`, `TaskRunOnClose`), the
 //! `pekko.scheduler.*` settings and `shutdown-timeout`, closing at system termination, a pluggable implementation and the
 //! recovery of the timer thread.
+//!
+//! **Q-SCH-1 (a) is not fulfilled yet.** It asks for an injectable `Clock` and `Waiter`, so that the deterministic cases of
+//! `SchedulerSpec` port one to one. The timer thread hardcodes `NanoClock` and `thread::park_timeout`, and ignores the clock
+//! injected into the system. Only the wheel (`timer_wheel`) takes the time from its caller.
 
 use std::any::Any;
 use std::fmt;
