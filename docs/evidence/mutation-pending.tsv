@@ -37,3 +37,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #433	98705086	389	none	none	389 not run (Q-X-23)	PENDING
 #430	3d1c3cae	22	dead-letters-are-not-terminated; event-stream-drops-dead-letters	none	22 not run (Q-X-23)	PENDING
 #433	da9e095d	390	none	none	390 not run (Q-X-23)	PENDING
+#438	0d8cfeb5	393	root-guardian-restarts-a-failed-guardian; bubble-walker-failure-is-not-logged; restarted-user-guardian-stops-its-children	none	393 not run (Q-X-23)	PENDING
