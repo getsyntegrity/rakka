@@ -414,11 +414,10 @@ impl crate::actor::actor_ref::InternalActorRef for ErrorRecorder {
     fn tell(&self, msg: AnyMessage, _sender: Option<ActorRef>) {
         // not the failure of `/user` itself: `MBX-RJ-05` was printed with `loglevel = OFF` (no `log.error` of the root's strategy) by a
         // listener under `/user`, suspended before its `logFailure`. `MBX-RJ-08` observes both.
-        let of_the_failed_guardian = ["pekko://mbx/user", "LocalActorRefProvider"];
-        if let Some(error) = msg
-            .downcast_ref::<ErrorEvent>()
-            .filter(|error| !of_the_failed_guardian.contains(&error.log_source.as_str()))
-        {
+        let provider_message = Some("guardian failed, shutting down system");
+        if let Some(error) = msg.downcast_ref::<ErrorEvent>().filter(|error| {
+            error.log_source != "pekko://mbx/user" && error.message.as_deref() != provider_message
+        }) {
             self.errors.lock().unwrap().push(format!(
                 "{}|{}|{}",
                 error.log_source,
