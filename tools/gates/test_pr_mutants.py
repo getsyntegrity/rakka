@@ -169,7 +169,7 @@ class GateWiring(unittest.TestCase):
         gate = next(g for g in gates.tier_gates("pr", ["a", "b"]) if g.name == "mutants")
         self.assertEqual(gate.command[1:], ["tools/gates/pr_mutants.py", "a", "b"])
         self.assertFalse(gate.reusable)
-        self.assertTrue(all(g.reusable for g in gates.tier_gates("pr", ["a"]) if g.name != "mutants"))
+        self.assertEqual([g.name for g in gates.tier_gates("pr", ["a"]) if not g.reusable], ["python-tests", "mutants"])
 
 
 if __name__ == "__main__":

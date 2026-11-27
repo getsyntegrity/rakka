@@ -110,26 +110,36 @@ class Gate:
 # Q-X-23 (Owner, 2026-11-26), TEMPORARY: the PR tier runs no mutant; MILESTONE is unchanged. None restores the PR mutants gate.
 PR_MUTATION_SUSPENDED = "Q-X-23"
 
-RUST_INPUTS = ("crates", "Cargo.toml", "Cargo.lock")
+# A gate declares EVERY repository path it reads: evidence is reused only while none of them changed.
+RUST_INPUTS = ("crates", "src", "Cargo.toml", "Cargo.lock")                  # src: the root package of the workspace
+# compiling and running the test targets also reads cases/ (include_str! of cases/oracle-only; tests/recorded_pekko.rs) and the recordings
+RUST_TARGET_INPUTS = RUST_INPUTS + ("cases", "rust/app-cases")
 ORACLE_INPUTS = RUST_INPUTS + ("cases", "tools/parity", "oracle")           # what the differential fuzzers read
 PARITY_INPUTS = ORACLE_INPUTS + ("rust/app-cases",)                          # plus the recordings the replay compares against
+# what the Python tests of the tools read: the tools, and the package, corpus and sources they check
+PYTHON_TEST_INPUTS = PARITY_INPUTS + ("tools", "docs", "README.md", "AGENTS.md", "rust/divergence-reports", "upstream/pekko", ".gitignore")
 MUTANT_RUNNER_LABELS = ((1, "FAIL"), (2, "ERROR"), (3, "INCOMPLETE"), (143, "CANCELLED"))   # exit codes of tools/gates/mutant_runner.py (Q-X-20, accepted)
 REPLAY_REGENERATED = ("rust/app-cases/replay-report.md", "rust/divergence-reports")
 FUZZ_COUNTS = [("fuzz_diff.py", 100000), ("fuzz_scenarios.py", 1500), ("fuzz_tell.py", 1000), ("fuzz_hier.py", 1000)]
 
 
 def tier_gates(tier, selected_mutants, mutant_args=(), no_reuse=False):
+    def cargo_target_gate(name, command, extra_inputs=()):
+        return Gate(name, command, RUST_TARGET_INPUTS + extra_inputs, regenerates=NON_INPUT_ARTIFACTS)
+
     fast = [
         Gate("fmt", ["cargo", "fmt", "--all", "--check"], RUST_INPUTS),
-        Gate("package-check", [PY, "tools/package/check.py"], ("docs", "tools/package", "crates", "tools", "oracle", "AGENTS.md")),
-        Gate("unit-tests", ["cargo", "test", "--workspace", "--lib"], RUST_INPUTS),
+        Gate("package-check", [PY, "tools/package/check.py"], ("docs", "tools", "crates", "oracle", "upstream/pekko", "README.md", "AGENTS.md")),
+        cargo_target_gate("unit-tests", ["cargo", "test", "--workspace", "--lib"]),
     ]
     pr_extra = [
-        Gate("clippy", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"], RUST_INPUTS),
-        Gate("test", ["cargo", "test", "--workspace"], RUST_INPUTS),
-        Gate("deny", ["cargo", "deny", "check", "licenses"], ("Cargo.toml", "Cargo.lock", "deny.toml", "crates")),
-        Gate("coverage", ["tools/parity/coverage.sh"], RUST_INPUTS + ("tools/parity/coverage.sh",)),
-        Gate("replay", ["tools/gates/replay.sh"], PARITY_INPUTS, regenerates=REPLAY_REGENERATED),
+        cargo_target_gate("clippy", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]),
+        cargo_target_gate("test", ["cargo", "test", "--workspace"]),
+        Gate("deny", ["cargo", "deny", "check", "licenses"], RUST_INPUTS + ("deny.toml",)),
+        # runs every time: it depends on the python and rust-anything versions, which are not part of the evidence key
+        Gate("python-tests", [PY, "tools/gates/python_tests.py"], PYTHON_TEST_INPUTS, regenerates=NON_INPUT_ARTIFACTS, reusable=False),
+        cargo_target_gate("coverage", ["tools/parity/coverage.sh"], ("tools/parity/coverage.sh",)),
+        Gate("replay", ["tools/gates/replay.sh"], PARITY_INPUTS + ("tools/gates/replay.sh",), regenerates=REPLAY_REGENERATED),
     ]
     # per-mutant reuse and a control on every run (Q-X-22 R3): a passing record of the whole gate would not carry the external tool versions
     mutants = Gate("mutants", [PY, "tools/gates/pr_mutants.py", *selected_mutants, *(["--no-reuse"] if no_reuse else [])], PARITY_INPUTS + ("tools/gates",),
@@ -214,8 +224,24 @@ InputState = collections.namedtuple("InputState", "trees dirty fingerprint")
 _CONTENT_DIGEST_CACHE = {}
 
 
+def submodule_digest(directory):
+    """A pinned submodule is listed as one directory: its checked-out commit and local changes, or its absence."""
+    if not os.path.exists(os.path.join(directory, ".git")):
+        return "not checked out"
+    state = "".join(git_raw(*arguments, repo=directory) for arguments in (("rev-parse", "HEAD"), ("status", "--porcelain"), ("diff", "HEAD")))
+    return hashlib.sha256(state.encode()).hexdigest()
+
+
+def is_unchecked_out_submodule(path):
+    """git calls an empty submodule clean, but a gate that reads it would not see the pinned content."""
+    entry = git("ls-files", "--stage", "--", path)
+    return entry.startswith("160000 ") and entry.endswith("\t" + path) and not os.path.exists(os.path.join(ROOT, path, ".git"))
+
+
 def file_content_digest(path):
     """sha256 of a file's content ('absent' when it does not exist); a file untouched for 2 s is re-read only when its stat changes."""
+    if os.path.isdir(path):
+        return submodule_digest(path)
     try:
         status = os.stat(path)
     except OSError:
@@ -257,6 +283,7 @@ def input_state(paths, regenerates=()):
                 trees[path] = "untracked"
     pathspecs = status_pathspecs(list(trees), regenerates)
     dirty = bool(pathspecs) and bool(git("status", "--porcelain", "--untracked-files=normal", "--", *pathspecs))
+    dirty = dirty or any(is_unchecked_out_submodule(path) for path in trees)
     return InputState(trees, dirty, inputs_fingerprint(paths, regenerates))
 
 
