@@ -33,6 +33,9 @@ mod path_case;
 mod provider_selection_cases;
 #[path = "../examples/classic-parity/scenario.rs"]
 mod scenario;
+#[path = "../examples/classic-parity/scheduler_cases.rs"]
+#[allow(dead_code)] // the CLI also lists the ids
+mod scheduler_cases;
 #[path = "../examples/classic-parity/structures_cases.rs"]
 mod structures_cases;
 #[path = "../examples/classic-parity/text_escape.rs"]
@@ -381,6 +384,16 @@ fn recorded_provider_selection_cases_match_pekko() {
         "provider-selection.txt",
         provider_selection_cases::rust_lines(),
         Vec::new(),
+    );
+}
+
+#[test]
+fn recorded_scheduler_cases_match_pekko() {
+    oracle_family_matches_pekko(
+        "scheduler-case",
+        "scheduler.txt",
+        scheduler_cases::rust_lines_where(|_| true),
+        scheduler_cases::PENDING.iter().map(|(id, _)| *id).collect(),
     );
 }
 

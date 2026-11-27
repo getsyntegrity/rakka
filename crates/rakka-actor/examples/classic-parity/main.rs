@@ -23,6 +23,7 @@ mod path_address_cases;
 mod path_case;
 mod provider_selection_cases;
 mod scenario;
+mod scheduler_cases;
 mod structures_cases;
 mod text_escape;
 mod util_core_cases;
@@ -198,6 +199,12 @@ fn main() -> ExitCode {
             }
         }
         "deployer-case" => return oracle_case(&mut out, &input, deployer_cases::rust_lines()),
+        "scheduler-ids" => print_ids(&mut out, scheduler_cases::rust_ids()),
+        "scheduler-case" => {
+            return oracle_case_for(&mut out, &input, |wanted| {
+                scheduler_cases::rust_lines_where(|id| id == wanted)
+            });
+        }
         "mailbox-ids" => print_ids(&mut out, mailbox_cases::rust_lines()),
         "mailbox-all" => {
             for (_, line) in mailbox_cases::rust_lines() {

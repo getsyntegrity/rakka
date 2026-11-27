@@ -1,0 +1,1 @@
+SCH-SO-02 a message cancelled before the delay is never sent; only the first cancel succeeds

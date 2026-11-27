@@ -1,0 +1,1 @@
+SCH-SO-01 the message arrives once, not before the delay, with the given sender; it cannot be cancelled afterwards

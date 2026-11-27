@@ -1,0 +1,5 @@
+SCH-SO-01 the message arrives once, not before the delay, with the given sender; it cannot be cancelled afterwards
+SCH-SO-02 a message cancelled before the delay is never sent; only the first cancel succeeds
+SCH-SO-03 a delay of zero sends at once and gives a task that is not cancellable
+SCH-SO-04 a negative delay behaves like zero
+SCH-SO-05 the largest delay is Int.MaxValue ticks; the delay is rounded up to the tick before the check

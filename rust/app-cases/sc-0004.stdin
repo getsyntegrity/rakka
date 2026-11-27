@@ -1,0 +1,1 @@
+SCH-SO-05 the largest delay is Int.MaxValue ticks; the delay is rounded up to the tick before the check
