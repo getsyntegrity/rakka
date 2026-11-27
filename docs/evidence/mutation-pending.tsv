@@ -60,4 +60,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #446	1e037c72	2	declared-superclasses-are-ignored	none	2 not run (Q-X-23)	PENDING
 #446	5f6edb74	2	declared-superclasses-are-ignored	none	2 not run (Q-X-23)	PENDING
 #454	9dd5c3bd	3	declaration-over-a-known-class-is-followed	none	3 not run (Q-X-23)	PENDING
-#451	e9dae409	399	none	none	399 not run (Q-X-23)	PENDING
+#451	584a578b	400	none	none	400 not run (Q-X-23)	PENDING
