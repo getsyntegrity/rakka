@@ -378,6 +378,11 @@ final class Scenario {
           + "pekko.actor.default-dispatcher.thread-pool-executor.fixed-pool-size = " + disp.get("parallelism") + "\n"
           + "pekko.actor.default-dispatcher.throughput = " + disp.get("throughput") + "\n";
     }
+    AutoCloseable mute = () -> {};
+    if (Boolean.TRUE.equals(sc.get("log-errors"))) {
+      hocon += PUBLISH_LOG_ERRORS; // `log.error` reaches the event stream
+      mute = muteStandardOutput();
+    }
     ActorSystem system;
     try {
       system = ActorSystem.create((String) sc.get("system"), ConfigFactory.parseString(hocon));
@@ -409,6 +414,7 @@ final class Scenario {
         system.terminate();
         system.getWhenTerminated().toCompletableFuture().get(10, TimeUnit.SECONDS);
       } catch (Exception ignored) { }
+      try { mute.close(); } catch (Exception ignored) { }
     }
   }
 

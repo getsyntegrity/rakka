@@ -112,6 +112,10 @@ pub const PENDING: &[(&str, &str)] = &[
         "needs an error subscriber that is not an actor (internal): produced in-crate by actor::guardian_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
     ),
     (
+        "MBX-GRD-03 Kill to the root guardian: the bubble walker logs, /user stops, and whenTerminated stays pending",
+        "needs an error subscriber that is not an actor (internal): produced in-crate by actor::guardian_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
         "MBX-RJ-08 an attach rejected twice while /user supervises: the root guardian stops /user and the system terminates",
         "needs an executor that rejects tasks (internal): produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
     ),
