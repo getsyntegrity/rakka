@@ -30,3 +30,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #426	71361c78	120	terminated-system-keeps-its-scheduler	none	120 not run (Q-X-23)	PENDING
 #427	ead3d9e7	385	scheduled-delay-is-not-rounded-up	none	385 not run (Q-X-23)	PENDING
 #428	3c843e99	385	none	none	385 not run (Q-X-23)	PENDING
+#429	5b776506	92	scheduler-ignores-the-injected-clock	none	92 not run (Q-X-23)	PENDING
