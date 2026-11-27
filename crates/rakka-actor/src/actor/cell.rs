@@ -128,6 +128,9 @@ enum NewMailbox {
 impl NewMailbox {
     /// `createMailbox` runs the user's code (`MailboxType::create` and what the queue says about itself): what it throws is returned.
     fn created_for(props: &Props, system: &SystemInner) -> Result<NewMailbox, Throwable> {
+        // AssertUnwindSafe: the cell does not exist yet, so nothing of it can be half-written; a queue that was already made is
+        // dropped by the unwind. `props` and the dead letters reference are only read; what the user's mailbox type shares
+        // between its calls is its own to keep consistent.
         catch_unwind(AssertUnwindSafe(|| {
             let queue = props.new_message_queue(&system.dead_letters);
             let unmet = props.unmet_queue_requirement(&*queue);
@@ -294,10 +297,16 @@ impl ActorCell {
         parent: ActorRef,
         path: ActorPath,
     ) -> Result<Arc<ActorCell>, Throwable> {
-        let mailbox = NewMailbox::created_for(&props, system)?;
-        Ok(Self::build(
-            system, dispatcher, props, parent, path, None, mailbox,
-        ))
+        match NewMailbox::created_for(&props, system) {
+            Ok(mailbox) => Ok(Self::build(
+                system, dispatcher, props, parent, path, None, mailbox,
+            )),
+            Err(thrown) => {
+                // these may be the last props: a panic of their `Drop` would skip the caller's release of the child name
+                drop_guarded(props);
+                Err(thrown)
+            }
+        }
     }
 
     /// `newCell` of a `RepointableActorRef`: `init(sendSupervise = false)` (the supervisor was told when the reference was made) and
@@ -496,9 +505,19 @@ impl ActorCell {
     }
 
     /// The cell takes `actor` as its instance (`_actor = newActor()`), remembering its class for reports.
+    ///
+    /// `class_name` is the user's code (Pekko's `getClass` is not), so it is asked before the state lock is taken, and what it
+    /// throws costs only the label: the type `Props` were made with stands in. It never fails the creation.
     fn install_actor(&self, actor: Box<dyn Actor>) {
+        // AssertUnwindSafe: only `&actor` crosses the boundary. The runtime holds no lock and has nothing half-written; the
+        // call gets `&self`, so only the actor's own interior or shared state can be left as the panic found it.
+        let class =
+            catch_unwind(AssertUnwindSafe(|| actor.class_name())).unwrap_or_else(|thrown| {
+                drop_guarded(thrown);
+                self.props.actor_class()
+            });
         let mut state = self.st.lock().unwrap();
-        state.actor_class = Some(actor.class_name());
+        state.actor_class = Some(class);
         state.actor = Some(actor);
     }
 
@@ -684,6 +703,10 @@ impl ActorCell {
         let Some(mut actor) = self.st.lock().unwrap().actor.take() else {
             return Ok(());
         };
+        // AssertUnwindSafe: the instance is outside the cell and no lock of the cell is held; it is put back whatever happened,
+        // for supervision to decide about it: one whose `pre_start` failed is dropped (`create`), and one whose `post_restart`
+        // failed is not resumed (`FailedFatally` turns a `Resume` into a restart).
+        // What `ctx` did before the throw (children, watches) is the actor's and stays, as in Pekko.
         let result = catch_unwind(AssertUnwindSafe(|| {
             let mut ctx = ActorContext { cell: self };
             f(actor.as_mut(), &mut ctx);
@@ -841,6 +864,8 @@ impl ActorCell {
             return;
         }
         // `newActor()` runs the user's factory: a throw there is an `ActorInitializationException`, like one in `preStart`
+        // AssertUnwindSafe: only `props` is borrowed, no lock is held and the cell has no instance, so a throw leaves the cell as
+        // it was; the half-built instance is gone with the unwind. State the factory captures is the user's, as in the JVM.
         let actor = match catch_unwind(AssertUnwindSafe(|| self.props.new_actor())) {
             Ok(actor) => actor,
             Err(payload) => {
@@ -1208,6 +1233,8 @@ impl ActorCell {
         let survivors = self.children.lock().unwrap().children();
         self.resume_after_failure(true);
         let replaced = self.st.lock().unwrap().replaced_actor.take();
+        // AssertUnwindSafe: as in `create`, only `props` is borrowed and no lock is held. `replaced` stays outside the closure
+        // and is put back below, to be post-stopped with the cell; it never receives again (`FailedFatally`).
         let fresh = match catch_unwind(AssertUnwindSafe(|| self.props.new_actor())) {
             Ok(fresh) => fresh,
             Err(payload) => {
@@ -1415,6 +1442,8 @@ impl ActorCell {
             .into()
         };
         // selecting asks the user's mailbox type what it produces, so it can throw as well as refuse
+        // AssertUnwindSafe: `props` is moved in and gone if it throws; the registered mailboxes are only read, and the one thing
+        // changed so far, the reservation of the name, is undone by `configuration_failure`. No lock is held.
         let props = catch_unwind(AssertUnwindSafe(|| {
             props.resolve_mailbox(
                 &self.system.settings.mailboxes,

@@ -166,6 +166,56 @@ fn a_queue_that_throws_in_class_name_fails_the_creation() {
     assert_creation_fails("spi-class-name", props, DEFAULT_ID, cause);
 }
 
+/// Panics when dropped.
+struct Bomb;
+
+impl Drop for Bomb {
+    fn drop(&mut self) {
+        panic!("drop");
+    }
+}
+
+/// Props whose only clone holds a [`Bomb`]: letting go of them panics.
+fn props_with_a_panicking_drop(_: Props) -> Props {
+    let held = Bomb;
+    let factory = move || {
+        let _ = &held;
+        Requiring
+    };
+    Props::new(factory).with_mailbox(Fails::Create)
+}
+
+/// Creates `kid` with props of its own, so that the failed creation holds their last clone.
+struct SoleOwner(Log);
+impl Actor for SoleOwner {
+    fn receive(&mut self, ctx: &mut ActorContext, _: &AnyMessage) -> bool {
+        let props = props_with_a_panicking_drop(echo(&self.0));
+        let outcome = match ctx.actor_of_named(props, "kid") {
+            Ok(_) => "created".to_owned(),
+            Err(error) => error.cause().unwrap_or("none").to_owned(),
+        };
+        let children = ctx.children().len();
+        let reused = ctx.actor_of_named(echo(&self.0), "kid").is_ok();
+        let report = format!("{outcome} children={children} reused={reused}");
+        self.0.lock().unwrap().push(report);
+        true
+    }
+}
+
+#[test]
+fn props_whose_drop_panics_do_not_keep_the_name_of_a_failed_creation() {
+    let system = RunningSystem::create("spi-props-drop");
+    let log = Log::default();
+    let parent = Props::new({
+        let log = log.clone();
+        move || SoleOwner(log.clone())
+    });
+    system.actor_of(parent).unwrap().tell((), None);
+    wait_until("the parent to report", || !snapshot_of(&log).is_empty());
+    let report = "java.lang.IllegalStateException: mailbox boom children=0 reused=true";
+    assert_eq!(snapshot_of(&log), [report]);
+}
+
 #[test]
 fn a_default_mailbox_that_panics_makes_the_system_creation_throw_a_throwable() {
     let mut settings = Settings::default();
