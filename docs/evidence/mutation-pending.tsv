@@ -43,3 +43,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #440	dcee8789	391	none	none	391 not run (Q-X-23)	PENDING
 #438	339af83e	392	root-guardian-restarts-a-failed-guardian; restarted-user-guardian-stops-its-children	none	392 not run (Q-X-23)	PENDING
 #438	2969dcda	393	root-guardian-restarts-a-failed-guardian; restarted-user-guardian-stops-its-children	none	393 not run (Q-X-23)	PENDING
+#438	e9774d89	393	root-guardian-restarts-a-failed-guardian; restarted-user-guardian-stops-its-children	none	393 not run (Q-X-23)	PENDING
