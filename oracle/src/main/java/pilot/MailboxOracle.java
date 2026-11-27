@@ -1608,15 +1608,14 @@ final class MailboxOracle {
     });
     run("MBX-TQ-05 an event published to a subscriber whose enqueue throws publishes the swallowed send, and the other subscribers still get the event", () -> {
       try (Env e = new Env(5, "0ms")) {
-        e.sys.eventStream().subscribe(e.sys.actorOf(Props.create(WarningListener.class, e.warnings)), Logging.Warning.class);
         nextFault = Fault.EVERY_ENQUEUE;
         ActorRef broken = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("faulty-mailbox"), "broken");
         awaitUntil(() -> e.started.get() == 1);
-        e.sys.eventStream().subscribe(broken, Logging.Warning.class);
-        e.sys.eventStream().publish(new Logging.Warning("source", MailboxOracle.class, "heads up"));
-        awaitUntil(() -> !e.warnings.isEmpty() && !e.errors.isEmpty());
+        e.sys.eventStream().subscribe(broken, DeadLetter.class); // after the listener of the environment
+        e.sys.deadLetters().tell("heads up", ActorRef.noSender());
+        awaitUntil(() -> !e.dead.isEmpty() && !e.errors.isEmpty());
         absence();
-        return "warnings=" + e.warnings + " errors=" + e.errors + " received=" + e.log;
+        return "dead=" + e.dead + " errors=" + e.errors + " received=" + e.log;
       }
     });
   }

@@ -78,3 +78,8 @@ MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at it
 MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue
 MBX-TT-01 context.actorOf with a mailbox type that throws fails at the call with a ConfigurationException: no child is registered and the name is free
 MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates
+MBX-TQ-01 an enqueue that throws does not reach the caller of tell: an Error is published and the actor goes on
+MBX-TQ-02 a dequeue that throws ends the turn with an uncaught-error report: the thread survives and the queued messages are processed
+MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again
+MBX-TQ-04 a cleanUp that throws when the actor stops: the watcher still gets Terminated, what was queued is lost, the name is free and the system terminates
+MBX-TQ-05 an event published to a subscriber whose enqueue throws publishes the swallowed send, and the other subscribers still get the event

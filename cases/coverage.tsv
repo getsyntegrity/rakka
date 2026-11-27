@@ -2979,6 +2979,11 @@ mb-0032	oracle-mailbox	AC-MBX-011	cited
 mb-0033	oracle-mailbox	AC-MBX-006	cited
 mb-0034	oracle-mailbox	AC-CELL-027	cited
 mb-0035	oracle-mailbox	AC-CELL-027	cited
+mb-0036	oracle-mailbox	AC-CELL-030	cited
+mb-0037	oracle-mailbox	AC-MBX-002	cited
+mb-0038	oracle-mailbox	AC-MBX-002	cited
+mb-0039	oracle-mailbox	AC-MBX-003	cited
+mb-0040	oracle-mailbox	AC-CELL-030	cited
 identify-live	scenario-identify	AC-REF-013	cited
 identify-no-sender	scenario-identify	AC-REF-013	cited
 identify-stopped	scenario-identify	AC-REF-013	cited
