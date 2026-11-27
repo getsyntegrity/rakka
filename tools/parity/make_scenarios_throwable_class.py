@@ -42,8 +42,9 @@ def through_user():
             {"op": "await-life", "count": 4, "before": [["c:post-stop", "a:post-stop"]]}, NOW("a"), NOW("c")]
 
 def failing_top_level_creator():
-    """AC-SUP-004 A3: a top-level actor whose creator fails is stopped; /user and its other children go on. No log
-    collector: it would be a listener under /user"""
+    """AC-SUP-004, the creator-failure variant of A3: a top-level actor whose creator fails is stopped; /user and its other
+    children go on. The log is not recorded here. What the spec of A3 tests (SupervisorSpec.scala:510-514, a mailbox that
+    cannot be made, with its one logged ActorInitializationException) is recorded by mb-0035"""
     failing = {"op": "spawn", "name": "a", "as": "a", "behavior": {"kind": "log", "constructor-fails-from": 1}}
     return [failing, {"op": "await-stopped", "ref": "a"}, NOW("a"), *S("b"), TELL("b", "alive"), EV("b", 2), NOW("b")]
 
