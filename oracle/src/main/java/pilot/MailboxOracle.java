@@ -170,7 +170,7 @@ final class MailboxOracle {
   }
 
   /** The mailbox operation that throws in a {@link FaultyQueue} (the {@code MBX-TQ} cases): the public SPI is user code and may fail. */
-  enum Fault { ENQUEUE, DEQUEUE, HAS_MESSAGES }
+  enum Fault { ENQUEUE, DEQUEUE, HAS_MESSAGES, ENQUEUE_OF_UNCAUGHT_REPORT }
   static volatile Fault nextFault;
 
   /** A FIFO queue with one operation that throws: {@code enqueue}/{@code dequeue} of "bad", or the {@code hasMessages} that follows the dequeue of "bad". */
@@ -180,6 +180,7 @@ final class MailboxOracle {
     final AtomicBoolean armed = new AtomicBoolean();
     public void enqueue(ActorRef r, Envelope e) {
       if (fault == Fault.ENQUEUE && "bad".equals(e.message())) throw new IllegalStateException("enqueue boom");
+      if (fault == Fault.ENQUEUE_OF_UNCAUGHT_REPORT && e.message() instanceof Logging.Error error && String.valueOf(error.message()).startsWith("Uncaught")) throw new IllegalStateException("enqueue boom");
       q.add(e);
     }
     public Envelope dequeue() {
@@ -1611,6 +1612,18 @@ final class MailboxOracle {
         a.tell("c", ActorRef.noSender());
         awaitUntil(() -> e.log.contains("r:c"));
         return "log=" + e.log + " errors=" + withoutThreadNumber(e.errors) + " terminated=" + in(a).isTerminated();
+      }
+    });
+    run("MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get that report and then the swallowed send", () -> {
+      try (Env e = errorLoggingEnv()) {
+        ActorRef a = faulty(e, Fault.DEQUEUE);
+        nextFault = Fault.ENQUEUE_OF_UNCAUGHT_REPORT;
+        ActorRef broken = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("faulty-mailbox"), "broken");
+        awaitUntil(() -> e.started.get() == 2);
+        e.sys.eventStream().subscribe(broken, Logging.Error.class); // after the listener of the environment
+        a.tell("bad", ActorRef.noSender());
+        awaitUntil(() -> e.errors.size() == 2);
+        return "errors=" + withoutThreadNumber(e.errors);
       }
     });
   }

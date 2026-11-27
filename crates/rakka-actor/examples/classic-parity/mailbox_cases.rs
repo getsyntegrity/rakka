@@ -858,6 +858,7 @@ enum Fault {
     Enqueue,
     Dequeue,
     HasMessages,
+    EnqueueOfUncaughtReport,
 }
 
 struct FaultyMailbox(Fault);
@@ -890,7 +891,16 @@ fn is_bad(envelope: &Envelope) -> bool {
 
 impl MessageQueue for FaultyQueue {
     fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
-        if self.fault == Fault::Enqueue && is_bad(&envelope) {
+        let uncaught_report = envelope
+            .message
+            .downcast_ref::<ErrorEvent>()
+            .is_some_and(|error| {
+                let message = error.message.as_deref();
+                message.is_some_and(|message| message.starts_with("Uncaught"))
+            });
+        if self.fault == Fault::Enqueue && is_bad(&envelope)
+            || self.fault == Fault::EnqueueOfUncaughtReport && uncaught_report
+        {
             boom("enqueue");
         }
         self.inner.enqueue(receiver, envelope)
@@ -987,6 +997,23 @@ fn a_has_messages_that_throws_is_an_uncaught_error() -> String {
     line
 }
 
+/// `MBX-TQ-06`
+fn a_broken_subscriber_of_the_uncaught_report_reports_its_swallowed_send() -> String {
+    let env = Arc::new(SpiEnv::default());
+    let system = env.system();
+    let actor = env.faulty(&system, Fault::Dequeue);
+    let queue = FaultyMailbox(Fault::EnqueueOfUncaughtReport);
+    let broken = system
+        .actor_of_named(env.counted().with_mailbox(queue), "broken")
+        .expect("broken");
+    wait_until(|| env.started.load(Ordering::SeqCst) == 2);
+    system.event_stream().subscribe(&broken, Channel::Error); // after the listener of the environment
+    say(&actor, &["bad"]);
+    wait_until(|| env.errors.lock().unwrap().len() == 2);
+    let line = format!("errors={}", SpiEnv::listed(&env.errors));
+    terminate_normally(system);
+    line
+}
 
 /// The oracle's `CatchingParent`: `actorOf` with a mailbox type that throws, then the same name again.
 struct CatchingParent(Arc<SpiEnv>);
@@ -2450,6 +2477,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again",
             a_has_messages_that_throws_is_an_uncaught_error(),
+        ),
+        (
+            "MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get that report and then the swallowed send",
+            a_broken_subscriber_of_the_uncaught_report_reports_its_swallowed_send(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

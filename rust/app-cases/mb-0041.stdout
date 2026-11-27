@@ -1,0 +1,1 @@
+MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get that report and then the swallowed send -> errors=[org.apache.pekko.actor.ActorSystemImpl(mbx)|java.lang.IllegalStateException|Uncaught error from thread [mbx-pekko.actor.default-dispatcher-N], pekko://mbx/user/broken|java.lang.IllegalStateException|swallowing exception during message send]
