@@ -61,3 +61,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #446	5f6edb74	2	declared-superclasses-are-ignored	none	2 not run (Q-X-23)	PENDING
 #454	9dd5c3bd	3	declaration-over-a-known-class-is-followed	none	3 not run (Q-X-23)	PENDING
 #447	60e6a42c	93	non-exception-restarts-instead-of-escalating; stopping-strategy-restarts; log-failure-matches-the-class-name-only (registered after this head)	none	93 not run (Q-X-23)	PENDING
+#447	f172001a	99	non-exception-restarts-instead-of-escalating; stopping-strategy-restarts; log-failure-matches-the-class-name-only	none	99 not run (Q-X-23)	PENDING
