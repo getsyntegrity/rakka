@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 269 decisiones: 0 bloqueantes, 189 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 270 decisiones: 0 bloqueantes, 190 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1226,6 +1226,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) usar u64 de milisegundos con Instant monótono, saturando en lugar de truncar a Int / (b) replicar el truncamiento a i32 / (c) Duration nativa
 - **Recomendación:** (a): diferencia observable sólo para ventanas mayores a ~24.8 días (Int overflow); la ventana empieza en la primera solicitud, no se desliza, y la comparación es "<= window" [2026-10-31 cierre documental] Clasificación: representación con una divergencia funcional menor. Incertidumbre resuelta midiendo/leyendo: `withinTimeRange.toMillis.toInt` es un cast que ENVUELVE (no satura): 25 días = 2_160_000_000 ms → Int −2_134_967_296; con ventana negativa `(now − windowStart) <= toNanos(window)` es falso, así que la ventana nunca contiene el fallo (cuenta = 1 y reinicio siempre permitido: equivale a "sin límite"). Para ventanas ≤ 24,8 días el comportamiento es el normal. Opciones: (a) saturar a u64 (diferencia solo para > 24,8 días: la ventana funcionaría como ventana real), (b) replicar el cast i32 (paridad exacta, incluido el comportamiento anómalo). Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica).
 - **Filas afectadas:** AC-SUP-006.1 ; AC-SUP-006.2 ; AC-SUP-021
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+
+### Q-SUP-4 — Throwable con cadenas de causas largas: impl Drop impide mover sus campos por valor
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/tests/classic_long_cause_chains.rs ; sonda desechable JDK 17 (hilo de 512 KiB): equals es identidad y toString nombra sólo el primer eslabón; printStackTrace de 1000 causas termina y con 10000 o más lanza StackOverflowError capturable
+- **Alternativas:** (a) `impl Drop` iterativo en Throwable: `class`, `message` y `cause` siguen siendo públicos y se pueden leer, asignar y `take`, pero no mover por valor ni desestructurar / (b) campo `cause` de un tipo propio con el Drop iterativo (cambia el tipo público del campo) / (c) aceptar el aborto por desbordamiento de pila al soltar una cadena larga
+- **Recomendación:** (a), implementada provisionalmente: es el cambio menor; el único uso del repositorio que movía un campo era el arnés classic-parity
+- **Filas afectadas:** AC-SUP-018
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 

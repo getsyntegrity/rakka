@@ -111,6 +111,7 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
 |---|---|---|---|---|
 | Q-SUP-3 — Causa de una excepción en `Throwable` | (a) `cause: Option<Box<Throwable>>` (alternativas: (b) canal interno junto a `Failed`; (c) aceptar la divergencia) | Hoy el `Error` de un fallo de `preStart`/`postRestart` lleva el texto de la excepción envolvente, no el de la causa | `FaultHandling.scala:406-414`; oráculo: `preStart` publica "init" | (a) cambia un tipo público |
+| Q-SUP-4 — `Throwable` con cadenas de causas largas | (a), implementada provisionalmente: `impl Drop` iterativo (alternativas: (b) un tipo propio para `cause`; (c) aceptar el aborto) | Los campos de `Throwable` ya no se pueden mover por valor ni desestructurar (`error E0509`); a cambio, soltar, clonar, comparar e imprimir con `Debug` una cadena larga no aborta el proceso | Sonda desechable JDK 17: `equals` es identidad y `printStackTrace` de 10000 causas lanza `StackOverflowError` capturable | (a) rompe a quien mueva un campo fuera de un `Throwable` |
 
 ### Classic: scheduler
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
