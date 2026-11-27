@@ -1052,7 +1052,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 ### Q-REF-12 — deadLetters suscrito al canal DeadLetter de su propio event stream
 
 - **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:708-715 ; event/EventStream.scala:51-54 ; sonda 2.0.0: StackOverflowError desde tell tras miles de copias a los demás suscriptores
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:708-715 ; event/EventStream.scala:51-54 ; sonda 2.0.0: StackOverflowError desde tell; las copias a los demás suscriptores dependen del orden de suscripción (2193 si se suscriben antes de deadLetters, 0 si después)
 - **Alternativas:** (a) no entregar ese canal al deadLetters del mismo stream: los demás reciben cada DeadLetter una vez (conducta actual) / (b) recursar hasta una profundidad fija / (c) rechazar la suscripción
 - **Recomendación:** (a). Consecuencia: no hay StackOverflowError ni copias repetidas; recursar en Rust abortaría el proceso. Dos sistemas que se suscriban mutuamente sus deadLetters siguen recursando. Bloquea el cierre de AC-EVT-006.
 - **Filas afectadas:** AC-EVT-006
