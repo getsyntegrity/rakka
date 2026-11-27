@@ -300,11 +300,12 @@
 
 ## P20 SUP-ESTRATEGIAS
 
-10 filas; 4 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 1 propuestas.
+10 filas; 5 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-SUP-1 | accepted_with_changes (2026-11-27): ACCEPTED, alternativa (d), con condiciones. Mantener Throwable e incorporar clasificación y jerarquía suficiente para reproducir los deciders de Pekko.… | 4: AC-SUP-004, AC-SUP-012, AC-SUP-017, AC-SUP-021 | Bloquea: `impl` de AC-SUP-004/012/017 y, indirectamente, AC-SUP-001/003/008/013/018/021 y AC-CELL-002.2/007.4. | Puede avanzar: la planificación de ciclo de vida sin deciders, AC-SUP-006.x (aritmética) y DW. Decidir junto con Q-X-5. | `classic-cell` |
+| Q-SUP-7 | accepted_with_changes (2026-11-27): ACCEPTED con condiciones: encapsular los campos de Throwable e impedir su construcción directa desde fuera del crate. Proporcionar constructores públicos… | 1: AC-SUP-004 | — | — | `classic-cell` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-SUP-005 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-SUP-004 | — | — | `transversal` |
 | Q-SUP-2 | propuesta | 4: AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-021 | Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). | Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica). | `classic-cell` |
@@ -403,16 +404,16 @@
 
 ## P28 SELECCION-CREACION
 
-9 filas; 11 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 6 propuestas.
+9 filas; 11 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-CELL-9 | accepted_with_changes (2026-11-27): ACCEPTED con condiciones: la captura de panics recuperables mediante catch_unwind en la frontera de creación de actores, como adaptación explícita al modelo… | 1: AC-CELL-027 | — | — | `classic-cell` |
 | Q-MBX-12 | accepted (2026-11-24): aceptar (a) exclusivamente como LIMITACIÓN TEMPORAL de la migración, no como paridad completa: registro programático en `Settings.mailboxes` (sin FQCN ni… | 1: AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-MBX-13 | accepted (2026-11-24): aceptar (a) con las limitaciones documentadas en `docs/evidence/mailbox-requirements/q-mbx-13.md`: `MessageQueueSemantics` como conjunto abierto identificado… | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-MBX-14 | accepted_with_changes (2026-11-26): aceptar con cambios: Acepto la alternativa (a), incluyendo ProducedQueue::class_name como API pública. Acepto la representación abierta de capacidades… | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 1: AC-MBX-014 | — | — | `transversal` |
 | Q-X-7 | accepted (2026-11-18): aceptar (A). | 1: AC-MBX-020 | — | — | `transversal` |
-| Q-CELL-9 | propuesta | 1: AC-CELL-027 | — | — | `classic-cell` |
 | Q-DSP-2 | propuesta | 2: AC-DSP-007, AC-MBX-014 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-1 | propuesta | 1: AC-MBX-014 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
 | Q-MBX-11 | propuesta | 2: AC-CELL-016, AC-REF-020 | — | — | `classic-dispatch` |
@@ -1092,4 +1093,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 535 (259 respondidas, 0 bloqueantes, 276 propuestas).
+Total de pares unidad–decisión: 536 (261 respondidas, 0 bloqueantes, 275 propuestas).
