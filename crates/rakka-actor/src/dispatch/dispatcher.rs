@@ -71,7 +71,6 @@ impl<T> RunQueue<T> {
         Ok(self.claim_wake())
     }
 
-    /// The oldest job.
     pub(crate) fn pop(&mut self) -> Option<(T, bool)> {
         let job = self.jobs.pop_front()?;
         Some((job, self.claim_wake()))
@@ -83,12 +82,11 @@ impl<T> RunQueue<T> {
         wake
     }
 
-    /// The calling worker is about to wait to be notified.
+    /// The calling worker is about to wait, or (`wake_up`) stopped waiting, notified or not.
     pub(crate) fn sleep(&mut self) {
         self.sleepers += 1;
     }
 
-    /// The calling worker stopped waiting, notified or not.
     pub(crate) fn wake_up(&mut self) {
         self.sleepers -= 1;
         self.waking = false;
@@ -105,7 +103,6 @@ impl<T> RunQueue<T> {
     }
 }
 
-/// The queue the workers of a pool share, and where they sleep.
 struct SharedQueue {
     queue: Mutex<RunQueue<Job>>,
     notified: Condvar,
@@ -153,31 +150,51 @@ pub(crate) struct ThreadPool {
 
 impl ThreadPool {
     pub(crate) fn start(system_name: &str, parallelism: usize) -> ThreadPool {
-        let parallelism = parallelism.max(1);
-        let shared = Arc::new(SharedQueue {
-            queue: Mutex::new(RunQueue::new(parallelism)),
-            notified: Condvar::new(),
-        });
-        for i in 0..parallelism {
-            let worker = Worker(shared.clone());
-            thread::Builder::new()
-                .name(format!("{system_name}-pekko.actor.default-dispatcher-{i}"))
-                .spawn(move || {
-                    let worker = worker; // the whole guard lives as long as the thread
-                    // no lock is held while a job runs
-                    while let Some(job) = worker.0.next_job() {
-                        match job {
-                            Job::Mailbox(cell) => ActorCell::run_mailbox(&cell),
-                            // a task that panics (a `Drop` of the user) must not take the thread with it
-                            Job::Task(task) => drop(catch_unwind(AssertUnwindSafe(task))),
-                        }
-                    }
-                })
-                .expect("spawn dispatcher thread");
-        }
-        ThreadPool { shared }
+        Self::start_spawning(system_name, parallelism, |thread, work| {
+            thread.spawn(work).map(drop)
+        })
     }
 
+    /// `start` with the creation of the threads injected, so that a test can make it fail part way.
+    pub(crate) fn start_spawning(
+        system_name: &str,
+        parallelism: usize,
+        mut spawn: impl FnMut(thread::Builder, Task) -> std::io::Result<()>,
+    ) -> ThreadPool {
+        let parallelism = parallelism.max(1);
+        // built before any thread: if a spawn fails, unwinding drops it and the started workers exit
+        let pool = ThreadPool {
+            shared: Arc::new(SharedQueue {
+                queue: Mutex::new(RunQueue::new(parallelism)),
+                notified: Condvar::new(),
+            }),
+        };
+        for i in 0..parallelism {
+            let worker = Worker(pool.shared.clone());
+            let thread = thread::Builder::new()
+                .name(format!("{system_name}-pekko.actor.default-dispatcher-{i}"));
+            let work = move || {
+                let worker = worker; // the whole guard lives as long as the thread
+                while let Some(job) = worker.0.next_job() {
+                    match job {
+                        Job::Mailbox(cell) => ActorCell::run_mailbox(&cell),
+                        // a task that panics (a `Drop` of the user) must not take the thread with it
+                        Job::Task(task) => drop(catch_unwind(AssertUnwindSafe(task))),
+                    }
+                }
+            };
+            spawn(thread, Box::new(work)).expect("spawn dispatcher thread");
+        }
+        pool
+    }
+
+    #[cfg(test)]
+    pub(crate) fn sleeping_workers(&self) -> usize {
+        self.shared.queue.lock().unwrap().sleepers
+    }
+}
+
+impl ThreadPool {
     fn submit(&self, job: Job) -> Result<(), Rejected> {
         // the lock is released at the end of this statement, before a refused job is dropped
         let pushed = self.shared.queue.lock().unwrap().push(job);
@@ -189,7 +206,6 @@ impl ThreadPool {
     }
 }
 
-/// A pool nobody can submit to any more lets its workers exit.
 impl Drop for ThreadPool {
     fn drop(&mut self) {
         self.shutdown();

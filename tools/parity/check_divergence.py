@@ -2432,11 +2432,8 @@ MUTANTS = {
         "an actor stopped while it restarts gets no `postStop` on the instance it was replacing",
     ),
     "pool-notifies-while-a-worker-is-already-waking": (
-        "src/dispatch/dispatcher.rs",
-        "let wake = !self.waking && self.sleepers > 0 && !self.jobs.is_empty();",
-        "let wake = self.sleepers > 0 && !self.jobs.is_empty();",
-        "every submission wakes a sleeping worker again: the cross-thread hand-off cost returns (killed by a unit test, see UNIT_MUTANTS)",
-    ),
+        "src/dispatch/dispatcher.rs", "let wake = !self.waking && self.sleepers > 0", "let wake = self.sleepers > 0",
+        "a second sleeper is notified while one is already waking: more cross-thread hand-offs (killed by a unit test, see UNIT_MUTANTS)"),
     # --- Q-SUP-1: classification by subtype ---
     "non-exception-restarts-instead-of-escalating": (
         "src/actor/supervision.rs",
