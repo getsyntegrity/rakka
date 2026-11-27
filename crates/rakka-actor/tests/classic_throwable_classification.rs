@@ -97,7 +97,7 @@ fn tree(decide: impl Fn(&Throwable) -> Directive + Send + Sync + 'static) -> Tre
     let decisions = log.clone();
     let strategy: SupervisorStrategy = OneForOneStrategy::new(-1, move |cause: &Throwable| {
         let directive = decide(cause);
-        let line = format!("g {} {directive:?}", cause.class);
+        let line = format!("g {} {directive:?}", cause.class());
         decisions.lock().unwrap().push(line);
         directive
     })

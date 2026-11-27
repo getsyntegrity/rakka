@@ -658,8 +658,7 @@ impl Actor for Scripted {
                         throw(Throwable::illegal_state("decider"));
                     }
                     let chosen = if matching.is_empty() {
-                        e.message
-                            .as_ref()
+                        e.message()
                             .and_then(|m| decider.get(m))
                             .and_then(|name| directive_named(name))
                             .unwrap_or_else(|| rakka_actor::actor::supervision::default_decider(e))
@@ -958,9 +957,9 @@ fn registration(o: &mut String, sp: &Value, register: impl FnOnce()) {
     };
     let thrown = thrown.downcast::<Throwable>().expect("a Throwable");
     o.push_str("\"ok\":false,\"exception\":");
-    s(o, &thrown.class);
+    s(o, thrown.class());
     if sp.get("no-text").is_none() {
-        let text = thrown.message.as_deref().unwrap_or_default();
+        let text = thrown.message().unwrap_or_default();
         let redacted: Vec<String> = text
             .split(']')
             .map(|part| match part.rsplit_once('#') {
@@ -1104,17 +1103,17 @@ impl Actor for Collector {
                 }
                 let of_actor_class = e.log_class == std::any::type_name::<Scripted>();
                 o.push_str(&format!(",\"ofActorClass\":{of_actor_class},\"cause\":"));
-                js(&mut o, &e.cause.class);
-                if !e.cause.class.ends_with("NoCause$") {
+                js(&mut o, e.cause.class());
+                if !e.cause.class().ends_with("NoCause$") {
                     o.push_str(",\"causeText\":");
                     js(&mut o, &e.cause.to_string());
                 }
                 if self.causes {
                     o.push_str(",\"causedBy\":[");
-                    let mut next = e.cause.cause.as_deref();
+                    let mut next = e.cause.cause();
                     while let Some(cause) = next {
                         js(&mut o, &cause.to_string());
-                        next = cause.cause.as_deref();
+                        next = cause.cause();
                         if next.is_some() {
                             o.push(',');
                         }
