@@ -15,6 +15,7 @@ use crate::actor::props::{
 };
 use crate::actor::scheduler::{ParkWaiter, Scheduler, TimerHooks, Waiter};
 use crate::actor::selection::ActorSelection;
+use crate::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
 use crate::actor::{ActorError, ErrorClass};
 use crate::actor::{ActorPath, Address, Deployer, DeployerError};
 use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
@@ -23,7 +24,7 @@ use crate::dispatch::mailboxes::Mailboxes;
 use crate::dispatch::queue_semantics::MessageQueueSemantics;
 use crate::dispatch::sysmsg::{StopChild, SystemMessage, Terminated};
 use crate::dispatch::turn::TurnPolicy;
-use crate::event::{DeadLetter, EventStream};
+use crate::event::{DeadLetter, ErrorEvent, EventStream};
 use crate::util::clock::{Clock, NanoClock};
 
 /// A write-once value other threads can wait for (`Promise`/`Future`).
@@ -258,6 +259,8 @@ pub(crate) struct BubbleWalker {
     dispatchers: Vec<Arc<Dispatcher>>,
     /// Closed before `whenTerminated` completes (`registerOnTermination(stopScheduler())`).
     scheduler: OnceLock<Arc<Scheduler>>,
+    /// Where the provider's `log.error` goes (a walker made alone, in tests, logs nowhere).
+    events: OnceLock<Arc<EventStream>>,
     pub(crate) root: OnceLock<ActorRef>,
     /// Completes when the walker discards, after it stopped walking, the `DeathWatchNotification` of the root guardian (and of no other actor).
     #[cfg(test)]
@@ -276,6 +279,7 @@ impl BubbleWalker {
             cause_of_termination: Promise::new(),
             dispatchers,
             scheduler: OnceLock::new(),
+            events: OnceLock::new(),
             root: OnceLock::new(),
             #[cfg(test)]
             notification_discarded: Promise::new(),
@@ -320,6 +324,10 @@ impl InternalActorRef for BubbleWalker {
             // `causeOfTermination.tryFailure(ex)` then `child.stop()`: the walker stops walking, so the death of the root is discarded above, `stop()`
             // never runs and the public `terminationPromise` stays pending (the cause is not read by anything else)
             SystemMessage::Failed { child, cause } => {
+                if let Some(events) = self.events.get() {
+                    let message = format!("guardian {child:?} failed, shutting down!");
+                    log_provider_error(events, &cause, message);
+                }
                 self.cause_of_termination.complete(Err(cause));
                 child.stop();
             }
@@ -353,13 +361,40 @@ impl InternalActorRef for BubbleWalker {
 
 // ---- guardian actors ----
 
+/// `log.error(cause, message)` of the provider (`Logging.withMarker(eventStream, classOf[LocalActorRefProvider])`).
+fn log_provider_error(events: &EventStream, cause: &Throwable, message: String) {
+    events.publish_error(ErrorEvent {
+        cause: cause.clone(),
+        log_source: "LocalActorRefProvider".to_owned(),
+        log_class: "org.apache.pekko.actor.LocalActorRefProvider".to_owned(),
+        message: Some(message),
+    });
+}
+
+/// `rootGuardianStrategy`: whatever fails `/user` or `/system` is logged and stops it, which ends the system.
+fn root_guardian_strategy(events: Arc<EventStream>) -> SupervisorStrategy {
+    OneForOneStrategy::new(-1, move |cause| {
+        let message = "guardian failed, shutting down system".to_owned();
+        log_provider_error(&events, cause, message);
+        Directive::Stop
+    })
+    .into()
+}
+
 /// `LocalActorRefProvider.Guardian` (root and `/user`).
-struct Guardian;
+struct Guardian {
+    strategy: SupervisorStrategy,
+}
 
 impl Actor for Guardian {
     fn required_message_queue() -> Option<MessageQueueSemantics> {
         Some(MessageQueueSemantics::UNBOUNDED)
     }
+    fn supervisor_strategy(&self) -> SupervisorStrategy {
+        self.strategy.clone()
+    }
+    /// "guardian MUST NOT lose its children during restart".
+    fn pre_restart(&mut self, _: &mut ActorContext, _: &Throwable, _: Option<&AnyMessage>) {}
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if msg.is::<Terminated>() {
             let me = ctx.self_ref();
@@ -383,6 +418,8 @@ impl Actor for SystemGuardian {
     fn required_message_queue() -> Option<MessageQueueSemantics> {
         Some(MessageQueueSemantics::UNBOUNDED)
     }
+    /// "guardian MUST NOT lose its children during restart". Its strategy is the default one (`systemGuardianStrategy`).
+    fn pre_restart(&mut self, _: &mut ActorContext, _: &Throwable, _: Option<&AnyMessage>) {}
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if let Some(t) = msg.downcast_ref::<Terminated>() {
             if t.actor == self.guardian {
@@ -514,14 +551,19 @@ impl ActorSystem {
             vec![dispatcher, internal_dispatcher.clone()],
         ));
         bubble.scheduler.set(scheduler).ok();
+        bubble.events.set(sys.events.clone()).ok();
         #[cfg(test)]
         sys.walker.set(bubble.clone()).ok();
         let walker = ActorRef(bubble.clone());
+        let root_events = sys.events.clone();
         // a guardian whose default mailbox cannot be made: `ActorSystem.create` throws what it threw
         let root = ActorCell::new_local(
             &sys,
             internal_dispatcher.clone(),
-            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),
+            Props::new(move || Guardian {
+                strategy: root_guardian_strategy(root_events.clone()),
+            })
+            .with_resolved_mailbox(default_mailbox.clone()),
             walker,
             root_path.clone(),
         )
@@ -543,9 +585,13 @@ impl ActorSystem {
             root.init_child(name, cell.self_ref());
             cell
         };
+        // `guardianStrategy`: `guardian-supervisor-strategy` is not ported, so it is always the default one
         let user = make_guardian(
             "user",
-            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),
+            Props::new(|| Guardian {
+                strategy: SupervisorStrategy::default(),
+            })
+            .with_resolved_mailbox(default_mailbox.clone()),
         );
         sys.guardian.set(user.clone()).ok();
         let user_ref = user.self_ref();
