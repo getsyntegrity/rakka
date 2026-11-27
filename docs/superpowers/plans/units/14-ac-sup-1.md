@@ -1,16 +1,16 @@
 # Spec 14 — AC-SUP (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 20. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 21. **Tareas:** 4 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-SUP-009, AC-SUP-019.
+Filas ya `done` en esta unidad (no se reabren): AC-SUP-009.
 
 ## Prerrequisitos
 
-- Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-002.2, AC-CELL-007.3, AC-CELL-013.1.
+- Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-002.2, AC-CELL-007.3, AC-CELL-007.4, AC-CELL-013.1.
 - Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-011.
 - Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-012.
 - Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-001.
@@ -56,9 +56,9 @@ Filas: AC-SUP-013, AC-SUP-014, AC-SUP-015, AC-SUP-016, AC-SUP-017, AC-SUP-018. C
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 4: Fallo en handleChildTerminated de la estrategia (+1 filas)
+### Tarea 4: Fallo fatal en restart: Resume con causa se convierte en Restart y no se repite preRestart (+2 filas)
 
-Filas: AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-SUP-019, AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -87,6 +87,7 @@ Filas: AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/inventory/contracts
 | AC-SUP-016 | Parada de emergencia ante excepción en el manejo del fallo | - | derivada del código (ver bloque de contrato) | Q-X-5 |
 | AC-SUP-017 | Catálogo de excepciones del ciclo de vida: ActorInitializationException… | `enum ActorError` o structs con `source()` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:277-286 ;… | Q-SUP-1, Q-SUP-5 |
 | AC-SUP-018 | logFailure: texto y destino del log de fallos de hijos | `fn log_failure(&self, ctx, child, cause, directive)` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:817-832 | Q-SUP-1, Q-SUP-3, Q-SUP-4 |
+| AC-SUP-019 | Fallo fatal en restart: Resume con causa se convierte en Restart y no se… | bandera `failed_fatally` en la celda | derivada del código (ver bloque de contrato) | - |
 | AC-SUP-020 | Fallo en handleChildTerminated de la estrategia | - | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:143-162 | - |
 | AC-SUP-021 | Constructores y valores por defecto de OneForOneStrategy/AllForOneStrategy;… | builders OneForOne/AllForOne (max_retries, within, logging) con defaults -1/Inf/true,… | actor-tests/src/test/scala/org/apache/pekko/actor/RestartStrategySpec.scala:90-112 ;… | Q-SUP-1, Q-SUP-2 |
 

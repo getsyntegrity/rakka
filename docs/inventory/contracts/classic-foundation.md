@@ -915,10 +915,10 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-8.
 
 
-**Actualización P03 (2026-11-18, Pekko 2.0.0).** `WildcardIndex.scala` re-leído contra 2.0.0. Hallazgos medidos (WI-15, WI-16): `isEmpty` ignora los hijos `prefix*` y reinsertar `prefix*` reemplaza el subárbol; la elección entre `prefix*` solapados (A7) depende del orden de un HashMap de Scala: Q-UTIL-21 (propuesta).
+**Actualización P03 (2026-11-18, Pekko 2.0.0).** `WildcardIndex.scala` re-leído contra 2.0.0. Hallazgos medidos (WI-15, WI-16): `isEmpty` ignora los hijos `prefix*` y reinsertar `prefix*` reemplaza el subárbol; la elección entre `prefix*` solapados (A7) depende del orden de un HashMap de Scala: Q-UTIL-21 (propuesta entonces; aceptada (c) el 2026-11-27).
 
 
-**Actualización P10 PR-B (2026-11-20, instrucción de paridad estricta del Owner, propuesta en #279).** A7 (elegir entre `prefix*` solapados) deja de ser una divergencia: `WildcardTree` mantiene los hijos `prefix*` en el orden de iteración de un `immutable.HashMap` de Scala 2.13 (`util/scala_hash_order.rs`: `String.hashCode` UTF-16, `improve`, trie de cinco bits por nivel con las entradas solas antes que los nodos hijo, y colisiones completas en orden de inserción). Medido contra el oráculo (DL-60..DL-135, `dr-0059..dr-0136`; fuzz `tools/parity/fuzz_wildcard_order.py`: 3 x 20 000 conjuntos sin diferencias; DL-132/133: con dos prefijos de igual `hashCode` gana el primero insertado). La fila sigue `partial` hasta que el Owner responda Q-UTIL-21 y la propuesta de #279 (`proposed`).
+**Actualización P10 PR-B (2026-11-20, instrucción de paridad estricta del Owner, propuesta en #279).** A7 (elegir entre `prefix*` solapados) deja de ser una divergencia: `WildcardTree` mantiene los hijos `prefix*` en el orden de iteración de un `immutable.HashMap` de Scala 2.13 (`util/scala_hash_order.rs`: `String.hashCode` UTF-16, `improve`, trie de cinco bits por nivel con las entradas solas antes que los nodos hijo, y colisiones completas en orden de inserción). Medido contra el oráculo (DL-60..DL-135, `dr-0059..dr-0136`; fuzz `tools/parity/fuzz_wildcard_order.py`, resultado histórico del 2026-11-20, no repetido: 3 x 20 000 conjuntos sin diferencias; DL-132/133: con dos prefijos de igual `hashCode` gana el primero insertado). La fila siguió `partial` a la espera de Q-UTIL-21 y de la propuesta de #279; ambas aceptadas (Q-UTIL-21 el 2026-11-27).
 
 ---
 
@@ -3048,9 +3048,9 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Oráculo.** Sí: `oracle/run.sh deployer-ids|deployer-all|deployer-case` (`DeployerOracle.java`, 60 ids: 58 guiones `DL` de `deployer.tsv` y 2 de concurrencia `DC` con barrera). Ejecuta el `Deployer` real de Pekko 2.0.0 con su índice vaciado por reflexión (el constructor ya despliega las entradas `/IO-DNS/*` de `reference.conf`, que es AC-CFG-012.1). Un sustituto UTF-16 suelto en una ruta está fuera del dominio `&str` (Q-X-17): ningún guion lo usa (la pareja de sustitutos sí, DL-40).
 
-**Actualización P10 PR 2 (2026-11-20).** Rust: `actor::Deployer` (`actor/deployer.rs`) con `deploy`, `lookup` y `lookup_path`. `deploy` divide con la semántica de `String.split("/")` de Java (se conserva el vacío inicial, se pierden los finales, `"/"` no da ningún elemento), descarta el primero, rechaza un elemento vacío y valida los demás antes de tocar el índice; el índice es una instantánea inmutable y el alta es el `compareAndSet` literal de Pekko (se construye el índice nuevo desde la instantánea y se intercambia solo si sigue vigente; si no, se reintenta), con un `Mutex` que guarda solo el intercambio: no se pierde ninguna alta y `lookup` no espera. Sigue `partial`: falta AC-CFG-012.1 (leer `pekko.actor.deployment`) y AC-UTIL-009 sigue `partial` por Q-UTIL-21 (orden entre dos `prefix*` que coinciden).
+**Actualización P10 PR 2 (2026-11-20).** Rust: `actor::Deployer` (`actor/deployer.rs`) con `deploy`, `lookup` y `lookup_path`. `deploy` divide con la semántica de `String.split("/")` de Java (se conserva el vacío inicial, se pierden los finales, `"/"` no da ningún elemento), descarta el primero, rechaza un elemento vacío y valida los demás antes de tocar el índice; el índice es una instantánea inmutable y el alta es el `compareAndSet` literal de Pekko (se construye el índice nuevo desde la instantánea y se intercambia solo si sigue vigente; si no, se reintenta), con un `Mutex` que guarda solo el intercambio: no se pierde ninguna alta y `lookup` no espera. Sigue `partial`: falta AC-CFG-012.1 (leer `pekko.actor.deployment`) y AC-UTIL-009 sigue `partial` (Q-UTIL-21, orden entre dos `prefix*` que coinciden, aceptada (c) el 2026-11-27).
 
-**Decisiones.** Q-UTIL-8, Q-UTIL-21 (propuesta).
+**Decisiones.** Q-UTIL-8, Q-UTIL-21 (aceptada).
 
 
 ---
