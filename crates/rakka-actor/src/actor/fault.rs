@@ -9,8 +9,18 @@ use std::fmt;
 ///
 /// Classification is by subtype ([`is_a`](Throwable::is_a)). **A class that nobody declared anything about is an `Exception`**:
 /// a user error needs no declaration. The superclasses are known only for the classes this runtime raises or names (see
-/// `superclass_of`); for any other class, `java.lang` ones included, declare them with
+/// `known_superclass`); for any other class, `java.lang` ones included, declare them with
 /// [`with_superclasses`](Throwable::with_superclasses), e.g. `["java.lang.Error"]` for an error the default decider escalates.
+///
+/// **The hierarchy of a class the runtime knows is its own.** What is declared over such a class is ignored, whether it is
+/// the class of the throwable or one of its declared superclasses: from the first known class on, only the runtime's
+/// superclasses apply. For example a `PostRestartException` declared under `java.lang.Error` is still an
+/// `ActorInitializationException` and not an `Error`. To classify differently, use another class name.
+///
+/// **The hierarchy of a class the runtime knows is its own.** What is declared over such a class is ignored, whether it is
+/// the class of the throwable or one of its declared superclasses: from the first known class on, only the runtime's
+/// superclasses apply. For example a `PostRestartException` declared under `java.lang.Error` is still an
+/// `ActorInitializationException` and not an `Error`. To classify differently, use another class name.
 ///
 /// A cause chain can be of any length: `Clone`, `PartialEq`, `Debug` and `Drop` walk it without a stack frame per cause. Because of
 /// that `Drop`, a field cannot be moved out of a `Throwable` by value, by destructuring it by value or by struct update syntax
@@ -26,11 +36,14 @@ pub struct Throwable {
     pub cause: Option<Box<Throwable>>,
 }
 
-/// The direct superclass of the classes this runtime raises or names, and of the two roots of the categories; `None` above
-/// `java.lang.Throwable`. Not a model of the JDK: any other class is a direct subclass of `Exception`, the default category.
-fn superclass_of(class: &str) -> Option<&'static str> {
-    Some(match class {
-        "java.lang.Throwable" => return None,
+/// The direct superclass of a class this runtime raises or names, and of the roots of the categories (`Some(None)` for
+/// `java.lang.Throwable`); `None` for any other class. Not a model of the JDK.
+fn known_superclass(class: &str) -> Option<Option<&'static str>> {
+    Some(Some(match class {
+        "java.lang.Throwable" => return Some(None),
+        "java.lang.RuntimeException" | "java.lang.ReflectiveOperationException" => {
+            "java.lang.Exception"
+        }
         "java.lang.Error"
         | "java.lang.Exception"
         | "org.apache.pekko.event.Logging$Error$NoCause$" => "java.lang.Throwable",
@@ -48,8 +61,13 @@ fn superclass_of(class: &str) -> Option<&'static str> {
         | "org.apache.pekko.actor.PostRestartException" => {
             "org.apache.pekko.actor.ActorInitializationException"
         }
-        _ => "java.lang.Exception",
-    })
+        _ => return None,
+    }))
+}
+
+/// As [`known_superclass`], with the default category: an unknown class is a direct subclass of `Exception`.
+fn superclass_of(class: &str) -> Option<&'static str> {
+    known_superclass(class).unwrap_or(Some("java.lang.Exception"))
 }
 
 impl Throwable {
@@ -71,6 +89,8 @@ impl Throwable {
 
     /// Declares the superclasses of this class, nearest first; what the last one extends follows from it, by the same rules as
     /// for a class (an unknown one is an `Exception`). Replaces an earlier declaration; an empty one declares nothing.
+    /// The declaration is stored as given (equality and `Debug` see it), but [`is_a`](Throwable::is_a) does not follow it
+    /// past a class the runtime knows.
     pub fn with_superclasses<S: Into<String>>(
         mut self,
         superclasses: impl IntoIterator<Item = S>,
@@ -81,13 +101,20 @@ impl Throwable {
 
     /// `isInstanceOf`: whether `class` (a fully qualified name) is the class of this throwable or one of its superclasses.
     pub fn is_a(&self, class: &str) -> bool {
-        let furthest = self.superclasses.last().unwrap_or(&self.class);
-        let inherited = std::iter::successors(superclass_of(furthest), |c| superclass_of(c));
-        std::iter::once(&self.class)
+        let declared = std::iter::once(&self.class)
             .chain(&self.superclasses)
-            .map(String::as_str)
-            .chain(inherited)
-            .any(|own| own == class)
+            .map(String::as_str);
+        let mut furthest = self.class.as_str();
+        for name in declared {
+            if name == class {
+                return true;
+            }
+            furthest = name;
+            if known_superclass(name).is_some() {
+                break; // its own superclasses apply, not the declared ones
+            }
+        }
+        std::iter::successors(superclass_of(furthest), |c| superclass_of(c)).any(|c| c == class)
     }
 
     /// `new IllegalStateException(message)`.

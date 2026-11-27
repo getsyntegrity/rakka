@@ -2977,6 +2977,12 @@ mb-0030	oracle-mailbox	AC-MBX-013,AC-MBX-014	cited
 mb-0031	oracle-mailbox	AC-MBX-013,AC-MBX-014	cited
 mb-0032	oracle-mailbox	AC-MBX-011	cited
 mb-0033	oracle-mailbox	AC-MBX-006	cited
+mb-0034	oracle-mailbox	AC-CELL-027	cited
+mb-0035	oracle-mailbox	AC-CELL-027	cited
+mb-0036	oracle-mailbox	AC-CELL-030	cited
+mb-0037	oracle-mailbox	AC-MBX-002	cited
+mb-0038	oracle-mailbox	AC-MBX-002	cited
+mb-0041	oracle-mailbox	AC-MBX-002	cited
 identify-live	scenario-identify	AC-REF-013	cited
 identify-no-sender	scenario-identify	AC-REF-013	cited
 identify-stopped	scenario-identify	AC-REF-013	cited
@@ -3097,3 +3103,5 @@ cl-match-exception	scenario-throwable-class	AC-SUP-004	cited
 cl-match-none-escalates	scenario-throwable-class	AC-SUP-004	cited
 cl-stopping-stops	scenario-throwable-class	AC-SUP-005	cited
 cl-stopping-escalates	scenario-throwable-class	AC-SUP-005	cited
+gf-kill-system	scenario-guardian-failure	AC-SUP-014	cited
+gf-kill-user	scenario-guardian-failure	AC-SUP-014,AC-SYS-008	cited

@@ -1,0 +1,1 @@
+MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates -> terminated=true log=[r:m] started=1 errors=[pekko://mbx/user/a|org.apache.pekko.actor.ActorInitializationException|mailbox boom] systemTerminated=true

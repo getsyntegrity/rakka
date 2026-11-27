@@ -1,0 +1,1 @@
+MBX-TQ-01 an enqueue that throws does not reach the caller of tell: an Error is published and the actor goes on

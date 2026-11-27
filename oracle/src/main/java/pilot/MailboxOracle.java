@@ -11,6 +11,7 @@ import org.apache.pekko.dispatch.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.pekko.dispatch.sysmsg.*;
 import org.apache.pekko.event.Logging;
+import org.apache.pekko.pattern.Patterns;
 
 /**
  * Oracle for the mailbox state machine and processing order of Apache Pekko 2.0.0 (ADR-0001, PR 1/10): rows AC-MBX-001/002/003,
@@ -165,6 +166,82 @@ final class MailboxOracle {
     }
     @Override public Receive createReceive() {
       return receiveBuilder().matchEquals("go", g -> child.set(((ActorCell) getContext()).attachChild(props, "c", false))).build();
+    }
+  }
+
+  /** The mailbox operation that throws in a {@link FaultyQueue} (the {@code MBX-TQ} cases): the public SPI is user code and may fail. */
+  enum Fault { ENQUEUE, DEQUEUE, HAS_MESSAGES, ENQUEUE_OF_UNCAUGHT_REPORT }
+  static volatile Fault nextFault;
+
+  /** A FIFO queue with one operation that throws: {@code enqueue}/{@code dequeue} of "bad", or the {@code hasMessages} that follows the dequeue of "bad". */
+  static final class FaultyQueue implements MessageQueue {
+    final ConcurrentLinkedQueue<Envelope> q = new ConcurrentLinkedQueue<>();
+    final Fault fault = nextFault;
+    final AtomicBoolean armed = new AtomicBoolean();
+    public void enqueue(ActorRef r, Envelope e) {
+      if (fault == Fault.ENQUEUE && "bad".equals(e.message())) throw new IllegalStateException("enqueue boom");
+      if (fault == Fault.ENQUEUE_OF_UNCAUGHT_REPORT && e.message() instanceof Logging.Error error && String.valueOf(error.message()).startsWith("Uncaught")) throw new IllegalStateException("enqueue boom");
+      q.add(e);
+    }
+    public Envelope dequeue() {
+      Envelope e = q.poll();
+      if (e != null && "bad".equals(e.message())) {
+        if (fault == Fault.DEQUEUE) throw new IllegalStateException("dequeue boom");
+        if (fault == Fault.HAS_MESSAGES) armed.set(true);
+      }
+      return e;
+    }
+    public int numberOfMessages() { return q.size(); }
+    public boolean hasMessages() {
+      if (armed.compareAndSet(true, false)) throw new IllegalStateException("hasMessages boom");
+      return !q.isEmpty();
+    }
+    public void cleanUp(ActorRef owner, MessageQueue deadLetters) {
+      for (Envelope e; (e = q.poll()) != null; ) deadLetters.enqueue(owner, e);
+    }
+  }
+
+  public static final class FaultyType implements MailboxType {
+    public FaultyType(ActorSystem.Settings s, Config c) {}
+    public MessageQueue create(scala.Option<ActorRef> owner, scala.Option<ActorSystem> system) { return new FaultyQueue(); }
+  }
+
+  /** Configuration appended to the next {@link Env}. The cases run one after another. */
+  static String extraConfig = "";
+
+  /** An {@link Env} that publishes what a {@code LoggingAdapter} logs as errors (the pool's uncaught-error report does), printing nothing. */
+  static Env errorLoggingEnv() {
+    // with SLF4J on the classpath Pekko swaps in its filter, which has no binding here: `use-slf4j = off` keeps the default one
+    // naming the standard output logger as the only logger starts none (`startDefaultLoggers` skips it)
+    extraConfig = "pekko.loglevel = ERROR\n pekko.use-slf4j = off\n pekko.loggers = [\"org.apache.pekko.event.Logging$StandardOutLogger\"]\n";
+    try { return new Env(5, "0ms"); } finally { extraConfig = ""; }
+  }
+
+  /** The actor {@code a} on a mailbox whose queue has {@code fault}. */
+  static ActorRef faulty(Env e, Fault fault) throws Exception {
+    nextFault = fault;
+    ActorRef a = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("faulty-mailbox"), "a");
+    awaitUntil(() -> e.started.get() == 1);
+    return a;
+  }
+
+  /** The uncaught-error report names the pool thread, whose number depends on scheduling. */
+  static List<String> withoutThreadNumber(Collection<String> errors) {
+    return errors.stream().map(x -> x.replaceAll("default-dispatcher-\\d+", "default-dispatcher-N")).collect(java.util.stream.Collectors.toList());
+  }
+
+  /** Creates the child {@code kid} with a mailbox type that throws, catches what {@code actorOf} throws, and reuses the name. */
+  public static final class CatchingParent extends AbstractActor {
+    final Env env; CatchingParent(Env env) { this.env = env; }
+    @Override public Receive createReceive() {
+      return receiveBuilder().matchEquals("go", g -> {
+        try { getContext().actorOf(Props.create(Worker.class, env).withMailbox("failing-mailbox"), "kid"); env.note.set("created"); }
+        catch (Throwable t) { env.note.set("caught=" + t.getClass().getName() + ": " + t.getMessage() + " cause=" + t.getCause()); }
+        int registered = 0;
+        for (ActorRef child : getContext().getChildren()) registered++;
+        env.log.add("children=" + registered);
+        getContext().actorOf(Props.create(Worker.class, env), "kid").tell("m", getSelf());
+      }).build();
     }
   }
 
@@ -354,7 +431,9 @@ final class MailboxOracle {
           + "t-disp { type = Dispatcher\n executor = thread-pool-executor\n thread-pool-executor.fixed-pool-size = 1\n throughput = " + throughput
           + "\n throughput-deadline-time = " + deadline + " }\n hook-mailbox.mailbox-type = \"pilot.MailboxOracle$HookType\"\n"
           + "failing-mailbox.mailbox-type = \"pilot.MailboxOracle$FailingType\"\n"
-          + "rej-disp { type = Dispatcher\n executor = \"pilot.MailboxOracle$RejectingConfigurator\"\n throughput = " + throughput + " }\n")
+          + "faulty-mailbox.mailbox-type = \"pilot.MailboxOracle$FaultyType\"\n"
+          + "rej-disp { type = Dispatcher\n executor = \"pilot.MailboxOracle$RejectingConfigurator\"\n throughput = " + throughput + " }\n"
+          + extraConfig)
           .withFallback(ConfigFactory.load()));
       ActorRef listener = sys.actorOf(Props.create(Listener.class, dead));
       sys.eventStream().subscribe(listener, DeadLetter.class);
@@ -1431,6 +1510,37 @@ final class MailboxOracle {
         return "guardianQueues=" + DEFAULT_QUEUES.get();
       }
     });
+    run("MBX-GRD-02 Kill to /user: the strategy of the root guardian logs and stops it, and the system terminates", () -> {
+      try (GuardianEnv e = new GuardianEnv()) {
+        e.treeUnderUser();
+        e.sys.actorSelection("/user").tell(Kill.getInstance(), ActorRef.noSender());
+        return e.afterTermination();
+      }
+    });
+    run("MBX-GRD-03 Kill to the root guardian: the bubble walker logs, /user stops, and whenTerminated stays pending", () -> {
+      try (GuardianEnv e = new GuardianEnv()) {
+        e.treeUnderUser();
+        e.sys.actorSelection("/").tell(Kill.getInstance(), ActorRef.noSender());
+        awaitUntil(() -> e.stopped.size() == 2);
+        try { Thread.sleep(500); } catch (InterruptedException x) { throw new RuntimeException(x); } // a bounded wait for an absence
+        return "errors=" + e.errors + " stopped=" + e.stopped + " whenTerminated=" + e.sys.getWhenTerminated().toCompletableFuture().isDone();
+      }
+    });
+    run("MBX-GRD-04 Kill to /system: the strategy of the root guardian logs and stops it, and the system terminates", () -> {
+      try (GuardianEnv e = new GuardianEnv()) {
+        e.treeUnderUser();
+        e.sys.actorSelection("/system").tell(Kill.getInstance(), ActorRef.noSender());
+        return e.afterTermination();
+      }
+    });
+    run("MBX-RJ-08 an attach rejected twice while /user supervises: the root guardian stops /user and the system terminates", () -> {
+      try (GuardianEnv e = new GuardianEnv()) {
+        e.treeUnderUser();
+        REJECT_NEXT.set(2);
+        ActorRef rejected = e.sys.actorOf(Props.create(Tree.class, e.stopped, (Object) null).withDispatcher("rej-disp"), "r");
+        return e.afterTermination() + " refReturned=" + (rejected != null) + " rejectionsLeft=" + REJECT_NEXT.get();
+      }
+    });
     run("MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head", () -> {
       MessageQueue q = new UnboundedDequeBasedMailbox().create(scala.Option.empty(), scala.Option.empty()), dead = defaultQueue();
       DequeBasedMessageQueueSemantics deque = (DequeBasedMessageQueueSemantics) q;
@@ -1457,6 +1567,106 @@ final class MailboxOracle {
       q.cleanUp(Nobody$.MODULE$, dead);
       return type + " | new " + empty + " | " + mixed + " | cleanUp source " + counts(q) + " target " + drain(dead);
     });
+    run("MBX-TT-01 context.actorOf with a mailbox type that throws fails at the call with a ConfigurationException: no child is registered and the name is free", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        e.sys.actorOf(Props.create(CatchingParent.class, e), "parent").tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("r:m"));
+        return e.note.get() + " log=" + e.log + " started=" + e.started.get() + " errors=" + e.errors;
+      }
+    });
+    run("MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates", () -> {
+      Env e = new Env(5, "0ms");
+      ActorRef a = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("failing-mailbox"), "a");
+      awaitUntil(() -> in(a).isTerminated() && !e.errors.isEmpty());
+      e.sys.actorOf(Props.create(Worker.class, e), "b").tell("m", ActorRef.noSender());
+      awaitUntil(() -> e.log.contains("r:m"));
+      scala.concurrent.Await.result(e.sys.terminate(), scala.concurrent.duration.Duration.create(10, TimeUnit.SECONDS));
+      return "terminated=true log=" + e.log + " started=" + e.started.get() + " errors=" + e.errors + " systemTerminated=true";
+    });
+    run("MBX-TQ-01 an enqueue that throws does not reach the caller of tell: an Error is published and the actor goes on", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef a = faulty(e, Fault.ENQUEUE);
+        a.tell("a", ActorRef.noSender());
+        String told;
+        try { a.tell("bad", ActorRef.noSender()); told = "returned"; } catch (Throwable t) { told = "threw " + t; }
+        a.tell("c", ActorRef.noSender());
+        awaitUntil(() -> e.log.size() == 2 && !e.errors.isEmpty());
+        return "tell=" + told + " log=" + e.log + " dead=" + e.dead + " errors=" + e.errors + " terminated=" + in(a).isTerminated();
+      }
+    });
+    run("MBX-TQ-02 a dequeue that throws ends the turn with an uncaught-error report: the thread survives and the queued messages are processed", () -> {
+      try (Env e = errorLoggingEnv()) {
+        ActorRef a = faulty(e, Fault.DEQUEUE);
+        Block b = new Block(); a.tell(b, ActorRef.noSender()); b.entered.await(); sendAll(a, "a", "bad", "c"); b.release.countDown();
+        awaitUntil(() -> e.log.contains("r:c") && !e.errors.isEmpty());
+        a.tell("d", ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("r:d"));
+        return "log=" + e.log + " dead=" + e.dead + " errors=" + withoutThreadNumber(e.errors) + " terminated=" + in(a).isTerminated();
+      }
+    });
+    run("MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again", () -> {
+      try (Env e = errorLoggingEnv()) {
+        ActorRef a = faulty(e, Fault.HAS_MESSAGES);
+        a.tell("bad", ActorRef.noSender());
+        awaitUntil(() -> !e.errors.isEmpty());
+        a.tell("c", ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("r:c"));
+        return "log=" + e.log + " errors=" + withoutThreadNumber(e.errors) + " terminated=" + in(a).isTerminated();
+      }
+    });
+    run("MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order", () -> {
+      try (Env e = errorLoggingEnv()) {
+        ActorRef a = faulty(e, Fault.DEQUEUE);
+        nextFault = Fault.ENQUEUE_OF_UNCAUGHT_REPORT;
+        ActorRef broken = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("faulty-mailbox"), "broken");
+        awaitUntil(() -> e.started.get() == 2);
+        e.sys.eventStream().subscribe(broken, Logging.Error.class); // after the listener of the environment
+        a.tell("bad", ActorRef.noSender());
+        awaitUntil(() -> e.errors.size() == 2);
+        // an event stream gives no order guarantee between the two reports (AC-EVT-001): print them sorted
+        return "errors=" + withoutThreadNumber(e.errors).stream().sorted().collect(java.util.stream.Collectors.toList());
+      }
+    });
+  }
+
+  /** Records its name when it stops; with a `child` name it first creates that child. */
+  public static final class Tree extends AbstractActor {
+    final Collection<String> stopped; final String child;
+    public Tree(Collection<String> stopped, String child) { this.stopped = stopped; this.child = child; }
+    @Override public void preStart() { if (child != null) getContext().actorOf(Props.create(Tree.class, stopped, (Object) null), child); }
+    @Override public void postStop() { stopped.add(getSelf().path().name()); }
+    @Override public Receive createReceive() { return receiveBuilder().matchAny(m -> getSender().tell(m, getSelf())).build(); }
+  }
+
+  /** A system whose {@code log.error} publishes ({@link Scenario#PUBLISH_LOG_ERRORS}) and a recorder of every {@code Logging.Error} that is not an
+   *  actor: a FunctionRef runs on the publishing thread, so no suspended or stopped guardian can hide an error. */
+  static final class GuardianEnv implements AutoCloseable {
+    final ConcurrentLinkedQueue<String> errors = new ConcurrentLinkedQueue<>(), stopped = new ConcurrentLinkedQueue<>();
+    final AutoCloseable mute = Scenario.muteStandardOutput();
+    final ActorSystem sys = ActorSystem.create("mbx", ConfigFactory.parseString(Scenario.PUBLISH_LOG_ERRORS + "pekko.stdout-loglevel = OFF\n"
+        + "rej-disp { type = Dispatcher\n executor = \"pilot.MailboxOracle$RejectingConfigurator\" }\n").withFallback(ConfigFactory.load()));
+    GuardianEnv() throws Exception {
+      ActorRef host = ((ExtendedActorSystem) sys).systemActorOf(Props.create(Tree.class, new ConcurrentLinkedQueue<String>(), (Object) null), "recorder");
+      Patterns.ask(host, "started?", java.time.Duration.ofSeconds(10)).toCompletableFuture().get(); // until then its cell is unstarted
+      FunctionRef recorder = ((ActorCell) ((ActorRefWithCell) host).underlying()).addFunctionRef((sender, message) -> {
+        Logging.Error e = (Logging.Error) message;
+        String text = String.valueOf(e.message()); // the text of the injected rejection is the test executor's own, not Pekko's
+        errors.add(e.logSource() + "|" + e.logClass().getName() + "|" + e.cause().getClass().getName() + "|" + (text.equals("injected") ? "<rejection>" : text));
+        return scala.runtime.BoxedUnit.UNIT;
+      }, "");
+      sys.eventStream().subscribe(recorder, Logging.Error.class);
+    }
+    /** {@code /user/a} with its child {@code c}, both started. */
+    void treeUnderUser() throws Exception {
+      ActorRef a = sys.actorOf(Props.create(Tree.class, stopped, "c"), "a");
+      Patterns.ask(a, "started?", java.time.Duration.ofSeconds(10)).toCompletableFuture().get();
+      Patterns.ask(sys.actorSelection("/user/a/c"), "started?", java.time.Duration.ofSeconds(10)).toCompletableFuture().get();
+    }
+    String afterTermination() throws Exception {
+      Terminated t = sys.getWhenTerminated().toCompletableFuture().get(10, TimeUnit.SECONDS);
+      return "errors=" + errors + " stopped=" + stopped + " terminated=" + t.getActor().path() + " existenceConfirmed=" + t.getExistenceConfirmed();
+    }
+    @Override public void close() throws Exception { sys.terminate(); mute.close(); }
   }
 
   /** Each attempt {label, worker, mailbox id or null}: {@code actorOf} with that mailbox selected; what it throws, or "created". */

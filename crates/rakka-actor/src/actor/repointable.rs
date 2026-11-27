@@ -991,7 +991,8 @@ mod with_real_cells {
                 Props::new(move || Worker(log.clone())),
                 self.system.dead_letters(),
                 self.path.clone(),
-            );
+            )
+            .unwrap();
             cell.start().unwrap();
             assert!(self.reference.replace_with(cell.self_ref().0.clone()));
             cell

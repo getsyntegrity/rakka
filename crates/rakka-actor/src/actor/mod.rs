@@ -12,6 +12,8 @@ mod deployer;
 mod errors;
 pub mod fault;
 #[cfg(test)]
+pub(crate) mod guardian_failure_tests;
+#[cfg(test)]
 mod guardian_termination_tests;
 #[cfg(test)]
 mod init_failure_tests;
