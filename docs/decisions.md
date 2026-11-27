@@ -1242,7 +1242,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 ### Q-SUP-5 — Qué superclases conoce Throwable cuando nadie las declara, y cómo declarar la de una clase sin instancia
 
 - **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** crates/rakka-actor/src/actor/fault.rs superclass_of ; actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:269-300 (makeDecider ordena con isAssignableFrom)
+- **Evidencia:** crates/rakka-actor/src/actor/fault.rs known_superclass ; actor/src/main/scala/org/apache/pekko/actor/FaultHandling.scala:269-300 (makeDecider ordena con isAssignableFrom)
 - **Alternativas:** (a) conocer sólo las clases que el runtime lanza o nombra y las raíces Throwable, Error y Exception; cualquier otra, java.lang incluidas, es Exception salvo with_superclasses / (b) añadir una tabla de subclases del JDK (AssertionError, NumberFormatException, ...) / (c) un tipo público de clase (nombre y superclase) que usen Throwable y makeDecider
 - **Recomendación:** (a), implementada provisionalmente: no emula el JDK (condición de Q-SUP-1). Consecuencia: Throwable::new("java.lang.AssertionError") sin declarar reinicia (Pekko escala) y un NumberFormatException sin declarar no es un IllegalArgumentException. (c) sólo es necesaria para la forma de makeDecider con pares CauseDirective, que ordena por jerarquía; la forma con lista de clases puede usar is_a y la de JDecider es una clausura
 - **Filas afectadas:** AC-SUP-004 ; AC-SUP-012 ; AC-SUP-017

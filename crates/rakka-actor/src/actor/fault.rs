@@ -9,8 +9,13 @@ use std::fmt;
 ///
 /// Classification is by subtype ([`is_a`](Throwable::is_a)). **A class that nobody declared anything about is an `Exception`**:
 /// a user error needs no declaration. The superclasses are known only for the classes this runtime raises or names (see
-/// `superclass_of`); for any other class, `java.lang` ones included, declare them with
+/// `known_superclass`); for any other class, `java.lang` ones included, declare them with
 /// [`with_superclasses`](Throwable::with_superclasses), e.g. `["java.lang.Error"]` for an error the default decider escalates.
+///
+/// **The hierarchy of a class the runtime knows is its own.** What is declared over such a class is ignored, whether it is
+/// the class of the throwable or one of its declared superclasses: from the first known class on, only the runtime's
+/// superclasses apply. For example a `PostRestartException` declared under `java.lang.Error` is still an
+/// `ActorInitializationException` and not an `Error`. To classify differently, use another class name.
 ///
 /// **The hierarchy of a class the runtime knows is its own.** What is declared over such a class is ignored, whether it is
 /// the class of the throwable or one of its declared superclasses: from the first known class on, only the runtime's
