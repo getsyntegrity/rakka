@@ -258,6 +258,45 @@ struct SupervisorCfg {
     log_calls: bool,
     /// `throw-on-call: n`: the n-th call of the label fails (IllegalStateException "strategy")
     throw_on_call: Option<u64>,
+    /// `match: [[class, directive]]`: the first class the cause is a subtype of decides, else Escalate
+    matching: Vec<(String, String)>,
+    /// `stopping: true`: the runtime's `stoppingStrategy`
+    stopping: bool,
+}
+
+fn directive_named(name: &str) -> Option<Directive> {
+    Some(match name {
+        "resume" => Directive::Resume,
+        "restart" => Directive::Restart,
+        "stop" => Directive::Stop,
+        "escalate" => Directive::Escalate,
+        _ => return None,
+    })
+}
+
+/// `throw-class`: the classes of the oracle's `ThrownClasses`, with the superclasses a user would declare. `checked` declares nothing.
+fn thrown_class(kind: &str, message: &str) -> Throwable {
+    let of = |class: &str| Throwable::new(class, Some(message));
+    let local = |name: &str| of(&format!("pilot.ThrownClasses${name}"));
+    let argument = "java.lang.IllegalArgumentException";
+    let initialization = "org.apache.pekko.actor.ActorInitializationException";
+    match kind {
+        "user" => local("UserFailure").with_superclasses(["java.lang.RuntimeException"]),
+        "checked" => local("CheckedFailure"),
+        "child" => {
+            local("ChildFailure").with_superclasses(["pilot.ThrownClasses$ParentFailure", argument])
+        }
+        "number" => of("java.lang.NumberFormatException").with_superclasses([argument]),
+        "init" => local("InitFailure").with_superclasses([initialization]),
+        "init-caused" => local("InitFailure")
+            .with_superclasses([initialization])
+            .with_cause(Throwable::illegal_state("cause")),
+        "error" => of("java.lang.Error"),
+        "assertion" => of("java.lang.AssertionError").with_superclasses(["java.lang.Error"]),
+        "user-error" => local("UserError").with_superclasses(["java.lang.Error"]),
+        "bare" => local("BareFailure").with_superclasses(["java.lang.Throwable"]),
+        other => panic!("unknown throwable kind {other}"),
+    }
 }
 
 /// Everything the actors record, shared with the harness thread.
@@ -360,6 +399,8 @@ struct Behavior {
     count: i64,
     post_stop_spawn: Option<String>,
     throw_on: Vec<String>,
+    /// `throw-class: {<message>: <kind>}`: the message throws the throwable of that kind ([`thrown_class`])
+    throw_class: HashMap<String, String>,
     /// `supervisor: {"max": n, "log-decisions": bool, "decider": {<exception message>: "resume"|"restart"|"stop"|"escalate"}}`
     supervisor: Option<SupervisorCfg>,
     /// `throw-in-prestart`: what `preStart` throws, `true` or the shape of its cause chain
@@ -415,6 +456,13 @@ impl Behavior {
                 Some(t) => t.as_str().into_iter().collect(),
                 None => Vec::new(),
             },
+            throw_class: match v.get("throw-class") {
+                Some(Value::Object(o)) => o
+                    .iter()
+                    .filter_map(|(m, kind)| kind.as_str().map(|kind| (m.clone(), kind)))
+                    .collect(),
+                _ => HashMap::new(),
+            },
             supervisor: v.get("supervisor").map(|sp| {
                 let max = match sp.get("max") {
                     Some(Value::Number(n)) => *n as i32,
@@ -442,6 +490,20 @@ impl Behavior {
                         Some(Value::Number(n)) => Some(*n as u64),
                         _ => None,
                     },
+                    matching: sp
+                        .get("match")
+                        .and_then(Value::as_array)
+                        .map(|pairs| {
+                            pairs
+                                .iter()
+                                .filter_map(Value::as_array)
+                                .filter_map(|pair| {
+                                    Some((pair.first()?.as_str()?, pair.get(1)?.as_str()?))
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    stopping: matches!(sp.get("stopping"), Some(Value::Bool(true))),
                 }
             }),
             throw_in_prestart: v.get("throw-in-prestart").and_then(thrown_by_pre_start),
@@ -574,8 +636,14 @@ impl Actor for Scripted {
                 logging,
                 log_calls,
                 throw_on_call,
+                matching,
+                stopping,
             }) => {
                 self.count_strategy_call(*log_calls, *throw_on_call);
+                if *stopping {
+                    return OneForOneStrategy::stopping_strategy().into();
+                }
+                let matching = matching.clone();
                 let logging = *logging;
                 let decider_throws = *decider_throws;
                 let (decider, log, ctx, label, hold) = (
@@ -589,17 +657,18 @@ impl Actor for Scripted {
                     if decider_throws {
                         throw(Throwable::illegal_state("decider"));
                     }
-                    let chosen = match e
-                        .message
-                        .as_ref()
-                        .and_then(|m| decider.get(m))
-                        .map(String::as_str)
-                    {
-                        Some("resume") => Directive::Resume,
-                        Some("restart") => Directive::Restart,
-                        Some("stop") => Directive::Stop,
-                        Some("escalate") => Directive::Escalate,
-                        _ => rakka_actor::actor::supervision::default_decider(e),
+                    let chosen = if matching.is_empty() {
+                        e.message
+                            .as_ref()
+                            .and_then(|m| decider.get(m))
+                            .and_then(|name| directive_named(name))
+                            .unwrap_or_else(|| rakka_actor::actor::supervision::default_decider(e))
+                    } else {
+                        matching
+                            .iter()
+                            .find(|(class, _)| e.is_a(class))
+                            .and_then(|(_, name)| directive_named(name))
+                            .unwrap_or(Directive::Escalate)
                     };
                     if log {
                         ctx.add(
@@ -763,6 +832,11 @@ impl Actor for Scripted {
         ));
         if m.as_ref().is_some_and(|t| self.cfg.throw_on.contains(t)) {
             throw(Throwable::illegal_state(m.as_deref().unwrap_or_default()));
+        }
+        if let Some(text) = &m
+            && let Some(kind) = self.cfg.throw_class.get(text)
+        {
+            throw(thrown_class(kind, text));
         }
         if self.cfg.kind == "select-forward" {
             let path = self.cfg.path.as_deref().expect("a path");
