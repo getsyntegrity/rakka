@@ -240,7 +240,7 @@ impl InternalActorRef for DeadLetters {
     }
     fn stop(&self) {}
     fn is_terminated(&self) -> bool {
-        false
+        true // `EmptyLocalActorRef.isTerminated`
     }
 }
 

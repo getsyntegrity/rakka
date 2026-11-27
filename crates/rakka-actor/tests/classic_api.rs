@@ -94,8 +94,8 @@ fn system_exposes_its_name_root_path_settings_and_dead_letters() {
         "pekko://t-meta/deadLetters"
     );
     assert!(
-        !sys.dead_letters().is_terminated(),
-        "deadLetters never terminates"
+        sys.dead_letters().is_terminated(),
+        "EmptyLocalActorRef.isTerminated, which DeadLetterActorRef inherits"
     );
 }
 
