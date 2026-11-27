@@ -298,7 +298,7 @@
 
 ## P20 SUP-ESTRATEGIAS
 
-10 filas; 4 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 1 propuestas.
+10 filas; 5 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -306,6 +306,7 @@
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-SUP-005 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-SUP-004 | — | — | `transversal` |
 | Q-SUP-2 | propuesta | 4: AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-021 | Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). | Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica). | `classic-cell` |
+| Q-SUP-5 | propuesta | 3: AC-SUP-004, AC-SUP-012, AC-SUP-017 | — | — | `classic-cell` |
 
 ## P21 SUP-FALLO
 
@@ -1087,4 +1088,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 530 (257 respondidas, 0 bloqueantes, 273 propuestas).
+Total de pares unidad–decisión: 531 (257 respondidas, 0 bloqueantes, 274 propuestas).

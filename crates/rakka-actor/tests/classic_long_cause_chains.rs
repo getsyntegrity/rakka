@@ -80,10 +80,10 @@ fn a_very_long_cause_chain_is_formatted_for_debugging() {
         let original = chain(20_000, "root");
         let text = format!("{original:?}");
         assert!(text.starts_with(
-            r#"Throwable { class: "E", message: None, cause: Some(Throwable { class: "E", "#
+            r#"Throwable { class: "E", message: None, superclasses: [], cause: Some(Throwable { class: "E", "#
         ));
         let end = format!(
-            r#"message: Some("root"), cause: None }}{}"#,
+            r#"message: Some("root"), superclasses: [], cause: None }}{}"#,
             ") }".repeat(19_999)
         );
         assert!(text.ends_with(&end));

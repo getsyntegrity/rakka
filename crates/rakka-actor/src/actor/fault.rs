@@ -5,7 +5,12 @@
 
 use std::fmt;
 
-/// A JVM exception as seen by Pekko: class name, optional message and optional cause.
+/// A JVM exception as seen by Pekko: class name, optional message, optional cause and the superclasses deciders classify it by.
+///
+/// Classification is by subtype ([`is_a`](Throwable::is_a)). **A class that nobody declared anything about is an `Exception`**:
+/// a user error needs no declaration. The superclasses are known only for the classes this runtime raises or names (see
+/// `superclass_of`); for any other class, `java.lang` ones included, declare them with
+/// [`with_superclasses`](Throwable::with_superclasses), e.g. `["java.lang.Error"]` for a throwable that is not an `Exception`.
 ///
 /// A cause chain can be of any length: `Clone`, `PartialEq`, `Debug` and `Drop` walk it without a stack frame per cause. Because of
 /// that `Drop`, a field cannot be moved out of a `Throwable` by value, by destructuring it by value or by struct update syntax
@@ -15,8 +20,36 @@ pub struct Throwable {
     pub class: String,
     /// `getMessage`; `None` when the exception has no message.
     pub message: Option<String>,
+    /// What [`with_superclasses`](Throwable::with_superclasses) declared, nearest first; empty when nothing was declared.
+    superclasses: Vec<String>,
     /// `getCause`: what this exception wraps. Equality compares it too; [`Display`](fmt::Display), like `toString`, leaves it out.
     pub cause: Option<Box<Throwable>>,
+}
+
+/// The direct superclass of the classes this runtime raises or names, and of the two roots of the categories; `None` above
+/// `java.lang.Throwable`. Not a model of the JDK: any other class is a direct subclass of `Exception`, the default category.
+fn superclass_of(class: &str) -> Option<&'static str> {
+    Some(match class {
+        "java.lang.Throwable" => return None,
+        "java.lang.Error"
+        | "java.lang.Exception"
+        | "org.apache.pekko.event.Logging$Error$NoCause$" => "java.lang.Throwable",
+        "java.lang.IllegalStateException"
+        | "java.lang.IllegalArgumentException"
+        | "java.util.concurrent.RejectedExecutionException"
+        | "org.apache.pekko.PekkoException" => "java.lang.RuntimeException",
+        "java.lang.reflect.InvocationTargetException" => "java.lang.ReflectiveOperationException",
+        "org.apache.pekko.ConfigurationException"
+        | "org.apache.pekko.actor.ActorInitializationException"
+        | "org.apache.pekko.actor.ActorKilledException"
+        | "org.apache.pekko.actor.DeathPactException"
+        | "org.apache.pekko.actor.InvalidActorNameException" => "org.apache.pekko.PekkoException",
+        "org.apache.pekko.actor.PreRestartException"
+        | "org.apache.pekko.actor.PostRestartException" => {
+            "org.apache.pekko.actor.ActorInitializationException"
+        }
+        _ => "java.lang.Exception",
+    })
 }
 
 impl Throwable {
@@ -25,6 +58,7 @@ impl Throwable {
         Throwable {
             class: class.into(),
             message: message.map(str::to_string),
+            superclasses: Vec::new(),
             cause: None,
         }
     }
@@ -33,6 +67,27 @@ impl Throwable {
     pub fn with_cause(mut self, cause: Throwable) -> Self {
         self.cause = Some(Box::new(cause));
         self
+    }
+
+    /// Declares the superclasses of this class, nearest first; what the last one extends follows from it, by the same rules as
+    /// for a class (an unknown one is an `Exception`). Replaces an earlier declaration; an empty one declares nothing.
+    pub fn with_superclasses<S: Into<String>>(
+        mut self,
+        superclasses: impl IntoIterator<Item = S>,
+    ) -> Self {
+        self.superclasses = superclasses.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// `isInstanceOf`: whether `class` (a fully qualified name) is the class of this throwable or one of its superclasses.
+    pub fn is_a(&self, class: &str) -> bool {
+        let furthest = self.superclasses.last().unwrap_or(&self.class);
+        let inherited = std::iter::successors(superclass_of(furthest), |c| superclass_of(c));
+        std::iter::once(&self.class)
+            .chain(&self.superclasses)
+            .map(String::as_str)
+            .chain(inherited)
+            .any(|own| own == class)
     }
 
     /// `new IllegalStateException(message)`.
@@ -50,6 +105,7 @@ impl Throwable {
         Throwable {
             class: self.class.clone(),
             message: self.message.clone(),
+            superclasses: self.superclasses.clone(),
             cause,
         }
     }
@@ -62,6 +118,7 @@ impl Throwable {
             let Throwable {
                 class,
                 message,
+                superclasses,
                 cause,
             } = link;
             let pad = 8 * depth;
@@ -78,6 +135,18 @@ impl Throwable {
                     f.write_str("    ),\n")?;
                 }
                 None => f.write_str("    message: None,\n")?,
+            }
+            indent(f, pad)?;
+            if superclasses.is_empty() {
+                f.write_str("    superclasses: [],\n")?;
+            } else {
+                f.write_str("    superclasses: [\n")?;
+                for superclass in superclasses {
+                    indent(f, pad)?;
+                    writeln!(f, "        {superclass:?},")?;
+                }
+                indent(f, pad)?;
+                f.write_str("    ],\n")?;
             }
             indent(f, pad)?;
             let Some(cause) = cause else {
@@ -131,16 +200,17 @@ impl Clone for Throwable {
 }
 
 impl PartialEq for Throwable {
-    /// Chains of the same length whose classes and messages match link by link.
+    /// Chains of the same length whose classes, messages and declared superclasses match link by link.
     fn eq(&self, other: &Self) -> bool {
         // no `..`: a new field must be compared here, so it does not compile until it is. The causes are the rest of the chain.
-        fn own_fields(link: &Throwable) -> (&String, &Option<String>) {
+        fn own_fields(link: &Throwable) -> (&String, &Option<String>, &Vec<String>) {
             let Throwable {
                 class,
                 message,
+                superclasses,
                 cause: _,
             } = link;
-            (class, message)
+            (class, message, superclasses)
         }
         let own = self.chain().map(own_fields);
         own.eq(other.chain().map(own_fields))
@@ -160,11 +230,12 @@ impl fmt::Debug for Throwable {
             let Throwable {
                 class,
                 message,
+                superclasses,
                 cause,
             } = link; // no `..`, as in `fmt_indented`
             write!(
                 f,
-                "Throwable {{ class: {class:?}, message: {message:?}, cause: "
+                "Throwable {{ class: {class:?}, message: {message:?}, superclasses: {superclasses:?}, cause: "
             )?;
             if cause.is_some() {
                 f.write_str("Some(")?;
@@ -205,6 +276,7 @@ mod tests {
         pub struct Throwable {
             pub class: String,
             pub message: Option<String>,
+            pub superclasses: Vec<String>,
             pub cause: Option<Box<Throwable>>,
         }
     }
@@ -213,13 +285,17 @@ mod tests {
         derived::Throwable {
             class: t.class.clone(),
             message: t.message.clone(),
+            superclasses: t.superclasses.clone(),
             cause: t.cause.as_deref().map(|c| Box::new(as_derived(c))),
         }
     }
 
     fn three_links() -> Throwable {
-        Throwable::new("a.B", Some("say \"x\"\n"))
-            .with_cause(Throwable::new("c.D", None).with_cause(Throwable::new("e.F", Some(""))))
+        Throwable::new("a.B", Some("say \"x\"\n")).with_cause(
+            Throwable::new("c.D", None)
+                .with_superclasses(["g.H", "java.lang.Error"])
+                .with_cause(Throwable::new("e.F", Some(""))),
+        )
     }
 
     #[test]
@@ -297,6 +373,82 @@ mod tests {
         shorter.cause.as_mut().unwrap().cause = None;
         assert_ne!(shorter, t);
         assert_ne!(t, shorter);
+    }
+
+    #[test]
+    fn an_undeclared_class_is_an_exception_and_the_classes_of_the_runtime_keep_their_parents() {
+        let user = Throwable::new("com.example.Failure", None);
+        assert!(user.is_a("com.example.Failure"));
+        assert!(user.is_a("java.lang.Exception") && user.is_a("java.lang.Throwable"));
+        assert!(!user.is_a("java.lang.RuntimeException") && !user.is_a("java.lang.Error"));
+
+        let state = Throwable::illegal_state("x");
+        for parent in [
+            "java.lang.RuntimeException",
+            "java.lang.Exception",
+            "java.lang.Throwable",
+        ] {
+            assert!(state.is_a(parent), "{parent}");
+        }
+        assert!(!state.is_a("java.lang.IllegalArgumentException"));
+
+        for root in ["java.lang.Error", "java.lang.Throwable"] {
+            let thrown = Throwable::new(root, None);
+            assert!(thrown.is_a("java.lang.Throwable"), "{root}");
+            assert!(!thrown.is_a("java.lang.Exception"), "{root}");
+        }
+
+        let post = Throwable::new("org.apache.pekko.actor.PostRestartException", None);
+        for parent in [
+            "org.apache.pekko.actor.ActorInitializationException",
+            "org.apache.pekko.PekkoException",
+            "java.lang.RuntimeException",
+        ] {
+            assert!(post.is_a(parent), "{parent}");
+        }
+    }
+
+    #[test]
+    fn declared_superclasses_replace_the_default_and_continue_from_the_last_one() {
+        let nested = Throwable::new("a.Child", None)
+            .with_superclasses(["a.Parent", "java.lang.IllegalArgumentException"]);
+        for parent in [
+            "a.Child",
+            "a.Parent",
+            "java.lang.IllegalArgumentException",
+            "java.lang.RuntimeException",
+            "java.lang.Exception",
+        ] {
+            assert!(nested.is_a(parent), "{parent}");
+        }
+        assert!(!nested.is_a("a.Other"));
+
+        let error =
+            Throwable::new("java.lang.AssertionError", None).with_superclasses(["java.lang.Error"]);
+        assert!(error.is_a("java.lang.Error") && !error.is_a("java.lang.Exception"));
+
+        // a user superclass that says nothing more is itself an exception
+        let open = Throwable::new("a.Child", None).with_superclasses(["a.Parent"]);
+        assert!(open.is_a("java.lang.Exception"));
+
+        // declaring nothing leaves the default of the class
+        let none = Throwable::new("java.lang.Error", None).with_superclasses::<&str>([]);
+        assert!(!none.is_a("java.lang.Exception"));
+    }
+
+    #[test]
+    fn declared_superclasses_survive_a_clone_and_take_part_in_equality_and_debug() {
+        let plain = Throwable::new("a.Child", None);
+        let declared = plain.clone().with_superclasses(["java.lang.Error"]);
+        assert_ne!(declared, plain);
+        assert_eq!(declared.clone(), declared);
+        assert!(declared.clone().is_a("java.lang.Error"));
+        assert!(format!("{declared:?}").contains(r#"superclasses: ["java.lang.Error"]"#));
+        // the declaration is not part of the text, as on the JVM
+        assert_eq!(declared.to_string(), plain.to_string());
+        let outer = Throwable::illegal_state("outer").with_cause(declared);
+        let cause = outer.clone().cause.take().unwrap();
+        assert!(cause.is_a("java.lang.Error"));
     }
 
     /// `Throwable.toString` leaves the cause out; equality of the Rust value does not.
