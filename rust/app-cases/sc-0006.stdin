@@ -1,0 +1,1 @@
+SCH-TE-01 termination discards what is pending without sending it, and the scheduler then rejects every delay

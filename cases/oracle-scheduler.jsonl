@@ -2,3 +2,5 @@
 {"name": "sc-0002", "args": ["scheduler-case"], "stdin": "SCH-SO-02 a message cancelled before the delay is never sent; only the first cancel succeeds"}
 {"name": "sc-0003", "args": ["scheduler-case"], "stdin": "SCH-SO-03 a delay of zero sends at once and gives a task that is not cancellable"}
 {"name": "sc-0004", "args": ["scheduler-case"], "stdin": "SCH-SO-05 the largest delay is Int.MaxValue ticks; the delay is rounded up to the tick before the check"}
+{"name": "sc-0005", "args": ["scheduler-case"], "stdin": "SCH-SO-06 a target that stopped before the delay elapsed gets nothing: the message is a dead letter"}
+{"name": "sc-0006", "args": ["scheduler-case"], "stdin": "SCH-TE-01 termination discards what is pending without sending it, and the scheduler then rejects every delay"}
