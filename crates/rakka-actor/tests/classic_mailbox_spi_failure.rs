@@ -1,19 +1,22 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:714-726, actor/dungeon/Children.scala and actor/RepointableActorRef.scala:112-121 (Apache-2.0).
 //! A user's `MailboxType` is public SPI and may panic. `context.actorOf` then throws `ConfigurationException` and releases the name;
-//! `system.actorOf` returns and the new actor fails to initialise. Expected lines: oracle cases `MBX-TT-01` and `MBX-TT-02`.
+//! `system.actorOf` returns and the new actor fails to initialise. Expected texts: what Pekko 2.0.0 prints for a `MailboxType` whose
+//! `create` throws (the recorded cases come in a follow-up change).
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
 mod common;
 use common::{RunningSystem, snapshot_of, wait_until};
 
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, Mutex};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
-use rakka_actor::actor::system::Settings;
-use rakka_actor::dispatch::message_queue::{MailboxType, MessageQueue};
-use rakka_actor::dispatch::queue_semantics::ProducedQueue;
+use rakka_actor::actor::system::{ActorSystem, Settings};
+use rakka_actor::dispatch::mailboxes::Mailboxes;
+use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue};
+use rakka_actor::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 use rakka_actor::event::{Channel, ErrorEvent};
 
 type Log = Arc<Mutex<Vec<String>>>;
@@ -151,6 +154,107 @@ fn a_mailbox_type_that_throws_while_it_is_selected_fails_actor_of_the_same_way()
             "unpromising",
             "java.lang.IllegalStateException: promise boom"
         )
+    );
+}
+
+/// An actor that requires an unbounded queue, so `Dispatch.init` asks the created queue about itself.
+struct Requiring;
+impl Actor for Requiring {
+    fn required_message_queue() -> Option<MessageQueueSemantics> {
+        Some(MessageQueueSemantics::UNBOUNDED)
+    }
+    fn receive(&mut self, _ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        true
+    }
+}
+
+/// Promises an unbounded queue; the queue panics in `satisfies`, or says no and panics in `class_name`. Rust-only SPI methods: in
+/// Pekko neither question runs user code.
+#[derive(Clone, Copy)]
+struct SelfDescribing {
+    satisfies_throws: bool,
+}
+impl MailboxType for SelfDescribing {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        Box::new(*self)
+    }
+    fn produced_queue(&self) -> ProducedQueue {
+        ProducedQueue::new("test.Queue", &[MessageQueueSemantics::UNBOUNDED])
+    }
+}
+impl MessageQueue for SelfDescribing {
+    fn enqueue(&self, _receiver: &ActorRef, _envelope: Envelope) -> bool {
+        unreachable!("the actor is never made")
+    }
+    fn dequeue(&self) -> Option<Envelope> {
+        None
+    }
+    fn number_of_messages(&self) -> usize {
+        0
+    }
+    fn has_messages(&self) -> bool {
+        false
+    }
+    fn clean_up(&self, _owner: &ActorRef, _dead_letters: &dyn MessageQueue) {}
+    fn satisfies(&self, _requirement: MessageQueueSemantics) -> Option<bool> {
+        if self.satisfies_throws {
+            throw(Throwable::illegal_state("satisfies boom"));
+        }
+        Some(false)
+    }
+    fn class_name(&self) -> &'static str {
+        throw(Throwable::illegal_state("class_name boom"))
+    }
+}
+
+#[test]
+fn a_queue_that_throws_in_satisfies_fails_the_creation() {
+    let log = outcome_of_creating_a_child_with("spi-satisfies", |_| {
+        Props::new(|| Requiring).with_mailbox(SelfDescribing {
+            satisfies_throws: true,
+        })
+    });
+    assert_eq!(
+        log,
+        configuration_failure(
+            "spi-satisfies",
+            "pekko.actor.default-mailbox",
+            "java.lang.IllegalStateException: satisfies boom"
+        )
+    );
+}
+
+#[test]
+fn a_queue_that_throws_in_class_name_fails_the_creation() {
+    let log = outcome_of_creating_a_child_with("spi-class-name", |_| {
+        Props::new(|| Requiring).with_mailbox(SelfDescribing {
+            satisfies_throws: false,
+        })
+    });
+    assert_eq!(
+        log,
+        configuration_failure(
+            "spi-class-name",
+            "pekko.actor.default-mailbox",
+            "java.lang.IllegalStateException: class_name boom"
+        )
+    );
+}
+
+#[test]
+fn a_default_mailbox_that_panics_makes_the_system_creation_throw_a_throwable() {
+    let mut settings = Settings::default();
+    settings
+        .mailboxes
+        .register(Mailboxes::DEFAULT_MAILBOX_ID, PanickingMailbox);
+    let thrown = catch_unwind(AssertUnwindSafe(|| {
+        ActorSystem::create_with_settings("spi-system", settings)
+    }))
+    .err()
+    .expect("ActorSystem.create throws");
+    assert_eq!(
+        thrown.downcast_ref::<Throwable>().map(ToString::to_string),
+        Some("java.lang.RuntimeException: plain panic".to_owned())
     );
 }
 
