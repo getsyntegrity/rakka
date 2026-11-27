@@ -42,7 +42,7 @@
 
 ## P03 UTIL-ESTRUCTURAS
 
-16 filas; 10 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 2 propuestas.
+16 filas; 10 decisiones distintas en sus filas: 9 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -51,11 +51,11 @@
 | Q-UTIL-14 | accepted (2026-11-18): aceptar (a) para FrequencySketch, incluida la validación de desbordamiento de 2.0.0, y (b) para el resto. | 2: AC-UTIL-016.4, AC-UTIL-017.1 | Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*. | — | `classic-foundation` |
 | Q-UTIL-15 | accepted (2026-11-18): aceptar (b): devolver 0. Autoriza la divergencia con Pekko; queda documentada. | 1: AC-UTIL-010 | Bloquea: nada (AC-UTIL-010 puede cerrarse con (b) documentado); puede avanzar: todo AC-UTIL-010. | — | `classic-foundation` |
 | Q-UTIL-8 | accepted (2026-11-18): aceptar (c). Autoriza no reproducir makePattern bit a bit. | 2: AC-UTIL-009, AC-UTIL-017.1 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
+| Q-X-21 | accepted (2026-11-27): ACCEPTED, alternativa (c). La paridad observable estricta se establece como principio transversal de toda la migración de Apache Pekko a Rakka. Replicar la… | 1: AC-UTIL-009 | Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible. | — | `classic-foundation` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-UTIL-012 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-UTIL-015.1 | — | — | `transversal` |
 | Q-X-6 | accepted (2026-11-18): aceptar (A). | 1: AC-UTIL-008 | — | — | `transversal` |
 | Q-UTIL-21 | propuesta | 1: AC-UTIL-009 | Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-21 (paridad observable estricta); esta ficha se conserva por trazabilidad. | — | `classic-foundation` |
-| Q-X-21 | propuesta | 1: AC-UTIL-009 | Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible. | — | `classic-foundation` |
 
 ## P04 UTIL-BYTES
 
@@ -153,7 +153,7 @@
 
 ## P10 CFG-DEPLOY
 
-3 filas; 8 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 4 propuestas.
+3 filas; 8 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -161,10 +161,10 @@
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 1: AC-CFG-012.1 | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-UTIL-8 | accepted (2026-11-18): aceptar (c). Autoriza no reproducir makePattern bit a bit. | 1: AC-CFG-012.2 | Bloquea: nada si se adopta (a) o (c) con Glob como referencia; el Owner sólo debe autorizar que makePattern NO se reproduzca bit a bit (AC-UTIL-023). | — | `classic-foundation` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 2: AC-CFG-012.1, AC-CFG-013 | — | — | `transversal` |
+| Q-X-21 | accepted (2026-11-27): ACCEPTED, alternativa (c). La paridad observable estricta se establece como principio transversal de toda la migración de Apache Pekko a Rakka. Replicar la… | 3: AC-CFG-012.1, AC-CFG-012.2, AC-CFG-013 | Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible. | — | `classic-foundation` |
 | Q-CFG-35 | propuesta | 1: AC-CFG-013 | Bloquea: el cierre de AC-CFG-013; puede avanzar: todo el comportamiento de datos. Reversible. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-21 (paridad observable estricta); esta ficha se conserva por… | — | `classic-foundation` |
 | Q-CFG-36 | propuesta | 1: AC-CFG-012.1 | Bloquea: el cierre de AC-CFG-012.1; puede avanzar: todo el resto. Reversible. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-21 (paridad observable estricta); esta ficha se conserva por trazabilidad. | — | `classic-foundation` |
 | Q-UTIL-21 | propuesta | 1: AC-CFG-012.2 | Bloquea: AC-UTIL-009 A7; puede avanzar: el resto de la fila. Propuesta de sustitución por la instrucción del Owner del 2026-11-20: Q-X-21 (paridad observable estricta); esta ficha se conserva por trazabilidad. | — | `classic-foundation` |
-| Q-X-21 | propuesta | 3: AC-CFG-012.1, AC-CFG-012.2, AC-CFG-013 | Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible. | — | `classic-foundation` |
 
 ## P11 EVT-BUS
 
@@ -282,27 +282,27 @@
 
 ## P19 CELL-EJECUCION
 
-11 filas; 7 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 4 propuestas.
+11 filas; 7 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-CELL-1 | accepted_with_changes (2026-11-27): ACCEPTED, alternativa (a'), con condiciones. Conservar receive -> bool y adoptar una pila de comportamientos que reciben acceso mutable al actor y su… | 2: AC-CELL-001, AC-CELL-005 | Bloquea: `impl` de AC-CELL-001/005 (y la firma de Actor para todo el crate). | Puede avanzar: la documentación y los tests de ciclo de vida (se escriben contra el trait). | `classic-cell` |
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-CELL-001 | — | — | `transversal` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-CELL-003, AC-CELL-017, AC-CELL-018 | — | — | `transversal` |
 | Q-X-8 | accepted (2026-11-18): aceptar (a): Typed sobre Classic. | 1: AC-CELL-018 | — | — | `transversal` |
-| Q-CELL-1 | propuesta | 2: AC-CELL-001, AC-CELL-005 | Bloquea: `impl` de AC-CELL-001/005 (y la firma de Actor para todo el crate). | Puede avanzar: la documentación y los tests de ciclo de vida (se escriben contra el trait). | `classic-cell` |
 | Q-CELL-3 | propuesta | 1: AC-CELL-019 | Bloquea: nada de la documentación; el cierre de `validation` de AC-CELL-019. | Puede avanzar: todo. | `classic-cell` |
 | Q-MBX-11 | propuesta | 1: AC-CELL-003 | — | — | `classic-dispatch` |
 | Q-REF-6 | propuesta | 1: AC-CELL-031 | Bloquea: la validación (no la `impl`) de AC-REF-001.x, AC-REF-019 y AC-CELL-031. | Puede avanzar: toda la implementación. | `classic-cell` |
 
 ## P20 SUP-ESTRATEGIAS
 
-10 filas; 4 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 2 propuestas.
+10 filas; 4 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-SUP-1 | accepted_with_changes (2026-11-27): ACCEPTED, alternativa (d), con condiciones. Mantener Throwable e incorporar clasificación y jerarquía suficiente para reproducir los deciders de Pekko.… | 4: AC-SUP-004, AC-SUP-012, AC-SUP-017, AC-SUP-021 | Bloquea: `impl` de AC-SUP-004/012/017 y, indirectamente, AC-SUP-001/003/008/013/018/021 y AC-CELL-002.2/007.4. | Puede avanzar: la planificación de ciclo de vida sin deciders, AC-SUP-006.x (aritmética) y DW. Decidir junto con Q-X-5. | `classic-cell` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-SUP-005 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-SUP-004 | — | — | `transversal` |
-| Q-SUP-1 | propuesta | 4: AC-SUP-004, AC-SUP-012, AC-SUP-017, AC-SUP-021 | Bloquea: `impl` de AC-SUP-004/012/017 y, indirectamente, AC-SUP-001/003/008/013/018/021 y AC-CELL-002.2/007.4. | Puede avanzar: la planificación de ciclo de vida sin deciders, AC-SUP-006.x (aritmética) y DW. Decidir junto con Q-X-5. | `classic-cell` |
 | Q-SUP-2 | propuesta | 3: AC-SUP-006.1, AC-SUP-006.2, AC-SUP-021 | Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). | Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica). | `classic-cell` |
 
 ## P21 SUP-FALLO
@@ -1083,4 +1083,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 526 (253 respondidas, 0 bloqueantes, 273 propuestas).
+Total de pares unidad–decisión: 526 (257 respondidas, 0 bloqueantes, 269 propuestas).
