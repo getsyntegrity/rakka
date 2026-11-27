@@ -1,0 +1,1 @@
+MBX-TQ-01 an enqueue that throws does not reach the caller of tell: an Error is published and the actor goes on -> tell=returned log=[r:a, r:c] dead=[] errors=[pekko://mbx/user/a|java.lang.IllegalStateException|swallowing exception during message send] terminated=false

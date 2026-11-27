@@ -1,0 +1,1 @@
+MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again -> log=[r:bad, r:c] errors=[org.apache.pekko.actor.ActorSystemImpl(mbx)|java.lang.IllegalStateException|Uncaught error from thread [mbx-pekko.actor.default-dispatcher-N]] terminated=false
