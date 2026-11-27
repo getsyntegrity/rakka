@@ -42,3 +42,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #438	339af83e	392	root-guardian-restarts-a-failed-guardian; restarted-user-guardian-stops-its-children	none	392 not run (Q-X-23)	PENDING
 #438	2969dcda	393	root-guardian-restarts-a-failed-guardian; restarted-user-guardian-stops-its-children	none	393 not run (Q-X-23)	PENDING
 #439	8ccc27e0	393	bubble-walker-failure-is-not-logged	none	393 not run (Q-X-23)	PENDING
+#439	5eff50b4	394	bubble-walker-failure-is-not-logged	none	394 not run (Q-X-23)	PENDING
