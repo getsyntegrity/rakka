@@ -2389,6 +2389,12 @@ MUTANTS = {
         "                drop(replaced);",
         "an actor stopped while it restarts gets no `postStop` on the instance it was replacing",
     ),
+    "pool-notifies-while-a-worker-is-already-waking": (
+        "src/dispatch/dispatcher.rs",
+        "let wake = !self.waking && self.sleepers > 0 && !self.jobs.is_empty();",
+        "let wake = self.sleepers > 0 && !self.jobs.is_empty();",
+        "every submission wakes a sleeping worker again: the cross-thread hand-off cost returns (killed by a unit test, see UNIT_MUTANTS)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -2509,6 +2515,8 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    # a cost, not a result: no recorded case can see how many threads are woken
+    "pool-notifies-while-a-worker-is-already-waking": ("dispatch::thread_pool_tests", "no_second_worker_is_notified_while_one_is_waking"),
     "scheduled-message-loses-its-sender": ("test:classic_scheduler", "a_message_arrives_once_never_early_with_the_given_sender_and_cannot_be_cancelled_afterwards"),
     "terminated-system-keeps-its-scheduler": ("test:classic_scheduler", "termination_drops_the_pending_messages_and_rejects_new_ones"),
     "scheduler-ignores-the-injected-clock": ("actor::scheduler_tests", "the_scheduler_of_a_system_runs_on_the_clock_and_waiter_injected_into_it"),

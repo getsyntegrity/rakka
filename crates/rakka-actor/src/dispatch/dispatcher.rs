@@ -5,9 +5,9 @@
 use crate::actor::cell::ActorCell;
 use crate::dispatch::turn::TurnPolicy;
 use crate::util::clock::Clock;
+use std::collections::VecDeque;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::mpsc::{Receiver, Sender, channel};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 
 /// `java.util.concurrent.RejectedExecutionException`: the executor did not accept the task.
@@ -39,45 +39,171 @@ enum Job {
     Task(Task),
 }
 
-/// A fixed pool of threads fed by an unbounded channel. It rejects only once it has been shut down, like a Java pool does.
+/// The jobs waiting for a worker and what is known about the workers; one mutex guards all of it.
+///
+/// A `true` from `push` or `pop` obliges the caller to notify one sleeping worker. At most one notification is on its way:
+/// waking a thread costs far more than a mailbox turn, and a worker that is about to finish usually takes the job first.
+/// So whenever the lock is free, no job waits, or no worker sleeps, or one is waking (it notifies the next if jobs remain).
+pub(crate) struct RunQueue<T> {
+    jobs: VecDeque<T>,
+    workers: usize,
+    sleepers: usize,
+    waking: bool,
+    closed: bool,
+}
+
+impl<T> RunQueue<T> {
+    pub(crate) fn new(workers: usize) -> Self {
+        RunQueue {
+            jobs: VecDeque::new(),
+            workers,
+            sleepers: 0,
+            waking: false,
+            closed: false,
+        }
+    }
+
+    /// Queues `job`; a closed queue hands it back, so that the caller drops it outside the lock.
+    pub(crate) fn push(&mut self, job: T) -> Result<bool, T> {
+        if self.closed {
+            return Err(job);
+        }
+        self.jobs.push_back(job);
+        Ok(self.claim_wake())
+    }
+
+    /// The oldest job.
+    pub(crate) fn pop(&mut self) -> Option<(T, bool)> {
+        let job = self.jobs.pop_front()?;
+        Some((job, self.claim_wake()))
+    }
+
+    fn claim_wake(&mut self) -> bool {
+        let wake = !self.waking && self.sleepers > 0 && !self.jobs.is_empty();
+        self.waking |= wake;
+        wake
+    }
+
+    /// The calling worker is about to wait to be notified.
+    pub(crate) fn sleep(&mut self) {
+        self.sleepers += 1;
+    }
+
+    /// The calling worker stopped waiting, notified or not.
+    pub(crate) fn wake_up(&mut self) {
+        self.sleepers -= 1;
+        self.waking = false;
+    }
+
+    pub(crate) fn close(&mut self) {
+        self.closed = true;
+    }
+
+    pub(crate) fn is_closed(&self) -> bool {
+        self.closed
+    }
+
+    /// A worker thread died. With none left the queue closes and gives back what nobody will run.
+    pub(crate) fn lose_worker(&mut self) -> VecDeque<T> {
+        self.workers -= 1;
+        if self.workers > 0 {
+            return VecDeque::new();
+        }
+        self.closed = true;
+        std::mem::take(&mut self.jobs)
+    }
+}
+
+/// The queue the workers of a pool share, and where they sleep.
+struct SharedQueue {
+    queue: Mutex<RunQueue<Job>>,
+    notified: Condvar,
+}
+
+impl SharedQueue {
+    /// Waits for the next job; `None` once the queue is closed and empty.
+    fn next_job(&self) -> Option<Job> {
+        let mut queue = self.queue.lock().unwrap();
+        loop {
+            if let Some((job, wake)) = queue.pop() {
+                drop(queue);
+                if wake {
+                    self.notified.notify_one();
+                }
+                return Some(job);
+            }
+            if queue.is_closed() {
+                return None;
+            }
+            queue.sleep();
+            queue = self.notified.wait(queue).unwrap();
+            queue.wake_up();
+        }
+    }
+}
+
+/// Held by a worker thread: only a panic ends one before the queue is closed and empty.
+struct Worker(Arc<SharedQueue>);
+
+impl Drop for Worker {
+    fn drop(&mut self) {
+        if thread::panicking() {
+            // dropped after the lock is released: the `Drop` of a job may submit another one
+            let abandoned = self.0.queue.lock().unwrap().lose_worker();
+            drop(abandoned);
+        }
+    }
+}
+
+/// A fixed pool of threads fed by an unbounded queue. It rejects only once it has been shut down, like a Java pool does.
 pub(crate) struct ThreadPool {
-    tx: Mutex<Option<Sender<Job>>>,
+    shared: Arc<SharedQueue>,
 }
 
 impl ThreadPool {
     pub(crate) fn start(system_name: &str, parallelism: usize) -> ThreadPool {
-        let (tx, rx) = channel::<Job>();
-        let rx: Arc<Mutex<Receiver<Job>>> = Arc::new(Mutex::new(rx));
-        for i in 0..parallelism.max(1) {
-            let rx = rx.clone();
+        let parallelism = parallelism.max(1);
+        let shared = Arc::new(SharedQueue {
+            queue: Mutex::new(RunQueue::new(parallelism)),
+            notified: Condvar::new(),
+        });
+        for i in 0..parallelism {
+            let worker = Worker(shared.clone());
             thread::Builder::new()
                 .name(format!("{system_name}-pekko.actor.default-dispatcher-{i}"))
                 .spawn(move || {
-                    loop {
-                        // The lock is held only while waiting for the next job, never while running one.
-                        let next = rx.lock().unwrap().recv();
-                        match next {
-                            Ok(Job::Mailbox(cell)) => ActorCell::run_mailbox(&cell),
+                    let worker = worker; // the whole guard lives as long as the thread
+                    // no lock is held while a job runs
+                    while let Some(job) = worker.0.next_job() {
+                        match job {
+                            Job::Mailbox(cell) => ActorCell::run_mailbox(&cell),
                             // a task that panics (a `Drop` of the user) must not take the thread with it
-                            Ok(Job::Task(task)) => drop(catch_unwind(AssertUnwindSafe(task))),
-                            Err(_) => return, // sender dropped: dispatcher shut down
+                            Job::Task(task) => drop(catch_unwind(AssertUnwindSafe(task))),
                         }
                     }
                 })
                 .expect("spawn dispatcher thread");
         }
-        ThreadPool {
-            tx: Mutex::new(Some(tx)),
-        }
+        ThreadPool { shared }
     }
 }
 
 impl ThreadPool {
     fn submit(&self, job: Job) -> Result<(), Rejected> {
-        match self.tx.lock().unwrap().as_ref() {
-            Some(tx) => tx.send(job).map_err(|_| Rejected),
-            None => Err(Rejected),
+        // the lock is released at the end of this statement, before a refused job is dropped
+        let pushed = self.shared.queue.lock().unwrap().push(job);
+        let wake = pushed.map_err(|_refused| Rejected)?;
+        if wake {
+            self.shared.notified.notify_one();
         }
+        Ok(())
+    }
+}
+
+/// A pool nobody can submit to any more lets its workers exit.
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        self.shutdown();
     }
 }
 
@@ -91,12 +217,13 @@ impl Executor for ThreadPool {
     }
 
     fn shutdown(&self) {
-        self.tx.lock().unwrap().take();
+        self.shared.queue.lock().unwrap().close();
+        self.shared.notified.notify_all();
     }
 
     #[cfg(test)]
     fn is_shut_down(&self) -> bool {
-        self.tx.lock().unwrap().is_none()
+        self.shared.queue.lock().unwrap().is_closed()
     }
 }
 
