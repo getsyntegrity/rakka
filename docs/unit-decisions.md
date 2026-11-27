@@ -1085,4 +1085,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 527 (257 respondidas, 0 bloqueantes, 270 propuestas).
+Total de pares unidad–decisión: 528 (257 respondidas, 0 bloqueantes, 271 propuestas).
