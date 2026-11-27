@@ -24,6 +24,8 @@ pub mod props;
 mod refailure_tests;
 pub(crate) mod repointable;
 pub mod scheduler;
+#[cfg(test)]
+mod scheduler_tests;
 pub mod selection;
 pub mod supervision;
 pub mod system;

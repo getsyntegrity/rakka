@@ -3,9 +3,8 @@
 //! Not here yet: periodic scheduling, tasks that are not messages (`Runnable`, `SchedulerTask`, `TaskRunOnClose`), the
 //! `pekko.scheduler.*` settings and `shutdown-timeout`, a pluggable implementation and the recovery of the timer thread.
 //!
-//! **Q-SCH-1 (a) is not fulfilled yet.** It asks for an injectable `Clock` and `Waiter`, so that the deterministic cases of
-//! `SchedulerSpec` port one to one. The timer thread hardcodes `NanoClock` and `thread::park_timeout`, and ignores the clock
-//! injected into the system. Only the wheel (`timer_wheel`) takes the time from its caller.
+//! Q-SCH-1 (a): the timer thread takes its time from the system's `Clock` (`NanoClock` in production) and waits through a
+//! `Waiter` ([`TimerHooks`]). Both seams are internal: replacing the scheduler from outside the crate is AC-SCH-010.
 
 use std::any::Any;
 use std::fmt;
@@ -20,11 +19,46 @@ use crate::actor::errors::{ActorError, ErrorClass};
 use crate::actor::props::AnyMessage;
 use crate::actor::timer_wheel::{Entry, TimerTask, Wheel, round_up};
 use crate::dispatch::dispatcher::Dispatcher;
-use crate::util::clock::{Clock, NanoClock};
+use crate::util::clock::Clock;
 
 /// `pekko.scheduler.tick-duration` (10 ms) and `ticks-per-wheel` (512), the `reference.conf` defaults.
 const TICK_NANOS: i64 = 10_000_000;
 const TICKS_PER_WHEEL: usize = 512;
+
+/// `waitNanos`: how the timer thread waits for its next tick.
+pub(crate) trait Waiter: Send + Sync {
+    /// Returns after `nanos`, or earlier when [`Scheduler::close`] unparks the timer thread.
+    fn wait_nanos(&self, nanos: i64);
+}
+
+/// The `Waiter` of production: parks the timer thread.
+pub(crate) struct ParkWaiter;
+
+impl Waiter for ParkWaiter {
+    fn wait_nanos(&self, nanos: i64) {
+        thread::park_timeout(Duration::from_nanos(u64::try_from(nanos).unwrap_or(0)));
+    }
+}
+
+/// What `LightArrayRevolverScheduler` lets a subclass replace (`clock`, `waitNanos`, `startTick`), and `ticks-per-wheel`.
+pub(crate) struct TimerHooks {
+    pub(crate) clock: Arc<dyn Clock>,
+    pub(crate) waiter: Arc<dyn Waiter>,
+    pub(crate) start_tick: i32,
+    pub(crate) ticks_per_wheel: usize,
+}
+
+impl TimerHooks {
+    /// The defaults of the wheel around the given time.
+    pub(crate) fn new(clock: Arc<dyn Clock>, waiter: Arc<dyn Waiter>) -> TimerHooks {
+        TimerHooks {
+            clock,
+            waiter,
+            start_tick: 0,
+            ticks_per_wheel: TICKS_PER_WHEEL,
+        }
+    }
+}
 
 /// `receiver ! message`, still to be done.
 struct Delivery {
@@ -79,12 +113,16 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-    pub(crate) fn start(system_name: &str, dispatcher: Arc<Dispatcher>) -> Scheduler {
+    pub(crate) fn start(
+        system_name: &str,
+        dispatcher: Arc<Dispatcher>,
+        hooks: TimerHooks,
+    ) -> Scheduler {
         let queue = Arc::new(Mutex::new(Queue::default()));
         let (timer_queue, timer_dispatcher) = (queue.clone(), dispatcher.clone());
         let thread = thread::Builder::new()
             .name(format!("{system_name}-scheduler-1"))
-            .spawn(move || run_timer(&timer_queue, &timer_dispatcher))
+            .spawn(move || run_timer(&timer_queue, &timer_dispatcher, &hooks))
             .expect("spawn scheduler thread");
         Scheduler {
             queue,
@@ -159,9 +197,14 @@ fn too_far(delay_nanos: i64) -> ActorError {
 }
 
 /// The timer thread (`nextTick`).
-fn run_timer(queue: &Mutex<Queue>, dispatcher: &Dispatcher) {
-    let clock = NanoClock;
-    let mut wheel = Wheel::new(clock.current_time(), TICK_NANOS, TICKS_PER_WHEEL, 0);
+fn run_timer(queue: &Mutex<Queue>, dispatcher: &Dispatcher, hooks: &TimerHooks) {
+    let clock = &*hooks.clock;
+    let mut wheel = Wheel::new(
+        clock.current_time(),
+        TICK_NANOS,
+        hooks.ticks_per_wheel,
+        hooks.start_tick,
+    );
     loop {
         let now = clock.current_time();
         let sleep = wheel.sleep_nanos(now);
@@ -177,8 +220,8 @@ fn run_timer(queue: &Mutex<Queue>, dispatcher: &Dispatcher) {
         if queue.lock().unwrap().closed {
             break;
         }
-        if let Ok(nanos) = u64::try_from(sleep) {
-            thread::park_timeout(Duration::from_nanos(nanos));
+        if sleep > 0 {
+            hooks.waiter.wait_nanos(sleep);
         }
     }
     // `clearAll`: what is pending is never sent (Pekko only runs `TaskRunOnClose`); a handle can still cancel it

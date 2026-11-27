@@ -2335,6 +2335,12 @@ MUTANTS = {
         "",
         "a delay is not rounded up to the tick, so one just above the largest is accepted instead of rejected",
     ),
+    "scheduler-ignores-the-injected-clock": (
+        "src/actor/system.rs",
+        "TimerHooks::new(clock, waiter)",
+        "TimerHooks::new(Arc::new(NanoClock), waiter)",
+        "the timer reads `System.nanoTime` instead of the clock injected into the system (killed by a unit test, see UNIT_MUTANTS)",
+    ),
     "wheel-forgets-the-remaining-rounds": (
         "src/actor/timer_wheel.rs",
         "if entry.ticks >= rotation {",
@@ -2475,6 +2481,7 @@ def classify_evaluation(ev):
 UNIT_MUTANTS = {
     "scheduled-message-loses-its-sender": ("test:classic_scheduler", "a_message_arrives_once_never_early_with_the_given_sender_and_cannot_be_cancelled_afterwards"),
     "terminated-system-keeps-its-scheduler": ("test:classic_scheduler", "termination_drops_the_pending_messages_and_rejects_new_ones"),
+    "scheduler-ignores-the-injected-clock": ("actor::scheduler_tests", "the_scheduler_of_a_system_runs_on_the_clock_and_waiter_injected_into_it"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
     "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)
