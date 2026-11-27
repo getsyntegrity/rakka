@@ -240,7 +240,10 @@ impl InternalActorRef for DeadLetters {
     }
     fn stop(&self) {}
     fn is_terminated(&self) -> bool {
-        false
+        true // `EmptyLocalActorRef.isTerminated`
+    }
+    fn dead_letters_stream(&self) -> Option<&EventStream> {
+        Some(&self.events)
     }
 }
 
