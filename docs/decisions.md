@@ -919,6 +919,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 
+### Q-MBX-16 — El `within(30.seconds)` del ping-pong patológico mide rendimiento: ¿gate o medición aparte?
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** MailboxConfigSpec.scala:322-329 (Pekko 2.0.0). El tiempo depende de la carga: 7-24 s en el gate y 30,5 s / 140 s con QoS de fondo, con todos los mensajes entregados y sin pausas (docs/evidence/mailbox-single-consumer.md).
+- **Alternativas:** (a) tests por defecto sin cota total (fallan si no hay entregas en 10 s) y los 30 s en tests `#[ignore]`; (b) los 30 s como gate; (c) (a) más cambiar la espera de `ThreadPool` y reevaluar (b)
+- **Recomendación:** (a), implementada provisionalmente; una regresión de rendimiento sin cuelgue ya no hace fallar los gates
+- **Filas afectadas:** AC-MBX-006
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+
 ### Q-PATH-7 — Address.parse / AddressFromURIString.apply con un octeto IPv4 embebido fuera de rango en un literal IPv6: NumberFormatException de Pekko vs MalformedURLException
 
 - **Estado:** propuesta (sin decisión del Owner)
