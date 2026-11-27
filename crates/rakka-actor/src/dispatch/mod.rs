@@ -16,5 +16,7 @@ pub(crate) mod sysmsg;
 pub mod system_queue;
 #[cfg(test)]
 pub(crate) mod test_support;
+#[cfg(test)]
+mod thread_pool_tests;
 pub(crate) mod turn;
 pub use sysmsg::{Failed, Terminated};
