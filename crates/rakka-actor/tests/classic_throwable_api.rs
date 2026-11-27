@@ -1,5 +1,6 @@
-//! Q-SUP-7: the public API of `Throwable` as a user of the crate sees it. Its fields are private: it is built by `new` and the
-//! `with_` methods and read by the accessors.
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/Actor.scala and actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala (Apache-2.0).
+//! Q-SUP-7: the public API of `Throwable` as a user of the crate sees it. Its fields are private: it is built by `new` or
+//! `illegal_state` and the `with_` methods, and read by the accessors.
 
 use rakka_actor::actor::fault::Throwable;
 

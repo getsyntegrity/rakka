@@ -20,11 +20,28 @@ use std::fmt;
 /// A cause chain can be of any length: `Clone`, `PartialEq`, `Debug` and `Drop` walk it without a stack frame per cause. As
 /// `PartialEq` is not derived, a `const Throwable` cannot be used as a pattern.
 ///
-/// No field is public. A `Throwable` is built by [`new`](Throwable::new) and the `with_` methods and read by
+/// No field is public. A `Throwable` is built by [`new`](Throwable::new) or [`illegal_state`](Throwable::illegal_state)
+/// and the `with_` methods, and read by
 /// [`class`](Throwable::class), [`message`](Throwable::message), [`superclasses`](Throwable::superclasses) and
 /// [`cause`](Throwable::cause). Its class cannot change once built. **Breaking change** with respect to the earlier public
 /// fields: outside the crate a `Throwable` cannot be built by literal or destructured, and `thrown.class`, `thrown.message`
 /// and `thrown.cause` become method calls; to give it another cause use [`with_cause`](Throwable::with_cause).
+///
+/// What compiles, the control of the three examples that must not:
+///
+/// ```
+/// let mut thrown = rakka_actor::actor::fault::Throwable::new("a.B", None);
+/// let _ = (thrown.class(), thrown.message(), thrown.cause());
+/// thrown = thrown.with_cause(rakka_actor::actor::fault::Throwable::illegal_state("c"));
+/// assert!(thrown.cause().is_some());
+/// ```
+///
+/// A literal does not (the second line of each remaining example is what is refused):
+///
+/// ```compile_fail
+/// use rakka_actor::actor::fault::Throwable;
+/// let _ = Throwable { class: String::new(), message: None, superclasses: Vec::new(), cause: None };
+/// ```
 ///
 /// ```compile_fail
 /// let thrown = rakka_actor::actor::fault::Throwable::new("a.B", None);

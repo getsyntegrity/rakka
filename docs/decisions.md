@@ -2642,7 +2642,7 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Estado:** aceptada con cambios
 - **Evidencia:** crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/tests/classic_long_cause_chains.rs (texto de Debug)
 - **Alternativas:** (a) campo privado `superclasses`, que sólo se fija con `with_superclasses(iterable)` (la más cercana primero) y sólo se consulta con `is_a(nombre)`, sin lectura directa / (b) campo público / (c) un tipo público descriptor de clase en lugar de nombres
-- **Recomendación:** (a), implementada provisionalmente. Rompe la API: fuera del crate ya no se construye un Throwable por literal y desestructurarlo exige `..`; Debug imprime `superclasses` y PartialEq lo compara (declarar o no la misma jerarquía da valores distintos). No hay release publicado. Estado tras la aceptación con condiciones: implementada con class, message y cause cerrados fuera del crate y accesores de lectura class(), message(), cause() y superclasses() (la lista declarada)
+- **Recomendación:** Aceptada con condiciones e implementada: class, message, cause y superclasses cerrados fuera del crate, con constructores new, illegal_state, with_cause y with_superclasses y accesores class(), message(), cause() y superclasses() (la lista declarada). Rompe la API: fuera del crate no se construye un Throwable por literal ni se desestructura; Debug imprime `superclasses` y PartialEq lo compara (declarar o no la misma jerarquía da valores distintos). No hay release publicado
 - **Filas afectadas:** AC-SUP-004
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
