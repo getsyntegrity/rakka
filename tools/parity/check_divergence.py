@@ -2516,7 +2516,7 @@ UNIT_MUTANTS = {
     "fixed-delay-outlives-its-target": ("actor::scheduler_tests", "a_terminated_target_is_sent_to_once_and_ends_the_repetition"),
     "cancelled-repetition-schedules-again": ("actor::scheduler_tests", "a_cancel_during_the_send_prevents_the_next_one"),
     "dropped-cause-chain-recurses": ("test:classic_long_cause_chains", "a_very_long_cause_chain_is_dropped"),
-    "event-stream-drops-dead-letters": ("test:classic_api","dead_letters_stays_subscribed_to_the_event_stream_and_forwards_what_it_gets"),
+    "event-stream-drops-dead-letters": ("test:classic_api", "dead_letters_stays_subscribed_to_the_event_stream_and_forwards_what_it_gets"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
     "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)

@@ -8,7 +8,8 @@ use std::fmt;
 /// A JVM exception as seen by Pekko: class name, optional message and optional cause.
 ///
 /// A cause chain can be of any length: `Clone`, `PartialEq`, `Debug` and `Drop` walk it without a stack frame per cause. Because of
-/// that `Drop`, a field cannot be moved out of a `Throwable` by value: borrow it, or `take` it.
+/// that `Drop`, a field cannot be moved out of a `Throwable` by value, by destructuring it by value or by struct update syntax
+/// (error E0509): borrow it, or `take` it. And as `PartialEq` is not derived, a `const Throwable` cannot be used as a pattern.
 pub struct Throwable {
     /// The JVM class name, e.g. `java.lang.IllegalStateException`.
     pub class: String,
@@ -57,12 +58,18 @@ impl Throwable {
     fn fmt_indented(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (mut link, mut depth) = (self, 0);
         loop {
+            // no `..`: a new field must be printed here, so it does not compile until it is
+            let Throwable {
+                class,
+                message,
+                cause,
+            } = link;
             let pad = 8 * depth;
             f.write_str("Throwable {\n")?;
             indent(f, pad)?;
-            writeln!(f, "    class: {:?},", link.class)?;
+            writeln!(f, "    class: {class:?},")?;
             indent(f, pad)?;
-            match &link.message {
+            match message {
                 Some(message) => {
                     f.write_str("    message: Some(\n")?;
                     indent(f, pad)?;
@@ -73,7 +80,7 @@ impl Throwable {
                 None => f.write_str("    message: None,\n")?,
             }
             indent(f, pad)?;
-            let Some(cause) = &link.cause else {
+            let Some(cause) = cause else {
                 f.write_str("    cause: None,\n")?;
                 break;
             };
@@ -126,8 +133,17 @@ impl Clone for Throwable {
 impl PartialEq for Throwable {
     /// Chains of the same length whose classes and messages match link by link.
     fn eq(&self, other: &Self) -> bool {
-        let own = self.chain().map(|link| (&link.class, &link.message));
-        own.eq(other.chain().map(|link| (&link.class, &link.message)))
+        // no `..`: a new field must be compared here, so it does not compile until it is. The causes are the rest of the chain.
+        fn own_fields(link: &Throwable) -> (&String, &Option<String>) {
+            let Throwable {
+                class,
+                message,
+                cause: _,
+            } = link;
+            (class, message)
+        }
+        let own = self.chain().map(own_fields);
+        own.eq(other.chain().map(own_fields))
     }
 }
 
@@ -141,12 +157,16 @@ impl fmt::Debug for Throwable {
         }
         let mut open_causes = 0;
         for link in self.chain() {
-            let (class, message) = (&link.class, &link.message);
+            let Throwable {
+                class,
+                message,
+                cause,
+            } = link; // no `..`, as in `fmt_indented`
             write!(
                 f,
                 "Throwable {{ class: {class:?}, message: {message:?}, cause: "
             )?;
-            if link.cause.is_some() {
+            if cause.is_some() {
                 f.write_str("Some(")?;
                 open_causes += 1;
             }

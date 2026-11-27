@@ -20,7 +20,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-SUP-009.
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-SUP-1`, `Q-SUP-2`, `Q-SUP-4`.
+- Propuestas aún sin decisión del Owner: `Q-SUP-2`, `Q-SUP-4`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
