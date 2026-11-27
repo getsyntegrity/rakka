@@ -2456,6 +2456,12 @@ MUTANTS = {
         'failure.class == "org.apache.pekko.actor.ActorInitializationException"',
         "`logFailure` does not look through a subclass of `ActorInitializationException` (killed by a unit test, see UNIT_MUTANTS)",
     ),
+    "declaration-over-a-known-class-is-followed": (
+        "src/actor/fault.rs",
+        "                break; // its own superclasses apply, not the declared ones\n",
+        "",
+        "what a user declares over a class the runtime knows is followed, so it can leave its hierarchy (killed by tests/classic_throwable_known_classes.rs, see UNIT_MUTANTS)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -2578,6 +2584,7 @@ def classify_evaluation(ev):
 UNIT_MUTANTS = {
     "log-failure-matches-the-class-name-only": ("actor::cell", "subclasses_of_the_initialization_and_invocation_exceptions_are_looked_through"),
     "non-exception-restarts-instead-of-escalating": ("actor::supervision", "the_default_decider_escalates_what_is_not_an_exception"),
+    "declaration-over-a-known-class-is-followed": ("test:classic_throwable_known_classes", "a_known_superclass_of_a_user_class_keeps_its_hierarchy"),
     "declared-superclasses-are-ignored": ("actor::fault", "declared_superclasses_replace_the_default_and_continue_from_the_last_one"),
     "stopping-strategy-restarts": ("actor::supervision", "the_stopping_strategy_stops_every_exception_and_escalates_the_rest"),
     "scheduled-message-loses-its-sender": ("test:classic_scheduler", "a_message_arrives_once_never_early_with_the_given_sender_and_cannot_be_cancelled_afterwards"),

@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 276 decisiones: 0 bloqueantes, 190 propuestas, 66 aceptadas, 17 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 278 decisiones: 0 bloqueantes, 192 propuestas, 66 aceptadas, 17 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -929,6 +929,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 
+### Q-MBX-17 — Qué fallos de la cola del usuario se atrapan al enviar y durante un turno
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-171 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:875-897 ; actor/src/main/resources/reference.conf:90 ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) atrapar todo panic o Throwable desenrollado / (b) imitar a Pekko: dejar escapar los fatales al enviar y, en un turno, terminar el proceso (default) o el sistema
+- **Recomendación:** (a), implementada provisionalmente. Consecuencia: el default de Pekko es `pekko.jvm-exit-on-fatal-error = on` (reference.conf:90): un error fatal en un hilo del pool durante un turno termina la JVM (`System.exit(-1)`); sólo con `off` se llama `terminate()`. Al enviar, el fatal llega al emisor. Rakka lo informa y sigue funcionando
+- **Filas afectadas:** AC-CELL-030 ; AC-MBX-002
+- **Unidades afectadas:** CELL ; MBX
+- **Origen:** classic-dispatch
+
 ### Q-PATH-7 — Address.parse / AddressFromURIString.apply con un octeto IPv4 embebido fuera de rango en un literal IPv6: NumberFormatException de Pekko vs MalformedURLException
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -1246,6 +1256,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) supervisar cualquier Throwable lanzado (uno declarado como Error escala) / (b) dar un trato propio a los declarados como VirtualMachineError, ThreadDeath, LinkageError o ControlThrowable
 - **Recomendación:** (a), conducta actual: Q-X-21 pide no replicar abortos de proceso ni conductas propias de la JVM sin aprobación; queda registrada la diferencia
 - **Filas afectadas:** AC-SUP-001 ; AC-SUP-004
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+
+### Q-SUP-8 — Si with_superclasses puede cambiar la jerarquía de una clase que el runtime conoce
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** crates/rakka-actor/src/actor/fault.rs known_superclass, is_a ; crates/rakka-actor/tests/classic_throwable_known_classes.rs ; condición de Q-SUP-7 de garantizar las invariantes de Q-SUP-1
+- **Alternativas:** (a) una clase que el runtime conoce conserva su propia jerarquía y lo declarado sobre ella se ignora / (b) lo declarado gana siempre / (c) la declaración sólo puede añadir superclases a las conocidas
+- **Recomendación:** El Owner eligió (a) en la sesión (2026-11-27); registro en owner-decisions.tsv pendiente de su autorización. Implementada: desde la primera clase conocida de la cadena (la propia o una declarada) valen sólo las superclases del runtime; lo declarado se conserva en el valor
+- **Filas afectadas:** AC-SUP-004
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 
