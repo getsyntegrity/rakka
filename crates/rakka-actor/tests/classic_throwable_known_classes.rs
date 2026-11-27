@@ -17,6 +17,10 @@ fn a_known_class_redeclared_keeps_its_hierarchy() {
     let runtime =
         Throwable::new("java.lang.RuntimeException", None).with_superclasses(["java.lang.Error"]);
     assert!(runtime.is_a("java.lang.Exception") && !runtime.is_a("java.lang.Error"));
+
+    let reflective = Throwable::new("java.lang.ReflectiveOperationException", None)
+        .with_superclasses(["java.lang.Error"]);
+    assert!(reflective.is_a("java.lang.Exception") && !reflective.is_a("java.lang.Error"));
 }
 
 /// The rule holds wherever a known class stands in a declared chain: from it on, the runtime's own superclasses apply.

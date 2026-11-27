@@ -447,20 +447,20 @@ MUTANTS = {
     # --- slice 3b, part 1: failure handling (default strategy) ---
     "kill-restarts-instead-of-stopping": (
         "src/actor/supervision.rs",
-        '        | "org.apache.pekko.actor.ActorKilledException"\n        | "org.apache.pekko.actor.DeathPactException" => Directive::Stop,',
-        '        | "org.apache.pekko.actor.DeathPactException" => Directive::Stop,',
+        '        || cause.is_a("org.apache.pekko.actor.ActorKilledException")\n',
+        '',
         "the default decider restarts on `ActorKilledException`, so `Kill` no longer stops the actor",
     ),
     "deathpact-restarts-instead-of-stopping": (
         "src/actor/supervision.rs",
-        '        | "org.apache.pekko.actor.ActorKilledException"\n        | "org.apache.pekko.actor.DeathPactException" => Directive::Stop,',
-        '        | "org.apache.pekko.actor.ActorKilledException" => Directive::Stop,',
+        '        || cause.is_a("org.apache.pekko.actor.DeathPactException")\n',
+        '',
         "an unhandled `Terminated` restarts the watcher instead of stopping it",
     ),
     "init-failure-restarts-instead-of-stopping": (
         "src/actor/supervision.rs",
-        '        "org.apache.pekko.actor.ActorInitializationException"\n        | "org.apache.pekko.actor.PostRestartException"',
-        '        "org.apache.pekko.actor.PostRestartException"',
+        'if cause.is_a("org.apache.pekko.actor.ActorInitializationException")',
+        'if false',
         "a `preStart` failure is restarted instead of stopping the actor",
     ),
     "exception-stops-instead-of-restarting": (
@@ -2432,11 +2432,29 @@ MUTANTS = {
         "an actor stopped while it restarts gets no `postStop` on the instance it was replacing",
     ),
     # --- Q-SUP-1: classification by subtype ---
+    "non-exception-restarts-instead-of-escalating": (
+        "src/actor/supervision.rs",
+        "    } else {\n        Directive::Escalate\n    }\n}\n\n/// The decider of",
+        "    } else {\n        Directive::Restart\n    }\n}\n\n/// The decider of",
+        "the default decider restarts on what is not an `Exception`, such as `java.lang.Error` (killed by a unit test, see UNIT_MUTANTS)",
+    ),
     "declared-superclasses-are-ignored": (
         "src/actor/fault.rs",
         "            .chain(&self.superclasses)\n",
         "",
         "only the class itself and what its furthest superclass extends are matched, not the declared ones (killed by a unit test, see UNIT_MUTANTS)",
+    ),
+    "stopping-strategy-restarts": (
+        "src/actor/supervision.rs",
+        "        Directive::Stop\n    } else {\n        Directive::Escalate",
+        "        Directive::Restart\n    } else {\n        Directive::Escalate",
+        "`stoppingStrategy` restarts instead of stopping (killed by a unit test, see UNIT_MUTANTS)",
+    ),
+    "log-failure-matches-the-class-name-only": (
+        "src/actor/cell.rs",
+        'failure.is_a("org.apache.pekko.actor.ActorInitializationException")',
+        'failure.class == "org.apache.pekko.actor.ActorInitializationException"',
+        "`logFailure` does not look through a subclass of `ActorInitializationException` (killed by a unit test, see UNIT_MUTANTS)",
     ),
     "declaration-over-a-known-class-is-followed": (
         "src/actor/fault.rs",
@@ -2564,8 +2582,11 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "log-failure-matches-the-class-name-only": ("actor::cell", "subclasses_of_the_initialization_and_invocation_exceptions_are_looked_through"),
+    "non-exception-restarts-instead-of-escalating": ("actor::supervision", "the_default_decider_escalates_what_is_not_an_exception"),
     "declaration-over-a-known-class-is-followed": ("test:classic_throwable_known_classes", "a_known_superclass_of_a_user_class_keeps_its_hierarchy"),
     "declared-superclasses-are-ignored": ("actor::fault", "declared_superclasses_replace_the_default_and_continue_from_the_last_one"),
+    "stopping-strategy-restarts": ("actor::supervision", "the_stopping_strategy_stops_every_exception_and_escalates_the_rest"),
     "scheduled-message-loses-its-sender": ("test:classic_scheduler", "a_message_arrives_once_never_early_with_the_given_sender_and_cannot_be_cancelled_afterwards"),
     "terminated-system-keeps-its-scheduler": ("test:classic_scheduler", "termination_drops_the_pending_messages_and_rejects_new_ones"),
     "scheduler-ignores-the-injected-clock": ("actor::scheduler_tests", "the_scheduler_of_a_system_runs_on_the_clock_and_waiter_injected_into_it"),
