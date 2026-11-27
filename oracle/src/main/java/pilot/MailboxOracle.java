@@ -168,6 +168,21 @@ final class MailboxOracle {
     }
   }
 
+  /** Creates the child {@code kid} with a mailbox type that throws, catches what {@code actorOf} throws, and reuses the name. */
+  public static final class CatchingParent extends AbstractActor {
+    final Env env; CatchingParent(Env env) { this.env = env; }
+    @Override public Receive createReceive() {
+      return receiveBuilder().matchEquals("go", g -> {
+        try { getContext().actorOf(Props.create(Worker.class, env).withMailbox("failing-mailbox"), "kid"); env.note.set("created"); }
+        catch (Throwable t) { env.note.set("caught=" + t.getClass().getName() + ": " + t.getMessage() + " cause=" + t.getCause()); }
+        int registered = 0;
+        for (ActorRef child : getContext().getChildren()) registered++;
+        env.log.add("children=" + registered);
+        getContext().actorOf(Props.create(Worker.class, env), "kid").tell("m", getSelf());
+      }).build();
+    }
+  }
+
   // ---- real actors ---------------------------------------------------------------------------------------------------------------
   static final class Block { final CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1); }
 
@@ -1456,6 +1471,22 @@ final class MailboxOracle {
       put(q, "x"); put(q, "y");
       q.cleanUp(Nobody$.MODULE$, dead);
       return type + " | new " + empty + " | " + mixed + " | cleanUp source " + counts(q) + " target " + drain(dead);
+    });
+    run("MBX-TT-01 context.actorOf with a mailbox type that throws fails at the call with a ConfigurationException: no child is registered and the name is free", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        e.sys.actorOf(Props.create(CatchingParent.class, e), "parent").tell("go", ActorRef.noSender());
+        awaitUntil(() -> e.log.contains("r:m"));
+        return e.note.get() + " log=" + e.log + " started=" + e.started.get() + " errors=" + e.errors;
+      }
+    });
+    run("MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates", () -> {
+      Env e = new Env(5, "0ms");
+      ActorRef a = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("failing-mailbox"), "a");
+      awaitUntil(() -> in(a).isTerminated() && !e.errors.isEmpty());
+      e.sys.actorOf(Props.create(Worker.class, e), "b").tell("m", ActorRef.noSender());
+      awaitUntil(() -> e.log.contains("r:m"));
+      scala.concurrent.Await.result(e.sys.terminate(), scala.concurrent.duration.Duration.create(10, TimeUnit.SECONDS));
+      return "terminated=true log=" + e.log + " started=" + e.started.get() + " errors=" + e.errors + " systemTerminated=true";
     });
   }
 

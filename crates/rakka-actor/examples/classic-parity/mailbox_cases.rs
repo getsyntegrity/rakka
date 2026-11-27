@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
+use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
 use rakka_actor::actor::system::{ActorSystem, Settings};
@@ -22,7 +23,7 @@ use rakka_actor::dispatch::message_queue::{Envelope, MailboxType, MessageQueue, 
 use rakka_actor::dispatch::queue_semantics::{MessageQueueSemantics, ProducedQueue};
 use rakka_actor::dispatch::single_consumer_mailbox::SingleConsumerOnlyUnboundedMailbox;
 use rakka_actor::dispatch::system_queue::SystemQueue;
-use rakka_actor::event::{Channel, DeadLetter};
+use rakka_actor::event::{Channel, DeadLetter, ErrorEvent};
 
 /// Oracle cases Rust does not produce yet, with the reason: they need pieces of ADR-0001 that arrive in later steps.
 #[allow(dead_code)] // read by tests/recorded_pekko.rs
@@ -717,6 +718,147 @@ fn wait_until(condition: impl Fn() -> bool) {
         assert!(Instant::now() < deadline, "condition not reached");
         std::thread::sleep(Duration::from_millis(2));
     }
+}
+
+/// The oracle's `FailingType`: `create` throws.
+struct FailingMailbox;
+impl MailboxType for FailingMailbox {
+    fn create(&self, _dead_letters: &ActorRef) -> Box<dyn MessageQueue> {
+        throw(Throwable::illegal_state("mailbox boom"))
+    }
+}
+
+/// What the actors of the `MBX-TT` cases record: their log, the starts of `Counted`, the `Error`s and what the parent caught.
+#[derive(Default)]
+struct SpiEnv {
+    log: Mutex<Vec<String>>,
+    errors: Mutex<Vec<String>>,
+    started: AtomicUsize,
+    caught: Mutex<String>,
+}
+
+impl SpiEnv {
+    fn system(self: &Arc<Self>) -> ActorSystem {
+        let mut settings = Settings::default();
+        settings
+            .mailboxes
+            .register("failing-mailbox", FailingMailbox);
+        let system = ActorSystem::create_with_settings("mbx", settings).expect("system");
+        let env = self.clone();
+        let listener = system
+            .actor_of(Props::new(move || SpiErrors(env.clone())))
+            .expect("listener");
+        system.event_stream().subscribe(&listener, Channel::Error);
+        system
+    }
+
+    fn counted(self: &Arc<Self>) -> Props {
+        let env = self.clone();
+        Props::new(move || Counted(env.clone()))
+    }
+
+    /// `log=[..] started=<n> errors=[..]`
+    fn view(&self) -> String {
+        format!(
+            "log=[{}] started={} errors=[{}]",
+            self.log.lock().unwrap().join(", "),
+            self.started.load(Ordering::SeqCst),
+            self.errors.lock().unwrap().join(", ")
+        )
+    }
+}
+
+struct SpiErrors(Arc<SpiEnv>);
+impl Actor for SpiErrors {
+    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if let Some(error) = msg.downcast_ref::<ErrorEvent>() {
+            self.0.errors.lock().unwrap().push(format!(
+                "{}|{}|{}",
+                error.log_source,
+                error.cause.class,
+                error.message.as_deref().unwrap_or("null")
+            ));
+        }
+        true
+    }
+}
+
+struct Counted(Arc<SpiEnv>);
+impl Actor for Counted {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.0.started.fetch_add(1, Ordering::SeqCst);
+    }
+    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if let Some(text) = msg.downcast_ref::<String>() {
+            self.0.log.lock().unwrap().push(format!("r:{text}"));
+        }
+        true
+    }
+}
+
+/// The oracle's `CatchingParent`: `actorOf` with a mailbox type that throws, then the same name again.
+struct CatchingParent(Arc<SpiEnv>);
+impl Actor for CatchingParent {
+    fn receive(&mut self, ctx: &mut ActorContext, _msg: &AnyMessage) -> bool {
+        let failing = self.0.counted().with_mailbox_id("failing-mailbox");
+        *self.0.caught.lock().unwrap() = match ctx.actor_of_named(failing, "kid") {
+            Ok(_) => "created".to_owned(),
+            Err(error) => format!("caught={error} cause={}", error.cause().unwrap_or("null")),
+        };
+        let children = ctx.children().len();
+        self.0
+            .log
+            .lock()
+            .unwrap()
+            .push(format!("children={children}"));
+        let again = ctx.actor_of_named(self.0.counted(), "kid").expect("kid");
+        again.tell("m".to_owned(), None);
+        true
+    }
+}
+
+fn terminate_normally(system: ActorSystem) {
+    system
+        .terminate()
+        .wait(Duration::from_secs(10))
+        .expect("terminated")
+        .expect("terminated normally");
+}
+
+/// `MBX-TT-01`
+fn a_mailbox_type_that_throws_fails_context_actor_of() -> String {
+    let env = Arc::new(SpiEnv::default());
+    let system = env.system();
+    let parent = Props::new({
+        let env = env.clone();
+        move || CatchingParent(env.clone())
+    });
+    system
+        .actor_of_named(parent, "parent")
+        .expect("parent")
+        .tell("go".to_owned(), None);
+    wait_until(|| env.log.lock().unwrap().iter().any(|l| l == "r:m"));
+    let line = format!("{} {}", env.caught.lock().unwrap(), env.view());
+    terminate_normally(system);
+    line
+}
+
+/// `MBX-TT-02`
+fn a_mailbox_type_that_throws_stops_the_actor_of_system_actor_of() -> String {
+    let env = Arc::new(SpiEnv::default());
+    let system = env.system();
+    let failed = system
+        .actor_of_named(env.counted().with_mailbox_id("failing-mailbox"), "a")
+        .expect("a reference");
+    wait_until(|| failed.is_terminated() && !env.errors.lock().unwrap().is_empty());
+    system
+        .actor_of_named(env.counted(), "b")
+        .expect("b")
+        .tell("m".to_owned(), None);
+    wait_until(|| env.log.lock().unwrap().iter().any(|l| l == "r:m"));
+    let view = env.view();
+    terminate_normally(system);
+    format!("terminated=true {view} systemTerminated=true")
 }
 
 /// Records its lifecycle in the shared log as the oracle's `LifeActor` does: `label:preStart`, `label:r:<message>`, `label:postStop`.
@@ -2096,6 +2238,14 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue",
             the_single_consumer_only_queue_is_first_in_first_out_and_declares_its_semantics(),
+        ),
+        (
+            "MBX-TT-01 context.actorOf with a mailbox type that throws fails at the call with a ConfigurationException: no child is registered and the name is free",
+            a_mailbox_type_that_throws_fails_context_actor_of(),
+        ),
+        (
+            "MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates",
+            a_mailbox_type_that_throws_stops_the_actor_of_system_actor_of(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

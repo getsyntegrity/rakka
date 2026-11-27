@@ -31,3 +31,5 @@
 {"name": "mb-0031", "args": ["mailbox-case"], "stdin": "MBX-GRD-01 the root, user and system guardians take the registered default mailbox directly: three queues of it exist before any actor is created"}
 {"name": "mb-0032", "args": ["mailbox-case"], "stdin": "MBX-DQ-01 the unbounded deque based queue takes an envelope enqueued first at its head, counts it and cleans up from the head"}
 {"name": "mb-0033", "args": ["mailbox-case"], "stdin": "MBX-SCQ-01 the single consumer only unbounded queue is first in first out, counts and cleans up in order, and declares the semantics of Pekko's NodeMessageQueue"}
+{"name": "mb-0034", "args": ["mailbox-case"], "stdin": "MBX-TT-01 context.actorOf with a mailbox type that throws fails at the call with a ConfigurationException: no child is registered and the name is free"}
+{"name": "mb-0035", "args": ["mailbox-case"], "stdin": "MBX-TT-02 system.actorOf with a mailbox type that throws returns: the user guardian stops the actor, keeps serving and the system terminates"}
