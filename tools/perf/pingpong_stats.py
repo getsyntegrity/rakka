@@ -51,6 +51,9 @@ def main():
     for (label, test), runs in results.items():
         times = sorted(seconds for seconds, _, slept, _ in runs if not slept)
         loads = [load for *_, load in runs]
+        if not times:
+            print(f"{label} {test}: every run slept")
+            continue
         p95 = times[math.ceil(0.95 * len(times)) - 1]  # nearest rank
         print(f"{label} {test}: n={len(times)} min={times[0]:.2f} median={statistics.median(times):.2f} p95={p95:.2f} max={times[-1]:.2f}"
               f" failed={sum(not passed for _, passed, _, _ in runs)} slept={len(runs) - len(times)} load={min(loads):.1f}..{max(loads):.1f}")
