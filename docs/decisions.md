@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 272 decisiones: 0 bloqueantes, 188 propuestas, 66 aceptadas, 15 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 273 decisiones: 0 bloqueantes, 189 propuestas, 66 aceptadas, 15 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -377,6 +377,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** (a), por Q-X-21 (c). Consecuencia hoy: los specs que crean hijos en el constructor no se pueden portar 1:1 y las filas afectadas quedan sin cerrar
 - **Filas afectadas:** AC-CELL-007.2 ; AC-CELL-013.2 ; AC-SUP-011
 - **Unidades afectadas:** CELL ; SUP
+- **Origen:** classic-cell
+
+### Q-CELL-9 — Qué fallos del SPI de mailbox se atrapan al crear un actor
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:721-726 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:112-121 ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) atrapar todo panic o Throwable desenrollado / (b) volver a lanzar los Throwable cuya clase no sería NonFatal en la JVM
+- **Recomendación:** (a), implementada provisionalmente. Consecuencia: un Throwable con clase de error fatal también acaba en ConfigurationException o ActorInitializationException; en Pekko escaparía
+- **Filas afectadas:** AC-CELL-027
+- **Unidades afectadas:** CELL
 - **Origen:** classic-cell
 
 ### Q-CFG-14 — Includes de HOCON sin classpath: `include "x"`, `classpath(...)`, `url(...)`, `file(...)` y `required(...)` en rakka
