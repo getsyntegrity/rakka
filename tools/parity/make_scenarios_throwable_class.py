@@ -35,7 +35,21 @@ def escalated(kind, decision="resume", **parent):
 def matching(*pairs):
     return {"match": [list(pair) for pair in pairs]}
 
+def through_user():
+    """an Error escalates from `c` through `a` and `/user`, which the root guardian stops: the system ends. No log collector:
+    it would live under /user, which stops while the errors are on their way"""
+    return [*S("a"), child("a", "error"), EV("c", 1), TELL("c", "boom"), {"op": "await-system-terminated"},
+            {"op": "await-life", "count": 4, "before": [["c:post-stop", "a:post-stop"]]}, NOW("a"), NOW("c")]
+
+def failing_top_level_creator():
+    """AC-SUP-004 A3: a top-level actor whose creator fails is stopped; /user and its other children go on. No log
+    collector: it would be a listener under /user"""
+    failing = {"op": "spawn", "name": "a", "as": "a", "behavior": {"kind": "log", "constructor-fails-from": 1}}
+    return [failing, {"op": "await-stopped", "ref": "a"}, NOW("a"), *S("b"), TELL("b", "alive"), EV("b", 2), NOW("b")]
+
 CASES = {
+    "cl-error-through-user": through_user(),
+    "cl-top-creator-stops": failing_top_level_creator(),
     # the default decider
     "cl-user-restarts": decided_by_parent("user", "restart"),
     "cl-checked-restarts": decided_by_parent("checked", "restart"),

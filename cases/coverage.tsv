@@ -3085,6 +3085,8 @@ sc-0013	oracle-scheduler	AC-SCH-002,AC-SCH-009	cited
 cf-resume-into-create	scenario-close-parity	AC-SUP-011	cited
 cf-recreate-into-create	scenario-close-parity	AC-SUP-011	cited
 kl-default-stop-logged	scenario-close-parity	AC-CELL-012	cited
+cl-error-through-user	scenario-throwable-class	AC-SUP-004	cited
+cl-top-creator-stops	scenario-throwable-class	AC-SUP-004	cited
 cl-user-restarts	scenario-throwable-class	AC-SUP-004	cited
 cl-checked-restarts	scenario-throwable-class	AC-SUP-004	cited
 cl-derived-restarts	scenario-throwable-class	AC-SUP-004	cited
