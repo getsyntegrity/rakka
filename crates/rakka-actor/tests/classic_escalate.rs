@@ -92,7 +92,7 @@ impl Actor for Middle {
     fn supervisor_strategy(&self) -> SupervisorStrategy {
         let log = self.log.clone();
         OneForOneStrategy::new(-1, move |e: &Throwable| {
-            let d = if e.message.as_deref() == Some("loc") {
+            let d = if e.message() == Some("loc") {
                 Directive::Resume
             } else {
                 Directive::Escalate

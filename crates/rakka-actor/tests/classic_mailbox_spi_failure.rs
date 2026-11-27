@@ -186,7 +186,7 @@ impl Actor for Errors {
     fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         if let Some(error) = msg.downcast_ref::<ErrorEvent>() {
             let message = error.message.as_deref().unwrap_or("null");
-            let seen = format!("{}|{}|{message}", error.log_source, error.cause.class);
+            let seen = format!("{}|{}|{message}", error.log_source, error.cause.class());
             self.0.lock().unwrap().push(seen);
         }
         true

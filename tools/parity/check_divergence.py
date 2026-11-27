@@ -2456,6 +2456,12 @@ MUTANTS = {
         'failure.class == "org.apache.pekko.actor.ActorInitializationException"',
         "`logFailure` does not look through a subclass of `ActorInitializationException` (killed by a unit test, see UNIT_MUTANTS)",
     ),
+    "declared-superclasses-cannot-be-read": (
+        "src/actor/fault.rs",
+        "        &self.superclasses\n    }",
+        "        &[]\n    }",
+        "the accessor hides what was declared (killed by tests/classic_throwable_api.rs, see UNIT_MUTANTS)",
+    ),
     "declaration-over-a-known-class-is-followed": (
         "src/actor/fault.rs",
         "                break; // its own superclasses apply, not the declared ones\n",
@@ -2582,6 +2588,7 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "declared-superclasses-cannot-be-read": ("test:classic_throwable_api", "the_constructors_and_accessors_cover_class_message_and_declared_superclasses"),
     "log-failure-matches-the-class-name-only": ("actor::cell", "subclasses_of_the_initialization_and_invocation_exceptions_are_looked_through"),
     "non-exception-restarts-instead-of-escalating": ("actor::supervision", "the_default_decider_escalates_what_is_not_an_exception"),
     "declaration-over-a-known-class-is-followed": ("test:classic_throwable_known_classes", "a_known_superclass_of_a_user_class_keeps_its_hierarchy"),

@@ -823,7 +823,8 @@ impl Actor for SpiErrors {
             }
             self.0.errors.lock().unwrap().push(format!(
                 "{}|{}|{message}",
-                error.log_source, error.cause.class
+                error.log_source,
+                error.cause.class()
             ));
         } else if let Some(dead) = msg.downcast_ref::<DeadLetter>()
             && let Some(text) = dead.message.downcast_ref::<String>()
@@ -2299,12 +2300,12 @@ impl Actor for InitParent {
     fn supervisor_strategy(&self) -> SupervisorStrategy {
         let env = self.env.clone();
         OneForOneStrategy::new(10, move |failure| {
-            let message = failure.message.clone().unwrap_or_default();
+            let message = failure.message().unwrap_or_default().to_string();
             let without_uid = message.split('#').next().unwrap_or_default().to_owned();
             env.log
                 .lock()
                 .unwrap()
-                .push(format!("failure:{}: {without_uid}", failure.class));
+                .push(format!("failure:{}: {without_uid}", failure.class()));
             Directive::Stop
         })
         .into()

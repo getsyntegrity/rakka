@@ -34,7 +34,7 @@ impl Actor for Kid {
             .unwrap_or_else(|| "None".into());
         self.log.lock().unwrap().push(format!(
             "pre-restart {} / {msg}",
-            reason.message.clone().unwrap_or_default()
+            reason.message().unwrap_or_default()
         ));
         for k in c.children() {
             c.stop(&k);
@@ -82,7 +82,7 @@ impl Actor for Sup {
         }
     }
     fn supervisor_strategy(&self) -> SupervisorStrategy {
-        AllForOneStrategy::new(self.max, |e: &Throwable| match e.message.as_deref() {
+        AllForOneStrategy::new(self.max, |e: &Throwable| match e.message() {
             Some("bres") => Directive::Resume,
             Some("brst") => Directive::Restart,
             Some("bstp") => Directive::Stop,

@@ -42,7 +42,7 @@ struct Probe(Sender<String>);
 impl Actor for Probe {
     fn receive(&mut self, _: &mut ActorContext, msg: &AnyMessage) -> bool {
         match msg.downcast_ref::<ErrorEvent>() {
-            Some(e) if e.cause.class.ends_with("PreRestartException") => self.0.send(e.cause.to_string()).unwrap(),
+            Some(e) if e.cause.class().ends_with("PreRestartException") => self.0.send(e.cause.to_string()).unwrap(),
             Some(_) => {}
             None => self.0.send("identity".into()).unwrap(),
         }
@@ -112,7 +112,7 @@ impl Actor for Supervisor {
         let (out, other) = (self.0.clone(), self.2);
         let decide = move |cause: &Throwable| {
             out.send("supervised".into()).unwrap();
-            let sibling = cause.message.as_deref() == Some("sibling");
+            let sibling = cause.message() == Some("sibling");
             if sibling { Directive::Restart } else { other }
         };
         AllForOneStrategy::new(-1, decide).into()

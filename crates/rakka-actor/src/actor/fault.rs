@@ -17,18 +17,51 @@ use std::fmt;
 /// superclasses apply. For example a `PostRestartException` declared under `java.lang.Error` is still an
 /// `ActorInitializationException` and not an `Error`. To classify differently, use another class name.
 ///
-/// A cause chain can be of any length: `Clone`, `PartialEq`, `Debug` and `Drop` walk it without a stack frame per cause. Because of
-/// that `Drop`, a field cannot be moved out of a `Throwable` by value, by destructuring it by value or by struct update syntax
-/// (error E0509): borrow it, or `take` it. And as `PartialEq` is not derived, a `const Throwable` cannot be used as a pattern.
+/// A cause chain can be of any length: `Clone`, `PartialEq`, `Debug` and `Drop` walk it without a stack frame per cause. As
+/// `PartialEq` is not derived, a `const Throwable` cannot be used as a pattern.
+///
+/// No field is public. A `Throwable` is built by [`new`](Throwable::new) or [`illegal_state`](Throwable::illegal_state)
+/// and the `with_` methods, and read by
+/// [`class`](Throwable::class), [`message`](Throwable::message), [`superclasses`](Throwable::superclasses) and
+/// [`cause`](Throwable::cause). Its class cannot change once built. **Breaking change** with respect to the earlier public
+/// fields: outside the crate a `Throwable` cannot be built by literal or destructured, and `thrown.class`, `thrown.message`
+/// and `thrown.cause` become method calls; to give it another cause use [`with_cause`](Throwable::with_cause).
+///
+/// What compiles, the control of the three examples that must not:
+///
+/// ```
+/// let mut thrown = rakka_actor::actor::fault::Throwable::new("a.B", None);
+/// let _ = (thrown.class(), thrown.message(), thrown.cause());
+/// thrown = thrown.with_cause(rakka_actor::actor::fault::Throwable::illegal_state("c"));
+/// assert!(thrown.cause().is_some());
+/// ```
+///
+/// A literal does not (the second line of each remaining example is what is refused):
+///
+/// ```compile_fail
+/// use rakka_actor::actor::fault::Throwable;
+/// let _ = Throwable { class: String::new(), message: None, superclasses: Vec::new(), cause: None };
+/// ```
+///
+/// ```compile_fail
+/// let thrown = rakka_actor::actor::fault::Throwable::new("a.B", None);
+/// let _ = &thrown.class;
+/// ```
+///
+/// ```compile_fail
+/// let thrown = rakka_actor::actor::fault::Throwable::new("a.B", None);
+/// let _ = &thrown.message;
+/// ```
+///
+/// ```compile_fail
+/// let mut thrown = rakka_actor::actor::fault::Throwable::new("a.B", None);
+/// thrown.cause = None;
+/// ```
 pub struct Throwable {
-    /// The JVM class name, e.g. `java.lang.IllegalStateException`.
-    pub class: String,
-    /// `getMessage`; `None` when the exception has no message.
-    pub message: Option<String>,
-    /// What [`with_superclasses`](Throwable::with_superclasses) declared, nearest first; empty when nothing was declared.
+    pub(crate) class: String,
+    pub(crate) message: Option<String>,
     superclasses: Vec<String>,
-    /// `getCause`: what this exception wraps. Equality compares it too; [`Display`](fmt::Display), like `toString`, leaves it out.
-    pub cause: Option<Box<Throwable>>,
+    pub(crate) cause: Option<Box<Throwable>>,
 }
 
 /// The direct superclass of a class this runtime raises or names, and of the roots of the categories (`Some(None)` for
@@ -74,6 +107,28 @@ impl Throwable {
             superclasses: Vec::new(),
             cause: None,
         }
+    }
+
+    /// The JVM class name, e.g. `java.lang.IllegalStateException`.
+    pub fn class(&self) -> &str {
+        &self.class
+    }
+
+    /// `getMessage`; `None` when the exception has no message.
+    pub fn message(&self) -> Option<&str> {
+        self.message.as_deref()
+    }
+
+    /// `getCause`: what this exception wraps. Equality compares it too; [`Display`](fmt::Display), like `toString`, leaves it out.
+    pub fn cause(&self) -> Option<&Throwable> {
+        self.cause.as_deref()
+    }
+
+    /// What [`with_superclasses`](Throwable::with_superclasses) declared, nearest first, as stored; empty when nothing was
+    /// declared. [`is_a`](Throwable::is_a), not this list, says what the throwable is: it adds what the runtime knows and
+    /// ignores a declaration past a known class.
+    pub fn superclasses(&self) -> &[String] {
+        &self.superclasses
     }
 
     /// The same exception caused by `cause` (the constructor argument of the same name on the JVM).

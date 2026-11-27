@@ -1233,7 +1233,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 
 - **Estado:** propuesta (sin decisión del Owner)
 - **Evidencia:** crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/tests/classic_long_cause_chains.rs ; sonda desechable JDK 17 (hilo de 512 KiB): equals es identidad y toString nombra sólo el primer eslabón; printStackTrace de 1000 causas termina y con 10000 o más lanza StackOverflowError capturable
-- **Alternativas:** (a) `impl Drop` iterativo en Throwable: `class`, `message` y `cause` siguen siendo públicos y se pueden leer, asignar, `take` y desestructurar por referencia (con `..` desde que la clasificación añade el campo privado `superclasses`, Q-SUP-7), pero mover un campo por valor, desestructurar por valor o usar la sintaxis de actualización de struct (`..otro`) falla con E0509; además el `PartialEq` manual quita la coincidencia estructural: un `const Throwable` ya no sirve como patrón /(b) campo `cause` de un tipo propio con el Drop iterativo (cambia el tipo público del campo) / (c) aceptar el aborto por desbordamiento de pila al soltar una cadena larga
+- **Alternativas:** (a) `impl Drop` iterativo en Throwable: con los campos encapsulados (Q-SUP-7) se leen por accesores y fuera del crate no se pueden asignar, `take` ni desestructurar; dentro del crate, mover un campo por valor, desestructurar por valor o usar la sintaxis de actualización de struct (`..otro`) falla con E0509; además el `PartialEq` manual quita la coincidencia estructural: un `const Throwable` ya no sirve como patrón /(b) campo `cause` de un tipo propio con el Drop iterativo (cambia el tipo público del campo) / (c) aceptar el aborto por desbordamiento de pila al soltar una cadena larga
 - **Recomendación:** (a), implementada provisionalmente: es el cambio menor; el único uso del repositorio que movía un campo era el arnés classic-parity
 - **Filas afectadas:** AC-SUP-018
 - **Unidades afectadas:** SUP
@@ -2642,7 +2642,7 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Estado:** aceptada con cambios
 - **Evidencia:** crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/tests/classic_long_cause_chains.rs (texto de Debug)
 - **Alternativas:** (a) campo privado `superclasses`, que sólo se fija con `with_superclasses(iterable)` (la más cercana primero) y sólo se consulta con `is_a(nombre)`, sin lectura directa / (b) campo público / (c) un tipo público descriptor de clase en lugar de nombres
-- **Recomendación:** (a), implementada provisionalmente. Rompe la API: fuera del crate ya no se construye un Throwable por literal y desestructurarlo exige `..`; Debug imprime `superclasses` y PartialEq lo compara (declarar o no la misma jerarquía da valores distintos). No hay release publicado
+- **Recomendación:** Aceptada con condiciones e implementada: class, message, cause y superclasses cerrados fuera del crate, con constructores new, illegal_state, with_cause y with_superclasses y accesores class(), message(), cause() y superclasses() (la lista declarada). Rompe la API: fuera del crate no se construye un Throwable por literal ni se desestructura; Debug imprime `superclasses` y PartialEq lo compara (declarar o no la misma jerarquía da valores distintos). No hay release publicado
 - **Filas afectadas:** AC-SUP-004
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell

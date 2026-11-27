@@ -38,10 +38,10 @@ fn chain(links: usize, root: &str) -> Throwable {
 /// The number of links of `chain` and the message of the innermost one, found without recursion.
 fn measure(chain: &Throwable) -> (usize, Option<&str>) {
     let (mut links, mut link) = (1, chain);
-    while let Some(cause) = &link.cause {
+    while let Some(cause) = link.cause() {
         (links, link) = (links + 1, cause);
     }
-    (links, link.message.as_deref())
+    (links, link.message())
 }
 
 #[test]
