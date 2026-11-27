@@ -1249,7 +1249,7 @@ MUTANTS = {
     "thrown-mailbox-failure-loses-its-message": (
         "src/actor/cell.rs",
         ".map_err(|thrown| configuration_failure(thrown.to_string()))?;",
-        ".map_err(|thrown| configuration_failure(thrown.class))?;",
+        ".map_err(|thrown| configuration_failure(thrown.class.clone()))?;",
         "the ConfigurationException of a mailbox type that throws names only the class of what it threw (see UNIT_MUTANTS)",
     ),
     "uncaught-turn-failure-is-not-reported": (
@@ -2241,20 +2241,20 @@ MUTANTS = {
     # --- guardians: the default mailbox and the unbounded requirement of each (killed by tests/classic_guardian_mailbox.rs, see UNIT_MUTANTS) ---
     "guardian-root-ignores-the-default-mailbox": (
         "src/actor/system.rs",
-        "            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),\n            walker,",
-        "            Props::new(|| Guardian),\n            walker,",
+        "            .with_resolved_mailbox(default_mailbox.clone()),\n            walker,",
+        "            ,\n            walker,",
         "the root guardian does not take the registered default mailbox",
     ),
     "guardian-user-ignores-the-default-mailbox": (
         "src/actor/system.rs",
-        "            \"user\",\n            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),",
-        "            \"user\",\n            Props::new(|| Guardian),",
+        "                strategy: SupervisorStrategy::default(),\n            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
+        "                strategy: SupervisorStrategy::default(),\n            }),",
         "the /user guardian does not take the registered default mailbox",
     ),
     "guardian-system-ignores-the-default-mailbox": (
         "src/actor/system.rs",
-        "            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
-        "            }),",
+        "                guardian: user_ref.clone(),\n            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
+        "                guardian: user_ref.clone(),\n            }),",
         "the /system guardian does not take the registered default mailbox",
     ),
     "guardian-requires-nothing": (
@@ -2382,6 +2382,24 @@ MUTANTS = {
         "subs.retain(|(_, s)| !s.is_terminated() || s.0.dead_letters_stream().is_some());",
         "subs.retain(|(_, s)| !s.is_terminated());",
         "a subscribed `deadLetters` is removed from the event stream as if it had died (killed by tests/classic_api.rs, see UNIT_MUTANTS)",
+    ),
+    "root-guardian-restarts-a-failed-guardian": (
+        "src/actor/system.rs",
+        "        Directive::Stop\n    })\n    .into()",
+        "        Directive::Restart\n    })\n    .into()",
+        "a failed `/user` or `/system` is restarted instead of stopped, so the system does not terminate (killed by a unit test, see UNIT_MUTANTS)",
+    ),
+    "bubble-walker-failure-is-not-logged": (
+        "src/actor/system.rs",
+        "                    log_provider_error(events, &cause, message);",
+        "                    let _ = (events, message);",
+        "the failure of the root guardian is not logged (killed by a unit test, see UNIT_MUTANTS)",
+    ),
+    "restarted-user-guardian-stops-its-children": (
+        "src/actor/system.rs",
+        "restart\".\n    fn pre_restart(&mut self, _: &mut ActorContext, _: &Throwable, _: Option<&AnyMessage>) {}",
+        "restart\".\n    fn post_stop(&mut self, _: &mut ActorContext) {}",
+        "the root or user guardian takes the default `preRestart`, which stops its children (killed by a unit test, see UNIT_MUTANTS)",
     ),
     "panicking-user-drop-escapes-the-guard": (
         "src/actor/cell.rs",
@@ -2529,13 +2547,18 @@ UNIT_MUTANTS = {
     "cancelled-repetition-schedules-again": ("actor::scheduler_tests", "a_cancel_during_the_send_prevents_the_next_one"),
     "dropped-cause-chain-recurses": ("test:classic_long_cause_chains", "a_very_long_cause_chain_is_dropped"),
     "event-stream-drops-dead-letters": ("test:classic_api", "dead_letters_stays_subscribed_to_the_event_stream_and_forwards_what_it_gets"),
+    # no recorded case fails the root guardian or restarts one; the gf-kill recordings fail /user and /system, but the unit test does
+    # not depend on them
+    "root-guardian-restarts-a-failed-guardian": ("actor::guardian_failure_tests", "a_killed_user_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates"),
+    "bubble-walker-failure-is-not-logged": ("actor::guardian_failure_tests", "a_killed_root_guardian_is_logged_by_the_bubble_walker_and_the_system_never_reports_termination"),
+    "restarted-user-guardian-stops-its-children": ("actor::guardian_failure_tests", "a_restarted_user_or_system_guardian_keeps_its_children"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
     "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)
     "panicking-user-drop-escapes-the-guard": ("test:classic_panicking_drop", "a_stopped_actor_whose_drop_panics_terminates"),
     "thrown-mailbox-failure-loses-its-message": ("test:classic_mailbox_spi_failure", "a_mailbox_type_that_throws_fails_context_actor_of_and_frees_the_name"),
     "uncaught-turn-failure-is-not-reported": ("test:classic_queue_spi_failure", "a_dequeue_that_throws_is_reported_as_uncaught_and_the_actor_goes_on"),
-    "failed-cell-ignores-a-new-failure": ("actor::refailure_tests","a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_again"),
+    "failed-cell-ignores-a-new-failure": ("actor::refailure_tests", "a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_again"),
     "failed-cell-still-skips-the-sender": ("actor::refailure_tests", "escalating_while_already_failed_suspends_that_child_too_and_keeps_the_first_perpetrator"),
     "terminating-recreate-skips-the-children": ("actor::cell::terminating_survivor_tests", "recreate_of_a_terminating_actor_resumes_its_children_and_keeps_it_failed"),
     "walker-stop-links-only-a-success-to-the-public-future": ("actor::guardian_termination_tests", "stop_called_directly_after_the_failure_fails_the_public_future_with_the_cause"),

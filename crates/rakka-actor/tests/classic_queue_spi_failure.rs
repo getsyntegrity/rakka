@@ -1,5 +1,5 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-171, dispatch/Mailbox.scala:262-272 and actor/ActorSystem.scala:875-880 (Apache-2.0).
-//! A user's `MessageQueue` is public SPI and may panic in any operation. Expected values: oracle cases `MBX-TQ-01..04`.
+//! A user's `MessageQueue` is public SPI and may panic. Expected values: Pekko 2.0.0 (recorded cases come in a follow-up change).
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
 mod common;
