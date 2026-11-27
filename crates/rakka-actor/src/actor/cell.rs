@@ -126,7 +126,7 @@ enum NewMailbox {
 }
 
 impl NewMailbox {
-    /// `createMailbox` runs the user's code (`MailboxType::create` and what the queue says about itself): what it throws is returned.
+    /// `createMailbox` runs the user's code: what it throws is returned.
     fn created_for(props: &Props, system: &SystemInner) -> Result<NewMailbox, Throwable> {
         catch_unwind(AssertUnwindSafe(|| {
             let queue = props.new_message_queue(&system.dead_letters);

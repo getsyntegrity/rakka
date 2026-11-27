@@ -1249,7 +1249,7 @@ MUTANTS = {
     "thrown-mailbox-failure-loses-its-message": (
         "src/actor/cell.rs",
         ".map_err(|thrown| configuration_failure(thrown.to_string()))?;",
-        ".map_err(|thrown| configuration_failure(thrown.class))?;",
+        ".map_err(|thrown| configuration_failure(thrown.class.clone()))?;",
         "the ConfigurationException of a mailbox type that throws names only the class of what it threw (see UNIT_MUTANTS)",
     ),
     "mailbox-id-error-message-names-the-default-id": (
@@ -2551,7 +2551,7 @@ UNIT_MUTANTS = {
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)
     "panicking-user-drop-escapes-the-guard": ("test:classic_panicking_drop", "a_stopped_actor_whose_drop_panics_terminates"),
     "thrown-mailbox-failure-loses-its-message": ("test:classic_mailbox_spi_failure", "a_mailbox_type_that_throws_fails_context_actor_of_and_frees_the_name"),
-    "failed-cell-ignores-a-new-failure": ("actor::refailure_tests","a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_again"),
+    "failed-cell-ignores-a-new-failure": ("actor::refailure_tests", "a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_again"),
     "failed-cell-still-skips-the-sender": ("actor::refailure_tests", "escalating_while_already_failed_suspends_that_child_too_and_keeps_the_first_perpetrator"),
     "terminating-recreate-skips-the-children": ("actor::cell::terminating_survivor_tests", "recreate_of_a_terminating_actor_resumes_its_children_and_keeps_it_failed"),
     "walker-stop-links-only-a-success-to-the-public-future": ("actor::guardian_termination_tests", "stop_called_directly_after_the_failure_fails_the_public_future_with_the_cause"),
