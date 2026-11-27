@@ -2229,20 +2229,20 @@ MUTANTS = {
     # --- guardians: the default mailbox and the unbounded requirement of each (killed by tests/classic_guardian_mailbox.rs, see UNIT_MUTANTS) ---
     "guardian-root-ignores-the-default-mailbox": (
         "src/actor/system.rs",
-        "            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),\n            walker,",
-        "            Props::new(|| Guardian),\n            walker,",
+        "            .with_resolved_mailbox(default_mailbox.clone()),\n            walker,",
+        "            ,\n            walker,",
         "the root guardian does not take the registered default mailbox",
     ),
     "guardian-user-ignores-the-default-mailbox": (
         "src/actor/system.rs",
-        "            \"user\",\n            Props::new(|| Guardian).with_resolved_mailbox(default_mailbox.clone()),",
-        "            \"user\",\n            Props::new(|| Guardian),",
+        "                strategy: SupervisorStrategy::default(),\n            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
+        "                strategy: SupervisorStrategy::default(),\n            }),",
         "the /user guardian does not take the registered default mailbox",
     ),
     "guardian-system-ignores-the-default-mailbox": (
         "src/actor/system.rs",
-        "            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
-        "            }),",
+        "                guardian: user_ref.clone(),\n            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
+        "                guardian: user_ref.clone(),\n            }),",
         "the /system guardian does not take the registered default mailbox",
     ),
     "guardian-requires-nothing": (
@@ -2370,6 +2370,18 @@ MUTANTS = {
         "subs.retain(|(_, s)| !s.is_terminated() || s.0.dead_letters_stream().is_some());",
         "subs.retain(|(_, s)| !s.is_terminated());",
         "a subscribed `deadLetters` is removed from the event stream as if it had died (killed by tests/classic_api.rs, see UNIT_MUTANTS)",
+    ),
+    "root-guardian-restarts-a-failed-guardian": (
+        "src/actor/system.rs",
+        "        Directive::Stop\n    })\n    .into()",
+        "        Directive::Restart\n    })\n    .into()",
+        "a failed `/user` or `/system` is restarted instead of stopped, so the system does not terminate",
+    ),
+    "restarted-user-guardian-stops-its-children": (
+        "src/actor/system.rs",
+        "restart\".\n    fn pre_restart(&mut self, _: &mut ActorContext, _: &Throwable, _: Option<&AnyMessage>) {}",
+        "restart\".\n    fn post_stop(&mut self, _: &mut ActorContext) {}",
+        "the root or user guardian takes the default `preRestart`, which stops its children (killed by a unit test, see UNIT_MUTANTS)",
     ),
     "panicking-user-drop-escapes-the-guard": (
         "src/actor/cell.rs",
@@ -2517,6 +2529,9 @@ UNIT_MUTANTS = {
     "cancelled-repetition-schedules-again": ("actor::scheduler_tests", "a_cancel_during_the_send_prevents_the_next_one"),
     "dropped-cause-chain-recurses": ("test:classic_long_cause_chains", "a_very_long_cause_chain_is_dropped"),
     "event-stream-drops-dead-letters": ("test:classic_api", "dead_letters_stays_subscribed_to_the_event_stream_and_forwards_what_it_gets"),
+    # no recorded case here fails or restarts a guardian
+    "root-guardian-restarts-a-failed-guardian": ("actor::guardian_failure_tests", "a_killed_user_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates"),
+    "restarted-user-guardian-stops-its-children": ("actor::guardian_failure_tests", "a_restarted_user_or_system_guardian_keeps_its_children"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
     "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)

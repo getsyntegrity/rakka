@@ -108,6 +108,14 @@ pub const PENDING: &[(&str, &str)] = &[
         "needs an executor that rejects tasks and a parent actor: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C2)",
     ),
     (
+        "MBX-GRD-02 Kill to /user: the strategy of the root guardian logs and stops it, and the system terminates",
+        "needs an error subscriber that is not an actor (internal): produced in-crate by actor::guardian_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-RJ-08 an attach rejected twice while /user supervises: the root guardian stops /user and the system terminates",
+        "needs an executor that rejects tasks (internal): produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
         "MBX-PT-01 a send that waits for the unstarted cell's lock longer than unstarted-push-timeout is a dead letter with a Warning",
         "needs the unstarted reference whose hand-over blocks (a real cell stand-in): produced in-crate by actor::repointable (unstarted_push_timeout) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C3)",
     ),

@@ -85,6 +85,17 @@ final class Scenario {
     return m instanceof String ? Cli.Json.str((String) m) : "{\"class\":" + Cli.Json.str(m.getClass().getName()) + "}";
   }
 
+  /** Config that lets {@code log.error} publish: level ERROR and no logger of its own besides the stdout one. */
+  static final String PUBLISH_LOG_ERRORS = "pekko.loglevel = ERROR\npekko.loggers = [\"org.apache.pekko.event.Logging$StandardOutLogger\"]\n";
+
+  /** Discards what Pekko prints to standard output by itself (the log events still queued when /system stops, with their time stamps)
+   *  until closed. Must be opened before the first Scala print, which keeps the stream it finds. */
+  static AutoCloseable muteStandardOutput() {
+    java.io.PrintStream real = System.out;
+    System.setOut(new java.io.PrintStream(java.io.OutputStream.nullOutputStream()));
+    return () -> System.setOut(real);
+  }
+
   /** An actor that does nothing (slice 2a). */
   public static final class Noop extends AbstractActor {
     @Override public Receive createReceive() { return receiveBuilder().build(); }
