@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 275 decisiones: 0 bloqueantes, 191 propuestas, 66 aceptadas, 15 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 276 decisiones: 0 bloqueantes, 190 propuestas, 66 aceptadas, 17 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1249,16 +1249,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 
-### Q-SUP-7 — Forma pública de la clasificación de Throwable: campo privado superclasses, with_superclasses e is_a
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/tests/classic_long_cause_chains.rs (texto de Debug)
-- **Alternativas:** (a) campo privado `superclasses`, que sólo se fija con `with_superclasses(iterable)` (la más cercana primero) y sólo se consulta con `is_a(nombre)`, sin lectura directa / (b) campo público / (c) un tipo público descriptor de clase en lugar de nombres
-- **Recomendación:** (a), implementada provisionalmente. Rompe la API: fuera del crate ya no se construye un Throwable por literal y desestructurarlo exige `..`; Debug imprime `superclasses` y PartialEq lo compara (declarar o no la misma jerarquía da valores distintos). No hay release publicado
-- **Filas afectadas:** AC-SUP-004
-- **Unidades afectadas:** SUP
-- **Origen:** classic-cell
-
 ### Q-SYS-1 — ¿Drop del último handle de ActorSystem termina el sistema? (close/AutoCloseable)
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -2176,6 +2166,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Origen:** classic-cell
 - **Respuesta del Owner:** aceptar (b): helper público que ejecute los pasos del preRestart por defecto (unwatch y stop de cada hijo, luego post_stop) para que un override pueda llamarlo, como super.preRestart. Evidencia: Actor.scala:627-633 y casos ur-calls-super y ur-no-super* (scenario-pre-restart-unwatch). Pendiente de implementación. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
 
+### Q-CELL-9 — Qué fallos del SPI de mailbox se atrapan al crear un actor
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:721-726 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:112-121 ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) atrapar todo panic o Throwable desenrollado / (b) volver a lanzar los Throwable cuya clase no sería NonFatal en la JVM
+- **Recomendación:** (a), implementada provisionalmente. Consecuencia: un Throwable con clase de error fatal también acaba en ConfigurationException o ActorInitializationException; en Pekko escaparía
+- **Filas afectadas:** AC-CELL-027
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+- **Respuesta del Owner:** ACCEPTED con condiciones: la captura de panics recuperables mediante catch_unwind en la frontera de creación de actores, como adaptación explícita al modelo de fallos de Rust. Mantener la política establecida en Q-X-5. No reutilizar instancias potencialmente inconsistentes. Preservar la semántica de supervisión y limpieza. No intentar emular artificialmente NonFatal de Scala. No prometer recuperación ante panic=abort, abortos del proceso u otros fallos no recuperables. No utilizar AssertUnwindSafe sin justificación de sus invariantes. Registrar esta desviación acotada como excepción expresa a Q-X-21. Verificar que la implementación provisional integrada cumple estas condiciones antes de considerar cerrado el contrato. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
+
 ### Q-CFG-3 — checkValid contra reference.conf (Typesafe Config) con un parser propio
 
 - **Estado:** aceptada
@@ -2615,6 +2616,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 - **Respuesta del Owner:** aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la causa de ActorInitializationException como Pekko. Evidencia: FaultHandling.scala:406-414, ActorCell.scala:673-705 y sonda del oráculo 2.0.0 (un preStart que lanza publica Error con mensaje "init"). Pendiente de implementación. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
+
+### Q-SUP-7 — Forma pública de la clasificación de Throwable: campo privado superclasses, with_superclasses e is_a
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/tests/classic_long_cause_chains.rs (texto de Debug)
+- **Alternativas:** (a) campo privado `superclasses`, que sólo se fija con `with_superclasses(iterable)` (la más cercana primero) y sólo se consulta con `is_a(nombre)`, sin lectura directa / (b) campo público / (c) un tipo público descriptor de clase en lugar de nombres
+- **Recomendación:** (a), implementada provisionalmente. Rompe la API: fuera del crate ya no se construye un Throwable por literal y desestructurarlo exige `..`; Debug imprime `superclasses` y PartialEq lo compara (declarar o no la misma jerarquía da valores distintos). No hay release publicado
+- **Filas afectadas:** AC-SUP-004
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+- **Respuesta del Owner:** ACCEPTED con condiciones: encapsular los campos de Throwable e impedir su construcción directa desde fuera del crate. Proporcionar constructores públicos idiomáticos. Preservar acceso de lectura a la información relevante. Permitir errores personalizados y sus jerarquías. Garantizar las invariantes de clasificación establecidas en Q-SUP-1. Preservar las cadenas de causas. Incorporar tests de la API pública desde fuera del crate. Documentar el cambio incompatible de API. Evitar restricciones adicionales que no estén justificadas por los contratos. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
 
 ### Q-T-BEH-1 — Forma del tipo Behavior en Rust, setup re-ejecutable y reutilizacion del valor
 

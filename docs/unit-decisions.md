@@ -229,10 +229,11 @@
 
 ## P15 MBX-NUCLEO
 
-7 filas; 8 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 3 propuestas.
+7 filas; 9 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-CELL-9 | accepted_with_changes (2026-11-27): ACCEPTED con condiciones: la captura de panics recuperables mediante catch_unwind en la frontera de creación de actores, como adaptación explícita al modelo… | 1: AC-MBX-002 | — | — | `classic-cell` |
 | Q-MBX-10 | accepted (2026-11-20): aceptar (a): la secuencia de 10 PR del ADR-0001 §6. Los PR 4-10 siguen condicionados a las decisiones Q-MBX pendientes que cada uno cita. | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-MBX-5 | accepted (2026-11-20): aceptar (a) con `Mutex<Vec>` invertido al drenar: la cola de mensajes de sistema es FIFO observable (más antiguo primero), con centinela de cierre y sin… | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-MBX-6 | accepted (2026-11-20): aceptar (b): pool de hilos propio, coherente con Q-X-4 (A); el turno de mailbox es un trabajo del pool; `throughput` y `throughput-deadline-time` son… | 5: AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-023, AC-MBX-002 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
@@ -299,17 +300,17 @@
 
 ## P20 SUP-ESTRATEGIAS
 
-10 filas; 7 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 4 propuestas.
+10 filas; 7 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-SUP-1 | accepted_with_changes (2026-11-27): ACCEPTED, alternativa (d), con condiciones. Mantener Throwable e incorporar clasificación y jerarquía suficiente para reproducir los deciders de Pekko.… | 4: AC-SUP-004, AC-SUP-012, AC-SUP-017, AC-SUP-021 | Bloquea: `impl` de AC-SUP-004/012/017 y, indirectamente, AC-SUP-001/003/008/013/018/021 y AC-CELL-002.2/007.4. | Puede avanzar: la planificación de ciclo de vida sin deciders, AC-SUP-006.x (aritmética) y DW. Decidir junto con Q-X-5. | `classic-cell` |
+| Q-SUP-7 | accepted_with_changes (2026-11-27): ACCEPTED con condiciones: encapsular los campos de Throwable e impedir su construcción directa desde fuera del crate. Proporcionar constructores públicos… | 1: AC-SUP-004 | — | — | `classic-cell` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-SUP-005 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-SUP-004 | — | — | `transversal` |
 | Q-SUP-2 | propuesta | 4: AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-021 | Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). | Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica). | `classic-cell` |
 | Q-SUP-5 | propuesta | 3: AC-SUP-004, AC-SUP-012, AC-SUP-017 | — | — | `classic-cell` |
 | Q-SUP-6 | propuesta | 1: AC-SUP-004 | — | — | `classic-cell` |
-| Q-SUP-7 | propuesta | 1: AC-SUP-004 | — | — | `classic-cell` |
 
 ## P21 SUP-FALLO
 
@@ -318,7 +319,7 @@
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CELL-7 | accepted (2026-11-26): aceptar (b): helper público que ejecute los pasos del preRestart por defecto (unwatch y stop de cada hijo, luego post_stop) para que un override pueda… | 1: AC-CELL-006 | — | — | `classic-cell` |
-| Q-SUP-1 | accepted_with_changes (2026-11-27): ACCEPTED, alternativa (d), con condiciones. Mantener Throwable e incorporar clasificación y jerarquía suficiente para reproducir los deciders de Pekko.… | 1: AC-SUP-018 | Bloquea: `impl` de AC-SUP-004/012/017 y, indirectamente, AC-SUP-001/003/008/013/018/021 y AC-CELL-002.2/007.4. | Puede avanzar: la planificación de ciclo de vida sin deciders, AC-SUP-006.x (aritmética) y DW. Decidir junto con Q-X-5. | `classic-cell` |
+| Q-SUP-1 | accepted_with_changes (2026-11-27): ACCEPTED, alternativa (d), con condiciones. Mantener Throwable e incorporar clasificación y jerarquía suficiente para reproducir los deciders de Pekko.… | 2: AC-SUP-008, AC-SUP-018 | Bloquea: `impl` de AC-SUP-004/012/017 y, indirectamente, AC-SUP-001/003/008/013/018/021 y AC-CELL-002.2/007.4. | Puede avanzar: la planificación de ciclo de vida sin deciders, AC-SUP-006.x (aritmética) y DW. Decidir junto con Q-X-5. | `classic-cell` |
 | Q-SUP-3 | accepted (2026-11-26): aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la… | 1: AC-SUP-018 | — | — | `classic-cell` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-SUP-010 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 2: AC-SUP-001, AC-SUP-016 | — | — | `transversal` |
@@ -328,11 +329,12 @@
 
 ## P22 CELL-REINICIO-PARADA
 
-21 filas; 7 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 4 propuestas.
+21 filas; 8 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CELL-6 | accepted (2026-11-26): aceptar (a): en el texto de PreRestartException un mensaje se nombra `class ?` salvo &str/String, Kill, ActorIdentity, Terminated y Failed, que llevan el… | 1: AC-CELL-007.1 | — | — | `classic-cell` |
+| Q-CELL-9 | accepted_with_changes (2026-11-27): ACCEPTED con condiciones: la captura de panics recuperables mediante catch_unwind en la frontera de creación de actores, como adaptación explícita al modelo… | 1: AC-CELL-030 | — | — | `classic-cell` |
 | Q-SUP-3 | accepted (2026-11-26): aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la… | 3: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4 | — | — | `classic-cell` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 4: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4, AC-CELL-009 | — | — | `transversal` |
 | Q-CELL-4 | propuesta | 1: AC-CELL-023 | Bloquea: `validation` de AC-CELL-023 (impl puede avanzar). | Puede avanzar: el resto de CELL. | `classic-cell` |
@@ -405,10 +407,11 @@
 
 ## P28 SELECCION-CREACION
 
-9 filas; 10 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 5 propuestas.
+9 filas; 11 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-CELL-9 | accepted_with_changes (2026-11-27): ACCEPTED con condiciones: la captura de panics recuperables mediante catch_unwind en la frontera de creación de actores, como adaptación explícita al modelo… | 1: AC-CELL-027 | — | — | `classic-cell` |
 | Q-MBX-12 | accepted (2026-11-24): aceptar (a) exclusivamente como LIMITACIÓN TEMPORAL de la migración, no como paridad completa: registro programático en `Settings.mailboxes` (sin FQCN ni… | 1: AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-MBX-13 | accepted (2026-11-24): aceptar (a) con las limitaciones documentadas en `docs/evidence/mailbox-requirements/q-mbx-13.md`: `MessageQueueSemantics` como conjunto abierto identificado… | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-MBX-14 | accepted_with_changes (2026-11-26): aceptar con cambios: Acepto la alternativa (a), incluyendo ProducedQueue::class_name como API pública. Acepto la representación abierta de capacidades… | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
@@ -1093,4 +1096,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 536 (259 respondidas, 0 bloqueantes, 277 propuestas).
+Total de pares unidad–decisión: 539 (263 respondidas, 0 bloqueantes, 276 propuestas).
