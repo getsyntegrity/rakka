@@ -131,7 +131,9 @@ final class Scenario {
     }
 
     /** `supervisor: {"log-calls": bool (records each call of this method), "throw-on-call": n (the n-th call of the label throws), "logging": bool (`loggingEnabled`), "decider-throws": bool, "strategy": "one-for-one"|"all-for-one", "hold": gate, "max": n, "log-decisions": bool, "decider": {"<exception message>": "resume"|"restart"|"stop"|"escalate"}}`: a OneForOneStrategy for this actor's children.
-     *  Exceptions not in the map get Pekko's default decider. */
+     *  Exceptions not in the map get Pekko's default decider.
+     *  `"match": [["<class>", "<directive>"], ...]`: instead of the map, the first class the cause is an instance of decides, else Escalate.
+     *  `"stopping": true`: Pekko's `stoppingStrategy`, nothing else of the map applies. */
     @SuppressWarnings("unchecked")
     @Override public SupervisorStrategy supervisorStrategy() {
       Map<String, Object> sup = (Map<String, Object>) cfg.get("supervisor");
@@ -139,7 +141,9 @@ final class Scenario {
       int call = ctx.strategyCalls.computeIfAbsent(label, k -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();
       if (Boolean.TRUE.equals(sup.get("log-calls"))) ctx.add(label, "{\"ev\":\"strategy\"}");
       if (sup.get("throw-on-call") != null && ((Long) sup.get("throw-on-call")).intValue() == call) throw new IllegalStateException("strategy");
+      if (Boolean.TRUE.equals(sup.get("stopping"))) return SupervisorStrategy.stoppingStrategy();
       int max = sup.get("max") == null ? -1 : ((Long) sup.get("max")).intValue();
+      List<List<String>> match = (List<List<String>>) sup.get("match");
       Map<String, Object> dec = (Map<String, Object>) sup.get("decider");
       scala.PartialFunction<Throwable, SupervisorStrategy.Directive> decider =
           DeciderBuilder.match(Throwable.class, e -> {
@@ -147,14 +151,11 @@ final class Scenario {
             if (Boolean.TRUE.equals(sup.get("decider-throws"))) throw new IllegalStateException("decider");
             Object d = dec == null ? null : dec.get(e.getMessage());
             SupervisorStrategy.Directive chosen;
-            if (d == null) chosen = SupervisorStrategy.defaultDecider().apply(e);
-            else switch ((String) d) {
-              case "resume": chosen = SupervisorStrategy.resume(); break;
-              case "restart": chosen = SupervisorStrategy.restart(); break;
-              case "stop": chosen = SupervisorStrategy.stop(); break;
-              case "escalate": chosen = SupervisorStrategy.escalate(); break;
-              default: throw new IllegalArgumentException("unknown directive " + d);
-            }
+            if (match != null) chosen = matched(match, e);
+            // not defined for what is not an Exception: `handleFailure` applies `escalateDefault`
+            else if (d == null) chosen = SupervisorStrategy.defaultDecider().isDefinedAt(e)
+                ? SupervisorStrategy.defaultDecider().apply(e) : SupervisorStrategy.escalate();
+            else chosen = directive((String) d);
             // `log-decisions`: record what the decider saw (the cause) and what it chose; off by default so older recordings stay valid
             if (Boolean.TRUE.equals(sup.get("log-decisions")))
               ctx.add(label, "{\"ev\":\"decide\",\"cause\":" + Cli.Json.str(reasonStr(e)) + ",\"directive\":" + Cli.Json.str(chosen.toString()) + "}");
@@ -168,6 +169,26 @@ final class Scenario {
       return "all-for-one".equals(sup.get("strategy"))
           ? new AllForOneStrategy(max, scala.concurrent.duration.Duration.Inf(), logging, decider)
           : new OneForOneStrategy(max, scala.concurrent.duration.Duration.Inf(), logging, decider);
+    }
+
+    private static SupervisorStrategy.Directive directive(String name) {
+      switch (name) {
+        case "resume": return SupervisorStrategy.resume();
+        case "restart": return SupervisorStrategy.restart();
+        case "stop": return SupervisorStrategy.stop();
+        case "escalate": return SupervisorStrategy.escalate();
+        default: throw new IllegalArgumentException("unknown directive " + name);
+      }
+    }
+
+    private static SupervisorStrategy.Directive matched(List<List<String>> match, Throwable e) {
+      try {
+        for (List<String> pair : match)
+          if (Class.forName(pair.get(0)).isInstance(e)) return directive(pair.get(1));
+      } catch (ClassNotFoundException unknown) {
+        throw new IllegalArgumentException(unknown);
+      }
+      return SupervisorStrategy.escalate();
     }
 
     @SuppressWarnings("unchecked")
@@ -287,6 +308,9 @@ final class Scenario {
           + (Boolean.TRUE.equals(cfg.get("numbered")) ? ",\"n\":" + (++received) : "") + "}");
       ctx.order.add(label + ":" + m);
       if (throwsOn(m)) throw new IllegalStateException((String) m);
+      // `throw-class: {"<message>": "<kind>"}`: the message throws the throwable of that kind (`ThrownClasses`)
+      @SuppressWarnings("unchecked") Map<String, String> classes = (Map<String, String>) cfg.get("throw-class");
+      if (classes != null && classes.containsKey(m)) ThrownClasses.raise(classes.get(m), (String) m);
       String kind = (String) cfg.getOrDefault("kind", "log");
       switch (kind) {
         case "echo": getSender().tell(m, getSelf()); break;
