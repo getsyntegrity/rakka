@@ -307,7 +307,7 @@
 
 ## P21 SUP-FALLO
 
-11 filas; 6 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 1 propuestas.
+11 filas; 7 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -317,6 +317,7 @@
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-SUP-010 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 2: AC-SUP-001, AC-SUP-016 | — | — | `transversal` |
 | Q-CELL-2 | propuesta | 1: AC-CELL-021 | Bloquea: sólo el cierre de AC-CELL-021 (requiere autorización explícita del Owner). | Puede avanzar: todo. | `classic-cell` |
+| Q-SUP-4 | propuesta | 1: AC-SUP-018 | — | — | `classic-cell` |
 
 ## P22 CELL-REINICIO-PARADA
 
@@ -1084,4 +1085,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 527 (258 respondidas, 0 bloqueantes, 269 propuestas).
+Total de pares unidad–decisión: 528 (258 respondidas, 0 bloqueantes, 270 propuestas).
