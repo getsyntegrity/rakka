@@ -39,7 +39,20 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #433	da9e095d	390	none	none	390 not run (Q-X-23)	PENDING
 #436	06c4c23d	391	dropped-cause-chain-recurses	none	391 not run (Q-X-23)	PENDING
 #436	e229f64e	391	dropped-cause-chain-recurses	none	391 not run (Q-X-23)	PENDING
+#440	9e1c891f	391	none	none	391 not run (Q-X-23)	PENDING
+#440	dcee8789	391	none	none	391 not run (Q-X-23)	PENDING
+#438	339af83e	392	root-guardian-restarts-a-failed-guardian; restarted-user-guardian-stops-its-children	none	392 not run (Q-X-23)	PENDING
+#438	2969dcda	393	root-guardian-restarts-a-failed-guardian; restarted-user-guardian-stops-its-children	none	393 not run (Q-X-23)	PENDING
+#438	e9774d89	393	root-guardian-restarts-a-failed-guardian; restarted-user-guardian-stops-its-children	none	393 not run (Q-X-23)	PENDING
+#438	87066463	393	root-guardian-restarts-a-failed-guardian; restarted-user-guardian-stops-its-children	none	393 not run (Q-X-23)	PENDING
+#439	8ccc27e0	393	bubble-walker-failure-is-not-logged	none	393 not run (Q-X-23)	PENDING
+#439	5eff50b4	394	bubble-walker-failure-is-not-logged	none	394 not run (Q-X-23)	PENDING
+#439	37846ab5	394	bubble-walker-failure-is-not-logged	none	394 not run (Q-X-23)	PENDING
+#439	5c5b3728	394	bubble-walker-failure-is-not-logged	none	394 not run (Q-X-23)	PENDING
 #441	d721d19c	116	thrown-mailbox-failure-loses-its-message	none	116 not run (Q-X-23)	PENDING
-#442	26be7629	392	none	none	392 not run (Q-X-23)	PENDING
-#444	68046680	393	uncaught-turn-failure-is-not-reported	none	393 not run (Q-X-23)	PENDING
-#448	68dfaae0	393	none	none	393 not run (Q-X-23)	PENDING
+#441	00a57110	126	thrown-mailbox-failure-loses-its-message	none	126 not run (Q-X-23)	PENDING
+#441	ee846c25	126	thrown-mailbox-failure-loses-its-message	none	126 not run (Q-X-23)	PENDING
+#442	3b200e7c	395	none	none	395 not run (Q-X-23)	PENDING
+#444	b755a5b5	85	thrown-enqueue-failure-is-not-reported	none	85 not run (Q-X-23)	PENDING
+#452	36316268	87	uncaught-turn-failure-is-not-reported; uncaught-report-is-published-guarded	none	87 not run (Q-X-23)	PENDING
+#450	c88d3a12	398	none	none	398 not run (Q-X-23)	PENDING

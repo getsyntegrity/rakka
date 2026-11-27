@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 270 decisiones: 0 bloqueantes, 187 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 275 decisiones: 0 bloqueantes, 189 propuestas, 66 aceptadas, 17 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -367,6 +367,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** (a), depende de AC-SER y de Q-X-3; hasta entonces las filas quedan en alcance con impl=pending [2026-10-31 cierre documental] Clasificación: arquitectura (modo de pruebas opcional) y exclusión parcial. Resuelto leyendo: el algoritmo vive en AC-SER-008.1/008.2 (classic-io-ser); AC-CELL-028/029 son sólo los puntos de integración (sendMessage / makeChild, antes de reservar el nombre) y se definen como fachadas. Consecuencia: sin SER no hay hook; con Box<dyn Any> sólo se verifican tipos registrados (ver Q-SER-4). Bloquea: `impl` de AC-CELL-028/029 hasta que exista SER. Puede avanzar: todo CELL.
 - **Filas afectadas:** AC-CELL-028 ; AC-CELL-029
 - **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+
+### Q-CELL-8 — La fábrica de Props no recibe ActorContext: un actor no puede crear hijos en su constructor
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:86-99 ; actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:861-912 ; crates/rakka-actor/src/actor/props.rs Props::new(Fn() -> A)
+- **Alternativas:** (a) permitir que la fábrica reciba el ActorContext de la celda que se está creando / (b) aceptar la divergencia y portar esos specs creando los hijos en pre_start / (c) dejar las aserciones bloqueadas
+- **Recomendación:** (a), por Q-X-21 (c). Consecuencia hoy: los specs que crean hijos en el constructor no se pueden portar 1:1 y las filas afectadas quedan sin cerrar
+- **Filas afectadas:** AC-CELL-007.2 ; AC-CELL-013.2 ; AC-SUP-011
+- **Unidades afectadas:** CELL ; SUP
 - **Origen:** classic-cell
 
 ### Q-CFG-14 — Includes de HOCON sin classpath: `include "x"`, `classpath(...)`, `url(...)`, `file(...)` y `required(...)` en rakka
@@ -917,6 +927,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** (b) como destino de paridad (criterio del Owner, 2026-11-21: la creación asíncrona de hijos, la supervisión y la propagación de fallos son contratos pendientes; la creación síncrona actual es un estado TRANSITORIO explícito, no una desviación aceptada). División vertical: A) `RepointableActorRef` y `UnstartedCell` como tipos propios, sin conectar a `actor_of` (cola de usuario y de sistema, instalación de la celda real con los mensajes de sistema primero y los de usuario en orden; oráculo MBX-UC-01..04); B) conectar `attach_child` con `Supervise(async=true)` SÓLO en la ruta de `system.actorOf`/`attachChild` (en Pekko `context.actorOf` es síncrono: `makeChild(async = false)`, un `LocalActorRef` ya adjunto), con la suspensión heredada en ambas (arranque dentro del turno del padre, hijo que hereda la suspensión del padre; cambia el momento de arranque de todos los actores: revalida el corpus de 2960 casos, los 407 escenarios y los fuzzers de jerarquía/tell/escenarios); C) rutas de fallo: `catchFailures`/`initWithFailure` y el rechazo en `attach` (MBX-RJ-05: falla el supervisor y el actor nuevo no arranca). Consecuencias observables: sólo el momento de arranque, el orden de los mensajes previos al arranque y los fallos de creación; nada de PR 6 queda bloqueado. Registro de la respuesta pendiente en docs/decisions/owner-decisions.tsv (sólo lo edita el Owner).
 - **Filas afectadas:** AC-DSP-002,AC-CELL-003,AC-MBX-002
 - **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+
+### Q-MBX-17 — Qué fallos de la cola del usuario se atrapan al enviar y durante un turno
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/Dispatch.scala:136-171 ; actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala:875-897 ; actor/src/main/resources/reference.conf:90 ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) atrapar todo panic o Throwable desenrollado / (b) imitar a Pekko: dejar escapar los fatales al enviar y, en un turno, terminar el proceso (default) o el sistema
+- **Recomendación:** (a), implementada provisionalmente. Consecuencia: el default de Pekko es `pekko.jvm-exit-on-fatal-error = on` (reference.conf:90): un error fatal en un hilo del pool durante un turno termina la JVM (`System.exit(-1)`); sólo con `off` se llama `terminate()`. Al enviar, el fatal llega al emisor. Rakka lo informa y sigue funcionando
+- **Filas afectadas:** AC-CELL-030 ; AC-MBX-002
+- **Unidades afectadas:** CELL ; MBX
 - **Origen:** classic-dispatch
 
 ### Q-PATH-7 — Address.parse / AddressFromURIString.apply con un octeto IPv4 embebido fuera de rango en un literal IPv6: NumberFormatException de Pekko vs MalformedURLException
@@ -2136,6 +2156,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Origen:** classic-cell
 - **Respuesta del Owner:** aceptar (b): helper público que ejecute los pasos del preRestart por defecto (unwatch y stop de cada hijo, luego post_stop) para que un override pueda llamarlo, como super.preRestart. Evidencia: Actor.scala:627-633 y casos ur-calls-super y ur-no-super* (scenario-pre-restart-unwatch). Pendiente de implementación. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
 
+### Q-CELL-9 — Qué fallos del SPI de mailbox se atrapan al crear un actor
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:721-726 ; actor/src/main/scala/org/apache/pekko/actor/RepointableActorRef.scala:112-121 ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) atrapar todo panic o Throwable desenrollado / (b) volver a lanzar los Throwable cuya clase no sería NonFatal en la JVM
+- **Recomendación:** (a), implementada provisionalmente. Consecuencia: un Throwable con clase de error fatal también acaba en ConfigurationException o ActorInitializationException; en Pekko escaparía
+- **Filas afectadas:** AC-CELL-027
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+- **Respuesta del Owner:** ACCEPTED con condiciones: la captura de panics recuperables mediante catch_unwind en la frontera de creación de actores, como adaptación explícita al modelo de fallos de Rust. Mantener la política establecida en Q-X-5. No reutilizar instancias potencialmente inconsistentes. Preservar la semántica de supervisión y limpieza. No intentar emular artificialmente NonFatal de Scala. No prometer recuperación ante panic=abort, abortos del proceso u otros fallos no recuperables. No utilizar AssertUnwindSafe sin justificación de sus invariantes. Registrar esta desviación acotada como excepción expresa a Q-X-21. Verificar que la implementación provisional integrada cumple estas condiciones antes de considerar cerrado el contrato. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
+
 ### Q-CFG-3 — checkValid contra reference.conf (Typesafe Config) con un parser propio
 
 - **Estado:** aceptada
@@ -2422,6 +2453,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Origen:** classic-dispatch
 - **Respuesta del Owner:** aceptar (a): MessageQueue::as_deque() -> Option<&dyn DequeBasedMessageQueue>, con None por defecto. Registrada en owner-decisions.tsv en representación del Owner, con su autorización expresa. No aprueba Q-MBX-2, que sigue propuesta. (Owner (instrucción en la sesión), 2026-11-26)
 
+### Q-MBX-16 — El `within(30.seconds)` del ping-pong patológico mide rendimiento: ¿gate o medición aparte?
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** MailboxConfigSpec.scala:322-329 (Pekko 2.0.0). El tiempo depende de la carga: 7-24 s en ejecuciones instrumentadas y 30,5 s con QoS de fondo, con todos los mensajes entregados y ninguna ventana de 1 s sin entregas; una ejecución de 140 s de los tests nuevos entregó todo, pero sus pausas no se midieron (docs/evidence/mailbox-single-consumer.md).
+- **Alternativas:** (a) tests por defecto SIN NINGUNA cota superior de duración (muestrean cada 10 s y fallan si no hubo entregas; un cuelgue se informa a los 10-20 s aprox.) y los 30 s en tests `#[ignore]`; (b) los 30 s como gate; (c) (a) más cambiar la espera de `ThreadPool` y reevaluar (b)
+- **Recomendación:** (a), implementada provisionalmente; una regresión de rendimiento sin cuelgue ya no hace fallar los gates, y como el gate `test` no fija timeout, una ejecución degradada pero con avance lo detiene en lugar de hacerlo fallar
+- **Filas afectadas:** AC-MBX-006
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** ACCEPTED, opción (c), con condiciones. La exclusión del límite de 30 segundos del gate habitual es provisional. El criterio original de Pekko debe conservarse. Investigar y corregir la contención del ThreadPool mediante TDD, con mediciones antes y después. Las pruebas de rendimiento no deben quedar permanentemente ignoradas. Reevaluar la reincorporación del límite de 30 segundos al gate después de corregir el ThreadPool. La política definitiva de rendimiento requiere aprobación del Owner. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
+
 ### Q-PATH-1 — Cómo ordenar listas de Address con un comparador que no es orden total
 
 - **Estado:** aceptada
@@ -2564,6 +2606,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 - **Respuesta del Owner:** aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la causa de ActorInitializationException como Pekko. Evidencia: FaultHandling.scala:406-414, ActorCell.scala:673-705 y sonda del oráculo 2.0.0 (un preStart que lanza publica Error con mensaje "init"). Pendiente de implementación. Registrada en representación del Owner por su instrucción expresa. (Owner (instrucción en la sesión), 2026-11-26)
+
+### Q-SUP-7 — Forma pública de la clasificación de Throwable: campo privado superclasses, with_superclasses e is_a
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/tests/classic_long_cause_chains.rs (texto de Debug)
+- **Alternativas:** (a) campo privado `superclasses`, que sólo se fija con `with_superclasses(iterable)` (la más cercana primero) y sólo se consulta con `is_a(nombre)`, sin lectura directa / (b) campo público / (c) un tipo público descriptor de clase en lugar de nombres
+- **Recomendación:** (a), implementada provisionalmente. Rompe la API: fuera del crate ya no se construye un Throwable por literal y desestructurarlo exige `..`; Debug imprime `superclasses` y PartialEq lo compara (declarar o no la misma jerarquía da valores distintos). No hay release publicado
+- **Filas afectadas:** AC-SUP-004
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+- **Respuesta del Owner:** ACCEPTED con condiciones: encapsular los campos de Throwable e impedir su construcción directa desde fuera del crate. Proporcionar constructores públicos idiomáticos. Preservar acceso de lectura a la información relevante. Permitir errores personalizados y sus jerarquías. Garantizar las invariantes de clasificación establecidas en Q-SUP-1. Preservar las cadenas de causas. Incorporar tests de la API pública desde fuera del crate. Documentar el cambio incompatible de API. Evitar restricciones adicionales que no estén justificadas por los contratos. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
 
 ### Q-T-BEH-1 — Forma del tipo Behavior en Rust, setup re-ejecutable y reutilizacion del valor
 

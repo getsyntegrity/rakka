@@ -38,3 +38,4 @@
 {"name": "mb-0038", "args": ["mailbox-case"], "stdin": "MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again"}
 {"name": "mb-0039", "args": ["mailbox-case"], "stdin": "MBX-TQ-04 a cleanUp that throws when the actor stops: the watcher still gets Terminated, what was queued is lost, the name is free and the system terminates"}
 {"name": "mb-0040", "args": ["mailbox-case"], "stdin": "MBX-TQ-05 an event published to a subscriber whose enqueue throws publishes the swallowed send, and the other subscribers still get the event"}
+{"name": "mb-0041", "args": ["mailbox-case"], "stdin": "MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order"}

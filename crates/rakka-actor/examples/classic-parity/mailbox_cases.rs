@@ -109,6 +109,22 @@ pub const PENDING: &[(&str, &str)] = &[
         "needs an executor that rejects tasks and a parent actor: produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C2)",
     ),
     (
+        "MBX-GRD-02 Kill to /user: the strategy of the root guardian logs and stops it, and the system terminates",
+        "needs an error subscriber that is not an actor (internal): produced in-crate by actor::guardian_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-GRD-03 Kill to the root guardian: the bubble walker logs, /user stops, and whenTerminated stays pending",
+        "needs an error subscriber that is not an actor (internal): produced in-crate by actor::guardian_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-GRD-04 Kill to /system: the strategy of the root guardian logs and stops it, and the system terminates",
+        "needs an error subscriber that is not an actor (internal): produced in-crate by actor::guardian_failure_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
+        "MBX-RJ-08 an attach rejected twice while /user supervises: the root guardian stops /user and the system terminates",
+        "needs an executor that rejects tasks (internal): produced in-crate by dispatch::executor_rejection_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0",
+    ),
+    (
         "MBX-PT-01 a send that waits for the unstarted cell's lock longer than unstarted-push-timeout is a dead letter with a Warning",
         "needs the unstarted reference whose hand-over blocks (a real cell stand-in): produced in-crate by actor::repointable (unstarted_push_timeout) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C3)",
     ),
@@ -801,8 +817,9 @@ impl Actor for SpiErrors {
         if let Some(error) = msg.downcast_ref::<ErrorEvent>() {
             let mut message = error.message.clone().unwrap_or_else(|| "null".to_owned());
             // the uncaught-error report names the pool thread, whose number depends on scheduling
-            if let Some((head, _)) = message.split_once("default-dispatcher-") {
-                message = format!("{head}default-dispatcher-N]");
+            if let Some((head, tail)) = message.split_once("default-dispatcher-") {
+                let rest = tail.trim_start_matches(|c: char| c.is_ascii_digit());
+                message = format!("{head}default-dispatcher-N{rest}");
             }
             self.0.errors.lock().unwrap().push(format!(
                 "{}|{}|{message}",
@@ -849,6 +866,7 @@ enum Fault {
     EveryEnqueue,
     Dequeue,
     HasMessages,
+    EnqueueOfUncaughtReport,
     CleanUp,
 }
 
@@ -882,7 +900,17 @@ fn is_bad(envelope: &Envelope) -> bool {
 
 impl MessageQueue for FaultyQueue {
     fn enqueue(&self, receiver: &ActorRef, envelope: Envelope) -> bool {
-        if self.fault == Fault::EveryEnqueue || self.fault == Fault::Enqueue && is_bad(&envelope) {
+        let uncaught_report = envelope
+            .message
+            .downcast_ref::<ErrorEvent>()
+            .is_some_and(|error| {
+                let message = error.message.as_deref();
+                message.is_some_and(|message| message.starts_with("Uncaught"))
+            });
+        if self.fault == Fault::EveryEnqueue
+            || self.fault == Fault::Enqueue && is_bad(&envelope)
+            || self.fault == Fault::EnqueueOfUncaughtReport && uncaught_report
+        {
             boom("enqueue");
         }
         self.inner.enqueue(receiver, envelope)
@@ -1054,6 +1082,26 @@ fn an_event_for_a_subscriber_whose_enqueue_throws_publishes_the_swallowed_send()
         SpiEnv::listed(&env.errors),
         SpiEnv::listed(&env.log)
     );
+    terminate_normally(system);
+    line
+}
+
+/// `MBX-TQ-06`
+fn a_broken_subscriber_of_the_uncaught_report_reports_its_swallowed_send() -> String {
+    let env = Arc::new(SpiEnv::default());
+    let system = env.system();
+    let actor = env.faulty(&system, Fault::Dequeue);
+    let queue = FaultyMailbox(Fault::EnqueueOfUncaughtReport);
+    let broken = system
+        .actor_of_named(env.counted().with_mailbox(queue), "broken")
+        .expect("broken");
+    wait_until(|| env.started.load(Ordering::SeqCst) == 2);
+    system.event_stream().subscribe(&broken, Channel::Error); // after the listener of the environment
+    say(&actor, &["bad"]);
+    wait_until(|| env.errors.lock().unwrap().len() == 2);
+    // an event stream gives no order guarantee between the two reports (AC-EVT-001): print them sorted
+    env.errors.lock().unwrap().sort();
+    let line = format!("errors={}", SpiEnv::listed(&env.errors));
     terminate_normally(system);
     line
 }
@@ -2528,6 +2576,10 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-TQ-05 an event published to a subscriber whose enqueue throws publishes the swallowed send, and the other subscribers still get the event",
             an_event_for_a_subscriber_whose_enqueue_throws_publishes_the_swallowed_send(),
+        ),
+        (
+            "MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order",
+            a_broken_subscriber_of_the_uncaught_report_reports_its_swallowed_send(),
         ),
         (
             "MBX-DL-01 watching deadLetters is not answered, watching a stopped actor is",

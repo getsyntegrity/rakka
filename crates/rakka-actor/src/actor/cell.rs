@@ -600,22 +600,21 @@ impl ActorCell {
         }
     }
 
-    /// The `uncaughtExceptionHandler` of the system's threads: the thread goes on and the failure is logged.
+    /// The `uncaughtExceptionHandler` of the system's threads: the thread goes on and the failure is logged. A plain publication
+    /// (`ActorSystem.scala:875-880`), without the recursion guard, so what delivering it reports reaches the other subscribers.
     fn report_uncaught(&self, cause: Throwable) {
         const SYSTEM_CLASS: &str = "org.apache.pekko.actor.ActorSystemImpl";
         let thread = std::thread::current();
-        report_dispatch_failure(
-            &self.system.events,
-            ErrorEvent {
-                cause,
-                log_source: format!("{SYSTEM_CLASS}({})", self.path.address().system()),
-                log_class: SYSTEM_CLASS.to_owned(),
-                message: Some(format!(
-                    "Uncaught error from thread [{}]",
-                    thread.name().unwrap_or_default()
-                )),
-            },
-        );
+        let report = ErrorEvent {
+            cause,
+            log_source: format!("{SYSTEM_CLASS}({})", self.path.address().system()),
+            log_class: SYSTEM_CLASS.to_owned(),
+            message: Some(format!(
+                "Uncaught error from thread [{}]",
+                thread.name().unwrap_or_default()
+            )),
+        };
+        self.publish_unguarded(|events| events.publish_error(report));
     }
 
     /// `Mailbox.processAllSystemMessages`: a message found after the mailbox closed is handled as a dead one.
