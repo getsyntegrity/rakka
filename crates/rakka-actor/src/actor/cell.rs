@@ -532,11 +532,11 @@ impl ActorCell {
     }
 
     /// `ActorCell.handleException` for a failed dispatch (`Dispatch.scala:136-148`): the sender swallows the exception and reports it.
-    fn swallow_failed_send(&self, _rejected: Rejected) {
+    fn swallow_failed_send(&self, cause: Throwable) {
         report_dispatch_failure(
             &self.system.events,
             ErrorEvent {
-                cause: rejected_execution(),
+                cause,
                 log_source: self.path.to_string(),
                 log_class: self.log_class(),
                 message: Some("swallowing exception during message send".to_owned()),
@@ -549,19 +549,23 @@ impl ActorCell {
             self.dead_system_message(msg); // the queue is closed: the actor terminated
             return;
         }
-        if let Err(rejected) = self.register_for_execution(false, true) {
-            self.swallow_failed_send(rejected);
+        if self.register_for_execution(false, true).is_err() {
+            self.swallow_failed_send(rejected_execution());
         }
     }
 
     fn enqueue_user(self: &Arc<Self>, env: Envelope) {
         let receiver = self.self_ref();
-        let enqueued = enqueue_unless_closed(&self.status, &*self.queue, &receiver, env);
+        // `sendMessage`: what the user's queue throws stops here, it never reaches the caller of `tell`
+        let enqueued = match catch_unwind(AssertUnwindSafe(|| {
+            enqueue_unless_closed(&self.status, &*self.queue, &receiver, env)
+        })) {
+            Ok(enqueued) => enqueued,
+            Err(payload) => return self.swallow_failed_send(throwable_of(payload)),
+        };
         // a message the queue refused is already dead-lettered: it needs no turn
-        if enqueued.awaits_consumption
-            && let Err(rejected) = self.register_for_execution(true, false)
-        {
-            self.swallow_failed_send(rejected);
+        if enqueued.awaits_consumption && self.register_for_execution(true, false).is_err() {
+            self.swallow_failed_send(rejected_execution());
         }
         for env in enqueued.dead {
             self.system.dead_letter_mailbox.enqueue(&receiver, env);
@@ -1264,7 +1268,12 @@ impl ActorCell {
         let leftovers = UnboundedMailbox.create();
         self.status.become_closed();
         let receiver = self.self_ref();
-        self.queue.clean_up(&receiver, &*leftovers); // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8)
+        // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8). It is the user's code: `finishTerminate` is a
+        // chain of `finally`, so what it throws stops nothing, and the actor is gone by the time it would be reported
+        let cleaned = catch_unwind(AssertUnwindSafe(|| {
+            self.queue.clean_up(&receiver, &*leftovers)
+        }));
+        drop_guarded(cleaned);
         let sys = self.system_queue.clean_up();
         for m in sys {
             self.dead_system_message(m);

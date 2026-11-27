@@ -93,8 +93,8 @@ MUTANTS = {
     ),
     "mailbox-close-forgets-queued-messages": (
         "src/actor/cell.rs",
-        "        self.queue.clean_up(&receiver, &*leftovers); // `cleanUp`; a producer that raced with the close drains for itself (Q-MBX-8)\n",
-        "",
+        "            self.queue.clean_up(&receiver, &*leftovers)\n        }));",
+        "        }));",
         "closing the mailbox forgets to move the queued user messages to dead letters, so they vanish silently (found by the dead-letter scenarios)",
     ),
     "mailbox-close-keeps-status-bits": (
@@ -1252,6 +1252,12 @@ MUTANTS = {
         ".map_err(|thrown| configuration_failure(thrown.class.clone()))?;",
         "the ConfigurationException of a mailbox type that throws names only the class of what it threw (see UNIT_MUTANTS)",
     ),
+    "thrown-enqueue-failure-is-not-reported": (
+        "src/actor/cell.rs",
+        "Err(payload) => return self.swallow_failed_send(throwable_of(payload)),",
+        "Err(payload) => return drop_guarded(payload),",
+        "what the user's enqueue throws is swallowed without the Error of the swallowed send (see UNIT_MUTANTS)",
+    ),
     "mailbox-id-error-message-names-the-default-id": (
         "src/actor/cell.rs",
         "let mailbox_id = props.mailbox_id().to_owned();",
@@ -2012,20 +2018,20 @@ MUTANTS = {
     ),
     "nonblocking-cell-schedules-a-turn-for-a-refused-message": (
         "src/actor/cell.rs",
-        "        if enqueued.awaits_consumption\n",
-        "        if (enqueued.awaits_consumption || true)\n",
+        "        if enqueued.awaits_consumption && ",
+        "        if (enqueued.awaits_consumption || true) && ",
         "a message the bounded queue refused still starts a consumption turn that finds nothing (Owner contract of the wiring)",
     ),
     "nonblocking-cell-addresses-a-refusal-to-dead-letters": (
         "src/actor/cell.rs",
-        "        let receiver = self.self_ref();\n        let enqueued =",
-        "        let receiver = self.system.dead_letters.clone();\n        let enqueued =",
+        "        let receiver = self.self_ref();\n        // `sendMessage`",
+        "        let receiver = self.system.dead_letters.clone();\n        // `sendMessage`",
         "the DeadLetter of a message refused by the actor's bounded mailbox names deadLetters, not the actor, as receiver",
     ),
     "nonblocking-cell-addresses-the-cleanup-to-dead-letters": (
         "src/actor/cell.rs",
-        "        let receiver = self.self_ref();\n        self.queue.clean_up(",
-        "        let receiver = self.system.dead_letters.clone();\n        self.queue.clean_up(",
+        "        let receiver = self.self_ref();\n        // `cleanUp`",
+        "        let receiver = self.system.dead_letters.clone();\n        // `cleanUp`",
         "what is still queued when the actor stops is dead-lettered as addressed to deadLetters instead of the actor",
     ),
     "nonblocking-queue-reports-a-refused-message-as-stored": (
@@ -2551,6 +2557,7 @@ UNIT_MUTANTS = {
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)
     "panicking-user-drop-escapes-the-guard": ("test:classic_panicking_drop", "a_stopped_actor_whose_drop_panics_terminates"),
     "thrown-mailbox-failure-loses-its-message": ("test:classic_mailbox_spi_failure", "a_mailbox_type_that_throws_fails_context_actor_of_and_frees_the_name"),
+    "thrown-enqueue-failure-is-not-reported": ("test:classic_queue_spi_failure", "an_enqueue_that_throws_does_not_reach_the_caller_of_tell"),
     "failed-cell-ignores-a-new-failure": ("actor::refailure_tests", "a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_again"),
     "failed-cell-still-skips-the-sender": ("actor::refailure_tests", "escalating_while_already_failed_suspends_that_child_too_and_keeps_the_first_perpetrator"),
     "terminating-recreate-skips-the-children": ("actor::cell::terminating_survivor_tests", "recreate_of_a_terminating_actor_resumes_its_children_and_keeps_it_failed"),
