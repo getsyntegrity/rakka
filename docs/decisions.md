@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 276 decisiones: 0 bloqueantes, 190 propuestas, 66 aceptadas, 17 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 277 decisiones: 0 bloqueantes, 191 propuestas, 66 aceptadas, 17 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1246,6 +1246,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) conocer sólo las clases que el runtime lanza o nombra y las raíces Throwable, Error y Exception; cualquier otra, java.lang incluidas, es Exception salvo with_superclasses / (b) añadir una tabla de subclases del JDK (AssertionError, NumberFormatException, ...) / (c) un tipo público de clase (nombre y superclase) que usen Throwable y makeDecider
 - **Recomendación:** (a), implementada provisionalmente: no emula el JDK (condición de Q-SUP-1). Consecuencia: Throwable::new("java.lang.AssertionError") sin declarar es una Exception (en la JVM es un Error) y un NumberFormatException sin declarar no es un IllegalArgumentException. (c) sólo es necesaria para la forma de makeDecider con pares CauseDirective, que ordena por jerarquía; la forma con lista de clases puede usar is_a y la de JDecider es una clausura
 - **Filas afectadas:** AC-SUP-004 ; AC-SUP-012 ; AC-SUP-017
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+
+### Q-SUP-8 — Si with_superclasses puede cambiar la jerarquía de una clase que el runtime conoce
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** crates/rakka-actor/src/actor/fault.rs known_superclass, is_a ; crates/rakka-actor/tests/classic_throwable_known_classes.rs ; condición de Q-SUP-7 de garantizar las invariantes de Q-SUP-1
+- **Alternativas:** (a) una clase que el runtime conoce conserva su propia jerarquía y lo declarado sobre ella se ignora / (b) lo declarado gana siempre / (c) la declaración sólo puede añadir superclases a las conocidas
+- **Recomendación:** El Owner eligió (a) en la sesión (2026-11-27); registro en owner-decisions.tsv pendiente de su autorización. Implementada: desde la primera clase conocida de la cadena (la propia o una declarada) valen sólo las superclases del runtime; lo declarado se conserva en el valor
+- **Filas afectadas:** AC-SUP-004
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 

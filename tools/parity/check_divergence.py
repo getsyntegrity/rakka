@@ -2438,6 +2438,12 @@ MUTANTS = {
         "",
         "only the class itself and what its furthest superclass extends are matched, not the declared ones (killed by a unit test, see UNIT_MUTANTS)",
     ),
+    "declaration-over-a-known-class-is-followed": (
+        "src/actor/fault.rs",
+        "                break; // its own superclasses apply, not the declared ones\n",
+        "",
+        "what a user declares over a class the runtime knows is followed, so it can leave its hierarchy (killed by tests/classic_throwable_known_classes.rs, see UNIT_MUTANTS)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -2558,6 +2564,7 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "declaration-over-a-known-class-is-followed": ("test:classic_throwable_known_classes", "a_known_superclass_of_a_user_class_keeps_its_hierarchy"),
     "declared-superclasses-are-ignored": ("actor::fault", "declared_superclasses_replace_the_default_and_continue_from_the_last_one"),
     "scheduled-message-loses-its-sender": ("test:classic_scheduler", "a_message_arrives_once_never_early_with_the_given_sender_and_cannot_be_cancelled_afterwards"),
     "terminated-system-keeps-its-scheduler": ("test:classic_scheduler", "termination_drops_the_pending_messages_and_rejects_new_ones"),
