@@ -99,10 +99,18 @@ impl EventStream {
     fn deliver(&self, channel: Channel, event: AnyMessage) {
         let targets: Vec<ActorRef> = {
             let mut subs = self.subscribers.lock().unwrap();
-            // dead subscribers are dropped (Pekko unsubscribes terminated subscribers)
-            subs.retain(|(_, s)| !s.is_terminated());
+            // dead subscribers are dropped (Pekko unsubscribes terminated subscribers), but not `deadLetters`
+            subs.retain(|(_, s)| !s.is_terminated() || s.0.dead_letters_stream().is_some());
             subs.iter()
                 .filter(|(c, _)| *c == channel)
+                // the `deadLetters` of this stream would publish a dead letter here again, without end (Q-REF-12)
+                .filter(|(_, s)| {
+                    channel != Channel::DeadLetter
+                        || !s
+                            .0
+                            .dead_letters_stream()
+                            .is_some_and(|own| std::ptr::eq(own, self))
+                })
                 .map(|(_, s)| s.clone())
                 .collect()
         };

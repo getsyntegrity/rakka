@@ -407,7 +407,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** EventBus, EventStream y tipos de log/dead letters/adaptadores de log sin logger real.
 - **Filas (11; impl: pending 11):** asignacion explicita en `docs/unit-rows.tsv`: AC-EVT-001, AC-EVT-002, AC-EVT-003, AC-EVT-004, AC-EVT-006, AC-EVT-008, AC-EVT-012, AC-EVT-013.1, AC-EVT-013.2, AC-EVT-015, AC-EVT-016.
 - **Exclusiones/costuras:** Costura EVT-S1: EventStream sin vigilancia (EVT-007 en P34) ni LoggingBus (EVT-011 en P34).
-- **Decisiones:** 5 distintas en sus filas; respondidas: Q-EVT-1, Q-EVT-3, Q-X-2, Q-X-3, Q-X-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P11). <!-- generated:unit-decisions -->
+- **Decisiones:** 6 distintas en sus filas; respondidas: Q-EVT-1, Q-EVT-3, Q-X-2, Q-X-3, Q-X-6; propuestas sin respuesta: Q-REF-12. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P11). <!-- generated:unit-decisions -->
 - **Dependencias:** P02, P03, P08.
 - **Archivos previstos:** `crates/rakka-actor/src/event/*.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs EventStreamSpec/LoggingSpec parciales.
