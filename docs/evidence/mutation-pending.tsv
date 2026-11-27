@@ -69,3 +69,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #449	81c17878	403	none	none	403 not run (Q-X-23)	PENDING
 #449	76c8f4fe	403	none	none	403 not run (Q-X-23)	PENDING
 #455	15a63fdc	404	declared-superclasses-cannot-be-read	none	404 not run (Q-X-23)	PENDING
+#455	9305d22f	404	declared-superclasses-cannot-be-read	none	404 not run (Q-X-23)	PENDING
