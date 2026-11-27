@@ -24,7 +24,7 @@
 | Q-PATH-5 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-PATH-009 | Bloquea: AC-PATH-009 (cierre); puede avanzar: AC-PATH-007/008. | — | `classic-foundation` |
 | Q-PATH-6 | accepted_with_changes (2026-11-18): aceptar (b): reescritura en sala limpia de uri.rs y jstring.rs desde RFC 2396/3986/3629 y los casos grabados, por un agente que no lee los archivos actuales… | 7: AC-PATH-002, AC-PATH-004, AC-PATH-005, AC-PATH-006, AC-PATH-007, AC-PATH-011 … (+1) | Bloquea: publicación de uri.rs/jstring.rs; puede avanzar: el resto de PATH. | — | `classic-foundation` |
 | Q-UTIL-14 | accepted (2026-11-18): aceptar (a) para FrequencySketch, incluida la validación de desbordamiento de 2.0.0, y (b) para el resto. | 2: AC-PATH-001, AC-PATH-014 | Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*. | — | `classic-foundation` |
-| Q-PATH-7 | propuesta | 1: AC-PATH-004 | — | — | `classic-foundation` |
+| Q-PATH-7 | propuesta | 2: AC-PATH-004, AC-PATH-005 | — | — | `classic-foundation` |
 
 ## P02 UTIL-NUCLEO
 
@@ -222,7 +222,7 @@
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 2: AC-REF-007.1, AC-REF-008 | — | — | `transversal` |
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 2: AC-DSP-020, AC-REF-002 | — | — | `transversal` |
 | Q-X-8 | accepted (2026-11-18): aceptar (a): Typed sobre Classic. | 1: AC-REF-025 | — | — | `transversal` |
-| Q-REF-1 | propuesta | 3: AC-REF-002, AC-REF-005, AC-REF-024 | Bloquea: `impl` de AC-REF-002/005/024. | Puede avanzar: el resto de REF y todo CELL (la elección sólo afecta a la firma de tell/sender). | `classic-cell` |
+| Q-REF-1 | propuesta | 4: AC-DSP-020, AC-REF-002, AC-REF-005, AC-REF-024 | Bloquea: `impl` de AC-REF-002/005/024. | Puede avanzar: el resto de REF y todo CELL (la elección sólo afecta a la firma de tell/sender). | `classic-cell` |
 | Q-REF-2 | propuesta | 3: AC-REF-007.1, AC-REF-007.2, AC-REF-008 | Bloquea: `impl` de AC-REF-008 y la parte reflexiva de AC-REF-007.1/.2; AC-CELL-002.2 sólo en el texto de InstantiationException. | Puede avanzar: Props con closure + trait ActorFactory, AC-CELL-002.1, AC-CELL-026. | `classic-cell` |
 | Q-REF-4 | propuesta | 1: AC-REF-006 | Bloquea: sólo el cierre de AC-REF-006. | Puede avanzar: todo. | `classic-cell` |
 | Q-REF-6 | propuesta | 2: AC-REF-001.1, AC-REF-001.2 | Bloquea: la validación (no la `impl`) de AC-REF-001.x, AC-REF-019 y AC-CELL-031. | Puede avanzar: toda la implementación. | `classic-cell` |

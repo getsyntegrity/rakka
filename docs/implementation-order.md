@@ -29,8 +29,8 @@ Fases: 1 valores sin concurrencia (PATH, UTIL, CFG); 2 runtime Classic (REF, MBX
 <!-- BEGIN GENERATED UNIT TABLE -->
 | Unidad | Filas pendientes | Specs (orden de ejecución) |
 |---|---|---|
-| AC-PATH | 13 | 01 |
-| AC-UTIL | 28 | 02 |
+| AC-PATH | 9 | 01 |
+| AC-UTIL | 27 | 02 |
 | AC-CFG | 29 | 03 |
 | AC-REF | 31 | 04, 05 |
 | AC-MBX | 23 | 06 |
@@ -40,7 +40,7 @@ Fases: 1 valores sin concurrencia (PATH, UTIL, CFG); 2 runtime Classic (REF, MBX
 | AC-TK | 27 | 10 |
 | AC-CELL | 38 | 11, 12 |
 | AC-SYS | 27 | 13 |
-| AC-SUP | 21 | 14 |
+| AC-SUP | 19 | 14 |
 | AC-DW | 8 | 15 |
 | AC-EXT | 5 | 16 |
 | AC-ASK | 30 | 17 |
