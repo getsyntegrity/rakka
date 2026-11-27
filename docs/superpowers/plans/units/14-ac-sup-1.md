@@ -20,7 +20,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-SUP-009.
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CELL-8`, `Q-SUP-2`, `Q-SUP-4`, `Q-SUP-5`, `Q-SUP-6`.
+- Propuestas aún sin decisión del Owner: `Q-CELL-8`, `Q-SUP-2`, `Q-SUP-4`, `Q-SUP-5`, `Q-SUP-6`, `Q-SUP-7`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -72,7 +72,7 @@ Filas: AC-SUP-019, AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/invento
 | AC-SUP-001 | Propagación de fallos: excepción en receive → suspender actor e hijos →… | handler devuelve `Err`/panic capturado con `catch_unwind` → `SystemMessage::Failed` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:834-861… | Q-SUP-6, Q-X-5 |
 | AC-SUP-002 | El padre sólo actúa ante Failed de un hijo actual con uid coincidente | comparar uid en `ChildStats` | derivada del código (ver bloque de contrato) | - |
 | AC-SUP-003 | Directivas Resume/Restart/Stop/Escalate y su nivel de log | `enum Directive { Resume(LogLevel), Restart(LogLevel), Stop(LogLevel), Escalate }` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:817-832 | - |
-| AC-SUP-004 | defaultDecider | función `default_decider(&Failure) -> Directive` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-244 ;… | Q-SUP-1, Q-SUP-5, Q-SUP-6, Q-X-5 |
+| AC-SUP-004 | defaultDecider | función `default_decider(&Failure) -> Directive` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-244 ;… | Q-SUP-1, Q-SUP-5, Q-SUP-6, Q-SUP-7, Q-X-5 |
 | AC-SUP-005 | defaultStrategy y stoppingStrategy | constantes/constructores | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:353-374 | Q-X-2 |
 | AC-SUP-006.1 | OneForOneStrategy: aplicación al hijo que falló y límite de reintentos… | `ChildRestartStats { retries_count, window_start }`; `OneForOneStrategy { max_retries,… | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:234-292 ;… | Q-SUP-2 |
 | AC-SUP-006.2 | OneForOneStrategy: ventana withinTimeRange | `RestartWindow { start: Option<Instant>, count }` con `Instant` monótono | actor-tests/src/test/scala/org/apache/pekko/actor/RestartStrategySpec.scala:42-88 ;… | Q-SUP-2 |
