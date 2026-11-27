@@ -71,4 +71,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #455	15a63fdc	404	declared-superclasses-cannot-be-read	none	404 not run (Q-X-23)	PENDING
 #455	9305d22f	404	declared-superclasses-cannot-be-read	none	404 not run (Q-X-23)	PENDING
 #456	8becc96b	89	pool-notifies-while-a-worker-is-already-waking	none	89 not run (Q-X-23)	PENDING
-#460	fc3ecd34	407	class-name-is-asked-unguarded; failed-creation-drops-props-unguarded	none	407 not run (Q-X-23)	PENDING
+#460	8b97b827	119	class-name-is-asked-unguarded; failed-creation-drops-props-unguarded	none	119 not run (Q-X-23)	PENDING
