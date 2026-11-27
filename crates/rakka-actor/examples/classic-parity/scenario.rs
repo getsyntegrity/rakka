@@ -871,7 +871,7 @@ fn registration(o: &mut String, sp: &Value, register: impl FnOnce()) {
     o.push_str("\"ok\":false,\"exception\":");
     s(o, &thrown.class);
     if sp.get("no-text").is_none() {
-        let text = thrown.message.unwrap_or_default();
+        let text = thrown.message.as_deref().unwrap_or_default();
         let redacted: Vec<String> = text
             .split(']')
             .map(|part| match part.rsplit_once('#') {
