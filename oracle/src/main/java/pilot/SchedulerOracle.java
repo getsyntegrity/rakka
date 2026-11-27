@@ -61,7 +61,10 @@ final class SchedulerOracle {
     private final BlockingQueue<String> seen;
     Recorder(BlockingQueue<String> seen) { this.seen = seen; }
     @Override public Receive createReceive() {
-      return receiveBuilder().matchAny(m -> seen.add(m + " from " + getSender().path().name())).build();
+      return receiveBuilder().matchAny(m -> {
+        if (m instanceof DeadLetter d) seen.add("dead " + d.message() + " sender=" + d.sender().path().name() + " recipient=" + d.recipient().path().name());
+        else seen.add(m + " from " + getSender().path().name());
+      }).build();
     }
   }
 
@@ -114,6 +117,34 @@ final class SchedulerOracle {
     run("SCH-SO-05 the largest delay is Int.MaxValue ticks; the delay is rounded up to the tick before the check", () -> {
       try (Env e = new Env("sch")) {
         return "largest => " + attempt(e, LARGEST) + " | largest+1ns => " + attempt(e, LARGEST + 1);
+      }
+    });
+    run("SCH-SO-06 a target that stopped before the delay elapsed gets nothing: the message is a dead letter", () -> {
+      try (Env e = new Env("sch")) {
+        BlockingQueue<String> letters = new LinkedBlockingQueue<>();
+        ActorRef listener = e.sys.actorOf(Props.create(Recorder.class, () -> new Recorder(letters)), "listener");
+        e.sys.eventStream().subscribe(listener, DeadLetter.class);
+        e.once(1000 * MS, e.target, "late", e.asker);
+        e.sys.stop(e.target);
+        long deadline = System.nanoTime() + 5_000 * MS;
+        while (!((InternalActorRef) e.target).isTerminated()) {
+          if (System.nanoTime() > deadline) return "target did not stop";
+          Thread.sleep(2);
+        }
+        return String.valueOf(letters.poll(10, TimeUnit.SECONDS));
+      }
+    });
+    run("SCH-TE-01 termination discards what is pending without sending it, and the scheduler then rejects every delay", () -> {
+      try (Env other = new Env("other")) {
+        Env closing = new Env("closing");
+        Cancellable pending = closing.once(1000 * MS, other.target, "pending", ActorRef.noSender());
+        closing.close();
+        other.once(1500 * MS, other.target, "marker", ActorRef.noSender());
+        StringBuilder sb = new StringBuilder("next=" + other.next() + " | pending: " + state(pending));
+        sb.append(" | zero => ").append(attempt(closing, 0));
+        sb.append(" | 1s => ").append(attempt(closing, 1000 * MS));
+        sb.append(" | too far => ").append(attempt(closing, LARGEST + 1));
+        return sb.toString();
       }
     });
   }

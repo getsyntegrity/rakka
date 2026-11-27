@@ -10,6 +10,7 @@ use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::actor::scheduler::Cancellable;
 use rakka_actor::actor::system::ActorSystem;
 use rakka_actor::actor::{ActorError, ActorRef};
+use rakka_actor::event::{Channel, DeadLetter};
 
 /// Oracle cases Rust does not produce, with the reason.
 #[allow(dead_code)] // read by tests/recorded_pekko.rs
@@ -34,7 +35,15 @@ struct Recorder(Mutex<Sender<String>>);
 
 impl Actor for Recorder {
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
-        let line = format!("{} from {}", text(msg), ctx.sender().path().name());
+        let line = match msg.downcast_ref::<DeadLetter>() {
+            Some(dead) => format!(
+                "dead {} sender={} recipient={}",
+                text(&dead.message),
+                dead.sender.path().name(),
+                dead.recipient.path().name()
+            ),
+            None => format!("{} from {}", text(msg), ctx.sender().path().name()),
+        };
         self.0.lock().unwrap().send(line).ok();
         true
     }
@@ -147,6 +156,43 @@ fn largest_delay() -> String {
     format!("largest => {largest} | largest+1ns => {beyond}")
 }
 
+fn stopped_target() -> String {
+    let env = Env::new("sch");
+    let (listener, letters) = recorder(&env.sys, "listener");
+    env.sys
+        .event_stream()
+        .subscribe(&listener, Channel::DeadLetter);
+    env.once(ms(1000), &env.target, "late", Some(&env.asker))
+        .unwrap();
+    env.sys.stop(&env.target);
+    let deadline = Instant::now() + ms(5000);
+    while !env.target.is_terminated() {
+        if Instant::now() > deadline {
+            return "target did not stop".into();
+        }
+        std::thread::sleep(ms(2));
+    }
+    letters.recv_timeout(WAIT).unwrap_or_else(|_| "null".into())
+}
+
+fn termination() -> String {
+    let other = Env::new("other");
+    let closing = Env::new("closing");
+    let pending = closing
+        .once(ms(1000), &other.target, "pending", None)
+        .unwrap();
+    closing.close();
+    other.once(ms(1500), &other.target, "marker", None).unwrap();
+    let next = other.next();
+    format!(
+        "next={next} | pending: {} | zero => {} | 1s => {} | too far => {}",
+        state(&pending),
+        attempt(&closing, Duration::ZERO),
+        attempt(&closing, ms(1000)),
+        attempt(&closing, LARGEST + Duration::from_nanos(1))
+    )
+}
+
 type Case = (&'static str, fn() -> String);
 
 const CASES: &[Case] = &[
@@ -165,6 +211,14 @@ const CASES: &[Case] = &[
     (
         "SCH-SO-05 the largest delay is Int.MaxValue ticks; the delay is rounded up to the tick before the check",
         largest_delay,
+    ),
+    (
+        "SCH-SO-06 a target that stopped before the delay elapsed gets nothing: the message is a dead letter",
+        stopped_target,
+    ),
+    (
+        "SCH-TE-01 termination discards what is pending without sending it, and the scheduler then rejects every delay",
+        termination,
     ),
 ];
 

@@ -2390,3 +2390,5 @@ sc-0001	scheduler	SCH-SO-01 the message arrives once, not before the delay, with
 sc-0002	scheduler	SCH-SO-02 a message cancelled before the delay is never sent; only the first cancel succeeds
 sc-0003	scheduler	SCH-SO-03 a delay of zero sends at once and gives a task that is not cancellable
 sc-0004	scheduler	SCH-SO-05 the largest delay is Int.MaxValue ticks; the delay is rounded up to the tick before the check
+sc-0005	scheduler	SCH-SO-06 a target that stopped before the delay elapsed gets nothing: the message is a dead letter
+sc-0006	scheduler	SCH-TE-01 termination discards what is pending without sending it, and the scheduler then rejects every delay
