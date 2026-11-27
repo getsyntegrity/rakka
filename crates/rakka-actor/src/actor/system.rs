@@ -2,7 +2,7 @@
 //! `ActorSystem` (local, Classic): provider, guardians and the termination chain.
 //! Follows `ActorSystem.scala` and `LocalActorRefProvider` in `ActorRefProvider.scala`.
 
-use crate::actor::fault::Throwable;
+use crate::actor::fault::{Throwable, throw};
 use crate::dispatch::message_queue::UnboundedMailbox;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock, Weak};
@@ -556,6 +556,7 @@ impl ActorSystem {
         sys.walker.set(bubble.clone()).ok();
         let walker = ActorRef(bubble.clone());
         let root_events = sys.events.clone();
+        // a guardian whose default mailbox cannot be made: `ActorSystem.create` throws what it threw
         let root = ActorCell::new_local(
             &sys,
             internal_dispatcher.clone(),
@@ -565,7 +566,8 @@ impl ActorSystem {
             .with_resolved_mailbox(default_mailbox.clone()),
             walker,
             root_path.clone(),
-        );
+        )
+        .unwrap_or_else(|thrown| throw(thrown));
         bubble.root.set(root.self_ref()).ok();
         sys.root_guardian.set(root.clone()).ok();
 
@@ -578,7 +580,8 @@ impl ActorSystem {
                 props,
                 root.self_ref(),
                 root_path.new_child(name, 0),
-            );
+            )
+            .unwrap_or_else(|thrown| throw(thrown));
             root.init_child(name, cell.self_ref());
             cell
         };

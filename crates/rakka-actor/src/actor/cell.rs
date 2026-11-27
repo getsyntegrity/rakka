@@ -26,6 +26,7 @@ use crate::dispatch::dispatcher::Rejected;
 use crate::dispatch::mailbox_close::enqueue_unless_closed;
 use crate::dispatch::mailbox_status::MailboxStatus;
 use crate::dispatch::message_queue::{Envelope, MessageQueue, UnboundedMailbox};
+use crate::dispatch::queue_semantics::MessageQueueSemantics;
 use crate::dispatch::sysmsg::{DeliveryState, Failed, SystemMessage, Terminated};
 use crate::dispatch::system_queue::SystemQueue;
 use crate::event::UnhandledMessage;
@@ -111,6 +112,29 @@ fn throwable_of(payload: Box<dyn std::any::Any + Send>) -> Throwable {
 /// panic hook has reported it, so it cannot cut a transition of the cell short. Never call it with a lock of the cell held.
 pub(crate) fn drop_guarded<T>(value: T) {
     let _ = catch_unwind(AssertUnwindSafe(|| drop(value)));
+}
+
+/// The user queue a new cell gets.
+enum NewMailbox {
+    /// What the selected type created, and the requirement of the actor that queue does not satisfy (`Dispatch.init`).
+    Created {
+        queue: Box<dyn MessageQueue>,
+        unmet: Option<(MessageQueueSemantics, &'static str)>,
+    },
+    /// `initWithFailure`: a default queue, for a cell whose `Create` carries this failure.
+    Replacement(Throwable),
+}
+
+impl NewMailbox {
+    /// `createMailbox` runs the user's code (`MailboxType::create` and what the queue says about itself): what it throws is returned.
+    fn created_for(props: &Props, system: &SystemInner) -> Result<NewMailbox, Throwable> {
+        catch_unwind(AssertUnwindSafe(|| {
+            let queue = props.new_message_queue(&system.dead_letters);
+            let unmet = props.unmet_queue_requirement(&*queue);
+            NewMailbox::Created { queue, unmet }
+        }))
+        .map_err(throwable_of)
+    }
 }
 
 pub(crate) struct ActorCell {
@@ -269,15 +293,18 @@ pub(crate) type CellMaker = fn(
 
 impl ActorCell {
     /// Creates the cell and its `LocalActorRef` (`ActorCell.init`): `Create` is queued first,
-    /// then the parent is told to supervise. Nothing runs until [`ActorCell::start`].
+    /// then the parent is told to supervise. Nothing runs until [`ActorCell::start`]. `Err` is what the user's mailbox type threw.
     pub(crate) fn new_local(
         system: &Arc<SystemInner>,
         dispatcher: Arc<Dispatcher>,
         props: Props,
         parent: ActorRef,
         path: ActorPath,
-    ) -> Arc<ActorCell> {
-        Self::build(system, dispatcher, props, parent, path, None, None)
+    ) -> Result<Arc<ActorCell>, Throwable> {
+        let mailbox = NewMailbox::created_for(&props, system)?;
+        Ok(Self::build(
+            system, dispatcher, props, parent, path, None, mailbox,
+        ))
     }
 
     /// `newCell` of a `RepointableActorRef`: `init(sendSupervise = false)` (the supervisor was told when the reference was made) and
@@ -289,8 +316,17 @@ impl ActorCell {
         parent: ActorRef,
         path: ActorPath,
         outer: ActorRef,
-    ) -> Arc<ActorCell> {
-        Self::build(system, dispatcher, props, parent, path, Some(outer), None)
+    ) -> Result<Arc<ActorCell>, Throwable> {
+        let mailbox = NewMailbox::created_for(&props, system)?;
+        Ok(Self::build(
+            system,
+            dispatcher,
+            props,
+            parent,
+            path,
+            Some(outer),
+            mailbox,
+        ))
     }
 
     /// `initWithFailure(failure)`: the replacement for a cell that could not be made. It runs on the system's default dispatcher with
@@ -316,7 +352,7 @@ impl ActorCell {
             parent,
             path,
             Some(outer),
-            Some(initialization_failure),
+            NewMailbox::Replacement(initialization_failure),
         )
     }
 
@@ -327,13 +363,12 @@ impl ActorCell {
         parent: ActorRef,
         path: ActorPath,
         outer: Option<ActorRef>,
-        creation_failure: Option<Throwable>,
+        mailbox: NewMailbox,
     ) -> Arc<ActorCell> {
         // the replacement of a cell that could not be made always has the default unbounded mailbox
-        let queue = if creation_failure.is_some() {
-            UnboundedMailbox.create()
-        } else {
-            props.new_message_queue(&system.dead_letters)
+        let (queue, unmet, creation_failure) = match mailbox {
+            NewMailbox::Created { queue, unmet } => (queue, unmet, None),
+            NewMailbox::Replacement(failure) => (UnboundedMailbox.create(), None, Some(failure)),
         };
         let cell = Arc::new_cyclic(|me| ActorCell {
             path,
@@ -354,9 +389,9 @@ impl ActorCell {
             name_counter: AtomicU64::new(0),
             st: Mutex::new(CellState::default()),
         });
-        // `Dispatch.init`: what the type promised is checked against the queue it really created; the failure is delayed into `Create`
+        // `Dispatch.init`: an unmet queue requirement is a failure delayed into `Create`
         let creation_failure = creation_failure.or_else(|| {
-            let (required, got) = cell.props.unmet_queue_requirement(&*cell.queue)?;
+            let (required, got) = unmet?;
             let me = cell.self_ref();
             Some(Throwable::new(
                 "org.apache.pekko.actor.ActorInitializationException",
@@ -1291,8 +1326,7 @@ impl ActorCell {
         self.attach_child_made_by(props, name, asynchronous, Self::make_repointed)
     }
 
-    /// `newCell` of an actor made by `actorOf`. Nothing in Rakka can make this fail yet (Pekko: the mailbox type, the dispatcher), so
-    /// the production maker never does; `attach_child_made_by` lets tests supply one that does.
+    /// `newCell` of an actor made by `actorOf`: it fails when the user's mailbox type throws.
     fn make_repointed(
         system: &Arc<SystemInner>,
         props: Props,
@@ -1300,14 +1334,14 @@ impl ActorCell {
         path: ActorPath,
         outer: &ActorRef,
     ) -> Result<Arc<ActorCell>, Throwable> {
-        Ok(Self::new_repointed(
+        Self::new_repointed(
             system,
             system.dispatcher.clone(),
             props,
             parent,
             path,
             outer.clone(),
-        ))
+        )
     }
 
     pub(crate) fn attach_child_made_by(
@@ -1342,22 +1376,25 @@ impl ActorCell {
         // `getMailboxType` runs before any reference exists (`LocalActorRefProvider.actorOf`); a failure releases the name (`makeChild`)
         let props = props.deployed_over(self.system.settings.deployer.lookup_path(&path).as_ref());
         let mailbox_id = props.mailbox_id().to_owned();
-        let props = match props.resolve_mailbox(
-            &self.system.settings.mailboxes,
-            self.system.settings.mailbox_requirement,
-        ) {
-            Ok(resolved) => resolved,
-            Err(cause) => {
-                self.children.lock().unwrap().unreserve(&name);
-                return Err(ConfigurationError::caused_by(
-                    format!(
-                        "configuration problem while creating [{path}] with dispatcher [{DEFAULT_DISPATCHER_ID}] and mailbox [{mailbox_id}]"
-                    ),
-                    &cause,
-                )
-                .into());
-            }
+        let configuration_failure = |cause: String| -> ActorError {
+            self.children.lock().unwrap().unreserve(&name);
+            ConfigurationError::caused_by(
+                format!(
+                    "configuration problem while creating [{path}] with dispatcher [{DEFAULT_DISPATCHER_ID}] and mailbox [{mailbox_id}]"
+                ),
+                cause,
+            )
+            .into()
         };
+        // selecting asks the user's mailbox type what it produces, so it can throw as well as refuse
+        let props = catch_unwind(AssertUnwindSafe(|| {
+            props.resolve_mailbox(
+                &self.system.settings.mailboxes,
+                self.system.settings.mailbox_requirement,
+            )
+        }))
+        .map_err(|payload| configuration_failure(throwable_of(payload).to_string()))?
+        .map_err(|refused| configuration_failure(refused.to_string_like_throwable()))?;
         if asynchronous {
             // `provider.actorOf(..., async = true)`: a `RepointableActorRef`, which tells the supervisor (this actor) to `Supervise` it
             let child_ref = ActorRef(RepointableActorRef::for_actor(
@@ -1400,8 +1437,10 @@ impl ActorCell {
                 self.system.dispatcher.clone(),
                 props,
                 self.self_ref(),
-                path,
-            );
+                path.clone(),
+            )
+            // `new LocalActorRef` creates the mailbox inside the same `try` of the provider; nothing is registered yet
+            .map_err(|thrown| configuration_failure(thrown.to_string()))?;
             let child_ref = child.self_ref();
             self.inherit_suspension(&child_ref);
             self.children.lock().unwrap().init_child(&child_ref);
