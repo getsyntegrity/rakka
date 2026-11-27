@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorRefProvider.scala:714-726, actor/dungeon/Children.scala and actor/RepointableActorRef.scala:112-121 (Apache-2.0).
 //! A user's `MailboxType` is public SPI and may panic: `context.actorOf` throws, `system.actorOf` returns and the actor fails to
-//! initialise. Expected texts: Pekko 2.0.0 for a `MailboxType` whose `create` throws (recorded cases come in a follow-up change).
+//! initialise. Expected texts: Pekko 2.0.0 for a `MailboxType` whose `create` throws (oracle cases `MBX-TT-01` and `MBX-TT-02`).
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
 mod common;
