@@ -2,14 +2,14 @@
 //! The one-shot `withScheduler` cases of `SchedulerSpec` (AC-SCH-008.3 A1-A5): the test moves the clock and answers every wait.
 //! Substituted: the dispatcher (`localEC`, on the timer thread) and the receiver (`TestProbe`); not in the last, real one.
 
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::actor::actor_ref::{ActorRef, InternalActorRef};
 use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
-use crate::actor::scheduler::{Scheduler, TimerHooks, Waiter};
+use crate::actor::scheduler::{Cancellable, Scheduler, TimerHooks, Waiter};
 use crate::actor::system::{ActorSystem, Settings};
 use crate::actor::{ActorPath, Address};
 use crate::dispatch::dispatcher::{Dispatcher, Executor, Rejected, Task};
@@ -109,7 +109,14 @@ impl Executor for OnTheTimerThread {
 }
 
 /// `TestProbe`: a reference that records the texts told to it.
-struct ProbeRef(ActorPath, Mutex<Sender<String>>);
+struct ProbeRef(ActorPath, Mutex<Sender<String>>, Arc<ProbeControl>);
+
+/// How a test changes the probe: whether it counts as terminated, and what runs once inside its next send.
+#[derive(Default)]
+struct ProbeControl {
+    terminated: AtomicBool,
+    during_send: Mutex<Option<Box<dyn FnOnce() + Send>>>,
+}
 
 impl InternalActorRef for ProbeRef {
     fn path(&self) -> &ActorPath {
@@ -118,11 +125,15 @@ impl InternalActorRef for ProbeRef {
     fn tell(&self, msg: AnyMessage, _sender: Option<ActorRef>) {
         let text = msg.downcast_ref::<String>().expect("a text").clone();
         self.1.lock().unwrap().send(text).ok();
+        let hook = self.2.during_send.lock().unwrap().take();
+        if let Some(hook) = hook {
+            hook();
+        }
     }
     fn send_system(&self, _msg: SystemMessage) {}
     fn stop(&self) {}
     fn is_terminated(&self) -> bool {
-        false
+        self.2.terminated.load(Ordering::SeqCst)
     }
 }
 
@@ -132,6 +143,7 @@ struct Fixture {
     driver: Driver,
     target: ActorRef,
     received: Receiver<String>,
+    probe: Arc<ProbeControl>,
 }
 
 impl Fixture {
@@ -148,13 +160,31 @@ impl Fixture {
         let scheduler = Scheduler::start("manual", dispatcher, hooks);
         let (tx, received) = channel();
         let path = ActorPath::root(Address::local("pekko", "manual")).new_child("probe", 0);
-        let target = ActorRef(Arc::new(ProbeRef(path, Mutex::new(tx))));
+        let probe = Arc::new(ProbeControl::default());
+        let target = ActorRef(Arc::new(ProbeRef(path, Mutex::new(tx), probe.clone())));
         driver.next_wait();
         Fixture {
             scheduler,
             driver,
             target,
             received,
+            probe,
+        }
+    }
+
+    fn repeat(&self, initial_delay: Duration, delay: Duration) -> Cancellable {
+        let text = "tick".to_string();
+        self.scheduler
+            .schedule_with_fixed_delay(initial_delay, delay, &self.target, text, None)
+            .unwrap()
+    }
+
+    /// One tick per entry: how many sends each of the next ticks makes.
+    fn expect_ticks(&self, sends: &[usize]) {
+        for (tick, &count) in sends.iter().enumerate() {
+            self.driver.wake_up_expecting(STEP, STEP);
+            let received = self.received.try_iter().count();
+            assert_eq!(received, count, "tick {tick}");
         }
     }
 
@@ -245,6 +275,80 @@ fn ticks_wrap_around_correctly() {
         fixture.driver.wake_up_expecting(STEP, STEP);
         fixture.expect(&[&format!("hello-{i}")]);
     }
+}
+
+#[test]
+fn a_fixed_delay_message_is_sent_after_the_initial_delay_and_then_every_delay() {
+    let fixture = Fixture::new(0, 0, 32);
+    let task = fixture.repeat(STEP * 3, STEP * 2);
+    fixture.expect_ticks(&[0, 0, 0, 1, 0, 1, 0, 1]);
+    assert!(!task.is_cancelled());
+}
+
+#[test]
+fn a_fixed_delay_does_not_catch_up_after_the_timer_oversleeps() {
+    let fixture = Fixture::new(0, 0, 32);
+    let _task = fixture.repeat(STEP * 3, STEP * 2);
+    fixture.expect_ticks(&[0, 0, 0, 1]);
+    // five ticks pass at once: two periods are over, one message is sent and the delay counts from that send
+    fixture.driver.wake_up_expecting(STEP * 5, STEP);
+    fixture.expect(&["tick"]);
+    fixture.expect_ticks(&[0, 1]);
+}
+
+#[test]
+fn cancelling_a_repetition_stops_it_and_only_the_first_cancel_succeeds() {
+    let fixture = Fixture::new(0, 0, 32);
+    let task = fixture.repeat(STEP, STEP);
+    fixture.expect_ticks(&[0, 1, 1]);
+    let copy = task.clone();
+    assert_eq!((task.cancel(), copy.is_cancelled()), (true, true));
+    assert_eq!((copy.cancel(), task.is_cancelled()), (false, true));
+    fixture.expect_ticks(&[0, 0, 0]);
+}
+
+#[test]
+fn a_zero_initial_delay_sends_at_once_and_the_repetition_can_still_be_cancelled() {
+    let fixture = Fixture::new(0, 0, 32);
+    let task = fixture.repeat(Duration::ZERO, STEP * 2);
+    fixture.expect(&["tick"]);
+    fixture.expect_ticks(&[0, 0, 1, 0, 1]);
+    assert!(task.cancel());
+    fixture.expect_ticks(&[0, 0, 0]);
+}
+
+#[test]
+fn a_cancel_during_the_send_prevents_the_next_one() {
+    let fixture = Fixture::new(0, 0, 32);
+    let task = fixture.repeat(STEP, STEP);
+    let (handle, (result, cancelled)) = (task.clone(), channel());
+    *fixture.probe.during_send.lock().unwrap() = Some(Box::new(move || {
+        result.send(handle.cancel()).unwrap();
+    }));
+    fixture.expect_ticks(&[0, 1, 0, 0]);
+    assert_eq!(cancelled.try_recv(), Ok(true));
+}
+
+#[test]
+fn a_send_that_panics_ends_the_repetition() {
+    let fixture = Fixture::new(0, 0, 32);
+    let task = fixture.repeat(STEP, STEP);
+    *fixture.probe.during_send.lock().unwrap() = Some(Box::new(|| panic!("the send fails")));
+    fixture.expect_ticks(&[0, 1, 0, 0]);
+    assert!(!task.is_cancelled());
+}
+
+#[test]
+fn a_terminated_target_is_sent_to_once_and_ends_the_repetition() {
+    let fixture = Fixture::new(0, 0, 32);
+    let task = fixture.repeat(STEP, STEP);
+    fixture.expect_ticks(&[0, 1]);
+    fixture.probe.terminated.store(true, Ordering::SeqCst);
+    fixture.expect_ticks(&[1, 0, 0]);
+    // as `AtomicCancellable`: it ended by itself, so it is not cancelled until somebody cancels it
+    assert!(!task.is_cancelled());
+    assert_eq!((task.cancel(), task.is_cancelled()), (true, true));
+    assert!(!task.cancel());
 }
 
 struct Forward(Mutex<Sender<&'static str>>);

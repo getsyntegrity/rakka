@@ -2331,8 +2331,8 @@ MUTANTS = {
     ),
     "scheduled-delay-is-not-rounded-up": (
         "src/actor/scheduler.rs",
-        "let delay_nanos = round_up(delay_nanos, TICK_NANOS);",
-        "",
+        "    round_up(delay_nanos, TICK_NANOS)\n}",
+        "    delay_nanos\n}",
         "a delay is not rounded up to the tick, so one just above the largest is accepted instead of rejected",
     ),
     "scheduler-ignores-the-injected-clock": (
@@ -2352,6 +2352,18 @@ MUTANTS = {
         "true // `EmptyLocalActorRef.isTerminated`",
         "false",
         "`deadLetters` counts as alive, so a repeated send to it never ends (killed by tests/classic_api.rs, see UNIT_MUTANTS)",
+    ),
+    "fixed-delay-outlives-its-target": (
+        "src/actor/scheduler.rs",
+        "if delivery.target.is_terminated() {",
+        "if false {",
+        "a repeated send goes on after its target is found terminated (killed by a unit test, see UNIT_MUTANTS)",
+    ),
+    "cancelled-repetition-schedules-again": (
+        "src/actor/scheduler.rs",
+        "if waiting.is_none() {",
+        "if false {",
+        "a cancel while the send is under way is forgotten: the repetition schedules the next one (killed by a unit test, see UNIT_MUTANTS)",
     ),
     "panicking-user-drop-escapes-the-guard": (
         "src/actor/cell.rs",
@@ -2489,6 +2501,8 @@ UNIT_MUTANTS = {
     "terminated-system-keeps-its-scheduler": ("test:classic_scheduler", "termination_drops_the_pending_messages_and_rejects_new_ones"),
     "scheduler-ignores-the-injected-clock": ("actor::scheduler_tests", "the_scheduler_of_a_system_runs_on_the_clock_and_waiter_injected_into_it"),
     "dead-letters-are-not-terminated": ("test:classic_api", "system_exposes_its_name_root_path_settings_and_dead_letters"),
+    "fixed-delay-outlives-its-target": ("actor::scheduler_tests", "a_terminated_target_is_sent_to_once_and_ends_the_repetition"),
+    "cancelled-repetition-schedules-again": ("actor::scheduler_tests", "a_cancel_during_the_send_prevents_the_next_one"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
     "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)
