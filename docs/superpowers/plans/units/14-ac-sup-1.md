@@ -20,7 +20,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-SUP-009.
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CELL-8`, `Q-SUP-2`, `Q-SUP-4`, `Q-SUP-5`, `Q-SUP-8`.
+- Propuestas aún sin decisión del Owner: `Q-CELL-8`, `Q-SUP-2`, `Q-SUP-4`, `Q-SUP-5`, `Q-SUP-6`, `Q-SUP-8`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -69,10 +69,10 @@ Filas: AC-SUP-019, AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/invento
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-SUP-001 | Propagación de fallos: excepción en receive → suspender actor e hijos →… | handler devuelve `Err`/panic capturado con `catch_unwind` → `SystemMessage::Failed` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:834-861… | Q-X-5 |
+| AC-SUP-001 | Propagación de fallos: excepción en receive → suspender actor e hijos →… | handler devuelve `Err`/panic capturado con `catch_unwind` → `SystemMessage::Failed` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:834-861… | Q-SUP-6, Q-X-5 |
 | AC-SUP-002 | El padre sólo actúa ante Failed de un hijo actual con uid coincidente | comparar uid en `ChildStats` | derivada del código (ver bloque de contrato) | - |
 | AC-SUP-003 | Directivas Resume/Restart/Stop/Escalate y su nivel de log | `enum Directive { Resume(LogLevel), Restart(LogLevel), Stop(LogLevel), Escalate }` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:817-832 | - |
-| AC-SUP-004 | defaultDecider | función `default_decider(&Failure) -> Directive` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-244 ;… | Q-SUP-1, Q-SUP-5, Q-SUP-7, Q-SUP-8, Q-X-5 |
+| AC-SUP-004 | defaultDecider | función `default_decider(&Failure) -> Directive` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-244 ;… | Q-SUP-1, Q-SUP-5, Q-SUP-6, Q-SUP-7, Q-SUP-8, Q-X-5 |
 | AC-SUP-005 | defaultStrategy y stoppingStrategy | constantes/constructores | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:353-374 | Q-X-2 |
 | AC-SUP-006.1 | OneForOneStrategy: aplicación al hijo que falló y límite de reintentos… | `ChildRestartStats { retries_count, window_start }`; `OneForOneStrategy { max_retries,… | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:234-292 ;… | Q-SUP-2 |
 | AC-SUP-006.2 | OneForOneStrategy: ventana withinTimeRange | `RestartWindow { start: Option<Instant>, count }` con `Instant` monótono | actor-tests/src/test/scala/org/apache/pekko/actor/RestartStrategySpec.scala:42-88 ;… | Q-SUP-2 |
@@ -86,7 +86,7 @@ Filas: AC-SUP-019, AC-SUP-020, AC-SUP-021. Contratos y aserciones: `docs/invento
 | AC-SUP-015 | Reinicio de un padre reinicia a sus hijos sobrevivientes | - | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorTreeSpec.scala:27-45 | - |
 | AC-SUP-016 | Parada de emergencia ante excepción en el manejo del fallo | - | derivada del código (ver bloque de contrato) | Q-X-5 |
 | AC-SUP-017 | Catálogo de excepciones del ciclo de vida: ActorInitializationException… | `enum ActorError` o structs con `source()` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:277-286 ;… | Q-SUP-1, Q-SUP-5 |
-| AC-SUP-018 | logFailure: texto y destino del log de fallos de hijos | `fn log_failure(&self, ctx, child, cause, directive)` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:817-832 | Q-SUP-3, Q-SUP-4 |
+| AC-SUP-018 | logFailure: texto y destino del log de fallos de hijos | `fn log_failure(&self, ctx, child, cause, directive)` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:817-832 | Q-SUP-1, Q-SUP-3, Q-SUP-4 |
 | AC-SUP-019 | Fallo fatal en restart: Resume con causa se convierte en Restart y no se… | bandera `failed_fatally` en la celda | derivada del código (ver bloque de contrato) | - |
 | AC-SUP-020 | Fallo en handleChildTerminated de la estrategia | - | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:143-162 | - |
 | AC-SUP-021 | Constructores y valores por defecto de OneForOneStrategy/AllForOneStrategy;… | builders OneForOne/AllForOne (max_retries, within, logging) con defaults -1/Inf/true,… | actor-tests/src/test/scala/org/apache/pekko/actor/RestartStrategySpec.scala:90-112 ;… | Q-SUP-1, Q-SUP-2 |

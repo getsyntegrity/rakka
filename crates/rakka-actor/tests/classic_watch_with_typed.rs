@@ -24,8 +24,8 @@ fn outcome(registration: impl FnOnce()) -> String {
         Ok(()) => "ok".to_owned(),
         Err(thrown) => {
             let thrown = thrown.downcast_ref::<Throwable>().expect("a Throwable");
-            assert_eq!(thrown.class, "java.lang.IllegalStateException");
-            thrown.message.clone().unwrap_or_default()
+            assert_eq!(thrown.class(), "java.lang.IllegalStateException");
+            thrown.message().unwrap_or_default().to_string()
         }
     }
 }

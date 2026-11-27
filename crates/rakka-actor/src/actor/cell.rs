@@ -179,22 +179,15 @@ fn message_class(message: &AnyMessage) -> &'static str {
     }
 }
 
-/// `ActorInitializationException` and its two subclasses.
-const INITIALIZATION_FAILURES: [&str; 3] = [
-    "org.apache.pekko.actor.ActorInitializationException",
-    "org.apache.pekko.actor.PreRestartException",
-    "org.apache.pekko.actor.PostRestartException",
-];
-
 /// The text `logFailure` publishes: `getMessage` of the failure, or of its cause when it is an `ActorInitializationException`
 /// that has one (looking through the wrapper of a reflective call).
 fn logged_message(failure: &Throwable) -> Option<String> {
     let cause = match &failure.cause {
-        Some(cause) if INITIALIZATION_FAILURES.contains(&failure.class.as_str()) => cause,
+        Some(cause) if failure.is_a("org.apache.pekko.actor.ActorInitializationException") => cause,
         _ => return failure.message.clone(),
     };
     match &cause.cause {
-        Some(target) if cause.class == "java.lang.reflect.InvocationTargetException" => {
+        Some(target) if cause.is_a("java.lang.reflect.InvocationTargetException") => {
             target.message.clone()
         }
         _ => cause.message.clone(),
@@ -1714,6 +1707,30 @@ impl ActorCell {
                 watcher: me.clone(),
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod logged_message_tests {
+    use super::*;
+
+    /// `logFailure` matches by subtype: a declared subclass of either class is treated like the class itself.
+    #[test]
+    fn subclasses_of_the_initialization_and_invocation_exceptions_are_looked_through() {
+        let of = |superclass: &str, message: &str| {
+            Throwable::new("a.Sub", Some(message)).with_superclasses([superclass])
+        };
+        let inner = of("java.lang.reflect.InvocationTargetException", "wrapper")
+            .with_cause(Throwable::illegal_state("target"));
+        let init = "org.apache.pekko.actor.ActorInitializationException";
+        assert_eq!(
+            logged_message(&of(init, "outer").with_cause(inner)),
+            Some("target".to_owned())
+        );
+        assert_eq!(
+            logged_message(&of("java.lang.Exception", "outer").with_cause(of(init, "cause"))),
+            Some("outer".to_owned())
+        );
     }
 }
 

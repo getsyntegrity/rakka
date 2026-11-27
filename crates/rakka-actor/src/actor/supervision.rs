@@ -23,15 +23,27 @@ pub enum Directive {
 pub type Decider = Arc<dyn Fn(&Throwable) -> Directive + Send + Sync>;
 
 /// `SupervisorStrategy.defaultDecider`: `ActorInitializationException`, `ActorKilledException` and
-/// `DeathPactException` stop the child; any other exception restarts it.
+/// `DeathPactException`, subtypes included, stop the child; any other `Exception` restarts it. What is not an `Exception`
+/// escalates (Pekko's decider is not defined there and `handleFailure` applies `escalateDefault`; a [`Decider`] is total).
 pub fn default_decider(cause: &Throwable) -> Directive {
-    match cause.class.as_str() {
-        "org.apache.pekko.actor.ActorInitializationException"
-        | "org.apache.pekko.actor.PostRestartException"
-        | "org.apache.pekko.actor.PreRestartException"
-        | "org.apache.pekko.actor.ActorKilledException"
-        | "org.apache.pekko.actor.DeathPactException" => Directive::Stop,
-        _ => Directive::Restart,
+    if cause.is_a("org.apache.pekko.actor.ActorInitializationException")
+        || cause.is_a("org.apache.pekko.actor.ActorKilledException")
+        || cause.is_a("org.apache.pekko.actor.DeathPactException")
+    {
+        Directive::Stop
+    } else if cause.is_a("java.lang.Exception") {
+        Directive::Restart
+    } else {
+        Directive::Escalate
+    }
+}
+
+/// The decider of `SupervisorStrategy.stoppingStrategy`: every `Exception` stops the child, the rest escalates.
+fn stopping_decider(cause: &Throwable) -> Directive {
+    if cause.is_a("java.lang.Exception") {
+        Directive::Stop
+    } else {
+        Directive::Escalate
     }
 }
 
@@ -62,6 +74,11 @@ impl OneForOneStrategy {
     pub fn with_logging_enabled(mut self, logging_enabled: bool) -> Self {
         self.logging_enabled = logging_enabled;
         self
+    }
+
+    /// `SupervisorStrategy.stoppingStrategy`: unlimited, one for one, every failed `Exception` stops its child.
+    pub fn stopping_strategy() -> Self {
+        OneForOneStrategy::new(-1, stopping_decider)
     }
 
     /// `SupervisorStrategy.defaultStrategy`: unlimited retries, [`default_decider`].
@@ -238,6 +255,56 @@ mod tests {
             let expected = format!("org.apache.pekko.actor.{class}Strategy");
             assert_eq!(strategy.class_name(), expected);
         }
+    }
+
+    #[test]
+    fn the_default_decider_escalates_what_is_not_an_exception() {
+        for class in ["java.lang.Error", "java.lang.Throwable"] {
+            let cause = Throwable::new(class, Some("boom"));
+            assert_eq!(default_decider(&cause), Directive::Escalate, "{class}");
+        }
+    }
+
+    #[test]
+    fn the_default_decider_decides_by_subtype() {
+        let of = |class: &str, superclass: &str| {
+            Throwable::new(class, None).with_superclasses([superclass])
+        };
+        let actor = |name: &str| format!("org.apache.pekko.actor.{name}");
+        for (cause, expected) in [
+            (
+                of("a.Init", &actor("ActorInitializationException")),
+                Directive::Stop,
+            ),
+            (
+                of("a.Kill", &actor("ActorKilledException")),
+                Directive::Stop,
+            ),
+            (of("a.Pact", &actor("DeathPactException")), Directive::Stop),
+            (Throwable::new("a.Unknown", None), Directive::Restart),
+            (of("a.Checked", "java.lang.Exception"), Directive::Restart),
+            (of("a.Assert", "java.lang.Error"), Directive::Escalate),
+            (of("a.Bare", "java.lang.Throwable"), Directive::Escalate),
+        ] {
+            assert_eq!(default_decider(&cause), expected, "{}", cause.class);
+        }
+    }
+
+    /// AC-SUP-005: `{ case _: Exception => Stop }`; what it does not cover escalates.
+    #[test]
+    fn the_stopping_strategy_stops_every_exception_and_escalates_the_rest() {
+        let s = OneForOneStrategy::stopping_strategy();
+        assert_eq!(s.max_nr_of_retries, -1);
+        assert!(s.logging_enabled);
+        assert_eq!((s.decider)(&Throwable::illegal_state("x")), Directive::Stop);
+        assert_eq!(
+            (s.decider)(&Throwable::new("a.Unknown", None)),
+            Directive::Stop
+        );
+        assert_eq!(
+            (s.decider)(&Throwable::new("java.lang.Error", None)),
+            Directive::Escalate
+        );
     }
 
     #[test]

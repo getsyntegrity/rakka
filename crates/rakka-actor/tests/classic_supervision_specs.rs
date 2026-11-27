@@ -123,7 +123,7 @@ struct PingPong(&'static str, Sender<String>);
 
 impl Actor for PingPong {
     fn post_restart(&mut self, _: &mut ActorContext, reason: &Throwable) {
-        let reason = reason.message.clone().unwrap_or_default();
+        let reason = reason.message().unwrap_or_default().to_string();
         self.1.send(format!("{}:{reason}", self.0)).unwrap();
     }
     fn receive(&mut self, _: &mut ActorContext, msg: &AnyMessage) -> bool {
@@ -257,7 +257,7 @@ impl Actor for FailResumer {
     fn supervisor_strategy(&self) -> SupervisorStrategy {
         let attempts = self.0.attempts.clone();
         OneForOneStrategy::new(-1, move |cause: &Throwable| {
-            if cause.class != "org.apache.pekko.actor.ActorInitializationException" {
+            if cause.class() != "org.apache.pekko.actor.ActorInitializationException" {
                 Directive::Escalate
             } else if attempts.load(Ordering::SeqCst).is_multiple_of(2) {
                 Directive::Resume

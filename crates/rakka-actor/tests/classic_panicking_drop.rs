@@ -68,13 +68,10 @@ impl Actor for Supervisor {
             if fault == Fault::ThrowingDeciderCapture {
                 throw(Throwable::illegal_state("decider"));
             }
-            let root = cause
-                .cause
-                .as_ref()
-                .map_or(String::new(), |c| c.to_string());
-            let decides = format!("decides {} {root}", cause.class);
+            let root = cause.cause().map_or(String::new(), |c| c.to_string());
+            let decides = format!("decides {} {root}", cause.class());
             events.send(decides).unwrap();
-            match cause.class.as_str() {
+            match cause.class() {
                 "java.lang.IllegalStateException" => Directive::Restart,
                 _ => Directive::Stop,
             }
