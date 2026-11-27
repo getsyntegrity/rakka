@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 273 decisiones: 0 bloqueantes, 190 propuestas, 66 aceptadas, 14 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 274 decisiones: 0 bloqueantes, 190 propuestas, 66 aceptadas, 15 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -2451,6 +2451,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 - **Respuesta del Owner:** aceptar (a): MessageQueue::as_deque() -> Option<&dyn DequeBasedMessageQueue>, con None por defecto. Registrada en owner-decisions.tsv en representación del Owner, con su autorización expresa. No aprueba Q-MBX-2, que sigue propuesta. (Owner (instrucción en la sesión), 2026-11-26)
+
+### Q-MBX-16 — El `within(30.seconds)` del ping-pong patológico mide rendimiento: ¿gate o medición aparte?
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** MailboxConfigSpec.scala:322-329 (Pekko 2.0.0). El tiempo depende de la carga: 7-24 s en ejecuciones instrumentadas y 30,5 s con QoS de fondo, con todos los mensajes entregados y ninguna ventana de 1 s sin entregas; una ejecución de 140 s de los tests nuevos entregó todo, pero sus pausas no se midieron (docs/evidence/mailbox-single-consumer.md).
+- **Alternativas:** (a) tests por defecto SIN NINGUNA cota superior de duración (muestrean cada 10 s y fallan si no hubo entregas; un cuelgue se informa a los 10-20 s aprox.) y los 30 s en tests `#[ignore]`; (b) los 30 s como gate; (c) (a) más cambiar la espera de `ThreadPool` y reevaluar (b)
+- **Recomendación:** (a), implementada provisionalmente; una regresión de rendimiento sin cuelgue ya no hace fallar los gates, y como el gate `test` no fija timeout, una ejecución degradada pero con avance lo detiene en lugar de hacerlo fallar
+- **Filas afectadas:** AC-MBX-006
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+- **Respuesta del Owner:** ACCEPTED, opción (c), con condiciones. La exclusión del límite de 30 segundos del gate habitual es provisional. El criterio original de Pekko debe conservarse. Investigar y corregir la contención del ThreadPool mediante TDD, con mediciones antes y después. Las pruebas de rendimiento no deben quedar permanentemente ignoradas. Reevaluar la reincorporación del límite de 30 segundos al gate después de corregir el ThreadPool. La política definitiva de rendimiento requiere aprobación del Owner. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
 
 ### Q-PATH-1 — Cómo ordenar listas de Address con un comparador que no es orden total
 
