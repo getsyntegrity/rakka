@@ -112,6 +112,7 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
 |---|---|---|---|---|
 | Q-CELL-8 — La fábrica de `Props` no recibe `ActorContext` | (a) que la fábrica reciba el contexto de la celda en creación (alternativas: (b) aceptar la divergencia y crear los hijos en `pre_start`; (c) dejar las aserciones bloqueadas) | Un actor Rust no puede crear hijos en su constructor, así que los specs que lo hacen no se portan 1:1 (AC-CELL-007.2, AC-CELL-013.2, AC-SUP-011) | `SupervisorMiscSpec.scala:86-99`; `SupervisorHierarchySpec.scala:861-912` | (a) cambia la API de `Props` |
+| Q-CELL-9 — Qué fallos del SPI de mailbox se atrapan al crear un actor | (a), implementada provisionalmente: todo panic o `Throwable` desenrollado (alternativa: (b) volver a lanzar los de clase fatal) | Pekko sólo atrapa `NonFatal`: un error fatal escaparía en lugar de acabar en `ConfigurationException` o `ActorInitializationException` | `ActorRefProvider.scala:721-726`; `RepointableActorRef.scala:112-121` | Bajo: sólo un `Throwable` con clase de error de la JVM lanzado a propósito |
 
 ### Classic: log de fallos de hijos
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |

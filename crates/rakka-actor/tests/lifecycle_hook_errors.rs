@@ -45,6 +45,9 @@ impl MessageQueue for Panics {
     fn clean_up(&self, _: &ActorRef, _: &dyn MessageQueue) {}
 }
 
+/// What the send of an event to a subscriber with that mailbox publishes, as in Pekko 2.0.0.
+const SWALLOWED: &str = "java.lang.RuntimeException: subscriber mailbox|Some(\"swallowing exception during message send\")";
+
 /// Fails on any message, and again in `preRestart` and `postStop`.
 struct Failing(ActorRef);
 
@@ -83,11 +86,13 @@ fn a_throwing_pre_restart_is_published_and_then_the_restart_goes_on() {
         next(),
         "java.lang.IllegalStateException: boom|Some(\"boom\")"
     );
+    assert_eq!(next(), SWALLOWED);
     assert_eq!(
         next(),
         "org.apache.pekko.actor.PreRestartException: pekko://t-hooks/user/c: exception in preRestart(class \
          java.lang.IllegalStateException, class java.lang.String)|Some(\"hook\")"
     );
+    assert_eq!(next(), SWALLOWED);
     assert_eq!(next(), "restarted");
     system.stop(&actor);
     assert!(next().ends_with("Some(\"stop\")"));
@@ -139,9 +144,11 @@ fn the_failure_of_an_exception_without_a_message_is_published_without_one() {
         .unwrap()
         .tell("go", None);
     assert_eq!(next(), "java.lang.IllegalStateException|None");
+    assert_eq!(next(), SWALLOWED);
     let parent = system.actor_of(Props::new(|| Resumes(None))).unwrap();
     for _ in 0..2 {
         parent.tell("go", None);
         assert_eq!(next(), "warning|None");
+        assert_eq!(next(), SWALLOWED);
     }
 }
