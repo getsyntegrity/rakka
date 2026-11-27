@@ -169,7 +169,7 @@ final class MailboxOracle {
   }
 
   /** The mailbox operation that throws in a {@link FaultyQueue} (the {@code MBX-TQ} cases): the public SPI is user code and may fail. */
-  enum Fault { ENQUEUE, DEQUEUE, HAS_MESSAGES, CLEAN_UP }
+  enum Fault { ENQUEUE, DEQUEUE, HAS_MESSAGES, CLEAN_UP, EVERY_ENQUEUE }
   static volatile Fault nextFault;
 
   /** A FIFO queue with one operation that throws: {@code enqueue}/{@code dequeue} of "bad", the {@code hasMessages} that follows the dequeue of "bad", or {@code cleanUp}. */
@@ -178,7 +178,7 @@ final class MailboxOracle {
     final Fault fault = nextFault;
     final AtomicBoolean armed = new AtomicBoolean();
     public void enqueue(ActorRef r, Envelope e) {
-      if (fault == Fault.ENQUEUE && "bad".equals(e.message())) throw new IllegalStateException("enqueue boom");
+      if (fault == Fault.ENQUEUE && "bad".equals(e.message()) || fault == Fault.EVERY_ENQUEUE) throw new IllegalStateException("enqueue boom");
       q.add(e);
     }
     public Envelope dequeue() {
@@ -1605,6 +1605,19 @@ final class MailboxOracle {
       awaitUntil(() -> e.log.contains("r:again"));
       scala.concurrent.Await.result(e.sys.terminate(), scala.concurrent.duration.Duration.create(10, TimeUnit.SECONDS));
       return observed + " nameReused=true systemTerminated=true";
+    });
+    run("MBX-TQ-05 an event published to a subscriber whose enqueue throws publishes the swallowed send, and the other subscribers still get the event", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        e.sys.eventStream().subscribe(e.sys.actorOf(Props.create(WarningListener.class, e.warnings)), Logging.Warning.class);
+        nextFault = Fault.EVERY_ENQUEUE;
+        ActorRef broken = e.sys.actorOf(Props.create(Worker.class, e).withMailbox("faulty-mailbox"), "broken");
+        awaitUntil(() -> e.started.get() == 1);
+        e.sys.eventStream().subscribe(broken, Logging.Warning.class);
+        e.sys.eventStream().publish(new Logging.Warning("source", MailboxOracle.class, "heads up"));
+        awaitUntil(() -> !e.warnings.isEmpty() && !e.errors.isEmpty());
+        absence();
+        return "warnings=" + e.warnings + " errors=" + e.errors + " received=" + e.log;
+      }
     });
   }
 
