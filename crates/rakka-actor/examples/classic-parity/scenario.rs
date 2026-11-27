@@ -277,6 +277,8 @@ struct Ctx {
     holds: Mutex<HashMap<String, Hold>>,
     /// labels whose `postRestart` already threw (`throw-in-post-restart: "once"`)
     failed_post_restart: Mutex<HashSet<String>>,
+    /// labels whose `preStart` already threw (`throw-in-prestart: "once"`)
+    failed_pre_start: Mutex<HashSet<String>>,
     /// `supervisor_strategy` calls per label
     strategy_calls: Mutex<HashMap<String, u64>>,
 }
@@ -362,6 +364,10 @@ struct Behavior {
     supervisor: Option<SupervisorCfg>,
     /// `throw-in-prestart`: what `preStart` throws, `true` or the shape of its cause chain
     throw_in_prestart: Option<Throwable>,
+    /// `throw-in-prestart: "once"`: only the first `preStart` of the label throws
+    throw_in_first_prestart: bool,
+    /// `spawn-in-prestart: name`: a child made by `preStart`, before it can fail
+    spawn_in_prestart: Option<String>,
     /// `throw-in-post-restart`: `postRestart` records its event and then throws IllegalStateException("post-restart")
     throw_in_post_restart: bool,
     /// `throw-in-post-restart: "once"`: only the first `postRestart` of the label throws
@@ -439,6 +445,8 @@ impl Behavior {
                 }
             }),
             throw_in_prestart: v.get("throw-in-prestart").and_then(thrown_by_pre_start),
+            throw_in_first_prestart: s("throw-in-prestart").as_deref() == Some("once"),
+            spawn_in_prestart: s("spawn-in-prestart"),
             throw_in_post_restart: matches!(
                 v.get("throw-in-post-restart"),
                 Some(Value::Bool(true))
@@ -538,9 +546,16 @@ impl Scripted {
 }
 
 impl Actor for Scripted {
-    fn pre_start(&mut self, _c: &mut ActorContext) {
+    fn pre_start(&mut self, c: &mut ActorContext) {
         self.ctx.add(&self.label, Event::PreStart);
         self.ctx.life(format!("{}:pre-start", self.label));
+        if let Some(name) = &self.cfg.spawn_in_prestart {
+            c.actor_of_named(Props::new(|| Noop), name).unwrap();
+        }
+        let first = self.cfg.throw_in_first_prestart;
+        if first && (self.ctx.failed_pre_start.lock().unwrap()).insert(self.label.clone()) {
+            throw(Throwable::illegal_state("init"));
+        }
         if let Some(thrown) = &self.cfg.throw_in_prestart {
             throw(thrown.clone());
         }

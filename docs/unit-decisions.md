@@ -228,7 +228,7 @@
 
 ## P15 MBX-NUCLEO
 
-7 filas; 7 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 2 propuestas.
+7 filas; 8 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -237,6 +237,7 @@
 | Q-MBX-6 | accepted (2026-11-20): aceptar (b): pool de hilos propio, coherente con Q-X-4 (A); el turno de mailbox es un trabajo del pool; `throughput` y `throughput-deadline-time` son… | 5: AC-DSP-001, AC-DSP-002, AC-DSP-003, AC-DSP-023, AC-MBX-002 | Bloquea la implementación de AC-MBX-002 y AC-DSP-002/003 hasta decidir Q-X-4; el diseño del runner con reloj inyectable puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-9 | accepted (2026-11-20): aceptar (B): estado del mailbox separado de las colas de sistema y de usuario (ADR-0001). No aprueba Q-MBX-1, Q-MBX-2, Q-MBX-3, Q-MBX-5 ni Q-MBX-6. | 2: AC-MBX-001, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-CELL-013.1, AC-DSP-001, AC-MBX-001 | — | — | `transversal` |
+| Q-CELL-2 | propuesta | 1: AC-CELL-013.1 | Bloquea: sólo el cierre de AC-CELL-021 (requiere autorización explícita del Owner). | Puede avanzar: todo. | `classic-cell` |
 | Q-DSP-5 | propuesta | 2: AC-DSP-003, AC-MBX-002 | — | — | `classic-dispatch` |
 | Q-MBX-11 | propuesta | 2: AC-DSP-002, AC-MBX-002 | — | — | `classic-dispatch` |
 
@@ -282,7 +283,7 @@
 
 ## P19 CELL-EJECUCION
 
-11 filas; 7 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 3 propuestas.
+11 filas; 8 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -291,6 +292,7 @@
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-CELL-003, AC-CELL-017, AC-CELL-018 | — | — | `transversal` |
 | Q-X-8 | accepted (2026-11-18): aceptar (a): Typed sobre Classic. | 1: AC-CELL-018 | — | — | `transversal` |
 | Q-CELL-3 | propuesta | 1: AC-CELL-019 | Bloquea: nada de la documentación; el cierre de `validation` de AC-CELL-019. | Puede avanzar: todo. | `classic-cell` |
+| Q-CELL-8 | propuesta | 1: AC-CELL-013.2 | — | — | `classic-cell` |
 | Q-MBX-11 | propuesta | 1: AC-CELL-003 | — | — | `classic-dispatch` |
 | Q-REF-6 | propuesta | 1: AC-CELL-031 | Bloquea: la validación (no la `impl`) de AC-REF-001.x, AC-REF-019 y AC-CELL-031. | Puede avanzar: toda la implementación. | `classic-cell` |
 
@@ -319,7 +321,7 @@
 
 ## P22 CELL-REINICIO-PARADA
 
-21 filas; 6 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 3 propuestas.
+21 filas; 7 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -327,6 +329,7 @@
 | Q-SUP-3 | accepted (2026-11-26): aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la… | 3: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4 | — | — | `classic-cell` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 4: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4, AC-CELL-009 | — | — | `transversal` |
 | Q-CELL-4 | propuesta | 1: AC-CELL-023 | Bloquea: `validation` de AC-CELL-023 (impl puede avanzar). | Puede avanzar: el resto de CELL. | `classic-cell` |
+| Q-CELL-8 | propuesta | 2: AC-CELL-007.2, AC-SUP-011 | — | — | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-010 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
 | Q-REF-2 | propuesta | 1: AC-CELL-002.2 | Bloquea: `impl` de AC-REF-008 y la parte reflexiva de AC-REF-007.1/.2; AC-CELL-002.2 sólo en el texto de InstantiationException. | Puede avanzar: Props con closure + trait ActorFactory, AC-CELL-002.1, AC-CELL-026. | `classic-cell` |
 
@@ -1083,4 +1086,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 526 (257 respondidas, 0 bloqueantes, 269 propuestas).
+Total de pares unidad–decisión: 529 (257 respondidas, 0 bloqueantes, 272 propuestas).

@@ -107,6 +107,11 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Q-CELL-6 — Nombre de clase de un mensaje de usuario en el texto de `PreRestartException` | (a) `class ?` (alternativas: (b) que el mensaje aporte su nombre; (c) registro por tipo) | Sólo `&str`/`String`, `Kill`, `ActorIdentity`, `Terminated` y `Failed` llevan la clase de la JVM. Todo lo demás es `class ?`: tipos de usuario (Pekko `class com.example.Foo`), primitivos en caja como `i32` (Pekko `class java.lang.Integer`) y los eventos `DeadLetter`, `UnhandledMessage`, `ErrorEvent`, `WarningEvent` | `Actor.scala:225-236`; casos `he-pre-restart*` | Bajo: sólo el texto de un `Error` publicado |
 | Q-CELL-7 — Invocar el `preRestart` por defecto desde un override | (b) helper público (alternativas: (a) repetir sus tres pasos, conducta actual) | Rust no tiene `super.preRestart`: hoy un override repite `unwatch` + `stop` de cada hijo y `post_stop`; si omite `unwatch`, la instancia nueva recibe `Terminated` o el mensaje de `watchWith` | `Actor.scala:627-633`; casos `ur-calls-super`, `ur-no-super*` | (a): un override queda desfasado respecto del default; (b): API pública sin equivalente directo en Pekko |
 
+### Classic: constructor de actores
+| Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
+|---|---|---|---|---|
+| Q-CELL-8 — La fábrica de `Props` no recibe `ActorContext` | (a) que la fábrica reciba el contexto de la celda en creación (alternativas: (b) aceptar la divergencia y crear los hijos en `pre_start`; (c) dejar las aserciones bloqueadas) | Un actor Rust no puede crear hijos en su constructor, así que los specs que lo hacen no se portan 1:1 (AC-CELL-007.2, AC-CELL-013.2) | `SupervisorMiscSpec.scala:86-99`; `SupervisorHierarchySpec.scala:861-912` | (a) cambia la API de `Props` |
+
 ### Classic: log de fallos de hijos
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
 |---|---|---|---|---|

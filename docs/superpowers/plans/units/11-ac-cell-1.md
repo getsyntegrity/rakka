@@ -6,20 +6,23 @@
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
+Filas ya `done` en esta unidad (no se reabren): AC-CELL-012.
+
 ## Prerrequisitos
 
-- Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-001, AC-SUP-004, AC-SUP-011, AC-SUP-015, AC-SUP-019. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-001, AC-SUP-004, AC-SUP-015, AC-SUP-019. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-002, AC-MBX-003.
 - Spec 15 `AC-DW-1` (`15-ac-dw-1.md`), por las filas AC-DW-002, AC-DW-007, AC-DW-010. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-010.
 - Spec 04 `AC-REF-1` (`04-ac-ref-1.md`), por las filas AC-REF-009.2, AC-REF-016, AC-REF-020.
 - Spec 08 `AC-SCH-1` (`08-ac-sch-1.md`), por las filas AC-SCH-001.
 - Spec 07 `AC-DSP-1` (`07-ac-dsp-1.md`), por las filas AC-DSP-016.1, AC-DSP-016.2.
+- Spec 03 `AC-CFG-1` (`03-ac-cfg-1.md`), por las filas AC-CFG-011.
 
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CELL-2`, `Q-CELL-3`, `Q-MBX-11`, `Q-REF-2`, `Q-REF-5`.
+- Propuestas aún sin decisión del Owner: `Q-CELL-2`, `Q-CELL-3`, `Q-CELL-4`, `Q-CELL-8`, `Q-MBX-11`, `Q-REF-2`, `Q-REF-5`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -48,25 +51,25 @@ Filas: AC-CELL-006, AC-CELL-007.1, AC-CELL-007.2, AC-CELL-007.3, AC-CELL-007.4, 
 
 ### Tarea 3: Stop 2/2: finishTerminate — postStop, detach y notificaciones (+5 filas)
 
-Filas: AC-CELL-008.2, AC-CELL-009, AC-CELL-010, AC-CELL-011, AC-CELL-012, AC-CELL-013.1. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-CELL-008.2, AC-CELL-009, AC-CELL-010, AC-CELL-011, AC-CELL-013.1, AC-CELL-013.2. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 4: Diferimiento (stash) de mensajes de sistema según el estado de la celda (+5 filas)
+### Tarea 4: Mensajes de sistema a una celda terminada → deadLetters (+5 filas)
 
-Filas: AC-CELL-013.2, AC-CELL-013.3, AC-CELL-014, AC-CELL-015.1, AC-CELL-015.2, AC-CELL-016. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-CELL-013.3, AC-CELL-014, AC-CELL-015.1, AC-CELL-015.2, AC-CELL-016, AC-CELL-017. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 5: ReceiveTimeout (+5 filas)
+### Tarea 5: API de ActorContext: self, props, system, dispatcher, parent, getters Java (+5 filas)
 
-Filas: AC-CELL-017, AC-CELL-018, AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-022. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-CELL-018, AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-022, AC-CELL-023. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -85,7 +88,7 @@ Filas: AC-CELL-017, AC-CELL-018, AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-
 | AC-CELL-005 | become / unbecome (pila de conductas) | `Vec<Box<dyn Behavior>>` en la celda | actor-tests/src/test/scala/org/apache/pekko/actor/HotSwapSpec.scala:27-133 ;… | Q-CELL-1 |
 | AC-CELL-006 | Hooks de ciclo de vida: preStart, postStop, preRestart (default: unwatch+stop… | métodos por defecto del trait Actor | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:49-130 ;… | Q-CELL-7 |
 | AC-CELL-007.1 | Restart 1/4: Recreate, suspensión y preRestart de la instancia vieja | estado de celda `Restarting{cause}`; `fault_recreate(cause)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:49-82 ;… | Q-CELL-6, Q-SUP-3, Q-X-5 |
-| AC-CELL-007.2 | Restart 2/4: espera a la parada de los hijos (Recreation) | contenedor de hijos `Terminating{ reason: Recreation(cause) }` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:86-99 ;… | - |
+| AC-CELL-007.2 | Restart 2/4: espera a la parada de los hijos (Recreation) | contenedor de hijos `Terminating{ reason: Recreation(cause) }` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:86-99 ;… | Q-CELL-8 |
 | AC-CELL-007.3 | Restart 3/4: nueva instancia, postRestart y reinicio de hijos sobrevivientes | `finish_recreate(cause)` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorTreeSpec.scala:27-45 ;… | - |
 | AC-CELL-007.4 | Restart 4/4: fallo en postRestart o constructor → PostRestartException | `PostRestartError { actor, cause, original_cause }` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:421-460 | Q-SUP-3, Q-X-5 |
 | AC-CELL-008.1 | Stop 1/2: terminate() — cancelación, unwatch y parada de hijos | estado `Terminating` + conjunto de hijos pendientes | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:422-440 ;… | - |
@@ -93,9 +96,8 @@ Filas: AC-CELL-017, AC-CELL-018, AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-
 | AC-CELL-009 | Fallo en postStop se loguea y no impide la terminación | capturar panic/Err del hook y publicar Error | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:132-140 ;… | Q-X-5 |
 | AC-CELL-010 | stop(ref): context.stop y system.stop (asíncrono) | `ctx.stop(&ActorRef)`, `system.stop(&ActorRef)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:422-440 ;… | - |
 | AC-CELL-011 | PoisonPill | mensaje de control interceptado por la celda | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:422-440 ;… | - |
-| AC-CELL-012 | Kill | ídem PoisonPill | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:442-463 ;… | - |
-| AC-CELL-013.1 | Prioridad de mensajes de sistema sobre los de usuario (bucle del mailbox) | dos colas por actor (sistema, usuario) y bucle: drenar sistema → un mensaje de usuario →… | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:462-508 ;… | Q-X-4 |
-| AC-CELL-013.2 | Diferimiento (stash) de mensajes de sistema según el estado de la celda | `enum CellState { Default, Suspended, WaitingForChildren }` + cola de sistema diferida | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:863-914 | - |
+| AC-CELL-013.1 | Prioridad de mensajes de sistema sobre los de usuario (bucle del mailbox) | dos colas por actor (sistema, usuario) y bucle: drenar sistema → un mensaje de usuario →… | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:462-508 ;… | Q-CELL-2, Q-X-4 |
+| AC-CELL-013.2 | Diferimiento (stash) de mensajes de sistema según el estado de la celda | `enum CellState { Default, Suspended, WaitingForChildren }` + cola de sistema diferida | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala:863-914 | Q-CELL-8 |
 | AC-CELL-013.3 | Mensajes de sistema a una celda terminada → deadLetters | mailbox cerrado sustituido por un mailbox "dead letter" que reenvía a deadLetters | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:144-151 | - |
 | AC-CELL-014 | Familia SystemMessage (Create, Recreate, Suspend, Resume, Terminate,… | `enum SystemMessage` + `VecDeque` | actor-tests/src/test/scala/org/apache/pekko/dispatch/sysmsg/SystemMessageListSpec.scala:2… | - |
 | AC-CELL-015.1 | Contenedor de hijos: estados Normal/Terminating y reserva de nombres | `enum ChildrenState` + `BTreeMap<String, ChildStats>` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:101-141 ;… | Q-MBX-11 |
@@ -107,6 +109,7 @@ Filas: AC-CELL-017, AC-CELL-018, AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-
 | AC-CELL-020 | El mensaje que causó el fallo no se reprocesa tras restart | - | actor-tests/src/test/scala/org/apache/pekko/actor/Ticket669Spec.scala:36-47 | - |
 | AC-CELL-021 | Interrupción de hilo: InterruptedException → ActorInterruptedException al padre | N/A (Rust no interrumpe hilos) | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:423-478 | Q-CELL-2 |
 | AC-CELL-022 | Hooks de instrumentación… | trait `Interceptor` o métodos `pub(crate)` con implementación por defecto | derivada del código (ver bloque de contrato) | - |
+| AC-CELL-023 | Eventos Debug de ciclo de vida y AutoReceive ("started", "restarting",… | publicar `LogEvent::Debug` con los mismos textos | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:187-204,207-22… | Q-CELL-4 |
 
 ## Gates y criterio de cierre
 
