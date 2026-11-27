@@ -834,21 +834,27 @@ impl Actor for SpiErrors {
     }
 }
 
-/// The oracle's `Worker`: `block` holds the turn until the gate opens.
+/// The oracle's `Worker`: `block` holds the turn until the gate opens, `block-and-stop` then stops the actor (the oracle sends the
+/// `Terminate` from outside while the turn is held; either way it is queued ahead of the next user message).
 struct Counted(Arc<SpiEnv>);
 impl Actor for Counted {
     fn pre_start(&mut self, _ctx: &mut ActorContext) {
         self.0.started.fetch_add(1, Ordering::SeqCst);
     }
-    fn receive(&mut self, _ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         let Some(text) = msg.downcast_ref::<String>() else {
             return true;
         };
-        if text == "block" {
+        if text.starts_with("block") {
             self.0.entered.fetch_add(1, Ordering::SeqCst);
             wait_until(|| self.0.open.load(Ordering::SeqCst) == 1);
+            if text == "block-and-stop" {
+                ctx.stop(&ctx.self_ref());
+            }
+            self.0.log.lock().unwrap().push("r:block".to_owned());
+        } else {
+            self.0.log.lock().unwrap().push(format!("r:{text}"));
         }
-        self.0.log.lock().unwrap().push(format!("r:{text}"));
         true
     }
 }
@@ -857,9 +863,11 @@ impl Actor for Counted {
 #[derive(Clone, Copy, PartialEq)]
 enum Fault {
     Enqueue,
+    EveryEnqueue,
     Dequeue,
     HasMessages,
     EnqueueOfUncaughtReport,
+    CleanUp,
 }
 
 struct FaultyMailbox(Fault);
@@ -899,7 +907,8 @@ impl MessageQueue for FaultyQueue {
                 let message = error.message.as_deref();
                 message.is_some_and(|message| message.starts_with("Uncaught"))
             });
-        if self.fault == Fault::Enqueue && is_bad(&envelope)
+        if self.fault == Fault::EveryEnqueue
+            || self.fault == Fault::Enqueue && is_bad(&envelope)
             || self.fault == Fault::EnqueueOfUncaughtReport && uncaught_report
         {
             boom("enqueue");
@@ -928,6 +937,9 @@ impl MessageQueue for FaultyQueue {
         self.inner.has_messages()
     }
     fn clean_up(&self, owner: &ActorRef, dead_letters: &dyn MessageQueue) {
+        if self.fault == Fault::CleanUp {
+            boom("cleanUp");
+        }
         self.inner.clean_up(owner, dead_letters);
     }
 }
@@ -993,6 +1005,82 @@ fn a_has_messages_that_throws_is_an_uncaught_error() -> String {
         SpiEnv::listed(&env.log),
         SpiEnv::listed(&env.errors),
         actor.is_terminated()
+    );
+    terminate_normally(system);
+    line
+}
+
+/// The oracle's `DeathLogger`.
+struct DeathLogger(Arc<SpiEnv>);
+impl Actor for DeathLogger {
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        let entry = if let Some(actor) = msg.downcast_ref::<ActorRef>() {
+            ctx.watch(actor);
+            "watching".to_owned()
+        } else if msg.downcast_ref::<Terminated>().is_some() {
+            "terminated:a".to_owned()
+        } else {
+            return false;
+        };
+        self.0.log.lock().unwrap().push(entry);
+        true
+    }
+}
+
+/// `MBX-TQ-04`
+fn a_clean_up_that_throws_does_not_stop_the_termination() -> String {
+    let env = Arc::new(SpiEnv::default());
+    let system = env.system();
+    let actor = env.faulty(&system, Fault::CleanUp);
+    let watcher = Props::new({
+        let env = env.clone();
+        move || DeathLogger(env.clone())
+    });
+    let watcher = system.actor_of_named(watcher, "watcher").expect("watcher");
+    watcher.tell(actor.clone(), None);
+    wait_until(|| env.logged("watching"));
+    say(&actor, &["block-and-stop"]);
+    wait_until(|| env.entered.load(Ordering::SeqCst) == 1);
+    say(&actor, &["pending"]);
+    env.open.store(1, Ordering::SeqCst);
+    wait_until(|| env.logged("terminated:a"));
+    std::thread::sleep(Duration::from_millis(100)); // a bounded wait for an absence
+    let observed = format!(
+        "log={} dead={} errors={} terminated={}",
+        SpiEnv::listed(&env.log),
+        SpiEnv::listed(&env.dead),
+        SpiEnv::listed(&env.errors),
+        actor.is_terminated()
+    );
+    // the guardian may still be removing the child: the name is free once it has
+    wait_until(|| {
+        let again = system.actor_of_named(env.counted(), "a");
+        again.map(|again| say(&again, &["again"])).is_ok()
+    });
+    wait_until(|| env.logged("r:again"));
+    terminate_normally(system);
+    format!("{observed} nameReused=true systemTerminated=true")
+}
+
+/// `MBX-TQ-05`
+fn an_event_for_a_subscriber_whose_enqueue_throws_publishes_the_swallowed_send() -> String {
+    let env = Arc::new(SpiEnv::default());
+    let system = env.system();
+    let props = env
+        .counted()
+        .with_mailbox(FaultyMailbox(Fault::EveryEnqueue));
+    let broken = system.actor_of_named(props, "broken").expect("broken");
+    wait_until(|| env.started.load(Ordering::SeqCst) == 1);
+    system
+        .event_stream()
+        .subscribe(&broken, Channel::DeadLetter);
+    system.dead_letters().tell("heads up".to_owned(), None);
+    wait_until(|| !env.dead.lock().unwrap().is_empty() && !env.errors.lock().unwrap().is_empty());
+    let line = format!(
+        "dead={} errors={} received={}",
+        SpiEnv::listed(&env.dead),
+        SpiEnv::listed(&env.errors),
+        SpiEnv::listed(&env.log)
     );
     terminate_normally(system);
     line
@@ -2480,6 +2568,14 @@ pub fn rust_lines() -> Vec<(String, String)> {
         (
             "MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught: the next send schedules the actor again",
             a_has_messages_that_throws_is_an_uncaught_error(),
+        ),
+        (
+            "MBX-TQ-04 a cleanUp that throws when the actor stops: the watcher still gets Terminated, what was queued is lost, the name is free and the system terminates",
+            a_clean_up_that_throws_does_not_stop_the_termination(),
+        ),
+        (
+            "MBX-TQ-05 an event published to a subscriber whose enqueue throws publishes the swallowed send, and the other subscribers still get the event",
+            an_event_for_a_subscriber_whose_enqueue_throws_publishes_the_swallowed_send(),
         ),
         (
             "MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order",

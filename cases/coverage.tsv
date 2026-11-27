@@ -2982,6 +2982,8 @@ mb-0035	oracle-mailbox	AC-CELL-027	cited
 mb-0036	oracle-mailbox	AC-CELL-030	cited
 mb-0037	oracle-mailbox	AC-MBX-002	cited
 mb-0038	oracle-mailbox	AC-MBX-002	cited
+mb-0039	oracle-mailbox	AC-MBX-003	cited
+mb-0040	oracle-mailbox	AC-CELL-030	cited
 mb-0041	oracle-mailbox	AC-MBX-002	cited
 identify-live	scenario-identify	AC-REF-013	cited
 identify-no-sender	scenario-identify	AC-REF-013	cited
@@ -3085,7 +3087,7 @@ sc-0013	oracle-scheduler	AC-SCH-002,AC-SCH-009	cited
 cf-resume-into-create	scenario-close-parity	AC-SUP-011	cited
 cf-recreate-into-create	scenario-close-parity	AC-SUP-011	cited
 kl-default-stop-logged	scenario-close-parity	AC-CELL-012	cited
-cl-error-through-user	scenario-throwable-class	AC-SUP-004	cited
+cl-error-through-user	scenario-throwable-class	AC-SUP-004,AC-SUP-008	cited
 cl-top-creator-stops	scenario-throwable-class	AC-SUP-004	cited
 cl-user-restarts	scenario-throwable-class	AC-SUP-004	cited
 cl-checked-restarts	scenario-throwable-class	AC-SUP-004	cited
