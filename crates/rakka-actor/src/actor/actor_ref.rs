@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::actor::ActorPath;
 use crate::actor::props::AnyMessage;
 use crate::dispatch::sysmsg::SystemMessage;
+use crate::event::EventStream;
 
 /// `InternalActorRef`: what the runtime can do with any reference.
 pub(crate) trait InternalActorRef: Send + Sync {
@@ -17,6 +18,11 @@ pub(crate) trait InternalActorRef: Send + Sync {
     fn stop(&self);
     /// `isTerminated` (internal API in Pekko): the mailbox is closed.
     fn is_terminated(&self) -> bool;
+    /// For `deadLetters`, the stream it publishes into; `None` for every other reference. It counts as terminated but
+    /// never answers a `Watch` for itself, so the event stream cannot learn of its death and keeps it subscribed.
+    fn dead_letters_stream(&self) -> Option<&EventStream> {
+        None
+    }
     /// `getParent` of a reference with a cell (`ActorRefWithCell`); `None` for the others.
     fn parent(&self) -> Option<ActorRef> {
         None

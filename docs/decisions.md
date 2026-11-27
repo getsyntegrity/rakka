@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 268 decisiones: 0 bloqueantes, 188 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 269 decisiones: 0 bloqueantes, 189 propuestas, 65 aceptadas, 12 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1049,6 +1049,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** REF
 - **Origen:** classic-cell
 
+### Q-REF-12 — deadLetters suscrito al canal DeadLetter de su propio event stream
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorRef.scala:708-715 ; event/EventStream.scala:51-54 ; sonda 2.0.0: StackOverflowError desde tell tras miles de copias a los demás suscriptores
+- **Alternativas:** (a) no entregar ese canal al deadLetters del mismo stream: los demás reciben cada DeadLetter una vez (conducta actual) / (b) recursar hasta una profundidad fija / (c) rechazar la suscripción
+- **Recomendación:** (a). Consecuencia: no hay StackOverflowError ni copias repetidas; recursar en Rust abortaría el proceso. Dos sistemas que se suscriban mutuamente sus deadLetters siguen recursando. Bloquea el cierre de AC-EVT-006.
+- **Filas afectadas:** AC-EVT-006
+- **Unidades afectadas:** EVT
+- **Origen:** classic-cell
+
 ### Q-RT-1 — Routing en el hilo del emisor y Router inmutable: mensajes dinamicos y estado atomico
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -1139,12 +1149,12 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** SCH
 - **Origen:** classic-dispatch
 
-### Q-SCH-5 — API de `scheduleOnce`: tipo del retardo y executor implícito
+### Q-SCH-5 — API de `scheduleOnce` y `scheduleWithFixedDelay`: tipo del retardo y executor implícito
 
 - **Estado:** propuesta (sin decisión del Owner)
 - **Evidencia:** Scheduler.scala:355-419 (delay: FiniteDuration; implicit ExecutionContext y sender); LightArrayRevolverScheduler.scala:181-186,223-253 (delay <= 0 envía de inmediato, sea cero o negativo); crates/rakka-actor/src/util/clock.rs (FixedDelayScheduler ya usa std::time::Duration)
 - **Alternativas:** (a) `std::time::Duration` y sin parámetro de executor: el envío corre en el dispatcher por defecto; (b) duración con signo (i64 nanosegundos, como `Timeout`, Q-UTIL-1); (c) parámetro de executor explícito
-- **Recomendación:** (a), implementada provisionalmente: un retardo negativo no se puede expresar y se comporta en Pekko igual que cero; el port aún no expone ningún ExecutionContext. Un retardo de más de i64::MAX ns (inexpresable en Pekko) se rechaza como demasiado lejano, con los segundos saturados en el texto
+- **Recomendación:** (a), implementada provisionalmente: un retardo negativo no se puede expresar (en `scheduleOnce` y en el retardo inicial Pekko lo trata como cero; como `delay` de `scheduleWithFixedDelay` lanza `IllegalArgumentException`); el port aún no expone ningún ExecutionContext. Un retardo de más de i64::MAX ns (inexpresable en Pekko) se rechaza como demasiado lejano, con los segundos saturados en el texto
 - **Filas afectadas:** AC-SCH-001
 - **Unidades afectadas:** SCH
 - **Origen:** classic-dispatch

@@ -242,6 +242,9 @@ impl InternalActorRef for DeadLetters {
     fn is_terminated(&self) -> bool {
         true // `EmptyLocalActorRef.isTerminated`
     }
+    fn dead_letters_stream(&self) -> Option<&EventStream> {
+        Some(&self.events)
+    }
 }
 
 /// `theOneWhoWalksTheBubblesOfSpaceTime`: the root guardian's supervisor; its death ends the system.
