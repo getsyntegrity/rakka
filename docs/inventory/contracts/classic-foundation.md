@@ -1317,7 +1317,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 | `zeroLong`, `oneLong`, `oneInt` | closure que devuelve `0_i64`, `1_i64`, `1_i32` |
 | `nullFun` | closure que devuelve `None` (no hay `null`) |
 
-A1 (`fun.apply(value) == value` por referencia, ConstantFunJavaTest) **es observable** en Rust: `std::ptr::eq(std::convert::identity(&value), &value)`. Se cumple por la firma `fn identity<T>(x: T) -> T`, que sólo puede devolver su argumento; no se porta como test porque rakka no tiene código propio aquí y el test probaría la biblioteca estándar. A2 (la misma instancia de función para cualquier `T`) es identidad de objeto en la JVM y no tiene correspondencia: no se reproduce.
+A1 (`fun.apply(value) == value` por referencia, ConstantFunJavaTest) **es observable** en Rust: `std::ptr::eq(std::convert::identity(&value), &value)`. Portada en `crates/rakka-actor/tests/constant_fun_spec.rs` (`identity_returns_the_very_value_it_was_given`): unitaria y de caracterización, no RED (la función es de la biblioteca estándar, así que pasa al escribirse; `cargo test -p rakka-actor --test constant_fun_spec`, 1 passed, 2026-11-28). A2 (la misma instancia de función para cualquier `T`) es identidad de objeto en la JVM y no tiene correspondencia: no se reproduce.
 
 ---
 
@@ -2186,7 +2186,7 @@ AC-UTIL-006.4 sigue `partial` por Q-UTIL-24 (`++` entre iteradores).
 
 **Actualización P77 (2026-11-18, Pekko 2.0.0).** `util/ccompat/*` y `compat/Future` están eliminados en 2.0.0 (MiMa `remove-scala-2.12-support.excludes`): eliminado en 2.0.0, no es exclusión (respuesta del Owner a Q-UTIL-11, 2026-11-18). Sin tipo ni caso; `fold/reduce/find` sobre futuros se valida en sus consumidores (AC-DSP-017.2). Cierre pendiente de Q-UTIL-27.
 
-**Cierre 2026-11-28 (Q-UTIL-27 (a), aceptada): ELIMINADO EN 2.0.0, no implementado.** Sin tipos ni funciones en rakka.
+**Cierre 2026-11-28 (Q-UTIL-27 (a), aceptada): ELIMINADO EN 2.0.0, no implementado.** Sin tipos ni funciones en rakka. Corrección a los párrafos anteriores: `compat.Future` ya no existe y no queda nada que validar en consumidores; AC-DSP-017.2 cubre los ayudantes Java `dispatch.Futures` y `CompletionStages`, no `compat.Future`.
 
 
 ---
