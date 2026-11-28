@@ -397,6 +397,10 @@ pa-0395	path-address	VAL-FP-04 [a b in '']
 pa-0396	path-address	VAL-JAPI-01 ActorPaths.validatePathElement($x)
 pa-0397	path-address	VAL-JAPI-02 ActorPaths.validatePathElement(x, /p)
 pa-0398	path-address	VAL-JAPI-03 ActorPaths.isValidPathElement(a)
+pa-0399	path-address	UID-08 root.withUid(0) value
+pa-0400	path-address	UID-09 child#3.withUid(3) value
+pa-0401	path-address	NAV-05 parent and root of the root
+pa-0402	path-address	NAV-06 parent and root of a child
 uc-0001	util-core	TO-01 Timeout.zero
 uc-0002	util-core	TO-02 Timeout(3, NANOSECONDS)
 uc-0003	util-core	TO-MAX NANOSECONDS

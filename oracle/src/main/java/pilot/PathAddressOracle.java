@@ -454,6 +454,10 @@ final class PathAddressOracle {
     run("VAL-JAPI-01 ActorPaths.validatePathElement($x)", () -> { ActorPaths.validatePathElement("$x"); return "ok"; });
     run("VAL-JAPI-02 ActorPaths.validatePathElement(x, /p)", () -> { ActorPaths.validatePathElement("x y", "/p"); return "ok"; });
     run("VAL-JAPI-03 ActorPaths.isValidPathElement(a)", () -> "valid=" + ActorPaths.isValidPathElement("a"));
-    
+    // UID-01, UID-06, NAV-01 and NAV-02 by value only (no `eq`), for the public API; appended so no recorded case is renumbered
+    run("UID-08 root.withUid(0) value", () -> { ActorPath w = root(mysys).withUid(0); return "equal=" + w.equals(root(mysys)) + " " + path(w); });
+    run("UID-09 child#3.withUid(3) value", () -> { ActorPath c = root(mysys).$div("a#3"); ActorPath w = c.withUid(3); return "equal=" + w.equals(c) + " " + path(w); });
+    run("NAV-05 parent and root of the root", () -> { ActorPath r = root(mysys); return "parent " + path(r.parent()) + " | root " + path(r.root()); });
+    run("NAV-06 parent and root of a child", () -> { ActorPath c = root(mysys).$div("a#7").$div("b#4"); return "parent " + path(c.parent()) + " | grandparent " + path(c.parent().parent()) + " | root " + path(c.root()); });
   }
 }

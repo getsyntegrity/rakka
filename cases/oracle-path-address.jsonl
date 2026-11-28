@@ -396,3 +396,7 @@
 {"name": "pa-0396", "args": ["path-address-case"], "stdin": "VAL-JAPI-01 ActorPaths.validatePathElement($x)"}
 {"name": "pa-0397", "args": ["path-address-case"], "stdin": "VAL-JAPI-02 ActorPaths.validatePathElement(x, /p)"}
 {"name": "pa-0398", "args": ["path-address-case"], "stdin": "VAL-JAPI-03 ActorPaths.isValidPathElement(a)"}
+{"name": "pa-0399", "args": ["path-address-case"], "stdin": "UID-08 root.withUid(0) value"}
+{"name": "pa-0400", "args": ["path-address-case"], "stdin": "UID-09 child#3.withUid(3) value"}
+{"name": "pa-0401", "args": ["path-address-case"], "stdin": "NAV-05 parent and root of the root"}
+{"name": "pa-0402", "args": ["path-address-case"], "stdin": "NAV-06 parent and root of a child"}

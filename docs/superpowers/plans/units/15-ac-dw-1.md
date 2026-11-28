@@ -11,7 +11,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-DW-001, AC-DW-003, AC-DW-004,
 ## Prerrequisitos
 
 - Spec 04 `AC-REF-1` (`04-ac-ref-1.md`), por las filas AC-REF-015.
-- Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-004, AC-CELL-013.1, AC-CELL-013.3, AC-CELL-014.
+- Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-004, AC-CELL-013.1, AC-CELL-014.
 - Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-004.
 - Spec 16 `AC-EXT-1` (`16-ac-ext-1.md`), por las filas AC-EXT-001.1, AC-EXT-001.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-016.

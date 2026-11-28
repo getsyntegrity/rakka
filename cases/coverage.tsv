@@ -397,6 +397,10 @@ pa-0395	oracle-path-address	AC-PATH-001,AC-PATH-002,AC-PATH-003,AC-PATH-004,AC-P
 pa-0396	oracle-path-address	AC-PATH-001,AC-PATH-002,AC-PATH-003,AC-PATH-004,AC-PATH-005,AC-PATH-006,AC-PATH-007,AC-PATH-008,AC-PATH-009,AC-PATH-010,AC-PATH-011,AC-PATH-012,AC-PATH-013,AC-PATH-014,AC-PATH-015,AC-PATH-016	same-group
 pa-0397	oracle-path-address	AC-PATH-001,AC-PATH-002,AC-PATH-003,AC-PATH-004,AC-PATH-005,AC-PATH-006,AC-PATH-007,AC-PATH-008,AC-PATH-009,AC-PATH-010,AC-PATH-011,AC-PATH-012,AC-PATH-013,AC-PATH-014,AC-PATH-015,AC-PATH-016	same-group
 pa-0398	oracle-path-address	AC-PATH-001,AC-PATH-002,AC-PATH-003,AC-PATH-004,AC-PATH-005,AC-PATH-006,AC-PATH-007,AC-PATH-008,AC-PATH-009,AC-PATH-010,AC-PATH-011,AC-PATH-012,AC-PATH-013,AC-PATH-014,AC-PATH-015,AC-PATH-016	same-group
+pa-0399	oracle-path-address	AC-PATH-011	cited
+pa-0400	oracle-path-address	AC-PATH-011	cited
+pa-0401	oracle-path-address	AC-PATH-010	cited
+pa-0402	oracle-path-address	AC-PATH-010	cited
 uc-0001	oracle-util-core	AC-UTIL-001	cited
 uc-0002	oracle-util-core	AC-UTIL-001,AC-UTIL-002.1,AC-UTIL-002.2,AC-UTIL-002.3,AC-UTIL-003.1,AC-UTIL-003.2,AC-UTIL-004.1,AC-UTIL-004.2	same-group
 uc-0003	oracle-util-core	AC-UTIL-001,AC-UTIL-002.1,AC-UTIL-002.2,AC-UTIL-002.3,AC-UTIL-003.1,AC-UTIL-003.2,AC-UTIL-004.1,AC-UTIL-004.2	same-group
@@ -813,8 +817,8 @@ ord-4-concurrent-senders	scenario-2b	AC-DSP-002,AC-MBX-002,AC-REF-003	same-group
 ord-8-concurrent-senders	scenario-2b	AC-DSP-002,AC-MBX-002,AC-REF-003	cited
 ord-same-sender-two-bursts	scenario-2b	AC-REF-003	cited
 dl-after-stop-no-sender	scenario-2b	AC-REF-002	cited
-dl-after-stop-explicit-sender	scenario-2b	AC-MBX-021,AC-REF-002	cited
-dl-after-stop-several	scenario-2b	AC-MBX-021	cited
+dl-after-stop-explicit-sender	scenario-2b	AC-MBX-021,AC-REF-002,AC-CELL-013.3	cited
+dl-after-stop-several	scenario-2b	AC-MBX-021,AC-CELL-013.3	cited
 dl-after-stop-seq-50	scenario-2b	AC-MBX-003	cited
 dl-after-poison-pill	scenario-2b	AC-CELL-011	cited
 dl-to-deadletters-no-sender	scenario-2b	AC-REF-016	cited
@@ -847,7 +851,7 @@ tput-interleaved-enqueue	scenario-2b	-	none
 tput-single-actor-thr2	scenario-2b	AC-DSP-003,AC-MBX-002	cited
 tput-default-settings-single-actor	scenario-2b	-	none
 tput-thr1-two-threads-invariants	scenario-2b	AC-DSP-002,AC-REF-003	cited
-turn-stop-on-in-queue-dl	scenario-2b	AC-MBX-002,AC-MBX-003,AC-MBX-021	cited
+turn-stop-on-in-queue-dl	scenario-2b	AC-MBX-002,AC-MBX-003,AC-MBX-021,AC-CELL-013.3	cited
 turn-pill-in-queue	scenario-2b	AC-CELL-011	cited
 turn-pill-first	scenario-2b	AC-CELL-011,AC-DSP-003,AC-MBX-003	cited
 turn-stop-op-vs-queue-invariant	scenario-2b	-	none
@@ -2998,6 +3002,8 @@ sv-mid-restart	scenario-restart-survivors	AC-SUP-015,AC-CELL-013.2	cited
 sv-three-levels-kill	scenario-restart-survivors	AC-SUP-015	cited
 sv-postrestart-once	scenario-restart-survivors	AC-SUP-019,AC-CELL-007.4	cited
 sv-fatal-resume	scenario-restart-survivors	AC-SUP-019,AC-CELL-007.4	cited
+sv-three-levels-order	scenario-restart-survivors	AC-SUP-015	cited
+sv-fatal-again	scenario-restart-survivors	AC-SUP-019	cited
 sf-failed-until-resumed	scenario-stash-failed	AC-CELL-013.2	cited
 sf-suspended-with-parent	scenario-stash-failed	AC-CELL-013.2	cited
 sf-decided-after-restart	scenario-stash-failed	AC-CELL-013.2	cited
@@ -3034,6 +3040,7 @@ cm-resumed	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
 cm-resumed-then-message	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
 cm-failed-then-stopped	scenario-current-message	AC-CELL-020	cited
 cm-hook-error-class	scenario-current-message	AC-CELL-007.1	cited
+cm-reply-in-post-stop	scenario-current-message	AC-CELL-009	cited
 ur-default	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-default-pact	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-default-watch-with	scenario-pre-restart-unwatch	AC-CELL-006,AC-DW-005	cited
@@ -3109,3 +3116,5 @@ cl-stopping-stops	scenario-throwable-class	AC-SUP-005	cited
 cl-stopping-escalates	scenario-throwable-class	AC-SUP-005	cited
 gf-kill-system	scenario-guardian-failure	AC-SUP-014	cited
 gf-kill-user	scenario-guardian-failure	AC-SUP-014,AC-SYS-008	cited
+dl-sysmsg-after-close	scenario-closed-cell	AC-CELL-013.3	cited
+dl-sysmsg-pending-close	scenario-closed-cell	AC-CELL-013.3	cited

@@ -425,6 +425,12 @@ struct Behavior {
     pre_restart_throws: Option<Option<String>>,
     /// `post-stop-throws: <message or null>`: `postStop` records its event and then fails
     post_stop_throws: Option<Option<String>>,
+    /// `post-stop-reply: message`: `postStop` sends it to `sender()`
+    post_stop_reply: Option<String>,
+    /// `post-stop-gate`: `postStop` waits for the harness `release` after recording its event
+    post_stop_gate: bool,
+    /// `throw-after-gate`: the `gate` message fails once the harness releases it
+    throw_after_gate: bool,
     /// `constructor-fails-from: n`: the actor factory throws IllegalStateException("ctor") from the n-th instance on
     constructor_fails_from: Option<u64>,
     ignore_terminated: bool,
@@ -524,6 +530,9 @@ impl Behavior {
             stop_without_unwatch: matches!(v.get("stop-without-unwatch"), Some(Value::Bool(true))),
             pre_restart_throws: v.get("pre-restart-throws").map(Value::as_str),
             post_stop_throws: v.get("post-stop-throws").map(Value::as_str),
+            post_stop_reply: s("post-stop-reply"),
+            post_stop_gate: matches!(v.get("post-stop-gate"), Some(Value::Bool(true))),
+            throw_after_gate: matches!(v.get("throw-after-gate"), Some(Value::Bool(true))),
             constructor_fails_from: match v.get("constructor-fails-from") {
                 Some(Value::Number(n)) => Some(*n as u64),
                 _ => None,
@@ -761,6 +770,13 @@ impl Actor for Scripted {
         let sender = self.logged_sender(c);
         self.ctx.add(&self.label, Event::PostStop { sender });
         self.ctx.life(format!("{}:post-stop", self.label));
+        if self.cfg.post_stop_gate {
+            self.ctx.wait_gate();
+        }
+        if let Some(reply) = &self.cfg.post_stop_reply {
+            let me = c.self_ref();
+            c.sender().tell(reply.clone(), Some(&me));
+        }
         if let Some(n) = &self.cfg.post_stop_spawn {
             // creating a child while terminating
             let mut r = String::new();
@@ -871,7 +887,12 @@ impl Actor for Scripted {
                     }
                 }
             }
-            "gate" if m.as_deref() == Some("block") => self.ctx.wait_gate(),
+            "gate" if m.as_deref() == Some("block") => {
+                self.ctx.wait_gate();
+                if self.cfg.throw_after_gate {
+                    throw(Throwable::illegal_state("block"));
+                }
+            }
             _ => {}
         }
         true
@@ -1433,6 +1454,22 @@ fn step(
                 entry.push(m.clone());
                 r.tell(m, sender.as_ref());
             }
+            out.push_str(",\"ok\":true");
+        }
+        // tells an actor a `DeadLetter`, which the dead-letter mailbox of a stopped one drops
+        "tell-dead-letter" => {
+            let r = lookup(
+                system,
+                ctx,
+                &label("ref").ok_or("tell-dead-letter needs ref")?,
+            )
+            .ok_or("unknown ref")?;
+            let message = DeadLetter {
+                message: Arc::new(String::from("wrapped")),
+                sender: system.dead_letters(),
+                recipient: system.dead_letters(),
+            };
+            r.tell_any(Arc::new(message), None);
             out.push_str(",\"ok\":true");
         }
         "release" => {
