@@ -224,6 +224,14 @@ pub const PENDING: &[(&str, &str)] = &[
         "MBX-UT-09 a child created in preStart while the hand-over is in progress waits for the hand-over to end: the reference's lock is held across replaceWith",
         "needs the unstarted reference and the real cell (internal): produced in-crate by actor::unstarted_push_timeout_tests (is_started during the hand-over) and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (Q-MBX-11, slice C4)",
     ),
+    (
+        "MBX-SU-01 an actor that is already failed and fails again is suspended again, with its other child: two resumes are needed",
+        "reads mailbox state (internal): produced in-crate by actor::suspension_oracle_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (AC-SUP-010)",
+    ),
+    (
+        "MBX-SU-02 an actor that fails inside a suspension that is not its own failure is suspended again, with its other child: the resume of its supervisor does not suffice",
+        "sends the internal Suspend/Resume system messages and reads mailbox state: produced in-crate by actor::suspension_oracle_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (AC-SUP-010)",
+    ),
 ];
 
 fn state(status: &MailboxStatus) -> String {

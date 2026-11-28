@@ -88,3 +88,5 @@ MBX-TQ-03 a hasMessages that throws at the end of a turn is reported as uncaught
 MBX-TQ-04 a cleanUp that throws when the actor stops: the watcher still gets Terminated, what was queued is lost, the name is free and the system terminates
 MBX-TQ-05 an event published to a subscriber whose enqueue throws publishes the swallowed send, and the other subscribers still get the event
 MBX-TQ-06 a subscriber whose enqueue throws on the uncaught-error report: the others get both that report and the swallowed send, in no guaranteed order
+MBX-SU-01 an actor that is already failed and fails again is suspended again, with its other child: two resumes are needed
+MBX-SU-02 an actor that fails inside a suspension that is not its own failure is suspended again, with its other child: the resume of its supervisor does not suffice

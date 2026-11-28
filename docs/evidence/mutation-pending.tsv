@@ -90,3 +90,4 @@ slice/classic-actorref-uid-2	9ace63cc	421	guardian-swallows-unknown-messages	non
 chore/q-cell-8-registration	-	0	none	none	0 selected (documentation only); none run (Q-X-23)	PENDING
 fix/classic-mailbox-golden-uid	-	0	none	none	0 selected (oracle golden only); none run (Q-X-23)	PENDING
 slice/classic-suspension-1	4349158a	419	recursive-suspension-does-not-stack	none	419 not run (Q-X-23)	PENDING
+slice/classic-suspension-2	358bd834	420	failure-inside-a-suspension-does-not-count	none	420 not run (Q-X-23)	PENDING

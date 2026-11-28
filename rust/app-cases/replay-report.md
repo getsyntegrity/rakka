@@ -1,12 +1,34 @@
 # App replay
 
-Build: `/Users/pablogore/workspace/pablogore/rakka/.claude/worktrees/agent-a2c4039c5ae22ba7c/.gates/binaries/7104569e949102094d12e127829d63d260ec24ea3f62529da07a5e2334669a91/classic-parity`
+Build: `$TMPDIR/pekko-mutants-ksnq9r1a/target-concatenation-number-loses-trailing-zeros/release/examples/classic-parity`
 
-Passed: 3257/3258
+Passed: 2942/2945
 
 Fallback rate: not reported by this build
 
 ## Failing cases
+
+### dp-0080
+
+Arguments: `deploy-case`
+
+stdout:
+
+```diff
+- TS-36 toString with a number with a trailing zero before a substitution -> ok Deploy(/a, Config(SimpleConfigObject({"a":"1.50 "${x}})), NoRouter, NoScopeGiven, , , Set())
++ TS-36 toString with a number with a trailing zero before a substitution -> ok Deploy(/a, Config(SimpleConfigObject({"a":"1.5 "${x}})), NoRouter, NoScopeGiven, , , Set())
+```
+
+### dp-0084
+
+Arguments: `deploy-case`
+
+stdout:
+
+```diff
+- TS-40 toString with a number after a substitution -> ok Deploy(/a, Config(SimpleConfigObject({"a":${x}" 1.50"})), NoRouter, NoScopeGiven, , , Set())
++ TS-40 toString with a number after a substitution -> ok Deploy(/a, Config(SimpleConfigObject({"a":${x}" 1.5"})), NoRouter, NoScopeGiven, , , Set())
+```
 
 ### ok-user-info-lone-surrog
 
