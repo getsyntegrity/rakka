@@ -30,6 +30,8 @@ pub mod scheduler;
 mod scheduler_tests;
 pub mod selection;
 pub mod supervision;
+#[cfg(test)]
+mod supervision_stress_tests;
 pub mod system;
 mod timer_wheel;
 #[cfg(test)]
