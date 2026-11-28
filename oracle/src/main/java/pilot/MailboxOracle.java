@@ -1543,6 +1543,22 @@ final class MailboxOracle {
         return e.afterTermination();
       }
     });
+    run("MBX-GRD-05 a configured guardian strategy that escalates: a top-level actor fails, the root guardian logs and stops /user and the system terminates", () -> {
+      try (GuardianEnv e = new GuardianEnv("pekko.actor.guardian-supervisor-strategy = \"pilot.GuardianStrategies$Escalate\"\n")) {
+        e.treeUnderUser();
+        e.sys.actorOf(Props.create(Dies.class), "d").tell("die", ActorRef.noSender());
+        return e.afterTermination();
+      }
+    });
+    run("MBX-GRD-06 a guardian-supervisor-strategy that names no class: ActorSystem creation throws", () -> {
+      try (AutoCloseable mute = Scenario.muteStandardOutput()) {
+        ActorSystem.create("mbx", ConfigFactory.parseString("pekko.stdout-loglevel = OFF\npekko.loglevel = OFF\n"
+            + "pekko.actor.guardian-supervisor-strategy = \"no.SuchStrategy\"\n").withFallback(ConfigFactory.load())).terminate();
+        return "created";
+      } catch (Exception e) {
+        return e.getClass().getName() + ": " + e.getMessage();
+      }
+    });
     run("MBX-RJ-08 an attach rejected twice while /user supervises: the root guardian stops /user and the system terminates", () -> {
       try (GuardianEnv e = new GuardianEnv()) {
         e.treeUnderUser();
@@ -1679,14 +1695,21 @@ final class MailboxOracle {
     @Override public Receive createReceive() { return receiveBuilder().matchAny(m -> getSender().tell(m, getSelf())).build(); }
   }
 
+  /** Throws {@code Exception("hello")} on every message ({@code ActorSystemSpec} "shut down when /user escalates"). */
+  public static final class Dies extends AbstractActor {
+    @Override public Receive createReceive() { return receiveBuilder().matchAny(m -> { throw new Exception("hello"); }).build(); }
+  }
+
   /** A system whose {@code log.error} publishes ({@link Scenario#PUBLISH_LOG_ERRORS}) and a recorder of every {@code Logging.Error} that is not an
    *  actor: a FunctionRef runs on the publishing thread, so no suspended or stopped guardian can hide an error. */
   static final class GuardianEnv implements AutoCloseable {
     final ConcurrentLinkedQueue<String> errors = new ConcurrentLinkedQueue<>(), stopped = new ConcurrentLinkedQueue<>();
     final AutoCloseable mute = Scenario.muteStandardOutput();
-    final ActorSystem sys = ActorSystem.create("mbx", ConfigFactory.parseString(Scenario.PUBLISH_LOG_ERRORS + "pekko.stdout-loglevel = OFF\n"
-        + "rej-disp { type = Dispatcher\n executor = \"pilot.MailboxOracle$RejectingConfigurator\" }\n").withFallback(ConfigFactory.load()));
-    GuardianEnv() throws Exception {
+    final ActorSystem sys;
+    GuardianEnv() throws Exception { this(""); }
+    GuardianEnv(String extraConfig) throws Exception {
+      sys = ActorSystem.create("mbx", ConfigFactory.parseString(Scenario.PUBLISH_LOG_ERRORS + "pekko.stdout-loglevel = OFF\n" + extraConfig
+          + "rej-disp { type = Dispatcher\n executor = \"pilot.MailboxOracle$RejectingConfigurator\" }\n").withFallback(ConfigFactory.load()));
       ActorRef host = ((ExtendedActorSystem) sys).systemActorOf(Props.create(Tree.class, new ConcurrentLinkedQueue<String>(), (Object) null), "recorder");
       Patterns.ask(host, "started?", java.time.Duration.ofSeconds(10)).toCompletableFuture().get(); // until then its cell is unstarted
       FunctionRef recorder = ((ActorCell) ((ActorRefWithCell) host).underlying()).addFunctionRef((sender, message) -> {

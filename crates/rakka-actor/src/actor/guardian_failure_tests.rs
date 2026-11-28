@@ -8,9 +8,10 @@ use std::time::{Duration, Instant};
 
 use crate::actor::ActorPath;
 use crate::actor::actor_ref::{ActorRef, InternalActorRef};
-use crate::actor::fault::Throwable;
+use crate::actor::fault::{Throwable, throw};
 use crate::actor::props::{Actor, ActorContext, AnyMessage, Kill, Props};
-use crate::actor::system::ActorSystem;
+use crate::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategies};
+use crate::actor::system::{ActorSystem, Settings};
 use crate::dispatch::sysmsg::SystemMessage;
 use crate::event::{Channel, ErrorEvent};
 
@@ -128,6 +129,11 @@ fn line_after_killing(path: &str) -> String {
     let recorder = record_errors(&system);
     let seen = tree_under_user(&system);
     system.actor_selection(path).tell(Kill, None);
+    line_after_termination(&system, &recorder, &seen)
+}
+
+/// What the oracle's `afterTermination` prints once the system has terminated.
+fn line_after_termination(system: &ActorSystem, recorder: &ErrorRecorder, seen: &Seen) -> String {
     let terminated = system
         .when_terminated()
         .wait(WAIT)
@@ -145,6 +151,71 @@ fn line_after_killing(path: &str) -> String {
 #[test]
 fn a_killed_user_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates() {
     assert_eq!(line_after_killing("/user"), recorded("MBX-GRD-02"));
+}
+
+/// `/user/d` throws `Exception("hello")` on any message.
+struct Dies;
+
+impl Actor for Dies {
+    fn receive(&mut self, _: &mut ActorContext, _: &AnyMessage) -> bool {
+        throw(Throwable::new("java.lang.Exception", Some("hello")))
+    }
+}
+
+/// Throws `Exception("hello")` on any message and counts its restarts.
+struct CountsRestarts(Arc<AtomicUsize>);
+
+impl Actor for CountsRestarts {
+    fn post_restart(&mut self, _: &mut ActorContext, _: &Throwable) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+    fn receive(&mut self, _: &mut ActorContext, _: &AnyMessage) -> bool {
+        throw(Throwable::new("java.lang.Exception", Some("hello")))
+    }
+}
+
+/// The configured strategy is `/user`'s only: `systemGuardianStrategy` is the default one (ActorRefProvider.scala:534-539).
+#[test]
+fn the_system_guardian_keeps_the_default_strategy_when_the_user_guardian_is_configured() {
+    let settings = Settings {
+        guardian_supervisor_strategy: SupervisorStrategies::STOPPING.to_owned(),
+        ..Settings::default()
+    };
+    let system = ActorSystem::create_with_settings("sys-default", settings).unwrap();
+    let restarts = Arc::new(AtomicUsize::new(0));
+    let counted = restarts.clone();
+    let system_guardian = system.0.system_guardian.get().expect("initialised");
+    let props = Props::new(move || CountsRestarts(counted.clone()));
+    let system_child = system_guardian
+        .attach_child(props, Some("child"), true)
+        .unwrap();
+    let user_child = system.actor_of(Props::new(|| Dies)).unwrap();
+
+    system_child.tell("die", None);
+    user_child.tell("die", None);
+
+    wait_until("a restart under /system and a stop under /user", || {
+        restarts.load(Ordering::SeqCst) == 1 && user_child.is_terminated()
+    });
+    assert!(!system_child.is_terminated());
+}
+
+#[test]
+fn an_escalating_guardian_strategy_has_the_root_log_and_stop_the_user_guardian() {
+    let mut settings = Settings::default();
+    settings.supervisor_strategies.register("escalate", || {
+        OneForOneStrategy::new(-1, |_| Directive::Escalate).into()
+    });
+    settings.guardian_supervisor_strategy = "escalate".to_owned();
+    let system = ActorSystem::create_with_settings("mbx", settings).unwrap();
+    let recorder = record_errors(&system);
+    let seen = tree_under_user(&system);
+    let dies = system.actor_of_named(Props::new(|| Dies), "d").unwrap();
+    dies.tell("die", None);
+    assert_eq!(
+        line_after_termination(&system, &recorder, &seen),
+        recorded("MBX-GRD-05")
+    );
 }
 
 #[test]
