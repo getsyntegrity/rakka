@@ -1,17 +1,19 @@
 # Spec 13 — AC-SYS (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 27. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 25. **Tareas:** 5 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
+
+Filas ya `done` en esta unidad (no se reabren): AC-SYS-001.1, AC-SYS-007.
 
 ## Prerrequisitos
 
 - Spec 03 `AC-CFG-1` (`03-ac-cfg-1.md`), por las filas AC-CFG-001, AC-CFG-005, AC-CFG-007, AC-CFG-008, AC-CFG-015.
 - Spec 16 `AC-EXT-1` (`16-ac-ext-1.md`), por las filas AC-EXT-001.2, AC-EXT-003. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-006, AC-EVT-007, AC-EVT-009, AC-EVT-010, AC-EVT-011, AC-EVT-015.
-- Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-004, AC-CELL-015.1, AC-CELL-015.2.
+- Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-004.
 - Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-014. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 20 `AC-CS-1` (`20-ac-cs-1.md`), por las filas AC-CS-004.1, AC-CS-004.2, AC-CS-004.3, AC-CS-006.1, AC-CS-006.2, AC-CS-009. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 07 `AC-DSP-1` (`07-ac-dsp-1.md`), por las filas AC-DSP-001, AC-DSP-006, AC-DSP-007, AC-DSP-015.
@@ -38,45 +40,45 @@ casos rust-anything contra Pekko 2.0.0 (JDK 17) con `oracle/` y `tools/parity/` 
 
 ## Tareas
 
-### Tarea 1: Validación del nombre de ActorSystem (regex y mensaje) (+5 filas)
+### Tarea 1: Constructores de ActorSystem: apply/create y sus sobrecargas, nombre por defecto "default" (+5 filas)
 
-Filas: AC-SYS-001.1, AC-SYS-001.2, AC-SYS-002, AC-SYS-003.1, AC-SYS-003.2, AC-SYS-004. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
-
-1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
-2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
-3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
-4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
-
-### Tarea 2: whenTerminated / getWhenTerminated (+5 filas)
-
-Filas: AC-SYS-005, AC-SYS-006, AC-SYS-007, AC-SYS-008, AC-SYS-009, AC-SYS-010. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-SYS-001.2, AC-SYS-002, AC-SYS-003.1, AC-SYS-003.2, AC-SYS-004, AC-SYS-005. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 3: abort(): apagado forzado sin CoordinatedShutdown (+5 filas)
+### Tarea 2: registerOnTermination: callbacks en orden inverso al registro (encadenados); tras… (+5 filas)
 
-Filas: AC-SYS-011, AC-SYS-012, AC-SYS-013, AC-SYS-014, AC-SYS-015, AC-SYS-016. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
-
-1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
-2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
-3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
-4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
-
-### Tarea 4: Actores temporales: tempPath, tempContainer, registerTempActor/unregisterTempActor (+5 filas)
-
-Filas: AC-SYS-017, AC-SYS-018, AC-SYS-019, AC-SYS-020, AC-SYS-021, AC-SYS-022. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-SYS-006, AC-SYS-008, AC-SYS-009, AC-SYS-010, AC-SYS-011, AC-SYS-012. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 5: assertInitialized: guardia contra uso del sistema durante la inicialización (+2 filas)
+### Tarea 3: ExtendedActorSystem: provider, guardian, systemGuardian, systemActorOf, threadFactory,… (+5 filas)
 
-Filas: AC-SYS-023, AC-SYS-024, AC-SYS-025. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-SYS-013, AC-SYS-014, AC-SYS-015, AC-SYS-016, AC-SYS-017, AC-SYS-018. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 4: terminationFuture del proveedor y 'bubble-walker' (theOneWhoWalksTheBubblesOfSpaceTime) (+5 filas)
+
+Filas: AC-SYS-019, AC-SYS-020, AC-SYS-021, AC-SYS-022, AC-SYS-023, AC-SYS-024. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 5: Hijos especiales del guardián raíz: temp, deadLetters y extraNames (registerExtraNames)
+
+Filas: AC-SYS-025. Contratos y aserciones: `docs/inventory/contracts/classic-system.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -87,7 +89,6 @@ Filas: AC-SYS-023, AC-SYS-024, AC-SYS-025. Contratos y aserciones: `docs/invento
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-SYS-001.1 | Validación del nombre de ActorSystem (regex y mensaje) | `ActorSystemName::parse(&str) -> Result<ActorSystemName, InvalidSystemName>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:138-165 | Q-X-5 |
 | AC-SYS-001.2 | Constructores de ActorSystem: apply/create y sus sobrecargas, nombre por… | `ActorSystem::builder(name).config(..).execution_context(..).provider(..).build()` y… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:253-264 ;… | Q-CFG-32, Q-SYS-6, Q-X-1, Q-X-4, Q-X-5 |
 | AC-SYS-002 | Secuencia de arranque (start): provider.init (guardián raíz, cadena de Watch… | `ActorSystemBuilder::build` ejecuta la secuencia y devuelve `Err` tras terminar el sistema | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:100-110 ;… | Q-SYS-4, Q-X-2, Q-X-5, Q-X-7 |
 | AC-SYS-003.1 | Jerarquía de guardianes "/", "/user", "/system" y su comportamiento ante… | `RootGuardian`, `UserGuardian`, `SystemGuardian` como actores internos | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:68-106 | Q-X-3 |
@@ -95,7 +96,6 @@ Filas: AC-SYS-023, AC-SYS-024, AC-SYS-025. Contratos y aserciones: `docs/invento
 | AC-SYS-004 | terminate(): idempotente; corre CoordinatedShutdown si… | `async fn terminate(&self) -> Terminated` y `fn terminate_nowait(&self)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:215-289 ;… | Q-X-4 |
 | AC-SYS-005 | whenTerminated / getWhenTerminated | `system.when_terminated() -> impl Future<Output=Terminated> + Clone` (Shared) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:237-264 | Q-X-4 |
 | AC-SYS-006 | registerOnTermination: callbacks en orden inverso al registro (encadenados);… | Pila de closures `Mutex<Option<Vec<Callback>>>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:215-235,266-289 | Q-X-4 |
-| AC-SYS-007 | Creación de actores durante el apagado se rechaza | `Err(SpawnError::SystemTerminating)` desde `actor_of` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:291-329 | Q-X-4, Q-X-5 |
 | AC-SYS-008 | Fallo o escalamiento de /user apaga el sistema; guardian-supervisor-strategy… | `GuardianSupervisorStrategy` cargado por nombre (Q-X-2) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:331-392 | Q-X-2, Q-X-5 |
 | AC-SYS-009 | Guardián de usuario custom (guardianProps; lo usa actor-typed) | parámetro interno `guardian_props: Option<Props>` del builder | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:394-411 ;… | Q-X-5, Q-X-8 |
 | AC-SYS-010 | systemActorOf (actores bajo /system) | `system.system_actor_of(props, name) -> Result<ActorRef>` | actor-tests/src/test/scala/org/apache/pekko/routing/ConfiguredLocalRoutingSpec.scala:196-… | - |

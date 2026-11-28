@@ -24,6 +24,16 @@
 {"name": "sysname-bad-13", "args": ["scenario"], "stdin": "{\"system\": \"\\u0661a\", \"steps\": []}"}
 {"name": "sysname-bad-14", "args": ["scenario"], "stdin": "{\"system\": \"\\uff21\", \"steps\": []}"}
 {"name": "sysname-bad-15", "args": ["scenario"], "stdin": "{\"system\": \"a\\ud83d\\ude00\", \"steps\": []}"}
+{"name": "sysname-spec-bad-0", "args": ["scenario"], "stdin": "{\"system\": \"-hallowelt\", \"steps\": []}"}
+{"name": "sysname-spec-bad-1", "args": ["scenario"], "stdin": "{\"system\": \"_hallowelt\", \"steps\": []}"}
+{"name": "sysname-spec-bad-2", "args": ["scenario"], "stdin": "{\"system\": \"hallo welt\", \"steps\": []}"}
+{"name": "sysname-spec-bad-3", "args": ["scenario"], "stdin": "{\"system\": \"hallo*welt\", \"steps\": []}"}
+{"name": "sysname-spec-bad-4", "args": ["scenario"], "stdin": "{\"system\": \"hallo@welt\", \"steps\": []}"}
+{"name": "sysname-spec-bad-5", "args": ["scenario"], "stdin": "{\"system\": \"hallo#welt\", \"steps\": []}"}
+{"name": "sysname-spec-bad-6", "args": ["scenario"], "stdin": "{\"system\": \"hallo$welt\", \"steps\": []}"}
+{"name": "sysname-spec-bad-7", "args": ["scenario"], "stdin": "{\"system\": \"hallo%welt\", \"steps\": []}"}
+{"name": "sysname-spec-bad-8", "args": ["scenario"], "stdin": "{\"system\": \"hallo/welt\", \"steps\": []}"}
+{"name": "sysname-spec-all-valid", "args": ["scenario"], "stdin": "{\"system\": \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_\", \"steps\": []}"}
 {"name": "name-ok-0", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a\", \"as\": \"x\"}]}"}
 {"name": "name-ok-1", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"A1\", \"as\": \"x\"}]}"}
 {"name": "name-ok-2", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a-b\", \"as\": \"x\"}]}"}
@@ -122,4 +132,5 @@
 {"name": "terminate-then-spawn-bad-name", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"terminate\"}, {\"op\": \"await-system-terminated\"}, {\"op\": \"spawn\", \"name\": \"a b\"}, {\"op\": \"spawn\", \"name\": \"\"}]}"}
 {"name": "terminate-then-stop", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a\", \"as\": \"a\"}, {\"op\": \"terminate\"}, {\"op\": \"await-system-terminated\"}, {\"op\": \"stop\", \"ref\": \"a\"}, {\"op\": \"await-stopped\", \"ref\": \"a\"}]}"}
 {"name": "terminate-then-terminate", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"terminate\"}, {\"op\": \"await-system-terminated\"}, {\"op\": \"terminate\"}, {\"op\": \"await-system-terminated\"}]}"}
+{"name": "terminate-while-spawning", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn-until-terminated\", \"after-ms\": 100}]}"}
 {"name": "child-terminated-after-terminate", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a\", \"as\": \"a\"}, {\"op\": \"terminate\"}, {\"op\": \"await-system-terminated\"}, {\"op\": \"await-stopped\", \"ref\": \"a\"}]}"}

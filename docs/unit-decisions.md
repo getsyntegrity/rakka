@@ -195,10 +195,11 @@
 
 ## P13 MBX-COLAS
 
-12 filas; 14 decisiones distintas en sus filas: 6 respondidas, 0 bloqueantes, 8 propuestas.
+12 filas; 15 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 8 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-MBX-12 | accepted (2026-11-24): aceptar (a) exclusivamente como LIMITACIÓN TEMPORAL de la migración, no como paridad completa: registro programático en `Settings.mailboxes` (sin FQCN ni… | 1: AC-MBX-008 | — | — | `classic-dispatch` |
 | Q-MBX-14 | accepted_with_changes (2026-11-26): aceptar con cambios: Acepto la alternativa (a), incluyendo ProducedQueue::class_name como API pública. Acepto la representación abierta de capacidades… | 1: AC-MBX-011 | — | — | `classic-dispatch` |
 | Q-MBX-15 | accepted (2026-11-26): aceptar (a): MessageQueue::as_deque() -> Option<&dyn DequeBasedMessageQueue>, con None por defecto. Registrada en owner-decisions.tsv en representación del… | 1: AC-MBX-011 | — | — | `classic-dispatch` |
 | Q-MBX-16 | accepted_with_changes (2026-11-27): ACCEPTED, opción (c), con condiciones. La exclusión del límite de 30 segundos del gate habitual es provisional. El criterio original de Pekko debe… | 1: AC-MBX-006 | — | — | `classic-dispatch` |
@@ -1101,4 +1102,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 544 (264 respondidas, 0 bloqueantes, 280 propuestas).
+Total de pares unidad–decisión: 545 (265 respondidas, 0 bloqueantes, 280 propuestas).

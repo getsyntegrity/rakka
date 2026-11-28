@@ -11,10 +11,14 @@ use common::{RunningSystem, path_of, settle_for_absence, snapshot_of, wait_until
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
+use rakka_actor::actor::system::{ActorSystem, Settings};
+use rakka_actor::dispatch::Terminated;
 use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
+use rakka_actor::dispatch::message_queue::Envelope;
 use rakka_actor::event::{Channel, DeadLetter};
 
 /// `(message, sender path, recipient path)` of a dead letter.
@@ -189,6 +193,122 @@ fn a_full_mailbox_refuses_at_once_and_the_dead_letter_names_message_sender_and_r
         2,
         "no refused message is delivered later or dead-lettered twice"
     );
+}
+
+/// `MailboxConfigSpec.scala:85-87,142-192` as `SingleConsumerOnlyMailboxSpec` (`:269-277`) runs it: capacity 10, one producer of 20
+/// finished before one consumer starts; the queue is driven directly, with a real `deadLetters`.
+#[test]
+fn spec_twenty_enqueued_and_ten_dequeued_leave_ten_dead_letters() {
+    let scenario = Scenario::new("nb-spec", 1); // its system, dead letter listener and actors; its mailbox is not used here
+    let system = &scenario._system;
+    let queue = NonBlockingBoundedMailbox::new(10)
+        .unwrap()
+        .create(system.dead_letters());
+    assert_eq!(
+        (queue.number_of_messages(), queue.has_messages()),
+        (0, false)
+    );
+    let produced: Vec<String> = (1..=20).map(|i| i.to_string()).collect();
+
+    thread::scope(|scope| {
+        scope.spawn(|| {
+            for text in &produced {
+                let envelope = Envelope {
+                    message: Arc::new(text.clone()),
+                    sender: Some(scenario.sender.clone()),
+                };
+                queue.enqueue(&scenario.actor, envelope);
+            }
+        });
+    });
+    let consumed: Vec<String> = thread::scope(|scope| {
+        let consumer = scope.spawn(|| {
+            std::iter::from_fn(|| queue.dequeue())
+                .map(|e| e.message.downcast_ref::<String>().unwrap().clone())
+                .collect()
+        });
+        consumer.join().unwrap()
+    });
+
+    assert_eq!(consumed, produced[..10], "ten consumed, each once");
+    wait_until("the ten dead letters", || scenario.dead().len() == 10);
+    settle_for_absence();
+    let refused: Vec<DeadRecord> = produced[10..]
+        .iter()
+        .map(|text| dead_record(text, &scenario))
+        .collect();
+    assert_eq!(scenario.dead(), refused);
+}
+
+struct Ping;
+
+/// Answers each `Ping` to its sender and stops after `left` of them.
+struct Ponger {
+    left: usize,
+}
+
+impl Actor for Ponger {
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if msg.downcast_ref::<Ping>().is_none() {
+            return false;
+        }
+        self.left -= 1;
+        ctx.sender().tell(Ping, Some(&ctx.self_ref()));
+        if self.left == 0 {
+            ctx.stop(&ctx.self_ref());
+        }
+        true
+    }
+}
+
+const PINGS: usize = 2_000_000;
+
+/// Creates and watches the two players, serves the first `Ping`, and stops once both are gone.
+#[derive(Default)]
+struct Referee {
+    players: Vec<ActorRef>,
+}
+
+impl Actor for Referee {
+    fn pre_start(&mut self, ctx: &mut ActorContext) {
+        for _ in 0..2 {
+            let mailbox = NonBlockingBoundedMailbox::new(1).unwrap();
+            let props = Props::new(|| Ponger { left: PINGS / 2 }).with_mailbox(mailbox);
+            let player = ctx.actor_of(props).unwrap();
+            ctx.watch(&player);
+            self.players.push(player);
+        }
+    }
+
+    fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
+        if msg.downcast_ref::<Ping>().is_some() {
+            self.players[0].tell(Ping, Some(&self.players[1]));
+        } else if msg.downcast_ref::<Terminated>().is_some() && ctx.children().is_empty() {
+            ctx.stop(&ctx.self_ref());
+        }
+        true
+    }
+}
+
+/// `MailboxConfigSpec.scala:325-327`, "support pathological ping-ponging for the bounded case": capacity 1, throughput 1.
+#[test]
+fn spec_pathological_ping_pong_with_capacity_one_and_throughput_one() {
+    let settings = Settings {
+        throughput: 1,
+        ..Settings::default()
+    };
+    let system = ActorSystem::create_with_settings("nb-ping-pong", settings).unwrap();
+    let referee = system.actor_of(Props::new(Referee::default)).unwrap();
+
+    referee.tell(Ping, None);
+
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !referee.is_terminated() && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(10));
+    }
+    let finished = referee.is_terminated();
+    let _ = system.terminate().wait(Duration::from_secs(10));
+    assert!(finished, "the game did not end within 30 s");
 }
 
 #[test]

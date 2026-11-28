@@ -7,9 +7,9 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 521 | 58 | 131 | 332 | 4 | 11.1 % | 36.3 % |
+| Classic (`rakka-actor`) | 521 | 60 | 129 | 332 | 4 | 11.5 % | 36.3 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 781 | 58 | 131 | 592 | 4 | 7.4 % | 24.2 % |
+| **Total** | 781 | 60 | 129 | 592 | 4 | 7.7 % | 24.2 % |
 
 ## Por ola
 
@@ -18,7 +18,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | 0 - valores sin runtime | 57 | 37 | 19 | 1 | 4 | 64.9 % | 98.2 % |
 | 1 - configuracion, eventos y scheduler | 70 | 10 | 40 | 20 | 0 | 14.3 % | 71.4 % |
 | 2 - nucleo del runtime Classic | 134 | 11 | 55 | 68 | 0 | 8.2 % | 49.3 % |
-| 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 16 | 29 | 0 | 0.0 % | 35.6 % |
+| 3 - sistema, proveedor, referencias y extensiones | 45 | 2 | 14 | 29 | 0 | 4.4 % | 35.6 % |
 | 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0 | 0.0 % | 0.0 % |
 | 5 - apagado, serializacion e IO | 84 | 0 | 1 | 83 | 0 | 0.0 % | 1.2 % |
 | 6 - testkit Classic y superficie Java | 50 | 0 | 0 | 50 | 0 | 0.0 % | 0.0 % |
@@ -54,7 +54,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P22 CELL-REINICIO-PARADA | 2 | 21 | 5 | 12 | 4 | 0 | 23.8 % | 81.0 % | sí |
 | P23 DW-VIGILANCIA | 2 | 13 | 4 | 5 | 4 | 0 | 30.8 % | 69.2 % | parcial |
 | P24 MBX-STASH | 2 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | sí |
-| P25 SYS-GUARDIANES | 3 | 12 | 0 | 4 | 8 | 0 | 0.0 % | 33.3 % | sí |
+| P25 SYS-GUARDIANES | 3 | 12 | 2 | 2 | 8 | 0 | 16.7 % | 33.3 % | sí |
 | P26 SYS-PROVEEDOR | 3 | 8 | 0 | 3 | 5 | 0 | 0.0 % | 37.5 % | sí |
 | P27 SCH-ACTORES | 3 | 4 | 0 | 1 | 3 | 0 | 0.0 % | 25.0 % | no |
 | P28 SELECCION-CREACION | 3 | 9 | 0 | 5 | 4 | 0 | 0.0 % | 55.6 % | sí |
@@ -140,7 +140,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-SCH | 17 | 0 | 7 | 10 | 0 | 0.0 % | 41.2 % | no |
 | AC-SER | 23 | 0 | 0 | 23 | 0 | 0.0 % | 0.0 % | no |
 | AC-SUP | 22 | 3 | 14 | 5 | 0 | 13.6 % | 77.3 % | sí |
-| AC-SYS | 27 | 0 | 7 | 20 | 0 | 0.0 % | 25.9 % | sí |
+| AC-SYS | 27 | 2 | 5 | 20 | 0 | 7.4 % | 25.9 % | sí |
 | AC-TK | 27 | 0 | 0 | 27 | 0 | 0.0 % | 0.0 % | no |
 | AC-UTIL | 65 | 38 | 20 | 7 | 4 | 58.5 % | 89.2 % | sí |
 | AT-ADP | 13 | 0 | 0 | 13 | 0 | 0.0 % | 0.0 % | no |
@@ -173,8 +173,8 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 
 ## Filas con nota «revisar contra 2.0.0»
 
-540 filas (27 done, 85 partial, 428 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
+540 filas (28 done, 84 partial, 428 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
 
 ## Casos grabados y filas que cubren
 
-`cases/coverage.tsv` declara las filas que cubre cada uno de los 3119 casos (`tools/parity/apply_comparison.py`). Base `cited`: el caso lo cita una fila comparada; `same-group`: hereda las filas de su grupo de nombres; `none`: **251 casos sin fila asignada**, a mapear cuando un slice tome su unidad.
+`cases/coverage.tsv` declara las filas que cubre cada uno de los 3130 casos (`tools/parity/apply_comparison.py`). Base `cited`: el caso lo cita una fila comparada; `same-group`: hereda las filas de su grupo de nombres; `none`: **251 casos sin fila asignada**, a mapear cuando un slice tome su unidad.

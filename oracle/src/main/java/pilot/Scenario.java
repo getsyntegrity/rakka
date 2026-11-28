@@ -105,6 +105,14 @@ final class Scenario {
     @Override public Receive createReceive() { return receiveBuilder().build(); }
   }
 
+  /** Records that it started (`spawn-until-terminated`). */
+  public static final class Flagged extends AbstractActor {
+    private final java.util.concurrent.atomic.AtomicBoolean started;
+    public Flagged(java.util.concurrent.atomic.AtomicBoolean started) { this.started = started; }
+    @Override public void preStart() { started.set(true); }
+    @Override public Receive createReceive() { return receiveBuilder().build(); }
+  }
+
   /** A command the harness asks an actor to run inside its own context (`do` op). */
   static final class Cmd {
     final long id;
@@ -567,6 +575,32 @@ final class Scenario {
           return head + ",\"ok\":true,\"actor\":" + Cli.Json.str(t.getActor().path().toString())
               + ",\"existenceConfirmed\":" + t.getExistenceConfirmed()
               + ",\"addressTerminated\":" + t.getAddressTerminated() + "}";
+        }
+        case "spawn-until-terminated": { // ActorSystemSpec.scala:300-326
+          List<ActorRef> created = new ArrayList<>();
+          List<java.util.concurrent.atomic.AtomicBoolean> started = new ArrayList<>();
+          long begin = System.nanoTime();
+          system.scheduler().scheduleOnce(java.time.Duration.ofMillis((Long) st.get("after-ms")), (Runnable) system::terminate, system.dispatcher());
+          boolean failing = false, succeededAfterFailure = false;
+          while (!system.getWhenTerminated().toCompletableFuture().isDone() && (failing || System.nanoTime() - begin < TimeUnit.SECONDS.toNanos(10))) {
+            java.util.concurrent.atomic.AtomicBoolean flag = new java.util.concurrent.atomic.AtomicBoolean();
+            try {
+              created.add(system.actorOf(Props.create(Flagged.class, () -> new Flagged(flag))));
+              started.add(flag);
+              succeededAfterFailure |= failing;
+              if (created.size() % 1000 == 0) Thread.sleep(50);
+            } catch (IllegalStateException e) {
+              failing = true;
+            }
+          }
+          boolean inTime = system.getWhenTerminated().toCompletableFuture().isDone() && System.nanoTime() - begin < TimeUnit.SECONDS.toNanos(10);
+          int liveStarted = 0; // started actors that are still not terminated
+          for (int i = 0; i < created.size(); i++)
+            if (started.get(i).get() && !((InternalActorRef) created.get(i)).isTerminated()) liveStarted++;
+          String late;
+          try { system.actorOf(Props.create(Noop.class)); late = "{\"ok\":true}"; } catch (Exception e) { late = err(e); }
+          return head + ",\"ok\":true,\"created\":" + !created.isEmpty() + ",\"successAfterFailure\":" + succeededAfterFailure
+              + ",\"liveStarted\":" + liveStarted + ",\"withinTenSeconds\":" + inTime + ",\"late\":" + late + "}";
         }
         case "await-events": { // the first `count` events of one actor, in order
           List<String> ev = ctx.of((String) st.get("target"));
