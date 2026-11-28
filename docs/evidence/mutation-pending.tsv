@@ -92,3 +92,4 @@ fix/classic-mailbox-golden-uid	-	0	none	none	0 selected (oracle golden only); no
 slice/classic-suspension-1	4349158a	419	recursive-suspension-does-not-stack	none	419 not run (Q-X-23)	PENDING
 slice/classic-suspension-2	358bd834	420	failure-inside-a-suspension-does-not-count	none	420 not run (Q-X-23)	PENDING
 slice/classic-suspension-3	bc4d6385	420	none	none	420 not run (Q-X-23); test-only	PENDING
+slice/classic-suspension-4	82f0209c	420	none	none	420 not run (Q-X-23); test-only	PENDING
