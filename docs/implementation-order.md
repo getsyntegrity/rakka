@@ -40,7 +40,7 @@ Fases: 1 valores sin concurrencia (PATH, UTIL, CFG); 2 runtime Classic (REF, MBX
 | AC-TK | 27 | 10 |
 | AC-CELL | 35 | 11, 12 |
 | AC-SYS | 25 | 13 |
-| AC-SUP | 18 | 14 |
+| AC-SUP | 19 | 14 |
 | AC-DW | 8 | 15 |
 | AC-EXT | 5 | 16 |
 | AC-ASK | 30 | 17 |
