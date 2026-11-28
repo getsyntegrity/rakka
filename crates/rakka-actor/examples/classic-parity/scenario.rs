@@ -259,7 +259,7 @@ struct SupervisorCfg {
     /// `throw-on-call: n`: the n-th call of the label fails (IllegalStateException "strategy")
     throw_on_call: Option<u64>,
     /// `match: [[class, directive]]`: the first class the cause is a subtype of decides, else Escalate
-    matching: Vec<(String, String)>,
+    matching: Option<Vec<(String, String)>>,
     /// `stopping: true`: the runtime's `stoppingStrategy`
     stopping: bool,
 }
@@ -504,19 +504,15 @@ impl Behavior {
                         Some(Value::Number(n)) => Some(*n as u64),
                         _ => None,
                     },
-                    matching: sp
-                        .get("match")
-                        .and_then(Value::as_array)
-                        .map(|pairs| {
-                            pairs
-                                .iter()
-                                .filter_map(Value::as_array)
-                                .filter_map(|pair| {
-                                    Some((pair.first()?.as_str()?, pair.get(1)?.as_str()?))
-                                })
-                                .collect()
-                        })
-                        .unwrap_or_default(),
+                    matching: sp.get("match").and_then(Value::as_array).map(|pairs| {
+                        pairs
+                            .iter()
+                            .filter_map(Value::as_array)
+                            .filter_map(|pair| {
+                                Some((pair.first()?.as_str()?, pair.get(1)?.as_str()?))
+                            })
+                            .collect()
+                    }),
                     stopping: matches!(sp.get("stopping"), Some(Value::Bool(true))),
                 }
             }),
@@ -686,17 +682,18 @@ impl Actor for Scripted {
                     if decider_throws {
                         throw(Throwable::illegal_state("decider"));
                     }
-                    let chosen = if matching.is_empty() {
-                        e.message()
-                            .and_then(|m| decider.get(m))
-                            .and_then(|name| directive_named(name))
-                            .unwrap_or_else(|| rakka_actor::actor::supervision::default_decider(e))
-                    } else {
-                        matching
+                    let chosen = match &matching {
+                        // an empty list escalates everything (`AllForOneStrategy()(List())`)
+                        Some(pairs) => pairs
                             .iter()
                             .find(|(class, _)| e.is_a(class))
                             .and_then(|(_, name)| directive_named(name))
-                            .unwrap_or(Directive::Escalate)
+                            .unwrap_or(Directive::Escalate),
+                        None => e
+                            .message()
+                            .and_then(|m| decider.get(m))
+                            .and_then(|name| directive_named(name))
+                            .unwrap_or_else(|| rakka_actor::actor::supervision::default_decider(e)),
                     };
                     if log {
                         ctx.add(
@@ -1315,6 +1312,10 @@ pub fn run(text: &str) -> Result<String, String> {
         };
         settings.parallelism = num("parallelism").unwrap_or(settings.parallelism);
         settings.throughput = num("throughput").unwrap_or(settings.throughput);
+    }
+    crate::guardian_strategies::register(&mut settings.supervisor_strategies);
+    if let Some(strategy) = sc.get("guardian-strategy").and_then(Value::as_str) {
+        settings.guardian_supervisor_strategy = strategy.to_owned();
     }
     let mut out = String::from("{\"system\":");
     let system = match ActorSystem::create_with_settings(&name, settings) {

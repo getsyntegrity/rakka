@@ -20,6 +20,8 @@ mod deployer_settings_cases;
 mod dynamic_access_cases;
 #[path = "../examples/classic-parity/fronteras_cases.rs"]
 mod fronteras_cases;
+#[path = "../examples/classic-parity/guardian_strategies.rs"]
+mod guardian_strategies;
 #[path = "../examples/classic-parity/json.rs"]
 #[allow(dead_code)]
 mod json;

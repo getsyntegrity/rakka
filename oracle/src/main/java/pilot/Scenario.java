@@ -446,6 +446,9 @@ final class Scenario {
           + "pekko.actor.default-dispatcher.thread-pool-executor.fixed-pool-size = " + disp.get("parallelism") + "\n"
           + "pekko.actor.default-dispatcher.throughput = " + disp.get("throughput") + "\n";
     }
+    // `guardian-strategy`: the configurator of `/user` (`GuardianStrategies` or one of Pekko's two)
+    if (sc.get("guardian-strategy") != null)
+      hocon += "pekko.actor.guardian-supervisor-strategy = \"" + sc.get("guardian-strategy") + "\"\n";
     ActorSystem system;
     try {
       system = ActorSystem.create((String) sc.get("system"), ConfigFactory.parseString(hocon));
