@@ -220,6 +220,11 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::render_with_redactions`; casos grabados RW-01..06 (formato con `# String: N`, `# env variables`, `<env variable>`, `<username>`). Queda `partial`: depende de Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida (RW-01..06 cubren el texto y el entorno).
 
+**Actualización 2026-11-28 (Q-CFG-15 (a), aceptada con cambios): reparto de la verificación de archivos entre esta fila y AC-CFG-001, sin eliminar criterios.** Esta fila es dueña del **render** por origen; la asignación del origen al cargar y los textos de error son de AC-CFG-001 (A6).
+- A2 el render antepone el origen de cada valor de texto (`# String: <línea>`) y de variable de entorno (`# env variables`, valor oculto): RW-01..06 (cubierta; A1 sigue vigente).
+- A3 el render de un valor leído de un archivo antepone `# <ruta>: <línea>`, con el texto que dé Typesafe Config 1.4.9 para un archivo: **pendiente** (sin implementar ni medir). Depende de AC-CFG-001 A6.
+- Por medir (visto por lectura, sin ejecutar): una concatenación de texto y variable de entorno toma el origen de su primera pieza (`resolve.rs`, `fold_pieces`) y el render la mostraría en claro; comprobar contra el oráculo qué hace Typesafe antes de cambiar nada.
+
 ## AC-UTIL-003.1 — Done (singleton de finalización sin valor)
 
 *unidad UTIL · visibilidad public · analysis=extracted · impl=partial · validation=oracle*
@@ -1219,7 +1224,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ## AC-UTIL-016.1 — OptionVal (Option sin asignación)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=documented*
 
 **Contrato observable.** `OptionVal[+A]` es un *value class* (`extends AnyVal`) sobre `x: A` con `null` como ausencia, usado en todo el código interno (~cientos de usos, incluyendo Typed) para evitar la asignación de un `Some`. API: `apply`, `OptionVal.Some(x)` (extractor por nombre), `none`/`OptionVal.None`, `isEmpty`, `isDefined`, `getOrElse`, `toOption`, `contains`, `orNull`, `get`, `toString`. Efecto observable a preservar: la semántica de `Option` con `null` como `None`, `toString` y los errores de `get`.
 
@@ -1248,11 +1253,25 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Actualización P76 (2026-11-18, Pekko 2.0.0).** `OptionVal.scala` no cambió (`get` lanza `NoSuchElementException("OptionVal.None.get")`, `toString` `None`/`Some(x)`). Equivalente aceptado por Q-UTIL-11 (a): `Option<T>`; sin caso grabado (A1 no afirmada). Cierre pendiente de Q-UTIL-20.
 
+**Cierre 2026-11-28 (Q-UTIL-20 (a), aceptada): sin implementación propia, equivalencia documentada.** Sin tipo en Rust. Correspondencia (A1, caracterización leída de `:23-94`):
+
+| Pekko | Rust | Diferencia |
+|---|---|---|
+| `OptionVal(x)`, `OptionVal.Some(x)`, patrón `OptionVal.Some` | `Some(x)`, patrón `Some(x)` | `OptionVal(null)` es `None`; Rust no tiene `null`: la ausencia se escribe `None` |
+| `OptionVal.None`, `none` | `None` | - |
+| `isEmpty`, `isDefined` | `is_none()`, `is_some()` | - |
+| `getOrElse(d)` | `unwrap_or(d)` | - |
+| `toOption` | el propio valor | - |
+| `contains(x)` (falso si vacío) | `opt.as_ref() == Some(&x)` | - |
+| `orNull` | el propio `Option` | no hay `null` |
+| `get` (`NoSuchElementException("OptionVal.None.get")`) | `expect`/`unwrap` | panic en vez de excepción; el texto no se reproduce |
+| `toString` (`None`, `Some(x)`) | `{:?}` | `Debug` entrecomilla las cadenas |
+
 ---
 
 ## AC-UTIL-016.2 — ConstantFun (funciones constantes/identidad Scala y Java)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=documented*
 
 **Contrato observable.** Objeto interno con funciones reutilizables para evitar allocaciones: identidad Java/Scala, constantes (`zeroLong`, `oneLong`, `oneInt`, `anyToTrue`, `anyToFalse`, `unitToUnit`, `nullFun`), `any -> None`, `any -> unit`, `(a,b) -> None/unit/true`, `(a,b,c) -> unit/false/third`, `scalaAnyTwoEquals`, `javaAnyTwoEquals`, `javaCreatePairFunction`. Observable: el resultado de cada función y que `javaIdentityFunction` devuelve la **misma instancia** para cualquier `T`.
 
@@ -1284,11 +1303,27 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Actualización P76 (2026-11-18, Pekko 2.0.0).** `ConstantFun.scala` y `ConstantFunJavaTest` sin cambios de comportamiento. Equivalente aceptado por Q-UTIL-11 (a): `std::convert::identity` y closures; A1/A2 inobservables en Rust. Cierre pendiente de Q-UTIL-20.
 
+**Cierre 2026-11-28 (Q-UTIL-20 (a), aceptada): sin implementación propia, equivalencia documentada.** Sin módulo en Rust; cada uso se escribe en su sitio. Correspondencia (A3, leída de `:26-91`):
+
+| Pekko | Rust |
+|---|---|
+| `javaIdentityFunction`, `scalaIdentityFunction` | `std::convert::identity` (A1: devuelve el mismo valor, movido) |
+| `JavaPairFunction`, `javaCreatePairFunction` | closure `\|a, b\| (a, b)` |
+| `scalaAnyToNone`, `javaAnyToNone`, `scalaAnyTwoToNone` | closure que devuelve `None` |
+| `scalaAnyToUnit`, `scalaAnyTwoToUnit`, `scalaAnyThreeToUnit`, `unitToUnit` | closure que devuelve `()` |
+| `scalaAnyTwoToTrue`, `anyToTrue`, `anyToFalse`, `scalaAnyThreeToFalse` | closure que devuelve `true`/`false` |
+| `scalaAnyThreeToThird` | closure `\|_, _, c\| c` |
+| `scalaAnyTwoEquals`, `javaAnyTwoEquals` | `PartialEq::eq` |
+| `zeroLong`, `oneLong`, `oneInt` | closure que devuelve `0_i64`, `1_i64`, `1_i32` |
+| `nullFun` | closure que devuelve `None` (no hay `null`) |
+
+A2 (la misma instancia para cualquier `T`) es identidad de objeto en la JVM y no tiene correspondencia observable: no se reproduce.
+
 ---
 
 ## AC-UTIL-016.3 — Collections (EmptyImmutableSeq, PartialImmutableValuesIterable)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=oracle*
 
 **Contrato observable.** (1) `EmptyImmutableSeq` es una `immutable.Seq[Nothing]` vacía cuyo `apply(idx)` lanza `IndexOutOfBoundsException(idx.toString)` y cuyo `iterator.next()` lanza `NoSuchElementException("next on empty iterator")`. (2) `PartialImmutableValuesIterable[From, To]` es una vista inmutable que, dado un `valuesIterator: Iterator[From]`, una función parcial `isDefinedAt`/`apply`, itera sólo los valores para los que la función está definida; `size` y `foreach` se derivan del iterador.
 
@@ -1319,6 +1354,19 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Actualización P76 (2026-11-18, Pekko 2.0.0).** `EmptyImmutableSeq.iterator` es ahora `Iterator.empty` (`next on empty iterator` lo produce la biblioteca de Scala, no Pekko) y `apply(idx)` sigue lanzando `IndexOutOfBoundsException(idx.toString)`; `PartialImmutableValuesIterable` sigue igual (`NoSuchElementException("next")`); nuevo `Collections.IterableOps.collectToImmutableSeq` (`java.lang.Iterable` + función parcial -> `Seq`, equivalente `filter_map`; sin consumidores en main). Cierre pendiente de Q-UTIL-20 y de P04 (ByteIterator).
 
 **Actualización P04 (2026-11-18, Pekko 2.0.0).** El mensaje `next on empty iterator` que `ByteIterator` hereda de `Collections.EmptyImmutableSeq.iterator` (el `Iterator.empty` de Scala) queda medido y comparado: IT-01 (uc-0506), IT-09 (uc-0514), IT-11 (uc-0516), IT-R* (uc-0523..uc-0528). Rust lo da con `ByteIterator::next_byte`/`get_*` (`ByteStringError::NoSuchElement`). La fila sigue `partial` hasta que el Owner responda Q-UTIL-20.
+
+**Cierre 2026-11-28 (Q-UTIL-20 (a), aceptada): sin implementación propia, equivalencia documentada.** Correspondencia (A1, caracterización):
+
+| Pekko | Rust | Diferencia |
+|---|---|---|
+| `EmptyImmutableSeq` (longitud 0) | slice vacío, `Vec::new()`, `std::iter::empty()` | - |
+| `EmptyImmutableSeq.apply(idx)` (`IndexOutOfBoundsException(idx)`) | `get(idx)` da `None` (indexar entra en panic) | sin excepción ni su texto |
+| `EmptyImmutableSeq.iterator.next()` | `Iterator::next` da `None` | donde llega a un usuario (`ByteIterator`) se reproduce con `ByteStringError::NoSuchElement`, texto `next on empty iterator` (uc-0506, uc-0514, uc-0516, uc-0523..uc-0528) |
+| `PartialImmutableValuesIterable.iterator` (perezoso, un cursor por llamada) | `filter_map` sobre un iterador nuevo de los valores | `next` agotado da `None` en vez de `NoSuchElementException("next")` |
+| `size` (calculado una vez), `foreach` | `count()`, `for_each` | `count()` no memoriza; sin efecto sobre una vista inmutable |
+| `collectToImmutableSeq(pf)` | `filter_map(..).collect::<Vec<_>>()` | - |
+
+AC-UTIL-006.4 sigue `partial` por Q-UTIL-24 (`++` entre iteradores), que no toca esta fila.
 
 ---
 
@@ -1806,7 +1854,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ## AC-UTIL-016.18 — Unused (marcador `@unused` para parámetros no usados)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=documented*
 
 **Contrato observable.** `private[pekko] class unused extends deprecated("unused", "")` (con `@nowarn("msg=deprecated")`): anotación interna que suprime el aviso de parámetro no usado cuando el parámetro es necesario por compatibilidad binaria u otro motivo (`-Ywarn-unused`) y avisa si se **usa** un parámetro marcado. No tiene efecto en tiempo de ejecución.
 
@@ -1829,6 +1877,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 **Actualización P76 (2026-11-18, Pekko 2.0.0).** `Unused.scala` está eliminado en 2.0.0: eliminado en 2.0.0 (no es exclusión). El efecto lo cubre `_nombre` y `cargo clippy -- -D warnings`. Cierre pendiente de Q-UTIL-20.
+
+**Cierre 2026-11-28 (Q-UTIL-20 (a), aceptada): sin implementación propia, equivalencia documentada.** `@unused` sobre un parámetro corresponde al prefijo `_` (o `#[allow(unused_variables)]`): no hay aviso por no usarlo y no hay efecto en ejecución. Diferencia: la anotación de Pekko, al extender `deprecated`, avisa si el parámetro marcado se usa; Rust no avisa por defecto al usar un `_nombre`.
 
 ---
 
@@ -2031,7 +2081,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ## AC-UTIL-018.1 — FutureConverters (CompletionStage <-> Future)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=documented*
 
 **Contrato observable.** `FutureConverters.asJava(Future[T]): CompletionStage[T]` y `asScala(CompletionStage[T]): Future[T]` (más extensiones `FutureOps.asJava` y `CompletionStageOps.asScala`). En Scala 2.13/3 delegan en `scala.jdk.javaapi.FutureConverters`; en 2.12 existe una implementación propia (`scala-2.12/.../FutureConverters.scala`, no relevante para el árbol 2.13). Son la frontera Java/Scala de `ask`, `Patterns` y `CoordinatedShutdown` (Java API).
 
@@ -2061,12 +2111,14 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Actualización P77 (2026-11-18, Pekko 2.0.0).** `util/FutureConverters.scala` y `JavaConverterScala3InlineTest.java` están eliminados en 2.0.0 (MiMa `future-converters.excludes`: se usa `scala.jdk.javaapi.FutureConverters`): eliminado en 2.0.0, no es exclusión. Equivalente aceptado por Q-UTIL-11 y Q-X-4 (A): un único `Future` de Rust; sin tipo ni caso grabado (A1 es una prueba de compilación, A2 delega en la biblioteca). Cierre pendiente de Q-UTIL-27.
 
+**Cierre 2026-11-28 (Q-UTIL-27 (a), aceptada): ELIMINADO EN 2.0.0, no implementado.** `asJava`/`asScala` no tienen contraparte: una API que en Pekko devuelve `CompletionStage` o `Future` devuelve en rakka el único `Future` de Rust.
+
 
 ---
 
 ## AC-UTIL-018.2 — OptionConverters / FunctionConverters / JavaDurationConverters
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=oracle*
 
 **Contrato observable.** (a) `OptionConverters`: `toScala(Optional|OptionalDouble|OptionalInt|OptionalLong)` y `toJava(Option)`, más `RichOptional/RichOption/RichOptionalDouble/Int/Long` (`toScala`, `toJava`, `toJavaPrimitive`, `toJavaGeneric`); en 2.13+ delegan en `scala.jdk`. (b) `FunctionConverters` hereda de `Priority0FunctionExtensions` (2.13+). (c) `JavaDurationConverters`: `asFiniteDuration(JDuration)`, `JDuration.asScala = Duration.fromNanos(self.toNanos)` y `Duration.asJava = JDuration.ofNanos(self.toNanos)`; es lo que usa `Timeout.create` (AC-UTIL-001).
 
@@ -2097,12 +2149,14 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 **Actualización P77 (2026-11-18, Pekko 2.0.0).** `OptionConverters`, `FunctionConverters` y `JavaDurationConverters` están eliminados en 2.0.0 (MiMa `javaapi-option`, `function-converters`, `java-duration-converters`); `Timeout.create(java.time.Duration)` usa `scala.jdk.DurationConverters.toScala` (`FiniteDuration(seconds, SECONDS)` si no hay nanos; `seconds*1e9+nanos` si caben en un `Long`, si no `IllegalArgumentException("Java duration PT...S cannot be expressed as a Scala duration")`). Medido en los casos grabados uc-0537..uc-0549 (FR-DUR-01..13) y TO-NEG-04/05; `TryFrom<std::time::Duration> for Timeout` ya los reproducía (caracterización). Sin cubrir: Timeout -> `java.time.Duration` (`toJava`, usada por Actor.scala:158, AbstractActor.scala:173, CachePolicy.scala:33, OptimalSizeExploringResizer.scala:273: filas de otras unidades) e `Optional*`/`FunctionConverters` (equivalente `Option<T>`/closures, sin caso). Estado reconciliado: impl=partial, validation=oracle. Cierre pendiente de Q-UTIL-27.
 
+**Cierre 2026-11-28 (Q-UTIL-27 (a), aceptada): conversores ELIMINADOS EN 2.0.0, no implementados.** `Optional*`/`Option` corresponde a `Option<T>`; las conversiones de funciones no aplican a closures. `Timeout.create(java.time.Duration)` (A3) es `TryFrom<std::time::Duration> for Timeout`, que pertenece a AC-UTIL-001 y queda en sus casos grabados. **Conversión Timeout -> duración Java:** no se crea aquí; las filas consumidoras (AC-CELL-017 `ReceiveTimeout.getTimeout`, AC-JAPI-001 `getReceiveTimeout`, AC-IO-008.2 `CachePolicy`, AC-RT-014 `OptimalSizeExploringResizer`) la deciden cuando se implementen.
+
 
 ---
 
 ## AC-UTIL-018.3 — ccompat (JavaConverters, Factory) y compat.Future/PartialFunction (shims de Scala 2.12/2.13)
 
-*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad internal-required · analysis=extracted · impl=done · validation=documented*
 
 **Contrato observable.** Shims para compilar el mismo código contra Scala 2.12, 2.13 y 3: `util.ccompat` (alias `Factory`, objeto `JavaConverters` con `AsJavaExtensions`/`AsScalaExtensions`, y la anotación `ccompatUsedUntil213`), `compat.Future` (`fold`, `reduce`, `find` sobre `IterableOnce[Future[T]]`/`immutable.Iterable[Future[T]]`, delegando en `Future.foldLeft/reduceLeft/find`) y `compat.PartialFunction` (sólo en 2.12). Sin comportamiento propio observable.
 
@@ -2131,6 +2185,8 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 **Decisiones.** Q-UTIL-11.
 
 **Actualización P77 (2026-11-18, Pekko 2.0.0).** `util/ccompat/*` y `compat/Future` están eliminados en 2.0.0 (MiMa `remove-scala-2.12-support.excludes`): eliminado en 2.0.0, no es exclusión (respuesta del Owner a Q-UTIL-11, 2026-11-18). Sin tipo ni caso; `fold/reduce/find` sobre futuros se valida en sus consumidores (AC-DSP-017.2). Cierre pendiente de Q-UTIL-27.
+
+**Cierre 2026-11-28 (Q-UTIL-27 (a), aceptada): ELIMINADO EN 2.0.0, no implementado.** Sin tipos ni funciones en rakka.
 
 
 ---
@@ -2204,7 +2260,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ## AC-UTIL-019 — Anotaciones de API: ApiMayChange, DoNotInherit, InternalApi, InternalStableApi
 
-*unidad UTIL · visibilidad public · analysis=extracted · impl=pending · validation=pending*
+*unidad UTIL · visibilidad public · analysis=extracted · impl=done · validation=documented*
 
 **Contrato observable.** Cuatro anotaciones Java con retención `CLASS` (legibles por MiMa, no en tiempo de ejecución) que documentan la estabilidad de la API: `@ApiMayChange(issue = "")` (evoluciona hacia estable; puede cambiar en una versión de parche sin aviso), `@DoNotInherit` (sólo para tipos; no extender fuera de Pekko), `@InternalApi` (interno, puede cambiar sin aviso; el scaladoc debe empezar por `INTERNAL API`), `@InternalStableApi` (interno pero usado entre módulos de Pekko, no cambiar sin considerar usos externos). Efecto observable: ninguno en tiempo de ejecución; la compatibilidad binaria que protegen la comprueba MiMa (AC-UTIL-021).
 
@@ -2232,6 +2288,17 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 
 **Actualización P76 (2026-11-18, Pekko 2.0.0).** Las cuatro anotaciones no cambiaron en 2.0.0 (`@Documented`, `@Retention(CLASS)`; `@Target` método/constructor/campo/tipo/paquete salvo `DoNotInherit` sólo tipo). Equivalente aceptado por Q-UTIL-11 (a); `cargo-semver-checks` entra en los gates desde el primer release (AGENTS.md). Cierre pendiente de Q-UTIL-20.
+
+**Cierre 2026-11-28 (Q-UTIL-20 (a), aceptada): sin implementación propia, equivalencia documentada.** Es una convención para el código de rakka, no un tipo:
+
+| Anotación de Pekko | En rakka | Diferencia |
+|---|---|---|
+| `@InternalApi` | `pub(crate)`; entre crates, `#[doc(hidden)] pub` | el elemento no aparece en la documentación pública (Pekko lo documenta como `INTERNAL API`) |
+| `@InternalStableApi` | `#[doc(hidden)] pub` | la estabilidad entre módulos no la comprueba el compilador |
+| `@DoNotInherit` (sólo tipos) | trait sellado (`mod private { pub trait Sealed {} }`) | lo impide el compilador, no sólo lo documenta |
+| `@ApiMayChange` | nota en el rustdoc del elemento (o feature `unstable`) | sin marcador legible por herramientas |
+
+La retención `CLASS` (A1: la lee MiMa, no el programa) corresponde a `cargo semver-checks`, que entra en los gates desde el primer release (AC-UTIL-021 sigue abierta hasta entonces). La revisión de la API pública por el Owner al cerrar cada crate sigue pendiente como actividad de cierre del crate.
 
 ---
 
@@ -2591,6 +2658,10 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 ---
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::parse_string`, `with_fallback`, `resolve`, `default_reference` (reference.conf embebido) y `Config::load(ruta)` (Q-CFG-6 (a): application.conf configurable sobre el reference embebido). Casos grabados KEY (308 claves de los reference.conf de actor y actor-typed) y SUB/FB/REF. Queda `partial`: Q-CFG-14 (includes con classpath) y Q-CFG-16 (variables con prefijo) propuestas; Q-CFG-15 (propuesta): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida; y `Config::load` (A5) no tiene caso grabado contra el oráculo.
+
+**Actualización 2026-11-28 (Q-CFG-15 (a), aceptada con cambios): reparto de la verificación de archivos entre esta fila y AC-UTIL-002.5, sin eliminar criterios.** Esta fila es dueña del origen de archivo **al cargar y en los errores**; el render es de AC-UTIL-002.5 (A3).
+- A6 un valor leído de un archivo de aplicación conserva su origen, y los errores sobre él (getters, resolución, `check_valid`) lo dicen como Typesafe Config 1.4.9 (`<ruta>: <línea>`): **pendiente** (hoy `String: <línea>`; sin medir). Cubre la parte de archivo que las notas de AC-CFG-017.* y AC-CFG-019 describen como "la ruta de archivo no está medida"; esas filas la siguen exigiendo.
+- El origen de texto está en casos grabados; el de variable de entorno en errores sigue pendiente en las filas de getters (AC-CFG-017.2-.5, 017.7 y 019).
 
 ## AC-CFG-002 — ActorSystem.Settings: lectura fail-fast de todas las claves pekko.* al crear el sistema
 

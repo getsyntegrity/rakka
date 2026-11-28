@@ -394,7 +394,7 @@ def _progress_md():
     SEP = "|---|---|---|---|---|---|---|---|"
     out = ["# Avance del port", "",
            "Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (columna `impl`), `docs/unit-rows.tsv` y `docs/unit-plan.md`. **No editar a mano.**",
-           "`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar); `excluded` = fila excluida por autorización del Owner: **no cuenta como done** y sale del denominador. Los porcentajes se calculan sobre las filas **en alcance** (total menos excluidas).", ""]
+           "`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar); `excluded` = fila excluida por autorización del Owner: **no cuenta como done** y sale del denominador. Los porcentajes se calculan sobre las filas **en alcance** (total menos excluidas). Algunas filas `done` se cerraron por decisión del Owner **sin implementación propia**: cuentan en el denominador y como done, y se listan aparte (ver abajo) para no confundirlas con funcionalidad implementada.", ""]
     classic = [r for r in inv if r["id"].startswith("AC-")]
     typed = [r for r in inv if r["id"].startswith("AT-")]
     out += ["## Resumen", "", HEAD.format("Módulo"), SEP, line("Classic (`rakka-actor`)", classic), line("Typed (`rakka-actor-typed`)", typed), line("**Total**", inv), ""]
@@ -435,6 +435,13 @@ def _progress_md():
     out.append("")
     excluded = [r["id"] for r in inv if is_excluded(r)]
     out += ["## Filas excluidas por el Owner", "", f"{len(excluded)} fila(s) con exclusión autorizada (no cuentan como done ni en el alcance; la nota de la fila cita la decisión): " + (", ".join(excluded) or "ninguna"), ""]
+    out += ["## Filas done sin implementación propia", "",
+            "Cerradas por decisión del Owner (la nota de la fila la cita). **Están incluidas en la columna `done`** y en el denominador; no son funcionalidad implementada en Rust.", "",
+            "| Motivo del cierre | Filas | Ids |", "|---|---|---|"]
+    for reason in ("ELIMINADO EN 2.0.0", "EQUIVALENCIA DOCUMENTADA"):
+        ids = [r["id"] for r in inv if r["impl"] == "done" and f"SIN IMPLEMENTACIÓN PROPIA: {reason}" in r["notes"]]
+        out.append(f"| {reason.capitalize()} | {len(ids)} | {', '.join(ids) or '-'} |")
+    out.append("")
     nf = [r for r in inv if r["id"] in flagged]
     n, d, p, q, x = tally(nf)
     out += ["## Filas con nota «revisar contra 2.0.0»", "",

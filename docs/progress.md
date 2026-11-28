@@ -1,21 +1,21 @@
 # Avance del port
 
 Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (columna `impl`), `docs/unit-rows.tsv` y `docs/unit-plan.md`. **No editar a mano.**
-`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar); `excluded` = fila excluida por autorización del Owner: **no cuenta como done** y sale del denominador. Los porcentajes se calculan sobre las filas **en alcance** (total menos excluidas).
+`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar); `excluded` = fila excluida por autorización del Owner: **no cuenta como done** y sale del denominador. Los porcentajes se calculan sobre las filas **en alcance** (total menos excluidas). Algunas filas `done` se cerraron por decisión del Owner **sin implementación propia**: cuentan en el denominador y como done, y se listan aparte (ver abajo) para no confundirlas con funcionalidad implementada.
 
 ## Resumen
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 520 | 65 | 124 | 331 | 5 | 12.5 % | 36.3 % |
+| Classic (`rakka-actor`) | 520 | 73 | 116 | 331 | 5 | 14.0 % | 36.3 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 780 | 65 | 124 | 591 | 5 | 8.3 % | 24.2 % |
+| **Total** | 780 | 73 | 116 | 591 | 5 | 9.4 % | 24.2 % |
 
 ## Por ola
 
 | Ola | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| 0 - valores sin runtime | 57 | 38 | 18 | 1 | 4 | 66.7 % | 98.2 % |
+| 0 - valores sin runtime | 57 | 46 | 10 | 1 | 4 | 80.7 % | 98.2 % |
 | 1 - configuracion, eventos y scheduler | 69 | 12 | 38 | 19 | 1 | 17.4 % | 72.5 % |
 | 2 - nucleo del runtime Classic | 134 | 13 | 53 | 68 | 0 | 9.7 % | 49.3 % |
 | 3 - sistema, proveedor, referencias y extensiones | 45 | 2 | 14 | 29 | 0 | 4.4 % | 35.6 % |
@@ -105,14 +105,14 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P73 UTIL-JFR | 1 | 2 | 0 | 0 | 2 | 0 | 0.0 % | 0.0 % | sí |
 | P74 UTIL-TIPOS-DESERIALIZACION | 0 | 0 | 0 | 0 | 0 | 1 | - | - | sí |
 | P75 UTIL-ORIGEN-CLOSURES | 0 | 1 | 1 | 0 | 0 | 0 | 100.0 % | 100.0 % | sí |
-| P76 UTIL-EQUIVALENCIAS | 0 | 5 | 0 | 5 | 0 | 0 | 0.0 % | 100.0 % | sí |
-| P77 UTIL-FRONTERAS | 0 | 3 | 0 | 3 | 0 | 0 | 0.0 % | 100.0 % | sí |
+| P76 UTIL-EQUIVALENCIAS | 0 | 5 | 5 | 0 | 0 | 0 | 100.0 % | 100.0 % | sí |
+| P77 UTIL-FRONTERAS | 0 | 3 | 3 | 0 | 0 | 0 | 100.0 % | 100.0 % | sí |
 
 ## Más avanzadas y más atrasadas
 
 Orden por (done + ½·partial) / filas. Entre las atrasadas hay empates en 0 %: se desempata por el tamaño de la unidad.
 
-**5 más avanzadas:** P05 UTIL-GLOB (1 done, 0 partial de 1), P65 UTIL-HASHCODE (1 done, 0 partial de 1), P66 UTIL-PEKKOVERSION (1 done, 0 partial de 1), P67 UTIL-VERSION (1 done, 0 partial de 1), P68 UTIL-PRETTYDURATION (1 done, 0 partial de 1)
+**5 más avanzadas:** P76 UTIL-EQUIVALENCIAS (5 done, 0 partial de 5), P77 UTIL-FRONTERAS (3 done, 0 partial de 3), P05 UTIL-GLOB (1 done, 0 partial de 1), P65 UTIL-HASHCODE (1 done, 0 partial de 1), P66 UTIL-PEKKOVERSION (1 done, 0 partial de 1)
 
 **5 más atrasadas:** P55 T-SUPERVISION (31 filas), P50 T-SISTEMA-TIPADO (25 filas), P45 TK-API (22 filas), P48 T-COMPORTAMIENTO-NUCLEO (21 filas), P53 T-INTERCEPTORES-TIMERS-STASH (21 filas). Unidades en 0 %: 39 de 75.
 
@@ -142,7 +142,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-SUP | 22 | 3 | 14 | 5 | 0 | 13.6 % | 77.3 % | sí |
 | AC-SYS | 27 | 2 | 5 | 20 | 0 | 7.4 % | 25.9 % | sí |
 | AC-TK | 27 | 0 | 0 | 27 | 0 | 0.0 % | 0.0 % | no |
-| AC-UTIL | 65 | 39 | 19 | 7 | 4 | 60.0 % | 89.2 % | sí |
+| AC-UTIL | 65 | 47 | 11 | 7 | 4 | 72.3 % | 89.2 % | sí |
 | AT-ADP | 13 | 0 | 0 | 13 | 0 | 0.0 % | 0.0 % | no |
 | AT-ASK | 4 | 0 | 0 | 4 | 0 | 0.0 % | 0.0 % | no |
 | AT-BEH | 26 | 0 | 0 | 26 | 0 | 0.0 % | 0.0 % | no |
@@ -171,9 +171,18 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 
 5 fila(s) con exclusión autorizada (no cuentan como done ni en el alcance; la nota de la fila cita la decisión): AC-UTIL-004.3, AC-UTIL-016.7, AC-UTIL-016.12, AC-UTIL-016.13, AC-SCH-004
 
+## Filas done sin implementación propia
+
+Cerradas por decisión del Owner (la nota de la fila la cita). **Están incluidas en la columna `done`** y en el denominador; no son funcionalidad implementada en Rust.
+
+| Motivo del cierre | Filas | Ids |
+|---|---|---|
+| Eliminado en 2.0.0 | 3 | AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3 |
+| Equivalencia documentada | 5 | AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.18, AC-UTIL-019 |
+
 ## Filas con nota «revisar contra 2.0.0»
 
-539 filas (30 done, 82 partial, 427 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
+539 filas (36 done, 76 partial, 427 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
 
 ## Casos grabados y filas que cubren
 

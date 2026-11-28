@@ -8,7 +8,6 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-020.
 - Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-001.
 - Spec 18 `AC-FSM-1` (`18-ac-fsm-1.md`), por las filas AC-FSM-001.1, AC-FSM-001.2.
 - Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-001.
@@ -19,6 +18,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 - Spec 17 `AC-ASK-1` (`17-ac-ask-1.md`), por las filas AC-ASK-001.1, AC-ASK-001.2, AC-ASK-001.3.
 - Spec 21 `AC-SER-1` (`21-ac-ser-1.md`), por las filas AC-SER-002, AC-SER-013.
 - Spec 22 `AC-IO-1` (`22-ac-io-1.md`), por las filas AC-IO-002.1, AC-IO-005, AC-IO-006.2, AC-IO-007.
+- Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-020.
 
 Decisiones:
 
@@ -72,7 +72,7 @@ Filas: AC-JAPI-010, AC-JAPI-011, AC-JAPI-012. Contratos y aserciones: `docs/inve
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-JAPI-001 | AbstractActor + createReceive y AbstractActor.ActorContext (getters Java,… | Equivalente: el trait `Actor` de Rust con `receive`; ver Q-JAPI-1/Q-JAPI-2 | actor-tests/src/test/java/org/apache/pekko/actor/ActorCreationTest.java:80-98 ;… | Q-JAPI-1, Q-JAPI-4 |
+| AC-JAPI-001 | AbstractActor + createReceive y AbstractActor.ActorContext (getters Java,… | Equivalente: el trait `Actor` de Rust con `receive`; ver Q-JAPI-1/Q-JAPI-2 | actor-tests/src/test/java/org/apache/pekko/actor/ActorCreationTest.java:80-98 ;… | Q-JAPI-1, Q-JAPI-4, Q-UTIL-27 |
 | AC-JAPI-002 | UntypedAbstractActor, AbstractLoggingActor,… | Traits `Stash`, `Timers`, logging por contexto en Rust | actor-tests/src/test/java/org/apache/pekko/actor/StashJavaAPI.java:30-54 ;… | Q-JAPI-1 |
 | AC-JAPI-003 | AbstractFSM / AbstractLoggingFSM / AbstractFSMWithStash y builders FSM… | Equivalente: FSM de AC-FSM (una sola API) | actor-tests/src/test/java/org/apache/pekko/actor/AbstractFSMActorTest.java:27-62 ;… | Q-JAPI-1, Q-JAPI-2 |
 | AC-JAPI-004.1 | japi.pf Match/PFBuilder/AbstractMatch/AbstractPFBuilder/CaseStatement:… | `ReceiveBuilder`/`TypeMatcher` (Q-JAPI-2) | actor-tests/src/test/java/org/apache/pekko/japi/MatchBuilderTest.java:26-104 ;… | Q-JAPI-2 |

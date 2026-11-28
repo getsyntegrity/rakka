@@ -290,11 +290,12 @@
 
 ## P19 CELL-EJECUCION
 
-11 filas; 8 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 4 propuestas.
+11 filas; 9 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CELL-1 | accepted_with_changes (2026-11-27): ACCEPTED, alternativa (a'), con condiciones. Conservar receive -> bool y adoptar una pila de comportamientos que reciben acceso mutable al actor y su… | 2: AC-CELL-001, AC-CELL-005 | Bloquea: `impl` de AC-CELL-001/005 (y la firma de Actor para todo el crate). | Puede avanzar: la documentación y los tests de ciclo de vida (se escriben contra el trait). | `classic-cell` |
+| Q-UTIL-27 | accepted (2026-11-28): ACCEPTED (a). Registrar los conversores Java/Scala como eliminados en Pekko 2.0.0. No implementarlos. Distinguir explícitamente estos cierres de… | 1: AC-CELL-017 | — | — | `classic-foundation` |
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-CELL-001 | — | — | `transversal` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-CELL-003, AC-CELL-017, AC-CELL-018 | — | — | `transversal` |
 | Q-X-8 | accepted (2026-11-18): aceptar (a): Typed sobre Classic. | 1: AC-CELL-018 | — | — | `transversal` |
@@ -554,11 +555,12 @@
 
 ## P37 RT-CONFIG
 
-9 filas; 6 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 2 propuestas.
+9 filas; 7 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-RT-4 | accepted (2026-11-18): aceptar (a), como vista interna (no API pública estable) en AC-MBX-019. | 3: AC-RT-013.1, AC-RT-013.2, AC-RT-014 | Bloquea la integracion de AC-RT-008, 013.2 y 014 (reportMessageCount); NO bloquea la logica pura de AC-RT-013.1 (capacity/rampup/backoff), de AC-RT-014 (resize/optimize/explore con carga inyectada) ni los constructores. Es el… | — | `classic-patterns` |
+| Q-UTIL-27 | accepted (2026-11-28): ACCEPTED (a). Registrar los conversores Java/Scala como eliminados en Pekko 2.0.0. No implementarlos. Distinguir explícitamente estos cierres de… | 1: AC-RT-014 | — | — | `classic-foundation` |
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 4: AC-RT-004, AC-RT-013.3, AC-RT-014, AC-RT-016 | — | — | `transversal` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 3: AC-CFG-012.3, AC-CFG-014, AC-RT-016 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-RT-014 | — | — | `transversal` |
@@ -645,10 +647,11 @@
 
 ## P43 IO-UDP-DNS
 
-19 filas; 7 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 5 propuestas.
+19 filas; 8 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-UTIL-27 | accepted (2026-11-28): ACCEPTED (a). Registrar los conversores Java/Scala como eliminados en Pekko 2.0.0. No implementarlos. Distinguir explícitamente estos cierres de… | 1: AC-IO-008.2 | — | — | `classic-foundation` |
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 1: AC-IO-009.1 | — | — | `transversal` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 2: AC-IO-008.1, AC-IO-008.5 | — | — | `transversal` |
 | Q-IO-1 | propuesta | 5: AC-IO-006.1, AC-IO-006.2, AC-IO-007, AC-IO-008.5, AC-IO-011 | — | — | `classic-io-ser` |
@@ -695,10 +698,11 @@
 
 ## P46 JAPI-ACTORES
 
-16 filas; 4 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 3 propuestas.
+16 filas; 5 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-UTIL-27 | accepted (2026-11-28): ACCEPTED (a). Registrar los conversores Java/Scala como eliminados en Pekko 2.0.0. No implementarlos. Distinguir explícitamente estos cierres de… | 1: AC-JAPI-001 | — | — | `classic-foundation` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 2: AC-JAPI-004.4, AC-JAPI-005.3 | — | — | `transversal` |
 | Q-JAPI-1 | propuesta | 13: AC-JAPI-001, AC-JAPI-002, AC-JAPI-003, AC-JAPI-004.2, AC-JAPI-004.3, AC-JAPI-005.1 … (+7) | — | — | `classic-io-ser` |
 | Q-JAPI-2 | propuesta | 5: AC-JAPI-003, AC-JAPI-004.1, AC-JAPI-004.2, AC-JAPI-004.4, AC-JAPI-012 | — | — | `classic-io-ser` |
@@ -1078,12 +1082,13 @@ Sin decisiones asociadas a sus filas en `contract-map.tsv`.
 
 ## P76 UTIL-EQUIVALENCIAS
 
-5 filas; 2 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 0 propuestas.
+5 filas; 3 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 1 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-UTIL-11 | accepted_with_changes (2026-11-18): aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y… | 5: AC-UTIL-016.1, AC-UTIL-016.18, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-019 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
 | Q-UTIL-20 | accepted (2026-11-28): ACCEPTED (a). Utilizar los equivalentes idiomáticos de Rust, documentando la correspondencia semántica con Pekko. No implementar tipos auxiliares de Scala… | 5: AC-UTIL-016.1, AC-UTIL-016.18, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-019 | — | — | `classic-foundation` |
+| Q-UTIL-24 | propuesta | 1: AC-UTIL-016.3 | — | — | `classic-foundation` |
 
 ## P77 UTIL-FRONTERAS
 
@@ -1105,4 +1110,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 548 (271 respondidas, 0 bloqueantes, 277 propuestas).
+Total de pares unidad–decisión: 553 (275 respondidas, 0 bloqueantes, 278 propuestas).
