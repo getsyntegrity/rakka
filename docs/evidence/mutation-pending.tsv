@@ -87,5 +87,7 @@ slice/classic-child-names-3	4890f0dd	419	none	none	419 not run (Q-X-23)	PENDING
 slice/classic-config-file-origin-owner-1	c7f1f4f3	0	none	none	0 selected (documentation only, no production change); none run (Q-X-23)	PENDING
 slice/classic-actorref-uid-1	161e7bdb	420	ref-text-omits-the-uid,death-pact-names-the-watcher	none	420 not run (Q-X-23)	PENDING
 slice/classic-actorref-uid-2	9ace63cc	421	guardian-swallows-unknown-messages	none	421 not run (Q-X-23)	PENDING
+chore/q-cell-8-registration	-	0	none	none	0 selected (documentation only); none run (Q-X-23)	PENDING
+fix/classic-mailbox-golden-uid	-	0	none	none	0 selected (oracle golden only); none run (Q-X-23)	PENDING
 slice/classic-suspension-1	4349158a	419	recursive-suspension-does-not-stack	none	419 not run (Q-X-23)	PENDING
 slice/classic-suspension-2	358bd834	420	failure-inside-a-suspension-does-not-count	none	420 not run (Q-X-23)	PENDING
