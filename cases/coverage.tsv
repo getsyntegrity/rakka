@@ -3052,6 +3052,7 @@ cm-resumed-then-message	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
 cm-failed-then-stopped	scenario-current-message	AC-CELL-020	cited
 cm-hook-error-class	scenario-current-message	AC-CELL-007.1	cited
 cm-reply-in-post-stop	scenario-current-message	AC-CELL-009	cited
+cm-reply-in-pre-restart	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
 ur-default	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-default-pact	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-default-watch-with	scenario-pre-restart-unwatch	AC-CELL-006,AC-DW-005	cited
@@ -3060,6 +3061,8 @@ ur-no-super	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-no-super-watch-with	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-no-super-pact	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-no-super-keeps	scenario-pre-restart-unwatch	AC-CELL-006	cited
+lc-custom-hooks	scenario-pre-restart-unwatch	AC-CELL-006	cited
+lc-same-instance	scenario-pre-restart-unwatch	AC-CELL-006	cited
 st-calls	scenario-throwing-strategy	AC-SUP-001,AC-SUP-020	cited
 st-failed-restart	scenario-throwing-strategy	AC-SUP-001	cited
 st-failed-resume	scenario-throwing-strategy	AC-SUP-001	cited
@@ -3103,7 +3106,7 @@ sc-0011	oracle-scheduler	AC-SCH-002,AC-SCH-007	cited
 sc-0012	oracle-scheduler	AC-SCH-007	cited
 sc-0013	oracle-scheduler	AC-SCH-002,AC-SCH-009	cited
 cf-resume-into-create	scenario-close-parity	AC-SUP-011	cited
-cf-recreate-into-create	scenario-close-parity	AC-SUP-011	cited
+cf-recreate-into-create	scenario-close-parity	AC-CELL-007.1,AC-SUP-011	cited
 kl-default-stop-logged	scenario-close-parity	AC-CELL-012	cited
 cl-error-through-user	scenario-throwable-class	AC-SUP-004,AC-SUP-008	cited
 cl-top-creator-stops	scenario-throwable-class	AC-SUP-004	cited

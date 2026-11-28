@@ -74,3 +74,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #460	126d21a1	120	class-name-is-asked-unguarded; failed-creation-drops-props-unguarded; replaced-mailbox-type-is-dropped-unguarded	none	120 not run (Q-X-23)	PENDING
 #461	afe07564	408	none	none	408 not run (Q-X-23)	PENDING
 slice/classic-system-mailbox-specs-1	851e860a	408	none	none	408 not run (Q-X-23)	PENDING
+#462	9db36ff6	408	none	none	408 not run (Q-X-23)	PENDING

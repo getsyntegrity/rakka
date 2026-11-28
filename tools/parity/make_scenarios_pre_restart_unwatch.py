@@ -17,7 +17,17 @@ def then_ping(events):
     """`ping` is queued behind anything the restart left in the mailbox"""
     return [CHILDREN("p"), TELL("p", "ping"), EV("p", events), NOW("p")]
 
+def exhausted(**child):
+    """`c` records its own hooks and runs none of the defaults; three restarts are allowed, the fourth failure stops it
+    (ActorLifeCycleSpec.scala:49-82, SupervisorSpec.scala:242-292)"""
+    supervisor = {"decider": {"crash": "restart"}, "max": 3}
+    cfg = dict(throw_on="crash", keep_children=True, post_restart_without_pre_start=True, log_generation=True, numbered=True, **child)
+    rounds = [TELL("c", "crash"), TELL("c", "ping")] * 3 + [TELL("c", "crash")]
+    return [*S("p", supervisor=supervisor), C("p", "c", "c", **cfg), EV("c", 1), WATCH("p", "c"), *rounds, EV("p", 2), NOW("c")]
+
 CASES = {
+    "lc-custom-hooks": exhausted(),
+    "lc-same-instance": exhausted(same_instance=True),
     # the actor does not override preRestart: the child's termination is not told, the non-child `t` stays watched
     "ur-default": [*S("t"), *S("p", throw_on="boom", default_pre_restart=True), C("p", "c", "c"), EV("c", 1), WATCH("p", "c"),
                    WATCH("p", "t"), TELL("p", "boom"), EV("p", 5), *then_ping(6), STOP("t"), EV("p", 7), NOW("p")],

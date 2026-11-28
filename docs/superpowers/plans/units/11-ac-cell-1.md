@@ -6,12 +6,12 @@
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-CELL-012, AC-CELL-013.3.
+Filas ya `done` en esta unidad (no se reabren): AC-CELL-006, AC-CELL-012, AC-CELL-013.3, AC-CELL-020.
 
 ## Prerrequisitos
 
 - Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-001, AC-SUP-004, AC-SUP-011. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
-- Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-002, AC-MBX-003.
+- Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-002, AC-MBX-003, AC-MBX-016.
 - Spec 15 `AC-DW-1` (`15-ac-dw-1.md`), por las filas AC-DW-007, AC-DW-010. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-010.
 - Spec 04 `AC-REF-1` (`04-ac-ref-1.md`), por las filas AC-REF-009.2, AC-REF-020.
@@ -40,36 +40,36 @@ Filas: AC-CELL-001, AC-CELL-002.1, AC-CELL-002.2, AC-CELL-003, AC-CELL-004, AC-C
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 2: Hooks de ciclo de vida: preStart, postStop, preRestart (default: unwatch+stop hijos y… (+5 filas)
+### Tarea 2: Restart 1/4: Recreate, suspensión y preRestart de la instancia vieja (+5 filas)
 
-Filas: AC-CELL-006, AC-CELL-007.1, AC-CELL-007.2, AC-CELL-007.3, AC-CELL-007.4, AC-CELL-008.1. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
-
-1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
-2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
-3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
-4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
-
-### Tarea 3: Stop 2/2: finishTerminate — postStop, detach y notificaciones (+5 filas)
-
-Filas: AC-CELL-008.2, AC-CELL-009, AC-CELL-010, AC-CELL-011, AC-CELL-013.1, AC-CELL-013.2. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-CELL-007.1, AC-CELL-007.2, AC-CELL-007.3, AC-CELL-007.4, AC-CELL-008.1, AC-CELL-008.2. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 4: Familia SystemMessage (Create, Recreate, Suspend, Resume, Terminate, Supervise, Watch,… (+5 filas)
+### Tarea 3: Fallo en postStop se loguea y no impide la terminación (+5 filas)
 
-Filas: AC-CELL-014, AC-CELL-015.1, AC-CELL-015.2, AC-CELL-016, AC-CELL-017, AC-CELL-018. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-CELL-009, AC-CELL-010, AC-CELL-011, AC-CELL-013.1, AC-CELL-013.2, AC-CELL-014. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 5: El contexto sólo es válido dentro del procesamiento del actor (+5 filas)
+### Tarea 4: Contenedor de hijos: estados Normal/Terminating y reserva de nombres (+5 filas)
 
-Filas: AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-022, AC-CELL-023, AC-CELL-024. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-CELL-015.1, AC-CELL-015.2, AC-CELL-016, AC-CELL-017, AC-CELL-018, AC-CELL-019. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+
+1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
+2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
+3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
+4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
+
+### Tarea 5: Interrupción de hilo: InterruptedException → ActorInterruptedException al padre (+5 filas)
+
+Filas: AC-CELL-021, AC-CELL-022, AC-CELL-023, AC-CELL-024, AC-CELL-025, AC-CELL-026. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -86,7 +86,6 @@ Filas: AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-022, AC-CELL-023, AC-CELL-
 | AC-CELL-003 | Procesamiento de mensajes uno a la vez; AutoReceivedMessage antes del receive… | tarea por actor que drena el mailbox; `&mut self` garantiza exclusión | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:312-345… | Q-MBX-11, Q-X-4 |
 | AC-CELL-004 | unhandled(): Terminated → DeathPactException; resto → UnhandledMessage en… | resultado `Unhandled` → la celda llama `actor.unhandled(msg)` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-244 ;… | - |
 | AC-CELL-005 | become / unbecome (pila de conductas) | `Vec<Box<dyn Behavior>>` en la celda | actor-tests/src/test/scala/org/apache/pekko/actor/HotSwapSpec.scala:27-133 ;… | Q-CELL-1 |
-| AC-CELL-006 | Hooks de ciclo de vida: preStart, postStop, preRestart (default: unwatch+stop… | métodos por defecto del trait Actor | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:49-130 ;… | Q-CELL-7 |
 | AC-CELL-007.1 | Restart 1/4: Recreate, suspensión y preRestart de la instancia vieja | estado de celda `Restarting{cause}`; `fault_recreate(cause)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:49-82 ;… | Q-CELL-6, Q-SUP-3, Q-X-5 |
 | AC-CELL-007.2 | Restart 2/4: espera a la parada de los hijos (Recreation) | contenedor de hijos `Terminating{ reason: Recreation(cause) }` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:86-99 ;… | Q-CELL-8 |
 | AC-CELL-007.3 | Restart 3/4: nueva instancia, postRestart y reinicio de hijos sobrevivientes | `finish_recreate(cause)` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorTreeSpec.scala:27-45 ;… | - |
@@ -105,11 +104,12 @@ Filas: AC-CELL-019, AC-CELL-020, AC-CELL-021, AC-CELL-022, AC-CELL-023, AC-CELL-
 | AC-CELL-017 | ReceiveTimeout | timer por actor en la celda (tarea cancelable) con `ReceiveTimeoutDeadline` | actor-tests/src/test/scala/org/apache/pekko/actor/ReceiveTimeoutSpec.scala:90-350 | Q-X-4 |
 | AC-CELL-018 | API de ActorContext: self, props, system, dispatcher, parent, getters Java | `Context` con métodos equivalentes | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:367-388 ;… | Q-X-4, Q-X-8 |
 | AC-CELL-019 | El contexto sólo es válido dentro del procesamiento del actor | `&mut Context` prestado sólo durante el handler | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:193-230 ;… | Q-CELL-3 |
-| AC-CELL-020 | El mensaje que causó el fallo no se reprocesa tras restart | - | actor-tests/src/test/scala/org/apache/pekko/actor/Ticket669Spec.scala:36-47 | - |
 | AC-CELL-021 | Interrupción de hilo: InterruptedException → ActorInterruptedException al padre | N/A (Rust no interrumpe hilos) | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:423-478 | Q-CELL-2 |
 | AC-CELL-022 | Hooks de instrumentación… | trait `Interceptor` o métodos `pub(crate)` con implementación por defecto | derivada del código (ver bloque de contrato) | - |
 | AC-CELL-023 | Eventos Debug de ciclo de vida y AutoReceive ("started", "restarting",… | publicar `LogEvent::Debug` con los mismos textos | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:187-204,207-22… | Q-CELL-4 |
 | AC-CELL-024 | Limpieza de campos al terminar (props=terminatedProps, instancia nula,… | la celda libera la fábrica y la instancia al terminar | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:108-128 | - |
+| AC-CELL-025 | pekko.actor.debug.unhandled: reenviador de UnhandledMessage a Debug | suscriptor interno de `UnhandledMessage` que publica un Debug | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:137-153 | - |
+| AC-CELL-026 | Validación del tipo de mailbox exigido por el actor en Create | comprobación de `RequiresMessageQueue` contra el tipo de cola del mailbox | derivada del código (ver bloque de contrato) | - |
 
 ## Gates y criterio de cierre
 

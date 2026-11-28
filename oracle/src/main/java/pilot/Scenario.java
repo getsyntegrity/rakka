@@ -140,12 +140,12 @@ final class Scenario {
       // `constructor-fails-from: n`: the actor factory throws IllegalStateException("ctor") from the n-th instance of this behaviour on
       // (1 = always; 2 = the first instance works and the one made by a restart fails)
       Object from = cfg.get("constructor-fails-from");
-      if (from != null) {
-        int instance = ((java.util.concurrent.atomic.AtomicInteger) cfg.computeIfAbsent("_instances", k -> new java.util.concurrent.atomic.AtomicInteger())).incrementAndGet();
-        if (instance >= ((Number) from).intValue()) throw new IllegalStateException("ctor");
-      }
+      instance = from == null && !Boolean.TRUE.equals(cfg.get("log-generation")) ? 1
+          : ((java.util.concurrent.atomic.AtomicInteger) cfg.computeIfAbsent("_instances", k -> new java.util.concurrent.atomic.AtomicInteger())).incrementAndGet();
+      if (from != null && instance >= ((Number) from).intValue()) throw new IllegalStateException("ctor");
     }
 
+    private final int instance; // 1 for the first instance of this behaviour
     private long received = 0; // per instance: a restarted actor starts again at 0
 
     @Override public void preStart() throws Exception {
@@ -231,7 +231,9 @@ final class Scenario {
 
     /** `log-sender`: the lifecycle hooks also record `sender()`, which reads `currentMessage`. */
     private String senderIfLogged() {
-      return Boolean.TRUE.equals(cfg.get("log-sender")) ? ",\"sender\":" + Cli.Json.str(getSender().path().toString()) : "";
+      String sender = Boolean.TRUE.equals(cfg.get("log-sender")) ? ",\"sender\":" + Cli.Json.str(getSender().path().toString()) : "";
+      // `log-generation`: and the instance, 0 for the first
+      return Boolean.TRUE.equals(cfg.get("log-generation")) ? sender + ",\"generation\":" + (instance - 1) : sender;
     }
 
     private static String reasonStr(Throwable t) { return t.getClass().getName() + (t.getMessage() == null ? "" : ": " + t.getMessage()); }
@@ -241,6 +243,8 @@ final class Scenario {
       if (Boolean.TRUE.equals(cfg.get("default-pre-restart"))) { super.preRestart(reason, message); return; }
       ctx.add(label, "{\"ev\":\"pre-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + ",\"msg\":" + (message.isPresent() ? msgJson(message.get()) : "null") + senderIfLogged() + "}");
       ctx.life.add(label + ":pre-restart");
+      // `pre-restart-reply: message`: sent to `sender()`
+      if (cfg.get("pre-restart-reply") != null) getSender().tell(cfg.get("pre-restart-reply"), getSelf());
       if (Boolean.TRUE.equals(cfg.get("keep-children"))) return; // `keep-children`: like SupervisorTreeSpec, neither stops the children nor runs postStop
       // `pre-restart-throws: <message or null>`: preRestart fails before it calls super, so nothing of the default runs
       if (cfg.containsKey("pre-restart-throws")) throw new IllegalStateException((String) cfg.get("pre-restart-throws"));
@@ -258,6 +262,7 @@ final class Scenario {
       ctx.life.add(label + ":post-restart");
       Object fails = cfg.get("throw-in-post-restart"); // `true`, or `"once"`: only the first postRestart of this label
       if (Boolean.TRUE.equals(fails) || ("once".equals(fails) && ctx.failedPostRestart.add(label))) throw new IllegalStateException("post-restart"); // `throw-in-post-restart`
+      if (Boolean.TRUE.equals(cfg.get("post-restart-without-pre-start"))) return; // an override that does not call super
       super.postRestart(reason); // default: preStart
     }
     @Override public void postStop() {
@@ -306,7 +311,12 @@ final class Scenario {
           case "spawn-child": {
             Map<String, Object> beh = (Map<String, Object>) sp.get("behavior");
             String lb = (String) sp.get("as");
-            Props props = beh == null ? Props.create(Noop.class) : Props.create(Scripted.class, () -> new Scripted(lb == null ? "_" : lb, beh, ctx));
+            // `same-instance`: the factory hands out the instance it made the first time
+            java.util.concurrent.atomic.AtomicReference<Scripted> kept = new java.util.concurrent.atomic.AtomicReference<>();
+            Props props = beh == null ? Props.create(Noop.class) : Props.create(Scripted.class, () -> {
+              if (kept.get() == null || !Boolean.TRUE.equals(beh.get("same-instance"))) kept.set(new Scripted(lb == null ? "_" : lb, beh, ctx));
+              return kept.get();
+            });
             ActorRef r = sp.containsKey("name") ? getContext().actorOf(props, (String) sp.get("name")) : getContext().actorOf(props);
             if (lb != null) ctx.refs.put(lb, r);
             res = "\"ok\":true," + refJson(r);
