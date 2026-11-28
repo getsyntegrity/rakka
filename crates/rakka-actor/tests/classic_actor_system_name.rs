@@ -30,25 +30,6 @@ fn rejects_common_invalid_names() {
     }
 }
 
-/// A small deterministic generator (xorshift), so that a failure repeats.
-struct Random(u64);
-
-impl Random {
-    fn below(&mut self, bound: usize) -> usize {
-        self.0 ^= self.0 << 13;
-        self.0 ^= self.0 >> 7;
-        self.0 ^= self.0 << 17;
-        (self.0 % bound as u64) as usize
-    }
-
-    fn word(&mut self) -> String {
-        const VALID: &[u8] = b"abcxyzABCXYZ0189-_";
-        (0..self.below(8))
-            .map(|_| VALID[self.below(VALID.len())] as char)
-            .collect()
-    }
-}
-
 #[test]
 fn rejects_all_invalid_names() {
     // never valid anywhere: every ASCII character outside [a-zA-Z0-9_-], and letters, digits and others that are not ASCII
@@ -56,17 +37,15 @@ fn rejects_all_invalid_names() {
         .filter(|c| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'))
         .chain(['é', 'ß', '١', 'Ａ', '😀', '\u{2028}'])
         .collect();
-    let mut random = Random(0x2545_F491_4F6C_DD1D);
     assert_rejected("");
-    for _ in 0..200 {
-        let leading = ['-', '_'][random.below(2)];
-        assert_rejected(&format!("{leading}{}", random.word()));
-    }
-    for character in forbidden {
-        assert_rejected(&character.to_string());
-        let (before, after) = (random.word(), random.word());
-        assert_rejected(&format!("a{before}{character}{after}"));
-        assert_rejected(&format!("{before}{character}"));
+    for word in ["", "a", "Z9", "a-b_c", "0123456789"] {
+        assert_rejected(&format!("-{word}"));
+        assert_rejected(&format!("_{word}"));
+        for character in &forbidden {
+            assert_rejected(&format!("{character}{word}"));
+            assert_rejected(&format!("a{word}{character}{word}"));
+            assert_rejected(&format!("a{word}{character}"));
+        }
     }
 }
 
