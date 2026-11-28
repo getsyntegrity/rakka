@@ -7,17 +7,17 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 520 | 71 | 118 | 331 | 5 | 13.7 % | 36.3 % |
+| Classic (`rakka-actor`) | 520 | 74 | 115 | 331 | 5 | 14.2 % | 36.3 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 780 | 71 | 118 | 591 | 5 | 9.1 % | 24.2 % |
+| **Total** | 780 | 74 | 115 | 591 | 5 | 9.5 % | 24.2 % |
 
 ## Por ola
 
 | Ola | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
 | 0 - valores sin runtime | 57 | 44 | 12 | 1 | 4 | 77.2 % | 98.2 % |
-| 1 - configuracion, eventos y scheduler | 69 | 12 | 38 | 19 | 1 | 17.4 % | 72.5 % |
-| 2 - nucleo del runtime Classic | 134 | 13 | 53 | 68 | 0 | 9.7 % | 49.3 % |
+| 1 - configuracion, eventos y scheduler | 69 | 14 | 36 | 19 | 1 | 20.3 % | 72.5 % |
+| 2 - nucleo del runtime Classic | 134 | 14 | 52 | 68 | 0 | 10.4 % | 49.3 % |
 | 3 - sistema, proveedor, referencias y extensiones | 45 | 2 | 14 | 29 | 0 | 4.4 % | 35.6 % |
 | 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0 | 0.0 % | 0.0 % |
 | 5 - apagado, serializacion e IO | 84 | 0 | 1 | 83 | 0 | 0.0 % | 1.2 % |
@@ -36,8 +36,8 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P04 UTIL-BYTES | 0 | 9 | 4 | 5 | 0 | 0 | 44.4 % | 100.0 % | sí |
 | P05 UTIL-GLOB | 0 | 1 | 1 | 0 | 0 | 0 | 100.0 % | 100.0 % | sí |
 | P06 UTIL-PLATAFORMA | 0 | 8 | 4 | 3 | 1 | 0 | 50.0 % | 87.5 % | sí |
-| P07 CFG-HOCON | 1 | 12 | 1 | 11 | 0 | 0 | 8.3 % | 100.0 % | parcial |
-| P08 CFG-AJUSTES | 1 | 10 | 0 | 10 | 0 | 0 | 0.0 % | 100.0 % | no |
+| P07 CFG-HOCON | 1 | 12 | 2 | 10 | 0 | 0 | 16.7 % | 100.0 % | parcial |
+| P08 CFG-AJUSTES | 1 | 10 | 1 | 9 | 0 | 0 | 10.0 % | 100.0 % | no |
 | P09 CFG-ENTORNO | 1 | 3 | 0 | 3 | 0 | 0 | 0.0 % | 100.0 % | no |
 | P10 CFG-DEPLOY | 1 | 3 | 0 | 3 | 0 | 0 | 0.0 % | 100.0 % | no |
 | P11 EVT-BUS | 1 | 11 | 0 | 0 | 11 | 0 | 0.0 % | 0.0 % | no |
@@ -50,7 +50,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P18 CELL-HIJOS | 2 | 6 | 1 | 4 | 1 | 0 | 16.7 % | 83.3 % | sí |
 | P19 CELL-EJECUCION | 2 | 11 | 0 | 4 | 7 | 0 | 0.0 % | 36.4 % | sí |
 | P20 SUP-ESTRATEGIAS | 2 | 10 | 0 | 7 | 3 | 0 | 0.0 % | 70.0 % | sí |
-| P21 SUP-FALLO | 2 | 11 | 3 | 5 | 3 | 0 | 27.3 % | 72.7 % | sí |
+| P21 SUP-FALLO | 2 | 11 | 4 | 4 | 3 | 0 | 36.4 % | 72.7 % | sí |
 | P22 CELL-REINICIO-PARADA | 2 | 21 | 5 | 12 | 4 | 0 | 23.8 % | 81.0 % | sí |
 | P23 DW-VIGILANCIA | 2 | 13 | 4 | 5 | 4 | 0 | 30.8 % | 69.2 % | parcial |
 | P24 MBX-STASH | 2 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | sí |
@@ -124,7 +124,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 |---|---|---|---|---|---|---|---|---|
 | AC-ASK | 30 | 0 | 0 | 30 | 0 | 0.0 % | 0.0 % | no |
 | AC-CELL | 39 | 4 | 19 | 16 | 0 | 10.3 % | 59.0 % | sí |
-| AC-CFG | 29 | 0 | 26 | 3 | 0 | 0.0 % | 89.7 % | no |
+| AC-CFG | 29 | 2 | 24 | 3 | 0 | 6.9 % | 89.7 % | no |
 | AC-CS | 15 | 0 | 0 | 15 | 0 | 0.0 % | 0.0 % | no |
 | AC-DSP | 25 | 0 | 3 | 22 | 0 | 0.0 % | 12.0 % | sí |
 | AC-DW | 13 | 5 | 5 | 3 | 0 | 38.5 % | 76.9 % | sí |
@@ -139,7 +139,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-RT | 22 | 0 | 0 | 22 | 0 | 0.0 % | 0.0 % | no |
 | AC-SCH | 16 | 0 | 7 | 9 | 1 | 0.0 % | 43.8 % | no |
 | AC-SER | 23 | 0 | 0 | 23 | 0 | 0.0 % | 0.0 % | no |
-| AC-SUP | 22 | 3 | 14 | 5 | 0 | 13.6 % | 77.3 % | sí |
+| AC-SUP | 22 | 4 | 13 | 5 | 0 | 18.2 % | 77.3 % | sí |
 | AC-SYS | 27 | 2 | 5 | 20 | 0 | 7.4 % | 25.9 % | sí |
 | AC-TK | 27 | 0 | 0 | 27 | 0 | 0.0 % | 0.0 % | no |
 | AC-UTIL | 65 | 45 | 13 | 7 | 4 | 69.2 % | 89.2 % | sí |
@@ -186,4 +186,4 @@ Cerradas por decisión del Owner (la nota de la fila la cita). **Están incluida
 
 ## Casos grabados y filas que cubren
 
-`cases/coverage.tsv` declara las filas que cubre cada uno de los 3174 casos (`tools/parity/apply_comparison.py`). Base `cited`: el caso lo cita una fila comparada; `same-group`: hereda las filas de su grupo de nombres; `none`: **251 casos sin fila asignada**, a mapear cuando un slice tome su unidad.
+`cases/coverage.tsv` declara las filas que cubre cada uno de los 3246 casos (`tools/parity/apply_comparison.py`). Base `cited`: el caso lo cita una fila comparada; `same-group`: hereda las filas de su grupo de nombres; `none`: **251 casos sin fila asignada**, a mapear cuando un slice tome su unidad.

@@ -15,7 +15,9 @@ use crate::actor::props::{
 };
 use crate::actor::scheduler::{ParkWaiter, Scheduler, TimerHooks, Waiter};
 use crate::actor::selection::ActorSelection;
-use crate::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
+use crate::actor::supervision::{
+    Directive, OneForOneStrategy, SupervisorStrategies, SupervisorStrategy,
+};
 use crate::actor::{ActorError, ErrorClass};
 use crate::actor::{ActorPath, Address, Deployer, DeployerError};
 use crate::dispatch::dead_letter_mailbox::DeadLetterMailbox;
@@ -90,17 +92,23 @@ pub struct Settings {
     /// The deployments (`pekko.actor.deployment`, or added with [`Deployer::deploy`]) that `actorOf` looks up by the path of the new actor.
     /// Clones of the settings share this one deployer, as one system shares its own.
     pub deployer: Arc<Deployer>,
+    /// `pekko.actor.guardian-supervisor-strategy`: the name of the configurator of the strategy of `/user`. A name that
+    /// [`supervisor_strategies`](Self::supervisor_strategies) does not know is a `ConfigurationException` of `ActorSystem` creation.
+    pub guardian_supervisor_strategy: String,
+    /// The configurators `guardian_supervisor_strategy` can name: Pekko's two and the registered ones.
+    pub supervisor_strategies: SupervisorStrategies,
 }
 
 impl Settings {
     /// The runtime settings that the configuration decides: `pekko.actor.unstarted-push-timeout` and the deployments of
     /// `pekko.actor.deployment` (an invalid one is an error, as at the start of a Pekko system). The dispatcher's keys
-    /// (`parallelism`, `throughput`, `throughput-deadline-time`) keep their defaults until the system is created from a
-    /// configuration. A negative timeout is zero, as the JVM's `tryLock` treats it.
+    /// (`parallelism`, `throughput`, `throughput-deadline-time`) are not read yet and keep their defaults (AC-DSP).
+    /// A negative timeout is zero, as the JVM's `tryLock` treats it.
     pub fn from_config(config: &crate::config::Settings) -> Result<Settings, DeployerError> {
         let unstarted_push_timeout = u64::try_from(config.unstarted_push_timeout.as_nanos())
             .map_or(Duration::ZERO, Duration::from_nanos);
         Ok(Settings {
+            guardian_supervisor_strategy: config.supervisor_strategy_class.clone(),
             unstarted_push_timeout,
             deployer: Arc::new(Deployer::from_settings(config)?),
             ..Settings::default()
@@ -118,6 +126,8 @@ impl Default for Settings {
             mailbox_requirement: None,
             mailboxes: Mailboxes::new(),
             deployer: Arc::new(Deployer::new()),
+            guardian_supervisor_strategy: SupervisorStrategies::DEFAULT.to_owned(),
+            supervisor_strategies: SupervisorStrategies::default(),
         }
     }
 }
@@ -137,6 +147,8 @@ pub(crate) struct SystemInner {
     pub dead_letter_mailbox: DeadLetterMailbox,
     termination: TerminationFuture,
     terminating: AtomicBool,
+    /// `settings` of a system created from a configuration.
+    pub(crate) config_settings: OnceLock<Box<crate::config::Settings>>,
     /// The bubble walker, for the tests that look at its state.
     #[cfg(test)]
     pub(crate) walker: OnceLock<Arc<BubbleWalker>>,
@@ -160,6 +172,22 @@ fn tell_no_such_actor(identify: &Identify, asker: &ActorRef, reply_sender: Optio
         actor_ref: None,
     };
     asker.tell_any(Arc::new(identity), reply_sender);
+}
+
+/// The system name must match `^[a-zA-Z0-9][a-zA-Z0-9-_]*$`.
+pub(crate) fn check_name(name: &str) -> Result<(), ActorError> {
+    let mut chars = name.chars();
+    if matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Ok(());
+    }
+    Err(ActorError::new(
+        ErrorClass::IllegalArgument,
+        format!(
+            "invalid ActorSystem name [{name}], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-' or '_')"
+        ),
+    ))
 }
 
 /// A local Classic actor system.
@@ -487,19 +515,12 @@ impl ActorSystem {
         waiter: Arc<dyn Waiter>,
         executor: Option<Arc<dyn Executor>>,
     ) -> Result<ActorSystem, ActorError> {
-        let valid = {
-            let mut chars = name.chars();
-            matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
-                && chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        check_name(name)?;
+        // `guardianSupervisorStrategyConfigurator.create()`: before any thread starts, so that a failure leaves none behind
+        let strategy_name = &settings.guardian_supervisor_strategy;
+        let Some(guardian_strategy) = settings.supervisor_strategies.create(strategy_name) else {
+            return Err(ActorError::new(ErrorClass::Configuration, strategy_name));
         };
-        if !valid {
-            return Err(ActorError::new(
-                ErrorClass::IllegalArgument,
-                format!(
-                    "invalid ActorSystem name [{name}], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-' or '_')"
-                ),
-            ));
-        }
         let root_path = ActorPath::root(Address::local("pekko", name));
         let turn_policy = TurnPolicy::new(settings.throughput, settings.throughput_deadline_time);
         let dispatcher = match executor {
@@ -534,6 +555,7 @@ impl ActorSystem {
             dead_letters,
             termination: termination.clone(),
             terminating: AtomicBool::new(false),
+            config_settings: OnceLock::new(),
             #[cfg(test)]
             walker: OnceLock::new(),
         });
@@ -585,11 +607,11 @@ impl ActorSystem {
             root.init_child(name, cell.self_ref());
             cell
         };
-        // `guardianStrategy`: `guardian-supervisor-strategy` is not ported, so it is always the default one
+        // `guardianStrategy`: only `/user` takes it; `/system` keeps the default one
         let user = make_guardian(
             "user",
-            Props::new(|| Guardian {
-                strategy: SupervisorStrategy::default(),
+            Props::new(move || Guardian {
+                strategy: guardian_strategy.clone(),
             })
             .with_resolved_mailbox(default_mailbox.clone()),
         );

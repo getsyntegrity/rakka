@@ -1,0 +1,1 @@
+SYS an invalid name and another version -> ERR IllegalArgumentException [invalid ActorSystem name [-sys], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-' or '_')]

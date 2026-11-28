@@ -2259,8 +2259,8 @@ MUTANTS = {
     ),
     "guardian-user-ignores-the-default-mailbox": (
         "src/actor/system.rs",
-        "                strategy: SupervisorStrategy::default(),\n            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
-        "                strategy: SupervisorStrategy::default(),\n            }),",
+        "                strategy: guardian_strategy.clone(),\n            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
+        "                strategy: guardian_strategy.clone(),\n            }),",
         "the /user guardian does not take the registered default mailbox",
     ),
     "guardian-system-ignores-the-default-mailbox": (
@@ -2434,6 +2434,31 @@ MUTANTS = {
     "pool-notifies-while-a-worker-is-already-waking": (
         "src/dispatch/dispatcher.rs", "let wake = !self.waking && self.sleepers > 0", "let wake = self.sleepers > 0",
         "a second sleeper is notified while one is already waking: more cross-thread hand-offs (killed by a unit test, see UNIT_MUTANTS)"),
+    # --- guardian-supervisor-strategy ---
+    "configured-guardian-strategy-is-ignored": (
+        "src/actor/system.rs",
+        "                strategy: guardian_strategy.clone(),",
+        "                strategy: SupervisorStrategy::default(),",
+        "`/user` takes the default strategy whatever `guardian-supervisor-strategy` names (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "guardian-strategy-name-is-not-read-from-the-configuration": (
+        "src/actor/system.rs",
+        "            guardian_supervisor_strategy: config.supervisor_strategy_class.clone(),\n",
+        "",
+        "`Settings::from_config` keeps the default configurator name (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "unknown-guardian-strategy-name-takes-the-default": (
+        "src/actor/supervision.rs",
+        "            .get(name)\n            .map(|configurator| configurator())",
+        "            .get(name)\n            .or_else(|| self.configurators.get(Self::DEFAULT))\n            .map(|configurator| configurator())",
+        "a name without a configurator creates the default strategy instead of failing (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "stopping-configurator-creates-the-default-strategy": (
+        "src/actor/supervision.rs",
+        "            OneForOneStrategy::stopping_strategy().into()",
+        "            OneForOneStrategy::default_strategy().into()",
+        "`StoppingSupervisorStrategy` creates the default strategy (killed by an integration test, see UNIT_MUTANTS)",
+    ),
     # --- Q-SUP-1: classification by subtype ---
     "non-exception-restarts-instead-of-escalating": (
         "src/actor/supervision.rs",
@@ -2494,6 +2519,37 @@ MUTANTS = {
         "        if name.contains('#') {\n            return Err(IllegalArgumentError::new(format!(\n                \"# is a fragment separator and is not legal in ActorPath names: [{name}]\"",
         "        if false {\n            return Err(IllegalArgumentError::new(format!(\n                \"# is a fragment separator and is not legal in ActorPath names: [{name}]\"",
         "the ChildActorPath constructor builds a name holding `#`, which serializes as a name plus a bogus uid (AC-PATH-016)",
+    ),
+    # --- the system built from a Config (AC-CFG-003, AC-CFG-020) ---
+    "config-creation-checks-the-name-after-the-settings": (
+        "src/actor/system_from_config.rs",
+        "        check_name(name).map_err(CreateError::Actor)?;\n",
+        "",
+        "an invalid name is reported only after the configuration was read (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "config-creation-does-not-amend-slf4j": (
+        "src/actor/system_from_config.rs",
+        "            amend_slf4j_config(&config, |_| false).map_err(|e| CreateError::Settings(e.into()))?;",
+        "            Ok::<_, CreateError>(config)?;",
+        "the settings are read from a configuration `amendSlf4jConfig` never saw (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "config-creation-claims-the-slf4j-logger-is-registered": (
+        "src/actor/system_from_config.rs",
+        "amend_slf4j_config(&config, |_| false)",
+        "amend_slf4j_config(&config, |_| true)",
+        "`use-slf4j` adds a logger rakka does not have (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "config-creation-ignores-the-runtime-settings": (
+        "src/actor/system_from_config.rs",
+        "        let system = Self::create_with_settings(name, runtime).map_err(CreateError::Actor)?;",
+        "        drop(runtime);\n        let system = Self::create(name).map_err(CreateError::Actor)?;",
+        "the unstarted push timeout and the deployments of the configuration are lost (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "config-creation-does-not-keep-the-settings": (
+        "src/actor/system_from_config.rs",
+        "        system.0.config_settings.get_or_init(|| Box::new(settings));",
+        "        drop(settings);",
+        "the system does not expose the settings it was created from (killed by an integration test, see UNIT_MUTANTS)",
     ),
 }
 
@@ -2615,6 +2671,11 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "config-creation-checks-the-name-after-the-settings": ("test:classic_system_from_config", "the_name_is_checked_before_the_settings_are_read"),
+    "config-creation-does-not-amend-slf4j": ("test:classic_system_from_config", "the_slf4j_config_is_amended_before_the_settings_are_read"),
+    "config-creation-claims-the-slf4j-logger-is-registered": ("test:classic_system_from_config", "the_slf4j_config_is_amended_before_the_settings_are_read"),
+    "config-creation-ignores-the-runtime-settings": ("test:classic_system_from_config", "the_runtime_settings_and_the_deployments_come_from_the_config"),
+    "config-creation-does-not-keep-the-settings": ("test:classic_system_from_config", "the_system_exposes_the_settings_read_from_the_config_over_the_reference"),
     "class-name-is-asked-unguarded": ("test:classic_class_name_panic", "an_actor_whose_class_name_panics_works_and_is_reported_by_its_type"),
     "failed-creation-drops-props-unguarded": ("test:classic_mailbox_spi_failure", "props_whose_drop_panics_do_not_keep_the_name_of_a_failed_creation"),
     "replaced-mailbox-type-is-dropped-unguarded": ("test:classic_mailbox_spi_failure", "a_mailbox_type_replaced_by_a_deployment_may_panic_on_drop"),
@@ -2638,6 +2699,10 @@ UNIT_MUTANTS = {
     "root-guardian-restarts-a-failed-guardian": ("actor::guardian_failure_tests", "a_killed_user_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates"),
     "bubble-walker-failure-is-not-logged": ("actor::guardian_failure_tests", "a_killed_root_guardian_is_logged_by_the_bubble_walker_and_the_system_never_reports_termination"),
     "restarted-user-guardian-stops-its-children": ("actor::guardian_failure_tests", "a_restarted_user_or_system_guardian_keeps_its_children"),
+    "configured-guardian-strategy-is-ignored": ("test:classic_guardian_strategy", "a_stopping_guardian_strategy_stops_the_failed_top_level_actor"),
+    "stopping-configurator-creates-the-default-strategy": ("test:classic_guardian_strategy", "a_stopping_guardian_strategy_stops_the_failed_top_level_actor"),
+    "guardian-strategy-name-is-not-read-from-the-configuration": ("test:classic_guardian_strategy", "a_stopping_guardian_strategy_stops_the_failed_top_level_actor"),
+    "unknown-guardian-strategy-name-takes-the-default": ("test:classic_guardian_strategy", "an_unregistered_guardian_strategy_name_fails_the_creation_of_the_system"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
     "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)

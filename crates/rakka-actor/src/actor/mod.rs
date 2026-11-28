@@ -33,6 +33,7 @@ pub mod selection;
 mod spawn_during_shutdown_tests;
 pub mod supervision;
 pub mod system;
+mod system_from_config;
 mod timer_wheel;
 #[cfg(test)]
 mod unstarted_push_timeout_tests;
@@ -53,3 +54,4 @@ pub use errors::{
 pub use path::{
     ActorPath, is_valid_path_element, relative_actor_path_elements, validate_path_element,
 };
+pub use system_from_config::CreateError;

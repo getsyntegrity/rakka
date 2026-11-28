@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 281 decisiones: 0 bloqueantes, 190 propuestas, 68 aceptadas, 20 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 283 decisiones: 0 bloqueantes, 191 propuestas, 69 aceptadas, 20 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -432,10 +432,10 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 ### Q-CFG-31 — Error de un nombre de clase no registrado: ClassNotFoundException que lleva el nombre (corrige la redacción de Q-X-2 y de Q-CFG-9 (a))
 
 - **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Q-X-2 (aceptada con cambios, 2026-11-18) dice "el error de nombre no registrado es ConfigurationException del crate, como en Pekko" y Q-CFG-9 (a) "un error de configuración que nombra la clase"; en Pekko 2.0.0 no es así para DynamicAccess ni para el proveedor. ReflectiveDynamicAccess.getClassFor usa Class.forName (ReflectiveDynamicAccess.scala:44) y devuelve Failure(ClassNotFoundException) (DynamicAccessSpec.scala:50-57). ActorSystemImpl carga el proveedor con dynamicAccess.createInstanceFor[ActorRefProvider](ProviderClass, arguments).get y su catch solo detiene el scheduler y relanza la misma excepción (ActorSystem.scala:996-1011). Medido con el oráculo (Pekko 2.0.0, JDK 17, casos da-0014..da-0017 de la familia dynamic-access): pekko.actor.provider = foo.NonExisting, org.apache.pekko.remote.RemoteActorRefProvider y org.apache.pekko.cluster.ClusterActorRefProvider lanzan ClassNotFoundException con el FQCN como mensaje; LocalActorRefProvider crea el sistema. Los consumidores que envuelven el fallo de carga lo hacen con tipos distintos: Dispatchers lo envuelve en ConfigurationException (Dispatchers.scala:274-281, MessageDispatcherConfigurator); Mailboxes, al cargar un tipo de requirement, en ConfigurationException (Mailboxes.scala:86-96) y, al crear el MailboxType, en IllegalArgumentException (Mailboxes.scala:235-243).
+- **Evidencia:** Q-X-2 (aceptada con cambios, 2026-11-18) dice "el error de nombre no registrado es ConfigurationException del crate, como en Pekko" y Q-CFG-9 (a) "un error de configuración que nombra la clase"; en Pekko 2.0.0 no es así para DynamicAccess ni para el proveedor. ReflectiveDynamicAccess.getClassFor usa Class.forName (ReflectiveDynamicAccess.scala:44) y devuelve Failure(ClassNotFoundException) (DynamicAccessSpec.scala:50-57). ActorSystemImpl carga el proveedor con dynamicAccess.createInstanceFor[ActorRefProvider](ProviderClass, arguments).get y su catch solo detiene el scheduler y relanza la misma excepción (ActorSystem.scala:996-1011). Medido con el oráculo (Pekko 2.0.0, JDK 17, casos da-0014..da-0017 de la familia dynamic-access): pekko.actor.provider = foo.NonExisting, org.apache.pekko.remote.RemoteActorRefProvider y org.apache.pekko.cluster.ClusterActorRefProvider lanzan ClassNotFoundException con el FQCN como mensaje; LocalActorRefProvider crea el sistema. Los consumidores que envuelven el fallo de carga lo hacen con tipos distintos: Dispatchers lo envuelve en ConfigurationException (Dispatchers.scala:274-281, MessageDispatcherConfigurator); Mailboxes, al cargar un tipo de requirement, en ConfigurationException (Mailboxes.scala:86-96) y, al crear el MailboxType, en IllegalArgumentException (Mailboxes.scala:235-243). El configurador de la estrategia del guardián tampoco envuelve: guardian-supervisor-strategy = no.SuchStrategy lanza java.lang.ClassNotFoundException con el nombre (ActorRefProvider.scala:517-520; MBX-GRD-06), así que el «como en Pekko» de Q-X-2 es inexacto también aquí; Rakka devuelve ConfigurationException, como dice Q-X-2.
 - **Alternativas:** (a) Dos capas. Capa 1: FactoryRegistry::lookup (y create) devuelve un error ClassNotFound, equivalente a ClassNotFoundException, que lleva el nombre; el registro no usa ConfigurationException. Capa 2: cada consumidor transforma el error como Pekko 2.0.0: la resolución del proveedor lo propaga sin envolver; Dispatchers (y el requirement de Mailboxes) lo envuelven en ConfigurationException y la creación del MailboxType en IllegalArgumentException, cuando se implementen (otras unidades; queda anotado en sus filas). Se mantienen Q-X-2 (A) y Q-CFG-9 (c). (b) Mantener el texto literal de Q-X-2 y de Q-CFG-9 (a): el registro y la resolución del proveedor devuelven ConfigurationException (diferencia deliberada con Pekko para el proveedor, que el oráculo no confirma).
-- **Recomendación:** (a). Clasificación: comportamiento observable (tipo de error). Consecuencia: un proveedor desconocido, remote o cluster falla con el tipo y el mensaje de Pekko; Cada consumidor que Pekko envuelve conserva su tipo (ConfigurationException en Dispatchers; IllegalArgumentException al crear un MailboxType). Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible.
-- **Filas afectadas:** AC-CFG-008;AC-CFG-016
+- **Recomendación:** (a). Clasificación: comportamiento observable (tipo de error). Consecuencia: un proveedor desconocido, remote o cluster falla con el tipo y el mensaje de Pekko; Cada consumidor que Pekko envuelve conserva su tipo (ConfigurationException en Dispatchers; IllegalArgumentException al crear un MailboxType). Bloquea: AC-CFG-016, AC-CFG-008 y AC-SYS-008 (cierre, quedan partial); puede avanzar: el resto. Reversible.
+- **Filas afectadas:** AC-CFG-008;AC-CFG-016;AC-SYS-008
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 
@@ -1276,6 +1276,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) una clase que el runtime conoce conserva su propia jerarquía y lo declarado sobre ella se ignora / (b) lo declarado gana siempre / (c) la declaración sólo puede añadir superclases a las conocidas
 - **Recomendación:** El Owner eligió (a) en la sesión (2026-11-27); registro en owner-decisions.tsv pendiente de su autorización. Implementada: desde la primera clase conocida de la cadena (la propia o una declarada) valen sólo las superclases del runtime; lo declarado se conserva en el valor
 - **Filas afectadas:** AC-SUP-004
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+
+### Q-SUP-9 — Frase de AC-SUP-010 «un actor fallado no se suspende de nuevo por cascada propia» frente a handleInvokeFailure, que suspende siempre
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:57-58,214-225 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:148-155 ; crates/rakka-actor/src/actor/refailure_tests.rs
+- **Alternativas:** (a) corregir la frase del contrato según el código: handleInvokeFailure llama siempre suspendNonRecursive (:218), sin guarda isFailed, y cada fallo incrementa suspendCount; isFailed sólo decide el perpetrador y qué hijo se salta (:220-225) / (b) mantener la frase, que repite el comentario de :57-58, y cambiar la conducta de Rakka para no suspender de nuevo, apartándose del código de Pekko
+- **Recomendación:** (a): la conducta de Rakka ya sigue el código (AC-SUP-001); sólo cambia el texto del contrato. La frase no se modifica hasta que el Owner responda
+- **Filas afectadas:** AC-SUP-010
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 
@@ -2649,6 +2659,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 - **Respuesta del Owner:** ACCEPTED con condiciones: encapsular los campos de Throwable e impedir su construcción directa desde fuera del crate. Proporcionar constructores públicos idiomáticos. Preservar acceso de lectura a la información relevante. Permitir errores personalizados y sus jerarquías. Garantizar las invariantes de clasificación establecidas en Q-SUP-1. Preservar las cadenas de causas. Incorporar tests de la API pública desde fuera del crate. Documentar el cambio incompatible de API. Evitar restricciones adicionales que no estén justificadas por los contratos. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
+
+### Q-SYS-7 — Forma pública de crear un ActorSystem desde una Config y de exponer sus Settings
+
+- **Estado:** aceptada
+- **Evidencia:** ActorSystem.scala:301 (`apply(name, config)`), :846-860 (nombre, amendSlf4jConfig, `new Settings`), :387-491 ; crates/rakka-actor/src/actor/system_from_config.rs ; tests/classic_system_from_config.rs
+- **Alternativas:** (a) `ActorSystem::create_from_config(name, Config) -> Result<ActorSystem, CreateError>`, `ActorSystem::config_settings() -> Option<&config::Settings>` y `CreateError` (`Actor`, `Settings`, `Deployer`); `create` y `create_with_settings` no leen ninguna Config; (b) todo sistema tiene Config: `create(name)` carga la de la aplicación como `ConfigFactory.load` y `settings()` devuelve `config::Settings` con los ajustes del runtime dentro; (c) builder `ActorSystem::builder(name).config(..).build()` (equivalente propuesto en AC-SYS-001.2)
+- **Recomendación:** [Clasificación: arquitectura (API pública)] (a), implementada provisionalmente; (b) cuando se porte AC-SYS-001.2. La clase y el mensaje de cada rechazo son los de Pekko en las tres. Consecuencias observables: con (a) `config_settings()` es `None` en un sistema creado sin Config y `create(name)` no lee `application.conf`, a diferencia de `ActorSystem(name)`. Bloquea: el cierre de las filas listadas; puede avanzar: todo el comportamiento. Reversible antes del primer release.
+- **Filas afectadas:** AC-SYS-001.2;AC-CFG-002;AC-CFG-003;AC-CFG-018;AC-CFG-020
+- **Unidades afectadas:** SYS, CFG
+- **Origen:** classic-system
+- **Respuesta del Owner:** ACCEPTED, alternativa (a). Se aceptan ActorSystem::create_from_config(nombre, config) y config_settings(). La limitación relativa a la estrategia personalizada del guardián (por esta vía no se puede suministrar un registro de estrategias del usuario) es deuda funcional pendiente, no una excepción permanente de paridad. AC-CFG-003 y AC-CFG-020 se cierran sólo si se verifican sus criterios. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-28)
 
 ### Q-T-BEH-1 — Forma del tipo Behavior en Rust, setup re-ejecutable y reutilizacion del valor
 

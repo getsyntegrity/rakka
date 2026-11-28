@@ -2736,7 +2736,7 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 - A1 `getString("pekko.version") == ActorSystem.Version` en la config por defecto: ConfigSpec.scala:41-42.
 - A2 el mensaje de error y la condición de fallo: derivadas del código ActorSystem.scala:485-487 (*no afirmadas por spec*).
 
-**Oráculo.** No aplica: la versión es del build.
+**Oráculo.** Casos `cs-0156..` (SET-VERSION, `new ActorSystem.Settings(..)`) y `cs-0214..cs-0231` (`SystemFromConfigOracle.java`: `ActorSystem.create(name, config)` real).
 
 **Decisiones.** Q-CFG-5.
 
@@ -2746,6 +2746,8 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config::check_pekko_version` (mensaje `Pekko JAR version [..] does not match the provided config version [..]`; `pekko.version` = 2.0.0 por Q-CFG-5 (a)) probado con tests unitarios; sin caso grabado (el oráculo no crea un ActorSystem aquí). Queda `partial`: sin caso grabado contra el oráculo (la condición del build no es observable en él); sólo tests unitarios.
 
 **Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::new` comprueba la versión como último paso (`check_pekko_version`, después de la combinación de coordinated-shutdown y de `virtual-nodes-factor`); casos grabados cs-* SET-VERSION (cinco con `ConfigurationException` o la versión correcta, sin descripción de origen) y SET-DEFAULT (A1) contra `new ActorSystem.Settings(..)` de Pekko 2.0.0: A1 y A2 cubiertas. No cambia de estado (`partial`): `ActorSystem::create_with_settings` aún no construye estos `Settings` (AC-SYS).
+
+**Actualización system-from-config (2026-11-28).** `ActorSystem::create_from_config` (Q-SYS-7 (a), aceptada) construye los `Settings` y el sistema no arranca; `cs-0214..cs-0231` cubren A1, A2, la condición de fallo y su orden (último chequeo de `Settings`; el nombre va antes). `done`.
 
 ## AC-CFG-004 — Claves de logging: loggers, logging-filter, loggers-dispatcher, logger-startup-timeout, loglevel, stdout-loglevel, log-config-on-start
 
@@ -3668,7 +3670,7 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 - A2 el texto exacto del mensaje no lo afirma ningún test: derivado del código ActorSystem.scala:478-481 (*no afirmada por spec*).
 - A3 con `run-by-actor-system-terminate = off`, `terminate()` no dispara CoordinatedShutdown (`shutdownReason() == None`): CoordinatedShutdownSpec.scala:557-570 (pertenece a AC-CS-006).
 
-**Oráculo.** No aplica.
+**Oráculo.** Casos SET-CS (`new ActorSystem.Settings(..)`) y `cs-0232..cs-0246` (`SystemFromConfigOracle.java`: `ActorSystem.create(name, config)` real).
 
 **Decisiones.** Ninguna.
 
@@ -3676,6 +3678,8 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 ---
 
 **Actualización P08 (2026-11-19, Pekko 2.0.0).** Rust: `Settings::new` falla con `ConfigurationException` con el texto exacto de Pekko cuando `run-by-actor-system-terminate=on` y `terminate-actor-system=off`; casos grabados cs-* SET-CS (cuatro combinaciones, la clave sola con el otro valor por defecto, el orden respecto del chequeo de versión y de `virtual-nodes-factor`): A1 y A2. Sin decisión propuesta que afecte a sus expected (ninguno lleva `String: N`). Queda `partial` sólo por la integración: A1 afirma que `ActorSystem(..)` lanza la excepción y `ActorSystem::create_with_settings` aún no construye estos `Settings` (AC-SYS); A3 pertenece a AC-CS-006.
+
+**Actualización system-from-config (2026-11-28).** `ActorSystem::create_from_config` (Q-SYS-7 (a), aceptada) lanza el rechazo; `cs-0232..cs-0246` cubren A1 y A2 y su orden. A3 no es una aserción de esta fila: su dueña es AC-CS-006.2 A2 (sigue `pending`; rakka no tiene CoordinatedShutdown). El cierre usa esa lectura. `done`.
 
 ## AC-PATH-001 — Address: protocol, system, host?, port?; alcance local vs global; toString y hostPort
 
