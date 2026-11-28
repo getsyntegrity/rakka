@@ -100,7 +100,7 @@
 
 ## P07 CFG-HOCON
 
-12 filas; 12 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 5 propuestas.
+12 filas; 13 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -109,6 +109,7 @@
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 9: AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.6 … (+3) | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-CFG-5 | accepted_with_changes (2026-11-18): aceptar (a) con el valor "2.0.0" (la referencia pasó de 1.7.1 a 2.0.0, Q-X-11). | 1: AC-CFG-003 | Bloquea: AC-CFG-003, AC-UTIL-005.1; puede avanzar: el resto. | — | `classic-foundation` |
 | Q-CFG-6 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-CFG-001 | Bloquea: AC-CFG-001 (carga por defecto); puede avanzar: `ActorSystem::new(config)` con config explícita. | — | `classic-foundation` |
+| Q-SYS-7 | accepted (2026-11-28): ACCEPTED, alternativa (a). Se aceptan ActorSystem::create_from_config(nombre, config) y config_settings(). La limitación relativa a la estrategia… | 1: AC-CFG-003 | Bloquea: el cierre de las filas listadas; puede avanzar: todo el comportamiento. Reversible antes del primer release. | — | `classic-system` |
 | Q-UTIL-1 | rejected (2026-10-31): rechazar: la recomendación (a) (std::time::Duration, sólo valores positivos) NO se adopta. ALTERNATIVA ELEGIDA Y VIGENTE: preservar el dominio de Pekko, es… | 1: AC-UTIL-002.4 | — | — | `classic-foundation` |
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 9: AC-CFG-001, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5 … (+3) | — | — | `transversal` |
 | Q-CFG-14 | propuesta | 2: AC-CFG-001, AC-CFG-017.6 | Bloquea: nada; las filas quedan `partial` hasta medir los mensajes de file/url. | — | `classic-foundation` |
@@ -119,7 +120,7 @@
 
 ## P08 CFG-AJUSTES
 
-10 filas; 14 decisiones distintas en sus filas: 10 respondidas, 0 bloqueantes, 4 propuestas.
+10 filas; 16 decisiones distintas en sus filas: 11 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -129,6 +130,7 @@
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 2: AC-CFG-002, AC-CFG-005 | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-CFG-7 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-CFG-007 | Bloquea: AC-CFG-007 y AC-UTIL-016.11 (impl); puede avanzar: aceptar y validar las claves. | — | `classic-foundation` |
 | Q-CFG-8 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-CFG-006 | Bloquea: AC-CFG-006 y AC-EXT-003; puede avanzar: AC-EXT-001.*, AC-EXT-002. | — | `classic-foundation` |
+| Q-SYS-7 | accepted (2026-11-28): ACCEPTED, alternativa (a). Se aceptan ActorSystem::create_from_config(nombre, config) y config_settings(). La limitación relativa a la estrategia… | 4: AC-CFG-002, AC-CFG-009, AC-CFG-018, AC-CFG-020 | Bloquea: el cierre de las filas listadas; puede avanzar: todo el comportamiento. Reversible antes del primer release. | — | `classic-system` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 4: AC-CFG-004, AC-CFG-006, AC-CFG-009, AC-CFG-018 | — | — | `transversal` |
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-CFG-010 | — | — | `transversal` |
 | Q-X-6 | accepted (2026-11-18): aceptar (A). | 1: AC-CFG-011 | — | — | `transversal` |
@@ -137,6 +139,7 @@
 | Q-CFG-17 | propuesta | 2: AC-CFG-002, AC-CFG-010 | Bloquea: nada; AC-CFG-010 queda `partial` hasta AC-SER. | — | `classic-foundation` |
 | Q-CFG-18 | propuesta | 1: AC-CFG-002 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
 | Q-CFG-19 | propuesta | 1: AC-CFG-002 | Bloquea: nada; reversible. | — | `classic-foundation` |
+| Q-CFG-31 | propuesta | 1: AC-CFG-009 | Bloquea: AC-CFG-016, AC-CFG-008 y AC-SYS-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 
 ## P09 CFG-ENTORNO
 
@@ -374,10 +377,11 @@
 
 ## P25 SYS-GUARDIANES
 
-12 filas; 12 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 5 propuestas.
+12 filas; 13 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-SYS-7 | accepted (2026-11-28): ACCEPTED, alternativa (a). Se aceptan ActorSystem::create_from_config(nombre, config) y config_settings(). La limitación relativa a la estrategia… | 1: AC-SYS-001.2 | Bloquea: el cierre de las filas listadas; puede avanzar: todo el comportamiento. Reversible antes del primer release. | — | `classic-system` |
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 1: AC-SYS-001.2 | — | — | `transversal` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 3: AC-SUP-014, AC-SYS-002, AC-SYS-008 | — | — | `transversal` |
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-SYS-003.1 | — | — | `transversal` |
@@ -1107,4 +1111,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 550 (266 respondidas, 0 bloqueantes, 284 propuestas).
+Total de pares unidad–decisión: 554 (269 respondidas, 0 bloqueantes, 285 propuestas).

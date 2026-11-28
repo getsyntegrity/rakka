@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 282 decisiones: 0 bloqueantes, 195 propuestas, 66 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 283 decisiones: 0 bloqueantes, 195 propuestas, 67 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -2677,6 +2677,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 - **Respuesta del Owner:** ACCEPTED con condiciones: encapsular los campos de Throwable e impedir su construcción directa desde fuera del crate. Proporcionar constructores públicos idiomáticos. Preservar acceso de lectura a la información relevante. Permitir errores personalizados y sus jerarquías. Garantizar las invariantes de clasificación establecidas en Q-SUP-1. Preservar las cadenas de causas. Incorporar tests de la API pública desde fuera del crate. Documentar el cambio incompatible de API. Evitar restricciones adicionales que no estén justificadas por los contratos. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
+
+### Q-SYS-7 — Forma pública de crear un ActorSystem desde una Config y de exponer sus Settings
+
+- **Estado:** aceptada
+- **Evidencia:** ActorSystem.scala:301 (`apply(name, config)`), :846-860 (nombre, amendSlf4jConfig, `new Settings`), :387-491 ; crates/rakka-actor/src/actor/system_from_config.rs ; tests/classic_system_from_config.rs
+- **Alternativas:** (a) `ActorSystem::create_from_config(name, Config) -> Result<ActorSystem, CreateError>`, `ActorSystem::config_settings() -> Option<&config::Settings>` y `CreateError` (`Actor`, `Settings`, `Deployer`); `create` y `create_with_settings` no leen ninguna Config; (b) todo sistema tiene Config: `create(name)` carga la de la aplicación como `ConfigFactory.load` y `settings()` devuelve `config::Settings` con los ajustes del runtime dentro; (c) builder `ActorSystem::builder(name).config(..).build()` (equivalente propuesto en AC-SYS-001.2)
+- **Recomendación:** [Clasificación: arquitectura (API pública)] (a), implementada provisionalmente; (b) cuando se porte AC-SYS-001.2. La clase y el mensaje de cada rechazo son los de Pekko en las tres. Consecuencias observables: con (a) `config_settings()` es `None` en un sistema creado sin Config y `create(name)` no lee `application.conf`, a diferencia de `ActorSystem(name)`. Bloquea: el cierre de las filas listadas; puede avanzar: todo el comportamiento. Reversible antes del primer release.
+- **Filas afectadas:** AC-SYS-001.2;AC-CFG-002;AC-CFG-003;AC-CFG-018;AC-CFG-020
+- **Unidades afectadas:** SYS, CFG
+- **Origen:** classic-system
+- **Respuesta del Owner:** ACCEPTED, alternativa (a). Se aceptan ActorSystem::create_from_config(nombre, config) y config_settings(). La limitación relativa a la estrategia personalizada del guardián (por esta vía no se puede suministrar un registro de estrategias del usuario) es deuda funcional pendiente, no una excepción permanente de paridad. AC-CFG-003 y AC-CFG-020 se cierran sólo si se verifican sus criterios. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-28)
 
 ### Q-T-BEH-1 — Forma del tipo Behavior en Rust, setup re-ejecutable y reutilizacion del valor
 

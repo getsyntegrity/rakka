@@ -129,6 +129,11 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Q-SUP-8 — Redeclarar la jerarquía de una clase conocida | (a), implementada: las clases conocidas conservan su jerarquía y lo declarado sobre ellas se ignora; elegida por el Owner en la sesión, registro pendiente (alternativas: (b) lo declarado gana; (c) la declaración sólo añade) | Una `PostRestartException` declarada bajo `java.lang.Error` sigue siendo una `ActorInitializationException`; quien quiera otra clasificación usa otro nombre de clase | `actor/fault.rs`; `tests/classic_throwable_known_classes.rs` | Con (b) un usuario podría romper la invariante de Q-SUP-1 |
 | Q-SUP-9 — Texto de AC-SUP-010 sobre volver a suspender un actor fallado | (a) corregir la frase según el código (`handleInvokeFailure` suspende siempre; `isFailed` sólo decide el perpetrador); alternativa (b): mantenerla y cambiar la conducta | Con (a) ninguna: Rakka ya sigue el código; con (b) un fallo repetido dejaría de incrementar `suspendCount` y diferiría de Pekko | `dungeon/FaultHandling.scala:214-225` (el comentario de `:57-58` dice lo mismo que la frase) | Bajo: sólo texto del contrato |
 
+### Classic: ActorSystem desde una Config
+| Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
+|---|---|---|---|---|
+| Q-SYS-7 — Forma pública de crear un `ActorSystem` desde una `Config` y de exponer sus `Settings` | (a), aceptada por el Owner (2026-11-28) e implementada: `ActorSystem::create_from_config(name, Config)`, `config_settings() -> Option<&config::Settings>` y `CreateError` (alternativas: (b) todo sistema tiene `Config` y `create(name)` carga la de la aplicación; (c) builder) | La clase y el mensaje de cada rechazo son los de Pekko en las tres; con (a) un sistema creado sin `Config` no expone `config::Settings` y `create(name)` no lee `application.conf` | `ActorSystem.scala:301,846-860,387-491`; `tests/classic_system_from_config.rs` | Cambiar la firma antes del primer release; por esta vía no se puede suministrar un registro de estrategias del guardián del usuario (deuda funcional pendiente) |
+
 ### Classic: scheduler
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
 |---|---|---|---|---|
