@@ -72,7 +72,7 @@ Filas: AC-JAPI-010, AC-JAPI-011, AC-JAPI-012. Contratos y aserciones: `docs/inve
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-JAPI-001 | AbstractActor + createReceive y AbstractActor.ActorContext (getters Java,… | Equivalente: el trait `Actor` de Rust con `receive`; ver Q-JAPI-1/Q-JAPI-2 | actor-tests/src/test/java/org/apache/pekko/actor/ActorCreationTest.java:80-98 ;… | Q-JAPI-1, Q-JAPI-4, Q-UTIL-27 |
+| AC-JAPI-001 | AbstractActor + createReceive y AbstractActor.ActorContext (getters Java,… | Equivalente: el trait `Actor` de Rust con `receive`; ver Q-JAPI-1/Q-JAPI-2 | actor-tests/src/test/java/org/apache/pekko/actor/ActorCreationTest.java:80-98 ;… | Q-JAPI-1, Q-JAPI-4 |
 | AC-JAPI-002 | UntypedAbstractActor, AbstractLoggingActor,… | Traits `Stash`, `Timers`, logging por contexto en Rust | actor-tests/src/test/java/org/apache/pekko/actor/StashJavaAPI.java:30-54 ;… | Q-JAPI-1 |
 | AC-JAPI-003 | AbstractFSM / AbstractLoggingFSM / AbstractFSMWithStash y builders FSM… | Equivalente: FSM de AC-FSM (una sola API) | actor-tests/src/test/java/org/apache/pekko/actor/AbstractFSMActorTest.java:27-62 ;… | Q-JAPI-1, Q-JAPI-2 |
 | AC-JAPI-004.1 | japi.pf Match/PFBuilder/AbstractMatch/AbstractPFBuilder/CaseStatement:… | `ReceiveBuilder`/`TypeMatcher` (Q-JAPI-2) | actor-tests/src/test/java/org/apache/pekko/japi/MatchBuilderTest.java:26-104 ;… | Q-JAPI-2 |

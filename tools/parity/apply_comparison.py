@@ -5,6 +5,8 @@ import csv, glob, json, os, re, sys, collections
 csv.field_size_limit(10**9)
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.chdir(ROOT)
+sys.path.insert(0, os.path.join(ROOT, "tools", "package"))
+from closures import closed_without_implementation
 src = sys.argv[1]; APPLY = "--apply" in sys.argv
 cmp_rows = {}
 for f in sorted(glob.glob(os.path.join(src, "*.tsv"))):
@@ -20,6 +22,10 @@ for k, ln in enumerate(lines[1:], 1):
     cols = ln.split("\t")
     if len(cols) != len(header) or cols[0] not in cmp_rows: continue
     r = cmp_rows[cols[0]]
+    row = dict(zip(header, cols))
+    if row["validation"] == "documented" or closed_without_implementation(row):
+        print(f"kept (closed by Owner decision without own implementation): {row['id']}")
+        continue
     old = (cols[ix["impl"]], cols[ix["validation"]])
     cols[ix["impl"]] = r["status"]
     cols[ix["validation"]] = "pending" if r["status"] == "pending" else ("oracle+spec" if cols[ix["validation"]] == "oracle+spec" else "oracle")
