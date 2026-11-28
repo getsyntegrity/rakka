@@ -20,7 +20,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-14`, `Q-CFG-15`, `Q-CFG-16`, `Q-CFG-17`, `Q-CFG-18`, `Q-CFG-19`, `Q-CFG-31`, `Q-CFG-32`, `Q-CFG-33`, `Q-CFG-34`, `Q-CFG-35`, `Q-CFG-36`, `Q-SYS-7`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-14`, `Q-CFG-15`, `Q-CFG-16`, `Q-CFG-17`, `Q-CFG-18`, `Q-CFG-19`, `Q-CFG-31`, `Q-CFG-32`, `Q-CFG-33`, `Q-CFG-34`, `Q-CFG-35`, `Q-CFG-36`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -86,7 +86,7 @@ Filas: AC-CFG-017.6, AC-CFG-017.7, AC-CFG-018, AC-CFG-019, AC-CFG-020. Contratos
 | AC-CFG-006 | Claves de extensiones: library-extensions y extensions | registro de extensiones por nombre (sin reflexión) | actor-tests/src/test/scala/org/apache/pekko/actor/ExtensionSpec.scala:100,112,123,154,165 | Q-CFG-15, Q-CFG-8, Q-X-2 |
 | AC-CFG-007 | Claves JVM: daemonic, jvm-exit-on-fatal-error, jvm-shutdown-hooks,… | mapear: daemonic→hilos detachados;… | actor-tests/src/test/scala/org/apache/pekko/actor/CoordinatedShutdownSpec.scala:635:632-6… | Q-CFG-15, Q-CFG-7 |
 | AC-CFG-008 | pekko.actor.provider y ProviderSelection (local \| remote \| cluster \| FQCN) | `enum ProviderSelection { Local, Remote, Cluster, Custom(String) }`; sólo Local… | actor-tests/src/test/scala/org/apache/pekko/actor/ProviderSelectionSpec.scala:38,45,53,61… | Q-CFG-31, Q-CFG-34, Q-CFG-9, Q-X-10, Q-X-2 |
-| AC-CFG-009 | guardian-supervisor-strategy, creation-timeout, unstarted-push-timeout,… | Settings + registro de configuradores por nombre | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:353:336-357 | Q-CFG-15, Q-X-2 |
+| AC-CFG-009 | guardian-supervisor-strategy, creation-timeout, unstarted-push-timeout,… | Settings + registro de configuradores por nombre | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSystemSpec.scala:353:336-357 | Q-CFG-15, Q-SYS-7, Q-X-2 |
 | AC-CFG-010 | serialize-messages, serialize-creators,… | chequeo opcional en `tell` si hay serializador registrado para el tipo | actor-tests/src/test/scala/org/apache/pekko/actor/dungeon/DispatchSpec.scala:36 ;… | Q-CFG-11, Q-CFG-15, Q-CFG-17, Q-X-3 |
 | AC-CFG-011 | pekko.actor.debug: receive, autoreceive, lifecycle, fsm, event-stream,… | campos de Settings + chequeos en ActorCell | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:97,187,207,231… | Q-CFG-15, Q-X-6, Q-X-7 |
 | AC-CFG-012.1 | Parseo de pekko.actor.deployment: Config por entrada con fallback a `default`,… | `Deployer::from_settings(&Settings)` que construye `Deploy` por entrada | actor-tests/src/test/scala/org/apache/pekko/actor/DeployerSpec.scala:93-142 | Q-CFG-36, Q-CFG-4, Q-X-2, Q-X-21 |

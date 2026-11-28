@@ -363,7 +363,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Cargador HOCON + semantica de duraciones/tamanos/literales + validacion contra reference.conf.
 - **Filas (12; impl: pending 12):** asignacion explicita en `docs/unit-rows.tsv`: AC-UTIL-002.4, AC-UTIL-002.5, AC-CFG-001, AC-CFG-003, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.6, AC-CFG-017.7, AC-CFG-019.
 - **Exclusiones/costuras:** Detalle en docs/superpowers/plans/2026-10-30-ac-cfg-parser-loading.md; Q-X-1 aceptada (condición cumplida en #243); la unidad queda partial por las propuestas Q-CFG-14..16. (2026-11-01) Se retira la dependencia declarada de P05: ninguna fila de P07 depende de las 26 filas que P05 tenia; verificacion semantica de la dependencia original pendiente.
-- **Decisiones:** 13 distintas en sus filas; respondidas: 7 (ver detalle); propuestas sin respuesta: Q-CFG-14, Q-CFG-15, Q-CFG-16, Q-CFG-18, Q-CFG-19, Q-SYS-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P07). <!-- generated:unit-decisions -->
+- **Decisiones:** 13 distintas en sus filas; respondidas: 8 (ver detalle); propuestas sin respuesta: Q-CFG-14, Q-CFG-15, Q-CFG-16, Q-CFG-18, Q-CFG-19. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P07). <!-- generated:unit-decisions -->
 - **Dependencias:** P02.
 - **Archivos previstos:** `crates/rakka-actor/src/config/*.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** unidad + golden jars (Typesafe Config).
@@ -374,7 +374,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** ActorSystem.Settings fail-fast: todas las claves pekko.actor.* leidas y validadas.
 - **Filas (10; impl: pending 10):** asignacion explicita en `docs/unit-rows.tsv`: AC-CFG-002, AC-CFG-004, AC-CFG-005, AC-CFG-006, AC-CFG-007, AC-CFG-009, AC-CFG-010, AC-CFG-011, AC-CFG-018, AC-CFG-020.
 - **Exclusiones/costuras:** Costura SETTINGS-S1: struct Settings con los campos; los consumidores (EVT-011 niveles, EXT cargas, CS hooks, SER bindings) leen el campo, no lo implementan.
-- **Decisiones:** 15 distintas en sus filas; respondidas: 10 (ver detalle); propuestas sin respuesta: Q-CFG-15, Q-CFG-17, Q-CFG-18, Q-CFG-19, Q-SYS-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P08). <!-- generated:unit-decisions -->
+- **Decisiones:** 15 distintas en sus filas; respondidas: 11 (ver detalle); propuestas sin respuesta: Q-CFG-15, Q-CFG-17, Q-CFG-18, Q-CFG-19. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P08). <!-- generated:unit-decisions -->
 - **Dependencias:** P02, P07.
 - **Archivos previstos:** `crates/rakka-actor/src/config/settings.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** unidad con configs sinteticas.
@@ -602,7 +602,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** ActorSystem: constructores, arranque, jerarquia de guardianes y guardian de usuario.
 - **Filas (12; impl: pending 12):** asignacion explicita en `docs/unit-rows.tsv`: AC-SYS-001.1, AC-SYS-001.2, AC-SYS-002, AC-SYS-003.1, AC-SYS-003.2, AC-SYS-007, AC-SYS-008, AC-SYS-009, AC-SYS-013, AC-SYS-020, AC-SYS-023, AC-SUP-014.
 - **Exclusiones/costuras:** Costura SYS-S1: hooks de terminacion via trait TerminationHooks (P39); registro de extensiones via ExtensionRegistry (P30). (2026-11-01) Declara P67 (AC-SYS-020 consume util.Version, 005.2); AC-SYS-020 -> AC-UTIL-016.9 (P72) es una costura hacia adelante.
-- **Decisiones:** 12 distintas en sus filas; respondidas: 7 (ver detalle); propuestas sin respuesta: Q-CFG-32, Q-SYS-3, Q-SYS-4, Q-SYS-6, Q-SYS-7. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P25). <!-- generated:unit-decisions -->
+- **Decisiones:** 12 distintas en sus filas; respondidas: 8 (ver detalle); propuestas sin respuesta: Q-CFG-32, Q-SYS-3, Q-SYS-4, Q-SYS-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P25). <!-- generated:unit-decisions -->
 - **Dependencias:** P10, P16, P20, P22, P23, P67.
 - **Archivos previstos:** `crates/rakka-actor/src/system/{system,guardians}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorSystemSpec parcial + oraculo.
