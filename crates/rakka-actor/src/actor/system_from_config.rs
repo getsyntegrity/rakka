@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala (Apache-2.0).
 //! `ActorSystem(name, config)`: an actor system built from a `Config` (AC-CFG-003, AC-CFG-020). The shape of this API is
-//! the proposed decision Q-SYS-7.
+//! the accepted decision Q-SYS-7 (a).
 
 use std::error::Error;
 use std::fmt;
@@ -54,6 +54,10 @@ impl ActorSystem {
     ///
     /// rakka has no `Slf4jLogger`, so it is not on the classpath of `amendSlf4jConfig`. The dispatcher's keys are not
     /// read yet ([`Settings::from_config`](crate::actor::system::Settings::from_config)).
+    ///
+    /// Limits: nothing resolves these names yet, so configurations Pekko rejects at start-up are accepted:
+    /// `pekko.actor.provider = remote` (or another provider; the system is local) and class names that do not exist in
+    /// `pekko.logging-filter`, `pekko.scheduler.implementation` and `pekko.loggers`.
     pub fn create_from_config(name: &str, config: Config) -> Result<ActorSystem, CreateError> {
         // The name is checked before the configuration is read.
         check_name(name).map_err(CreateError::Actor)?;
