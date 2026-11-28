@@ -2439,7 +2439,7 @@ MUTANTS = {
         "src/actor/system.rs",
         "                strategy: guardian_strategy.clone(),",
         "                strategy: SupervisorStrategy::default(),",
-        "`/user` takes the default strategy whatever `guardian-supervisor-strategy` names",
+        "`/user` takes the default strategy whatever `guardian-supervisor-strategy` names (killed by an integration test, see UNIT_MUTANTS)",
     ),
     "guardian-strategy-name-is-not-read-from-the-configuration": (
         "src/actor/system.rs",
@@ -2457,7 +2457,7 @@ MUTANTS = {
         "src/actor/supervision.rs",
         "            OneForOneStrategy::stopping_strategy().into()",
         "            OneForOneStrategy::default_strategy().into()",
-        "`StoppingSupervisorStrategy` creates the default strategy",
+        "`StoppingSupervisorStrategy` creates the default strategy (killed by an integration test, see UNIT_MUTANTS)",
     ),
     # --- Q-SUP-1: classification by subtype ---
     "non-exception-restarts-instead-of-escalating": (
@@ -2663,6 +2663,8 @@ UNIT_MUTANTS = {
     "root-guardian-restarts-a-failed-guardian": ("actor::guardian_failure_tests", "a_killed_user_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates"),
     "bubble-walker-failure-is-not-logged": ("actor::guardian_failure_tests", "a_killed_root_guardian_is_logged_by_the_bubble_walker_and_the_system_never_reports_termination"),
     "restarted-user-guardian-stops-its-children": ("actor::guardian_failure_tests", "a_restarted_user_or_system_guardian_keeps_its_children"),
+    "configured-guardian-strategy-is-ignored": ("test:classic_guardian_strategy", "a_stopping_guardian_strategy_stops_the_failed_top_level_actor"),
+    "stopping-configurator-creates-the-default-strategy": ("test:classic_guardian_strategy", "a_stopping_guardian_strategy_stops_the_failed_top_level_actor"),
     "guardian-strategy-name-is-not-read-from-the-configuration": ("test:classic_guardian_strategy", "a_stopping_guardian_strategy_stops_the_failed_top_level_actor"),
     "unknown-guardian-strategy-name-takes-the-default": ("test:classic_guardian_strategy", "an_unregistered_guardian_strategy_name_fails_the_creation_of_the_system"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
