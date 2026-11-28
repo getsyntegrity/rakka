@@ -1,0 +1,1 @@
+SYS pekko.version = "" -> ERR ConfigurationException [Pekko JAR version [2.0.0] does not match the provided config version []]

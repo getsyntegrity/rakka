@@ -1,0 +1,1 @@
+SYS the shutdown combination and a rejected deployment path -> ERR ConfigurationException [pekko.coordinated-shutdown.run-by-actor-system-terminate=on and pekko.coordinated-shutdown.terminate-actor-system=off is not a supported configuration combination.]

@@ -211,3 +211,43 @@
 {"name": "cs-0211", "args": ["config-settings-case"], "stdin": "AMEND logging-filter is a list, pekko-slf4j on the classpath"}
 {"name": "cs-0212", "args": ["config-settings-case"], "stdin": "AMEND logging-filter is a list, pekko-slf4j not on the classpath"}
 {"name": "cs-0213", "args": ["config-settings-case"], "stdin": "AMEND the amended configuration is amended again without change"}
+{"name": "cs-0214", "args": ["config-settings-case"], "stdin": "SYS the empty configuration"}
+{"name": "cs-0215", "args": ["config-settings-case"], "stdin": "SYS pekko.version set to the version"}
+{"name": "cs-0216", "args": ["config-settings-case"], "stdin": "SYS pekko.version = \"0.0.1\""}
+{"name": "cs-0217", "args": ["config-settings-case"], "stdin": "SYS pekko.version = \"1.7.1\""}
+{"name": "cs-0218", "args": ["config-settings-case"], "stdin": "SYS pekko.version = \"\""}
+{"name": "cs-0219", "args": ["config-settings-case"], "stdin": "SYS pekko.version = \"2.0.0-M1\""}
+{"name": "cs-0220", "args": ["config-settings-case"], "stdin": "SYS pekko.version = \"2.0\""}
+{"name": "cs-0221", "args": ["config-settings-case"], "stdin": "SYS pekko.version = 2"}
+{"name": "cs-0222", "args": ["config-settings-case"], "stdin": "SYS pekko.version = \"2.0.1\""}
+{"name": "cs-0223", "args": ["config-settings-case"], "stdin": "SYS pekko.version = \" 2.0.0\""}
+{"name": "cs-0224", "args": ["config-settings-case"], "stdin": "SYS pekko.version = \"2.0.0 \""}
+{"name": "cs-0225", "args": ["config-settings-case"], "stdin": "SYS another version and serialize-messages on"}
+{"name": "cs-0226", "args": ["config-settings-case"], "stdin": "SYS another version and a bad virtual-nodes-factor"}
+{"name": "cs-0227", "args": ["config-settings-case"], "stdin": "SYS another version and an object where a string is expected"}
+{"name": "cs-0228", "args": ["config-settings-case"], "stdin": "SYS another version and a bad daemonic"}
+{"name": "cs-0229", "args": ["config-settings-case"], "stdin": "SYS another version and use-slf4j"}
+{"name": "cs-0230", "args": ["config-settings-case"], "stdin": "SYS another version and a rejected deployment path"}
+{"name": "cs-0231", "args": ["config-settings-case"], "stdin": "SYS an invalid name and another version"}
+{"name": "cs-0232", "args": ["config-settings-case"], "stdin": "SYS terminate-actor-system off"}
+{"name": "cs-0233", "args": ["config-settings-case"], "stdin": "SYS terminate-actor-system off and run-by-terminate on"}
+{"name": "cs-0234", "args": ["config-settings-case"], "stdin": "SYS terminate-actor-system false and run-by-terminate true"}
+{"name": "cs-0235", "args": ["config-settings-case"], "stdin": "SYS terminate-actor-system no and run-by-terminate yes"}
+{"name": "cs-0236", "args": ["config-settings-case"], "stdin": "SYS terminate-actor-system quoted off"}
+{"name": "cs-0237", "args": ["config-settings-case"], "stdin": "SYS terminate-actor-system off as a nested object"}
+{"name": "cs-0238", "args": ["config-settings-case"], "stdin": "SYS both shutdown flags off"}
+{"name": "cs-0239", "args": ["config-settings-case"], "stdin": "SYS both shutdown flags on"}
+{"name": "cs-0240", "args": ["config-settings-case"], "stdin": "SYS run-by-terminate off alone"}
+{"name": "cs-0241", "args": ["config-settings-case"], "stdin": "SYS terminate-actor-system of a wrong type"}
+{"name": "cs-0242", "args": ["config-settings-case"], "stdin": "SYS the shutdown combination and another version"}
+{"name": "cs-0243", "args": ["config-settings-case"], "stdin": "SYS the shutdown combination and a bad virtual-nodes-factor"}
+{"name": "cs-0244", "args": ["config-settings-case"], "stdin": "SYS the shutdown combination and serialize-messages on"}
+{"name": "cs-0245", "args": ["config-settings-case"], "stdin": "SYS the shutdown combination and a rejected deployment path"}
+{"name": "cs-0246", "args": ["config-settings-case"], "stdin": "SYS the shutdown combination and an invalid name"}
+{"name": "cs-0247", "args": ["config-settings-case"], "stdin": "SYS a rejected deployment path"}
+{"name": "cs-0248", "args": ["config-settings-case"], "stdin": "SYS a creation timeout of the application"}
+{"name": "cs-0249", "args": ["config-settings-case"], "stdin": "SYS an unstarted push timeout of the application"}
+{"name": "cs-0250", "args": ["config-settings-case"], "stdin": "SYS log-dead-letters off"}
+{"name": "cs-0251", "args": ["config-settings-case"], "stdin": "SYS use-slf4j on without pekko-slf4j"}
+{"name": "cs-0252", "args": ["config-settings-case"], "stdin": "SYS another system name"}
+{"name": "cs-0253", "args": ["config-settings-case"], "stdin": "SYS the slf4j logger listed by the application"}

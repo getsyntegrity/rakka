@@ -2017,6 +2017,46 @@ cs-0210	config-settings	AMEND loggers is a string, pekko-slf4j not on the classp
 cs-0211	config-settings	AMEND logging-filter is a list, pekko-slf4j on the classpath
 cs-0212	config-settings	AMEND logging-filter is a list, pekko-slf4j not on the classpath
 cs-0213	config-settings	AMEND the amended configuration is amended again without change
+cs-0214	config-settings	SYS the empty configuration
+cs-0215	config-settings	SYS pekko.version set to the version
+cs-0216	config-settings	SYS pekko.version = "0.0.1"
+cs-0217	config-settings	SYS pekko.version = "1.7.1"
+cs-0218	config-settings	SYS pekko.version = ""
+cs-0219	config-settings	SYS pekko.version = "2.0.0-M1"
+cs-0220	config-settings	SYS pekko.version = "2.0"
+cs-0221	config-settings	SYS pekko.version = 2
+cs-0222	config-settings	SYS pekko.version = "2.0.1"
+cs-0223	config-settings	SYS pekko.version = " 2.0.0"
+cs-0224	config-settings	SYS pekko.version = "2.0.0 "
+cs-0225	config-settings	SYS another version and serialize-messages on
+cs-0226	config-settings	SYS another version and a bad virtual-nodes-factor
+cs-0227	config-settings	SYS another version and an object where a string is expected
+cs-0228	config-settings	SYS another version and a bad daemonic
+cs-0229	config-settings	SYS another version and use-slf4j
+cs-0230	config-settings	SYS another version and a rejected deployment path
+cs-0231	config-settings	SYS an invalid name and another version
+cs-0232	config-settings	SYS terminate-actor-system off
+cs-0233	config-settings	SYS terminate-actor-system off and run-by-terminate on
+cs-0234	config-settings	SYS terminate-actor-system false and run-by-terminate true
+cs-0235	config-settings	SYS terminate-actor-system no and run-by-terminate yes
+cs-0236	config-settings	SYS terminate-actor-system quoted off
+cs-0237	config-settings	SYS terminate-actor-system off as a nested object
+cs-0238	config-settings	SYS both shutdown flags off
+cs-0239	config-settings	SYS both shutdown flags on
+cs-0240	config-settings	SYS run-by-terminate off alone
+cs-0241	config-settings	SYS terminate-actor-system of a wrong type
+cs-0242	config-settings	SYS the shutdown combination and another version
+cs-0243	config-settings	SYS the shutdown combination and a bad virtual-nodes-factor
+cs-0244	config-settings	SYS the shutdown combination and serialize-messages on
+cs-0245	config-settings	SYS the shutdown combination and a rejected deployment path
+cs-0246	config-settings	SYS the shutdown combination and an invalid name
+cs-0247	config-settings	SYS a rejected deployment path
+cs-0248	config-settings	SYS a creation timeout of the application
+cs-0249	config-settings	SYS an unstarted push timeout of the application
+cs-0250	config-settings	SYS log-dead-letters off
+cs-0251	config-settings	SYS use-slf4j on without pekko-slf4j
+cs-0252	config-settings	SYS another system name
+cs-0253	config-settings	SYS the slf4j logger listed by the application
 da-0001	dynamic-access	CNF-01 createInstanceFor foo.NonExistingClass
 da-0002	dynamic-access	CNF-02 createInstanceFor org.apache.pekko.actor.foo.NonExistingClass
 da-0003	dynamic-access	CNF-03 createInstanceFor empty name

@@ -229,7 +229,9 @@ fn main() -> ExitCode {
             }
         }
         "config-settings-case" => {
-            return oracle_case(&mut out, &input, config_settings_cases::rust_lines());
+            return oracle_case_for(&mut out, &input, |id| {
+                config_settings_cases::rust_lines_for(Some(id))
+            });
         }
         "path-from-string-lines" => {
             let mut buf = String::new();

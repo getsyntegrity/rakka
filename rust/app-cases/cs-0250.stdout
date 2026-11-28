@@ -1,0 +1,1 @@
+SYS log-dead-letters off -> ok name=oracle settings.name=oracle Version=2.0.0 pekko.version=2.0.0 ConfigVersion=2.0.0 CreationTimeout=20000ms UnstartedPushTimeout=10000ms LogDeadLetters=0 Loggers=[org.apache.pekko.event.Logging$DefaultLogger] LoggingFilter=org.apache.pekko.event.DefaultLoggingFilter TerminateActorSystem=true RunByTerminate=true

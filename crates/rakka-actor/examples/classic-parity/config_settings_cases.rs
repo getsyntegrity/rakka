@@ -1,10 +1,16 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/ActorSystem.scala (Apache-2.0).
 //! Cases of the AC-CFG settings oracle (`ConfigSettingsOracle.java`, unit P08): each rebuilds one oracle case with the Rust
-//! `Settings` and `amend_slf4j_config` and renders it with the oracle's line format.
+//! `Settings` and `amend_slf4j_config` and renders it with the oracle's line format. The `SYS` cases
+//! (`SystemFromConfigOracle.java`) build a real `ActorSystem` from a configuration.
 
+use std::time::Duration;
+
+use rakka_actor::actor::CreateError;
+use rakka_actor::actor::system::ActorSystem;
 use rakka_actor::config::{
     Config, ConfigError, SLF4J_LOGGER, Settings, SettingsError, SuspendDuration, amend_slf4j_config,
 };
+use rakka_actor::pekko_version;
 use rakka_actor::util::TimeUnit;
 
 /// Oracle ids Rust does not produce on purpose: `(id, reason)`. Each must exist in the oracle.
@@ -826,6 +832,11 @@ fn amend_cases(lines: &mut Cases) {
 }
 
 pub fn rust_lines() -> Vec<(String, String)> {
+    rust_lines_for(None)
+}
+
+/// Like [`rust_lines`], but with `only` (an escaped id) no other `SYS` case starts a system.
+pub fn rust_lines_for(only: Option<&str>) -> Vec<(String, String)> {
     let mut lines: Cases = Vec::new();
     defaults(&mut lines);
     dead_letters(&mut lines);
@@ -834,5 +845,184 @@ pub fn rust_lines() -> Vec<(String, String)> {
     serialization_and_shutdown(&mut lines);
     invalid(&mut lines);
     amend_cases(&mut lines);
+    system_cases(&mut lines, only);
     lines
+}
+
+/// `SystemFromConfigOracle.create`: a system built from `app` is rendered and terminated, or its rejection is.
+fn create_system(name: &str, app: &str) -> R {
+    // As the oracle: its INFO line of CoordinatedShutdown has a timestamp.
+    let config = parse(&format!("pekko.loglevel = WARNING\n{app}"))?;
+    let system = match ActorSystem::create_from_config(name, config) {
+        Ok(system) => system,
+        // The oracle prints only the class of an error of the configuration library.
+        Err(CreateError::Settings(SettingsError::Config(e))) => {
+            return Ok(format!("rejected={}", e.kind().java_name()));
+        }
+        Err(e) => {
+            return Err(Failure {
+                name: e.simple_class_name(),
+                message: e.message().to_owned(),
+            });
+        }
+    };
+    let s = system.config_settings().expect("created from a Config");
+    let shown = format!(
+        "name={} settings.name={} Version={} pekko.version={} ConfigVersion={} CreationTimeout={} \
+         UnstartedPushTimeout={} LogDeadLetters={} Loggers={} LoggingFilter={} TerminateActorSystem={} RunByTerminate={}",
+        system.name(),
+        s.name,
+        pekko_version::CURRENT,
+        s.config().get_string("pekko.version")?,
+        s.config_version,
+        ms(s.creation_timeout),
+        ms(s.unstarted_push_timeout),
+        s.log_dead_letters,
+        list(&s.loggers),
+        s.logging_filter,
+        s.coordinated_shutdown_terminate_actor_system,
+        s.coordinated_shutdown_run_by_actor_system_terminate,
+    );
+    system
+        .terminate()
+        .wait(Duration::from_secs(20))
+        .expect("ended")
+        .expect("terminated normally");
+    Ok(shown)
+}
+
+/// The cases of `SystemFromConfigOracle.java`, in its order.
+fn system_cases(lines: &mut Cases, only: Option<&str>) {
+    const CS: &str = "pekko.coordinated-shutdown.";
+    const OLD: &str = "pekko.version = \"1.0.0\"\n";
+    const BAD_VNF: &str = "pekko.actor.deployment.default.virtual-nodes-factor = abc\n";
+    const BAD_PATH: &str = "pekko.actor.deployment.\"/a b\".dispatcher = x\n";
+    const SERIALIZE: &str = "pekko.actor.serialize-messages = on\n";
+    let cs_off = format!("{CS}terminate-actor-system = off\n");
+    let flags = |terminate: &str, run: &str| {
+        format!(
+            "{CS}terminate-actor-system = {terminate}\n{CS}run-by-actor-system-terminate = {run}"
+        )
+    };
+    let mut case = |label: &str, name: &str, app: &str| {
+        let id = format!("SYS {label}");
+        if only.is_none_or(|wanted| wanted == esc(&id)) {
+            add(lines, id, create_system(name, app));
+        }
+    };
+    case("the empty configuration", "oracle", "");
+    case(
+        "pekko.version set to the version",
+        "oracle",
+        "pekko.version = \"2.0.0\"",
+    );
+    for v in [
+        "\"0.0.1\"",
+        "\"1.7.1\"",
+        "\"\"",
+        "\"2.0.0-M1\"",
+        "\"2.0\"",
+        "2",
+        "\"2.0.1\"",
+        "\" 2.0.0\"",
+        "\"2.0.0 \"",
+    ] {
+        let app = format!("pekko.version = {v}");
+        case(&app, "oracle", &app);
+    }
+    for (label, app) in [
+        ("serialize-messages on", SERIALIZE),
+        ("a bad virtual-nodes-factor", BAD_VNF),
+        (
+            "an object where a string is expected",
+            "pekko.loglevel { x = 1 }",
+        ),
+        ("a bad daemonic", "pekko.daemonic = abc"),
+        ("use-slf4j", "pekko.use-slf4j = on"),
+        ("a rejected deployment path", BAD_PATH),
+    ] {
+        case(
+            &format!("another version and {label}"),
+            "oracle",
+            &format!("{OLD}{app}"),
+        );
+    }
+    case("an invalid name and another version", "-sys", OLD);
+    case("terminate-actor-system off", "oracle", &cs_off);
+    for (label, app) in [
+        (
+            "terminate-actor-system off and run-by-terminate on",
+            flags("off", "on"),
+        ),
+        (
+            "terminate-actor-system false and run-by-terminate true",
+            flags("false", "true"),
+        ),
+        (
+            "terminate-actor-system no and run-by-terminate yes",
+            flags("no", "yes"),
+        ),
+        (
+            "terminate-actor-system quoted off",
+            format!("{CS}terminate-actor-system = \"off\""),
+        ),
+        (
+            "terminate-actor-system off as a nested object",
+            "pekko.coordinated-shutdown { terminate-actor-system = off }".to_owned(),
+        ),
+        ("both shutdown flags off", flags("off", "off")),
+        ("both shutdown flags on", flags("on", "on")),
+        (
+            "run-by-terminate off alone",
+            format!("{CS}run-by-actor-system-terminate = off"),
+        ),
+        (
+            "terminate-actor-system of a wrong type",
+            format!("{CS}terminate-actor-system = abc"),
+        ),
+        (
+            "the shutdown combination and another version",
+            format!("{cs_off}{OLD}"),
+        ),
+        (
+            "the shutdown combination and a bad virtual-nodes-factor",
+            format!("{cs_off}{BAD_VNF}"),
+        ),
+        (
+            "the shutdown combination and serialize-messages on",
+            format!("{cs_off}{SERIALIZE}"),
+        ),
+        (
+            "the shutdown combination and a rejected deployment path",
+            format!("{cs_off}{BAD_PATH}"),
+        ),
+    ] {
+        case(label, "oracle", &app);
+    }
+    case(
+        "the shutdown combination and an invalid name",
+        "a b",
+        &cs_off,
+    );
+    for (label, app) in [
+        ("a rejected deployment path", BAD_PATH),
+        (
+            "a creation timeout of the application",
+            "pekko.actor.creation-timeout = 7s",
+        ),
+        (
+            "an unstarted push timeout of the application",
+            "pekko.actor.unstarted-push-timeout = 3s",
+        ),
+        ("log-dead-letters off", "pekko.log-dead-letters = off"),
+        ("use-slf4j on without pekko-slf4j", "pekko.use-slf4j = on"),
+    ] {
+        case(label, "oracle", app);
+    }
+    case("another system name", "My-Sys_2", "");
+    case(
+        "the slf4j logger listed by the application",
+        "oracle",
+        &format!("pekko.loggers = [\"{SLF4J_LOGGER}\"]"),
+    );
 }

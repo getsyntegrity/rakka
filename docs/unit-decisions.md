@@ -139,7 +139,7 @@
 | Q-CFG-17 | propuesta | 2: AC-CFG-002, AC-CFG-010 | Bloquea: nada; AC-CFG-010 queda `partial` hasta AC-SER. | — | `classic-foundation` |
 | Q-CFG-18 | propuesta | 1: AC-CFG-002 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
 | Q-CFG-19 | propuesta | 1: AC-CFG-002 | Bloquea: nada; reversible. | — | `classic-foundation` |
-| Q-CFG-31 | propuesta | 1: AC-CFG-009 | Bloquea: AC-CFG-016, AC-CFG-008 y AC-SYS-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
+| Q-CFG-31 | propuesta | 2: AC-CFG-002, AC-CFG-009 | Bloquea: AC-CFG-016, AC-CFG-008 y AC-SYS-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 
 ## P09 CFG-ENTORNO
 

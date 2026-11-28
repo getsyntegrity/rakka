@@ -214,3 +214,43 @@ AMEND loggers is a string, pekko-slf4j not on the classpath
 AMEND logging-filter is a list, pekko-slf4j on the classpath
 AMEND logging-filter is a list, pekko-slf4j not on the classpath
 AMEND the amended configuration is amended again without change
+SYS the empty configuration
+SYS pekko.version set to the version
+SYS pekko.version = "0.0.1"
+SYS pekko.version = "1.7.1"
+SYS pekko.version = ""
+SYS pekko.version = "2.0.0-M1"
+SYS pekko.version = "2.0"
+SYS pekko.version = 2
+SYS pekko.version = "2.0.1"
+SYS pekko.version = " 2.0.0"
+SYS pekko.version = "2.0.0 "
+SYS another version and serialize-messages on
+SYS another version and a bad virtual-nodes-factor
+SYS another version and an object where a string is expected
+SYS another version and a bad daemonic
+SYS another version and use-slf4j
+SYS another version and a rejected deployment path
+SYS an invalid name and another version
+SYS terminate-actor-system off
+SYS terminate-actor-system off and run-by-terminate on
+SYS terminate-actor-system false and run-by-terminate true
+SYS terminate-actor-system no and run-by-terminate yes
+SYS terminate-actor-system quoted off
+SYS terminate-actor-system off as a nested object
+SYS both shutdown flags off
+SYS both shutdown flags on
+SYS run-by-terminate off alone
+SYS terminate-actor-system of a wrong type
+SYS the shutdown combination and another version
+SYS the shutdown combination and a bad virtual-nodes-factor
+SYS the shutdown combination and serialize-messages on
+SYS the shutdown combination and a rejected deployment path
+SYS the shutdown combination and an invalid name
+SYS a rejected deployment path
+SYS a creation timeout of the application
+SYS an unstarted push timeout of the application
+SYS log-dead-letters off
+SYS use-slf4j on without pekko-slf4j
+SYS another system name
+SYS the slf4j logger listed by the application

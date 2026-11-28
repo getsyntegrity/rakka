@@ -132,6 +132,7 @@ final class ConfigSettingsOracle {
     registerSerializationAndShutdown();
     registerInvalid();
     registerAmend();
+    SystemFromConfigOracle.register();
   }
 
   static void registerDefaults() {
