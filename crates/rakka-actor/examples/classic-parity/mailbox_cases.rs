@@ -232,6 +232,10 @@ pub const PENDING: &[(&str, &str)] = &[
         "MBX-SU-02 an actor that fails inside a suspension that is not its own failure is suspended again, with its other child: the resume of its supervisor does not suffice",
         "sends the internal Suspend/Resume system messages and reads mailbox state: produced in-crate by actor::suspension_oracle_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (AC-SUP-010)",
     ),
+    (
+        "MBX-SU-03 a child created under a parent suspended twice inherits both suspensions",
+        "needs attachChild and the internal Suspend: produced in-crate by actor::suspension_oracle_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (AC-SUP-010)",
+    ),
 ];
 
 fn state(status: &MailboxStatus) -> String {

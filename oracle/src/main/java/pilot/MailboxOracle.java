@@ -1727,6 +1727,21 @@ final class MailboxOracle {
             + " | afterResume: " + f.views() + " log=" + e.log + " errors=" + f.cellMessages();
       }
     });
+    run("MBX-SU-03 a child created under a parent suspended twice inherits both suspensions", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        ActorRef parent = e.spawn("p", null); idle(parent);
+        in(parent).suspend(); in(parent).suspend(); awaitUntil(() -> box(parent).suspendCount() == 2); idle(parent);
+        nextHooks = new Hooks();
+        ActorRef c = ((ActorCell) ((ActorRefWithCell) parent).underlying()).attachChild(Props.create(Worker.class, e).withMailbox("hook-mailbox"), "c", false);
+        awaitUntil(() -> box(c).suspendCount() == 2 && !box(c).isScheduled());
+        c.tell("u", ActorRef.noSender()); idle(c);
+        String suspended = view(box(c)) + " log=" + e.log;
+        in(c).resume(null); awaitUntil(() -> box(c).suspendCount() == 1); idle(c);
+        String half = view(box(c)) + " log=" + e.log;
+        in(c).resume(null); awaitUntil(() -> e.log.size() == 1); idle(c);
+        return "child: " + suspended + " | oneResume: " + half + " | twoResumes: " + view(box(c)) + " log=" + e.log;
+      }
+    });
   }
 
   // ---- MBX-SU: a failure inside a suspension ---------------------------------------------------------------------------------------
