@@ -294,16 +294,16 @@
 
 ## P19 CELL-EJECUCION
 
-11 filas; 8 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 4 propuestas.
+11 filas; 8 decisiones distintas en sus filas: 5 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CELL-1 | accepted_with_changes (2026-11-27): ACCEPTED, alternativa (a'), con condiciones. Conservar receive -> bool y adoptar una pila de comportamientos que reciben acceso mutable al actor y su… | 2: AC-CELL-001, AC-CELL-005 | Bloquea: `impl` de AC-CELL-001/005 (y la firma de Actor para todo el crate). | Puede avanzar: la documentación y los tests de ciclo de vida (se escriben contra el trait). | `classic-cell` |
+| Q-CELL-8 | accepted_with_changes (2026-11-28): ACCEPTED, alternativa (a). Autorizo que la fábrica de Props pueda recibir el contexto de la celda durante la creación del actor, preservando la semántica de… | 2: AC-CELL-002.1, AC-CELL-013.2 | — | — | `classic-cell` |
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-CELL-001 | — | — | `transversal` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 3: AC-CELL-003, AC-CELL-017, AC-CELL-018 | — | — | `transversal` |
 | Q-X-8 | accepted (2026-11-18): aceptar (a): Typed sobre Classic. | 1: AC-CELL-018 | — | — | `transversal` |
 | Q-CELL-3 | propuesta | 1: AC-CELL-019 | Bloquea: nada de la documentación; el cierre de `validation` de AC-CELL-019. | Puede avanzar: todo. | `classic-cell` |
-| Q-CELL-8 | propuesta | 1: AC-CELL-013.2 | — | — | `classic-cell` |
 | Q-MBX-11 | propuesta | 1: AC-CELL-003 | — | — | `classic-dispatch` |
 | Q-REF-6 | propuesta | 1: AC-CELL-031 | Bloquea: la validación (no la `impl`) de AC-REF-001.x, AC-REF-019 y AC-CELL-031. | Puede avanzar: toda la implementación. | `classic-cell` |
 
@@ -341,16 +341,16 @@
 
 ## P22 CELL-REINICIO-PARADA
 
-21 filas; 9 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 6 propuestas.
+21 filas; 9 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CELL-6 | accepted (2026-11-26): aceptar (a): en el texto de PreRestartException un mensaje se nombra `class ?` salvo &str/String, Kill, ActorIdentity, Terminated y Failed, que llevan el… | 1: AC-CELL-007.1 | — | — | `classic-cell` |
+| Q-CELL-8 | accepted_with_changes (2026-11-28): ACCEPTED, alternativa (a). Autorizo que la fábrica de Props pueda recibir el contexto de la celda durante la creación del actor, preservando la semántica de… | 2: AC-CELL-007.2, AC-SUP-011 | — | — | `classic-cell` |
 | Q-SUP-3 | accepted (2026-11-26): aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la… | 3: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4 | — | — | `classic-cell` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 4: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4, AC-CELL-009 | — | — | `transversal` |
 | Q-CELL-2 | propuesta | 1: AC-CELL-009 | Bloquea: sólo el cierre de AC-CELL-021 (requiere autorización explícita del Owner). | Puede avanzar: todo. | `classic-cell` |
 | Q-CELL-4 | propuesta | 1: AC-CELL-023 | Bloquea: `validation` de AC-CELL-023 (impl puede avanzar). | Puede avanzar: el resto de CELL. | `classic-cell` |
-| Q-CELL-8 | propuesta | 2: AC-CELL-007.2, AC-SUP-011 | — | — | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-010 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
 | Q-MBX-17 | propuesta | 1: AC-CELL-030 | — | — | `classic-dispatch` |
 | Q-REF-2 | propuesta | 1: AC-CELL-002.2 | Bloquea: `impl` de AC-REF-008 y la parte reflexiva de AC-REF-007.1/.2; AC-CELL-002.2 sólo en el texto de InstantiationException. | Puede avanzar: Props con closure + trait ActorFactory, AC-CELL-002.1, AC-CELL-026. | `classic-cell` |
@@ -1114,4 +1114,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 557 (274 respondidas, 0 bloqueantes, 283 propuestas).
+Total de pares unidad–decisión: 557 (276 respondidas, 0 bloqueantes, 281 propuestas).
