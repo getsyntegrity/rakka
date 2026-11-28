@@ -2564,6 +2564,12 @@ MUTANTS = {
         "format!(\"Monitored actor [{:?}] terminated\", self.self_ref())",
         "the `DeathPactException` names the actor that failed, not the one that died",
     ),
+    "guardian-swallows-unknown-messages": (
+        "src/actor/system.rs",
+        "            ctx.stop(&stop.0);\n            true\n        } else {\n            false\n        }\n    }\n}\n\n/// `LocalActorRefProvider.SystemGuardian`",
+        "            ctx.stop(&stop.0);\n            true\n        } else {\n            true\n        }\n    }\n}\n\n/// `LocalActorRefProvider.SystemGuardian`",
+        "the root guardian and `/user` take any message as handled, so nothing is published as unhandled",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

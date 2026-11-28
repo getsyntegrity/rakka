@@ -713,7 +713,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
   - A1: mensajes enviados a los guardianes se publican como UnhandledMessage (log Warning "unhandled message from Actor[<deadLetters path>]: <msg>") — LocalActorRefProviderSpec.scala:70-107.
   - A2: un watcher que no maneja Terminated falla con DeathPactException(failed) y su supervisor lo recibe vía decider — DeathWatchSpec.scala:216-245.
 - **Oráculo**: jshell contra Pekko 1.7.1 (jars oficiales): suscribirse a UnhandledMessage.
-- **Decisiones**: -
+- **Decisiones**: Q-CELL-11
 - **Notas**: Contradicción corregida: EventStreamSpec.scala:115 (citada en el inventario) prueba el reenviador de debug.unhandled, no unhandled() (AC-CELL-025). La publicación de UnhandledMessage se observa en LocalActorRefProviderSpec.scala:77.
 
 ### AC-CELL-005: become / unbecome (pila de conductas)

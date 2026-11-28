@@ -1135,6 +1135,8 @@ struct Collector {
     watch: Option<ActorRef>,
     /// `errors` channel: also record the `getCause` chain below the published cause
     causes: bool,
+    /// `log-text`: also the line `TestEventListener` logs for an unhandled message, which prints both refs' own text
+    log_text: bool,
 }
 
 impl Actor for Collector {
@@ -1210,14 +1212,26 @@ impl Actor for Collector {
             self.ctx.add(&self.label, Event::Error(o));
             true
         } else if let Some(u) = msg.downcast_ref::<UnhandledMessage>() {
-            self.ctx.add(
-                &self.label,
-                Event::Unhandled {
-                    msg: msg_of(&u.message),
-                    sender: path_str(&u.sender),
-                    recipient: path_str(&u.recipient),
-                },
-            );
+            let mut event = Event::Unhandled {
+                msg: msg_of(&u.message),
+                sender: path_str(&u.sender),
+                recipient: path_str(&u.recipient),
+            };
+            if self.log_text {
+                let mut o = event.json();
+                o.pop();
+                let message = u.message.downcast_ref::<String>().expect("a text message");
+                o.push_str(",\"text\":");
+                js(
+                    &mut o,
+                    &format!("unhandled message from {:?}: {message}", u.sender),
+                );
+                o.push_str(",\"recipientRef\":");
+                js(&mut o, &format!("{:?}", u.recipient));
+                o.push('}');
+                event = Event::Error(o);
+            }
+            self.ctx.add(&self.label, event);
             true
         } else {
             false
@@ -1565,6 +1579,7 @@ fn step(
             let prefix = label("prefix").unwrap_or_default();
             let watch = label("watch").and_then(|l| lookup(system, ctx, &l));
             let causes = matches!(st.get("causes"), Some(Value::Bool(true)));
+            let log_text = matches!(st.get("log-text"), Some(Value::Bool(true)));
             let r = system
                 .actor_of(Props::new(move || Collector {
                     label: l2.clone(),
@@ -1572,6 +1587,7 @@ fn step(
                     prefix: prefix.clone(),
                     watch: watch.clone(),
                     causes,
+                    log_text,
                 }))
                 .map_err(|e| e.to_string())?;
             ctx.refs.lock().unwrap().insert(lbl, r.clone());

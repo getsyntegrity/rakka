@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 283 decisiones: 0 bloqueantes, 195 propuestas, 67 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 284 decisiones: 0 bloqueantes, 196 propuestas, 67 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -386,6 +386,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) no entregar ni reanudar sólo instancias cuya construcción o inicialización falló; usar la de class_name que lanzó y conservar las retenidas para postStop y supervisorStrategy / (b) tratar el panic de class_name como fallo de creación o de restart / (c) no volver a usar ninguna instancia que se haya desenrollado
 - **Recomendación:** (a), conducta actual, sin decidir. Consecuencia: un actor con mutabilidad interior puede seguir con el estado que su class_name dejó a medias
 - **Filas afectadas:** AC-CELL-027
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+
+### Q-CELL-11 — Marca NoStackTrace de DeathPactException: un decider que clasifica por scala.util.control.NoStackTrace
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:281-284 ; crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) sin marca: los Throwable de Rakka no llevan traza y is_a("scala.util.control.NoStackTrace") es falso / (b) que la clase conocida DeathPactException responda también is_a("scala.util.control.NoStackTrace") / (c) modelar interfaces en Throwable
+- **Recomendación:** (b), sin implementar. Consecuencia de la conducta actual (a): un decider con `case _: NoStackTrace` atrapa el death pact en Pekko y no en Rakka (no hay caso grabado)
+- **Filas afectadas:** AC-CELL-004
 - **Unidades afectadas:** CELL
 - **Origen:** classic-cell
 

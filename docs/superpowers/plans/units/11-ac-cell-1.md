@@ -12,8 +12,8 @@ Filas ya `done` en esta unidad (no se reabren): AC-CELL-006, AC-CELL-012, AC-CEL
 
 - Spec 14 `AC-SUP-1` (`14-ac-sup-1.md`), por las filas AC-SUP-001, AC-SUP-004, AC-SUP-011. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-002, AC-MBX-003, AC-MBX-016.
-- Spec 15 `AC-DW-1` (`15-ac-dw-1.md`), por las filas AC-DW-007, AC-DW-010. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-010.
+- Spec 15 `AC-DW-1` (`15-ac-dw-1.md`), por las filas AC-DW-010. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 04 `AC-REF-1` (`04-ac-ref-1.md`), por las filas AC-REF-009.2, AC-REF-020.
 - Spec 08 `AC-SCH-1` (`08-ac-sch-1.md`), por las filas AC-SCH-001.
 - Spec 07 `AC-DSP-1` (`07-ac-dsp-1.md`), por las filas AC-DSP-016.1, AC-DSP-016.2.
@@ -22,7 +22,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-CELL-006, AC-CELL-012, AC-CEL
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CELL-2`, `Q-CELL-3`, `Q-CELL-4`, `Q-CELL-8`, `Q-MBX-11`, `Q-REF-2`, `Q-REF-5`.
+- Propuestas aún sin decisión del Owner: `Q-CELL-11`, `Q-CELL-2`, `Q-CELL-3`, `Q-CELL-4`, `Q-CELL-8`, `Q-MBX-11`, `Q-REF-2`, `Q-REF-5`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -84,7 +84,7 @@ Filas: AC-CELL-021, AC-CELL-022, AC-CELL-023, AC-CELL-024, AC-CELL-025, AC-CELL-
 | AC-CELL-002.1 | Creación: Create como primer mensaje de sistema, instanciación y preStart | fábrica de Props ejecutada en la tarea del actor durante Create; `pre_start` tras… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:49-82 ;… | - |
 | AC-CELL-002.2 | Creación: fallos del constructor o de preStart → ActorInitializationException | panic/Err en la fábrica o en pre_start → `ActorInitializationError { actor, message,… | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:548-572 ;… | Q-REF-2, Q-SUP-3, Q-X-5 |
 | AC-CELL-003 | Procesamiento de mensajes uno a la vez; AutoReceivedMessage antes del receive… | tarea por actor que drena el mailbox; `&mut self` garantiza exclusión | actor-tests/src/test/scala/org/apache/pekko/actor/dispatch/ActorModelSpec.scala:312-345… | Q-MBX-11, Q-X-4 |
-| AC-CELL-004 | unhandled(): Terminated → DeathPactException; resto → UnhandledMessage en… | resultado `Unhandled` → la celda llama `actor.unhandled(msg)` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-244 ;… | - |
+| AC-CELL-004 | unhandled(): Terminated → DeathPactException; resto → UnhandledMessage en… | resultado `Unhandled` → la celda llama `actor.unhandled(msg)` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-244 ;… | Q-CELL-11 |
 | AC-CELL-005 | become / unbecome (pila de conductas) | `Vec<Box<dyn Behavior>>` en la celda | actor-tests/src/test/scala/org/apache/pekko/actor/HotSwapSpec.scala:27-133 ;… | Q-CELL-1 |
 | AC-CELL-007.1 | Restart 1/4: Recreate, suspensión y preRestart de la instancia vieja | estado de celda `Restarting{cause}`; `fault_recreate(cause)` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorLifeCycleSpec.scala:49-82 ;… | Q-CELL-6, Q-SUP-3, Q-X-5 |
 | AC-CELL-007.2 | Restart 2/4: espera a la parada de los hijos (Recreation) | contenedor de hijos `Terminating{ reason: Recreation(cause) }` | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:86-99 ;… | Q-CELL-8 |

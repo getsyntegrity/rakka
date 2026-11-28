@@ -421,7 +421,15 @@ final class Scenario {
     private final String label;
     private final Ctx ctx;
 
-    Collector(String label, Ctx ctx) { this.label = label; this.ctx = ctx; }
+    /** `log-text`: also the line `TestEventListener` logs for an unhandled message, which prints both refs' own text. */
+    private boolean logText;
+
+    Collector(String label, boolean logText, Ctx ctx) { this.label = label; this.logText = logText; this.ctx = ctx; }
+
+    private String text(UnhandledMessage u) {
+      return logText ? ",\"text\":" + Cli.Json.str("unhandled message from " + u.sender() + ": " + u.message())
+          + ",\"recipientRef\":" + Cli.Json.str(u.recipient().toString()) : "";
+    }
 
     @Override public Receive createReceive() {
       return receiveBuilder()
@@ -430,7 +438,7 @@ final class Scenario {
               + ",\"recipient\":" + Cli.Json.str(d.recipient().path().toString()) + "}"))
           .match(UnhandledMessage.class, u -> ctx.add(label, "{\"ev\":\"unhandled\",\"msg\":" + msgJson(u.message())
               + ",\"sender\":" + Cli.Json.str(u.sender().path().toString())
-              + ",\"recipient\":" + Cli.Json.str(u.recipient().path().toString()) + "}"))
+              + ",\"recipient\":" + Cli.Json.str(u.recipient().path().toString()) + text(u) + "}"))
           .build();
     }
   }
@@ -552,7 +560,7 @@ final class Scenario {
           boolean errors = logs || "errors".equals(st.get("channel"));
           ActorRef c = system.actorOf(errors
               ? Props.create(ErrorCollector.class, () -> new ErrorCollector(label, (String) st.get("prefix"), (String) st.get("watch"), Boolean.TRUE.equals(st.get("causes")), ctx))
-              : Props.create(Collector.class, () -> new Collector(label, ctx)));
+              : Props.create(Collector.class, () -> new Collector(label, Boolean.TRUE.equals(st.get("log-text")), ctx)));
           ctx.refs.put(label, c);
           system.eventStream().subscribe(c, errors ? org.apache.pekko.event.Logging.Error.class
               : "dead-letters".equals(st.get("channel")) ? DeadLetter.class : UnhandledMessage.class);
