@@ -83,6 +83,7 @@ for i, r in by_id.items():           # also decisions cited in notes
         elif q not in dec_ids: print("UNDEFINED", i, q, file=sys.stderr)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # -I drops the script directory from sys.path
 from contract_decisions import declared_decisions
+from closures import EQUIVALENCE, REMOVED, closed_without_implementation, marker
 def contract_declared_decisions():
     declared = {}
     for path in sorted(glob.glob("docs/inventory/contracts/*.md")):
@@ -275,9 +276,13 @@ for s in order:
     if s["tasks"]:
         L.append(f"Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-{'classic' if u[0]=='AC' else 'typed'}.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.\n")
     else:
-        L.append("Sin filas pendientes en esta unidad: ya está implementada. Sólo se verifica que no haya regresión.\n")
-    if s["done"]:
-        L.append("Filas ya `done` en esta unidad (no se reabren): " + ", ".join(r["id"] for r in s["done"]) + ".\n")
+        L.append("Sin filas pendientes en esta unidad: ya está implementada o cerrada por decisión del Owner. Sólo se verifica que no haya regresión.\n")
+    implemented = [r["id"] for r in s["done"] if not closed_without_implementation(r)]
+    unimplemented = [r["id"] for r in s["done"] if closed_without_implementation(r)]
+    if implemented:
+        L.append("Filas ya `done` en esta unidad (no se reabren): " + ", ".join(implemented) + ".\n")
+    if unimplemented:
+        L.append("Filas cerradas sin implementación propia por decisión del Owner (`done`, pero no implementadas; no se reabren): " + ", ".join(unimplemented) + ".\n")
     L.append("## Prerrequisitos\n")
     if s["deps"]:
         for sid, via in s["deps"].items():
@@ -333,9 +338,11 @@ with open("docs/superpowers/plans/units/README.md", "w", encoding="utf-8") as o:
 with open("docs/contract-map.tsv", "w", encoding="utf-8", newline="") as o:
     o.write("\t".join(["row_id", "unit", "module", "spec", "spec_seq", "analysis", "impl", "validation_source", "oracle", "decisions", "contract_doc"]) + "\n")
     for d in rows:
-        sid = row_spec.get(d["id"], "(implementada)")
+        unimplemented = closed_without_implementation(d)
+        sid = row_spec.get(d["id"], "(sin implementación propia)" if unimplemented else "(implementada)")
         seq = spec_by_id[sid]["seq"] if sid in spec_by_id else ""
-        o.write("\t".join([d["id"], d["unit"], d["module"], sid, str(seq), d["analysis"], d["impl"], first(d["tests"], 120) if d["tests"].strip() not in ("", "-") else "derivada del código", oracle_for(spec_by_id[sid])[:40] if sid in spec_by_id else "existente", ",".join(sorted(row_decisions[d["id"]])), d["contract_doc"]]).replace("\n", " ") + "\n")
+        oracle = oracle_for(spec_by_id[sid])[:40] if sid in spec_by_id else ("decisión del Owner" if unimplemented else "existente")
+        o.write("\t".join([d["id"], d["unit"], d["module"], sid, str(seq), d["analysis"], d["impl"], first(d["tests"], 120) if d["tests"].strip() not in ("", "-") else "derivada del código", oracle,",".join(sorted(row_decisions[d["id"]])), d["contract_doc"]]).replace("\n", " ") + "\n")
 
 # unit -> specs table for docs/implementation-order.md (between markers)
 tbl = ["| Unidad | Filas pendientes | Specs (orden de ejecución) |", "|---|---|---|"]
@@ -394,7 +401,7 @@ def _progress_md():
     SEP = "|---|---|---|---|---|---|---|---|"
     out = ["# Avance del port", "",
            "Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (columna `impl`), `docs/unit-rows.tsv` y `docs/unit-plan.md`. **No editar a mano.**",
-           "`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar); `excluded` = fila excluida por autorización del Owner: **no cuenta como done** y sale del denominador. Los porcentajes se calculan sobre las filas **en alcance** (total menos excluidas).", ""]
+           "`done` = todas las aserciones del contrato cubiertas por casos grabados de Pekko 2.0.0 que pasan y sin decisión abierta; `partial` = algunas cubiertas o una `Q:` abierta; `pending` = ninguna (o sin comparar); `excluded` = fila excluida por autorización del Owner: **no cuenta como done** y sale del denominador. Los porcentajes se calculan sobre las filas **en alcance** (total menos excluidas). Excepción: las filas cerradas **sin implementación propia** por decisión del Owner cuentan como `done` y en el denominador, pero no son funcionalidad implementada y por decisión del Owner no tienen casos grabados propios; se listan aparte (ver abajo).", ""]
     classic = [r for r in inv if r["id"].startswith("AC-")]
     typed = [r for r in inv if r["id"].startswith("AT-")]
     out += ["## Resumen", "", HEAD.format("Módulo"), SEP, line("Classic (`rakka-actor`)", classic), line("Typed (`rakka-actor-typed`)", typed), line("**Total**", inv), ""]
@@ -435,6 +442,13 @@ def _progress_md():
     out.append("")
     excluded = [r["id"] for r in inv if is_excluded(r)]
     out += ["## Filas excluidas por el Owner", "", f"{len(excluded)} fila(s) con exclusión autorizada (no cuentan como done ni en el alcance; la nota de la fila cita la decisión): " + (", ".join(excluded) or "ninguna"), ""]
+    out += ["## Filas done sin implementación propia", "",
+            "Cerradas por decisión del Owner (la nota de la fila la cita). **Están incluidas en la columna `done`** y en el denominador; no son funcionalidad implementada en Rust. Los casos grabados que alguna cite pertenecen a comportamiento de otra fila.", "",
+            "| Motivo del cierre | Filas | Ids |", "|---|---|---|"]
+    for reason in (REMOVED, EQUIVALENCE):
+        ids = [r["id"] for r in inv if closed_without_implementation(r) and marker(r)[0] == reason]
+        out.append(f"| {reason.capitalize()} | {len(ids)} | {', '.join(ids) or '-'} |")
+    out.append("")
     nf = [r for r in inv if r["id"] in flagged]
     n, d, p, q, x = tally(nf)
     out += ["## Filas con nota «revisar contra 2.0.0»", "",

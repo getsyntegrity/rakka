@@ -48,6 +48,10 @@ pub struct ActorIdentity {
 pub trait Actor: Send + 'static {
     /// `getClass.getName` of the running instance, as the runtime reports it in `logClass`. A JVM class name has no Rust
     /// equivalent: the default is the type path of the implementor.
+    ///
+    /// It is only the label of reports. It is asked once per instance, when the cell takes it (creation and restart). If an
+    /// override panics (recoverable panics only), the actor is neither failed nor restarted: the type `Props` were made
+    /// with becomes the label, and the same instance is used (Q-CELL-10), with whatever the override left half-done in it.
     fn class_name(&self) -> &'static str {
         std::any::type_name::<Self>()
     }
