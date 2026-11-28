@@ -42,7 +42,7 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-OR-03 suspension keeps user messages pending; nested suspend needs balanced resume",
-        "needs the user queue and the dispatcher on the actor cell (ADR-0001 steps 3-6)",
+        "sends the internal Suspend/Resume system messages and reads mailbox state: produced in-crate by actor::suspension_oracle_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (AC-SUP-010)",
     ),
     (
         "MBX-OR-04 messages sent while terminating and after termination go to dead letters",
@@ -66,7 +66,7 @@ pub const PENDING: &[(&str, &str)] = &[
     ),
     (
         "MBX-CC-03 concurrent Suspend/Resume system messages lose no increments",
-        "needs the user queue and the dispatcher on the actor cell (ADR-0001 steps 3-6)",
+        "sends the internal Suspend/Resume system messages and reads mailbox state: produced in-crate by actor::suspension_oracle_tests and compared with this line of cases/oracle-only/mailbox.golden, printed by Pekko 2.0.0 (AC-SUP-010)",
     ),
     (
         "MBX-CC-04 dead-letter forwarding during cleanUp",

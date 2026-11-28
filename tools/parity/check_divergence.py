@@ -286,6 +286,12 @@ MUTANTS = {
         "if self.st.lock().unwrap().failed.is_failed() {\n            return;\n        }\n        let skipped = {",
         "an actor that is already failed neither suspends nor reports a new failure (killed by a unit test, see UNIT_MUTANTS)",
     ),
+    "recursive-suspension-does-not-stack": (
+        "src/actor/cell.rs",
+        "fn fault_suspend(self: &Arc<Self>) {\n        self.status.suspend();\n",
+        "fn fault_suspend(self: &Arc<Self>) {\n        if !self.status.is_suspended() {\n            self.status.suspend();\n        }\n",
+        "a suspended actor suspended again by its parent keeps a count of one (killed by a unit test, see UNIT_MUTANTS)",
+    ),
     "failed-cell-still-skips-the-sender": (
         "src/actor/cell.rs",
         "if st.failed.is_failed() {\n                None",
@@ -2738,6 +2744,7 @@ UNIT_MUTANTS = {
     "uncaught-report-is-published-guarded": ("test:classic_queue_spi_failure", "the_uncaught_report_to_a_subscriber_that_cannot_take_it_reports_that_to_the_others"),
     "failed-cell-ignores-a-new-failure": ("actor::refailure_tests", "a_failed_actor_that_fails_again_is_suspended_with_its_children_and_reported_again"),
     "failed-cell-still-skips-the-sender": ("actor::refailure_tests", "escalating_while_already_failed_suspends_that_child_too_and_keeps_the_first_perpetrator"),
+    "recursive-suspension-does-not-stack": ("actor::suspension_oracle_tests", "nested_suspensions_need_as_many_resumes"),
     "terminating-recreate-skips-the-children": ("actor::cell::terminating_survivor_tests", "recreate_of_a_terminating_actor_resumes_its_children_and_keeps_it_failed"),
     "walker-stop-links-only-a-success-to-the-public-future": ("actor::guardian_termination_tests", "stop_called_directly_after_the_failure_fails_the_public_future_with_the_cause"),
     "walker-signal-fires-for-any-discarded-message": ("actor::guardian_termination_tests", "only_the_death_notification_of_the_failed_root_is_the_synchronisation_signal"),
