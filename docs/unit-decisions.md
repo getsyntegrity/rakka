@@ -13,7 +13,7 @@
 
 ## P01 PATH
 
-16 filas; 8 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 1 propuestas.
+16 filas; 10 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 2 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -24,7 +24,9 @@
 | Q-PATH-5 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-PATH-009 | Bloquea: AC-PATH-009 (cierre); puede avanzar: AC-PATH-007/008. | — | `classic-foundation` |
 | Q-PATH-6 | accepted_with_changes (2026-11-18): aceptar (b): reescritura en sala limpia de uri.rs y jstring.rs desde RFC 2396/3986/3629 y los casos grabados, por un agente que no lee los archivos actuales… | 7: AC-PATH-002, AC-PATH-004, AC-PATH-005, AC-PATH-006, AC-PATH-007, AC-PATH-011 … (+1) | Bloquea: publicación de uri.rs/jstring.rs; puede avanzar: el resto de PATH. | — | `classic-foundation` |
 | Q-UTIL-14 | accepted (2026-11-18): aceptar (a) para FrequencySketch, incluida la validación de desbordamiento de 2.0.0, y (b) para el resto. | 2: AC-PATH-001, AC-PATH-014 | Bloquea: AC-UTIL-017.1 (impl exacta); puede avanzar: el resto de AC-UTIL-017.* y AC-UTIL-006.*. | — | `classic-foundation` |
+| Q-X-17 | accepted (2026-11-18): aceptar: el dominio de entrada de la API pública es &str; las entradas con sustitutos UTF-16 sueltos (representables en Java, no en Rust) quedan fuera de… | 1: AC-PATH-008 | — | — | `transversal` |
 | Q-PATH-7 | propuesta | 2: AC-PATH-004, AC-PATH-005 | — | — | `classic-foundation` |
+| Q-REF-8 | propuesta | 1: AC-PATH-016 | Bloquea el cierre de AC-REF-011. | — | `classic-cell` |
 
 ## P02 UTIL-NUCLEO
 
@@ -440,7 +442,7 @@
 | Q-REF-10 | propuesta | 1: AC-REF-014 | Bloquea el cierre de AC-REF-014. | — | `classic-cell` |
 | Q-REF-11 | propuesta | 1: AC-REF-014 | Bloquea el cierre de AC-REF-014. | — | `classic-cell` |
 | Q-REF-7 | propuesta | 1: AC-REF-013 | Bloquea el cierre de AC-REF-013. | — | `classic-cell` |
-| Q-REF-8 | propuesta | 1: AC-REF-011 | Bloquea el cierre de AC-REF-011. | — | `classic-cell` |
+| Q-REF-8 | propuesta | 2: AC-REF-011, AC-REF-014 | Bloquea el cierre de AC-REF-011. | — | `classic-cell` |
 | Q-REF-9 | propuesta | 1: AC-REF-014 | Bloquea el cierre de AC-REF-014 y AC-REF-013. | — | `classic-cell` |
 
 ## P30 EXT
@@ -1103,4 +1105,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 546 (265 respondidas, 0 bloqueantes, 281 propuestas).
+Total de pares unidad–decisión: 548 (266 respondidas, 0 bloqueantes, 282 propuestas).

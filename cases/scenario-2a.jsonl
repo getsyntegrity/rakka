@@ -102,6 +102,19 @@
 {"name": "name-bad-36", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a%\\u00e9\\u00e9\"}]}"}
 {"name": "name-bad-37", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"%41%4\"}]}"}
 {"name": "name-empty", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"\"}]}"}
+{"name": "name-spec-0", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"$hallo\"}]}"}
+{"name": "name-spec-1", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a%\"}]}"}
+{"name": "name-spec-2", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"%3\"}]}"}
+{"name": "name-spec-3", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"%xx\"}]}"}
+{"name": "name-spec-4", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"%0G\"}]}"}
+{"name": "name-spec-5", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"%gg\"}]}"}
+{"name": "name-spec-6", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"%\"}]}"}
+{"name": "name-spec-7", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"%1t\"}]}"}
+{"name": "name-spec-8", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a?\"}]}"}
+{"name": "name-spec-9", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"\\u00fc\\u00df\"}]}"}
+{"name": "name-spec-10", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"he\\\"llo\"}]}"}
+{"name": "name-spec-11", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"$hello\"}]}"}
+{"name": "name-spec-12", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"hell>o\"}]}"}
 {"name": "dup-same-name", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a\", \"as\": \"a\"}, {\"op\": \"spawn\", \"name\": \"a\"}]}"}
 {"name": "dup-three-times", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a\"}, {\"op\": \"spawn\", \"name\": \"a\"}, {\"op\": \"spawn\", \"name\": \"a\"}]}"}
 {"name": "dup-case-sensitive", "args": ["scenario"], "stdin": "{\"system\": \"sys\", \"steps\": [{\"op\": \"spawn\", \"name\": \"a\"}, {\"op\": \"spawn\", \"name\": \"A\"}]}"}

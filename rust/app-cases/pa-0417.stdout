@@ -1,0 +1,1 @@
+VAL-38 [na\u00EFve-actor] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [na\u00EFve-actor], illegal character [\u00EF] at position: 2. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

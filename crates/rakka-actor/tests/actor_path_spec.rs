@@ -1,6 +1,6 @@
 // Derived from Apache Pekko 2.0.0 actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala (Apache-2.0).
 
-use rakka_actor::actor::{ActorPath, Address, validate_path_element};
+use rakka_actor::actor::{ActorPath, Address, is_valid_path_element, validate_path_element};
 
 fn root(a: &Address) -> ActorPath {
     ActorPath::root(a.clone())
@@ -199,4 +199,82 @@ fn validate_path_elements() {
     let err = validate_path_element("", None).unwrap_err();
     assert_eq!(err.java_class(), "InvalidActorNameException");
     assert!(err.message().contains("must not be empty"));
+}
+
+#[test]
+fn accept_valid_path_elements() {
+    let long = "x".repeat(10000);
+    for name in [
+        "a",
+        "actor-1",
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "-_.*$+:@&=,!~';",
+        "a$b",
+        "%20",
+        "%ff%FF%0a",
+        "a%20b",
+        &long,
+    ] {
+        assert!(is_valid_path_element(name), "{name}");
+        validate_path_element(name, None).unwrap();
+    }
+}
+
+#[test]
+fn reject_invalid_path_elements_and_report_the_position() {
+    let position_of = |name: &str| -> usize {
+        let message = validate_path_element(name, None).unwrap_err();
+        let (_, tail) = message
+            .message()
+            .split_once("at position: ")
+            .unwrap_or_else(|| panic!("unexpected message [{}]", message.message()));
+        let digits: String = tail.chars().take_while(char::is_ascii_digit).collect();
+        digits.parse().unwrap()
+    };
+    let long = format!("{}\u{e9}", "x".repeat(100));
+    for (name, position) in [
+        ("$a", 0), // `$` is reserved for system names at the start
+        ("a b", 1),
+        ("a/b", 1),
+        ("a#b", 1),
+        ("a?b", 1),
+        ("a%", 1), // `%` is only valid as `%XX`
+        ("a%2", 1),
+        ("a%2g", 1),
+        ("a%g2", 1),
+        ("caf\u{e9}", 3), // Latin-1 but not ASCII
+        ("na\u{ef}ve-actor", 2),
+        ("\u{4e2d}\u{6587}", 0), // outside Latin-1
+        ("actor-\u{4e2d}", 6),
+        ("actor-\u{1f600}", 6), // surrogate pair in UTF-16
+        ("a\0b", 1),
+        ("a\u{7f}b", 1),
+        (long.as_str(), 100),
+    ] {
+        assert!(!is_valid_path_element(name), "{name}");
+        assert_eq!(position_of(name), position, "{name}");
+    }
+}
+
+/// Every char a `&str` can hold; the 2,048 surrogate code units of the Scala loop are outside that domain (Q-X-17) and are
+/// checked on the UTF-16 scan itself, in `actor::path::tests`.
+#[test]
+fn classify_every_char_like_the_reference_predicate() {
+    let is_valid_char = |c: char| c.is_ascii_alphanumeric() || "-_.*$+:@&=,!~';".contains(c);
+    let is_hex_char = |c: char| c.is_ascii_hexdigit();
+    let mut checked = 0;
+    for ch in (0..=0xffff).filter_map(char::from_u32) {
+        let code = u32::from(ch);
+        let valid = |name: String| is_valid_path_element(&name);
+        assert_eq!(
+            valid(ch.to_string()),
+            is_valid_char(ch) && ch != '$',
+            "U+{code:04X}"
+        );
+        assert_eq!(valid(format!("a{ch}")), is_valid_char(ch), "U+{code:04X}");
+        assert_eq!(valid(format!("%{ch}0")), is_hex_char(ch), "U+{code:04X}");
+        assert_eq!(valid(format!("%0{ch}")), is_hex_char(ch), "U+{code:04X}");
+        checked += 1;
+    }
+    assert_eq!(checked, 0x10000 - 0x800);
 }

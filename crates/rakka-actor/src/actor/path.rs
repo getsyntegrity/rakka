@@ -222,16 +222,27 @@ impl ActorPath {
     /// Pekko's `/ child`: `name#uid` sets the uid of the new child.
     pub fn child(&self, name: &str) -> Result<ActorPath, ChildError> {
         let (name, uid) = split_name_and_uid(name)?;
+        Ok(self.child_with_uid(name, uid)?)
+    }
+
+    /// `new ChildActorPath(this, name, uid)` (`private[pekko]`): `name` is taken as it is, with no `#uid` split.
+    #[doc(hidden)]
+    pub fn child_with_uid(&self, name: &str, uid: i32) -> Result<ActorPath, IllegalArgumentError> {
         if name.contains('/') {
             return Err(IllegalArgumentError::new(format!(
                 "/ is a path separator and is not legal in ActorPath names: [{name}]"
-            ))
-            .into());
+            )));
+        }
+        if name.contains('#') {
+            return Err(IllegalArgumentError::new(format!(
+                "# is a fragment separator and is not legal in ActorPath names: [{name}]"
+            )));
         }
         Ok(self.new_child(name, uid))
     }
 
-    /// A child with an explicit uid and no name checks (what the runtime does for names it validated itself).
+    /// A child with an explicit uid and no name checks, unlike [`ActorPath::child_with_uid`] and Pekko's constructor: for names
+    /// already validated or split. The path of a selection that matches nothing can still pass a `#` here (Q-REF-8, proposed).
     pub(crate) fn new_child(&self, name: &str, uid: i32) -> ActorPath {
         ActorPath(Arc::new(Node::Child {
             parent: self.clone(),

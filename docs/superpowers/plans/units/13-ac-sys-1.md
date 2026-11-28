@@ -21,9 +21,9 @@ Filas ya `done` en esta unidad (no se reabren): AC-SYS-001.1, AC-SYS-007.
 - Spec 10 `AC-TK-1` (`10-ac-tk-1.md`), por las filas AC-TK-001.1.
 - Spec 15 `AC-DW-1` (`15-ac-dw-1.md`), por las filas AC-DW-012. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 08 `AC-SCH-1` (`08-ac-sch-1.md`), por las filas AC-SCH-001.
-- Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-008, AC-PATH-015.
 - Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-013.
 - Spec 19 `AC-RT-1` (`19-ac-rt-1.md`), por las filas AC-RT-003.1. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-015.
 - Spec 17 `AC-ASK-1` (`17-ac-ask-1.md`), por las filas AC-ASK-002. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 21 `AC-SER-1` (`21-ac-ser-1.md`), por las filas AC-SER-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 02 `AC-UTIL-1` (`02-ac-util-1.md`), por las filas AC-UTIL-016.9.

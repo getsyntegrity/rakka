@@ -1,0 +1,1 @@
+VAL-37 [caf\u00E9] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [caf\u00E9], illegal character [\u00E9] at position: 3. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

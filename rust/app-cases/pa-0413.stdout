@@ -1,0 +1,1 @@
+VAL-34 [a\u007Fb] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a\u007Fb], illegal character [\u007F] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

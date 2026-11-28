@@ -866,6 +866,12 @@ fn path_cases(c: &mut Cases, mysys: &Address) -> Result<(), JavaErr> {
             path(&child.root_path())
         ))
     });
+    // CC: the ChildActorPath constructor itself: no `#uid` split
+    for n in ["a#b", "a#1", "#", "a#", "a/b", "a#/b", "/#", "", "a b?$..%"] {
+        c.run(format!("CC [{n}]"), || {
+            Ok(path(&root(mysys).child_with_uid(n, 7)?))
+        });
+    }
 
     let c7 = at(mysys, &["user", "foo#7"])?;
     let other = a("pekko", "other");
@@ -1052,6 +1058,70 @@ fn validation_cases(c: &mut Cases) {
     c.run("VAL-JAPI-03 ActorPaths.isValidPathElement(a)", || {
         Ok(format!("valid={}", is_valid_path_element("a")))
     });
+    // the ActorPathSpec:85-134 inputs that no VAL case above has; the two long ones are named, not spelled out
+    let spec_in = [
+        "a\0b",
+        "a\u{7f}b",
+        "\u{4e2d}\u{6587}",
+        "actor-\u{4e2d}",
+        "caf\u{e9}",
+        "na\u{ef}ve-actor",
+        "%ff%FF%0a",
+        "a%2g",
+        "a%g2",
+    ];
+    for (i, e) in spec_in.iter().enumerate() {
+        c.val(format!("VAL-{} [{e}]", 33 + i), e, None);
+    }
+    c.val("VAL-LONG-01 [x*10000]", &"x".repeat(10000), None);
+    c.val(
+        "VAL-LONG-02 [x*100 U+00E9]",
+        &format!("{}\u{e9}", "x".repeat(100)),
+        None,
+    );
+    // the remaining ActorPathSpec:85-134 inputs, and the :136-160 predicate as one line of accepted ranges
+    let more_in = [
+        "a",
+        "actor-1",
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        "%20",
+        "a%20b",
+        "$a",
+        "actor-\u{1f600}",
+    ];
+    for (i, e) in more_in.iter().enumerate() {
+        c.val(format!("VAL-{} [{e}]", 42 + i), e, None);
+    }
+    c.run("VAL-A8 accepted chars", || {
+        Ok(format!(
+            "c={} a+c={} %+c+0={} %0+c={}",
+            accepted("", ""),
+            accepted("a", ""),
+            accepted("%", "0"),
+            accepted("%0", "")
+        ))
+    });
+}
+
+/// The chars c for which `before + c + after` is a valid path element, as hex ranges. A surrogate is not a `char`, so no `&str`
+/// holds it alone (Q-X-17): it counts as not accepted here, and the oracle, which does try all 65,536, must agree.
+fn accepted(before: &str, after: &str) -> String {
+    let mut ranges = String::new();
+    let mut first = None;
+    for code in 0..=0x10000_u32 {
+        let valid = code <= 0xffff
+            && char::from_u32(code)
+                .is_some_and(|c| is_valid_path_element(&format!("{before}{c}{after}")));
+        match first {
+            None if valid => first = Some(code),
+            Some(start) if !valid => {
+                ranges.push_str(&format!("[{start:04X}-{:04X}]", code - 1));
+                first = None;
+            }
+            _ => {}
+        }
+    }
+    ranges
 }
 
 pub fn rust_lines() -> Vec<(String, String)> {

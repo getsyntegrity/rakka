@@ -1,28 +1,45 @@
 // Derived from Apache Pekko 2.0.0 actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala (Apache-2.0).
 //
-// Only the names that reach ActorPath.validatePathElement (:171-197). The
-// `null` and `""` cases (:169-170) belong to AC-CELL (dungeon/Children.scala).
+// "throw suitable exceptions for malformed actor names" (:168-197), through `system.actorOf` on a real system. The `null`
+// name (:169) cannot be expressed with `&str` (Q-PATH-4).
 
-use rakka_actor::actor::validate_path_element;
+#[allow(dead_code)] // each test binary uses only some of the shared helpers
+mod common;
+use common::RunningSystem;
 
-fn message_of(name: &str) -> String {
-    let err = validate_path_element(name, None).unwrap_err();
-    assert_eq!(err.java_class(), "InvalidActorNameException");
-    err.message().to_owned()
+use rakka_actor::actor::ErrorClass;
+use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
+use rakka_actor::actor::system::ActorSystem;
+
+struct Empty;
+
+impl Actor for Empty {
+    fn receive(&mut self, _context: &mut ActorContext, _message: &AnyMessage) -> bool {
+        false
+    }
+}
+
+fn assert_refused(system: &ActorSystem, name: &str, expected: &str) {
+    let error = system
+        .actor_of_named(Props::new(|| Empty), name)
+        .err()
+        .unwrap_or_else(|| panic!("{name:?} was accepted"));
+    assert_eq!(error.class(), ErrorClass::InvalidActorName, "{name:?}");
+    assert!(error.message().contains(expected), "{name:?}: {error:?}");
 }
 
 #[test]
 fn throw_suitable_exceptions_for_malformed_actor_names() {
-    assert!(message_of("$hallo").contains("not start with `$`"));
-    for name in ["a%", "%3", "%xx", "%0G", "%gg", "%", "%1t", "a?"] {
-        assert!(
-            message_of(name).contains("Invalid actor path element"),
-            "{name}"
-        );
-    }
-    assert!(message_of("üß").contains("include only ASCII"));
+    let system = RunningSystem::create("names");
 
-    assert!(message_of("he\"llo").contains("[\"] at position: 2"));
-    assert!(message_of("$hello").contains("[$] at position: 0"));
-    assert!(message_of("hell>o").contains("[>] at position: 4"));
+    assert_refused(&system, "", "empty");
+    assert_refused(&system, "$hallo", "not start with `$`");
+    for name in ["a%", "%3", "%xx", "%0G", "%gg", "%", "%1t", "a?"] {
+        assert_refused(&system, name, "Invalid actor path element");
+    }
+    assert_refused(&system, "üß", "include only ASCII");
+
+    assert_refused(&system, "he\"llo", "[\"] at position: 2");
+    assert_refused(&system, "$hello", "[$] at position: 0");
+    assert_refused(&system, "hell>o", "[>] at position: 4");
 }

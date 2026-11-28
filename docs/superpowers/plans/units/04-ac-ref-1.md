@@ -13,11 +13,11 @@ Filas ya `done` en esta unidad (no se reabren): AC-REF-009.3.
 - Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-001, AC-MBX-002, AC-MBX-003, AC-MBX-005. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-002.1, AC-CELL-002.2, AC-CELL-003, AC-CELL-008.2, AC-CELL-013.1, AC-CELL-015.1, AC-CELL-016. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 03 `AC-CFG-1` (`03-ac-cfg-1.md`), por las filas AC-CFG-013.
-- Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-008, AC-PATH-015.
 - Spec 17 `AC-ASK-1` (`17-ac-ask-1.md`), por las filas AC-ASK-001.1, AC-ASK-001.2, AC-ASK-001.3. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-008. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 13 `AC-SYS-1` (`13-ac-sys-1.md`), por las filas AC-SYS-012, AC-SYS-018. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 12 `AC-CELL-2` (`12-ac-cell-2.md`), por las filas AC-CELL-027. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 01 `AC-PATH-1` (`01-ac-path-1.md`), por las filas AC-PATH-015.
 - Spec 21 `AC-SER-1` (`21-ac-ser-1.md`), por las filas AC-SER-007.1, AC-SER-007.2. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 
 Decisiones:
@@ -98,7 +98,7 @@ Filas: AC-REF-021, AC-REF-022, AC-REF-023, AC-REF-024, AC-REF-025, AC-REF-026. C
 | AC-REF-011 | ActorSelection: actorSelection(path\|ActorPath), relativo, `..`, comodines * y… | `ActorSelection { anchor, elements: Vec<SelectionElement> }` con… | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:100-189,193-27… | Q-REF-8, Q-X-3 |
 | AC-REF-012 | resolveOne(timeout) y ActorNotFound | `async fn resolve_one(&self, timeout) -> Result<ActorRef, ActorNotFound>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:319-335 ;… | - |
 | AC-REF-013 | Identify / ActorIdentity | mensaje manejado por la celda antes del receive de usuario | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:70-85,179-189,… | Q-REF-7 |
-| AC-REF-014 | Entrega de selección con comodines (ActorSelectionMessage,… | matcher glob propio (sin regex) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:361-369 ;… | Q-REF-10, Q-REF-11, Q-REF-9 |
+| AC-REF-014 | Entrega de selección con comodines (ActorSelectionMessage,… | matcher glob propio (sin regex) | actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:361-369 ;… | Q-REF-10, Q-REF-11, Q-REF-8, Q-REF-9 |
 | AC-REF-015 | EmptyLocalActorRef (ref a actor inexistente) | variante `RefInner::EmptyLocal` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:341-365 ;… | - |
 | AC-REF-016 | deadLetters (DeadLetterActorRef) | ref especial que publica en EventStream | actor-tests/src/test/scala/org/apache/pekko/actor/DeadLetterSupressionSpec.scala:74-106… | - |
 | AC-REF-017 | resolveActorRef(path) del proveedor | `provider.resolve_actor_ref(&ActorPath) -> ActorRef` | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:48-64… | - |
