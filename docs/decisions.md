@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 284 decisiones: 0 bloqueantes, 196 propuestas, 67 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 285 decisiones: 0 bloqueantes, 193 propuestas, 69 aceptadas, 20 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -379,23 +379,13 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** CELL ; SUP
 - **Origen:** classic-cell
 
-### Q-CELL-10 — Alcance de «no reutilizar instancias potencialmente inconsistentes» (condición de Q-CELL-9): class_name que lanza y retención en el restart
+### Q-CELL-11 — Marca NoStackTrace de DeathPactException y ActorKilledException: un decider que clasifica por scala.util.control.NoStackTrace
 
 - **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:748-753 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala ; crates/rakka-actor/src/actor/cell.rs
-- **Alternativas:** (a) no entregar ni reanudar sólo instancias cuya construcción o inicialización falló; usar la de class_name que lanzó y conservar las retenidas para postStop y supervisorStrategy / (b) tratar el panic de class_name como fallo de creación o de restart / (c) no volver a usar ninguna instancia que se haya desenrollado
-- **Recomendación:** (a), conducta actual, sin decidir. Consecuencia: un actor con mutabilidad interior puede seguir con el estado que su class_name dejó a medias
-- **Filas afectadas:** AC-CELL-027
-- **Unidades afectadas:** CELL
-- **Origen:** classic-cell
-
-### Q-CELL-11 — Marca NoStackTrace de DeathPactException: un decider que clasifica por scala.util.control.NoStackTrace
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:281-284 ; crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/src/actor/cell.rs
-- **Alternativas:** (a) sin marca: los Throwable de Rakka no llevan traza y is_a("scala.util.control.NoStackTrace") es falso / (b) que la clase conocida DeathPactException responda también is_a("scala.util.control.NoStackTrace") / (c) modelar interfaces en Throwable
-- **Recomendación:** (b), sin implementar. Consecuencia de la conducta actual (a): un decider con `case _: NoStackTrace` atrapa el death pact en Pekko y no en Rakka (no hay caso grabado)
-- **Filas afectadas:** AC-CELL-004
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:177,281-284 ; crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) sin marca: los Throwable de Rakka no llevan traza y is_a("scala.util.control.NoStackTrace") es falso para las dos / (b) que las clases conocidas DeathPactException y ActorKilledException respondan también is_a("scala.util.control.NoStackTrace") / (c) modelar interfaces en Throwable
+- **Recomendación:** (b), sin implementar. Consecuencia de la conducta actual (a): un decider con `case _: NoStackTrace` atrapa el death pact y el Kill en Pekko y no en Rakka (no hay caso grabado)
+- **Filas afectadas:** AC-CELL-004 ; AC-DW-007
 - **Unidades afectadas:** CELL
 - **Origen:** classic-cell
 
@@ -406,16 +396,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) `include "x"` y `classpath("x")` buscan en una tabla de recursos embebidos que pasa quien llama (`parse_string_with`); `file("p")` lee del sistema de archivos; `url(..)` no se admite; un `required` ausente falla con el texto medido (el de `file` es una suposición sin medir). (b) además un directorio de búsqueda configurable para los nombres sin envoltorio. (c) sólo ignorar todos los includes.
 - **Recomendación:** (a). Clasificación: arquitectura (no hay classpath en Rust; Q-CFG-6 (a) lo descarta). Consecuencias observables: un `include` que en la JVM resolvería por classpath se ignora o falla según `required`. Bloquea: nada; las filas quedan `partial` hasta medir los mensajes de file/url.
 - **Filas afectadas:** AC-CFG-001, AC-CFG-017.6
-- **Unidades afectadas:** CFG
-- **Origen:** classic-foundation
-
-### Q-CFG-15 — Descripción de origen de los valores de configuración en errores y en el render (`String: N`, archivo, `env variables`)
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Casos grabados: todos los mensajes de error llevan el prefijo `String: <línea>: ` (texto) y `renderWithRedactions` imprime `# String: <línea>` antes de cada valor, `# env variables` y `"<env variable>"` para variables de entorno (RW-01..06); un archivo sería `<ruta>: <línea>` (no medido: el oráculo sólo carga texto y los dos reference.conf desde jar).
-- **Alternativas:** (a) reproducir el formato de Typesafe: `String: N` para texto, `<ruta>: N` para archivos, `env variables`; el render con comentarios de origen. (b) mensajes y render sin descripción de origen (más cortos, distintos de los medidos). (c) (a) para texto y entorno y, para archivos, el formato `<ruta>: N` sin medir.
-- **Recomendación:** (c). Clasificación: representación. Consecuencias observables: los textos de `ConfigError::message()` y de `Settings.toString`; con (b) cambian todos. P07 implementa (a) para texto y entorno; la ruta de archivo queda sin implementar (los valores de `Config::load` dicen `String: N`).
-- **Filas afectadas:** AC-UTIL-002.5, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.7, AC-CFG-019, AC-CFG-002, AC-CFG-004, AC-CFG-005, AC-CFG-006, AC-CFG-007, AC-CFG-009, AC-CFG-010, AC-CFG-011, AC-CFG-018
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 
@@ -676,6 +656,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) conservar el hook is_local en el trait de ref y el topic sin uso local / (b) omitir el topic y el orden / (c) implementarlo completo con un provider simulado
 - **Recomendación:** (a) mínimo: el trait de ref expone is_local y la celda mantiene los conjuntos watching/watchedBy con la lógica de suscripción, aunque sin remote nunca se suscriba [2026-10-31 cierre documental] Clasificación: arquitectura / exclusión de alcance (remote). Resuelto leyendo: sin proveedor remoto `hasNonLocalAddress` es siempre falso, no hay suscripción y `AddressTerminated` no se publica; el hook mínimo (is_local + conjuntos watching/watchedBy + suscripción) permite un remote futuro sin cambiar la celda. Consecuencia: ningún test funcional upstream (sólo el benchmark). Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. Puede avanzar: el resto de DW (el orden local es el único observable sin remote).
 - **Filas afectadas:** AC-DW-010 ; AC-DW-012
+- **Unidades afectadas:** DW
+- **Origen:** classic-cell
+
+### Q-DW-5 — Accesor público `dead` de DeathPactException
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:281-284 ; actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:239 ; crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) `Throwable::dead(&self) -> Option<&ActorRef>`, un campo privado que sólo fija el death pact del runtime y que entra en la igualdad / (b) carga tipada general en Throwable (struct público `DeathPactException { dead }` recuperado por downcast), reutilizable para las demás cargas de AC-SUP-017 / (c) sin accesor, conducta actual: la identidad sólo está en el texto del mensaje
+- **Recomendación:** (a), sin implementar. Un campo y un accesor, en la línea de Q-SUP-7. Consecuencia de (c): un decider no puede hacer `case DeathPactException(ref)` ni comparar el actor muerto sin analizar el texto. Es la misma aserción que AC-SUP-017 A3
+- **Filas afectadas:** AC-DW-007 ; AC-SUP-017
 - **Unidades afectadas:** DW
 - **Origen:** classic-cell
 
@@ -2109,16 +2099,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 
-### Q-UTIL-20 — Cierre de las filas de equivalencia (OptionVal, ConstantFun, Collections, Unused, anotaciones de API) sin tipo ni oraculo propios
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** util/OptionVal.scala:23-94, util/ConstantFun.scala:26-91, util/Collections.scala:22-94 y las cuatro anotaciones de java/org/apache/pekko/annotation: en 2.0.0 siguen sin test propio salvo ConstantFunJavaTest (A1/A2: identidad por referencia, inobservable en Rust); util/Unused.scala no existe en 2.0.0; Collections.EmptyImmutableSeq.iterator ya es Iterator.empty de Scala (el mensaje 'next on empty iterator' es de la biblioteca de Scala y lo observa ByteIterator, P04) y 2.0.0 anade IterableOps.collectToImmutableSeq (sin consumidores en main).
-- **Alternativas:** (a) cerrar OptionVal, ConstantFun, Unused y las anotaciones como `done` con equivalente documentado (Option<T>, closures/std::convert::identity, prefijo `_`, visibilidad/traits sellados/cargo-semver-checks) y sin oraculo, y cerrar Collections junto con ByteIterator (P04); (b) escribir tipos propios (OptionVal, constantes de ConstantFun, EmptyImmutableSeq) y caracterizarlos con oraculo aunque no tengan consumidor; (c) excluir alguna fila (requiere autorizacion explicita).
-- **Recomendación:** (a): Q-UTIL-11 (a) ya acepta el equivalente documentado; falta confirmar que ello basta para cerrar `impl`/`validation` sin casos grabados porque las aserciones A# son 'no afirmadas por spec' o inobservables en Rust.
-- **Filas afectadas:** AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.18, AC-UTIL-019
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
 ### Q-UTIL-22 — Charsets y Base64 de ByteString sin dependencias externas
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -2166,16 +2146,6 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) no implementar nada hasta AC-SER; cuando exista, un formato propio (identidad `u8` 0..3, cuerpo i32 BE + bytes por fragmento) con los mismos tests de ida y vuelta; (b) implementar ya un `to_wire`/`from_wire` con ese formato; (c) excluir la fila (la serialización Java no tiene equivalente).
 - **Recomendación:** (a): ningún efecto observable hoy; el formato de red de los mensajes lo decide AC-SER. AC-UTIL-006.8 queda `partial`. Clasificación: arquitectura (depende de AC-SER).
 - **Filas afectadas:** AC-UTIL-006.8
-- **Unidades afectadas:** UTIL
-- **Origen:** classic-foundation
-
-### Q-UTIL-27 — Cierre de las filas de frontera Java/Scala (FutureConverters, OptionConverters/FunctionConverters/JavaDurationConverters, ccompat) eliminadas en 2.0.0
-
-- **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** 2.0.0 elimina util/FutureConverters, util/OptionConverters, util/FunctionConverters, util/JavaDurationConverters, util/ccompat y compat/Future (actor/src/main/mima-filters/2.0.x.backwards.excludes: future-converters, javaapi-option, function-converters, java-duration-converters, remove-scala-2.12-support); lo que queda es scala.jdk.* de la biblioteca de Scala (actor/src/main/java/org/apache/pekko/util/OptionalUtil.java:21,38). Único comportamiento propio observable: Timeout.create(java.time.Duration), medido por los casos grabados uc-0537..uc-0549 y TO-NEG-04/05, ya correcto en Rust. Timeout -> java.time.Duration (toJava) lo usan Actor.scala:158, AbstractActor.scala:173, CachePolicy.scala:33 y OptimalSizeExploringResizer.scala:273 (otras unidades).
-- **Alternativas:** (a) cerrar 018.1, 018.2 y 018.3 como `done` con el equivalente documentado (un único `Future`, `Option<T>`, closures, `TryFrom<std::time::Duration> for Timeout`) y marcadas `eliminado en 2.0.0`, sin tipo propio; la conversión inversa Timeout -> duración Java se resuelve en las filas consumidoras (JAPI/ACT/DNS/RTG); (b) escribir tipos propios (conversores) y caracterizarlos con el oráculo aunque Pekko 2.0.0 ya no los tenga; (c) excluir alguna fila (requiere autorización explícita).
-- **Recomendación:** (a): Q-UTIL-11 (a) y Q-X-4 (A) ya aceptan el equivalente y el Owner marcó ccompat como `eliminado en 2.0.0`; falta confirmar que ello cierra `impl`/`validation` de las tres filas sin conversores propios (las aserciones A1/A2 son pruebas de compilación o delegan en la biblioteca de Scala).
-- **Filas afectadas:** AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 
@@ -2236,6 +2206,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** CELL
 - **Origen:** classic-cell
 - **Respuesta del Owner:** ACCEPTED con condiciones: la captura de panics recuperables mediante catch_unwind en la frontera de creación de actores, como adaptación explícita al modelo de fallos de Rust. Mantener la política establecida en Q-X-5. No reutilizar instancias potencialmente inconsistentes. Preservar la semántica de supervisión y limpieza. No intentar emular artificialmente NonFatal de Scala. No prometer recuperación ante panic=abort, abortos del proceso u otros fallos no recuperables. No utilizar AssertUnwindSafe sin justificación de sus invariantes. Registrar esta desviación acotada como excepción expresa a Q-X-21. Verificar que la implementación provisional integrada cumple estas condiciones antes de considerar cerrado el contrato. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
+
+### Q-CELL-10 — Alcance de «no reutilizar instancias potencialmente inconsistentes» (condición de Q-CELL-9): class_name que lanza y retención en el restart
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:748-753 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) no entregar ni reanudar sólo instancias cuya construcción o inicialización falló; usar la de class_name que lanzó y conservar las retenidas para postStop y supervisorStrategy / (b) tratar el panic de class_name como fallo de creación o de restart / (c) no volver a usar ninguna instancia que se haya desenrollado
+- **Recomendación:** (a), conducta actual, sin decidir. Consecuencia: un actor con mutabilidad interior puede seguir con el estado que su class_name dejó a medias
+- **Filas afectadas:** AC-CELL-027
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+- **Respuesta del Owner:** ACCEPTED (a). Preservar las instancias fallidas exclusivamente para limpieza cuando corresponda. No reutilizar instancias cuya construcción falló para procesar mensajes. Documentar el fallback de class_name() y verificar que no comprometa la limpieza ni la supervisión. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-28)
 
 ### Q-CFG-3 — checkValid contra reference.conf (Typesafe Config) con un parser propio
 
@@ -2357,6 +2338,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de 1.7.1, se sigue 2.0.0. (Owner (respuesta al lote 01), 2026-11-18)
+
+### Q-CFG-15 — Descripción de origen de los valores de configuración en errores y en el render (`String: N`, archivo, `env variables`)
+
+- **Estado:** aceptada con cambios
+- **Evidencia:** Casos grabados: todos los mensajes de error llevan el prefijo `String: <línea>: ` (texto) y `renderWithRedactions` imprime `# String: <línea>` antes de cada valor, `# env variables` y `"<env variable>"` para variables de entorno (RW-01..06); un archivo sería `<ruta>: <línea>` (no medido: el oráculo sólo carga texto y los dos reference.conf desde jar).
+- **Alternativas:** (a) reproducir el formato de Typesafe: `String: N` para texto, `<ruta>: N` para archivos, `env variables`; el render con comentarios de origen. (b) mensajes y render sin descripción de origen (más cortos, distintos de los medidos). (c) (a) para texto y entorno y, para archivos, el formato `<ruta>: N` sin medir.
+- **Recomendación:** (c). Clasificación: representación. Consecuencias observables: los textos de `ConfigError::message()` y de `Settings.toString`; con (b) cambian todos. P07 implementa (a) para texto y entorno; la ruta de archivo queda sin implementar (los valores de `Config::load` dicen `String: N`).
+- **Filas afectadas:** AC-UTIL-002.5, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.7, AC-CFG-019, AC-CFG-002, AC-CFG-004, AC-CFG-005, AC-CFG-006, AC-CFG-007, AC-CFG-009, AC-CFG-010, AC-CFG-011, AC-CFG-018
+- **Unidades afectadas:** CFG
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** ACCEPTED (a). Preservar el origen de los errores de configuración: texto, entorno y archivo. Autorizada la reorganización de la verificación correspondiente a archivos entre AC-CFG-001 y AC-UTIL-002.5, preservando íntegramente los criterios de aceptación y la trazabilidad. No cerrar contratos cuyo comportamiento siga pendiente. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-28)
 
 ### Q-CFG-30 — Dígitos de Double.toString en el render de números (JDK 17 no siempre da la cadena más corta)
 
@@ -2919,6 +2911,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** aceptar (a): Display de PekkoException y ConfigurationException muestra sólo el mensaje; java_class() queda aparte. (Owner (respuesta tras P02), 2026-11-18)
 
+### Q-UTIL-20 — Cierre de las filas de equivalencia (OptionVal, ConstantFun, Collections, Unused, anotaciones de API) sin tipo ni oraculo propios
+
+- **Estado:** aceptada
+- **Evidencia:** util/OptionVal.scala:23-94, util/ConstantFun.scala:26-91, util/Collections.scala:22-94 y las cuatro anotaciones de java/org/apache/pekko/annotation: en 2.0.0 siguen sin test propio salvo ConstantFunJavaTest (A1/A2: identidad por referencia, inobservable en Rust); util/Unused.scala no existe en 2.0.0; Collections.EmptyImmutableSeq.iterator ya es Iterator.empty de Scala (el mensaje 'next on empty iterator' es de la biblioteca de Scala y lo observa ByteIterator, P04) y 2.0.0 anade IterableOps.collectToImmutableSeq (sin consumidores en main).
+- **Alternativas:** (a) cerrar OptionVal, ConstantFun, Unused y las anotaciones como `done` con equivalente documentado (Option<T>, closures/std::convert::identity, prefijo `_`, visibilidad/traits sellados/cargo-semver-checks) y sin oraculo, y cerrar Collections junto con ByteIterator (P04); (b) escribir tipos propios (OptionVal, constantes de ConstantFun, EmptyImmutableSeq) y caracterizarlos con oraculo aunque no tengan consumidor; (c) excluir alguna fila (requiere autorizacion explicita).
+- **Recomendación:** (a): Q-UTIL-11 (a) ya acepta el equivalente documentado; falta confirmar que ello basta para cerrar `impl`/`validation` sin casos grabados porque las aserciones A# son 'no afirmadas por spec' o inobservables en Rust.
+- **Filas afectadas:** AC-UTIL-016.1, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-016.18, AC-UTIL-019
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** ACCEPTED (a). Utilizar los equivalentes idiomáticos de Rust, documentando la correspondencia semántica con Pekko. No implementar tipos auxiliares de Scala innecesariamente. Verificar los cinco contratos candidatos antes de cerrarlos. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-28)
+
 ### Q-UTIL-21 — Selección entre entradas `prefix*` solapadas de WildcardIndex (orden del HashMap de Scala)
 
 - **Estado:** aceptada con cambios
@@ -2929,6 +2932,17 @@ Decisiones por unidad que el Owner ya resolvió (las transversales figuran en la
 - **Unidades afectadas:** UTIL
 - **Origen:** classic-foundation
 - **Respuesta del Owner:** ACCEPTED, alternativa (c). Se ratifica la implementación que reproduce el orden de selección de WildcardIndex de Apache Pekko 2.0.0. Fundamento: aunque el orden de iteración del HashMap de Scala sea accidental, la configuración de despliegue seleccionada constituye comportamiento observable y preservarlo es coherente con Q-X-21. Condiciones: encapsular la compatibilidad con el orden de Scala dentro del mecanismo que la necesita; no extender esta decisión a otras colecciones Rust ni convertirla en una política general de ordenamiento; no presentar este comportamiento como una garantía contractual documentada por Pekko; mantener los casos de paridad existentes; registrar la decisión y actualizar las referencias desactualizadas del inventario y de owner-batch-02.md; conservar la evidencia histórica de los 60.000 conjuntos de fuzz identificándola como histórica, sin repetir esa campaña. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-27)
+
+### Q-UTIL-27 — Cierre de las filas de frontera Java/Scala (FutureConverters, OptionConverters/FunctionConverters/JavaDurationConverters, ccompat) eliminadas en 2.0.0
+
+- **Estado:** aceptada
+- **Evidencia:** 2.0.0 elimina util/FutureConverters, util/OptionConverters, util/FunctionConverters, util/JavaDurationConverters, util/ccompat y compat/Future (actor/src/main/mima-filters/2.0.x.backwards.excludes: future-converters, javaapi-option, function-converters, java-duration-converters, remove-scala-2.12-support); lo que queda es scala.jdk.* de la biblioteca de Scala (actor/src/main/java/org/apache/pekko/util/OptionalUtil.java:21,38). Único comportamiento propio observable: Timeout.create(java.time.Duration), medido por los casos grabados uc-0537..uc-0549 y TO-NEG-04/05, ya correcto en Rust. Timeout -> java.time.Duration (toJava) lo usan Actor.scala:158, AbstractActor.scala:173, CachePolicy.scala:33 y OptimalSizeExploringResizer.scala:273 (otras unidades).
+- **Alternativas:** (a) cerrar 018.1, 018.2 y 018.3 como `done` con el equivalente documentado (un único `Future`, `Option<T>`, closures, `TryFrom<std::time::Duration> for Timeout`) y marcadas `eliminado en 2.0.0`, sin tipo propio; la conversión inversa Timeout -> duración Java se resuelve en las filas consumidoras (JAPI/ACT/DNS/RTG); (b) escribir tipos propios (conversores) y caracterizarlos con el oráculo aunque Pekko 2.0.0 ya no los tenga; (c) excluir alguna fila (requiere autorización explícita).
+- **Recomendación:** (a): Q-UTIL-11 (a) y Q-X-4 (A) ya aceptan el equivalente y el Owner marcó ccompat como `eliminado en 2.0.0`; falta confirmar que ello cierra `impl`/`validation` de las tres filas sin conversores propios (las aserciones A1/A2 son pruebas de compilación o delegan en la biblioteca de Scala).
+- **Filas afectadas:** AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3
+- **Unidades afectadas:** UTIL
+- **Origen:** classic-foundation
+- **Respuesta del Owner:** ACCEPTED (a). Registrar los conversores Java/Scala como eliminados en Pekko 2.0.0. No implementarlos. Distinguir explícitamente estos cierres de funcionalidades implementadas y mantener consistente el denominador oficial. Registrada en representación del Owner por su autorización expresa. (Owner (instrucción en la sesión), 2026-11-28)
 
 ### Q-X-20 — Veredictos del gate MILESTONE: PASS, INCOMPLETE, FAIL, ERROR y CANCELLED
 

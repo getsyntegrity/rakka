@@ -7,7 +7,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | # | Spec | Filas | Tareas | Estado | Depende de |
 |---|---|---|---|---|---|
 | 01 | [AC-PATH-1](01-ac-path-1.md) | 5 | 1 | pendiente de decisiones | 02 |
-| 02 | [AC-UTIL-1](02-ac-util-1.md) | 26 | 5 | pendiente de decisiones | 03, 21, 09, 16, 08 |
+| 02 | [AC-UTIL-1](02-ac-util-1.md) | 20 | 4 | pendiente de decisiones | 03, 21, 09, 16, 08 |
 | 03 | [AC-CFG-1](03-ac-cfg-1.md) | 27 | 5 | pendiente de decisiones | 09, 16, 13, 20, 04, 14, 21, 19 |
 | 04 | [AC-REF-1](04-ac-ref-1.md) | 30 | 5 | pendiente de decisiones | 06, 11, 03, 17, 09, 13, 12, 01, 21 |
 | 05 | [AC-REF-2](05-ac-ref-2.md) | 1 | 1 | sin decisiones abiertas (preliminar) | 04, 13, 17 |
@@ -16,11 +16,11 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | 08 | [AC-SCH-1](08-ac-sch-1.md) | 16 | 3 | pendiente de decisiones | 07, 03, 11, 06 |
 | 09 | [AC-EVT-1](09-ac-evt-1.md) | 24 | 4 | pendiente de decisiones | 02, 13, 15, 04, 03, 10, 11, 01, 18, 06, 24 |
 | 10 | [AC-TK-1](10-ac-tk-1.md) | 27 | 5 | pendiente de decisiones | 07, 13, 14, 03, 16, 09, 04, 11, 06, 18, 08, 24, 21, 22 |
-| 11 | [AC-CELL-1](11-ac-cell-1.md) | 30 | 5 | pendiente de decisiones | 14, 06, 09, 15, 04, 08, 07, 03 |
+| 11 | [AC-CELL-1](11-ac-cell-1.md) | 30 | 5 | pendiente de decisiones | 14, 06, 15, 09, 04, 08, 07, 03 |
 | 12 | [AC-CELL-2](12-ac-cell-2.md) | 5 | 1 | pendiente de decisiones | 04, 21, 06 |
 | 13 | [AC-SYS-1](13-ac-sys-1.md) | 25 | 5 | pendiente de decisiones | 03, 16, 09, 11, 14, 20, 07, 04, 10, 15, 08, 06, 19, 01, 17, 21, 02 |
 | 14 | [AC-SUP-1](14-ac-sup-1.md) | 18 | 3 | pendiente de decisiones | 11, 09, 06, 03, 13 |
-| 15 | [AC-DW-1](15-ac-dw-1.md) | 7 | 2 | pendiente de decisiones | 04, 11, 16, 06 |
+| 15 | [AC-DW-1](15-ac-dw-1.md) | 8 | 2 | pendiente de decisiones | 04, 11, 14, 16, 06 |
 | 16 | [AC-EXT-1](16-ac-ext-1.md) | 5 | 1 | pendiente de decisiones | 13, 03 |
 | 17 | [AC-ASK-1](17-ac-ask-1.md) | 30 | 5 | pendiente de decisiones | 02, 13, 04, 08, 03, 16, 14 |
 | 18 | [AC-FSM-1](18-ac-fsm-1.md) | 11 | 2 | pendiente de decisiones | 11, 19, 08, 03 |
@@ -29,7 +29,7 @@ Orden de ejecución, dependencias resueltas y estado. Regenerar con `python3 -I 
 | 21 | [AC-SER-1](21-ac-ser-1.md) | 23 | 4 | pendiente de decisiones | 03, 04, 13, 23, 16 |
 | 22 | [AC-IO-1](22-ac-io-1.md) | 30 | 5 | pendiente de decisiones | 13, 16, 23, 03, 07, 14 |
 | 23 | [AC-IO-2](23-ac-io-2.md) | 5 | 1 | pendiente de decisiones | 22, 07 |
-| 24 | [AC-JAPI-1](24-ac-japi-1.md) | 21 | 4 | pendiente de decisiones | 02, 11, 18, 14, 04, 09, 13, 08, 17, 21, 22 |
+| 24 | [AC-JAPI-1](24-ac-japi-1.md) | 21 | 4 | pendiente de decisiones | 11, 18, 14, 04, 09, 13, 08, 17, 21, 22, 02 |
 | 25 | [AT-BEH-1](25-at-beh-1.md) | 26 | 5 | pendiente de decisiones | 26, 36, 34, 37, 32, 33, 27 |
 | 26 | [AT-SIG-1](26-at-sig-1.md) | 8 | 2 | pendiente de decisiones | 34, 30, 25 |
 | 27 | [AT-REF-1](27-at-ref-1.md) | 7 | 2 | pendiente de decisiones | 46, 25, 40, 39 |

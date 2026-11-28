@@ -100,10 +100,11 @@
 
 ## P07 CFG-HOCON
 
-12 filas; 13 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 5 propuestas.
+12 filas; 13 decisiones distintas en sus filas: 9 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-CFG-15 | accepted_with_changes (2026-11-28): ACCEPTED (a). Preservar el origen de los errores de configuración: texto, entorno y archivo. Autorizada la reorganización de la verificación correspondiente a… | 9: AC-CFG-001, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5 … (+3) | — | — | `classic-foundation` |
 | Q-CFG-3 | accepted (2026-11-18): aceptar (a): se implementa checkValid porque Q-X-1 es parser propio. | 1: AC-CFG-019 | Bloquea: AC-CFG-019 (y la parte fail-fast de AC-CFG-002). | Puede avanzar: lectura de cada clave en Settings. | `classic-foundation` |
 | Q-CFG-30 | accepted (2026-11-19): aceptar (a) con la premisa corregida: 357 de las 362 diferencias eran empates exactos mal resueltos por rakko (se corrigen: cifra par) y 5 son bugs de JDK 17;… | 2: AC-CFG-017.1, AC-UTIL-002.5 | — | — | `classic-foundation` |
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 9: AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5, AC-CFG-017.6 … (+3) | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
@@ -113,19 +114,19 @@
 | Q-UTIL-1 | rejected (2026-10-31): rechazar: la recomendación (a) (std::time::Duration, sólo valores positivos) NO se adopta. ALTERNATIVA ELEGIDA Y VIGENTE: preservar el dominio de Pekko, es… | 1: AC-UTIL-002.4 | — | — | `classic-foundation` |
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 9: AC-CFG-001, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5 … (+3) | — | — | `transversal` |
 | Q-CFG-14 | propuesta | 2: AC-CFG-001, AC-CFG-017.6 | Bloquea: nada; las filas quedan `partial` hasta medir los mensajes de file/url. | — | `classic-foundation` |
-| Q-CFG-15 | propuesta | 9: AC-CFG-001, AC-CFG-017.1, AC-CFG-017.2, AC-CFG-017.3, AC-CFG-017.4, AC-CFG-017.5 … (+3) | — | — | `classic-foundation` |
 | Q-CFG-16 | propuesta | 1: AC-CFG-001 | — | — | `classic-foundation` |
 | Q-CFG-18 | propuesta | 1: AC-CFG-019 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
 | Q-CFG-19 | propuesta | 1: AC-CFG-019 | Bloquea: nada; reversible. | — | `classic-foundation` |
 
 ## P08 CFG-AJUSTES
 
-10 filas; 16 decisiones distintas en sus filas: 11 respondidas, 0 bloqueantes, 5 propuestas.
+10 filas; 16 decisiones distintas en sus filas: 12 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CFG-10 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 2: AC-CFG-004, AC-CFG-018 | Bloquea: AC-CFG-018; puede avanzar: AC-CFG-004 sin esa clave. | — | `classic-foundation` |
 | Q-CFG-11 | accepted_with_changes (2026-11-18): aceptar las claves; con la opción en `on` el arranque falla con un error de configuración (no un no-op silencioso) hasta que exista AC-SER. | 1: AC-CFG-010 | Bloquea: AC-CFG-010 (y AC-UTIL-006.8); puede avanzar: aceptar las claves en `off`. | — | `classic-foundation` |
+| Q-CFG-15 | accepted_with_changes (2026-11-28): ACCEPTED (a). Preservar el origen de los errores de configuración: texto, entorno y archivo. Autorizada la reorganización de la verificación correspondiente a… | 9: AC-CFG-002, AC-CFG-004, AC-CFG-005, AC-CFG-006, AC-CFG-007, AC-CFG-009 … (+3) | — | — | `classic-foundation` |
 | Q-CFG-3 | accepted (2026-11-18): aceptar (a): se implementa checkValid porque Q-X-1 es parser propio. | 1: AC-CFG-002 | Bloquea: AC-CFG-019 (y la parte fail-fast de AC-CFG-002). | Puede avanzar: lectura de cada clave en Settings. | `classic-foundation` |
 | Q-CFG-4 | accepted (2026-11-18): aceptar (a). Los mensajes de error de Config 1.4.9 son contrato. Condición: volver a grabar el golden de HOCON con el CLI del oráculo (jshell está deprecado). | 2: AC-CFG-002, AC-CFG-005 | Bloquea: AC-CFG-017.* (golden) y AC-UTIL-002.4/.5 (impl); puede avanzar: AC-CFG-002/005 con tipos de error propios. | — | `classic-foundation` |
 | Q-CFG-7 | accepted (2026-11-18): aceptar tal cual la recomendación (lista ACEPTAR EN BLOQUE del lote 01). Criterio general del Owner: paridad con Pekko 2.0.0; donde 2.0.0 cambió respecto de… | 1: AC-CFG-007 | Bloquea: AC-CFG-007 y AC-UTIL-016.11 (impl); puede avanzar: aceptar y validar las claves. | — | `classic-foundation` |
@@ -135,7 +136,6 @@
 | Q-X-3 | accepted (2026-11-18): aceptar (A). | 1: AC-CFG-010 | — | — | `transversal` |
 | Q-X-6 | accepted (2026-11-18): aceptar (A). | 1: AC-CFG-011 | — | — | `transversal` |
 | Q-X-7 | accepted (2026-11-18): aceptar (A). | 3: AC-CFG-004, AC-CFG-011, AC-CFG-018 | — | — | `transversal` |
-| Q-CFG-15 | propuesta | 9: AC-CFG-002, AC-CFG-004, AC-CFG-005, AC-CFG-006, AC-CFG-007, AC-CFG-009 … (+3) | — | — | `classic-foundation` |
 | Q-CFG-17 | propuesta | 2: AC-CFG-002, AC-CFG-010 | Bloquea: nada; AC-CFG-010 queda `partial` hasta AC-SER. | — | `classic-foundation` |
 | Q-CFG-18 | propuesta | 1: AC-CFG-002 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
 | Q-CFG-19 | propuesta | 1: AC-CFG-002 | Bloquea: nada; reversible. | — | `classic-foundation` |
@@ -308,7 +308,7 @@
 
 ## P20 SUP-ESTRATEGIAS
 
-10 filas; 8 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 4 propuestas.
+10 filas; 9 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -316,6 +316,7 @@
 | Q-SUP-7 | accepted_with_changes (2026-11-27): ACCEPTED con condiciones: encapsular los campos de Throwable e impedir su construcción directa desde fuera del crate. Proporcionar constructores públicos… | 1: AC-SUP-004 | — | — | `classic-cell` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-SUP-005 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-SUP-004 | — | — | `transversal` |
+| Q-DW-5 | propuesta | 1: AC-SUP-017 | — | — | `classic-cell` |
 | Q-SUP-2 | propuesta | 4: AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-021 | Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). | Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica). | `classic-cell` |
 | Q-SUP-5 | propuesta | 4: AC-SUP-004, AC-SUP-005, AC-SUP-012, AC-SUP-017 | — | — | `classic-cell` |
 | Q-SUP-6 | propuesta | 2: AC-SUP-004, AC-SUP-005 | — | — | `classic-cell` |
@@ -355,16 +356,17 @@
 
 ## P23 DW-VIGILANCIA
 
-13 filas; 6 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 3 propuestas.
+13 filas; 7 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-DW-3 | accepted (2026-11-26): aceptar (a): igualdad por tipo concreto y valor mediante PartialEq: watch_with<M: Any + PartialEq + Send + Sync>(ref, msg). Se aceptan explícitamente las… | 1: AC-DW-005 | Bloquea AC-DW-005. | — | `classic-cell` |
 | Q-DW-4 | accepted (2026-11-26): aceptar (a): en la IllegalStateException de watch / watchWith, String y &str se muestran por valor y cualquier otro tipo por su nombre Rust, sin cotas nuevas… | 1: AC-DW-005 | Bloquea el cierre de AC-DW-005. | — | `classic-cell` |
 | Q-EVT-1 | accepted (2026-11-18): aceptar, incluida la supresión de dead letters durante el shutdown terminante de 2.0.0. | 1: AC-EVT-010 | Bloquea: la comparación textual exacta de AC-EVT-006/008/009/010/013.3/018/019; la lógica avanza con `message_type_name`. | — | `classic-system` |
-| Q-CELL-11 | propuesta | 1: AC-CELL-004 | — | — | `classic-cell` |
+| Q-CELL-11 | propuesta | 2: AC-CELL-004, AC-DW-007 | — | — | `classic-cell` |
 | Q-DW-1 | propuesta | 2: AC-DW-002, AC-DW-006 | Bloquea: `impl` de AC-DW-002/006 (PartialEq). | Puede avanzar: el resto de DW. | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-012 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
+| Q-DW-5 | propuesta | 1: AC-DW-007 | — | — | `classic-cell` |
 
 ## P24 MBX-STASH
 
@@ -421,10 +423,11 @@
 
 ## P28 SELECCION-CREACION
 
-9 filas; 13 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 6 propuestas.
+9 filas; 13 decisiones distintas en sus filas: 8 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
+| Q-CELL-10 | accepted_with_changes (2026-11-28): ACCEPTED (a). Preservar las instancias fallidas exclusivamente para limpieza cuando corresponda. No reutilizar instancias cuya construcción falló para… | 1: AC-CELL-027 | — | — | `classic-cell` |
 | Q-CELL-9 | accepted_with_changes (2026-11-27): ACCEPTED con condiciones: la captura de panics recuperables mediante catch_unwind en la frontera de creación de actores, como adaptación explícita al modelo… | 1: AC-CELL-027 | — | — | `classic-cell` |
 | Q-MBX-12 | accepted (2026-11-24): aceptar (a) exclusivamente como LIMITACIÓN TEMPORAL de la migración, no como paridad completa: registro programático en `Settings.mailboxes` (sin FQCN ni… | 1: AC-MBX-014 | — | — | `classic-dispatch` |
 | Q-MBX-13 | accepted (2026-11-24): aceptar (a) con las limitaciones documentadas en `docs/evidence/mailbox-requirements/q-mbx-13.md`: `MessageQueueSemantics` como conjunto abierto identificado… | 2: AC-MBX-013, AC-MBX-014 | — | — | `classic-dispatch` |
@@ -432,7 +435,6 @@
 | Q-X-1 | accepted_with_changes (2026-11-18): aceptar (A) (parser HOCON propio). Condición: antes de implementar P07, ampliar el golden con las claves del reference.conf de 2.0.0. | 1: AC-MBX-014 | — | — | `transversal` |
 | Q-X-21 | accepted (2026-11-27): ACCEPTED, alternativa (c). La paridad observable estricta se establece como principio transversal de toda la migración de Apache Pekko a Rakka. Replicar la… | 1: AC-CELL-027 | Bloquea: el cierre de AC-CFG-013, AC-CFG-012.1, AC-CFG-012.2 y AC-UTIL-009 hasta que cada diferencia desaparezca o quede bloqueada por una dependencia. Reversible. | — | `classic-foundation` |
 | Q-X-7 | accepted (2026-11-18): aceptar (A). | 1: AC-MBX-020 | — | — | `transversal` |
-| Q-CELL-10 | propuesta | 1: AC-CELL-027 | — | — | `classic-cell` |
 | Q-DSP-2 | propuesta | 2: AC-DSP-007, AC-MBX-014 | Bloquea sólo la carga por nombre (AC-DSP-004/010, AC-MBX-004); el registro programático puede avanzar. | — | `classic-dispatch` |
 | Q-MBX-1 | propuesta | 1: AC-MBX-014 | Bloquea la implementación de: AC-MBX-007 y las variantes acotadas de AC-MBX-009/010/011/012 con timeout>0 y AC-MBX-016 (overflow del stash en deque acotado). | Puede avanzar: todas las colas no acotadas, NonBlockingBoundedMailbox (AC-MBX-008) y las acotadas con timeout 0. Requiere decisión del Owner (Q-X-4). | `classic-dispatch` |
 | Q-MBX-11 | propuesta | 2: AC-CELL-016, AC-REF-020 | — | — | `classic-dispatch` |
@@ -1085,24 +1087,23 @@ Sin decisiones asociadas a sus filas en `contract-map.tsv`.
 
 ## P76 UTIL-EQUIVALENCIAS
 
-5 filas; 2 decisiones distintas en sus filas: 1 respondidas, 0 bloqueantes, 1 propuestas.
+5 filas; 2 decisiones distintas en sus filas: 2 respondidas, 0 bloqueantes, 0 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-UTIL-11 | accepted_with_changes (2026-11-18): aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y… | 5: AC-UTIL-016.1, AC-UTIL-016.18, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-019 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
-| Q-UTIL-20 | propuesta | 5: AC-UTIL-016.1, AC-UTIL-016.18, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-019 | — | — | `classic-foundation` |
+| Q-UTIL-20 | accepted (2026-11-28): ACCEPTED (a). Utilizar los equivalentes idiomáticos de Rust, documentando la correspondencia semántica con Pekko. No implementar tipos auxiliares de Scala… | 5: AC-UTIL-016.1, AC-UTIL-016.18, AC-UTIL-016.2, AC-UTIL-016.3, AC-UTIL-019 | — | — | `classic-foundation` |
 
 ## P77 UTIL-FRONTERAS
 
-3 filas; 5 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 2 propuestas.
+3 filas; 4 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 0 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-UTIL-1 | rejected (2026-10-31): rechazar: la recomendación (a) (std::time::Duration, sólo valores positivos) NO se adopta. ALTERNATIVA ELEGIDA Y VIGENTE: preservar el dominio de Pekko, es… | 1: AC-UTIL-018.2 | — | — | `classic-foundation` |
 | Q-UTIL-11 | accepted_with_changes (2026-11-18): aceptar (a) con la lista actualizada a 2.0.0. ReentrantGuard y ccompat se marcan como "eliminado en 2.0.0", no como exclusión. Crear filas para Clock y… | 3: AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3 | Bloquea: nada; puede avanzar: el resto con (a). | — | `classic-foundation` |
+| Q-UTIL-27 | accepted (2026-11-28): ACCEPTED (a). Registrar los conversores Java/Scala como eliminados en Pekko 2.0.0. No implementarlos. Distinguir explícitamente estos cierres de… | 3: AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3 | — | — | `classic-foundation` |
 | Q-X-4 | accepted_with_changes (2026-11-18): aceptar (A). virtualize y virtual-thread-start-number se aceptan y se ignoran con un warning. minimum-runnable sigue el default de 2.0.0 (-1). | 1: AC-UTIL-018.1 | — | — | `transversal` |
-| Q-DSP-3 | propuesta | 1: AC-UTIL-018.3 | Bloquea sólo AC-DSP-017.2. | — | `classic-dispatch` |
-| Q-UTIL-27 | propuesta | 3: AC-UTIL-018.1, AC-UTIL-018.2, AC-UTIL-018.3 | — | — | `classic-foundation` |
 
 ## Filas que citan una agrupación sin miembros concretos (pendientes de revisión)
 
@@ -1112,4 +1113,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 555 (269 respondidas, 0 bloqueantes, 286 propuestas).
+Total de pares unidad–decisión: 556 (274 respondidas, 0 bloqueantes, 282 propuestas).

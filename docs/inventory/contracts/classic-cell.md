@@ -1254,6 +1254,11 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 - **Oráculo**: no aplica.
 - **Decisiones**: -
 - **Notas**: Omisión agregada. Cuando falla la creación del mailbox, la ref termina; el error se informa al supervisor.
+- **Actualización 2026-11-28 (Q-CELL-10 (a), aceptada con cambios)**:
+  - Reutilización: una instancia cuya construcción o inicialización falló no recibe mensajes. Si la factoría lanza no hay instancia; si lanza `preStart` se descarta sin `postStop` (`create`); si en un restart lanza la factoría se conserva la reemplazada, y si lanza `postRestart` se conserva la nueva, ambas marcadas `FailedFatally` (`Resume` pasa a `Restart`) y usadas sólo para `postStop` y `supervisorStrategy` (`fail_restart`, `finish_terminate`, `current_strategy`).
+  - Fallback de `Actor::class_name`: sólo `install_actor` la llama (creación y restart), antes de tomar el lock del estado y dentro de `catch_unwind`. Si lanza, la etiqueta de los informes es el tipo registrado en `Props` (`Props::actor_class`), el payload se descarta con `drop_guarded` y la misma instancia se instala y se usa. No falla la creación ni el restart. Un actor con mutabilidad interior puede seguir con el estado que su `class_name` dejó a medias (consecuencia aceptada).
+  - Limpieza y supervisión (comprobado por lectura de `crates/rakka-actor/src/actor/cell.rs`; no se ejecutaron tests en este cambio): la etiqueta sólo la leen los informes (`log_class`); `post_stop`, el desmontaje de `finish_terminate` y la estrategia (`current_strategy`, `handle_failure`) no la usan ni vuelven a llamar a `class_name`; en `finish_recreate` el panic capturado no interrumpe la sustitución de la instancia ni el reinicio de los hijos supervivientes. Tests existentes: `tests/classic_class_name_panic.rs` (creación y `postStop`; restart con hijo).
+  - Límites: sin garantía con `panic=abort` o abortos del proceso (Q-CELL-9). Por lectura, `drop_guarded` no protege contra un panic anidado (el `Drop` del payload de un panic de `Drop` que a su vez lanza); es un límite del mecanismo común de la celda, no del fallback, y no está probado.
 
 ### AC-CELL-028: pekko.actor.serialize-messages: ida y vuelta de mensajes en modo test
 
@@ -1651,7 +1656,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
   - A3: DeathPactException(`failed`) se extrae del Failed — DeathWatchSpec.scala:240.
   - A4: ActorInterruptedException con getCause.getMessage "Ping!" — ActorModelSpec.scala:449-451.
 - **Oráculo**: jshell contra Pekko 1.7.1 (jars oficiales): imprimir getMessage de cada una.
-- **Decisiones**: Q-SUP-1
+- **Decisiones**: Q-SUP-1, Q-DW-5
 - **Notas**: Q-SUP-1.
 
 ### AC-SUP-018: logFailure: texto y destino del log de fallos de hijos
@@ -1846,7 +1851,7 @@ Fuente: Apache Pekko 1.7.1 (`upstream/pekko` @ 9a54d1294c3ac7821bbed3c940769c3d5
 - **Aserciones**:
   - A1: orden observado: Failed(ActorKilledException) por el vigilado, Failed(DeathPactException(failed)) por el hermano, y finalmente Terminated(brother) — DeathWatchSpec.scala:237-245.
 - **Oráculo**: jshell contra Pekko 1.7.1 (jars oficiales).
-- **Decisiones**: -
+- **Decisiones**: Q-CELL-11, Q-DW-5
 
 ### AC-DW-008: El padre siempre recibe la terminación del hijo (DeathWatchNotification) aunque no lo vigile
 
