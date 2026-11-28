@@ -467,5 +467,24 @@ final class PathAddressOracle {
     for (int i = 0; i < specIn.length; i++) val("VAL-" + (33 + i) + " [" + specIn[i] + "]", specIn[i], null);
     val("VAL-LONG-01 [x*10000]", "x".repeat(10000), null);
     val("VAL-LONG-02 [x*100 U+00E9]", "x".repeat(100) + "é", null);
+    // the remaining ActorPathSpec:85-134 inputs, and the :136-160 predicate over every char as one line of accepted ranges
+    String[] moreIn = {"a", "actor-1", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", "%20", "a%20b", "$a", "actor-😀"};
+    for (int i = 0; i < moreIn.length; i++) val("VAL-" + (42 + i) + " [" + moreIn[i] + "]", moreIn[i], null);
+    run("VAL-A8 accepted chars", () -> "c=" + accepted("", "") + " a+c=" + accepted("a", "") + " %+c+0=" + accepted("%", "0") + " %0+c=" + accepted("%0", ""));
+  }
+
+  /** The chars c, of all 65,536, for which {@code before + c + after} is a valid path element, as hex ranges. */
+  static String accepted(String before, String after) {
+    StringBuilder ranges = new StringBuilder();
+    int first = -1;
+    for (int c = 0; c <= 0x10000; c++) {
+      boolean valid = c <= 0xffff && ActorPath$.MODULE$.isValidPathElement(before + (char) c + after);
+      if (valid && first < 0) first = c;
+      if (!valid && first >= 0) {
+        ranges.append(String.format("[%04X-%04X]", first, c - 1));
+        first = -1;
+      }
+    }
+    return ranges.toString();
   }
 }

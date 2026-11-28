@@ -421,6 +421,14 @@ pa-0419	path-address	VAL-40 [a%2g]
 pa-0420	path-address	VAL-41 [a%g2]
 pa-0421	path-address	VAL-LONG-01 [x*10000]
 pa-0422	path-address	VAL-LONG-02 [x*100 U+00E9]
+pa-0423	path-address	VAL-42 [a]
+pa-0424	path-address	VAL-43 [actor-1]
+pa-0425	path-address	VAL-44 [abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]
+pa-0426	path-address	VAL-45 [%20]
+pa-0427	path-address	VAL-46 [a%20b]
+pa-0428	path-address	VAL-47 [$a]
+pa-0429	path-address	VAL-48 [actor-\uD83D\uDE00]
+pa-0430	path-address	VAL-A8 accepted chars
 uc-0001	util-core	TO-01 Timeout.zero
 uc-0002	util-core	TO-02 Timeout(3, NANOSECONDS)
 uc-0003	util-core	TO-MAX NANOSECONDS

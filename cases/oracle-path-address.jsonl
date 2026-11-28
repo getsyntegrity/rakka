@@ -420,3 +420,11 @@
 {"name": "pa-0420", "args": ["path-address-case"], "stdin": "VAL-41 [a%g2]"}
 {"name": "pa-0421", "args": ["path-address-case"], "stdin": "VAL-LONG-01 [x*10000]"}
 {"name": "pa-0422", "args": ["path-address-case"], "stdin": "VAL-LONG-02 [x*100 U+00E9]"}
+{"name": "pa-0423", "args": ["path-address-case"], "stdin": "VAL-42 [a]"}
+{"name": "pa-0424", "args": ["path-address-case"], "stdin": "VAL-43 [actor-1]"}
+{"name": "pa-0425", "args": ["path-address-case"], "stdin": "VAL-44 [abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789]"}
+{"name": "pa-0426", "args": ["path-address-case"], "stdin": "VAL-45 [%20]"}
+{"name": "pa-0427", "args": ["path-address-case"], "stdin": "VAL-46 [a%20b]"}
+{"name": "pa-0428", "args": ["path-address-case"], "stdin": "VAL-47 [$a]"}
+{"name": "pa-0429", "args": ["path-address-case"], "stdin": "VAL-48 [actor-\\uD83D\\uDE00]"}
+{"name": "pa-0430", "args": ["path-address-case"], "stdin": "VAL-A8 accepted chars"}

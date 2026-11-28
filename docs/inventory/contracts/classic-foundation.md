@@ -3866,7 +3866,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 - A5 mensaje completo con `fullPath` y doble espacio: oráculo VAL-* (*no afirmada por spec*).
 - A6 son válidos `a`, `actor-1`, todas las letras y dígitos ASCII, todos los símbolos, `a$b`, `%20`, `%ff%FF%0a`, `a%20b` y `x` repetida 10000 veces: ActorPathSpec.scala:85-101.
 - A7 cada nombre inválido se rechaza informando la posición UTF-16 (`$a` 0, `a%2g` 1, `café` 3, `中文` 0, par sustituto en 6, NUL y DEL en 1, `x`*100+`é` en 100, y el resto de la tabla): ActorPathSpec.scala:103-134.
-- A8 para cada uno de los 65.536 `char` c: `c` es válido si es del alfabeto y no `$`; `a`+c si es del alfabeto; `%`+c+`0` y `%0`+c si c es hex: ActorPathSpec.scala:136-160. Los 2.048 sustitutos no caben en `&str` (Q-X-17) y se comprueban sobre el recorrido UTF-16.
+- A8 para cada uno de los 65.536 `char` c: `c` es válido si es del alfabeto y no `$`; `a`+c si es del alfabeto; `%`+c+`0` y `%0`+c si c es hex: ActorPathSpec.scala:136-160. Los 2.048 sustitutos no caben en `&str` (Q-X-17) y se comprueban sobre el recorrido UTF-16; el caso grabado `VAL-A8` compara los rangos aceptados (el oráculo evalúa los 65.536 y no acepta ninguno de ellos).
 
 **Oráculo.** Sí, con jars oficiales Pekko 1.7.1 + JDK 11 (tools/oracle/path-address.jsh, golden crates/rakka-actor/tests/oracle/path-address.golden, 405 líneas); NO es Pekko compilado de upstream/pekko. Los ids SPEC-APS-<n> corresponden a la línea <n> de ActorPathSpec.
 
