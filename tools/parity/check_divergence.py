@@ -2495,6 +2495,37 @@ MUTANTS = {
         "        if false {\n            return Err(IllegalArgumentError::new(format!(\n                \"# is a fragment separator and is not legal in ActorPath names: [{name}]\"",
         "the ChildActorPath constructor builds a name holding `#`, which serializes as a name plus a bogus uid (AC-PATH-016)",
     ),
+    # --- the system built from a Config (AC-CFG-003, AC-CFG-020) ---
+    "config-creation-checks-the-name-after-the-settings": (
+        "src/actor/system_from_config.rs",
+        "        check_name(name).map_err(CreateError::Actor)?;\n",
+        "",
+        "an invalid name is reported only after the configuration was read (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "config-creation-does-not-amend-slf4j": (
+        "src/actor/system_from_config.rs",
+        "            amend_slf4j_config(&config, |_| false).map_err(|e| CreateError::Settings(e.into()))?;",
+        "            Ok::<_, CreateError>(config)?;",
+        "the settings are read from a configuration `amendSlf4jConfig` never saw (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "config-creation-claims-the-slf4j-logger-is-registered": (
+        "src/actor/system_from_config.rs",
+        "amend_slf4j_config(&config, |_| false)",
+        "amend_slf4j_config(&config, |_| true)",
+        "`use-slf4j` adds a logger rakka does not have (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "config-creation-ignores-the-runtime-settings": (
+        "src/actor/system_from_config.rs",
+        "        let system = Self::create_with_settings(name, runtime).map_err(CreateError::Actor)?;",
+        "        drop(runtime);\n        let system = Self::create(name).map_err(CreateError::Actor)?;",
+        "the unstarted push timeout and the deployments of the configuration are lost (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "config-creation-does-not-keep-the-settings": (
+        "src/actor/system_from_config.rs",
+        "        system.0.config_settings.get_or_init(|| Box::new(settings));",
+        "        drop(settings);",
+        "the system does not expose the settings it was created from (killed by an integration test, see UNIT_MUTANTS)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -2615,6 +2646,11 @@ def classify_evaluation(ev):
 # Mutants that the replay cannot see because they need an interleaving of two threads: they are killed by a deterministic
 # unit test (no threads, no sleeps) that the harness runs instead of the replay.
 UNIT_MUTANTS = {
+    "config-creation-checks-the-name-after-the-settings": ("test:classic_system_from_config", "the_name_is_checked_before_the_settings_are_read"),
+    "config-creation-does-not-amend-slf4j": ("test:classic_system_from_config", "the_slf4j_config_is_amended_before_the_settings_are_read"),
+    "config-creation-claims-the-slf4j-logger-is-registered": ("test:classic_system_from_config", "the_slf4j_config_is_amended_before_the_settings_are_read"),
+    "config-creation-ignores-the-runtime-settings": ("test:classic_system_from_config", "the_runtime_settings_and_the_deployments_come_from_the_config"),
+    "config-creation-does-not-keep-the-settings": ("test:classic_system_from_config", "the_system_exposes_the_settings_read_from_the_config_over_the_reference"),
     "class-name-is-asked-unguarded": ("test:classic_class_name_panic", "an_actor_whose_class_name_panics_works_and_is_reported_by_its_type"),
     "failed-creation-drops-props-unguarded": ("test:classic_mailbox_spi_failure", "props_whose_drop_panics_do_not_keep_the_name_of_a_failed_creation"),
     "replaced-mailbox-type-is-dropped-unguarded": ("test:classic_mailbox_spi_failure", "a_mailbox_type_replaced_by_a_deployment_may_panic_on_drop"),

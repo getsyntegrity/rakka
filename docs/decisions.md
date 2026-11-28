@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 281 decisiones: 0 bloqueantes, 194 propuestas, 66 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 282 decisiones: 0 bloqueantes, 195 propuestas, 66 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1357,6 +1357,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** [Clasificación: exclusión de alcance parcial + arquitectura] (a). Consecuencias observables: las firmas con ClassLoader no existen; el comportamiento "carga por nombre" pasa a Q-X-2. Bloquea: nada; AC-SYS-001.2/013/018 avanzan con (a).
 - **Filas afectadas:** AC-SYS-001.2 ; AC-SYS-013 ; AC-SYS-018
 - **Unidades afectadas:** SYS
+- **Origen:** classic-system
+
+### Q-SYS-7 — Forma pública de crear un ActorSystem desde una Config y de exponer sus Settings
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** ActorSystem.scala:301 (`apply(name, config)`), :846-860 (nombre, amendSlf4jConfig, `new Settings`), :387-491 ; crates/rakka-actor/src/actor/system_from_config.rs ; tests/classic_system_from_config.rs
+- **Alternativas:** (a) `ActorSystem::create_from_config(name, Config) -> Result<ActorSystem, CreateError>`, `ActorSystem::config_settings() -> Option<&config::Settings>` y `CreateError` (`Actor`, `Settings`, `Deployer`); `create` y `create_with_settings` no leen ninguna Config; (b) todo sistema tiene Config: `create(name)` carga la de la aplicación como `ConfigFactory.load` y `settings()` devuelve `config::Settings` con los ajustes del runtime dentro; (c) builder `ActorSystem::builder(name).config(..).build()` (equivalente propuesto en AC-SYS-001.2)
+- **Recomendación:** [Clasificación: arquitectura (API pública)] (a), implementada provisionalmente; (b) cuando se porte AC-SYS-001.2. La clase y el mensaje de cada rechazo son los de Pekko en las tres. Consecuencias observables: con (a) `config_settings()` es `None` en un sistema creado sin Config y `create(name)` no lee `application.conf`, a diferencia de `ActorSystem(name)`. Bloquea: el cierre de las filas listadas; puede avanzar: todo el comportamiento. Reversible antes del primer release.
+- **Filas afectadas:** AC-SYS-001.2;AC-CFG-002;AC-CFG-003;AC-CFG-018;AC-CFG-020
+- **Unidades afectadas:** SYS, CFG
 - **Origen:** classic-system
 
 ### Q-T-ADP-2 — Que reglas de ActorAdapter sobreviven bajo runtime tipado nativo (Q-X-8 b)

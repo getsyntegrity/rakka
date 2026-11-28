@@ -100,7 +100,7 @@
 
 ## P07 CFG-HOCON
 
-12 filas; 12 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 5 propuestas.
+12 filas; 13 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 6 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -116,10 +116,11 @@
 | Q-CFG-16 | propuesta | 1: AC-CFG-001 | — | — | `classic-foundation` |
 | Q-CFG-18 | propuesta | 1: AC-CFG-019 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
 | Q-CFG-19 | propuesta | 1: AC-CFG-019 | Bloquea: nada; reversible. | — | `classic-foundation` |
+| Q-SYS-7 | propuesta | 1: AC-CFG-003 | Bloquea: el cierre de las filas listadas; puede avanzar: todo el comportamiento. Reversible antes del primer release. | — | `classic-system` |
 
 ## P08 CFG-AJUSTES
 
-10 filas; 14 decisiones distintas en sus filas: 10 respondidas, 0 bloqueantes, 4 propuestas.
+10 filas; 15 decisiones distintas en sus filas: 10 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -137,6 +138,7 @@
 | Q-CFG-17 | propuesta | 2: AC-CFG-002, AC-CFG-010 | Bloquea: nada; AC-CFG-010 queda `partial` hasta AC-SER. | — | `classic-foundation` |
 | Q-CFG-18 | propuesta | 1: AC-CFG-002 | Bloquea: nada; las filas quedan `partial`. | — | `classic-foundation` |
 | Q-CFG-19 | propuesta | 1: AC-CFG-002 | Bloquea: nada; reversible. | — | `classic-foundation` |
+| Q-SYS-7 | propuesta | 3: AC-CFG-002, AC-CFG-018, AC-CFG-020 | Bloquea: el cierre de las filas listadas; puede avanzar: todo el comportamiento. Reversible antes del primer release. | — | `classic-system` |
 
 ## P09 CFG-ENTORNO
 
@@ -373,7 +375,7 @@
 
 ## P25 SYS-GUARDIANES
 
-12 filas; 11 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 4 propuestas.
+12 filas; 12 decisiones distintas en sus filas: 7 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -388,6 +390,7 @@
 | Q-SYS-3 | propuesta | 1: AC-SYS-020 | Bloquea: nada (AC-SYS-020/021 pueden implementarse con (a)); si el Owner exige paridad de manifests, queda partial. | — | `classic-system` |
 | Q-SYS-4 | propuesta | 2: AC-SYS-002, AC-SYS-003.2 | Bloquea: sólo AC-SYS-003.2 (sin spec) y la rama de espera de AC-SYS-002; el resto avanza. | — | `classic-system` |
 | Q-SYS-6 | propuesta | 2: AC-SYS-001.2, AC-SYS-013 | Bloquea: nada; AC-SYS-001.2/013/018 avanzan con (a). | — | `classic-system` |
+| Q-SYS-7 | propuesta | 1: AC-SYS-001.2 | Bloquea: el cierre de las filas listadas; puede avanzar: todo el comportamiento. Reversible antes del primer release. | — | `classic-system` |
 
 ## P26 SYS-PROVEEDOR
 
@@ -1105,4 +1108,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 548 (266 respondidas, 0 bloqueantes, 282 propuestas).
+Total de pares unidad–decisión: 551 (266 respondidas, 0 bloqueantes, 285 propuestas).

@@ -95,8 +95,8 @@ pub struct Settings {
 impl Settings {
     /// The runtime settings that the configuration decides: `pekko.actor.unstarted-push-timeout` and the deployments of
     /// `pekko.actor.deployment` (an invalid one is an error, as at the start of a Pekko system). The dispatcher's keys
-    /// (`parallelism`, `throughput`, `throughput-deadline-time`) keep their defaults until the system is created from a
-    /// configuration. A negative timeout is zero, as the JVM's `tryLock` treats it.
+    /// (`parallelism`, `throughput`, `throughput-deadline-time`) are not read yet and keep their defaults (AC-DSP).
+    /// A negative timeout is zero, as the JVM's `tryLock` treats it.
     pub fn from_config(config: &crate::config::Settings) -> Result<Settings, DeployerError> {
         let unstarted_push_timeout = u64::try_from(config.unstarted_push_timeout.as_nanos())
             .map_or(Duration::ZERO, Duration::from_nanos);
@@ -137,6 +137,8 @@ pub(crate) struct SystemInner {
     pub dead_letter_mailbox: DeadLetterMailbox,
     termination: TerminationFuture,
     terminating: AtomicBool,
+    /// `settings` of a system created from a configuration.
+    pub(crate) config_settings: OnceLock<Box<crate::config::Settings>>,
     /// The bubble walker, for the tests that look at its state.
     #[cfg(test)]
     pub(crate) walker: OnceLock<Arc<BubbleWalker>>,
@@ -160,6 +162,22 @@ fn tell_no_such_actor(identify: &Identify, asker: &ActorRef, reply_sender: Optio
         actor_ref: None,
     };
     asker.tell_any(Arc::new(identity), reply_sender);
+}
+
+/// The system name must match `^[a-zA-Z0-9][a-zA-Z0-9-_]*$`.
+pub(crate) fn check_name(name: &str) -> Result<(), ActorError> {
+    let mut chars = name.chars();
+    if matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Ok(());
+    }
+    Err(ActorError::new(
+        ErrorClass::IllegalArgument,
+        format!(
+            "invalid ActorSystem name [{name}], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-' or '_')"
+        ),
+    ))
 }
 
 /// A local Classic actor system.
@@ -487,19 +505,7 @@ impl ActorSystem {
         waiter: Arc<dyn Waiter>,
         executor: Option<Arc<dyn Executor>>,
     ) -> Result<ActorSystem, ActorError> {
-        let valid = {
-            let mut chars = name.chars();
-            matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
-                && chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-        };
-        if !valid {
-            return Err(ActorError::new(
-                ErrorClass::IllegalArgument,
-                format!(
-                    "invalid ActorSystem name [{name}], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-' or '_')"
-                ),
-            ));
-        }
+        check_name(name)?;
         let root_path = ActorPath::root(Address::local("pekko", name));
         let turn_policy = TurnPolicy::new(settings.throughput, settings.throughput_deadline_time);
         let dispatcher = match executor {
@@ -534,6 +540,7 @@ impl ActorSystem {
             dead_letters,
             termination: termination.clone(),
             terminating: AtomicBool::new(false),
+            config_settings: OnceLock::new(),
             #[cfg(test)]
             walker: OnceLock::new(),
         });

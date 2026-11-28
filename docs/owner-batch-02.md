@@ -128,6 +128,11 @@ Cuando responda se registra en `docs/decisions/owner-decisions.tsv`, se regenera
 | Q-SUP-7 — Forma pública de la clasificación de `Throwable` | Aceptada con condiciones por el Owner e implementada: `class`, `message`, `cause` y `superclasses` cerrados fuera del crate; constructores `new`, `illegal_state`, `with_cause` y `with_superclasses`; accesores `class()`, `message()`, `cause()` y `superclasses()`, más `is_a` | Fuera del crate no se construye un `Throwable` por literal, no se desestructura y sus campos no se leen ni asignan directamente; `Debug` imprime lo declarado y `PartialEq` lo compara | `actor/fault.rs`; `tests/classic_throwable_api.rs` | Rompe la API antes del primer release |
 | Q-SUP-8 — Redeclarar la jerarquía de una clase conocida | (a), implementada: las clases conocidas conservan su jerarquía y lo declarado sobre ellas se ignora; elegida por el Owner en la sesión, registro pendiente (alternativas: (b) lo declarado gana; (c) la declaración sólo añade) | Una `PostRestartException` declarada bajo `java.lang.Error` sigue siendo una `ActorInitializationException`; quien quiera otra clasificación usa otro nombre de clase | `actor/fault.rs`; `tests/classic_throwable_known_classes.rs` | Con (b) un usuario podría romper la invariante de Q-SUP-1 |
 
+### Classic: ActorSystem desde una Config
+| Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
+|---|---|---|---|---|
+| Q-SYS-7 — Forma pública de crear un `ActorSystem` desde una `Config` y de exponer sus `Settings` | (a), implementada provisionalmente: `ActorSystem::create_from_config(name, Config)`, `config_settings() -> Option<&config::Settings>` y `CreateError` (alternativas: (b) todo sistema tiene `Config` y `create(name)` carga la de la aplicación; (c) builder) | La clase y el mensaje de cada rechazo son los de Pekko en las tres; con (a) un sistema creado sin `Config` no expone `config::Settings` y `create(name)` no lee `application.conf` | `ActorSystem.scala:301,846-860,387-491`; `tests/classic_system_from_config.rs` | Cambiar la firma antes del primer release; mientras no se responda, AC-CFG-003 y AC-CFG-020 quedan `partial` |
+
 ### Classic: scheduler
 | Decisión | Recomendada | Consecuencia observable | Evidencia contra Pekko 2.0.0 (⚠ si cambió) | Riesgo si resulta mal |
 |---|---|---|---|---|
