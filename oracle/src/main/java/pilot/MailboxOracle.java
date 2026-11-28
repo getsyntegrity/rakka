@@ -11,6 +11,7 @@ import org.apache.pekko.dispatch.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.pekko.dispatch.sysmsg.*;
 import org.apache.pekko.event.Logging;
+import org.apache.pekko.japi.pf.DeciderBuilder;
 import org.apache.pekko.pattern.Patterns;
 
 /**
@@ -1684,6 +1685,106 @@ final class MailboxOracle {
         return "errors=" + withoutThreadNumber(e.errors).stream().sorted().collect(java.util.stream.Collectors.toList());
       }
     });
+    run("MBX-SU-01 an actor that is already failed and fails again is suspended again, with its other child: two resumes are needed", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        Refailing f = new Refailing(e);
+        f.p.tell("boom", ActorRef.noSender());
+        f.awaitSuspended(1, 1, "decide:boom");
+        f.p.tell("u", ActorRef.noSender());
+        awaitUntil(() -> box(f.c).suspendCount() == 1 && !box(f.c).isScheduled()); // c processes its own Suspend in its own turn
+        String first = f.views() + " c=" + view(box(f.c));
+        f.failNext.set(true); in(f.c).stop(); // the DeathWatchNotification of c is processed while p is suspended
+        f.awaitSuspended(2, 2, "decide:boom");
+        String second = f.views();
+        f.decide.release(); // the first Failed: Resume
+        f.awaitSuspended(1, 1, "decide:strategy");
+        String half = f.views();
+        f.decide.release(); // the second Failed: Resume
+        awaitUntil(() -> e.log.contains("r:u")); f.awaitSuspended(0, 0, "r:u");
+        return "afterFirstFailure: " + first + " | afterSecondFailure: " + second + " | afterOneResume: " + half
+            + " | afterTwoResumes: " + f.views() + " log=" + e.log + " errors=" + f.cellMessages();
+      }
+    });
+    run("MBX-SU-02 an actor that fails inside a suspension that is not its own failure is suspended again, with its other child: the resume of its supervisor does not suffice", () -> {
+      try (Env e = new Env(5, "0ms")) {
+        Refailing f = new Refailing(e);
+        in(f.p).suspend();
+        awaitUntil(() -> box(f.p).suspendCount() == 1 && box(f.c).suspendCount() == 1 && box(f.d).suspendCount() == 1);
+        idle(f.p); idle(f.c); idle(f.d);
+        f.p.tell("u", ActorRef.noSender());
+        String suspended = f.views() + " c=" + view(box(f.c));
+        f.failNext.set(true); in(f.c).stop();
+        f.awaitSuspended(2, 2, "decide:strategy");
+        String failed = f.views();
+        f.decide.release();
+        f.awaitSuspended(1, 1, "decide:strategy");
+        String half = f.views() + " log=" + e.log;
+        in(f.p).resume(null);
+        awaitUntil(() -> e.log.contains("r:u")); f.awaitSuspended(0, 0, "r:u");
+        return "suspended: " + suspended + " | afterFailure: " + failed + " | afterSupervisorResume: " + half
+            + " | afterResume: " + f.views() + " log=" + e.log + " errors=" + f.cellMessages();
+      }
+    });
+  }
+
+  // ---- MBX-SU: a failure inside a suspension ---------------------------------------------------------------------------------------
+  /** A supervisor {@code s} that records and holds each decision (then resumes), its child {@code p} and {@code p}'s children {@code c}
+   *  and {@code d}. {@code p} fails on "boom", and its {@code supervisorStrategy} (asked when a child of it dies) throws once
+   *  {@code failNext} is set: a failure that needs no user message, so it happens while {@code p} is suspended. */
+  static final class Refailing {
+    final Env env; final Semaphore decide = new Semaphore(0); final AtomicBoolean failNext = new AtomicBoolean();
+    final CompletableFuture<ActorRef> parent = new CompletableFuture<>(), first = new CompletableFuture<>(), second = new CompletableFuture<>();
+    final ActorRef p, c, d;
+    Refailing(Env env) throws Exception {
+      this.env = env;
+      env.sys.actorOf(Props.create(Holder.class, this), "s");
+      p = parent.get(10, TimeUnit.SECONDS); c = first.get(10, TimeUnit.SECONDS); d = second.get(10, TimeUnit.SECONDS);
+      idle(p); idle(c); idle(d);
+    }
+    /** Waits for the counts of {@code p} and {@code d}, for {@code event} in the log and for both mailboxes to be idle. */
+    void awaitSuspended(int ofP, int ofD, String event) {
+      awaitUntil(() -> env.log.contains(event) && box(p).suspendCount() == ofP && box(d).suspendCount() == ofD
+          && !box(p).isScheduled() && !box(d).isScheduled());
+    }
+    String views() { return "p=[" + view(box(p)) + "] d=[" + view(box(d)) + "]"; }
+    /** The messages of the errors published by {@code p}'s cell (its supervisor publishes nothing for a Resume). */
+    List<String> cellMessages() {
+      awaitUntil(() -> env.errors.stream().anyMatch(x -> x.startsWith("pekko://mbx/user/s/p|"))); // the listener is an actor
+      List<String> l = new ArrayList<>();
+      for (String x : env.errors) if (x.startsWith("pekko://mbx/user/s/p|")) l.add(x.substring(x.indexOf('|') + 1));
+      return l;
+    }
+  }
+
+  public static final class Holder extends AbstractActor {
+    final Refailing f;
+    public Holder(Refailing f) { this.f = f; }
+    @Override public void preStart() { f.parent.complete(getContext().actorOf(Props.create(Fragile.class, f), "p")); }
+    @Override public SupervisorStrategy supervisorStrategy() {
+      return new OneForOneStrategy(DeciderBuilder.matchAny(t -> {
+        f.env.log.add("decide:" + t.getMessage());
+        f.decide.acquireUninterruptibly();
+        return (SupervisorStrategy.Directive) SupervisorStrategy.resume();
+      }).build());
+    }
+    @Override public Receive createReceive() { return receiveBuilder().build(); }
+  }
+
+  public static final class Fragile extends AbstractActor {
+    final Refailing f;
+    public Fragile(Refailing f) { this.f = f; }
+    @Override public void preStart() {
+      f.first.complete(getContext().actorOf(Props.create(Scenario.Noop.class), "c"));
+      f.second.complete(getContext().actorOf(Props.create(Scenario.Noop.class), "d"));
+    }
+    @Override public SupervisorStrategy supervisorStrategy() {
+      if (f.failNext.getAndSet(false)) throw new IllegalStateException("strategy");
+      return SupervisorStrategy.defaultStrategy();
+    }
+    @Override public Receive createReceive() {
+      return receiveBuilder().matchEquals("boom", m -> { throw new IllegalStateException("boom"); })
+          .match(String.class, m -> f.env.log.add("r:" + m)).build();
+    }
   }
 
   /** Records its name when it stops; with a `child` name it first creates that child. */
