@@ -109,7 +109,8 @@ fn a_stopping_guardian_strategy_stops_the_failed_top_level_actor() {
 }
 
 /// `ActorSystemSpec` "shut down when /user escalates" (AC-SYS-008 A3, AC-SUP-008 A2): the spec names its own configurator.
-/// Its `EventFilter[Exception]("hello")` is not asserted here: a listener under `/user` dies with it.
+/// Its `EventFilter[Exception]("hello")` is not asserted here: a listener under `/user` dies with it. The in-crate
+/// `guardian_failure_tests` assert the logged errors against the oracle (MBX-GRD-05).
 #[test]
 fn a_registered_strategy_that_escalates_ends_the_system_when_a_top_level_actor_fails() {
     let name = "org.apache.pekko.actor.ActorSystemSpec$Strategy";
