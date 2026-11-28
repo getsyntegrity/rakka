@@ -33,6 +33,8 @@ pub mod selection;
 mod spawn_during_shutdown_tests;
 pub mod supervision;
 #[cfg(test)]
+mod supervision_stress_tests;
+#[cfg(test)]
 mod suspension_oracle_tests;
 pub mod system;
 mod system_from_config;
