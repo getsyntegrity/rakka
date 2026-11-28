@@ -2259,8 +2259,8 @@ MUTANTS = {
     ),
     "guardian-user-ignores-the-default-mailbox": (
         "src/actor/system.rs",
-        "                strategy: SupervisorStrategy::default(),\n            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
-        "                strategy: SupervisorStrategy::default(),\n            }),",
+        "                strategy: guardian_strategy.clone(),\n            })\n            .with_resolved_mailbox(default_mailbox.clone()),",
+        "                strategy: guardian_strategy.clone(),\n            }),",
         "the /user guardian does not take the registered default mailbox",
     ),
     "guardian-system-ignores-the-default-mailbox": (
@@ -2434,6 +2434,31 @@ MUTANTS = {
     "pool-notifies-while-a-worker-is-already-waking": (
         "src/dispatch/dispatcher.rs", "let wake = !self.waking && self.sleepers > 0", "let wake = self.sleepers > 0",
         "a second sleeper is notified while one is already waking: more cross-thread hand-offs (killed by a unit test, see UNIT_MUTANTS)"),
+    # --- guardian-supervisor-strategy ---
+    "configured-guardian-strategy-is-ignored": (
+        "src/actor/system.rs",
+        "                strategy: guardian_strategy.clone(),",
+        "                strategy: SupervisorStrategy::default(),",
+        "`/user` takes the default strategy whatever `guardian-supervisor-strategy` names",
+    ),
+    "guardian-strategy-name-is-not-read-from-the-configuration": (
+        "src/actor/system.rs",
+        "            guardian_supervisor_strategy: config.supervisor_strategy_class.clone(),\n",
+        "",
+        "`Settings::from_config` keeps the default configurator name (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "unknown-guardian-strategy-name-takes-the-default": (
+        "src/actor/supervision.rs",
+        "            .get(name)\n            .map(|configurator| configurator())",
+        "            .get(name)\n            .or_else(|| self.configurators.get(Self::DEFAULT))\n            .map(|configurator| configurator())",
+        "a name without a configurator creates the default strategy instead of failing (killed by an integration test, see UNIT_MUTANTS)",
+    ),
+    "stopping-configurator-creates-the-default-strategy": (
+        "src/actor/supervision.rs",
+        "            OneForOneStrategy::stopping_strategy().into()",
+        "            OneForOneStrategy::default_strategy().into()",
+        "`StoppingSupervisorStrategy` creates the default strategy",
+    ),
     # --- Q-SUP-1: classification by subtype ---
     "non-exception-restarts-instead-of-escalating": (
         "src/actor/supervision.rs",
@@ -2638,6 +2663,8 @@ UNIT_MUTANTS = {
     "root-guardian-restarts-a-failed-guardian": ("actor::guardian_failure_tests", "a_killed_user_guardian_is_logged_and_stopped_by_the_root_and_the_system_terminates"),
     "bubble-walker-failure-is-not-logged": ("actor::guardian_failure_tests", "a_killed_root_guardian_is_logged_by_the_bubble_walker_and_the_system_never_reports_termination"),
     "restarted-user-guardian-stops-its-children": ("actor::guardian_failure_tests", "a_restarted_user_or_system_guardian_keeps_its_children"),
+    "guardian-strategy-name-is-not-read-from-the-configuration": ("test:classic_guardian_strategy", "a_stopping_guardian_strategy_stops_the_failed_top_level_actor"),
+    "unknown-guardian-strategy-name-takes-the-default": ("test:classic_guardian_strategy", "an_unregistered_guardian_strategy_name_fails_the_creation_of_the_system"),
     # no recorded case can wait longer than a rotation (5.12 s) of the wheel
     "wheel-forgets-the-remaining-rounds": ("actor::timer_wheel", "a_task_beyond_one_rotation_waits_for_the_later_rounds"),
     # a panicking `Drop` of the user: no recorded case can have one (killed by tests/classic_panicking_drop.rs)
