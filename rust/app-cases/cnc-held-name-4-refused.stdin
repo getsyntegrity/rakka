@@ -1,0 +1,1 @@
+{"system": "sys", "steps": [{"op": "spawn-held", "name": "kid"}, {"op": "spawn-concurrently", "threads": 4, "rounds": 1, "name": "kid"}, {"op": "release-held"}]}

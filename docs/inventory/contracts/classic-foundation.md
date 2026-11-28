@@ -2662,8 +2662,17 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::parse_string`, `with_fallback`, `resolve`, `default_reference` (reference.conf embebido) y `Config::load(ruta)` (Q-CFG-6 (a): application.conf configurable sobre el reference embebido). Casos grabados KEY (308 claves de los reference.conf de actor y actor-typed) y SUB/FB/REF. Queda `partial`: Q-CFG-14 (includes con classpath) y Q-CFG-16 (variables con prefijo) propuestas; Q-CFG-15 (aceptada con cambios 2026-11-28, antes propuesta; origen de entorno y de archivo pendiente): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida; y `Config::load` (A5) no tiene caso grabado contra el oráculo.
 
 **Actualización 2026-11-28 (Q-CFG-15 (a), aceptada con cambios): reparto de la verificación de archivos entre esta fila y AC-UTIL-002.5, sin eliminar criterios.** Esta fila es dueña del origen de archivo **al cargar y en los errores**; el render es de AC-UTIL-002.5 (A3).
-- A6 un valor leído de un archivo de aplicación conserva su origen, y los errores sobre él (getters, resolución, `check_valid`) lo dicen como Typesafe Config 1.4.9 (`<ruta>: <línea>`): **pendiente** (hoy `String: <línea>`; sin medir). Cubre la parte de archivo que las notas de AC-CFG-017.* y AC-CFG-019 describen como "la ruta de archivo no está medida"; esas filas la siguen exigiendo.
-- El origen de texto está en casos grabados; el de variable de entorno en errores sigue pendiente en las filas de getters (AC-CFG-017.2-.5, 017.7 y 019).
+- A6 un valor leído de un archivo de aplicación conserva su origen, y los errores sobre él (getters, resolución, `check_valid`) lo dicen como Typesafe Config 1.4.9 (`<ruta>: <línea>`): **pendiente** (hoy `String: <línea>`; sin medir). Cubre la parte de archivo que las notas de AC-CFG-017.* y AC-CFG-019 describen como "la ruta de archivo no está medida"; AC-CFG-019 la sigue exigiendo; AC-CFG-017.* ya no (ver abajo).
+- El origen de texto está en casos grabados; el de variable de entorno en errores sigue pendiente en AC-CFG-017.1-.5, 017.7 y 019.
+
+**Actualización 2026-11-28 (instrucción del Owner en la sesión): origen de archivo de CFG-017.** «Autorizo que AC-CFG-001 sea responsable de la verificación del origen de archivos correspondiente a CFG-017, preservando todos los criterios de aceptación, la trazabilidad y la evidencia requerida. No autoriza cerrar anticipadamente comportamientos no implementados ni contabilizar dos veces el mismo contrato.» A6 incluye, y sólo aquí se cuentan, estas aserciones; cada una exige que el valor venga de un archivo, el texto `<ruta>: <línea>` medido con el oráculo (caso grabado) y el mismo texto en Rust. Todas **pendientes**:
+- A6.1 (de AC-CFG-017.1) errores de resolución: sustitución requerida ausente, ciclo y concatenación imposible (incluida la de `+=`).
+- A6.2 (de AC-CFG-017.2) `BadValue` de `getDuration`.
+- A6.3 (de AC-CFG-017.3) `BadValue` de `getBytes`/`getMemorySize`.
+- A6.4 (de AC-CFG-017.4) `WrongType` de `getBoolean`.
+- A6.5 (de AC-CFG-017.5) error de un getter sobre los literales que Pekko interpreta (`infinite`, `unlimited`, ...).
+- A6.7 (de AC-CFG-017.7) errores de getters tipados y de listas: `Missing`, `WrongType`, `Null`.
+- AC-CFG-017.6 no tenía criterio de origen de archivo: no cambia.
 
 ## AC-CFG-002 — ActorSystem.Settings: lectura fail-fast de todas las claves pekko.* al crear el sistema
 
@@ -3371,6 +3380,13 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config/{parse,resolve}.rs`; casos grabados FB-01..10, SUB-01..14, REF-01..02 pasan (parser propio). Queda `partial`: afectada por Q-CFG-15 (aceptada con cambios 2026-11-28, antes propuesta; origen de entorno y de archivo pendiente): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (FB, SUB, REF-01..02, KEY).
 
+**Actualización 2026-11-28 (instrucción del Owner, citada en AC-CFG-001): «Autorizo que AC-CFG-001 sea responsable de la verificación del origen de archivos correspondiente a CFG-017...».** La verificación del origen de archivo de los errores de resolución pasa a **AC-CFG-001 A6.1**; esta fila ya no la exige. Los demás criterios no cambian.
+
+**Sigue `partial`: defectos abiertos**, medidos contra Typesafe Config 1.4.9 (JDK 17; sondeo puntual, no grabado como caso) y reproducidos en Rust con una prueba temporal no commiteada. No hay caso grabado de ninguno.
+- Concatenación imposible: Typesafe dice, para `a = 1` seguido de `a += 2`, `String: 1: Cannot concatenate object or list with a non-object-or-list, ConfigInt(1) and SimpleConfigList([2]) are not compatible`; Rust dice `String: 2: Cannot concatenate object or list with a non-object-or-list`.
+- Autorreferencia requerida sin valor previo (`a = ${a}`, `a = ${a}x`): Typesafe dice `... ${a} was part of a cycle of substitutions involving ${a}, ${a}`; Rust dice `Could not resolve substitution to a value: ${a}`.
+- Origen de entorno (Q-CFG-15 (a)): `x = ${HOME}[1]` da en Typesafe `env variables: Cannot concatenate ...`; Rust da `String: 1: ...`.
+
 ## AC-CFG-017.2 — Duraciones: unidades, nombres largos, sin unidad = ms, fracciones, negativos, notación científica, truncado, desborde
 
 *unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
@@ -3404,6 +3420,8 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 ---
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config/units.rs` (`get_duration`); casos grabados DUR-* pasan. Queda `partial`: afectada por Q-CFG-15 (aceptada con cambios 2026-11-28, antes propuesta; origen de entorno y de archivo pendiente): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (DUR-*).
+
+**Actualización 2026-11-28 (instrucción del Owner, citada en AC-CFG-001): «Autorizo que AC-CFG-001 sea responsable de la verificación del origen de archivos correspondiente a CFG-017...».** La verificación del origen de archivo pasa a **AC-CFG-001 A6.2**; esta fila ya no la exige. Sigue `partial` sólo por el origen de entorno (Q-CFG-15 (a)): el error de un getter sobre un valor de variable de entorno es `env variables: ...` en Typesafe Config 1.4.9 (sondeo puntual, no grabado) y `String: 0: ...` en Rust.
 
 ## AC-CFG-017.3 — Tamaños en memoria: `128 KiB`, `K`, `kB`, `MB`, número sin unidad = bytes; `KB` falla
 
@@ -3439,6 +3457,8 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `config/units.rs` (`get_bytes`, `get_memory_size`); casos grabados SIZE-* pasan (los tamaños fraccionarios usan f64, los enteros i128). Queda `partial`: afectada por Q-CFG-15 (aceptada con cambios 2026-11-28, antes propuesta; origen de entorno y de archivo pendiente): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (SIZE-*).
 
+**Actualización 2026-11-28 (instrucción del Owner, citada en AC-CFG-001): «Autorizo que AC-CFG-001 sea responsable de la verificación del origen de archivos correspondiente a CFG-017...».** La verificación del origen de archivo pasa a **AC-CFG-001 A6.3**; esta fila ya no la exige. Sigue `partial` sólo por el origen de entorno (Q-CFG-15 (a)): el error de un getter sobre un valor de variable de entorno es `env variables: ...` en Typesafe Config 1.4.9 (sondeo puntual, no grabado) y `String: 0: ...` en Rust.
+
 ## AC-CFG-017.4 — Booleanos `on/off/yes/no/true/false` con y sin comillas; `ON`, `1`, `maybe` fallan
 
 *unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
@@ -3473,6 +3493,8 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: `Config::get_boolean`; casos grabados BOOL-* pasan. Queda `partial`: afectada por Q-CFG-15 (aceptada con cambios 2026-11-28, antes propuesta; origen de entorno y de archivo pendiente): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (BOOL-*).
 
+**Actualización 2026-11-28 (instrucción del Owner, citada en AC-CFG-001): «Autorizo que AC-CFG-001 sea responsable de la verificación del origen de archivos correspondiente a CFG-017...».** La verificación del origen de archivo pasa a **AC-CFG-001 A6.4**; esta fila ya no la exige. Sigue `partial` sólo por el origen de entorno (Q-CFG-15 (a)): el error de un getter sobre un valor de variable de entorno es `env variables: ...` en Typesafe Config 1.4.9 (sondeo puntual, no grabado) y `String: 0: ...` en Rust.
+
 ## AC-CFG-017.5 — Literales que Pekko interpreta por su cuenta: `infinite`, `unlimited`, `forever`, `never`, `default`, `on/off` en log-dead-letters
 
 *unidad CFG · visibilidad internal-required · analysis=extracted · impl=pending · validation=pending*
@@ -3506,6 +3528,8 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 ---
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: literales como `infinite`/`unlimited` son cadenas (`get_value`, `get_string`); casos grabados SPECIAL-*, REF-03 pasan. Queda `partial` (corregido 2026-11-19): afectada por Q-CFG-15 (aceptada con cambios 2026-11-28, antes propuesta; origen de entorno y de archivo pendiente): el expected de SPECIAL-08 es `ERR BadValue [String: 1: Invalid value at 'x': ...]` y `String: 1:` es la descripción de origen que decide Q-CFG-15. Sus aserciones A1 y A2 están cubiertas por casos grabados (SPECIAL-*, REF-03, KEY).
+
+**Actualización 2026-11-28 (instrucción del Owner, citada en AC-CFG-001): «Autorizo que AC-CFG-001 sea responsable de la verificación del origen de archivos correspondiente a CFG-017...».** La verificación del origen de archivo pasa a **AC-CFG-001 A6.5**; esta fila ya no la exige. El origen de texto (SPECIAL-08) está ratificado por Q-CFG-15 (a). Sigue `partial` sólo por el origen de entorno: el error de un getter sobre un valor de variable de entorno es `env variables: ...` en Typesafe Config 1.4.9 (sondeo puntual, no grabado) y `String: 0: ...` en Rust.
 
 ## AC-CFG-017.6 — Includes: `include "version"` inexistente se ignora; `required(...)` inexistente falla
 
@@ -3574,6 +3598,8 @@ Falta para cerrar: (1) `util::frequency_sketch`, `util::recency_list` y `util::t
 ---
 
 **Actualización P07 (2026-11-18, Pekko 2.0.0).** Rust: sintaxis (comentarios, claves con comillas y guiones, comillas triples, claves duplicadas, listas), getters tipados y sus errores; casos grabados TYPE-*, LIST-*, REF-04..10 pasan. Queda `partial`: afectada por Q-CFG-15 (aceptada con cambios 2026-11-28, antes propuesta; origen de entorno y de archivo pendiente): descripción de origen en los mensajes de error y en el render; la ruta de archivo no está medida. Sus aserciones A1 y A2 están cubiertas por casos grabados (REF-04..10, LIST-*, TYPE-*).
+
+**Actualización 2026-11-28 (instrucción del Owner, citada en AC-CFG-001): «Autorizo que AC-CFG-001 sea responsable de la verificación del origen de archivos correspondiente a CFG-017...».** La verificación del origen de archivo pasa a **AC-CFG-001 A6.7**; esta fila ya no la exige. Sigue `partial` sólo por el origen de entorno (Q-CFG-15 (a)): el error de un getter sobre un valor de variable de entorno es `env variables: ...` en Typesafe Config 1.4.9 (sondeo puntual, no grabado) y `String: 0: ...` en Rust.
 
 ## AC-CFG-018 — Settings.amendSlf4jConfig: `pekko.use-slf4j` agrega Slf4jLogger/Slf4jLoggingFilter a loggers
 

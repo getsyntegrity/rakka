@@ -66,13 +66,10 @@ pub(crate) fn check_watching_same(
     if same_registration(previous, new) {
         return;
     }
-    let reference = |r: &ActorRef| format!("Actor[{}]", r.path().to_serialization_format());
     let option = |c: Option<&CustomTermination>| c.map_or("None".to_owned(), |c| c.rendered());
     throw(Throwable::illegal_state(&format!(
-        "Watch({}, {}) termination message was not overwritten from [{}] to [{}]. \
+        "Watch({watcher:?}, {subject:?}) termination message was not overwritten from [{}] to [{}]. \
          If this was intended, unwatch first before using `watch` / `watchWith` with another message.",
-        reference(watcher),
-        reference(subject),
         option(previous),
         option(new),
     )));

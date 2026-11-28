@@ -141,8 +141,9 @@ impl Hash for ActorRef {
     }
 }
 
+/// `ActorRef.toString`: `Actor[path#uid]`, without the `#uid` when the uid is undefined (`ActorRef.scala:186-188`).
 impl std::fmt::Debug for ActorRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Actor[{}]", self.path())
+        write!(f, "Actor[{}]", self.path().to_serialization_format())
     }
 }

@@ -54,6 +54,7 @@ public final class Cli {
         }
         System.out.print(out);
       }
+      case "child-reservation-all" -> { ChildReservationOracle.printAll(); System.out.flush(); System.exit(0); }
       case "config-hocon-ids" -> System.out.print(String.join("\n", ConfigHoconOracle.ids()) + "\n");
       case "config-hocon-all" -> ConfigHoconOracle.ids().forEach(id -> System.out.println(ConfigHoconOracle.line(id)));
       case "config-hocon-case" -> System.out.println(ConfigHoconOracle.line(oneLine()));

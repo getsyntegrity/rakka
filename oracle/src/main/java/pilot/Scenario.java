@@ -302,11 +302,15 @@ final class Scenario {
 
     private String isJson(ActorRef r) { String is = ctx.labelOf(r); return "\"is\":" + (is == null ? "null" : Cli.Json.str(is)); }
 
-    @SuppressWarnings("unchecked")
     private void command(Cmd c) {
+      ctx.results.put(c.id, run(c.spec));
+    }
+
+    /** The result fields of one command. */
+    @SuppressWarnings("unchecked")
+    private String run(Map<String, Object> sp) {
       String res;
       try {
-        Map<String, Object> sp = c.spec;
         switch ((String) sp.get("c")) {
           case "spawn-child": {
             Map<String, Object> beh = (Map<String, Object>) sp.get("behavior");
@@ -327,10 +331,22 @@ final class Scenario {
             res = "\"ok\":true,\"found\":" + o.isDefined() + (o.isDefined() ? "," + refJson(o.get()) + "," + isJson(o.get()) : "");
             break;
           }
+          // several commands in one turn: nothing else is processed between them
+          case "in-turn": {
+            List<String> results = new ArrayList<>();
+            for (Object cmd : (List<Object>) sp.get("cmds")) results.add("{" + run((Map<String, Object>) cmd) + "}");
+            res = "\"ok\":true,\"results\":[" + String.join(",", results) + "]";
+            break;
+          }
+          case "await-terminated": {
+            InternalActorRef subject = (InternalActorRef) ctx.refs.get((String) sp.get("target"));
+            res = "\"ok\":true,\"terminated\":" + await(subject::isTerminated);
+            break;
+          }
           case "children": {
             List<String> ps = new ArrayList<>();
             for (ActorRef k : getContext().getChildren()) ps.add(Cli.Json.str(k.path().toString()));
-            java.util.Collections.sort(ps);
+            if (!Boolean.TRUE.equals(sp.get("unsorted"))) java.util.Collections.sort(ps);
             res = "\"ok\":true,\"children\":[" + String.join(",", ps) + "]";
             break;
           }
@@ -342,11 +358,11 @@ final class Scenario {
           default: throw new IllegalArgumentException("unknown command " + sp.get("c"));
         }
       } catch (Exception e) {
-        // uids are random; `no-text`: Java renders the values of a termination message in ways Rust cannot (Q-DW-4)
-        res = err(e).substring(1, err(e).length() - 1).replaceAll("#-?\\d+\\]", "#uid]");
-        if (Boolean.TRUE.equals(c.spec.get("no-text"))) res = res.substring(0, res.indexOf(",\"message\""));
+        // `no-text`: Java renders the values of a termination message in ways Rust cannot (Q-DW-4)
+        res = err(e).substring(1, err(e).length() - 1);
+        if (Boolean.TRUE.equals(sp.get("no-text"))) res = res.substring(0, res.indexOf(",\"message\""));
       }
-      ctx.results.put(c.id, res);
+      return res;
     }
 
     private void handle(Object m) {
@@ -359,6 +375,9 @@ final class Scenario {
       if (classes != null && classes.containsKey(m)) ThrownClasses.raise(classes.get(m), (String) m);
       String kind = (String) cfg.getOrDefault("kind", "log");
       switch (kind) {
+        case "spawn-twice": // two children named `msg` while one message is processed; the second creation fails the actor
+          for (int i = 0; i < 2; i++) getContext().actorOf(Props.create(Noop.class), (String) cfg.get("msg"));
+          break;
         case "echo": getSender().tell(m, getSelf()); break;
         case "forward": ctx.refs.get((String) cfg.get("to")).forward(m, getContext()); break;
         case "select-forward": getContext().actorSelection((String) cfg.get("path")).forward(m, getContext()); break;
@@ -421,7 +440,15 @@ final class Scenario {
     private final String label;
     private final Ctx ctx;
 
-    Collector(String label, Ctx ctx) { this.label = label; this.ctx = ctx; }
+    /** `log-text`: also the line `TestEventListener` logs for an unhandled message, which prints both refs' own text. */
+    private boolean logText;
+
+    Collector(String label, boolean logText, Ctx ctx) { this.label = label; this.logText = logText; this.ctx = ctx; }
+
+    private String text(UnhandledMessage u) {
+      return logText ? ",\"text\":" + Cli.Json.str("unhandled message from " + u.sender() + ": " + u.message())
+          + ",\"recipientRef\":" + Cli.Json.str(u.recipient().toString()) : "";
+    }
 
     @Override public Receive createReceive() {
       return receiveBuilder()
@@ -430,7 +457,7 @@ final class Scenario {
               + ",\"recipient\":" + Cli.Json.str(d.recipient().path().toString()) + "}"))
           .match(UnhandledMessage.class, u -> ctx.add(label, "{\"ev\":\"unhandled\",\"msg\":" + msgJson(u.message())
               + ",\"sender\":" + Cli.Json.str(u.sender().path().toString())
-              + ",\"recipient\":" + Cli.Json.str(u.recipient().path().toString()) + "}"))
+              + ",\"recipient\":" + Cli.Json.str(u.recipient().path().toString()) + text(u) + "}"))
           .build();
     }
   }
@@ -439,7 +466,7 @@ final class Scenario {
   static String run(String text) {
     Map<String, Object> sc = (Map<String, Object>) Jv.parse(text);
     StringBuilder out = new StringBuilder("{\"system\":");
-    String hocon = "pekko.loglevel = OFF\npekko.stdout-loglevel = OFF\n";
+    String hocon = "pekko.loglevel = OFF\npekko.stdout-loglevel = OFF\n" + ChildNames.HOCON;
     Map<String, Object> disp = (Map<String, Object>) sc.get("dispatcher");
     if (disp != null) {
       hocon += "pekko.actor.default-dispatcher.executor = \"thread-pool-executor\"\n"
@@ -473,7 +500,7 @@ final class Scenario {
         out.append(step(ctx, (Map<String, Object>) o));
       }
       out.append("]}");
-      return out.toString();
+      return normalizeUids(out.toString(), ctx.refs);
     } finally {
       ctx.gate.countDown();
       try {
@@ -481,6 +508,21 @@ final class Scenario {
         system.getWhenTerminated().toCompletableFuture().get(10, TimeUnit.SECONDS);
       } catch (Exception ignored) { }
     }
+  }
+
+  /**
+   * Uids are random. The text of a ref the scenario knows, {@code Actor[path#<its uid>]}, becomes {@code Actor[path#uid]}
+   * ({@code #uid:<label>} when several incarnations share the path). A missing or foreign uid is left as printed, so it diverges.
+   */
+  private static String normalizeUids(String out, Map<String, ActorRef> refs) {
+    Map<String, ActorRef> byLabel = new TreeMap<>(refs);
+    for (Map.Entry<String, ActorRef> known : byLabel.entrySet()) {
+      ActorRef r = known.getValue();
+      boolean reused = byLabel.values().stream().anyMatch(o -> o.path().equals(r.path()) && o.path().uid() != r.path().uid());
+      if (r.path().uid() != 0)
+        out = out.replace("Actor[" + r.path() + "#" + r.path().uid() + "]", "Actor[" + r.path() + (reused ? "#uid:" + known.getKey() : "#uid") + "]");
+    }
+    return out;
   }
 
   private static String err(Throwable e) {
@@ -537,7 +579,7 @@ final class Scenario {
           boolean errors = logs || "errors".equals(st.get("channel"));
           ActorRef c = system.actorOf(errors
               ? Props.create(ErrorCollector.class, () -> new ErrorCollector(label, (String) st.get("prefix"), (String) st.get("watch"), Boolean.TRUE.equals(st.get("causes")), ctx))
-              : Props.create(Collector.class, () -> new Collector(label, ctx)));
+              : Props.create(Collector.class, () -> new Collector(label, Boolean.TRUE.equals(st.get("log-text")), ctx)));
           ctx.refs.put(label, c);
           system.eventStream().subscribe(c, errors ? org.apache.pekko.event.Logging.Error.class
               : "dead-letters".equals(st.get("channel")) ? DeadLetter.class : UnhandledMessage.class);
@@ -575,6 +617,15 @@ final class Scenario {
           ref(ctx, (String) st.get("ref")).tell(new DeadLetter("wrapped", system.deadLetters(), system.deadLetters()), ActorRef.noSender());
           return head + ",\"ok\":true}";
         }
+        case "spawn-held": return head + ",\"ok\":true,\"held\":" + ChildNames.spawnHeld(system, (String) st.get("name")) + "}";
+        case "release-held": {
+          try {
+            return head + ",\"ok\":true," + refJson(ChildNames.releaseHeld()) + "}";
+          } catch (java.util.concurrent.ExecutionException e) {
+            return head + "," + err(e.getCause()).substring(1);
+          }
+        }
+        case "spawn-concurrently": return head + ChildNames.concurrently(system, st) + "}";
         case "release": {
           ctx.gate.countDown();
           return head + ",\"ok\":true}";
