@@ -302,11 +302,15 @@ final class Scenario {
 
     private String isJson(ActorRef r) { String is = ctx.labelOf(r); return "\"is\":" + (is == null ? "null" : Cli.Json.str(is)); }
 
-    @SuppressWarnings("unchecked")
     private void command(Cmd c) {
+      ctx.results.put(c.id, run(c.spec));
+    }
+
+    /** The result fields of one command. */
+    @SuppressWarnings("unchecked")
+    private String run(Map<String, Object> sp) {
       String res;
       try {
-        Map<String, Object> sp = c.spec;
         switch ((String) sp.get("c")) {
           case "spawn-child": {
             Map<String, Object> beh = (Map<String, Object>) sp.get("behavior");
@@ -327,10 +331,29 @@ final class Scenario {
             res = "\"ok\":true,\"found\":" + o.isDefined() + (o.isDefined() ? "," + refJson(o.get()) + "," + isJson(o.get()) : "");
             break;
           }
+          // several commands in one turn: nothing else is processed between them
+          case "in-turn": {
+            List<String> results = new ArrayList<>();
+            for (Object cmd : (List<Object>) sp.get("cmds")) results.add("{" + run((Map<String, Object>) cmd) + "}");
+            res = "\"ok\":true,\"results\":[" + String.join(",", results) + "]";
+            break;
+          }
+          case "await-terminated": {
+            InternalActorRef subject = (InternalActorRef) ctx.refs.get((String) sp.get("target"));
+            res = "\"ok\":true,\"terminated\":" + await(subject::isTerminated);
+            break;
+          }
+          case "child-forms": {
+            String name = (String) sp.get("name");
+            res = "\"ok\":true,\"child\":" + getContext().child(name).isDefined()
+                + ",\"getChild\":" + (((org.apache.pekko.actor.ActorCell) getContext()).getChild(name) != null)
+                + ",\"findChild\":" + getContext().findChild(name).isPresent();
+            break;
+          }
           case "children": {
             List<String> ps = new ArrayList<>();
             for (ActorRef k : getContext().getChildren()) ps.add(Cli.Json.str(k.path().toString()));
-            java.util.Collections.sort(ps);
+            if (!Boolean.TRUE.equals(sp.get("unsorted"))) java.util.Collections.sort(ps);
             res = "\"ok\":true,\"children\":[" + String.join(",", ps) + "]";
             break;
           }
@@ -344,9 +367,9 @@ final class Scenario {
       } catch (Exception e) {
         // uids are random; `no-text`: Java renders the values of a termination message in ways Rust cannot (Q-DW-4)
         res = err(e).substring(1, err(e).length() - 1).replaceAll("#-?\\d+\\]", "#uid]");
-        if (Boolean.TRUE.equals(c.spec.get("no-text"))) res = res.substring(0, res.indexOf(",\"message\""));
+        if (Boolean.TRUE.equals(sp.get("no-text"))) res = res.substring(0, res.indexOf(",\"message\""));
       }
-      ctx.results.put(c.id, res);
+      return res;
     }
 
     private void handle(Object m) {
@@ -359,6 +382,9 @@ final class Scenario {
       if (classes != null && classes.containsKey(m)) ThrownClasses.raise(classes.get(m), (String) m);
       String kind = (String) cfg.getOrDefault("kind", "log");
       switch (kind) {
+        case "spawn-twice": // two children named `msg` while one message is processed; the second creation fails the actor
+          for (int i = 0; i < 2; i++) getContext().actorOf(Props.create(Noop.class), (String) cfg.get("msg"));
+          break;
         case "echo": getSender().tell(m, getSelf()); break;
         case "forward": ctx.refs.get((String) cfg.get("to")).forward(m, getContext()); break;
         case "select-forward": getContext().actorSelection((String) cfg.get("path")).forward(m, getContext()); break;
