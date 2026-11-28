@@ -1,5 +1,8 @@
 // Derived from Apache Pekko 2.0.0 actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:133-165, actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorMiscSpec.scala:101-141 and actor-tests/src/test/scala/org/apache/pekko/actor/ActorRefSpec.scala:465-477 (Apache-2.0).
 //! Child names (AC-REF-009.2) and child lookup (AC-REF-010).
+//!
+//! The Scala specs create their child in the actor's constructor; a `Props` factory gets no `ActorContext` here (Q-CELL-8), so
+//! these ports create it in `pre_start`.
 
 #[allow(dead_code)] // each test binary uses only some of the shared helpers
 mod common;
@@ -226,7 +229,8 @@ fn an_actor_can_check_for_the_existence_of_children() {
     assert_eq!(snapshot_of(&found), ["child=true", "whatnot=false"]);
 }
 
-/// `ChildrenContainer` is a `TreeMap` by name: `children` is in name order, whatever the order of creation.
+/// `children` is in name order, whatever the order of creation: observable in Pekko (`ChildrenContainer` is a `TreeMap`) and
+/// reproduced here, not a documented Pekko guarantee.
 #[test]
 fn children_are_listed_in_name_order() {
     let system = RunningSystem::create("children-order");
