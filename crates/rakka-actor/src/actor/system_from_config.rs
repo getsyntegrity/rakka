@@ -57,7 +57,9 @@ impl ActorSystem {
     ///
     /// Limits: nothing resolves these names yet, so configurations Pekko rejects at start-up are accepted:
     /// `pekko.actor.provider = remote` (or another provider; the system is local) and class names that do not exist in
-    /// `pekko.logging-filter`, `pekko.scheduler.implementation` and `pekko.loggers`.
+    /// `pekko.logging-filter`, `pekko.scheduler.implementation`, `pekko.loggers` and `pekko.library-extensions`.
+    /// A `guardian-supervisor-strategy` name is looked up among Pekko's two strategies only, and an unknown one is a
+    /// `ConfigurationException` where Pekko throws `ClassNotFoundException` (Q-CFG-31, proposed).
     pub fn create_from_config(name: &str, config: Config) -> Result<ActorSystem, CreateError> {
         // The name is checked before the configuration is read.
         check_name(name).map_err(CreateError::Actor)?;

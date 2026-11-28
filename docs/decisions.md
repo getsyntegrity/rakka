@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 282 decisiones: 0 bloqueantes, 194 propuestas, 67 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 283 decisiones: 0 bloqueantes, 195 propuestas, 67 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -452,10 +452,10 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 ### Q-CFG-31 — Error de un nombre de clase no registrado: ClassNotFoundException que lleva el nombre (corrige la redacción de Q-X-2 y de Q-CFG-9 (a))
 
 - **Estado:** propuesta (sin decisión del Owner)
-- **Evidencia:** Q-X-2 (aceptada con cambios, 2026-11-18) dice "el error de nombre no registrado es ConfigurationException del crate, como en Pekko" y Q-CFG-9 (a) "un error de configuración que nombra la clase"; en Pekko 2.0.0 no es así para DynamicAccess ni para el proveedor. ReflectiveDynamicAccess.getClassFor usa Class.forName (ReflectiveDynamicAccess.scala:44) y devuelve Failure(ClassNotFoundException) (DynamicAccessSpec.scala:50-57). ActorSystemImpl carga el proveedor con dynamicAccess.createInstanceFor[ActorRefProvider](ProviderClass, arguments).get y su catch solo detiene el scheduler y relanza la misma excepción (ActorSystem.scala:996-1011). Medido con el oráculo (Pekko 2.0.0, JDK 17, casos da-0014..da-0017 de la familia dynamic-access): pekko.actor.provider = foo.NonExisting, org.apache.pekko.remote.RemoteActorRefProvider y org.apache.pekko.cluster.ClusterActorRefProvider lanzan ClassNotFoundException con el FQCN como mensaje; LocalActorRefProvider crea el sistema. Los consumidores que envuelven el fallo de carga lo hacen con tipos distintos: Dispatchers lo envuelve en ConfigurationException (Dispatchers.scala:274-281, MessageDispatcherConfigurator); Mailboxes, al cargar un tipo de requirement, en ConfigurationException (Mailboxes.scala:86-96) y, al crear el MailboxType, en IllegalArgumentException (Mailboxes.scala:235-243).
+- **Evidencia:** Q-X-2 (aceptada con cambios, 2026-11-18) dice "el error de nombre no registrado es ConfigurationException del crate, como en Pekko" y Q-CFG-9 (a) "un error de configuración que nombra la clase"; en Pekko 2.0.0 no es así para DynamicAccess ni para el proveedor. ReflectiveDynamicAccess.getClassFor usa Class.forName (ReflectiveDynamicAccess.scala:44) y devuelve Failure(ClassNotFoundException) (DynamicAccessSpec.scala:50-57). ActorSystemImpl carga el proveedor con dynamicAccess.createInstanceFor[ActorRefProvider](ProviderClass, arguments).get y su catch solo detiene el scheduler y relanza la misma excepción (ActorSystem.scala:996-1011). Medido con el oráculo (Pekko 2.0.0, JDK 17, casos da-0014..da-0017 de la familia dynamic-access): pekko.actor.provider = foo.NonExisting, org.apache.pekko.remote.RemoteActorRefProvider y org.apache.pekko.cluster.ClusterActorRefProvider lanzan ClassNotFoundException con el FQCN como mensaje; LocalActorRefProvider crea el sistema. Los consumidores que envuelven el fallo de carga lo hacen con tipos distintos: Dispatchers lo envuelve en ConfigurationException (Dispatchers.scala:274-281, MessageDispatcherConfigurator); Mailboxes, al cargar un tipo de requirement, en ConfigurationException (Mailboxes.scala:86-96) y, al crear el MailboxType, en IllegalArgumentException (Mailboxes.scala:235-243). El configurador de la estrategia del guardián tampoco envuelve: guardian-supervisor-strategy = no.SuchStrategy lanza java.lang.ClassNotFoundException con el nombre (ActorRefProvider.scala:517-520; MBX-GRD-06), así que el «como en Pekko» de Q-X-2 es inexacto también aquí; Rakka devuelve ConfigurationException, como dice Q-X-2.
 - **Alternativas:** (a) Dos capas. Capa 1: FactoryRegistry::lookup (y create) devuelve un error ClassNotFound, equivalente a ClassNotFoundException, que lleva el nombre; el registro no usa ConfigurationException. Capa 2: cada consumidor transforma el error como Pekko 2.0.0: la resolución del proveedor lo propaga sin envolver; Dispatchers (y el requirement de Mailboxes) lo envuelven en ConfigurationException y la creación del MailboxType en IllegalArgumentException, cuando se implementen (otras unidades; queda anotado en sus filas). Se mantienen Q-X-2 (A) y Q-CFG-9 (c). (b) Mantener el texto literal de Q-X-2 y de Q-CFG-9 (a): el registro y la resolución del proveedor devuelven ConfigurationException (diferencia deliberada con Pekko para el proveedor, que el oráculo no confirma).
-- **Recomendación:** (a). Clasificación: comportamiento observable (tipo de error). Consecuencia: un proveedor desconocido, remote o cluster falla con el tipo y el mensaje de Pekko; Cada consumidor que Pekko envuelve conserva su tipo (ConfigurationException en Dispatchers; IllegalArgumentException al crear un MailboxType). Bloquea: AC-CFG-016 y AC-CFG-008 (cierre, quedan partial); puede avanzar: el resto. Reversible.
-- **Filas afectadas:** AC-CFG-008;AC-CFG-016
+- **Recomendación:** (a). Clasificación: comportamiento observable (tipo de error). Consecuencia: un proveedor desconocido, remote o cluster falla con el tipo y el mensaje de Pekko; Cada consumidor que Pekko envuelve conserva su tipo (ConfigurationException en Dispatchers; IllegalArgumentException al crear un MailboxType). Bloquea: AC-CFG-016, AC-CFG-008 y AC-SYS-008 (cierre, quedan partial); puede avanzar: el resto. Reversible.
+- **Filas afectadas:** AC-CFG-008;AC-CFG-016;AC-SYS-008
 - **Unidades afectadas:** CFG
 - **Origen:** classic-foundation
 
@@ -1296,6 +1296,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) una clase que el runtime conoce conserva su propia jerarquía y lo declarado sobre ella se ignora / (b) lo declarado gana siempre / (c) la declaración sólo puede añadir superclases a las conocidas
 - **Recomendación:** El Owner eligió (a) en la sesión (2026-11-27); registro en owner-decisions.tsv pendiente de su autorización. Implementada: desde la primera clase conocida de la cadena (la propia o una declarada) valen sólo las superclases del runtime; lo declarado se conserva en el valor
 - **Filas afectadas:** AC-SUP-004
+- **Unidades afectadas:** SUP
+- **Origen:** classic-cell
+
+### Q-SUP-9 — Frase de AC-SUP-010 «un actor fallado no se suspende de nuevo por cascada propia» frente a handleInvokeFailure, que suspende siempre
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala:57-58,214-225 ; actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:148-155 ; crates/rakka-actor/src/actor/refailure_tests.rs
+- **Alternativas:** (a) corregir la frase del contrato según el código: handleInvokeFailure llama siempre suspendNonRecursive (:218), sin guarda isFailed, y cada fallo incrementa suspendCount; isFailed sólo decide el perpetrador y qué hijo se salta (:220-225) / (b) mantener la frase, que repite el comentario de :57-58, y cambiar la conducta de Rakka para no suspender de nuevo, apartándose del código de Pekko
+- **Recomendación:** (a): la conducta de Rakka ya sigue el código (AC-SUP-001); sólo cambia el texto del contrato. La frase no se modifica hasta que el Owner responda
+- **Filas afectadas:** AC-SUP-010
 - **Unidades afectadas:** SUP
 - **Origen:** classic-cell
 

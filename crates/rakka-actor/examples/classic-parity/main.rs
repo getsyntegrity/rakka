@@ -17,6 +17,7 @@ mod deployer_cases;
 mod deployer_settings_cases;
 mod dynamic_access_cases;
 mod fronteras_cases;
+mod guardian_strategies;
 mod json;
 mod mailbox_cases;
 mod path_address_cases;

@@ -28,3 +28,8 @@ Ejemplo del motivo del fallo: `a system was created from: pekko.version = "0.0.1
 ## GREEN
 
 `test result: ok. 9 passed; 0 failed`.
+
+## Caracterización tras integrar la estrategia del guardián
+
+`an_unregistered_guardian_strategy_name_does_not_start_the_system` pasó a la primera (el rechazo ya lo hace
+`create_with_settings`): es caracterización, no un RED. `test result: ok. 10 passed; 0 failed`.

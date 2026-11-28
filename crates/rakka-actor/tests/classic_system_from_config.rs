@@ -122,6 +122,18 @@ fn a_rejected_deployment_path_does_not_start_the_system() {
     assert!(matches!(error, CreateError::Deployer(_)), "{error}");
 }
 
+// Q-CFG-31 (proposed): Pekko throws `ClassNotFoundException` here and rakka a `ConfigurationException` (Q-X-2), so
+// "the class and message are Pekko's" (Q-SYS-7) does not hold for this rejection.
+#[test]
+fn an_unregistered_guardian_strategy_name_does_not_start_the_system() {
+    let error = rejection(
+        "sys",
+        "pekko.actor.guardian-supervisor-strategy = \"no.SuchStrategy\"",
+    );
+    assert_eq!(error.to_string(), "ConfigurationException: no.SuchStrategy");
+    assert!(matches!(error, CreateError::Actor(_)), "{error}");
+}
+
 #[test]
 fn a_system_created_without_a_config_has_no_config_settings() {
     let system = Started(ActorSystem::create("sys").expect("created"));
