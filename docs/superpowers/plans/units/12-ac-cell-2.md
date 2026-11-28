@@ -19,7 +19,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-CELL-012.
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CELL-5`, `Q-MBX-17`, `Q-REF-5`, `Q-REF-6`.
+- Propuestas aún sin decisión del Owner: `Q-CELL-10`, `Q-CELL-5`, `Q-MBX-17`, `Q-REF-5`, `Q-REF-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -53,7 +53,7 @@ Filas: AC-CELL-030, AC-CELL-031. Contratos y aserciones: `docs/inventory/contrac
 | AC-CELL-024 | Limpieza de campos al terminar (props=terminatedProps, instancia nula,… | la celda libera la fábrica y la instancia al terminar | actor-tests/src/test/scala/org/apache/pekko/actor/LocalActorRefProviderSpec.scala:108-128 | - |
 | AC-CELL-025 | pekko.actor.debug.unhandled: reenviador de UnhandledMessage a Debug | suscriptor interno de `UnhandledMessage` que publica un Debug | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:137-153 | - |
 | AC-CELL-026 | Validación del tipo de mailbox exigido por el actor en Create | comprobación de `RequiresMessageQueue` contra el tipo de cola del mailbox | derivada del código (ver bloque de contrato) | - |
-| AC-CELL-027 | Fallo al crear la celda (initWithFailure) y punto de creación diferida | celda "fallida" que sólo entrega ActorInitializationError | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:510-533 | Q-CELL-9, Q-REF-5 |
+| AC-CELL-027 | Fallo al crear la celda (initWithFailure) y punto de creación diferida | celda "fallida" que sólo entrega ActorInitializationError | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:510-533 | Q-CELL-10, Q-CELL-9, Q-REF-5, Q-X-21 |
 | AC-CELL-028 | pekko.actor.serialize-messages: ida y vuelta de mensajes en modo test | hook de test que serializa y deserializa cada mensaje enviado (feature opcional) | actor-tests/src/test/scala/org/apache/pekko/actor/FunctionRefSpec.scala:108-120 ;… | Q-CELL-5 |
 | AC-CELL-029 | pekko.actor.serialize-creators: verificación de argumentos de Props al crear… | hook de test que serializa los argumentos de Props (feature opcional) | actor-tests/src/test/scala/org/apache/pekko/actor/PropsCreationSpec.scala:44-73 ;… | Q-CELL-5 |
 | AC-CELL-030 | Errores al enviar (suspend/resume/restart/stop/sendMessage/sendSystemMessage)… | `catch_unwind`/Result en el envío con log Error | actor-tests/src/test/scala/org/apache/pekko/actor/dungeon/DispatchSpec.scala:30-41 | Q-MBX-17 |
