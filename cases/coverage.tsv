@@ -3245,3 +3245,5 @@ gsc-stop-4	scenario-guardian-strategy	AC-SYS-008,AC-SUP-005	cited
 gsc-restart-4	scenario-guardian-strategy	AC-SYS-008,AC-SUP-005	cited
 gsc-escalate-4	scenario-guardian-strategy	AC-SYS-008,AC-SUP-008	cited
 gsc-manager-workers	scenario-guardian-strategy	AC-SUP-007,AC-SUP-008	cited
+rt-death-pact-order	scenario-ref-text	AC-CELL-004,AC-DW-007	cited
+rt-incarnation-text	scenario-ref-text	AC-DW-007	cited

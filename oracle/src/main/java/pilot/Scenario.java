@@ -342,8 +342,8 @@ final class Scenario {
           default: throw new IllegalArgumentException("unknown command " + sp.get("c"));
         }
       } catch (Exception e) {
-        // uids are random; `no-text`: Java renders the values of a termination message in ways Rust cannot (Q-DW-4)
-        res = err(e).substring(1, err(e).length() - 1).replaceAll("#-?\\d+\\]", "#uid]");
+        // `no-text`: Java renders the values of a termination message in ways Rust cannot (Q-DW-4)
+        res = err(e).substring(1, err(e).length() - 1);
         if (Boolean.TRUE.equals(c.spec.get("no-text"))) res = res.substring(0, res.indexOf(",\"message\""));
       }
       ctx.results.put(c.id, res);
@@ -473,7 +473,7 @@ final class Scenario {
         out.append(step(ctx, (Map<String, Object>) o));
       }
       out.append("]}");
-      return out.toString();
+      return normalizeUids(out.toString(), ctx.refs);
     } finally {
       ctx.gate.countDown();
       try {
@@ -481,6 +481,21 @@ final class Scenario {
         system.getWhenTerminated().toCompletableFuture().get(10, TimeUnit.SECONDS);
       } catch (Exception ignored) { }
     }
+  }
+
+  /**
+   * Uids are random. The text of a ref the scenario knows, {@code Actor[path#<its uid>]}, becomes {@code Actor[path#uid]}
+   * ({@code #uid:<label>} when several incarnations share the path). A missing or foreign uid is left as printed, so it diverges.
+   */
+  private static String normalizeUids(String out, Map<String, ActorRef> refs) {
+    Map<String, ActorRef> byLabel = new TreeMap<>(refs);
+    for (Map.Entry<String, ActorRef> known : byLabel.entrySet()) {
+      ActorRef r = known.getValue();
+      boolean reused = byLabel.values().stream().anyMatch(o -> o.path().equals(r.path()) && o.path().uid() != r.path().uid());
+      if (r.path().uid() != 0)
+        out = out.replace("Actor[" + r.path() + "#" + r.path().uid() + "]", "Actor[" + r.path() + (reused ? "#uid:" + known.getKey() : "#uid") + "]");
+    }
+    return out;
   }
 
   private static String err(Throwable e) {
