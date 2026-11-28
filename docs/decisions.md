@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 279 decisiones: 0 bloqueantes, 192 propuestas, 66 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 280 decisiones: 0 bloqueantes, 193 propuestas, 66 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -377,6 +377,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** (a), por Q-X-21 (c). Consecuencia hoy: los specs que crean hijos en el constructor no se pueden portar 1:1 y las filas afectadas quedan sin cerrar
 - **Filas afectadas:** AC-CELL-007.2 ; AC-CELL-013.2 ; AC-SUP-011
 - **Unidades afectadas:** CELL ; SUP
+- **Origen:** classic-cell
+
+### Q-CELL-10 — Alcance de «no reutilizar instancias potencialmente inconsistentes» (condición de Q-CELL-9): class_name que lanza y retención en el restart
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:748-753 ; actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) no entregar ni reanudar sólo instancias cuya construcción o inicialización falló; usar la de class_name que lanzó y conservar las retenidas para postStop y supervisorStrategy / (b) tratar el panic de class_name como fallo de creación o de restart / (c) no volver a usar ninguna instancia que se haya desenrollado
+- **Recomendación:** (a), conducta actual, sin decidir. Consecuencia: un actor con mutabilidad interior puede seguir con el estado que su class_name dejó a medias
+- **Filas afectadas:** AC-CELL-027
+- **Unidades afectadas:** CELL
 - **Origen:** classic-cell
 
 ### Q-CFG-14 — Includes de HOCON sin classpath: `include "x"`, `classpath(...)`, `url(...)`, `file(...)` y `required(...)` en rakka
