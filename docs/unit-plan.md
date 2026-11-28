@@ -513,7 +513,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Contenedor de hijos y actorOf: reserva atomica de nombres.
 - **Filas (6; impl: pending 6):** asignacion explicita en `docs/unit-rows.tsv`: AC-CELL-015.1, AC-REF-009.1, AC-REF-009.2, AC-REF-009.3, AC-REF-010, AC-REF-019.
 - **Exclusiones/costuras:** CELL-015.1 y REF-009.2 son un solo comportamiento (R28): se implementan juntos aqui.
-- **Decisiones:** 2 distintas en sus filas; propuestas sin respuesta: Q-MBX-11, Q-REF-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P18). <!-- generated:unit-decisions -->
+- **Decisiones:** 3 distintas en sus filas; propuestas sin respuesta: Q-MBX-11, Q-REF-13, Q-REF-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P18). <!-- generated:unit-decisions -->
 - **Dependencias:** P14.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/children.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorCreationSpec/ActorRefSpec parciales.
@@ -535,7 +535,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** SupervisorStrategy: directivas, deciders, One/AllForOne, ventanas de reintentos.
 - **Filas (10; impl: pending 10):** asignacion explicita en `docs/unit-rows.tsv`: AC-SUP-003, AC-SUP-004, AC-SUP-005, AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-012, AC-SUP-013, AC-SUP-017, AC-SUP-021.
 - **Exclusiones/costuras:** Pura sobre tipos; no depende de la celda (SUP-004 solo lista excepciones de ciclo de vida).
-- **Decisiones:** 8 distintas en sus filas; respondidas: Q-SUP-1, Q-SUP-7, Q-X-2, Q-X-5; propuestas sin respuesta: Q-SUP-2, Q-SUP-5, Q-SUP-6, Q-SUP-8. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P20). <!-- generated:unit-decisions -->
+- **Decisiones:** 9 distintas en sus filas; respondidas: Q-SUP-1, Q-SUP-7, Q-X-2, Q-X-5; propuestas sin respuesta: Q-DW-5, Q-SUP-2, Q-SUP-5, Q-SUP-6, Q-SUP-8. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P20). <!-- generated:unit-decisions -->
 - **Dependencias:** P11, P14.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/supervision.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** SupervisorHierarchySpec parcial.
@@ -568,7 +568,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Watch/unwatch, Terminated, death pact, unhandled y entrega a celda terminada.
 - **Filas (13; impl: pending 13):** asignacion explicita en `docs/unit-rows.tsv`: AC-DW-001, AC-DW-002, AC-DW-003, AC-DW-004, AC-DW-005, AC-DW-006, AC-DW-007, AC-DW-011, AC-DW-012, AC-CELL-004, AC-CELL-013.3, AC-CELL-025, AC-EVT-010.
 - **Exclusiones/costuras:** Resuelve R1(a): DW-002 + CELL-013.3 juntas; CELL-004 + DW-007 juntas.
-- **Decisiones:** 5 distintas en sus filas; respondidas: Q-DW-3, Q-DW-4, Q-EVT-1; propuestas sin respuesta: Q-DW-1, Q-DW-2. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P23). <!-- generated:unit-decisions -->
+- **Decisiones:** 7 distintas en sus filas; respondidas: Q-DW-3, Q-DW-4, Q-EVT-1; propuestas sin respuesta: Q-CELL-11, Q-DW-1, Q-DW-2, Q-DW-5. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P23). <!-- generated:unit-decisions -->
 - **Dependencias:** P11, P17, P20, P22.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{deathwatch,unhandled}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** DeathWatchSpec 1:1 (oraculo por comportamiento).

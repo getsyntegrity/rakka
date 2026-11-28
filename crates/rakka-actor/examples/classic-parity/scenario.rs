@@ -14,6 +14,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
+use crate::child_names::{self, Held};
 use crate::json::{Value, parse_value, write_str, write_text};
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{
@@ -320,6 +321,8 @@ struct Ctx {
     failed_pre_start: Mutex<HashSet<String>>,
     /// `supervisor_strategy` calls per label
     strategy_calls: Mutex<HashMap<String, u64>>,
+    /// the creation `spawn-held` holds
+    held: Arc<Held>,
 }
 
 impl Ctx {
@@ -886,6 +889,15 @@ impl Actor for Scripted {
                 .and_then(|l| self.ctx.refs.lock().unwrap().get(l).cloned())
         };
         match self.cfg.kind.as_str() {
+            // two children named `msg` while one message is processed; the second creation fails the actor
+            "spawn-twice" => {
+                let name = self.cfg.msg.as_deref().expect("a name");
+                for _ in 0..2 {
+                    if let Err(e) = c.actor_of_named(Props::new(|| Noop), name) {
+                        throw(Throwable::new(e.class().java_name(), Some(e.message())));
+                    }
+                }
+            }
             "echo" => sender.tell_any(msg.clone(), Some(c.self_ref())),
             "forward" => {
                 if let Some(t) = target() {
@@ -1021,7 +1033,7 @@ fn watch_with(c: &mut ActorContext, target: &ActorRef, message: &Value) {
     }
 }
 
-/// Renders `ok` or the exception a `watch` / `watch-with` threw, uids redacted, as the oracle does.
+/// Renders `ok` or the exception a `watch` / `watch-with` threw, as the oracle does.
 fn registration(o: &mut String, sp: &Value, register: impl FnOnce()) {
     let Err(thrown) = catch_unwind(AssertUnwindSafe(register)) else {
         o.push_str("\"ok\":true");
@@ -1031,16 +1043,8 @@ fn registration(o: &mut String, sp: &Value, register: impl FnOnce()) {
     o.push_str("\"ok\":false,\"exception\":");
     s(o, thrown.class());
     if sp.get("no-text").is_none() {
-        let text = thrown.message().unwrap_or_default();
-        let redacted: Vec<String> = text
-            .split(']')
-            .map(|part| match part.rsplit_once('#') {
-                Some((head, uid)) if uid.parse::<i64>().is_ok() => format!("{head}#uid"),
-                _ => part.to_owned(),
-            })
-            .collect();
         o.push_str(",\"message\":");
-        s(o, &redacted.join("]"));
+        s(o, thrown.message().unwrap_or_default());
     }
 }
 
@@ -1091,9 +1095,27 @@ fn command(ctx: &Arc<Ctx>, c: &mut ActorContext, sp: &Value) -> String {
             }
             None => o.push_str("\"ok\":true,\"found\":false"),
         },
+        // several commands in one turn: nothing else is processed between them
+        "in-turn" => {
+            let results: Vec<String> = sp
+                .get("cmds")
+                .and_then(Value::as_array)
+                .expect("cmds")
+                .iter()
+                .map(|cmd| format!("{{{}}}", command(ctx, c, cmd)))
+                .collect();
+            o.push_str(&format!("\"ok\":true,\"results\":[{}]", results.join(",")));
+        }
+        "await-terminated" => {
+            let subject = target("target").expect("known ref");
+            let terminated = wait_for(|| subject.is_terminated());
+            o.push_str(&format!("\"ok\":true,\"terminated\":{terminated}"));
+        }
         "children" => {
             let mut ps: Vec<String> = c.children().iter().map(path_str).collect();
-            ps.sort();
+            if !matches!(sp.get("unsorted"), Some(Value::Bool(true))) {
+                ps.sort();
+            }
             o.push_str("\"ok\":true,\"children\":[");
             for (i, p) in ps.iter().enumerate() {
                 if i > 0 {
@@ -1143,6 +1165,8 @@ struct Collector {
     watch: Option<ActorRef>,
     /// `errors` channel: also record the `getCause` chain below the published cause
     causes: bool,
+    /// `log-text`: also the line `TestEventListener` logs for an unhandled message, which prints both refs' own text
+    log_text: bool,
 }
 
 impl Actor for Collector {
@@ -1218,14 +1242,26 @@ impl Actor for Collector {
             self.ctx.add(&self.label, Event::Error(o));
             true
         } else if let Some(u) = msg.downcast_ref::<UnhandledMessage>() {
-            self.ctx.add(
-                &self.label,
-                Event::Unhandled {
-                    msg: msg_of(&u.message),
-                    sender: path_str(&u.sender),
-                    recipient: path_str(&u.recipient),
-                },
-            );
+            let mut event = Event::Unhandled {
+                msg: msg_of(&u.message),
+                sender: path_str(&u.sender),
+                recipient: path_str(&u.recipient),
+            };
+            if self.log_text {
+                let mut o = event.json();
+                o.pop();
+                let message = u.message.downcast_ref::<String>().expect("a text message");
+                o.push_str(",\"text\":");
+                js(
+                    &mut o,
+                    &format!("unhandled message from {:?}: {message}", u.sender),
+                );
+                o.push_str(",\"recipientRef\":");
+                js(&mut o, &format!("{:?}", u.recipient));
+                o.push('}');
+                event = Event::Error(o);
+            }
+            self.ctx.add(&self.label, event);
             true
         } else {
             false
@@ -1314,6 +1350,8 @@ pub fn run(text: &str) -> Result<String, String> {
         settings.throughput = num("throughput").unwrap_or(settings.throughput);
     }
     crate::guardian_strategies::register(&mut settings.supervisor_strategies);
+    let held = Arc::<Held>::default();
+    child_names::register(&mut settings, &held);
     if let Some(strategy) = sc.get("guardian-strategy").and_then(Value::as_str) {
         settings.guardian_supervisor_strategy = strategy.to_owned();
     }
@@ -1345,7 +1383,10 @@ pub fn run(text: &str) -> Result<String, String> {
     }
     out.push_str("},\"steps\":[");
 
-    let ctx = Arc::new(Ctx::default());
+    let ctx = Arc::new(Ctx {
+        held,
+        ..Ctx::default()
+    });
     let mut sent: HashMap<String, Vec<String>> = HashMap::new();
     let steps = sc
         .get("steps")
@@ -1368,7 +1409,29 @@ pub fn run(text: &str) -> Result<String, String> {
         return Err(e);
     }
     out.push_str("]}");
-    Ok(out)
+    Ok(normalize_uids(out, &ctx.refs.lock().unwrap()))
+}
+
+/// The oracle's `normalizeUids`: uids are random, so the text of a ref the scenario knows, `Actor[path#<its uid>]`, becomes
+/// `Actor[path#uid]` (`#uid:<label>` when several incarnations share the path). A missing or foreign uid stays and diverges.
+fn normalize_uids(mut out: String, refs: &HashMap<String, ActorRef>) -> String {
+    let by_label: BTreeMap<&String, &ActorRef> = refs.iter().collect();
+    for (label, r) in &by_label {
+        let (path, uid) = (r.path().to_string(), r.path().uid());
+        let reused = by_label
+            .values()
+            .any(|o| o.path() == r.path() && o.path().uid() != uid);
+        let token = if reused {
+            format!("uid:{label}")
+        } else {
+            "uid".to_owned()
+        };
+        if uid != 0 {
+            let printed = format!("Actor[{path}#{uid}]");
+            out = out.replace(&printed, &format!("Actor[{path}#{token}]"));
+        }
+    }
+    out
 }
 
 fn lookup(system: &ActorSystem, ctx: &Ctx, label: &str) -> Option<ActorRef> {
@@ -1551,6 +1614,7 @@ fn step(
             let prefix = label("prefix").unwrap_or_default();
             let watch = label("watch").and_then(|l| lookup(system, ctx, &l));
             let causes = matches!(st.get("causes"), Some(Value::Bool(true)));
+            let log_text = matches!(st.get("log-text"), Some(Value::Bool(true)));
             let r = system
                 .actor_of(Props::new(move || Collector {
                     label: l2.clone(),
@@ -1558,6 +1622,7 @@ fn step(
                     prefix: prefix.clone(),
                     watch: watch.clone(),
                     causes,
+                    log_text,
                 }))
                 .map_err(|e| e.to_string())?;
             ctx.refs.lock().unwrap().insert(lbl, r.clone());
@@ -1622,6 +1687,30 @@ fn step(
             };
             r.tell_any(Arc::new(message), None);
             out.push_str(",\"ok\":true");
+        }
+        "spawn-held" => {
+            let name = label("name").ok_or("spawn-held needs name")?;
+            let held = child_names::spawn_held(system, &ctx.held, &name);
+            out.push_str(&format!(",\"ok\":true,\"held\":{held}"));
+        }
+        "release-held" => match child_names::release_held(&ctx.held) {
+            Ok(r) => {
+                out.push_str(",\"ok\":true,");
+                ref_json(out, &r);
+            }
+            Err(e) => {
+                out.push(',');
+                err_json(out, &e);
+            }
+        },
+        // the name is `name`, or `prefix` followed by the round
+        "spawn-concurrently" => {
+            let (fixed, prefix) = (label("name"), label("prefix").unwrap_or_default());
+            let name_of = |round| fixed.clone().unwrap_or_else(|| format!("{prefix}{round}"));
+            let (threads, rounds) = (num("threads") as usize, num("rounds") as usize);
+            let overlap = matches!(st.get("overlap"), Some(Value::Bool(true)));
+            let did = child_names::spawn_concurrently(system, name_of, threads, rounds);
+            out.push_str(&did.json_fields(rounds, overlap));
         }
         "release" => {
             ctx.release();

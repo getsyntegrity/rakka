@@ -2306,18 +2306,28 @@ impl MailboxType for LiarMailbox {
 struct InitParent {
     env: Arc<IdEnv>,
     attempts: usize,
+    /// The last child created: the one whose failure the strategy sees.
+    kid: Option<ActorRef>,
 }
 
 impl Actor for InitParent {
     fn supervisor_strategy(&self) -> SupervisorStrategy {
         let env = self.env.clone();
+        let kid = self.kid.clone();
         OneForOneStrategy::new(10, move |failure| {
-            let message = failure.message().unwrap_or_default().to_string();
-            let without_uid = message.split('#').next().unwrap_or_default().to_owned();
+            let mut message = failure.message().unwrap_or_default().to_string();
+            // uids are random: only the failed child's own `#uid` is replaced; a missing or foreign one stays and diverges
+            if let Some(kid) = &kid {
+                let (path, uid) = (kid.path(), kid.path().uid());
+                message = message.replace(
+                    &format!("Actor[{path}#{uid}]"),
+                    &format!("Actor[{path}#uid]"),
+                );
+            }
             env.log
                 .lock()
                 .unwrap()
-                .push(format!("failure:{}: {without_uid}", failure.class()));
+                .push(format!("failure:{}: {message}", failure.class()));
             Directive::Stop
         })
         .into()
@@ -2334,6 +2344,7 @@ impl Actor for InitParent {
             let entry = match ctx.actor_of_named(props.clone(), "kid") {
                 Ok(kid) => {
                     ctx.watch(&kid);
+                    self.kid = Some(kid);
                     label.to_owned()
                 }
                 Err(error) => format!("{label}:{}: {}", error.class().java_name(), error.message()),
@@ -2363,6 +2374,7 @@ fn a_type_that_promises_its_queue_is_checked_against_the_queue_it_creates() -> S
                 move || InitParent {
                     env: env.clone(),
                     attempts: 0,
+                    kid: None,
                 }
             })
             .with_mailbox_id("unbounded"),

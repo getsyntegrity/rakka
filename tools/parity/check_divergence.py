@@ -2563,6 +2563,31 @@ MUTANTS = {
         "        drop(settings);",
         "the system does not expose the settings it was created from (killed by an integration test, see UNIT_MUTANTS)",
     ),
+    "children-are-listed-in-reverse-name-order": (
+        "src/actor/children.rs",
+        "                c.values()\n                    .filter_map(",
+        "                c.values()\n                    .rev()\n                    .filter_map(",
+        "`children` loses the name order of Pekko's TreeMap (cn-children-in-name-order)",
+    ),
+    # --- the text of a ref (AC-DW-007, AC-CELL-004); killed by the replay (mb-0030, rt-*) ---
+    "ref-text-omits-the-uid": (
+        "src/actor/actor_ref.rs",
+        "write!(f, \"Actor[{}]\", self.path().to_serialization_format())",
+        "write!(f, \"Actor[{}]\", self.path())",
+        "the text of a ref has no `#uid`, so two incarnations of a path print alike",
+    ),
+    "death-pact-names-the-watcher": (
+        "src/actor/cell.rs",
+        "format!(\"Monitored actor [{:?}] terminated\", t.actor)",
+        "format!(\"Monitored actor [{:?}] terminated\", self.self_ref())",
+        "the `DeathPactException` names the actor that failed, not the one that died",
+    ),
+    "guardian-swallows-unknown-messages": (
+        "src/actor/system.rs",
+        "            ctx.stop(&stop.0);\n            true\n        } else {\n            false\n        }\n    }\n}\n\n/// `LocalActorRefProvider.SystemGuardian`",
+        "            ctx.stop(&stop.0);\n            true\n        } else {\n            true\n        }\n    }\n}\n\n/// `LocalActorRefProvider.SystemGuardian`",
+        "the root guardian and `/user` take any message as handled, so nothing is published as unhandled",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -2867,7 +2892,7 @@ def run_mutant(scratch, name, rel, old, new, why):
         # the in-crate twins read the oracle golden through a relative `include_str!` that leaves the crate: give the scratch tree the same layout
         golden = os.path.join(scratch, "cases", "oracle-only")
         os.makedirs(golden, exist_ok=True)
-        for golden_file in ("mailbox.golden", "nonblocking-bounded-mailbox.golden"):
+        for golden_file in ("mailbox.golden", "nonblocking-bounded-mailbox.golden", "child-reservation.golden"):
             shutil.copy(os.path.join(ROOT, "cases", "oracle-only", golden_file), golden)
         return run_unit_mutant(scratch, name, work)
     try:
