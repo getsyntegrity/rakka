@@ -77,3 +77,4 @@ slice/classic-system-mailbox-specs-1	851e860a	408	none	none	408 not run (Q-X-23)
 #462	9db36ff6	408	none	none	408 not run (Q-X-23)	PENDING
 #464	1fabccb5	409	child-constructor-accepts-a-hash	none	409 not run (Q-X-23)	PENDING
 slice/classic-guardian-strategy-1	6f6ca84b	413	configured-guardian-strategy-is-ignored,guardian-strategy-name-is-not-read-from-the-configuration,unknown-guardian-strategy-name-takes-the-default,stopping-configurator-creates-the-default-strategy	none	413 not run (Q-X-23)	PENDING
+slice/classic-guardian-strategy-2	c4c77f35	413	none	none	413 not run (Q-X-23)	PENDING
