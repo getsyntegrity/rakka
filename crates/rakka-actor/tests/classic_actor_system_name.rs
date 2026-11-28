@@ -51,19 +51,22 @@ impl Random {
 
 #[test]
 fn rejects_all_invalid_names() {
-    // never valid anywhere: neighbours of the accepted ASCII ranges, controls, and letters and digits that are not ASCII
-    const FORBIDDEN: [char; 20] = [
-        ' ', '*', '@', '#', '$', '%', '/', '.', ':', '[', '`', '{', '\n', '\0', 'é', 'ß', '١',
-        'Ａ', '😀', '\u{2028}',
-    ];
+    // never valid anywhere: every ASCII character outside [a-zA-Z0-9_-], and letters, digits and others that are not ASCII
+    let forbidden: Vec<char> = ('\0'..='\x7f')
+        .filter(|c| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'))
+        .chain(['é', 'ß', '١', 'Ａ', '😀', '\u{2028}'])
+        .collect();
     let mut random = Random(0x2545_F491_4F6C_DD1D);
     assert_rejected("");
     for _ in 0..200 {
         let leading = ['-', '_'][random.below(2)];
         assert_rejected(&format!("{leading}{}", random.word()));
-        let forbidden = FORBIDDEN[random.below(FORBIDDEN.len())];
+    }
+    for character in forbidden {
+        assert_rejected(&character.to_string());
         let (before, after) = (random.word(), random.word());
-        assert_rejected(&format!("{before}{forbidden}{after}"));
+        assert_rejected(&format!("a{before}{character}{after}"));
+        assert_rejected(&format!("{before}{character}"));
     }
 }
 

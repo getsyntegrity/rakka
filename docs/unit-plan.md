@@ -458,7 +458,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Colas de mailbox (unbounded, bounded, prioridad, deque, control-aware) y vista de solo lectura.
 - **Filas (12; impl: pending 12):** asignacion explicita en `docs/unit-rows.tsv`: AC-MBX-004, AC-MBX-005, AC-MBX-006, AC-MBX-007, AC-MBX-008, AC-MBX-009, AC-MBX-010, AC-MBX-011, AC-MBX-012, AC-MBX-015, AC-MBX-019, AC-MBX-022.
 - **Exclusiones/costuras:** MBX-013/014/020 (seleccion) a P28; MBX-019 expone vista interna, Q-RT-4 (bloqueante) decide su forma.
-- **Decisiones:** 15 distintas en sus filas; respondidas: 7 (ver detalle); propuestas sin respuesta: 8 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P13). <!-- generated:unit-decisions -->
+- **Decisiones:** 16 distintas en sus filas; respondidas: 7 (ver detalle); propuestas sin respuesta: 9 (ver detalle). Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P13). <!-- generated:unit-decisions -->
 - **Dependencias:** P03, P08, P09.
 - **Archivos previstos:** `crates/rakka-actor/src/dispatch/mailbox/*.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** specs *MailboxSpec 1:1.

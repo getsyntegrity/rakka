@@ -1356,7 +1356,26 @@ impl Actor for Flagged {
     }
 }
 
+/// Holds the termination until a spawn was refused, at most 5 s (`spawn-until-terminated`).
+struct Blocker {
+    blocking: Arc<AtomicBool>,
+    refused: Arc<AtomicBool>,
+}
+impl Actor for Blocker {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.blocking.store(true, Ordering::SeqCst);
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !self.refused.load(Ordering::SeqCst) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+}
+
 /// `ActorSystemSpec.scala:300-326`: spawns without pause while a timer terminates the system; only invariants are printed.
+/// A `Blocker` keeps the termination from finishing before a refusal is seen. `liveStarted` (`preStart` ran, not terminated) is
+/// weaker than the spec's "not an `UnstartedCell`", which the public API does not tell; the in-crate test asserts that one.
 fn spawn_until_terminated(
     system: &ActorSystem,
     after: Duration,
@@ -1368,6 +1387,19 @@ fn spawn_until_terminated(
         let actor = system.actor_of(Props::new(move || Flagged(flag.clone())))?;
         Ok::<_, ActorError>((actor, started))
     };
+    let blocking = Arc::new(AtomicBool::new(false));
+    let refused = Arc::new(AtomicBool::new(false));
+    let blocker = {
+        let (blocking, refused) = (blocking.clone(), refused.clone());
+        Props::new(move || Blocker {
+            blocking: blocking.clone(),
+            refused: refused.clone(),
+        })
+    };
+    system.actor_of(blocker).map_err(|e| e.to_string())?;
+    if !wait_for(|| blocking.load(Ordering::SeqCst)) {
+        return Err("the blocker did not start".into());
+    }
     let (begin, limit) = (Instant::now(), Duration::from_secs(10));
     let timer = {
         let system = system.clone();
@@ -1378,7 +1410,7 @@ fn spawn_until_terminated(
     };
     let mut created = Vec::new();
     let (mut failing, mut succeeded_after_failure) = (false, false);
-    while !system.when_terminated().is_completed() && (failing || begin.elapsed() < limit) {
+    while !system.when_terminated().is_completed() && begin.elapsed() < limit {
         match spawn() {
             Ok(spawned) => {
                 created.push(spawned);
@@ -1387,7 +1419,10 @@ fn spawn_until_terminated(
                     std::thread::sleep(Duration::from_millis(50));
                 }
             }
-            Err(e) if e.class() == ErrorClass::IllegalState => failing = true,
+            Err(e) if e.class() == ErrorClass::IllegalState => {
+                failing = true;
+                refused.store(true, Ordering::SeqCst);
+            }
             Err(e) => return Err(format!("unexpected spawn failure: {e}")),
         }
     }
@@ -1398,7 +1433,7 @@ fn spawn_until_terminated(
         .count();
     timer.join().map_err(|_| "the timer thread failed")?;
     out.push_str(&format!(
-        ",\"ok\":true,\"created\":{},\"successAfterFailure\":{succeeded_after_failure},\"liveStarted\":{live_started},\"withinTenSeconds\":{in_time},\"late\":{{",
+        ",\"ok\":true,\"created\":{},\"refused\":{failing},\"successAfterFailure\":{succeeded_after_failure},\"liveStarted\":{live_started},\"withinTenSeconds\":{in_time},\"late\":{{",
         !created.is_empty()
     ));
     match spawn() {
