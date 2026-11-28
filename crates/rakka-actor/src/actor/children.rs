@@ -350,6 +350,29 @@ mod tests {
         assert!(matches!(c, Children::Terminated));
     }
 
+    /// What Pekko 2.0.0 throws from `reserveChild` while a cell terminates and after (`oracle/run.sh child-reservation-all`). This
+    /// covers `reserve` only: `actorOf` checks `isTerminating` first, and the race between that check and the reservation is not
+    /// covered.
+    #[test]
+    fn reserving_while_terminating_gives_the_texts_pekko_gives() {
+        let golden = include_str!("../../../../cases/oracle-only/child-reservation.golden");
+        let waiting = Children::Terminating {
+            c: BTreeMap::new(),
+            to_die: vec![],
+            reason: SuspendReason::Termination,
+        };
+        let observed = [waiting, Children::Terminated].map(|mut container| {
+            let refused = container.reserve("kid").unwrap_err();
+            format!("{}: {}", refused.class().java_name(), refused.message())
+        });
+        let recorded: Vec<&str> = golden
+            .lines()
+            .filter_map(|line| line.split_once(" -> "))
+            .map(|(_, thrown)| thrown)
+            .collect();
+        assert_eq!(recorded, observed);
+    }
+
     /// `children` and `getByName` see only `ChildRestartStats` (`ChildrenContainer.scala:69-73`, `Children.scala:53-56`).
     #[test]
     fn a_reserved_name_is_not_a_child() {

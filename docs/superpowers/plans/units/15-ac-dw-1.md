@@ -19,7 +19,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-DW-001, AC-DW-003, AC-DW-004,
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-DW-1`, `Q-DW-2`.
+- Propuestas aún sin decisión del Owner: `Q-CELL-11`, `Q-DW-1`, `Q-DW-2`, `Q-DW-5`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
@@ -53,7 +53,7 @@ Filas: AC-DW-012, AC-DW-013. Contratos y aserciones: `docs/inventory/contracts/c
 | AC-DW-002 | watch sobre un actor ya muerto → Terminated inmediato | Watch a ref terminado responde DWN | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:144-151 | Q-DW-1 |
 | AC-DW-005 | watchWith(ref, msg) con mensaje custom | `ctx.watch_with(&ActorRef, msg)` | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:292-315 | Q-DW-3, Q-DW-4 |
 | AC-DW-006 | Mensaje Terminated (actor, existenceConfirmed, addressTerminated) | `struct Terminated { actor, existence_confirmed, address_terminated }` con `PartialEq`… | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:129-132 ;… | Q-DW-1 |
-| AC-DW-007 | Death pact: Terminated no manejado → DeathPactException → Stop | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-245 | - |
+| AC-DW-007 | Death pact: Terminated no manejado → DeathPactException → Stop | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:215-245 | Q-CELL-11, Q-DW-5 |
 | AC-DW-010 | Notificación a watchers al morir (remotos primero, luego locales; el padre se… | - | actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:153-166 | Q-DW-2 |
 | AC-DW-011 | Protocolo Watch/Unwatch de sistema (addWatcher/remWatcher) | - | actor-tests/src/test/scala/org/apache/pekko/event/LoggingReceiveSpec.scala:231-253 | - |
 | AC-DW-012 | AddressTerminated y AddressTerminatedTopic (watch de refs remotos) | hook en el trait de ref (`is_local`) + topic opcional | actor-tests/src/test/scala/org/apache/pekko/event/AddressTerminatedTopicBenchSpec.scala:2… | Q-DW-2 |

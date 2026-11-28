@@ -284,11 +284,12 @@
 
 ## P18 CELL-HIJOS
 
-6 filas; 2 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 2 propuestas.
+6 filas; 3 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-MBX-11 | propuesta | 1: AC-CELL-015.1 | — | — | `classic-dispatch` |
+| Q-REF-13 | propuesta | 1: AC-REF-010 | Bloquea el cierre de AC-REF-010. | — | `classic-cell` |
 | Q-REF-6 | propuesta | 1: AC-REF-019 | Bloquea: la validación (no la `impl`) de AC-REF-001.x, AC-REF-019 y AC-CELL-031. | Puede avanzar: toda la implementación. | `classic-cell` |
 
 ## P19 CELL-EJECUCION
@@ -308,7 +309,7 @@
 
 ## P20 SUP-ESTRATEGIAS
 
-10 filas; 8 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 4 propuestas.
+10 filas; 9 decisiones distintas en sus filas: 4 respondidas, 0 bloqueantes, 5 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
@@ -316,6 +317,7 @@
 | Q-SUP-7 | accepted_with_changes (2026-11-27): ACCEPTED con condiciones: encapsular los campos de Throwable e impedir su construcción directa desde fuera del crate. Proporcionar constructores públicos… | 1: AC-SUP-004 | — | — | `classic-cell` |
 | Q-X-2 | accepted_with_changes (2026-11-18): aceptar (A). El error de nombre no registrado es ConfigurationException del crate, como en Pekko. | 1: AC-SUP-005 | — | — | `transversal` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 1: AC-SUP-004 | — | — | `transversal` |
+| Q-DW-5 | propuesta | 1: AC-SUP-017 | — | — | `classic-cell` |
 | Q-SUP-2 | propuesta | 4: AC-SUP-006.1, AC-SUP-006.2, AC-SUP-007, AC-SUP-021 | Bloquea: `impl` de AC-SUP-006.2 (borde de ventana enorme). | Puede avanzar: AC-SUP-006.1 y todo lo demás (la aritmética normal es idéntica). | `classic-cell` |
 | Q-SUP-5 | propuesta | 4: AC-SUP-004, AC-SUP-005, AC-SUP-012, AC-SUP-017 | — | — | `classic-cell` |
 | Q-SUP-6 | propuesta | 2: AC-SUP-004, AC-SUP-005 | — | — | `classic-cell` |
@@ -355,15 +357,17 @@
 
 ## P23 DW-VIGILANCIA
 
-13 filas; 5 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 2 propuestas.
+13 filas; 7 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 4 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-DW-3 | accepted (2026-11-26): aceptar (a): igualdad por tipo concreto y valor mediante PartialEq: watch_with<M: Any + PartialEq + Send + Sync>(ref, msg). Se aceptan explícitamente las… | 1: AC-DW-005 | Bloquea AC-DW-005. | — | `classic-cell` |
 | Q-DW-4 | accepted (2026-11-26): aceptar (a): en la IllegalStateException de watch / watchWith, String y &str se muestran por valor y cualquier otro tipo por su nombre Rust, sin cotas nuevas… | 1: AC-DW-005 | Bloquea el cierre de AC-DW-005. | — | `classic-cell` |
 | Q-EVT-1 | accepted (2026-11-18): aceptar, incluida la supresión de dead letters durante el shutdown terminante de 2.0.0. | 1: AC-EVT-010 | Bloquea: la comparación textual exacta de AC-EVT-006/008/009/010/013.3/018/019; la lógica avanza con `message_type_name`. | — | `classic-system` |
+| Q-CELL-11 | propuesta | 2: AC-CELL-004, AC-DW-007 | — | — | `classic-cell` |
 | Q-DW-1 | propuesta | 2: AC-DW-002, AC-DW-006 | Bloquea: `impl` de AC-DW-002/006 (PartialEq). | Puede avanzar: el resto de DW. | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-012 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
+| Q-DW-5 | propuesta | 1: AC-DW-007 | — | — | `classic-cell` |
 
 ## P24 MBX-STASH
 
@@ -1110,4 +1114,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 553 (274 respondidas, 0 bloqueantes, 279 propuestas).
+Total de pares unidad–decisión: 557 (274 respondidas, 0 bloqueantes, 283 propuestas).
