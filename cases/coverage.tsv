@@ -817,8 +817,8 @@ ord-4-concurrent-senders	scenario-2b	AC-DSP-002,AC-MBX-002,AC-REF-003	same-group
 ord-8-concurrent-senders	scenario-2b	AC-DSP-002,AC-MBX-002,AC-REF-003	cited
 ord-same-sender-two-bursts	scenario-2b	AC-REF-003	cited
 dl-after-stop-no-sender	scenario-2b	AC-REF-002	cited
-dl-after-stop-explicit-sender	scenario-2b	AC-MBX-021,AC-REF-002	cited
-dl-after-stop-several	scenario-2b	AC-MBX-021	cited
+dl-after-stop-explicit-sender	scenario-2b	AC-MBX-021,AC-REF-002,AC-CELL-013.3	cited
+dl-after-stop-several	scenario-2b	AC-MBX-021,AC-CELL-013.3	cited
 dl-after-stop-seq-50	scenario-2b	AC-MBX-003	cited
 dl-after-poison-pill	scenario-2b	AC-CELL-011	cited
 dl-to-deadletters-no-sender	scenario-2b	AC-REF-016	cited
@@ -851,7 +851,7 @@ tput-interleaved-enqueue	scenario-2b	-	none
 tput-single-actor-thr2	scenario-2b	AC-DSP-003,AC-MBX-002	cited
 tput-default-settings-single-actor	scenario-2b	-	none
 tput-thr1-two-threads-invariants	scenario-2b	AC-DSP-002,AC-REF-003	cited
-turn-stop-on-in-queue-dl	scenario-2b	AC-MBX-002,AC-MBX-003,AC-MBX-021	cited
+turn-stop-on-in-queue-dl	scenario-2b	AC-MBX-002,AC-MBX-003,AC-MBX-021,AC-CELL-013.3	cited
 turn-pill-in-queue	scenario-2b	AC-CELL-011	cited
 turn-pill-first	scenario-2b	AC-CELL-011,AC-DSP-003,AC-MBX-003	cited
 turn-stop-op-vs-queue-invariant	scenario-2b	-	none

@@ -3938,7 +3938,7 @@ Grupo `classic-foundation` del inventario de `pekko-actor` (Apache Pekko 1.7.1, 
 
 ## AC-PATH-011 — uid en paths: "#uid" en `/`, undefinedUid=0, newUid aleatorio ≠0, withUid; RootActorPath siempre uid 0
 
-*unidad PATH · visibilidad internal-required · analysis=extracted · impl=partial · validation=oracle+spec*
+*unidad PATH · visibilidad internal-required · analysis=extracted · impl=done · validation=oracle+spec*
 
 **Contrato observable.** Un path puede llevar el uid de la incarnación del actor como fragmento `#uid`; `/` acepta `nombre#uid`; `withUid`; `undefinedUid = 0`; `newUid` aleatorio distinto de 0; el uid se ve en `toSerializationFormat*`, no en `toString`.
 
