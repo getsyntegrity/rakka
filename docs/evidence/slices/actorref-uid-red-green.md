@@ -19,6 +19,8 @@ Base `9f752b15`. Esperados grabados del oráculo (Pekko 2.0.0, JDK 17) con `rust
 
 El test de los guardianes pasó desde el principio: es caracterización, no TDD.
 
+Tras la revisión, el test del death pact lee los `Error` de `logFailure` (su `logSource` es el hijo fallado, el `lastSender` del spec) en vez de la causa que veía el decider; se añadió con la producción ya corregida, así que no tiene RED propio.
+
 ## GREEN
 
 Los mismos comandos: `3 passed`; los seis casos `1/1`; `cargo test -p rakka-actor --test recorded_pekko`: `23 passed`.

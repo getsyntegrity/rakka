@@ -9,11 +9,9 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::Duration;
 
 use rakka_actor::actor::ActorRef;
-use rakka_actor::actor::fault::Throwable;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Kill, Props};
-use rakka_actor::actor::supervision::{OneForOneStrategy, SupervisorStrategy, default_decider};
 use rakka_actor::dispatch::Terminated;
-use rakka_actor::event::{Channel, UnhandledMessage};
+use rakka_actor::event::{Channel, ErrorEvent, UnhandledMessage};
 
 fn next<T>(receiver: &Receiver<T>) -> T {
     receiver
@@ -51,17 +49,8 @@ fn the_text_of_a_ref_carries_its_uid_only_when_it_has_one() {
 /// Asks the supervisor for a child.
 struct Spawn(Props, Sender<ActorRef>);
 
-struct Supervisor(Sender<String>);
+struct Supervisor;
 impl Actor for Supervisor {
-    fn supervisor_strategy(&self) -> SupervisorStrategy {
-        let seen = self.0.clone();
-        OneForOneStrategy::new(-1, move |cause: &Throwable| {
-            let message = cause.message().unwrap_or_default();
-            seen.send(format!("{}: {message}", cause.class())).unwrap();
-            default_decider(cause)
-        })
-        .into()
-    }
     fn receive(&mut self, ctx: &mut ActorContext, msg: &AnyMessage) -> bool {
         let Some(Spawn(props, born)) = msg.downcast_ref::<Spawn>() else {
             return false;
@@ -71,7 +60,8 @@ impl Actor for Supervisor {
     }
 }
 
-/// Watches `subject`; with `report` it handles the `Terminated`, without it (`EmptyWatcher`) it does not.
+/// Watches `subject`. With `report` it is the spec's `testActor`, which records what it receives; without it, the spec's
+/// `EmptyWatcher`, which handles nothing.
 struct Watcher {
     subject: ActorRef,
     watching: Sender<()>,
@@ -83,13 +73,21 @@ impl Actor for Watcher {
         self.watching.send(()).unwrap();
     }
     fn receive(&mut self, _: &mut ActorContext, msg: &AnyMessage) -> bool {
-        match (&self.report, msg.downcast_ref::<Terminated>()) {
-            (Some(report), Some(t)) => {
-                report.send(format!("terminated {:?}", t.actor)).unwrap();
-                true
-            }
-            _ => false,
-        }
+        let Some(report) = &self.report else {
+            return false;
+        };
+        let line = if let Some(t) = msg.downcast_ref::<Terminated>() {
+            format!("terminated {:?}", t.actor)
+        } else if let Some(failure) = msg.downcast_ref::<ErrorEvent>() {
+            // the spec's `Failed` and `lastSender`: `logFailure` publishes the cause with the failed child as source
+            let message = failure.cause.message().unwrap_or_default();
+            let (source, class) = (&failure.log_source, failure.cause.class());
+            format!("{source} | {class}: {message}")
+        } else {
+            return false;
+        };
+        report.send(line).unwrap();
+        true
     }
 }
 
@@ -107,12 +105,7 @@ fn watcher(subject: &ActorRef, watching: &Sender<()>, report: Option<Sender<Stri
 fn a_monitor_that_does_not_handle_terminated_fails_with_a_death_pact_and_stops() {
     let system = RunningSystem::create("t-death-pact");
     let (seen, order) = channel();
-    let supervisor = {
-        let seen = seen.clone();
-        system
-            .actor_of(Props::new(move || Supervisor(seen.clone())))
-            .unwrap()
-    };
+    let supervisor = system.actor_of(Props::new(|| Supervisor)).unwrap();
     let child = |props| {
         let (born, child) = channel();
         supervisor.tell(Spawn(props, born), None);
@@ -122,21 +115,26 @@ fn a_monitor_that_does_not_handle_terminated_fails_with_a_death_pact_and_stops()
     let failed = child(Props::new(|| Silent));
     let brother = child(watcher(&failed, &watching, None));
     next(&ready);
-    system
+    let observer = system
         .actor_of(watcher(&brother, &watching, Some(seen.clone())))
         .unwrap();
     next(&ready);
+    system.event_stream().subscribe(&observer, Channel::Error);
 
     failed.tell(Kill, None);
 
     assert_eq!(
         next(&order),
-        "org.apache.pekko.actor.ActorKilledException: Kill"
+        format!(
+            "{} | org.apache.pekko.actor.ActorKilledException: Kill",
+            failed.path()
+        )
     );
     assert_eq!(
         next(&order),
         format!(
-            "org.apache.pekko.actor.DeathPactException: Monitored actor [Actor[{}#{}]] terminated",
+            "{} | org.apache.pekko.actor.DeathPactException: Monitored actor [Actor[{}#{}]] terminated",
+            brother.path(),
             failed.path(),
             failed.path().uid()
         )
