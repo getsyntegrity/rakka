@@ -1,0 +1,1 @@
+SYS a rejected deployment path -> ERR InvalidActorNameException [Invalid actor path element [a b] (in path [/a b]), illegal character [ ] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

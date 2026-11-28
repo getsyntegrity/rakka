@@ -1,0 +1,1 @@
+SYS another version and use-slf4j -> ERR ConfigurationException [Pekko JAR version [2.0.0] does not match the provided config version [1.0.0]]
