@@ -57,6 +57,10 @@ CASES = {
     "cm-failed-then-stopped": [*S("probe"), *S("g", supervisor={"decider": {"pboom": "stop"}}),
                                C("g", "p", "p", throw_on="pboom", log_sender=True), EV("p", 1), TELL("p", "pboom", "probe"), STOPPED,
                                NOW("p")],
+    # Ticket669Spec "reply on failure during postStop": stopped for its failure, `p` answers the sender from `postStop`
+    "cm-reply-in-post-stop": [*S("probe"), *S("g", supervisor={"strategy": "all-for-one", "max": 0, "decider": {"test": "restart"}}),
+                              C("g", "p", "p", throw_on="test", post_stop_reply="failure2", log_sender=True), EV("p", 1),
+                              TELL("p", "test", "probe"), EV("probe", 2), STOPPED, NOW("probe"), NOW("p")],
     # PreRestartException names the class of the stale Failed
     "cm-hook-error-class": [{"op": "subscribe", "channel": "errors", "as": "err", "prefix": "hook"},
                             *handled(pre_restart_throws="hook"), TELL("s", "sboom"), EV("err", 1), NOW("err")],

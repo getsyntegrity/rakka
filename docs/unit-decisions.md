@@ -331,13 +331,14 @@
 
 ## P22 CELL-REINICIO-PARADA
 
-21 filas; 8 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 5 propuestas.
+21 filas; 9 decisiones distintas en sus filas: 3 respondidas, 0 bloqueantes, 6 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-CELL-6 | accepted (2026-11-26): aceptar (a): en el texto de PreRestartException un mensaje se nombra `class ?` salvo &str/String, Kill, ActorIdentity, Terminated y Failed, que llevan el… | 1: AC-CELL-007.1 | — | — | `classic-cell` |
 | Q-SUP-3 | accepted (2026-11-26): aceptar (a): Throwable lleva un campo `cause: Option<Box<Throwable>>`; se acepta que rompe la construcción por literal. logFailure publica el mensaje de la… | 3: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4 | — | — | `classic-cell` |
 | Q-X-5 | accepted_with_changes (2026-11-18): aceptar (A). Documentar que con panic=abort no hay supervisión de panics. | 4: AC-CELL-002.2, AC-CELL-007.1, AC-CELL-007.4, AC-CELL-009 | — | — | `transversal` |
+| Q-CELL-2 | propuesta | 1: AC-CELL-009 | Bloquea: sólo el cierre de AC-CELL-021 (requiere autorización explícita del Owner). | Puede avanzar: todo. | `classic-cell` |
 | Q-CELL-4 | propuesta | 1: AC-CELL-023 | Bloquea: `validation` de AC-CELL-023 (impl puede avanzar). | Puede avanzar: el resto de CELL. | `classic-cell` |
 | Q-CELL-8 | propuesta | 2: AC-CELL-007.2, AC-SUP-011 | — | — | `classic-cell` |
 | Q-DW-2 | propuesta | 1: AC-DW-010 | Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. | Puede avanzar: el resto de DW (el orden local es el único observable sin remote). | `classic-cell` |
@@ -1098,4 +1099,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 541 (263 respondidas, 0 bloqueantes, 278 propuestas).
+Total de pares unidad–decisión: 542 (263 respondidas, 0 bloqueantes, 279 propuestas).

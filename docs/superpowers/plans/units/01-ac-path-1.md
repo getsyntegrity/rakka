@@ -1,12 +1,12 @@
 # Spec 01 — AC-PATH (1/1)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 9. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 7. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-PATH-001, AC-PATH-003, AC-PATH-007, AC-PATH-009, AC-PATH-012, AC-PATH-013, AC-PATH-014.
+Filas ya `done` en esta unidad (no se reabren): AC-PATH-001, AC-PATH-003, AC-PATH-007, AC-PATH-009, AC-PATH-010, AC-PATH-011, AC-PATH-012, AC-PATH-013, AC-PATH-014.
 
 ## Prerrequisitos
 
@@ -26,16 +26,16 @@ casos rust-anything contra Pekko 2.0.0 (JDK 17): `oracle/` (comando `path-addres
 
 ### Tarea 1: Orden de Address (addressOrdering) (+5 filas)
 
-Filas: AC-PATH-002, AC-PATH-004, AC-PATH-005, AC-PATH-006, AC-PATH-008, AC-PATH-010. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-PATH-002, AC-PATH-004, AC-PATH-005, AC-PATH-006, AC-PATH-008, AC-PATH-015. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
 3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
 4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
 
-### Tarea 2: uid en paths: "#uid" en `/`, undefinedUid=0, newUid aleatorio ≠0, withUid; RootActorPath… (+2 filas)
+### Tarea 2: ChildActorPath: validación del nombre en el constructor (`/` y `#` prohibidos)
 
-Filas: AC-PATH-011, AC-PATH-015, AC-PATH-016. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-PATH-016. Contratos y aserciones: `docs/inventory/contracts/classic-foundation.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -51,8 +51,6 @@ Filas: AC-PATH-011, AC-PATH-015, AC-PATH-016. Contratos y aserciones: `docs/inve
 | AC-PATH-005 | RelativeActorPath (extractor de paths relativos) | `fn relative_actor_path(&str) -> Option<Vec<String>>` | actor-tests/src/test/scala/org/apache/pekko/actor/RelativeActorPathSpec.scala:27-40 | Q-PATH-6, Q-PATH-7 |
 | AC-PATH-006 | ActorPathExtractor (Address + elementos desde URI absoluta) | función de parseo | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:26-49 | Q-PATH-6 |
 | AC-PATH-008 | Validación de elementos de path (nombres de actor) | `fn validate_path_element(&str) -> Result<(), InvalidActorName>` | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:80-83 ;… | Q-PATH-2, Q-PATH-4 |
-| AC-PATH-010 | Estructura de ActorPath: RootActorPath / ChildActorPath, address, name,… | `ActorPath(Arc<Node>)` con nodo padre compartido | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:59-70 ;… | - |
-| AC-PATH-011 | uid en paths: "#uid" en `/`, undefinedUid=0, newUid aleatorio ≠0, withUid;… | `uid: i32` en el nodo hijo; `new_uid()` con RNG local | actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:26-29 ;… | Q-PATH-6 |
 | AC-PATH-015 | Paths especiales del proveedor local: "/", "/user", "/system", "/deadLetters",… | constantes en `provider::local` | actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:248 ;… | - |
 | AC-PATH-016 | ChildActorPath: validación del nombre en el constructor (`/` y `#` prohibidos) | `ChildActorPath::new(parent, name, uid) -> Result<_, IllegalArgumentError>` (privado a… | derivada del código (ver bloque de contrato) | - |
 

@@ -397,6 +397,10 @@ pa-0395	oracle-path-address	AC-PATH-001,AC-PATH-002,AC-PATH-003,AC-PATH-004,AC-P
 pa-0396	oracle-path-address	AC-PATH-001,AC-PATH-002,AC-PATH-003,AC-PATH-004,AC-PATH-005,AC-PATH-006,AC-PATH-007,AC-PATH-008,AC-PATH-009,AC-PATH-010,AC-PATH-011,AC-PATH-012,AC-PATH-013,AC-PATH-014,AC-PATH-015,AC-PATH-016	same-group
 pa-0397	oracle-path-address	AC-PATH-001,AC-PATH-002,AC-PATH-003,AC-PATH-004,AC-PATH-005,AC-PATH-006,AC-PATH-007,AC-PATH-008,AC-PATH-009,AC-PATH-010,AC-PATH-011,AC-PATH-012,AC-PATH-013,AC-PATH-014,AC-PATH-015,AC-PATH-016	same-group
 pa-0398	oracle-path-address	AC-PATH-001,AC-PATH-002,AC-PATH-003,AC-PATH-004,AC-PATH-005,AC-PATH-006,AC-PATH-007,AC-PATH-008,AC-PATH-009,AC-PATH-010,AC-PATH-011,AC-PATH-012,AC-PATH-013,AC-PATH-014,AC-PATH-015,AC-PATH-016	same-group
+pa-0399	oracle-path-address	AC-PATH-011	cited
+pa-0400	oracle-path-address	AC-PATH-011	cited
+pa-0401	oracle-path-address	AC-PATH-010	cited
+pa-0402	oracle-path-address	AC-PATH-010	cited
 uc-0001	oracle-util-core	AC-UTIL-001	cited
 uc-0002	oracle-util-core	AC-UTIL-001,AC-UTIL-002.1,AC-UTIL-002.2,AC-UTIL-002.3,AC-UTIL-003.1,AC-UTIL-003.2,AC-UTIL-004.1,AC-UTIL-004.2	same-group
 uc-0003	oracle-util-core	AC-UTIL-001,AC-UTIL-002.1,AC-UTIL-002.2,AC-UTIL-002.3,AC-UTIL-003.1,AC-UTIL-003.2,AC-UTIL-004.1,AC-UTIL-004.2	same-group
@@ -2998,6 +3002,8 @@ sv-mid-restart	scenario-restart-survivors	AC-SUP-015,AC-CELL-013.2	cited
 sv-three-levels-kill	scenario-restart-survivors	AC-SUP-015	cited
 sv-postrestart-once	scenario-restart-survivors	AC-SUP-019,AC-CELL-007.4	cited
 sv-fatal-resume	scenario-restart-survivors	AC-SUP-019,AC-CELL-007.4	cited
+sv-three-levels-order	scenario-restart-survivors	AC-SUP-015	cited
+sv-fatal-again	scenario-restart-survivors	AC-SUP-019	cited
 sf-failed-until-resumed	scenario-stash-failed	AC-CELL-013.2	cited
 sf-suspended-with-parent	scenario-stash-failed	AC-CELL-013.2	cited
 sf-decided-after-restart	scenario-stash-failed	AC-CELL-013.2	cited
@@ -3034,6 +3040,7 @@ cm-resumed	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
 cm-resumed-then-message	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
 cm-failed-then-stopped	scenario-current-message	AC-CELL-020	cited
 cm-hook-error-class	scenario-current-message	AC-CELL-007.1	cited
+cm-reply-in-post-stop	scenario-current-message	AC-CELL-009	cited
 ur-default	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-default-pact	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-default-watch-with	scenario-pre-restart-unwatch	AC-CELL-006,AC-DW-005	cited
@@ -3109,3 +3116,5 @@ cl-stopping-stops	scenario-throwable-class	AC-SUP-005	cited
 cl-stopping-escalates	scenario-throwable-class	AC-SUP-005	cited
 gf-kill-system	scenario-guardian-failure	AC-SUP-014	cited
 gf-kill-user	scenario-guardian-failure	AC-SUP-014,AC-SYS-008	cited
+dl-sysmsg-after-close	scenario-closed-cell	AC-CELL-013.3	cited
+dl-sysmsg-pending-close	scenario-closed-cell	AC-CELL-013.3	cited

@@ -840,6 +840,32 @@ fn path_cases(c: &mut Cases, mysys: &Address) -> Result<(), JavaErr> {
     c.run("NAV-04 root named elements", || {
         Ok(path(&ActorPath::root_named(mysys.clone(), "/x")?))
     });
+    c.run("UID-08 root.withUid(0) value", || {
+        let w = root(mysys).with_uid(0)?;
+        Ok(format!("equal={} {}", w == root(mysys), path(&w)))
+    });
+    c.run("UID-09 child#3.withUid(3) value", || {
+        let child = at(mysys, &["a#3"])?;
+        let w = child.with_uid(3)?;
+        Ok(format!("equal={} {}", w == child, path(&w)))
+    });
+    c.run("NAV-05 parent and root of the root", || {
+        let r = root(mysys);
+        Ok(format!(
+            "parent {} | root {}",
+            path(&r.parent()),
+            path(&r.root_path())
+        ))
+    });
+    c.run("NAV-06 parent and root of a child", || {
+        let child = at(mysys, &["a#7", "b#4"])?;
+        Ok(format!(
+            "parent {} | grandparent {} | root {}",
+            path(&child.parent()),
+            path(&child.parent().parent()),
+            path(&child.root_path())
+        ))
+    });
 
     let c7 = at(mysys, &["user", "foo#7"])?;
     let other = a("pekko", "other");

@@ -50,6 +50,20 @@ def failed_once(on_post_restart_failure):
             TELL("k", "after"), EV("k", 6), TELL("p", "alive"), EV("p", 7), NOW("k"), NOW("p")]
 
 
+# SupervisorTreeSpec's order: `middle` is restored, and only then `last` is asked to restart
+CASES["sv-three-levels-order"] = [
+    *S("head", supervisor=TREE), keeper("head", "middle", supervisor=TREE), keeper("middle", "last", supervisor=TREE), EV("last", 1),
+    KILL("middle"), {"op": "await-life", "count": 9, "before": [["middle:pre-restart", "last:pre-restart"],
+                                                             ["middle:post-restart", "last:pre-restart"]]}]
+# FailedFatally outlives the recovery: later failures skip `preRestart`, and a later `Resume` is still turned into a restart
+FATAL_AGAIN = {"decider": {"boom": "restart", POST_RESTART_TEXT: "restart", "boom2": "resume", "boom3": "restart"}}
+CASES["sv-fatal-again"] = [
+    {"op": "subscribe", "channel": "errors", "prefix": "changing ", "as": "er"}, *S("g", supervisor=FATAL_AGAIN),
+    keeper("g", "p", throw_on=["boom", "boom2", "boom3"], throw_in_post_restart="once"), TELL("p", "boom"), EV("p", 6),
+    TELL("p", "recovered"), EV("p", 7), TELL("p", "boom2"), EV("p", 10), EV("er", 1), TELL("p", "boom3"), EV("p", 13),
+    TELL("p", "alive"), EV("p", 14), {"op": "await-quiet", "target": "er", "count": 1, "ms": 300}, NOW("p")]
+
+
 CASES["sv-postrestart-once"] = failed_once("restart")
 # `Resume` of an actor that failed fatally is turned into a restart
 CASES["sv-fatal-resume"] = failed_once("resume")

@@ -7,17 +7,17 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Módulo | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
-| Classic (`rakka-actor`) | 521 | 53 | 136 | 332 | 4 | 10.2 % | 36.3 % |
+| Classic (`rakka-actor`) | 521 | 58 | 131 | 332 | 4 | 11.1 % | 36.3 % |
 | Typed (`rakka-actor-typed`) | 260 | 0 | 0 | 260 | 0 | 0.0 % | 0.0 % |
-| **Total** | 781 | 53 | 136 | 592 | 4 | 6.8 % | 24.2 % |
+| **Total** | 781 | 58 | 131 | 592 | 4 | 7.4 % | 24.2 % |
 
 ## Por ola
 
 | Ola | En alcance | done | partial | pending | excluded | % done | % done + partial |
 |---|---|---|---|---|---|---|---|
 | 0 - valores sin runtime | 57 | 37 | 19 | 1 | 4 | 64.9 % | 98.2 % |
-| 1 - configuracion, eventos y scheduler | 70 | 8 | 42 | 20 | 0 | 11.4 % | 71.4 % |
-| 2 - nucleo del runtime Classic | 134 | 8 | 58 | 68 | 0 | 6.0 % | 49.3 % |
+| 1 - configuracion, eventos y scheduler | 70 | 10 | 40 | 20 | 0 | 14.3 % | 71.4 % |
+| 2 - nucleo del runtime Classic | 134 | 11 | 55 | 68 | 0 | 8.2 % | 49.3 % |
 | 3 - sistema, proveedor, referencias y extensiones | 45 | 0 | 16 | 29 | 0 | 0.0 % | 35.6 % |
 | 4 - patrones, routers y logging | 81 | 0 | 0 | 81 | 0 | 0.0 % | 0.0 % |
 | 5 - apagado, serializacion e IO | 84 | 0 | 1 | 83 | 0 | 0.0 % | 1.2 % |
@@ -30,7 +30,7 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 
 | Unidad | Ola | En alcance | done | partial | pending | excluded | % done | % done + partial | Áreas comparadas |
 |---|---|---|---|---|---|---|---|---|---|
-| P01 PATH | 1 | 16 | 7 | 9 | 0 | 0 | 43.8 % | 100.0 % | sí |
+| P01 PATH | 1 | 16 | 9 | 7 | 0 | 0 | 56.2 % | 100.0 % | sí |
 | P02 UTIL-NUCLEO | 0 | 8 | 7 | 1 | 0 | 1 | 87.5 % | 100.0 % | sí |
 | P03 UTIL-ESTRUCTURAS | 0 | 16 | 14 | 2 | 0 | 0 | 87.5 % | 100.0 % | sí |
 | P04 UTIL-BYTES | 0 | 9 | 4 | 5 | 0 | 0 | 44.4 % | 100.0 % | sí |
@@ -51,8 +51,8 @@ Generado por `tools/package/generate.py` desde `docs/inventory/actor-*.tsv` (col
 | P19 CELL-EJECUCION | 2 | 11 | 0 | 4 | 7 | 0 | 0.0 % | 36.4 % | sí |
 | P20 SUP-ESTRATEGIAS | 2 | 10 | 0 | 7 | 3 | 0 | 0.0 % | 70.0 % | sí |
 | P21 SUP-FALLO | 2 | 11 | 1 | 7 | 3 | 0 | 9.1 % | 72.7 % | sí |
-| P22 CELL-REINICIO-PARADA | 2 | 21 | 3 | 14 | 4 | 0 | 14.3 % | 81.0 % | sí |
-| P23 DW-VIGILANCIA | 2 | 13 | 3 | 6 | 4 | 0 | 23.1 % | 69.2 % | parcial |
+| P22 CELL-REINICIO-PARADA | 2 | 21 | 5 | 12 | 4 | 0 | 23.8 % | 81.0 % | sí |
+| P23 DW-VIGILANCIA | 2 | 13 | 4 | 5 | 4 | 0 | 30.8 % | 69.2 % | parcial |
 | P24 MBX-STASH | 2 | 5 | 0 | 0 | 5 | 0 | 0.0 % | 0.0 % | sí |
 | P25 SYS-GUARDIANES | 3 | 12 | 0 | 4 | 8 | 0 | 0.0 % | 33.3 % | sí |
 | P26 SYS-PROVEEDOR | 3 | 8 | 0 | 3 | 5 | 0 | 0.0 % | 37.5 % | sí |
@@ -123,7 +123,7 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | Área | En alcance | done | partial | pending | excluded | % done | % done + partial | Comparada |
 |---|---|---|---|---|---|---|---|---|
 | AC-ASK | 30 | 0 | 0 | 30 | 0 | 0.0 % | 0.0 % | no |
-| AC-CELL | 39 | 1 | 22 | 16 | 0 | 2.6 % | 59.0 % | sí |
+| AC-CELL | 39 | 2 | 21 | 16 | 0 | 5.1 % | 59.0 % | sí |
 | AC-CFG | 29 | 0 | 26 | 3 | 0 | 0.0 % | 89.7 % | no |
 | AC-CS | 15 | 0 | 0 | 15 | 0 | 0.0 % | 0.0 % | no |
 | AC-DSP | 25 | 0 | 3 | 22 | 0 | 0.0 % | 12.0 % | sí |
@@ -134,12 +134,12 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 | AC-IO | 35 | 0 | 0 | 35 | 0 | 0.0 % | 0.0 % | no |
 | AC-JAPI | 21 | 0 | 0 | 21 | 0 | 0.0 % | 0.0 % | no |
 | AC-MBX | 23 | 0 | 8 | 15 | 0 | 0.0 % | 34.8 % | sí |
-| AC-PATH | 16 | 7 | 9 | 0 | 0 | 43.8 % | 100.0 % | sí |
+| AC-PATH | 16 | 9 | 7 | 0 | 0 | 56.2 % | 100.0 % | sí |
 | AC-REF | 32 | 1 | 13 | 18 | 0 | 3.1 % | 43.8 % | sí |
 | AC-RT | 22 | 0 | 0 | 22 | 0 | 0.0 % | 0.0 % | no |
 | AC-SCH | 17 | 0 | 7 | 10 | 0 | 0.0 % | 41.2 % | no |
 | AC-SER | 23 | 0 | 0 | 23 | 0 | 0.0 % | 0.0 % | no |
-| AC-SUP | 22 | 1 | 16 | 5 | 0 | 4.5 % | 77.3 % | sí |
+| AC-SUP | 22 | 3 | 14 | 5 | 0 | 13.6 % | 77.3 % | sí |
 | AC-SYS | 27 | 0 | 7 | 20 | 0 | 0.0 % | 25.9 % | sí |
 | AC-TK | 27 | 0 | 0 | 27 | 0 | 0.0 % | 0.0 % | no |
 | AC-UTIL | 65 | 38 | 20 | 7 | 4 | 58.5 % | 89.2 % | sí |
@@ -173,8 +173,8 @@ Un área figura como comparada cuando se contrastaron las aserciones de cada una
 
 ## Filas con nota «revisar contra 2.0.0»
 
-540 filas (25 done, 87 partial, 428 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
+540 filas (27 done, 85 partial, 428 pending): su texto citado cambió entre 1.7.1 y 2.0.0 (ver `docs/inventory/pekko-2.0.0-reanchor.md`). Se revisan cuando un slice toma su unidad; su estado no se tocó al reanclar.
 
 ## Casos grabados y filas que cubren
 
-`cases/coverage.tsv` declara las filas que cubre cada uno de los 3110 casos (`tools/parity/apply_comparison.py`). Base `cited`: el caso lo cita una fila comparada; `same-group`: hereda las filas de su grupo de nombres; `none`: **251 casos sin fila asignada**, a mapear cuando un slice tome su unidad.
+`cases/coverage.tsv` declara las filas que cubre cada uno de los 3119 casos (`tools/parity/apply_comparison.py`). Base `cited`: el caso lo cita una fila comparada; `same-group`: hereda las filas de su grupo de nombres; `none`: **251 casos sin fila asignada**, a mapear cuando un slice tome su unidad.

@@ -82,6 +82,10 @@ final class Scenario {
       return "{\"identity\":" + msgJson(i.correlationId()) + ",\"ref\":"
           + (i.ref().isDefined() ? Cli.Json.str(i.ref().get().path().toString()) : "null") + "}";
     }
+    // a system message is private to Pekko, so a subscriber cannot name it: `?`, as the Rust harness renders what it cannot name
+    // (`Failed` keeps its class: the harness names it)
+    if (m instanceof org.apache.pekko.dispatch.sysmsg.SystemMessage && !(m instanceof org.apache.pekko.dispatch.sysmsg.Failed))
+      return "{\"class\":\"?\"}";
     return m instanceof String ? Cli.Json.str((String) m) : "{\"class\":" + Cli.Json.str(m.getClass().getName()) + "}";
   }
 
@@ -242,6 +246,10 @@ final class Scenario {
     @Override public void postStop() {
       ctx.add(label, "{\"ev\":\"post-stop\"" + senderIfLogged() + "}");
       ctx.life.add(label + ":post-stop");
+      // `post-stop-gate`: wait for the harness `release`
+      if (Boolean.TRUE.equals(cfg.get("post-stop-gate"))) { try { ctx.gate.await(); } catch (InterruptedException e) { throw new RuntimeException(e); } }
+      // `post-stop-reply: message`: sent to `sender()`
+      if (cfg.get("post-stop-reply") != null) getSender().tell(cfg.get("post-stop-reply"), getSelf());
       if (cfg.get("post-stop-spawn") != null) { // creating a child while terminating
         String r;
         try { r = "\"ok\":true," + refJson(getContext().actorOf(Props.create(Noop.class), (String) cfg.get("post-stop-spawn"))); }
@@ -333,7 +341,12 @@ final class Scenario {
           for (long i = 0; i < (Long) cfg.get("count"); i++) to.tell(cfg.get("prefix") + "-" + i, getSelf());
           break;
         }
-        case "gate": if (m.equals("block")) { try { ctx.gate.await(); } catch (InterruptedException e) { throw new RuntimeException(e); } } break;
+        case "gate":
+          if (m.equals("block")) {
+            try { ctx.gate.await(); } catch (InterruptedException e) { throw new RuntimeException(e); }
+            if (Boolean.TRUE.equals(cfg.get("throw-after-gate"))) throw new IllegalStateException((String) m); // `throw-after-gate`
+          }
+          break;
         default: break;
       }
     }
@@ -526,6 +539,10 @@ final class Scenario {
             ctx.sent.get(target).add(m);
             ref(ctx, target).tell(m, from);
           }
+          return head + ",\"ok\":true}";
+        }
+        case "tell-dead-letter": { // a `DeadLetter`, which the dead-letter mailbox of a stopped actor drops
+          ref(ctx, (String) st.get("ref")).tell(new DeadLetter("wrapped", system.deadLetters(), system.deadLetters()), ActorRef.noSender());
           return head + ",\"ok\":true}";
         }
         case "release": {
