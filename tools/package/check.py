@@ -37,6 +37,15 @@ for p in glob.glob("docs/inventory/contracts/*.md") + ["docs/inventory/actor-cla
     for q in set(re.findall(r'Q-(?:T-)?[A-Z]+-\d+', open(p, encoding="utf-8").read())):
         check(q in reg or q in ALIAS, f"{p}: undefined decision {q}")
 check(all(x[2] in ("proposed", "blocking", "accepted", "accepted_with_changes", "rejected", "group") for x in reg.values()), "register: bad status")
+# rows closed without own implementation: `documented` needs done and the marker; the marker needs an accepted decision
+from closures import marker
+for i, r in rows.items():
+    found = marker(r)
+    if r["validation"] == "documented":
+        check(r["impl"] == "done", f"{i}: validation=documented needs impl=done")
+        check(found is not None, f"{i}: validation=documented needs the closure marker")
+    if found:
+        check(reg.get(found[1], ["", "", ""])[2] in ("accepted", "accepted_with_changes"), f"{i}: closure marker cites {found[1]}, which the Owner has not accepted")
 # rows assigned to a spec; specs <= 5 tasks
 mapped = {x[0]: x for x in R("docs/contract-map.tsv")[1:]}
 check(set(mapped) == set(rows), "contract-map.tsv does not cover exactly the inventory rows")
