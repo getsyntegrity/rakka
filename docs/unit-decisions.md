@@ -284,11 +284,12 @@
 
 ## P18 CELL-HIJOS
 
-6 filas; 2 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 2 propuestas.
+6 filas; 3 decisiones distintas en sus filas: 0 respondidas, 0 bloqueantes, 3 propuestas.
 
 | Decisión | Estado | Filas de la unidad que la citan | Ficha: bloquea | Ficha: puede avanzar | Fuente |
 |---|---|---|---|---|---|
 | Q-MBX-11 | propuesta | 1: AC-CELL-015.1 | — | — | `classic-dispatch` |
+| Q-REF-13 | propuesta | 1: AC-REF-010 | Bloquea el cierre de AC-REF-010. | — | `classic-cell` |
 | Q-REF-6 | propuesta | 1: AC-REF-019 | Bloquea: la validación (no la `impl`) de AC-REF-001.x, AC-REF-019 y AC-CELL-031. | Puede avanzar: toda la implementación. | `classic-cell` |
 
 ## P19 CELL-EJECUCION
@@ -1113,4 +1114,4 @@ Una agrupación (estado `group`) no admite respuesta ni impide cerrar. Estas fil
 
 ## Totales
 
-Total de pares unidad–decisión: 556 (274 respondidas, 0 bloqueantes, 282 propuestas).
+Total de pares unidad–decisión: 557 (274 respondidas, 0 bloqueantes, 283 propuestas).

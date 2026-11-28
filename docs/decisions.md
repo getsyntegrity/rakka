@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 285 decisiones: 0 bloqueantes, 193 propuestas, 69 aceptadas, 20 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 286 decisiones: 0 bloqueantes, 194 propuestas, 69 aceptadas, 20 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -1097,6 +1097,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Recomendación:** (a). Consecuencia: no hay StackOverflowError ni copias repetidas; recursar en Rust abortaría el proceso. Dos sistemas que se suscriban mutuamente sus deadLetters siguen recursando. Bloquea el cierre de AC-EVT-006.
 - **Filas afectadas:** AC-EVT-006
 - **Unidades afectadas:** EVT
+- **Origen:** classic-cell
+
+### Q-REF-13 — Cómo se acredita child/getChild/findChild/children donde la API de Rakka no deja observar lo mismo que Pekko
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:46-57 (child = Option(getChild), findChild = Optional.ofNullable(getChild)) ; actor/src/main/scala/org/apache/pekko/actor/ActorCell.scala:157-167 (Pekko advierte que children y child no son thread-safe ni deben usarse fuera del hilo que procesa los mensajes del actor) ; crates/rakka-actor/src/actor/props.rs ActorContext ; cases cn-existence-of-children, cn-reserved-name
+- **Alternativas:** (a) Rakka sólo tiene `child() -> Option`, y getChild/findChild se acreditan por la fuente y, para findChild de un hijo existente, por el golden oracle-only MBX-AC-01 (childFound=true, que el twin Rust asegura con child()); ningún caso graba getChild ni findChild de un nombre ausente, y un arnés Rust sólo podría copiar el resultado de child() en los tres, copias que no son evidencia; un nombre reservado se acredita con evidencia indirecta, por actorSelection (directa y con comodín, no por ActorContext) y el test del contenedor; la lectura desde fuera del actor no se expresa (conducta actual) / (b) añadir los alias y una API para leer los hijos desde fuera del actor
+- **Recomendación:** (a). Consecuencia: el código de Pekko que lee `context` desde otro hilo (no soportado según su propia advertencia) o de forma reentrante durante actorOf no tiene equivalente. Bloquea el cierre de AC-REF-010.
+- **Filas afectadas:** AC-REF-010
+- **Unidades afectadas:** REF
 - **Origen:** classic-cell
 
 ### Q-RT-1 — Routing en el hilo del emisor y Router inmutable: mensajes dinamicos y estado atomico

@@ -3213,6 +3213,10 @@ gf-kill-system	scenario-guardian-failure	AC-SUP-014	cited
 gf-kill-user	scenario-guardian-failure	AC-SUP-014,AC-SYS-008	cited
 dl-sysmsg-after-close	scenario-closed-cell	AC-CELL-013.3	cited
 dl-sysmsg-pending-close	scenario-closed-cell	AC-CELL-013.3	cited
+cn-reserved-name	scenario-child-races	AC-REF-009.2,AC-REF-010	cited
+cnc-four-at-once-100-names	scenario-child-races	AC-REF-009.2	cited
+cnc-held-name-4-refused	scenario-child-races	AC-REF-009.2	cited
+cnc-held-name-16-refused	scenario-child-races	AC-REF-009.2	cited
 gs-stop-spec	scenario-guardian-strategy	AC-SYS-008,AC-SUP-005	cited
 gs-stop-children	scenario-guardian-strategy	AC-SYS-008,AC-SUP-005	cited
 gs-stop-error-escalates	scenario-guardian-strategy	AC-SUP-005	cited
@@ -3248,3 +3252,8 @@ gsc-manager-workers	scenario-guardian-strategy	AC-SUP-007,AC-SUP-008	cited
 rt-death-pact-order	scenario-ref-text	AC-CELL-004,AC-DW-007	cited
 rt-incarnation-text	scenario-ref-text	AC-DW-007	cited
 rt-guardians-unhandled	scenario-ref-text	AC-CELL-004,AC-SUP-014	cited
+cn-duplicate-in-one-message	scenario-child-names	AC-REF-009.2	cited
+cn-stop-then-recreate-same-turn	scenario-child-names	AC-REF-009.2,AC-CELL-015.1	cited
+cn-terminated-unprocessed-keeps-name	scenario-child-names	AC-REF-009.2,AC-CELL-015.1,AC-REF-010	cited
+cn-children-in-name-order	scenario-child-names	AC-REF-010	cited
+cn-existence-of-children	scenario-child-names	AC-REF-010	cited
