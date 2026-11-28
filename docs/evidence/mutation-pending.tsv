@@ -75,3 +75,4 @@ pr	head	mutants_selected	new_mutants	executed	pending	status
 #461	afe07564	408	none	none	408 not run (Q-X-23)	PENDING
 slice/classic-system-mailbox-specs-1	851e860a	408	none	none	408 not run (Q-X-23)	PENDING
 #462	9db36ff6	408	none	none	408 not run (Q-X-23)	PENDING
+slice/classic-lifecycle-specs-2	a2e03883	408	none	none	408 not run (Q-X-23)	PENDING
