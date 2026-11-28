@@ -866,6 +866,12 @@ fn path_cases(c: &mut Cases, mysys: &Address) -> Result<(), JavaErr> {
             path(&child.root_path())
         ))
     });
+    // CC: the ChildActorPath constructor itself: no `#uid` split
+    for n in ["a#b", "a#1", "#", "a#", "a/b", "a#/b", "/#", "", "a b?$..%"] {
+        c.run(format!("CC [{n}]"), || {
+            Ok(path(&root(mysys).child_with_uid(n, 7)?))
+        });
+    }
 
     let c7 = at(mysys, &["user", "foo#7"])?;
     let other = a("pekko", "other");

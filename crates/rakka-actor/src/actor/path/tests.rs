@@ -302,6 +302,28 @@ fn child_splits_name_and_uid() {
     }
 }
 
+/// `new ChildActorPath(parent, name, uid)` (CC-*): no `#uid` split, so both separators are refused, `/` first.
+#[test]
+fn the_child_constructor_refuses_a_name_with_a_slash_or_a_hash() {
+    let root = ActorPath::root(mysys());
+    for name in ["a#b", "a#1", "#", "a#"] {
+        assert_eq!(
+            root.child_with_uid(name, 7).unwrap_err().message(),
+            format!("# is a fragment separator and is not legal in ActorPath names: [{name}]")
+        );
+    }
+    for name in ["a/b", "a#/b", "/#"] {
+        assert_eq!(
+            root.child_with_uid(name, 0).unwrap_err().message(),
+            format!("/ is a path separator and is not legal in ActorPath names: [{name}]")
+        );
+    }
+    for name in ["", "a b", "$a", "..", "a?%"] {
+        let child = root.child_with_uid(name, -3).unwrap();
+        assert_eq!((child.name(), child.uid()), (name, -3));
+    }
+}
+
 #[test]
 fn descendant_skips_empty_names() {
     // DS-*

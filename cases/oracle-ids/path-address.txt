@@ -407,3 +407,12 @@ UID-08 root.withUid(0) value
 UID-09 child#3.withUid(3) value
 NAV-05 parent and root of the root
 NAV-06 parent and root of a child
+CC [a#b]
+CC [a#1]
+CC [#]
+CC [a#]
+CC [a/b]
+CC [a#/b]
+CC [/#]
+CC []
+CC [a b?$..%]

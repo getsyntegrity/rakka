@@ -47,6 +47,9 @@ BAD = ["$a", "$", "$$", "a b", " a", "a ", "a/b", "/a", "a#b", "a?b", "a[b]", "a
 for i, n in enumerate(BAD):
     case(f"name-bad-{i}", "sys", [named(n)])
 case("name-empty", "sys", [named("")])
+# the literal names of LocalActorRefProviderSpec.scala:170-197 (`""` is name-empty; `null` cannot be expressed, Q-PATH-4)
+for i, n in enumerate(["$hallo", "a%", "%3", "%xx", "%0G", "%gg", "%", "%1t", "a?", "üß", 'he"llo', "$hello", "hell>o"]):
+    case(f"name-spec-{i}", "sys", [named(n)])
 
 # --- uniqueness and anonymous names ----------------------------------------------------------
 case("dup-same-name", "sys", [named("a", "a"), named("a")])

@@ -400,3 +400,12 @@
 {"name": "pa-0400", "args": ["path-address-case"], "stdin": "UID-09 child#3.withUid(3) value"}
 {"name": "pa-0401", "args": ["path-address-case"], "stdin": "NAV-05 parent and root of the root"}
 {"name": "pa-0402", "args": ["path-address-case"], "stdin": "NAV-06 parent and root of a child"}
+{"name": "pa-0403", "args": ["path-address-case"], "stdin": "CC [a#b]"}
+{"name": "pa-0404", "args": ["path-address-case"], "stdin": "CC [a#1]"}
+{"name": "pa-0405", "args": ["path-address-case"], "stdin": "CC [#]"}
+{"name": "pa-0406", "args": ["path-address-case"], "stdin": "CC [a#]"}
+{"name": "pa-0407", "args": ["path-address-case"], "stdin": "CC [a/b]"}
+{"name": "pa-0408", "args": ["path-address-case"], "stdin": "CC [a#/b]"}
+{"name": "pa-0409", "args": ["path-address-case"], "stdin": "CC [/#]"}
+{"name": "pa-0410", "args": ["path-address-case"], "stdin": "CC []"}
+{"name": "pa-0411", "args": ["path-address-case"], "stdin": "CC [a b?$..%]"}

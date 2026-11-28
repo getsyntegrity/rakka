@@ -401,6 +401,15 @@ pa-0399	path-address	UID-08 root.withUid(0) value
 pa-0400	path-address	UID-09 child#3.withUid(3) value
 pa-0401	path-address	NAV-05 parent and root of the root
 pa-0402	path-address	NAV-06 parent and root of a child
+pa-0403	path-address	CC [a#b]
+pa-0404	path-address	CC [a#1]
+pa-0405	path-address	CC [#]
+pa-0406	path-address	CC [a#]
+pa-0407	path-address	CC [a/b]
+pa-0408	path-address	CC [a#/b]
+pa-0409	path-address	CC [/#]
+pa-0410	path-address	CC []
+pa-0411	path-address	CC [a b?$..%]
 uc-0001	util-core	TO-01 Timeout.zero
 uc-0002	util-core	TO-02 Timeout(3, NANOSECONDS)
 uc-0003	util-core	TO-MAX NANOSECONDS

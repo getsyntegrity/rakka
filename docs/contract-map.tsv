@@ -104,7 +104,7 @@ AC-PATH-004	PATH	classic	AC-PATH-1	1	extracted	partial	actor-tests/src/test/scal
 AC-PATH-005	PATH	classic	AC-PATH-1	1	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/RelativeActorPathSpec.scala:27-40	casos rust-anything contra Pekko 2.0.0 (	Q-PATH-6,Q-PATH-7	docs/inventory/contracts/classic-foundation.md
 AC-PATH-006	PATH	classic	AC-PATH-1	1	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:26-49	casos rust-anything contra Pekko 2.0.0 (	Q-PATH-6	docs/inventory/contracts/classic-foundation.md
 AC-PATH-007	PATH	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:26-57	existente	Q-PATH-4,Q-PATH-6	docs/inventory/contracts/classic-foundation.md
-AC-PATH-008	PATH	classic	AC-PATH-1	1	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:80-83 ;…	casos rust-anything contra Pekko 2.0.0 (	Q-PATH-2,Q-PATH-4	docs/inventory/contracts/classic-foundation.md
+AC-PATH-008	PATH	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:80-83 ;…	existente	Q-PATH-2,Q-PATH-4	docs/inventory/contracts/classic-foundation.md
 AC-PATH-009	PATH	classic	(implementada)		extracted	done	derivada del código	existente	Q-PATH-5	docs/inventory/contracts/classic-foundation.md
 AC-PATH-010	PATH	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:59-70 ;…	existente		docs/inventory/contracts/classic-foundation.md
 AC-PATH-011	PATH	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:26-29 ;…	existente	Q-PATH-6	docs/inventory/contracts/classic-foundation.md
@@ -112,7 +112,7 @@ AC-PATH-012	PATH	classic	(implementada)		extracted	done	actor-tests/src/test/sca
 AC-PATH-013	PATH	classic	(implementada)		extracted	done	actor-tests/src/test/scala/org/apache/pekko/actor/ActorPathSpec.scala:59-78,162-184	existente		docs/inventory/contracts/classic-foundation.md
 AC-PATH-014	PATH	classic	(implementada)		extracted	done	derivada del código	existente	Q-PATH-3,Q-PATH-6,Q-UTIL-14	docs/inventory/contracts/classic-foundation.md
 AC-PATH-015	PATH	classic	AC-PATH-1	1	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/pattern/AskSpec.scala:248 ;…	casos rust-anything contra Pekko 2.0.0 (		docs/inventory/contracts/classic-foundation.md
-AC-PATH-016	PATH	classic	AC-PATH-1	1	extracted	partial	derivada del código	casos rust-anything contra Pekko 2.0.0 (		docs/inventory/contracts/classic-foundation.md
+AC-PATH-016	PATH	classic	(implementada)		extracted	done	derivada del código	existente		docs/inventory/contracts/classic-foundation.md
 AC-REF-001.1	REF	classic	AC-REF-1	4	extracted	partial	actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:124-148	casos rust-anything contra Pekko 2.0.0 (	Q-REF-6	docs/inventory/contracts/classic-cell.md
 AC-REF-001.2	REF	classic	AC-REF-1	4	extracted	pending	derivada del código	casos rust-anything contra Pekko 2.0.0 (	Q-REF-6	docs/inventory/contracts/classic-cell.md
 AC-REF-001.3	REF	classic	AC-REF-1	4	extracted	pending	actor-tests/src/test/scala/org/apache/pekko/actor/ActorSelectionSpec.scala:139-143,346-349 ;…	casos rust-anything contra Pekko 2.0.0 (		docs/inventory/contracts/classic-cell.md

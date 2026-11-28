@@ -2489,6 +2489,12 @@ MUTANTS = {
         "        drop(replaced_mailbox);",
         "a panicking `Drop` of a mailbox type a deployment replaces fails the parent with the child name reserved (killed by tests/classic_mailbox_spi_failure.rs, see UNIT_MUTANTS)",
     ),
+    "child-constructor-accepts-a-hash": (
+        "src/actor/path.rs",
+        "        if name.contains('#') {\n            return Err(IllegalArgumentError::new(format!(\n                \"# is a fragment separator and is not legal in ActorPath names: [{name}]\"",
+        "        if false {\n            return Err(IllegalArgumentError::new(format!(\n                \"# is a fragment separator and is not legal in ActorPath names: [{name}]\"",
+        "the ChildActorPath constructor builds a name holding `#`, which serializes as a name plus a bogus uid (AC-PATH-016)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.

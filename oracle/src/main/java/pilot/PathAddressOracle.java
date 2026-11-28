@@ -459,5 +459,8 @@ final class PathAddressOracle {
     run("UID-09 child#3.withUid(3) value", () -> { ActorPath c = root(mysys).$div("a#3"); ActorPath w = c.withUid(3); return "equal=" + w.equals(c) + " " + path(w); });
     run("NAV-05 parent and root of the root", () -> { ActorPath r = root(mysys); return "parent " + path(r.parent()) + " | root " + path(r.root()); });
     run("NAV-06 parent and root of a child", () -> { ActorPath c = root(mysys).$div("a#7").$div("b#4"); return "parent " + path(c.parent()) + " | grandparent " + path(c.parent().parent()) + " | root " + path(c.root()); });
+    // CC: the ChildActorPath constructor itself (private[pekko] in Scala, public in bytecode): no `#uid` split
+    for (String n : new String[] {"a#b", "a#1", "#", "a#", "a/b", "a#/b", "/#", "", "a b?$..%"})
+      run("CC [" + n + "]", () -> path(new ChildActorPath(root(mysys), n, 7)));
   }
 }
