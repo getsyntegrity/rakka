@@ -12,5 +12,5 @@ Comando de cada paso: `cargo test -q -p rakka-actor --test classic_guardian_stra
    `error[E0609]: no field 'supervisor_strategies' on type 'rakka_actor::actor::system::Settings'`.
    GREEN de 2 y 3 con `SupervisorStrategies`: `3 passed; 0 failed`.
 
-Caracterización (pasaron a la primera, no son RED): la prueba de los dos configuradores, la de `/system`,
-`guardian_failure_tests` con MBX-GRD-05, los casos grabados y las aserciones del `Error` publicado añadidas en la revisión.
+Caracterización (pasaron a la primera, no son RED): la prueba de los dos configuradores y las aserciones del `Error`
+publicado añadidas en la revisión.
