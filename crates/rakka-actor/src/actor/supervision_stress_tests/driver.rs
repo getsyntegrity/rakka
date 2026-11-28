@@ -2,24 +2,31 @@
 //! The spec's `StressTest` FSM, run by the test thread in phases. One deadline bounds the whole run of a seed (the spec's 90 s) and
 //! every failure names the seed. `children` is only appended to, so the final "no undead" check covers every reference ever reported.
 
-use super::{PingOfDeath, World, hierarchy};
+use super::{Failure, PingOfDeath, World, hierarchy, unwrapped};
 use crate::actor::actor_ref::ActorRef;
+use crate::actor::fault::Throwable;
 use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
+use crate::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
 use crate::actor::system::ActorSystem;
 use crate::dispatch::Terminated;
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::SeqCst};
 use std::sync::mpsc::{Receiver, channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const SIZE: usize = 500;
+const ACTIONS: usize = 5000;
 const SEEDS: [u64; 3] = [0x9E37_79B9, 0xD1B5_4A32, 0x2545_F491];
 const DEADLINE: Duration = Duration::from_secs(90);
 
-/// What the driver is told.
+/// What the driver is told. `NotResumed` (stopped while failed or suspended) is an error only while the tree is being stopped.
 pub(super) enum Event {
     Ready(ActorRef),
+    Died(String),
     Pong(ActorRef),
+    NotResumed(String),
+    Broken(String),
     HeadTerminated,
 }
 
@@ -33,16 +40,60 @@ impl Random {
         self.0 ^= self.0 << 17;
         (self.0 % bound as u64) as usize
     }
+
+    /// The spec's `random012`: 0 nine times in ten, 1 in 7 %, 2 in 3 %.
+    fn rarely(&mut self) -> u32 {
+        match self.below(100) {
+            10.. => 0,
+            3.. => 1,
+            _ => 2,
+        }
+    }
+
+    fn failure(&mut self) -> Failure {
+        let directive = if self.below(2) == 0 {
+            Directive::Restart
+        } else {
+            Directive::Resume
+        };
+        let stop = self.rarely() > 0;
+        let depth = self.rarely();
+        let fail_pre = AtomicU32::new(self.rarely());
+        let fail_post = AtomicU32::new(self.rarely());
+        let fail_constr = self.rarely();
+        let stop_kids = match self.rarely() {
+            0 => 0,
+            1 => self.below(super::BREADTH / 2),
+            _ => 1000,
+        };
+        Failure {
+            directive,
+            stop,
+            depth,
+            fail_pre,
+            fail_post,
+            fail_constr,
+            stop_kids,
+        }
+    }
 }
 
-/// The spec's FSM actor as the supervisor of the head.
+/// The spec's FSM actor as the supervisor of the head: it does not escalate.
 struct Boss(Arc<World>);
 
 impl Actor for Boss {
     fn pre_start(&mut self, ctx: &mut ActorContext) {
-        let props = hierarchy(&self.0, SIZE);
+        let props = hierarchy(&self.0, "head".into(), SIZE, 0);
         let head = ctx.actor_of_named(props, "head").unwrap();
         ctx.watch(&head);
+    }
+
+    fn supervisor_strategy(&self) -> SupervisorStrategy {
+        let world = self.0.clone();
+        OneForOneStrategy::new(-1, move |cause: &Throwable| {
+            unwrapped(cause).map_or(Directive::Stop, |id| world.failure(id).directive)
+        })
+        .into()
     }
 
     fn receive(&mut self, _: &mut ActorContext, msg: &AnyMessage) -> bool {
@@ -64,6 +115,7 @@ struct Driver {
     events: Receiver<Event>,
     /// Every reference ever reported; never removed.
     children: Vec<ActorRef>,
+    active: Vec<ActorRef>,
     idle: Vec<ActorRef>,
     pinged: HashSet<String>,
 }
@@ -89,16 +141,37 @@ impl Driver {
         })
     }
 
+    /// Takes what has already been reported.
+    fn drain(&mut self, phase: &str) {
+        while let Ok(event) = self.events.try_recv() {
+            self.check_deadline(phase);
+            self.take(event);
+        }
+    }
+
+    /// Forgets the actor at `path` and everything below it, except in `children`.
+    fn bury(&mut self, path: &str) {
+        let below = format!("{path}/");
+        let alive = |other: &str| !format!("{other}/").starts_with(&below);
+        self.active.retain(|actor| alive(&path_of(actor)));
+        self.idle.retain(|actor| alive(&path_of(actor)));
+        self.pinged.retain(|other| alive(other));
+    }
+
     fn take(&mut self, event: Event) {
         match event {
             Event::Ready(actor) => {
                 self.children.push(actor.clone());
+                self.active.push(actor.clone());
                 self.idle.push(actor);
             }
+            Event::Died(path) => self.bury(&path),
             Event::Pong(actor) => {
                 self.pinged.remove(&path_of(&actor));
                 self.idle.push(actor);
             }
+            Event::NotResumed(_) => {}
+            Event::Broken(what) => panic!("seed {:#x}: {what}", self.seed),
             Event::HeadTerminated => panic!("seed {:#x}: the head stopped by itself", self.seed),
         }
     }
@@ -129,9 +202,41 @@ impl Driver {
         head.unwrap().clone()
     }
 
+    fn stress(&mut self, world: &World, random: &mut Random) {
+        for _ in 0..ACTIONS {
+            self.drain("stressing");
+            while self.idle.is_empty() {
+                let event = self.next("waiting for an idle actor");
+                self.take(event);
+            }
+            self.check_deadline("stressing");
+            if random.below(2) == 0 {
+                let pick = random.below(self.idle.len());
+                self.ping(pick);
+            } else {
+                let target = self.active[random.below(self.active.len())].clone();
+                target.tell(world.add(random.failure()), None);
+            }
+        }
+    }
+
     fn stop(&mut self, head: &ActorRef) {
+        // what was reported before belongs to the earlier phases
+        self.drain("before stopping");
         head.tell(PingOfDeath, None);
-        while !matches!(self.next("stopping"), Event::HeadTerminated) {}
+        loop {
+            match self.next("stopping") {
+                Event::HeadTerminated => break,
+                Event::Broken(what) => panic!("seed {:#x}: {what}", self.seed),
+                Event::NotResumed(path) => {
+                    panic!(
+                        "seed {:#x}: {path} stopped without having been resumed",
+                        self.seed
+                    )
+                }
+                _ => {}
+            }
+        }
         let undead: Vec<_> = self
             .children
             .iter()
@@ -145,14 +250,18 @@ impl Driver {
 fn run(seed: u64) {
     let (out, events) = channel();
     let world = Arc::new(World {
+        failures: Mutex::default(),
+        states: Mutex::default(),
         random: Mutex::new(Random(seed)),
         events: Mutex::new(out),
+        ignore_fail_constr: AtomicBool::new(false),
     });
     let mut driver = Driver {
         seed,
         deadline: Instant::now() + DEADLINE,
         events,
         children: Vec::new(),
+        active: Vec::new(),
         idle: Vec::new(),
         pinged: HashSet::new(),
     };
@@ -161,6 +270,12 @@ fn run(seed: u64) {
     let props = Props::new(move || Boss(boss.clone()));
     system.actor_of_named(props, "stressTest").unwrap();
     let head = driver.init();
+    driver.stress(&world, &mut Random(seed.rotate_left(32)));
+    // Finishing
+    if !driver.pinged.is_empty() {
+        world.ignore_fail_constr.store(true, SeqCst);
+        driver.await_pongs("finishing");
+    }
     // LastPing
     while !driver.idle.is_empty() {
         driver.ping(0);
@@ -176,6 +291,6 @@ fn run(seed: u64) {
 }
 
 #[test]
-fn a_random_tree_answers_every_ping_and_stops_without_an_undead() {
+fn survive_being_stressed() {
     SEEDS.into_iter().for_each(run);
 }
