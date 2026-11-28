@@ -40,12 +40,12 @@ Mismo comando: `2 passed; 0 failed` y `8 passed; 0 failed`.
 RED: `test a_mailbox_type_replaced_by_a_deployment_may_panic_on_drop ... FAILED`
 (`classic_mailbox_spi_failure.rs:176: drop`; `common/mod.rs:18: timed out waiting for the child to receive`; `8 passed; 1 failed`).
 GREEN: `2 passed` y `9 passed`, `0 failed`. La aserción añadida sobre la etiqueta tras el restart pasó a la primera (conducta ya
-implementada): no es un RED. No tiene mutante propio registrado.
+implementada): no es un RED. Su mutante, `replaced-mailbox-type-is-dropped-unguarded`, está registrado y no ejecutado (Q-X-23).
 
 ## Alcance
 
 Son integraciones (sistema, celda, mailbox y supervisión reales; sin dobles de lo que se valida). El plazo acotado es de 10 s.
 Los `AssertUnwindSafe` justificados son los de la frontera de creación y `with_actor`; no tienen test propio.
 
-Mutantes registrados y no ejecutados (Q-X-23): `class-name-is-asked-unguarded`, `failed-creation-drops-props-unguarded`.
+Mutantes registrados y no ejecutados (Q-X-23): `class-name-is-asked-unguarded`, `failed-creation-drops-props-unguarded` y el de la segunda ronda.
 Lo que sigue pendiente de Q-CELL-9 está en las notas de AC-CELL-027 (`docs/inventory/actor-classic.tsv`).

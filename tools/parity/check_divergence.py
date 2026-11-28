@@ -2483,6 +2483,12 @@ MUTANTS = {
         "                Err(thrown)",
         "a panicking `Drop` of the last props keeps the name of a failed child reserved (killed by tests/classic_mailbox_spi_failure.rs, see UNIT_MUTANTS)",
     ),
+    "replaced-mailbox-type-is-dropped-unguarded": (
+        "src/actor/cell.rs",
+        "        drop_guarded(replaced_mailbox);",
+        "        drop(replaced_mailbox);",
+        "a panicking `Drop` of a mailbox type a deployment replaces fails the parent with the child name reserved (killed by tests/classic_mailbox_spi_failure.rs, see UNIT_MUTANTS)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -2605,6 +2611,7 @@ def classify_evaluation(ev):
 UNIT_MUTANTS = {
     "class-name-is-asked-unguarded": ("test:classic_class_name_panic", "an_actor_whose_class_name_panics_works_and_is_reported_by_its_type"),
     "failed-creation-drops-props-unguarded": ("test:classic_mailbox_spi_failure", "props_whose_drop_panics_do_not_keep_the_name_of_a_failed_creation"),
+    "replaced-mailbox-type-is-dropped-unguarded": ("test:classic_mailbox_spi_failure", "a_mailbox_type_replaced_by_a_deployment_may_panic_on_drop"),
     "pool-notifies-while-a-worker-is-already-waking": ("dispatch::thread_pool_tests", "no_second_worker_is_notified_while_one_is_waking"),
     "declared-superclasses-cannot-be-read": ("test:classic_throwable_api", "the_constructors_and_accessors_cover_class_message_and_declared_superclasses"),
     "log-failure-matches-the-class-name-only": ("actor::cell", "subclasses_of_the_initialization_and_invocation_exceptions_are_looked_through"),
