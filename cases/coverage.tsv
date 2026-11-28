@@ -3251,6 +3251,7 @@ gsc-escalate-4	scenario-guardian-strategy	AC-SYS-008,AC-SUP-008	cited
 gsc-manager-workers	scenario-guardian-strategy	AC-SUP-007,AC-SUP-008	cited
 rt-death-pact-order	scenario-ref-text	AC-CELL-004,AC-DW-007	cited
 rt-incarnation-text	scenario-ref-text	AC-DW-007	cited
+rt-guardians-unhandled	scenario-ref-text	AC-CELL-004,AC-SUP-014	cited
 cn-duplicate-in-one-message	scenario-child-names	AC-REF-009.2	cited
 cn-stop-then-recreate-same-turn	scenario-child-names	AC-REF-009.2,AC-CELL-015.1	cited
 cn-terminated-unprocessed-keeps-name	scenario-child-names	AC-REF-009.2,AC-CELL-015.1,AC-REF-010	cited

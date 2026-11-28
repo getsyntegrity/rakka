@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 284 decisiones: 0 bloqueantes, 192 propuestas, 69 aceptadas, 20 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 286 decisiones: 0 bloqueantes, 194 propuestas, 69 aceptadas, 20 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -379,6 +379,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Unidades afectadas:** CELL ; SUP
 - **Origen:** classic-cell
 
+### Q-CELL-11 — Marca NoStackTrace de DeathPactException y ActorKilledException: un decider que clasifica por scala.util.control.NoStackTrace
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:177,281-284 ; crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) sin marca: los Throwable de Rakka no llevan traza y is_a("scala.util.control.NoStackTrace") es falso para las dos / (b) que las clases conocidas DeathPactException y ActorKilledException respondan también is_a("scala.util.control.NoStackTrace") / (c) modelar interfaces en Throwable
+- **Recomendación:** (b), sin implementar. Consecuencia de la conducta actual (a): un decider con `case _: NoStackTrace` atrapa el death pact y el Kill en Pekko y no en Rakka (no hay caso grabado)
+- **Filas afectadas:** AC-CELL-004 ; AC-DW-007
+- **Unidades afectadas:** CELL
+- **Origen:** classic-cell
+
 ### Q-CFG-14 — Includes de HOCON sin classpath: `include "x"`, `classpath(...)`, `url(...)`, `file(...)` y `required(...)` en rakka
 
 - **Estado:** propuesta (sin decisión del Owner)
@@ -646,6 +656,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) conservar el hook is_local en el trait de ref y el topic sin uso local / (b) omitir el topic y el orden / (c) implementarlo completo con un provider simulado
 - **Recomendación:** (a) mínimo: el trait de ref expone is_local y la celda mantiene los conjuntos watching/watchedBy con la lógica de suscripción, aunque sin remote nunca se suscriba [2026-10-31 cierre documental] Clasificación: arquitectura / exclusión de alcance (remote). Resuelto leyendo: sin proveedor remoto `hasNonLocalAddress` es siempre falso, no hay suscripción y `AddressTerminated` no se publica; el hook mínimo (is_local + conjuntos watching/watchedBy + suscripción) permite un remote futuro sin cambiar la celda. Consecuencia: ningún test funcional upstream (sólo el benchmark). Bloquea: `impl` de AC-DW-012 y el orden remoto→local de AC-DW-010. Puede avanzar: el resto de DW (el orden local es el único observable sin remote).
 - **Filas afectadas:** AC-DW-010 ; AC-DW-012
+- **Unidades afectadas:** DW
+- **Origen:** classic-cell
+
+### Q-DW-5 — Accesor público `dead` de DeathPactException
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/Actor.scala:281-284 ; actor-tests/src/test/scala/org/apache/pekko/actor/DeathWatchSpec.scala:239 ; crates/rakka-actor/src/actor/fault.rs ; crates/rakka-actor/src/actor/cell.rs
+- **Alternativas:** (a) `Throwable::dead(&self) -> Option<&ActorRef>`, un campo privado que sólo fija el death pact del runtime y que entra en la igualdad / (b) carga tipada general en Throwable (struct público `DeathPactException { dead }` recuperado por downcast), reutilizable para las demás cargas de AC-SUP-017 / (c) sin accesor, conducta actual: la identidad sólo está en el texto del mensaje
+- **Recomendación:** (a), sin implementar. Un campo y un accesor, en la línea de Q-SUP-7. Consecuencia de (c): un decider no puede hacer `case DeathPactException(ref)` ni comparar el actor muerto sin analizar el texto. Es la misma aserción que AC-SUP-017 A3
+- **Filas afectadas:** AC-DW-007 ; AC-SUP-017
 - **Unidades afectadas:** DW
 - **Origen:** classic-cell
 
