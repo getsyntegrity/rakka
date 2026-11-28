@@ -832,6 +832,11 @@ fn amend_cases(lines: &mut Cases) {
 }
 
 pub fn rust_lines() -> Vec<(String, String)> {
+    rust_lines_for(None)
+}
+
+/// Like [`rust_lines`], but with `only` (an escaped id) no other `SYS` case starts a system.
+pub fn rust_lines_for(only: Option<&str>) -> Vec<(String, String)> {
     let mut lines: Cases = Vec::new();
     defaults(&mut lines);
     dead_letters(&mut lines);
@@ -840,7 +845,7 @@ pub fn rust_lines() -> Vec<(String, String)> {
     serialization_and_shutdown(&mut lines);
     invalid(&mut lines);
     amend_cases(&mut lines);
-    system_cases(&mut lines);
+    system_cases(&mut lines, only);
     lines
 }
 
@@ -887,7 +892,7 @@ fn create_system(name: &str, app: &str) -> R {
 }
 
 /// The cases of `SystemFromConfigOracle.java`, in its order.
-fn system_cases(lines: &mut Cases) {
+fn system_cases(lines: &mut Cases, only: Option<&str>) {
     const CS: &str = "pekko.coordinated-shutdown.";
     const OLD: &str = "pekko.version = \"1.0.0\"\n";
     const BAD_VNF: &str = "pekko.actor.deployment.default.virtual-nodes-factor = abc\n";
@@ -900,7 +905,10 @@ fn system_cases(lines: &mut Cases) {
         )
     };
     let mut case = |label: &str, name: &str, app: &str| {
-        add(lines, format!("SYS {label}"), create_system(name, app));
+        let id = format!("SYS {label}");
+        if only.is_none_or(|wanted| wanted == esc(&id)) {
+            add(lines, id, create_system(name, app));
+        }
     };
     case("the empty configuration", "oracle", "");
     case(
