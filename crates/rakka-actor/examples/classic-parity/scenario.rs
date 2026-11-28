@@ -1033,7 +1033,7 @@ fn watch_with(c: &mut ActorContext, target: &ActorRef, message: &Value) {
     }
 }
 
-/// Renders `ok` or the exception a `watch` / `watch-with` threw, uids redacted, as the oracle does.
+/// Renders `ok` or the exception a `watch` / `watch-with` threw, as the oracle does.
 fn registration(o: &mut String, sp: &Value, register: impl FnOnce()) {
     let Err(thrown) = catch_unwind(AssertUnwindSafe(register)) else {
         o.push_str("\"ok\":true");
@@ -1043,16 +1043,8 @@ fn registration(o: &mut String, sp: &Value, register: impl FnOnce()) {
     o.push_str("\"ok\":false,\"exception\":");
     s(o, thrown.class());
     if sp.get("no-text").is_none() {
-        let text = thrown.message().unwrap_or_default();
-        let redacted: Vec<String> = text
-            .split(']')
-            .map(|part| match part.rsplit_once('#') {
-                Some((head, uid)) if uid.parse::<i64>().is_ok() => format!("{head}#uid"),
-                _ => part.to_owned(),
-            })
-            .collect();
         o.push_str(",\"message\":");
-        s(o, &redacted.join("]"));
+        s(o, thrown.message().unwrap_or_default());
     }
 }
 
@@ -1403,7 +1395,29 @@ pub fn run(text: &str) -> Result<String, String> {
         return Err(e);
     }
     out.push_str("]}");
-    Ok(out)
+    Ok(normalize_uids(out, &ctx.refs.lock().unwrap()))
+}
+
+/// The oracle's `normalizeUids`: uids are random, so the text of a ref the scenario knows, `Actor[path#<its uid>]`, becomes
+/// `Actor[path#uid]` (`#uid:<label>` when several incarnations share the path). A missing or foreign uid stays and diverges.
+fn normalize_uids(mut out: String, refs: &HashMap<String, ActorRef>) -> String {
+    let by_label: BTreeMap<&String, &ActorRef> = refs.iter().collect();
+    for (label, r) in &by_label {
+        let (path, uid) = (r.path().to_string(), r.path().uid());
+        let reused = by_label
+            .values()
+            .any(|o| o.path() == r.path() && o.path().uid() != uid);
+        let token = if reused {
+            format!("uid:{label}")
+        } else {
+            "uid".to_owned()
+        };
+        if uid != 0 {
+            let printed = format!("Actor[{path}#{uid}]");
+            out = out.replace(&printed, &format!("Actor[{path}#{token}]"));
+        }
+    }
+    out
 }
 
 fn lookup(system: &ActorSystem, ctx: &Ctx, label: &str) -> Option<ActorRef> {
