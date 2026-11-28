@@ -1,6 +1,13 @@
 // Derived from Apache Pekko 2.0.0 actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorHierarchySpec.scala (Apache-2.0).
 //! The actors of `SupervisorHierarchySpec` "survive being stressed" (AC-SUP-010): a random tree of 500 actors that is pinged and failed
-//! at random (see `driver`). A characterisation test (no production change). Integration: real actors and dispatcher.
+//! at random (see `driver`). No actor runs a message while failed or suspended, no instance gets `preRestart` twice and a restarted
+//! actor has its children. Integration: real actors and dispatcher; in the crate to read an actor's own suspend count.
+//!
+//! A characterisation test (it passed when written; no production change, no RED). Not ported or not covered: the dedicated `hierarchy`
+//! dispatcher (thread name check, event log of suspend/resume); the log dumps and the `Dump`/`Abort` messages; the 5 s phase timeouts
+//! (one 90 s deadline per seed instead); the FSM's `stressTestStopped`; the length of the run (500000 actions with a random seed, here
+//! 5000 for each of three fixed seeds, which do not fix the interleaving). Nothing here asserts that `changing Resume into Restart`,
+//! `changing Resume into Create` or `changing Recreate into Create` happened.
 
 mod driver;
 
@@ -10,7 +17,7 @@ use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use crate::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
 use crate::dispatch::Terminated;
 use driver::{Event, Random};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::SeqCst};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -62,6 +69,8 @@ struct State {
 struct World {
     failures: Mutex<Vec<Arc<Failure>>>,
     states: Mutex<HashMap<String, State>>,
+    /// The failure branches the run went through, to prove that it reached all of them.
+    hits: Mutex<BTreeSet<&'static str>>,
     random: Mutex<Random>,
     events: Mutex<Sender<Event>>,
     ignore_fail_constr: AtomicBool,
@@ -74,6 +83,10 @@ impl World {
 
     fn states(&self) -> MutexGuard<'_, HashMap<String, State>> {
         self.states.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn hit(&self, branch: &'static str) {
+        self.hits.lock().unwrap().insert(branch);
     }
 
     fn failure(&self, id: usize) -> Arc<Failure> {
@@ -145,6 +158,7 @@ fn hierarchy(world: &Arc<World>, path: String, size: usize, level: usize) -> Pro
             })
         });
         if let Some(id) = due {
+            world.hit("constructor threw");
             throw_failure(id);
         }
         Hierarchy {
@@ -177,6 +191,7 @@ impl Hierarchy {
     fn replace(&self, ctx: &mut ActorContext, name: &str, size: usize) {
         let path = ctx.self_ref().path().to_string();
         self.world.send(Event::Died(format!("{path}/{name}")));
+        self.world.hit("child created again");
         self.spawn(ctx, name, size);
     }
 
@@ -228,11 +243,13 @@ impl Actor for Hierarchy {
             ctx.stop(child);
         }
         if take_throw(&failure.fail_pre) {
+            self.world.hit("preRestart threw");
             throw_failure(id);
         }
     }
 
     fn post_restart(&mut self, ctx: &mut ActorContext, cause: &Throwable) {
+        self.world.hit("restarted");
         let kids = self.world.states()[&self.path].kids.clone();
         for (name, size) in &kids {
             if ctx.child(name).is_none() {
@@ -249,6 +266,7 @@ impl Actor for Hierarchy {
         if let Some(id) = thrown
             && take_throw(&self.world.failure(id).fail_post)
         {
+            self.world.hit("postRestart threw");
             throw_failure(id);
         }
     }
@@ -278,13 +296,21 @@ impl Actor for Hierarchy {
             let failure = world.failure(id);
             if failure.depth > 0 {
                 flags.set(failure.directive);
+                world.hit("escalated");
                 throw_failure(world.add(failure.copy(failure.depth - 1)));
             }
-            if level > 3 && failure.fail_post.load(SeqCst) == 0 && failure.stop {
+            let permanent = level > 3 && failure.fail_post.load(SeqCst) == 0 && failure.stop;
+            let decided = if permanent {
                 Directive::Stop
             } else {
                 failure.directive
-            }
+            };
+            world.hit(match decided {
+                Directive::Stop => "decided Stop",
+                Directive::Resume => "decided Resume",
+                _ => "decided Restart",
+            });
+            decided
         })
         .into()
     }

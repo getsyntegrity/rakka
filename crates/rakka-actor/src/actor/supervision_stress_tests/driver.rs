@@ -9,7 +9,7 @@ use crate::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use crate::actor::supervision::{Directive, OneForOneStrategy, SupervisorStrategy};
 use crate::actor::system::ActorSystem;
 use crate::dispatch::Terminated;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::SeqCst};
 use std::sync::mpsc::{Receiver, channel};
 use std::sync::{Arc, Mutex};
@@ -19,6 +19,18 @@ const SIZE: usize = 500;
 const ACTIONS: usize = 5000;
 const SEEDS: [u64; 3] = [0x9E37_79B9, 0xD1B5_4A32, 0x2545_F491];
 const DEADLINE: Duration = Duration::from_secs(90);
+/// What the runs of the three seeds must have gone through, all together.
+const BRANCHES: [&str; 9] = [
+    "child created again",
+    "constructor threw",
+    "decided Restart",
+    "decided Resume",
+    "decided Stop",
+    "escalated",
+    "postRestart threw",
+    "preRestart threw",
+    "restarted",
+];
 
 /// What the driver is told. `NotResumed` (stopped while failed or suspended) is an error only while the tree is being stopped.
 pub(super) enum Event {
@@ -246,12 +258,13 @@ impl Driver {
     }
 }
 
-/// One run of the spec.
-fn run(seed: u64) {
+/// One run of the spec; returns the branches it went through.
+fn run(seed: u64) -> BTreeSet<&'static str> {
     let (out, events) = channel();
     let world = Arc::new(World {
         failures: Mutex::default(),
         states: Mutex::default(),
+        hits: Mutex::default(),
         random: Mutex::new(Random(seed)),
         events: Mutex::new(out),
         ignore_fail_constr: AtomicBool::new(false),
@@ -288,9 +301,12 @@ fn run(seed: u64) {
         matches!(terminated, Some(Ok(_))),
         "seed {seed:#x}: no termination"
     );
+    let hits = world.hits.lock().unwrap();
+    hits.clone()
 }
 
 #[test]
 fn survive_being_stressed() {
-    SEEDS.into_iter().for_each(run);
+    let reached: BTreeSet<_> = SEEDS.into_iter().flat_map(run).collect();
+    assert_eq!(reached, BTreeSet::from(BRANCHES), "seeds {SEEDS:x?}");
 }

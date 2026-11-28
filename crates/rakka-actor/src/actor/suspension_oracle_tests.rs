@@ -1,7 +1,7 @@
 // Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/actor/dungeon/FaultHandling.scala and dispatch/Mailbox.scala (Apache-2.0).
 //! The suspend counter of failure and recursive suspension (AC-SUP-010), each script compared with the line of
-//! `cases/oracle-only/mailbox.golden` that the Pekko 2.0.0 JVM printed (`MBX-OR-03`, `MBX-CC-03`, `MBX-SU-01`, `MBX-SU-02`). In the
-//! crate because the cases read the mailbox state and send the internal `Suspend`/`Resume`. Integration: real actors and dispatcher.
+//! `cases/oracle-only/mailbox.golden` that the Pekko 2.0.0 JVM printed (`MBX-OR-03`, `MBX-CC-03`, `MBX-SU-01..03`). In the crate
+//! because the cases read the mailbox state and send the internal `Suspend`/`Resume`. Integration: real actors and dispatcher.
 
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::async_creation_tests::{Log, joined, recorded, wait_until};
@@ -74,6 +74,30 @@ fn nested_suspensions_need_as_many_resumes() {
     let done = format!("{} log=[{}]", settled(&actor, 0), joined(&log));
     let observed = format!("suspended: {suspended} | oneResume: {half} | twoResumes: {done}");
     assert_eq!(observed, recorded("MBX-OR-03"));
+}
+
+#[test]
+fn a_child_inherits_every_suspension_of_its_parent() {
+    let (_system, parent, log, gate) = worker();
+    suspend(&parent);
+    suspend(&parent);
+    settled(&parent, 2);
+    let props = {
+        let (log, gate) = (log.clone(), gate.clone());
+        Props::new(move || Worker(log.clone(), gate.clone()))
+    };
+    let child = parent.attach_child_for_tests(props, "c").unwrap();
+    wait_until("c started", || child.mailbox_view().starts_with("open"));
+    settled(&child, 2);
+    child.tell("u", None);
+    let suspended = format!("{} log=[{}]", settled(&child, 2), joined(&log));
+    resume(&child);
+    let half = format!("{} log=[{}]", settled(&child, 1), joined(&log));
+    resume(&child);
+    wait_until("u", || log.lock().unwrap().len() == 1);
+    let done = format!("{} log=[{}]", settled(&child, 0), joined(&log));
+    let observed = format!("child: {suspended} | oneResume: {half} | twoResumes: {done}");
+    assert_eq!(observed, recorded("MBX-SU-03"));
 }
 
 /// Two threads released together, each running `send` fifty times on `actor`.
