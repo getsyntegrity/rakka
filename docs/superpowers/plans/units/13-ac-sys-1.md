@@ -31,7 +31,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-SYS-001.1, AC-SYS-007.
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CFG-32`, `Q-SYS-1`, `Q-SYS-2`, `Q-SYS-3`, `Q-SYS-4`, `Q-SYS-5`, `Q-SYS-6`, `Q-SYS-7`.
+- Propuestas aún sin decisión del Owner: `Q-CFG-32`, `Q-SYS-1`, `Q-SYS-2`, `Q-SYS-3`, `Q-SYS-4`, `Q-SYS-5`, `Q-SYS-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
