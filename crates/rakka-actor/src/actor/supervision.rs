@@ -2,6 +2,8 @@
 //! Supervision: directives, `OneForOneStrategy` / `AllForOneStrategy` and the restart limit of a child.
 //! Follows `SupervisorStrategy.scala` (`OneForOneStrategy`, `defaultDecider`, `ChildRestartStats`).
 
+use std::collections::BTreeMap;
+use std::fmt;
 use std::sync::Arc;
 
 use crate::actor::fault::Throwable;
@@ -184,6 +186,62 @@ impl Default for OneForOneStrategy {
     }
 }
 
+type Configurator = Arc<dyn Fn() -> SupervisorStrategy + Send + Sync>;
+
+/// The `SupervisorStrategyConfigurator`s that `pekko.actor.guardian-supervisor-strategy` can name, the counterpart of Pekko loading
+/// the class by reflection (Q-X-2). A configurator is a function that creates the strategy of `/user`.
+#[derive(Clone)]
+pub struct SupervisorStrategies {
+    configurators: BTreeMap<String, Configurator>,
+}
+
+impl SupervisorStrategies {
+    /// `DefaultSupervisorStrategy`: creates [`OneForOneStrategy::default_strategy`].
+    pub const DEFAULT: &'static str = "org.apache.pekko.actor.DefaultSupervisorStrategy";
+
+    /// `StoppingSupervisorStrategy`: creates [`OneForOneStrategy::stopping_strategy`].
+    pub const STOPPING: &'static str = "org.apache.pekko.actor.StoppingSupervisorStrategy";
+
+    /// Makes `name` create its strategy with `configurator`, replacing what the name created before.
+    pub fn register(
+        &mut self,
+        name: impl Into<String>,
+        configurator: impl Fn() -> SupervisorStrategy + Send + Sync + 'static,
+    ) {
+        self.configurators
+            .insert(name.into(), Arc::new(configurator));
+    }
+
+    /// `create()` of the configurator registered under exactly `name`.
+    pub(crate) fn create(&self, name: &str) -> Option<SupervisorStrategy> {
+        self.configurators
+            .get(name)
+            .map(|configurator| configurator())
+    }
+}
+
+/// The two configurators of Pekko.
+impl Default for SupervisorStrategies {
+    fn default() -> Self {
+        let mut strategies = SupervisorStrategies {
+            configurators: BTreeMap::new(),
+        };
+        strategies.register(Self::DEFAULT, || {
+            OneForOneStrategy::default_strategy().into()
+        });
+        strategies.register(Self::STOPPING, || {
+            OneForOneStrategy::stopping_strategy().into()
+        });
+        strategies
+    }
+}
+
+impl fmt::Debug for SupervisorStrategies {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_set().entries(self.configurators.keys()).finish()
+    }
+}
+
 /// `ChildRestartStats`, restart counter only (the `withinTimeRange` window is not ported yet).
 #[derive(Debug, Default, Clone)]
 pub(crate) struct RestartStats {
@@ -304,6 +362,31 @@ mod tests {
         assert_eq!(
             (s.decider)(&Throwable::new("java.lang.Error", None)),
             Directive::Escalate
+        );
+    }
+
+    /// AC-SUP-005: `DefaultSupervisorStrategy` and `StoppingSupervisorStrategy` create the two strategies.
+    #[test]
+    fn the_two_configurators_of_pekko_create_its_two_strategies() {
+        let strategies = SupervisorStrategies::default();
+        let error = Throwable::illegal_state("x");
+        for (name, expected) in [
+            (SupervisorStrategies::DEFAULT, Directive::Restart),
+            (SupervisorStrategies::STOPPING, Directive::Stop),
+        ] {
+            let created = strategies.create(name).expect(name);
+            assert!(!created.is_all_for_one() && created.logging_enabled());
+            assert_eq!(created.max_nr_of_retries(), -1, "{name}");
+            assert_eq!(created.decide(&error), expected, "{name}");
+        }
+        assert!(strategies.create("no.SuchStrategy").is_none());
+        assert_eq!(
+            format!("{strategies:?}"),
+            format!(
+                "{{{:?}, {:?}}}",
+                SupervisorStrategies::DEFAULT,
+                SupervisorStrategies::STOPPING
+            )
         );
     }
 
