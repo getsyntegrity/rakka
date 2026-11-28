@@ -17,7 +17,7 @@ Filas ya `done` en esta unidad (no se reabren): AC-CELL-006, AC-CELL-012, AC-CEL
 Decisiones:
 
 - Bloqueantes: ninguna.
-- Propuestas aún sin decisión del Owner: `Q-CELL-10`, `Q-CELL-5`, `Q-MBX-17`, `Q-REF-5`, `Q-REF-6`.
+- Propuestas aún sin decisión del Owner: `Q-CELL-5`, `Q-MBX-17`, `Q-REF-5`, `Q-REF-6`.
 - Regla: una fila con decisión abierta se implementa hasta donde el contrato no depende de ella y queda `partial`; nunca se cierra sobre una recomendación no aceptada.
 
 ## Estrategia de oráculo y procedencia
