@@ -388,7 +388,7 @@
 | Q-CFG-31 | propuesta | 1: AC-SYS-008 | Bloquea: AC-CFG-016, AC-CFG-008 y AC-SYS-008 (cierre, quedan partial); puede avanzar: el resto. Reversible. | — | `classic-foundation` |
 | Q-CFG-32 | propuesta | 1: AC-SYS-001.2 | Bloquea: el cierre de AC-CFG-015 (queda partial); puede avanzar: lo demás. Reversible. | — | `classic-foundation` |
 | Q-SYS-3 | propuesta | 1: AC-SYS-020 | Bloquea: nada (AC-SYS-020/021 pueden implementarse con (a)); si el Owner exige paridad de manifests, queda partial. | — | `classic-system` |
-| Q-SYS-4 | propuesta | 2: AC-SYS-002, AC-SYS-003.2 | Bloquea: sólo AC-SYS-003.2 (sin spec) y la rama de espera de AC-SYS-002; el resto avanza. | — | `classic-system` |
+| Q-SYS-4 | propuesta | 3: AC-SYS-002, AC-SYS-003.2, AC-SYS-008 | Bloquea: sólo AC-SYS-003.2 (sin spec) y la rama de espera de AC-SYS-002; el resto avanza. | — | `classic-system` |
 | Q-SYS-6 | propuesta | 2: AC-SYS-001.2, AC-SYS-013 | Bloquea: nada; AC-SYS-001.2/013/018 avanzan con (a). | — | `classic-system` |
 
 ## P26 SYS-PROVEEDOR
