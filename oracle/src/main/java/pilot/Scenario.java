@@ -105,6 +105,23 @@ final class Scenario {
     @Override public Receive createReceive() { return receiveBuilder().build(); }
   }
 
+  /** Holds the termination until a spawn was refused, at most 5 s (`spawn-until-terminated`). */
+  public static final class Blocker extends AbstractActor {
+    private final CountDownLatch blocking, refused;
+    public Blocker(CountDownLatch blocking, CountDownLatch refused) { this.blocking = blocking; this.refused = refused; }
+    @Override public void preStart() { blocking.countDown(); }
+    @Override public void postStop() throws InterruptedException { refused.await(5, TimeUnit.SECONDS); }
+    @Override public Receive createReceive() { return receiveBuilder().build(); }
+  }
+
+  /** Records that it started (`spawn-until-terminated`). */
+  public static final class Flagged extends AbstractActor {
+    private final java.util.concurrent.atomic.AtomicBoolean started;
+    public Flagged(java.util.concurrent.atomic.AtomicBoolean started) { this.started = started; }
+    @Override public void preStart() { started.set(true); }
+    @Override public Receive createReceive() { return receiveBuilder().build(); }
+  }
+
   /** A command the harness asks an actor to run inside its own context (`do` op). */
   static final class Cmd {
     final long id;
@@ -567,6 +584,39 @@ final class Scenario {
           return head + ",\"ok\":true,\"actor\":" + Cli.Json.str(t.getActor().path().toString())
               + ",\"existenceConfirmed\":" + t.getExistenceConfirmed()
               + ",\"addressTerminated\":" + t.getAddressTerminated() + "}";
+        }
+        case "spawn-until-terminated": { // ActorSystemSpec.scala:300-326
+          // a blocker whose postStop waits for the first refusal, so that termination cannot finish before one is seen
+          CountDownLatch blocking = new CountDownLatch(1), refused = new CountDownLatch(1);
+          system.actorOf(Props.create(Blocker.class, () -> new Blocker(blocking, refused)));
+          if (!blocking.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("the blocker did not start");
+          List<ActorRef> created = new ArrayList<>();
+          List<java.util.concurrent.atomic.AtomicBoolean> started = new ArrayList<>();
+          long begin = System.nanoTime();
+          system.scheduler().scheduleOnce(java.time.Duration.ofMillis((Long) st.get("after-ms")), (Runnable) system::terminate, system.dispatcher());
+          boolean failing = false, succeededAfterFailure = false;
+          while (!system.getWhenTerminated().toCompletableFuture().isDone() && System.nanoTime() - begin < TimeUnit.SECONDS.toNanos(10)) {
+            java.util.concurrent.atomic.AtomicBoolean flag = new java.util.concurrent.atomic.AtomicBoolean();
+            try {
+              created.add(system.actorOf(Props.create(Flagged.class, () -> new Flagged(flag))));
+              started.add(flag);
+              succeededAfterFailure |= failing;
+              if (created.size() % 1000 == 0) Thread.sleep(50);
+            } catch (IllegalStateException e) {
+              failing = true;
+              refused.countDown();
+            }
+          }
+          boolean inTime = system.getWhenTerminated().toCompletableFuture().isDone() && System.nanoTime() - begin < TimeUnit.SECONDS.toNanos(10);
+          // started (preStart ran) and not terminated: weaker than the spec's "not an UnstartedCell", because the port cannot
+          // tell that from outside; the exact criterion is asserted in the port's in-crate test
+          int liveStarted = 0;
+          for (int i = 0; i < created.size(); i++)
+            if (started.get(i).get() && !((InternalActorRef) created.get(i)).isTerminated()) liveStarted++;
+          String late;
+          try { system.actorOf(Props.create(Noop.class)); late = "{\"ok\":true}"; } catch (Exception e) { late = err(e); }
+          return head + ",\"ok\":true,\"created\":" + !created.isEmpty() + ",\"refused\":" + failing + ",\"successAfterFailure\":" + succeededAfterFailure
+              + ",\"liveStarted\":" + liveStarted + ",\"withinTenSeconds\":" + inTime + ",\"late\":" + late + "}";
         }
         case "await-events": { // the first `count` events of one actor, in order
           List<String> ev = ctx.of((String) st.get("target"));

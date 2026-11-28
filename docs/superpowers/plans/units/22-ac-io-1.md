@@ -8,7 +8,7 @@ Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventor
 
 ## Prerrequisitos
 
-- Spec 13 `AC-SYS-1` (`13-ac-sys-1.md`), por las filas AC-SYS-001.1, AC-SYS-001.2.
+- Spec 13 `AC-SYS-1` (`13-ac-sys-1.md`), por las filas AC-SYS-001.2.
 - Spec 16 `AC-EXT-1` (`16-ac-ext-1.md`), por las filas AC-EXT-001.1, AC-EXT-001.2.
 - Spec 23 `AC-IO-2` (`23-ac-io-2.md`), por las filas AC-IO-010, AC-IO-011. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
 - Spec 03 `AC-CFG-1` (`03-ac-cfg-1.md`), por las filas AC-CFG-006, AC-CFG-016.

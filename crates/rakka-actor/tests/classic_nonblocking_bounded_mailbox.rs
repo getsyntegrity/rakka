@@ -1,4 +1,4 @@
-// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:421-452,707-724 (Apache-2.0).
+// Derived from Apache Pekko 2.0.0 actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:421-452,707-724 and actor-tests/src/test/scala/org/apache/pekko/dispatch/MailboxConfigSpec.scala:85-87,142-192,269-277 (Apache-2.0).
 //! `NonBlockingBoundedMailbox` behind real actors, through the public API (AC-MBX-008; twin of the queue contracts `NB-QU-01..04`,
 //! `NB-QC-01` and of `MailboxConfigSpec`'s "20 enqueue / 10 dequeue => 10 DeadLetter" of the Pekko 2.0.0 oracle).
 //!
@@ -15,6 +15,7 @@ use std::thread;
 use rakka_actor::actor::ActorRef;
 use rakka_actor::actor::props::{Actor, ActorContext, AnyMessage, Props};
 use rakka_actor::dispatch::bounded_node_queue::NonBlockingBoundedMailbox;
+use rakka_actor::dispatch::message_queue::Envelope;
 use rakka_actor::event::{Channel, DeadLetter};
 
 /// `(message, sender path, recipient path)` of a dead letter.
@@ -78,7 +79,7 @@ impl Actor for DeadLetterListener {
 }
 
 struct Scenario {
-    _system: RunningSystem, // terminated when the scenario ends
+    system: RunningSystem, // terminated when the scenario ends
     actor: ActorRef,
     sender: ActorRef,
     gate: Arc<Gate>,
@@ -124,7 +125,7 @@ impl Scenario {
             .actor_of_named(Props::new(|| DeadLetterListener(Arc::default())), "sender")
             .unwrap();
         Scenario {
-            _system: system,
+            system,
             actor,
             sender,
             gate,
@@ -189,6 +190,51 @@ fn a_full_mailbox_refuses_at_once_and_the_dead_letter_names_message_sender_and_r
         2,
         "no refused message is delivered later or dead-lettered twice"
     );
+}
+
+/// `MailboxConfigSpec.scala:85-87,142-192` as `SingleConsumerOnlyMailboxSpec` (`:269-277`) runs it: capacity 10, one producer of 20
+/// finished before one consumer starts; the queue is driven directly, with a real `deadLetters`.
+#[test]
+fn spec_twenty_enqueued_and_ten_dequeued_leave_ten_dead_letters() {
+    let scenario = Scenario::new("nb-spec", 1); // its system, dead letter listener and actors; its mailbox is not used here
+    let system = &scenario.system;
+    let queue = NonBlockingBoundedMailbox::new(10)
+        .unwrap()
+        .create(system.dead_letters());
+    assert_eq!(
+        (queue.number_of_messages(), queue.has_messages()),
+        (0, false)
+    );
+    let produced: Vec<String> = (1..=20).map(|i| i.to_string()).collect();
+
+    thread::scope(|scope| {
+        scope.spawn(|| {
+            for text in &produced {
+                let envelope = Envelope {
+                    message: Arc::new(text.clone()),
+                    sender: Some(scenario.sender.clone()),
+                };
+                queue.enqueue(&scenario.actor, envelope);
+            }
+        });
+    });
+    let consumed: Vec<String> = thread::scope(|scope| {
+        let consumer = scope.spawn(|| {
+            std::iter::from_fn(|| queue.dequeue())
+                .map(|e| e.message.downcast_ref::<String>().unwrap().clone())
+                .collect()
+        });
+        consumer.join().unwrap()
+    });
+
+    assert_eq!(consumed, produced[..10], "ten consumed, each once");
+    wait_until("the ten dead letters", || scenario.dead().len() == 10);
+    settle_for_absence();
+    let refused: Vec<DeadRecord> = produced[10..]
+        .iter()
+        .map(|text| dead_record(text, &scenario))
+        .collect();
+    assert_eq!(scenario.dead(), refused);
 }
 
 #[test]
