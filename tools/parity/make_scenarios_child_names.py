@@ -34,17 +34,17 @@ CASES = {
     "cn-stop-then-recreate-same-turn": [*WITH_KID, in_turn("p", STOP_K, AGAIN, FOO, ("children", {})), *AFTER_GONE],
     # ... also once it is already terminated, as long as the parent has not processed its termination
     "cn-terminated-unprocessed-keeps-name": [*WITH_KID, in_turn("p", STOP_K, ("await-terminated", {"target": "k"}), AGAIN,
-                                                                 ("child-forms", {"name": "foo"}), FOO, ("children", {})),
+                                                                 FOO, ("children", {})),
                                              *AFTER_GONE],
-    # `children` is in name order, whatever the order of creation; a stopping child stays in it until its termination is processed
+    # `children` is in name order, whatever the order of creation (observable, reproduced, not a documented Pekko guarantee); a
+    # stopping child stays in it until its termination is processed
     "cn-children-in-name-order": [*S("p"), in_turn("p", *kids("b", "a", "10", "9", "a-b", "B"), ("spawn-child", {}),
                                                    ("children", {"unsorted": True})),
                                   in_turn("p", ("stop", {"target": "a"}), ("children", {"unsorted": True})), GONE("p", "a"),
                                   DO("p", "children", unsorted=True)],
-    # `child`, `getChild` and `findChild` of a child that exists, one that never did and one that is gone
-    "cn-existence-of-children": [*S("p"), C("p", "child", "k"), EV("k", 1), DO("p", "child-forms", name="child"),
-                                 DO("p", "child-forms", name="whatnot"), CHILD("p", "child"), CHILD("p", "whatnot"),
-                                 DO("p", "stop", target="k"), GONE("p", "child"), DO("p", "child-forms", name="child"), NOW("k")],
+    # `child` of a name that exists, one that never did and one that is gone (`getChild`/`findChild`: no case, Q-REF-13)
+    "cn-existence-of-children": [*S("p"), C("p", "child", "k"), EV("k", 1), CHILD("p", "child"), CHILD("p", "whatnot"),
+                                 DO("p", "stop", target="k"), GONE("p", "child"), CHILD("p", "child"), NOW("k")],
 }
 
 

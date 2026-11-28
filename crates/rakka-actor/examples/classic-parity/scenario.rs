@@ -1116,14 +1116,6 @@ fn command(ctx: &Arc<Ctx>, c: &mut ActorContext, sp: &Value) -> String {
             let terminated = wait_for(|| subject.is_terminated());
             o.push_str(&format!("\"ok\":true,\"terminated\":{terminated}"));
         }
-        // `child`, `getChild` and `findChild`: one `Option` stands for the three here (Q-REF-13)
-        "child-forms" => {
-            let name = sp.get("name").and_then(Value::as_str).expect("a name");
-            let found = c.child(&name).is_some();
-            o.push_str(&format!(
-                "\"ok\":true,\"child\":{found},\"getChild\":{found},\"findChild\":{found}"
-            ));
-        }
         "children" => {
             let mut ps: Vec<String> = c.children().iter().map(path_str).collect();
             if !matches!(sp.get("unsorted"), Some(Value::Bool(true))) {

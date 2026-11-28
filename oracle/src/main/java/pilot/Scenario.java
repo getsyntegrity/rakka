@@ -343,13 +343,6 @@ final class Scenario {
             res = "\"ok\":true,\"terminated\":" + await(subject::isTerminated);
             break;
           }
-          case "child-forms": {
-            String name = (String) sp.get("name");
-            res = "\"ok\":true,\"child\":" + getContext().child(name).isDefined()
-                + ",\"getChild\":" + (((org.apache.pekko.actor.ActorCell) getContext()).getChild(name) != null)
-                + ",\"findChild\":" + getContext().findChild(name).isPresent();
-            break;
-          }
           case "children": {
             List<String> ps = new ArrayList<>();
             for (ActorRef k : getContext().getChildren()) ps.add(Cli.Json.str(k.path().toString()));
