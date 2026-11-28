@@ -1,0 +1,2 @@
+RSV-01 reserveChild(kid) while the cell waits for a child to die before it terminates -> java.lang.IllegalStateException: cannot reserve actor name 'kid': terminating
+RSV-02 reserveChild(kid) once the cell has terminated -> java.lang.IllegalStateException: cannot reserve actor name 'kid': already terminated

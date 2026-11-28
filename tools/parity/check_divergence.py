@@ -2551,6 +2551,12 @@ MUTANTS = {
         "        drop(settings);",
         "the system does not expose the settings it was created from (killed by an integration test, see UNIT_MUTANTS)",
     ),
+    "children-are-listed-in-reverse-name-order": (
+        "src/actor/children.rs",
+        "                c.values()\n                    .filter_map(",
+        "                c.values()\n                    .rev()\n                    .filter_map(",
+        "`children` loses the name order of Pekko's TreeMap (cn-children-in-name-order)",
+    ),
 }
 
 # Mutants of the Python tools (tools/parity): killed by the unit tests of the tool, no replay needed.
@@ -2853,7 +2859,7 @@ def run_mutant(scratch, name, rel, old, new, why):
         # the in-crate twins read the oracle golden through a relative `include_str!` that leaves the crate: give the scratch tree the same layout
         golden = os.path.join(scratch, "cases", "oracle-only")
         os.makedirs(golden, exist_ok=True)
-        for golden_file in ("mailbox.golden", "nonblocking-bounded-mailbox.golden"):
+        for golden_file in ("mailbox.golden", "nonblocking-bounded-mailbox.golden", "child-reservation.golden"):
             shutil.copy(os.path.join(ROOT, "cases", "oracle-only", golden_file), golden)
         return run_unit_mutant(scratch, name, work)
     try:
