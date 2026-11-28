@@ -513,7 +513,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Contenedor de hijos y actorOf: reserva atomica de nombres.
 - **Filas (6; impl: pending 6):** asignacion explicita en `docs/unit-rows.tsv`: AC-CELL-015.1, AC-REF-009.1, AC-REF-009.2, AC-REF-009.3, AC-REF-010, AC-REF-019.
 - **Exclusiones/costuras:** CELL-015.1 y REF-009.2 son un solo comportamiento (R28): se implementan juntos aqui.
-- **Decisiones:** 2 distintas en sus filas; propuestas sin respuesta: Q-MBX-11, Q-REF-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P18). <!-- generated:unit-decisions -->
+- **Decisiones:** 3 distintas en sus filas; propuestas sin respuesta: Q-MBX-11, Q-REF-13, Q-REF-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P18). <!-- generated:unit-decisions -->
 - **Dependencias:** P14.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/children.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorCreationSpec/ActorRefSpec parciales.

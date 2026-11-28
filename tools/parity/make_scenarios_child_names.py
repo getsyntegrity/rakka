@@ -42,7 +42,7 @@ CASES = {
                                                    ("children", {"unsorted": True})),
                                   in_turn("p", ("stop", {"target": "a"}), ("children", {"unsorted": True})), GONE("p", "a"),
                                   DO("p", "children", unsorted=True)],
-    # `child` of a name that exists, one that never did and one that is gone (`getChild`/`findChild`: no case, Q-REF-13)
+    # `child` of a name that exists, one that never did and one that is gone (no replay case calls `getChild`/`findChild`, Q-REF-13)
     "cn-existence-of-children": [*S("p"), C("p", "child", "k"), EV("k", 1), CHILD("p", "child"), CHILD("p", "whatnot"),
                                  DO("p", "stop", target="k"), GONE("p", "child"), CHILD("p", "child"), NOW("k")],
 }

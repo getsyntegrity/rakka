@@ -14,6 +14,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
+use crate::child_names::{self, Held};
 use crate::json::{Value, parse_value, write_str, write_text};
 use rakka_actor::actor::fault::{Throwable, throw};
 use rakka_actor::actor::props::{
@@ -320,6 +321,8 @@ struct Ctx {
     failed_pre_start: Mutex<HashSet<String>>,
     /// `supervisor_strategy` calls per label
     strategy_calls: Mutex<HashMap<String, u64>>,
+    /// the creation `spawn-held` holds
+    held: Arc<Held>,
 }
 
 impl Ctx {
@@ -1341,6 +1344,8 @@ pub fn run(text: &str) -> Result<String, String> {
         settings.throughput = num("throughput").unwrap_or(settings.throughput);
     }
     crate::guardian_strategies::register(&mut settings.supervisor_strategies);
+    let held = Arc::<Held>::default();
+    child_names::register(&mut settings, &held);
     if let Some(strategy) = sc.get("guardian-strategy").and_then(Value::as_str) {
         settings.guardian_supervisor_strategy = strategy.to_owned();
     }
@@ -1372,7 +1377,10 @@ pub fn run(text: &str) -> Result<String, String> {
     }
     out.push_str("},\"steps\":[");
 
-    let ctx = Arc::new(Ctx::default());
+    let ctx = Arc::new(Ctx {
+        held,
+        ..Ctx::default()
+    });
     let mut sent: HashMap<String, Vec<String>> = HashMap::new();
     let steps = sc
         .get("steps")
@@ -1649,6 +1657,30 @@ fn step(
             };
             r.tell_any(Arc::new(message), None);
             out.push_str(",\"ok\":true");
+        }
+        "spawn-held" => {
+            let name = label("name").ok_or("spawn-held needs name")?;
+            let held = child_names::spawn_held(system, &ctx.held, &name);
+            out.push_str(&format!(",\"ok\":true,\"held\":{held}"));
+        }
+        "release-held" => match child_names::release_held(&ctx.held) {
+            Ok(r) => {
+                out.push_str(",\"ok\":true,");
+                ref_json(out, &r);
+            }
+            Err(e) => {
+                out.push(',');
+                err_json(out, &e);
+            }
+        },
+        // the name is `name`, or `prefix` followed by the round
+        "spawn-concurrently" => {
+            let (fixed, prefix) = (label("name"), label("prefix").unwrap_or_default());
+            let name_of = |round| fixed.clone().unwrap_or_else(|| format!("{prefix}{round}"));
+            let (threads, rounds) = (num("threads") as usize, num("rounds") as usize);
+            let overlap = matches!(st.get("overlap"), Some(Value::Bool(true)));
+            let did = child_names::spawn_concurrently(system, name_of, threads, rounds);
+            out.push_str(&did.json_fields(rounds, overlap));
         }
         "release" => {
             ctx.release();

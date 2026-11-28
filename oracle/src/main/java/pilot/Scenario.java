@@ -458,7 +458,7 @@ final class Scenario {
   static String run(String text) {
     Map<String, Object> sc = (Map<String, Object>) Jv.parse(text);
     StringBuilder out = new StringBuilder("{\"system\":");
-    String hocon = "pekko.loglevel = OFF\npekko.stdout-loglevel = OFF\n";
+    String hocon = "pekko.loglevel = OFF\npekko.stdout-loglevel = OFF\n" + ChildNames.HOCON;
     Map<String, Object> disp = (Map<String, Object>) sc.get("dispatcher");
     if (disp != null) {
       hocon += "pekko.actor.default-dispatcher.executor = \"thread-pool-executor\"\n"
@@ -594,6 +594,15 @@ final class Scenario {
           ref(ctx, (String) st.get("ref")).tell(new DeadLetter("wrapped", system.deadLetters(), system.deadLetters()), ActorRef.noSender());
           return head + ",\"ok\":true}";
         }
+        case "spawn-held": return head + ",\"ok\":true,\"held\":" + ChildNames.spawnHeld(system, (String) st.get("name")) + "}";
+        case "release-held": {
+          try {
+            return head + ",\"ok\":true," + refJson(ChildNames.releaseHeld()) + "}";
+          } catch (java.util.concurrent.ExecutionException e) {
+            return head + "," + err(e.getCause()).substring(1);
+          }
+        }
+        case "spawn-concurrently": return head + ChildNames.concurrently(system, st) + "}";
         case "release": {
           ctx.gate.countDown();
           return head + ",\"ok\":true}";
