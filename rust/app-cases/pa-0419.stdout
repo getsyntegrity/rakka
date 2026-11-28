@@ -1,0 +1,1 @@
+VAL-40 [a%2g] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [a%2g], illegal character [%] at position: 1. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

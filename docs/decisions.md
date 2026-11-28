@@ -1054,7 +1054,7 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Estado:** propuesta (sin decisión del Owner)
 - **Evidencia:** actor/src/main/scala/org/apache/pekko/actor/dungeon/Children.scala:230-244 ; sonda 2.0.0: NumberFormatException desde tell
 - **Alternativas:** (a) no coincide con nadie (conducta actual) / (b) fallar en tell (panic o Result)
-- **Recomendación:** (a). Consecuencia: donde Pekko lanza NumberFormatException, el mensaje acaba en dead letters. Bloquea el cierre de AC-REF-011.
+- **Recomendación:** (a). Consecuencia: donde Pekko lanza NumberFormatException, el mensaje acaba en dead letters, y el destinatario de ese DeadLetter es un path con `#x` dentro del nombre (`pekko://sys/user/nope#x`), forma que el constructor de ChildActorPath prohíbe (AC-PATH-016). Bloquea el cierre de AC-REF-011.
 - **Filas afectadas:** AC-REF-011
 - **Unidades afectadas:** REF
 - **Origen:** classic-cell

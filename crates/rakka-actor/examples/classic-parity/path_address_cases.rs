@@ -1058,6 +1058,27 @@ fn validation_cases(c: &mut Cases) {
     c.run("VAL-JAPI-03 ActorPaths.isValidPathElement(a)", || {
         Ok(format!("valid={}", is_valid_path_element("a")))
     });
+    // the ActorPathSpec:85-134 inputs that no VAL case above has; the two long ones are named, not spelled out
+    let spec_in = [
+        "a\0b",
+        "a\u{7f}b",
+        "\u{4e2d}\u{6587}",
+        "actor-\u{4e2d}",
+        "caf\u{e9}",
+        "na\u{ef}ve-actor",
+        "%ff%FF%0a",
+        "a%2g",
+        "a%g2",
+    ];
+    for (i, e) in spec_in.iter().enumerate() {
+        c.val(format!("VAL-{} [{e}]", 33 + i), e, None);
+    }
+    c.val("VAL-LONG-01 [x*10000]", &"x".repeat(10000), None);
+    c.val(
+        "VAL-LONG-02 [x*100 U+00E9]",
+        &format!("{}\u{e9}", "x".repeat(100)),
+        None,
+    );
 }
 
 pub fn rust_lines() -> Vec<(String, String)> {

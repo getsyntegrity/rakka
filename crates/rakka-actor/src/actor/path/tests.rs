@@ -302,6 +302,23 @@ fn child_splits_name_and_uid() {
     }
 }
 
+/// ActorPathSpec.scala:136-160 for the code units a `&str` cannot hold (Q-X-17): a surrogate is illegal in all four positions.
+#[test]
+fn a_lone_surrogate_is_illegal_in_every_position_of_the_reference_predicate() {
+    let percent = u16::from(b'%');
+    let zero = u16::from(b'0');
+    for unit in 0xd800..=0xdfff_u16 {
+        for name in [
+            vec![unit],
+            vec![u16::from(b'a'), unit],
+            vec![percent, unit, zero],
+            vec![percent, zero, unit],
+        ] {
+            assert!(find_invalid(&name).is_some(), "{unit:04X}");
+        }
+    }
+}
+
 /// `new ChildActorPath(parent, name, uid)` (CC-*): no `#uid` split, so both separators are refused, `/` first.
 #[test]
 fn the_child_constructor_refuses_a_name_with_a_slash_or_a_hash() {

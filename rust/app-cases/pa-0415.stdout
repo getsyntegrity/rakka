@@ -1,0 +1,1 @@
+VAL-36 [actor-\u4E2D] -> ok valid=false validate=ERR InvalidActorNameException [Invalid actor path element [actor-\u4E2D], illegal character [\u4E2D] at position: 6. Actor paths MUST: not start with `$`, include only ASCII letters and can only contain these special characters: -_.*$+:@&=,!~';.]

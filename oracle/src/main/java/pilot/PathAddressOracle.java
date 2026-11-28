@@ -462,5 +462,10 @@ final class PathAddressOracle {
     // CC: the ChildActorPath constructor itself (private[pekko] in Scala, public in bytecode): no `#uid` split
     for (String n : new String[] {"a#b", "a#1", "#", "a#", "a/b", "a#/b", "/#", "", "a b?$..%"})
       run("CC [" + n + "]", () -> path(new ChildActorPath(root(mysys), n, 7)));
+    // the ActorPathSpec:85-134 inputs that no VAL case above has; the two long ones are named, not spelled out
+    String[] specIn = {"a\u0000b", "a\u007fb", "中文", "actor-中", "café", "naïve-actor", "%ff%FF%0a", "a%2g", "a%g2"};
+    for (int i = 0; i < specIn.length; i++) val("VAL-" + (33 + i) + " [" + specIn[i] + "]", specIn[i], null);
+    val("VAL-LONG-01 [x*10000]", "x".repeat(10000), null);
+    val("VAL-LONG-02 [x*100 U+00E9]", "x".repeat(100) + "é", null);
   }
 }

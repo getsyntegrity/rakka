@@ -241,7 +241,8 @@ impl ActorPath {
         Ok(self.new_child(name, uid))
     }
 
-    /// A child with an explicit uid and no name checks (what the runtime does for names it validated itself).
+    /// A child with an explicit uid and no name checks, unlike [`ActorPath::child_with_uid`] and Pekko's constructor: for names
+    /// already validated or split. The path of a selection that matches nothing can still pass a `#` here (Q-REF-8, proposed).
     pub(crate) fn new_child(&self, name: &str, uid: i32) -> ActorPath {
         ActorPath(Arc::new(Node::Child {
             parent: self.clone(),
