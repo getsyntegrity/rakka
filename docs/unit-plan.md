@@ -546,7 +546,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** Propagacion de fallos: suspender, enviar Failed al padre, aplicar la directiva, hooks de ciclo de vida.
 - **Filas (11; impl: pending 11):** asignacion explicita en `docs/unit-rows.tsv`: AC-SUP-001, AC-SUP-002, AC-SUP-008, AC-SUP-009, AC-SUP-010, AC-SUP-016, AC-SUP-018, AC-SUP-020, AC-CELL-006, AC-CELL-020, AC-CELL-021.
 - **Exclusiones/costuras:** Reinicio/parada completos en P22.
-- **Decisiones:** 8 distintas en sus filas; respondidas: Q-CELL-7, Q-SUP-1, Q-SUP-3, Q-X-4, Q-X-5; propuestas sin respuesta: Q-CELL-2, Q-SUP-4, Q-SUP-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P21). <!-- generated:unit-decisions -->
+- **Decisiones:** 9 distintas en sus filas; respondidas: Q-CELL-7, Q-SUP-1, Q-SUP-3, Q-X-4, Q-X-5; propuestas sin respuesta: Q-CELL-2, Q-SUP-4, Q-SUP-6, Q-SUP-9. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P21). <!-- generated:unit-decisions -->
 - **Dependencias:** P19, P20.
 - **Archivos previstos:** `crates/rakka-actor/src/actor/{fault,lifecycle}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** SupervisorSpec parcial.
@@ -602,7 +602,7 @@ Orden **derivado** de las dependencias declaradas en las tablas de cada ola (esa
 - **Resultado verificable:** ActorSystem: constructores, arranque, jerarquia de guardianes y guardian de usuario.
 - **Filas (12; impl: pending 12):** asignacion explicita en `docs/unit-rows.tsv`: AC-SYS-001.1, AC-SYS-001.2, AC-SYS-002, AC-SYS-003.1, AC-SYS-003.2, AC-SYS-007, AC-SYS-008, AC-SYS-009, AC-SYS-013, AC-SYS-020, AC-SYS-023, AC-SUP-014.
 - **Exclusiones/costuras:** Costura SYS-S1: hooks de terminacion via trait TerminationHooks (P39); registro de extensiones via ExtensionRegistry (P30). (2026-11-01) Declara P67 (AC-SYS-020 consume util.Version, 005.2); AC-SYS-020 -> AC-UTIL-016.9 (P72) es una costura hacia adelante.
-- **Decisiones:** 11 distintas en sus filas; respondidas: 7 (ver detalle); propuestas sin respuesta: Q-CFG-32, Q-SYS-3, Q-SYS-4, Q-SYS-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P25). <!-- generated:unit-decisions -->
+- **Decisiones:** 12 distintas en sus filas; respondidas: 7 (ver detalle); propuestas sin respuesta: Q-CFG-31, Q-CFG-32, Q-SYS-3, Q-SYS-4, Q-SYS-6. Impiden cerrar la unidad (filas `partial`) todas las no respondidas; si impiden comenzar no se deduce mecánicamente: detalle, estado y lo que dice cada ficha en `docs/unit-decisions.md` (sección P25). <!-- generated:unit-decisions -->
 - **Dependencias:** P10, P16, P20, P22, P23, P67.
 - **Archivos previstos:** `crates/rakka-actor/src/system/{system,guardians}.rs` (nuevos; nombres orientativos).
 - **Tests/oraculo:** ActorSystemSpec parcial + oraculo.

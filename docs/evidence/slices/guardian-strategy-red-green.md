@@ -14,3 +14,4 @@ Comando de cada paso: `cargo test -q -p rakka-actor --test classic_guardian_stra
 
 Caracterización (pasaron a la primera, no son RED): la prueba de los dos configuradores y las aserciones del `Error`
 publicado añadidas en la revisión. También la prueba de `/system` y `guardian_failure_tests` con MBX-GRD-05.
+Los casos grabados (`cases/scenario-guardian-strategy.jsonl`) también son caracterización.

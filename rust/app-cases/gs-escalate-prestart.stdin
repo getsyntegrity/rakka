@@ -1,0 +1,1 @@
+{"system": "sys", "guardian-strategy": "pilot.GuardianStrategies$Escalate", "steps": [{"op": "spawn", "name": "a", "as": "a", "behavior": {"kind": "log", "throw-in-prestart": true}}, {"op": "await-system-terminated"}, {"op": "events-now", "target": "a"}]}
