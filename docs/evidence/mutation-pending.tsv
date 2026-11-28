@@ -81,3 +81,4 @@ slice/classic-guardian-strategy-2	c4c77f35	413	none	none	413 not run (Q-X-23)	PE
 slice/classic-guardian-strategy-3	8d425753	413	none	none	413 not run (Q-X-23)	PENDING
 slice/classic-system-from-config-1	90ceef15	418	config-creation-checks-the-name-after-the-settings,config-creation-does-not-amend-slf4j,config-creation-claims-the-slf4j-logger-is-registered,config-creation-ignores-the-runtime-settings,config-creation-does-not-keep-the-settings	none	418 not run (Q-X-23)	PENDING
 slice/classic-decision-closures-1	49b6e1ee	29	none	none	29 not run (Q-X-23)	PENDING
+slice/classic-child-names-1	195d5efb	418	none	none	418 not run (Q-X-23)	PENDING

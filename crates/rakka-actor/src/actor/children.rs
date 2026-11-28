@@ -350,6 +350,15 @@ mod tests {
         assert!(matches!(c, Children::Terminated));
     }
 
+    /// `children` and `getByName` see only `ChildRestartStats` (`ChildrenContainer.scala:69-73`, `Children.scala:53-56`).
+    #[test]
+    fn a_reserved_name_is_not_a_child() {
+        let mut reserved = Children::Empty;
+        reserved.reserve("a").unwrap();
+        assert!(reserved.get_by_name("a").is_none());
+        assert!(reserved.children().is_empty());
+    }
+
     /// `initChild` (`Children.scala:169-179`): only a reserved name becomes a child, and a child that is gone is never added.
     #[test]
     fn init_child_registers_only_a_reserved_name() {
