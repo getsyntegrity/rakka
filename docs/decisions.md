@@ -2,7 +2,7 @@
 
 Generado desde `docs/inventory/contracts/*.decisions.tsv` y las decisiones transversales por `tools/` (ver `docs/inventory/README.md`). Fuente de la tabla machine-readable: `docs/decisions/register.tsv`.
 
-**Estado: 280 decisiones: 0 bloqueantes, 193 propuestas, 66 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
+**Estado: 281 decisiones: 0 bloqueantes, 194 propuestas, 66 aceptadas, 18 aceptadas con cambios, 3 rechazadas.** Las respuestas del Owner (con fecha y autor) figuran en la sección 6 y se leen de `docs/decisions/owner-decisions.tsv`; una respuesta no cierra por sí sola las filas afectadas: eso exige implementación y validación.
 
 ## 1. Ya autorizado (instrucciones explícitas del Owner)
 
@@ -956,6 +956,16 @@ Alias: `Q-CFG-1` = `Q-X-1`, `Q-CFG-2` = `Q-X-2`.
 - **Alternativas:** (a) mantener el `within(30.seconds)` original en el gate habitual (opción (b) de Q-MBX-16), nunca en QoS background, más mediciones antes/después en los cambios de `dispatch/` o de la planificación de la celda, en MILESTONE y antes de un release; (b) dejar los 30 s fuera del gate y sólo como medición con esa política
 - **Recomendación:** (a) propuesta, sin aplicar. Una medición fallida bloquea que el PR salga de borrador o se fusione, que el MILESTONE pase y que se publique el release, hasta corregirlo o una decisión del Owner; no se reintenta hasta que pase. El máximo observado fuera de QoS background (7,89 s; 12,92 s en QoS background sin quemadores y con carga baja) es de una sola máquina; no se midió con builds concurrentes, en Linux ni con pocos núcleos, y con QoS background y CPU sobresuscrita el límite falla antes y después
 - **Filas afectadas:** AC-MBX-006
+- **Unidades afectadas:** MBX
+- **Origen:** classic-dispatch
+
+### Q-MBX-19 — Visibilidad del mensaje de capacidad negativa a nivel de cola (`BoundedNodeMessageQueue`)
+
+- **Estado:** propuesta (sin decisión del Owner)
+- **Evidencia:** actor/src/main/java/org/apache/pekko/dispatch/AbstractBoundedNodeQueue.java ; actor/src/main/scala/org/apache/pekko/dispatch/Mailbox.scala:435-466,707-724 ; crates/rakka-actor/src/dispatch/bounded_node_queue.rs
+- **Alternativas:** (a) hacer pública la cola `BoundedNodeMessageQueue` con un constructor que rechace la capacidad negativa con "AbstractBoundedNodeQueue.capacity must be >= 0"; (b) mantener la cola privada y aceptar que sólo se observa el mensaje de `NonBlockingBoundedMailbox` (exclusión de ese mensaje en AC-MBX-008)
+- **Recomendación:** (a) propuesta, sin implementar. En Pekko la clase es pública y quien la construye directamente recibe ese mensaje; en Rakka no se puede construir. AC-MBX-008 sigue partial hasta la decisión
+- **Filas afectadas:** AC-MBX-008
 - **Unidades afectadas:** MBX
 - **Origen:** classic-dispatch
 

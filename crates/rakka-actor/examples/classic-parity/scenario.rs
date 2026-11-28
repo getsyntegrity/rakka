@@ -10,8 +10,8 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use crate::json::{Value, parse_value, write_str, write_text};
@@ -24,7 +24,7 @@ use rakka_actor::actor::supervision::{
     AllForOneStrategy, Directive, OneForOneStrategy, SupervisorStrategy,
 };
 use rakka_actor::actor::system::{ActorSystem, Settings};
-use rakka_actor::actor::{ActorError, ActorRef};
+use rakka_actor::actor::{ActorError, ActorRef, ErrorClass};
 use rakka_actor::dispatch::{Failed, Terminated};
 use rakka_actor::event::{Channel, DeadLetter, ErrorEvent, UnhandledMessage, WarningEvent};
 
@@ -435,6 +435,14 @@ struct Behavior {
     constructor_fails_from: Option<u64>,
     ignore_terminated: bool,
     numbered: bool,
+    /// `log-generation`: the lifecycle hooks also record the instance, 0 for the first
+    log_generation: bool,
+    /// `pre-restart-reply: message`: `preRestart` sends it to `sender()`
+    pre_restart_reply: Option<String>,
+    /// `post-restart-without-pre-start`: `postRestart` only records its event
+    post_restart_without_pre_start: bool,
+    /// `same-instance`: the factory hands out the instance it made the first time (see `SameInstance`)
+    same_instance: bool,
 }
 
 /// A command the harness asks an actor to run inside its own context (`do` op).
@@ -539,6 +547,13 @@ impl Behavior {
             },
             ignore_terminated: matches!(v.get("ignore-terminated"), Some(Value::Bool(true))),
             numbered: matches!(v.get("numbered"), Some(Value::Bool(true))),
+            log_generation: matches!(v.get("log-generation"), Some(Value::Bool(true))),
+            pre_restart_reply: s("pre-restart-reply"),
+            post_restart_without_pre_start: matches!(
+                v.get("post-restart-without-pre-start"),
+                Some(Value::Bool(true))
+            ),
+            same_instance: matches!(v.get("same-instance"), Some(Value::Bool(true))),
             count: match v.get("count") {
                 Some(Value::Number(n)) => *n as i64,
                 _ => 0,
@@ -554,6 +569,8 @@ struct Scripted {
     ctx: Arc<Ctx>,
     /// receives counted by this instance (a restart starts again at 0)
     received: u64,
+    /// 0 for the first instance of this behaviour
+    generation: u64,
 }
 
 /// `,"strategy":<class>` when a supervisor strategy is the `logClass` of an event, nothing for any other reporter.
@@ -611,6 +628,9 @@ impl Scripted {
         if self.cfg.log_sender {
             field.push_str(",\"sender\":");
             write_text(&mut field, &path_str(&c.sender()));
+        }
+        if self.cfg.log_generation {
+            field.push_str(&format!(",\"generation\":{}", self.generation));
         }
         field
     }
@@ -728,6 +748,9 @@ impl Actor for Scripted {
             },
         );
         self.ctx.life(format!("{}:pre-restart", self.label));
+        if let Some(reply) = &self.cfg.pre_restart_reply {
+            c.sender().tell(reply.clone(), Some(&c.self_ref()));
+        }
         if self.cfg.keep_children {
             return;
         }
@@ -763,7 +786,9 @@ impl Actor for Scripted {
         if self.cfg.throw_in_post_restart || first {
             throw(Throwable::illegal_state("post-restart"));
         }
-        self.pre_start(c); // default postRestart
+        if !self.cfg.post_restart_without_pre_start {
+            self.pre_start(c); // default postRestart
+        }
     }
 
     fn post_stop(&mut self, c: &mut ActorContext) {
@@ -920,6 +945,27 @@ impl Actor for DefaultPreRestart {
     }
 }
 
+/// One instance handed out by every call of the factory. A Rust factory returns its actor by value, so the instance is shared behind a
+/// handle. A `receive` that throws poisons the lock, which means nothing here.
+#[derive(Clone)]
+struct SameInstance(Arc<Mutex<Scripted>>);
+
+impl SameInstance {
+    fn get(&self) -> MutexGuard<'_, Scripted> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+#[rustfmt::skip] // one delegation per line
+impl Actor for SameInstance {
+    fn pre_start(&mut self, c: &mut ActorContext) { self.get().pre_start(c) }
+    fn pre_restart(&mut self, c: &mut ActorContext, r: &Throwable, m: Option<&AnyMessage>) { self.get().pre_restart(c, r, m) }
+    fn post_restart(&mut self, c: &mut ActorContext, r: &Throwable) { self.get().post_restart(c, r) }
+    fn post_stop(&mut self, c: &mut ActorContext) { self.get().post_stop(c) }
+    fn supervisor_strategy(&self) -> SupervisorStrategy { self.get().supervisor_strategy() }
+    fn receive(&mut self, c: &mut ActorContext, m: &AnyMessage) -> bool { self.get().receive(c, m) }
+}
+
 fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) -> Props {
     match behavior {
         None => Props::new(|| Noop),
@@ -931,6 +977,7 @@ fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) ->
             );
             let instances = AtomicU64::new(0);
             let default_pre_restart = cfg.default_pre_restart;
+            let same_instance = cfg.same_instance;
             let scripted = move || {
                 let instance = instances.fetch_add(1, Ordering::SeqCst) + 1;
                 if cfg
@@ -944,9 +991,16 @@ fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) ->
                     cfg: cfg.clone(),
                     ctx: ctx2.clone(),
                     received: 0,
+                    generation: instance - 1,
                 }
             };
-            if default_pre_restart {
+            if same_instance {
+                let kept = OnceLock::new();
+                Props::new(move || {
+                    kept.get_or_init(|| SameInstance(Arc::new(Mutex::new(scripted()))))
+                        .clone()
+                })
+            } else if default_pre_restart {
                 Props::new(move || DefaultPreRestart(scripted()))
             } else {
                 Props::new(scripted)
@@ -1348,6 +1402,102 @@ fn message(v: &Value) -> Result<AnyMessage, String> {
     )?))
 }
 
+/// Records that it started (`spawn-until-terminated`).
+struct Flagged(Arc<AtomicBool>);
+impl Actor for Flagged {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+}
+
+/// Holds the termination until a spawn was refused, at most 5 s (`spawn-until-terminated`).
+struct Blocker {
+    blocking: Arc<AtomicBool>,
+    refused: Arc<AtomicBool>,
+}
+impl Actor for Blocker {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.blocking.store(true, Ordering::SeqCst);
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !self.refused.load(Ordering::SeqCst) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+}
+
+/// `ActorSystemSpec.scala:300-326`: spawns without pause while a timer terminates the system; only invariants are printed.
+/// A `Blocker` keeps the termination from finishing before a refusal is seen. `liveStarted` (`preStart` ran, not terminated) is
+/// weaker than the spec's "not an `UnstartedCell`", which the public API does not tell; the in-crate test asserts that one.
+fn spawn_until_terminated(
+    system: &ActorSystem,
+    after: Duration,
+    out: &mut String,
+) -> Result<(), String> {
+    let spawn = || {
+        let started = Arc::new(AtomicBool::new(false));
+        let flag = started.clone();
+        let actor = system.actor_of(Props::new(move || Flagged(flag.clone())))?;
+        Ok::<_, ActorError>((actor, started))
+    };
+    let blocking = Arc::new(AtomicBool::new(false));
+    let refused = Arc::new(AtomicBool::new(false));
+    let blocker = {
+        let (blocking, refused) = (blocking.clone(), refused.clone());
+        Props::new(move || Blocker {
+            blocking: blocking.clone(),
+            refused: refused.clone(),
+        })
+    };
+    system.actor_of(blocker).map_err(|e| e.to_string())?;
+    if !wait_for(|| blocking.load(Ordering::SeqCst)) {
+        return Err("the blocker did not start".into());
+    }
+    let (begin, limit) = (Instant::now(), Duration::from_secs(10));
+    let timer = {
+        let system = system.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(after);
+            system.terminate();
+        })
+    };
+    let mut created = Vec::new();
+    let (mut failing, mut succeeded_after_failure) = (false, false);
+    while !system.when_terminated().is_completed() && begin.elapsed() < limit {
+        match spawn() {
+            Ok(spawned) => {
+                created.push(spawned);
+                succeeded_after_failure |= failing;
+                if created.len().is_multiple_of(1000) {
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+            Err(e) if e.class() == ErrorClass::IllegalState => {
+                failing = true;
+                refused.store(true, Ordering::SeqCst);
+            }
+            Err(e) => return Err(format!("unexpected spawn failure: {e}")),
+        }
+    }
+    let in_time = system.when_terminated().is_completed() && begin.elapsed() < limit;
+    let live_started = created
+        .iter()
+        .filter(|(actor, started)| started.load(Ordering::SeqCst) && !actor.is_terminated())
+        .count();
+    timer.join().map_err(|_| "the timer thread failed")?;
+    out.push_str(&format!(
+        ",\"ok\":true,\"created\":{},\"refused\":{failing},\"successAfterFailure\":{succeeded_after_failure},\"liveStarted\":{live_started},\"withinTenSeconds\":{in_time},\"late\":{{",
+        !created.is_empty()
+    ));
+    match spawn() {
+        Ok(_) => out.push_str("\"ok\":true"),
+        Err(e) => err_json(out, &e),
+    }
+    out.push('}');
+    Ok(())
+}
+
 fn step(
     system: &ActorSystem,
     ctx: &Arc<Ctx>,
@@ -1509,6 +1659,9 @@ fn step(
             }
             None => return Err("timed out waiting for system termination".into()),
         },
+        "spawn-until-terminated" => {
+            spawn_until_terminated(system, Duration::from_millis(num("after-ms") as u64), out)?;
+        }
         "await-events" => {
             let target = label("target").ok_or("await-events needs target")?;
             let n = num("count") as usize;

@@ -105,6 +105,23 @@ final class Scenario {
     @Override public Receive createReceive() { return receiveBuilder().build(); }
   }
 
+  /** Holds the termination until a spawn was refused, at most 5 s (`spawn-until-terminated`). */
+  public static final class Blocker extends AbstractActor {
+    private final CountDownLatch blocking, refused;
+    public Blocker(CountDownLatch blocking, CountDownLatch refused) { this.blocking = blocking; this.refused = refused; }
+    @Override public void preStart() { blocking.countDown(); }
+    @Override public void postStop() throws InterruptedException { refused.await(5, TimeUnit.SECONDS); }
+    @Override public Receive createReceive() { return receiveBuilder().build(); }
+  }
+
+  /** Records that it started (`spawn-until-terminated`). */
+  public static final class Flagged extends AbstractActor {
+    private final java.util.concurrent.atomic.AtomicBoolean started;
+    public Flagged(java.util.concurrent.atomic.AtomicBoolean started) { this.started = started; }
+    @Override public void preStart() { started.set(true); }
+    @Override public Receive createReceive() { return receiveBuilder().build(); }
+  }
+
   /** A command the harness asks an actor to run inside its own context (`do` op). */
   static final class Cmd {
     final long id;
@@ -123,12 +140,12 @@ final class Scenario {
       // `constructor-fails-from: n`: the actor factory throws IllegalStateException("ctor") from the n-th instance of this behaviour on
       // (1 = always; 2 = the first instance works and the one made by a restart fails)
       Object from = cfg.get("constructor-fails-from");
-      if (from != null) {
-        int instance = ((java.util.concurrent.atomic.AtomicInteger) cfg.computeIfAbsent("_instances", k -> new java.util.concurrent.atomic.AtomicInteger())).incrementAndGet();
-        if (instance >= ((Number) from).intValue()) throw new IllegalStateException("ctor");
-      }
+      instance = from == null && !Boolean.TRUE.equals(cfg.get("log-generation")) ? 1
+          : ((java.util.concurrent.atomic.AtomicInteger) cfg.computeIfAbsent("_instances", k -> new java.util.concurrent.atomic.AtomicInteger())).incrementAndGet();
+      if (from != null && instance >= ((Number) from).intValue()) throw new IllegalStateException("ctor");
     }
 
+    private final int instance; // 1 for the first instance of this behaviour
     private long received = 0; // per instance: a restarted actor starts again at 0
 
     @Override public void preStart() throws Exception {
@@ -214,7 +231,9 @@ final class Scenario {
 
     /** `log-sender`: the lifecycle hooks also record `sender()`, which reads `currentMessage`. */
     private String senderIfLogged() {
-      return Boolean.TRUE.equals(cfg.get("log-sender")) ? ",\"sender\":" + Cli.Json.str(getSender().path().toString()) : "";
+      String sender = Boolean.TRUE.equals(cfg.get("log-sender")) ? ",\"sender\":" + Cli.Json.str(getSender().path().toString()) : "";
+      // `log-generation`: and the instance, 0 for the first
+      return Boolean.TRUE.equals(cfg.get("log-generation")) ? sender + ",\"generation\":" + (instance - 1) : sender;
     }
 
     private static String reasonStr(Throwable t) { return t.getClass().getName() + (t.getMessage() == null ? "" : ": " + t.getMessage()); }
@@ -224,6 +243,8 @@ final class Scenario {
       if (Boolean.TRUE.equals(cfg.get("default-pre-restart"))) { super.preRestart(reason, message); return; }
       ctx.add(label, "{\"ev\":\"pre-restart\",\"reason\":" + Cli.Json.str(reasonStr(reason)) + ",\"msg\":" + (message.isPresent() ? msgJson(message.get()) : "null") + senderIfLogged() + "}");
       ctx.life.add(label + ":pre-restart");
+      // `pre-restart-reply: message`: sent to `sender()`
+      if (cfg.get("pre-restart-reply") != null) getSender().tell(cfg.get("pre-restart-reply"), getSelf());
       if (Boolean.TRUE.equals(cfg.get("keep-children"))) return; // `keep-children`: like SupervisorTreeSpec, neither stops the children nor runs postStop
       // `pre-restart-throws: <message or null>`: preRestart fails before it calls super, so nothing of the default runs
       if (cfg.containsKey("pre-restart-throws")) throw new IllegalStateException((String) cfg.get("pre-restart-throws"));
@@ -241,6 +262,7 @@ final class Scenario {
       ctx.life.add(label + ":post-restart");
       Object fails = cfg.get("throw-in-post-restart"); // `true`, or `"once"`: only the first postRestart of this label
       if (Boolean.TRUE.equals(fails) || ("once".equals(fails) && ctx.failedPostRestart.add(label))) throw new IllegalStateException("post-restart"); // `throw-in-post-restart`
+      if (Boolean.TRUE.equals(cfg.get("post-restart-without-pre-start"))) return; // an override that does not call super
       super.postRestart(reason); // default: preStart
     }
     @Override public void postStop() {
@@ -289,7 +311,12 @@ final class Scenario {
           case "spawn-child": {
             Map<String, Object> beh = (Map<String, Object>) sp.get("behavior");
             String lb = (String) sp.get("as");
-            Props props = beh == null ? Props.create(Noop.class) : Props.create(Scripted.class, () -> new Scripted(lb == null ? "_" : lb, beh, ctx));
+            // `same-instance`: the factory hands out the instance it made the first time
+            java.util.concurrent.atomic.AtomicReference<Scripted> kept = new java.util.concurrent.atomic.AtomicReference<>();
+            Props props = beh == null ? Props.create(Noop.class) : Props.create(Scripted.class, () -> {
+              if (kept.get() == null || !Boolean.TRUE.equals(beh.get("same-instance"))) kept.set(new Scripted(lb == null ? "_" : lb, beh, ctx));
+              return kept.get();
+            });
             ActorRef r = sp.containsKey("name") ? getContext().actorOf(props, (String) sp.get("name")) : getContext().actorOf(props);
             if (lb != null) ctx.refs.put(lb, r);
             res = "\"ok\":true," + refJson(r);
@@ -567,6 +594,39 @@ final class Scenario {
           return head + ",\"ok\":true,\"actor\":" + Cli.Json.str(t.getActor().path().toString())
               + ",\"existenceConfirmed\":" + t.getExistenceConfirmed()
               + ",\"addressTerminated\":" + t.getAddressTerminated() + "}";
+        }
+        case "spawn-until-terminated": { // ActorSystemSpec.scala:300-326
+          // a blocker whose postStop waits for the first refusal, so that termination cannot finish before one is seen
+          CountDownLatch blocking = new CountDownLatch(1), refused = new CountDownLatch(1);
+          system.actorOf(Props.create(Blocker.class, () -> new Blocker(blocking, refused)));
+          if (!blocking.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("the blocker did not start");
+          List<ActorRef> created = new ArrayList<>();
+          List<java.util.concurrent.atomic.AtomicBoolean> started = new ArrayList<>();
+          long begin = System.nanoTime();
+          system.scheduler().scheduleOnce(java.time.Duration.ofMillis((Long) st.get("after-ms")), (Runnable) system::terminate, system.dispatcher());
+          boolean failing = false, succeededAfterFailure = false;
+          while (!system.getWhenTerminated().toCompletableFuture().isDone() && System.nanoTime() - begin < TimeUnit.SECONDS.toNanos(10)) {
+            java.util.concurrent.atomic.AtomicBoolean flag = new java.util.concurrent.atomic.AtomicBoolean();
+            try {
+              created.add(system.actorOf(Props.create(Flagged.class, () -> new Flagged(flag))));
+              started.add(flag);
+              succeededAfterFailure |= failing;
+              if (created.size() % 1000 == 0) Thread.sleep(50);
+            } catch (IllegalStateException e) {
+              failing = true;
+              refused.countDown();
+            }
+          }
+          boolean inTime = system.getWhenTerminated().toCompletableFuture().isDone() && System.nanoTime() - begin < TimeUnit.SECONDS.toNanos(10);
+          // started (preStart ran) and not terminated: weaker than the spec's "not an UnstartedCell", because the port cannot
+          // tell that from outside; the exact criterion is asserted in the port's in-crate test
+          int liveStarted = 0;
+          for (int i = 0; i < created.size(); i++)
+            if (started.get(i).get() && !((InternalActorRef) created.get(i)).isTerminated()) liveStarted++;
+          String late;
+          try { system.actorOf(Props.create(Noop.class)); late = "{\"ok\":true}"; } catch (Exception e) { late = err(e); }
+          return head + ",\"ok\":true,\"created\":" + !created.isEmpty() + ",\"refused\":" + failing + ",\"successAfterFailure\":" + succeededAfterFailure
+              + ",\"liveStarted\":" + liveStarted + ",\"withinTenSeconds\":" + inTime + ",\"late\":" + late + "}";
         }
         case "await-events": { // the first `count` events of one actor, in order
           List<String> ev = ctx.of((String) st.get("target"));

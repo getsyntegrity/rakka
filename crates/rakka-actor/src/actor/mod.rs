@@ -29,6 +29,8 @@ pub mod scheduler;
 #[cfg(test)]
 mod scheduler_tests;
 pub mod selection;
+#[cfg(test)]
+mod spawn_during_shutdown_tests;
 pub mod supervision;
 #[cfg(test)]
 mod supervision_stress_tests;

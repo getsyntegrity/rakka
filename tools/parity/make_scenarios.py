@@ -28,6 +28,11 @@ for i, n in enumerate(["sys", "a", "A", "0abc", "a-b", "a_b", "Sys-1_x", "a-", "
     case(f"sysname-ok-{i}", n, [])
 for i, n in enumerate(["", "-a", "_a", "a b", "a.b", "é", "aé", "a$", "a/b", "a@b", "a:b", "a%41", "a\n", "١a", "Ａ", "a\U0001F600"]):
     case(f"sysname-bad-{i}", n, [])
+# the literal names of ActorSystemSpec.scala:138-153, and the one of :163-165 with every valid character
+for i, n in enumerate(["-hallowelt", "_hallowelt", "hallo welt", "hallo*welt", "hallo@welt", "hallo#welt", "hallo$welt",
+                       "hallo%welt", "hallo/welt"]):
+    case(f"sysname-spec-bad-{i}", n, [])
+case("sysname-spec-all-valid", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_", [])
 
 # --- actor names: accepted ------------------------------------------------------------------
 GOOD = ["a", "A1", "a-b", "a_b", "a.b", "a*b", "a+b", "a:b", "a@b", "a&b", "a=b", "a,b", "a!b", "a~b", "a'b", "a;b", "a$b",
@@ -81,6 +86,8 @@ case("terminate-then-spawn-anon", "sys", [TERM, AWAIT_SYS, anon()])
 case("terminate-then-spawn-bad-name", "sys", [TERM, AWAIT_SYS, named("a b"), named("")])
 case("terminate-then-stop", "sys", [named("a", "a"), TERM, AWAIT_SYS, stop("a"), await_stopped("a")])
 case("terminate-then-terminate", "sys", [TERM, AWAIT_SYS, TERM, AWAIT_SYS])
+# ActorSystemSpec.scala:300-326, concurrent: spawn without pause while a timer terminates the system; only invariants are printed
+case("terminate-while-spawning", "sys", [{"op": "spawn-until-terminated", "after-ms": 100}])
 case("child-terminated-after-terminate", "sys", [named("a", "a"), TERM, AWAIT_SYS, await_stopped("a")])
 
 
