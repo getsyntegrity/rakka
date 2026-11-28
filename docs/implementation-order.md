@@ -30,15 +30,15 @@ Fases: 1 valores sin concurrencia (PATH, UTIL, CFG); 2 runtime Classic (REF, MBX
 | Unidad | Filas pendientes | Specs (orden de ejecución) |
 |---|---|---|
 | AC-PATH | 5 | 01 |
-| AC-UTIL | 27 | 02 |
+| AC-UTIL | 26 | 02 |
 | AC-CFG | 29 | 03 |
 | AC-REF | 31 | 04, 05 |
 | AC-MBX | 23 | 06 |
 | AC-DSP | 25 | 07 |
-| AC-SCH | 17 | 08 |
+| AC-SCH | 16 | 08 |
 | AC-EVT | 24 | 09 |
 | AC-TK | 27 | 10 |
-| AC-CELL | 37 | 11, 12 |
+| AC-CELL | 35 | 11, 12 |
 | AC-SYS | 25 | 13 |
 | AC-SUP | 19 | 14 |
 | AC-DW | 8 | 15 |

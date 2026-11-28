@@ -1,20 +1,18 @@
 # Spec 12 — AC-CELL (2/2)
 
-**Estado:** pendiente de decisiones propuestas. **Filas:** 7. **Tareas:** 2 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
+**Estado:** pendiente de decisiones propuestas. **Filas:** 5. **Tareas:** 1 (máximo 5). **Ejecutar con:** `superpowers:test-driven-development` por comportamiento y `superpowers:verification-before-completion` al cerrar.
 
 ## Alcance y exclusiones
 
 Entra: las filas listadas en la tabla de trazabilidad (inventario `docs/inventory/actor-classic.tsv`). Exclusiones: ninguna fila se excluye; lo que no figura acá pertenece a otra spec (ver `docs/implementation-order.md`). Una exclusión sólo puede venir de una autorización explícita del Owner registrada en `docs/decisions.md`.
 
-Filas ya `done` en esta unidad (no se reabren): AC-CELL-012, AC-CELL-013.3.
+Filas ya `done` en esta unidad (no se reabren): AC-CELL-006, AC-CELL-012, AC-CELL-013.3, AC-CELL-020.
 
 ## Prerrequisitos
 
-- Spec 11 `AC-CELL-1` (`11-ac-cell-1.md`), por las filas AC-CELL-002.2, AC-CELL-004.
-- Spec 09 `AC-EVT-1` (`09-ac-evt-1.md`), por las filas AC-EVT-010.
-- Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-001, AC-MBX-016.
 - Spec 04 `AC-REF-1` (`04-ac-ref-1.md`), por las filas AC-REF-002, AC-REF-018, AC-REF-019, AC-REF-020.
 - Spec 21 `AC-SER-1` (`21-ac-ser-1.md`), por las filas AC-SER-001.1, AC-SER-001.2, AC-SER-001.3, AC-SER-008.1. **(dependencia hacia adelante: aplicar la regla de costura de `units/README.md`)**
+- Spec 06 `AC-MBX-1` (`06-ac-mbx-1.md`), por las filas AC-MBX-001.
 
 Decisiones:
 
@@ -28,18 +26,9 @@ casos rust-anything contra Pekko 2.0.0 (JDK 17) con `oracle/` y `tools/parity/` 
 
 ## Tareas
 
-### Tarea 1: pekko.actor.debug.unhandled: reenviador de UnhandledMessage a Debug (+5 filas)
+### Tarea 1: Fallo al crear la celda (initWithFailure) y punto de creación diferida (+4 filas)
 
-Filas: AC-CELL-025, AC-CELL-026, AC-CELL-027, AC-CELL-028, AC-CELL-029, AC-CELL-030. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
-
-1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
-2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
-3. **REFACTOR:** con los tests en verde; sin cambiar comportamiento.
-4. Cada archivo Rust que traduzca un archivo de Pekko lleva el encabezado de `docs/upstream.md`.
-
-### Tarea 2: Cell / ActorRefWithCell: interfaz interna de la celda (underlying, children,…
-
-Filas: AC-CELL-031. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
+Filas: AC-CELL-027, AC-CELL-028, AC-CELL-029, AC-CELL-030, AC-CELL-031. Contratos y aserciones: `docs/inventory/contracts/classic-cell.md` (bloque de cada fila; sección **Aserciones**).
 
 1. **RED:** por cada aserción `A#` de las filas, escribir el test que la expresa con la interfaz pública y observar que falla por la razón correcta; guardar comando y salida del fallo en la descripción del PR.
 2. **GREEN:** el mínimo código de producción que lo hace pasar; guardar la salida verde.
@@ -50,8 +39,6 @@ Filas: AC-CELL-031. Contratos y aserciones: `docs/inventory/contracts/classic-ce
 
 | Fila | Comportamiento | Equivalente Rust propuesto | Validación (fuente) | Decisiones |
 |---|---|---|---|---|
-| AC-CELL-025 | pekko.actor.debug.unhandled: reenviador de UnhandledMessage a Debug | suscriptor interno de `UnhandledMessage` que publica un Debug | actor-tests/src/test/scala/org/apache/pekko/event/EventStreamSpec.scala:137-153 | - |
-| AC-CELL-026 | Validación del tipo de mailbox exigido por el actor en Create | comprobación de `RequiresMessageQueue` contra el tipo de cola del mailbox | derivada del código (ver bloque de contrato) | - |
 | AC-CELL-027 | Fallo al crear la celda (initWithFailure) y punto de creación diferida | celda "fallida" que sólo entrega ActorInitializationError | actor-tests/src/test/scala/org/apache/pekko/actor/SupervisorSpec.scala:510-533 | Q-CELL-10, Q-CELL-9, Q-REF-5, Q-X-21 |
 | AC-CELL-028 | pekko.actor.serialize-messages: ida y vuelta de mensajes en modo test | hook de test que serializa y deserializa cada mensaje enviado (feature opcional) | actor-tests/src/test/scala/org/apache/pekko/actor/FunctionRefSpec.scala:108-120 ;… | Q-CELL-5 |
 | AC-CELL-029 | pekko.actor.serialize-creators: verificación de argumentos de Props al crear… | hook de test que serializa los argumentos de Props (feature opcional) | actor-tests/src/test/scala/org/apache/pekko/actor/PropsCreationSpec.scala:44-73 ;… | Q-CELL-5 |

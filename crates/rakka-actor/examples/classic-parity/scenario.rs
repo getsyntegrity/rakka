@@ -11,7 +11,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use crate::json::{Value, parse_value, write_str, write_text};
@@ -435,6 +435,14 @@ struct Behavior {
     constructor_fails_from: Option<u64>,
     ignore_terminated: bool,
     numbered: bool,
+    /// `log-generation`: the lifecycle hooks also record the instance, 0 for the first
+    log_generation: bool,
+    /// `pre-restart-reply: message`: `preRestart` sends it to `sender()`
+    pre_restart_reply: Option<String>,
+    /// `post-restart-without-pre-start`: `postRestart` only records its event
+    post_restart_without_pre_start: bool,
+    /// `same-instance`: the factory hands out the instance it made the first time (see `SameInstance`)
+    same_instance: bool,
 }
 
 /// A command the harness asks an actor to run inside its own context (`do` op).
@@ -539,6 +547,13 @@ impl Behavior {
             },
             ignore_terminated: matches!(v.get("ignore-terminated"), Some(Value::Bool(true))),
             numbered: matches!(v.get("numbered"), Some(Value::Bool(true))),
+            log_generation: matches!(v.get("log-generation"), Some(Value::Bool(true))),
+            pre_restart_reply: s("pre-restart-reply"),
+            post_restart_without_pre_start: matches!(
+                v.get("post-restart-without-pre-start"),
+                Some(Value::Bool(true))
+            ),
+            same_instance: matches!(v.get("same-instance"), Some(Value::Bool(true))),
             count: match v.get("count") {
                 Some(Value::Number(n)) => *n as i64,
                 _ => 0,
@@ -554,6 +569,8 @@ struct Scripted {
     ctx: Arc<Ctx>,
     /// receives counted by this instance (a restart starts again at 0)
     received: u64,
+    /// 0 for the first instance of this behaviour
+    generation: u64,
 }
 
 /// `,"strategy":<class>` when a supervisor strategy is the `logClass` of an event, nothing for any other reporter.
@@ -611,6 +628,9 @@ impl Scripted {
         if self.cfg.log_sender {
             field.push_str(",\"sender\":");
             write_text(&mut field, &path_str(&c.sender()));
+        }
+        if self.cfg.log_generation {
+            field.push_str(&format!(",\"generation\":{}", self.generation));
         }
         field
     }
@@ -728,6 +748,9 @@ impl Actor for Scripted {
             },
         );
         self.ctx.life(format!("{}:pre-restart", self.label));
+        if let Some(reply) = &self.cfg.pre_restart_reply {
+            c.sender().tell(reply.clone(), Some(&c.self_ref()));
+        }
         if self.cfg.keep_children {
             return;
         }
@@ -763,7 +786,9 @@ impl Actor for Scripted {
         if self.cfg.throw_in_post_restart || first {
             throw(Throwable::illegal_state("post-restart"));
         }
-        self.pre_start(c); // default postRestart
+        if !self.cfg.post_restart_without_pre_start {
+            self.pre_start(c); // default postRestart
+        }
     }
 
     fn post_stop(&mut self, c: &mut ActorContext) {
@@ -920,6 +945,27 @@ impl Actor for DefaultPreRestart {
     }
 }
 
+/// One instance handed out by every call of the factory. A Rust factory returns its actor by value, so the instance is shared behind a
+/// handle. A `receive` that throws poisons the lock, which means nothing here.
+#[derive(Clone)]
+struct SameInstance(Arc<Mutex<Scripted>>);
+
+impl SameInstance {
+    fn get(&self) -> MutexGuard<'_, Scripted> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+#[rustfmt::skip] // one delegation per line
+impl Actor for SameInstance {
+    fn pre_start(&mut self, c: &mut ActorContext) { self.get().pre_start(c) }
+    fn pre_restart(&mut self, c: &mut ActorContext, r: &Throwable, m: Option<&AnyMessage>) { self.get().pre_restart(c, r, m) }
+    fn post_restart(&mut self, c: &mut ActorContext, r: &Throwable) { self.get().post_restart(c, r) }
+    fn post_stop(&mut self, c: &mut ActorContext) { self.get().post_stop(c) }
+    fn supervisor_strategy(&self) -> SupervisorStrategy { self.get().supervisor_strategy() }
+    fn receive(&mut self, c: &mut ActorContext, m: &AnyMessage) -> bool { self.get().receive(c, m) }
+}
+
 fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) -> Props {
     match behavior {
         None => Props::new(|| Noop),
@@ -931,6 +977,7 @@ fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) ->
             );
             let instances = AtomicU64::new(0);
             let default_pre_restart = cfg.default_pre_restart;
+            let same_instance = cfg.same_instance;
             let scripted = move || {
                 let instance = instances.fetch_add(1, Ordering::SeqCst) + 1;
                 if cfg
@@ -944,9 +991,16 @@ fn props_for(ctx: &Arc<Ctx>, behavior: Option<&Value>, label: Option<String>) ->
                     cfg: cfg.clone(),
                     ctx: ctx2.clone(),
                     received: 0,
+                    generation: instance - 1,
                 }
             };
-            if default_pre_restart {
+            if same_instance {
+                let kept = OnceLock::new();
+                Props::new(move || {
+                    kept.get_or_init(|| SameInstance(Arc::new(Mutex::new(scripted()))))
+                        .clone()
+                })
+            } else if default_pre_restart {
                 Props::new(move || DefaultPreRestart(scripted()))
             } else {
                 Props::new(scripted)
