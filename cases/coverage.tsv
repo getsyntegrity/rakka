@@ -692,6 +692,16 @@ sysname-bad-12	scenario-2a	AC-SYS-001.1	same-group
 sysname-bad-13	scenario-2a	AC-SYS-001.1	same-group
 sysname-bad-14	scenario-2a	AC-SYS-001.1	same-group
 sysname-bad-15	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-bad-0	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-bad-1	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-bad-2	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-bad-3	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-bad-4	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-bad-5	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-bad-6	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-bad-7	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-bad-8	scenario-2a	AC-SYS-001.1	cited
+sysname-spec-all-valid	scenario-2a	AC-SYS-001.1	cited
 name-ok-0	scenario-2a	-	none
 name-ok-1	scenario-2a	-	none
 name-ok-2	scenario-2a	-	none
@@ -790,6 +800,7 @@ terminate-then-spawn-anon	scenario-2a	AC-SYS-007	cited
 terminate-then-spawn-bad-name	scenario-2a	AC-SYS-007	cited
 terminate-then-stop	scenario-2a	-	none
 terminate-then-terminate	scenario-2a	AC-SYS-004,AC-SYS-007,AC-SYS-019	cited
+terminate-while-spawning	scenario-2a	AC-SYS-007	cited
 child-terminated-after-terminate	scenario-2a	AC-SYS-007	cited
 snd-none	scenario-2b	AC-DSP-002,AC-DSP-020,AC-REF-002,AC-REF-005,AC-REF-024	cited
 snd-explicit	scenario-2b	AC-DSP-002,AC-REF-002	cited
@@ -3041,7 +3052,7 @@ cm-resumed-then-message	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
 cm-failed-then-stopped	scenario-current-message	AC-CELL-020	cited
 cm-hook-error-class	scenario-current-message	AC-CELL-007.1	cited
 cm-reply-in-post-stop	scenario-current-message	AC-CELL-009	cited
-cm-reply-in-pre-restart	scenario-current-message	AC-CELL-020	cited
+cm-reply-in-pre-restart	scenario-current-message	AC-CELL-007.1,AC-CELL-020	cited
 ur-default	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-default-pact	scenario-pre-restart-unwatch	AC-CELL-006	cited
 ur-default-watch-with	scenario-pre-restart-unwatch	AC-CELL-006,AC-DW-005	cited
@@ -3095,7 +3106,7 @@ sc-0011	oracle-scheduler	AC-SCH-002,AC-SCH-007	cited
 sc-0012	oracle-scheduler	AC-SCH-007	cited
 sc-0013	oracle-scheduler	AC-SCH-002,AC-SCH-009	cited
 cf-resume-into-create	scenario-close-parity	AC-SUP-011	cited
-cf-recreate-into-create	scenario-close-parity	AC-SUP-011	cited
+cf-recreate-into-create	scenario-close-parity	AC-CELL-007.1,AC-SUP-011	cited
 kl-default-stop-logged	scenario-close-parity	AC-CELL-012	cited
 cl-error-through-user	scenario-throwable-class	AC-SUP-004,AC-SUP-008	cited
 cl-top-creator-stops	scenario-throwable-class	AC-SUP-004	cited

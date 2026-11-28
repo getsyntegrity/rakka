@@ -10,7 +10,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -24,7 +24,7 @@ use rakka_actor::actor::supervision::{
     AllForOneStrategy, Directive, OneForOneStrategy, SupervisorStrategy,
 };
 use rakka_actor::actor::system::{ActorSystem, Settings};
-use rakka_actor::actor::{ActorError, ActorRef};
+use rakka_actor::actor::{ActorError, ActorRef, ErrorClass};
 use rakka_actor::dispatch::{Failed, Terminated};
 use rakka_actor::event::{Channel, DeadLetter, ErrorEvent, UnhandledMessage, WarningEvent};
 
@@ -1402,6 +1402,102 @@ fn message(v: &Value) -> Result<AnyMessage, String> {
     )?))
 }
 
+/// Records that it started (`spawn-until-terminated`).
+struct Flagged(Arc<AtomicBool>);
+impl Actor for Flagged {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+}
+
+/// Holds the termination until a spawn was refused, at most 5 s (`spawn-until-terminated`).
+struct Blocker {
+    blocking: Arc<AtomicBool>,
+    refused: Arc<AtomicBool>,
+}
+impl Actor for Blocker {
+    fn pre_start(&mut self, _ctx: &mut ActorContext) {
+        self.blocking.store(true, Ordering::SeqCst);
+    }
+    fn post_stop(&mut self, _ctx: &mut ActorContext) {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !self.refused.load(Ordering::SeqCst) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+}
+
+/// `ActorSystemSpec.scala:300-326`: spawns without pause while a timer terminates the system; only invariants are printed.
+/// A `Blocker` keeps the termination from finishing before a refusal is seen. `liveStarted` (`preStart` ran, not terminated) is
+/// weaker than the spec's "not an `UnstartedCell`", which the public API does not tell; the in-crate test asserts that one.
+fn spawn_until_terminated(
+    system: &ActorSystem,
+    after: Duration,
+    out: &mut String,
+) -> Result<(), String> {
+    let spawn = || {
+        let started = Arc::new(AtomicBool::new(false));
+        let flag = started.clone();
+        let actor = system.actor_of(Props::new(move || Flagged(flag.clone())))?;
+        Ok::<_, ActorError>((actor, started))
+    };
+    let blocking = Arc::new(AtomicBool::new(false));
+    let refused = Arc::new(AtomicBool::new(false));
+    let blocker = {
+        let (blocking, refused) = (blocking.clone(), refused.clone());
+        Props::new(move || Blocker {
+            blocking: blocking.clone(),
+            refused: refused.clone(),
+        })
+    };
+    system.actor_of(blocker).map_err(|e| e.to_string())?;
+    if !wait_for(|| blocking.load(Ordering::SeqCst)) {
+        return Err("the blocker did not start".into());
+    }
+    let (begin, limit) = (Instant::now(), Duration::from_secs(10));
+    let timer = {
+        let system = system.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(after);
+            system.terminate();
+        })
+    };
+    let mut created = Vec::new();
+    let (mut failing, mut succeeded_after_failure) = (false, false);
+    while !system.when_terminated().is_completed() && begin.elapsed() < limit {
+        match spawn() {
+            Ok(spawned) => {
+                created.push(spawned);
+                succeeded_after_failure |= failing;
+                if created.len().is_multiple_of(1000) {
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+            Err(e) if e.class() == ErrorClass::IllegalState => {
+                failing = true;
+                refused.store(true, Ordering::SeqCst);
+            }
+            Err(e) => return Err(format!("unexpected spawn failure: {e}")),
+        }
+    }
+    let in_time = system.when_terminated().is_completed() && begin.elapsed() < limit;
+    let live_started = created
+        .iter()
+        .filter(|(actor, started)| started.load(Ordering::SeqCst) && !actor.is_terminated())
+        .count();
+    timer.join().map_err(|_| "the timer thread failed")?;
+    out.push_str(&format!(
+        ",\"ok\":true,\"created\":{},\"refused\":{failing},\"successAfterFailure\":{succeeded_after_failure},\"liveStarted\":{live_started},\"withinTenSeconds\":{in_time},\"late\":{{",
+        !created.is_empty()
+    ));
+    match spawn() {
+        Ok(_) => out.push_str("\"ok\":true"),
+        Err(e) => err_json(out, &e),
+    }
+    out.push('}');
+    Ok(())
+}
+
 fn step(
     system: &ActorSystem,
     ctx: &Arc<Ctx>,
@@ -1563,6 +1659,9 @@ fn step(
             }
             None => return Err("timed out waiting for system termination".into()),
         },
+        "spawn-until-terminated" => {
+            spawn_until_terminated(system, Duration::from_millis(num("after-ms") as u64), out)?;
+        }
         "await-events" => {
             let target = label("target").ok_or("await-events needs target")?;
             let n = num("count") as usize;
