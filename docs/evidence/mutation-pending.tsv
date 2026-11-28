@@ -84,3 +84,4 @@ slice/classic-decision-closures-1	49b6e1ee	29	none	none	29 not run (Q-X-23)	PEND
 slice/classic-child-names-1	195d5efb	418	none	none	418 not run (Q-X-23)	PENDING
 slice/classic-suspension-1	4349158a	419	recursive-suspension-does-not-stack	none	419 not run (Q-X-23)	PENDING
 slice/classic-suspension-2	358bd834	420	failure-inside-a-suspension-does-not-count	none	420 not run (Q-X-23)	PENDING
+slice/classic-suspension-3	bc4d6385	420	none	none	420 not run (Q-X-23); test-only	PENDING
