@@ -6,6 +6,8 @@
 mod actor_system_setup_cases;
 #[path = "../examples/classic-parity/bytes_cases.rs"]
 mod bytes_cases;
+#[path = "../examples/classic-parity/child_names.rs"]
+mod child_names;
 #[path = "../examples/classic-parity/config_hocon_cases.rs"]
 mod config_hocon_cases;
 #[path = "../examples/classic-parity/config_settings_cases.rs"]

@@ -320,7 +320,9 @@ final class MailboxOracle {
     InitParent(IdEnv env) { this.env = env; }
     @Override public SupervisorStrategy supervisorStrategy() {
       return new OneForOneStrategy(10, java.time.Duration.ofMinutes(1), t -> {
-        env.log.add("failure:" + t.getClass().getName() + ": " + t.getMessage().replaceAll("#-?\\d+", ""));
+        // uids are random: only the failed child's own `#uid` is replaced; a missing or foreign one stays and diverges
+        String text = t.getMessage().replace(getSender().toString(), "Actor[" + getSender().path() + "#uid]");
+        env.log.add("failure:" + t.getClass().getName() + ": " + text);
         return SupervisorStrategy.stop();
       });
     }

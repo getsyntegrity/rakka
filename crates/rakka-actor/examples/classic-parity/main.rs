@@ -9,6 +9,7 @@
 
 mod actor_system_setup_cases;
 mod bytes_cases;
+mod child_names;
 mod config_hocon_cases;
 mod config_render;
 mod config_settings_cases;
